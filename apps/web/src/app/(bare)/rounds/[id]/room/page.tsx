@@ -65,6 +65,7 @@ async function watchingRoom(
     <>
       <MediaDocument />
       <LiveJudgeRoom
+        actorId={actorId}
         view={room.round}
         transcript={transcript}
         read={readPersistedJudgeRound.bind(null, id)}
@@ -149,6 +150,7 @@ export default async function RoundRoomPage({
           stayHref: here,
           confirmHref: `${here}?leave`,
           leaveHref: '/lobby',
+          left: { actorId, roundId: id, roomId: result.round.roomId },
         }}
         leaveAction={leaveRoundAction.bind(null, id)}
       />

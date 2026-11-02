@@ -1,10 +1,11 @@
 import { cancelMediaWork } from './cancel-media-work';
 import {
   failureKind,
-  failureState,
-  isMediaRefusal,
+  endsMediaConnection,
   isTransientMediaFailure,
   mediaRefusal,
+  seatReplaced,
+  transientMediaFailure,
   type MediaFailureKind,
 } from './media-failure';
 import {
@@ -27,13 +28,13 @@ export type MediaConnectionState =
   | 'live'
   /** Tracks stay up, but no recent server read confirms what is shown. */
   | 'out-of-date'
-  | 'device-missing'
-  | 'device-blocked'
   | 'unavailable'
   | 'ended';
 export type BrowserMediaTransport = {
   readonly connect: (admission: RoundMediaAdmission) => Promise<void>;
   readonly apply: (state: RoundMediaState) => Promise<void>;
+  /** An explicit Retry: sources that failed may try their devices again. */
+  readonly allowRecapture: () => void;
   /** Synchronous: a pending getUserMedia or SDK call cannot delay release. */
   readonly stopTracks: () => void;
   readonly disconnect: () => Promise<void>;
@@ -50,8 +51,6 @@ type Connection = {
   readonly transport: BrowserMediaTransport;
   connected: boolean;
   wentLive: boolean;
-  /** A local device failure the Round already shows; reads must not overwrite it. */
-  deviceFailed: boolean;
   /** Running from the first supersession since the last answer. */
   cancelBudget: (() => void) | null;
   /** Running while a superseded read is let finish; one read at a time. */
@@ -61,6 +60,8 @@ type Connection = {
   read: ReadTicket | null;
   loop: Promise<void> | null;
   applying: Promise<void>;
+  /** When the SDK apply now running began; a stuck one holds every later apply. */
+  applyStartedAtMs: number | null;
 };
 
 /** One connection per committed Round, with independently supersedable read intents. */
@@ -79,6 +80,7 @@ export function createMediaController(input: {
     state: MediaConnectionState,
     failure?: MediaFailureKind,
   ) => void;
+  readonly admitted?: (admission: RoundMediaAdmission) => void;
   readonly received?: (state: RoundMediaState) => void;
   /** The last answer is no longer current; `received` reports the next one. */
   readonly superseded?: () => void;
@@ -147,7 +149,7 @@ export function createMediaController(input: {
     const previous = connection;
     connection = null;
     drop(previous);
-    if (!stale(generation)) change(failureState(error), failureKind(error));
+    if (!stale(generation)) change('unavailable', failureKind(error));
   };
   const retrying = async (
     signal: AbortSignal,
@@ -208,9 +210,11 @@ export function createMediaController(input: {
     // finishes, but fresh SDK application must follow its actual settlement.
     const applying = owner.applying.then(async () => {
       if (!current(owner, ticket)) return;
+      owner.applyStartedAtMs = input.readBudget?.now() ?? null;
       try {
         await owner.transport.apply(snapshot);
       } finally {
+        owner.applyStartedAtMs = null;
         if (!active(owner)) release(owner.transport);
       }
     });
@@ -223,10 +227,7 @@ export function createMediaController(input: {
     owner.cancelBudget?.();
     owner.cancelBudget = null;
     owner.supersededSinceAnswer = 0;
-    if (state !== 'live' && !owner.deviceFailed) change('live');
-  };
-  const showOutOfDate = (owner: Connection) => {
-    if (!owner.deviceFailed) change('out-of-date', 'transient');
+    if (state !== 'live') change('live');
   };
   /**
    * LiveKit enforces every grant on the server, so a read that cannot finish
@@ -236,8 +237,8 @@ export function createMediaController(input: {
     // Whatever the Round shows now, its last answer could not be confirmed.
     input.superseded?.();
     if (!active(owner)) return;
-    if (isMediaRefusal(error)) fail(owner.generation, error);
-    else if (owner.wentLive) showOutOfDate(owner);
+    if (endsMediaConnection(error)) fail(owner.generation, error);
+    else if (owner.wentLive) change('out-of-date', failureKind(error));
     else fail(owner.generation, error);
   };
   /**
@@ -248,8 +249,10 @@ export function createMediaController(input: {
     const budget = input.readBudget;
     if (!budget || owner.cancelBudget) return;
     owner.cancelBudget = budget.at(budget.ms, () => {
-      if (active(owner) && owner.wentLive && state === 'live')
-        showOutOfDate(owner);
+      if (!active(owner)) return;
+      // Never live means nothing is lost by releasing a first apply that hung.
+      if (!owner.wentLive) fail(owner.generation, transientMediaFailure());
+      else if (state === 'live') change('out-of-date', 'transient');
     });
   };
   const drain = async (owner: Connection) => {
@@ -295,7 +298,6 @@ export function createMediaController(input: {
       transport: input.transport(),
       connected: false,
       wentLive: false,
-      deviceFailed: false,
       cancelBudget: null,
       cancelLetFinish: null,
       supersededSinceAnswer: 0,
@@ -303,6 +305,7 @@ export function createMediaController(input: {
       read: null,
       loop: null,
       applying: Promise.resolve(),
+      applyStartedAtMs: null,
     };
     // `input.transport()` is caller code and may stop or replace this join.
     if (stale(generation)) {
@@ -319,17 +322,23 @@ export function createMediaController(input: {
     await cancelMediaWork(signal, () => connecting);
     if (!active(owner)) return;
     owner.connected = true;
+    startBudget(owner);
     await read(owner);
   };
-  const admit = async (generation: number, signal: AbortSignal) => {
+  const admit = async (
+    generation: number,
+    signal: AbortSignal,
+    reconnect: boolean,
+  ) => {
+    const request = () => input.api.admit(input.roundId, signal);
+    // One retry loop: only the first join retries here. A later attempt is one
+    // admission, and the recovery owner paces the next.
     const admission = roundMediaAdmissionSchema.parse(
-      await retrying(
-        signal,
-        () => input.api.admit(input.roundId, signal),
-        () => {
-          if (!stale(generation)) change('reconnecting');
-        },
-      ),
+      reconnect
+        ? await cancelMediaWork(signal, request)
+        : await retrying(signal, request, () => {
+            if (!stale(generation)) change('reconnecting');
+          }),
     );
     if (!stale(generation) && admission.roundId !== input.roundId)
       throw new Error('Media Round mismatch');
@@ -348,7 +357,9 @@ export function createMediaController(input: {
     if (stale(generation)) return;
     change(reconnect ? 'reconnecting' : 'connecting');
     try {
-      const admission = await admit(generation, signal);
+      const admission = await admit(generation, signal, reconnect);
+      if (stale(generation)) return;
+      input.admitted?.(admission);
       if (stale(generation)) return;
       await open(generation, signal, admission);
     } catch (error) {
@@ -391,14 +402,31 @@ export function createMediaController(input: {
     if (!owner.connected) return Promise.resolve();
     return read(owner);
   };
+  /** A stuck SDK call holds every later apply, so only a new connection escapes it. */
+  const applyStuck = (owner: Connection) => {
+    const budget = input.readBudget;
+    return (
+      budget !== undefined &&
+      owner.applyStartedAtMs !== null &&
+      budget.now() - owner.applyStartedAtMs >= budget.ms
+    );
+  };
   return {
     state: () => state,
-    /** The Round showed a local device failure; later reads must not hide it. */
-    deviceFailed: () => {
-      if (connection) connection.deviceFailed = true;
-    },
     join: () => join(),
     reconnect: () => join(true),
+    /** This seat connected elsewhere: stop here and wait for a person. */
+    replaced: () => fail(epoch, seatReplaced()),
+    /** LiveKit dropped it: release at once, and recovery rejoins on the one path. */
+    dropped: () => fail(epoch, transientMediaFailure()),
+    /** A person asked: a working connection keeps its reception and only re-reads. */
+    retry: () => {
+      const owner = connection;
+      owner?.transport.allowRecapture();
+      return owner && owner.wentLive && !applyStuck(owner)
+        ? reconcile({ kind: 'wake' })
+        : join(true);
+    },
     reconcile,
     stop,
   };

@@ -9,6 +9,8 @@ import {
 } from '../../features/round-runtime/command-form';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
+import { markDeparture } from '../../features/rooms/resume-departure';
+import { clearRoundMediaPreferences } from '../../features/round-media/media-preferences';
 
 export type LeaveLinks = {
   /** The server rendered the confirm (no script ran yet). */
@@ -24,6 +26,21 @@ export type LeaveLinks = {
    * Room no longer holds them, and leaving forfeits nothing (ISSUE-590).
    */
   readonly freed?: boolean;
+  /**
+   * A debater still seated while forfeit is briefly unavailable: nothing can
+   * confirm a departure yet, so the only exit keeps the seat (ISSUE-879).
+   */
+  readonly held?: boolean;
+  /**
+   * Whose departure this is (ISSUE-879): the member who confirmed leaves
+   * this browser session's auto-resume for that Round; nothing server-side
+   * can re-suppress it.
+   */
+  readonly left?: {
+    readonly actorId: string | null;
+    readonly roundId: string;
+    readonly roomId: string;
+  };
   /**
    * While the Round is live, leaving it forfeits (ADR 0070): Leave posts
    * the round's forfeit command, already confirmed by this dialog.
@@ -45,14 +62,34 @@ const unanswered: RoundFormState = { values: {} };
 /** Leave as the confirmed forfeit; it works without script and moves on to the result. */
 function ForfeitLeave({
   forfeit,
+  left,
 }: {
   readonly forfeit: NonNullable<LeaveLinks['forfeit']>;
+  readonly left?: LeaveLinks['left'];
 }) {
   const [answer, post, pending] = useFormAction(
     forfeit.action,
     unanswered,
     roundCommandUnavailable,
   );
+  /**
+   * Suppression records only an acknowledged forfeit (ISSUE-879): a
+   * refused, conflicted or unknown outcome leaves the participant's
+   * recovery exactly as live as their membership still is.
+   */
+  useEffect(() => {
+    if (
+      !pending &&
+      answer.acknowledged === true &&
+      !answer.unacknowledged &&
+      !answer.error &&
+      answer.next &&
+      left
+    ) {
+      markDeparture(left.actorId, left.roundId);
+      clearRoundMediaPreferences(left.actorId, left.roomId, left.roundId);
+    }
+  }, [pending, answer, left]);
   useMovedOn(answer.next);
   return (
     <form action={post} aria-busy={pending} className="flex flex-col gap-1">
@@ -83,6 +120,52 @@ function ForfeitLeave({
  * dismissing the confirm are links, so they work without script; with
  * script the confirm opens in place. Leaving a live Round forfeits it.
  */
+function LeavePermanent({
+  links,
+  className,
+  children,
+}: {
+  readonly links: LeaveLinks & {
+    readonly left: NonNullable<LeaveLinks['left']>;
+  };
+  readonly className?: string;
+  readonly children: string;
+}) {
+  return (
+    <a
+      href={links.leaveHref}
+      className={className}
+      onClick={() => {
+        markDeparture(links.left.actorId, links.left.roundId);
+        clearRoundMediaPreferences(
+          links.left.actorId,
+          links.left.roomId,
+          links.left.roundId,
+        );
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
+/** A stalled Round must not trap anyone: this leaves the page and keeps the seat. */
+function StepAway({
+  left,
+}: {
+  readonly left: NonNullable<LeaveLinks['left']>;
+}) {
+  return (
+    <a
+      href="/lobby"
+      className={`${action} border border-border-strong text-ink`}
+      onClick={() => markDeparture(left.actorId, left.roundId)}
+    >
+      Go to the lobby, keeping your seat
+    </a>
+  );
+}
+
 export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
   const [open, setOpen] = useState(links.confirming);
   const stay = useRef<HTMLAnchorElement>(null);
@@ -145,7 +228,26 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
             Stay
           </a>
           {links.forfeit ? (
-            <ForfeitLeave forfeit={links.forfeit} />
+            <ForfeitLeave forfeit={links.forfeit} left={links.left} />
+          ) : links.held ? (
+            <>
+              <p role="status" className="text-sm text-ink-muted">
+                Leaving is unavailable for a moment while this round catches up.
+                You can step away, but this is not leaving: the round continues,
+                your seat stays, and the normal attendance rules apply if you
+                are absent.
+              </p>
+              {links.left ? <StepAway left={links.left} /> : null}
+            </>
+          ) : links.left ? (
+            <LeavePermanent
+              links={
+                links as LeaveLinks & { left: NonNullable<LeaveLinks['left']> }
+              }
+              className={`${action} bg-live text-background`}
+            >
+              Leave round
+            </LeavePermanent>
           ) : (
             <a
               href={links.leaveHref}

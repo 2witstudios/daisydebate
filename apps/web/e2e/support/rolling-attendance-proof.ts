@@ -153,15 +153,17 @@ export async function rollingAttendancePeer({
             !row.healthy && !duringCheckInCommit(row, facts.checkInAttempts),
         ),
       ).toEqual([]);
+      // Name each late sample, so a CI failure says where the sampler stalled.
       expect(
         samples
           .slice(1)
-          .every(
+          .filter(
             (row, index) =>
-              elapsedAttendanceObservationUs(row.at, samples[index]!.at) <=
+              elapsedAttendanceObservationUs(row.at, samples[index]!.at) >
               2_000_000n,
-          ),
-      ).toBe(true);
+          )
+          .map((row) => row.at),
+      ).toEqual([]);
     }
     expect(facts.status).toBe('active');
     const decision = facts.adjudications.find(

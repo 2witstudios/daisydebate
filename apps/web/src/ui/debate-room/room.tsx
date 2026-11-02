@@ -1,5 +1,6 @@
 'use client';
 
+import type { LocalPublication } from '../../features/round-media/local-publication';
 import {
   useLayoutEffect,
   useReducer,
@@ -150,6 +151,7 @@ function useNewDocument(
 type RoomProps = {
   readonly round: RoundSnapshot;
   readonly media?: ReactNode;
+  readonly publication?: LocalPublication;
   readonly transcript?: ReactNode;
   /** Page-level notices; they live inside the frame so it always fits. */
   readonly notices?: ReactNode;
@@ -198,7 +200,11 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
         className="room-stage flex shrink-0 items-center gap-6 border-b border-border px-4 py-3 max-compact:flex-col max-compact:items-stretch max-compact:gap-2 max-compact:py-2"
       >
         {props.media}
-        <RoundControls actions={props.actions} round={round} />
+        <RoundControls
+          actions={props.actions}
+          publication={props.publication ?? null}
+          round={round}
+        />
       </section>
       {alert ? (
         <p role="alert" className="shrink-0 px-4 py-1 text-sm text-live">

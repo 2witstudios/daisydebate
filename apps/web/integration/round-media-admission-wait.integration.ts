@@ -73,6 +73,7 @@ const browserClient = (
         counts.admittedAtMs = performance.now() - startedAtMs;
       },
       apply: async () => undefined,
+      allowRecapture: () => undefined,
       stopTracks: () => undefined,
       disconnect: async () => undefined,
     }),

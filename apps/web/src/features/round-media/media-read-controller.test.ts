@@ -41,6 +41,7 @@ test('new authority supersedes ignored-abort pending read without releasing heal
       apply: async (value) => {
         applied.push(value.grants.publish.join(','));
       },
+      allowRecapture: () => undefined,
       stopTracks: () => {
         stops++;
       },
@@ -104,6 +105,7 @@ test('already-started SDK work serializes fresh application without blocking a f
         applications.push(value.grants.publish.join(','));
         if (applications.length === 2) await applying.promise;
       },
+      allowRecapture: () => undefined,
       stopTracks: () => undefined,
       disconnect: async () => undefined,
     }),

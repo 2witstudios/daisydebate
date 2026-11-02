@@ -37,6 +37,7 @@ export const transportStub = (
 ): BrowserMediaTransport => ({
   connect: async () => undefined,
   apply: async () => undefined,
+  allowRecapture: () => undefined,
   stopTracks: () => undefined,
   disconnect: async () => undefined,
   ...overrides,

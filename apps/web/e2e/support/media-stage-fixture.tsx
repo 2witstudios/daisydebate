@@ -32,12 +32,16 @@ Object.assign(window, {
             media={media}
             connection="live"
             microphoneConfirmed
+            ownIdentity={null}
+            ownMuted={false}
+            remotePeers={[{ identity: 'peer', microphonePublished: false }]}
             tracks={[
               {
                 identity: 'peer',
                 source: 'camera',
                 local: false,
                 speaking,
+                muted: false,
                 track: tracks[index],
               } as unknown as MediaTrack,
             ]}

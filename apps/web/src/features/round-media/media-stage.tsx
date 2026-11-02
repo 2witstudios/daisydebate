@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import type { RoundView, RoundMediaState } from '@daisy/protocol';
-import type { MediaTrack } from './browser-transport';
+import type { MediaTrack, RemotePeer } from './browser-transport';
 import type { MediaConnectionState } from './media-controller';
 import { seatMicrophoneCaption } from './media-status';
 
@@ -38,6 +38,9 @@ export function MediaStage({
   media,
   microphoneConfirmed,
   tracks,
+  ownIdentity,
+  ownMuted,
+  remotePeers,
 }: {
   readonly view: RoundView;
   readonly connection: MediaConnectionState;
@@ -45,6 +48,12 @@ export function MediaStage({
   /** False from a supersession until the next answer is applied. */
   readonly microphoneConfirmed: boolean;
   readonly tracks: readonly MediaTrack[];
+  /** The signed-in member's own media identity, or null for a viewer. */
+  readonly ownIdentity: string | null;
+  /** My own deliberate mute choice; presence remains separately observed. */
+  readonly ownMuted: boolean;
+  /** Peers the media room observes now; a grant never implies presence. */
+  readonly remotePeers: readonly RemotePeer[];
 }) {
   return (
     <div
@@ -64,6 +73,10 @@ export function MediaStage({
             (track) => track.identity === identity,
           );
           const camera = mediaTracks.find((track) => track.source === 'camera');
+          const microphoneTrack = mediaTracks.find(
+            (track) => track.source === 'microphone',
+          );
+          const mine = identity !== null && identity === ownIdentity;
           return (
             <figure
               key={seat.id}
@@ -86,15 +99,26 @@ export function MediaStage({
                 <span className="block text-xs">
                   {seatMicrophoneCaption({
                     connection,
-                    peer,
                     confirmed: microphoneConfirmed,
-                    speaking: mediaTracks.some((track) => track.speaking),
+                    track: microphoneTrack,
+                    mine,
+                    ownMuted,
+                    granted: peer?.microphone,
+                    remote:
+                      identity === undefined
+                        ? null
+                        : remotePeers.find(
+                            (remote) => remote.identity === identity,
+                          ),
                   })}
                 </span>
               </figcaption>
               {mediaTracks
                 .filter(
-                  (track) => track.source === 'microphone' && !track.local,
+                  (track) =>
+                    track.source === 'microphone' &&
+                    !track.local &&
+                    !track.muted,
                 )
                 .map((track) => (
                   <TrackElement

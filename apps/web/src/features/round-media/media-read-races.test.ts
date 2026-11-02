@@ -311,7 +311,7 @@ test('the failure kind is exposed and a definite live refusal still releases', a
     expected: [
       [
         ['out-of-date', 'transient'],
-        ['unavailable', 'definite'],
+        ['unavailable', 'refused'],
       ],
       0,
       1,

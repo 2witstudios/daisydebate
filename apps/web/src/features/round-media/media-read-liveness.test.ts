@@ -141,9 +141,12 @@ const watchedCaption = (input: Parameters<typeof readController>[0]) => {
     caption: () =>
       seatMicrophoneCaption({
         connection,
-        peer: { microphone: false },
         confirmed,
-        speaking: false,
+        track: undefined,
+        mine: false,
+        ownMuted: false,
+        granted: false,
+        remote: { microphonePublished: false },
       }),
   };
 };
@@ -169,9 +172,9 @@ test('a seat checking its microphone cannot stick when no answer comes', async (
       'stop claiming a state, say out of date rather than checking for ever, and name the state again on the answer',
     actual: [answered, unanswered, seat.caption()],
     expected: [
-      'Microphone closed',
+      'Waiting for microphone permission',
       'Microphone status out of date',
-      'Microphone closed',
+      'Waiting for microphone permission',
     ],
   });
   seat.controller.stop();
@@ -270,37 +273,11 @@ test('no timer outlives what it was timing', async () => {
   assert({
     given:
       'a budget and a let-finish timer running, then a stop or a reconnect',
-    should: 'leave no timer behind',
+    should:
+      'leave none of its timers behind; a reconnect has only its new first read timed',
     actual: pendings,
-    expected: [2, 0, 2, 0],
+    expected: [2, 0, 2, 1],
   });
-});
-
-test('a failed read clears the claim even behind a device failure', async () => {
-  let reads = 0;
-  let confirmed = true;
-  const controller = readController({
-    reconcile: async () => {
-      if (++reads === 2) throw mediaFailure(503);
-      return snapshot;
-    },
-    received: () => {
-      confirmed = true;
-    },
-    superseded: () => {
-      confirmed = false;
-    },
-  });
-  await controller.join();
-  controller.deviceFailed();
-  await controller.reconcile({ kind: 'wake' });
-  assert({
-    given: 'a device failure shown, then a wake read that fails',
-    should: 'stop treating the last answer as current',
-    actual: confirmed,
-    expected: false,
-  });
-  controller.stop();
 });
 
 test('a read let finish spends no attempt after its retry pause', async () => {
@@ -362,55 +339,6 @@ test('a first read that cannot pass by itself is labelled definite', async () =>
     should: 'label each as admission would',
     actual: failures,
     expected: ['definite', 'transient'],
-  });
-  controller.stop();
-});
-
-/** A joined controller whose second read fails transiently. */
-const secondReadFails = async () => {
-  const seen: string[] = [];
-  let reads = 0;
-  const controller = readController({
-    reconcile: async () => {
-      reads++;
-      if (reads === 2) throw mediaFailure(503);
-      return snapshot;
-    },
-    changed: (state) => seen.push(state),
-  });
-  await controller.join();
-  return { controller, seen, reads: () => reads };
-};
-
-test('a local device failure is not overwritten by later reads', async () => {
-  const { controller, seen, reads } = await secondReadFails();
-  controller.deviceFailed();
-  seen.length = 0;
-  await controller.reconcile({ kind: 'wake' });
-  await controller.reconcile({ kind: 'wake' });
-  assert({
-    given:
-      'a device failure the Round shows, then a stalled and an answered read',
-    should: 'emit no state that would hide its Retry',
-    actual: [seen, reads()],
-    expected: [[], 3],
-  });
-  controller.stop();
-});
-
-test('a device failure while out of date is not overwritten when reads recover', async () => {
-  const { controller, seen } = await secondReadFails();
-  await controller.reconcile({ kind: 'wake' });
-  const stale = seen.at(-1);
-  controller.deviceFailed();
-  seen.length = 0;
-  await controller.reconcile({ kind: 'wake' });
-  assert({
-    given:
-      'a device failure shown while reads are out of date, then an answered read',
-    should: 'not announce live over the shown failure',
-    actual: [stale, seen],
-    expected: ['out-of-date', []],
   });
   controller.stop();
 });

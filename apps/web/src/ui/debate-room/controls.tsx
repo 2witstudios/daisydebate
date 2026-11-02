@@ -1,6 +1,7 @@
 'use client';
 
 import { startSpeechLabel } from '../../features/debate-room/vocabulary';
+import type { LocalPublication } from '../../features/round-media/local-publication';
 import type { ReactNode } from 'react';
 import {
   clockMilestone,
@@ -140,11 +141,42 @@ function MainClock({ round }: { readonly round: RoundSnapshot }) {
   );
 }
 
+const micState: Record<
+  Exclude<LocalPublication, null>,
+  readonly [label: string, tinted: boolean]
+> = {
+  published: ['Mic live', true],
+  muted: ['Mic muted', false],
+  ill: ['Mic reconnecting', false],
+  disconnected: ['Mic not connected', false],
+  absent: ['Mic not captured', false],
+};
+
 /**
  * Three columns: the mic the server controls and both prep clocks; the
  * clock; the phase action and Tech issue. No Mute.
  */
-export function RoundControls({ round, actions }: Props) {
+export function RoundControls({
+  round,
+  actions,
+  publication = null,
+}: Props & {
+  /** This device's actual microphone; null until a media session reports. */
+  readonly publication?: LocalPublication;
+}) {
+  // Before a client media session reports, the seat's server grant is all
+  // that is known: the label keeps carrying that phase-derived permission,
+  // not capture health. A released connection matters only to a seat whose
+  // turn it is; a seat without the floor has no microphone to lose.
+  const released = publication === 'ill' || publication === 'disconnected';
+  const shown = released && !round.micLive ? null : publication;
+  const micLabel =
+    shown === null
+      ? round.micLive
+        ? ('Mic permitted' as const)
+        : ('Mic closed' as const)
+      : micState[shown][0];
+  const micTinted = shown === null ? false : micState[shown][1];
   return (
     <nav
       aria-label="Round controls"
@@ -154,13 +186,13 @@ export function RoundControls({ round, actions }: Props) {
         <span
           className={cn(
             'inline-flex items-center gap-1 rounded-round px-3 py-1 text-sm font-strong',
-            round.micLive
+            micTinted
               ? 'bg-live-soft text-live'
               : 'bg-surface-raised text-ink-muted',
           )}
         >
           <Icon name="mic" size={14} />
-          {round.micLive ? 'Mic live' : 'Mic closed'}
+          {micLabel}
         </span>
         <PrepClocks round={round} />
       </div>

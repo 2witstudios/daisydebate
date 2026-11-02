@@ -1,6 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { LocalPublication } from '../../features/round-media/local-publication';
 import { sampleRound } from '../mock/debate-room';
 import { DebateRoom } from './room';
 import { liveRoundOf } from './live-round';
@@ -61,5 +62,45 @@ describe('DebateRoom controls', () => {
       ],
       expected: [true, false, false],
     });
+  });
+});
+
+test('floor permission before media evidence never claims actual microphone publication', () => {
+  const html = render('own-speech', 'casual');
+  assert({
+    given: 'a permitted speaker before a client media session has reported',
+    should: 'describe permission without claiming a live microphone',
+    actual: [html.includes('Mic live'), html.includes('Mic permitted')],
+    expected: [false, true],
+  });
+});
+
+test('a released connection speaks only to the seat with the floor', () => {
+  const label = (publication: LocalPublication, micLive: boolean) => {
+    const html = renderToString(
+      h(DebateRoom, {
+        round: { ...sampleRound('own-speech', 'casual'), micLive },
+        publication,
+      }),
+    );
+    return ['Mic reconnecting', 'Mic not connected', 'Mic closed'].find(
+      (text) => html.includes(text),
+    );
+  };
+  assert({
+    given: 'recovery running or stopped, with and without the floor',
+    should: 'say which on the floor, and just closed off it',
+    actual: [
+      label('ill', true),
+      label('disconnected', true),
+      label('ill', false),
+      label('disconnected', false),
+    ],
+    expected: [
+      'Mic reconnecting',
+      'Mic not connected',
+      'Mic closed',
+      'Mic closed',
+    ],
   });
 });

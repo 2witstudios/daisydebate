@@ -1,22 +1,40 @@
 import { RoomEvent, Track } from 'livekit-client';
+import type { MediaSdk } from './browser-transport';
 
 /** A captured local track that records whether anything stopped it. */
-const capturedTrack = (source: string) => ({
-  source,
-  ended: false,
-  muted: false,
-  async mute() {
-    this.muted = true;
-    return this;
-  },
-  async unmute() {
-    this.muted = false;
-    return this;
-  },
-  stop() {
-    this.ended = true;
-  },
-});
+const capturedTrack = (source: string) => {
+  const listeners = new Map<string, () => void>();
+  const mediaStreamTrack = {
+    readyState: 'live',
+    deviceId: 'checked-mic',
+    getSettings() {
+      return { deviceId: this.deviceId };
+    },
+  };
+  return {
+    source,
+    ended: false,
+    muted: false,
+    isMuted: false,
+    mediaStreamTrack,
+    on(event: string, listener: () => void) {
+      listeners.set(event, listener);
+      return this;
+    },
+    emit: (event: string) => listeners.get(event)?.(),
+    async mute() {
+      this.muted = true;
+      return this;
+    },
+    async unmute() {
+      this.muted = false;
+      return this;
+    },
+    stop() {
+      this.ended = true;
+    },
+  };
+};
 type Captured = ReturnType<typeof capturedTrack>;
 
 /**
@@ -84,6 +102,36 @@ export function stubSdk(
     captures,
     captured,
     published,
+    /** An independently subscribed peer track, not a local publication. */
+    subscribePeer: (source: 'camera' | 'microphone') => {
+      const track = capturedTrack(source);
+      room.remoteParticipants.set('peer', {
+        identity: 'peer',
+        isSpeaking: false,
+        trackPublications: new Map([
+          [source, { source, isMuted: false, track }],
+        ]),
+      });
+      return track;
+    },
+    /** A peer present in the room, with whatever it has published so far. */
+    joinPeer: (
+      publications: readonly { source: Track.Source; track: unknown }[],
+    ) => {
+      room.remoteParticipants.set('peer', {
+        identity: 'peer',
+        isSpeaking: false,
+        trackPublications: new Map(
+          publications.map((publication) => [
+            publication.source,
+            { ...publication, isMuted: false },
+          ]),
+        ),
+      });
+    },
+    leavePeer: () => {
+      room.remoteParticipants.delete('peer');
+    },
     fire: (event: string, ...args: unknown[]) => handlers.get(event)?.(...args),
     /** LiveKit changes this participant's own permission. */
     permit: (sources: Track.Source[]) => {
@@ -112,7 +160,7 @@ export function stubSdk(
         captured.push(track);
         return [track];
       },
-    } as never,
+    } as unknown as MediaSdk,
   };
 }
 export const events = {

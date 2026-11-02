@@ -89,9 +89,8 @@ While a reply is not current the Round does not claim a microphone state: from a
 supersession until the next answer applies, a seat says it is checking. That cannot
 stick. The controller alone times "no answer for too long": the read budget runs
 from the first supersession since an answer, and past it the connection is
-`out-of-date`, including when an answer arrives but its SDK apply never settles. A
-local device failure hides that state, so a seat behind one says out of date at
-once. Last-known grants stay for layout, so video does not disappear. The bar's
+`out-of-date`, including when an answer arrives but its SDK apply never settles.
+Last-known grants stay for layout, so video does not disappear. The bar's
 "Connected" describes the connection, not a grant.
 
 Measured on the CI runner, one native three-browser journey per row:
@@ -140,16 +139,113 @@ retry and no second retry owner.
 A read that cannot finish on a live connection keeps its transport and tracks:
 LiveKit enforces every grant on the server, so it carries no authority risk. Only
 an answer about authority ends the connection: 401, 403, 404, 409, 410, or the
-server's unavailable or ended state. Anything else, a timeout, 429 or 5xx
-included, makes the state `out-of-date`, shown as such rather than as plain
-connected, until a later read answers. Later view, boundary and wake events and the
-view's backstop poll start those reads. Supersession restarts a read's retries but
-not the stall, so reads kept unanswered past the read budget also show `out-of-date`.
-A local device failure the Round has shown is not overwritten by later reads.
-Revocation, terminal state and disposal still end the connection, and admission
-failure before a connection goes live is unchanged.
+server's unavailable or ended state. Anything else makes the state `out-of-date`,
+shown as such rather than as plain connected, until a later read answers. Later
+view, boundary and wake events start those reads, and so does recovery's paced wake.
+Supersession restarts a read's retries but not the stall, so reads kept unanswered
+past the read budget also show `out-of-date`. Revocation, terminal state and disposal
+still end the connection.
 The deadline bounds HTTP only. An SDK apply that never settles still holds later
-applies, as it always has; nothing here cancels or times out SDK work.
+applies; nothing here cancels or times out SDK work. `out-of-date` always offers
+Retry, which reads current grants and keeps the connection, and rebuilds it only when
+this connection's apply has been stuck past the read budget.
+
+`media-failure.ts` is the one classifier. A 408, 429 or 5xx, a timeout or the network
+is `transient`: `retrying` tries it again, and recovery paces further attempts. A 401,
+403, 404 or 410 is `refused`: final for this page, with no Retry. A 409 or the
+server's unavailable state ends the connection as `definite`, as does any failure
+before going live that retrying cannot help, such as a reply that does not parse.
+`definite` asks for a fresh view and waits for Retry; on a live connection it keeps
+the tracks and shows `out-of-date`. `replaced` means LiveKit moved this seat to another
+connection; it sets no timer, and Retry takes the seat back.
+
+`media-recovery.ts` is the one paced owner above the controller's own retries, and it
+reads only what `changed` reports. A transient `out-of-date` sends a `wake` read on the
+same connection, with no admission. A transient `unavailable` is a released connection,
+so it admits again. That covers a media connection that fails after a good admission,
+unless LiveKit refused the token (401 or 403), and a first apply that hangs past the read
+budget. When LiveKit drops a connection, the controller releases it at once and reports
+it the same way, so nothing reads on a dead connection and there is one path back. If
+LiveKit says this seat connected elsewhere, this connection stops and says so, and Retry
+takes the seat back.
+There is one retry loop: only the first join retries its admission, and every later
+attempt is one admission. Delays run 1, 2, 4, 8 then 10 seconds, and reset only once a
+connection has held for 5 seconds, so one that keeps dropping stays paced. It holds one
+timer, armed only by a reported failure, so an attempt in flight is never multiplied.
+An online or visible event moves a waiting attempt up, or reads again on a live page,
+at most once per 5 seconds.
+
+Capture, transport connectivity, subscription and playback are independent facts.
+The SDK adapter validates serialized errors into the one closed source-failure
+vocabulary; outer error names and status fields cannot confer device or account
+authority. Only actual local publications establish capture; neither server
+grants nor a desired mute choice establish it.
+
+| Requested sources | Actual started sources    | Local outcome                                           | Independent receive path                                       |
+| ----------------- | ------------------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
+| None              | None                      | Receive-only; no failed capture                         | Retain authorized subscriptions and report playback separately |
+| One or both       | Some                      | Report failures only for the affected sources           | Preserve working local sources and reception                   |
+| One or both       | None, with typed failures | Report blocked or missing capture; offer explicit Retry | Preserve healthy authorized reception                          |
+
+Explicit local Retry reconciles fresh server grants and reattempts capture
+without readmission or reconnecting healthy reception. A failed mute operation
+stops the uncertain microphone and reports its source failure while preserving
+the camera and receive path. Actual transport failure, revoked/terminal authority
+and ownership step-down release the lifetime (ISSUE-817/829, ISSUE-880).
+Source failures never establish attendance, results or peer audibility.
+
+The checked-input adapter has one typed read result: an available choice map
+(including an absent key as an empty map), or unavailable preferences with an
+unreadable/invalid reason. Each capture attempt copies one freshly read,
+principal-scoped Room handoff snapshot for both SDK constraints and failure
+attribution. The Room has one Round, and its departure/terminal cleanup bounds
+that handoff to the Round lifetime. A failed read never selects default hardware:
+only the affected capture reports the preference reason; working tracks and
+reception remain. Disposed owners cannot start capture or report late failures.
+Explicit Retry keeps missing state when forgetting cannot persist. Room check
+handoff stays best effort, and replaces invalid data only with actual passed
+check evidence; it never converts an unreadable choice into permission to use
+default inputs.
+
+One private source map owns each captured track together with its requested
+choice, publication phase and idempotent release capability. The phases are
+captured, warm, publishing, published and retiring. SDK awaits never move a
+resource through an unowned warm slot. Warm promotion first validates current
+scoped choices; a changed choice replaces only that source, and an unreadable
+choice cannot publish an unverified warm track. Stop releases the whole lifetime
+once; repeated cleanup cannot emit an empty snapshot into a successor. A late
+capture is released without installation. Unpublish rejection reports the
+source failure and preserves healthy capture/reception and later settle work. The
+SDK rejects only when its renegotiation fails, after it has already removed the
+publication locally, so a later grant publishes a fresh capture.
+The composed caller proofs are `media-warm-retry.test.ts`,
+`media-source-retirement.test.ts` and `media-source-disposal.test.ts`.
+
+Local mute and confirmed explicit departure suppression are tab-scoped keys under
+`daisy:<kind>:media:<actor>:<roundId>` in sessionStorage: one account's record
+cannot be read by another principal, and every record dies with the tab
+(ISSUE-879).
+
+### Browser effect ownership
+
+| Concern                      | Pure decision / validation                                                                                                               | Effect owner and lifetime                                                                                                                                                      | Cleanup / caller proof                                                                                                                                                                                                                                                                           |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Canonical resume             | `rooms/resume.ts` takes the authorized active-Room output, explicit departure and injected time; no storage or navigation                | Home/lobby `ResumeRound`; target route reauthorizes audience                                                                                                                   | `location.replace` only after eligibility and advisory ownership; actual browser matrix remains the acceptance gate                                                                                                                                                                              |
+| Advisory tab claim           | `mayResumeTab` rejects stale or future-dated claims; `resume-ownership.ts` validates stored shape                                        | `createResumeLifetime` owns one subscription and injected heartbeat scheduler; `useResumeLifetime` binds one document identity per actor/Round                                 | Deferred direct routes do not mount media; explicit takeover steps down old media; normal teardown releases only its own claim. Crash freshness expires after five seconds and deferred lifetimes recheck without browser events. `resume-lifetime.test.ts` exercises the shared caller lifetime |
+| Media recovery               | `media-failure.ts` mints transient, definite, refused and replaced facts; `decideMediaRecovery` maps them; error names confer nothing    | `createMediaRecovery` owns the one timer and `createMediaController` the connection and its reads; `RoundMediaSession` supplies browser effects                                | A reported state replaces the timer and a stop cancels it. `media-recovery.test.ts` proves this with the real controller; browser recovery remains separate proof                                                                                                                                |
+| Request deadline             | One request includes both response headers and body                                                                                      | `createMediaRequest` receives network and deadline effects from the media mount                                                                                                | Ten-second deadline aborts and settles a stall even when an adapter ignores cancellation; parent cancellation and success release the timer/listener. `request-media.test.ts` exercises both stalls                                                                                              |
+| Source and playback evidence | SDK errors map to a closed display-only vocabulary; grants, actual publication, mute and peer audibility remain distinct                 | Browser transport reports source failures and track snapshots, including present-but-muted publications; Round controls consume the media lifetime's actor/Round-scoped output | Producer unmount clears publication; control unsubscribe does not. Track absence cannot establish mute or peer audibility. SDK, stage and control regressions exercise these callers                                                                                                             |
+| Local account preferences    | Principal/Room keys for checked-device handoff, principal/Round keys for mute; `rooms/resume-departure.ts` keeps the confirmed departure | Shell/direct-Round account binding observes account changes; only acknowledged departure suppresses resume                                                                     | Sign-out form cleans on submit while retaining native POST; account switch clears outgoing choices, terminal surface clears ended-Round choices. Browser acceptance must cover failed/unknown/canceled departure and account transitions                                                         |
+
+Every home or lobby entry reads the signed active Room and resumes while the
+member stays seated; recovery has no per-tab budget, and `location.replace`
+leaves no history entry to loop through. Other shell pages stay usable and offer
+Resume. A remote tile reads the room's observed presence and publications: a
+peer gone from the room is disconnected, whatever its grant says.
+
+A document identity names each tab, because a cloned sessionStorage would make
+two tabs look like one. Pure decisions live in `rooms/resume.ts`; storage adapters
+and the effect coordinator consume them directly.
 
 ### Admission fairness
 

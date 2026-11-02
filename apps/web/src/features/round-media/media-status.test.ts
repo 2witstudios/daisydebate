@@ -1,9 +1,15 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { MediaConnectionState } from './media-controller';
+import { MemoryStorage } from '../../lib/storage.test-support';
+import {
+  forgetCheckedDevices,
+  readCheckedDevices,
+  rememberCheckedDevices,
+} from '../video/device-selection';
 import {
   mediaStatus,
   mediaWhile,
   retryMissingDevices,
+  retryUsesDefaults,
   seatMicrophoneCaption,
   showConnection,
 } from './media-status';
@@ -18,10 +24,8 @@ test('the media bar names a missing checked device and offers Retry while stayin
       'live without both checked devices',
       mediaStatus('live', ['camera', 'microphone']),
     ],
-    ['a missing device at capture', mediaStatus('device-missing', [])],
     ['connecting', mediaStatus('connecting', [])],
     ['unavailable', mediaStatus('unavailable', [])],
-    ['blocked devices', mediaStatus('device-blocked', [])],
     ['an ended call', mediaStatus('ended', [])],
   ] as const;
   assert({
@@ -46,20 +50,10 @@ test('the media bar names a missing checked device and offers Retry while stayin
         'Connected, but your checked camera and microphone are missing. Reconnect them, or retry to use your default.',
         true,
       ],
-      [
-        'a missing device at capture',
-        'Your checked camera or microphone is missing. Reconnect it, or retry to use your default device.',
-        true,
-      ],
       ['connecting', 'Connecting camera and sound…', false],
       [
         'unavailable',
         'Camera and sound are unavailable. Retry to reconnect.',
-        true,
-      ],
-      [
-        'blocked devices',
-        'Camera or microphone access is blocked. Check your browser permissions, then retry.',
         true,
       ],
       ['an ended call', 'The call has ended.', false],
@@ -68,16 +62,76 @@ test('the media bar names a missing checked device and offers Retry while stayin
 });
 
 test('Retry forgets only the checked devices found gone, then clears them', () => {
-  const forgotten: unknown[] = [];
-  const next = retryMissingDevices('room-a', ['camera'], (roomId, kinds) => {
-    forgotten.push([roomId, kinds]);
-  });
+  const storage = new MemoryStorage();
+  const host = () => storage;
+  rememberCheckedDevices(
+    'room-a',
+    {
+      camera: { status: 'passed', deviceId: 'gone-camera' },
+      microphone: { status: 'passed', deviceId: 'good-microphone' },
+    } as never,
+    host,
+    'actor-a',
+  );
+  const next = retryMissingDevices(
+    'room-a',
+    ['camera'],
+    'actor-a',
+    (room, sources, actor) => forgetCheckedDevices(room, sources, host, actor),
+  );
+  const forgotten = readCheckedDevices('room-a', host, 'actor-a');
   assert({
     given: 'a Retry while only the checked camera is missing',
     should:
       'forget the camera choice alone for this Room and report nothing missing',
     actual: { forgotten, next },
-    expected: { forgotten: [['room-a', ['camera']]], next: [] },
+    expected: {
+      forgotten: {
+        state: 'available',
+        choices: { microphone: 'good-microphone' },
+      },
+      next: [],
+    },
+  });
+});
+
+test('failed preference persistence cannot clear missing capture state', () => {
+  assert({
+    given: 'Retry whose storage refuses persistence',
+    should:
+      'retain the missing kind instead of claiming the choice was removed',
+    actual: retryMissingDevices(
+      'room-a',
+      ['camera'],
+      'actor-a',
+      (room, sources, actor) =>
+        forgetCheckedDevices(
+          room,
+          sources,
+          () => ({
+            getItem: () => null,
+            setItem: () => {
+              throw new Error('blocked');
+            },
+          }),
+          actor,
+        ),
+    ),
+    expected: ['camera'],
+  });
+});
+
+test('an explicit Retry is the way out of a saved choice that cannot be read', () => {
+  assert({
+    given: 'an unreadable, an invalid, a device and no failure',
+    should: 'use browser defaults only for the two preference failures',
+    actual: [
+      retryUsesDefaults([['camera', 'preference-unreadable']]),
+      retryUsesDefaults([['microphone', 'preference-invalid']]),
+      retryUsesDefaults([['camera', 'failure']]),
+      retryUsesDefaults([]),
+    ],
+    expected: [true, true, false, false],
   });
 });
 
@@ -122,13 +176,13 @@ test('stale media state is never shown as plainly connected', () => {
   assert({
     given: 'live tracks whose reads keep stalling',
     should:
-      'say the state may be out of date, without offering a teardown Retry',
+      'say the state may be out of date, and offer Retry as the way out if it lasts',
     actual: [
       status.message === 'Connected',
       /out of date/.test(status.message),
       status.retry,
     ],
-    expected: [false, true, false],
+    expected: [false, true, true],
   });
 });
 
@@ -142,40 +196,46 @@ test('a missing checked device stays named while status is out of date', () => {
   });
 });
 
-test('a seat caption claims a microphone state only from a current answer', () => {
+test('a seat caption claims a microphone state only from a track or a current answer', () => {
   const caption = (
-    peer: { readonly microphone: boolean } | undefined,
-    confirmed: boolean,
-    speaking = false,
-    connection: MediaConnectionState = 'live',
-  ) => seatMicrophoneCaption({ connection, peer, confirmed, speaking });
+    overrides: Partial<Parameters<typeof seatMicrophoneCaption>[0]>,
+  ) =>
+    seatMicrophoneCaption({
+      connection: 'live',
+      confirmed: true,
+      track: undefined,
+      mine: false,
+      ownMuted: false,
+      granted: true,
+      remote: { microphonePublished: false },
+      ...overrides,
+    });
+  const open = { muted: false, speaking: false };
   assert({
-    given: 'each answer state for a seat',
+    given: 'each kind of evidence for a seat',
     should:
-      'name open, closed or speaking only while the answer is current, say it is checking while superseded, and say out of date once overdue or behind a device failure',
+      'let a real track speak whatever the reads say, say it is checking while superseded, and say out of date once overdue',
     actual: [
-      caption(undefined, false),
-      caption({ microphone: false }, true),
-      caption({ microphone: true }, true),
-      caption({ microphone: true }, true, true),
-      caption({ microphone: false }, false),
-      caption({ microphone: true }, false, true),
-      caption({ microphone: true }, false, false, 'out-of-date'),
-      caption({ microphone: false }, true, false, 'out-of-date'),
-      caption({ microphone: true }, false, false, 'device-blocked'),
-      caption({ microphone: true }, true, false, 'device-blocked'),
+      caption({ track: open, connection: 'out-of-date', confirmed: false }),
+      caption({ track: { muted: false, speaking: true } }),
+      caption({ track: { muted: true, speaking: false } }),
+      caption({ granted: false }),
+      caption({ granted: false, confirmed: false }),
+      caption({ connection: 'out-of-date' }),
+      caption({ connection: 'out-of-date', confirmed: false }),
+      caption({ remote: undefined, confirmed: false }),
+      caption({ remote: { microphonePublished: true } }),
     ],
     expected: [
-      'Microphone unavailable',
-      'Microphone closed',
       'Microphone open',
       'Speaking',
+      'Microphone muted',
+      'Waiting for microphone permission',
       'Checking microphone…',
-      'Checking microphone…',
       'Microphone status out of date',
       'Microphone status out of date',
-      'Microphone status out of date',
-      'Microphone open',
+      'Disconnected from media',
+      'No microphone subscription',
     ],
   });
 });
@@ -188,5 +248,46 @@ test('out of date beside a missing device names both', () => {
       'Connected, but camera and sound status may be out of date, and your checked camera is missing.',
     ),
     expected: true,
+  });
+});
+
+test('an unavailable connection says what recovery will do, and refusal offers no Retry', () => {
+  const status = (failure: 'transient' | 'definite' | 'refused') =>
+    mediaStatus('unavailable', [], { failure });
+  assert({
+    given: 'each failure kind on a released connection',
+    should:
+      'not ask a person to act while it tries by itself, and never offer Retry after a refusal',
+    actual: [status('transient'), status('definite'), status('refused')],
+    expected: [
+      {
+        message: 'Camera and sound are unavailable. Trying again…',
+        retry: true,
+      },
+      {
+        message: 'Camera and sound are unavailable. Retry to reconnect.',
+        retry: true,
+      },
+      {
+        message:
+          'Camera and sound were refused for this Round. A fresh admission is needed; refresh the page or leave and return once admitted.',
+        retry: false,
+      },
+    ],
+  });
+});
+
+test('a missing device offers Retry only while there is a connection to fix', () => {
+  const retry = (connection: 'live' | 'ended', failure?: 'refused') =>
+    mediaStatus(connection, ['camera'], failure ? { failure } : {}).retry;
+  assert({
+    given: 'a checked camera missing, then a refusal or the call ending',
+    should: 'offer Retry on the live connection and never after those',
+    actual: [
+      retry('live'),
+      retry('ended'),
+      mediaStatus('unavailable', ['camera'], { failure: 'refused' }).retry,
+    ],
+    expected: [true, false, false],
   });
 });
