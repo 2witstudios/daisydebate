@@ -11,13 +11,27 @@ import {
   requireSignedIn,
 } from '../../server/http';
 import type { createRoundHandlers } from '../round-runtime/handlers';
-import type { createRoundMediaOperations } from './operations';
+import { isMediaDeferred, type createRoundMediaOperations } from './operations';
 
 type Operations = Pick<
   ReturnType<typeof createRoundMediaOperations>,
   'session' | 'read' | 'reconcile'
 >;
 const emptyBody = z.strictObject({});
+/** Expected backpressure: retryable for the client, and no alert for anyone. */
+const deferred = (
+  logger: Pick<Parameters<typeof createRoundHandlers>[0]['logger'], 'log'>,
+) => {
+  logger.log(
+    'round.media.request_deferred',
+    { errorCode: 'INFRASTRUCTURE' },
+    'Media request deferred; the client retries',
+  );
+  return new Response(null, {
+    status: 503,
+    headers: { 'Cache-Control': 'no-store', 'Retry-After': '1' },
+  });
+};
 /** Human session boundary only. Internal workers have a separate signed ingress. */
 export function createRoundMediaHandlers(
   d: Pick<
@@ -39,7 +53,7 @@ export function createRoundMediaHandlers(
         d.logger,
         request,
         `round.media.${operation}`,
-        async () => {
+        async (_id, logger) => {
           if (!d.active()) throw createAppError('NOT_FOUND');
           if (operation === 'read') requireSameOriginRead(request, d.origin());
           else requireSameOrigin(request, d.origin());
@@ -57,7 +71,20 @@ export function createRoundMediaHandlers(
           const roundId = parseValidated(idSchema, rawRoundId);
           if (operation !== 'read')
             parseValidated(emptyBody, await readJson(request, 128));
-          const body = await d.operations()[operation](roundId, actor.id);
+          const operations = d.operations();
+          const body =
+            operation === 'read'
+              ? await operations.read(roundId, actor.id)
+              : await operations[operation](
+                  roundId,
+                  actor.id,
+                  request.signal,
+                ).catch((error: unknown) => {
+                  if (!isMediaDeferred(error) || request.signal.aborted)
+                    throw error;
+                  return deferred(logger);
+                });
+          if (body instanceof Response) return body;
           return Response.json(body, {
             headers: { 'Cache-Control': 'no-store' },
           });

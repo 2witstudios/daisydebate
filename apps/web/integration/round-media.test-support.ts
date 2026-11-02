@@ -40,6 +40,7 @@ export const mediaDependencies = (
   logger: createLogger({ service: 'round-media-proof', level: 'silent' }),
   deadline: <T>(work: Promise<T>) => withTimeout(work, 2000),
   wait: () => Bun.sleep(10),
+  now: () => performance.now(),
 });
 export const withMediaRound = (
   work: (

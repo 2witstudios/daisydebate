@@ -9,10 +9,8 @@ import {
   type LocalTrack,
 } from 'livekit-client';
 import type { RoundMediaState } from '@daisy/protocol';
-import {
-  CHECKED_DEVICE_MISSING,
-  type BrowserMediaTransport,
-} from './media-controller';
+import { type BrowserMediaTransport } from './media-controller';
+import { CHECKED_DEVICE_MISSING } from './media-failure';
 
 export type MediaTrack = {
   readonly identity: string;
@@ -84,11 +82,14 @@ export function createBrowserMediaTransport(
   setLogLevel(LogLevel.silent);
   const room = sdk.room();
   let stopped = false;
+  let released = false;
   const tracks = new Map<Source, LocalTrack>();
   let granted: readonly Source[] = [];
   /** A debater's microphone, captured but unpublished until its grant (ISSUE-572). */
   let warm: LocalTrack | null = null;
   let microphoneMuted = events.microphoneMuted ?? false;
+  /** A publication this connection could not remove; only a rebuild clears it. */
+  let lastingFailure: { readonly error: unknown } | null = null;
   // Unrestricted sources (canPublish with none listed) are never what the
   // server sets, so they read as unknown rather than as every source.
   const permitted = (): readonly Source[] | null => {
@@ -107,6 +108,8 @@ export function createBrowserMediaTransport(
       );
   };
   const emit = () => {
+    // A released room must not overwrite the list its successor now owns.
+    if (released) return;
     const snapshot: MediaTrack[] = [];
     for (const participant of [
       room.localParticipant,
@@ -131,11 +134,13 @@ export function createBrowserMediaTransport(
     events.tracks(snapshot);
   };
   const stopTracks = () => {
+    const first = !stopped;
     stopped = true;
     for (const track of tracks.values()) track.stop();
     tracks.clear();
     releaseWarm();
-    events.tracks([]);
+    // A late repeat must not blank the list a successor connection now owns.
+    if (first) events.tracks([]);
   };
   room
     .on(RoomEvent.TrackSubscribed, emit)
@@ -150,8 +155,8 @@ export function createBrowserMediaTransport(
     .on(RoomEvent.ParticipantConnected, events.invalidated)
     .on(RoomEvent.ParticipantDisconnected, events.invalidated)
     .on(RoomEvent.ParticipantPermissionsChanged, (_previous, participant) => {
-      // A failed publish rejects the queue; the reconcile this invalidation
-      // requests then reports it through apply.
+      // A failed pass ends here; the reconcile this invalidation requests runs
+      // its own pass and reports a lasting failure through apply.
       if (participant === room.localParticipant) void settle().catch(() => {});
       events.invalidated();
     });
@@ -226,7 +231,15 @@ export function createBrowserMediaTransport(
     tracks.delete(source);
     const keep = source === 'microphone' && desired.length > 0 && !warm;
     if (!keep) track.stop();
-    await room.localParticipant.unpublishTrack(track, !keep);
+    try {
+      await room.localParticipant.unpublishTrack(track, !keep);
+    } catch (error) {
+      // Nothing holds this track now, so a kept microphone must not stay open.
+      track.stop();
+      // The publication remains, so every later apply reports it.
+      lastingFailure = { error };
+      throw error;
+    }
     if (!keep) return;
     if (stopped) track.stop();
     else warm = track;
@@ -256,22 +269,32 @@ export function createBrowserMediaTransport(
   let work = Promise.resolve();
   /** Serialized and idempotent: each pass publishes only what is missing. */
   const settle = () => {
-    work = work.then(async () => {
-      if (stopped) return;
-      const desired = desiredSources(granted, permitted());
-      for (const [source, track] of tracks)
-        if (!desired.includes(source)) await retire(source, track, desired);
-      for (const source of desired) {
-        if (!stopped && !tracks.has(source)) await publishSource(source);
-      }
-      await warmMicrophone(desired);
-      if (!stopped) emit();
-    });
+    // One failed pass rejects its own caller, not every later pass.
+    work = work
+      .catch(() => undefined)
+      .then(async () => {
+        if (stopped || lastingFailure) return;
+        const desired = desiredSources(granted, permitted());
+        for (const [source, track] of tracks)
+          if (!desired.includes(source)) await retire(source, track, desired);
+        for (const source of desired) {
+          if (!stopped && !tracks.has(source)) await publishSource(source);
+        }
+        await warmMicrophone(desired);
+        if (!stopped) emit();
+      });
     return work;
   };
-  const apply = (state: RoundMediaState) => {
+  const rejectIfUnrecoverable = () => {
+    if (lastingFailure) throw lastingFailure.error;
+  };
+  const apply = async (state: RoundMediaState) => {
+    // Before any device work: only a rebuild clears this, so no pass should run.
+    rejectIfUnrecoverable();
     granted = state.grants.publish;
-    return settle();
+    await settle();
+    // It may have failed in a pass this apply queued behind, which then did nothing.
+    rejectIfUnrecoverable();
   };
   const transport: BrowserMediaTransport = {
     connect: async (admission) => {
@@ -281,6 +304,7 @@ export function createBrowserMediaTransport(
     apply,
     stopTracks,
     disconnect: async () => {
+      released = true;
       stopTracks();
       await room.disconnect(true);
       room.removeAllListeners();

@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createAppError } from '@daisy/errors';
 import { noopErrorReporter } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
 import { silentLogger } from '../../server/test-loggers.test-support';
@@ -86,5 +87,114 @@ test('media boundary refuses identity claims, foreign origins, anonymous callers
     should: 'refuse before token or vendor operations',
     actual: { results, calls },
     expected: { results: [400, 403, 401, 429], calls: 0 },
+  });
+});
+
+/** A same-origin member who passes every check before the operation. */
+const admittedMember = {
+  origin: () => origin,
+  identify: async () =>
+    ({
+      state: 'member',
+      principal: { userId: id, actorId: id },
+    }) as never,
+  getActorByUserId: async () => ({ id }) as never,
+  limiter: () =>
+    ({
+      consume: async () => ({ allowed: true, retryAfterSeconds: 1 }),
+    }) as never,
+  active: () => true,
+};
+
+test('a deferred media request answers 503 without alerting anyone', async () => {
+  const events: string[] = [];
+  let reports = 0;
+  const handlers = createRoundMediaHandlers({
+    logger: {
+      ...silentLogger,
+      child: (bound: { requestId?: string }) => ({
+        ...silentLogger,
+        log: (event: string) =>
+          void events.push(bound.requestId ? event : 'without its request'),
+      }),
+    } as unknown as typeof silentLogger,
+    reporter: {
+      capture: () => {
+        reports++;
+      },
+    },
+    ...admittedMember,
+    operations: () =>
+      ({
+        session: async () => {
+          throw createAppError('INFRASTRUCTURE', 'media-deferred');
+        },
+      }) as never,
+  });
+  const response = await handlers.session(
+    new Request(`${origin}/api/rounds/${id}/media/session`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: '{}',
+    }),
+    id,
+  );
+  assert({
+    given: 'an admission that stopped waiting for the session lease',
+    should:
+      'answer the retryable 503, log the named outcome and report nothing',
+    actual: [
+      response.status,
+      events.includes('round.media.request_deferred'),
+      reports,
+    ],
+    expected: [503, true, 0],
+  });
+});
+
+test('session and reconcile receive the client request signal', async () => {
+  const seen: Record<string, AbortSignal | undefined> = {};
+  const handlers = createRoundMediaHandlers({
+    logger: silentLogger,
+    reporter: noopErrorReporter,
+    ...admittedMember,
+    operations: () =>
+      ({
+        session: async (
+          _round: string,
+          _actor: string,
+          signal: AbortSignal,
+        ) => {
+          seen.session = signal;
+          return {};
+        },
+        reconcile: async (
+          _round: string,
+          _actor: string,
+          signal: AbortSignal,
+        ) => {
+          seen.reconcile = signal;
+          return {};
+        },
+      }) as never,
+  });
+  const request = (path: string) =>
+    new Request(`${origin}/api/rounds/${id}/media/${path}`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: '{}',
+    });
+  const session = request('session');
+  const reconcile = request('reconcile');
+  await handlers.session(session, id);
+  await handlers.reconcile(reconcile, id);
+  assert({
+    given: 'browser requests that can be abandoned',
+    should: 'pass each request signal to its operation',
+    actual: [
+      seen.session === session.signal,
+      seen.reconcile === reconcile.signal,
+    ],
+    expected: [true, true],
   });
 });

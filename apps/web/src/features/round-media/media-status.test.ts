@@ -1,5 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { mediaStatus, retryMissingDevices } from './media-status';
+import type { MediaConnectionState } from './media-controller';
+import {
+  mediaStatus,
+  mediaWhile,
+  retryMissingDevices,
+  seatMicrophoneCaption,
+  showConnection,
+} from './media-status';
 
 setupRitewayBun();
 
@@ -71,5 +78,115 @@ test('Retry forgets only the checked devices found gone, then clears them', () =
       'forget the camera choice alone for this Room and report nothing missing',
     actual: { forgotten, next },
     expected: { forgotten: [['room-a', ['camera']]], next: [] },
+  });
+});
+
+test('a released connection shows no last-known microphone state', () => {
+  assert({
+    given: 'the last server media state as the connection changes',
+    should: 'keep it while the tracks are up, never after teardown',
+    actual: (
+      ['live', 'out-of-date', 'reconnecting', 'unavailable', 'ended'] as const
+    ).map((connection) => mediaWhile(connection, 'open')),
+    expected: ['open', 'open', null, null, null],
+  });
+});
+
+test('a controller teardown clears the stage state it shows', () => {
+  let connection = 'live';
+  let media: string | null = 'open';
+  const changed = showConnection<string>({
+    connection: (state) => {
+      connection = state;
+    },
+    media: (update) => {
+      media = update(media);
+    },
+  });
+  changed('live');
+  const live = [connection, media];
+  changed('unavailable');
+  assert({
+    given: 'the controller going live, then releasing as unavailable',
+    should: 'keep the microphone state while live and clear it on teardown',
+    actual: [live, [connection, media]],
+    expected: [
+      ['live', 'open'],
+      ['unavailable', null],
+    ],
+  });
+});
+
+test('stale media state is never shown as plainly connected', () => {
+  const status = mediaStatus('out-of-date', []);
+  assert({
+    given: 'live tracks whose reads keep stalling',
+    should:
+      'say the state may be out of date, without offering a teardown Retry',
+    actual: [
+      status.message === 'Connected',
+      /out of date/.test(status.message),
+      status.retry,
+    ],
+    expected: [false, true, false],
+  });
+});
+
+test('a missing checked device stays named while status is out of date', () => {
+  const status = mediaStatus('out-of-date', ['microphone']);
+  assert({
+    given: 'stalled reads and a checked microphone that went missing',
+    should: 'name the device its Retry would forget',
+    actual: [/microphone is missing/.test(status.message), status.retry],
+    expected: [true, true],
+  });
+});
+
+test('a seat caption claims a microphone state only from a current answer', () => {
+  const caption = (
+    peer: { readonly microphone: boolean } | undefined,
+    confirmed: boolean,
+    speaking = false,
+    connection: MediaConnectionState = 'live',
+  ) => seatMicrophoneCaption({ connection, peer, confirmed, speaking });
+  assert({
+    given: 'each answer state for a seat',
+    should:
+      'name open, closed or speaking only while the answer is current, say it is checking while superseded, and say out of date once overdue or behind a device failure',
+    actual: [
+      caption(undefined, false),
+      caption({ microphone: false }, true),
+      caption({ microphone: true }, true),
+      caption({ microphone: true }, true, true),
+      caption({ microphone: false }, false),
+      caption({ microphone: true }, false, true),
+      caption({ microphone: true }, false, false, 'out-of-date'),
+      caption({ microphone: false }, true, false, 'out-of-date'),
+      caption({ microphone: true }, false, false, 'device-blocked'),
+      caption({ microphone: true }, true, false, 'device-blocked'),
+    ],
+    expected: [
+      'Microphone unavailable',
+      'Microphone closed',
+      'Microphone open',
+      'Speaking',
+      'Checking microphone…',
+      'Checking microphone…',
+      'Microphone status out of date',
+      'Microphone status out of date',
+      'Microphone status out of date',
+      'Microphone open',
+    ],
+  });
+});
+
+test('out of date beside a missing device names both', () => {
+  assert({
+    given: 'reads unanswered and the checked camera gone',
+    should: 'keep saying status may be out of date while naming the device',
+    actual: mediaStatus('out-of-date', ['camera']).message.startsWith(
+      'Connected, but camera and sound status may be out of date, and your checked camera is missing.',
+    ),
+    expected: true,
   });
 });

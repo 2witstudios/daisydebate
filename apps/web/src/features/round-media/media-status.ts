@@ -6,6 +6,8 @@ const messages: Record<MediaConnectionState, string> = {
   connecting: 'Connecting camera and sound…',
   reconnecting: 'Reconnecting camera and sound…',
   live: 'Connected',
+  'out-of-date':
+    'Connected, but camera and sound status may be out of date. Checking again…',
   'device-blocked':
     'Camera or microphone access is blocked. Check your browser permissions, then retry.',
   'device-missing':
@@ -13,6 +15,50 @@ const messages: Record<MediaConnectionState, string> = {
   unavailable: 'Camera and sound are unavailable. Retry to reconnect.',
   ended: 'The call has ended.',
 };
+
+/** The transport is still up, whether or not a recent read confirms it. */
+export const hasLiveTracks = (connection: MediaConnectionState) =>
+  connection === 'live' || connection === 'out-of-date';
+
+/** A released connection shows no last-known server media state. */
+export const mediaWhile = <Media>(
+  connection: MediaConnectionState,
+  media: Media | null,
+) => (hasLiveTracks(connection) ? media : null);
+
+/** What the Round shows when its controller changes connection state. */
+export const showConnection =
+  <Media>(view: {
+    readonly connection: (state: MediaConnectionState) => void;
+    readonly media: (update: (current: Media | null) => Media | null) => void;
+  }) =>
+  (state: MediaConnectionState) => {
+    view.connection(state);
+    view.media((current) => mediaWhile(state, current));
+  };
+
+/**
+ * A grant can move at LiveKit before its reply is applied here, so a seat claims
+ * a microphone state only while the last answer is current. Checking cannot
+ * stick: an answer overdue past the read budget makes the connection out of date,
+ * and a local device failure hides that state, so it counts the same.
+ */
+export function seatMicrophoneCaption(input: {
+  readonly connection: MediaConnectionState;
+  readonly peer: { readonly microphone: boolean } | undefined;
+  readonly confirmed: boolean;
+  readonly speaking: boolean;
+}) {
+  if (!input.peer) return 'Microphone unavailable';
+  if (
+    input.connection === 'out-of-date' ||
+    (input.connection === 'device-blocked' && !input.confirmed)
+  )
+    return 'Microphone status out of date';
+  if (!input.confirmed) return 'Checking microphone…';
+  if (!input.peer.microphone) return 'Microphone closed';
+  return input.speaking ? 'Speaking' : 'Microphone open';
+}
 
 /** What the Round media bar says, and whether it offers Retry (ISSUE-573). */
 export function mediaStatus(
@@ -22,8 +68,8 @@ export function mediaStatus(
   const gone = missing.length > 0;
   return {
     message:
-      connection === 'live' && gone
-        ? `Connected, but your checked ${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} missing. Reconnect ${missing.length > 1 ? 'them' : 'it'}, or retry to use your default.`
+      hasLiveTracks(connection) && gone
+        ? `Connected, but ${connection === 'out-of-date' ? 'camera and sound status may be out of date, and ' : ''}your checked ${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} missing. Reconnect ${missing.length > 1 ? 'them' : 'it'}, or retry to use your default.`
         : messages[connection],
     retry:
       gone ||

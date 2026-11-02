@@ -1,5 +1,5 @@
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import {
   roundMediaAdmissionSchema,
   type RoundMediaState,
@@ -12,6 +12,7 @@ import {
   seatGrants,
 } from './projection';
 import { listenIdentity } from './listen-identity';
+import { cancelMediaWork } from './cancel-media-work';
 import { createMediaReconcileRun } from './reconcile-run';
 import type {
   Store,
@@ -28,6 +29,28 @@ const callerOf = (actorId: string) => ({
   actorId,
   admits: admitsPrincipalAccess,
 });
+/**
+ * How long a browser admission waits to win the session's lease, below the
+ * client's 10 s request deadline. It bounds the wait only: a pass won late can
+ * outlast that deadline, and its client then retries while the pass finishes.
+ */
+export const MEDIA_ADMISSION_WAIT_MS = 8_000;
+const MEDIA_DEFERRED = 'media-deferred';
+/** Expected backpressure: a retryable 503 that needs no one to look. */
+const mediaDeferred = (cause?: unknown) =>
+  createAppError('INFRASTRUCTURE', MEDIA_DEFERRED, cause);
+export const isMediaDeferred = (error: unknown) =>
+  isAppError(error) && error.message === MEDIA_DEFERRED;
+/** One read waiting until a pass has served its own version. */
+type ServeWaiter = {
+  readonly version: number;
+  readonly served: ReturnType<typeof Promise.withResolvers<void>>;
+};
+type AdmissionLimit = {
+  readonly untilMs: number;
+  /** The client's request: an abandoned admission stops waiting. */
+  readonly signal?: AbortSignal;
+};
 /** Shared production vendor/session consumer. No provider I/O occurs in a database callback. */
 export function createRoundMediaOperations(input: MediaOperationInput) {
   const buildProjection: Parameters<
@@ -45,11 +68,15 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     return state;
   };
   const run = createMediaReconcileRun(input, buildProjection, snapshot);
-  const acquire = async (sessionId: string) => {
+  /** The reads each session's one polling loop is still serving. */
+  const polls = new Map<string, Set<ServeWaiter>>();
+  const acquire = async (sessionId: string, limit?: AdmissionLimit) => {
     const owner = input.nextId();
     await input.priority(sessionId, 'enter', owner);
     try {
       for (;;) {
+        if (limit?.signal?.aborted || (limit && input.now() >= limit.untilMs))
+          throw mediaDeferred();
         const claim = await input.store.claimMediaReconcile({
           sessionId,
           owner,
@@ -62,42 +89,106 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       await input.priority(sessionId, 'leave', owner);
     }
   };
-  const serve = async (sessionId: string, version: number) => {
-    for (;;) {
-      const progress = await input.store.mediaReconcileProgress(sessionId);
-      if (progress.servedVersion >= version) return;
-      if (await input.priority(sessionId, 'waiting')) {
-        await input.wait();
-        continue;
+  const pollServed = async (sessionId: string, waiters: Set<ServeWaiter>) => {
+    try {
+      for (;;) {
+        if (waiters.size === 0) return;
+        const { servedVersion } =
+          await input.store.mediaReconcileProgress(sessionId);
+        for (const waiter of waiters)
+          if (servedVersion >= waiter.version) {
+            waiters.delete(waiter);
+            waiter.served.resolve();
+          }
+        if (waiters.size === 0) return;
+        if (await input.priority(sessionId, 'waiting')) {
+          await input.wait();
+          continue;
+        }
+        const claim = await input.store.claimMediaReconcile({
+          sessionId,
+          owner: input.nextId(),
+        });
+        if (claim.kind === 'claimed') await run(claim);
+        else await input.wait();
       }
-      const claim = await input.store.claimMediaReconcile({
-        sessionId,
-        owner: input.nextId(),
+    } catch (error) {
+      // Readers get only the deferral, so the tracker must get the fault. A pass
+      // that reported its own failure may repeat here; it is one exception.
+      input.reporter.capture(error, {
+        requestId: input.nextId(),
+        route: '/api/rounds/:id/media/reconcile',
+        errorCode: 'INFRASTRUCTURE',
       });
-      if (claim.kind === 'claimed') await run(claim);
-      else await input.wait();
+      // A pass's failure says nothing about these readers' access: they retry.
+      for (const waiter of waiters) waiter.served.reject(mediaDeferred(error));
+    } finally {
+      // In the same step as the exit, so no later read can join a finished loop.
+      polls.delete(sessionId);
     }
   };
-  const read = async (
-    roundId: string,
-    actorId?: string,
+  /** One polling loop per session here, however many reads are waiting on it. */
+  const serve = async (
+    sessionId: string,
+    version: number,
+    signal?: AbortSignal,
+  ) => {
+    const waiter: ServeWaiter = {
+      version,
+      served: Promise.withResolvers<void>(),
+    };
+    const existing = polls.get(sessionId);
+    const waiters = existing ?? new Set<ServeWaiter>();
+    waiters.add(waiter);
+    if (!existing) {
+      polls.set(sessionId, waiters);
+      void pollServed(sessionId, waiters);
+    }
+    try {
+      await (signal
+        ? cancelMediaWork(signal, () => waiter.served.promise)
+        : waiter.served.promise);
+    } finally {
+      waiters.delete(waiter);
+    }
+  };
+  const answer = async (
+    state: Awaited<ReturnType<typeof snapshot>>,
   ): Promise<RoundMediaState> => {
-    const state = await snapshot(roundId, actorId);
     const exists =
       !mediaEnded(state) &&
-      (await input.deadline(input.media.exists(state.session.roomName)));
+      (await input
+        .deadline(input.media.exists(state.session.roomName))
+        .catch((error: unknown) => {
+          throw createAppError('INFRASTRUCTURE', undefined, error);
+        }));
     return projectMedia(state, exists, input.nextId);
   };
+  const read = async (roundId: string, actorId?: string) =>
+    answer(await snapshot(roundId, actorId));
   const reconcile = async (
     roundId: string,
     actorId?: string,
+    signal?: AbortSignal,
   ): Promise<RoundMediaState> => {
+    // Before the round lock: a read already abandoned should cost nothing.
+    if (signal?.aborted) throw mediaDeferred();
     const request = await input.store.requestMediaReconcile({
       roundId,
       ...(actorId ? { caller: callerOf(actorId) } : {}),
     });
-    await serve(request.sessionId, request.version);
-    return read(roundId, actorId);
+    await serve(request.sessionId, request.version, signal);
+    const state = await snapshot(roundId, actorId);
+    // A pass's vendor write in flight says nothing about this caller's access.
+    if (
+      actorId &&
+      state.unresolved &&
+      !mediaEnded(state) &&
+      !admissionRevoked(state)
+    )
+      throw mediaDeferred();
+    // The same snapshot, so a write beginning after this check cannot refuse.
+    return answer(state);
   };
   /**
    * `listen` (ISSUE-764) signs the bot seat's own listen-only identity: a
@@ -111,7 +202,11 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
    * hear, under this session's reconcile hold. It needs no speaking window:
    * the bot hears most while it does not hold the floor.
    */
-  const admit = async (roundId: string, principal: Principal) => {
+  const admit = async (
+    roundId: string,
+    principal: Principal,
+    limit?: AdmissionLimit,
+  ) => {
     const hearing = principal.kind === 'bot' && principal.hearing === true;
     const binding =
       principal.kind === 'human'
@@ -168,7 +263,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         roomName: context.binding.roomName,
       };
     };
-    let claim = await acquire(binding.sessionId);
+    let claim = await acquire(binding.sessionId, limit);
     const held: { issued?: Awaited<ReturnType<typeof sign>> } = {};
     // The token is issued while this reconcile still holds the session, so a
     // concurrent reconcile (recovery, another caller) is never live in
@@ -199,7 +294,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       !held.issued &&
       (await snapshot(roundId)).session.roomName !== claim.roomName
     ) {
-      claim = await acquire(binding.sessionId);
+      claim = await acquire(binding.sessionId, limit);
       refusal = await run(claim, principal, issue);
     }
     if (held.issued) return held.issued;
@@ -244,8 +339,17 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   return {
     read,
     holdForCapture,
-    async session(roundId: string, actorId: string) {
-      const response = await admit(roundId, { kind: 'human', actorId });
+    async session(roundId: string, actorId: string, signal?: AbortSignal) {
+      // Before the round lock: an admission already abandoned should cost nothing.
+      if (signal?.aborted) throw mediaDeferred();
+      const response = await admit(
+        roundId,
+        { kind: 'human', actorId },
+        {
+          untilMs: input.now() + MEDIA_ADMISSION_WAIT_MS,
+          ...(signal ? { signal } : {}),
+        },
+      );
       return roundMediaAdmissionSchema.parse({
         version: response.version,
         roundId: response.roundId,
