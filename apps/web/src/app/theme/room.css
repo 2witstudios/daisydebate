@@ -96,19 +96,14 @@
   }
 }
 
-/* A window too short for the frame scrolls as a whole, so the workspace and a
-   phone's tabs stay reachable. */
+/* The frame fits the window while the workspace keeps a usable height. A window
+   too short for that scrolls as a whole, so the phone's tabs stay reachable. */
 @utility room-frame {
   height: 100dvh;
-  overflow: hidden;
+  overflow-y: auto;
 
-  @media (height < 560px) {
-    overflow-y: auto;
-
-    & > [data-room-workspace] {
-      flex: none;
-      height: 24rem;
-    }
+  & > [data-room-workspace] {
+    flex: 1 0 18rem;
   }
 }
 

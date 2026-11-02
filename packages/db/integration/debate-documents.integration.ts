@@ -31,6 +31,14 @@ describe('documents', () => {
       );
       const listed = await database.listDocuments({ ownerActorId: actorId });
       assert({
+        given: 'an owner naming a new document',
+        should: 'read only that owner’s titles',
+        actual: [
+          ...(await database.listDocumentTitles({ ownerActorId: actorId })),
+        ].sort(),
+        expected: ['Block', 'Case', 'Notes'],
+      });
+      assert({
         given: 'three of mine and an opponent’s in the same Round',
         should: 'list only mine, by title',
         actual: listed.map((d) => d.title),

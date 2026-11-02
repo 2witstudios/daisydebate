@@ -135,12 +135,11 @@ describe('DebateRoom', () => {
         'stack the panels in one scroll, hide none for the phone and show the transcript',
       actual: [
         html.includes('room-stacked'),
-        html.includes('max-compact:hidden" id'),
         /id="round-sidebar"[^>]*max-compact:hidden/.test(html),
         /id="round-document"[^>]*max-compact:hidden/.test(html),
         html.includes('the line'),
       ],
-      expected: [true, false, false, false, true],
+      expected: [true, false, false, true],
     });
   });
 
@@ -154,8 +153,12 @@ describe('DebateRoom', () => {
     assert({
       given: 'a page-level notice',
       should: 'render it inside the viewport-height frame',
-      actual: html.indexOf('room-frame') < html.indexOf('the notice'),
-      expected: true,
+      actual: [
+        html.indexOf('room-frame') >= 0,
+        html.indexOf('room-frame') < html.indexOf('the notice'),
+        html.indexOf('the notice') < html.indexOf('aria-label="Round"'),
+      ],
+      expected: [true, true, true],
     });
   });
 

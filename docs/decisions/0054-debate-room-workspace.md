@@ -104,8 +104,7 @@ document. Daisy builds this itself rather than embedding another product.
   unreadable stored checkpoint reads as none, so the room shows no live
   position instead of failing. Ratings, stakes, Round commands, chat
   delivery, the AI agents, media and Tech issue have no server yet: their
-  controls are shown disabled (DEC-100, DEC-178), and a ranked round lists
-  no club folder (DEC-175).
+  controls are shown disabled (DEC-100, DEC-178).
 - Account erasure keeps the `users` row, so `ON DELETE CASCADE` does not
   remove a person's documents on erasure; the erasure transaction must
   delete them explicitly.

@@ -58,7 +58,11 @@ export function TranscriptFollow({
       {following ? null : (
         <button
           type="button"
-          onClick={() => setFollowing(true)}
+          onClick={() => {
+            // This button goes away with the click, so focus moves to the lines.
+            scroller.current?.focus();
+            setFollowing(true);
+          }}
           className="absolute right-4 bottom-3 h-room-target cursor-pointer rounded-round border border-border-strong bg-surface-raised px-4 text-sm font-strong shadow-2"
         >
           Latest

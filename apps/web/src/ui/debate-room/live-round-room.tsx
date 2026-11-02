@@ -105,7 +105,7 @@ export function LiveRoundRoom({
   const [outcome, setOutcome] = useState<string | null>(null);
   const onAnswer = useCallback(
     (answer: RoundFormState) => {
-      setOutcome(answer.error ?? 'Done.');
+      if (!answer.error) setOutcome('Done.');
       if (answer.view) driver?.accepted(answer.view);
       else if (answer.error) driver?.signal();
     },
@@ -130,7 +130,7 @@ export function LiveRoundRoom({
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       <RoundTimeNotice roundTime={roundTime} />
       {outcome ? (
-        <p role="status" className="px-4 py-1 text-sm text-ink-muted">
+        <p role="status" className="sr-only">
           {outcome}
         </p>
       ) : null}

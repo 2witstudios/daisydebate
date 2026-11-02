@@ -317,6 +317,13 @@ test('the round room fits the viewport and the workspace starts on one line', as
     ].map(async (region) => Math.round((await region.boundingBox())?.y ?? -1)),
   );
   expect(new Set(tops).size).toBe(1);
+  // A window too short for the frame scrolls, so the phone's tabs stay reachable.
+  await page.setViewportSize({ width: 390, height: 500 });
+  const lastTab = page
+    .getByRole('navigation', { name: 'Round' })
+    .getByRole('button', { name: 'Room', exact: true });
+  await lastTab.scrollIntoViewIfNeeded();
+  await expect(lastTab).toBeInViewport();
 });
 
 test('without JavaScript a phone reads the transcript and keeps Leave', async ({

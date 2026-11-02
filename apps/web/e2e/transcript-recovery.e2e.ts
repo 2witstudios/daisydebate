@@ -52,6 +52,14 @@ test('committed transcript survives reads failing and returning, and clears on r
     await expect(first).toBeVisible();
     await first.scrollIntoViewIfNeeded();
     await expect(first).toBeInViewport();
+    // Reading back stops following; Latest returns to the newest line.
+    const latest = page.getByRole('button', { name: 'Latest', exact: true });
+    await latest.click();
+    await expect(latest).toBeHidden();
+    await expect(
+      transcript.getByText('Fixture line 119.', { exact: false }),
+    ).toBeInViewport();
+    await first.scrollIntoViewIfNeeded();
 
     await page.route(routeOf(round.id), (route) =>
       route.fulfill({ status: 503, body: 'unavailable' }),

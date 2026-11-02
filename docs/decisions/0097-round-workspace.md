@@ -39,8 +39,9 @@ creator's drive, whichever Round it was created in.
 A stored mark loses its styling and keeps its text the next time the document
 is opened. A page follows the viewer's theme until they choose otherwise.
 A new document is titled `Untitled` and starts empty, and a flow
-is one a debater chooses to write. With nothing open, the room opens the
-document edited last, or offers New document when there are none.
+is one a debater chooses to write. When documents load with nothing open, the
+room opens the one edited last. A workspace with nothing open offers New
+document.
 
 **Transcript.** It is a Round record shown in the sidebar, not a document, and
 the inert Add to Flow control is deleted. It follows new lines until the reader
@@ -58,4 +59,5 @@ text.
   builds on this ownership model.
 - The migration drops `template_id`, `folder` and `round_document_refs` in one
   step, which suits the pre-ship baseline (ADR 0023). A server still running
-  the previous release cannot create documents once it has run.
+  the previous release cannot create, list or rename documents once it has
+  run.
