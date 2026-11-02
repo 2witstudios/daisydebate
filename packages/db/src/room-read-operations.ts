@@ -7,6 +7,7 @@ import {
 } from '@daisy/protocol';
 import { and, asc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { unresolvedAttendance } from './attendance-settlement';
+import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import { judgingJobCanRule } from './round-judging-end';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
@@ -156,6 +157,13 @@ export async function launchedRoundRows(
         ),
     ),
     waitingOn: null,
+    transcriptCompleteness:
+      (
+        await tx
+          .select({ completeness: roundTranscriptFreezes.completeness })
+          .from(roundTranscriptFreezes)
+          .where(eq(roundTranscriptFreezes.roundId, roundId))
+      )[0]?.completeness ?? null,
     resolutionAudit: await roundResolutionAudit(tx, row),
     checkpoint: readableCheckpoint(row.runtimeState),
     segments: await segmentRows(tx, roundId),

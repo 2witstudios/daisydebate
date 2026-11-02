@@ -99,6 +99,8 @@ export async function readRoundRatings(
     pending:
       round.status === 'completed' &&
       round.outcome !== null &&
+      // Ratings read only a complete transcript, so an incomplete one never posts.
+      round.transcriptCompleteness !== 'incomplete' &&
       postings.length === 0,
     rows: seats.flatMap((seat) => {
       if (!('actorId' in seat)) return [];

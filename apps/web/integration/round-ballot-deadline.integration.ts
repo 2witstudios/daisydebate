@@ -1,6 +1,8 @@
+import { withSeasons } from '@daisy/db/seasons';
+import { recoverRatedResults } from './rated-room.test-support';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
-import type { Ballot } from '@daisy/protocol';
+import { buildRoundTopic, type Ballot } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
@@ -12,6 +14,7 @@ import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-sup
 import {
   fixtureBallot,
   freezeBotJudge,
+  playOut,
   readyTwoHumanJudgeRoom,
 } from './round-judging.test-support';
 import {
@@ -24,7 +27,7 @@ import {
 } from './round-runtime.test-support';
 
 setupRitewayBun();
-requireTestServices(process.env);
+const { databaseUrl } = requireTestServices(process.env);
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 const ruling = (winner: Ballot['winner']) =>
   fixtureBallot('The decisive clash was answered by this side.', winner);
@@ -250,3 +253,59 @@ test('an AI judging job no provider ever served by its budget is a known failure
     },
   );
 });
+
+for (const [captured, postings] of [
+  [true, 2],
+  [false, 0],
+] as const)
+  test(`on a rated Round with a ${captured ? 'complete' : 'incomplete'} freeze, a decisive ballot beside a silent judge posts ${postings} ratings (DEC-277)`, async () => {
+    await withRoomRuntime(async (f) => {
+      const seasonId = createId();
+      const { room, judges } = await readyTwoHumanJudgeRoom(f);
+      const { roundId } = await startRuntimeRound(f, room);
+      const started = (await f.store.getRound(roundId))!;
+      const seat = started.participants.find(
+        (p) => p.actorId === judges[0]!.actorId,
+      )!;
+      await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+      await playOut(f, roundId, captured);
+      if ((await finalizeAsWeb(f, roundId)).status !== 'frozen')
+        throw Error('Expected actual finalizer freeze');
+      await seedSettledAttendanceLedger(f, roundId);
+      try {
+        await withSeasons(databaseUrl, (s) =>
+          s.activateBetaSeason({ id: seasonId }),
+        );
+        await submitAs(f, judges[0]!, roundId, seat.id, 'negative');
+        await passBallotDeadline(f.sql, roundId);
+        await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
+        const done = (await f.store.getRound(roundId))!;
+        const [receipt] = await completions(f, roundId);
+        await recoverRatedResults(f);
+        await recoverRatedResults(f);
+        const ledger =
+          await f.sql`select actor_id from rating_changes where round_id=${roundId}`;
+        assert({
+          given: 'one human ruling decisively and one silent past the deadline',
+          should:
+            'complete with that winner, posting each debater once only on a complete transcript',
+          actual: {
+            done: [done.status, done.outcome],
+            ruling: receipt?.result.ruling,
+            postings: ledger.length,
+          },
+          expected: {
+            done: ['completed', 'negative'],
+            ruling: 'partial',
+            postings,
+          },
+        });
+      } finally {
+        await f.sql`delete from rating_changes where round_id=${roundId}`;
+        await f.sql`delete from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
+        await f.sql`delete from outbox where topic=${buildRoundTopic(roundId)}`;
+        await f.sql`delete from rounds where id=${roundId}`;
+        await f.sql`delete from seasons where id=${seasonId}`;
+      }
+    });
+  });

@@ -105,6 +105,7 @@ export const launched: LaunchedRound = {
   outcome: null,
   panelRuling: null,
   waitingOn: null,
+  transcriptCompleteness: null,
   resolutionAudit: null,
   checkpoint: emptyRuntimeCheckpoint,
   segments: [],

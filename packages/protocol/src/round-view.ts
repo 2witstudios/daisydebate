@@ -92,6 +92,8 @@ export const roundViewSchema = z.strictObject({
   panelRuling: panelRulingSchema.nullable(),
   /** What a played Round is waiting on; null until its speeches end. */
   waitingOn: roundWaitingOnSchema.nullable(),
+  /** The frozen transcript's completeness; null until it freezes. */
+  transcriptCompleteness: z.enum(['complete', 'incomplete']).nullable(),
   /** Whether this viewer hosts the Round; never which actor does. */
   viewerIsHost: z.boolean(),
   /** The draw's public envelope once the Round has ended; null otherwise. */

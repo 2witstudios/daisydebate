@@ -55,6 +55,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
     outcome: null,
     panelRuling: null,
     waitingOn: null,
+    transcriptCompleteness: null,
     resolutionAudit: null,
     status: 'scheduled',
     ladderId: null,

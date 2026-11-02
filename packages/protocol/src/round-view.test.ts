@@ -52,6 +52,7 @@ const view = {
   outcome: null,
   panelRuling: null,
   waitingOn: null,
+  transcriptCompleteness: null,
   resolutionAudit: null,
   viewerIsHost: false,
   checkpoint: emptyRuntimeCheckpoint,

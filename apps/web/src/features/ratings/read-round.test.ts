@@ -65,3 +65,43 @@ test('a historical Round badge uses its posting rather than later established st
     ],
   });
 });
+
+test('a rated result on an incomplete transcript is not pending: it never posts', async () => {
+  const read = (transcriptCompleteness: 'complete' | 'incomplete') =>
+    readRoundRatings(
+      {
+        listLadderSeasons: async () => [
+          {
+            id: seasonId,
+            name: 'Season',
+            status: 'active',
+            ladder: 'freestyle',
+            startsAt: at,
+            endsAt: null,
+          },
+        ],
+        readRatingBlindings: async () => [],
+        readStandings: async () => ({ ratings: [], changes: [] }),
+      } as never,
+      {
+        round: {
+          ...view,
+          ladderId: 'freestyle',
+          status: 'completed',
+          outcome: 'affirmative',
+          transcriptCompleteness,
+        },
+        now: at,
+        viewerActorId: null,
+      },
+    );
+  assert({
+    given: 'a decided Round with no postings yet, on each kind of transcript',
+    should: 'wait for a rating only where one can come',
+    actual: [
+      (await read('complete'))?.pending,
+      (await read('incomplete'))?.pending,
+    ],
+    expected: [true, false],
+  });
+});
