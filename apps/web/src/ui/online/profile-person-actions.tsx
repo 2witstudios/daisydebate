@@ -83,11 +83,6 @@ export function ProfilePersonActions({
           <Button type="submit" disabled={sending}>
             Send challenge
           </Button>
-          {sent.notice ? (
-            <p role="status" className="text-sm text-ink-muted">
-              {sent.notice}
-            </p>
-          ) : null}
         </form>
       </details>
       <details>
@@ -111,13 +106,13 @@ export function ProfilePersonActions({
           <Button type="submit" variant="secondary" disabled={reporting}>
             Send report
           </Button>
-          {reported.notice ? (
-            <p role="status" className="text-sm text-ink-muted">
-              {reported.notice}
-            </p>
-          ) : null}
         </form>
       </details>
+      {(sent.notice ?? reported.notice) ? (
+        <p role="status" className="text-sm text-ink-muted">
+          {sent.notice ?? reported.notice}
+        </p>
+      ) : null}
       <form action={block} className="inline-flex items-center gap-2">
         <input type="hidden" name="username" value={username} />
         <Button type="submit" variant="ghost" disabled={blocking}>
