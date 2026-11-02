@@ -1,7 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { NOW } from './ladder.test-support';
+import { readLadder as readStoredLadder } from './read-leaderboard';
 import { readLadder } from './read-leaderboard.test-support';
-import { buildSeasonsView, parseSeasonsQuery, seasonsHref } from './seasons';
+import {
+  buildSeasonsView,
+  listsPublishedResolutions,
+  parseSeasonsQuery,
+  seasonsHref,
+} from './seasons';
 
 setupRitewayBun();
 
@@ -72,14 +78,14 @@ describe('buildSeasonsView', () => {
       given: 'a closed season',
       should: 'name the champion, freeze the standings and fill the bar',
       actual: [
-        view.closed,
+        view.state,
         view.championLabel,
         view.snapshotTitle,
         view.percent,
         view.snapshot[0]?.href,
       ],
       expected: [
-        true,
+        'past',
         'Champion',
         'Final standings',
         100,
@@ -96,6 +102,61 @@ describe('buildSeasonsView', () => {
       should: 'have no champion and an empty snapshot',
       actual: [view.champion, view.snapshot],
       expected: [null, []],
+    });
+  });
+});
+
+describe('when the current resolutions show', () => {
+  test('a running season, and a closed one picked while another runs', () => {
+    const view = (season: string | null) =>
+      buildSeasonsView(readLadder(season, NOW, null).data, NOW);
+    assert({
+      given: 'the running season, then a closed one with another running',
+      should: 'list them for the running season only',
+      actual: [null, '3'].map((season) => [
+        view(season).state,
+        listsPublishedResolutions(view(season)),
+      ]),
+      expected: [
+        ['running', true],
+        ['past', false],
+      ],
+    });
+  });
+
+  test('no season has opened', () => {
+    assert({
+      given: 'no season at all',
+      should: 'still list them',
+      actual: listsPublishedResolutions(null),
+      expected: true,
+    });
+  });
+
+  test('no active season, read through the standings fallback', async () => {
+    const read = await readStoredLadder(
+      {
+        readRatingBlindings: async () => [],
+        listLadderSeasons: async () => [
+          {
+            id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
+            name: 'Season 1',
+            startsAt: '2026-09-01T00:00:00.000Z',
+            endsAt: '2026-10-01T00:00:00.000Z',
+            status: 'closed',
+            version: 2,
+          },
+        ],
+        readStandings: async () => ({ ratings: [], changes: [] }),
+      },
+      { seasonId: null, ladder: 'value', now: NOW, username: null },
+    );
+    const view = buildSeasonsView(read!.data, NOW);
+    assert({
+      given: 'only a closed season, which the read falls back to',
+      should: 'mark that none is active and list them',
+      actual: [view.state, listsPublishedResolutions(view)],
+      expected: ['none-active', true],
     });
   });
 });

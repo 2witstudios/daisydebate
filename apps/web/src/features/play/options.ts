@@ -27,7 +27,6 @@ const choices: readonly PlayChoice[] = [
     title: 'Rated debate',
     blurb: 'Matched near your rating. Rated.',
     href: '/ranked',
-    launch: 'ranked',
   },
   {
     id: 'room',

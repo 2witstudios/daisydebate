@@ -94,6 +94,8 @@ Round. Beta Season 1 publication labels and themes are descriptive metadata,
 independent from rating-season authority. Only Custom asks for host-authored
 wording. Strike exposes no custom
 draw settings in creation. See [ADR 0092](../decisions/0092-room-creation-resolution-selection.md).
+The Seasons page lists the current publications as a read-only input and
+gives them no link to a rating season.
 
 A Room either names its resolution (its topic) or a Round draws one in its
 opening ([ADR 0100](../decisions/0100-round-owns-its-opening.md)). Start round
