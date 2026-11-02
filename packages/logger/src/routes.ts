@@ -222,6 +222,7 @@ const appRoutes = [
   '/rounds/[id]',
   '/rounds/[id]/room',
   '/security',
+  '/restricted',
   '/settings',
   '/analytics',
   '/settings/security',
