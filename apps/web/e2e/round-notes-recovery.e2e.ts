@@ -398,55 +398,6 @@ test('a real exit save with no failure double commits once and leaves no false r
   );
 });
 
-// Temporary, removed once its output is recorded: what sends with pagehide stopped.
-test('exit save probe: sender with pagehide stopped', async ({
-  roundFiles,
-}) => {
-  const { page, roundId, documentId } = roundFiles;
-  const before = await serverDocument(page, roundId, documentId);
-  await page.clock.install({ time: '2026-11-01T18:00:00Z' });
-  await page.clock.pauseAt('2026-11-01T18:01:00Z');
-  await typePendingEdit(page, documentId, 'Probe sender');
-  await page.evaluate((save) => {
-    const send = window.fetch;
-    let stopped = false;
-    window.addEventListener(
-      'pagehide',
-      (event) => {
-        stopped = true;
-        sessionStorage.setItem('exit-probe:stopped', 'yes');
-        event.stopImmediatePropagation();
-      },
-      { capture: true },
-    );
-    Reflect.set(window, 'fetch', (...request: Parameters<typeof send>) => {
-      if (String(request[0]) === save)
-        sessionStorage.setItem(
-          'exit-probe:send',
-          JSON.stringify({
-            keepalive: request[1]?.keepalive === true,
-            afterStop: stopped,
-            visibility: document.visibilityState,
-            stack: new Error('probe').stack?.split('\n').slice(1, 7),
-          }),
-        );
-      return send(...request);
-    });
-  }, `${documentsPath}save`);
-  await page.reload();
-  await expect(
-    page.getByRole('textbox', { name: 'Flow', exact: true }),
-  ).toBeVisible();
-  const after = await serverDocument(page, roundId, documentId);
-  const seen = await page.evaluate(() => ({
-    stopped: sessionStorage.getItem('exit-probe:stopped'),
-    send: sessionStorage.getItem('exit-probe:send'),
-  }));
-  process.stdout.write(
-    `EXIT_SAVE_PROBE ${JSON.stringify({ before: before.revision, after: after.revision, ...seen })}\n`,
-  );
-});
-
 test('lost acknowledgement keeps newer typed notes through reload and explicit reconciliation', async ({
   roundFiles,
 }) => {
