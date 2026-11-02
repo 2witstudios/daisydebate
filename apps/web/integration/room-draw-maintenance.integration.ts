@@ -119,6 +119,7 @@ test('a tick starts a Round at the instant its prep ended, however late it runs'
     // Prep ran long ago: created_at is the Start round anchor.
     await f.sql`update rounds set created_at = created_at - interval '90 seconds' where id = ${roundId}`;
     const due = await discovered();
+    await f.sql`delete from service_instances where instance_id = ${instanceId}`;
     await tick();
     const [after] = await f.sql`select status, started_at, current_stage,
       created_at + interval '60 seconds' as prep_end from rounds where id = ${roundId}`;
