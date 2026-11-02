@@ -6,7 +6,7 @@ import { PreviewHeader, PreviewPage, PreviewRows } from './preview-parts';
 export function SeasonsPreview() {
   return (
     <PreviewPage>
-      <PreviewHeader title="Seasons" lede="Season 3" />
+      <PreviewHeader title="Seasons" />
       <Panel title="Resolutions">
         <PreviewRows rows={seasonsResolutions} />
       </Panel>

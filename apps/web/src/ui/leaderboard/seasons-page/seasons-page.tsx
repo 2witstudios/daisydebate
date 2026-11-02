@@ -22,8 +22,6 @@ export type SeasonsPageProps = {
   readonly resolutions: readonly PublishedResolution[];
 };
 
-const card = seasonsCardClass;
-const eyebrow = seasonsEyebrowClass;
 const openLadder = 'text-base font-strong';
 const frame =
   'mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4';
@@ -95,9 +93,9 @@ function RangePicture() {
 }
 
 /**
- * One season at a glance: the resolutions it was given, dates, champion, a
- * top-ten snapshot, and how rating works. With no season at all, the
- * resolutions alone.
+ * One season at a glance: dates, champion, a top-ten snapshot, and how rating
+ * works, with the current published resolutions beside it, which are not the
+ * season's (ADR 0092). With no season at all, the resolutions alone.
  */
 export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
   if (view === null)

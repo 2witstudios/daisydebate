@@ -124,6 +124,15 @@ describe('when the current resolutions show', () => {
     });
   });
 
+  test('no season has opened', () => {
+    assert({
+      given: 'no season at all',
+      should: 'still list them',
+      actual: listsPublishedResolutions(null),
+      expected: true,
+    });
+  });
+
   test('no active season, read through the standings fallback', async () => {
     const read = await readStoredLadder(
       {
