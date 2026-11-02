@@ -68,13 +68,16 @@ export function strikeInOpening(
   return advanceOpening({ ...input, opening: outcome.opening });
 }
 
-/** A forfeit in the opening: due steps settle first, then it stands as a result. */
+/**
+ * A forfeit in the opening: due steps settle first, then it stands as a result.
+ * Past the opening's end but before any sweep, the Round starts at that end and
+ * no speech has been played, so no segment opens.
+ */
 export function forfeitInOpening(
   input: OpeningRound & { readonly actorId: string },
 ): RoundProjection {
   const { opening, step } = settled(input);
   const runtime = createRoundRuntime(input);
-  if (step.step === 'complete') runtime.activate({ at: step.at, now: step.at });
   return withDraw(
     {
       ...runtime.execute({

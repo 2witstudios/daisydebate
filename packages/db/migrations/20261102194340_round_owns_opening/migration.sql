@@ -4,7 +4,8 @@
 -- evidence. The locks make a command on the serving release wait for this commit.
 LOCK TABLE "rooms", "rounds" IN SHARE ROW EXCLUSIVE MODE;--> statement-breakpoint
 -- Nothing starts a scheduled Round any more. One past the old 15-minute start
--- horizon (DEC-214) is abandoned as maintenance would have; the rest start now.
+-- horizon (DEC-214) is abandoned as maintenance would have, and so is a proof
+-- Round with no Room and so no cast to start; the rest start now.
 DELETE FROM "room_active_memberships" WHERE "room_id" IN (
   SELECT "room_id" FROM "rounds"
   WHERE "status" = 'scheduled' AND "room_id" IS NOT NULL
@@ -13,7 +14,7 @@ DELETE FROM "room_active_memberships" WHERE "room_id" IN (
 UPDATE "rounds" SET
   "status" = 'abandoned', "completed_at" = statement_timestamp(),
   "version" = "version" + 1, "updated_at" = statement_timestamp()
-WHERE "status" = 'scheduled' AND "created_at" <= statement_timestamp() - interval '15 minutes';--> statement-breakpoint
+WHERE "status" = 'scheduled' AND ("room_id" IS NULL OR "created_at" <= statement_timestamp() - interval '15 minutes');--> statement-breakpoint
 UPDATE "rounds" SET
   "status" = 'active', "current_stage" = 'countdown', "started_at" = statement_timestamp(),
   "version" = "version" + 1, "updated_at" = statement_timestamp()

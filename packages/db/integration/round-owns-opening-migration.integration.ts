@@ -1,6 +1,7 @@
 import { afterAll } from 'bun:test';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { validConfig } from './round-fixtures';
 import { withFixture } from './constraint-helpers';
 import {
   ddlTimeoutMs,
@@ -21,14 +22,22 @@ test(
     await withFixture(scratch.url, async (f) => {
       const actor = await f.actor();
       const format = await f.format();
-      const scheduled = (createdAt: Date) =>
+      const scheduled = async (createdAt: Date, inRoom = true) =>
         f.round({
           created_by_actor_id: actor,
           format_id: format,
           created_at: createdAt,
+          ...(inRoom
+            ? {
+                room_id: await f.room(actor, format, { status: 'started' }),
+                room_config_snapshot: validConfig,
+                visibility: 'public',
+              }
+            : {}),
         });
       const stale = await scheduled(new Date(Date.now() - 16 * 60_000));
       const fresh = await scheduled(new Date());
+      const proof = await scheduled(new Date(), false);
       const started = await f.round({
         created_by_actor_id: actor,
         format_id: format,
@@ -50,7 +59,7 @@ test(
       await scratch.migrate((folder) => folder <= migration);
 
       const statuses =
-        await f.sql`select id, status, current_stage, started_at is not null as started, completed_at is not null as completed from rounds where id in ${f.sql([stale, fresh, started])}`;
+        await f.sql`select id, status, current_stage, started_at is not null as started, completed_at is not null as completed from rounds where id in ${f.sql([stale, fresh, started, proof])}`;
       const of = (id: string) =>
         statuses.find((r: { id: string }) => r.id === id);
       const tables =
@@ -65,11 +74,13 @@ test(
           [of(stale)?.status, of(stale)?.completed],
           [of(fresh)?.status, of(fresh)?.current_stage, of(fresh)?.started],
           of(started)?.status,
+          of(proof)?.status,
         ],
         expected: [
           ['abandoned', true],
           ['active', 'countdown', true],
           'active',
+          'abandoned',
         ],
       });
       assert({
