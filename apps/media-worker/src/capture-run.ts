@@ -37,6 +37,8 @@ export async function runCaptureProcess(input: {
   readonly argv: readonly string[];
   readonly env: Record<string, string | undefined>;
   readonly fetch: Fetch;
+  /** The LiveKit subscription; a process proof supplies its own frames. */
+  readonly subscribe?: typeof createAudioSubscription;
 }) {
   // A rejection nothing awaited still ends the process, as Bun would, but
   // with a status the worker can tell apart from a staged failure.
@@ -101,7 +103,7 @@ export async function runCaptureProcess(input: {
           timeoutMs: CAPTURE_STT_TIMEOUT_MS,
         }),
         sttModel: 'openai/whisper-large-v3-turbo',
-        subscribe: createAudioSubscription,
+        subscribe: input.subscribe ?? createAudioSubscription,
         consume: consumeCaptureClips,
         pendingBytes,
         nowMs: performance.now,
