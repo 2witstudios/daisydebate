@@ -212,28 +212,30 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
     const formPage = await openPage(native, 'native refused reload');
     await formPage.goto(path);
     const seats = [page, formPage];
-    await controlLaunch('refuse-round-reads');
-    try {
-      for (const seat of seats) {
-        const answer = await seat.reload();
-        // A Next page cannot choose a 5xx; it can stay uncacheable.
-        expect(answer?.headers()['cache-control']).toContain('no-store');
-        await expect(
-          seat.locator('meta[http-equiv="refresh"]'),
-        ).toHaveAttribute('content', /^[234]$/);
-        await expect(
-          seat.getByRole('heading', {
-            name: 'Reconnecting to the Round',
-            exact: true,
-          }),
-        ).toBeVisible();
-        await expect(endSpeech(seat)).toHaveCount(0);
+    for (const read of ['round', 'identity'] as const) {
+      await controlLaunch(`refuse-${read}-reads`);
+      try {
+        for (const seat of seats) {
+          const answer = await seat.reload();
+          // A Next page cannot choose a 5xx; it can stay uncacheable.
+          expect(answer?.headers()['cache-control']).toContain('no-store');
+          await expect(
+            seat.locator('meta[http-equiv="refresh"]'),
+          ).toHaveAttribute('content', /^[234]$/);
+          await expect(
+            seat.getByRole('heading', {
+              name: 'Reconnecting to the Round',
+              exact: true,
+            }),
+          ).toBeVisible();
+          await expect(endSpeech(seat)).toHaveCount(0);
+        }
+      } finally {
+        await controlLaunch(`allow-${read}-reads`);
       }
-    } finally {
-      await controlLaunch('allow-round-reads');
+      // Nothing touches either page from here: each must come back by itself.
+      for (const seat of seats) await expect(endSpeech(seat)).toBeEnabled();
     }
-    // Nothing touches either page from here: each must come back by itself.
-    for (const seat of seats) await expect(endSpeech(seat)).toBeEnabled();
     await endSpeech(formPage).click();
     await formPage
       .getByRole('button', { name: 'Confirm end speech', exact: true })

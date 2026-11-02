@@ -39,7 +39,12 @@ type UserPrincipal = Extract<Principal, { kind: 'user' }>;
 export type Identity =
   | { readonly state: 'anonymous'; readonly principal: AnonymousPrincipal }
   /** The session store could not be read: fail closed, but not as signed out. */
-  | { readonly state: 'unavailable'; readonly principal: AnonymousPrincipal }
+  | {
+      readonly state: 'unavailable';
+      readonly principal: AnonymousPrincipal;
+      /** The store's failure, for a caller to classify; never rendered or logged. */
+      readonly cause?: unknown;
+    }
   | { readonly state: 'provisional'; readonly principal: UserPrincipal }
   | {
       readonly state: 'waitlisted';
@@ -68,6 +73,7 @@ export const claimedUsername = (identity: Identity): string | null =>
 
 const ANONYMOUS: Identity = { state: 'anonymous', principal: anonymous };
 const UNAVAILABLE: Identity = { state: 'unavailable', principal: anonymous };
+const failedRead = (cause: unknown): Identity => ({ ...UNAVAILABLE, cause });
 
 /**
  * Principal resolution from request cookies (ADR 0020, gate 2). Only the
@@ -97,8 +103,8 @@ export async function resolveIdentity({
   let found: VerifiedSession | null;
   try {
     found = await readSession(cookie);
-  } catch {
-    return UNAVAILABLE;
+  } catch (error) {
+    return failedRead(error);
   }
   if (!found || found.emailVerified !== true) return ANONYMOUS;
   const instant = Date.parse(now());
@@ -136,8 +142,8 @@ async function identityFromSession(
       { kind: 'user', userId, actorId: actor.id },
       await readParticipation(userId),
     );
-  } catch {
-    return UNAVAILABLE;
+  } catch (error) {
+    return failedRead(error);
   }
 }
 

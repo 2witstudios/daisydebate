@@ -18,7 +18,11 @@ import {
 } from './email-change/email-change';
 import { createMagicLinkGatePlugin } from './confirmation/magic-link-gate';
 import { createSuppressionCheck } from './mail/suppression-check';
-import { betterAuthLogger, reportAuthFailure } from './failure-report';
+import {
+  betterAuthLogger,
+  keepingRefusal,
+  reportAuthFailure,
+} from './failure-report';
 import { freshSessionGatePlugin } from './sessions/fresh-session-gate';
 import { browserSessionShapePlugin } from './sessions/browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkeys/passkey-device-hint';
@@ -243,6 +247,15 @@ const composeBetterAuth = (dependencies: {
 };
 
 /**
+ * This request's durable session. It never refreshes: a server component
+ * cannot set cookies, so a refresh would slide the row but not the browser's.
+ */
+const sessionReaderOf = (instance: AuthInstance) => (headers: Headers) =>
+  keepingRefusal(() =>
+    instance.api.getSession({ headers, query: { disableRefresh: true } }),
+  );
+
+/**
  * Only what production callers read off the result: the app's routes and
  * pages (`server/app.ts` composes it) use `config`, `instance`,
  * `clock` and `logger`, and the app's close waits on `settled`. Mail delivery, `database`, `ledger` and `ids` stay
@@ -257,6 +270,7 @@ export type AuthServer = {
   readonly getParticipationByUserId: (userId: string) => Promise<Participation>;
   readonly config: AuthConfig;
   readonly instance: AuthInstance;
+  readonly readSession: ReturnType<typeof sessionReaderOf>;
   readonly logger: Logger;
   readonly clock: Clock;
   /** Resolves once work handed off past an answer has finished (ISSUE-185). */
@@ -327,26 +341,27 @@ export function createAuthServer<
     logger: dependencies.logger,
     clock: dependencies.clock,
   })('auth');
+  const instance = composeBetterAuth({
+    config,
+    recipientSubkey,
+    database: dependencies.database,
+    deliver: sendMail,
+    limiter: dependencies.limiter,
+    ledger,
+    logger: dependencies.logger,
+    ids: dependencies.ids,
+    clock: dependencies.clock,
+    revokeOtherSessions: dependencies.revokeOtherSessions,
+    completeEmailChange: dependencies.completeEmailChange,
+    revokeSessionUnlessAddressHeld: dependencies.revokeSessionUnlessAddressHeld,
+    afterResponse,
+  });
   return {
     getActorByUserId: dependencies.getActorByUserId,
     getParticipationByUserId: dependencies.getParticipationByUserId,
     config,
-    instance: composeBetterAuth({
-      config,
-      recipientSubkey,
-      database: dependencies.database,
-      deliver: sendMail,
-      limiter: dependencies.limiter,
-      ledger,
-      logger: dependencies.logger,
-      ids: dependencies.ids,
-      clock: dependencies.clock,
-      revokeOtherSessions: dependencies.revokeOtherSessions,
-      completeEmailChange: dependencies.completeEmailChange,
-      revokeSessionUnlessAddressHeld:
-        dependencies.revokeSessionUnlessAddressHeld,
-      afterResponse,
-    }),
+    instance,
+    readSession: sessionReaderOf(instance),
     logger: dependencies.logger,
     clock: dependencies.clock,
     settled: afterResponse.settled,

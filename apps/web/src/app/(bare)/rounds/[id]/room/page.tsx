@@ -1,5 +1,8 @@
 import { roundDocumentPrincipal } from '../../../../../features/debate-room/documents/document-principal';
-import { requestRoundRatings } from '../../../../../lib/request-session';
+import {
+  requestIdentity,
+  requestRoundRatings,
+} from '../../../../../lib/request-session';
 import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
 import { LiveTranscript } from '../../../../../ui/round-result/live-transcript';
@@ -106,6 +109,9 @@ export default async function RoundRoomPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { id } = await params;
+  const asking = await requestIdentity();
+  if (asking.state === 'unavailable' && isCapacityRefusal(asking.cause))
+    return reconnecting();
   const identity = await requireAccess(`/rounds/${id}/room`, searchParams);
   if (!idSchema.safeParse(id).success) notFound();
   const principal = roundDocumentPrincipal(identity);

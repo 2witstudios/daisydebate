@@ -1,3 +1,4 @@
+import type { AnalyticsConsent } from '@daisy/protocol';
 import { cookies } from 'next/headers';
 import { analyticsConfiguration } from '../features/analytics/config';
 import { CONSENT_COOKIE, parseConsent } from '../features/analytics/consent';
@@ -13,6 +14,7 @@ import { admitsOptionalAnswers } from '@daisy/auth/account-age';
 import type { MatchHistoryQuery, MemberProfile } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
+import { readViewerConsent } from '../features/analytics/viewer-consent';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
@@ -39,6 +41,19 @@ export const privateGroupsOffered = (): boolean =>
 export const requestIdentity = async (): Promise<Identity> =>
   (await requestSession()).identity;
 
+/** A signed-in viewer whose browser choice the stored consent has not caught up with. */
+const consentAdoptionDue = (
+  userId: string | null,
+  stored: AnalyticsConsent | null,
+  cookie: AnalyticsConsent,
+) =>
+  Boolean(
+    userId &&
+    (stored
+      ? JSON.stringify(stored) !== JSON.stringify(cookie)
+      : cookie.analytics !== 'unanswered' || cookie.replay !== 'unanswered'),
+  );
+
 /** Public adapter config only; management credentials never enter a rendered prop. */
 export const requestAnalytics = cache(async () => {
   const app = processApp();
@@ -58,19 +73,17 @@ export const requestAnalytics = cache(async () => {
     identity.state === 'anonymous' || identity.state === 'unavailable'
       ? null
       : identity.principal.userId;
-  const stored = userId
-    ? await app.database.readAnalyticsConsent(userId)
-    : null;
+  const { refused, stored } = userId
+    ? await readViewerConsent(
+        (id) => app.database.readAnalyticsConsent(id),
+        userId,
+      )
+    : { refused: false, stored: null };
   const consent = stored ?? cookie;
-  const needsAdoption = Boolean(
-    userId &&
-    (stored
-      ? JSON.stringify(stored) !== JSON.stringify(cookie)
-      : cookie.analytics !== 'unanswered' || cookie.replay !== 'unanswered'),
-  );
+  const needsAdoption = !refused && consentAdoptionDue(userId, stored, cookie);
   return {
     needsAdoption,
-    keyValue: identity.state === 'unavailable' ? null : config.key,
+    keyValue: identity.state === 'unavailable' || refused ? null : config.key,
     host: config.host,
     userId,
     consent,

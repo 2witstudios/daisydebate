@@ -17,7 +17,8 @@ It shows no Round state, because none was read, and each refresh applies the
 access and redirect rules again. It answers 200 and `no-store`: a Next page
 cannot choose a 5xx. Reads beside the room (ratings, transcript, attendance)
 degrade in place, because a refresh would cost the room for less than its
-controls. Any other failure, an unavailable identity included, stays on the
+controls. A capacity refusal behind the page's identity gets the same status
+page. Any other failure, a genuinely unavailable identity included, stays on the
 error boundary: it is not known to pass and must not say so (ISSUE-927).
 
 ## Mutating forms work without JavaScript

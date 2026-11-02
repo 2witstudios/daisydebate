@@ -27,7 +27,8 @@ export type SignedInIdentity = Extract<
  * itself.
  */
 export function requireSignedIn(identity: Identity): SignedInIdentity {
-  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  if (identity.state === 'unavailable')
+    throw createAppError('INFRASTRUCTURE', undefined, identity.cause);
   if (identity.state === 'anonymous') throw createAppError('AUTHENTICATION');
   return identity;
 }
