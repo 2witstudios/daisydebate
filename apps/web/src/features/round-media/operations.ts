@@ -1,5 +1,5 @@
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import {
   roundMediaAdmissionSchema,
   type RoundMediaState,
@@ -29,10 +29,16 @@ const callerOf = (actorId: string) => ({
   admits: admitsPrincipalAccess,
 });
 /**
- * How long a browser admission waits for the session's lease: below the client's
- * 10 s request deadline, so it answers a retryable 503 rather than being abandoned.
+ * How long a browser admission waits to win the session's lease, below the
+ * client's 10 s request deadline. It bounds the wait only: a pass won late can
+ * outlast that deadline, and its client then retries while the pass finishes.
  */
 export const MEDIA_ADMISSION_WAIT_MS = 8_000;
+const MEDIA_DEFERRED = 'media-deferred';
+/** Expected backpressure: a retryable 503 that needs no one to look. */
+const mediaDeferred = () => createAppError('INFRASTRUCTURE', MEDIA_DEFERRED);
+export const isMediaDeferred = (error: unknown) =>
+  isAppError(error) && error.message === MEDIA_DEFERRED;
 type AdmissionLimit = {
   readonly untilMs: number;
   /** The client's request: an abandoned admission stops waiting. */
@@ -61,7 +67,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     try {
       for (;;) {
         if (limit?.signal?.aborted || (limit && input.now() >= limit.untilMs))
-          throw createAppError('INFRASTRUCTURE');
+          throw mediaDeferred();
         const claim = await input.store.claimMediaReconcile({
           sessionId,
           owner,
@@ -74,8 +80,13 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       await input.priority(sessionId, 'leave', owner);
     }
   };
-  const serve = async (sessionId: string, version: number) => {
+  const serve = async (
+    sessionId: string,
+    version: number,
+    signal?: AbortSignal,
+  ) => {
     for (;;) {
+      if (signal?.aborted) throw mediaDeferred();
       const progress = await input.store.mediaReconcileProgress(sessionId);
       if (progress.servedVersion >= version) return;
       if (await input.priority(sessionId, 'waiting')) {
@@ -97,18 +108,32 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     const state = await snapshot(roundId, actorId);
     const exists =
       !mediaEnded(state) &&
-      (await input.deadline(input.media.exists(state.session.roomName)));
+      (await input
+        .deadline(input.media.exists(state.session.roomName))
+        .catch(() => {
+          throw createAppError('INFRASTRUCTURE');
+        }));
     return projectMedia(state, exists, input.nextId);
   };
   const reconcile = async (
     roundId: string,
     actorId?: string,
+    signal?: AbortSignal,
   ): Promise<RoundMediaState> => {
     const request = await input.store.requestMediaReconcile({
       roundId,
       ...(actorId ? { caller: callerOf(actorId) } : {}),
     });
-    await serve(request.sessionId, request.version);
+    await serve(request.sessionId, request.version, signal);
+    const state = await snapshot(roundId, actorId);
+    // A pass's vendor write in flight says nothing about this caller's access.
+    if (
+      actorId &&
+      state.unresolved &&
+      !mediaEnded(state) &&
+      !admissionRevoked(state)
+    )
+      throw mediaDeferred();
     return read(roundId, actorId);
   };
   /**

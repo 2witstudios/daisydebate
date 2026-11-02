@@ -1,5 +1,13 @@
 import { cancelMediaWork } from './cancel-media-work';
 import {
+  failureKind,
+  failureState,
+  isMediaRefusal,
+  isTransientMediaFailure,
+  mediaRefusal,
+  type MediaFailureKind,
+} from './media-failure';
+import {
   decideMediaRead,
   type MediaReadEvent,
   type MediaReadIntent,
@@ -10,9 +18,6 @@ import {
   type RoundMediaAdmission,
   type RoundMediaState,
 } from '@daisy/protocol';
-
-/** The transport's error for a device the Room check passed that is now gone. */
-export const CHECKED_DEVICE_MISSING = 'CheckedDeviceMissingError';
 
 export type MediaConnectionState =
   | 'connecting'
@@ -32,48 +37,6 @@ export type BrowserMediaTransport = {
   readonly disconnect: () => Promise<void>;
 };
 
-const transient = new WeakSet<object>();
-/**
- * A media request refused for now (a 503 under load, or the network): the
- * controller retries it before calling media unavailable (ISSUE-494).
- */
-export function transientMediaFailure() {
-  const failure = new Error('Media unavailable for now');
-  transient.add(failure);
-  return failure;
-}
-export const isTransientMediaFailure = (error: unknown) =>
-  typeof error === 'object' && error !== null && transient.has(error);
-/**
- * The failure a non-OK media answer stands for: a 408 (the outcome is unknown)
- * or a 503 (refused for now) is transient; every other status is definite.
- */
-export function mediaFailure(status: number) {
-  return status === 408 || status === 503
-    ? transientMediaFailure()
-    : new Error('Media unavailable');
-}
-
-const deviceBlocked = (error: unknown) =>
-  error instanceof Error &&
-  [
-    'NotAllowedError',
-    'SecurityError',
-    'NotFoundError',
-    'NotReadableError',
-  ].includes(error.name);
-
-/** Whether a failure may pass by itself; a recovery owner reads this from `changed`. */
-export type MediaFailureKind = 'transient' | 'definite';
-const failureKind = (error: unknown): MediaFailureKind =>
-  isTransientMediaFailure(error) ? 'transient' : 'definite';
-
-const failureState = (error: unknown): MediaConnectionState => {
-  if (error instanceof Error && error.name === CHECKED_DEVICE_MISSING)
-    return 'device-missing';
-  return deviceBlocked(error) ? 'device-blocked' : 'unavailable';
-};
-
 type ReadTicket = {
   readonly generation: number;
   readonly abort: AbortController;
@@ -84,6 +47,9 @@ type Connection = {
   readonly transport: BrowserMediaTransport;
   connected: boolean;
   wentLive: boolean;
+  /** A local device failure the Round already shows; reads must not overwrite it. */
+  deviceFailed: boolean;
+  unansweredSinceMs: number | null;
   queued: boolean;
   read: ReadTicket | null;
   loop: Promise<void> | null;
@@ -107,6 +73,8 @@ export function createMediaController(input: {
     failure?: MediaFailureKind,
   ) => void;
   readonly received?: (state: RoundMediaState) => void;
+  /** How long reads may go unanswered before live tracks show as out of date. */
+  readonly readBudget?: { readonly now: () => number; readonly ms: number };
   readonly retry?: {
     readonly delaysMs: readonly number[];
     readonly wait: (ms: number, signal: AbortSignal) => Promise<void>;
@@ -153,12 +121,16 @@ export function createMediaController(input: {
     release(previous?.transport ?? null);
     change('ended');
   };
-  const fail = (generation: number, error: unknown) => {
+  const fail = (
+    generation: number,
+    error: unknown,
+    failure: MediaFailureKind = failureKind(error),
+  ) => {
     if (stale(generation)) return;
     const previous = connection;
     connection = null;
     release(previous?.transport ?? null);
-    if (!stale(generation)) change(failureState(error), failureKind(error));
+    if (!stale(generation)) change(failureState(error), failure);
   };
   const retrying = async (
     signal: AbortSignal,
@@ -176,25 +148,40 @@ export function createMediaController(input: {
     }
     return cancelMediaWork(signal, request);
   };
+  /** The server's answer, or null once an unanswered read has been dealt with. */
+  const readAnswer = async (owner: Connection, ticket: ReadTicket) => {
+    const signal = ticket.abort.signal;
+    try {
+      const snapshot = roundMediaStateSchema.parse(
+        await retrying(
+          signal,
+          () => input.api.reconcile(input.roundId, signal),
+          () => {
+            if (current(owner, ticket) && !owner.wentLive)
+              change('reconnecting');
+          },
+        ),
+      );
+      if (current(owner, ticket) && snapshot.roundId !== input.roundId)
+        throw new Error('Media Round mismatch');
+      return snapshot;
+    } catch (error) {
+      if (current(owner, ticket)) readUnanswered(owner, error);
+      return null;
+    }
+  };
   const synchronize = async (owner: Connection, ticket: ReadTicket) => {
     const signal = ticket.abort.signal;
-    const snapshot = roundMediaStateSchema.parse(
-      await retrying(
-        signal,
-        () => input.api.reconcile(input.roundId, signal),
-        () => {
-          if (current(owner, ticket) && !owner.wentLive) change('reconnecting');
-        },
-      ),
-    );
-    if (!current(owner, ticket)) return;
-    if (snapshot.roundId !== input.roundId)
-      throw new Error('Media Round mismatch');
+    const snapshot = await readAnswer(owner, ticket);
+    if (!snapshot || !current(owner, ticket)) return;
     if (snapshot.state === 'ended') {
       stop();
       return;
     }
-    if (snapshot.state !== 'ready') throw new Error('Media unavailable');
+    if (snapshot.state !== 'ready') {
+      fail(owner.generation, mediaRefusal());
+      return;
+    }
     // A started SDK operation cannot be cancelled. Fresh HTTP may run while it
     // finishes, but fresh SDK application must follow its actual settlement.
     const applying = owner.applying.then(async () => {
@@ -211,16 +198,32 @@ export function createMediaController(input: {
     input.received?.(snapshot);
     if (!current(owner, ticket)) return;
     owner.wentLive = true;
-    if (state !== 'live') change('live');
+    owner.unansweredSinceMs = null;
+    if (state !== 'live' && !owner.deviceFailed) change('live');
+  };
+  const showOutOfDate = (owner: Connection) => {
+    if (!owner.deviceFailed) change('out-of-date', 'transient');
   };
   /**
    * LiveKit enforces every grant on the server, so a read that cannot finish
    * carries no authority risk: live tracks stay up and the next event reads again.
    */
-  const readFailed = (owner: Connection, error: unknown) => {
-    if (owner.wentLive && isTransientMediaFailure(error))
-      change('out-of-date', 'transient');
-    else fail(owner.generation, error);
+  const readUnanswered = (owner: Connection, error: unknown) => {
+    if (isMediaRefusal(error)) fail(owner.generation, error);
+    else if (owner.wentLive) showOutOfDate(owner);
+    else fail(owner.generation, error, 'transient');
+  };
+  /** Supersession restarts each read's retries, not the stall it belongs to. */
+  const noteReadStarting = (owner: Connection) => {
+    const budget = input.readBudget;
+    if (!budget) return;
+    owner.unansweredSinceMs ??= budget.now();
+    if (
+      owner.wentLive &&
+      state === 'live' &&
+      budget.now() - owner.unansweredSinceMs >= budget.ms
+    )
+      showOutOfDate(owner);
   };
   const drain = async (owner: Connection) => {
     // Yield first so `owner.loop` is reserved before effects can emit an intent.
@@ -232,12 +235,13 @@ export function createMediaController(input: {
         abort: new AbortController(),
       };
       owner.read = ticket;
+      noteReadStarting(owner);
       const cancel = () => ticket.abort.abort();
       owner.signal.addEventListener('abort', cancel, { once: true });
       try {
         await synchronize(owner, ticket);
       } catch (error) {
-        if (current(owner, ticket)) readFailed(owner, error);
+        if (current(owner, ticket)) fail(owner.generation, error);
       } finally {
         owner.signal.removeEventListener('abort', cancel);
         owner.read = null;
@@ -262,6 +266,8 @@ export function createMediaController(input: {
       transport: input.transport(),
       connected: false,
       wentLive: false,
+      deviceFailed: false,
+      unansweredSinceMs: null,
       queued: false,
       read: null,
       loop: null,
@@ -330,6 +336,10 @@ export function createMediaController(input: {
   };
   return {
     state: () => state,
+    /** The Round showed a local device failure; later reads must not hide it. */
+    deviceFailed: () => {
+      if (connection) connection.deviceFailed = true;
+    },
     join: () => join(),
     reconnect: () => join(true),
     reconcile,

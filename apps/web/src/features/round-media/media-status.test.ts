@@ -129,3 +129,13 @@ test('stale media state is never shown as plainly connected', () => {
     expected: [false, true, false],
   });
 });
+
+test('a missing checked device stays named while status is out of date', () => {
+  const status = mediaStatus('out-of-date', ['microphone']);
+  assert({
+    given: 'stalled reads and a checked microphone that went missing',
+    should: 'name the device its Retry would forget',
+    actual: [/microphone is missing/.test(status.message), status.retry],
+    expected: [true, true],
+  });
+});

@@ -1,10 +1,15 @@
 import { cancelMediaWork } from './cancel-media-work';
-import { mediaFailure, transientMediaFailure } from './media-controller';
+import { mediaFailure, transientMediaFailure } from './media-failure';
 
 /** One attempt's deadline, over headers and body. */
 export const MEDIA_REQUEST_DEADLINE_MS = 10_000;
 /** Pauses between attempts: 3.5 s, so about 43.5 s across four stalled attempts. */
 export const MEDIA_RETRY_DELAYS_MS = [500, 1_000, 2_000] as const;
+
+/** Four stalled attempts and their pauses, about 43.5 s. */
+export const MEDIA_READ_BUDGET_MS =
+  4 * MEDIA_REQUEST_DEADLINE_MS +
+  MEDIA_RETRY_DELAYS_MS.reduce((total, pause) => total + pause, 0);
 
 /** One request deadline includes headers and body; effects belong to the media mount. */
 export function createMediaRequest(input: {

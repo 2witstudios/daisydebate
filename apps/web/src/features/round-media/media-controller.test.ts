@@ -1,12 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundMediaAdmission } from '@daisy/protocol';
+import { createMediaController } from './media-controller';
 import {
   CHECKED_DEVICE_MISSING,
-  createMediaController,
   isTransientMediaFailure,
   mediaFailure,
   transientMediaFailure,
-} from './media-controller';
+} from './media-failure';
 import { roundId, admission, snapshot } from './media-controller.test-support';
 setupRitewayBun();
 

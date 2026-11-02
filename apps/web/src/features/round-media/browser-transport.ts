@@ -9,10 +9,8 @@ import {
   type LocalTrack,
 } from 'livekit-client';
 import type { RoundMediaState } from '@daisy/protocol';
-import {
-  CHECKED_DEVICE_MISSING,
-  type BrowserMediaTransport,
-} from './media-controller';
+import { type BrowserMediaTransport } from './media-controller';
+import { CHECKED_DEVICE_MISSING } from './media-failure';
 
 export type MediaTrack = {
   readonly identity: string;
@@ -84,6 +82,7 @@ export function createBrowserMediaTransport(
   setLogLevel(LogLevel.silent);
   const room = sdk.room();
   let stopped = false;
+  let released = false;
   const tracks = new Map<Source, LocalTrack>();
   let granted: readonly Source[] = [];
   /** A debater's microphone, captured but unpublished until its grant (ISSUE-572). */
@@ -108,7 +107,7 @@ export function createBrowserMediaTransport(
   };
   const emit = () => {
     // A released room must not overwrite the list its successor now owns.
-    if (stopped) return;
+    if (released) return;
     const snapshot: MediaTrack[] = [];
     for (const participant of [
       room.localParticipant,
@@ -294,6 +293,7 @@ export function createBrowserMediaTransport(
     apply,
     stopTracks,
     disconnect: async () => {
+      released = true;
       stopTracks();
       await room.disconnect(true);
       room.removeAllListeners();

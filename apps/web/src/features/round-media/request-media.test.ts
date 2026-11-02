@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMediaRequest } from './request-media';
-import { isTransientMediaFailure } from './media-controller';
+import { isTransientMediaFailure } from './media-failure';
 import { trackedSignal } from './media-controller.test-support';
 
 setupRitewayBun();

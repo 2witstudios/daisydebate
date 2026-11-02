@@ -309,7 +309,7 @@ test('a failed unpublish of a kept microphone stops it instead of orphaning it',
   });
 });
 
-test('a released room cannot overwrite the shared track list', () => {
+test('a released room cannot overwrite the shared track list', async () => {
   const stub = stubSdk();
   const emitted: number[] = [];
   const { transport } = createBrowserMediaTransport(
@@ -317,12 +317,30 @@ test('a released room cannot overwrite the shared track list', () => {
     stub.sdk,
   );
   transport.stopTracks();
+  await transport.disconnect();
   stub.fire(RoomEvent.LocalTrackPublished);
   stub.fire(RoomEvent.TrackUnsubscribed);
   assert({
-    given: 'late SDK events from a stopped transport',
+    given: 'late SDK events from a released transport',
     should: 'emit nothing after the final empty list',
     actual: emitted,
     expected: [0],
+  });
+});
+
+test('tracks stopped by a local failure still follow the connected room', () => {
+  const stub = stubSdk();
+  const emitted: number[] = [];
+  const { transport } = createBrowserMediaTransport(
+    { ...events, tracks: (tracks) => emitted.push(tracks.length) },
+    stub.sdk,
+  );
+  transport.stopTracks();
+  stub.fire(RoomEvent.TrackSubscribed);
+  assert({
+    given: 'local tracks stopped while the room stays connected',
+    should: 'keep reporting the room, so remote media can return',
+    actual: emitted,
+    expected: [0, 0],
   });
 });

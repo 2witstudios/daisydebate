@@ -14,7 +14,11 @@ import {
   createMediaController,
   type MediaConnectionState,
 } from './media-controller';
-import { createMediaRequest, MEDIA_RETRY_DELAYS_MS } from './request-media';
+import {
+  createMediaRequest,
+  MEDIA_READ_BUDGET_MS,
+  MEDIA_RETRY_DELAYS_MS,
+} from './request-media';
 import { MediaStage } from './media-stage';
 import {
   hasLiveTracks,
@@ -88,6 +92,10 @@ function RoundMediaSession({
       changed: showConnection({ connection: setConnection, media: setMedia }),
       received: setMedia,
       retry: { delaysMs: MEDIA_RETRY_DELAYS_MS, wait: pause },
+      readBudget: {
+        now: () => Date.parse(systemClock.now()),
+        ms: MEDIA_READ_BUDGET_MS,
+      },
       transport: () => {
         const browser = createBrowserMediaTransport({
           microphoneMuted: muted.current,
@@ -154,9 +162,10 @@ function RoundMediaSession({
             type="button"
             className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             onClick={() => {
-              void sound
-                .current?.()
-                .catch(() => setConnection('device-blocked'));
+              void sound.current?.().catch(() => {
+                controller.current?.deviceFailed();
+                setConnection('device-blocked');
+              });
             }}
           >
             Enable sound
@@ -181,6 +190,7 @@ function RoundMediaSession({
                 setMicrophoneMuted(!previous);
               } catch {
                 muted.current = previous;
+                controller.current?.deviceFailed();
                 setConnection('device-blocked');
               } finally {
                 setChangingMicrophone(false);

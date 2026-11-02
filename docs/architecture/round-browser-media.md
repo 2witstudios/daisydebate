@@ -76,12 +76,15 @@ are recorded and the first read uses them, without another admission.
 `createMediaRequest` owns the one 10-second deadline over headers and body for
 each attempt. Expiry is a transient failure, handled by the controller's existing
 retry and no second retry owner.
-Reads that exhaust their retries on a live connection keep its transport and
-tracks: LiveKit enforces every grant on the server, so a failed read carries no
-authority risk. The state becomes `out-of-date`, shown as such rather than as
-plain connected, until a later read answers; later view, boundary and wake events
-and the view's backstop poll start those reads, so a newer view does not clear it.
-A definite refusal, revocation, terminal state or disposal still ends the
+A read that cannot finish on a live connection keeps its transport and tracks:
+LiveKit enforces every grant on the server, so it carries no authority risk. Only
+an answer about authority ends the connection: 401, 403, 404, 409, 410, or the
+server's unavailable or ended state. Anything else, a timeout, 429 or 5xx
+included, makes the state `out-of-date`, shown as such rather than as plain
+connected, until a later read answers. Later view, boundary and wake events and the
+view's backstop poll start those reads. Supersession restarts a read's retries but
+not the stall, so reads kept unanswered past the read budget also show `out-of-date`.
+A local device failure the Round has shown is not overwritten by later reads; revocation, terminal state and disposal still end the
 connection, and admission failure before a connection goes live is unchanged.
 The deadline bounds HTTP only. An SDK apply that never settles still holds later
 applies, as it always has; nothing here cancels or times out SDK work.
@@ -90,7 +93,11 @@ applies, as it always has; nothing here cancels or times out SDK work.
 
 A browser admission waits for the session's lease for at most 8 seconds, below the
 client's 10-second request deadline, and stops as soon as its request is aborted.
-Either answers the retryable 503. A pass that has already started is not cancelled.
+Either answers the retryable 503. The bound covers the wait only: a pass won late can
+outlast the client's deadline, and a pass that has already started is not cancelled.
+A browser read also stops serving when its request is aborted, and a read that
+crosses a vendor write in flight answers the same 503 rather than a refusal. These
+expected deferrals log `round.media.request_deferred` and reach no error tracker.
 
 Media admissions announce an expendable waiter hint through the existing Redis
 adapter before competing for the PostgreSQL reconcile lease. Other web instances'

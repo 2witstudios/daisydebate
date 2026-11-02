@@ -3,6 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import {
   createRoundMediaOperations,
+  isMediaDeferred,
   MEDIA_ADMISSION_WAIT_MS,
 } from './operations';
 import { createMediaWorld } from './media-world.test-support';
@@ -333,5 +334,44 @@ test('a browser admission stops waiting at its bound or when its client leaves',
       ['INFRASTRUCTURE', MEDIA_ADMISSION_WAIT_MS, 8],
       ['INFRASTRUCTURE', 3_000, 3],
     ],
+  });
+});
+
+test('a read crossing a vendor write in flight defers instead of refusing', async () => {
+  const world = createMediaWorld();
+  const operations = createRoundMediaOperations(world.input);
+  const actor = world.seats[0].actorId;
+  await operations.session(world.roundId, actor);
+  const read = world.input.store.readMediaSession;
+  world.input.store.readMediaSession = (async (
+    ...args: Parameters<typeof read>
+  ) => {
+    const state = await read(...args);
+    return state && { ...state, unresolved: true };
+  }) as typeof read;
+  const failure = await operations
+    .reconcile(world.roundId, actor)
+    .catch((error: unknown) => error);
+  assert({
+    given: 'an unsettled vendor write while this seat reads',
+    should: 'answer the retryable deferral, not a refusal of its media',
+    actual: isMediaDeferred(failure),
+    expected: true,
+  });
+});
+
+test('an abandoned read stops serving', async () => {
+  const world = createMediaWorld();
+  const operations = createRoundMediaOperations(world.input);
+  const client = new AbortController();
+  client.abort();
+  const failure = await operations
+    .reconcile(world.roundId, world.seats[0].actorId, client.signal)
+    .catch((error: unknown) => error);
+  assert({
+    given: 'a read whose client has already left',
+    should: 'stop instead of running a pass for nobody',
+    actual: [isMediaDeferred(failure), world.reconciles()],
+    expected: [true, 0],
   });
 });

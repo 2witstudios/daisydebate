@@ -7,7 +7,7 @@ import {
   snapshot,
   transportStub,
 } from './media-controller.test-support';
-import { mediaFailure } from './media-controller';
+import { mediaFailure } from './media-failure';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
 
@@ -64,7 +64,7 @@ test('an old apply finishing after its successor failed releases what it publish
   const controller = readController({
     admit: async () => admission,
     reconcile: async () => {
-      if (++reads === 3) throw new Error('Definite refusal');
+      if (++reads === 3) throw mediaFailure(403);
       return snapshot;
     },
     transport: () =>
@@ -167,7 +167,7 @@ test('events after failure stay inert until reconnect, which uses the current in
       return admission;
     },
     reconcile: async () => {
-      if (++reads === 1) throw new Error('Definite refusal');
+      if (++reads === 1) throw mediaFailure(403);
       return snapshot;
     },
   });

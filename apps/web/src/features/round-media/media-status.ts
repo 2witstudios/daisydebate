@@ -45,7 +45,7 @@ export function mediaStatus(
   const gone = missing.length > 0;
   return {
     message:
-      connection === 'live' && gone
+      hasLiveTracks(connection) && gone
         ? `Connected, but your checked ${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} missing. Reconnect ${missing.length > 1 ? 'them' : 'it'}, or retry to use your default.`
         : messages[connection],
     retry:

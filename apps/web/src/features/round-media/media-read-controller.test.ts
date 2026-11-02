@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaController, mediaFailure } from './media-controller';
+import { createMediaController } from './media-controller';
+import { mediaFailure } from './media-failure';
 import {
   admission,
   readController,
