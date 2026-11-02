@@ -1,4 +1,5 @@
 import { CAPTURE_HISTORY_READ_MS } from '@daisy/protocol';
+import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
 import { createAppError } from '@daisy/errors';
 import {
   isDefiniteRefusal,
@@ -87,29 +88,25 @@ export function observedWindow(input: {
 }
 /** How long a read the control plane could not answer waits before its restart. */
 const READ_RETRY_MS = 250;
-const pauseRead = (signal: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, READ_RETRY_MS);
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer);
-        resolve();
-      },
-      { once: true },
-    );
-  });
+/** The session's injected time, for pausing and for the outage budget. */
+export type CapturePace = {
+  readonly nowMs: () => number;
+  readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
+};
 /**
  * A timed-out acquisition or an unanswering control plane is not an authority
- * refusal; restart with no partial pages. Frames wait in staging meanwhile.
+ * refusal; restart with no partial pages, while frames wait in staging. Still
+ * unanswered at the outage budget, the last failure ends the read.
  */
 export async function readCaptureHistory(
   client: Pick<CaptureClient, 'read'>,
   epoch: number,
   signal: AbortSignal,
+  pace: CapturePace,
   segmentId?: string,
   options: { readonly deadlineSignal?: () => AbortSignal } = {},
 ) {
+  const giveUpAt = pace.nowMs() + CAPTURE_OUTAGE_BUDGET_MS;
   for (;;) {
     signal.throwIfAborted();
     const deadline =
@@ -123,14 +120,16 @@ export async function readCaptureHistory(
         segmentId,
       );
       signal.throwIfAborted();
-      if (deadline.aborted) continue;
-      return snapshot;
+      if (!deadline.aborted) return snapshot;
+      if (pace.nowMs() >= giveUpAt)
+        throw createAppError('INFRASTRUCTURE', 'Capture history stayed late');
     } catch (error) {
       // A caller abort or server answer still ends capture immediately.
       if (signal.aborted || isDefiniteRefusal(error)) throw error;
+      if (pace.nowMs() >= giveUpAt) throw error;
       if (deadline.aborted) continue;
       if (!isTransientControlFailure(error)) throw error;
-      await pauseRead(signal);
+      await pace.waitUntilMs(pace.nowMs() + READ_RETRY_MS, signal);
     }
   }
 }

@@ -1,4 +1,4 @@
-import { streamGaps } from './round-protected-reads';
+import { closedStreamGaps, streamKey } from './capture-gaps';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
@@ -28,15 +28,17 @@ export async function audienceTranscript(
   if (!allowed) return null;
   const frozen = await readLockedFrozenRoundTranscript(tx, roundId);
   if (!frozen) return null;
-  const gaps = [];
-  for (const stream of frozen.coverage)
-    if (stream.state === 'partial')
-      for (const gap of await streamGaps(tx, roundId, stream))
-        gaps.push({
-          segmentId: stream.segmentId,
-          roundParticipantId: stream.roundParticipantId,
-          ...gap,
-        });
+  const partial = frozen.coverage.filter(
+    (stream) => stream.state === 'partial',
+  );
+  const found = await closedStreamGaps(tx, roundId, partial);
+  const gaps = partial.flatMap((stream) =>
+    (found.get(streamKey(stream)) ?? []).map((gap) => ({
+      segmentId: stream.segmentId,
+      roundParticipantId: stream.roundParticipantId,
+      ...gap,
+    })),
+  );
   return {
     completeness: frozen.completeness,
     utterances: frozen.utterances,

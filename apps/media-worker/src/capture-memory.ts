@@ -1,3 +1,9 @@
+/**
+ * The agreed control-plane outage (ADR 0094). Past it, whatever still gets no
+ * answer ends the session or its clip, so a server that keeps failing the same
+ * way reaches the logs and a relaunch instead of a silently stalled capture.
+ */
+export const CAPTURE_OUTAGE_BUDGET_MS = 120_000;
 /** Everything pending across one worker: a 1 GB machine's share for held PCM. */
 export const CAPTURE_PENDING_TOTAL_BYTES = 256 * 1024 * 1024;
 /** One 10 ms frame of 16 kHz mono 16-bit PCM (the frame processor refuses others). */

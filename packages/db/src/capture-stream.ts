@@ -113,11 +113,11 @@ export async function sealCapturedStream(
   const action = sealAction(
     stream,
     input.expectedChunkCount,
+    { segmentEnded: segment.endedAt !== null, required },
     {
-      segmentEnded: segment.endedAt !== null,
-      required,
+      otherEpochChunks: chunks?.otherEpochChunks ?? 0,
+      framesLost: input.framesLost,
     },
-    chunks?.otherEpochChunks ?? 0,
   );
   if (action === 'retry')
     return {

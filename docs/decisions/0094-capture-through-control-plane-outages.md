@@ -15,7 +15,9 @@ gb29cv50qy6pi4p6mjt5ujoo shows a 17.755 s gap across epochs during such a deploy
 ## Decision
 
 1. A control plane that does not answer is not a refusal. The worker keeps
-   hearing and retries, within one total memory bound per worker.
+   hearing and retries, within one total memory bound per worker and for at
+   most 120 s; past that a read or renewal ends the session and a write is lost
+   and recorded.
 2. A renewal after expiry reinstates the same epoch only if the lease row still
    names that worker and epoch, under the row lock. No write is admitted while
    the lease is expired. Any takeover or rotation has moved the row and fences

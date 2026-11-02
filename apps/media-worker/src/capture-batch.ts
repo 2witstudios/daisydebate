@@ -8,6 +8,7 @@ import {
   readCaptureHistory,
   straddlesGrantEdge,
   type CaptureClient,
+  type CapturePace,
 } from './capture-history';
 import type { StagedFrame } from './capture-staging';
 /** How often the session loop validates its staged frames into clips. */
@@ -76,6 +77,8 @@ export async function validateCaptureBatch(input: {
   readonly roundId: string;
   readonly epoch: number;
   readonly signal: AbortSignal;
+  readonly nowMs: CapturePace['nowMs'];
+  readonly waitUntilMs: CapturePace['waitUntilMs'];
   readonly dropped: (n: number) => void;
   /** A staged frame that crosses a grant edge in the fresher history. */
   readonly straddled: (frame: StagedFrame['frame']) => void;
@@ -98,6 +101,7 @@ export async function validateCaptureBatch(input: {
             input.client,
             input.epoch,
             input.signal,
+            input,
             first.segmentId,
           );
     const segment = history.state.segment;

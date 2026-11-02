@@ -54,8 +54,9 @@ export async function verifyMediaWorkerLease(
     session.endedAt
   )
     throw createAppError('CONFLICT', 'Capture session has ended');
+  // Expired, not stale: only a takeover, seen in lockCaptureLease, is final.
   if (lease.expiresAt <= now)
-    throw createAppError('CONFLICT', 'Capture worker lease is stale');
+    throw createAppError('CONFLICT', 'Capture worker lease expired');
   // Recovery must authenticate the live worker without demanding the very
   // safe vendor outcome its reconcile hold is meant to restore. Minting
   // rechecks that outcome immediately before credential construction.

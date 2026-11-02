@@ -433,9 +433,11 @@ never stored and never implies what was said.
 [ADR 0094](../decisions/0094-capture-through-control-plane-outages.md). A web
 outage is not a capture failure. While LiveKit stays connected the worker keeps
 hearing; frames wait in staging, in memory only, and history reads, renewals,
-appends and observations retry until the server answers. A write still refused
-for now after 120 s is lost and recorded, since a late clip of a closed session
-is refused that way for good and must not hold every later clip. A definite refusal
+appends and observations retry until the server answers, for at most 120 s.
+Past that, a read or renewal ends the session, so a server failing the same way
+reaches the logs and a relaunch instead of a silent stall, and a write is lost
+and recorded, since a late clip of a closed session is refused that way for good
+and must not hold every later clip. A definite refusal
 still stops capture at once. An expired lease refuses every write. It answers
 `503 lease-expired` rather than a final refusal, because its worker may renew
 and reinstate the same epoch if the row is untouched; a takeover or rotation
@@ -449,7 +451,8 @@ never from the lease. `capture-memory.ts` divides one total pending-audio bound
 across `MEDIA_WORKER_MAX_SESSIONS`. An outage that spans a speech boundary loses
 the next speech's opening, since that segment is unknown until the server
 answers, and it records a gap. A stopping session releases its lease so a
-successor need not wait out its expiry. A takeover seals at the stored count,
+successor need not wait out its expiry. A takeover, or a worker reporting loss, which may have written a chunk it never
+heard answered, seals at the stored count,
 partial, so a finished speech stops reading as Capturing. Nothing here recovers
 sound no worker heard, and pending audio never reaches disk.
 

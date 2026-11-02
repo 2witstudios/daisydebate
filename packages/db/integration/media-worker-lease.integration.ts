@@ -146,6 +146,16 @@ test('internal capture token admission requires a fresh exact lease and safe non
         code: 'CONFLICT',
         actual: () => store.verifyMediaWorkerLease(scope, 'mint'),
       });
+      assert({
+        given: 'that refusal',
+        should:
+          'say expired, which its worker may retry, not stale, which is final',
+        actual: await store.verifyMediaWorkerLease(scope, 'mint').then(
+          () => 'admitted',
+          (error: Error) => error.message,
+        ),
+        expected: 'Capture worker lease expired',
+      });
       const fresh = await store.claimMediaWorkerLease({
         roundId,
         sessionId: scope.sessionId,

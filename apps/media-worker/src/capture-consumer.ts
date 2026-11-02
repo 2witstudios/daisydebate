@@ -1,6 +1,7 @@
 import { isTransientProviderFailure, type OpenRouter } from '@daisy/ai-voice';
 import type { cutCaptureClips } from '@daisy/media/clips';
 import { isTransientControlFailure } from '@daisy/media/worker';
+import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
 import {
   contained,
   observedWindow,
@@ -95,16 +96,17 @@ async function consumeClip(
     input.client,
     input.epoch,
     input.signal,
+    input,
     clip.segmentId,
   );
-  if (
-    !contained(fresh.state, clip.roundParticipantId, {
-      beforeMs: Date.parse(clip.before),
-      afterMs: Date.parse(clip.after),
-    }) ||
-    Date.parse(clip.after) > Date.parse(fresh.state.serverNow)
-  ) {
+  const allowed = contained(fresh.state, clip.roundParticipantId, {
+    beforeMs: Date.parse(clip.before),
+    afterMs: Date.parse(clip.after),
+  });
+  if (!allowed || Date.parse(clip.after) > Date.parse(fresh.state.serverNow)) {
     input.dropped(clip.durationMs / 10);
+    // Outside its grant it was never owed; inside it, it was heard and lost.
+    if (allowed) input.lost(clip);
     return;
   }
   const result = await transcribeClip(input, clip, failed);
@@ -177,8 +179,6 @@ function clipObservation(
 
 /** How soon a write the control plane could not answer is sent again. */
 const WRITE_RETRY_MS = 250;
-/** The agreed outage: past it a write refused for now must not hold every later clip. */
-const WRITE_BUDGET_MS = 120_000;
 /**
  * A write stays pending in memory until the server answers. False when it is
  * still refused for now at the budget: the server can keep doing so for good,
@@ -191,7 +191,7 @@ async function untilAnswered(
   >,
   write: () => Promise<unknown>,
 ) {
-  const giveUpAt = input.nowMs() + WRITE_BUDGET_MS;
+  const giveUpAt = input.nowMs() + CAPTURE_OUTAGE_BUDGET_MS;
   for (;;) {
     try {
       await write();

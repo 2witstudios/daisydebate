@@ -66,6 +66,7 @@ test('a transcript read returns the committed prefix across capture epochs', asy
         ...f.stream,
         epoch,
         expectedChunkCount: 1,
+        framesLost: false,
       });
       const closed = await transaction((tx) =>
         readTranscriptSnapshot(tx, roundId),
@@ -97,6 +98,27 @@ test('a transcript read returns the committed prefix across capture epochs', asy
           completed?.gaps.map((gap) => [gap.fromOffsetMs, gap.untilOffsetMs]),
         ],
         expected: [3, [[300, 700]]],
+      });
+    } finally {
+      await fixture.sql`delete from rounds where id=${roundId}`;
+    }
+  });
+});
+
+test('a closed stream with a grant still open reports what nobody observed', async () => {
+  await withBoundedRound(async (fixture, transaction, roundId) => {
+    const f = await historicalCapture(fixture, transaction, roundId);
+    try {
+      await fixture.sql`update round_speaking_intervals set ended_at=null,ended_version=null where round_id=${roundId}`;
+      await fixture.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,sealed_at,sealed_chunk_count) values(${roundId},${f.stream.segmentId},${f.stream.roundParticipantId},'partial',now(),0)`;
+      const read = await transaction((tx) =>
+        readTranscriptSnapshot(tx, roundId),
+      );
+      assert({
+        given: 'a partial stream whose speaking grant was never closed',
+        should: 'report the whole speech as a gap',
+        actual: read.streams.map((stream) => stream.gaps),
+        expected: [[{ fromOffsetMs: 0, untilOffsetMs: 1000 }]],
       });
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;

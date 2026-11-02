@@ -41,6 +41,16 @@ const signedClient = (replies: (Response | Error)[]) => {
   });
   return { client, paths };
 };
+/** A clock that moves only by the pauses asked for. */
+const instantPace = () => {
+  let now = 0;
+  return {
+    nowMs: () => now,
+    waitUntilMs: async (due: number) => {
+      now = due;
+    },
+  };
+};
 const leaseOk = () =>
   Response.json({ epoch: 4, expiresAt: new Date(15000).toISOString() });
 
@@ -119,12 +129,48 @@ test('a history read waits out an unanswering control plane without ending captu
     client,
     4,
     new AbortController().signal,
+    instantPace(),
   );
   assert({
     given: 'fast failures that are not this read deadline',
     should: 'restart the read until the server answers',
     actual: [paths.length, read.state.version],
     expected: [3, 1],
+  });
+});
+
+test('a server failing the same way reaches the logs instead of stalling capture', async () => {
+  const failing = () =>
+    Array.from({ length: 2000 }, () => new Response('broken', { status: 500 }));
+  const read = signedClient(failing());
+  await assertRejects({
+    given: 'a read answered 500 past the outage budget',
+    should: 'end the read',
+    code: 'INFRASTRUCTURE',
+    actual: () =>
+      readCaptureHistory(
+        read.client,
+        4,
+        new AbortController().signal,
+        instantPace(),
+      ),
+  });
+  const renewing = signedClient(failing());
+  const { running } = renewal(renewing.client.lease, new AbortController());
+  await assertRejects({
+    given: 'renewals answered 500 past the outage budget',
+    should: 'end the renewal',
+    code: 'INFRASTRUCTURE',
+    actual: () => running,
+  });
+  assert({
+    given: 'both',
+    should: 'keep trying for the budget, not a moment or forever',
+    actual: [
+      read.paths.length > 100 && read.paths.length < 1000,
+      renewing.paths.length > 100 && renewing.paths.length < 1000,
+    ],
+    expected: [true, true],
   });
 });
 
@@ -137,7 +183,13 @@ test('a history read still ends on a definite refusal', async () => {
     given: 'an outage and then a refusal',
     should: 'report the refusal',
     code: 'AUTHORIZATION',
-    actual: () => readCaptureHistory(client, 4, new AbortController().signal),
+    actual: () =>
+      readCaptureHistory(
+        client,
+        4,
+        new AbortController().signal,
+        instantPace(),
+      ),
   });
   assert({
     given: 'the same read',
@@ -360,6 +412,8 @@ test('a backlog past one cut cuts in pieces, as one run', async () => {
   const clips: { durationMs: number; startOffsetMs: number }[] = [];
   let dropped = 0;
   await validateCaptureBatch({
+    nowMs: () => 0,
+    waitUntilMs: async () => undefined,
     frames,
     current: {
       state: {

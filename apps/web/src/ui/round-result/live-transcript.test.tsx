@@ -120,7 +120,30 @@ test('a gap sits where the capture stopped and shows the seat it belongs to', ()
     actual:
       html.includes('not captured') &&
       html.includes('3:54') &&
-      html.includes('4:11'),
+      html.includes('4:12'),
+    expected: true,
+  });
+});
+
+test('a gap under a second still shows a real span', () => {
+  const base = read('partial');
+  const value: RoundTranscriptRead = {
+    ...base,
+    streams: base.streams.map((stream) => ({
+      ...stream,
+      gaps: [{ fromOffsetMs: 5200, untilOffsetMs: 5500 }],
+    })),
+  };
+  const html = renderToString(
+    h(TranscriptContent, {
+      sections: [liveTranscriptSections(value)[0]!],
+      empty: '',
+    }),
+  );
+  assert({
+    given: 'a 300 ms hole inside one second',
+    should: 'round outward rather than read 0:05 to 0:05',
+    actual: html.includes('0:05') && html.includes('0:06'),
     expected: true,
   });
 });

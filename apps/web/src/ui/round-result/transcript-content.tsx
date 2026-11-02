@@ -43,7 +43,7 @@ export function TranscriptContent({
               item.kind === 'gap' ? (
                 <li key={item.key} className="text-sm text-ink-muted">
                   {item.speaker}: not captured {formatOffset(item.fromOffsetMs)}
-                  –{formatOffset(item.untilOffsetMs)}
+                  –{formatOffset(Math.ceil(item.untilOffsetMs / 1000) * 1000)}
                 </li>
               ) : (
                 <li key={item.id} className="text-sm wrap-anywhere text-ink">

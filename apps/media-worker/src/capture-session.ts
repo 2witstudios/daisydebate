@@ -98,7 +98,7 @@ async function captureSession(
   };
   let current = await atStage(
     'history',
-    readCaptureHistory(input.client, epoch, signal),
+    readCaptureHistory(input.client, epoch, signal, input),
   );
   const token = await issueCaptureToken(input.client, epoch, signal);
   const budget = captureMemoryBudget(input.pendingBytes);
@@ -191,7 +191,7 @@ async function captureSession(
       const due = input.nowMs() + CAPTURE_BATCH_INTERVAL_MS;
       current = await atStage(
         'refresh',
-        readCaptureHistory(input.client, epoch, signal),
+        readCaptureHistory(input.client, epoch, signal, input),
       );
       streams.remember(current.state);
       staging.refresh(current.calibration);
