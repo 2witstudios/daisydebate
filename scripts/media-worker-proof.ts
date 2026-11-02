@@ -5,7 +5,6 @@ import { createAudioPublication } from '@daisy/media/audio';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { disposeAudioRuntime } from '@daisy/media/subscription';
 import { systemId } from '@daisy/clock';
-import { createRoundRuntimeOperations } from '../apps/web/src/features/round-runtime/operations';
 import { createRoundMediaOperations } from '../apps/web/src/features/round-media/operations';
 import { mediaRuntime } from '../apps/web/src/features/round-media/projection';
 import {
@@ -89,16 +88,6 @@ async function startShortRound(
   // host's carries speech, the guest's only silence.
   await mediaOperations.session(roundId, f.host.actorId);
   await mediaOperations.session(roundId, f.guest.actorId);
-  const runtime = createRoundRuntimeOperations({
-    store: f.store,
-    nextSegmentId: nextId,
-  });
-  await runtime.command({ kind: 'human', actorId: f.host.actorId }, roundId, {
-    version: 1,
-    commandId: nextId(),
-    expectedVersion: 1,
-    command: { type: 'start' },
-  });
   return { roundId, deps, speech };
 }
 function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
