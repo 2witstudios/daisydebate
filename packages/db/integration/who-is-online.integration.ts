@@ -33,6 +33,7 @@ const open = async () => {
   return {
     client,
     database,
+    cleanup: fixture.cleanup,
     me: { actorId: fixture.actorId!, userId: fixture.userId! },
     them: { actorId: fixture.otherActorId!, userId: fixture.otherUserId! },
     low: fixture.low!,
@@ -117,6 +118,7 @@ test('the roster leaves out the reader, anyone appearing offline and a blocked p
       ],
     });
   } finally {
+    await ctx.cleanup();
     await ctx.client.close();
   }
 });
@@ -146,6 +148,7 @@ test('an active Room is a placement: room while open, round once launched', asyn
       expected: ['room', 'round'],
     });
   });
+  await ctx.cleanup();
   await ctx.client.close();
 });
 
@@ -214,6 +217,7 @@ test('a challenge is offered, listed both ways, repeated once, and goes on decli
       ],
     });
   } finally {
+    await ctx.cleanup();
     await ctx.client.close();
   }
 });
@@ -276,6 +280,7 @@ test('a challenge is refused while its target is Busy or appearing offline, and 
       expected: [['CONFLICT', 'CONFLICT'], [], true],
     });
   } finally {
+    await ctx.cleanup();
     await ctx.client.close();
   }
 });
@@ -383,6 +388,7 @@ test('a chosen status reads back, and a report closes once with its action', asy
       ],
     });
   } finally {
+    await ctx.cleanup();
     await ctx.client.close();
   }
 });
