@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { eq, isNull } from 'drizzle-orm';
+import { eq, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -97,7 +97,9 @@ export function createMediaReconcileClaims(deps: {
       return deps.database
         .select({ id: mediaSessions.id, roundId: mediaSessions.roundId })
         .from(mediaSessions)
-        .where(isNull(mediaSessions.endedAt));
+        .where(isNull(mediaSessions.endedAt))
+        // Longest since a pass first, so a capped tick reaches every Round.
+        .orderBy(sql`${mediaSessions.reconcileStartedAt} asc nulls first`);
     },
   };
 }
