@@ -66,13 +66,14 @@ test('a first Round subscribe queued behind another participant blocked on their
     const held = await issueAuthorityTicket({ resources, ...fenced });
     let fencedPeer: ReturnType<typeof openAuthorityPeer> | undefined;
     const answersWhileHeld = await admin.begin(async (writer) => {
+      const [holder] = await writer`select pg_backend_pid()::int as pid`;
       await writer`select id from users where id=${fenced.userId} for update`;
       fencedPeer = openAuthorityPeer(port, held);
       let waiting = 0;
       for (let polls = 0; polls < 250 && waiting === 0; polls += 1) {
         const [row] = await admin`
           select count(*)::int as waiting from pg_stat_activity
-          where wait_event_type = 'Lock' and datname = current_database()`;
+          where ${holder.pid}::int = any(pg_blocking_pids(pid))`;
         waiting = row.waiting;
         if (waiting === 0) await Bun.sleep(20);
       }
