@@ -55,6 +55,10 @@ needs.
    10 connections, so auth bursts
    reach the sign-up ceiling that decides what is shed), plus 1 dedicated (27). realtime =
    admission 1 / renewal 2 / control 1, plus 3 dedicated (7).
+   An `admission` waiter waits 3s, past the 2s session lock bound: its reads
+   take the account fence, so one read can hold the lane's one connection for
+   a writer's transaction, and queueing behind it must not refuse another
+   participant's first subscribe (ISSUE-914).
    realtime-observer adds headers 1 / projection 2 / relay 1 (11). The
    realtime process composes only the reads it serves
    (`createRealtimeDatabase`). Subscribes and their outbox catch-up read on

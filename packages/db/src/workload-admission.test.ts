@@ -7,6 +7,7 @@ import {
   WORKLOAD_PROFILES,
   type LaneTimer,
 } from './workload-admission';
+import { RUNTIME_SESSION } from './session-bounds';
 
 setupRitewayBun();
 
@@ -187,5 +188,17 @@ test('the deployed profiles are valid and sized as the plan states', () => {
       WORKLOAD_PROFILES['realtime-observer'],
     ].map((profile) => profileConnections(validateWorkloadProfile(profile))),
     expected: [27, 7, 11],
+  });
+});
+
+test('a queued subscribe outlasts one read blocked on a fence (ISSUE-914)', () => {
+  const { realtime, 'realtime-observer': observer } = WORKLOAD_PROFILES;
+  assert({
+    given: 'every realtime profile and the session lock bound',
+    should: 'let an admission waiter outlast a read holding the one connection',
+    actual: [realtime, observer].map(
+      ({ lanes }) => lanes.admission.maxWaitMs > RUNTIME_SESSION.lock_timeout,
+    ),
+    expected: [true, true],
   });
 });

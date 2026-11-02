@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from './capacity-refusal';
+import { RUNTIME_SESSION } from './session-bounds';
 
 /**
  * The classes of PostgreSQL work one process runs (ADR 0088). A lane is a
@@ -50,6 +51,14 @@ const lane = (connections: number, queue: number, maxWaitMs: number) => ({
  * bounded writer weighs two connections (work + watchdog).
  */
 const COMPETITIVE = lane(10, 16, 1000);
+/**
+ * Subscribes and hellos share one connection, and each read takes the account
+ * fence, so one read can hold it for a writer's whole transaction, up to the
+ * session's lock bound. A waiter outlasts that bound (ISSUE-914): queueing
+ * behind another participant's fence is not a failure. The queue count sheds a
+ * real flood and the authority check's 5s budget bounds the whole subscribe.
+ */
+const SUBSCRIBE_ADMISSION = lane(1, 100, RUNTIME_SESSION.lock_timeout + 1000);
 /** The deployed starting profiles; the connection budget is checked from them. */
 export const WORKLOAD_PROFILES = {
   web: {
@@ -69,7 +78,7 @@ export const WORKLOAD_PROFILES = {
     name: 'realtime',
     dedicated: 3,
     lanes: {
-      admission: lane(1, 100, 250),
+      admission: SUBSCRIBE_ADMISSION,
       renewal: lane(2, 64, 1000),
       control: lane(1, 16, 1000),
     },
@@ -79,7 +88,7 @@ export const WORKLOAD_PROFILES = {
     name: 'realtime-observer',
     dedicated: 3,
     lanes: {
-      admission: lane(1, 100, 250),
+      admission: SUBSCRIBE_ADMISSION,
       renewal: lane(2, 64, 1000),
       control: lane(1, 16, 1000),
       headers: lane(1, 4, 500),

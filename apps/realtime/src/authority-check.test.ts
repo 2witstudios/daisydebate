@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { boundedAuthorityCheck } from './authority-check';
+import { createAppError } from '@daisy/errors';
+import { refuseCapacity } from '@daisy/db/testing';
+import {
+  authorityFailureCause,
+  boundedAuthorityCheck,
+} from './authority-check';
 import { deferred } from './outbox-drain.test-support';
 import type { IntervalTimers } from './outbox-drain';
 
@@ -55,3 +60,20 @@ for (const result of ['allow', 'failure', 'late-allow'] as const)
       ],
     });
   });
+
+test('an authority failure names its cause without the raw error', () => {
+  assert({
+    given: 'a lane refusal, the spent budget and a failed read',
+    should: 'report the lane and reason, the budget, or the read',
+    actual: [
+      authorityFailureCause(
+        refuseCapacity({ lane: 'admission', reason: 'expired' }),
+      ),
+      authorityFailureCause(
+        createAppError('INFRASTRUCTURE', 'Authority check budget spent'),
+      ),
+      authorityFailureCause(new Error('private adapter failure')),
+    ],
+    expected: ['admission.expired', 'budget', 'read'],
+  });
+});
