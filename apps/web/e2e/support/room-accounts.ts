@@ -174,9 +174,7 @@ function cleanupWorker(
       },
       (error, stdout, stderr) => {
         if (error) {
-          return reject(
-            cleanupFailure(cleanupFailureReason(stderr)),
-          );
+          return reject(cleanupFailure(cleanupFailureReason(stderr)));
         }
         try {
           const evidence = parseRoomCleanupEvidence(stdout);
