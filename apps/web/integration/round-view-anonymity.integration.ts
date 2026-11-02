@@ -1,3 +1,4 @@
+import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -146,14 +147,16 @@ test('a launched Round names its human judge only to that judge and the host', a
     const read = (who: Caller) => f.operations.roundView(who, roundId);
     const asJudge = await read(judge);
     assert({
-      given:
-        'a scheduled Round with a human judge, read by a debater and a spectator',
+      given: 'a scheduled Round with a human judge, read by a debater',
       should: 'carry no judge name, actor, seat id or host actor',
-      actual: [
-        leaks(await read(f.guest), roundSecrets),
-        leaks(await read(spectator), roundSecrets),
-      ],
-      expected: [[], []],
+      actual: leaks(await read(f.guest), roundSecrets),
+      expected: [],
+    });
+    await assertRejects({
+      given: 'the same Round read by a spectator',
+      should: 'give no live read at all (WATCH-6)',
+      actual: () => read(spectator),
+      code: 'NOT_FOUND',
     });
     assert({
       given:

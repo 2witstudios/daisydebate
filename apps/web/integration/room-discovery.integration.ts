@@ -53,6 +53,7 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
     const list = (who = f.outsider) =>
       f.operations.list(who, { q: title, pageSize: 1 });
     const scheduled = await list();
+    const scheduledSeat = await list(f.guest);
     await f.sql`update rounds set status='active',current_stage='countdown',started_at=statement_timestamp() where id=${roundId}`;
     const active = await list();
     await f.sql`update rounds set visibility='private' where id=${roundId}`;
@@ -69,10 +70,11 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
       given:
         'public started Room, private frozen Round and a frozen participant removed from current Room seats',
       should:
-        'authorize from frozen Round facts, preserve both live states and exclude terminal history without Redis reads',
+        'authorize from frozen Round facts, hide live Rounds from non-participants and exclude terminal history without Redis reads',
       actual: [
-        scheduled.rooms.map((r) => r.roundRef?.status),
-        active.rooms.map((r) => r.roundRef?.status),
+        scheduled.rooms.length,
+        scheduledSeat.rooms.map((r) => r.roundRef?.status),
+        active.rooms.length,
         hidden.rooms.length,
         seated.rooms.length,
         host.rooms.length,
@@ -81,12 +83,12 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
         abandoned.rooms.length,
         f.consentReads() - consentReads,
       ],
-      expected: [['scheduled'], ['active'], 0, 1, 1, 1, 0, 0, 0],
+      expected: [0, ['scheduled'], 0, 0, 1, 1, 1, 0, 0, 0],
     });
     assert({
       given: 'the lightweight discovery projection',
       should: 'carry counts and labels but omit aggregate and consent data',
-      actual: Object.keys(scheduled.rooms[0]!).sort(),
+      actual: Object.keys(scheduledSeat.rooms[0]!).sort(),
       expected: [
         'id',
         'version',

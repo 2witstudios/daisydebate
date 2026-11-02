@@ -18,8 +18,19 @@ test('Lobby discovery filters by status and mode and reports seats, format and l
     const list = (filters: {
       status?: 'open' | 'starting' | 'live';
       mode?: 'ranked' | 'casual';
-    }) => f.operations.list(f.outsider, { q: title, pageSize: 20, ...filters });
+    }) => f.operations.list(cast.host, { q: title, pageSize: 20, ...filters });
     const all = await list({});
+    const outsiderLive = await f.operations.list(f.outsider, {
+      q: title,
+      pageSize: 20,
+      status: 'live',
+    });
+    assert({
+      given: 'a live public Round listed by a non-participant',
+      should: 'reveal nothing about it until the spectator timeline (WATCH-6)',
+      actual: outsiderLive.rooms.map((room) => room.id),
+      expected: [],
+    });
     const facts = (id: string) => {
       const room = all.rooms.find((entry) => entry.id === id)!;
       return {
@@ -111,11 +122,12 @@ test('Lobby filters run before paging: a one-row page walks only the filtered se
         order by created_at desc,id collate "C" desc`
       ).map((row: { id: string }) => row.id);
     assert({
-      given: 'one-row pages under the open and the live filter',
+      given:
+        'one-row pages for a non-participant under the open and the live filter',
       should:
-        'return every matching Room in cursor order and none of the others',
+        'return every open Room in cursor order and no live Room (WATCH-6)',
       actual: [await walk('open'), await walk('live')],
-      expected: [await newest(opened), await newest(live)],
+      expected: [await newest(opened), []],
     });
   });
 });
