@@ -18,7 +18,7 @@ test('durable judging claims fence epochs and preserve one command across recove
   await withBoundedRound(async (fixture, run, roundId) => {
     const seat = await createBotSeat(fixture, roundId, 'judge');
     await judgingSponsor(fixture, roundId);
-    await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp(),final_segment_ended_at=date_trunc('milliseconds',clock_timestamp())-interval '1 minute',transcript_admission_cutoff=date_trunc('milliseconds',clock_timestamp())-interval '1 minute'+interval '120 seconds',attendance_resolution_cutoff_at=date_trunc('milliseconds',clock_timestamp())-interval '1 minute'+interval '60 minutes' where id=${roundId}`;
+    await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp(),final_segment_ended_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute',transcript_admission_cutoff=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '120 seconds',attendance_resolution_cutoff_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '60 minutes' where id=${roundId}`;
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
     try {
