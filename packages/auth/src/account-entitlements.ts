@@ -4,21 +4,24 @@ import type { AccountAuthorizationFact } from './authorization-facts';
 /**
  * DEC-247 and ISSUE-779: premium entitlements come from the account's own
  * grant facts, never from its beta state. Beta approval is one source of a
- * grant; `betaGrantsPremium` says whether a beta-sourced round analysis
- * grant counts (true in the beta, false at launch). These are entitlement
- * facts, not authorization: identity, participant admission and the
- * caller's debating seat are still evaluated separately.
+ * grant; `betaGrantsPremium` says whether a beta-sourced premium grant counts
+ * (true in the beta, false at launch). These are entitlement facts, not
+ * authorization: identity, participant admission and the caller's debating
+ * seat are still evaluated separately. Each premium is its own named fact.
  */
 export function accountEntitlements(
   grants: readonly EntitlementGrant[],
   policy: { readonly betaGrantsPremium: boolean },
 ) {
-  return {
-    roundAnalysis: grants.some(
+  const holds = (entitlement: EntitlementGrant['entitlement']) =>
+    grants.some(
       (grant) =>
-        grant.entitlement === 'round_analysis' &&
+        grant.entitlement === entitlement &&
         (grant.source !== 'beta' || policy.betaGrantsPremium),
-    ),
+    );
+  return {
+    roundAnalysis: holds('round_analysis'),
+    casualAiJudge: holds('casual_ai_judge'),
   };
 }
 

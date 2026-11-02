@@ -29,8 +29,8 @@ export async function readEntitlementGrants(
   return rows.map((row) => grantRow.parse(row));
 }
 
-/** What beta approval grants (DEC-247, DEC-183): round analysis and AI rounds. */
-const betaGrants = ['round_analysis', 'ai_rounds'] as const;
+/** What beta approval grants (DEC-247, DEC-183, WATCH-16) until billing exists. */
+const betaGrants = ['round_analysis', 'ai_rounds', 'casual_ai_judge'] as const;
 
 /**
  * Writes the account's `beta` grants for its new beta state, in the beta
