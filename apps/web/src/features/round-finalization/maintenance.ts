@@ -8,11 +8,14 @@ import {
   botGrantUnused,
   createRoundRuntime,
   decidePanelCompletion,
+  judgingEndIsReported,
+  judgingJobEndReason,
+  judgingPanelOf,
   freezeJudgingPlan,
   participatingRulings,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
-import { judgingPolicy } from '@daisy/protocol';
+import { judgingPolicy, type JudgingTerminalReason } from '@daisy/protocol';
 import { createRatingSweep } from '../ratings/sweep';
 import { maintenanceTickProjection, roundTickProjection } from './operations';
 
@@ -36,28 +39,16 @@ type CompletionBuilder = Parameters<
 /** The engine decides; a judged Round before its persisted ballot deadline is not yet eligible. */
 export const panelCompletion =
   (nextId: () => string): CompletionBuilder =>
-  ({
-    round,
-    now,
-    ballots,
-    ballotDeadlineAt,
-    completeness,
-    humanJudgeSeatIds,
-    runningAiSeatIds,
-    failedAiSeatIds,
-  }) => {
+  ({ round, now, panel: facts, ballotIds }) => {
+    const nowMs = Date.parse(now);
+    const panel = judgingPanelOf(facts, nowMs);
+    if (panel === null) throw createAppError('CONFLICT', 'panel-ineligible');
+    const { completeness, ballots } = facts;
     const decision = decidePanelCompletion({
       completeness,
-      humanJudgeSeatIds,
-      runningAiSeatIds,
-      failedAiSeatIds,
-      judgeSeatIds: round.participants
-        .filter((seat) => seat.role === 'judge')
-        .map((seat) => seat.id),
+      panel,
       ballots,
-      ballotDeadlineAtMs:
-        ballotDeadlineAt === null ? Number.NaN : Date.parse(ballotDeadlineAt),
-      nowMs: Date.parse(now),
+      nowMs,
     });
     if (decision.kind === 'pending')
       throw createAppError('CONFLICT', 'panel-ineligible');
@@ -66,21 +57,13 @@ export const panelCompletion =
       noRuling: decision.noRuling,
       ballotIds: participatingRulings(
         round.participants.filter((p) => p.role === 'judge').map((p) => p.id),
-        ballots,
+        ballotIds,
       ).map((b) => b.id),
       projection: createRoundRuntime({
         ...round,
         round,
         nextSegmentId: nextId,
-      }).completePanel({
-        now,
-        ballots,
-        ballotDeadlineAt,
-        completeness,
-        humanJudgeSeatIds,
-        runningAiSeatIds,
-        failedAiSeatIds,
-      }),
+      }).completePanel({ now, ballots, completeness, panel }),
     };
   };
 /** Bound internal ports; the startup owner supplies the existing availability instance. */
@@ -97,7 +80,7 @@ export function createRoundMaintenanceOperations(input: {
   readonly instanceId: string;
   readonly ratingFailed: (roundId: string, error: unknown) => void;
   /** An AI judge's job ended at completion, with no worker there to report it. */
-  readonly judgingEnded?: (reason: string) => void;
+  readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
   readonly ids: IdGenerator;
   readonly evaluate: (
     roundId: string,
@@ -177,7 +160,10 @@ export function createRoundMaintenanceOperations(input: {
           freezeRevision: result.freeze.revision,
           buildProjection,
           buildCompletion: panelCompletion(() => input.ids.next()),
-          ...(input.judgingEnded ? { judgingEnded: input.judgingEnded } : {}),
+          judgingEndReason: judgingJobEndReason,
+          judgingEnded: (reason) => {
+            if (judgingEndIsReported(reason)) input.judgingEnded?.(reason);
+          },
         });
       } catch (error) {
         if (

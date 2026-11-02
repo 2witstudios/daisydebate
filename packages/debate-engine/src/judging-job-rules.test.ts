@@ -12,6 +12,7 @@ import {
 setupRitewayBun();
 const at = (ms: number) => new Date(ms).toISOString();
 const job = (overrides = {}) => ({
+  judgeParticipantId: 'j'.repeat(24),
   status: 'leased' as const,
   generationDeadlineAt: at(5_000),
   holdsBallot: false,

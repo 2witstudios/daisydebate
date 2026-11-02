@@ -1,24 +1,11 @@
 import {
   judgingPolicy,
   type AiSeatStanding,
+  type HeldBallotFacts,
+  type JudgingJobFacts,
   type JudgingTerminalReason,
+  type RoundEnding,
 } from '@daisy/protocol';
-
-/** One judging job as read: time as injected milliseconds, the ballot as a fact. */
-export type JudgingJobFacts = {
-  readonly status: 'queued' | 'leased' | 'succeeded' | 'failed';
-  readonly generationDeadlineAt: string;
-  readonly holdsBallot: boolean;
-};
-/** What bounds how long a held ballot may keep its Round waiting. */
-export type HeldBallotFacts = {
-  /** A job exists only after a freeze, so its Round's cutoff always exists. */
-  readonly attendanceCutoffAt: string;
-  readonly lastAttendanceDecisionAt: string | null;
-  readonly lastWriterResolvedAt: string | null;
-};
-/** How a Round ended, as attendance or the panel knows it. Judging names what that does to a job. */
-export type RoundEnding = 'forfeit' | 'abandoned' | 'panel_closed';
 
 /** The budget bounds generation only: a held ballot is never expired by it (DEC-275). */
 export const generationBudgetSpent = (

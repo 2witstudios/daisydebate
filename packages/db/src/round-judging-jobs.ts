@@ -34,28 +34,33 @@ import {
   requireUndispatched,
 } from './round-judging-decisions';
 export type { JudgingScope } from './round-judging-context';
-/**
- * One paid answer per attempt, a bounded number of attempts (DEC-210's rule
- * for judges): a job that already bought its calls, or whose AI judging budget
- * has passed (DEC-275), buys nothing more. Calls that may have been served
- * count; a call the vendor certainly refused does not.
- */
-async function judgingDispatchEnded(
-  tx: BoundedTransactionContext,
-  scope: JudgingScope,
-): Promise<JudgingTerminalReason | null> {
-  const [facts] = (await tx.execute(sql`select
-    (select count(*)::int from agent_runs
+/** The engine's rules for a job, injected; the facts and the clock come from here. */
+export type JudgingJobRules = {
+  readonly budgetSpent: (
+    job: {
+      readonly generationDeadlineAt: string;
+      readonly holdsBallot: boolean;
+    },
+    nowMs: number,
+  ) => boolean;
+  readonly dispatchEnd: (
+    input: {
+      readonly paidCalls: number;
+      readonly generationDeadlineAt: string;
+    },
+    nowMs: number,
+  ) => JudgingTerminalReason | null;
+};
+/** Calls that may have been served count; a call the vendor certainly refused does not. */
+async function paidCalls(tx: BoundedTransactionContext, scope: JudgingScope) {
+  const [row] =
+    (await tx.execute(sql`select count(*)::int as paid from agent_runs
       where round_participant_id=${scope.judgeParticipantId} and kind='judging'
         and configuration_snapshot->>'commandId'=${scope.commandId}
-        and configuration_snapshot->>'providerOutcome' in ('unknown','received')) as paid,
-    (select generation_deadline_at<=clock_timestamp() from round_judging_jobs
-      where round_id=${scope.roundId} and judge_participant_id=${scope.judgeParticipantId}) as late`)) as unknown as {
-    paid: number;
-    late: boolean;
-  }[];
-  if (facts!.paid >= judgingPolicy.maxPaidCalls) return 'attempts_exhausted';
-  return facts!.late ? 'generation_deadline' : null;
+        and configuration_snapshot->>'providerOutcome' in ('unknown','received')`)) as unknown as {
+      paid: number;
+    }[];
+  return row!.paid;
 }
 /** The terminal state: no lease, never rediscovered; panel completion reads it. */
 async function failLockedJudgingJob(
@@ -76,16 +81,6 @@ async function failLockedJudgingJob(
     })
     .where(judgingJobWhere(scope));
 }
-/** The budget bounds generation only: a held pending ballot is never expired by it. */
-const budgetSpent = (
-  job: {
-    readonly generationDeadlineAt: Date;
-    readonly pendingBallot: unknown;
-  },
-  now: Date,
-) =>
-  job.pendingBallot === null &&
-  job.generationDeadlineAt.getTime() <= now.getTime();
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
   readonly run: BoundedTransaction;
@@ -93,9 +88,37 @@ export function createRoundJudgingJobs(input: {
   readonly nextToken: () => string;
   readonly leaseMs: number;
   readonly model: string;
+  readonly rules: JudgingJobRules;
 }) {
   requireLeaseMs(input.leaseMs);
   if (!input.model.trim()) throw createAppError('VALIDATION');
+  const dispatchEnded = async (
+    tx: BoundedTransactionContext,
+    scope: JudgingScope,
+    job: { readonly generationDeadlineAt: Date },
+    now: Date,
+  ) =>
+    input.rules.dispatchEnd(
+      {
+        paidCalls: await paidCalls(tx, scope),
+        generationDeadlineAt: job.generationDeadlineAt.toISOString(),
+      },
+      now.getTime(),
+    );
+  const budgetSpent = (
+    job: {
+      readonly generationDeadlineAt: Date;
+      readonly pendingBallot: unknown;
+    },
+    now: Date,
+  ) =>
+    input.rules.budgetSpent(
+      {
+        generationDeadlineAt: job.generationDeadlineAt.toISOString(),
+        holdsBallot: job.pendingBallot !== null,
+      },
+      now.getTime(),
+    );
   const withLease = <T>(
     scope: JudgingScope,
     token: string,
@@ -172,9 +195,9 @@ export function createRoundJudgingJobs(input: {
       })),
     /** The AI judge is free (DEC-186): no reservation, no bot-admission lock. */
     beginModelCall: (scope: JudgingScope, token: string) =>
-      withLease(scope, token, async (tx, { run, job }) => {
+      withLease(scope, token, async (tx, { run, job, now }) => {
         requireUndispatched(job, run);
-        const ended = await judgingDispatchEnded(tx, scope);
+        const ended = await dispatchEnded(tx, scope, job, now);
         if (ended) {
           await failLockedJudgingJob(tx, scope, run.id, ended);
           return false;
@@ -270,7 +293,7 @@ export function createRoundJudgingJobs(input: {
             .where(eq(agentRuns.id, run.id));
         const ended = input_.final
           ? 'provider_refused'
-          : await judgingDispatchEnded(tx, scope);
+          : await dispatchEnded(tx, scope, job, now);
         if (ended && !job.pendingBallot) {
           await failLockedJudgingJob(tx, scope, run.id, ended);
           return ended;

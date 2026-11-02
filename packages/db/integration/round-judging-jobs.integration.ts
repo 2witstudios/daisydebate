@@ -1,3 +1,4 @@
+import { judgingJobRules } from './judging-job-rules.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
@@ -26,6 +27,7 @@ test('durable judging claims fence epochs and preserve one command across recove
         nextToken: () => randomBytes(32).toString('base64url'),
         leaseMs: 30000,
         model: 'anthropic/claude-sonnet-5.5',
+        rules: judgingJobRules,
       });
       const target = { roundId, judgeParticipantId: seat.id };
       const attempts = await Promise.allSettled([

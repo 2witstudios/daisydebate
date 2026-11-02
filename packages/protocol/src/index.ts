@@ -408,4 +408,12 @@ export {
   type AnalyticsConsent,
 } from './analytics-consent';
 export { judgingPolicy } from './judging-policy';
-export type { AiSeatStanding } from './round-panel-completion';
+export type {
+  AiSeatStanding,
+  HeldBallotFacts,
+  JudgingJobFacts,
+  JudgingPanel,
+  JudgingPanelFacts,
+  PanelRuling,
+  RoundEnding,
+} from './round-panel-completion';

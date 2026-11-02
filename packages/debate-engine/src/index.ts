@@ -29,6 +29,7 @@ export { recordResult, tallyRecord } from './debate-record';
 export {
   decidePanelCompletion,
   freezeJudgingPlan,
+  judgingPanelOf,
 } from './round-panel-completion';
 export { decideStartHorizon } from './round-start-horizon';
 export { roundWaitingOn } from './round-waiting-on';

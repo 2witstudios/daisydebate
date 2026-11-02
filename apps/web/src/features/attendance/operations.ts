@@ -6,6 +6,8 @@ import {
   onTimeSpeakerReceipt,
   requireAttendanceDecision,
   effectiveAttendanceDeadline,
+  judgingEndIsReported,
+  judgingJobEndReason,
 } from '@daisy/debate-engine';
 import { nextAttendanceSegment } from '@daisy/db/attendance';
 import type {
@@ -21,6 +23,7 @@ import {
   attendanceEnvelopeSchema,
   attendanceTimingPolicy,
   type AttendanceEnvelope,
+  type JudgingTerminalReason,
 } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { acceptAttendanceReceipt } from './receipt-window';
@@ -153,7 +156,7 @@ export function createAttendanceFeature(deps: {
   readonly evaluate: AttendanceEvaluator;
   readonly nextId: () => string;
   readonly instanceId: string;
-  readonly judgingEnded?: (reason: string) => void;
+  readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
 }) {
   const readState = async (principal: AttendancePrincipal, roundId: string) => {
     const facts = await deps.checkIns.readRoundAttendanceTargets({
@@ -235,7 +238,10 @@ export function createAttendanceFeature(deps: {
         roundId,
         commandId: deps.nextId(),
         instanceId: deps.instanceId,
-        ...(deps.judgingEnded ? { judgingEnded: deps.judgingEnded } : {}),
+        judgingEndReason: judgingJobEndReason,
+        judgingEnded: (reason) => {
+          if (judgingEndIsReported(reason)) deps.judgingEnded?.(reason);
+        },
         resolveOnReceipts: resolveOnTimeReceipt,
         resolve: (facts) => resolveAttendanceWindow(facts, deps.nextId),
       }),

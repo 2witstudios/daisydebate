@@ -1,3 +1,4 @@
+import type { SQL } from 'bun';
 import { attendanceTimingPolicy } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import type { withRoomRuntime } from './room-runtime.test-support';
@@ -25,3 +26,22 @@ export async function seedSettledAttendanceLedger(
     await f.sql`insert into round_attendance_adjudications(round_id,segment_id,command_id,decision,effective_deadline,settled_horizon) values(${roundId},${segment.id},${commandId},'attended',${deadline},${horizon})`;
   }
 }
+
+/**
+ * Puts a Round's attendance cutoff in the past. The cutoff is tied to the final
+ * speech's end, which is write-once, so the fixture moves the end itself with
+ * the once-only guard off; the CHECK still holds.
+ */
+export const passAttendanceCutoff = (
+  sql: SQL,
+  roundId: string,
+  agoSeconds = 1,
+) =>
+  sql.begin(async (tx) => {
+    await tx`set local session_replication_role = replica`;
+    await tx`update rounds set final_segment_ended_at=ended.at,
+      transcript_admission_cutoff=ended.at+interval '120 seconds',
+      attendance_resolution_cutoff_at=ended.at+interval '60 minutes'
+      from (select date_trunc('milliseconds',clock_timestamp())-interval '60 minutes'-${agoSeconds}*interval '1 second' as at) ended
+      where id=${roundId}`;
+  });

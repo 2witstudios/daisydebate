@@ -1,3 +1,4 @@
+import { judgingJobRules } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -167,6 +168,7 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
           leaseMs: 60000,
           model: 'fixture-model',
           nextToken: () => randomBytes(32).toString('base64url'),
+          rules: judgingJobRules,
         },
       },
     );

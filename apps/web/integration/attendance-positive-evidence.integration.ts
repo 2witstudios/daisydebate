@@ -1,3 +1,4 @@
+import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { requireTestServices } from '@daisy/config';
 import { attendanceTimingPolicy, buildRoundTopic } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
@@ -118,7 +119,7 @@ test('the persisted cutoff ends an unprovable window with no winner, and a pendi
     await stamp(input, opponent, 1000);
     const attemptId = createId();
     try {
-      await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+      await passAttendanceCutoff(f.sql, roundId);
       await f.sql`insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,received_at,backend_pid,backend_started_at,state)
         values(${attemptId},${createId()},${roundId},${'b'.repeat(64)},${opponent.actorId},statement_timestamp(),1,'2026-10-22 00:00:00+00','pending')`;
       const held = await input.attendance.evaluate(roundId);
@@ -221,7 +222,7 @@ test('a long-outage evaluation at the read cap stays inside its transaction budg
         },
         expected: { undecided: null, inBudget: true },
       });
-      await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+      await passAttendanceCutoff(f.sql, roundId);
       const ended = await attendance.evaluate(roundId);
       assert({
         given: 'that history past the cutoff',
@@ -248,7 +249,7 @@ test('past the cutoff a provable absence is still decided, not abandoned', () =>
         select s.started_at+n*interval '1 second',true,null
         from round_segments s, generate_series(-3,47) n where s.id=${segmentId}`;
     });
-    await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+    await passAttendanceCutoff(f.sql, roundId);
     try {
       const resolved = await attendance.evaluate(roundId);
       assert({

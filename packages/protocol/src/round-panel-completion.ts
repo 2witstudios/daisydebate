@@ -12,25 +12,65 @@ export type AiSeatStanding =
   | { readonly state: 'ended' }
   | { readonly state: 'succeeded' };
 
+/**
+ * The Round's judges at decision time. A human seat exists only inside a human
+ * window, so a human judge with no deadline has no representation, and each AI
+ * seat holds exactly one standing.
+ */
+export type JudgingPanel = {
+  readonly humanWindow: {
+    /** Persisted at the freeze (DEC-201, DEC-207). */
+    readonly deadlineAt: string;
+    readonly seatIds: readonly [string, ...string[]];
+  } | null;
+  readonly aiSeats: readonly {
+    readonly id: string;
+    readonly standing: AiSeatStanding;
+  }[];
+};
+export type PanelRuling = {
+  readonly judgeParticipantId: string;
+  readonly winner: DebateSide;
+  readonly status: 'submitted' | 'voided';
+};
+
+/** One judging job as read; the engine decides what it means. */
+export type JudgingJobFacts = {
+  readonly judgeParticipantId: string;
+  readonly status: 'queued' | 'leased' | 'succeeded' | 'failed';
+  readonly generationDeadlineAt: string;
+  readonly holdsBallot: boolean;
+};
+/** What bounds how long a held ballot may keep its Round waiting. */
+export type HeldBallotFacts = {
+  /** A job exists only after a freeze, so its Round's cutoff always exists. */
+  readonly attendanceCutoffAt: string;
+  readonly lastAttendanceDecisionAt: string | null;
+  readonly lastWriterResolvedAt: string | null;
+};
+/** Facts read from a frozen Round, for the engine's one panel decision. */
+export type JudgingPanelFacts = {
+  readonly completeness: 'complete' | 'incomplete';
+  readonly humanJudgeSeatIds: readonly string[];
+  readonly aiJudgeSeatIds: readonly string[];
+  readonly ballotDeadlineAt: string | null;
+  readonly jobs: readonly JudgingJobFacts[];
+  readonly held: HeldBallotFacts;
+  readonly ballots: readonly PanelRuling[];
+};
+/** How a Round ended, as attendance or the panel knows it. Judging names what that does to a job. */
+export type RoundEnding = 'forfeit' | 'abandoned' | 'panel_closed';
+
 /** Internal facts from the locked Round; never a public command body. */
 export type RoundPanelCompletion = {
   readonly now: string;
-  /** The Round's stored ballots and the deadline persisted at its freeze (DEC-201, DEC-207). */
-  readonly ballots: readonly {
-    readonly judgeParticipantId: string;
-    readonly winner: DebateSide;
-    readonly status: 'submitted' | 'voided';
-  }[];
-  readonly ballotDeadlineAt: string | null;
-  /** The frozen transcript's completeness and the human judge seats (DEC-208). */
+  readonly ballots: readonly PanelRuling[];
+  /** The frozen transcript's completeness (DEC-208). */
   readonly completeness: 'complete' | 'incomplete';
-  readonly humanJudgeSeatIds: readonly string[];
-  /** AI seats whose job can still rule, and those that ended with no ballot (DEC-275). */
-  readonly runningAiSeatIds: readonly string[];
-  readonly failedAiSeatIds: readonly string[];
+  readonly panel: JudgingPanel;
 };
 
-/** Why the unjudged finalizer completed a Round (DEC-201, DEC-207, DEC-208). */
+/** Why panel completion completed a Round (DEC-201, DEC-207, DEC-208). */
 export const panelRulingSchema = z.enum([
   'unjudged',
   'judges-did-not-rule',

@@ -1,3 +1,4 @@
+import { judgingJobRules } from './judging-job-rules.test-support';
 import { ballotCategories, ballotSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
@@ -61,6 +62,7 @@ export const withJudgingJob = (
           nextToken: () => randomBytes(32).toString('base64url'),
           leaseMs: 30000,
           model: 'anthropic/claude-sonnet-5.5',
+          rules: judgingJobRules,
         }),
       });
     } finally {

@@ -1,8 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import type { JudgingPanel } from '@daisy/protocol';
 import {
   decidePanelCompletion,
   freezeJudgingPlan,
+  judgingPanelOf,
 } from './round-panel-completion';
 import {
   oneOnOneRules,
@@ -21,15 +23,30 @@ const ballot = (
   winner,
   status: 'submitted' as const,
 });
+const iso = (ms: number) => new Date(ms).toISOString();
+const deadline = iso(61_000);
+const window = (seatIds: readonly string[], deadlineAt = deadline) => {
+  const [first, ...rest] = seatIds;
+  return first === undefined
+    ? null
+    : { deadlineAt, seatIds: [first, ...rest] as [string, ...string[]] };
+};
+const standing = (
+  id: string,
+  state: 'ended' | 'holding_ballot' | 'not_dispatched',
+) => ({
+  id,
+  standing: { state },
+});
+const running = (id: string) => ({
+  id,
+  standing: { state: 'generating' as const, deadlineAt: iso(90_000) },
+});
 const at = (nowMs: number, ballots: ReturnType<typeof ballot>[] = []) =>
   decidePanelCompletion({
-    runningAiSeatIds: [],
-    failedAiSeatIds: [],
     completeness: 'complete',
-    humanJudgeSeatIds: judges,
-    judgeSeatIds: judges,
+    panel: { humanWindow: window(judges), aiSeats: [] },
     ballots,
-    ballotDeadlineAtMs: 61_000,
     nowMs,
   });
 
@@ -38,13 +55,9 @@ test('the ballot deadline decides when a Round without a full ruling completes (
     given: 'no judge seats',
     should: 'complete at once as unjudged',
     actual: decidePanelCompletion({
-      runningAiSeatIds: [],
-      failedAiSeatIds: [],
       completeness: 'complete',
-      humanJudgeSeatIds: [],
-      judgeSeatIds: [],
+      panel: { humanWindow: null, aiSeats: [] },
       ballots: [],
-      ballotDeadlineAtMs: Number.NaN,
       nowMs: 1_000,
     }),
     expected: {
@@ -64,7 +77,13 @@ test('the ballot deadline decides when a Round without a full ruling completes (
         judges.map((j) => ballot(j, 'affirmative')),
       ),
     ],
-    expected: [{ kind: 'pending' }, { kind: 'pending' }],
+    expected: [
+      {
+        kind: 'pending',
+        waiting: { on: 'human_window', deadlineAt: deadline },
+      },
+      { kind: 'pending', waiting: { on: 'all_ruled' } },
+    ],
   });
   assert({
     given: 'the deadline passed with no ballot',
@@ -123,11 +142,11 @@ const judged = () => {
 const completion = (nowMs: number) => ({
   now: roundAt(nowMs),
   ballots: [],
-  ballotDeadlineAt: roundAt(total + 1_800_000),
   completeness: 'complete' as const,
-  humanJudgeSeatIds: [judge.id],
-  runningAiSeatIds: [],
-  failedAiSeatIds: [],
+  panel: {
+    humanWindow: window([judge.id], roundAt(total + 1_800_000)),
+    aiSeats: [],
+  },
 });
 
 test('a judged Round completes without a winner only after its ballot deadline', async () => {
@@ -208,13 +227,14 @@ test('an incomplete freeze dispatches no AI judge and, with no human judge, clos
     humanJudges: boolean,
   ) =>
     decidePanelCompletion({
-      runningAiSeatIds: [],
-      failedAiSeatIds: [],
       completeness,
-      humanJudgeSeatIds: humanJudges ? [judges[0]!] : [],
-      judgeSeatIds: [judges[0]!],
+      panel: humanJudges
+        ? { humanWindow: window([judges[0]!]), aiSeats: [] }
+        : {
+            humanWindow: null,
+            aiSeats: [standing(judges[0]!, 'not_dispatched')],
+          },
       ballots: [],
-      ballotDeadlineAtMs: 61_000,
       nowMs: 61_000,
     });
   assert({
@@ -237,49 +257,32 @@ test('an incomplete freeze dispatches no AI judge and, with no human judge, clos
 
 test('an incomplete freeze completes once every human judge has ruled decisively (ISSUE-466-r2)', () => {
   const [human, ai, other] = judges as [string, string, string];
+  const noJob = standing(ai, 'not_dispatched');
   const decide = (
-    humanJudgeSeatIds: readonly string[],
+    humans: readonly string[],
     ballots: ReturnType<typeof ballot>[],
-    completeness: 'complete' | 'incomplete' = 'incomplete',
+    aiSeats: JudgingPanel['aiSeats'] = [noJob],
   ) =>
     decidePanelCompletion({
-      runningAiSeatIds: [],
-      failedAiSeatIds: [],
-      completeness,
-      humanJudgeSeatIds,
-      judgeSeatIds: [human, ai],
+      completeness: 'incomplete',
+      panel: { humanWindow: window(humans), aiSeats },
       ballots,
-      ballotDeadlineAtMs: 61_000,
       nowMs: 1_000,
     });
+  const window_ = { on: 'human_window', deadlineAt: deadline };
   assert({
     given:
-      'a human and an AI judge before the deadline: the human ruled on an incomplete freeze, has not ruled, ruled on a complete freeze, and two humans split',
+      'a human and an AI judge before the deadline: the human ruled on an incomplete freeze, has not ruled, ruled with the AI seat still running, and two humans split',
     should:
-      'complete with the human ruling and the AI seat as no ruling only once every human ruled decisively on an incomplete freeze; otherwise keep waiting',
+      'complete with the human ruling and the AI seat as no ruling only once every human ruled decisively on an incomplete freeze; otherwise keep waiting, and say on what',
     actual: [
       decide([human], [ballot(human, 'negative')]),
       decide([human], []),
-      decidePanelCompletion({
-        completeness: 'complete',
-        humanJudgeSeatIds: [human],
-        judgeSeatIds: [human, ai],
-        runningAiSeatIds: [ai],
-        failedAiSeatIds: [],
-        ballots: [ballot(human, 'negative')],
-        ballotDeadlineAtMs: 61_000,
-        nowMs: 1_000,
-      }),
-      decidePanelCompletion({
-        runningAiSeatIds: [],
-        failedAiSeatIds: [],
-        completeness: 'incomplete',
-        humanJudgeSeatIds: [human, other],
-        judgeSeatIds: [human, other, ai],
-        ballots: [ballot(human, 'negative'), ballot(other, 'affirmative')],
-        ballotDeadlineAtMs: 61_000,
-        nowMs: 1_000,
-      }).kind,
+      decide([human], [ballot(human, 'negative')], [running(ai)]),
+      decide(
+        [human, other],
+        [ballot(human, 'negative'), ballot(other, 'affirmative')],
+      ),
     ],
     expected: [
       {
@@ -288,98 +291,96 @@ test('an incomplete freeze completes once every human judge has ruled decisively
         outcome: 'negative',
         noRuling: [ai],
       },
-      { kind: 'pending' },
-      { kind: 'pending' },
-      'pending',
+      { kind: 'pending', waiting: window_ },
+      {
+        kind: 'pending',
+        waiting: { on: 'ai_generating', deadlineAt: iso(90_000) },
+      },
+      { kind: 'pending', waiting: window_ },
     ],
   });
 });
 
 test('the panel decides from each seat: every mode ends, and only a judge who can still rule holds it', () => {
   const [human, ai, other] = judges as [string, string, string];
+  const later = 61_000;
   const decide = (input: {
     readonly humans?: readonly string[];
-    readonly seats: readonly string[];
     readonly running?: readonly string[];
     readonly failed?: readonly string[];
+    readonly held?: readonly string[];
+    readonly noJob?: readonly string[];
     readonly ballots?: ReturnType<typeof ballot>[];
     readonly completeness?: 'complete' | 'incomplete';
     readonly deadline?: number;
   }) =>
     decidePanelCompletion({
       completeness: input.completeness ?? 'complete',
-      humanJudgeSeatIds: input.humans ?? [],
-      judgeSeatIds: input.seats,
-      runningAiSeatIds: input.running ?? [],
-      failedAiSeatIds: input.failed ?? [],
+      panel: {
+        humanWindow: window(input.humans ?? [], iso(input.deadline ?? later)),
+        aiSeats: [
+          ...(input.running ?? []).map(running),
+          ...(input.failed ?? []).map((id) => standing(id, 'ended')),
+          ...(input.held ?? []).map((id) => standing(id, 'holding_ballot')),
+          ...(input.noJob ?? []).map((id) => standing(id, 'not_dispatched')),
+        ],
+      },
       ballots: input.ballots ?? [],
-      ballotDeadlineAtMs: input.deadline ?? Number.NaN,
       nowMs: 1_000,
     });
   const summary = (d: ReturnType<typeof decide>) =>
     d.kind === 'pending' ? 'pending' : `${d.ruling}:${d.outcome}`;
-  const later = 61_000;
   const cases: [string, Parameters<typeof decide>[0], string][] = [
-    ['AI-only, job running', { seats: [ai], running: [ai] }, 'pending'],
+    ['AI-only, job running', { running: [ai] }, 'pending'],
+    ['AI-only, holding a ballot', { held: [ai] }, 'pending'],
     [
       'AI-only, job failed: ends at once with no 30 minute wait',
-      { seats: [ai], failed: [ai] },
+      { failed: [ai] },
       'judging-failed:null',
     ],
     [
       'AI-only, incomplete freeze',
-      { seats: [ai], completeness: 'incomplete' },
+      { noJob: [ai], completeness: 'incomplete' },
       'transcript-incomplete:null',
     ],
     [
       'two AI seats, one failed and one still running',
-      { seats: [ai, other], running: [other], failed: [ai] },
+      { running: [other], failed: [ai] },
       'pending',
     ],
     [
       'two AI seats, one failed and one ruled',
-      {
-        seats: [ai, other],
-        failed: [ai],
-        ballots: [ballot(other, 'negative')],
-      },
+      { noJob: [other], failed: [ai], ballots: [ballot(other, 'negative')] },
       'partial:negative',
     ],
     [
       'mixed, AI failed, human inside the window: the human keeps it',
-      { humans: [human], seats: [human, ai], failed: [ai], deadline: later },
+      { humans: [human], failed: [ai] },
       'pending',
     ],
     [
       'mixed, AI failed, human ruled: no wait for the dead seat',
       {
         humans: [human],
-        seats: [human, ai],
         failed: [ai],
-        deadline: later,
         ballots: [ballot(human, 'affirmative')],
       },
       'partial:affirmative',
     ],
     [
       'mixed, AI failed, human window over with no ballot',
-      { humans: [human], seats: [human, ai], failed: [ai], deadline: 1_000 },
+      { humans: [human], failed: [ai], deadline: 1_000 },
       'judges-did-not-rule:null',
     ],
     [
       'mixed, human window over, AI still running',
-      { humans: [human], seats: [human, ai], running: [ai], deadline: 1_000 },
+      { humans: [human], running: [ai], deadline: 1_000 },
       'pending',
-    ],
-    [
-      'an AI-only Round frozen with an old deadline, its job failed: no human to wait for',
-      { seats: [ai], failed: [ai], deadline: 61_000 },
-      'judging-failed:null',
     ],
     [
       'a tied panel with nobody left to rule',
       {
-        seats: [ai, other],
+        noJob: [ai, other],
         ballots: [ballot(ai, 'negative'), ballot(other, 'affirmative')],
       },
       'pending',
@@ -387,7 +388,7 @@ test('the panel decides from each seat: every mode ends, and only a judge who ca
     [
       'a tied panel of three with one failed seat',
       {
-        seats: [ai, other, human],
+        noJob: [ai, other],
         failed: [human],
         ballots: [ballot(ai, 'negative'), ballot(other, 'affirmative')],
       },
@@ -401,4 +402,36 @@ test('the panel decides from each seat: every mode ends, and only a judge who ca
       actual: summary(decide(input)),
       expected,
     });
+});
+
+test('a seat with a human judge and no deadline has no panel', () => {
+  const facts = {
+    completeness: 'complete' as const,
+    humanJudgeSeatIds: [judges[0]!],
+    aiJudgeSeatIds: [judges[1]!],
+    ballotDeadlineAt: null,
+    jobs: [],
+    held: {
+      attendanceCutoffAt: iso(9_000),
+      lastAttendanceDecisionAt: null,
+      lastWriterResolvedAt: null,
+    },
+    ballots: [],
+  };
+  assert({
+    given: 'a human judge seat with no persisted deadline',
+    should:
+      'read no panel, so nothing completes it, as the database guard refuses',
+    actual: judgingPanelOf(facts, 1_000),
+    expected: null,
+  });
+  assert({
+    given: 'that seat with its deadline, beside an AI seat with no job',
+    should: 'read one human window and one undispatched seat',
+    actual: judgingPanelOf({ ...facts, ballotDeadlineAt: deadline }, 1_000),
+    expected: {
+      humanWindow: { deadlineAt: deadline, seatIds: [judges[0]!] },
+      aiSeats: [{ id: judges[1]!, standing: { state: 'not_dispatched' } }],
+    },
+  });
 });

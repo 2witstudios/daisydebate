@@ -1,7 +1,7 @@
 import { requireCurrentWeb } from './round-service-authority';
-import { endOpenJudgingJobs } from './round-judging-end';
+import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, type JudgingTerminalReason } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   attendanceSamples,
@@ -88,7 +88,9 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
     readonly commandId: string;
     readonly instanceId: string;
     /** An AI job this decision found out of budget, with no worker to report it. */
-    readonly judgingEnded?: (reason: string) => void;
+    readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
+    /** Judging, not attendance, names why the Round's end ended a job. */
+    readonly judgingEndReason: JudgingEndRule;
     /** Decided first, with no history read: the common case stays cheap. */
     readonly resolveOnReceipts: (
       facts: AttendanceReceiptFacts,
@@ -103,7 +105,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
       )
     )
       throw createAppError('VALIDATION');
-    let ended: Awaited<ReturnType<typeof endOpenJudgingJobs>> = [];
+    let ended: readonly JudgingTerminalReason[] = [];
     const outcome = await transaction(
       async (tx): Promise<AttendanceResolution | AttendanceHold | null> => {
         await requireCurrentWeb(tx, input.instanceId);
@@ -195,20 +197,18 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
             commandId: input.commandId,
           });
         if (resolution.projection)
-          ended = await endOpenJudgingJobs(
-            tx,
-            round.id,
-            resolution.decision === 'abandoned'
-              ? 'ballot_hold_ended'
-              : 'round_ended',
-          );
+          ended = await endOpenJudgingJobs(tx, {
+            roundId: round.id,
+            ending: resolution.decision === 'forfeit' ? 'forfeit' : 'abandoned',
+            now,
+            judgingEndReason: input.judgingEndReason,
+          });
         await requireCurrentWeb(tx, input.instanceId);
         return resolution;
       },
     );
-    // After commit. A job the Round's end cut off is normal; anything else is not.
-    for (const { reason } of ended)
-      if (reason && reason !== 'round_ended') input.judgingEnded?.(reason);
+    // After commit.
+    for (const reason of ended) input.judgingEnded?.(reason);
     return outcome;
   };
 }

@@ -1,3 +1,5 @@
+import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
+import { judgingJobRules } from '@daisy/debate-engine';
 import { withSeasons } from '@daisy/db/seasons';
 import { recoverRatedResults } from './rated-room.test-support';
 import { randomBytes } from 'node:crypto';
@@ -250,6 +252,7 @@ test('an AI judging job no provider ever served by its budget is a known failure
         leaseMs: 60000,
         model: 'fixture-model',
         nextToken: () => randomBytes(32).toString('base64url'),
+        rules: judgingJobRules,
       },
     },
   );
@@ -360,6 +363,7 @@ test('an AI job out of budget with no worker running is reported once, with the 
         leaseMs: 60000,
         model: 'fixture-model',
         nextToken: () => randomBytes(32).toString('base64url'),
+        rules: judgingJobRules,
       },
     },
   );
@@ -370,6 +374,7 @@ const judgingOptions = {
     leaseMs: 60000,
     model: 'fixture-model',
     nextToken: () => randomBytes(32).toString('base64url'),
+    rules: judgingJobRules,
   },
 };
 /** A frozen AI-judged Round past its budget and cutoff, its worker holding a ballot or not. */
@@ -386,7 +391,7 @@ async function jobPastBudget(f: Fixture, holds: boolean) {
     );
   }
   await f.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 hour' where round_id=${roundId}`;
-  await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 hour' where id=${roundId}`;
+  await passAttendanceCutoff(f.sql, roundId, 3600);
   return roundId;
 }
 
@@ -464,6 +469,41 @@ for (const { holds, reason } of [
       });
     }, judgingOptions);
   });
+
+test('a forfeit cutting off a held ballot ends it round_ended and reports nothing (ISSUE-945)', async () => {
+  await withRoomRuntime(async (f) => {
+    const roundId = await jobPastBudget(f, true);
+    await proveFirstSpeakerAbsent(f, roundId);
+    const reported: string[] = [];
+    const instanceId = createId();
+    await f.store.renewServiceInstance({ instanceId, role: 'web' });
+    const attendance = createAttendanceFeature({
+      checkIns: f.store,
+      evaluate: f.store.evaluateRoundAttendance,
+      nextId: createId,
+      instanceId,
+      judgingEnded: (ended) => reported.push(ended),
+    });
+    try {
+      const decided = await attendance.evaluate(roundId);
+      const [job] =
+        await f.sql`select terminal_reason from round_judging_jobs where round_id=${roundId}`;
+      assert({
+        given: 'settled evidence of an absence, and a job holding a ballot',
+        should: 'forfeit, end the job round_ended, and report nothing',
+        actual: {
+          decision: decided?.decision,
+          reason: job.terminal_reason,
+          reported,
+        },
+        expected: { decision: 'forfeit', reason: 'round_ended', reported: [] },
+      });
+    } finally {
+      await f.sql`delete from service_instances where instance_id=${instanceId}`;
+      await f.sql`delete from availability_samples where at>=clock_timestamp()-interval '5 hours'`;
+    }
+  }, judgingOptions);
+});
 
 /** A first speaker settled evidence proves absent: their opponent attended, service healthy. */
 async function proveFirstSpeakerAbsent(f: Fixture, roundId: string) {

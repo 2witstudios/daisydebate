@@ -1,3 +1,4 @@
+import { judgingJobRules } from './judging-job-rules.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
@@ -95,6 +96,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
         judging: {
           leaseMs: 30000,
           model: 'fixture-judge',
+          rules: judgingJobRules,
           nextToken: () => randomBytes(32).toString('base64url'),
         },
       });

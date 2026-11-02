@@ -1,16 +1,26 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import type { JudgingAttemptDiagnostic } from '@daisy/protocol';
-import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { judgingJobCanRule } from '../src/round-judging-end';
+import { assertRejects } from '@daisy/errors/testing';
+import { readJudgingPanelFacts } from '../src/judging-panel-read';
 import {
   syntheticPendingBallot,
   withJudgingJob,
 } from './round-judging.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
+
+/** The Round's final speech ended long enough ago that its cutoff has passed. */
+const playedOut = (
+  fixture: Parameters<Parameters<typeof withJudgingJob>[0]>[0]['fixture'],
+  roundId: string,
+) =>
+  fixture.sql`update rounds set final_segment_ended_at=ended.at,
+    transcript_admission_cutoff=ended.at+interval '120 seconds',
+    attendance_resolution_cutoff_at=ended.at+interval '60 minutes'
+    from (select date_trunc('milliseconds',clock_timestamp())-interval '61 minutes' as at) ended where id=${roundId}`;
 
 const expire = (
   fixture: Parameters<Parameters<typeof withJudgingJob>[0]>[0]['fixture'],
@@ -357,32 +367,36 @@ test('a held ballot outlives the cutoff until it has had its chance to submit', 
       syntheticPendingBallot,
       usage,
     );
-    await fixture.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
-    const canRule = async () => {
-      const [row] = await drizzle({ client: fixture.sql }).execute(
-        sql`select ${judgingJobCanRule} as can from round_judging_jobs where round_id=${roundId}`,
-      );
-      return (row as { can: boolean }).can;
-    };
-    const beforeCutoff = await canRule();
-    await fixture.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
-    const pastCutoff = await canRule();
+    const facts = () =>
+      readJudgingPanelFacts(drizzle({ client: fixture.sql }), {
+        roundId,
+        completeness: 'complete',
+        seats: [],
+      });
+    await assertRejects({
+      given: 'a frozen Round with no cutoff',
+      should: 'refuse rather than hold the ballot without end',
+      actual: facts,
+      code: 'INVARIANT',
+    });
+    await playedOut(fixture, roundId);
+    const before = (await facts()).held;
     const attemptId = createId();
     await fixture.sql`insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,backend_pid,backend_started_at)
       select ${attemptId},${createId()},${roundId},${'b'.repeat(64)},actor_id,1,'2026-10-22 00:00:00+00' from round_participants where round_id=${roundId} limit 1`;
     await fixture.sql`update round_check_in_attempts set state='aborted',resolved_at=clock_timestamp() where attempt_id=${attemptId}`;
-    const writerJustResolved = await canRule();
+    const after = (await facts()).held;
     await fixture.sql`delete from round_check_in_attempts where attempt_id=${attemptId}`;
     assert({
-      given: 'a validated ballot past its budget',
+      given: 'a held ballot, then an uncertain writer resolving',
       should:
-        'wait to the cutoff, stop there, and get a fresh chance when an uncertain writer resolves',
-      actual: { beforeCutoff, pastCutoff, writerJustResolved },
-      expected: {
-        beforeCutoff: true,
-        pastCutoff: false,
-        writerJustResolved: true,
+        'read the cutoff and the writer, for the engine to bound the hold by',
+      actual: {
+        cutoff: before.attendanceCutoffAt === after.attendanceCutoffAt,
+        before: before.lastWriterResolvedAt,
+        resolved: after.lastWriterResolvedAt !== null,
       },
+      expected: { cutoff: true, before: null, resolved: true },
     });
   });
 });
@@ -397,15 +411,16 @@ test('a fresh attendance decision also gives a held ballot its chance', async ()
       syntheticPendingBallot,
       usage,
     );
-    await fixture.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
-    await fixture.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
-    const canRule = async () => {
-      const [row] = await drizzle({ client: fixture.sql }).execute(
-        sql`select ${judgingJobCanRule} as can from round_judging_jobs where round_id=${roundId}`,
-      );
-      return (row as { can: boolean }).can;
-    };
-    const before = await canRule();
+    await playedOut(fixture, roundId);
+    const lastDecision = async () =>
+      (
+        await readJudgingPanelFacts(drizzle({ client: fixture.sql }), {
+          roundId,
+          completeness: 'complete',
+          seats: [],
+        })
+      ).held.lastAttendanceDecisionAt;
+    const before = await lastDecision();
     const segmentId = createId();
     await fixture.insert('round_segments', {
       id: segmentId,
@@ -437,9 +452,9 @@ test('a fresh attendance decision also gives a held ballot its chance', async ()
     });
     assert({
       given: 'a held ballot past the cutoff, then a new attendance decision',
-      should: 'count as able to rule for the grace after that decision',
-      actual: [before, await canRule()],
-      expected: [false, true],
+      should: 'read that decision, for the engine to bound the hold by',
+      actual: [before, (await lastDecision()) !== null],
+      expected: [null, true],
     });
   });
 });

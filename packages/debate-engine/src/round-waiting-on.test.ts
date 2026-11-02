@@ -1,24 +1,55 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { JudgingPanelFacts } from '@daisy/protocol';
 import { roundWaitingOn } from './round-waiting-on';
 
 setupRitewayBun();
 
 const at = (ms: number) => new Date(ms).toISOString();
-const base = {
+const [human, other, ai] = ['h'.repeat(24), 'o'.repeat(24), 'a'.repeat(24)] as [
+  string,
+  string,
+  string,
+];
+const frozen = (
+  overrides: Partial<JudgingPanelFacts> = {},
+): JudgingPanelFacts => ({
+  completeness: 'complete',
+  humanJudgeSeatIds: [],
+  aiJudgeSeatIds: [],
+  ballotDeadlineAt: null,
+  jobs: [],
+  held: {
+    attendanceCutoffAt: at(9_000),
+    lastAttendanceDecisionAt: null,
+    lastWriterResolvedAt: null,
+  },
+  ballots: [],
+  ...overrides,
+});
+const job = (overrides = {}) => ({
+  judgeParticipantId: ai,
+  status: 'leased' as const,
+  generationDeadlineAt: at(5_000),
+  holdsBallot: false,
+  ...overrides,
+});
+const aiFacts = (overrides = {}) =>
+  frozen({ aiJudgeSeatIds: [ai], jobs: [job(overrides)] });
+const humanFacts = (deadline: number, overrides = {}) =>
+  frozen({
+    humanJudgeSeatIds: [human],
+    ballotDeadlineAt: at(deadline),
+    ...overrides,
+  });
+const ended = (
+  facts: JudgingPanelFacts | null,
+  overrides: { heldByWriter?: boolean; attendanceUnresolved?: boolean } = {},
+) => ({
+  speeches: 'ended' as const,
   nowMs: 1_000,
-  finalSegmentEnded: true,
-  frozen: true,
   heldByWriter: false,
   attendanceUnresolved: false,
-  ballotDeadlineAt: null,
-  attendanceCutoffAt: at(9_000),
-  humanJudgeUnruled: false,
-  jobs: [],
-};
-const job = (overrides = {}) => ({
-  generationDeadlineAt: at(5_000),
-  canRule: true,
-  holdsBallot: false,
+  frozen: facts,
   ...overrides,
 });
 
@@ -26,79 +57,118 @@ describe('roundWaitingOn', () => {
   test('names the one thing the Round is waiting on, from server facts', () => {
     const cases: [
       string,
-      Partial<Parameters<typeof roundWaitingOn>[0]>,
+      Parameters<typeof roundWaitingOn>[0],
       ReturnType<typeof roundWaitingOn>,
     ][] = [
-      ['speeches still running', { finalSegmentEnded: false }, null],
+      ['speeches still running', { speeches: 'running' }, null],
       [
         'the transcript still closing',
-        { frozen: false },
-        { state: 'closing_transcript', deadlineAt: null },
+        ended(null),
+        { state: 'closing_transcript' },
       ],
       [
         'an AI job with budget left: no human countdown',
-        { jobs: [job()] },
+        ended(aiFacts()),
         { state: 'ai_processing', deadlineAt: at(5_000) },
       ],
       [
         'an AI job ended with no ballot',
-        { jobs: [job({ canRule: false })] },
-        { state: 'ai_failed', deadlineAt: null },
+        ended(aiFacts({ status: 'failed' })),
+        { state: 'ai_failed' },
       ],
       [
         'a human inside the window, from the persisted deadline',
-        { humanJudgeUnruled: true, ballotDeadlineAt: at(2_000) },
+        ended(humanFacts(2_000)),
         { state: 'human_window', deadlineAt: at(2_000) },
       ],
       [
         'a failed AI seat beside a human inside the window',
-        {
-          humanJudgeUnruled: true,
-          ballotDeadlineAt: at(2_000),
-          jobs: [job({ canRule: false })],
-        },
+        ended(
+          humanFacts(2_000, {
+            aiJudgeSeatIds: [ai],
+            jobs: [job({ status: 'failed' })],
+          }),
+        ),
         { state: 'human_window', deadlineAt: at(2_000) },
       ],
       [
         'a human window that has passed',
-        { humanJudgeUnruled: true, ballotDeadlineAt: at(500) },
-        { state: 'settling', deadlineAt: null },
+        ended(humanFacts(500)),
+        { state: 'settling' },
       ],
       [
         'a validated ballot waiting on attendance',
-        {
-          attendanceUnresolved: true,
-          jobs: [job({ holdsBallot: true })],
-        },
+        ended(aiFacts({ holdsBallot: true }), { attendanceUnresolved: true }),
         { state: 'awaiting_attendance', deadlineAt: at(9_000) },
       ],
       [
         'a validated ballot still submitting, attendance settled: no false cause',
-        { jobs: [job({ holdsBallot: true })] },
-        { state: 'settling', deadlineAt: null },
+        ended(aiFacts({ holdsBallot: true })),
+        { state: 'settling' },
       ],
       [
         'a held ballot past its bound',
-        { jobs: [job({ holdsBallot: true, canRule: false })] },
-        { state: 'ai_failed', deadlineAt: null },
+        ended(
+          frozen({
+            aiJudgeSeatIds: [ai],
+            jobs: [job({ holdsBallot: true, generationDeadlineAt: at(500) })],
+            held: {
+              attendanceCutoffAt: at(900),
+              lastAttendanceDecisionAt: null,
+              lastWriterResolvedAt: null,
+            },
+          }),
+        ),
+        { state: 'ai_failed' },
+      ],
+      [
+        'a human seat with no persisted deadline: no invented window',
+        ended(frozen({ humanJudgeSeatIds: [human] })),
+        { state: 'settling' },
       ],
       [
         'an uncertain writer: it outranks everything, with no deadline',
-        {
+        ended(humanFacts(2_000), {
           heldByWriter: true,
           attendanceUnresolved: true,
-          humanJudgeUnruled: true,
-          ballotDeadlineAt: at(2_000),
-        },
-        { state: 'held_by_writer', deadlineAt: null },
+        }),
+        { state: 'held_by_writer' },
       ],
     ];
-    for (const [given, overrides, expected] of cases)
+    for (const [given, facts, expected] of cases)
       assert({
         given,
         should: `be ${expected?.state ?? 'null'}`,
-        actual: roundWaitingOn({ ...base, ...overrides }),
+        actual: roundWaitingOn(facts),
         expected,
       });
+  });
+
+  test('a tied panel inside the human window agrees with the panel decision (ISSUE-942)', () => {
+    const split = humanFacts(2_000, {
+      humanJudgeSeatIds: [human, other],
+      aiJudgeSeatIds: [ai],
+      jobs: [job({ status: 'failed' })],
+      ballots: [
+        {
+          judgeParticipantId: human,
+          winner: 'affirmative',
+          status: 'submitted',
+        },
+        { judgeParticipantId: other, winner: 'negative', status: 'submitted' },
+      ],
+    });
+    assert({
+      given: 'human judges split and a failed AI seat with the window open',
+      should: 'read human_window with its persisted deadline, not ai_failed',
+      actual: roundWaitingOn(ended(split)),
+      expected: { state: 'human_window', deadlineAt: at(2_000) },
+    });
+    assert({
+      given: 'that split once the window closes',
+      should: 'stop showing the clock',
+      actual: roundWaitingOn({ ...ended(split), nowMs: 2_000 }),
+      expected: { state: 'ai_failed' },
+    });
   });
 });

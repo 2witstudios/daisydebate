@@ -130,11 +130,8 @@ const fixtures: Readonly<Record<string, Fixture>> = {
     round({ status: 'active' }).completePanel({
       now: t0,
       ballots: [],
-      ballotDeadlineAt: t0,
       completeness: 'complete',
-      humanJudgeSeatIds: [],
-      runningAiSeatIds: [],
-      failedAiSeatIds: [],
+      panel: { humanWindow: null, aiSeats: [] },
     }),
   'completed-is-terminal': () =>
     round({ status: 'completed' }).execute({
