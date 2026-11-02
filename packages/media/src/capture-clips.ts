@@ -150,10 +150,24 @@ function wav(frames: readonly Admitted[]) {
     }
   return bytes;
 }
+/** Low energy: an observed PCM RMS at most 64 signed sample units. */
+const lowEnergy = (pcm: Int16Array) =>
+  Math.sqrt(pcm.reduce((sum, value) => sum + value * value, 0) / pcm.length) <=
+  64;
+/**
+ * Voice under this long in a clip is a click or a breath: the speech-to-text
+ * model invents words from such audio, so it is never sent. Short enough to keep
+ * a one-word answer, which measures about 360 ms.
+ */
+const MIN_VOICED_MS = 200;
+const voicedMs = (frames: readonly Admitted[]) =>
+  frames.filter(({ frame }) => !lowEnergy(frame.pcm)).length * 10;
+/** One cut window: silent has no audio, so only audible can be transcribed. */
+export type CutClip = ReturnType<typeof clip>;
 function clip(input: Input, frames: readonly Admitted[]) {
   const first = frames[0]!;
   const startOffsetMs = first.frame.nominalStartMs - first.segment.startedAtMs;
-  return {
+  const window = {
     roundId: input.roundId,
     segmentId: first.segment.id,
     roundParticipantId: input.roundParticipantId,
@@ -177,19 +191,20 @@ function clip(input: Input, frames: readonly Admitted[]) {
         ]),
       )
       .digest('hex'),
-    wav: wav(frames),
   };
+  // A silent clip has no audio, so it cannot reach speech-to-text.
+  return voicedMs(frames) < MIN_VOICED_MS
+    ? { ...window, kind: 'silent' as const }
+    : { ...window, kind: 'audible' as const, wav: wav(frames) };
 }
-/** Low energy: an observed PCM RMS at most 64 signed sample units. */
-const lowEnergy = (pcm: Int16Array) =>
-  Math.sqrt(pcm.reduce((sum, value) => sum + value * value, 0) / pcm.length) <=
-  64;
 /**
  * A pause ends a clip: this long of low-energy frames after speech, or this
  * long with no frame at all (the caller ends a carry whose frames stopped).
  */
 export const CLIP_PAUSE_MS = 500;
 const PAUSE_FRAMES = CLIP_PAUSE_MS / 10;
+/** Quiet frames kept before speech, so soft first words are not cut off. */
+const PRE_ROLL_FRAMES = PAUSE_FRAMES;
 /** Low-energy frames ending `frames`, and whether any frame before them is speech. */
 function trailingQuiet(frames: readonly Admitted[]) {
   let quiet = 0;
@@ -215,7 +230,7 @@ const continues = (previous: Admitted, current: Admitted) =>
 
 /** One stream's open clip: accumulates admitted frames and cuts at a pause or the bound. */
 function openClip(input: Input, carried: readonly Admitted[]) {
-  const clips: ReturnType<typeof clip>[] = [];
+  const clips: CutClip[] = [];
   let pending = [...carried];
   let { quiet, heard } = trailingQuiet(pending);
   const flush = () => {
@@ -227,9 +242,16 @@ function openClip(input: Input, carried: readonly Admitted[]) {
   const push = (current: Admitted) => {
     const previous = pending.at(-1);
     if (previous && !continues(previous, current)) flush();
+    const voiced = !lowEnergy(current.frame.pcm);
+    // Silence before speech is its own clip: it never rides along to the model.
+    if (voiced && !heard && pending.length > PRE_ROLL_FRAMES) {
+      const at = pending.length - PRE_ROLL_FRAMES;
+      clips.push(clip(input, pending.slice(0, at)));
+      pending = pending.slice(at);
+    }
     pending.push(current);
-    if (lowEnergy(current.frame.pcm)) quiet++;
-    else [quiet, heard] = [0, true];
+    if (voiced) [quiet, heard] = [0, true];
+    else quiet++;
     // Speech then a full pause ends the clip; silence alone keeps accumulating.
     if (heard && quiet >= PAUSE_FRAMES) flush();
     else if (pending.length === MAX_CLIP_FRAMES) {

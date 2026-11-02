@@ -1,5 +1,5 @@
 import { isTransientProviderFailure, type OpenRouter } from '@daisy/ai-voice';
-import type { cutCaptureClips } from '@daisy/media/clips';
+import type { CutClip } from '@daisy/media/clips';
 import { isTransientControlFailure } from '@daisy/media/worker';
 import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
 import {
@@ -10,9 +10,7 @@ import {
   type CaptureState,
   type FrameWindow,
 } from './capture-history';
-export type QueuedClip = ReturnType<typeof cutCaptureClips>['clips'][number] & {
-  readonly bytes: number;
-};
+export type QueuedClip = CutClip & { readonly bytes: number };
 export async function consumeCaptureClips(input: {
   readonly client: CaptureClient;
   readonly epoch: number;
@@ -65,7 +63,7 @@ const streamOf = (clip: QueuedClip) =>
  */
 async function transcribeClip(
   input: Parameters<typeof consumeCaptureClips>[0],
-  clip: QueuedClip,
+  clip: Extract<QueuedClip, { readonly kind: 'audible' }>,
   failed: Set<string>,
 ) {
   if (failed.has(streamOf(clip))) return null;
@@ -109,16 +107,18 @@ async function consumeClip(
     if (allowed) input.lost(clip);
     return;
   }
-  const result = await transcribeClip(input, clip, failed);
-  input.signal.throwIfAborted();
-  if (!result) {
-    input.dropped(clip.durationMs / 10);
-    input.lost(clip);
-    return;
+  if (clip.kind === 'audible') {
+    const result = await transcribeClip(input, clip, failed);
+    input.signal.throwIfAborted();
+    if (!result) {
+      input.dropped(clip.durationMs / 10);
+      input.lost(clip);
+      return;
+    }
+    input.transcribed();
+    if (result.text) await appendClip(input, clip, result.text);
   }
-  input.transcribed();
-  // A transcribed window is captured coverage, speech or honest silence.
-  if (result.text) await appendClip(input, clip, result.text);
+  // A heard window is captured coverage, whether or not it held words.
   const window = clipObservation(
     fresh.state,
     clip,

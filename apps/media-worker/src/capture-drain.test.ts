@@ -105,7 +105,10 @@ async function close(
     roundId,
     enqueue: (clip) => {
       inFlight++;
-      queue.push({ ...clip, bytes: clip.wav.byteLength });
+      queue.push({
+        ...clip,
+        bytes: clip.kind === 'audible' ? clip.wav.byteLength : 0,
+      });
     },
     inFlight: () => inFlight,
     halt: () => halt.abort(),

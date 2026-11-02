@@ -29,6 +29,13 @@ ends at a pause, at the sixty-second bound, at a split above, or at the final
 flush: the call made with `final: true` when the stream's segment has ended and
 it is due to seal, which emits what remains (VIDEO-4.1-r7).
 
+A clip with under 200 ms of frames above the low-energy line is `silent`: it holds
+no audio, so it cannot reach speech-to-text, and it still counts as observed
+coverage. Speech-to-text models can invent words from silence and noise. Every
+other clip is `audible` and carries its WAV. The line measures energy, not speech,
+so noise above it is still sent. Silence before speech beyond a 500 ms pre-roll is
+cut as its own clip, so it never travels with the words after it.
+
 A pause is 500 ms (`CLIP_PAUSE_MS`) of consecutive low-energy frames after at
 least one frame of speech; the clip ends after the pause. Low-energy frames alone
 never end a clip, so a silent seat accumulates toward the bound instead of
