@@ -7,7 +7,6 @@ import {
 import { watchRoutes } from '../../../features/watch/routes';
 import { Badge } from '../../components/badge/badge';
 import { cn } from '../../cn';
-import { InertButton } from '../inert-button/inert-button';
 import { PaneTabs } from '../pane-tabs/pane-tabs';
 import { DetailsPanel } from './details-panel';
 import { Player } from './player';
@@ -29,23 +28,18 @@ const panes: readonly { id: ReplayPane; label: string }[] = [
 
 /**
  * The replay of a recorded Round: player, timeline and transcript beside the
- * result, the sharing and visibility manager, and the details. Position,
- * search, pane and the open manager all live in the URL.
+ * result, who can replay it and the details. Position, search and pane all
+ * live in the URL.
  */
 export function Replay({ view }: ReplayProps) {
   const active = view.query.pane;
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-4 px-6 pt-5 pb-8 max-compact:px-4">
-      <div className="flex items-center justify-between gap-3">
-        <nav aria-label="Breadcrumb" className="text-sm text-ink-muted">
-          <Link href={watchRoutes.recordings} className="font-strong">
-            Recordings
-          </Link>
-        </nav>
-        <InertButton action="report" variant="ghost">
-          Report
-        </InertButton>
-      </div>
+      <nav aria-label="Breadcrumb" className="text-sm text-ink-muted">
+        <Link href={watchRoutes.recordings} className="font-strong">
+          Recordings
+        </Link>
+      </nav>
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-strong text-accent">
@@ -88,7 +82,7 @@ export function Replay({ view }: ReplayProps) {
               replayPaneClass('share', active),
             )}
           >
-            <SharePanel id={view.id} query={view.query} share={view.share} />
+            <SharePanel share={view.share} />
             <DetailsPanel rows={view.details} />
           </div>
         </div>

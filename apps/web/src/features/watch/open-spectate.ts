@@ -1,5 +1,5 @@
 import { findRound, type WatchSource } from './round-source';
-import type { WatchRound, WatchViewer } from './round';
+import type { WatchViewer } from './round';
 import { decideSpectate } from './spectate';
 import type { SpectateQuery } from './spectate-query';
 import { buildSpectateView, type SpectateView } from './spectate-view';

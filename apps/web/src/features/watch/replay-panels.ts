@@ -1,11 +1,9 @@
 import {
   debaterOn,
-  isParticipant,
   type Ballots,
   type Side,
   type Visibility,
   type WatchRound,
-  type WatchViewer,
 } from './round';
 import {
   dayLabel,
@@ -16,7 +14,6 @@ import {
   visibilityLabel,
 } from './labels';
 import { replayHref } from './routes';
-import type { ReplayQuery } from './replay-query';
 
 type Published = Extract<Ballots, { state: 'published' }>;
 
@@ -82,68 +79,18 @@ const DESCRIPTIONS: Readonly<Record<Visibility, string>> = {
   private: 'Only the debaters and judges can replay it.',
 };
 
-const OPTIONS: readonly {
-  readonly value: Visibility;
-  readonly label: string;
-  readonly text: string;
-}[] = [
-  {
-    value: 'public',
-    label: 'Public',
-    text: 'Listed in the archive',
-  },
-  {
-    value: 'unlisted',
-    label: 'Unlisted',
-    text: 'Anyone with the link',
-  },
-  {
-    value: 'private',
-    label: 'Private',
-    text: 'Debaters and judges only. Not for ranked debates.',
-  },
-];
-
 export type SharePanel = {
   readonly visibility: string;
   readonly description: string;
-  /** Only the people seated can change who may replay. */
-  readonly canManage: boolean;
-  readonly manageOpen: boolean;
-  readonly options: readonly {
-    readonly value: Visibility;
-    readonly label: string;
-    readonly text: string;
-    readonly checked: boolean;
-    /** Ranked recordings stay checkable, so they cannot go private. */
-    readonly locked: boolean;
-  }[];
-  readonly unchanged: boolean;
   readonly linkPath: string;
 };
 
-/** Who can replay, the owner's visibility manager and the link to share. */
-export function buildShare(
-  round: WatchRound,
-  viewer: WatchViewer,
-  query: ReplayQuery,
-): SharePanel {
-  const draft = query.vis ?? round.visibility;
-  const canManage = isParticipant(round, viewer);
-  return {
-    visibility: visibilityLabel(round.visibility),
-    description: DESCRIPTIONS[round.visibility],
-    canManage,
-    manageOpen: canManage && query.manage,
-    options: OPTIONS.map((option) => ({
-      ...option,
-      checked: option.value === draft,
-      locked: round.mode === 'ranked' && option.value === 'private',
-    })),
-    unchanged: draft === round.visibility,
-    linkPath: replayHref(round.id),
-  };
-}
+/** Who can replay, which follows the Room, and the link to share. */
+export const buildShare = (round: WatchRound): SharePanel => ({
+  visibility: visibilityLabel(round.visibility),
+  description: DESCRIPTIONS[round.visibility],
+  linkPath: replayHref(round.id),
+});
 
 export type DetailRow = { readonly label: string; readonly value: string };
 

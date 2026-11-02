@@ -37,7 +37,6 @@ export function openReplay(
     kind: 'watch',
     view: buildReplayView({
       round,
-      viewer,
       query,
       table: source.schedule(round),
       density: source.density(round),

@@ -2,7 +2,6 @@ import type { SpectateView } from '../../../features/watch/spectate-view';
 import { liveHref } from '../../../features/watch/routes';
 import { cn } from '../../cn';
 import { CopyLink } from '../copy-link/copy-link';
-import { InertButton } from '../inert-button/inert-button';
 
 export type MatchupProps = {
   readonly view: SpectateView;
@@ -32,7 +31,7 @@ function Seat({ seat }: { seat: SpectateView['seats']['aff'] }) {
   );
 }
 
-/** Both debaters with their ratings, then Follow both and Share. */
+/** Both debaters with their ratings, then Share. */
 export function Matchup({ view }: MatchupProps) {
   return (
     <div className="flex flex-wrap items-center gap-4 max-narrow:gap-3">
@@ -40,7 +39,6 @@ export function Matchup({ view }: MatchupProps) {
       <span className="text-ink-faint max-narrow:hidden">vs</span>
       <Seat seat={view.seats.neg} />
       <div className="ml-auto flex items-center gap-2">
-        <InertButton action="follow">Follow both</InertButton>
         <CopyLink path={liveHref(view.id)} />
       </div>
     </div>

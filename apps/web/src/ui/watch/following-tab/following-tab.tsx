@@ -4,7 +4,6 @@ import {
   replayHref,
   watchRoutes,
 } from '../../../features/watch/routes';
-import { InertButton } from '../inert-button/inert-button';
 import { ActionLink } from '../action-link/action-link';
 import { StateCard } from '../state-card/state-card';
 import { Avatar } from '../../components/avatar/avatar';
@@ -40,6 +39,9 @@ export function FollowingTab({ following, signInHref }: FollowingTabProps) {
           <h2 className="px-4 py-3 text-xs font-bold tracking-widest text-ink-muted uppercase">
             People you follow
           </h2>
+          {following.people.length === 0 ? (
+            <p className="px-4 pb-3 text-sm text-ink-muted">Nobody yet.</p>
+          ) : null}
           <ul>
             {following.people.map((person) => (
               <li key={person.handle} className={row}>
@@ -66,14 +68,12 @@ export function FollowingTab({ following, signInHref }: FollowingTabProps) {
           </ul>
         </section>
         <section aria-label="Recently watched" className={card}>
-          <div className="flex items-center justify-between px-4 py-2">
-            <h2 className="text-xs font-bold tracking-widest text-ink-muted uppercase">
-              Recently watched
-            </h2>
-            <InertButton action="clearHistory" variant="ghost">
-              Clear history
-            </InertButton>
-          </div>
+          <h2 className="px-4 py-3 text-xs font-bold tracking-widest text-ink-muted uppercase">
+            Recently watched
+          </h2>
+          {following.history.length === 0 ? (
+            <p className="px-4 pb-3 text-sm text-ink-muted">Nothing yet.</p>
+          ) : null}
           <ul>
             {following.history.map((item) => (
               <li key={item.id} className={row}>

@@ -89,8 +89,6 @@ export const sampleChat = [
     text: 'Neg is pressing on that point now.',
   },
 ] as const;
-export const sampleChatRules = 'Links blocked · 1 message per 10 s';
-
 /** Sample follows and watch history, private to the viewer. */
 export const sampleFollowing: readonly Followed[] = [
   {

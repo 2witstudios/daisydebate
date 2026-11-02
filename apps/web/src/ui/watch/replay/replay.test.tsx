@@ -77,84 +77,17 @@ describe('Replay: a published result', () => {
     });
   });
 
-  test('a recording that is not mine has no manager', () => {
+  test('sharing states who can replay, with no inert control', () => {
     assert({
       given: "someone else's public recording",
-      should:
-        'show visibility and the link, but no Manage control, and a Report that answers as a sample action',
+      should: 'show visibility and the link, and no manager or report control',
       actual: [
         html.includes('Share and visibility'),
         html.includes('Manage visibility'),
         html.includes('value="/recordings/semifinal-rehearsal"'),
-        html.includes('href="?did=Send+report"'),
+        html.includes('Report'),
       ],
-      expected: [true, false, true, true],
-    });
-  });
-});
-
-describe('Replay: the visibility manager', () => {
-  test('offered to the people seated', () => {
-    const html = render('fast-rounds');
-    assert({
-      given: 'my unlisted ranked recording',
-      should: 'offer Manage visibility as a link that opens the manager',
-      actual: [
-        /<a [^>]*href="\/recordings\/fast-rounds\?pane=share&amp;manage=1"[^>]*>Manage visibility/.test(
-          html,
-        ),
-        html.includes('Unlisted'),
-      ],
-      expected: [true, true],
-    });
-  });
-
-  test('open, with a draft', () => {
-    const html = render('fast-rounds', {
-      ...defaultReplayQuery,
-      manage: true,
-      vis: 'public',
-      pane: 'share',
-    });
-    assert({
-      given: 'the manager open with Public chosen',
-      should:
-        'show three radios (Private locked for ranked), a GET form, a Save that answers as a sample action and a Close link',
-      actual: [
-        (html.match(/type="radio"/g) ?? []).length,
-        /value="private"[^>]*disabled=""|disabled=""[^>]*value="private"/.test(
-          html,
-        ),
-        /value="public"[^>]*checked=""|checked=""[^>]*value="public"/.test(
-          html,
-        ),
-        html.includes('href="?did=Save+visibility"'),
-        />Use this choice</.test(html),
-        />Close</.test(html),
-        html.includes('Not for ranked debates'),
-        html.includes('ends anyone watching'),
-      ],
-      expected: [3, true, true, true, true, true, true, true],
-    });
-  });
-
-  test('a casual private recording allows Private', () => {
-    const html = render('practice-with-a-friend', {
-      ...defaultReplayQuery,
-      manage: true,
-    });
-    assert({
-      given: 'my private casual recording',
-      should: 'keep Private checked and not locked',
-      actual: [
-        /value="private"[^>]*checked=""|checked=""[^>]*value="private"/.test(
-          html,
-        ),
-        /value="private"[^>]*disabled=""|disabled=""[^>]*value="private"/.test(
-          html,
-        ),
-      ],
-      expected: [true, false],
+      expected: [true, false, true, false],
     });
   });
 });

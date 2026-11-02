@@ -46,7 +46,7 @@ export const watchSource: WatchSource = {
     delaySeconds: DEFAULT_DELAY_SECONDS,
   }),
   density: () => [],
-  social: () => ({ reactions: [], messages: [], chatRules: '' }),
+  social: () => ({ reactions: [], messages: [] }),
   following: () => ({ people: [], history: [] }),
 };
 

@@ -75,15 +75,15 @@ describe('LiveTab', () => {
     const html = render(defaultLiveQuery, empty);
     assert({
       given: 'no live Rounds at all',
-      should: 'explain, offer a working notify, the archive and the lobby',
+      should: 'explain, and offer the archive and the lobby',
       actual: [
         html.includes('Nothing live right now'),
-        html.includes('href="?did=Notify+me"'),
+        html.includes('?did='),
         html.includes('href="/recordings"'),
         html.includes('href="/lobby"'),
         html.includes('role="search"'),
       ],
-      expected: [true, true, true, true, false],
+      expected: [true, false, true, true, false],
     });
   });
 });

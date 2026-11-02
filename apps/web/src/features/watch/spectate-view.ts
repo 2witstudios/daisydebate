@@ -98,10 +98,6 @@ export type SpectateView = {
   /** The audience's connection; the realtime layer owns the real value. */
   readonly connection: 'connected' | 'reconnecting';
   readonly query: SpectateQuery;
-  /** What the open report dialog is about, resolved for display. */
-  readonly reportTarget: string | null;
-  /** True once a report was sent; nothing can send one yet. */
-  readonly reportSent: boolean;
   /** How far the audience runs behind the debaters. */
   readonly delaySeconds: number;
 };
@@ -118,7 +114,6 @@ type Input = {
     readonly delaySeconds: number;
   };
   readonly connection?: SpectateView['connection'];
-  readonly reportSent?: boolean;
 };
 
 const STANDINGS = {
@@ -233,14 +228,6 @@ function speechRows(ctx: Ctx): readonly SpeechRow[] {
   });
 }
 
-function reportTargetOf({ query, social }: Input): string | null {
-  const subject = query.report;
-  if (subject === null) return null;
-  if (subject.kind === 'debate') return 'the debate';
-  const message = social.messages.find((m) => m.id === subject.id);
-  return `a message from @${message?.handle ?? 'a spectator'}`;
-}
-
 /**
  * The live view of a Round a viewer may watch, live or just ended. Pure: the
  * caller hands in the Round, its timetable and the audience's chat.
@@ -282,8 +269,6 @@ export function buildSpectateView(input: Input): SpectateView {
     social: { ...social, open: live },
     connection: input.connection ?? 'connected',
     query,
-    reportTarget: reportTargetOf(input),
-    reportSent: input.reportSent ?? false,
     delaySeconds: context.delaySeconds,
   };
 }

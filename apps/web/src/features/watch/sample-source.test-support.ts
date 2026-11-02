@@ -1,6 +1,5 @@
 import {
   sampleChat,
-  sampleChatRules,
   sampleDelaySeconds,
   sampleDensity,
   sampleFollowing,
@@ -30,7 +29,6 @@ export const sampleWatchSource: WatchSource = {
   social: () => ({
     reactions: sampleReactions,
     messages: sampleChat,
-    chatRules: sampleChatRules,
   }),
   following: (viewer) =>
     viewer.signedIn
