@@ -6,11 +6,11 @@ export function timingFixture<
     readonly kind: 'found' | 'missing' | 'unavailable';
     readonly serverNowMs?: number | null;
   },
->(hydrationSeedServerMs?: number) {
+>(hydrationSeedServerMs = 0) {
   const edges = driverEdges<T>();
   const roundTime = createRoundTime({
     monotonicNowMs: edges.scheduler.now,
-    ...(hydrationSeedServerMs === undefined ? {} : { hydrationSeedServerMs }),
+    hydrationSeedServerMs,
   });
   let generation = 0;
   const read = createMeasuredRead({

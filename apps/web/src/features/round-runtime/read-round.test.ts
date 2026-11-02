@@ -150,7 +150,10 @@ test('the browser measures around the complete authorized reader, not its server
   const { round } = await import('../room-runtime/operations.test-support');
   const { createMeasuredRead, createRoundTime } = await import('./round-time');
   let clientMono = 1000;
-  const clock = createRoundTime({ monotonicNowMs: () => clientMono });
+  const clock = createRoundTime({
+    monotonicNowMs: () => clientMono,
+    hydrationSeedServerMs: 0,
+  });
   const gate = Promise.withResolvers<void>();
   const read = createMeasuredRead({
     read: () =>
@@ -174,8 +177,8 @@ test('the browser measures around the complete authorized reader, not its server
     should: 'carry only serverNowMs and calibrate with client1000..1200',
     actual: [
       response.kind === 'found' ? Object.keys(response).sort() : [],
-      clock.calibration()?.serverAtReceiveMs,
-      clock.calibration()?.monoAtReceiveMs,
+      clock.calibration().serverAtReceiveMs,
+      clock.calibration().monoAtReceiveMs,
     ],
     expected: [['kind', 'round', 'serverNowMs', 'socketUrl'], 90100, 1200],
   });

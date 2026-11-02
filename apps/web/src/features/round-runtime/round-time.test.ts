@@ -4,11 +4,19 @@ import {
   createRoundTime,
   decideSample,
   MAX_SAMPLE_RTT_MS,
+  type Calibration,
   type RoundTimeSample,
   type SampleDecision,
 } from './round-time';
 
 setupRitewayBun();
+const seed: Calibration = {
+  serverAtReceiveMs: 0,
+  monoAtReceiveMs: 0,
+  uncertaintyMs: Number.POSITIVE_INFINITY,
+  generation: -1,
+  real: false,
+};
 
 const sample = (overrides: Partial<RoundTimeSample> = {}): RoundTimeSample => ({
   serverNowMs: 10_000,
@@ -21,7 +29,10 @@ const sample = (overrides: Partial<RoundTimeSample> = {}): RoundTimeSample => ({
 describe('decideSample', () => {
   test('a non-finite sample is refused atomically and the clock keeps its state', () => {
     const mono = 0;
-    const clock = createRoundTime({ monotonicNowMs: () => mono });
+    const clock = createRoundTime({
+      monotonicNowMs: () => mono,
+      hydrationSeedServerMs: 0,
+    });
     assert({
       given: 'a first real sample, then NaN server time and NaN generation',
       should: 'accept only the real one and keep projecting it',
@@ -35,7 +46,10 @@ describe('decideSample', () => {
   });
 
   test('a latency envelope beyond the policy is refused without touching the anchor', () => {
-    const clock = createRoundTime({ monotonicNowMs: () => 0 });
+    const clock = createRoundTime({
+      monotonicNowMs: () => 0,
+      hydrationSeedServerMs: 0,
+    });
     assert({
       given: `samples at the envelope edge (${MAX_SAMPLE_RTT_MS} ms) and beyond`,
       should: 'accept the bounded one, refuse the slower one',
@@ -61,7 +75,10 @@ describe('decideSample', () => {
 
   test('a completion whose generation was allocated earlier cannot displace newer authority', () => {
     const mono = 100;
-    const clock = createRoundTime({ monotonicNowMs: () => mono });
+    const clock = createRoundTime({
+      monotonicNowMs: () => mono,
+      hydrationSeedServerMs: 0,
+    });
     clock.sample(
       sample({
         serverNowMs: 11_000,
@@ -94,7 +111,10 @@ describe('decideSample', () => {
 
   test('a server instant behind the projected now, beyond its own uncertainty, is a rollback', () => {
     let mono = 0;
-    const clock = createRoundTime({ monotonicNowMs: () => mono });
+    const clock = createRoundTime({
+      monotonicNowMs: () => mono,
+      hydrationSeedServerMs: 0,
+    });
     clock.sample(sample({ serverNowMs: 10_000, generation: 1 }));
     mono = 10_000;
     const before = clock.nowMs();
@@ -120,7 +140,10 @@ describe('decideSample', () => {
   });
 
   test('a slower link accepts its midpoint estimate with RTT/2 uncertainty', () => {
-    const clock = createRoundTime({ monotonicNowMs: () => 400 });
+    const clock = createRoundTime({
+      monotonicNowMs: () => 400,
+      hydrationSeedServerMs: 0,
+    });
     const decision = clock.sample(
       sample({
         serverNowMs: 60_000,
@@ -135,7 +158,7 @@ describe('decideSample', () => {
       actual: [
         decision.accepted,
         clock.nowMs(),
-        clock.calibration()?.uncertaintyMs,
+        clock.calibration().uncertaintyMs,
       ],
       expected: [true, 60_150, 150],
     });
@@ -150,7 +173,7 @@ describe('decideSample', () => {
     assert({
       given: 'a mounted room before its first authorized read lands',
       should: 'project from the seed and report it is not yet real',
-      actual: [clock.nowMs(), clock.calibration()?.real],
+      actual: [clock.nowMs(), clock.calibration().real],
       expected: [10_000, false],
     });
     mono = 2_000;
@@ -165,7 +188,7 @@ describe('decideSample', () => {
     assert({
       given: 'the first authorized sample arrives',
       should: 'replace the seed and mark the calibration real',
-      actual: [accepted.accepted, clock.nowMs(), clock.calibration()?.real],
+      actual: [accepted.accepted, clock.nowMs(), clock.calibration().real],
       expected: [true, 42_000, true],
     });
   });
@@ -176,7 +199,10 @@ describe('createMeasuredRead', () => {
     // The server process's monotonic epoch is unrelated to the client's; the
     // read contract carries only the server's millisecond instant.
     let mono = 1_000;
-    const clock = createRoundTime({ monotonicNowMs: () => mono });
+    const clock = createRoundTime({
+      monotonicNowMs: () => mono,
+      hydrationSeedServerMs: 0,
+    });
     const read = createMeasuredRead({
       read: async () =>
         ({ kind: 'found', serverNowMs: 90_000, extra: 'view' }) as const,
@@ -197,8 +223,8 @@ describe('createMeasuredRead', () => {
         'answer the caller unchanged and calibrate on the measured interval',
       actual: [
         response,
-        clock.calibration()?.serverAtReceiveMs,
-        clock.calibration()?.monoAtReceiveMs,
+        clock.calibration().serverAtReceiveMs,
+        clock.calibration().monoAtReceiveMs,
         clock.nowMs(),
       ],
       expected: [
@@ -212,7 +238,10 @@ describe('createMeasuredRead', () => {
 
   test('reordered concurrent reads keep their request-start generations', async () => {
     let mono = 0;
-    const clock = createRoundTime({ monotonicNowMs: () => mono });
+    const clock = createRoundTime({
+      monotonicNowMs: () => mono,
+      hydrationSeedServerMs: 0,
+    });
     let generation = 0;
     const pending = new Map<number, ((value: number) => void)[]>();
     const read = createMeasuredRead({
@@ -241,14 +270,17 @@ describe('createMeasuredRead', () => {
     assert({
       given: 'two concurrent reads whose completions arrive out of order',
       should: 'keep the newer accepted sample and refuse the late older one',
-      actual: [fresh, clock.nowMs(), clock.calibration()?.generation],
+      actual: [fresh, clock.nowMs(), clock.calibration().generation],
       expected: [30_025, 30_075, 2],
     });
   });
 
   test('a refusal leaves the accepted anchor untouched', async () => {
     let mono = 0;
-    const clock = createRoundTime({ monotonicNowMs: () => mono });
+    const clock = createRoundTime({
+      monotonicNowMs: () => mono,
+      hydrationSeedServerMs: 0,
+    });
     clock.sample(sample({ serverNowMs: 50_000, generation: 5 }));
     mono = 500;
     let decision: SampleDecision | null = null;
@@ -290,11 +322,11 @@ describe('decideSample pure boundary', () => {
       should: 'accept the first and refuse the second',
       actual: [
         decideSample(
-          null,
+          seed,
           sample({ sentAtMs: 7, receivedAtMs: 7, generation: 1 }),
         ).accepted,
         decideSample(
-          null,
+          seed,
           sample({ sentAtMs: 0, receivedAtMs: -1, generation: 2 }),
         ).accepted,
       ],

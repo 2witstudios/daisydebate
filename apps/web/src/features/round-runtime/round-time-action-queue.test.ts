@@ -118,7 +118,7 @@ test('an unrelated sequential Server Function can hold actual Round owners stale
       'recover through a fresh generation on the same Round and the same clock',
     actual: [
       clock.status().kind,
-      clock.calibration()?.generation,
+      clock.calibration().generation,
       driver.readSnapshot().value.id,
       edges.reads() <= 5,
     ],

@@ -221,7 +221,10 @@ test('an actual resource-sync failure publishes clock staleness and wakes the se
     await import('./round-sync-driver');
   const { round } = await import('../room-runtime/operations.test-support');
   const edges = driverEdges<import('./read-round').RoundRead>();
-  const roundTime = createRoundTime({ monotonicNowMs: edges.scheduler.now });
+  const roundTime = createRoundTime({
+    monotonicNowMs: edges.scheduler.now,
+    hydrationSeedServerMs: 0,
+  });
   let generation = 0;
   const read = createMeasuredRead({
     read: edges.read,

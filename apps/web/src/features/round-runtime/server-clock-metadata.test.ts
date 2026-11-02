@@ -47,7 +47,7 @@ test('blank clock metadata cannot promote the hydration seed into accepted time'
       result.serverNowMs,
       clock.status().kind,
       clock.nowMs(),
-      clock.calibration()?.real,
+      clock.calibration().real,
     ]);
   }
   assert({
@@ -166,7 +166,7 @@ test('malformed clock metadata preserves an accepted anchor and read generation 
     assert({
       given: 'the next valid read after refused metadata',
       should: 'accept only the later measured read generation',
-      actual: clock.calibration()?.generation,
+      actual: clock.calibration().generation,
       expected: 8,
     });
   }

@@ -40,7 +40,7 @@ const validSampleFields = ({
 
 /** Accept only overlapping authority bounds; refused evidence never changes the anchor. */
 export const decideSample = (
-  current: Calibration | null,
+  current: Calibration,
   candidate: RoundTimeSample,
 ): SampleDecision => {
   const { serverNowMs, sentAtMs, receivedAtMs, generation } = candidate;
@@ -52,11 +52,11 @@ export const decideSample = (
   if (rtt < 0 || rtt > MAX_SAMPLE_RTT_MS)
     return { accepted: false, refusal: 'rtt-out-of-envelope' };
   if (
-    current !== null &&
-    (generation <= current.generation || receivedAtMs < current.monoAtReceiveMs)
+    generation <= current.generation ||
+    receivedAtMs < current.monoAtReceiveMs
   )
     return { accepted: false, refusal: 'stale-generation' };
-  if (current?.real) {
+  if (current.real) {
     const projected =
       current.serverAtReceiveMs + receivedAtMs - current.monoAtReceiveMs;
     // The candidate range is [serverNowMs, serverNowMs + RTT]. It must
@@ -74,7 +74,7 @@ export type RoundTime = {
   nowMs(): number;
   sample(candidate: RoundTimeSample): SampleDecision;
   unavailable(generation: number): void;
-  calibration(): Calibration | null;
+  calibration(): Calibration;
   status(): RoundTimeStatus;
   subscribe(listener: () => void): () => void;
 };
@@ -82,19 +82,16 @@ export type RoundTime = {
 /** One mounted Round owns this clock; neither Round revisions nor reads replace it. */
 export function createRoundTime(options: {
   readonly monotonicNowMs: MonotonicClock;
-  readonly hydrationSeedServerMs?: number;
+  readonly hydrationSeedServerMs: number;
 }): RoundTime {
   const monotonic = options.monotonicNowMs;
-  let calibration: Calibration | null =
-    options.hydrationSeedServerMs === undefined
-      ? null
-      : {
-          serverAtReceiveMs: options.hydrationSeedServerMs,
-          monoAtReceiveMs: monotonic(),
-          uncertaintyMs: Number.POSITIVE_INFINITY,
-          generation: -1,
-          real: false,
-        };
+  let calibration: Calibration = {
+    serverAtReceiveMs: options.hydrationSeedServerMs,
+    monoAtReceiveMs: monotonic(),
+    uncertaintyMs: Number.POSITIVE_INFINITY,
+    generation: -1,
+    real: false,
+  };
   let failedGeneration = -1;
   const listeners = new Set<() => void>();
   const notify = () => {
@@ -104,7 +101,7 @@ export function createRoundTime(options: {
     if (
       !Number.isSafeInteger(generation) ||
       generation < 0 ||
-      generation <= (calibration?.generation ?? -1)
+      generation <= calibration.generation
     )
       return;
     failedGeneration = Math.max(failedGeneration, generation);
@@ -112,10 +109,8 @@ export function createRoundTime(options: {
   };
   return {
     nowMs: () =>
-      calibration === null
-        ? 0
-        : calibration.serverAtReceiveMs +
-          Math.max(0, monotonic() - calibration.monoAtReceiveMs),
+      calibration.serverAtReceiveMs +
+      Math.max(0, monotonic() - calibration.monoAtReceiveMs),
     sample: (candidate) => {
       const decision = decideSample(calibration, candidate);
       if (!decision.accepted) {
@@ -136,14 +131,14 @@ export function createRoundTime(options: {
     unavailable,
     calibration: () => calibration,
     status: () => ({
-      kind: !calibration?.real
+      kind: !calibration.real
         ? 'seed'
         : failedGeneration > calibration.generation ||
             monotonic() - calibration.monoAtReceiveMs >
               RESAMPLE_EVERY_MS + MAX_SAMPLE_RTT_MS
           ? 'stale'
           : 'current',
-      uncertaintyMs: calibration?.real ? calibration.uncertaintyMs : null,
+      uncertaintyMs: calibration.real ? calibration.uncertaintyMs : null,
     }),
     subscribe: (listener) => {
       listeners.add(listener);
