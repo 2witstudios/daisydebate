@@ -38,6 +38,23 @@ export function ballotOpensInMs(
 type DeviceInstant = { readonly wallMs: number; readonly monotonicMs: number };
 
 /**
+ * The device reading a count starts from: kept while the render instant is the
+ * same, so an effect restarting mid-count continues rather than restarts it and
+ * Submit is never held up too long (ISSUE-675). A new render instant starts over.
+ */
+export const countdownMount = (
+  previous: {
+    readonly renderedAtMs: number;
+    readonly mounted: DeviceInstant;
+  } | null,
+  renderedAtMs: number,
+  read: () => DeviceInstant,
+) =>
+  previous?.renderedAtMs === renderedAtMs
+    ? previous
+    : { renderedAtMs, mounted: read() };
+
+/**
  * The countdown's present: the server's render instant advanced by the time
  * elapsed on the device since mount, never the device's absolute time, so a
  * device clock that is off by any amount still counts down correctly. The

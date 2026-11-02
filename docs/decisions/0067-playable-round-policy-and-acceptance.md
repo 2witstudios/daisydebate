@@ -1,6 +1,7 @@
 # 0067: Playable Round policy and acceptance
 
 Status: accepted decision under explicit delegated owner authority, 2026-10-22.
+Attendance and judging deadlines amended by [ADR 0095](0095-honest-round-completion.md).
 Implementation and independent exact-candidate acceptance remain outstanding.
 Extends [ADR 0058](0058-one-round-model.md) and
 [ADR 0059](0059-one-competitive-api.md); accepts the architecture in
@@ -108,7 +109,7 @@ Close an outage after three consecutive healthy samples. A later sample cannot
 change availability at or before the previous settled horizon; gap intervals start
 strictly after that horizon. Never finalize while the effective deadline remains
 undetermined, a relevant outage is open, or settled horizon is earlier than effective
-deadline plus finalization buffer. A check-in's database receipt timestamp decides
+deadline plus finalization buffer. (ADR 0095: the scheduled speaker's on-time receipt settles a window alone.) A check-in's database receipt timestamp decides
 its timeliness; evaluator arrival order does not. With those gates satisfied, missing
 speaker/present opponent forfeits the speaker, both missing abandons, and missing
 only the non-speaker does nothing. Final outcomes are irreversible. Media/PCM/STT

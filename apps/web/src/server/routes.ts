@@ -238,6 +238,7 @@ export function createRoutes(app: App) {
         database,
         redis: app.redis,
         isDraining: app.isDraining,
+        startupChecked: app.startupChecked,
         logger,
         reporter: app.reporter,
       }),

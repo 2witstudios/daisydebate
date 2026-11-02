@@ -88,3 +88,126 @@ test('judged completion cannot pass unresolved actual attendance or pending chec
     }
   });
 });
+
+async function onTimeFixture(
+  fixture: Parameters<Parameters<typeof withFixture>[1]>[0],
+  receivedAt: string,
+) {
+  const opening = new Date('2026-10-22T00:00:00.000Z');
+  const roundId = await fixture.round({
+    status: 'active',
+    current_stage: 'live',
+    started_at: opening,
+  });
+  const segmentId = createId();
+  const first = validRules.segments.find((s) => s.type === 'speech')!;
+  await fixture.insert('round_segments', {
+    id: segmentId,
+    round_id: roundId,
+    sequence: 0,
+    type: 'speech',
+    rules_segment_key: first.key,
+    started_at: opening,
+    duration_ms: first.durationMs,
+  });
+  const actorId = await fixture.actor(await fixture.user());
+  const participantId = createId();
+  await fixture.insert('round_participants', {
+    id: participantId,
+    round_id: roundId,
+    actor_id: actorId,
+    role: 'affirmative',
+    slot: 0,
+  });
+  const command = async (type: string) => {
+    const commandId = createId();
+    await fixture.insert('round_commands', {
+      command_id: commandId,
+      round_id: roundId,
+      ...(type === 'check_in'
+        ? { actor_id: actorId }
+        : { service_id: `round-attendance:${createId()}` }),
+      type,
+      payload_digest: 'a'.repeat(64),
+      result: {},
+      resulting_version: 1,
+      applied_at: opening,
+    });
+    return commandId;
+  };
+  await fixture.insert('round_check_ins', {
+    command_id: await command('check_in'),
+    round_id: roundId,
+    segment_id: segmentId,
+    participant_id: participantId,
+    received_at: new Date(receivedAt),
+  });
+  const adjudicate = async (row: Record<string, unknown>) =>
+    fixture.insert('round_attendance_adjudications', {
+      round_id: roundId,
+      segment_id: segmentId,
+      command_id: await command('adjudicate'),
+      decision: 'attended',
+      ...row,
+    });
+  return { roundId, participantId, opening, adjudicate };
+}
+
+test('settlement accepts a real on-time receipt and refuses a forged or mis-shaped one', async () => {
+  await withFixture(databaseUrl, async (fixture) => {
+    const db = drizzle({ client: fixture.sql });
+    const settled = (roundId: string) =>
+      db.transaction((tx) =>
+        assertRoundAttendanceSettled(tx, { roundId, now }),
+      );
+    const onTime = await onTimeFixture(fixture, '2026-10-22T00:00:01.000Z');
+    const forged = await onTimeFixture(fixture, '2026-10-22T00:00:41.000Z');
+    const shapes = await onTimeFixture(fixture, '2026-10-22T00:00:01.000Z');
+    try {
+      await onTime.adjudicate({
+        evidence: 'on_time_receipt',
+        receipt_participant_id: onTime.participantId,
+      });
+      assert({
+        given: 'an on-time receipt decision with no horizon',
+        should: 'settle: finalization and rating read the same predicate',
+        actual: await settled(onTime.roundId),
+        expected: undefined,
+      });
+      await forged.adjudicate({
+        evidence: 'on_time_receipt',
+        receipt_participant_id: forged.participantId,
+      });
+      await assertRejects({
+        given: 'an on-time decision whose receipt is past the base window',
+        should: 'stay unresolved',
+        actual: () => settled(forged.roundId),
+        code: 'CONFLICT',
+      });
+      const shape = (row: Record<string, unknown>) =>
+        shapes.adjudicate(row).then(
+          () => 'accepted',
+          () => 'refused',
+        );
+      assert({
+        given: 'mis-shaped evidence rows',
+        should: 'be refused by the database',
+        actual: [
+          await shape({ evidence: 'settled_availability' }),
+          await shape({
+            evidence: 'on_time_receipt',
+            receipt_participant_id: shapes.participantId,
+            effective_deadline: shapes.opening,
+            settled_horizon: shapes.opening,
+          }),
+          await shape({ evidence: 'on_time_receipt' }),
+          await shape({ evidence: 'infrastructure_unresolved' }),
+        ],
+        expected: ['refused', 'refused', 'refused', 'refused'],
+      });
+    } finally {
+      for (const { roundId } of [onTime, forged, shapes])
+        await fixture.sql`delete from rounds where id=${roundId}`;
+    }
+  });
+});

@@ -531,7 +531,7 @@ test('a chosen status reads back, and a report closes once with its action', asy
   }
 });
 
-const migration = '20261102202019_who_is_online';
+const migration = '20261102220253_who_is_online';
 const scratch = scratchDatabase(databaseUrl, 'whoonline');
 afterAll(() => scratch.drop());
 

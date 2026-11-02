@@ -36,7 +36,7 @@ test('a Round still scheduled past its start horizon is abandoned once across tw
       const [first, second] = instances.map((instanceId) =>
         ordinaryMaintenance(f.store, instanceId),
       );
-      const discovered = await first!.discover();
+      const { roundIds: discovered } = await first!.discover();
       await Promise.all([first!.tick(expired), second!.tick(expired)]);
       const abandoned = (await f.store.getRound(expired))!;
       await second!.tick(expired);

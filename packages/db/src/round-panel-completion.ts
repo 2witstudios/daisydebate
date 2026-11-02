@@ -1,6 +1,6 @@
 import { createAppError, isAppError } from '@daisy/errors';
-import type { RoundUnjudgedReceipt } from '@daisy/protocol';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import type { RoundPanelReceipt } from '@daisy/protocol';
+import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import { fenceAttendance } from './attendance-facts';
@@ -10,6 +10,8 @@ import {
   type LockedRoundTickInput,
 } from './round-clock-transaction';
 import { hydrateRoundRows } from './round-hydration';
+import type { JudgingTerminalReason } from '@daisy/protocol';
+import { endOpenJudgingJobs, judgingJobCanRule } from './round-judging-end';
 import { requireCurrentWeb } from './round-service-authority';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { sampleRoundExecutionTime } from './round-execution-time';
@@ -21,18 +23,17 @@ import {
 import { writeSpeakingProjection } from './round-speaking-writer';
 import { ballots } from './schema/ballots';
 import { roundCommands } from './schema/round-commands';
-import { roundJudgingJobs } from './schema/round-judging-jobs';
 import {
   requireCompletionProjection,
-  requireUnjudgedFacts,
-  requireUnjudgedRequest,
-  requireUnjudgedRound,
-  requireUnjudgedTerminal,
-  unjudgedDigest,
-  unjudgedReceipt,
-  validateUnjudgedReceipt,
-  type UnjudgedDurableFacts,
-} from './round-unjudged-decisions';
+  requirePanelFacts,
+  requirePanelRequest,
+  requirePanelRound,
+  requirePanelTerminal,
+  panelDigest,
+  panelReceipt,
+  validatePanelReceipt,
+  type PanelDurableFacts,
+} from './round-panel-decisions';
 
 type CompletionFacts = Parameters<
   LockedRoundTickInput['buildProjection']
@@ -48,15 +49,19 @@ type CompletionFacts = Parameters<
   /** The frozen transcript's completeness and the human judge seats (DEC-208). */
   readonly completeness: 'complete' | 'incomplete';
   readonly humanJudgeSeatIds: readonly string[];
+  readonly runningAiSeatIds: readonly string[];
+  readonly failedAiSeatIds: readonly string[];
 };
 type Request = LockedRoundTickInput & {
   readonly instanceId: string;
   readonly commandId: string;
   readonly freezeRevision: number;
+  /** Once per AI job this completion ended without a ballot. */
+  readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
   /** The engine decides; the caller supplies the ruling it decided with the projection. */
   readonly buildCompletion: (facts: CompletionFacts) => {
     readonly projection: ReturnType<LockedRoundTickInput['buildProjection']>;
-    readonly ruling: RoundUnjudgedReceipt['ruling'];
+    readonly ruling: RoundPanelReceipt['ruling'];
     readonly noRuling: readonly string[];
     readonly ballotIds: readonly string[];
   };
@@ -80,13 +85,36 @@ async function replay(
     )
     .limit(1);
   if (!row) return null;
-  const receipt = validateUnjudgedReceipt(row, input, digest);
-  requireUnjudgedTerminal(
+  const receipt = validatePanelReceipt(row, input, digest);
+  requirePanelTerminal(
     await lockedRoundVersion(tx, input.roundId),
     receipt.outcome,
   );
   await requireCurrentWeb(tx, input.instanceId);
   return { ...receipt, replayed: true };
+}
+
+/**
+ * Whether each AI seat can still rule; anything else ended, even if no worker
+ * has recorded that yet.
+ */
+async function readAiSeatStates(
+  tx: BoundedTransactionContext,
+  roundId: string,
+) {
+  const rows = (await tx.execute(sql`select judge_participant_id as id,
+    ${judgingJobCanRule} as running,
+    status from round_judging_jobs where round_id=${roundId}`)) as unknown as {
+    id: string;
+    running: boolean;
+    status: string;
+  }[];
+  return {
+    runningAiSeatIds: rows.filter((row) => row.running).map((row) => row.id),
+    failedAiSeatIds: rows
+      .filter((row) => !row.running && row.status !== 'succeeded')
+      .map((row) => row.id),
+  };
 }
 
 async function readCompletionFacts(
@@ -99,16 +127,15 @@ async function readCompletionFacts(
   const round = await hydrateRoundRows(tx, input.roundId);
   const freeze = await readTranscriptFreeze(tx, input.roundId);
   const [durable] =
-    await tx.execute(sql`select ladder_id,final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
+    await tx.execute(sql`select final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
     exists(select 1 from rating_changes where round_id=${input.roundId}) as ratings
     from rounds where id=${input.roundId}`);
   const now = await sampleRoundExecutionTime(tx);
-  requireUnjudgedRound(round);
-  const { freeze: frozen, ballotDeadlineAt } = requireUnjudgedFacts({
+  requirePanelRound(round);
+  const { freeze: frozen, ballotDeadlineAt } = requirePanelFacts({
     freezeRevision: input.freezeRevision,
     freeze,
-    seats: facts.seats,
-    durable: durable as UnjudgedDurableFacts | undefined,
+    durable: durable as PanelDurableFacts | undefined,
   });
   await assertRoundAttendanceSettled(tx, { roundId: input.roundId, now });
   const stored = await tx
@@ -130,32 +157,18 @@ async function readCompletionFacts(
     humanJudgeSeatIds: facts.seats
       .filter((seat) => seat.role === 'judge' && seat.kind === 'human')
       .map((seat) => seat.id),
+    ...(await readAiSeatStates(tx, input.roundId)),
   };
 }
 
-/** A judging job still open when its Round completes is a known failure. */
-async function failOpenJudgingJobs(
-  tx: BoundedTransactionContext,
-  roundId: string,
-) {
-  await tx
-    .update(roundJudgingJobs)
-    .set({ status: 'failed', leaseTokenDigest: null, leaseExpiresAt: null })
-    .where(
-      and(
-        eq(roundJudgingJobs.roundId, roundId),
-        inArray(roundJudgingJobs.status, ['queued', 'leased']),
-      ),
-    );
-}
 async function complete(tx: BoundedTransactionContext, input: Request) {
   await requireCurrentWeb(tx, input.instanceId);
-  const digest = unjudgedDigest(input);
+  const digest = panelDigest(input);
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtextextended(${input.commandId},59002))`,
   );
   const prior = await replay(tx, input, digest, true);
-  if (prior) return prior;
+  if (prior) return { receipt: prior, ended: [] };
   let facts: Awaited<ReturnType<typeof fenceAttendance>>;
   try {
     facts = await fenceAttendance(tx, input.roundId, input.commandId, null);
@@ -166,7 +179,7 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
       error.message === 'attendance-terminal'
     ) {
       const terminal = await replay(tx, input, digest, false);
-      if (terminal) return terminal;
+      if (terminal) return { receipt: terminal, ended: [] };
     }
     throw error;
   }
@@ -187,8 +200,8 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     projection,
     now,
   );
-  if (!changed) throw createAppError('CONFLICT', 'unjudged-projection');
-  const receipt = unjudgedReceipt({
+  if (!changed) throw createAppError('CONFLICT', 'panel-projection');
+  const receipt = panelReceipt({
     commandId: input.commandId,
     roundId: input.roundId,
     freezeRevision: freeze.revision,
@@ -226,16 +239,24 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     resultingVersion: receipt.resultingVersion,
     commandId: input.commandId,
   });
-  await failOpenJudgingJobs(tx, input.roundId);
+  const ended = await endOpenJudgingJobs(
+    tx,
+    input.roundId,
+    'ballot_hold_ended',
+  );
   await requireCurrentWeb(tx, input.instanceId);
-  return receipt;
+  return { receipt, ended };
 }
 
-export function roundUnjudgedCompletionOperations(run: BoundedTransaction) {
+export function roundPanelCompletionOperations(run: BoundedTransaction) {
   return {
-    completeUnjudgedRound(input: Request): Promise<RoundUnjudgedReceipt> {
-      requireUnjudgedRequest(input);
-      return run((tx) => complete(tx, input));
+    async completePanelRound(input: Request): Promise<RoundPanelReceipt> {
+      requirePanelRequest(input);
+      const { receipt, ended } = await run((tx) => complete(tx, input));
+      // After commit, and even with no judging worker running. A job still open
+      // here could not rule: out of budget, or a held ballot that never submitted.
+      for (const { reason } of ended) if (reason) input.judgingEnded?.(reason);
+      return receipt;
     },
   };
 }

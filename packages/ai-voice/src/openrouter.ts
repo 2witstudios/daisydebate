@@ -19,6 +19,14 @@ export type CompletionRequest = {
   /** Ask the model for a JSON object (structured output). */
   readonly json?: boolean;
   /**
+   * Ask for output constrained to this schema, served only by an endpoint
+   * supporting it. The caller still validates the answer.
+   */
+  readonly outputSchema?: {
+    readonly name: string;
+    readonly schema: Record<string, unknown>;
+  };
+  /**
    * How hard the model thinks before answering; its reasoning is never
    * returned. Some models require reasoning and refuse 'none'.
    */
@@ -35,12 +43,30 @@ const DATA_POLICY = { zdr: true } as const;
 
 const completionSchema = z.object({
   choices: z
-    .array(z.object({ message: z.object({ content: z.string().nullable() }) }))
+    .array(
+      z.object({
+        message: z.object({
+          content: z.string().nullable(),
+          refusal: z.string().nullable().optional(),
+        }),
+        finish_reason: z.string().nullable().optional(),
+      }),
+    )
     .min(1),
   usage: z
     .object({ prompt_tokens: z.number(), completion_tokens: z.number() })
     .optional(),
 });
+/** How a completion ended, as a closed fact; the raw string goes no further. */
+export type CompletionFinish =
+  'stop' | 'length' | 'content_filter' | 'other' | 'none';
+
+const finishOf = (reason: string | null | undefined): CompletionFinish => {
+  if (reason === undefined || reason === null) return 'none';
+  return reason === 'stop' || reason === 'length' || reason === 'content_filter'
+    ? reason
+    : 'other';
+};
 const transcriptionSchema = z.object({ text: z.string() });
 
 const definiteFailures = new WeakSet<Error>();
@@ -52,6 +78,15 @@ const definiteFailures = new WeakSet<Error>();
 export const isDefiniteProviderFailure = (error: unknown): boolean =>
   error instanceof Error && definiteFailures.has(error);
 const rateLimits = new WeakSet<Error>();
+const unhealable = new WeakSet<Error>();
+/** The vendor refused the request itself, so an identical retry cannot succeed. */
+const requestRefusals: ReadonlySet<number> = new Set([400, 404, 422]);
+/**
+ * A retry of this same request cannot succeed. A key, credit or permission
+ * failure is not one of these: an operator can fix it while the job still waits.
+ */
+export const isUnhealableProviderRefusal = (error: unknown): boolean =>
+  error instanceof Error && unhealable.has(error);
 /**
  * A retry may succeed: every uncertain failure, and a rate limit (429), which
  * is a definite refusal for now. Never another vendor refusal, nor a call
@@ -126,6 +161,7 @@ export function createOpenRouter({
         `OpenRouter ${path} answered ${response.status}`,
       );
       if (response.status === 429) rateLimits.add(failure);
+      if (requestRefusals.has(response.status)) unhealable.add(failure);
       throw vendorRefused(response.status) ? definite(failure) : failure;
     }
     return response;
@@ -168,10 +204,24 @@ export function createOpenRouter({
       ? { temperature: request.temperature }
       : {}),
     ...(request.json ? { response_format: { type: 'json_object' } } : {}),
+    ...(request.outputSchema
+      ? {
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: request.outputSchema.name,
+              strict: true,
+              schema: request.outputSchema.schema,
+            },
+          },
+        }
+      : {}),
     ...(request.reasoning
       ? { reasoning: { effort: request.reasoning, exclude: true } }
       : {}),
-    provider: DATA_POLICY,
+    provider: request.outputSchema
+      ? { ...DATA_POLICY, require_parameters: true }
+      : DATA_POLICY,
   });
   return {
     async complete(request: CompletionRequest) {
@@ -191,6 +241,8 @@ export function createOpenRouter({
       );
       return {
         text: body.choices[0]!.message.content ?? '',
+        finish: finishOf(body.choices[0]!.finish_reason),
+        refused: Boolean(body.choices[0]!.message.refusal),
         promptTokens: body.usage?.prompt_tokens ?? 0,
         completionTokens: body.usage?.completion_tokens ?? 0,
       };

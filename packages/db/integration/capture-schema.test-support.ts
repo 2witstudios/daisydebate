@@ -57,6 +57,6 @@ export const queueSchemaJudge = (
   judgeId: string,
 ) =>
   fixture.sql.unsafe(
-    "insert into round_judging_jobs(round_id,freeze_revision,judge_participant_id,status) values($1,1,$2,'queued')",
+    "insert into round_judging_jobs(round_id,freeze_revision,judge_participant_id,status,generation_deadline_at) values($1,1,$2,'queued',clock_timestamp()+interval '5 minutes')",
     [roundId, judgeId],
   );

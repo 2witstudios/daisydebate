@@ -15,7 +15,7 @@ import { presenceSettingOperations } from './presence/settings';
 import type { ContactAuthorizationFence } from './contacts/fence';
 import { retainedConversationOperations } from './messaging/retained-store';
 import { createMediaSessionStore } from './media-session';
-import { roundUnjudgedCompletionOperations } from './round-unjudged-completion';
+import { roundPanelCompletionOperations } from './round-panel-completion';
 import { roundMaintenanceOperations } from './round-maintenance';
 import {
   roundWorkerEntrypoints,
@@ -39,7 +39,10 @@ import {
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
-import { readUnratedRatingRounds } from './rating-discovery';
+import {
+  readRoundAwaitsRating,
+  readUnratedRatingRounds,
+} from './rating-discovery';
 import { deliverObservationPurges } from './observation-purge-jobs';
 import { duePrivacyJobs } from './privacy/vendor-jobs';
 import { deliverPrivacyJob as deliverPrivacyJobImpl } from './privacy/vendor-jobs';
@@ -172,7 +175,7 @@ export function createDatabase({
   return {
     ...botAdmissionOperations,
     ...roundMaintenanceOperations(transcriptTransaction),
-    ...roundUnjudgedCompletionOperations(transcriptTransaction),
+    ...roundPanelCompletionOperations(transcriptTransaction),
     ...roundWorkerEntrypoints({
       run: transcriptTransaction,
       nextId: nextActorId,
@@ -194,6 +197,8 @@ export function createDatabase({
     readUnratedRatingRounds: (
       input: Parameters<typeof readUnratedRatingRounds>[1],
     ) => readUnratedRatingRounds(database, input),
+    readRoundAwaitsRating: (roundId: string) =>
+      readRoundAwaitsRating(database, roundId),
     ...databaseHealthOperations({
       database: control,
       dedicated,

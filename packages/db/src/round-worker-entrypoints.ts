@@ -50,6 +50,9 @@ export function roundWorkerEntrypoints(input: {
       configured(jobs).claim(...args),
     verifyRoundJudgingJob: (...args: Parameters<Jobs['verify']>) =>
       configured(jobs).verify(...args),
+    recordRoundJudgingAttemptFailure: (
+      ...args: Parameters<Jobs['recordAttemptFailure']>
+    ) => configured(jobs).recordAttemptFailure(...args),
     renewRoundJudgingJob: (...args: Parameters<Jobs['renew']>) =>
       configured(jobs).renew(...args),
     beginRoundJudgingModelCall: (...args: Parameters<Jobs['beginModelCall']>) =>

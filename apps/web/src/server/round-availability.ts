@@ -11,16 +11,30 @@ export function startRoundAvailability(input: {
 }) {
   const { app } = input;
   const instanceId = app.ids.next();
+  const configuration = readPublicCheckInProbe(
+    app.config.ATTENDANCE_PUBLIC_PROBE,
+  );
   const lifecycle = startAvailabilityService({
     instanceId,
     store: app.database,
     timers: input.timers,
+    nowMs: () => performance.now(),
     probe: createPublicCheckInProbe({
-      configuration: readPublicCheckInProbe(app.config.ATTENDANCE_PUBLIC_PROBE),
+      configuration,
       nextId: () => app.ids.next(),
       nowMs: () => performance.now(),
       fetch: input.fetch,
     }),
+    probeResources: () =>
+      configuration
+        ? app.database.publicProbeResourceProblems(configuration)
+        : Promise.resolve([]),
+    probeInvalid: (problem) =>
+      app.logger.log(
+        'availability.probe_invalid',
+        { operation: 'availability.probe', cause: problem },
+        'Public check-in probe cannot prove health',
+      ),
     failed: () =>
       app.logger.log(
         'availability.sample_failed',

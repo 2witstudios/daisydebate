@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "2ec48ca4-5981-4ce0-bdac-3a33753f83c4",
+  "id": "b5c40608-bd03-4781-9b21-ed65157ecc4c",
   "prevIds": [
-    "6fa213e4-5b45-4f54-98d9-2b91d9a6d40f"
+    "a6e9835b-f145-4683-ad9a-83abdfd4be22"
   ],
   "ddl": [
     {
@@ -81,12 +81,6 @@
     {
       "isRlsEnabled": false,
       "name": "bot_profiles",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "challenges",
       "entityType": "tables",
       "schema": "public"
     },
@@ -171,6 +165,12 @@
     {
       "isRlsEnabled": false,
       "name": "formats",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "friend_challenges",
       "entityType": "tables",
       "schema": "public"
     },
@@ -290,12 +290,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "moderation_actions",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "observation_purge_jobs",
       "entityType": "tables",
       "schema": "public"
@@ -368,12 +362,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "rating_visibility",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "ratings",
       "entityType": "tables",
       "schema": "public"
@@ -381,12 +369,6 @@
     {
       "isRlsEnabled": false,
       "name": "seasons",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "reports",
       "entityType": "tables",
       "schema": "public"
     },
@@ -525,6 +507,12 @@
     {
       "isRlsEnabled": false,
       "name": "round_finalizations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_judging_attempts",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1932,110 +1920,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "challenger_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "challenged_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "mode",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "format_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "room_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "user_id",
       "entityType": "columns",
       "schema": "public",
@@ -3145,6 +3029,58 @@
       "entityType": "columns",
       "schema": "public",
       "table": "formats"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "room_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "challenger_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "challenged_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_challenges"
     },
     {
       "type": "text",
@@ -4987,110 +4923,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "starts_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ends_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "lifted_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "acknowledged_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "operator_ref",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "user_id",
       "entityType": "columns",
       "schema": "public",
@@ -5604,14 +5436,14 @@
       "table": "presence_settings"
     },
     {
-      "type": "text",
+      "type": "boolean",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "status",
+      "name": "hidden",
       "entityType": "columns",
       "schema": "public",
       "table": "presence_settings"
@@ -6030,58 +5862,6 @@
       "name": "actor_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "rating_visibility"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "show_policy",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_visibility"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "show_value",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_visibility"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_visibility"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
       "table": "ratings"
     },
     {
@@ -6291,136 +6071,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "seasons"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "reporter_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "subject_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "reason",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "surface",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "closed_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "outcome",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "operator_ref",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "purge_after",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "reports"
     },
     {
       "type": "text",
@@ -7879,9 +7529,22 @@
       "table": "round_attendance_adjudications"
     },
     {
-      "type": "timestamp with time zone",
+      "type": "text",
       "typeSchema": null,
       "notNull": true,
+      "dimensions": 0,
+      "default": "'settled_availability'",
+      "generated": null,
+      "identity": null,
+      "name": "evidence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -7894,12 +7557,25 @@
     {
       "type": "timestamp with time zone",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "settled_horizon",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "receipt_participant_id",
       "entityType": "columns",
       "schema": "public",
       "table": "round_attendance_adjudications"
@@ -8510,6 +8186,123 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "agent_run_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "judge_participant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "job_epoch",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "model",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "category",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "diagnostic",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "round_id",
       "entityType": "columns",
       "schema": "public",
@@ -8667,6 +8460,58 @@
       "generated": null,
       "identity": null,
       "name": "pending_ballot_received_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "generation_deadline_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "model",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "retry_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "terminal_reason",
       "entityType": "columns",
       "schema": "public",
       "table": "round_judging_jobs"
@@ -9343,6 +9188,19 @@
       "generated": null,
       "identity": null,
       "name": "ballot_deadline_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "attendance_resolution_cutoff_at",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -10772,97 +10630,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "challenged_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "challenges_challenged_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "challenger_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "challenges_challenger_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "expires_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "\"room_id\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "challenges_expiry_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "challenger_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "challenged_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"room_id\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "challenges_one_pending_per_direction",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "counterpart_actor_id",
           "isExpression": false,
           "asc": true,
@@ -11376,6 +11143,48 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "formats"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "challenged_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "friend_challenges_challenged_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "challenger_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "friend_challenges_challenger_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "friend_challenges"
     },
     {
       "nameExplicit": true,
@@ -12242,34 +12051,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "starts_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "moderation_actions_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "target_user_id",
           "isExpression": false,
           "asc": true,
@@ -12643,132 +12424,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "seasons"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "closed_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "reports_queue_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "reporter_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "reports_reporter_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "subject_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "reports_subject_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "purge_after",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "\"purge_after\" is not null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "reports_purge_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "reporter_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "subject_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"closed_at\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "reports_one_open_per_pair",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "reports"
     },
     {
       "nameExplicit": true,
@@ -13462,6 +13117,41 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "round_analyses"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "segment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "receipt_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_attendance_adjudications_receipt_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
     },
     {
       "nameExplicit": true,
@@ -14197,6 +13887,62 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "round_finalizations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "judge_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_judging_attempts_job_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "agent_run_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "judge_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_judging_attempts_run_judge_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_judging_attempts"
     },
     {
       "nameExplicit": true,
@@ -15793,57 +15539,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "challenger_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "challenges_challenger_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "challenged_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "challenges_challenged_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "room_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rooms",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "challenges_room_id_rooms_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "user_id"
       ],
       "schemaTo": "public",
@@ -16169,6 +15864,57 @@
       "entityType": "fks",
       "schema": "public",
       "table": "formats"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "room_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rooms",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "friend_challenges_room_id_rooms_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "challenger_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "friend_challenges_challenger_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "friend_challenges"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "challenged_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "friend_challenges_challenged_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "friend_challenges"
     },
     {
       "nameExplicit": false,
@@ -16869,23 +16615,6 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "moderation_actions_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
       "name": "observation_purge_jobs_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -17127,23 +16856,6 @@
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "rating_visibility_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "rating_visibility"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "ratings_actor_id_actors_id_fkey",
       "entityType": "fks",
@@ -17166,40 +16878,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "ratings"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "reporter_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "reports_reporter_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "subject_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "reports_subject_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "reports"
     },
     {
       "nameExplicit": false,
@@ -17749,6 +17427,27 @@
     {
       "nameExplicit": true,
       "columns": [
+        "round_id",
+        "segment_id",
+        "receipt_participant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_check_ins",
+      "columnsTo": [
+        "round_id",
+        "segment_id",
+        "participant_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_attendance_adjudications_receipt_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
         "command_id",
         "round_id"
       ],
@@ -18151,6 +17850,44 @@
       "entityType": "fks",
       "schema": "public",
       "table": "round_finalizations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "round_id",
+        "judge_participant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_judging_jobs",
+      "columnsTo": [
+        "round_id",
+        "judge_participant_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_judging_attempts_job_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "agent_run_id",
+        "judge_participant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "agent_runs",
+      "columnsTo": [
+        "id",
+        "round_participant_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_judging_attempts_run_judge_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_judging_attempts"
     },
     {
       "nameExplicit": true,
@@ -19090,16 +18827,6 @@
     },
     {
       "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "challenges_pkey",
-      "schema": "public",
-      "table": "challenges",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "user_id"
       ],
       "nameExplicit": false,
@@ -19156,6 +18883,16 @@
       "name": "formats_pkey",
       "schema": "public",
       "table": "formats",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "room_id"
+      ],
+      "nameExplicit": false,
+      "name": "friend_challenges_pkey",
+      "schema": "public",
+      "table": "friend_challenges",
       "entityType": "pks"
     },
     {
@@ -19250,16 +18987,6 @@
     },
     {
       "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "moderation_actions_pkey",
-      "schema": "public",
-      "table": "moderation_actions",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "user_id"
       ],
       "nameExplicit": false,
@@ -19350,32 +19077,12 @@
     },
     {
       "columns": [
-        "actor_id"
-      ],
-      "nameExplicit": false,
-      "name": "rating_visibility_pkey",
-      "schema": "public",
-      "table": "rating_visibility",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "id"
       ],
       "nameExplicit": false,
       "name": "seasons_pkey",
       "schema": "public",
       "table": "seasons",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "reports_pkey",
-      "schema": "public",
-      "table": "reports",
       "entityType": "pks"
     },
     {
@@ -19566,6 +19273,16 @@
       "name": "round_finalizations_pkey",
       "schema": "public",
       "table": "round_finalizations",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "agent_run_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_judging_attempts_pkey",
+      "schema": "public",
+      "table": "round_judging_attempts",
       "entityType": "pks"
     },
     {
@@ -19853,17 +19570,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "room_id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "challenges_room_id_key",
-      "schema": "public",
-      "table": "challenges",
-      "entityType": "uniques"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "dedupe_key"
       ],
       "nullsNotDistinct": false,
@@ -20068,27 +19774,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "bot_profiles"
-    },
-    {
-      "value": "\"challenger_actor_id\" <> \"challenged_actor_id\"",
-      "name": "challenges_distinct",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "value": "\"mode\" in ('ranked', 'casual')",
-      "name": "challenges_mode_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
-      "value": "\"format_id\" in ('freestyle', 'policy', 'value')",
-      "name": "challenges_format_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "challenges"
     },
     {
       "value": "\"version\" = 1",
@@ -20327,6 +20012,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "formats"
+    },
+    {
+      "value": "\"challenger_actor_id\" <> \"challenged_actor_id\"",
+      "name": "friend_challenges_distinct",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "friend_challenges"
     },
     {
       "value": "\"low_actor_id\" < \"high_actor_id\"",
@@ -20735,20 +20427,6 @@
       "table": "messaging_social_commands"
     },
     {
-      "value": "\"kind\" in ('warning', 'suspension', 'ban')",
-      "name": "moderation_actions_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
-      "value": "(\"kind\" = 'suspension') = (\"ends_at\" is not null)",
-      "name": "moderation_actions_ends_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "moderation_actions"
-    },
-    {
       "value": "\"status\" in ('pending', 'succeeded')",
       "name": "observation_purge_jobs_status_valid",
       "entityType": "checks",
@@ -20845,13 +20523,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "outbox"
-    },
-    {
-      "value": "\"status\" in ('online', 'busy', 'offline')",
-      "name": "presence_settings_status_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "presence_settings"
     },
     {
       "value": "\"vendor\" in ('sentry', 'posthog', 'beehiiv', 'resend', 'object-storage', 'messaging-typing')",
@@ -21006,41 +20677,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "seasons"
-    },
-    {
-      "value": "\"reporter_actor_id\" <> \"subject_actor_id\"",
-      "name": "reports_distinct",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "value": "\"reason\" in ('harassment', 'hate', 'cheating', 'spam', 'other')",
-      "name": "reports_reason_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "value": "\"surface\" in ('online', 'profile', 'watch')",
-      "name": "reports_surface_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "value": "\"outcome\" is null or \"outcome\" in ('dismissed', 'warned', 'suspended', 'banned')",
-      "name": "reports_outcome_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "value": "(\"closed_at\" is null) = (\"outcome\" is null)\n        and (\"closed_at\" is null) = (\"operator_ref\" is null)\n        and (\"closed_at\" is null) = (\"purge_after\" is null)",
-      "name": "reports_closed_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "reports"
     },
     {
       "value": "\"category\" in ('policy', 'value', 'fact')",
@@ -21386,6 +21022,13 @@
       "table": "round_analyses"
     },
     {
+      "value": "(\"evidence\" = 'settled_availability' and \"effective_deadline\" is not null and \"settled_horizon\" is not null and \"receipt_participant_id\" is null)\n        or (\"evidence\" = 'on_time_receipt' and \"decision\" = 'attended' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is not null)\n        or (\"evidence\" = 'infrastructure_unresolved' and \"decision\" = 'abandoned' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is null)",
+      "name": "round_attendance_adjudications_evidence_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
       "value": "\"decision\" in ('attended', 'none', 'forfeit', 'abandoned')",
       "name": "round_attendance_adjudications_decision_check",
       "entityType": "checks",
@@ -21505,8 +21148,29 @@
       "table": "round_finalizations"
     },
     {
+      "value": "jsonb_typeof(\"diagnostic\") = 'object'",
+      "name": "round_judging_attempts_diagnostic_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "value": "\"category\" in ('invalid_json', 'schema_rejected', 'truncated', 'refused', 'provider_refused', 'provider_error', 'timeout', 'cancelled')",
+      "name": "round_judging_attempts_category_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
       "value": "jsonb_typeof(\"pending_ballot\") = 'object'",
       "name": "round_judging_jobs_pending_ballot_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "\"terminal_reason\" is null or (\"status\" = 'failed' and \"terminal_reason\" in ('attempts_exhausted', 'ballot_hold_ended', 'generation_deadline', 'provider_refused', 'round_ended'))",
+      "name": "round_judging_jobs_terminal_reason_check",
       "entityType": "checks",
       "schema": "public",
       "table": "round_judging_jobs"
