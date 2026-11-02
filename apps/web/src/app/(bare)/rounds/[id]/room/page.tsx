@@ -101,10 +101,7 @@ export default async function RoundRoomPage({
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const transcript =
     text.kind === 'found' ? (
-      <LiveTranscript
-        seed={text.value}
-        socketUrl={result.socketUrl}
-      />
+      <LiveTranscript seed={text.value} socketUrl={result.socketUrl} />
     ) : text.kind === 'unavailable' ? (
       // Refusals read as missing; only an outage, never a denial, says this.
       <p role="status">Transcript unavailable. Reload to try again.</p>

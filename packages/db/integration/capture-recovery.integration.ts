@@ -128,7 +128,7 @@ test('a takeover seal never records fewer chunks than are stored', async () => {
           { state: 'partial', chunk_count: 1, sealed_chunk_count: 1 },
         ],
       });
-        } finally {
+    } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;
     }
   });

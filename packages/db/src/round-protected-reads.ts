@@ -54,10 +54,7 @@ export const roundProtectedReads = ({
  * committed during these reads can only make the rows newer than the
  * revision, so its doorbell still refetches (never a stale "Capturing").
  */
-export async function readTranscriptSnapshot(
-  tx: Reader,
-  roundId: string,
-) {
+export async function readTranscriptSnapshot(tx: Reader, roundId: string) {
   const counter = await transcriptRevision(tx, roundId);
   const freeze = await readTranscriptFreeze(tx, roundId);
   const streams = await tx

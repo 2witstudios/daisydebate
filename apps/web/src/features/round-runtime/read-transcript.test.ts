@@ -1,20 +1,46 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { round } from '../room-runtime/operations.test-support';
 import { readTranscript } from './read-transcript';
 setupRitewayBun();
-
-const roundId = 'r'.repeat(24);
-const answering = (status: number) => async () => new Response('x', { status });
+test('protected transcript reads validate identity and clear denied access', async () => {
+  const value = {
+    round,
+    revision: 0,
+    freeze: null,
+    streams: [],
+    utterances: [],
+  };
+  const outcomes = [];
+  for (const response of [
+    Response.json(value),
+    Response.json({ ...value, round: { ...round, id: 'x'.repeat(24) } }),
+    new Response(null, { status: 403 }),
+    new Response(null, { status: 503 }),
+    Response.json({ ...value, streams: [{ state: 'invented' }] }),
+  ]) {
+    outcomes.push((await readTranscript(async () => response, round.id)).kind);
+  }
+  assert({
+    given: 'valid, foreign, denied, unavailable and corrupt transcript reads',
+    should:
+      'adopt only the requested validated snapshot and discard denied access',
+    actual: outcomes,
+    expected: ['found', 'unavailable', 'missing', 'unavailable', 'unavailable'],
+  });
+});
 
 test('only an authorization answer clears the transcript', async () => {
-  const kinds = await Promise.all(
-    [401, 403, 404, 500, 502, 503].map(async (status) => [
+  const answering = (status: number) => async () =>
+    new Response('x', { status });
+  const kinds = [];
+  for (const status of [401, 403, 404, 500, 502, 503])
+    kinds.push([
       status,
-      (await readTranscript(answering(status), roundId)).kind,
-    ]),
-  );
+      (await readTranscript(answering(status), round.id)).kind,
+    ]);
   const down = await readTranscript(async () => {
     throw new Error('connection refused');
-  }, roundId);
+  }, round.id);
   assert({
     given: 'refusals, server failures and a failed connection',
     should: 'read refusals as missing and everything else as unavailable',
