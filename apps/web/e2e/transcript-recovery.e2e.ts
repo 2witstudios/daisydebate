@@ -31,7 +31,8 @@ test('committed transcript survives reads failing and returning, and clears on r
   browser,
 }) => {
   test.setTimeout(180_000);
-  const members = await createRoomLaunchAccounts(browser, 2);
+  const accounts = await createRoomLaunchAccounts(browser, 2);
+  const { members } = accounts;
   try {
     const round = await createHumanBallotRound(members, 0);
     await seed(round.id, 0, 120);
@@ -81,6 +82,6 @@ test('committed transcript survives reads failing and returning, and clears on r
     await expect(transcriptOf(page)).toHaveCount(0);
     await expect(page.getByText('Fixture line 0.')).toHaveCount(0);
   } finally {
-    await Promise.all(members.map((member) => member.context.close()));
+    await accounts.closeContexts();
   }
 });
