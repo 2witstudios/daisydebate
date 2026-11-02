@@ -42,20 +42,16 @@ describe('the committed main ruleset', () => {
     });
   });
 
-  test('requires the CI and browser gates from GitHub Actions alone', () => {
+  test('requires the CI gate from GitHub Actions alone', () => {
     const checks = ruleset.rules.find(
       (rule) => rule.type === 'required_status_checks',
     )?.parameters?.required_status_checks;
     assert({
       given: 'the committed required checks',
       should:
-        'pin each to GitHub Actions and require no review status (ADR 0083)',
+        'pin it to GitHub Actions and require no browser or review status (ADR 0098)',
       actual: checks,
-      expected: [
-        { context: 'CI gate', integration_id: 15368 },
-        { context: 'Playwright E2E', integration_id: 15368 },
-        { context: 'Isolated Room Launch E2E', integration_id: 15368 },
-      ],
+      expected: [{ context: 'CI gate', integration_id: 15368 }],
     });
   });
 
