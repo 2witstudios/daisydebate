@@ -1,6 +1,6 @@
 # Terms of Service — draft for counsel
 
-**DRAFT, not in force.** Version `draft-1`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app: `/privacy` and `/terms` keep their current text until WAIT-6.2 (owner and counsel) approves this draft and WAIT-6.3 publishes it, together with the clickwrap version.
+**DRAFT, not in force.** Version `draft-1`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app: `/privacy` and `/terms` keep their current text, apart from ADR 0097's change on outside help (served version `draft-0.1`), until WAIT-6.2 (owner and counsel) approves this draft and WAIT-6.3 publishes it, together with the clickwrap version.
 
 Placeholders: **[OWNER: …]** is a business fact the owner supplies; **[COUNSEL: …]** is a legal judgment for counsel. Neither may remain in a published version.
 

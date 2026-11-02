@@ -46,15 +46,14 @@ describe('DebateRoom', () => {
     assert({
       given: 'a ranked Round and a casual one',
       should:
-        'offer both the same tabs, the club’s drive and the AI panel, and mark only the rank',
+        'offer both the same tabs and the AI panel, and mark only the rank',
       actual: [
         tabs(ranked),
         tabs(ranked).join() === tabs(render('prep', 'casual')).join(),
-        ranked.includes('Riverside Debate'),
         ranked.includes('Ask Assistant'),
         ranked.includes('>Ranked<'),
       ],
-      expected: [['Transcript', 'Channels', 'AI chat'], true, true, true, true],
+      expected: [['Transcript', 'Channels', 'AI chat'], true, true, true],
     });
   });
 

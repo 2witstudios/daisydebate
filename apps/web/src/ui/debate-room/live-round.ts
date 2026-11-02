@@ -12,10 +12,7 @@ import {
   type Seat,
 } from '../../features/round-runtime/round-reading';
 import { initialsOf } from '../../lib/initials';
-import type {
-  Side,
-  SpeechSlot,
-} from '../../features/debate-room/documents/documents';
+import type { Side, SpeechSlot } from '../../features/debate-room/speeches';
 import {
   judgingBallotsOf,
   judgingClockOf,
@@ -205,11 +202,10 @@ export function liveRoundOf(
     speeches: speechesOf(view),
     ...clocks,
     micLive: phase === 'own-speech' || phase === 'cross-ex',
-    clubName: null,
     documents: [],
-    channels: [{ id: 'round', title: 'round', scope: 'round' }],
+    channels: [{ id: 'round', title: 'round' }],
     messages: [],
-    agents: [{ id: 'assistant', title: 'Assistant', scope: 'round' }],
+    agents: [{ id: 'assistant', title: 'Assistant' }],
     agentThreads: {},
     agentPrompts: {},
   };

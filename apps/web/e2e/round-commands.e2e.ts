@@ -141,12 +141,21 @@ test('native Start affirmative constructive and enhanced round controls retain c
     await expect(
       page.getByRole('button', { name: 'Confirm end speech', exact: true }),
     ).toBeVisible();
+    // The media session must outlive the phase change: the same nodes stay.
+    await page
+      .locator('[data-room-media="grid"]')
+      .evaluate((grid) => Reflect.set(window, '__roomMediaGrid', grid));
     await page
       .getByRole('button', { name: 'Confirm end speech', exact: true })
       .click();
     await expect(
       page.getByRole('status').filter({ hasText: 'Done.' }),
     ).toBeVisible();
+    expect(
+      await page
+        .locator('[data-room-media="grid"]')
+        .evaluate((grid) => Reflect.get(window, '__roomMediaGrid') === grid),
+    ).toBe(true);
     await expect(page.getByRole('region', { name: 'Attendance' })).toHaveCount(
       0,
     );

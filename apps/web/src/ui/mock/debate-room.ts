@@ -1,6 +1,6 @@
 import type { CompetitionType } from '@daisy/protocol';
 import type { ChatMessage } from '../../features/debate-room/chat';
-import type { SpeechSlot } from '../../features/debate-room/documents/documents';
+import type { SpeechSlot } from '../../features/debate-room/speeches';
 import { judgingClockOf } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { Debater, RoundSnapshot } from '../debate-room/round';
@@ -198,17 +198,16 @@ export function sampleRound(
     clock: at.clock,
     prepMs: { neg: at.prepMs, aff: 120_000 },
     micLive: at.micLive,
-    clubName: 'Riverside Debate',
     documents: sampleRoomDocuments,
     channels: [
-      { id: 'round', title: 'round', scope: 'round' },
-      { id: 'prep', title: 'prep', scope: 'club' },
-      { id: 'general', title: 'general', scope: 'club' },
+      { id: 'round', title: 'round' },
+      { id: 'prep', title: 'prep' },
+      { id: 'general', title: 'general' },
     ],
     messages,
     agents: [
-      { id: 'assistant', title: 'Assistant', scope: 'round' },
-      { id: 'drill', title: 'Drill partner', scope: 'club' },
+      { id: 'assistant', title: 'Assistant' },
+      { id: 'drill', title: 'Drill partner' },
     ],
     agentThreads: {
       assistant: [

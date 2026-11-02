@@ -1,8 +1,7 @@
 'use client';
 
-import { useMemo, type Dispatch } from 'react';
+import type { Dispatch } from 'react';
 import { flushSync } from 'react-dom';
-import { buildTree } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import { FileTree } from './file-tree';
@@ -51,21 +50,15 @@ export function FilesSidebar({
   state,
   dispatch,
   onNew,
-  transcribing,
   phoneClass,
 }: {
   readonly round: RoundSnapshot;
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
   readonly onNew: () => void;
-  readonly transcribing: boolean;
   /** Hides the sidebar on a phone unless its tab is showing. */
   readonly phoneClass: string | false;
 }) {
-  const tree = useMemo(
-    () => buildTree(state.documents, round.clubName),
-    [state.documents, round.clubName],
-  );
   return (
     <aside
       id={FILES_ID}
@@ -99,14 +92,18 @@ export function FilesSidebar({
         </button>
       </div>
       <div className="flex min-h-0 flex-1 flex-col p-3">
-        <FileTree tree={tree} active={state.tabs.active} dispatch={dispatch} />
+        <FileTree
+          documents={state.documents}
+          active={state.tabs.active}
+          dispatch={dispatch}
+        />
       </div>
       <details className="shrink-0 border-t border-border max-compact:hidden">
         <summary className="flex h-room-target cursor-pointer items-center px-4 text-sm font-strong">
           Room
         </summary>
         <div className="flex max-h-room-details flex-col overflow-y-auto px-3 pb-3">
-          <RoomDetails round={round} transcribing={transcribing} />
+          <RoomDetails round={round} />
         </div>
       </details>
     </aside>

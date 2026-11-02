@@ -28,7 +28,12 @@ import { focusReturnTarget, firstShown } from './focus-return';
 import type { LeaveLinks } from './leave-room';
 import { usePhoneBreakpoint } from './phone-breakpoint';
 import { RoomDocument } from './room-document';
-import { initialRoomState, reduceRoom, type RoomAction } from './room-state';
+import {
+  initialRoomState,
+  phonePanelOf,
+  reduceRoom,
+  type RoomAction,
+} from './room-state';
 import type { RoundSnapshot } from './round';
 import { RoundBar } from './round-bar';
 import { chatUnread, ROUND_SIDEBAR_ID, RoundSidebar } from './round-sidebar';
@@ -116,12 +121,13 @@ const noLeave: LeaveLinks = {
 
 type Problem = (message: string) => void;
 
-/** Create a plain document on the server, or in memory without one. */
-function newDocument(
+/** Create a plain document on the server, or in memory; one at a time. */
+function useNewDocument(
   sync: DocumentSync | undefined,
   dispatch: Dispatch<RoomAction>,
   setProblem: Problem,
 ) {
+  const creating = useRef(false);
   return () => {
     if (!sync)
       return dispatch({
@@ -129,10 +135,15 @@ function newDocument(
         id: systemId.next(),
         now: systemClock.now(),
       });
+    if (creating.current) return;
+    creating.current = true;
     sync
       .create()
       .then((document) => dispatch({ type: 'doc/add', document }))
-      .catch(() => setProblem('That file was not created. Try again.'));
+      .catch(() => setProblem('That file was not created. Try again.'))
+      .finally(() => {
+        creating.current = false;
+      });
   };
 }
 
@@ -162,12 +173,13 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
   const [state, dispatch] = useReducer(reduceRoom, round, initialRoomState);
   const root = useTileHeight(tileHeightFor(round.phase));
   usePaletteShortcut(dispatch);
-  useFocusReturn(state.filesOpen, state.phone);
+  const phonePanel = phonePanelOf(state);
+  useFocusReturn(state.filesOpen, phonePanel);
   const { problem, setProblem } = useDocumentSync(sync, dispatch);
   const hydrated = useHydrated();
   const unread = chatUnread(round, state);
   const alert = problem ?? props.notice ?? null;
-  const create = newDocument(sync, dispatch, setProblem);
+  const create = useNewDocument(sync, dispatch, setProblem);
   const choose = (choice: PaletteChoice) => {
     if (choice.kind === 'new') return create();
     dispatch({ type: 'tabs/open', id: choice.documentId });
@@ -176,8 +188,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
   // Until script runs the phone tabs cannot switch, so every panel stays
   // readable, stacked in one scrolling column.
   const phoneHides = (...panels: readonly PhonePanel[]) =>
-    hydrated && !panels.includes(state.phone) && 'max-compact:hidden';
-  const transcribing = props.transcript != null;
+    hydrated && !panels.includes(phonePanel) && 'max-compact:hidden';
   return (
     <div ref={root} className="flex room-frame flex-col bg-background text-ink">
       <RoundBar round={round} leave={props.leave ?? noLeave} />
@@ -204,7 +215,6 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
           state={state}
           dispatch={dispatch}
           onNew={create}
-          transcribing={transcribing}
           phoneClass={phoneHides('files')}
         />
         <div
@@ -234,11 +244,16 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
             phoneHides('room') || 'flex flex-1',
           )}
         >
-          <RoomDetails round={round} transcribing={transcribing} />
+          <RoomDetails round={round} />
         </div>
       </div>
       <PhoneActions round={round} actions={props.actions} />
-      <RoundTabs state={state} dispatch={dispatch} unread={unread} />
+      <RoundTabs
+        state={state}
+        dispatch={dispatch}
+        unread={unread}
+        hydrated={hydrated}
+      />
       <CommandPalette
         open={state.paletteOpen}
         documents={state.documents}

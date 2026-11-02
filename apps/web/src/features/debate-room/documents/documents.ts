@@ -1,25 +1,9 @@
-export type Side = 'aff' | 'neg';
-
-export type SpeechSlot = {
-  readonly id: string;
-  readonly code: string;
-  /** The full name, "Negative constructive"; the code is its short form. */
-  readonly name: string;
-  readonly side: Side;
-  readonly kind: 'speech' | 'cross-ex';
-  readonly durationMs: number;
-};
-
 /** A new document's title until its owner renames it. */
 const NEW_DOCUMENT_TITLE = 'Untitled';
-
-/** A drive: the viewer's own, or their club's. */
-export type FolderId = 'library' | 'club';
 
 export type WorkspaceDocument = {
   readonly id: string;
   readonly title: string;
-  readonly folder: FolderId;
   /** The document as HTML, the stored source of truth (ADR 0054). */
   readonly html: string;
   readonly createdAt: string;
@@ -41,7 +25,6 @@ export function uniqueTitle(base: string, existing: readonly string[]): string {
 export function createDocument(input: {
   readonly id: string;
   readonly now: string;
-  readonly folder: FolderId;
   readonly title?: string;
   readonly existingTitles: readonly string[];
 }): WorkspaceDocument {
@@ -51,7 +34,6 @@ export function createDocument(input: {
       input.title?.trim() || NEW_DOCUMENT_TITLE,
       input.existingTitles,
     ),
-    folder: input.folder,
     html: '<p></p>',
     createdAt: input.now,
     updatedAt: input.now,

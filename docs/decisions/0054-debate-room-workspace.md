@@ -6,8 +6,8 @@ Status: accepted (owner request, 2026-10-05; design
 [Daisy Room Redesign](https://claude.ai/artifact/TStKrFHBxGakPERdMwwYey),
 Proposal page): round bar and one drawer, speaker-primary video, voice-only
 bots. Amended 2026-11-02 by [ADR 0097](0097-round-workspace.md), which replaces
-the room's layout, §5's resizable video, §7's debate marks, §8's fair-play rule
-and the document templates. Extends
+the room's layout (§1), the document templates (§3), the resizable video (§5),
+the debate marks (§7) and the fair-play rule (§8). Extends
 [ADR 0028](0028-tailwind-v4.md) and [ADR 0045](0045-daisy-brand-system.md)
 for two narrow styling cases.
 

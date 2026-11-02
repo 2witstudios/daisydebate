@@ -1,7 +1,7 @@
 'use client';
 
 import type { CompetitionType } from '@daisy/protocol';
-import type { Side } from '../../features/debate-room/documents/documents';
+import type { Side } from '../../features/debate-room/speeches';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import { LeaveRoom, type LeaveLinks } from './leave-room';

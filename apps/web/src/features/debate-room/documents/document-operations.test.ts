@@ -26,7 +26,6 @@ describe('listDocuments', () => {
         {
           id: 'doc-1',
           title: 'Notes',
-          folder: 'library',
           html: '<p>a</p>',
           createdAt: NOW,
           updatedAt: NOW,
@@ -63,18 +62,16 @@ describe('createDocument', () => {
     });
     assert({
       given: 'a stored "Untitled" and a request for a new document',
-      should: 'title it "Untitled 2" in the drive, with nothing pre-filled',
+      should: 'title it "Untitled 2", with nothing pre-filled',
       actual: {
         title: created.title,
         revision: created.revision,
-        folder: created.folder,
         text: created.html.replace(/<[^>]+>|\s/g, ''),
         stored: documents.get('doc-new')?.html === created.html,
       },
       expected: {
         title: 'Untitled 2',
         revision: 1,
-        folder: 'library',
         text: '',
         stored: true,
       },

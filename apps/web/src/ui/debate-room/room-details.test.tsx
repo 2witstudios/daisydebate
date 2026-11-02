@@ -9,24 +9,20 @@ setupRitewayBun();
 describe('RoomDetails', () => {
   test('the Room tab while the ballots are written', () => {
     const html = renderToString(
-      h(RoomDetails, {
-        round: sampleRound('judging', 'casual'),
-        transcribing: true,
-      }),
+      h(RoomDetails, { round: sampleRound('judging', 'casual') }),
     );
     assert({
-      given: 'the judging window of a recorded, transcribed round',
+      given: 'the judging window of a recorded round',
       should:
         'keep the judge anonymous and writing, and say what was kept and that this room is not',
       actual: [
         html.includes('>Judge<'),
         html.includes('>Writing ballot<'),
         html.includes('>Saved<'),
-        html.includes('>Complete<'),
         html.includes('>This room now<'),
         html.includes('>Not recorded<'),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 });

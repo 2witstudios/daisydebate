@@ -56,9 +56,15 @@ test('committed transcript survives reads failing and returning, and clears on r
     const latest = page.getByRole('button', { name: 'Latest', exact: true });
     await latest.click();
     await expect(latest).toBeHidden();
-    await expect(
-      transcript.getByText('Fixture line 119.', { exact: false }),
-    ).toBeInViewport();
+    const lastLine = transcript.getByText('Fixture line 119.', {
+      exact: false,
+    });
+    await expect(lastLine).toBeInViewport();
+    // Returning to a hidden panel lands on the newest line.
+    await page.getByRole('tab', { name: 'Channels', exact: true }).click();
+    await expect(lastLine).toBeHidden();
+    await page.getByRole('tab', { name: 'Transcript', exact: true }).click();
+    await expect(lastLine).toBeInViewport();
     await first.scrollIntoViewIfNeeded();
 
     await page.route(routeOf(round.id), (route) =>
@@ -89,9 +95,17 @@ test('committed transcript survives reads failing and returning, and clears on r
     await expect(transcript.getByText('Reconnecting')).toBeHidden();
     await expect(first).toBeVisible();
 
+    // While reading back, a new line leaves the reader where they are.
+    await expect(first).toBeInViewport();
+    await page.getByRole('button', { name: 'Latest', exact: true }).click();
+
     // Partial evidence and a lost connection are separate facts, both shown.
     await seed(round.id, 121, 1, 'partial');
     await lookAgain(page);
+    // Following again, the new line comes into view.
+    await expect(
+      transcript.getByText('Fixture line 121.', { exact: false }),
+    ).toBeInViewport();
     const status = transcript.getByRole('status');
     await expect(status.getByText('Partial', { exact: true })).toBeVisible();
     await page.route(routeOf(round.id), (route) =>

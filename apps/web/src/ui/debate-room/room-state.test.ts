@@ -1,6 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleRound } from '../mock/debate-room';
-import { initialRoomState, pageToneOf, reduceRoom } from './room-state';
+import {
+  initialRoomState,
+  pageToneOf,
+  phonePanelOf,
+  reduceRoom,
+} from './room-state';
 
 setupRitewayBun();
 
@@ -168,10 +173,10 @@ describe('reduceRoom sidebars', () => {
       given: 'a channel opened from the list, then Back',
       should: 'show its thread and mark it read, then show the list',
       actual: [
-        [open.channelId, open.channelOpen, open.readMarkers.prep],
-        reduce(open, { type: 'channel/list' }).channelOpen,
+        [open.openChannelId, open.readMarkers.prep],
+        reduce(open, { type: 'channel/list' }).openChannelId,
       ],
-      expected: [['prep', true, now], false],
+      expected: [['prep', now], null],
     });
   });
 
@@ -182,11 +187,23 @@ describe('reduceRoom sidebars', () => {
       given: 'Channels chosen on a phone, then Room, then Doc',
       should: 'show one panel at a time and leave the sidebar on its last tab',
       actual: [
-        [channels.phone, channels.sidebar],
-        [room.phone, room.sidebar],
-        reduce(room, { type: 'phone/panel', panel: 'doc' }).phone,
+        [phonePanelOf(channels), channels.sidebar],
+        [phonePanelOf(room), room.sidebar],
+        phonePanelOf(reduce(room, { type: 'phone/panel', panel: 'doc' })),
       ],
       expected: [['channels', 'channels'], ['room', 'channels'], 'doc'],
+    });
+  });
+
+  test('a sidebar tab cannot disagree with the phone', () => {
+    const phone = reduce(before, { type: 'phone/panel', panel: 'ai' });
+    assert({
+      given: 'the sidebar’s tab changing while a phone shows the sidebar',
+      should: 'show that tab on the phone too',
+      actual: phonePanelOf(
+        reduce(phone, { type: 'sidebar/tab', tab: 'channels' }),
+      ),
+      expected: 'channels',
     });
   });
 });
@@ -266,7 +283,6 @@ test('adopted server text is marked until the next ordinary change', async () =>
   const start: Parameters<typeof adoptServerText>[0] = {
     id: 'd',
     title: 'Flow',
-    folder: 'library',
     html: '<p>old</p>',
     createdAt: 'then',
     updatedAt: 'then',

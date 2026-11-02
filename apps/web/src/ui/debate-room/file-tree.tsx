@@ -2,7 +2,7 @@
 
 import type { Dispatch } from 'react';
 import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
-import type { TreeNode } from '../../features/debate-room/workspace';
+import { driveDocuments } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import type { RoomAction } from './room-state';
@@ -16,13 +16,13 @@ const row = (current: boolean) =>
   );
 
 type Props = {
-  readonly tree: readonly TreeNode[];
+  readonly documents: readonly WorkspaceDocument[];
   readonly active: string | null;
   readonly dispatch: Dispatch<RoomAction>;
 };
 
-/** Open or create, then the viewer's drive and their club's. */
-export function FileTree({ tree, active, dispatch }: Props) {
+/** Open or create, then the viewer's drive. */
+export function FileTree({ documents, active, dispatch }: Props) {
   const open = (id: string) => dispatch({ type: 'tabs/open', id });
   return (
     <nav aria-label="Files" className="flex min-h-0 flex-1 flex-col gap-4">
@@ -39,36 +39,25 @@ export function FileTree({ tree, active, dispatch }: Props) {
         </kbd>
       </button>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-        {tree.map((node) => (
-          <section
-            key={node.folder.id}
-            aria-label={node.folder.title}
-            className="flex flex-col gap-px"
-          >
-            <h2 className="flex items-center gap-1 px-2 pb-1 text-xs font-strong tracking-wider text-ink-muted uppercase">
-              <span className="min-w-0 flex-1 truncate">
-                {node.folder.title}
-              </span>
-              {node.folder.shared ? (
-                <Icon name="users" size={14} label="Shared with club" />
-              ) : null}
-            </h2>
-            <ul className="flex flex-col gap-px">
-              {node.documents.map((doc: WorkspaceDocument) => (
-                <li key={doc.id}>
-                  <button
-                    type="button"
-                    aria-current={active === doc.id ? 'page' : undefined}
-                    className={row(active === doc.id)}
-                    onClick={() => open(doc.id)}
-                  >
-                    <span className="min-w-0 flex-1 truncate">{doc.title}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+        <section aria-label="My drive" className="flex flex-col gap-px">
+          <h2 className="px-2 pb-1 text-xs font-strong tracking-wider text-ink-muted uppercase">
+            My drive
+          </h2>
+          <ul className="flex flex-col gap-px">
+            {driveDocuments(documents).map((doc) => (
+              <li key={doc.id}>
+                <button
+                  type="button"
+                  aria-current={active === doc.id ? 'page' : undefined}
+                  className={row(active === doc.id)}
+                  onClick={() => open(doc.id)}
+                >
+                  <span className="min-w-0 flex-1 truncate">{doc.title}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
     </nav>
   );

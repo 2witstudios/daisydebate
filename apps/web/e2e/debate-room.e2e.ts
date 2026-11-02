@@ -301,14 +301,21 @@ test('the round room fits the viewport and the workspace starts on one line', as
   roundFiles,
 }) => {
   const { page } = roundFiles;
+  const frameFits = () =>
+    page
+      .locator('.room-frame')
+      .evaluate((frame) => frame.scrollHeight <= frame.clientHeight);
+  for (const [width, height] of [
+    [1440, 900],
+    [1280, 800],
+    [1024, 700],
+    [390, 844],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await expect.poll(frameFits).toBe(true);
+  }
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(page.getByRole('tab', { name: 'Transcript' })).toBeVisible();
-  const fit = await page.evaluate(() => ({
-    pageScrolls:
-      document.documentElement.scrollHeight >
-      document.documentElement.clientHeight,
-  }));
-  expect(fit.pageScrolls).toBe(false);
   const tops = await Promise.all(
     [
       page.getByRole('complementary', { name: 'Your files' }),
@@ -324,6 +331,25 @@ test('the round room fits the viewport and the workspace starts on one line', as
     .getByRole('button', { name: 'Room', exact: true });
   await lastTab.scrollIntoViewIfNeeded();
   await expect(lastTab).toBeInViewport();
+});
+
+test('an open document survives every sidebar and phone tab switch', async ({
+  roundFiles,
+}) => {
+  const { page } = roundFiles;
+  const editor = page.getByRole('textbox', { name: 'Untitled', exact: true });
+  await editor.locator('p').first().click();
+  await page.keyboard.type('still here');
+  await page.getByRole('tab', { name: 'Channels', exact: true }).click();
+  await page.getByRole('tab', { name: 'AI chat', exact: true }).click();
+  await page.getByRole('tab', { name: 'Transcript', exact: true }).click();
+  await expect(editor).toContainText('still here');
+  await page.setViewportSize({ width: 390, height: 844 });
+  const tabs = page.getByRole('navigation', { name: 'Round' });
+  await tabs.getByRole('button', { name: 'Transcript', exact: true }).click();
+  await expect(editor).toBeHidden();
+  await tabs.getByRole('button', { name: 'Doc', exact: true }).click();
+  await expect(editor).toContainText('still here');
 });
 
 test('without JavaScript a phone reads the transcript and keeps Leave', async ({

@@ -2,7 +2,7 @@
 
 Status: accepted (owner, 2026-11-02; design
 [Round room canvas](https://claude.ai/artifact/9s5Eczbd2BTt3RCSyWXzgx)).
-Amends [ADR 0054](0054-debate-room-workspace.md) §1, §3, §5 and §8 and
+Amends [ADR 0054](0054-debate-room-workspace.md) §1, §3, §5, §7 and §8 and
 [ADR 0058](0058-one-round-model.md) §9. Overturns DEC-108, DEC-155, DEC-159, DEC-160,
 DEC-173, DEC-175, DEC-176 (its marks) and DEC-177.
 
@@ -29,7 +29,7 @@ and the Terms of Service say the same. A plan may later decide who has the AI
 assistant, as a paid entitlement (owner, 2026-11-02); it never decides by round
 type, and this slice adds no such gate.
 
-**Documents.** A user owns documents, and a club will too. A Round only opens
+**Documents.** A user owns documents, and a club will too once club drives exist. A Round only opens
 them, so Daisy has no Round concept of files: the `round` folder, the stored
 `folder` column and `round_document_refs` are gone. A new document goes to the
 creator's drive, whichever Round it was created in.

@@ -9,7 +9,6 @@ setupRitewayBun();
 const document: WorkspaceDocument = {
   id: 'd'.repeat(24),
   title: 'Notes',
-  folder: 'library',
   html: '<p>saved</p>',
   createdAt: '2026-10-09T00:00:00.000Z',
   updatedAt: '2026-10-09T00:00:00.000Z',

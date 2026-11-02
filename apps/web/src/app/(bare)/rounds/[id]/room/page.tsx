@@ -109,7 +109,9 @@ export default async function RoundRoomPage({
       />
     ) : text.kind === 'unavailable' ? (
       // Refusals read as missing; only an outage, never a denial, says this.
-      <p role="status">Transcript unavailable. Reload to try again.</p>
+      <p role="status" className="p-4 text-sm">
+        Transcript unavailable. Reload to try again.
+      </p>
     ) : null;
   if (!isLiveDebater(result.round, actorId))
     return watchingRoom(

@@ -1,8 +1,5 @@
 import { escapeHtml } from '../../lib/escape-html';
-import {
-  type FolderId,
-  type WorkspaceDocument,
-} from '../../features/debate-room/documents/documents';
+import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
 
 /** Inline text: plain or bold (`**x**`). */
 const inline = (source: string): string =>
@@ -37,12 +34,10 @@ const at = '2026-10-05T18:00:00.000Z';
 const sample = (
   id: string,
   title: string,
-  folder: FolderId,
   html: string,
 ): WorkspaceDocument => ({
   id,
   title,
-  folder,
   html,
   createdAt: at,
   updatedAt: at,
@@ -53,7 +48,6 @@ export const sampleRoomDocuments: readonly WorkspaceDocument[] = [
   sample(
     'doc-flow',
     'Flow',
-    'library',
     doc(
       heading(1, 'Flow'),
       heading(2, 'AC · Aff'),
@@ -82,7 +76,6 @@ export const sampleRoomDocuments: readonly WorkspaceDocument[] = [
   sample(
     'doc-cx',
     'CX',
-    'library',
     doc(
       heading(1, 'CX'),
       heading(2, 'Questions'),
@@ -99,7 +92,6 @@ export const sampleRoomDocuments: readonly WorkspaceDocument[] = [
   sample(
     'doc-nr',
     'NR plan',
-    'library',
     doc(
       heading(1, 'NR · 5:00'),
       bullets(
@@ -115,7 +107,6 @@ export const sampleRoomDocuments: readonly WorkspaceDocument[] = [
   sample(
     'doc-case',
     'Neg case: plastics',
-    'library',
     doc(
       heading(1, 'Neg case: plastics'),
       bullets(
@@ -128,7 +119,6 @@ export const sampleRoomDocuments: readonly WorkspaceDocument[] = [
   sample(
     'doc-bans',
     'Blocks: bans',
-    'library',
     doc(
       heading(1, 'Blocks: bans'),
       heading(2, 'Kenya 2017'),
@@ -141,7 +131,6 @@ export const sampleRoomDocuments: readonly WorkspaceDocument[] = [
   sample(
     'doc-club',
     'Club prep: plastics',
-    'club',
     doc(
       heading(1, 'Club prep: plastics'),
       heading(2, 'Neg strategy'),

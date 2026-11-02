@@ -1,10 +1,7 @@
 import type { CompetitionType } from '@daisy/protocol';
 import type { ChatMessage } from '../../features/debate-room/chat';
-import type {
-  Side,
-  SpeechSlot,
-  WorkspaceDocument,
-} from '../../features/debate-room/documents/documents';
+import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
+import type { Side, SpeechSlot } from '../../features/debate-room/speeches';
 import type { RoundWaitingOn } from '@daisy/protocol';
 import type { JudgingBallots } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
@@ -68,7 +65,6 @@ export type RoundSnapshot = {
   /** Each side's prep left; null when the round has no in-round prep. */
   readonly prepMs: Readonly<Record<Side, number>> | null;
   readonly micLive: boolean;
-  readonly clubName: string | null;
   readonly documents: readonly WorkspaceDocument[];
   readonly channels: readonly Channel[];
   readonly messages: readonly ChatMessage[];

@@ -48,7 +48,6 @@ export const conflictRevision = (error: unknown): number | null =>
 const toStored = (record: DocumentRecord): StoredDocument => ({
   id: record.id,
   title: record.title,
-  folder: 'library',
   html: record.html,
   createdAt: record.createdAt.toISOString(),
   updatedAt: record.updatedAt.toISOString(),
@@ -112,7 +111,6 @@ export function createDebateDocumentOperations({
       const built = buildDocument({
         id: ids.next(),
         now: clock.now(),
-        folder: 'library',
         existingTitles,
       });
       const record = await store.createDocument({

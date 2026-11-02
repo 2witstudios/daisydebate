@@ -105,8 +105,8 @@ export function ChatPanel({ round, state, dispatch, clock }: PanelProps) {
     state.readMarkers,
     round.self.id,
   );
-  const channel = round.channels.find((c) => c.id === state.channelId);
-  if (state.channelOpen && channel)
+  const channel = round.channels.find((c) => c.id === state.openChannelId);
+  if (channel)
     return (
       <>
         <div className="flex shrink-0 items-center gap-1 border-b border-border pr-4 pl-1">

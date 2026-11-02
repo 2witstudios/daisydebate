@@ -109,15 +109,15 @@ describe('debate room documents over PostgreSQL', () => {
         actual: {
           saved,
           stale: conflictRevision(stale),
-          documents: listed.map((d) => [d.title, d.folder, d.revision]),
+          documents: listed.map((d) => [d.title, d.revision]),
           html: listed.find((d) => d.id === flow.id)?.html,
         },
         expected: {
           saved: { revision: 2 },
           stale: 2,
           documents: [
-            ['Aff', 'library', 1],
-            ['Untitled', 'library', 2],
+            ['Aff', 1],
+            ['Untitled', 2],
           ],
           html: '<p>\nTurn\n</p>',
         },

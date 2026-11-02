@@ -1,7 +1,6 @@
 'use client';
 
 import { useReducer } from 'react';
-import { buildTree } from '../../features/debate-room/workspace';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { DocumentPane } from './document-pane';
 import { FileTree } from './file-tree';
@@ -64,7 +63,7 @@ function RoundWorkspace({
       <div className="flex room-workspace border-t border-border max-narrow:flex-col">
         <div className="flex w-round-files shrink-0 flex-col border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
           <FileTree
-            tree={buildTree(state.documents, null)}
+            documents={state.documents}
             active={state.tabs.active}
             dispatch={dispatch}
           />

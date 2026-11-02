@@ -45,7 +45,6 @@ export function BriefWorkspace({ view }: { readonly view: BriefEditorView }) {
     () => ({
       id: view.id,
       title: view.title === '' ? 'New brief' : view.title,
-      folder: 'library' as const,
       html,
       createdAt: '',
       updatedAt: '',

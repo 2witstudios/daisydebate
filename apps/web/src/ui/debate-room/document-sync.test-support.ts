@@ -12,7 +12,6 @@ import type {
 export const stored = (id: string, revision = 1): StoredDocument => ({
   id,
   title: id,
-  folder: 'library',
   html: '<p>\n</p>',
   createdAt: '2026-10-05T18:00:00.000Z',
   updatedAt: '2026-10-05T18:00:00.000Z',

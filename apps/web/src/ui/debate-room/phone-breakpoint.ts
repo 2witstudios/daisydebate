@@ -4,8 +4,8 @@ import { useLayoutEffect, useState } from 'react';
 
 /**
  * The room's one phone-layout threshold as a media query: `--breakpoint-compact`
- * in globals.css defines it, so the CSS hiding (`max-compact:`) and any
- * effect observing it cannot drift apart. Without the token the documented
+ * in globals.css defines it, the same value the `max-compact:` variant uses
+ * and `room.css` repeats in its own media queries. Without the token the documented
  * 901px default applies.
  */
 export const phoneMediaQuery = (computed: {

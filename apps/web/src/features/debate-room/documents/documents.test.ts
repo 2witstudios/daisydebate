@@ -32,7 +32,6 @@ describe('createDocument', () => {
   const input = {
     id: 'doc-1',
     now,
-    folder: 'library' as const,
     existingTitles: ['Untitled'],
   };
 
@@ -45,10 +44,9 @@ describe('createDocument', () => {
         created.title,
         created.createdAt,
         created.updatedAt,
-        created.folder,
         created.html,
       ],
-      expected: ['Untitled 2', now, now, 'library', '<p></p>'],
+      expected: ['Untitled 2', now, now, '<p></p>'],
     });
   });
 
@@ -66,7 +64,6 @@ describe('editing', () => {
   const created = createDocument({
     id: 'doc-1',
     now,
-    folder: 'library',
     existingTitles: [],
   });
 

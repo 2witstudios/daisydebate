@@ -8,7 +8,7 @@ import {
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import type { IconName } from '../components/icon/icons';
-import type { RoomAction, RoomState } from './room-state';
+import { phonePanelOf, type RoomAction, type RoomState } from './room-state';
 
 const panels: Readonly<
   Record<PhonePanel, { readonly name: string; readonly icon: IconName }>
@@ -36,11 +36,15 @@ export function RoundTabs({
   state,
   dispatch,
   unread,
+  hydrated,
 }: {
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
   readonly unread: number;
+  /** Before script these buttons could not switch anything. */
+  readonly hydrated: boolean;
 }) {
+  if (!hydrated) return null;
   return (
     <nav
       aria-label="Round"
@@ -48,7 +52,7 @@ export function RoundTabs({
     >
       {phonePanels.map((panel) => {
         const { name, icon } = panels[panel];
-        const current = state.phone === panel;
+        const current = phonePanelOf(state) === panel;
         const dot = panel === 'channels' && !current && unread > 0;
         return (
           <button

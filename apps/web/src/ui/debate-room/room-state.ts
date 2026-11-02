@@ -15,6 +15,7 @@ import {
   sidebarTabs,
   openTab,
   type PhonePanel,
+  type PhoneView,
   type SidebarTab,
   type TabsState,
 } from '../../features/debate-room/workspace';
@@ -29,11 +30,10 @@ export type RoomState = {
   readonly sidebar: SidebarTab;
   /** The Files sidebar on a wide screen; open by default. */
   readonly filesOpen: boolean;
-  /** The one panel a phone shows; the document by default. */
-  readonly phone: PhonePanel;
-  readonly channelId: string;
+  /** The one region a phone shows; the document by default. */
+  readonly phone: PhoneView;
   /** The channel open in the sidebar; null shows the list. */
-  readonly channelOpen: boolean;
+  readonly openChannelId: string | null;
   readonly agentId: string;
   readonly messages: readonly ChatMessage[];
   readonly readMarkers: Readonly<Record<string, string>>;
@@ -103,8 +103,7 @@ export function initialRoomState(round: RoundSnapshot): RoomState {
     sidebar: 'transcript',
     filesOpen: true,
     phone: 'doc',
-    channelId: 'round',
-    channelOpen: false,
+    openChannelId: null,
     agentId: round.agents[0]?.id ?? '',
     messages: round.messages,
     readMarkers: {},
@@ -114,6 +113,10 @@ export function initialRoomState(round: RoundSnapshot): RoomState {
   };
 }
 
+/** The panel a phone shows, for its tab bar and its focus return. */
+export const phonePanelOf = (state: RoomState): PhonePanel =>
+  state.phone === 'sidebar' ? state.sidebar : state.phone;
+
 /** The viewer's page tone for a document; null follows their theme. */
 export const pageToneOf = (
   state: RoomState,
@@ -121,7 +124,7 @@ export const pageToneOf = (
 ): PageTone | null => state.pages[documentId] ?? null;
 
 /** Opening a file from a phone's Files panel shows the file. */
-const fromFiles = (phone: PhonePanel): PhonePanel =>
+const fromFiles = (phone: PhoneView): PhoneView =>
   phone === 'files' ? 'doc' : phone;
 
 const withDocument = (
@@ -150,7 +153,6 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
     const doc = createDocument({
       id: a.id,
       now: a.now,
-      folder: 'library',
       existingTitles: s.documents.map((d) => d.title),
     });
     return {
@@ -170,24 +172,19 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
     ...appendWorkspaceDocument(s, a.document),
     phone: fromFiles(s.phone),
   }),
-  'sidebar/tab': (s, a) => ({
-    ...s,
-    sidebar: a.tab,
-    phone: s.phone === s.sidebar ? a.tab : s.phone,
-  }),
+  'sidebar/tab': (s, a) => ({ ...s, sidebar: a.tab }),
   'files/toggle': (s) => ({ ...s, filesOpen: !s.filesOpen }),
-  'phone/panel': (s, a) => ({
-    ...s,
-    phone: a.panel,
-    sidebar: sidebarTabs.find((tab) => tab === a.panel) ?? s.sidebar,
-  }),
+  'phone/panel': (s, a) => {
+    const tab = sidebarTabs.find((candidate) => candidate === a.panel);
+    if (tab) return { ...s, phone: 'sidebar', sidebar: tab };
+    return { ...s, phone: a.panel as Exclude<PhoneView, 'sidebar'> };
+  },
   'channel/open': (s, a) => ({
     ...s,
-    channelId: a.channelId,
-    channelOpen: true,
+    openChannelId: a.channelId,
     readMarkers: markRead(s.readMarkers, a.channelId, a.now),
   }),
-  'channel/list': (s) => ({ ...s, channelOpen: false }),
+  'channel/list': (s) => ({ ...s, openChannelId: null }),
   'agent/select': (s, a) => ({ ...s, agentId: a.agentId }),
   'agent/edit': (s, a) => {
     if (s.edits[a.turnId]) return s;

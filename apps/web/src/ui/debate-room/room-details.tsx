@@ -21,18 +21,13 @@ function personName(round: RoundSnapshot, person: RoundPerson) {
 }
 
 /** What the round keeps: live while the speeches run, kept once they end. */
-function keptRows(round: RoundSnapshot, transcribing: boolean) {
+function keptRows(round: RoundSnapshot) {
   const after = round.phase === 'judging';
   return [
     {
       term: 'Recording',
       value: round.recording ? (after ? 'Saved' : 'On') : 'Off',
       live: round.recording && !after,
-    },
-    {
-      term: 'Transcript',
-      value: transcribing ? (after ? 'Complete' : 'Live') : 'Off',
-      live: false,
     },
     ...(after && round.recording
       ? [{ term: 'This room now', value: 'Not recorded', live: false }]
@@ -44,14 +39,7 @@ const stakesLabel = (stakes: NonNullable<RoundSnapshot['stakes']>) =>
   `+${stakes.win} / −${stakes.loss}`;
 
 /** Who is in the round, and what the round is keeping. */
-export function RoomDetails({
-  round,
-  transcribing,
-}: {
-  readonly round: RoundSnapshot;
-  /** Whether this viewer has a transcript to read. */
-  readonly transcribing: boolean;
-}) {
+export function RoomDetails({ round }: { readonly round: RoundSnapshot }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
       {groups.map(({ role, title }) => {
@@ -97,7 +85,7 @@ export function RoomDetails({
         );
       })}
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border px-2 pt-4 text-sm">
-        {keptRows(round, transcribing).map((row) => (
+        {keptRows(round).map((row) => (
           <Fragment key={row.term}>
             <dt className="text-ink-muted">{row.term}</dt>
             <dd className={row.live ? 'text-live' : undefined}>{row.value}</dd>

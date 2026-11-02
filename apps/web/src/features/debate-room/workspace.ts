@@ -1,40 +1,13 @@
-import type { FolderId, WorkspaceDocument } from './documents/documents';
-
-type Folder = {
-  readonly id: FolderId;
-  readonly title: string;
-  readonly shared: boolean;
-};
-
-/** The club drive's title is the club's name, filled in by buildTree. */
-const folders: readonly Folder[] = [
-  { id: 'library', title: 'My drive', shared: false },
-  { id: 'club', title: '', shared: true },
-];
-
-export type TreeNode = {
-  readonly folder: Folder;
-  readonly documents: readonly WorkspaceDocument[];
-};
+import type { WorkspaceDocument } from './documents/documents';
 
 const byCreated = (a: WorkspaceDocument, b: WorkspaceDocument) =>
   Date.parse(a.createdAt) - Date.parse(b.createdAt) ||
   (a.title < b.title ? -1 : a.title > b.title ? 1 : 0);
 
-export function buildTree(
+/** The viewer's own drive, oldest first. Club drives arrive with prep-documents. */
+export const driveDocuments = (
   documents: readonly WorkspaceDocument[],
-  clubName: string | null,
-): readonly TreeNode[] {
-  return folders
-    .filter((folder) => folder.id !== 'club' || clubName !== null)
-    .map((folder) => ({
-      folder:
-        folder.id === 'club' ? { ...folder, title: clubName ?? '' } : folder,
-      documents: documents
-        .filter((d) => d.folder === folder.id)
-        .sort(byCreated),
-    }));
-}
+): readonly WorkspaceDocument[] => [...documents].sort(byCreated);
 
 export type TabsState = {
   readonly open: readonly string[];
@@ -70,6 +43,9 @@ export const sidebarTabs: readonly SidebarTab[] = [
 
 /** A phone shows one panel at a time; the sidebar's tabs are among them. */
 export type PhonePanel = 'doc' | SidebarTab | 'files' | 'room';
+
+/** Which region a phone shows; the sidebar's own tab says which of its panels. */
+export type PhoneView = 'doc' | 'sidebar' | 'files' | 'room';
 export const phonePanels: readonly PhonePanel[] = [
   'doc',
   ...sidebarTabs,
@@ -80,13 +56,11 @@ export const phonePanels: readonly PhonePanel[] = [
 export type Channel = {
   readonly id: string;
   readonly title: string;
-  readonly scope: 'round' | 'club';
 };
 
 export type Agent = {
   readonly id: string;
   readonly title: string;
-  readonly scope: 'round' | 'club';
 };
 
 const lastEdited = (documents: readonly WorkspaceDocument[]) =>

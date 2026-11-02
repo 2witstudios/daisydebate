@@ -122,7 +122,7 @@ export function DocumentPane({
         <DocumentEditor
           key={active.id}
           document={active}
-          access={active.folder === 'club' ? 'Club' : 'Only you'}
+          access="Only you"
           page={pages[active.id] ?? null}
           onPage={(tone) =>
             dispatch({ type: 'page/tone', documentId: active.id, tone })

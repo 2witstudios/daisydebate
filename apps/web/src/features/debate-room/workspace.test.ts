@@ -1,8 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { FolderId, WorkspaceDocument } from './documents/documents';
+import type { WorkspaceDocument } from './documents/documents';
 import {
   activateTab,
-  buildTree,
+  driveDocuments,
   closeTab,
   openTab,
   loadWorkspaceDocuments,
@@ -15,13 +15,11 @@ setupRitewayBun();
 
 const document = (
   id: string,
-  folder: FolderId,
   createdAt: string,
   title = id,
 ): WorkspaceDocument => ({
   id,
   title,
-  folder,
   html: '<p></p>',
   createdAt,
   updatedAt: createdAt,
@@ -30,35 +28,18 @@ const document = (
 const early = '2026-10-05T12:00:00.000Z';
 const late = '2026-10-05T12:30:00.000Z';
 const docs = [
-  document('b', 'library', early, 'Beta'),
-  document('c', 'library', late, 'Alpha'),
-  document('a', 'library', early, 'Alpha'),
-  document('k', 'club', early),
+  document('b', early, 'Beta'),
+  document('c', late, 'Alpha'),
+  document('a', early, 'Alpha'),
 ];
 
-describe('buildTree', () => {
-  test('folders and order', () => {
-    const tree = buildTree(docs, 'Westside Debate');
-    assert({
-      given: 'a club member',
-      should: 'list their drive and their club’s with their titles',
-      actual: tree.map((n) => [n.folder.id, n.folder.title, n.folder.shared]),
-      expected: [
-        ['library', 'My drive', false],
-        ['club', 'Westside Debate', true],
-      ],
-    });
+describe('driveDocuments', () => {
+  test('order', () => {
     assert({
       given: 'documents in a drive',
       should: 'sort by createdAt then title',
-      actual: tree[0]?.documents.map((d) => d.id),
+      actual: driveDocuments(docs).map((d) => d.id),
       expected: ['a', 'b', 'c'],
-    });
-    assert({
-      given: 'no club',
-      should: 'omit the club folder',
-      actual: buildTree(docs, null).map((n) => n.folder.id),
-      expected: ['library'],
     });
   });
 });

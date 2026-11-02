@@ -21,7 +21,6 @@ const member: Extract<Identity, { state: 'member' }> = {
 const document = {
   id: DOC,
   title: 'Notes',
-  folder: 'library' as const,
   html: '<p>\n</p>',
   createdAt: '2026-10-05T18:00:00.000Z',
   updatedAt: '2026-10-05T18:00:00.000Z',
