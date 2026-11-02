@@ -298,3 +298,31 @@ test('a restored edit with an unknown acknowledgement reconciles its own commit 
     expected: [2, 0, '<p>REC</p>', undefined, '<p>NEW</p>', ['<p>NEW</p>']],
   });
 });
+
+test('an offer compares against the server copy, never unsaved editor text', async () => {
+  const f = fixture();
+  const sync = f.owner();
+  let notified = 0;
+  sync.subscribe(() => {
+    notified += 1;
+  });
+  await sync.load();
+  const serverCopy = () => sync.recoveryOffers()[0]!.serverHtml;
+  const loaded = serverCopy();
+  sync.change('a', '<p>NEW</p>');
+  const whileUnsaved = serverCopy();
+  const beforeAcknowledgement = notified;
+  await sync.flush();
+  assert({
+    given: 'an offered copy, then newer typing that is acknowledged',
+    should:
+      'show the loaded server text until the acknowledgement, then notify with the saved text',
+    actual: [
+      loaded,
+      whileUnsaved,
+      serverCopy(),
+      notified > beforeAcknowledgement,
+    ],
+    expected: ['<p>SERVER</p>', '<p>SERVER</p>', '<p>NEW</p>', true],
+  });
+});

@@ -16,7 +16,6 @@ import {
   offerNoteRecord,
   restoreNoteRecord,
   type NoteCopy,
-  type NoteOffer,
   type NoteRecord,
   type NoteTransition,
 } from './note-draft';
@@ -48,6 +47,13 @@ export type DocumentsApi = {
 export type Timers = {
   readonly set: (run: () => void, ms: number) => unknown;
   readonly clear: (handle: unknown) => void;
+};
+/** A retained copy, with the last server text this owner has proven to compare it against. */
+export type NoteOffer = {
+  readonly documentId: string;
+  readonly slot: 'active' | 'recovery';
+  readonly copy: NoteCopy;
+  readonly serverHtml: string;
 };
 export type DocumentSyncResources = {
   readonly timers: Timers;
@@ -87,6 +93,7 @@ const sameOffers = (one: readonly NoteOffer[], two: readonly NoteOffer[]) =>
       other !== undefined &&
       offer.documentId === other.documentId &&
       offer.slot === other.slot &&
+      offer.serverHtml === other.serverHtml &&
       sameNoteCopy(offer.copy, other.copy)
     );
   });
@@ -127,6 +134,7 @@ export function createDocumentSync({
   let unavailableCopies = false;
   let expiryHandle: unknown;
   const revisions = new Map<string, number>();
+  const serverCopies = new Map<string, string>();
   const pending = new Map<string, NoteCopy>();
   const records = new Map<string, NoteSnapshot>();
   const ownedDurable = new Map<string, string>();
@@ -155,7 +163,10 @@ export function createDocumentSync({
   const activeOffered = (id: string, record: NoteRecord) =>
     record.active !== undefined && !owned(id, record.active.generation);
   const remember = (documents: readonly StoredDocument[]) => {
-    for (const doc of documents) revisions.set(doc.id, doc.revision);
+    for (const doc of documents) {
+      revisions.set(doc.id, doc.revision);
+      serverCopies.set(doc.id, doc.html);
+    }
     return documents;
   };
   const read = (id: string, now: number): NoteSnapshot => {
@@ -192,15 +203,22 @@ export function createDocumentSync({
     const next: NoteOffer[] = retained
       .slice(0, NOTE_RECORD_MAX_COUNT)
       .flatMap(([documentId, { record }]) => {
+        const serverHtml = serverCopies.get(documentId) ?? '';
         const candidates: NoteOffer[] = [];
         if (record.recovery)
           candidates.push({
             documentId,
             slot: 'recovery',
             copy: record.recovery,
+            serverHtml,
           });
         if (record.active && activeOffered(documentId, record))
-          candidates.push({ documentId, slot: 'active', copy: record.active });
+          candidates.push({
+            documentId,
+            slot: 'active',
+            copy: record.active,
+            serverHtml,
+          });
         return candidates.filter(
           (offer) =>
             offer.copy.baseRevision <= (revisions.get(documentId) ?? -1),
@@ -261,6 +279,7 @@ export function createDocumentSync({
   const saved = (id: string, sent: NoteCopy, revision: number) => {
     if (disposed) return;
     revisions.set(id, revision);
+    serverCopies.set(id, sent.html);
     failures.delete(id);
     unanswered.delete(id);
     const current = pending.get(id);

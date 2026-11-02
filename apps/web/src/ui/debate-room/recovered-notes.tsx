@@ -5,8 +5,8 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import { systemClock } from '@daisy/clock';
 import { documentExtensions } from '../../features/documents/document-schema';
 import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
-import type { DocumentSync } from './document-sync';
-import type { NoteCopy, NoteOffer } from './note-draft';
+import type { DocumentSync, NoteOffer } from './document-sync';
+import type { NoteCopy } from './note-draft';
 import type { RoomAction } from './room-state';
 
 /** The same constrained schema as the editor; stored HTML is never injected into the page. */
@@ -34,12 +34,14 @@ function RecoveryPreview({
 function RecoveredNote({
   document,
   draft,
+  serverHtml,
   choiceLabel,
   restore,
   discard,
 }: {
   readonly document: WorkspaceDocument;
   readonly draft: NoteCopy;
+  readonly serverHtml: string;
   readonly choiceLabel: string;
   readonly restore: () => void;
   readonly discard: () => void;
@@ -80,7 +82,7 @@ function RecoveredNote({
         />
         <h4>Server copy</h4>
         <RecoveryPreview
-          html={document.html}
+          html={serverHtml}
           label={`Server copy of ${document.title}`}
         />
       </details>
@@ -151,6 +153,7 @@ export function RecoveredNotes({
             key={`${document.id}:${offer.copy.generation}`}
             document={document}
             draft={offer.copy}
+            serverHtml={offer.serverHtml}
             choiceLabel={
               offers.filter((item) => item.documentId === document.id).length >
               1

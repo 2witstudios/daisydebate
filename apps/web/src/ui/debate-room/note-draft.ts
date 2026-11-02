@@ -10,11 +10,6 @@ export type NoteRecord = {
   readonly active?: NoteCopy;
   readonly recovery?: NoteCopy;
 };
-export type NoteOffer = {
-  readonly documentId: string;
-  readonly slot: 'active' | 'recovery';
-  readonly copy: NoteCopy;
-};
 export type NoteTransition = {
   readonly status: 'changed' | 'unchanged' | 'stale' | 'occupied' | 'overflow';
   readonly record: NoteRecord;
