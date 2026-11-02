@@ -134,7 +134,9 @@ function startNotice(
 ): string | null {
   const waiting = waitingOn(view, actorId);
   if (waiting.length > 0) return `Waiting on: ${waiting.join(', ')}`;
-  if (blocked) return 'Waiting on: your camera and microphone check';
+  // Only a host's own Start waits on this tab's check; nobody else's does.
+  if (blocked && view.capabilities.host)
+    return 'Waiting on: your camera and microphone check';
   if (view.startRefusal)
     return `Waiting on ${startRefusalText(view.startRefusal)}`;
   return 'Everyone is here and ready.';
