@@ -14,6 +14,7 @@ import { createLaunchPreparationProcess } from './launch-browser-image-process';
 import { readLaunchArchiveGraph } from './launch-browser-image-archive-policy';
 import { launchArchiveProjection } from './launch-browser-image-export-policy';
 import { readLaunchArchiveInventory } from './launch-browser-image-archive';
+import { launchBaseIsPresent } from './launch-browser-image-build';
 
 /**
  * Real positive: exact save, remove, verified restore and inspect on this
@@ -287,33 +288,40 @@ try {
 
   // The shared outer owner: a corrupt archive directory causes one fresh
   // preparation, never acceptance of stale data. A CI cache entry itself is
-  // immutable under its key; see round-browser-proof.md for recovery.
-  if ((await owner.run(['image', 'rm', image.tag])).code !== 0)
-    throw new Error(
-      'Corrupt-cache proof could not release its owned reference',
-    );
-  const rebuildStarted = performance.now();
-  const rebuilt = await prepareLaunchBrowserImage({
-    checkout,
-    archiveDirectory: corrupt,
-  });
-  if (rebuilt.image.key !== image.key)
-    throw new Error(
-      'Corrupt-cache rebuild changed its expected input identity',
-    );
-  log({
-    case: 'corrupt-cache-bounded-rebuild',
-    image: rebuilt.id,
-    elapsedMs: Math.round(performance.now() - rebuildStarted),
-  });
+  // immutable under its key; see round-browser-proof.md for recovery. A cache
+  // hit stays offline: its key covers this proof and it saved after it passed.
+  if (await launchBaseIsPresent(owner, image)) {
+    if ((await owner.run(['image', 'rm', image.tag])).code !== 0)
+      throw new Error(
+        'Corrupt-cache proof could not release its owned reference',
+      );
+    const rebuildStarted = performance.now();
+    const rebuilt = await prepareLaunchBrowserImage({
+      checkout,
+      archiveDirectory: corrupt,
+    });
+    if (rebuilt.image.key !== image.key)
+      throw new Error(
+        'Corrupt-cache rebuild changed its expected input identity',
+      );
+    log({
+      case: 'corrupt-cache-bounded-rebuild',
+      image: rebuilt.id,
+      elapsedMs: Math.round(performance.now() - rebuildStarted),
+    });
 
-  // Cold rebuilds are not byte-identical, so leave the exact cached bytes for
-  // the later proofs and browser suite instead of this control's rebuild.
-  if ((await owner.run(['image', 'rm', image.tag])).code !== 0)
-    throw new Error('Could not release the rebuilt control image');
-  if ((await restoreLaunchImageArchive(observed, image, saved)) !== id)
-    throw new Error('Could not restore the exact cached image');
-  log({ case: 'cached-image-restored', image: id });
+    // Cold rebuilds are not byte-identical, so leave the exact cached bytes for
+    // the later proofs and browser suite instead of this control's rebuild.
+    if ((await owner.run(['image', 'rm', image.tag])).code !== 0)
+      throw new Error('Could not release the rebuilt control image');
+    if ((await restoreLaunchImageArchive(observed, image, saved)) !== id)
+      throw new Error('Could not restore the exact cached image');
+    log({ case: 'cached-image-restored', image: id });
+  } else
+    log({
+      case: 'corrupt-cache-bounded-rebuild',
+      outcome: 'not-run-cache-hit',
+    });
   if (performance.now() - started > 480000)
     throw new Error('Archive proof exceeded the preparation budget');
 } finally {

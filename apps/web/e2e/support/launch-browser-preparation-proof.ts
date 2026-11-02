@@ -6,6 +6,7 @@ import {
 } from './launch-browser-image';
 import {
   acquireLaunchBase,
+  launchBaseIsPresent,
   closeLaunchPreparation,
   createPreparedLaunchImage,
 } from './launch-browser-image-build';
@@ -22,7 +23,16 @@ const { image } = await readLaunchImageInputs(
   engine,
   store,
 );
-// A cache hit restores only the prepared image, so the base may be absent here.
+// A cache hit restores only the prepared image and must not need the network.
+// Its key covers this proof and the cache saves after it, so it already passed
+// on these exact inputs. Any changed input is a miss, which has the base.
+if (!(await launchBaseIsPresent(prerequisite, image))) {
+  process.stdout.write(
+    `${JSON.stringify({ event: 'browser.image.preparation.proof', outcome: 'not-run-cache-hit', inputs: image.key, platform })}\n`,
+  );
+  prerequisite.close();
+  process.exit(0);
+}
 const baseId = await acquireLaunchBase(prerequisite, image);
 prerequisite.close();
 

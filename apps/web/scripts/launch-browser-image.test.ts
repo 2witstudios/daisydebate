@@ -3,6 +3,7 @@ import { expect } from 'bun:test';
 import {
   launchImageIdentity,
   launchDaemonImageContract,
+  launchImageFilesystemArgs,
   launchImagePrepareArgs,
   launchImageCommitArgs,
   launchPreparationRemaining,
@@ -21,7 +22,6 @@ const inputs = {
   store: 'containerd-overlayfs' as const,
   recipe: 'recipe',
   toolchain: 'adapter',
-  lock: 'lock',
   refresh: 'noble-nss-2026-11-01-container-1',
 };
 const imageId = `sha256:${'a'.repeat(64)}`;
@@ -114,9 +114,9 @@ describe('prepared Launch browser identity', () => {
   test('each preparation input invalidates both image and archive', () => {
     const original = launchImageIdentity(inputs);
     assert({
-      given: 'a changed recipe, toolchain, lock, refresh or native platform',
+      given: 'a changed recipe, toolchain, refresh or native platform',
       should: 'never reuse the earlier image identity',
-      actual: ['recipe', 'toolchain', 'lock', 'refresh']
+      actual: ['recipe', 'toolchain', 'refresh']
         .map(
           (key) =>
             launchImageIdentity({ ...inputs, [key]: 'changed' }).key !==
@@ -126,7 +126,7 @@ describe('prepared Launch browser identity', () => {
           launchImageIdentity({ ...inputs, platform: 'linux/amd64' }).key !==
             original.key,
         ),
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true],
     });
   });
   test('preparation cannot inherit proxy credentials or filesystem inputs', () => {
@@ -549,4 +549,26 @@ test('only measured daemon image-store contracts select receipt identity', () =>
       null,
     ],
   });
+});
+
+test('the artifact trust check runs as the home owner and proves its access', () => {
+  const image = launchImageIdentity(inputs);
+  const args = launchImageFilesystemArgs(image, 'daisy-image-fixture', imageId);
+  const script = args.at(-1)!;
+  assert({
+    given: 'nssdb paths under a mode-750 home',
+    should:
+      'run as pwuser with no capabilities, checking access before any absence test',
+    actual: [
+      args[args.indexOf('--user') + 1],
+      args[args.indexOf('--cap-drop') + 1],
+      script.startsWith('test -x /home/pwuser;'),
+      script.includes('test ! -e /home/pwuser/.pki/nssdb'),
+      script.includes('test ! -e /home/pwuser/.local/share/pki/nssdb'),
+    ],
+    expected: ['pwuser', 'ALL', true, true, true],
+  });
+  expect(() =>
+    launchImageFilesystemArgs(image, 'daisy-image-fixture', 'foreign:latest'),
+  ).toThrow('Invalid image filesystem inspection input');
 });

@@ -133,8 +133,7 @@ acquisition fallback.
 
 An optional directory argument saves/loads `image.tar` and `receipt.json` for
 CI. Existing SHA-pinned Actions cache uses exact OS/architecture/input keys;
-inexact restores are discarded only from the owned archive directory. Only
-same-repository PR and main-push events save; forks/manual runs cannot publish
+only same-repository PR and main-push events save; forks/manual runs cannot publish
 reusable caches. GitHub ref scoping applies. Local and restored images undergo
 configuration, layer, package and filesystem checks, independently of cache-hit
 metadata. Cache is an optimization within its repository/event trust boundary,
@@ -142,8 +141,12 @@ not a signature or acceptance authority. A rejected archive gets one bounded
 rebuild; failed writes remove their own partial files. A CI cache entry cannot be
 replaced under its key, so a rejected entry rebuilds on every run until its key
 changes: bump `refresh` in the base descriptor or delete the entry. A cache hit
-holds only the prepared image, so anything needing the upstream base acquires it
-through the same verified step.
+holds only the prepared image and needs no network. It saves only after the
+lifecycle, archive and trust proofs pass, and its key covers those first two, so
+on a hit they log `not-run-cache-hit` where they would need the upstream base;
+any changed input is a miss that runs them in full. The eight-minute deadline
+control is manual: `bun apps/web/e2e/support/launch-browser-preparation-proof.ts
+--full-budget`; CI proves the same owner under a 40-second budget.
 
 The archive has one format and one reader. A format-2 archive holds exactly the
 OCI index, its single manifest, that manifest's config and ordered layers, the

@@ -117,3 +117,38 @@ test('the real sanitizer CLI fails the upload gate for unscannable evidence', as
     rmSync(parent, { recursive: true, force: true });
   }
 });
+
+test('the prepared image cache is input-bound and saved only after its proofs', async () => {
+  const workflow = Bun.YAML.parse(
+    await Bun.file('.github/workflows/e2e.yml').text(),
+  ) as {
+    jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
+  };
+  const steps = workflow.jobs['room-launch']!.steps;
+  const position = (name: string) =>
+    steps.findIndex((step) => step.name === name);
+  const save = position('Save trusted prepared Launch browser archive');
+  assert({
+    given: 'the native job',
+    should:
+      'fail on an unresolved key rather than cache under an empty one, and save after every proof',
+    actual: {
+      keyLine: steps
+        .find(
+          (step) => step.name === 'Resolve prepared Launch browser identity',
+        )
+        ?.run?.split('\n')[0],
+      afterProofs: [
+        'Prove owned preparation deadline, configuration and cleanup',
+        'Prove exact archive load, timing and rejection boundaries',
+        'Prove prepared browser trust, repository isolation and cleanup',
+      ].every((name) => position(name) >= 0 && position(name) < save),
+      beforeSuite: save < position('Run real isolated Launch browser suite'),
+    },
+    expected: {
+      keyLine: 'key=$(bun apps/web/e2e/support/launch-browser-image.ts --key)',
+      afterProofs: true,
+      beforeSuite: true,
+    },
+  });
+});

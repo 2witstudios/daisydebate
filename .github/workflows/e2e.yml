@@ -468,7 +468,9 @@ jobs:
           key: ${{ steps.browser-cache.outputs.cache-primary-key }}
       - name: Resolve prepared Launch browser identity
         id: launch-image
-        run: echo "key=$(bun apps/web/e2e/support/launch-browser-image.ts --key)" >> "$GITHUB_OUTPUT"
+        run: |
+          key=$(bun apps/web/e2e/support/launch-browser-image.ts --key)
+          echo "key=$key" >> "$GITHUB_OUTPUT"
       # Exact input/platform keys only. Cache is a repository/event-scoped
       # optimization; the shared preparer validates metadata and receipt again.
       - name: Restore prepared Launch browser archive
@@ -478,13 +480,17 @@ jobs:
         with:
           path: .pu/worktrees/wt-roomlaunchci/.cache/launch-browser-image
           key: launch-image-${{ runner.os }}-${{ runner.arch }}-${{ steps.launch-image.outputs.key }}
-      - name: Discard any inexact cache restore
-        if: steps.launch-image-cache.outputs.cache-hit != 'true'
-        run: rm -rf .cache/launch-browser-image
       - name: Prepare isolated Launch browser image
         id: launch-image-prepare
         timeout-minutes: 9
         run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-image.ts .cache/launch-browser-image
+      - name: Prove owned preparation deadline, configuration and cleanup
+        run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-preparation-proof.ts
+      - name: Prove exact archive load, timing and rejection boundaries
+        run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-archive-proof.ts
+      - name: Prove prepared browser trust, repository isolation and cleanup
+        run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-image-proof.ts
+      # After the proofs, so a cache hit means they passed on these exact inputs.
       - name: Save trusted prepared Launch browser archive
         if: >-
           steps.launch-image-cache.outputs.cache-hit != 'true' &&
@@ -495,12 +501,6 @@ jobs:
         with:
           path: .pu/worktrees/wt-roomlaunchci/.cache/launch-browser-image
           key: ${{ steps.launch-image-cache.outputs.cache-primary-key }}
-      - name: Prove owned preparation deadline, configuration and cleanup
-        run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-preparation-proof.ts
-      - name: Prove exact archive load, timing and rejection boundaries
-        run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-archive-proof.ts
-      - name: Prove prepared browser trust, repository isolation and cleanup
-        run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-image-proof.ts
       - name: Run real isolated Launch browser suite
         id: launch
         run: bun test:e2e:room-launch

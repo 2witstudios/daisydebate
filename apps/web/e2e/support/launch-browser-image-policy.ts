@@ -32,7 +32,6 @@ export function launchImageIdentity(input: {
   readonly store: LaunchImageStore;
   readonly recipe: string;
   readonly toolchain: string;
-  readonly lock: string;
   readonly refresh: string;
 }) {
   const native = base.platforms[input.platform as keyof typeof base.platforms];
@@ -53,7 +52,6 @@ export function launchImageIdentity(input: {
         archiveFormat: launchArchiveFormat,
         recipe: input.recipe,
         toolchain: input.toolchain,
-        lock: input.lock,
         refresh: input.refresh,
         base,
       }),
@@ -158,6 +156,55 @@ export function launchImagePrepareArgs(
     ]),
     baseId,
     ...launchRecipeCommand(image),
+  ];
+}
+
+/**
+ * Fixture trust must be absent from the artifact. Runs as pwuser because root
+ * without capabilities cannot enter its mode-750 home, where `test ! -e` would
+ * pass on a permission error; the first check proves that access.
+ */
+export function launchImageFilesystemArgs(
+  image: LaunchImage,
+  name: string,
+  id: string,
+): readonly string[] {
+  if (!isDigest(id) && !/^daisy-launch-preparing:[a-z0-9]+$/.test(id))
+    throw new Error('Invalid image filesystem inspection input');
+  return [
+    'run',
+    '--rm',
+    '--name',
+    name,
+    '--pull=never',
+    '--network',
+    'none',
+    '--read-only',
+    '--cap-drop',
+    'ALL',
+    '--security-opt',
+    'no-new-privileges',
+    '--user',
+    'pwuser',
+    ...image.environment.flatMap((value) => ['--env', value]),
+    '--entrypoint',
+    'sh',
+    id,
+    '-ec',
+    [
+      'test -x /home/pwuser',
+      'test ! -e /fixture/ca.crt',
+      'test ! -e /usr/local/share/ca-certificates/daisy-isolated-proof.crt',
+      'test ! -e /home/pwuser/.local/share/pki/nssdb',
+      'test ! -e /home/pwuser/.pki/nssdb',
+      'command -v certutil >/dev/null',
+      'test -f /usr/local/share/daisy-launch-packages.txt',
+      'test ! -L /usr/local/share/daisy-launch-packages.txt',
+      'test "$(wc -c < /usr/local/share/daisy-launch-packages.txt)" -le 262144',
+      'printf daisy-image-inventory:',
+      'base64 -w0 /usr/local/share/daisy-launch-packages.txt',
+      'printf "\\n"',
+    ].join('; '),
   ];
 }
 

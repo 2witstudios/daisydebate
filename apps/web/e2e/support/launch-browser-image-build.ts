@@ -1,5 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import {
+  launchImageFilesystemArgs,
   launchImagePrepareArgs,
   launchImageCommitArgs,
   readLaunchPackages,
@@ -66,26 +67,7 @@ async function verifyFilesystem(
   let valid = false;
   let failure: unknown = null;
   try {
-    const result = await owner.run([
-      'run',
-      '--rm',
-      '--name',
-      name,
-      '--pull=never',
-      '--network',
-      'none',
-      '--read-only',
-      '--cap-drop',
-      'ALL',
-      '--security-opt',
-      'no-new-privileges',
-      ...image.environment.flatMap((value) => ['--env', value]),
-      '--entrypoint',
-      'sh',
-      id,
-      '-ec',
-      'test ! -e /fixture/ca.crt; test ! -e /usr/local/share/ca-certificates/daisy-isolated-proof.crt; test ! -e /home/pwuser/.local/share/pki/nssdb; test ! -e /home/pwuser/.pki/nssdb; command -v certutil >/dev/null; test -f /usr/local/share/daisy-launch-packages.txt; test ! -L /usr/local/share/daisy-launch-packages.txt; test "$(wc -c < /usr/local/share/daisy-launch-packages.txt)" -le 262144; printf daisy-image-inventory:; base64 -w0 /usr/local/share/daisy-launch-packages.txt; printf "\\n"',
-    ]);
+    const result = await owner.run(launchImageFilesystemArgs(image, name, id));
     valid =
       result.code === 0 &&
       readLaunchPackages(result.stdout) === expectedPackages;
@@ -119,6 +101,9 @@ export async function validatedLaunchImage(
   );
   return null;
 }
+
+export const launchBaseIsPresent = async (owner: Owner, image: LaunchImage) =>
+  validateLaunchBase(await inspect(owner, 'image', image.base), image) !== null;
 
 /** Admit the pinned upstream base only after verifying it, pulling at most once. */
 export async function acquireLaunchBase(owner: Owner, image: LaunchImage) {

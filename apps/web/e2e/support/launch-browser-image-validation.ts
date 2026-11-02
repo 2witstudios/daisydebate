@@ -150,43 +150,7 @@ export function validateLaunchPreparation(
 }
 
 /** The cache trust boundary is repository/event scoped; consistency checks are not signatures. */
-export function validateLaunchImage(
-  raw: unknown,
-  image: LaunchImage,
-  receiptId?: string,
-): string | null {
-  const value = record(raw),
-    config = record(value.Config),
-    labels = record(config.Labels),
-    layers = record(value.RootFS).Layers;
-  if (
-    !isDigest(value.Id) ||
-    value.Os !== 'linux' ||
-    `linux/${value.Architecture}` !== image.platform ||
-    (receiptId !== undefined && receiptId !== value.Id) ||
-    !safeConfig(config, image, true)
-  )
-    return null;
-  if (
-    !Array.isArray(layers) ||
-    layers.length !== image.native.layers.length + 1 ||
-    !same(layers.slice(0, -1), image.native.layers) ||
-    !isDigest(layers.at(-1))
-  )
-    return null;
-  if (
-    !Object.entries(image.labels).every(
-      ([key, expected]) => labels[key] === expected,
-    ) ||
-    !isDigest(labels['io.daisy.launch.packages']) ||
-    Object.keys(labels).length !== Object.keys(image.labels).length + 1
-  )
-    return null;
-  return value.Id;
-}
-
-/** Fixed field categories only: no untrusted metadata, key names or values escape. */
-export function launchImageContractChecks(
+function requiredImageChecks(
   raw: unknown,
   image: LaunchImage,
   receiptId?: string,
@@ -201,16 +165,6 @@ export function launchImageContractChecks(
     linux: value.Os === 'linux',
     nativeArchitecture: `linux/${value.Architecture}` === image.platform,
     safeConfiguration: safeConfig(config, image, true),
-    hostnameEmpty: config.Hostname == null || config.Hostname === '',
-    hostnameOwned: config.Hostname === base.preparationHostname,
-    environment:
-      Array.isArray(config.Env) &&
-      same([...config.Env].sort(), [...image.environment].sort()),
-    command: same(config.Cmd, ['/bin/bash']),
-    entrypoint: config.Entrypoint == null || same(config.Entrypoint, []),
-    user: config.User === '0:0',
-    workingDirectory: config.WorkingDir === '/',
-    imageReference: knownImageReference(config, image),
     labels: Object.entries(image.labels).every(
       ([key, expected]) => labels[key] === expected,
     ),
@@ -218,8 +172,43 @@ export function launchImageContractChecks(
       Object.keys(labels).length === Object.keys(image.labels).length + 1,
     packageInventoryDigest: isDigest(labels['io.daisy.launch.packages']),
     nativeLayerPrefix:
-      Array.isArray(layers) && same(layers.slice(0, -1), image.native.layers),
+      Array.isArray(layers) &&
+      same(layers.slice(0, -1), image.native.layers) &&
+      isDigest(layers.at(-1)),
     layerCount:
       Array.isArray(layers) && layers.length === image.native.layers.length + 1,
+  };
+}
+
+export function validateLaunchImage(
+  raw: unknown,
+  image: LaunchImage,
+  receiptId?: string,
+): string | null {
+  return Object.values(requiredImageChecks(raw, image, receiptId)).every(
+    Boolean,
+  )
+    ? (record(raw).Id as string)
+    : null;
+}
+
+/** Fixed field categories only: no untrusted metadata, key names or values escape. */
+export function launchImageContractChecks(
+  raw: unknown,
+  image: LaunchImage,
+  receiptId?: string,
+) {
+  const config = record(record(raw).Config);
+  return {
+    ...requiredImageChecks(raw, image, receiptId),
+    // Which part of the configuration refused; each one is inside safeConfiguration.
+    hostnameEmpty: config.Hostname == null || config.Hostname === '',
+    hostnameOwned: config.Hostname === base.preparationHostname,
+    environment: safeEnvironment(config, image),
+    command: same(config.Cmd, ['/bin/bash']),
+    entrypoint: config.Entrypoint == null || same(config.Entrypoint, []),
+    user: config.User === '0:0',
+    workingDirectory: config.WorkingDir === '/',
+    imageReference: knownImageReference(config, image),
   };
 }

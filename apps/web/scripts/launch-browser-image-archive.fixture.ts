@@ -58,7 +58,6 @@ export function classicExport() {
     store: 'overlay2',
     recipe: 'recipe',
     toolchain: 'adapter',
-    lock: 'lock',
     refresh: 'refresh',
   });
   const image = {

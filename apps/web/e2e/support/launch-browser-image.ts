@@ -73,14 +73,14 @@ export async function readLaunchImageInputs(
     'launch-browser-image-cache.ts',
     'launch-browser-image-validation.ts',
     'launch-browser-image-values.ts',
+    // A cache hit vouches for the proofs that ran before its save.
+    'launch-browser-preparation-proof.ts',
+    'launch-browser-archive-proof.ts',
   ];
   const [recipe, ...implementation] = await Promise.all(
     files.map((name) => Bun.file(resolve(import.meta.dir, name)).text()),
   );
-  const [lock, bun] = await Promise.all([
-    Bun.file(resolve(checkout, 'bun.lock')).text(),
-    Bun.file(resolve(checkout, '.bun-version')).text(),
-  ]);
+  const bun = await Bun.file(resolve(checkout, '.bun-version')).text();
   const image = launchImageIdentity({
     version: manifest.devDependencies['@playwright/test'],
     coreVersion: manifest.devDependencies['playwright-core'],
@@ -88,7 +88,6 @@ export async function readLaunchImageInputs(
     store,
     recipe: recipe!,
     toolchain: JSON.stringify([implementation, bun, engine]),
-    lock,
     refresh: launchDependencyRevision,
   });
   return { image, recipe: recipe! };

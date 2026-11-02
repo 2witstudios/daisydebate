@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { createLaunchCertificates, readLaunchTls } from './launch-certificates';
 import { createLaunchBrowserContainer } from './launch-browser-container';
 import { prepareLaunchBrowserImage } from './launch-browser-image';
+import { launchImageFilesystemArgs } from './launch-browser-image-policy';
 
 const checkout = resolve(import.meta.dir, '../../../..');
 const certificates: ReturnType<typeof createLaunchCertificates>[] = [];
@@ -179,23 +180,66 @@ try {
   );
   if (failedContainer.exitCode === 0)
     throw new Error('Failed Launch browser container leaked');
-  const inventory = await run([
-    'docker',
-    'run',
-    '--rm',
-    '--network',
-    'none',
-    '--read-only',
-    '--cap-drop',
-    'ALL',
-    '--security-opt',
-    'no-new-privileges',
-    '--entrypoint',
-    'sh',
-    prepared.id,
-    '-ec',
-    'test ! -e /fixture/ca.crt; test ! -e /usr/local/share/ca-certificates/daisy-isolated-proof.crt; test ! -e /home/pwuser/.local/share/pki/nssdb; cat /usr/local/share/daisy-launch-packages.txt',
-  ]);
+  const checkedImage = (id: string) =>
+    Bun.spawn(
+      [
+        'docker',
+        ...launchImageFilesystemArgs(
+          prepared.image,
+          `daisy-image-${createId()}`,
+          id,
+        ),
+      ],
+      { stdout: 'pipe', stderr: 'ignore' },
+    );
+  const clean = checkedImage(prepared.id);
+  const encoded = await new Response(clean.stdout).text();
+  if ((await clean.exited) !== 0)
+    throw new Error('Prepared image filesystem trust check failed');
+  const inventory = Buffer.from(
+    encoded.match(/^daisy-image-inventory:([A-Za-z0-9+/=]+)$/m)![1]!,
+    'base64',
+  ).toString();
+  // Real negative: the same check must see trust seeded into pwuser's own home.
+  const seededName = `daisy-image-${createId()}`;
+  const seededTag = `daisy-launch-preparing:${createId()}`;
+  try {
+    const seed = Bun.spawnSync([
+      'docker',
+      'run',
+      '--name',
+      seededName,
+      '--network',
+      'none',
+      '--user',
+      'pwuser',
+      '--entrypoint',
+      'sh',
+      prepared.id,
+      '-ec',
+      'mkdir -p /home/pwuser/.pki/nssdb',
+    ]);
+    const commit = Bun.spawnSync([
+      'docker',
+      'container',
+      'commit',
+      seededName,
+      seededTag,
+    ]);
+    if (seed.exitCode !== 0 || commit.exitCode !== 0)
+      throw new Error('Seeded trust negative could not be constructed');
+    if ((await checkedImage(seededTag).exited) === 0)
+      throw new Error('Filesystem check accepted seeded fixture trust');
+  } finally {
+    Bun.spawnSync(['docker', 'container', 'rm', '--force', seededName], {
+      stdout: 'ignore',
+      stderr: 'ignore',
+    });
+    Bun.spawnSync(['docker', 'image', 'rm', seededTag], {
+      stdout: 'ignore',
+      stderr: 'ignore',
+    });
+  }
   process.stdout.write(
     `${JSON.stringify({
       event: 'browser.image.trust.proof',
@@ -211,6 +255,7 @@ try {
         'container-cleanup',
         'failed-start-cleanup',
         'image-trust-empty',
+        'image-trust-seeded-refused',
         'chromium-processes-nonroot',
         'renderer-namespace-and-seccomp-sandbox',
       ],
