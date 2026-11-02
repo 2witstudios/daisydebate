@@ -88,6 +88,10 @@ applies, as it always has; nothing here cancels or times out SDK work.
 
 ### Admission fairness
 
+A browser admission waits for the session's lease for at most 8 seconds, below the
+client's 10-second request deadline, and stops as soon as its request is aborted.
+Either answers the retryable 503. A pass that has already started is not cancelled.
+
 Media admissions announce an expendable waiter hint through the existing Redis
 adapter before competing for the PostgreSQL reconcile lease. Other web instances'
 recovery claims yield while a waiter exists; the admitted caller runs the same
