@@ -414,3 +414,11 @@ export {
   type CapturePartialReason,
   type CaptureVerdict,
 } from './capture-verdict';
+export {
+  acknowledgedReply,
+  captureMutationReply,
+  captureStateReply,
+  leaseReply,
+  sealReply,
+  tokenReply,
+} from './capture-worker-replies';

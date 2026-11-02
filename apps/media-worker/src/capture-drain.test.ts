@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { cutCaptureClips } from '@daisy/media/clips';
+import { cutCaptureClips } from './capture-clips';
 import type { ClipCarries } from './capture-batch';
 import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
 import { closeCaptureSession } from './capture-drain';

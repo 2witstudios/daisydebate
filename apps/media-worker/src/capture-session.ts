@@ -11,7 +11,7 @@ import {
   type ClipCarries,
 } from './capture-batch';
 import type { consumeCaptureClips, QueuedClip } from './capture-consumer';
-import type { CutClip } from '@daisy/media/clips';
+import type { CutClip } from './capture-clips';
 import { createHeardReporter, reportHeardTracks } from './capture-heard';
 import { createStreamTracker } from './capture-streams';
 import { closeCaptureSession, gracefulStop } from './capture-drain';

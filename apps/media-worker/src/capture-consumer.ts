@@ -1,5 +1,5 @@
 import { isTransientProviderFailure, type OpenRouter } from '@daisy/ai-voice';
-import type { CutClip } from '@daisy/media/clips';
+import type { CutClip } from './capture-clips';
 import { isTransientControlFailure } from '@daisy/media/worker';
 import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
 import {

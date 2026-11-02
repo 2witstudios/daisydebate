@@ -1,7 +1,7 @@
 # Bounded capture clips
 
-`@daisy/media/clips` exports `cutCaptureClips`. VIDEO-3.7 and VIDEO-3.8 own
-its worker reader. The function consumes a bounded batch of already calibrated
+`apps/media-worker/src/capture-clips.ts` exports `cutCaptureClips`, read only by
+the capture worker. The function consumes a bounded batch of already calibrated
 16 kHz mono signed PCM frames, committed actual segment/seat intervals and a
 trusted database-clock horizon. It does not calibrate raw callbacks, infer floor
 rights, discover a session, call STT or establish a complete capture stream.
