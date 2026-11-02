@@ -3,11 +3,12 @@ import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
+import type { FormatSettings } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { botControlOptions } from './bot-control.test-support';
-import { everyoneReady } from './round-judging.test-support';
+import { assignAiJudgeAndReady } from './round-judging.test-support';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { openRoundCapture } from './round-media.test-support';
 import {
@@ -21,8 +22,10 @@ requireTestServices(process.env);
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 
 /** Human against a bot with an AI judge, every segment played, inside the admission cutoff. */
-async function playedBotRound(f: Fixture) {
-  const judge = await f.aiJudge();
+async function playedBotRound(
+  f: Fixture,
+  interruptions: FormatSettings['interruptions'] = oneOnOneSettings.interruptions,
+) {
   const bot = await f.bot();
   let room = (
     await f.create({
@@ -31,22 +34,24 @@ async function playedBotRound(f: Fixture) {
         definition: {
           ...oneOnOneDefinition,
           seats: { ...oneOnOneDefinition.seats, judge: 1 },
+          configurable: {
+            ...oneOnOneDefinition.configurable,
+            interaction: {
+              ...oneOnOneDefinition.configurable.interaction,
+              interruptions: {
+                modes: ['disabled', 'enabled', 'open'],
+                minRemainingMs: { min: 0, max: 300_000 },
+              },
+            },
+          },
         },
-        config: oneOnOneSettings,
+        config: { ...oneOnOneSettings, interruptions },
         competitionType: 'casual',
       },
     })
   ).view;
   room = await f.seatBotOpponent(room, bot.actorId);
-  room = (
-    await f.command(f.host, room, {
-      type: 'assign-seat',
-      role: 'judge',
-      slot: 0,
-      actorId: judge.actorId,
-    })
-  ).view;
-  room = await everyoneReady(f, room, [f.host]);
+  ({ room } = await assignAiJudgeAndReady(f, room, [f.host]));
   const { roundId } = await startRuntimeRound(f, room);
   const round = (await f.store.getRound(roundId))!;
   const elapsed = round.rules.segments.reduce(
@@ -126,6 +131,20 @@ async function silentSeals(f: Fixture, roundId: string) {
     });
 }
 
+/** What the seal said, what the real finalizer froze, and the jobs it queued. */
+const freezeAfter = async (
+  f: Fixture,
+  roundId: string,
+  seal: { readonly state: string },
+) => {
+  const frozen = await finalizeAsWeb(f, roundId);
+  return {
+    seal: seal.state,
+    freeze: frozen.status === 'frozen' && frozen.freeze.completeness,
+    jobs: await judgingJobs(f, roundId),
+  };
+};
+
 const judgingJobs = async (f: Fixture, roundId: string) =>
   (
     await f.sql`select status from round_judging_jobs where round_id=${roundId}`
@@ -137,16 +156,11 @@ test('a bot that never answered in cross-examination seals complete and the AI j
     const sealSilent = await silentSeals(f, played.roundId);
     await captureAllExcept(f, played, played.answering);
     const seal = await sealSilent(played.answering, played.bot.id);
-    const frozen = await finalizeAsWeb(f, played.roundId);
     assert({
       given:
         'a live capture worker sealing a bot respondent it never heard, with every other stream complete',
       should: 'seal complete, freeze complete and queue the AI judge',
-      actual: {
-        seal: seal.state,
-        freeze: frozen.status === 'frozen' && frozen.freeze.completeness,
-        jobs: await judgingJobs(f, played.roundId),
-      },
+      actual: await freezeAfter(f, played.roundId, seal),
       expected: { seal: 'complete', freeze: 'complete', jobs: ['queued'] },
     });
   }, botControlOptions);
@@ -159,15 +173,10 @@ test('a bot that never spoke its scheduled turn still freezes incomplete (ISSUE-
     await captureAllExcept(f, played, played.asking);
     await sealSilent(played.answering, played.bot.id);
     const seal = await sealSilent(played.asking, played.bot.id);
-    const frozen = await finalizeAsWeb(f, played.roundId);
     assert({
       given: 'a bot silent in the cross-examination it was scheduled to open',
       should: 'seal partial, freeze incomplete and queue no AI judge',
-      actual: {
-        seal: seal.state,
-        freeze: frozen.status === 'frozen' && frozen.freeze.completeness,
-        jobs: await judgingJobs(f, played.roundId),
-      },
+      actual: await freezeAfter(f, played.roundId, seal),
       expected: { seal: 'partial', freeze: 'incomplete', jobs: [] },
     });
   }, botControlOptions);
@@ -182,15 +191,10 @@ test('a silent human respondent still seals partial and freezes incomplete (ISSU
     await f.sql`delete from transcript_segments where round_id=${played.roundId}
       and segment_id=${played.asking} and round_participant_id=${played.human.id}`;
     const seal = await sealSilent(played.asking, played.human.id);
-    const frozen = await finalizeAsWeb(f, played.roundId);
     assert({
       given: 'a human grant in cross-examination with no captured evidence',
       should: 'seal partial and freeze incomplete',
-      actual: {
-        seal: seal.state,
-        freeze: frozen.status === 'frozen' && frozen.freeze.completeness,
-        jobs: await judgingJobs(f, played.roundId),
-      },
+      actual: await freezeAfter(f, played.roundId, seal),
       expected: { seal: 'partial', freeze: 'incomplete', jobs: [] },
     });
   }, botControlOptions);
@@ -213,6 +217,28 @@ test('a turn the rules cannot name stays owed (ISSUE-965)', async () => {
       should: 'treat it as owed and seal partial',
       actual: seal.state,
       expected: 'partial',
+    });
+  }, botControlOptions);
+});
+
+test("a bot silent during open questioning in another seat's speech owes nothing (ISSUE-965)", async () => {
+  await withRoomRuntime(async (f) => {
+    const played = await playedBotRound(f, {
+      mode: 'open',
+      minRemainingMs: 0,
+    });
+    const sealSilent = await silentSeals(f, played.roundId);
+    const round = (await f.store.getRound(played.roundId))!;
+    const humanSpeech = played.segments.find((segment) => {
+      const rule = round.rules.segments[segment.sequence]!;
+      return rule.type === 'speech' && rule.side === played.human.role;
+    })!.id;
+    const seal = await sealSilent(humanSpeech, played.bot.id);
+    assert({
+      given: 'a bot granted the floor by open questioning that never spoke',
+      should: 'seal complete, as nothing was owed',
+      actual: seal.state,
+      expected: 'complete',
     });
   }, botControlOptions);
 });

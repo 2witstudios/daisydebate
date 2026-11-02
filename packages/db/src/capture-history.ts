@@ -64,12 +64,6 @@ export async function captureHistory(
   return required;
 }
 /**
- * What a seat's stream must cover for a 'complete' seal and how far its edges
- * may move (DEC-218, DEC-220): a human's speaking grants, joined within the
- * join tolerance; a bot's credited publication windows, joined within relay
- * latency. Silence outside a bot's windows is not speech.
- */
-/**
  * True for a bot seat holding a grant it did not use: not its scheduled turn,
  * and no credited publication window. It owes no stream, so nothing of it can
  * be missing. Its scheduled turn stays owed, so a bot that fails to speak never
@@ -93,6 +87,12 @@ export const botGrantUnused = (
         where unused_credit.round_id=${roundId} and unused_credit.segment_id=${segmentId}
           and unused_credit.round_participant_id=${roundParticipantId}))`;
 
+/**
+ * What a seat's stream must cover for a 'complete' seal and how far its edges
+ * may move (DEC-218, DEC-220): a human's speaking grants, joined within the
+ * join tolerance; a bot's credited publication windows, joined within relay
+ * latency. Silence outside a bot's windows is not speech.
+ */
 export async function coverageAuthority(
   tx: Reader,
   input: StreamScope,
