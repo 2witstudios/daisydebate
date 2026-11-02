@@ -116,3 +116,22 @@ test('a newer view whose deadline already passed costs one read', async () => {
   });
   media.controller.stop();
 });
+
+test('a newer view from the caller supersedes the read it finds held', async () => {
+  const media = await mounted();
+  media.held.reply = new Promise(() => undefined);
+  void media.controller.reconcile({ kind: 'wake' });
+  await settle();
+  const heldSignal = media.state.signals.at(-1);
+  const before = media.state.reads;
+  media.held.reply = null;
+  media.follow({ ...view, version: view.version + 1 }, deadlineMs - 5_000);
+  await settle();
+  assert({
+    given: 'an accepted newer view while a read is held',
+    should: 'abort that read and read fresh once',
+    actual: [heldSignal?.aborted, media.state.reads - before],
+    expected: [true, 1],
+  });
+  media.controller.stop();
+});
