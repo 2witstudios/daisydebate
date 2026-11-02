@@ -13,7 +13,6 @@ import {
   type RoutedRequest,
   type StepRoute,
 } from './support/round-timing-response';
-import type { Page } from '@playwright/test';
 import { expect, openPage, test } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import {
