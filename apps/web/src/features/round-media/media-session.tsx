@@ -14,17 +14,16 @@ import {
   createMediaController,
   type MediaConnectionState,
 } from './media-controller';
-import { createMediaRequest } from './request-media';
+import { createMediaRequest, MEDIA_RETRY_DELAYS_MS } from './request-media';
 import { MediaStage } from './media-stage';
 import {
+  hasLiveTracks,
   mediaStatus,
   retryMissingDevices,
   showConnection,
 } from './media-status';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
 
-/** Backoff for an admission refused for now, about 3.5 s in all (ISSUE-494). */
-const ADMISSION_RETRY_MS = [500, 1000, 2000];
 const pause = (ms: number, signal: AbortSignal) =>
   new Promise<void>((done) => {
     const timer = setTimeout(done, ms);
@@ -39,8 +38,8 @@ const pause = (ms: number, signal: AbortSignal) =>
   });
 const requestMedia = createMediaRequest({
   fetch: (url, options) => fetch(url, options),
-  scheduleDeadline: (expire) => {
-    const timer = setTimeout(expire, 10_000);
+  scheduleDeadline: (expire, ms) => {
+    const timer = setTimeout(expire, ms);
     return () => clearTimeout(timer);
   },
 });
@@ -88,7 +87,7 @@ function RoundMediaSession({
       },
       changed: showConnection({ connection: setConnection, media: setMedia }),
       received: setMedia,
-      retry: { delaysMs: ADMISSION_RETRY_MS, wait: pause },
+      retry: { delaysMs: MEDIA_RETRY_DELAYS_MS, wait: pause },
       transport: () => {
         const browser = createBrowserMediaTransport({
           microphoneMuted: muted.current,
@@ -129,13 +128,16 @@ function RoundMediaSession({
     }
     acceptedVersion.current = view.version;
     follower.current ??= createRoundViewFollower({
-      now: () => Date.parse(systemClock.now()),
+      clock: {
+        now: () => Date.parse(systemClock.now()),
+        at: (deadlineMs, fire) => {
+          const delayMs = deadlineMs - Date.parse(systemClock.now());
+          const timer = window.setTimeout(fire, Math.max(0, delayMs));
+          return () => window.clearTimeout(timer);
+        },
+      },
       reconcile: (event) => void controller.current?.reconcile(event),
       refresh: () => refresh.current(),
-      schedule: (fire, delayMs) => {
-        const timer = window.setTimeout(fire, delayMs);
-        return () => window.clearTimeout(timer);
-      },
     });
     return follower.current(view);
   }, [view]);
@@ -147,7 +149,7 @@ function RoundMediaSession({
         <p role="status" className="m-0 text-sm text-ink-muted">
           {status.message}
         </p>
-        {connection === 'live' ? (
+        {hasLiveTracks(connection) ? (
           <button
             type="button"
             className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
@@ -165,7 +167,7 @@ function RoundMediaSession({
             type="button"
             className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             disabled={
-              connection !== 'live' ||
+              !hasLiveTracks(connection) ||
               changingMicrophone ||
               !media.grants.publish.includes('microphone')
             }

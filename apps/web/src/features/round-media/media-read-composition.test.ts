@@ -1,9 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { settle } from './browser-transport.test-support';
+import { compose } from './media-read-composition.test-support';
 import {
-  compose,
-  REQUEST_DEADLINE_MS,
-} from './media-read-composition.test-support';
+  MEDIA_REQUEST_DEADLINE_MS,
+  MEDIA_RETRY_DELAYS_MS,
+} from './request-media';
 import { nextMediaRefreshAt } from './refresh-deadline';
 import { ran } from '../../ui/debate-room/live-round.test-support';
 setupRitewayBun();
@@ -98,7 +99,7 @@ for (const mode of ['headers', 'body'] as const) {
     const media = await compose(mode, [500]);
     const pending = media.controller.reconcile({ kind: 'wake' });
     await settle();
-    media.timer.advance(REQUEST_DEADLINE_MS - 1);
+    media.timer.advance(MEDIA_REQUEST_DEADLINE_MS - 1);
     await settle();
     const before = [media.heldAborted(), media.counts.reads];
     media.timer.advance(1);
@@ -170,27 +171,64 @@ for (const mode of ['headers', 'body'] as const) {
   });
 }
 
-test('a live connection whose every read stalls ends unavailable after the retries', async () => {
-  const media = await compose('headers', [500, 1_000, 2_000]);
+const stallThroughEveryAttempt = async (
+  media: Awaited<ReturnType<typeof compose>>,
+) => {
+  for (const pauseMs of [...MEDIA_RETRY_DELAYS_MS, 0]) {
+    media.timer.advance(MEDIA_REQUEST_DEADLINE_MS);
+    await settle();
+    media.timer.advance(pauseMs);
+    await settle();
+  }
+};
+
+test('a live connection whose reads all stall keeps its tracks and recovers on the next read', async () => {
+  const media = await compose('headers', MEDIA_RETRY_DELAYS_MS);
   media.stallEveryRead();
   const pending = media.controller.reconcile({ kind: 'wake' });
   await settle();
-  for (const waitMs of [10_000, 500, 10_000, 1_000, 10_000, 2_000, 10_000]) {
-    media.timer.advance(waitMs);
-    await settle();
-  }
+  await stallThroughEveryAttempt(media);
   await pending;
-  assert({
-    given: 'four 10 s expiries with no newer view',
-    should:
-      'keep the plan and main retry policy, leaving recovery to its owner: released, unavailable, no readmission and no timers',
-    actual: [
-      media.controller.state(),
-      media.counts.reads,
-      media.counts.stops,
-      media.counts.admissions,
-      media.timer.pending(),
-    ],
-    expected: ['unavailable', 5, 1, 1, 0],
+  const stalled = [
+    media.controller.state(),
+    media.counts.reads,
+    media.counts.stops,
+    media.counts.connects,
+    media.sameCamera(),
+    media.timer.pending(),
+  ];
+  const secondStall = media.controller.reconcile({
+    kind: 'view',
+    roundViewVersion: 2,
   });
+  await settle();
+  const duringView = media.controller.state();
+  await stallThroughEveryAttempt(media);
+  await secondStall;
+  media.recoverReads();
+  await media.controller.reconcile({ kind: 'wake' });
+  await settle();
+  assert({
+    given:
+      'four production-length stalls, a newer view that also stalls, then a read that answers',
+    should:
+      'keep the same transport and camera, stay out of date through the view, and go live again without readmission',
+    actual: {
+      stalled,
+      duringView,
+      recovered: [
+        media.controller.state(),
+        media.counts.stops,
+        media.counts.connects,
+        media.counts.admissions,
+        media.sameCamera(),
+      ],
+    },
+    expected: {
+      stalled: ['out-of-date', 5, 0, 1, true, 0],
+      duringView: 'out-of-date',
+      recovered: ['live', 0, 1, 1, true],
+    },
+  });
+  media.controller.stop();
 });

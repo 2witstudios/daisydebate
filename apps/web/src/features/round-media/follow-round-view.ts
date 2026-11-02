@@ -8,17 +8,20 @@ import { nextMediaRefreshAt } from './refresh-deadline';
  * read that reached the server too early. A due deadline is always offered,
  * because `decideMediaRead` keeps only the first offer; sent beside a newer view
  * it costs one read, since neither event has started one yet. Each deadline
- * refreshes the view once; the view's own backstop poll paces any retry.
+ * refreshes the view once; the view's own backstop poll paces any retry. The
+ * clock owns what "now" and "at this deadline" mean, so it can be calibrated.
  */
 export function createRoundViewFollower(input: {
-  readonly now: () => number;
+  readonly clock: {
+    readonly now: () => number;
+    readonly at: (deadlineMs: number, fire: () => void) => () => void;
+  };
   readonly reconcile: (event: MediaReadEvent) => void;
   readonly refresh: () => void;
-  readonly schedule: (fire: () => void, delayMs: number) => () => void;
 }) {
   let refreshedDeadlineMs: number | null = null;
   return (view: RoundView): (() => void) => {
-    const { reconcile, refresh, schedule } = input;
+    const { clock, reconcile } = input;
     reconcile({ kind: 'view', roundViewVersion: view.version });
     reconcile({ kind: 'wake' });
     const deadlineMs = nextMediaRefreshAt(view);
@@ -28,16 +31,12 @@ export function createRoundViewFollower(input: {
       roundViewVersion: view.version,
       deadlineMs,
     } as const;
-    const delayMs = deadlineMs - input.now();
-    if (delayMs > 0)
-      return schedule(() => {
-        refreshedDeadlineMs = deadlineMs;
-        refresh();
-        reconcile(boundary);
-      }, delayMs);
-    reconcile(boundary);
+    if (deadlineMs <= clock.now()) reconcile(boundary);
     if (refreshedDeadlineMs === deadlineMs) return () => undefined;
-    refreshedDeadlineMs = deadlineMs;
-    return schedule(refresh, 0);
+    return clock.at(deadlineMs, () => {
+      refreshedDeadlineMs = deadlineMs;
+      input.refresh();
+      reconcile(boundary);
+    });
   };
 }

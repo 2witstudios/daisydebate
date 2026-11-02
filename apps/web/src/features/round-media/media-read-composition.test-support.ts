@@ -5,7 +5,6 @@ import { stubSdk, events } from './browser-transport.test-support';
 import { admission, snapshot } from './media-controller.test-support';
 import { createTimerQueue } from '../realtime/connection-store.test-support';
 
-export const REQUEST_DEADLINE_MS = 10_000;
 const cameraOnly = {
   ...snapshot,
   grants: { ...snapshot.grants, publish: ['camera'] },
@@ -38,8 +37,8 @@ export async function compose(
   let heldSignal: AbortSignal | undefined;
   let stallAll = false;
   const request = createMediaRequest({
-    scheduleDeadline: (expire) => {
-      const id = timer.setTimeout(expire, REQUEST_DEADLINE_MS);
+    scheduleDeadline: (expire, ms) => {
+      const id = timer.setTimeout(expire, ms);
       return () => timer.clearTimeout(id);
     },
     fetch: async (url, options) => {
@@ -128,6 +127,9 @@ export async function compose(
     heldAborted: () => heldSignal?.aborted,
     stallEveryRead: () => {
       stallAll = true;
+    },
+    recoverReads: () => {
+      stallAll = false;
     },
     release: () => {
       if (mode === 'headers') headers.resolve(Response.json(snapshot));

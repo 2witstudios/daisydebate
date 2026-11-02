@@ -82,11 +82,11 @@ test('Retry forgets only the checked devices found gone, then clears them', () =
 test('a released connection shows no last-known microphone state', () => {
   assert({
     given: 'the last server media state as the connection changes',
-    should: 'keep it only while live, never after teardown',
-    actual: (['live', 'reconnecting', 'unavailable', 'ended'] as const).map(
-      (connection) => mediaWhile(connection, 'open'),
-    ),
-    expected: ['open', null, null, null],
+    should: 'keep it while the tracks are up, never after teardown',
+    actual: (
+      ['live', 'out-of-date', 'reconnecting', 'unavailable', 'ended'] as const
+    ).map((connection) => mediaWhile(connection, 'open')),
+    expected: ['open', 'open', null, null, null],
   });
 });
 
@@ -112,5 +112,20 @@ test('a controller teardown clears the stage state it shows', () => {
       ['live', 'open'],
       ['unavailable', null],
     ],
+  });
+});
+
+test('stale media state is never shown as plainly connected', () => {
+  const status = mediaStatus('out-of-date', []);
+  assert({
+    given: 'live tracks whose reads keep stalling',
+    should:
+      'say the state may be out of date, without offering a teardown Retry',
+    actual: [
+      status.message === 'Connected',
+      /out of date/.test(status.message),
+      status.retry,
+    ],
+    expected: [false, true, false],
   });
 });

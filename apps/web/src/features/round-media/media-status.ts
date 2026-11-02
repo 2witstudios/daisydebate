@@ -6,6 +6,8 @@ const messages: Record<MediaConnectionState, string> = {
   connecting: 'Connecting camera and sound…',
   reconnecting: 'Reconnecting camera and sound…',
   live: 'Connected',
+  'out-of-date':
+    'Connected, but camera and sound status may be out of date. Checking again…',
   'device-blocked':
     'Camera or microphone access is blocked. Check your browser permissions, then retry.',
   'device-missing':
@@ -14,11 +16,15 @@ const messages: Record<MediaConnectionState, string> = {
   ended: 'The call has ended.',
 };
 
-/** Only a live connection may keep showing the last server media state. */
+/** The transport is still up, whether or not a recent read confirms it. */
+export const hasLiveTracks = (connection: MediaConnectionState) =>
+  connection === 'live' || connection === 'out-of-date';
+
+/** A released connection shows no last-known server media state. */
 export const mediaWhile = <Media>(
   connection: MediaConnectionState,
   media: Media | null,
-) => (connection === 'live' ? media : null);
+) => (hasLiveTracks(connection) ? media : null);
 
 /** What the Round shows when its controller changes connection state. */
 export const showConnection =

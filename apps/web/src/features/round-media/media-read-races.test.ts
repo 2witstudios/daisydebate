@@ -7,6 +7,7 @@ import {
   snapshot,
   transportStub,
 } from './media-controller.test-support';
+import { mediaFailure } from './media-controller';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
 
@@ -296,5 +297,46 @@ test('a transport factory that stops the join is released without connecting', a
     should: 'release the new transport, never connect it, and stay ended',
     actual: [connects, stops, controller.state()],
     expected: [0, 1, 'ended'],
+  });
+});
+
+test('the failure kind is exposed and a definite live refusal still releases', async () => {
+  const seen: [string, string | undefined][] = [];
+  let reads = 0;
+  let stops = 0;
+  const refusal = { value: mediaFailure(503) };
+  const controller = readController({
+    reconcile: async () => {
+      if (++reads === 1) return snapshot;
+      throw refusal.value;
+    },
+    transport: () =>
+      transportStub({
+        stopTracks: () => {
+          stops++;
+        },
+      }),
+    changed: (state, failure) => seen.push([state, failure]),
+  });
+  await controller.join();
+  await controller.reconcile({ kind: 'wake' });
+  const stopsWhileStale = stops;
+  refusal.value = mediaFailure(403);
+  await controller.reconcile({ kind: 'wake' });
+  assert({
+    given:
+      'a live connection with a transient read failure, then a definite one',
+    should:
+      'report each kind, keep tracks through the first and release on the second',
+    actual: [seen.slice(-2), stopsWhileStale, stops, controller.state()],
+    expected: [
+      [
+        ['out-of-date', 'transient'],
+        ['unavailable', 'definite'],
+      ],
+      0,
+      1,
+      'unavailable',
+    ],
   });
 });

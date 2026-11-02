@@ -33,24 +33,37 @@ const mounted = async () => {
     changed: () => undefined,
   });
   await controller.join();
-  const fires: (() => void)[] = [];
-  const delays: number[] = [];
+  const armed = new Map<number, () => void>();
+  const deadlines: number[] = [];
+  let armedId = 0;
   let nowMs = 0;
   const follower = createRoundViewFollower({
-    now: () => nowMs,
+    clock: {
+      now: () => nowMs,
+      at: (at, fire) => {
+        const id = ++armedId;
+        armed.set(id, fire);
+        deadlines.push(at);
+        return () => armed.delete(id);
+      },
+    },
     reconcile: (event) => void controller.reconcile(event),
     refresh: () => state.refreshes++,
-    schedule: (fire, delayMs) => {
-      fires.push(fire);
-      delays.push(delayMs);
-      return () => undefined;
-    },
   });
+  let cancel = () => undefined as unknown;
+  /** Each accepted view reruns the effect, cancelling the previous arm first. */
   const follow = (next: typeof view, at: number) => {
+    cancel();
     nowMs = at;
-    return follower(next);
+    cancel = follower(next);
   };
-  return { state, held, controller, fires, delays, follow };
+  const fire = () => {
+    for (const [id, armedFire] of armed) {
+      armed.delete(id);
+      armedFire();
+    }
+  };
+  return { state, held, controller, armed, deadlines, fire, follow };
 };
 
 test('a due boundary from the caller supersedes the read held at that version', async () => {
@@ -63,19 +76,19 @@ test('a due boundary from the caller supersedes the read held at that version', 
   await settle();
   const heldSignal = media.state.signals.at(-1);
   media.held.reply = null;
-  media.fires[0]!();
+  media.fire();
   await settle();
   assert({
     given: 'the deadline timer firing for the accepted view',
     should:
       'refresh, abort the held read and read fresh at the captured version',
     actual: [
-      media.delays,
+      media.deadlines,
       heldSignal?.aborted,
       media.state.reads - reads,
       media.state.refreshes,
     ],
-    expected: [[5_000], true, 2, 1],
+    expected: [[deadlineMs], true, 2, 1],
   });
   media.controller.stop();
 });
@@ -103,19 +116,19 @@ test('a newer view whose deadline already passed costs one read', async () => {
   const before = media.state.reads;
   media.follow({ ...view, version: view.version + 1 }, deadlineMs + 1);
   await settle();
-  media.fires[0]!();
+  media.fire();
   await settle();
   assert({
     given:
       'a newer view accepted after its deadline, then the zero-delay timer',
     should: 'refresh but not abort the read the view started',
     actual: [
-      media.delays,
+      media.deadlines,
       media.state.reads - before,
       media.state.refreshes,
       media.state.signals.at(-1)?.aborted,
     ],
-    expected: [[0], 1, 1, false],
+    expected: [[deadlineMs], 1, 1, false],
   });
   media.controller.stop();
 });
@@ -167,14 +180,20 @@ test('an overdue deadline refreshes once however many views repeat it', async ()
     media.follow({ ...view }, deadlineMs + i);
     await settle();
   }
-  for (const fire of media.fires) fire();
+  media.fire();
   await settle();
-  const reads = media.state.reads;
+  const armedBefore = media.deadlines.length;
+  media.follow({ ...view }, deadlineMs + 10);
+  await settle();
   assert({
-    given: 'the same overdue deadline across repeated same-version views',
-    should: 'schedule one refresh, so no refresh and read loop forms',
-    actual: [media.delays, media.state.refreshes, reads > 0],
-    expected: [[0], 1, true],
+    given: 'views cancelling the pending refresh, which then runs once',
+    should: 'still refresh once, and arm nothing further for that deadline',
+    actual: [
+      media.state.refreshes,
+      media.deadlines.length - armedBefore,
+      media.armed.size,
+    ],
+    expected: [1, 0, 0],
   });
   media.controller.stop();
 });

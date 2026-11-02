@@ -24,4 +24,6 @@ export type MediaOperationInput = {
   readonly logger: Logger;
   readonly deadline: <T>(work: Promise<T>) => Promise<T>;
   readonly wait: () => Promise<void>;
+  /** Milliseconds, read only to bound how long an admission waits. */
+  readonly now: () => number;
 };

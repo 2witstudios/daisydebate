@@ -18,6 +18,8 @@ export type MediaConnectionState =
   | 'connecting'
   | 'reconnecting'
   | 'live'
+  /** Tracks stay up, but no recent server read confirms what is shown. */
+  | 'out-of-date'
   | 'device-missing'
   | 'device-blocked'
   | 'unavailable'
@@ -61,6 +63,11 @@ const deviceBlocked = (error: unknown) =>
     'NotReadableError',
   ].includes(error.name);
 
+/** Whether a failure may pass by itself; a recovery owner reads this from `changed`. */
+export type MediaFailureKind = 'transient' | 'definite';
+const failureKind = (error: unknown): MediaFailureKind =>
+  isTransientMediaFailure(error) ? 'transient' : 'definite';
+
 const failureState = (error: unknown): MediaConnectionState => {
   if (error instanceof Error && error.name === CHECKED_DEVICE_MISSING)
     return 'device-missing';
@@ -76,6 +83,7 @@ type Connection = {
   readonly signal: AbortSignal;
   readonly transport: BrowserMediaTransport;
   connected: boolean;
+  wentLive: boolean;
   queued: boolean;
   read: ReadTicket | null;
   loop: Promise<void> | null;
@@ -94,7 +102,10 @@ export function createMediaController(input: {
     ) => Promise<unknown>;
   };
   readonly transport: () => BrowserMediaTransport;
-  readonly changed: (state: MediaConnectionState) => void;
+  readonly changed: (
+    state: MediaConnectionState,
+    failure?: MediaFailureKind,
+  ) => void;
   readonly received?: (state: RoundMediaState) => void;
   readonly retry?: {
     readonly delaysMs: readonly number[];
@@ -116,9 +127,9 @@ export function createMediaController(input: {
   let epoch = 0;
   let abort = new AbortController();
   let connection: Connection | null = null;
-  const change = (next: MediaConnectionState) => {
+  const change = (next: MediaConnectionState, failure?: MediaFailureKind) => {
     state = next;
-    input.changed(next);
+    input.changed(next, failure);
   };
   const release = (target: BrowserMediaTransport | null) => {
     if (!target) return;
@@ -147,7 +158,7 @@ export function createMediaController(input: {
     const previous = connection;
     connection = null;
     release(previous?.transport ?? null);
-    if (!stale(generation)) change(failureState(error));
+    if (!stale(generation)) change(failureState(error), failureKind(error));
   };
   const retrying = async (
     signal: AbortSignal,
@@ -172,8 +183,7 @@ export function createMediaController(input: {
         signal,
         () => input.api.reconcile(input.roundId, signal),
         () => {
-          if (current(owner, ticket) && state !== 'live')
-            change('reconnecting');
+          if (current(owner, ticket) && !owner.wentLive) change('reconnecting');
         },
       ),
     );
@@ -199,7 +209,18 @@ export function createMediaController(input: {
     await cancelMediaWork(signal, () => applying);
     if (!current(owner, ticket)) return;
     input.received?.(snapshot);
-    if (current(owner, ticket) && state !== 'live') change('live');
+    if (!current(owner, ticket)) return;
+    owner.wentLive = true;
+    if (state !== 'live') change('live');
+  };
+  /**
+   * LiveKit enforces every grant on the server, so a read that cannot finish
+   * carries no authority risk: live tracks stay up and the next event reads again.
+   */
+  const readFailed = (owner: Connection, error: unknown) => {
+    if (owner.wentLive && isTransientMediaFailure(error))
+      change('out-of-date', 'transient');
+    else fail(owner.generation, error);
   };
   const drain = async (owner: Connection) => {
     // Yield first so `owner.loop` is reserved before effects can emit an intent.
@@ -216,7 +237,7 @@ export function createMediaController(input: {
       try {
         await synchronize(owner, ticket);
       } catch (error) {
-        if (current(owner, ticket)) fail(owner.generation, error);
+        if (current(owner, ticket)) readFailed(owner, error);
       } finally {
         owner.signal.removeEventListener('abort', cancel);
         owner.read = null;
@@ -240,6 +261,7 @@ export function createMediaController(input: {
       signal,
       transport: input.transport(),
       connected: false,
+      wentLive: false,
       queued: false,
       read: null,
       loop: null,

@@ -76,8 +76,13 @@ are recorded and the first read uses them, without another admission.
 `createMediaRequest` owns the one 10-second deadline over headers and body for
 each attempt. Expiry is a transient failure, handled by the controller's existing
 retry and no second retry owner.
-Exhausted retries on a live connection release it as `unavailable`, about 43.5 s
-after a total stall; recovery from that state belongs to the recovery owner.
+Reads that exhaust their retries on a live connection keep its transport and
+tracks: LiveKit enforces every grant on the server, so a failed read carries no
+authority risk. The state becomes `out-of-date`, shown as such rather than as
+plain connected, until a later read answers; later view, boundary and wake events
+and the view's backstop poll start those reads, so a newer view does not clear it.
+A definite refusal, revocation, terminal state or disposal still ends the
+connection, and admission failure before a connection goes live is unchanged.
 The deadline bounds HTTP only. An SDK apply that never settles still holds later
 applies, as it always has; nothing here cancels or times out SDK work.
 

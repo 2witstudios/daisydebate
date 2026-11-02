@@ -28,6 +28,16 @@ const callerOf = (actorId: string) => ({
   actorId,
   admits: admitsPrincipalAccess,
 });
+/**
+ * How long a browser admission waits for the session's lease: below the client's
+ * 10 s request deadline, so it answers a retryable 503 rather than being abandoned.
+ */
+export const MEDIA_ADMISSION_WAIT_MS = 8_000;
+type AdmissionLimit = {
+  readonly untilMs: number;
+  /** The client's request: an abandoned admission stops waiting. */
+  readonly signal?: AbortSignal;
+};
 /** Shared production vendor/session consumer. No provider I/O occurs in a database callback. */
 export function createRoundMediaOperations(input: MediaOperationInput) {
   const buildProjection: Parameters<
@@ -45,11 +55,13 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     return state;
   };
   const run = createMediaReconcileRun(input, buildProjection, snapshot);
-  const acquire = async (sessionId: string) => {
+  const acquire = async (sessionId: string, limit?: AdmissionLimit) => {
     const owner = input.nextId();
     await input.priority(sessionId, 'enter', owner);
     try {
       for (;;) {
+        if (limit?.signal?.aborted || (limit && input.now() >= limit.untilMs))
+          throw createAppError('INFRASTRUCTURE');
         const claim = await input.store.claimMediaReconcile({
           sessionId,
           owner,
@@ -111,7 +123,11 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
    * hear, under this session's reconcile hold. It needs no speaking window:
    * the bot hears most while it does not hold the floor.
    */
-  const admit = async (roundId: string, principal: Principal) => {
+  const admit = async (
+    roundId: string,
+    principal: Principal,
+    limit?: AdmissionLimit,
+  ) => {
     const hearing = principal.kind === 'bot' && principal.hearing === true;
     const binding =
       principal.kind === 'human'
@@ -168,7 +184,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         roomName: context.binding.roomName,
       };
     };
-    let claim = await acquire(binding.sessionId);
+    let claim = await acquire(binding.sessionId, limit);
     const held: { issued?: Awaited<ReturnType<typeof sign>> } = {};
     // The token is issued while this reconcile still holds the session, so a
     // concurrent reconcile (recovery, another caller) is never live in
@@ -199,7 +215,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       !held.issued &&
       (await snapshot(roundId)).session.roomName !== claim.roomName
     ) {
-      claim = await acquire(binding.sessionId);
+      claim = await acquire(binding.sessionId, limit);
       refusal = await run(claim, principal, issue);
     }
     if (held.issued) return held.issued;
@@ -244,8 +260,15 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   return {
     read,
     holdForCapture,
-    async session(roundId: string, actorId: string) {
-      const response = await admit(roundId, { kind: 'human', actorId });
+    async session(roundId: string, actorId: string, signal?: AbortSignal) {
+      const response = await admit(
+        roundId,
+        { kind: 'human', actorId },
+        {
+          untilMs: input.now() + MEDIA_ADMISSION_WAIT_MS,
+          ...(signal ? { signal } : {}),
+        },
+      );
       return roundMediaAdmissionSchema.parse({
         version: response.version,
         roundId: response.roundId,

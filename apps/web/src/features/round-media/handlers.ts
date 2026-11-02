@@ -57,7 +57,11 @@ export function createRoundMediaHandlers(
           const roundId = parseValidated(idSchema, rawRoundId);
           if (operation !== 'read')
             parseValidated(emptyBody, await readJson(request, 128));
-          const body = await d.operations()[operation](roundId, actor.id);
+          const operations = d.operations();
+          const body =
+            operation === 'session'
+              ? await operations.session(roundId, actor.id, request.signal)
+              : await operations[operation](roundId, actor.id);
           return Response.json(body, {
             headers: { 'Cache-Control': 'no-store' },
           });

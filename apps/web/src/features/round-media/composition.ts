@@ -61,6 +61,7 @@ export function createRoundMediaRuntime(
       logger: app.logger,
       deadline: (work) => withTimeout(work, 2_000),
       wait: () => Bun.sleep(25),
+      now: () => Date.parse(app.clock.now()),
     };
     const operations = createRoundMediaOperations(resources);
     runtime = {

@@ -1,7 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
-import { createRoundMediaOperations } from './operations';
+import {
+  createRoundMediaOperations,
+  MEDIA_ADMISSION_WAIT_MS,
+} from './operations';
 import { createMediaWorld } from './media-world.test-support';
 setupRitewayBun();
 
@@ -294,5 +297,41 @@ test("an admission refused at room creation carries its own refusal; another's r
     should: 'stay INFRASTRUCTURE, which a client retries',
     code: 'INFRASTRUCTURE',
     actual: () => admit(raced),
+  });
+});
+
+test('a browser admission stops waiting at its bound or when its client leaves', async () => {
+  const outcomes = [];
+  for (const leave of ['bound', 'client'] as const) {
+    const world = createMediaWorld();
+    let nowMs = 0;
+    let claims = 0;
+    const client = new AbortController();
+    world.input.store.claimMediaReconcile = (async () => {
+      claims++;
+      return { kind: 'busy' };
+    }) as unknown as typeof world.input.store.claimMediaReconcile;
+    const operations = createRoundMediaOperations({
+      ...world.input,
+      now: () => nowMs,
+      wait: async () => {
+        nowMs += 1_000;
+        if (leave === 'client' && nowMs === 3_000) client.abort();
+      },
+    });
+    const failure = await operations
+      .session(world.roundId, world.seats[0].actorId, client.signal)
+      .catch((error: { code?: string }) => error.code);
+    outcomes.push([failure, nowMs, claims]);
+  }
+  assert({
+    given: 'a lease another reconcile keeps holding',
+    should:
+      'answer the retryable 503 below the client deadline, or as soon as the client aborts, with no further claim',
+    actual: outcomes,
+    expected: [
+      ['INFRASTRUCTURE', MEDIA_ADMISSION_WAIT_MS, 8],
+      ['INFRASTRUCTURE', 3_000, 3],
+    ],
   });
 });

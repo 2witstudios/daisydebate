@@ -292,6 +292,7 @@ export function createMediaWorld(
     } as unknown as MediaOperationInput['logger'],
     deadline: (work) => work,
     wait: async () => undefined,
+    now: () => 0,
   } as MediaOperationInput;
   return {
     input,
