@@ -46,6 +46,11 @@ const scenarios: Readonly<Record<string, object>> = {
     beforeDispatch: { text: 'Draft', requestId: 'request' },
   }),
   refusal: refused,
+  // Earlier clicked during the send: its refusal keeps the draft, ID and member's page.
+  'superseded-refusal': {
+    ...refused,
+    commands: ['intent:/messages/channel?before=2'],
+  },
   transport: refused,
   'unknown-commit': {
     pending,
@@ -83,7 +88,7 @@ for (const [scenario, expected] of Object.entries(scenarios)) {
       const child = Bun.spawn(
         [
           'bun',
-          `${import.meta.dir}/../../../../../scripts/messaging-navigation-realm.ts`,
+          `${import.meta.dir}/../../../scripts/messaging-navigation-realm.ts`,
           scenario,
         ],
         { stdout: 'pipe', stderr: 'pipe', timeout: realmLimitMs },

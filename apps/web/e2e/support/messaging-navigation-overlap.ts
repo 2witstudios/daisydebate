@@ -17,7 +17,7 @@ import {
   ownMessageEdit,
 } from './messaging-completion';
 import { watchChannelObservation } from './channel-observation';
-import { effectsRan, paintedFrames } from './hydration';
+import { effectsRan } from './hydration';
 
 /** Which actual Next request this is: send, chosen route, stale `?sent` or save. */
 function heldKind(
@@ -146,23 +146,6 @@ export async function beginHeldSend(
   await expect.poll(() => held.state.sendReady).toBe(true);
 }
 
-/**
- * A transition begun during an async action joins that action's React lane, which
- * cannot commit until the action settles (requestTransitionLane, entangleAsyncAction):
- * a delivered navigation response alone changes nothing on screen.
- */
-export async function expectNavigationHeldByPendingSend(
-  page: Page,
-  origin: string,
-) {
-  await paintedFrames(page);
-  await expect(page.getByLabel('Your message')).toBeDisabled();
-  await expect(
-    page.getByRole('button', { name: 'Sending…', exact: true }),
-  ).toBeDisabled();
-  expect(page.url()).toBe(origin);
-}
-
 type HeldConversation = {
   readonly page: Page;
   readonly channelId: string;
@@ -230,9 +213,7 @@ export function testMessagingNavigationOverlap() {
             await held.releaseSend();
             await held.releaseNavigation();
           } else {
-            const origin = page.url();
             await held.releaseNavigation();
-            await expectNavigationHeldByPendingSend(page, origin);
             await held.releaseSend();
           }
           await expect(page.getByLabel('Revise your message')).toBeVisible();

@@ -67,6 +67,19 @@ export async function runMessagingNavigationProbe(
     answer,
     submissions,
   } = activity;
+  const submitComposer = (
+    field: HTMLTextAreaElement,
+    started: Promise<void> | undefined,
+  ) =>
+    act(async () => {
+      field.form!.dispatchEvent(
+        new win.Event('submit', {
+          bubbles: true,
+          cancelable: true,
+        }) as unknown as Event,
+      );
+      await started;
+    });
   const router = recordingConversationRouter(commands);
   const history = mountedConversationHistory();
   const host = document.createElement('div');
@@ -123,15 +136,7 @@ export async function runMessagingNavigationProbe(
           )!.value,
         }
       : undefined;
-  await act(async () => {
-    field.form!.dispatchEvent(
-      new win.Event('submit', {
-        bubbles: true,
-        cancelable: true,
-      }) as unknown as Event,
-    );
-    await started.promise;
-  });
+  await submitComposer(field, started.promise);
   const pending = field.disabled && host.textContent!.includes('Sending…');
   if (scenario === 'search-disposed' || scenario === 'search-replaced') {
     await act(async () => {
@@ -142,7 +147,11 @@ export async function runMessagingNavigationProbe(
     });
   }
   await initiateConversationNavigation(win, host, scenario, act);
-  if (['refusal', 'transport', 'unknown-commit'].includes(scenario))
+  if (
+    ['refusal', 'transport', 'unknown-commit', 'superseded-refusal'].includes(
+      scenario,
+    )
+  )
     await act(async () => root.render(tree('channel', router, 'fresh')));
   if (scenario.startsWith('same-conversation')) {
     if (scenario === 'same-conversation')
@@ -159,15 +168,7 @@ export async function runMessagingNavigationProbe(
   if (scenario === 'replaced-active') {
     const successorField = host.querySelector<HTMLTextAreaElement>('textarea')!;
     successorField.value = 'Second draft';
-    await act(async () => {
-      successorField.form!.dispatchEvent(
-        new win.Event('submit', {
-          bubbles: true,
-          cancelable: true,
-        }) as unknown as Event,
-      );
-      await successorStarted.promise;
-    });
+    await submitComposer(successorField, successorStarted.promise);
   }
   await act(async () => {
     answer.resolve();
@@ -195,34 +196,28 @@ export async function runMessagingNavigationProbe(
     );
     await act(async () => root.render(tree('channel', { ...router }, 'fresh')));
     retainedNew = readMountedComposer(host);
-    await act(async () => {
-      host.querySelector<HTMLTextAreaElement>('textarea')!.form!.dispatchEvent(
-        new win.Event('submit', {
-          bubbles: true,
-          cancelable: true,
-        }) as unknown as Event,
-      );
-      await freshStarted.promise;
-    });
+    await submitComposer(
+      host.querySelector<HTMLTextAreaElement>('textarea')!,
+      freshStarted.promise,
+    );
     await act(async () => {
       freshAnswer.resolve();
       await freshAnswer.promise;
     });
   }
-  const failedDraft = ['refusal', 'transport', 'unknown-commit'].includes(
-    scenario,
-  )
+  const failedDraft = [
+    'refusal',
+    'transport',
+    'unknown-commit',
+    'superseded-refusal',
+  ].includes(scenario)
     ? readMountedComposer(host)
     : undefined;
   if (scenario === 'unknown-commit') {
-    await act(async () => {
-      host.querySelector<HTMLTextAreaElement>('textarea')!.form!.dispatchEvent(
-        new win.Event('submit', {
-          bubbles: true,
-          cancelable: true,
-        }) as unknown as Event,
-      );
-    });
+    await submitComposer(
+      host.querySelector<HTMLTextAreaElement>('textarea')!,
+      undefined,
+    );
   }
   const commandsBeforeSuccessor = [...commands];
   if (scenario === 'replaced-active') {

@@ -23,7 +23,7 @@
         "scripts/prove-round-judging.ts",
         "scripts/prove-media-worker.ts",
         // Spawned by the isolated messaging completion caller tests.
-        "scripts/messaging-navigation-realm.ts",
+        "apps/web/scripts/messaging-navigation-realm.ts",
         // Bundled by the staging-only manual workflow and piped to Fly stdin.
         "scripts/staging-transcript-proof.ts",
       ],

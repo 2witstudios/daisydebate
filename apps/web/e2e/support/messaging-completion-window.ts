@@ -43,9 +43,10 @@ export function testEditCompletionWindow() {
     browser,
   }) => {
     const journey = await openMessagingJourney(browser);
+    let held: ReturnType<typeof holdConversationResponses> | undefined;
     try {
       const page = await acceptMessagingJourney(journey);
-      const held = holdConversationResponses(page, journey.channelId);
+      held = holdConversationResponses(page, journey.channelId);
       await page.goto(`/messages/${journey.channelId}`);
       await effectsRan(page);
       await page.route('**/messages/**', held.intercept);
@@ -63,6 +64,7 @@ export function testEditCompletionWindow() {
       expect(held.state.routeOrder[0]).toBe('navigation');
       expect(held.state.sentDestinations).toBe(0);
     } finally {
+      held?.releaseAll();
       await journey.close();
     }
   });

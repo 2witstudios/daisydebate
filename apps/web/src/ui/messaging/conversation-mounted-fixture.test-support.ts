@@ -20,7 +20,8 @@ export function deferredConversationAction(scenario: string) {
     calls++;
     const requestId = String(form.get('requestId'));
     submissions.push({ requestId, text: String(form.get('text')) });
-    const failure = scenario === 'refusal' || scenario === 'transport';
+    const refused = scenario === 'refusal' || scenario === 'superseded-refusal';
+    const failure = refused || scenario === 'transport';
     if (!failure && !committedCommands.has(requestId)) {
       committedCommands.add(requestId);
       commits++;
@@ -34,7 +35,7 @@ export function deferredConversationAction(scenario: string) {
       (scenario === 'unknown-commit' && calls === 1)
     )
       throw new Error('Controlled transport refusal');
-    if (scenario === 'refusal')
+    if (refused)
       return {
         text: String(form.get('text')),
         requestId,

@@ -2,7 +2,7 @@
 import {
   createMessagingNavigationRealm,
   runMessagingNavigationProbe,
-} from '../apps/web/src/ui/messaging/conversation-navigation.test-support';
+} from '../src/ui/messaging/conversation-navigation.test-support';
 const win = createMessagingNavigationRealm();
 for (const key of [
   'window',
