@@ -42,7 +42,12 @@ test('a report decision is audited before and after it is sent', async () => {
   assert({
     given: 'an operator warning a member',
     should: 'write the intent, send its anchor, then record the outcome',
-    actual: [notice, anchors.length, (anchors[0] ?? '').length, await kinds(db)],
+    actual: [
+      notice,
+      anchors.length,
+      (anchors[0] ?? '').length,
+      await kinds(db),
+    ],
     expected: [
       'resolved',
       1,

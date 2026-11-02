@@ -70,7 +70,10 @@ describe('templateFor', () => {
     assert({
       given: 'a catalog with Freestyle only',
       should: 'find it and miss Policy',
-      actual: [templateFor([template], 'freestyle'), templateFor([template], 'policy')],
+      actual: [
+        templateFor([template], 'freestyle'),
+        templateFor([template], 'policy'),
+      ],
       expected: [template, undefined],
     });
   });

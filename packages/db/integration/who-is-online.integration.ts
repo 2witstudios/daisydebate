@@ -179,9 +179,10 @@ test('a card reads a page of people, whatever they have played', async () => {
       ],
     });
   } finally {
-    await ctx.client.unsafe('delete from rating_visibility where actor_id = $1', [
-      ctx.them.actorId,
-    ]);
+    await ctx.client.unsafe(
+      'delete from rating_visibility where actor_id = $1',
+      [ctx.them.actorId],
+    );
     await ctx.cleanup();
     await ctx.client.close();
   }

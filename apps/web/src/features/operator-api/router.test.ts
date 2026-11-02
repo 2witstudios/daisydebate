@@ -344,7 +344,10 @@ describe('the report routes (ADR 0098)', () => {
     const { handle } = api({
       store: {
         ...storeOf(),
-        listOperatorReports: async () => [report, { ...report, id: 's'.repeat(24) }],
+        listOperatorReports: async () => [
+          report,
+          { ...report, id: 's'.repeat(24) },
+        ],
       },
     });
     const response = await handle(
@@ -405,13 +408,7 @@ describe('the report routes (ADR 0098)', () => {
         Date.parse(String(input['purgeAfter'])) - now,
         /^[0-9a-f]{64}$/.test(String(input['requestDigest'])),
       ],
-      expected: [
-        200,
-        'o'.repeat(24),
-        7 * 86_400_000,
-        365 * 86_400_000,
-        true,
-      ],
+      expected: [200, 'o'.repeat(24), 7 * 86_400_000, 365 * 86_400_000, true],
     });
   });
   test('a suspension needs a length, and nothing else has one', async () => {

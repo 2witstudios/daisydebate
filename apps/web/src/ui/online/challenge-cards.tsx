@@ -55,19 +55,19 @@ function IncomingCard({
     <section
       aria-label={`Challenge from @${offer.username}`}
       className={cn(
-        'bg-surface-stage flex flex-col gap-1 rounded-lg px-4 py-3 text-stage-ink',
+        'flex flex-col gap-1 rounded-lg bg-surface-stage px-4 py-3 text-stage-ink',
         className,
       )}
     >
-      <p className="text-stage-ink-muted text-xs font-bold tracking-wide uppercase">
+      <p className="text-xs font-bold tracking-wide text-stage-ink-muted uppercase">
         Challenge
       </p>
       <p className="font-display text-lg leading-tight font-semibold">
         @{offer.username}
       </p>
-      <p className="text-stage-ink-muted text-sm">{summaryOf(offer)}</p>
+      <p className="text-sm text-stage-ink-muted">{summaryOf(offer)}</p>
       {notice ? (
-        <p role="status" className="text-stage-ink-muted text-sm">
+        <p role="status" className="text-sm text-stage-ink-muted">
           {notice}
         </p>
       ) : null}
@@ -106,11 +106,11 @@ function AcceptedCard({
     <section
       aria-label={`@${offer.username} accepted`}
       className={cn(
-        'bg-surface-stage flex flex-col gap-1 rounded-lg px-4 py-3 text-stage-ink',
+        'flex flex-col gap-1 rounded-lg bg-surface-stage px-4 py-3 text-stage-ink',
         className,
       )}
     >
-      <p className="text-stage-ink-muted text-sm">@{offer.username} accepted</p>
+      <p className="text-sm text-stage-ink-muted">@{offer.username} accepted</p>
       <a
         href={`/rooms/${offer.roomId}`}
         className={cn(
