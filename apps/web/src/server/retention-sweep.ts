@@ -28,7 +28,7 @@ export type RetentionResult = {
 };
 
 /** True only when every target of the run was swept and succeeded. */
-export const retentionRunSucceeded = (
+const retentionRunSucceeded = (
   targets: readonly string[],
   results: readonly RetentionResult[],
 ): boolean =>

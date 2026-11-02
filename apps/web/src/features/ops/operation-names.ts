@@ -4,7 +4,7 @@
  * call site with no entry here fails to compile, and a slow check-in can be
  * told from a slow inbox.
  */
-export const OPERATION_NAMES = [
+const OPERATION_NAMES = [
   'account.age.answer',
   'account.onboarding.save',
   'account.sessions.list',

@@ -202,3 +202,118 @@ describe('createMetricsStore (AUTH-7.7)', () => {
     });
   });
 });
+
+describe('formatPrometheusMetrics (AUTH-7.7)', () => {
+  test('renders one HELP/TYPE/sample line group per metric, with bounded labels', () => {
+    const store = createMetricsStore();
+    store.observe('http.request.completed', {
+      operation: 'auth.request',
+      status: 200,
+    });
+    store.observe('retention.sweep.failed', { operation: 'retention.session' });
+    const text = formatPrometheusMetrics(store.snapshot());
+    assert({
+      given: 'a snapshot with one 2xx auth request and one retention failure',
+      should:
+        'expose Prometheus text exposition with the sample values present',
+      actual: {
+        hasHelp: text.includes('# HELP auth_http_requests_total'),
+        hasType: text.includes('# TYPE auth_http_requests_total counter'),
+        has2xxSample: text.includes(
+          'auth_http_requests_total{status_class="2xx"} 1',
+        ),
+        hasRetentionSample: text.includes(
+          'retention_sweep_failures_total{operation="retention.session"} 1',
+        ),
+        endsWithNewline: text.endsWith('\n'),
+      },
+      expected: {
+        hasHelp: true,
+        hasType: true,
+        has2xxSample: true,
+        hasRetentionSample: true,
+        endsWithNewline: true,
+      },
+    });
+  });
+
+  test('renders a failure counter for every worker, zero included', () => {
+    const store = createMetricsStore();
+    store.observe('worker.run.failed', { operation: 'privacy_jobs' });
+    const text = formatPrometheusMetrics(store.snapshot());
+    assert({
+      given: 'one failed privacy job run',
+      should: 'expose the failure and a zero for each other worker',
+      actual: [
+        'worker_run_failures_total{worker="privacy_jobs"} 1',
+        'worker_run_failures_total{worker="observation_purges"} 0',
+        'worker_run_failures_total{worker="messaging_file_maintenance"} 0',
+      ].every((line) => text.includes(line)),
+      expected: true,
+    });
+  });
+
+  test('renders the latency histogram with a bounded operation label and a +Inf bucket', () => {
+    const store = createMetricsStore();
+    store.observe('http.request.completed', {
+      operation: 'auth.request',
+      status: 200,
+      durationMs: 30,
+    });
+    const text = formatPrometheusMetrics(store.snapshot());
+    assert({
+      given: 'one latency observation for a known operation',
+      should:
+        'expose a histogram type, one bucket line per boundary plus +Inf, and _sum/_count lines, all scoped to that operation label',
+      actual: {
+        hasType: text.includes('# TYPE http_request_duration_ms histogram'),
+        has50msBucket: text.includes(
+          'http_request_duration_ms_bucket{operation="auth.request",le="50"} 1',
+        ),
+        hasInfBucket: text.includes(
+          'http_request_duration_ms_bucket{operation="auth.request",le="+Inf"} 1',
+        ),
+        hasSum: text.includes(
+          'http_request_duration_ms_sum{operation="auth.request"} 30',
+        ),
+        hasCount: text.includes(
+          'http_request_duration_ms_count{operation="auth.request"} 1',
+        ),
+      },
+      expected: {
+        hasType: true,
+        has50msBucket: true,
+        hasInfBucket: true,
+        hasSum: true,
+        hasCount: true,
+      },
+    });
+  });
+  test('the per-client denial counter says it excludes network denials, which have their own (AUTH-3.10.2)', () => {
+    const text = formatPrometheusMetrics(createMetricsStore().snapshot());
+    const help = (metric: string) =>
+      text.split('\n').find((line) => line.startsWith(`# HELP ${metric} `)) ??
+      '';
+    assert({
+      given: 'the exposition of both rate-limit denial counters',
+      should:
+        'say auth_rate_limit_denied_total excludes network denials, and that auth_rate_limit_network_denied_total counts them',
+      actual: {
+        deniedExcludesNetwork: /exclud\w* network/i.test(
+          help('auth_rate_limit_denied_total'),
+        ),
+        deniedPointsAtNetworkCounter: help(
+          'auth_rate_limit_denied_total',
+        ).includes('auth_rate_limit_network_denied_total'),
+        networkCounterDescribed: /network/i.test(
+          help('auth_rate_limit_network_denied_total'),
+        ),
+      },
+      expected: {
+        deniedExcludesNetwork: true,
+        deniedPointsAtNetworkCounter: true,
+        networkCounterDescribed: true,
+      },
+    });
+  });
+});
