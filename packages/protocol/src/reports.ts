@@ -13,7 +13,7 @@ export type ReportReason = (typeof reportReasons)[number];
 export const reportReasonLabels: Readonly<Record<ReportReason, string>> = {
   harassment: 'Harassment',
   hate: 'Hate speech',
-  cheating: 'Cheating',
+  cheating: 'Second account or arranged result',
   spam: 'Spam',
   other: 'Other',
 };

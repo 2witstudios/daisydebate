@@ -3,15 +3,35 @@ import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { NOW } from '../../../features/leaderboard/ladder.test-support';
 import { readLadder } from '../../../features/leaderboard/read-leaderboard.test-support';
-import { buildSeasonsView } from '../../../features/leaderboard/seasons';
+import {
+  buildSeasonsView,
+  listsPublishedResolutions,
+} from '../../../features/leaderboard/seasons';
 import { SeasonsPage } from './seasons-page';
 
 setupRitewayBun();
 
+const resolutions = [
+  {
+    id: 'pryied8jvkvrn7g0p60iv632',
+    kind: 'policy',
+    text: 'Resolved: Test wording.',
+    provenance: 'Test publication',
+    publishedAt: '2026-10-29T00:00:00.000Z',
+    edition: null,
+    theme: null,
+  },
+] as const;
+
 const render = (season: string | null, entries?: 'none') => {
   const data = readLadder(season, NOW, null).data;
   const view = buildSeasonsView(entries ? { ...data, entries: [] } : data, NOW);
-  return renderToString(h(SeasonsPage, { view })).replace(/<!-- -->/g, '');
+  return renderToString(
+    h(SeasonsPage, {
+      view,
+      resolutions: listsPublishedResolutions(view) ? resolutions : [],
+    }),
+  ).replace(/<!-- -->/g, '');
 };
 
 describe('SeasonsPage', () => {
@@ -31,8 +51,9 @@ describe('SeasonsPage', () => {
         html.includes('Provisional while rating deviation is above 110.'),
         html.includes('Current season'),
         html.match(/href="\/leaderboard\?season=4"/g)?.length,
+        html.includes('Resolved: Test wording.'),
       ],
-      expected: [1, true, true, true, 10, true, true, true, 2],
+      expected: [1, true, true, true, 10, true, true, true, 2, true],
     });
   });
 
@@ -48,8 +69,9 @@ describe('SeasonsPage', () => {
         html.includes('>Season<'),
         html.includes('value="100"'),
         html.includes('aria-current="page"'),
+        html.includes('Resolved: Test wording.'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true, true, false],
     });
     assert({
       given: 'the closed season champion',
@@ -70,6 +92,46 @@ describe('SeasonsPage', () => {
         html.includes('Hollow marker: provisional.'),
       ],
       expected: [true, true, true],
+    });
+  });
+
+  test('no active season', () => {
+    const html = renderToString(
+      h(SeasonsPage, { view: null, resolutions }),
+    ).replace(/<!-- -->/g, '');
+    assert({
+      given: 'no active season',
+      should: 'say so, list the current resolutions and keep the page frame',
+      actual: [
+        html.includes('No season is active.'),
+        html.includes('Resolved: Test wording.'),
+        html.includes('max-w-dash-column'),
+        html.includes('font-display'),
+      ],
+      expected: [true, true, true, true],
+    });
+  });
+
+  test('a closed season with no active one', () => {
+    const data = readLadder('3', NOW, null).data;
+    const view = buildSeasonsView(
+      { ...data, seasons: data.seasons.filter(({ id }) => id !== '4') },
+      NOW,
+    );
+    const html = renderToString(h(SeasonsPage, { view, resolutions })).replace(
+      /<!-- -->/g,
+      '',
+    );
+    assert({
+      given: 'only closed seasons',
+      should: 'say none is active and list the resolutions before that season',
+      actual: [
+        html.includes('No season is active.'),
+        html.indexOf('Resolved: Test wording.') > -1 &&
+          html.indexOf('Resolved: Test wording.') <
+            html.indexOf('Final standings'),
+      ],
+      expected: [true, true],
     });
   });
 

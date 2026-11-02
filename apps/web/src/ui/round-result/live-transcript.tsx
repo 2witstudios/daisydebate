@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { LiveTranscriptRead } from '@daisy/protocol';
 import { browserSyncEdges } from '../../features/resource-sync/browser';
 import { readTranscript } from '../../features/round-runtime/read-transcript';
@@ -8,8 +8,10 @@ import { useResourceSync } from '../resource-sync/use-resource-sync';
 import { liveTranscriptSections, transcriptState } from './result-view';
 import {
   TranscriptContent,
+  TranscriptSections,
   transcriptStatusLabels as labels,
 } from './transcript-content';
+import { TranscriptFollow } from './transcript-follow';
 
 /**
  * Authorized data only: this component has no reader identity or seat
@@ -21,9 +23,12 @@ import {
 export function LiveTranscript({
   seed,
   socketUrl,
+  placement = 'card',
 }: {
   readonly seed: LiveTranscriptRead;
   readonly socketUrl: string | null;
+  /** A page card behind a disclosure, or always open in the Round sidebar. */
+  readonly placement?: 'card' | 'sidebar';
 }) {
   const roundId = seed.round.id;
   const [holder] = useState(() =>
@@ -39,7 +44,52 @@ export function LiveTranscript({
   useEffect(() => holder.offer(seed), [holder, seed]);
   // Whatever rendered this page may be old: durable history decides.
   useEffect(() => driver?.signal(), [driver]);
-  if (synced.freshness === 'gone') return null;
+  if (synced.freshness === 'gone')
+    return placement === 'sidebar' ? (
+      <p role="status" className="p-4 text-sm text-ink-muted">
+        Transcript unavailable.
+      </p>
+    ) : null;
+  const sections = liveTranscriptSections(synced.value);
+  const status: ReactNode = (
+    <div role="status" className="flex gap-2 text-sm text-ink-muted">
+      <p>{labels[transcriptState(synced.value)]}</p>
+      {synced.freshness !== 'stale' ? null : holder.outdated() ? (
+        <button
+          type="button"
+          className="cursor-pointer font-strong underline"
+          onClick={() => window.location.reload()}
+        >
+          Reload
+        </button>
+      ) : (
+        <p>Reconnecting</p>
+      )}
+    </div>
+  );
+  if (placement === 'sidebar')
+    return (
+      <section
+        aria-labelledby="live-transcript"
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <div className="flex shrink-0 flex-wrap items-baseline justify-between gap-2 px-4 pt-3">
+          <h2 id="live-transcript" className="sr-only">
+            Transcript
+          </h2>
+          {status}
+        </div>
+        <TranscriptFollow>
+          {sections.length ? (
+            <TranscriptSections sections={sections} />
+          ) : (
+            <p className="pt-3 text-sm text-ink-muted">
+              No speech was captured yet.
+            </p>
+          )}
+        </TranscriptFollow>
+      </section>
+    );
   return (
     <section
       aria-labelledby="live-transcript"
@@ -49,23 +99,10 @@ export function LiveTranscript({
         <h2 id="live-transcript" className="font-strong">
           Transcript
         </h2>
-        <div role="status" className="flex gap-2 text-sm text-ink-muted">
-          <p>{labels[transcriptState(synced.value)]}</p>
-          {synced.freshness !== 'stale' ? null : holder.outdated() ? (
-            <button
-              type="button"
-              className="cursor-pointer font-strong underline"
-              onClick={() => window.location.reload()}
-            >
-              Reload
-            </button>
-          ) : (
-            <p>Reconnecting</p>
-          )}
-        </div>
+        {status}
       </div>
       <TranscriptContent
-        sections={liveTranscriptSections(synced.value)}
+        sections={sections}
         empty="No speech was captured yet."
       />
     </section>

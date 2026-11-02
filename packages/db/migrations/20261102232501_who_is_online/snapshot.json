@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "2d0e6a31-decc-4322-a1b6-d4bb63efbc49",
+  "id": "de59b105-8741-4cac-9084-c5990188e4d1",
   "prevIds": [
-    "5b0549b8-5f76-463c-b090-443891f56135"
+    "a8930bd8-b8d5-4c27-949b-b29601dfafc6"
   ],
   "ddl": [
     {
@@ -123,12 +123,6 @@
     {
       "isRlsEnabled": false,
       "name": "documents",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "round_document_refs",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2509,32 +2503,6 @@
       "table": "documents"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "template_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "documents"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'library'",
-      "generated": null,
-      "identity": null,
-      "name": "folder",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "documents"
-    },
-    {
       "type": "integer",
       "typeSchema": null,
       "notNull": true,
@@ -2572,58 +2540,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "documents"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_document_refs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "document_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_document_refs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "role",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_document_refs"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "pinned_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_document_refs"
     },
     {
       "type": "text",
@@ -11345,34 +11261,6 @@
           "opclass": null
         },
         {
-          "value": "folder",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "documents_owner_folder_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "documents"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "owner_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
           "value": "created_at",
           "isExpression": false,
           "asc": true,
@@ -11389,27 +11277,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "documents"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "document_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_document_refs_document_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_document_refs"
     },
     {
       "nameExplicit": true,
@@ -16449,40 +16316,6 @@
       "table": "documents"
     },
     {
-      "nameExplicit": true,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_document_refs_round_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_document_refs"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "document_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "documents",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_document_refs_document_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_document_refs"
-    },
-    {
       "nameExplicit": false,
       "columns": [
         "user_id"
@@ -19168,17 +19001,6 @@
     },
     {
       "columns": [
-        "round_id",
-        "document_id"
-      ],
-      "nameExplicit": false,
-      "name": "round_document_refs_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "round_document_refs"
-    },
-    {
-      "columns": [
         "user_id",
         "entitlement",
         "source"
@@ -20687,20 +20509,6 @@
       "table": "social_requests"
     },
     {
-      "value": "\"folder\" in ('library', 'scratch')",
-      "name": "documents_folder_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "documents"
-    },
-    {
-      "value": "\"template_id\" in ('blank', 'flow', 'cross-ex', 'speech-plan', 'case', 'block', 'evidence')",
-      "name": "documents_template_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "documents"
-    },
-    {
       "value": "char_length(\"title\") between 1 and 120",
       "name": "documents_title_length",
       "entityType": "checks",
@@ -20713,13 +20521,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "documents"
-    },
-    {
-      "value": "\"role\" in ('flow', 'case', 'evidence', 'notes')",
-      "name": "round_document_refs_role_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_document_refs"
     },
     {
       "value": "(\"status\", \"status_rank\") in (('sent', 1), ('delayed', 2), ('delivered', 3), ('failed', 4), ('bounced', 5), ('complained', 6))",

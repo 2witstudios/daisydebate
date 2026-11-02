@@ -2,107 +2,116 @@
 
 import {
   useLayoutEffect,
-  useMemo,
   useReducer,
   useRef,
+  useSyncExternalStore,
   type Dispatch,
   type ReactNode,
 } from 'react';
 import { systemClock, systemId } from '@daisy/clock';
-import {
-  effectivePreset,
-  videoBounds,
-  videoHeightFor,
-  workspaceMinHeight,
-} from '../../features/debate-room/layout';
+import { tileHeightFor } from '../../features/debate-room/layout';
+import type { PhonePanel } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { BallotStatus } from './ballot-status';
-import { BotStage } from './bot-stage';
 import { CommandPalette, type PaletteChoice } from './command-palette';
-import { LayoutMenu, PhoneActions, RoundControls } from './controls';
+import { PhoneActions, RoundControls } from './controls';
 import type { DocumentSync } from './document-sync';
 import type { SaveState } from './document-pane';
-import { chatUnread, DRAWER_ID, DRAWER_TOGGLE_ID, RoundDrawer } from './drawer';
+import { RoomDetails } from './room-details';
+import {
+  FILES_ID,
+  FILES_SHOW_ID,
+  FILES_HIDE_ID,
+  FilesSidebar,
+} from './files-sidebar';
 import { focusReturnTarget, firstShown } from './focus-return';
 import type { LeaveLinks } from './leave-room';
-import { useNarrowBreakpoint } from './narrow-breakpoint';
-import { VideoDivider } from './video-divider';
+import { usePhoneBreakpoint } from './phone-breakpoint';
 import { RoomDocument } from './room-document';
-import { initialRoomState, reduceRoom, type RoomAction } from './room-state';
+import {
+  initialRoomState,
+  phonePanelOf,
+  reduceRoom,
+  type RoomAction,
+} from './room-state';
 import type { RoundSnapshot } from './round';
 import { RoundBar } from './round-bar';
+import { chatUnread, ROUND_SIDEBAR_ID, RoundSidebar } from './round-sidebar';
 import {
   CURRENT_ROUND_TAB,
   FIRST_ROUND_TAB,
   ROUND_TAB_BAR,
   RoundTabs,
 } from './round-tabs';
-import { VideoStage } from './stage';
 import { usePaletteShortcut } from './use-palette-shortcut';
 import { useDocumentSync } from './use-document-sync';
 
-/** Writes the video size as custom properties (CSSOM, so the CSP allows it). */
-function useVideoVariables(video: number) {
+/** Writes the tile height as a custom property (CSSOM, so the CSP allows it). */
+function useTileHeight(height: number) {
   const root = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    const style = root.current?.style;
-    if (!style) return;
-    style.setProperty('--room-video', `${video}px`);
-    style.setProperty('--room-workspace', `${workspaceMinHeight(video)}px`);
-  }, [video]);
+    root.current?.style.setProperty('--room-tile-height', `${height}px`);
+  }, [height]);
   return root;
 }
 
-const COLUMN_ID = 'round-column';
+const DOCUMENT_ID = 'round-document';
+const PHONE_ROOM_ID = 'round-phone-room';
+
+const noSubscribe = () => () => {};
+
+/** False in the server's markup and until hydration: every panel then shows. */
+const useHydrated = () =>
+  useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
+  );
+
+const focusRegions = () => [
+  document.getElementById(FILES_ID),
+  document.getElementById(DOCUMENT_ID),
+  document.getElementById(ROUND_SIDEBAR_ID),
+  document.getElementById(PHONE_ROOM_ID),
+  document.querySelector(ROUND_TAB_BAR),
+];
+
+const focusTargets = () => [
+  document.getElementById(FILES_SHOW_ID),
+  document.getElementById(FILES_HIDE_ID),
+  document.querySelector<HTMLElement>(CURRENT_ROUND_TAB),
+  document.querySelector<HTMLElement>(FIRST_ROUND_TAB),
+];
 
 /**
- * Focus inside the drawer when it closes, or inside the column a phone tab
- * hides, goes back to the drawer toggle or the phone tab now showing.
- * A breakpoint crossing hides or returns the drawer and the tab bar through
- * the media query alone, without a state change: the browser strands any
- * focus the hidden region held on the body, so the crossing brings it back
- * to the visible way back itself.
+ * Focus inside Files when it closes, or inside a panel a phone tab hides,
+ * goes back to the way to reopen it or the phone tab now showing. A
+ * breakpoint crossing hides or returns regions through the media query
+ * alone, without a state change: the browser strands any focus the hidden
+ * region held on the body, so the crossing brings it back itself.
  */
-function useFocusReturn(drawerOpen: boolean, phoneDrawer: boolean) {
-  const narrow = useNarrowBreakpoint();
+function useFocusReturn(filesOpen: boolean, phone: PhonePanel) {
+  const phoneLayout = usePhoneBreakpoint();
   useLayoutEffect(() => {
-    const active = document.activeElement;
-    const target = focusReturnTarget(
-      active,
-      [
-        document.getElementById(DRAWER_ID),
-        document.getElementById(COLUMN_ID),
-        document.querySelector(ROUND_TAB_BAR),
-      ],
-      [
-        document.getElementById(DRAWER_TOGGLE_ID),
-        document.querySelector<HTMLElement>(CURRENT_ROUND_TAB),
-        document.querySelector<HTMLElement>(FIRST_ROUND_TAB),
-      ],
-    );
-    target?.focus();
-  }, [drawerOpen, phoneDrawer]);
-  const crossed = useRef(narrow);
+    focusReturnTarget(
+      document.activeElement,
+      focusRegions(),
+      focusTargets(),
+    )?.focus();
+  }, [filesOpen, phone]);
+  const crossed = useRef(phoneLayout);
   useLayoutEffect(() => {
-    if (crossed.current === narrow) return;
-    crossed.current = narrow;
+    if (crossed.current === phoneLayout) return;
+    crossed.current = phoneLayout;
     const active = document.activeElement;
-    const regions = [
-      document.getElementById(DRAWER_ID),
-      document.getElementById(COLUMN_ID),
-      document.querySelector(ROUND_TAB_BAR),
-    ];
-    const targets = [
-      document.getElementById(DRAWER_TOGGLE_ID),
-      document.querySelector<HTMLElement>(CURRENT_ROUND_TAB),
-      document.querySelector<HTMLElement>(FIRST_ROUND_TAB),
-    ];
+    const targets = focusTargets();
     const target =
-      focusReturnTarget(active, regions, targets) ??
+      focusReturnTarget(active, focusRegions(), targets) ??
       (active === document.body ? firstShown(targets) : null);
     target?.focus();
-  }, [narrow]);
+  }, [phoneLayout]);
 }
+
 const noLeave: LeaveLinks = {
   confirming: false,
   stayHref: '',
@@ -112,30 +121,29 @@ const noLeave: LeaveLinks = {
 
 type Problem = (message: string) => void;
 
-/** A palette choice: open a file, or create one on the server or in memory. */
-function choiceHandler(
+/** Create a plain document on the server, or in memory; one at a time. */
+function useNewDocument(
   sync: DocumentSync | undefined,
   dispatch: Dispatch<RoomAction>,
   setProblem: Problem,
 ) {
-  return (choice: PaletteChoice) => {
-    if (choice.kind === 'open') {
-      dispatch({ type: 'tabs/open', id: choice.documentId });
-      return dispatch({ type: 'palette/close' });
-    }
+  const creating = useRef(false);
+  return () => {
     if (!sync)
       return dispatch({
         type: 'doc/create',
         id: systemId.next(),
         now: systemClock.now(),
-        templateId: choice.templateId,
-        folder: choice.folder,
       });
-    if (choice.folder === 'club') return;
+    if (creating.current) return;
+    creating.current = true;
     sync
-      .create(choice.folder, choice.templateId)
+      .create()
       .then((document) => dispatch({ type: 'doc/add', document }))
-      .catch(() => setProblem('That file was not created. Try again.'));
+      .catch(() => setProblem('That file was not created. Try again.'))
+      .finally(() => {
+        creating.current = false;
+      });
   };
 }
 
@@ -143,6 +151,8 @@ type RoomProps = {
   readonly round: RoundSnapshot;
   readonly media?: ReactNode;
   readonly transcript?: ReactNode;
+  /** Page-level notices; they live inside the frame so it always fits. */
+  readonly notices?: ReactNode;
   readonly actions?: ReactNode;
   /** Server-backed documents; without it the room keeps them in memory. */
   readonly sync?: DocumentSync;
@@ -153,94 +163,101 @@ type RoomProps = {
 };
 
 /**
- * The debater's round, outside the app shell: the round bar, the closable
- * drawer, then the video, the controls and the document.
+ * The debater's round, outside the app shell. The round section (bar, video,
+ * clock and actions) runs the full width; the workspace starts on one line
+ * below it: Files, the open documents and the Round sidebar, each scrolling
+ * on its own. Nothing depends on the Round's type: every Round offers the
+ * same help (ADR 0097).
  */
 export function DebateRoom({ round, sync, ...props }: RoomProps) {
-  const reducer = useMemo(() => reduceRoom(round), [round]);
-  const [state, dispatch] = useReducer(reducer, round, initialRoomState);
-  const video = videoHeightFor(state.layout, round.phase);
-  const preset = effectivePreset(state.layout, round.phase);
-  const Stage = round.opponent.bot ? BotStage : VideoStage;
-  const root = useVideoVariables(video);
+  const [state, dispatch] = useReducer(reduceRoom, round, initialRoomState);
+  const root = useTileHeight(tileHeightFor(round.phase));
   usePaletteShortcut(dispatch);
-  useFocusReturn(state.drawerOpen, state.phoneDrawer);
+  const phonePanel = phonePanelOf(state);
+  useFocusReturn(state.filesOpen, phonePanel);
   const { problem, setProblem } = useDocumentSync(sync, dispatch);
+  const hydrated = useHydrated();
   const unread = chatUnread(round, state);
   const alert = problem ?? props.notice ?? null;
+  const create = useNewDocument(sync, dispatch, setProblem);
+  const choose = (choice: PaletteChoice) => {
+    if (choice.kind === 'new') return create();
+    dispatch({ type: 'tabs/open', id: choice.documentId });
+    dispatch({ type: 'palette/close' });
+  };
+  // Until script runs the phone tabs cannot switch, so every panel stays
+  // readable, stacked in one scrolling column.
+  const phoneHides = (...panels: readonly PhonePanel[]) =>
+    hydrated && !panels.includes(phonePanel) && 'max-compact:hidden';
   return (
-    <div
-      ref={root}
-      className="flex h-dvh flex-col overflow-hidden bg-background text-ink"
-    >
-      <RoundBar
-        round={round}
-        drawerOpen={state.drawerOpen}
-        unread={unread}
-        onToggleDrawer={() => dispatch({ type: 'drawer/toggle' })}
-        leave={props.leave ?? noLeave}
-      />
-      <div className="flex min-h-0 flex-1">
-        <RoundDrawer round={round} state={state} dispatch={dispatch} />
+    <div ref={root} className="flex room-frame flex-col bg-background text-ink">
+      <RoundBar round={round} leave={props.leave ?? noLeave} />
+      {props.notices}
+      <section
+        aria-label="Round"
+        className="room-stage flex shrink-0 items-center gap-6 border-b border-border px-4 py-3 max-compact:flex-col max-compact:items-stretch max-compact:gap-2 max-compact:py-2"
+      >
+        {props.media}
+        <RoundControls actions={props.actions} round={round} />
+      </section>
+      {alert ? (
+        <p role="alert" className="shrink-0 px-4 py-1 text-sm text-live">
+          {alert}
+        </p>
+      ) : null}
+      <BallotStatus round={round} />
+      <div
+        data-room-workspace
+        className={cn('flex min-h-0 flex-1', !hydrated && 'room-stacked')}
+      >
+        <FilesSidebar
+          round={round}
+          state={state}
+          dispatch={dispatch}
+          onNew={create}
+          phoneClass={phoneHides('files')}
+        />
         <div
-          id={COLUMN_ID}
-          className={cn(
-            'flex min-w-0 flex-1 flex-col overflow-y-auto',
-            state.phoneDrawer && 'max-narrow:hidden',
-          )}
+          id={DOCUMENT_ID}
+          className={cn('flex min-w-0 flex-1 flex-col', phoneHides('doc'))}
         >
-          {props.media ?? <Stage round={round} preset={preset} />}
-          <RoundControls
-            actions={props.actions}
-            round={round}
-            state={state}
-            dispatch={dispatch}
-            layout={
-              <LayoutMenu round={round} state={state} dispatch={dispatch} />
-            }
-          />
-          {alert ? (
-            <p role="alert" className="px-4 py-1 text-sm text-live">
-              {alert}
-            </p>
-          ) : null}
-          <BallotStatus round={round} />
-          {props.transcript}
-          <VideoDivider
-            value={video}
-            min={videoBounds.min}
-            max={videoBounds.max}
-            onResize={(startPx, deltaPx) =>
-              dispatch({ type: 'layout/resize', startPx, deltaPx })
-            }
-            onNudge={(key) => dispatch({ type: 'layout/nudge', key })}
-          />
           <RoomDocument
             {...(sync ? { sync } : {})}
-            round={round}
             state={state}
             dispatch={dispatch}
             onEdit={sync?.change}
+            onNew={create}
             save={props.save ?? null}
           />
         </div>
+        <RoundSidebar
+          round={round}
+          state={state}
+          dispatch={dispatch}
+          transcript={props.transcript}
+          phoneClass={phoneHides('transcript', 'channels', 'ai')}
+        />
+        <div
+          id={PHONE_ROOM_ID}
+          className={cn(
+            'flex-col overflow-y-auto p-4 compact:hidden',
+            phoneHides('room') || 'flex flex-1',
+          )}
+        >
+          <RoomDetails round={round} />
+        </div>
       </div>
-      <PhoneActions
-        round={round}
-        state={state}
-        dispatch={dispatch}
-        actions={props.actions}
-      />
+      <PhoneActions round={round} actions={props.actions} />
       <RoundTabs
-        round={round}
         state={state}
         dispatch={dispatch}
         unread={unread}
+        hydrated={hydrated}
       />
       <CommandPalette
         open={state.paletteOpen}
         documents={state.documents}
-        onChoose={choiceHandler(sync, dispatch, setProblem)}
+        onChoose={choose}
         onClose={() => dispatch({ type: 'palette/close' })}
       />
     </div>

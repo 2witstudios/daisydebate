@@ -1,6 +1,6 @@
 # Terms of Service — draft for counsel
 
-**DRAFT, not in force.** Version `draft-1`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app: `/privacy` and `/terms` keep their current text until WAIT-6.2 (owner and counsel) approves this draft and WAIT-6.3 publishes it, together with the clickwrap version.
+**DRAFT, not in force.** Version `draft-1`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app: `/privacy` and `/terms` keep their current text, apart from ADR 0097's change on outside help (served version `draft-0.1`), until WAIT-6.2 (owner and counsel) approves this draft and WAIT-6.3 publishes it, together with the clickwrap version.
 
 Placeholders: **[OWNER: …]** is a business fact the owner supplies; **[COUNSEL: …]** is a legal judgment for counsel. Neither may remain in a published version.
 
@@ -38,7 +38,7 @@ You may not choose a username that impersonates another person, an organisation 
 
 Argue the resolution, not the person. Harassment, threats, hate speech, sexual content, doxxing, spam and impersonation are not allowed.
 
-Do not cheat: no outside help during a round, no second account, and no arranged results.
+You may use any help you like during a round, including notes, other people and AI. Do not cheat in other ways: no second account and no arranged results.
 
 Do not misuse the service: no attempts to break or overload it, to get around its limits or the age requirement, to access other people’s accounts or data, or to scrape it.
 

@@ -55,21 +55,17 @@ test('conditional browser runner requires preceding prerequisites', () => {
   });
 });
 
-test('only the Room Launch path filter may condition the native job', () => {
-  const scoped = (condition: string, needs = 'scope') =>
-    workflow.replace(
-      '  native:\n',
-      `  native:\n    needs: ${needs}\n    if: ${condition}\n`,
-    );
+test('no condition may skip the native job', () => {
+  const conditioned = (condition: string) =>
+    workflow.replace('  native:\n', `  native:\n    if: ${condition}\n`);
   assert({
     given:
-      'the scope job path filter, an arbitrary job condition, and the filter without its scope job',
-    should:
-      'claim the suite only under the path filter that ADR 0083 sanctions',
+      'an unconditioned job, an arbitrary condition and the old path filter',
+    should: 'claim the suite only when nothing can skip the job (ADR 0098)',
     actual: [
-      scoped("needs.scope.outputs.native == 'true'"),
-      scoped('false'),
-      scoped("needs.scope.outputs.native == 'true'", 'other'),
+      workflow,
+      conditioned('false'),
+      conditioned("needs.scope.outputs.native == 'true'"),
     ].map((value) =>
       claimedBrowserSteps(value, 'test:e2e:messaging-realtime', 'bun counts'),
     ),

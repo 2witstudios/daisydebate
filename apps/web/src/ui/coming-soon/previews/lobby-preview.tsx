@@ -8,7 +8,7 @@ export function LobbyPreview() {
   return (
     <PreviewPage>
       <PreviewHeader
-        title="Lobby"
+        title="Play"
         actions={
           <>
             <Button variant="secondary">New room</Button>

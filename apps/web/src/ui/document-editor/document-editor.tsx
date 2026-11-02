@@ -23,8 +23,9 @@ type EditableDocument = {
 type Props = {
   readonly document: EditableDocument;
   readonly access: string;
-  readonly page: PageTone;
-  readonly onPage: (tone: PageTone) => void;
+  /** The viewer's own choice for this page; null follows their theme. */
+  readonly page: PageTone | null;
+  readonly onPage: (tone: PageTone | null) => void;
   readonly onChange: (html: string) => void;
 };
 
@@ -84,7 +85,7 @@ export function DocumentEditor({
         />
       ) : null}
       <div
-        data-room-page={page}
+        data-room-page={page ?? undefined}
         data-doc-size={textSize}
         className="min-h-0 flex-1 overflow-auto bg-surface-raised"
       >

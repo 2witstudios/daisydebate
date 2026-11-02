@@ -173,7 +173,7 @@ views over the operational log store.
   Settings shows no privacy control that saves nothing (ISSUE-722).
 - Moderation and evidentiary retention for messages (an open decision on
   Privacy and safety).
-- Erasure of private prep and round-room documents once they exist
+- Erasure of actor-owned documents, which exist now and are not yet erased
   (ISSUE-383, ISSUE-329); private-group tombstones (ISSUE-734).
 
 ## Product analytics data lifecycle
