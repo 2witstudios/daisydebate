@@ -428,7 +428,10 @@ closure and incomplete freeze never wait for a client deadline to show Partial.
 Each partial stream's read carries its `gaps`: required speech with no
 observation, as offsets into the speech, derived on each read from
 `transcript_observations` and the same coverage edges that decide a complete
-seal. The completed Round's transcript read carries the same gaps. A gap is
+seal. The completed Round's transcript read carries the same gaps. A stream can
+be Partial with no gap to show: a lost tail inside the close tolerance, or a clean
+handover at a new epoch with contiguous observations. It then says Partial
+without saying where (ISSUE-944 tracks showing that). A gap is
 never stored and never implies what was said.
 
 ## Capture through a control-plane outage

@@ -1,6 +1,6 @@
 /**
  * The agreed control-plane outage (ADR 0094). Past it, whatever still gets no
- * answer ends the session or its clip, so a server that keeps failing the same
+ * answer ends the session, so a server that keeps failing the same
  * way reaches the logs and a relaunch instead of a silently stalled capture.
  */
 export const CAPTURE_OUTAGE_BUDGET_MS = 120_000;
