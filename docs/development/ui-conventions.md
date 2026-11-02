@@ -110,14 +110,15 @@ proofs exercise overlapping intent through the real Next router; mounted
 command controls alone do not establish a real router winner.
 
 A navigation started during the pending send joins that action's React lane, so
-it cannot commit until the send settles. Leaving the conversation unmounts the
-composer in that same commit, so its answer issues nothing. A same-conversation
-page keeps the composer mounted: without the ownership decision the send's
-`?sent` replacement overwrites the member's chosen page, which is the real-router
-regression the held Earlier-messages proofs fail on. The held Edit tests are outcome
-proofs and stay green without that decision; the mounted
-`actual composer completion ownership: edit` control covers the Edit link's
-registration, with a recording router that keeps the composer mounted.
+it cannot commit until the send settles, and leaving the conversation then unmounts
+the composer in that same commit. A click in the few milliseconds after the action
+settles and before its answer commits is different: the answer commits first with
+the composer still mounted, and without the ownership decision its `?sent`
+replacement beats the member's newer Edit on the real router. A same-conversation
+page keeps the composer mounted either way, so the same replacement overwrites the
+member's chosen page. The Edit completion-window and held Earlier-messages proofs
+fail without the decision. The held Edit tests are outcome proofs that stay green
+without it.
 
 Recorded exceptions:
 

@@ -1,6 +1,7 @@
 import { testMessagingUnknownCommit } from './support/messaging-unknown-commit';
 import { testMessagingHistoryCompletion } from './support/messaging-history-completion';
 import { testMessagingNavigationOverlap } from './support/messaging-navigation-overlap';
+import { testEditCompletionWindow } from './support/messaging-completion-window';
 import {
   editNativeMessage,
   messageInHistory,
@@ -26,6 +27,7 @@ import {
 
 testMessageControlFocus();
 testMessagingNavigationOverlap();
+testEditCompletionWindow();
 testMessagingHistoryCompletion();
 testMessagingUnknownCommit();
 testProfileMessageEntry();

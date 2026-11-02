@@ -73,9 +73,12 @@ export function holdConversationResponses(
     /** A superseded send's replacement, if it were ever issued. */
     sentDestinations: 0,
     saves: 0,
+    routeOrder: [] as string[],
   };
   const intercept = async (route: Route) => {
     const kind = heldKind(route.request(), channelId, target);
+    if (kind === 'navigation') state.routeOrder.push('navigation');
+    if (kind === 'sentDestination') state.routeOrder.push('sent');
     if (kind === 'send') {
       state.sends++;
       const response = await route.fetch();
@@ -194,9 +197,9 @@ export async function withHeldConversation(
 
 export function testMessagingNavigationOverlap() {
   for (const first of ['send', 'edit'] as const) {
-    // Outcome proof only: leaving the conversation unmounts the composer in the commit
-    // carrying its answer, so this stays green without the completion guard. The held
-    // Earlier messages proofs and the mounted controls are what prove the guard.
+    // Outcome proof only: a click made while the send is pending commits together with
+    // its answer and unmounts the composer, so this stays green without the completion
+    // guard. messaging-completion-window.ts and Earlier messages prove the guard.
     test(`Edit outcome proof, green without the completion guard: newer intent survives held send with ${first} response first`, async ({
       browser,
     }) => {
