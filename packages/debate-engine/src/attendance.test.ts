@@ -91,7 +91,14 @@ test('actual required speaker and all opposing seats determine absence', () => {
 });
 
 test('timestamp decides including equality and duplicate arrivals', () => {
-  const base = { window, availability, botSeatIds, finalized: false };
+  const base = {
+    window,
+    availability,
+    botSeatIds,
+    finalized: false,
+    cutoffAtMs: null,
+    nowMs: 0,
+  };
   const checkIns = [
     { participantId: 'a0', receivedAtMs: 50001 },
     { participantId: 'n0', receivedAtMs: 50000 },
