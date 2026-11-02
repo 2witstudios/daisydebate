@@ -116,7 +116,7 @@ export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
       </header>
       {view.state === 'none-active' ? <NoActiveSeason /> : null}
       <PublishedResolutions resolutions={resolutions} />
-      <section className={card}>
+      <section className={seasonsCardClass}>
         <Badge tone={closed ? 'gold' : 'accent'}>{view.tag}</Badge>
         <h2 className="font-display text-2xl font-bold">
           {view.ladderLabel} · {view.label}
@@ -133,11 +133,11 @@ export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
       {champion ? (
         <section
           aria-label={view.championLabel}
-          className={cn(card, 'flex-row items-center gap-4')}
+          className={cn(seasonsCardClass, 'flex-row items-center gap-4')}
         >
           <div className="flex min-w-0 flex-1 flex-col">
             <span
-              className={eyebrow}
+              className={seasonsEyebrowClass}
             >{`${view.championLabel} · ${view.tag}`}</span>
             <span className="truncate font-display text-xl font-bold">
               {displayName(champion)}
@@ -172,8 +172,8 @@ export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
         </div>
       </section>
       <div className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
-        <section id="how-rating-works" className={card}>
-          <h2 className={eyebrow}>How rating works</h2>
+        <section id="how-rating-works" className={seasonsCardClass}>
+          <h2 className={seasonsEyebrowClass}>How rating works</h2>
           <ul className="flex flex-col gap-3">
             {howItWorks.map((item) => (
               <li key={item.title} className="flex flex-col">
@@ -183,8 +183,8 @@ export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
             ))}
           </ul>
         </section>
-        <section className={card}>
-          <h2 className={eyebrow}>Provisional and established</h2>
+        <section className={seasonsCardClass}>
+          <h2 className={seasonsEyebrowClass}>Provisional and established</h2>
           <RangePicture />
           <p className="text-xs text-ink-faint">
             Hollow marker: provisional. Filled marker: established.
