@@ -95,7 +95,7 @@ Verified row counts after seeding, `daisy_debate_staging`:
 | `passkey`             | 2     |
 | `session`             | 2     |
 | `verification`        | 1     |
-| `debates`             | 1     |
+| `rounds`              | 1     |
 | `debate_participants` | 2     |
 
 FK joins on the source, all matching the row counts above:
@@ -131,7 +131,7 @@ created).
 
 Row counts, `daisy_debate_restore_rehearsal`, identical to the source
 table above (`users` 2, `actors` 2, `passkey` 2, `session` 2,
-`verification` 1, `debates` 1, `debate_participants` 2). FK joins on the
+`verification` 1, `rounds` 1, `round_participants` 2). FK joins on the
 restored copy: `users ⋈ passkey` = 2, `users ⋈ session` = 2,
 `users ⋈ actors ⋈ debate_participants` = 2 — every relationship the source
 held, held on the restored copy.
