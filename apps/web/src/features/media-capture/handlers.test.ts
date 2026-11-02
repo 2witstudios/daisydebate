@@ -242,6 +242,34 @@ test('a capture refusal follows its reason, whatever its message says (ISSUE-101
   });
 });
 
+test('a reinstated lease is measured and its reply keeps the worker contract', async () => {
+  const lease = {
+    result: {
+      epoch: 2,
+      expiresAt: new Date(15000).toISOString(),
+      reinstatedAfterMs: 3200,
+    },
+    logged: [] as unknown[],
+  };
+  const response = await fixture(undefined, undefined, lease).handlers.handle(
+    signed('lease', '{}'),
+  );
+  assert({
+    given: 'a renewal that reinstated an expired lease',
+    should: 'log how long it was expired and answer only epoch and expiry',
+    actual: [
+      lease.logged.filter(
+        (entry) => (entry as string[])[0] === 'media.capture.lease_reinstated',
+      ),
+      await response.json(),
+    ],
+    expected: [
+      [['media.capture.lease_reinstated', { durationMs: 3200 }]],
+      { epoch: 2, expiresAt: new Date(15000).toISOString() },
+    ],
+  });
+});
+
 test('a terminal token refusal ends native capture rather than restarting it', async () => {
   const f = fixture(undefined, async () => {
     throw createRefusal('CONFLICT', 'capture-closed');

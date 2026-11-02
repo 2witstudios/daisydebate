@@ -331,6 +331,12 @@ const sharedFixtureRestrictions = [
 const refusalRestrictions = [
   {
     selector:
+      "CallExpression[callee.name='createAppError'] > MemberExpression.arguments:nth-child(2)[property.name=/^(refusal|reason)$/]",
+    message:
+      "A decision's refusal is a reason: createRefusal(code, decision.refusal), never a message.",
+  },
+  {
+    selector:
       "BinaryExpression[operator=/^[!=]==$/] > MemberExpression[property.name='message'][object.name=/^(error|err|e|cause|failure)$/]",
     message: 'Branch on error.reason (createRefusal), never on error.message.',
   },

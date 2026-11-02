@@ -53,7 +53,7 @@ describe('refusal reasons, never messages (ISSUE-1010)', () => {
   test('refuses behaviour read from a message and refusal words minted as one', async () => {
     assert({
       given:
-        'a comparison, a lookup and a refusal word or ternary as a message',
+        "a comparison, a lookup, and a refusal word, ternary or decision's refusal as a message",
       should: 'report each one',
       actual: [
         await problems(
@@ -71,8 +71,11 @@ describe('refusal reasons, never messages (ISSUE-1010)', () => {
         await problems(
           "export const a = (b: boolean) => createAppError('CONFLICT', b ? 'too-early' : 'closed-window');",
         ),
+        await problems(
+          "export const a = (decision: { refusal: string }) => createAppError('VALIDATION', decision.refusal);",
+        ),
       ],
-      expected: [1, 1, 1, 1, 2],
+      expected: [1, 1, 1, 1, 2, 1],
     });
   });
   test('leaves a reason, plain internal text and a vendor error alone', async () => {

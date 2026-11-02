@@ -127,7 +127,11 @@ test('a deferred media request answers 503 without alerting anyone', async () =>
     operations: () =>
       ({
         session: async () => {
-          throw createRefusal('INFRASTRUCTURE', 'media-deferred');
+          throw createRefusal(
+            'INFRASTRUCTURE',
+            'media-deferred',
+            'Reworded sentence',
+          );
         },
       }) as never,
   });

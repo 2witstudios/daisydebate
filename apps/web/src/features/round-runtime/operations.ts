@@ -87,7 +87,12 @@ export function createRoundRuntimeOperations(input: {
               isAppError(error) &&
               (error.code === 'CONFLICT' || error.code === 'INVARIANT')
             )
-              throw createRefusal('CONFLICT', 'illegal-command', error);
+              throw createRefusal(
+                'CONFLICT',
+                'illegal-command',
+                undefined,
+                error,
+              );
             throw error;
           }
         },

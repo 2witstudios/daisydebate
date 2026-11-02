@@ -94,7 +94,7 @@ export async function resolveRoomSelection(
     request,
     await store.getFormatSelectionFacts(tuple),
   );
-  if (!decision.ok) throw createAppError('VALIDATION', decision.refusal);
+  if (!decision.ok) throw createRefusal('VALIDATION', decision.refusal);
   const decided = fingerprint(decision);
   return {
     selection,

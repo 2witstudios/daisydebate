@@ -95,11 +95,12 @@ const heldChecks = () => {
 const orderedHandlers = (
   validatePrincipal: () => Promise<boolean>,
   failed?: (error: unknown, operation: string) => void,
+  registry = fixture().registry,
 ) => {
   const logger = { log: () => {}, child: () => logger } as Logger;
   return createWebSocketHandlers({
     logger,
-    registry: fixture().registry,
+    registry,
     now: () => 0,
     timers: {
       setTimeout: () => 1 as unknown as ReturnType<typeof setTimeout>,
@@ -179,22 +180,63 @@ test('the frame queue stays bounded and survives a frame that throws', async () 
 
   const thrown = orderedSocket();
   const reported: string[] = [];
+  const { registry } = fixture();
+  const subscribe = registry.subscribe.bind(registry);
   let calls = 0;
+  registry.subscribe = (...args) => {
+    calls += 1;
+    return calls === 1
+      ? Promise.reject(new Error('subscribe crashed'))
+      : subscribe(...args);
+  };
   const survivor = orderedHandlers(
-    async () => {
-      calls += 1;
-      if (calls === 1) throw new Error('check crashed');
-      return true;
-    },
+    async () => true,
     (_, operation) => reported.push(operation),
+    registry,
   );
   survivor.open(thrown.ws);
   await survivor.message(thrown.ws, hello);
   await survivor.message(thrown.ws, frameOf('subscribe', 'd'));
+  await survivor.message(thrown.ws, frameOf('subscribe', 'e'));
   assert({
-    given: 'a check that throws',
-    should: 'report it and fail closed, as a check that cannot answer does',
-    actual: { reported, closed: thrown.closes.length },
-    expected: { reported: ['realtime.frame'], closed: 1 },
+    given: 'a frame whose effect throws, and a frame behind it',
+    should: 'report the first and let the next take effect',
+    actual: {
+      reported,
+      last: JSON.parse(thrown.frames.at(-1)!).id,
+      closes: thrown.closes,
+    },
+    expected: {
+      reported: ['realtime.frame'],
+      last: 'e'.repeat(24),
+      closes: [],
+    },
   });
+});
+
+test('a ping answers at once behind a held turn, from its own check', async () => {
+  const { ws, frames } = orderedSocket();
+  const { held, check } = heldChecks();
+  const handlers = orderedHandlers(check);
+  handlers.open(ws);
+  await handlers.message(ws, hello);
+  void handlers.message(ws, frameOf('subscribe', 'd'));
+  await flush();
+  const ping = handlers.message(
+    ws,
+    JSON.stringify({ v: 1, type: 'ping', id: 'p'.repeat(24) }),
+  );
+  await flush();
+  held[1]?.(true);
+  await ping;
+  assert({
+    given: 'a subscribe held on its principal check, then a ping',
+    should: 'answer the ping after its own check, ahead of the held turn',
+    actual: {
+      checks: held.length,
+      last: JSON.parse(frames.at(-1)!).type,
+    },
+    expected: { checks: 2, last: 'pong' },
+  });
+  held[0]?.(false);
 });

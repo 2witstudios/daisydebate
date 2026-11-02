@@ -148,7 +148,11 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
     discover: async () => page(['terminal', 'forfeit', 'pending', 'fault']),
     evaluate: async (id) => {
       if (id === 'terminal')
-        throw createRefusal('CONFLICT', 'attendance-terminal');
+        throw createRefusal(
+          'CONFLICT',
+          'attendance-terminal',
+          'Reworded sentence',
+        );
       if (id === 'fault') throw new Error('actual maintenance failure');
       return id === 'forfeit' ? { decision: 'forfeit' } : null;
     },

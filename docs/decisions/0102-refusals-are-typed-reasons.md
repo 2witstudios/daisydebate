@@ -1,4 +1,4 @@
-# 0100: Refusals are typed reasons, never messages
+# 0102: Refusals are typed reasons, never messages
 
 Status: accepted (2026-11-02).
 
@@ -24,8 +24,10 @@ map covered them all.
 - A map over a vocabulary is a `Record` keyed by it, so a new word without an
   entry fails to compile.
 - ESLint refuses `error.message` in a comparison or lookup, and a kebab-case
-  word in `createAppError`. The second also catches a mint from a branch cut
-  before this decision, which would otherwise quietly lose its refusal.
+  word or a `.refusal` or `.reason` value as the message of `createAppError`.
+  That also catches most mints from a branch cut before this decision, which
+  would otherwise quietly lose their refusal. It cannot see a word held in any
+  other variable, or an `error.message` under another name.
 
 Capacity refusals stay separate (ADR 0088): an admission fact with a lane and a
 reason, read through `isCapacityRefusal`, never by text. A vendor's own error

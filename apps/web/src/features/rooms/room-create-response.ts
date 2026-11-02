@@ -36,12 +36,28 @@ const conflictAnswer = (
     case 'actor-ineligible':
     case 'seat-unavailable':
       return { kind: 'refused', reason: body.refusal };
-    // The format and the resolution disagree, or the catalog moved on.
+    case 'command-conflict':
+      return { kind: 'refused', reason: 'replayed' };
+    // The format and the resolution disagree, or the catalog moved on. The
+    // rest are a Room's later steps, which a create only meets as a bad request.
     case 'illegal-config':
     case 'format-unavailable':
+    case 'version-conflict':
+    case 'host-required':
+    case 'room-closed':
+    case 'not-seated':
+    case 'incomplete-cast':
+    case 'not-ready':
+    case 'readiness-unavailable':
+    case 'prep-running':
+    case 'prep-unavailable':
+    case 'consent-conflict':
+    case 'draw-unavailable':
+    case 'strike-unavailable':
+    case 'strike-conflict':
+    case 'not-your-turn':
+    case 'bots-busy':
       return { kind: 'refused', reason: 'settings' };
-    default:
-      return { kind: 'refused', reason: 'replayed' };
   }
 };
 async function refusalOf(response: Response): Promise<RoomCreateAnswer> {
@@ -54,7 +70,7 @@ async function refusalOf(response: Response): Promise<RoomCreateAnswer> {
   );
   return body.success
     ? conflictAnswer(body.data)
-    : { kind: 'refused', reason: 'replayed' };
+    : { kind: 'refused', reason: 'settings' };
 }
 const createdSchema = z.object({
   receipt: z.object({ roomId: idSchema }),

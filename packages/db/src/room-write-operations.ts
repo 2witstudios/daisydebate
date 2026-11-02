@@ -8,7 +8,7 @@ import type {
   RoomCommandReceipt,
   RoomMutationOutcome,
   PublishedResolution,
-  type RoomRefusal,
+  RoomRefusal,
 } from '@daisy/protocol';
 
 import { createAppError, createRefusal } from '@daisy/errors';

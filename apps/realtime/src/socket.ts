@@ -37,7 +37,7 @@ export type SocketData = {
   frameTurn?: Promise<void>;
   queuedFrames?: number;
 };
-/** Over a second of frames at the admission rate; a normal client queues a few. */
+/** About a second of frames at the admission rate; a normal client queues a few. */
 const MAX_QUEUED_FRAMES = 64;
 export type SocketTimers = {
   readonly setTimeout: (
@@ -221,10 +221,18 @@ export function createWebSocketHandlers({
   /**
    * Frames on one socket take effect in arrival order: each waits its turn for
    * its principal check and its effect, so a later frame's faster check can't
-   * overtake (ISSUE-1018). The queue is bounded, and a client over it reconnects
-   * and resyncs; a frame that throws is reported and frees the next.
+   * overtake (ISSUE-1018). A ping changes nothing, so it answers from its own
+   * check at once and a slow turn can't miss the heartbeat. The queue is
+   * bounded, and a client over it reconnects and resyncs; a frame that throws
+   * is reported and frees the next.
    */
-  function takeFrameTurn(ws: ServerWebSocket<SocketData>, message: string) {
+  function receiveAuthenticated(
+    ws: ServerWebSocket<SocketData>,
+    message: string,
+  ) {
+    const frame = parseFrame(ws, message);
+    if (!frame) return;
+    if (frame.type === 'ping') return answerPing(ws, frame.id);
     if ((ws.data.queuedFrames ?? 0) >= MAX_QUEUED_FRAMES) {
       reject(ws, 'rate_limited');
       return;
@@ -232,8 +240,7 @@ export function createWebSocketHandlers({
     ws.data.queuedFrames = (ws.data.queuedFrames ?? 0) + 1;
     const turn = (ws.data.frameTurn ?? Promise.resolve()).then(async () => {
       try {
-        if (ws.data.phase === 'authenticated')
-          await receiveAuthenticated(ws, message);
+        if (ws.data.phase === 'authenticated') await takeEffect(ws, frame);
       } catch (error) {
         failed?.(error, 'realtime.frame');
       } finally {
@@ -243,17 +250,19 @@ export function createWebSocketHandlers({
     ws.data.frameTurn = turn;
     return turn;
   }
-  async function receiveAuthenticated(
+  async function answerPing(ws: ServerWebSocket<SocketData>, id: string) {
+    if (await currentPrincipal(ws))
+      send(ws, { v: ENVELOPE_VERSION, type: 'pong', id });
+  }
+  async function takeEffect(
     ws: ServerWebSocket<SocketData>,
-    message: string,
+    frame: Exclude<
+      NonNullable<ReturnType<typeof parseFrame>>,
+      { type: 'ping' }
+    >,
   ) {
-    const frame = parseFrame(ws, message);
-    if (!frame) return;
     if (!(await currentPrincipal(ws))) return;
-    if (frame.type === 'ping')
-      send(ws, { v: ENVELOPE_VERSION, type: 'pong', id: frame.id });
-    else if (frame.type === 'presence.activity')
-      reportActivity(ws, frame.activity);
+    if (frame.type === 'presence.activity') reportActivity(ws, frame.activity);
     else if (frame.type === 'observe' || frame.type === 'unobserve')
       receiveObservation(ws, frame);
     else await receiveSubscription(ws, frame);
@@ -365,7 +374,7 @@ export function createWebSocketHandlers({
         return;
       }
       if (ws.data.phase !== 'authenticated') return receiveHello(ws, message);
-      return takeFrameTurn(ws, message);
+      return receiveAuthenticated(ws, message);
     },
     close: release,
   };
