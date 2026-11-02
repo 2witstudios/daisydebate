@@ -36,7 +36,6 @@ test('maintenance discovery includes every cast without sessions and requires a 
           store.readRoundMaintenanceCandidates({
             instanceId,
             limit: 1,
-            startHorizonMs: 900_000,
           }),
         code: 'AUTHORIZATION',
       });
@@ -44,18 +43,15 @@ test('maintenance discovery includes every cast without sessions and requires a 
       const first = await store.readRoundMaintenanceCandidates({
         instanceId,
         limit: 1,
-        startHorizonMs: 900_000,
       });
       const second = await store.readRoundMaintenanceCandidates({
         instanceId,
         limit: 1,
-        startHorizonMs: 900_000,
         afterId: first.afterId!,
       });
       const last = await store.readRoundMaintenanceCandidates({
         instanceId,
         limit: 1,
-        startHorizonMs: 900_000,
         afterId: second.afterId!,
       });
       assert({
@@ -81,7 +77,6 @@ test('maintenance discovery includes every cast without sessions and requires a 
           store.readRoundMaintenanceCandidates({
             instanceId,
             limit: 1,
-            startHorizonMs: 900_000,
           }),
         code: 'AUTHORIZATION',
       });

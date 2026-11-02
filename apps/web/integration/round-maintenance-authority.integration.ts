@@ -7,7 +7,6 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
 import {
   createRoundMaintenanceOperations,
-  ROUND_START_HORIZON_MS,
 } from '../src/features/round-finalization/maintenance';
 import { withAttendanceRound } from './attendance.test-support';
 import { settleAttendanceFixture } from './attendance-evaluator.test-support';
@@ -45,7 +44,6 @@ test('a D5 service expiring between tick and evaluation cannot adjudicate', asyn
         ratingFailed: (_id, error) => {
           throw error;
         },
-        startHorizonMs: ROUND_START_HORIZON_MS,
         probeRoundId: null,
         store: f.store,
         instanceId,
@@ -150,7 +148,6 @@ for (const waitAt of ['Round', 'receipt'] as const)
           ratingFailed: (_id, error) => {
             throw error;
           },
-          startHorizonMs: ROUND_START_HORIZON_MS,
           probeRoundId: null,
           store: f.store,
           instanceId,

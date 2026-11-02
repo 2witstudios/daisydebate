@@ -14,26 +14,19 @@ requireTestServices(process.env);
 test('shared human commands run the engine with atomic refusals and recover lost responses', async () => {
   await withRoomRuntime(async (f) => {
     const room = await f.assemble();
-    const { roundId, operations, principal, envelope, receipt } =
-      await startRuntimeRound(f, room);
+    const { roundId, operations, principal } = await startRuntimeRound(f, room);
     const round = await f.store.getRound(roundId);
     assert({
-      given: 'the host starts a launched Round',
-      should: 'persist the shared engine start from database time',
+      given: 'a Room with nothing to run first, at Start round',
+      should: 'create the Round active, from database time',
       actual: {
-        version: receipt.resultingVersion,
+        version: round?.version,
         status: round?.status,
         started: round?.startedAt !== null,
       },
-      expected: { version: 2, status: 'active', started: true },
+      expected: { version: 1, status: 'active', started: true },
     });
-    const replay = await operations.command(principal, roundId, envelope);
-    assert({
-      given: 'a lost HTTP response followed by an identical retry',
-      should: 'recover the original receipt',
-      actual: replay,
-      expected: { ...receipt, replayed: true },
-    });
+    const envelope = { version: 1 as const, commandId: createId(), expectedVersion: 1 };
     const before = JSON.stringify(await f.store.getRound(roundId));
     const seat = round!.participants.find((p) => p.actorId === f.host.actorId)!;
     await assertRejects({
@@ -46,7 +39,7 @@ test('shared human commands run the engine with atomic refusals and recover lost
           {
             ...envelope,
             commandId: createId(),
-            expectedVersion: 2,
+            expectedVersion: 1,
             command: { type: 'forfeit', participantId: seat.id },
           },
         ),
@@ -59,7 +52,7 @@ test('shared human commands run the engine with atomic refusals and recover lost
         operations.command(principal, roundId, {
           ...envelope,
           commandId: createId(),
-          expectedVersion: 2,
+          expectedVersion: 1,
           command: { type: 'yield', participantId: seat.id },
         }),
       code: 'CONFLICT',
@@ -176,42 +169,3 @@ for (const revoke of ['lease', 'run'] as const)
     }, botAdmissionForTests);
   });
 
-test('a late start refuses before maintenance and leaves all durable state unchanged', async () => {
-  await withRoomRuntime(async (f) => {
-    const room = await f.assemble();
-    const { roundId, operations } = await launchRuntimeRound(f, room);
-    await f.sql`update rounds set created_at = clock_timestamp() - interval '16 minutes' where id = ${roundId}`;
-    const before = await f.store.getRound(roundId);
-    const commandId = createId();
-    await assertRejects({
-      given:
-        'a scheduled Round past its start horizon with no maintenance sweep',
-      should: 'refuse a host start under the same durable horizon rule',
-      actual: () =>
-        operations.command(
-          { kind: 'human', actorId: f.host.actorId },
-          roundId,
-          {
-            version: 1,
-            commandId,
-            expectedVersion: before!.version,
-            command: { type: 'start' },
-          },
-        ),
-      code: 'CONFLICT',
-    });
-    const commands =
-      await f.sql`select command_id from round_commands where command_id = ${commandId}`;
-    assert({
-      given: 'the refused late start',
-      should:
-        'leave runtime, segments, command receipts and Room membership unchanged',
-      actual: [
-        await f.store.getRound(roundId),
-        commands.length,
-        (await f.operations.activeRoom(f.host))?.id,
-      ],
-      expected: [before, 0, room.id],
-    });
-  });
-});

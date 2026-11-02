@@ -1,8 +1,11 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
-import type { RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { drawRoomOverrides, strikeStanding } from './room-draw.test-support';
+import {
+  drawRoomOverrides,
+  strikeCommand,
+  strikeStanding,
+} from './room-draw.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 
 requireTestServices(process.env);
@@ -11,15 +14,15 @@ setupRitewayBun();
 const SENTINEL = 'SENTINEL-DRAW-LINE';
 const lines = [1, 2, 3, 4, 5].map((n) => `${SENTINEL} ${n}`);
 
-test('a host-list draw strikes to one resolution, freezes evidence onto the Round and never shows a text to a spectator first', async () => {
+test('Start round creates the draw on the Round, strikes reach one resolution, and no text leaks', async () => {
   await withRoomRuntime(async (f) => {
-    let view = await f.assemble(
+    const view = await f.assemble(
       await drawRoomOverrides(f, { kind: 'host', resolutions: lines }),
     );
     const spectatorJson = async () =>
       JSON.stringify(await f.operations.view(f.outsider, view.id));
     assert({
-      given: 'a ready draw Room before its pre-round',
+      given: 'a ready draw Room before Start round',
       should: 'keep the topic null and show the host list only to its author',
       actual: [
         view.topic,
@@ -29,27 +32,48 @@ test('a host-list draw strikes to one resolution, freezes evidence onto the Roun
       expected: [null, 5, false],
     });
 
-    view = (await f.command(f.host, view, { type: 'start-pre-round' })).view;
-    const guestView = () => f.operations.view(f.guest, view.id);
-    const drawn = await guestView();
+    const started = (await f.command(f.host, view, { type: 'start-round' }))
+      .view;
+    const roundId = started.roundRef!.id;
+    const roundJson = async (viewer: typeof f.host) =>
+      JSON.stringify(await f.operations.roundView(viewer, roundId));
+    const drawn = await f.operations.roundView(f.guest, roundId);
     const [rows] = await f.sql`select
-      (select count(*)::int from room_resolution_draw_items i join room_resolution_draws d on d.id = i.draw_id where d.room_id = ${view.id}) items,
-      (select count(*)::int from room_resolution_draw_inputs n join room_resolution_draws d on d.id = n.draw_id where d.room_id = ${view.id}) inputs,
-      (select seed from room_resolution_draws where room_id = ${view.id}) seed`;
+      (select count(*)::int from round_resolution_draw_items i join round_resolution_draws d on d.id = i.draw_id where d.round_id = ${roundId}) items,
+      (select count(*)::int from round_resolution_draw_texts where round_id = ${roundId}) texts,
+      (select count(*)::int from round_draw_private_inputs where round_id = ${roundId}) inputs,
+      (select seed from round_draw_seeds where round_id = ${roundId}) seed,
+      (select status from rounds where id = ${roundId}) status,
+      (select resolution from rounds where id = ${roundId}) resolution`;
+    const spectated = await f.operations.roundView(f.outsider, roundId);
     assert({
-      given: 'the started draw',
+      given: 'the Round a Start round creates',
       should:
-        'persist five items and the private inputs, show debaters the texts and spectators progress only, and never deliver the seed',
+        'hold five items, their texts and the private inputs, in its opening with no resolution, showing debaters the texts and everyone else progress',
       actual: [
         rows.items,
+        rows.texts,
         rows.inputs,
-        drawn.resolutionDraw?.visibility,
-        (await f.operations.view(f.outsider, view.id)).resolutionDraw
-          ?.visibility,
-        (await spectatorJson()).includes(SENTINEL),
+        rows.status,
+        rows.resolution,
+        drawn.opening?.draw?.visibility,
+        spectated.opening?.draw?.visibility,
+        spectated.topic,
+        (await roundJson(f.outsider)).includes(SENTINEL),
         JSON.stringify(drawn).includes(rows.seed),
       ],
-      expected: [5, 1, 'debater', 'progress', false, false],
+      expected: [
+        5,
+        5,
+        1,
+        'opening',
+        null,
+        'debater',
+        'progress',
+        null,
+        false,
+        false,
+      ],
     });
     const lobby = await f.operations.list(f.outsider, {
       q: view.title,
@@ -58,84 +82,64 @@ test('a host-list draw strikes to one resolution, freezes evidence onto the Roun
     const row = lobby.rooms.find((room) => room.id === view.id);
     assert({
       given: 'the Lobby during the strike',
-      should: 'list the draw Room with no topic and no drawn or listed line',
-      actual: [row?.topic, JSON.stringify(lobby).includes(SENTINEL)],
-      expected: [null, false],
+      should: 'list the Room as live with no topic and no drawn or listed line',
+      actual: [
+        row?.topic,
+        row?.roundRef?.status,
+        JSON.stringify(lobby).includes(SENTINEL),
+      ],
+      expected: [null, 'opening', false],
     });
 
     await assertRejects({
       given: 'the Affirmative striking before the Negative',
       should: 'refuse it as a conflict',
-      actual: () =>
-        f.command(f.host, view, {
-          type: 'strike-resolution',
-          ordinal: 0,
-          position: 0,
-        }),
+      actual: () => strikeCommand(f, roundId, f.host, 0, 0),
       code: 'CONFLICT',
     });
     const strikers = [f.guest, f.host, f.guest, f.host];
-    let current: RoomView = drawn;
     for (const [ordinal, who] of strikers.entries()) {
-      const struck = await strikeStanding(f, current, who, ordinal);
-      current = struck.view;
+      const struck = await strikeStanding(f, roundId, who, ordinal);
       if (ordinal === 0)
         await assertRejects({
           given: 'a stale form for the strike just made',
           should: 'refuse it as a conflict',
-          actual: () =>
-            f.command(f.guest, current, {
-              type: 'strike-resolution',
-              ordinal: 0,
-              position: struck.position,
-            }),
+          actual: () => strikeCommand(f, roundId, f.guest, 0, struck.position),
           code: 'CONFLICT',
         });
     }
-    const revealed = await f.operations.view(f.outsider, view.id);
+    const revealed = await f.operations.roundView(f.outsider, roundId);
     const survivor = revealed.topic!;
-    assert({
-      given: 'the fourth strike',
-      should:
-        'reveal the survivor as the topic to everyone, still hiding the struck lines from a spectator',
-      actual: [
-        lines.includes(survivor),
-        (await spectatorJson()).split(SENTINEL).length - 1,
-      ],
-      expected: [true, 1],
-    });
-
-    const launched = (
-      await f.command(f.host, await f.operations.view(f.host, view.id), {
-        type: 'start-round',
-      })
-    ).view;
-    const roundId = launched.roundRef!.id;
-    const [round] =
-      await f.sql`select resolution, room_config_snapshot, resolution_evidence,
-      (select count(*)::int from round_resolution_draw_texts where round_id = ${roundId}) texts,
-      (select count(*)::int from round_draw_private_inputs where round_id = ${roundId}) inputs,
-      (select count(*)::int from round_draw_seeds where round_id = ${roundId}) seeds
+    const [round] = await f.sql`select resolution, status, started_at,
+      room_config_snapshot, resolution_evidence
       from rounds where id = ${roundId}`;
     assert({
-      given: 'Launch after the reveal',
+      given: 'the fourth strike, with no prep to follow',
       should:
-        'freeze the topic, proof-only evidence, the seed, the texts and the inputs, with the snapshot naming only the list length',
+        'set the resolution and proof-only evidence once, and start the Round at that strike',
       actual: [
+        lines.includes(survivor),
         round.resolution === survivor,
+        round.status,
+        round.started_at !== null,
         round.resolution_evidence.strikes.length,
         JSON.stringify(round.resolution_evidence).includes(SENTINEL),
         round.room_config_snapshot.resolutionDraw.source,
-        [round.texts, round.inputs, round.seeds],
       ],
-      expected: [true, 4, false, { kind: 'host', count: 5 }, [5, 1, 1]],
+      expected: [
+        true,
+        true,
+        'active',
+        true,
+        4,
+        false,
+        { kind: 'host', count: 5 },
+      ],
     });
 
     // ISSUE-705: until the Round ends, its read carries the topic and no draw text.
-    const roundJson = async (viewer: typeof f.host) =>
-      JSON.stringify(await f.operations.roundView(viewer, roundId));
     assert({
-      given: 'the scheduled Round read by its debater and by a spectator',
+      given: 'the active Round read by its debater and by a spectator',
       should:
         'carry the debated resolution once and no other drawn line, and no audit envelope',
       actual: [
@@ -148,31 +152,18 @@ test('a host-list draw strikes to one resolution, freezes evidence onto the Roun
 
     const refused = await Promise.allSettled([
       f.sql`update rounds set resolution_evidence = '{}'::jsonb where id = ${roundId}`,
+      f.sql`update rounds set resolution = 'Another' where id = ${roundId}`,
       f.sql`delete from round_resolution_draw_texts where round_id = ${roundId}`,
-      f.sql`update room_resolution_draws set commitment = commitment where room_id = ${view.id}`,
-      // ISSUE-702: a draw, an item or a strike leaves only with its Room.
-      f.sql`delete from room_resolution_strikes where draw_id in (select id from room_resolution_draws where room_id = ${view.id})`,
-      f.sql`delete from room_resolution_draw_items where draw_id in (select id from room_resolution_draws where room_id = ${view.id})`,
-      f.sql`delete from room_resolution_draws where room_id = ${view.id}`,
+      f.sql`update round_resolution_draws set commitment = commitment where round_id = ${roundId}`,
+      f.sql`delete from round_resolution_strikes where draw_id in (select id from round_resolution_draws where round_id = ${roundId})`,
+      f.sql`delete from round_resolution_draw_items where draw_id in (select id from round_resolution_draws where round_id = ${roundId})`,
+      f.sql`delete from round_resolution_draws where round_id = ${roundId}`,
     ]);
-    // The deletes must meet the guard itself, not any error a broken guard raises.
-    const refusal = (r: PromiseSettledResult<unknown>) => {
-      if (r.status === 'fulfilled') return 'fulfilled';
-      const { errno, constraint } = r.reason as {
-        errno?: string;
-        constraint?: string;
-      };
-      return `${errno} ${constraint}`;
-    };
-    const kept = '23514 room_resolution_draw_rows_kept';
     assert({
       given: 'writes the triggers guard, including direct deletes of a draw',
-      should: 'reject every one, each delete by the ISSUE-702 guard',
-      actual: [
-        ...refused.slice(0, 3).map((r) => r.status),
-        ...refused.slice(3).map(refusal),
-      ],
-      expected: ['rejected', 'rejected', 'rejected', kept, kept, kept],
+      should: 'reject every one',
+      actual: refused.map((r) => r.status),
+      expected: Array.from({ length: 7 }, () => 'rejected'),
     });
   });
 });

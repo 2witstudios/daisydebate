@@ -23,22 +23,12 @@ test('actual post-start shared engine advancement remains safe for media reconci
     });
     try {
       await recovery.started;
-      const round = (await f.store.getRound(f.roundId))!;
-      await createRoundRuntimeOperations({
-        store: f.store,
-        nextSegmentId: createId,
-      }).command({ kind: 'human', actorId: f.host.actorId }, f.roundId, {
-        version: 1,
-        commandId: createId(),
-        expectedVersion: round.version,
-        command: { type: 'start' },
-      });
       const state = await f.mediaOperations.reconcile(
         f.roundId,
         f.host.actorId,
       );
       assert({
-        given: 'ordinary committed start then real provider reconciliation',
+        given: 'a Round active from Start round, then real provider reconciliation',
         should:
           'hydrate and tick the actual first speech without becoming unsafe',
         actual: [state.state, state.grants.publish],

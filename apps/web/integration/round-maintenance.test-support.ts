@@ -6,7 +6,6 @@ import {
   createRoundMaintenanceOperations,
   DEFAULT_BALLOT_DEADLINE_MS,
   judgingPlan,
-  ROUND_START_HORIZON_MS,
 } from '../src/features/round-finalization/maintenance';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 
@@ -58,7 +57,6 @@ export const ordinaryMaintenance = (
     ratingFailed: (_id, error) => {
       throw error;
     },
-    startHorizonMs: ROUND_START_HORIZON_MS,
     probeRoundId: null,
     store,
     instanceId,

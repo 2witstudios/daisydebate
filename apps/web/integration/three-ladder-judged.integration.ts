@@ -1,3 +1,4 @@
+import { readRoundOpening } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -13,7 +14,11 @@ import {
   playOut,
   submitHumanBallot,
 } from './round-judging.test-support';
-import { readyRatedRoom, recoverRatedResults } from './rated-room.test-support';
+import {
+  readyRatedRoom,
+  recoverRatedResults,
+  runRatedOpening,
+} from './rated-room.test-support';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
@@ -38,6 +43,7 @@ for (const ladder of ratingLadders)
               );
               const room = await readyRatedRoom(f, ladder, judgeKind);
               ({ roundId } = await startRuntimeRound(f, room));
+              await runRatedOpening(f, roundId);
               await playOut(f, roundId, true);
               const frozen = await finalizeAsWeb(f, roundId);
               if (
@@ -106,6 +112,7 @@ for (const ladder of ratingLadders)
                 roundId,
                 f.host,
                 () => true,
+                readRoundOpening,
               );
               const display = await readRoundRatings(f.store, {
                 round: roundView,

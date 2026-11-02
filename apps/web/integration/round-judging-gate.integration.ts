@@ -1,3 +1,4 @@
+import { readRoundOpening } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -34,7 +35,12 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
       await seedSettledAttendanceLedger(f, roundId);
       await finalizeByMaintenance(f, roundId);
       const done = (await f.store.getRound(roundId))!;
-      const view = await f.store.readLaunchedRound(roundId, f.host, () => true);
+      const view = await f.store.readLaunchedRound(
+        roundId,
+        f.host,
+        () => true,
+        readRoundOpening,
+      );
       const [receipt] =
         await f.sql`select result from round_commands where round_id=${roundId} and type='complete'`;
       const [spend] =

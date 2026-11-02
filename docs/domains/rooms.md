@@ -56,14 +56,16 @@ debater or judge seats; the host may seat bots. Changing settings or seats
 clears every Ready consent, so nobody plays under rules they did not see.
 Consent lives in expiring Redis behind a durable revision fence.
 
-Launch is one atomic operation. When every required seat is filled and every
-human is Ready, it freezes the seats and rules into one **scheduled** Round.
-A Room has exactly one Round (ADR 0067).
+Start round is one atomic operation. When every required seat is filled and
+every human is Ready, the host's click freezes the seats and rules into one
+Round, in its **opening** when it has a strike or prep to run, otherwise
+**active**. A Room has exactly one Round (ADR 0067). Everything after that runs
+on its own (ADR 0098).
 
 ## One active Room
 
 A user is in at most one active Room at a time, as its host or in a seat
-(ADR 0070). A Room is active while it assembles or its Round is scheduled or
+(ADR 0070). A Room is active while it assembles or its Round is opening or
 active; the database holds one `room_active_memberships` row per human
 member, keyed by actor, so a second create or join is refused as
 `active-room` and the UI returns the user to their current Room. Bots hold no
@@ -75,8 +77,7 @@ membership. Every terminal state frees its members:
   status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone.
 - **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, the Room maintenance
   sweep (its own worker, apart from Round maintenance) closes an open Room
-  with no accepted command (or running pre-round prep) for that long, by
-  database time.
+  with no accepted command for that long, by database time.
 - **Leave.** A guest leaving their seat frees only themselves. Leaving a live
   Round forfeits it, which ends the Round.
 - **The debate ends**: the last speech ends, or the Round completes, is
@@ -92,24 +93,23 @@ independent from rating-season authority. Only Custom asks for host-authored
 wording. Strike exposes no custom
 draw settings in creation. See [ADR 0092](../decisions/0092-room-creation-resolution-selection.md).
 
-A Room either names its resolution (its topic) or draws one before the
-round ([ADR 0076](../decisions/0076-pre-round-resolution-draw.md)). In a draw
-Room the host's Start pre-round draws N resolutions from Daisy's curated
-bank, or from the host's own list in a casual Room. The debaters strike
-alternately, Negative first in Freestyle, each strike within its window; a
-missed turn strikes the first resolution still in the draw, and a side of
-only bots strikes on its own. The last one left is revealed as the topic,
-and any pre-round prep starts at that moment. Until then only the seated
-debaters see the drawn texts; judges, spectators and the Lobby see progress.
-Launch freezes the resolution and the draw's evidence onto the Round.
+A Room either names its resolution (its topic) or a Round draws one in its
+opening ([ADR 0098](../decisions/0098-round-owns-its-opening.md)). Start round
+draws N resolutions from Daisy's curated bank, or from the host's own list in a
+casual Room. The debaters strike alternately, Negative first in Freestyle, each
+strike within its window; a missed turn strikes the first resolution still in
+the draw, and a side of only bots strikes on its own. The last one left becomes
+the Round's resolution, and any pre-round prep starts at that moment. Until then
+only the seated debaters see the drawn texts; judges, spectators and the Lobby
+see progress.
 
 ## Playing
 
-The host's `start` command activates the Round; only the host may start it.
-At or past the start horizon, the command refuses atomically, even before
-maintenance sweeps the scheduled Round; maintenance then abandons it.
-From then on, the runtime moves through the rules' segments and prep under the
-database clock.
+A Round leaves its opening at the instant its last step ended, by the sweep, a
+command or the strike that finished it, never at the processing time. Pre-round
+prep always runs its full length, with every mic and camera closed and the
+countdown following at once. From then on, the runtime moves through the rules'
+segments and in-round prep under the database clock.
 Only the floor holder may yield. An interrupter's yield returns the floor to
 the scheduled speaker, whose segment continues (DEC-203). Cross-examination
 keeps every seated debater's microphone open for the whole segment and has no
@@ -149,9 +149,8 @@ A Round reaches one terminal state, and only once:
   opponent forfeits. Both missing abandons. A bot worker's loss abandons and
   never forfeits (ADR 0067). Media, capture or speech-to-text failure is
   never evidence of absence.
-- **Forfeit by command.** A debater can forfeit.
-- **Abandoned before start.** A Round still scheduled past its start horizon
-  (default 15 minutes after Launch) is abandoned (DEC-214).
+- **Forfeit by command.** A debater can forfeit from Start round onward. In the
+  opening it stands as a result, and before a reveal the Round has no resolution.
 
 There is no winner, draw, forfeit or rating for an absent ruling. Ratings
 apply only to ranked Rounds; ranked play is out of this goal's scope
@@ -191,7 +190,7 @@ server's answer instead of navigating.
 
 Room persistence has one command path: `createRoomCommand` and
 `executeRoomCommand` atomically persist the engine's member set with every
-accepted Room mutation. Seating, prep and Launch all use that path; there is
+accepted Room mutation. Seating and Start round use that path; there is
 no separate low-level seat or freeze writer.
 
 ## Lobby discovery ordering
@@ -219,13 +218,11 @@ separate Lobby design lane.
 
 ### Start commitment
 
-Starting strikes or pre-round prep atomically validates a complete, eligible,
-Ready cast before persisting its start anchor. That anchor commits readiness:
-Ready and Not ready commands are refused afterward, including submissions from
-stale tabs. Expendable readiness leases and local device health cannot withdraw
-that commitment. Launch still validates participant eligibility and all other
-competitive gates. A Room without strikes or prep validates current readiness
-at direct launch. Synced seated clients enter the same scheduled or active Round when `roundRef`
+Start round atomically validates a complete, eligible, Ready cast and creates
+the Round. That commits readiness: Ready and Not ready commands are refused
+afterward, including submissions from stale tabs, because the Room is no longer
+open. Ready is asked once.
+Synced seated clients enter the same opening or active Round when `roundRef`
 appears, using a document navigation where media permissions require it. Completed
 and abandoned Round references leave the Room and its rematch action accessible.
 An observed terminal Round cannot trigger entry again through delayed snapshots,

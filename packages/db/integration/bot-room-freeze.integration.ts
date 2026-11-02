@@ -112,7 +112,7 @@ const withBotRoom = (
           seatsBotDebater: botRole !== 'judge',
           consent: null,
           publishDefinition: false,
-          drawSecrets: null,
+          draw: null,
           members: [state.hostActorId],
         },
       }),

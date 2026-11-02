@@ -1,9 +1,10 @@
+import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { createId } from '@paralleldrive/cuid2';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import type { RatingLadder } from '@daisy/protocol';
 import type { withRoomRuntime } from './room-runtime.test-support';
 import { everyoneReady } from './round-judging.test-support';
-import { strikeStanding } from './room-draw.test-support';
+import { strikeToReveal } from './room-draw.test-support';
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 /** Canonical setup proof; only the test-owned prep anchor advances, never real time. */
 export async function readyRatedRoom(
@@ -53,26 +54,6 @@ export async function readyRatedRoom(
     room,
     judgeKind === 'human' ? [f.host, f.guest, f.outsider] : [f.host, f.guest],
   );
-  if (ladder === 'freestyle') {
-    room = (await f.command(f.host, room, { type: 'start-pre-round' })).view;
-    for (
-      let ordinal = 0;
-      ordinal < (room.resolutionDraw?.drawSize ?? 1) - 1;
-      ordinal++
-    ) {
-      const who = ordinal % 2 === 0 ? f.guest : f.host;
-      room = (
-        await strikeStanding(
-          f,
-          await f.operations.view(who, room.id),
-          who,
-          ordinal,
-        )
-      ).view;
-    }
-    await f.sql`update rooms set prep_started_at=clock_timestamp()-interval '21 minutes' where id=${room.id}`;
-    room = await f.operations.view(f.host, room.id);
-  }
   return room;
 }
 
@@ -88,4 +69,20 @@ export async function recoverRatedResults(f: Fixture) {
     })({ limit: 64 });
   await Promise.all([sweep(), sweep()]);
   await sweep();
+}
+
+/**
+ * A Freestyle Round's opening, run to its first speech's countdown: both
+ * debaters strike to the reveal, and its 20:00 prep is cut to a millisecond,
+ * the one fact a test may move without waiting for the clock.
+ */
+export async function runRatedOpening(f: Fixture, roundId: string) {
+  const [row] = await f.sql`select status from rounds where id=${roundId}`;
+  if (row?.status !== 'opening') return;
+  await strikeToReveal(f, roundId, { host: f.host, guest: f.guest });
+  await f.sql`update rounds set pre_round_prep_ms=1 where id=${roundId}`;
+  await f.store.executeRoundTick({
+    roundId,
+    buildProjection: roundTickProjection(createId),
+  });
 }

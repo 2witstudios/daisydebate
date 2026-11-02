@@ -4,7 +4,6 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createRoundMaintenanceOperations,
-  ROUND_START_HORIZON_MS,
   DEFAULT_BALLOT_DEADLINE_MS,
   judgingPlan,
   unjudgedCompletion,
@@ -97,7 +96,6 @@ test('internal zerojudge completion requires real freeze and settled attendance 
         ratingFailed: (_id, error) => {
           throw error;
         },
-        startHorizonMs: ROUND_START_HORIZON_MS,
         probeRoundId: null,
         store: f.store,
         instanceId,
@@ -137,16 +135,13 @@ test('internal zerojudge completion requires real freeze and settled attendance 
 
 test('internal zerojudge completion preserves a prior competitive abandonment and refuses another command collision', async () =>
   withRoomRuntime(async (f) => {
-    const { roundId, envelope } = await startRuntimeRound(
-      f,
-      await f.assemble(),
-    );
+    const { roundId } = await startRuntimeRound(f, await f.assemble());
     const instanceId = createId();
     await f.store.renewServiceInstance({ instanceId, role: 'web' });
     const request = {
       roundId,
       instanceId,
-      commandId: envelope.commandId,
+      commandId: createId(),
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
       buildCompletion: unjudgedCompletion(createId),

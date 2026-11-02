@@ -192,19 +192,6 @@ export async function startCaptureSpeech(
   fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
 ) {
   const round = (await fixture.store.getRound(fixture.roundId))!;
-  await createRoundRuntimeOperations({
-    store: fixture.store,
-    nextSegmentId: createId,
-  }).command(
-    { kind: 'human', actorId: fixture.host.actorId },
-    fixture.roundId,
-    {
-      version: 1,
-      commandId: createId(),
-      expectedVersion: round.version,
-      command: { type: 'start' },
-    },
-  );
   await fixture.sql`update rounds set started_at=clock_timestamp()-${round.rules.countdownMs + 1000}*interval '1 millisecond' where id=${fixture.roundId}`;
 }
 /**

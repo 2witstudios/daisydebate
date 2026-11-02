@@ -221,7 +221,7 @@ export class Fixture {
       format_version: 1,
       preset_version: null,
       rules_snapshot: validRules,
-      status: 'scheduled',
+      status: 'opening',
       current_stage: null,
       outcome: null,
       ladder_id: null,

@@ -22,4 +22,4 @@ A debater's record is a pure function too (ISSUE-600). `recordResult` decides wh
 
 Run `bun test packages/debate-engine/src` for deterministic runtime and rating tests. Service-backed persistence proof lives in `packages/db/integration/` and runs with `bun test:integration`.
 
-The pre-round resolution draw is a Room phase, not a Round one ([ADR 0076](../decisions/0076-pre-round-resolution-draw.md)). `drawResolutions`, `settleDraw` and `preRoundPhase` are pure: the seed and salt come from the OS CSPRNG at the web edge, strikes carry their own due instants, and the Room projection delivers drawn texts only to seated debaters.
+The resolution draw is part of a Round's opening ([ADR 0098](../decisions/0098-round-owns-its-opening.md)). `drawResolutions`, `settleDraw` and `preRoundPhase` are pure: the seed and salt come from the OS CSPRNG at the web edge, strikes carry their own due instants, and the Room projection delivers drawn texts only to seated debaters.

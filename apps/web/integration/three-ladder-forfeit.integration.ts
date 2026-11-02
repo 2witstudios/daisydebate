@@ -32,7 +32,7 @@ for (const ladder of ratingLadders)
           {
             version: 1,
             commandId,
-            expectedVersion: started.receipt.resultingVersion,
+            expectedVersion: (await f.store.getRound(roundId))!.version,
             command: {
               type: 'forfeit',
               participantId: (await f.store.getRound(
