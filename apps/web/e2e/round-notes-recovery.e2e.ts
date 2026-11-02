@@ -32,6 +32,23 @@ const edit = (page: Page, text: string) =>
  * that browsers lose one. The real commit has its own journey with no double.
  */
 const reloadLosingExitSave = async (page: Page) => {
+  const roundId = new URL(page.url()).pathname.split('/')[2]!;
+  const unsaved = await page.evaluate((round) => {
+    const inRound = `:${round}:`;
+    return Object.keys(localStorage)
+      .filter(
+        (key) =>
+          key.startsWith('daisy:round-notes:draft:') && key.includes(inRound),
+      )
+      .filter((key) => JSON.parse(localStorage.getItem(key)!).active)
+      .map((key) => key.slice(key.lastIndexOf(':') + 1));
+  }, roundId);
+  const revisions = await Promise.all(
+    unsaved.map(async (id) => {
+      const { revision } = await serverDocument(page, roundId, id);
+      return [id, revision] as const;
+    }),
+  );
   await page.evaluate((save) => {
     const send = window.fetch;
     const mark = (outcome: string) =>
@@ -64,6 +81,11 @@ const reloadLosingExitSave = async (page: Page) => {
   });
   expect(outcome.unexpected).toBe(0);
   expect(outcome.lost).toBeGreaterThan(0);
+  for (const [id, revision] of revisions)
+    expect(
+      (await serverDocument(page, roundId, id)).revision,
+      'An autosave committed this edit, so no exit save was lost',
+    ).toBe(revision);
 };
 /** Wait for the actual offer before sampling its independent durable identity. */
 const offeredAfterReload = async (
@@ -722,8 +744,9 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
     .poll(async () => (await serverDocument(page, roundId, documentId)).html)
     .toContain('界');
   await page.unroute(`**${documentsPath}save`);
-  await page.clock.resume();
+  // Timers stay paused until after the reload, so no autosave can commit first.
   await reloadLosingExitSave(page);
+  await page.clock.resume();
   await expect(
     page.getByRole('button', { name: `Restore ${second.title}`, exact: true }),
   ).toBeVisible();
