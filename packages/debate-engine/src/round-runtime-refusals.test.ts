@@ -62,12 +62,26 @@ describe('round runtime command refusals and seat order', () => {
       world.tick(at(totalMs - 1));
       return world;
     };
+    const unticked = started();
+    const unsettled = unticked.checkpoint();
     await assertRejects({
       given:
         'a stale form posting after the final speech ran out with no tick persisted',
       should: 'refuse with a conflict',
-      actual: () => forfeitAt(started(), totalMs),
+      actual: () => forfeitAt(unticked, totalMs),
       code: 'CONFLICT',
+    });
+    assert({
+      given: 'the refused stale form',
+      should: 'keep nothing from the clock advance it ran on',
+      actual: unticked.checkpoint(),
+      expected: unsettled,
+    });
+    assert({
+      given: 'the same Round ticked after the refusal',
+      should: 'still rule the release, so the refusal consumed no transition',
+      actual: unticked.tick(at(totalMs)).releasesRoomMembers,
+      expected: true,
     });
     assert({
       given: 'a debater forfeiting in the last moment of the final speech',

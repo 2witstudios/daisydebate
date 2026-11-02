@@ -151,7 +151,7 @@ A Round reaches one terminal state, and only once:
   opponent forfeits. Both missing abandons. A bot worker's loss abandons and
   never forfeits (ADR 0067). Media, capture or speech-to-text failure is
   never evidence of absence.
-- **Forfeit by command.** A debater can forfeit.
+- **Forfeit by command.** A debater can forfeit until the last speech ends.
 - **Abandoned before start.** A Round still scheduled past its start horizon
   (default 15 minutes after Launch) is abandoned (DEC-214).
 
