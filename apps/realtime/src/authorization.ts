@@ -30,6 +30,9 @@ export type AuthorityResources = {
   readonly clock: Clock;
   readonly database: RealtimeAuthorityReads;
 };
+/** A spent budget stops a chain of reads before it takes the lane again. */
+const stopIfSpent = (signal: AbortSignal | undefined) =>
+  signal?.throwIfAborted();
 const fingerprint = (value: unknown) =>
   createHash('sha3-256').update(JSON.stringify(value)).digest('hex');
 
@@ -55,6 +58,7 @@ export function createRealtimeAuthorization({
   async function authorizeTopic(
     principal: SocketPrincipal,
     topic: string,
+    signal?: AbortSignal,
   ): Promise<SubscriptionAuthority | null> {
     const parsed = parseTopic(topic);
     if (!parsed) return null;
@@ -73,6 +77,7 @@ export function createRealtimeAuthorization({
       session.expiresAt,
     ];
     const bound = Math.min(started + 60_000, deadline(session.expiresAt));
+    stopIfSpent(signal);
     if (parsed.family === 'user:inbox')
       return authorize({
         principal: { kind: 'user', ...principal },
@@ -98,6 +103,7 @@ export function createRealtimeAuthorization({
           session.account.revision,
           base,
           bound,
+          signal,
         );
       case 'round':
         return authorizeAudience(
@@ -109,6 +115,7 @@ export function createRealtimeAuthorization({
           session.account.revision,
           base,
           bound,
+          signal,
         );
       case 'channel':
         return authorizeChannel(
@@ -130,6 +137,7 @@ export function createRealtimeAuthorization({
     accountRevision: number,
     base: readonly unknown[],
     bound: number,
+    signal: AbortSignal | undefined,
   ): Promise<SubscriptionAuthority | null> {
     const facts = await projection;
     if (!facts?.account || facts.account.revision !== accountRevision)
@@ -141,6 +149,7 @@ export function createRealtimeAuthorization({
       context: { account: facts.account },
     });
     if (!decision.allow) return null;
+    stopIfSpent(signal);
     const current = await resources.database.readAuthorizationSession({
       ...principal,
       now: resources.clock.now(),

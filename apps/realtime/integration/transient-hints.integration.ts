@@ -44,7 +44,6 @@ test('actual restricted-role SQL hint listener publishes only to a current authe
       await issueAuthorityTicket({
         ...fixture,
         sessionId,
-        userId: messaging.userId,
         actorId: messaging.actorId,
       }),
     );

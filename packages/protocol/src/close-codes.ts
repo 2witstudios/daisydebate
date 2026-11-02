@@ -45,5 +45,11 @@ export const closeCodeTable = [
     description:
       'SIGTERM drain. Client: reconnect with 0-5s jitter (another instance takes it).',
   },
+  {
+    code: 4007,
+    reason: 'authority_unavailable',
+    description:
+      'the session or ticket check could not answer, so nothing was decided and the socket is not served unchecked. Client: fetch a fresh ticket and reconnect with standard backoff, paced across connections until a frame is answered.',
+  },
 ] as const;
 export type CloseCodeReason = (typeof closeCodeTable)[number]['reason'];

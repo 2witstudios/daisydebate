@@ -5,6 +5,16 @@ type CapacityRefusalReason = 'unconfigured' | 'saturated' | 'expired';
 export type CapacityRefusalDetail = {
   readonly lane: string;
   readonly reason: CapacityRefusalReason;
+  /**
+   * The lane when it refused: waiters still queued, connections taken, and how
+   * long the oldest running work had held its slot. One long hold with few
+   * waiters is a stuck holder; many waiters behind short holds is a burst.
+   */
+  readonly pressure?: {
+    readonly pending: number;
+    readonly running: number;
+    readonly oldestAgeMs: number;
+  };
 };
 
 const CAPACITY_UNAVAILABLE = 'Database capacity unavailable';
@@ -17,7 +27,7 @@ const reportedRefusals = new WeakSet<Error>();
  * followed; hostile links and execution recovery detail objects fail
  * closed to ordinary failure reporting.
  */
-function causeChainMember(
+export function causeChainMember(
   marked: (error: Error) => boolean,
   error: unknown,
 ): Error | undefined {

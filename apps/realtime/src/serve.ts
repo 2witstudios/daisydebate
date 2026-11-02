@@ -172,6 +172,7 @@ export async function serveRealtime({
       registry: delivery.registry,
       authenticate: delivery.authenticate,
       validatePrincipal: delivery.validatePrincipal,
+      failed: delivery.reportUnavailable,
       now,
       ...presenceTracker(resources, presence, scheduler),
       ...(observing ? { observation: observing.node } : {}),
