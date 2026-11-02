@@ -22,7 +22,7 @@ export const helpTopics: readonly HelpTopic[] = [
     id: 'start-a-debate',
     question: 'How do I start a debate?',
     answer:
-      'Open a room in the lobby or play from the Play page. Take a seat, wait for an opponent and a judge, and ready up. The host can choose a person or a placeholder AI judge.',
+      'Open a room in the lobby or play from the Play page. Take a seat, wait for an opponent and a judge, and ready up. The host can invite a person to judge. An AI judge is free on ranked rounds and premium on casual rounds.',
     links: [
       { label: 'Play', href: '/play' },
       { label: 'Lobby', href: '/lobby' },

@@ -3,6 +3,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { AssemblyCast, type CastProps, type IntentIds } from './assembly-cast';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
+import { AiJudgeNotice, aiJudgeSeatable } from './ai-judge-notice';
 import { declaredSeats, seatLabel } from './assembly-controls';
 import { initialsOf } from '../../../lib/initials';
 import { seatStatus } from './room-labels';
@@ -59,9 +60,9 @@ function OpenSeatActions({
 }) {
   const { view } = props;
   const position = { role: seat.role, slot: String(seat.slot) };
-  const aiJudge = props.bots.find(
-    (bot) => bot.seatRole === 'judge' && bot.eligible,
-  );
+  const aiJudge = aiJudgeSeatable(view.aiJudgeSeating)
+    ? props.bots.find((bot) => bot.seatRole === 'judge' && bot.eligible)
+    : undefined;
   return (
     <div className="flex flex-wrap items-start justify-end gap-2">
       {view.capabilities.canClaimSeat ? (
@@ -200,6 +201,7 @@ export function AssemblySeats(props: Props) {
           );
         })}
       </ul>
+      <AiJudgeNotice view={props.view} />
       {props.view.capabilities.host ? (
         <details className="border-t border-border pt-3">
           <summary className="flex min-h-12 cursor-pointer items-center text-sm font-strong">

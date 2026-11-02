@@ -36,17 +36,16 @@ test('a bot-debater cast states the monthly allowance and what starting spends',
   });
 });
 
-test('an AI-judge-only cast says the judge is free', () => {
+test('an AI-judge-only cast says it spends no AI round', () => {
   const html = render({ kind: 'free' });
   assert({
     given: 'human debaters with only an AI judge',
     should: 'state that this exact cast spends no AI round',
     actual: [
-      html.includes('The AI judge is free'),
-      html.includes('doesn’t use one of your AI rounds'),
+      html.includes('The AI judge doesn’t use one of your AI rounds'),
       html.includes('rounds left'),
     ],
-    expected: [true, true, false],
+    expected: [true, false],
   });
 });
 

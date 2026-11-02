@@ -70,10 +70,40 @@ test('non-host cast exposes no assignment authority', () => {
   });
 });
 
+test('Manage seats shows the AI judge as premium and unselectable for a host without it (WATCH-16)', () => {
+  const html = renderToStaticMarkup(
+    <AssemblyCast
+      view={{ ...assemblySnapshot, aiJudgeSeating: 'premium' }}
+      viewer={{
+        actorId: assemblySnapshot.hostActorId,
+        label: assemblySnapshot.hostLabel,
+      }}
+      bots={[
+        {
+          actorId: 'j'.repeat(24),
+          kind: 'bot',
+          label: 'AI judge',
+          seatRole: 'judge',
+          eligible: true,
+        },
+      ]}
+      {...nativeIntents}
+    />,
+  );
+  assert({
+    given: 'a casual host without the entitlement',
+    should: 'disable the AI judge option and name why',
+    actual: html.includes(
+      `<option value="${'j'.repeat(24)}" disabled="">AI judge · AI · premium</option>`,
+    ),
+    expected: true,
+  });
+});
+
 test('each seat offers only the AI actors that may hold it', () => {
   const html = renderToStaticMarkup(
     <AssemblyCast
-      view={assemblySnapshot}
+      view={{ ...assemblySnapshot, aiJudgeSeating: 'included' }}
       viewer={{
         actorId: assemblySnapshot.hostActorId,
         label: assemblySnapshot.hostLabel,
