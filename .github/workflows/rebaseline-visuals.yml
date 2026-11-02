@@ -1,11 +1,12 @@
 name: Rebaseline visuals
 # ADR 0073: an intended visual change rebaselines in one action.
 #   gh workflow run rebaseline-visuals.yml -f target=<pr number or branch>
-# Three jobs, so branch code never runs beside a write token: `resolve`
+# Four jobs, so branch code never runs beside a write token: `resolve`
 # reads the target, `render` builds and runs the visual project with
 # --update-snapshots on the E2E job's runner image under a read-only token,
-# and `commit` runs no branch code: it copies the rendered PNGs into the
-# baselines folder and pushes only that folder's changes.
+# `commit` runs no branch code: it copies the rendered PNGs into the
+# baselines folder and pushes only that folder's changes, and `start-checks`
+# checks out nothing and approves the CI runs GitHub holds for that push.
 on:
   workflow_dispatch:
     inputs:
@@ -198,6 +199,8 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
+    outputs:
+      sha: ${{ steps.push.outputs.sha }}
     steps:
       # Checked out only to write the baselines folder; no branch code runs.
       - name: Check out the rendered commit
@@ -229,6 +232,7 @@ jobs:
 
       # Only the baselines folder is staged.
       - name: Commit and push only changed baselines
+        id: push
         env:
           BRANCH: ${{ needs.resolve.outputs.branch }}
         run: |
@@ -246,3 +250,46 @@ jobs:
           # A fast-forward of the rendered commit only: a branch that moved
           # meanwhile rejects the push, and the run is repeated.
           git push origin "HEAD:refs/heads/$BRANCH"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  # GitHub holds pull_request runs from a workflow token's push for approval
+  # by someone with write access, and this job's token has that access.
+  start-checks:
+    name: Start CI on the rebaselined head
+    needs: commit
+    if: needs.commit.outputs.sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+    steps:
+      # Only runs at the commit this workflow just pushed, which differs from
+      # the rendered head by baseline PNGs alone.
+      - name: Approve the held runs at the pushed commit
+        id: approve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.commit.outputs.sha }}
+        run: |
+          set -eu
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" | jq length)" = 0 ]; then
+            echo "::notice::No pull request holds $SHA, so no CI runs for it"
+            exit 0
+          fi
+          attempt=0
+          while [ "$attempt" -lt 24 ]; do
+            attempt=$((attempt + 1))
+            runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA&event=pull_request&per_page=100")
+            for id in $(printf '%s' "$runs" | jq -r '.workflow_runs[] | select(.conclusion == "action_required") | .id'); do
+              gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/approve" > /dev/null
+              echo "Approved run $id"
+            done
+            if printf '%s' "$runs" | jq -e '[.workflow_runs[].name] | contains(["CI", "Browser E2E"])' > /dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::CI and Browser E2E did not both appear at $SHA"
+          exit 1

@@ -41,7 +41,12 @@ const e2e = Bun.YAML.parse(read('.github/workflows/e2e.yml')) as Workflow;
 const jobText = (job: Job) => JSON.stringify(job);
 
 describe('Rebaseline visuals workflow (ADR 0073)', () => {
-  const { resolve, render, commit } = workflow.jobs as Record<string, Job>;
+  const {
+    resolve,
+    render,
+    commit,
+    'start-checks': startChecks,
+  } = workflow.jobs as Record<string, Job>;
 
   test('it is a manual action on one target', () => {
     assert({
@@ -59,18 +64,24 @@ describe('Rebaseline visuals workflow (ADR 0073)', () => {
     assert({
       given: 'the workflow and job permissions',
       should:
-        'grant nothing by default, read to resolve and render, and contents: write to commit alone',
+        'grant nothing by default, read to resolve and render, contents: write to commit alone, and actions: write to start-checks alone',
       actual: {
         workflow: workflow.permissions,
         resolve: resolve?.permissions,
         render: render?.permissions,
         commit: commit?.permissions,
+        startChecks: startChecks?.permissions,
       },
       expected: {
         workflow: {},
         resolve: { contents: 'read', 'pull-requests': 'read' },
         render: { contents: 'read' },
         commit: { contents: 'write' },
+        startChecks: {
+          actions: 'write',
+          contents: 'read',
+          'pull-requests': 'read',
+        },
       },
     });
   });
@@ -124,6 +135,121 @@ describe('Rebaseline visuals workflow (ADR 0073)', () => {
         message: true,
         push: true,
       },
+    });
+  });
+});
+
+/**
+ * Runs the approval step against stub `gh` and `sleep` commands: `pulls` is the
+ * commit's pull request listing, `runs` the workflow run listing. Returns the
+ * exit status and each run the step asked GitHub to approve.
+ */
+const runApprove = (pulls: unknown[], runs: unknown[]) => {
+  const step = workflow.jobs['start-checks']!.steps.find(
+    ({ id }) => id === 'approve',
+  )!;
+  const dir = mkdtempSync(join(tmpdir(), 'rebaseline-approve-'));
+  try {
+    const calls = join(dir, 'calls');
+    writeFileSync(calls, '');
+    const gh = join(dir, 'gh');
+    writeFileSync(
+      gh,
+      `#!/bin/sh
+echo "$*" >> '${calls}'
+case "$*" in
+  *"/pulls") echo '${JSON.stringify(pulls)}' ;;
+  *"/actions/runs?"*) echo '${JSON.stringify({ workflow_runs: runs })}' ;;
+esac
+`,
+    );
+    chmodSync(gh, 0o755);
+    const sleep = join(dir, 'sleep');
+    writeFileSync(sleep, '#!/bin/sh\n');
+    chmodSync(sleep, 0o755);
+    const run = Bun.spawnSync(['bash', '-c', step.run!], {
+      env: {
+        PATH: `${dir}:${process.env.PATH}`,
+        GITHUB_REPOSITORY: 'owner/daisy',
+        SHA: 'a'.repeat(40),
+      },
+    });
+    return {
+      ok: run.exitCode === 0,
+      approved: readFileSync(calls, 'utf8')
+        .split('\n')
+        .filter((call) => call.startsWith('api --method POST'))
+        .map((call) => call.match(/runs\/(\d+)\/approve/)?.[1]),
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
+
+const heldRun = (id: number, name: string) => ({
+  id,
+  name,
+  conclusion: 'action_required',
+});
+
+describe('Rebaseline visuals start-checks', () => {
+  test('the job that holds actions: write', () => {
+    const job = workflow.jobs['start-checks']!;
+    assert({
+      given: 'the start-checks job',
+      should: 'check out nothing and run only after a push',
+      actual: {
+        needs: job.needs,
+        condition: (job as Job & { if?: string }).if,
+        uses: job.steps.flatMap((step) => (step.uses ? [step.uses] : [])),
+      },
+      expected: {
+        needs: 'commit',
+        condition: "needs.commit.outputs.sha != ''",
+        uses: [],
+      },
+    });
+  });
+
+  test('both runs held for approval', () => {
+    assert({
+      given: 'CI and Browser E2E held at the pushed commit',
+      should: 'approve both and finish',
+      actual: runApprove(
+        [{ number: 1 }],
+        [heldRun(11, 'CI'), heldRun(12, 'Browser E2E')],
+      ),
+      expected: { ok: true, approved: ['11', '12'] },
+    });
+  });
+
+  test('a run already started', () => {
+    assert({
+      given: 'CI already running and Browser E2E held',
+      should: 'approve only the held run',
+      actual: runApprove(
+        [{ number: 1 }],
+        [{ id: 11, name: 'CI', conclusion: null }, heldRun(12, 'Browser E2E')],
+      ),
+      expected: { ok: true, approved: ['12'] },
+    });
+  });
+
+  test('a branch with no pull request', () => {
+    assert({
+      given: 'a pushed commit no pull request holds',
+      should: 'finish without approving anything',
+      actual: runApprove([], []),
+      expected: { ok: true, approved: [] },
+    });
+  });
+
+  test('required runs that never appear', () => {
+    assert({
+      given: 'a pull request whose Browser E2E run never appears',
+      should: 'fail rather than report the checks as started',
+      actual: runApprove([{ number: 1 }], [heldRun(11, 'CI')]).ok,
+      expected: false,
     });
   });
 });

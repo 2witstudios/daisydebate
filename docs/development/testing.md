@@ -360,10 +360,17 @@ To rebaseline after an intended visual change, run
 `gh workflow run rebaseline-visuals.yml -f target=<pr number or branch>`: it
 renders the visual project with `--update-snapshots` on the E2E runner image
 and commits only changed baselines to that same-repository branch (never a
-fork or `main`). GitHub starts no CI for that commit, so pull it and push
-your next commit (or close and reopen the PR) to run the gates; the commit
-moves the PR head, so rebaseline before reviewers start. Review the
-image diff on the PR. `bun visual:server` runs `scripts/visual-server.ts`,
+fork or `main`).
+
+What that does to checks: the commit is a new PR head, so every check from the
+previous head stops counting and every required check runs again from zero.
+GitHub holds a workflow token's `pull_request` runs for approval, so the
+workflow's `Start CI on the rebaselined head` job approves CI and Browser E2E
+at exactly that commit; nobody clicks anything or pushes anything. If that job
+fails the runs stay waiting, so rerun the job. Reviews also attach to the old
+head, so rebaseline before reviewers start, and pull before you commit again.
+
+Review the image diff on the PR. `bun visual:server` runs `scripts/visual-server.ts`,
 which takes the image tag and run-server version from the web app's exact
 `@playwright/test` pin, so they always match. The command lives in a script
 because Bun rewrites `npx` in a `package.json` script to `bun x`, which the
