@@ -95,6 +95,12 @@ Recorded exceptions:
 Forms that predate this rule are tracked as issues in the PageSpace `Issues`
 list. Bring each one into line when you next change it.
 
+### Conversation completion ownership
+
+A hydrated DM send's durable result and its right to navigate are separate: the
+conversation owns both, and a newer same-tab choice in it supersedes the send's
+destination. See [messaging](../domains/messaging.md#send-completion-ownership).
+
 ## Copy says what the interface cannot
 
 Owner decision, 2026-10-04. The interface explains itself; copy fills only

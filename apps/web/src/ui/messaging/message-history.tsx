@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { ConversationLink as Link } from './conversation-navigation';
 import type { MessagingConversation } from '../../features/messaging/conversation';
 type Message = MessagingConversation['messages'][number];
 function MessageRow({
