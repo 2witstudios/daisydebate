@@ -19,6 +19,7 @@ const captureOperations = [
   'append',
   'observe',
   'seal',
+  'release',
   'heard',
 ] as const;
 const route = (path: string) => {

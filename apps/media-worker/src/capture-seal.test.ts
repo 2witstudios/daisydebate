@@ -8,6 +8,7 @@ const stream = (segmentId: string) => ({
   segmentId,
   roundParticipantId: 'p'.repeat(24),
   count: 0,
+  framesLost: false,
 });
 
 test('only a definite refusal or a seal finishes a stream', async () => {

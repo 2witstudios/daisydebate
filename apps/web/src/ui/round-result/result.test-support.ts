@@ -31,12 +31,14 @@ export const completed: RoundBallotRead = {
   ],
   transcript: {
     completeness: 'incomplete',
+    gaps: [],
     utterances: [
       {
         id: 'u1',
         segmentId: played.segments[0]!.id,
         segmentSequence: 0,
         sequence: 0,
+        startOffsetMs: null,
         roundParticipantId: aff.id,
         text: 'Access improves.',
         complete: true,
@@ -46,6 +48,7 @@ export const completed: RoundBallotRead = {
         segmentId: played.segments[1]!.id,
         segmentSequence: 1,
         sequence: 0,
+        startOffsetMs: null,
         roundParticipantId: neg.id,
         text: 'Costs displace services',
         complete: false,

@@ -13,6 +13,7 @@ const base = 'http://localhost/internal/media/capture';
 const fixture = (
   seal?: () => Promise<unknown>,
   token?: () => Promise<never>,
+  lease?: { result: unknown; logged: unknown[] },
 ) => {
   const calls: [string, unknown][] = [];
   const record =
@@ -22,7 +23,14 @@ const fixture = (
       return result;
     };
   const handlers = createMediaCaptureHandlers({
-    logger: silentLogger,
+    logger: lease
+      ? {
+          ...silentLogger,
+          log: (event: string, fields: unknown) => {
+            lease.logged.push([event, fields]);
+          },
+        }
+      : silentLogger,
     reporter: noopErrorReporter,
     authentication: () =>
       ({
@@ -34,7 +42,10 @@ const fixture = (
       }) as never,
     capture: () =>
       ({
-        claimMediaWorkerLease: record('lease'),
+        claimMediaWorkerLease: record(
+          'lease',
+          lease?.result ?? { ok: 'lease' },
+        ),
         readMediaCaptureState: record('read'),
         appendCapturedTranscript: record('append'),
         observeCapturedStream: record('observe'),
@@ -183,18 +194,50 @@ test('only an ended session or closed admission is named closed for good', async
   };
   assert({
     given:
-      'capture refused because its session has ended, its admission is closed, or its session is only temporarily unsafe or being deleted',
+      'capture refused because its session has ended, its admission is closed, its session is only temporarily unsafe or being deleted, its lease expired, or a takeover moved it',
     should:
-      'name the first two capture-closed (409) and the temporary window capture-paused (503, retried), never closed (ISSUE-494-r3)',
+      'name the first two capture-closed (409), the temporary window capture-paused and an expired lease its worker may reinstate lease-expired (503, retried), never closed (ISSUE-494-r3), and leave a takeover final',
     actual: [
       await refusal('Capture session has ended'),
       await refusal('Capture admission is closed'),
       await refusal('Capture session is closed'),
+      await refusal('Capture worker lease expired'),
+      await refusal('Capture worker lease is stale'),
     ],
     expected: [
       [409, 'capture-closed'],
       [409, 'capture-closed'],
       [503, 'capture-paused'],
+      [503, 'lease-expired'],
+      [409, undefined],
+    ],
+  });
+});
+
+test('a reinstated lease is measured and its reply keeps the worker contract', async () => {
+  const lease = {
+    result: {
+      epoch: 2,
+      expiresAt: new Date(15000).toISOString(),
+      reinstatedAfterMs: 3200,
+    },
+    logged: [] as unknown[],
+  };
+  const response = await fixture(undefined, undefined, lease).handlers.handle(
+    signed('lease', '{}'),
+  );
+  assert({
+    given: 'a renewal that reinstated an expired lease',
+    should: 'log how long it was expired and answer only epoch and expiry',
+    actual: [
+      lease.logged.filter(
+        (entry) => (entry as string[])[0] === 'media.capture.lease_reinstated',
+      ),
+      await response.json(),
+    ],
+    expected: [
+      [['media.capture.lease_reinstated', { durationMs: 3200 }]],
+      { epoch: 2, expiresAt: new Date(15000).toISOString() },
     ],
   });
 });

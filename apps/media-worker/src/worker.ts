@@ -5,6 +5,7 @@ import { isAppError } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
 import { createCaptureSupervisor } from './supervisor';
 import { describeCaptureExit } from './capture-exit';
+import { capturePendingBytes } from './capture-memory';
 
 /** The worker's logger, stamped with the release from validated config (ISSUE-554). */
 export const createWorkerLogger = (
@@ -77,6 +78,9 @@ export async function startMediaWorker(input: {
             PUBLIC_APP_URL: config!.PUBLIC_APP_URL,
             MEDIA_WORKER_SECRET: config!.MEDIA_WORKER_SECRET,
             OPENROUTER_API_KEY: config!.OPENROUTER_API_KEY,
+            CAPTURE_PENDING_BYTES: String(
+              capturePendingBytes(config!.MEDIA_WORKER_MAX_SESSIONS),
+            ),
           },
         },
       );

@@ -2,6 +2,7 @@ import { createAppError } from '@daisy/errors';
 import {
   idSchema,
   roundTranscriptReadSchema,
+  TRANSCRIPT_CONTRACT_VERSION,
   type LaunchedRound,
 } from '@daisy/protocol';
 import { eq } from 'drizzle-orm';
@@ -11,8 +12,11 @@ import { readAuthorizedRound } from './round-read-authority';
 import { readOrderedRoundUtterances } from './round-utterance-projection';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { transcriptRevision } from './capture-history';
+import { closedStreamGaps, streamKey } from './capture-gaps';
 import { transcriptSegments } from './schema/transcript-segments';
 import { roundViewFor } from './round-view-projection';
+
+type Reader = Pick<BunSQLDatabase, 'select'>;
 
 export const roundProtectedReads = ({
   database,
@@ -30,6 +34,7 @@ export const roundProtectedReads = ({
     return database.transaction(async (tx) => {
       const round = await readAuthorizedRound(tx, input);
       return roundTranscriptReadSchema.parse({
+        contractVersion: TRANSCRIPT_CONTRACT_VERSION,
         round: roundViewFor(round, input.caller.actorId),
         ...(await readTranscriptSnapshot(tx, input.roundId)),
       });
@@ -42,10 +47,7 @@ export const roundProtectedReads = ({
  * committed during these reads can only make the rows newer than the
  * revision, so its doorbell still refetches (never a stale "Capturing").
  */
-export async function readTranscriptSnapshot(
-  tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
-  roundId: string,
-) {
+export async function readTranscriptSnapshot(tx: Reader, roundId: string) {
   const counter = await transcriptRevision(tx, roundId);
   const freeze = await readTranscriptFreeze(tx, roundId);
   const streams = await tx
@@ -56,10 +58,21 @@ export async function readTranscriptSnapshot(
     })
     .from(transcriptSegments)
     .where(eq(transcriptSegments.roundId, roundId));
+  const gaps = await closedStreamGaps(
+    tx,
+    roundId,
+    streams.filter(
+      (stream) =>
+        stream.state === 'partial' || (freeze && stream.state === 'open'),
+    ),
+  );
   return {
     revision: counter + (freeze ? 1 : 0),
     freeze: freeze ? { completeness: freeze.completeness } : null,
-    streams,
+    streams: streams.map((stream) => ({
+      ...stream,
+      gaps: gaps.get(streamKey(stream)) ?? [],
+    })),
     utterances: await readOrderedRoundUtterances(tx, roundId, 'frozen'),
   };
 }

@@ -52,6 +52,7 @@ test('a stalled heard report cannot hold capture history, validation or sealing 
   };
   const client = {
     lease: async () => ({ epoch: 1 }),
+    release: async () => undefined,
     token: async () => ({ url: 'wss://media.invalid', token: 'test' }),
     read: async () => {
       reads++;
@@ -71,6 +72,7 @@ test('a stalled heard report cannot hold capture history, validation or sealing 
     {
       roundId: 'r'.repeat(24),
       client,
+      pendingBytes: 1024 * 1024,
       voice: { transcribe: async () => '' } as never,
       sttModel: 'test',
       nowMs: () => now,

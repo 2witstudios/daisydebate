@@ -84,6 +84,7 @@ async function close(
     nowMs: () => now,
     waitUntilMs,
     take: () => queue.shift(),
+    lost: () => undefined,
     straddles: () => [],
     dropped: (n) => {
       dropped += n;
@@ -99,6 +100,7 @@ async function close(
   const carries = openSpeechCarry();
   const sealed = await closeCaptureSession({
     graceful,
+    lost: () => undefined,
     carries,
     roundId,
     enqueue: (clip) => {

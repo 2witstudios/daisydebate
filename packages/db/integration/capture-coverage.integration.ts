@@ -34,6 +34,7 @@ test('worker-shaped observations seal a fully captured stream complete and a dro
         const sealed = await store.sealCapturedStream({
           ...stream,
           expectedChunkCount: 1,
+          framesLost: false,
         });
         assert({
           given: dropped
@@ -74,8 +75,13 @@ async function sealObserved(
       observedFrom: at(from),
       observedUntil: at(until),
     });
-  return (await store.sealCapturedStream({ ...stream, expectedChunkCount: 1 }))
-    .state;
+  return (
+    await store.sealCapturedStream({
+      ...stream,
+      expectedChunkCount: 1,
+      framesLost: false,
+    })
+  ).state;
 }
 
 test('a human grant is required from the first frame within the join tolerance to the last frame before the yield (DEC-218, DEC-220)', async () => {

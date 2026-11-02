@@ -13,11 +13,13 @@ const session = (client: Partial<Record<keyof CaptureClient, unknown>>) =>
       roundId: 'round1',
       client: {
         lease: async () => ({ epoch: 1 }),
+        release: async () => undefined,
         read: async () => ({ state, calibration: {} }),
         ...client,
       } as unknown as CaptureClient,
       voice: { transcribe: async () => '' } as never,
       sttModel: 'model',
+      pendingBytes: 1024 * 1024,
       // Every refusal here comes before the room or the consumer is used.
       subscribe: (() => Promise.reject(new Error('unused'))) as never,
       consume: (() => Promise.reject(new Error('unused'))) as never,
