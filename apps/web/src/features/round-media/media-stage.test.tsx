@@ -2,8 +2,8 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { MediaStage } from './media-stage';
-import type { RemotePeer } from './browser-transport';
-import type { MediaConnectionState } from './media-controller';
+import type { ObservedPeer as RemotePeer } from './model/media-state';
+import type { MediaConnectionLabel as MediaConnectionState } from './model/media-status';
 import { aff, view } from '../../ui/debate-room/live-round.test-support';
 
 setupRitewayBun();
@@ -49,7 +49,7 @@ test('tiles distinguish mute, floor permission, missing publication and missing 
     should: 'name only the known media state without claiming audibility',
     actual: [
       render('live', true, true).includes('You muted your microphone'),
-      render('live', false, true).includes('Waiting for microphone permission'),
+      render('live', false, true).includes('Microphone closed'),
       render('live').includes('Microphone not publishing'),
     ],
     expected: [true, true, true],
@@ -82,9 +82,7 @@ test('a remote seat says what the transport actually observes of that peer', () 
   assert({
     given: 'an ungranted peer still connected',
     should: 'report the floor, not a device problem',
-    actual: remote(false, present(false)).includes(
-      'Waiting for microphone permission',
-    ),
+    actual: remote(false, present(false)).includes('Microphone closed'),
     expected: true,
   });
 });

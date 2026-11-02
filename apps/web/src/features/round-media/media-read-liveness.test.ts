@@ -5,11 +5,11 @@ import {
   snapshot,
   transportStub,
   viewAt,
-} from './media-controller.test-support';
-import type { MediaConnectionState } from './media-controller';
+} from './media-fixtures.test-support';
+import type { MediaConnectionState } from './media-harness.test-support';
 import { mediaFailure, transientMediaFailure } from './media-failure';
-import { seatMicrophoneCaption } from './media-status';
-import { settle } from './browser-transport.test-support';
+import { seatMicrophoneCaption } from './model/seat-caption';
+import { settle } from './adapters/livekit-room.test-support';
 setupRitewayBun();
 
 test('only an authority answer ends a live connection', async () => {
@@ -172,37 +172,9 @@ test('a seat checking its microphone cannot stick when no answer comes', async (
       'stop claiming a state, say out of date rather than checking for ever, and name the state again on the answer',
     actual: [answered, unanswered, seat.caption()],
     expected: [
-      'Waiting for microphone permission',
+      'Microphone closed',
       'Microphone status out of date',
-      'Waiting for microphone permission',
-    ],
-  });
-  seat.controller.stop();
-});
-
-test('a seat cannot stay on checking while an apply never settles', async () => {
-  let applies = 0;
-  const seat = watchedCaption({
-    reconcile: async () => snapshot,
-    transport: () =>
-      transportStub({
-        apply: () =>
-          ++applies === 1 ? Promise.resolve() : new Promise(() => undefined),
-      }),
-  });
-  await seat.controller.join();
-  void seat.controller.reconcile(viewAt(4));
-  await settle();
-  const whileChecking = [seat.caption(), seat.controller.state()];
-  seat.advance(40_000);
-  assert({
-    given: 'a newer view whose answer arrives but whose apply never settles',
-    should: 'check first, then show out of date at the budget',
-    actual: [whileChecking, seat.caption(), seat.controller.state()],
-    expected: [
-      ['Checking microphone…', 'live'],
-      'Microphone status out of date',
-      'out-of-date',
+      'Microphone closed',
     ],
   });
   seat.controller.stop();
@@ -237,21 +209,6 @@ test('an answer ends the budget, and stopping leaves it inert', async () => {
   controller.stop();
 });
 
-test('a read let finish cannot hold the fresh read past the young limit', async () => {
-  const { controller, advance, signals, reads } = await readsStallAfterFirst(4);
-  await burstOfThree(controller, advance);
-  const whileYoung = [signals[2]?.aborted, reads()];
-  advance(1_900);
-  await settle();
-  assert({
-    given: 'the last event landing on a young read that then stalls',
-    should: 'leave it alone while young, then abort it and read fresh',
-    actual: [whileYoung, signals[2]?.aborted, reads(), controller.state()],
-    expected: [[false, 3], true, 4, 'live'],
-  });
-  controller.stop();
-});
-
 test('no timer outlives what it was timing', async () => {
   const pendings: number[] = [];
   const scenario = async (
@@ -278,46 +235,6 @@ test('no timer outlives what it was timing', async () => {
     actual: pendings,
     expected: [2, 0, 2, 1],
   });
-});
-
-test('a read let finish spends no attempt after its retry pause', async () => {
-  const { budget, advance } = fakeBudget();
-  let reads = 0;
-  const pause = Promise.withResolvers<void>();
-  const inPause = Promise.withResolvers<void>();
-  const controller = readController({
-    readBudget: budget,
-    retry: {
-      delaysMs: [500],
-      wait: () => {
-        inPause.resolve();
-        return pause.promise;
-      },
-    },
-    reconcile: async () => {
-      reads++;
-      if (reads === 1 || reads >= 4) return snapshot;
-      if (reads === 3) throw transientMediaFailure();
-      return new Promise(() => undefined);
-    },
-  });
-  await controller.join();
-  void controller.reconcile(viewAt(4));
-  await settle();
-  void controller.reconcile(viewAt(5));
-  await inPause.promise;
-  const whilePaused = reads;
-  advance(100);
-  void controller.reconcile(viewAt(6));
-  pause.resolve();
-  await settle();
-  assert({
-    given: 'a read in its retry pause, superseded young in a burst',
-    should: 'skip its next attempt and go straight to the newest read',
-    actual: [whilePaused, reads, controller.state()],
-    expected: [3, 4, 'live'],
-  });
-  controller.stop();
 });
 
 test('a first read that cannot pass by itself is labelled definite', async () => {

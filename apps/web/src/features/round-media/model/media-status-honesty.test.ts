@@ -1,10 +1,14 @@
-import { sourceFailureOf } from './source-failure';
+import { sourceFailureOf } from '../source-failure';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  mediaStatus,
-  type MicrophoneEvidence,
-  type SourceIllHealth,
-} from './media-status';
+import { mediaStatus } from './media-state.test-support';
+import type { Source } from './media-state';
+import type { SourceFailureKind } from '../source-failure';
+type SourceIllHealth = readonly [Source, SourceFailureKind | 'waiting'];
+type MicrophoneEvidence = {
+  readonly granted: boolean | null;
+  readonly published: boolean;
+  readonly muted: boolean;
+};
 
 setupRitewayBun();
 

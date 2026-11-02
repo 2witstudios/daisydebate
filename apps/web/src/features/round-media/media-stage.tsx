@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import type { RoundView, RoundMediaState } from '@daisy/protocol';
-import type { MediaTrack, RemotePeer } from './browser-transport';
-import type { MediaConnectionState } from './media-controller';
-import { seatMicrophoneCaption } from './media-status';
+import type { TrackHandle } from './adapters/livekit-room';
+import type { ObservedPeer } from './model/media-state';
+import type { MediaConnectionLabel } from './model/media-status';
+import { seatMicrophoneCaption } from './model/seat-caption';
 
-function TrackElement({ track }: { readonly track: MediaTrack }) {
+function TrackElement({ track }: { readonly track: TrackHandle }) {
   const element = useRef<HTMLVideoElement & HTMLAudioElement>(null);
   const mediaTrack = track.track;
   useEffect(() => {
@@ -43,17 +44,17 @@ export function MediaStage({
   remotePeers,
 }: {
   readonly view: RoundView;
-  readonly connection: MediaConnectionState;
+  readonly connection: MediaConnectionLabel;
   readonly media: RoundMediaState | null;
   /** False from a supersession until the next answer is applied. */
   readonly microphoneConfirmed: boolean;
-  readonly tracks: readonly MediaTrack[];
+  readonly tracks: readonly TrackHandle[];
   /** The signed-in member's own media identity, or null for a viewer. */
   readonly ownIdentity: string | null;
   /** My own deliberate mute choice; presence remains separately observed. */
   readonly ownMuted: boolean;
   /** Peers the media room observes now; a grant never implies presence. */
-  readonly remotePeers: readonly RemotePeer[];
+  readonly remotePeers: readonly ObservedPeer[];
 }) {
   return (
     <div

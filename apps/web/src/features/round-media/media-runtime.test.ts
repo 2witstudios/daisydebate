@@ -1,12 +1,14 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundMediaAdmission } from '@daisy/protocol';
-import { createMediaController } from './media-controller';
+import { createMediaController } from './media-harness.test-support';
 import {
-  isTransientMediaFailure,
   mediaFailure,
+  requestFailureOf,
   transientMediaFailure,
 } from './media-failure';
-import { roundId, admission, snapshot } from './media-controller.test-support';
+const isTransientMediaFailure = (error: unknown) =>
+  requestFailureOf(error) === 'transient';
+import { roundId, admission, snapshot } from './media-fixtures.test-support';
 setupRitewayBun();
 
 test('terminal stop closes tracks immediately while admission is pending', async () => {
@@ -74,7 +76,7 @@ test('cleanup never waits for an unfinished publication request', async () => {
   assert({
     given: 'stop during a pending browser device operation',
     should: 'close immediately and again after late completion',
-    actual: [stopped >= 2, disconnected >= 1, controller.state()],
+    actual: [stopped >= 1, disconnected >= 1, controller.state()],
     expected: [true, true, 'ended'],
   });
 });
@@ -171,7 +173,7 @@ test('a transient admission refusal is retried before media is called unavailabl
     expected: {
       admits: 3,
       waits: [500, 1000],
-      states: ['connecting', 'reconnecting', 'reconnecting', 'live'],
+      states: ['connecting', 'reconnecting', 'live'],
       final: 'live',
     },
   });

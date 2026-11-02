@@ -159,19 +159,18 @@ before going live that retrying cannot help, such as a reply that does not parse
 the tracks and shows `out-of-date`. `replaced` means LiveKit moved this seat to another
 connection; it sets no timer, and Retry takes the seat back.
 
-`media-recovery.ts` is the one paced owner above the controller's own retries, and it
-reads only what `changed` reports. A transient `out-of-date` sends a `wake` read on the
-same connection, with no admission. A transient `unavailable` is a released connection,
-so it admits again. That covers a media connection that fails after a good admission,
-unless LiveKit refused the token (401 or 403), and a first apply that hangs past the read
-budget. When LiveKit drops a connection, the controller releases it at once and reports
-it the same way, so nothing reads on a dead connection and there is one path back. If
-LiveKit says this seat connected elsewhere, this connection stops and says so, and Retry
-takes the seat back.
+Recovery is part of the one model, with one timer. A transient `out-of-date` sends a
+`wake` read on the same connection, with no admission. A transient `unavailable` is a
+released connection, so it admits again. That covers a media connection that fails after
+a good admission, unless LiveKit refused the token (401 or 403), and a first apply that
+hangs past the read budget. When LiveKit drops a connection, the model releases it at
+once and reports it the same way, so nothing reads on a dead connection and there is one
+path back. If LiveKit says this seat connected elsewhere, this connection stops and says
+so, and Retry takes the seat back.
 There is one retry loop: only the first join retries its admission, and every later
 attempt is one admission. Delays run 1, 2, 4, 8 then 10 seconds, and reset only once a
-connection has held for 5 seconds, so one that keeps dropping stays paced. It holds one
-timer, armed only by a reported failure, so an attempt in flight is never multiplied.
+connection has held for 5 seconds, so one that keeps dropping stays paced. The timer is
+armed only by a reported failure, so an attempt in flight is never multiplied.
 An online or visible event moves a waiting attempt up, or reads again on a live page,
 at most once per 5 seconds.
 
@@ -226,16 +225,46 @@ Local mute and confirmed explicit departure suppression are tab-scoped keys unde
 cannot be read by another principal, and every record dies with the tab
 (ISSUE-879).
 
+### The media model
+
+One pure model owns a Round's media state on this tab: `round-media/model/`.
+`reduceMedia(state, event, { atMs, policy })` returns the next state and effects as
+data, and holds no clock, timer, storage or SDK. A rejected event returns the same state
+object and no effects. `media-runtime.ts` queues events, so an effect's result is always a
+later event and never a nested reduce, and it runs effects at the edge.
+`adapters/livekit-room.ts` reports what the SDK did and does what it is told. Its track
+handles attach to elements and decide nothing. Status, publication and captions are pure
+derivations of the state, with no stored copy.
+
+The link is one of `waiting`, `admitting`, `connecting`, `live`, `released` or `ended`.
+Only `live` holds tracks, grants or a read, so a dead connection cannot say Connected.
+Before its first answer applies a `live` link is not `established`, and cannot be out of
+date. Each source has its own state, so one failing leaves the other working. Connection
+events carry their connection and read events their ticket, and stale ones change nothing.
+One answer applies at a time. An answer superseded while waiting never starts, and one
+superseded while running finishes without announcing. Read intent decisions stay in
+`media-read-intent.ts`, which the model composes.
+
+| Module                                                             | Holds                                        |
+| ------------------------------------------------------------------ | -------------------------------------------- |
+| `model/media-state.ts`, `media-events.ts`, `media-effects.ts`      | The types                                    |
+| `model/reduce-media.ts`                                            | The reducer: phases, Retry and admission     |
+| `model/reduce-reads.ts`, `reduce-room.ts`, `reduce-sources.ts`     | Reads and applying, room reports, one source |
+| `model/media-transitions.ts`, `recovery-pace.ts`                   | Release, join and the pace                   |
+| `model/media-status.ts`, `media-publication.ts`, `seat-caption.ts` | Derivations                                  |
+| `media-runtime.ts`, `adapters/`                                    | The edge                                     |
+| `media-session.tsx`, `media-bar.tsx`, `media-stage.tsx`            | The UI                                       |
+
 ### Browser effect ownership
 
-| Concern                      | Pure decision / validation                                                                                                               | Effect owner and lifetime                                                                                                                                                      | Cleanup / caller proof                                                                                                                                                                                                                                                                           |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Canonical resume             | `rooms/resume.ts` takes the authorized active-Room output, explicit departure and injected time; no storage or navigation                | Home/lobby `ResumeRound`; target route reauthorizes audience                                                                                                                   | `location.replace` only after eligibility and advisory ownership; actual browser matrix remains the acceptance gate                                                                                                                                                                              |
-| Advisory tab claim           | `mayResumeTab` rejects stale or future-dated claims; `resume-ownership.ts` validates stored shape                                        | `createResumeLifetime` owns one subscription and injected heartbeat scheduler; `useResumeLifetime` binds one document identity per actor/Round                                 | Deferred direct routes do not mount media; explicit takeover steps down old media; normal teardown releases only its own claim. Crash freshness expires after five seconds and deferred lifetimes recheck without browser events. `resume-lifetime.test.ts` exercises the shared caller lifetime |
-| Media recovery               | `media-failure.ts` mints transient, definite, refused and replaced facts; `decideMediaRecovery` maps them; error names confer nothing    | `createMediaRecovery` owns the one timer and `createMediaController` the connection and its reads; `RoundMediaSession` supplies browser effects                                | A reported state replaces the timer and a stop cancels it. `media-recovery.test.ts` proves this with the real controller; browser recovery remains separate proof                                                                                                                                |
-| Request deadline             | One request includes both response headers and body                                                                                      | `createMediaRequest` receives network and deadline effects from the media mount                                                                                                | Ten-second deadline aborts and settles a stall even when an adapter ignores cancellation; parent cancellation and success release the timer/listener. `request-media.test.ts` exercises both stalls                                                                                              |
-| Source and playback evidence | SDK errors map to a closed display-only vocabulary; grants, actual publication, mute and peer audibility remain distinct                 | Browser transport reports source failures and track snapshots, including present-but-muted publications; Round controls consume the media lifetime's actor/Round-scoped output | Producer unmount clears publication; control unsubscribe does not. Track absence cannot establish mute or peer audibility. SDK, stage and control regressions exercise these callers                                                                                                             |
-| Local account preferences    | Principal/Room keys for checked-device handoff, principal/Round keys for mute; `rooms/resume-departure.ts` keeps the confirmed departure | Shell/direct-Round account binding observes account changes; only acknowledged departure suppresses resume                                                                     | Sign-out form cleans on submit while retaining native POST; account switch clears outgoing choices, terminal surface clears ended-Round choices. Browser acceptance must cover failed/unknown/canceled departure and account transitions                                                         |
+| Concern                      | Pure decision / validation                                                                                                                   | Effect owner and lifetime                                                                                                                                                        | Cleanup / caller proof                                                                                                                                                                                                                                                                           |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Canonical resume             | `rooms/resume.ts` takes the authorized active-Room output, explicit departure and injected time; no storage or navigation                    | Home/lobby `ResumeRound`; target route reauthorizes audience                                                                                                                     | `location.replace` only after eligibility and advisory ownership; actual browser matrix remains the acceptance gate                                                                                                                                                                              |
+| Advisory tab claim           | `mayResumeTab` rejects stale or future-dated claims; `resume-ownership.ts` validates stored shape                                            | `createResumeLifetime` owns one subscription and injected heartbeat scheduler; `useResumeLifetime` binds one document identity per actor/Round                                   | Deferred direct routes do not mount media; explicit takeover steps down old media; normal teardown releases only its own claim. Crash freshness expires after five seconds and deferred lifetimes recheck without browser events. `resume-lifetime.test.ts` exercises the shared caller lifetime |
+| Media recovery               | `media-failure.ts` classifies answers as transient, definite, ending or refused; the model decides from the kind; error names confer nothing | `reduceMedia` decides the one timer, the connection and its reads; `createMediaRuntime` runs them                                                                                | Every release cancels the timers. `model/reduce-media.test.ts` proves this; browser recovery remains separate proof                                                                                                                                                                              |
+| Request deadline             | One request includes both response headers and body                                                                                          | `createMediaRequest` receives network and deadline effects from the media mount                                                                                                  | Ten-second deadline aborts and settles a stall even when an adapter ignores cancellation; parent cancellation and success release the timer/listener. `request-media.test.ts` exercises both stalls                                                                                              |
+| Source and playback evidence | SDK errors map to a closed display-only vocabulary; grants, actual publication, mute and peer audibility remain distinct                     | The LiveKit adapter reports source failures and track snapshots, including present-but-muted publications; Round controls consume the media lifetime's actor/Round-scoped output | Producer unmount clears publication; control unsubscribe does not. Track absence cannot establish mute or peer audibility. SDK, stage and control regressions exercise these callers                                                                                                             |
+| Local account preferences    | Principal/Room keys for checked-device handoff, principal/Round keys for mute; `rooms/resume-departure.ts` keeps the confirmed departure     | Shell/direct-Round account binding observes account changes; only acknowledged departure suppresses resume                                                                       | Sign-out form cleans on submit while retaining native POST; account switch clears outgoing choices, terminal surface clears ended-Round choices. Browser acceptance must cover failed/unknown/canceled departure and account transitions                                                         |
 
 Every home or lobby entry reads the signed active Room and resumes while the
 member stays seated; recovery has no per-tab budget, and `location.replace`

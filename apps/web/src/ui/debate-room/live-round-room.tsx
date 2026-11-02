@@ -1,7 +1,7 @@
 'use client';
 
 import './zod-jitless';
-import type { LocalPublication } from '../../features/round-media/local-publication';
+import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import { roundMediaSlot } from '../../features/round-media/media-session';
 import { clearAccountResumeRecords } from '../../features/rooms/resume-departure';
 import { useRoundMediaTab } from './use-round-media-tab';

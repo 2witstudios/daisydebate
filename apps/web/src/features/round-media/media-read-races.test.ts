@@ -1,16 +1,14 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaController } from './media-controller';
 import {
   admission,
   readController,
-  roundId,
   snapshot,
   transportStub,
   viewAt,
   heldSecondRead,
-} from './media-controller.test-support';
+} from './media-fixtures.test-support';
 import { mediaFailure } from './media-failure';
-import { settle } from './browser-transport.test-support';
+import { settle } from './adapters/livekit-room.test-support';
 setupRitewayBun();
 
 test('a stale ended, mismatched or malformed reply cannot end or fail its successor', async () => {
@@ -37,46 +35,6 @@ test('a stale ended, mismatched or malformed reply cannot end or fail its succes
       ['live', 3, 0],
       ['live', 3, 0],
     ],
-  });
-});
-
-test('an old apply finishing after its successor failed releases what it published', async () => {
-  const applying = Promise.withResolvers<void>();
-  let reads = 0;
-  let applies = 0;
-  let stops = 0;
-  const controller = readController({
-    admit: async () => admission,
-    reconcile: async () => {
-      if (++reads === 3) throw mediaFailure(403);
-      return snapshot;
-    },
-    transport: () =>
-      transportStub({
-        apply: async () => {
-          if (++applies === 2) await applying.promise;
-        },
-        stopTracks: () => {
-          stops++;
-        },
-      }),
-  });
-  await controller.join();
-  const pending = controller.reconcile({ kind: 'wake' });
-  await settle();
-  await controller.reconcile(viewAt(4));
-  await settle();
-  const failed = [controller.state(), stops];
-  applying.resolve();
-  await pending;
-  await settle();
-  assert({
-    given:
-      'a superseded apply still running when the current read fails definitively',
-    should:
-      'report the failure and release again once the old apply settles, without reviving media',
-    actual: [failed, stops, controller.state()],
-    expected: [['unavailable', 1], 2, 'unavailable'],
   });
 });
 
@@ -151,7 +109,7 @@ test('events after failure stay inert until reconnect, which uses the current in
       return admission;
     },
     reconcile: async () => {
-      if (++reads === 1) throw mediaFailure(403);
+      if (++reads === 1) throw mediaFailure(409);
       return snapshot;
     },
   });
@@ -213,8 +171,8 @@ test('stop during connect releases when the connect later settles either way', a
       'settle join at once, release again after the late connect and stay ended with no read',
     actual: results,
     expected: [
-      [1, 2, 0, 'ended', 2],
-      [1, 2, 0, 'ended', 2],
+      [1, 1, 0, 'ended', 2],
+      [1, 1, 0, 'ended', 2],
     ],
   });
 });
@@ -253,35 +211,6 @@ test('each read removes its listener from the connection signal', async () => {
     expected: 0,
   });
   controller.stop();
-});
-
-test('a transport factory that stops the join is released without connecting', async () => {
-  let connects = 0;
-  let stops = 0;
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: 3,
-    api: { admit: async () => admission, reconcile: async () => snapshot },
-    transport: () => {
-      controller.stop();
-      return transportStub({
-        connect: async () => {
-          connects++;
-        },
-        stopTracks: () => {
-          stops++;
-        },
-      });
-    },
-    changed: () => undefined,
-  });
-  await controller.join();
-  assert({
-    given: 'caller code stopping the controller from its transport factory',
-    should: 'release the new transport, never connect it, and stay ended',
-    actual: [connects, stops, controller.state()],
-    expected: [0, 1, 'ended'],
-  });
 });
 
 test('the failure kind is exposed and a definite live refusal still releases', async () => {

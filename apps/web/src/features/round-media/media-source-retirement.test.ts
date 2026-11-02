@@ -1,12 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { Source } from './model/media-state';
 import {
   createBrowserMediaTransport,
   type MediaTrack,
-  type Source,
-} from './browser-transport';
-import type { SourceIllHealth } from './media-status';
-import { snapshot } from './media-controller.test-support';
-import { events, stubSdk } from './browser-transport.test-support';
+} from './media-harness.test-support';
+import type { SourceFailureKind } from './source-failure';
+type SourceIllHealth = readonly [Source, SourceFailureKind | 'waiting'];
+import { snapshot } from './media-fixtures.test-support';
+import { events, stubSdk } from './adapters/livekit-room.test-support';
 import { enterCameraTurn } from './media-warm.test-support';
 setupRitewayBun();
 

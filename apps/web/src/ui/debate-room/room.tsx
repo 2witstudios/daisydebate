@@ -1,6 +1,6 @@
 'use client';
 
-import type { LocalPublication } from '../../features/round-media/local-publication';
+import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import {
   useLayoutEffect,
   useReducer,

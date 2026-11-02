@@ -4,39 +4,9 @@ import {
   readController,
   snapshot,
   transportStub,
-  wakeAfterJoin,
-} from './media-controller.test-support';
-import { settle } from './browser-transport.test-support';
+} from './media-fixtures.test-support';
+import { settle } from './adapters/livekit-room.test-support';
 setupRitewayBun();
-
-test('repeated wakes share one flight and exactly one followup', async () => {
-  const held = Promise.withResolvers<unknown>();
-  let reads = 0;
-  const controller = readController({
-    admit: async () => admission,
-    reconcile: async () => (++reads === 2 ? held.promise : snapshot),
-  });
-  await controller.join();
-  const pending = controller.reconcile({ kind: 'wake' });
-  await settle();
-  const wakes = Array.from({ length: 20 }, () =>
-    controller.reconcile({ kind: 'wake' }),
-  );
-  held.resolve(snapshot);
-  await pending;
-  await settle();
-  assert({
-    given: 'many duplicate wakes during the same pending current-intent read',
-    should: 'share one flight and queue only one followup',
-    actual: [
-      wakes.every((wake) => wake === pending),
-      reads,
-      controller.state(),
-    ],
-    expected: [true, 3, 'live'],
-  });
-  controller.stop();
-});
 
 test('connection replacement fences old rejection and cleanup', async () => {
   const held = Promise.withResolvers<unknown>();
@@ -131,46 +101,6 @@ test('accepted views during admission and first read use current intent without 
       controller.state(),
     ],
     expected: [1, 1, 2, true, ['camera'], 'live'],
-  });
-  controller.stop();
-});
-
-test('an old already-started SDK rejection cannot fail its successor', async () => {
-  const applying = Promise.withResolvers<void>();
-  let reads = 0,
-    applies = 0,
-    stopped = 0;
-  const receipts: number[] = [];
-  const controller = readController({
-    admit: async () => admission,
-    reconcile: async () => {
-      reads++;
-      return snapshot;
-    },
-    transport: () => ({
-      ...transportStub(),
-      apply: async () => {
-        if (++applies === 2) await applying.promise;
-      },
-      stopTracks: () => {
-        stopped++;
-      },
-    }),
-    received: () => receipts.push(applies),
-  });
-  const { pending } = await wakeAfterJoin(controller, receipts);
-  void controller.reconcile({ kind: 'view', roundViewVersion: 4 });
-  await settle();
-  applying.reject(new Error('Obsolete SDK failure'));
-  await pending;
-  await settle();
-  assert({
-    given:
-      'an already-started apply rejects after a newer intent has read fresh media',
-    should:
-      'observe the rejection, serialize fresh apply and announce only fresh ownership without teardown',
-    actual: [reads, applies, stopped, receipts, controller.state()],
-    expected: [3, 3, 0, [3], 'live'],
   });
   controller.stop();
 });

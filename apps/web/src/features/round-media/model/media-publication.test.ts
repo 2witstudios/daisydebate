@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { localPublicationOf } from './local-publication';
+import { localPublicationOf } from './media-state.test-support';
 
 setupRitewayBun();
 

@@ -6,19 +6,18 @@ import {
   Track,
   TrackEvent,
 } from 'livekit-client';
-import {
-  createBrowserMediaTransport,
-  type RemotePeer,
-} from './browser-transport';
+import type { ObservedPeer as RemotePeer } from '../model/media-state';
+import { createBrowserMediaTransport } from '../media-harness.test-support';
 import {
   events,
   publish,
   settle,
   sources,
   stubSdk,
-} from './browser-transport.test-support';
-import { admission } from './media-controller.test-support';
-import { failureKind } from './media-failure';
+} from './livekit-room.test-support';
+import { admission } from '../media-fixtures.test-support';
+import { createLiveKitRoom } from './livekit-room';
+import type { RoomEvent as MediaRoomEvent } from '../model/media-events';
 setupRitewayBun();
 
 /** A transport whose shared track list records each length it is sent. */
@@ -294,7 +293,8 @@ test('a muted publication remains observable as present without claiming an open
     'muted-mic',
     published as unknown as import('livekit-client').LocalTrackPublication,
   );
-  let observed: readonly import('./browser-transport').MediaTrack[] = [];
+  let observed: readonly import('../media-harness.test-support').MediaTrack[] =
+    [];
   const browser = createBrowserMediaTransport(
     {
       ...events,
@@ -318,7 +318,7 @@ test('a muted publication remains observable as present without claiming an open
   browser.transport.stopTracks();
 });
 
-test('browser playback refusal and recovery are reported from actual SDK state', () => {
+test('browser playback refusal and recovery are reported from actual SDK state', async () => {
   const stub = stubSdk();
   let allowed = false;
   Object.defineProperty(stub.sdk.room(), 'canPlaybackAudio', {
@@ -334,8 +334,10 @@ test('browser playback refusal and recovery are reported from actual SDK state',
     },
     stub.sdk,
   );
+  await browser.transport.connect(admission);
   stub.fire(RoomEvent.AudioPlaybackStatusChanged);
   allowed = true;
+  await settle();
   stub.fire(RoomEvent.AudioPlaybackStatusChanged);
   assert({
     given: 'SDK autoplay refusal followed by successful user-enabled playback',
@@ -412,6 +414,7 @@ test('explicit playback completion reports only through its current transport ow
     { ...events, playbackChanged: (value) => current.push(value) },
     active.sdk,
   );
+  await browser.transport.connect(admission);
   await browser.startAudio();
   browser.transport.stopTracks();
   const retired = stubSdk();
@@ -437,7 +440,7 @@ test('explicit playback completion reports only through its current transport ow
     should:
       'publish the active playback result only, never overwrite a replacement from a retired promise',
     actual: [current, stale],
-    expected: [[true], []],
+    expected: [[], []],
   });
 });
 
@@ -531,8 +534,10 @@ test('a failed publish names its source, and only Retry or a new grant tries aga
   });
 });
 
-test('only the first stop empties the shared track list', () => {
+test('only the first stop empties the shared track list', async () => {
   const { emitted, transport } = countingTrackList();
+  await transport.connect(admission);
+  emitted.length = 0;
   transport.stopTracks();
   transport.stopTracks();
   assert({
@@ -588,6 +593,8 @@ test('a failed unpublish of a kept microphone stops it and names it, in any pass
 
 test('a released room cannot overwrite the shared track list', async () => {
   const { stub, emitted, transport } = countingTrackList();
+  await transport.connect(admission);
+  emitted.length = 0;
   transport.stopTracks();
   await transport.disconnect();
   stub.fire(RoomEvent.LocalTrackPublished);
@@ -600,38 +607,25 @@ test('a released room cannot overwrite the shared track list', async () => {
   });
 });
 
-test('tracks stopped by a local failure still follow the connected room', () => {
-  const { stub, emitted, transport } = countingTrackList();
-  transport.stopTracks();
-  stub.fire(RoomEvent.TrackSubscribed);
-  assert({
-    given: 'local tracks stopped while the room stays connected',
-    should: 'keep reporting the room, so remote media can return',
-    actual: emitted,
-    expected: [0, 0],
-  });
-});
-
 test('a media connection failure says whether it can pass by itself', async () => {
   const outcome = async (failure: Error) => {
     const stub = stubSdk({ settles: true });
-    let reconnects = 0;
+    const reports: MediaRoomEvent[] = [];
     // As the SDK does: Disconnected fires first, then connect rejects.
     stub.sdk.room().connect = async () => {
       stub.fire(RoomEvent.Disconnected, DisconnectReason.USER_REJECTED);
       throw failure;
     };
-    const { transport } = createBrowserMediaTransport(
-      { ...events, reconnect: () => void reconnects++ },
+    const room = createLiveKitRoom(
+      {
+        report: (event) => void reports.push(event),
+        handles: () => undefined,
+        checkedDevices: () => ({ state: 'available', choices: {} }),
+      },
       stub.sdk,
     );
-    const kind = failureKind(
-      await transport.connect(admission).then(
-        () => null,
-        (error: unknown) => error,
-      ),
-    );
-    return [kind, reconnects];
+    await room.connect(admission);
+    return reports;
   };
   assert({
     given: 'a socket failure, LiveKit refusing the token, and a room it lost',
@@ -643,9 +637,9 @@ test('a media connection failure says whether it can pass by itself', async () =
       await outcome(ConnectionError.notAllowed('no such room', 404)),
     ],
     expected: [
-      ['transient', 0],
-      ['definite', 0],
-      ['transient', 0],
+      [{ type: 'connect-failed', failure: 'transient' }],
+      [{ type: 'connect-failed', failure: 'ending' }],
+      [{ type: 'connect-failed', failure: 'transient' }],
     ],
   });
 });

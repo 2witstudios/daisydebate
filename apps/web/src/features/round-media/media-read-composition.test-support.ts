@@ -1,8 +1,8 @@
 import { createMediaRequest } from './request-media';
-import { createMediaController } from './media-controller';
-import { createBrowserMediaTransport } from './browser-transport';
-import { stubSdk, events } from './browser-transport.test-support';
-import { admission, snapshot } from './media-controller.test-support';
+import { createMediaController } from './media-harness.test-support';
+import { createBrowserMediaTransport } from './media-harness.test-support';
+import { stubSdk, events } from './adapters/livekit-room.test-support';
+import { admission, snapshot } from './media-fixtures.test-support';
 import { createTimerQueue } from '../realtime/connection-store.test-support';
 
 const cameraOnly = {
@@ -24,6 +24,17 @@ export async function compose(
   const body = Promise.withResolvers<unknown>();
   const sdk = stubSdk({ settles: true });
   const browser = createBrowserMediaTransport(events, sdk.sdk);
+  const room = sdk.sdk.room();
+  const connect = room.connect.bind(room);
+  room.connect = async (...args) => {
+    counts.connects++;
+    return connect(...args);
+  };
+  const disconnect = room.disconnect.bind(room);
+  room.disconnect = async (...args) => {
+    counts.stops++;
+    return disconnect(...args);
+  };
   const applied: string[] = [];
   const received: string[] = [];
   const counts = {
@@ -81,23 +92,12 @@ export async function compose(
       admit: (id, signal) => request(id, 'session', signal),
       reconcile: (id, signal) => request(id, 'reconcile', signal),
     },
-    transport: () => ({
-      ...browser.transport,
-      connect: async (value) => {
-        counts.connects++;
-        await browser.transport.connect(value);
-      },
-      apply: async (value) => {
-        applied.push(value.grants.publish.join(','));
-        await browser.transport.apply(value);
-      },
-      stopTracks: () => {
-        counts.stops++;
-        browser.transport.stopTracks();
-      },
-    }),
+    transport: () => browser.transport,
     changed: () => undefined,
-    received: (value) => received.push(value.grants.publish.join(',')),
+    received: (value) => {
+      applied.push(value.grants.publish.join(','));
+      received.push(value.grants.publish.join(','));
+    },
     retry: {
       delaysMs: retryDelaysMs,
       wait: (ms, signal) =>

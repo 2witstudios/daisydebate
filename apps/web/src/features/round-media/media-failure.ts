@@ -1,3 +1,5 @@
+import type { RequestFailure } from './model/media-events';
+
 /** What a media failure means for the connection. Pure; effects stay in the controller. */
 
 const transient = new WeakSet<object>();
@@ -10,15 +12,13 @@ export function transientMediaFailure() {
   transient.add(failure);
   return failure;
 }
-export const isTransientMediaFailure = (error: unknown) =>
-  typeof error === 'object' && error !== null && transient.has(error);
 /** Answers no attempt from this page can change; a new page may. */
 const FINAL_REFUSALS = [401, 403, 404, 410];
 const FOR_NOW = [408, 429, 500, 502, 503, 504];
 const endsConnection = new WeakSet<object>();
 const finalForPage = new WeakSet<object>();
 /** An answer about authority: it ends the connection, and a person may ask again. */
-export const mediaRefusal = () => {
+const mediaRefusal = () => {
   const refusal = new Error('Media unavailable');
   endsConnection.add(refusal);
   return refusal;
@@ -28,8 +28,6 @@ const finalMediaRefusal = () => {
   finalForPage.add(refusal);
   return refusal;
 };
-export const endsMediaConnection = (error: unknown) =>
-  typeof error === 'object' && error !== null && endsConnection.has(error);
 /**
  * The one classifier of a non-OK media answer. A 408, 429 or 5xx is transient and
  * retried. Only a refusal ends a live connection; any other status (a 400, say)
@@ -42,24 +40,12 @@ export function mediaFailure(status: number) {
 }
 
 /**
- * Whether a failure may pass by itself, read by the recovery owner from `changed`.
- * `refused` is final for this page; `definite` waits for a person's Retry. A reply
- * that does not parse, or names another Round, is `definite`: retrying cannot help.
- * `replaced` means this seat connected elsewhere, and Retry would take it back.
+ * The kind the model reads. A reply that does not parse, or names another Round, is
+ * `definite`: retrying cannot help. Error names confer nothing.
  */
-export type MediaFailureKind =
-  'transient' | 'definite' | 'refused' | 'replaced';
-const replaced = new WeakSet<object>();
-/** This seat connected from elsewhere: no attempt from here can help unasked. */
-export const seatReplaced = () => {
-  const failure = new Error('Media unavailable');
-  replaced.add(failure);
-  return failure;
-};
-export const failureKind = (error: unknown): MediaFailureKind => {
-  if (typeof error === 'object' && error !== null && replaced.has(error))
-    return 'replaced';
-  if (typeof error === 'object' && error !== null && finalForPage.has(error))
-    return 'refused';
-  return isTransientMediaFailure(error) ? 'transient' : 'definite';
+export const requestFailureOf = (error: unknown): RequestFailure => {
+  if (typeof error !== 'object' || error === null) return 'definite';
+  if (finalForPage.has(error)) return 'refused';
+  if (endsConnection.has(error)) return 'ending';
+  return transient.has(error) ? 'transient' : 'definite';
 };

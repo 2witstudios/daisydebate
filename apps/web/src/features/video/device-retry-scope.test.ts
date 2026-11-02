@@ -1,6 +1,5 @@
 import { MemoryStorage } from '../../lib/storage.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { retryMissingDevices } from '../round-media/media-status';
 import {
   forgetCheckedDevices,
   readCheckedDevices,
@@ -20,9 +19,7 @@ test('the actual Retry path clears only the missing device for the actor who che
   const host = () => storage;
   rememberCheckedDevices('room-1', checkedBoth as never, host, 'actor-a');
   const before = readCheckedDevices('room-1', host, 'actor-a');
-  retryMissingDevices('room-1', ['camera'], 'actor-a', (room, sources, actor) =>
-    forgetCheckedDevices(room, sources, host, actor),
-  );
+  forgetCheckedDevices('room-1', ['camera'], host, 'actor-a');
   const after = readCheckedDevices('room-1', host, 'actor-a');
   const otherActor = readCheckedDevices('room-1', host, 'actor-b');
   assert({
@@ -46,7 +43,7 @@ test('a retry that names no actor forgets nothing silently: the anonymous scope 
   const storage = new MemoryStorage();
   const host = () => storage;
   rememberCheckedDevices('room-1', checkedBoth as never, host, 'actor-a');
-  retryMissingDevices('room-1', ['camera']);
+  forgetCheckedDevices('room-1', ['camera']);
   assert({
     given: 'the Retry edge called without a principal (a wiring error)',
     should:

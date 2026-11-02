@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createMediaController } from '../src/features/round-media/media-controller';
+import { createMediaController } from '../src/features/round-media/media-harness.test-support';
 import {
   createRoundMediaOperations,
   MEDIA_ADMISSION_WAIT_MS,

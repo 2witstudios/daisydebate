@@ -1,5 +1,5 @@
 import { RoomEvent, Track } from 'livekit-client';
-import type { MediaSdk } from './browser-transport';
+import type { MediaSdk } from '../media-harness.test-support';
 
 /** A captured local track that records whether anything stopped it. */
 const capturedTrack = (source: string) => {
@@ -171,7 +171,7 @@ export const events = {
 export const publish = (sources: string[]) =>
   ({ grants: { publish: sources } }) as never;
 export const settle = async () => {
-  for (let i = 0; i < 20; i++) await Promise.resolve();
+  for (let i = 0; i < 200; i++) await Promise.resolve();
 };
 export const sources = (tracks: readonly Captured[]) =>
   tracks.map((track) => track.source);

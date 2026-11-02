@@ -2,17 +2,18 @@ import { MemoryStorage } from '../../lib/storage.test-support';
 import { rememberPassedMediaChecks } from './media-device-check.test-support';
 import { readCheckedDevices } from '../video/device-selection';
 import { forgetCheckedDevices } from '../video/device-selection';
-import { retryMissingDevices } from './media-status';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { Source } from './model/media-state';
 import {
   createBrowserMediaTransport,
   type MediaTrack,
-  type Source,
-} from './browser-transport';
-import { createMediaController } from './media-controller';
-import { mediaStatus, type SourceIllHealth } from './media-status';
-import { admission, roundId, snapshot } from './media-controller.test-support';
-import { events, sources, stubSdk } from './browser-transport.test-support';
+} from './media-harness.test-support';
+import { createMediaController } from './media-harness.test-support';
+import { mediaStatus } from './model/media-state.test-support';
+import type { SourceFailureKind } from './source-failure';
+type SourceIllHealth = readonly [Source, SourceFailureKind | 'waiting'];
+import { admission, roundId, snapshot } from './media-fixtures.test-support';
+import { events, sources, stubSdk } from './adapters/livekit-room.test-support';
 setupRitewayBun();
 
 const scenarios: readonly {
@@ -160,17 +161,20 @@ test('explicit local Retry rereads grants and preserves the healthy subscribed t
         return snapshot;
       },
     },
-    transport: () => ({
-      ...browser.transport,
-      connect: async (grant) => {
+    transport: () => {
+      const room = stub.sdk.room();
+      const connect = room.connect.bind(room);
+      room.connect = async (...args) => {
         connections++;
-        await browser.transport.connect(grant);
-      },
-      disconnect: async () => {
+        return connect(...args);
+      };
+      const disconnect = room.disconnect.bind(room);
+      room.disconnect = async (...args) => {
         disconnections++;
-        await browser.transport.disconnect();
-      },
-    }),
+        return disconnect(...args);
+      };
+      return browser.transport;
+    },
     changed: () => undefined,
   });
   await controller.join();
@@ -255,12 +259,8 @@ test('scoped missing-device Retry refreshes capture inputs while retaining healt
   const workingMicrophone = stub.captured.find(
     (track) => track.source === 'microphone',
   );
-  missing = retryMissingDevices(
-    'room-a',
-    missing,
-    'actor-a',
-    (room, sources, actor) => forgetCheckedDevices(room, sources, host, actor),
-  );
+  forgetCheckedDevices('room-a', missing, host, 'actor-a');
+  missing = [];
   await controller.retry();
   assert({
     given:
@@ -456,7 +456,7 @@ test('disposal during a scoped read prevents capture and source updates into a s
       local: sources(stub.published),
     },
     expected: {
-      oldReads: 1,
+      oldReads: 2,
       failures: [],
       captures: 2,
       local: ['camera', 'microphone'],

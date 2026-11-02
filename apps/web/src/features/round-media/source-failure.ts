@@ -16,7 +16,6 @@ export type SourceFailureKind =
   | 'preference-unreadable'
   | 'preference-invalid';
 export type SourceFailure = {
-  readonly name: z.infer<typeof sourceErrorName> | 'UnknownError';
   readonly kind: SourceFailureKind;
 };
 const kinds: Record<z.infer<typeof sourceErrorName>, SourceFailureKind> = {
@@ -34,22 +33,13 @@ export function sourceFailureOf(error: unknown): SourceFailure {
       ? error.name
       : null,
   );
-  return parsed.success
-    ? { name: parsed.data, kind: kinds[parsed.data] }
-    : { name: 'UnknownError', kind: 'failure' };
+  return parsed.success ? { kind: kinds[parsed.data] } : { kind: 'failure' };
 }
-
-/** A publication the SDK would not remove: nothing failed to start. */
-export const removalFailure: SourceFailure = {
-  name: 'UnknownError',
-  kind: 'removal',
-};
 
 /** A typed preference failure is separate from SDK permission or missing hardware. */
 export const preferenceFailureOf = (
   reason: Extract<CheckedDeviceRead, { state: 'unavailable' }>['reason'],
 ): SourceFailure => ({
-  name: 'UnknownError',
   kind:
     reason === 'unreadable' ? 'preference-unreadable' : 'preference-invalid',
 });

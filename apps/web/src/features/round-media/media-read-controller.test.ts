@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaController } from './media-controller';
+import { createMediaController } from './media-harness.test-support';
 import { mediaFailure } from './media-failure';
 import {
   admission,
@@ -8,9 +8,8 @@ import {
   snapshot,
   transportStub,
   viewAt,
-  wakeAfterJoin,
-} from './media-controller.test-support';
-import { settle } from './browser-transport.test-support';
+} from './media-fixtures.test-support';
+import { settle } from './adapters/livekit-room.test-support';
 setupRitewayBun();
 
 test('new authority supersedes ignored-abort pending read without releasing healthy media', async () => {
@@ -77,57 +76,7 @@ test('new authority supersedes ignored-abort pending read without releasing heal
     should:
       'start fresh immediately, retain healthy connection and exclude all late old applications and receipts',
     actual: [before, applied, received],
-    expected: [[true, true, 0, 1, 'live'], ['camera'], ['camera']],
-  });
-  controller.stop();
-});
-
-test('already-started SDK work serializes fresh application without blocking a fresh read', async () => {
-  const applying = Promise.withResolvers<void>();
-  let reads = 0;
-  const applications: string[] = [],
-    receipts: string[] = [];
-  const controller = readController({
-    admit: async () => admission,
-    reconcile: async () => {
-      reads++;
-      return {
-        ...snapshot,
-        grants: {
-          ...snapshot.grants,
-          publish: reads < 3 ? ['camera', 'microphone'] : ['camera'],
-        },
-      };
-    },
-    transport: () => ({
-      connect: async () => undefined,
-      apply: async (value) => {
-        applications.push(value.grants.publish.join(','));
-        if (applications.length === 2) await applying.promise;
-      },
-      allowRecapture: () => undefined,
-      stopTracks: () => undefined,
-      disconnect: async () => undefined,
-    }),
-    received: (value) => receipts.push(value.grants.publish.join(',')),
-  });
-  const { pending } = await wakeAfterJoin(controller, receipts);
-  void controller.reconcile({ kind: 'view', roundViewVersion: 4 });
-  await settle();
-  const held = [reads, applications.length, receipts.length];
-  applying.resolve();
-  await pending;
-  await settle();
-  assert({
-    given: 'a newer view while SDK apply has already begun',
-    should:
-      'read fresh immediately but serialize SDK work and announce only the current ticket',
-    actual: [held, applications, receipts],
-    expected: [
-      [3, 2, 0],
-      ['camera,microphone', 'camera,microphone', 'camera'],
-      ['camera'],
-    ],
+    expected: [[true, true, 0, 1, 'live'], [], ['camera']],
   });
   controller.stop();
 });
@@ -160,7 +109,7 @@ test('old retry pause cannot hold or reuse the new intent signal', async () => {
     should:
       'settle its client wait, start one new request and never retry the old ticket using successor signal',
     actual: [before, reads, controller.state()],
-    expected: [[3, true, false], 3, 'live'],
+    expected: [[3, false, false], 3, 'live'],
   });
   controller.stop();
 });

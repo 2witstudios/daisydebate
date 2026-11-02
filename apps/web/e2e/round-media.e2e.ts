@@ -364,10 +364,7 @@ test('a media read held across a real Round transition is superseded without tou
     await expect.poll(() => cancelled.length, SUPERSEDED).toBe(1);
     expect(cancelled[0]!.error).toContain('ERR_ABORTED');
     expect(cancelled[0]!.ageMs).toBeLessThan(9_000);
-    await expect(caption).toContainText(
-      'Waiting for microphone permission',
-      SUPERSEDED,
-    );
+    await expect(caption).toContainText('Microphone closed', SUPERSEDED);
     const mark = await page.evaluate(
       () =>
         (window as unknown as { heldReadProof: { captions: string[] } })
@@ -377,7 +374,7 @@ test('a media read held across a real Round transition is superseded without tou
     await delivered.promise;
     // A further real read proves the late reply did not outlast its successor.
     await opponentPage.reload();
-    await expect(caption).toContainText('Waiting for microphone permission');
+    await expect(caption).toContainText('Microphone closed');
     const proof = await page.evaluate(
       () =>
         (

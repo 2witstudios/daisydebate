@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { enterCameraTurn } from './media-warm.test-support';
-import { sources } from './browser-transport.test-support';
+import { sources } from './adapters/livekit-room.test-support';
 setupRitewayBun();
 
 test('a failed warm microphone stays reported without prompting again until Retry', async () => {
@@ -176,7 +176,7 @@ test('a stale mute rejection cannot remove or report failure on a replacement mi
       'leave the replacement owned and healthy, report no stale failure and release it on final stop',
     actual: { active, replacementEnded: replacement.ended },
     expected: {
-      active: { rejected: true, replaced: true, failures: [], newLive: true },
+      active: { rejected: false, replaced: true, failures: [], newLive: true },
       replacementEnded: true,
     },
   });

@@ -1,5 +1,5 @@
 /** Browser events worth reacting to; the recovery owner decides what each one does. */
-export function subscribeMediaRecovery(input: {
+export function subscribeBrowserPageEvents(input: {
   readonly online: EventTarget;
   readonly visibility: EventTarget;
   readonly isVisible: () => boolean;

@@ -1,12 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { Source } from './model/media-state';
 import {
   createBrowserMediaTransport,
   type MediaTrack,
-  type Source,
-} from './browser-transport';
-import { createMediaController } from './media-controller';
-import { admission, snapshot, roundId } from './media-controller.test-support';
-import { events, sources, stubSdk } from './browser-transport.test-support';
+} from './media-harness.test-support';
+import { createMediaController } from './media-harness.test-support';
+import { admission, snapshot, roundId } from './media-fixtures.test-support';
+import { events, sources, stubSdk } from './adapters/livekit-room.test-support';
 setupRitewayBun();
 
 test('stale controller cleanup cannot clear the successor track snapshot after delayed unpublish', async () => {

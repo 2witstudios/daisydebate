@@ -1,18 +1,19 @@
+import type { SourceFailureKind } from './source-failure';
 import { MemoryStorage } from '../../lib/storage.test-support';
 import { rememberPassedMediaChecks } from './media-device-check.test-support';
 import {
   readCheckedDevices,
   forgetCheckedDevices,
 } from '../video/device-selection';
+import type { Source } from './model/media-state';
 import {
   createBrowserMediaTransport,
   type MediaTrack,
-  type Source,
-} from './browser-transport';
-import { createMediaController } from './media-controller';
-import { retryMissingDevices, type SourceIllHealth } from './media-status';
-import { admission, snapshot, roundId } from './media-controller.test-support';
-import { events, stubSdk } from './browser-transport.test-support';
+} from './media-harness.test-support';
+import { createMediaController } from './media-harness.test-support';
+type SourceIllHealth = readonly [Source, SourceFailureKind | 'waiting'];
+import { admission, snapshot, roundId } from './media-fixtures.test-support';
+import { events, stubSdk } from './adapters/livekit-room.test-support';
 export const enterCameraTurn = async (failFirstWarm: boolean) => {
   const storage = new MemoryStorage();
   const host = () => storage;
@@ -93,13 +94,8 @@ export const enterCameraTurn = async (failFirstWarm: boolean) => {
     forgetMicrophone: () =>
       forgetCheckedDevices('room-a', ['microphone'], host, 'actor-a'),
     retryMissing: () => {
-      missing = retryMissingDevices(
-        'room-a',
-        missing,
-        'actor-a',
-        (room, sources, actor) =>
-          forgetCheckedDevices(room, sources, host, actor),
-      );
+      forgetCheckedDevices('room-a', missing, host, 'actor-a');
+      missing = [];
       return controller.retry();
     },
   };

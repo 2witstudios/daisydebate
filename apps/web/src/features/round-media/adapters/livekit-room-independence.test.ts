@@ -1,13 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { RoomEvent } from 'livekit-client';
-import { createBrowserMediaTransport } from './browser-transport';
+import { createBrowserMediaTransport } from '../media-harness.test-support';
 import {
   events,
   publish,
   settle,
   sources,
   stubSdk,
-} from './browser-transport.test-support';
+} from './livekit-room.test-support';
 setupRitewayBun();
 
 const reported = () => {

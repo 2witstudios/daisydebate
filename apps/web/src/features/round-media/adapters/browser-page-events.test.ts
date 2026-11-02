@@ -1,11 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { subscribeMediaRecovery } from './media-recovery-events';
-import { createMediaController } from './media-controller';
+import { subscribeBrowserPageEvents } from './browser-page-events';
+import { createMediaController } from '../media-harness.test-support';
 import {
   admission,
   snapshot,
   transportStub,
-} from './media-controller.test-support';
+} from '../media-fixtures.test-support';
 
 setupRitewayBun();
 
@@ -14,7 +14,7 @@ test('real online and visible events nudge once each, and a disposed lifetime he
     visibility = new EventTarget();
   let visible = true,
     nudges = 0;
-  const dispose = subscribeMediaRecovery({
+  const dispose = subscribeBrowserPageEvents({
     online,
     visibility,
     isVisible: () => visible,
@@ -55,7 +55,7 @@ test('leaving the page ends the media lifetime once, so its disconnect cannot re
     changed: () => undefined,
   });
   await controller.join();
-  const dispose = subscribeMediaRecovery({
+  const dispose = subscribeBrowserPageEvents({
     online: new EventTarget(),
     visibility: new EventTarget(),
     isVisible: () => true,
@@ -83,7 +83,7 @@ test('leaving the page ends the media lifetime once, so its disconnect cannot re
 test('only a page restored from the back-forward cache asks for fresh state', () => {
   const page = new EventTarget();
   let restored = 0;
-  const dispose = subscribeMediaRecovery({
+  const dispose = subscribeBrowserPageEvents({
     online: new EventTarget(),
     visibility: new EventTarget(),
     isVisible: () => true,

@@ -2,15 +2,15 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createTimerQueue } from '../realtime/connection-store.test-support';
 import { createRoundTime } from '../round-runtime/round-time';
 import { ran } from '../../ui/debate-room/live-round.test-support';
-import { settle } from './browser-transport.test-support';
+import { settle } from './adapters/livekit-room.test-support';
 import { createRoundViewFollower } from './follow-round-view';
-import { createMediaController } from './media-controller';
+import { createMediaController } from './media-harness.test-support';
 import {
   admission,
   roundId,
   snapshot,
   transportStub,
-} from './media-controller.test-support';
+} from './media-fixtures.test-support';
 import {
   MEDIA_READ_LET_FINISH_MS,
   type MediaReadEvent,

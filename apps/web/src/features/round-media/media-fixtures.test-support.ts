@@ -1,9 +1,9 @@
 import type { RoundMediaAdmission } from '@daisy/protocol';
-import { settle } from './browser-transport.test-support';
+import { settle } from './adapters/livekit-room.test-support';
 import {
   createMediaController,
   type BrowserMediaTransport,
-} from './media-controller';
+} from './media-harness.test-support';
 
 export const roundId = 'r'.repeat(24);
 export const admission: RoundMediaAdmission = {

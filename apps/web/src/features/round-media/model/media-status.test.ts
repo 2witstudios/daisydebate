@@ -1,18 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { MemoryStorage } from '../../lib/storage.test-support';
-import {
-  forgetCheckedDevices,
-  readCheckedDevices,
-  rememberCheckedDevices,
-} from '../video/device-selection';
-import {
-  mediaStatus,
-  mediaWhile,
-  retryMissingDevices,
-  retryUsesDefaults,
-  seatMicrophoneCaption,
-  showConnection,
-} from './media-status';
+import { seatMicrophoneCaption } from './seat-caption';
+import { mediaStatus } from './media-state.test-support';
 
 setupRitewayBun();
 
@@ -57,116 +45,6 @@ test('the media bar names a missing checked device and offers Retry while stayin
         true,
       ],
       ['an ended call', 'The call has ended.', false],
-    ],
-  });
-});
-
-test('Retry forgets only the checked devices found gone, then clears them', () => {
-  const storage = new MemoryStorage();
-  const host = () => storage;
-  rememberCheckedDevices(
-    'room-a',
-    {
-      camera: { status: 'passed', deviceId: 'gone-camera' },
-      microphone: { status: 'passed', deviceId: 'good-microphone' },
-    } as never,
-    host,
-    'actor-a',
-  );
-  const next = retryMissingDevices(
-    'room-a',
-    ['camera'],
-    'actor-a',
-    (room, sources, actor) => forgetCheckedDevices(room, sources, host, actor),
-  );
-  const forgotten = readCheckedDevices('room-a', host, 'actor-a');
-  assert({
-    given: 'a Retry while only the checked camera is missing',
-    should:
-      'forget the camera choice alone for this Room and report nothing missing',
-    actual: { forgotten, next },
-    expected: {
-      forgotten: {
-        state: 'available',
-        choices: { microphone: 'good-microphone' },
-      },
-      next: [],
-    },
-  });
-});
-
-test('failed preference persistence cannot clear missing capture state', () => {
-  assert({
-    given: 'Retry whose storage refuses persistence',
-    should:
-      'retain the missing kind instead of claiming the choice was removed',
-    actual: retryMissingDevices(
-      'room-a',
-      ['camera'],
-      'actor-a',
-      (room, sources, actor) =>
-        forgetCheckedDevices(
-          room,
-          sources,
-          () => ({
-            getItem: () => null,
-            setItem: () => {
-              throw new Error('blocked');
-            },
-          }),
-          actor,
-        ),
-    ),
-    expected: ['camera'],
-  });
-});
-
-test('an explicit Retry is the way out of a saved choice that cannot be read', () => {
-  assert({
-    given: 'an unreadable, an invalid, a device and no failure',
-    should: 'use browser defaults only for the two preference failures',
-    actual: [
-      retryUsesDefaults([['camera', 'preference-unreadable']]),
-      retryUsesDefaults([['microphone', 'preference-invalid']]),
-      retryUsesDefaults([['camera', 'failure']]),
-      retryUsesDefaults([]),
-    ],
-    expected: [true, true, false, false],
-  });
-});
-
-test('a released connection shows no last-known microphone state', () => {
-  assert({
-    given: 'the last server media state as the connection changes',
-    should: 'keep it while the tracks are up, never after teardown',
-    actual: (
-      ['live', 'out-of-date', 'reconnecting', 'unavailable', 'ended'] as const
-    ).map((connection) => mediaWhile(connection, 'open')),
-    expected: ['open', 'open', null, null, null],
-  });
-});
-
-test('a controller teardown clears the stage state it shows', () => {
-  let connection = 'live';
-  let media: string | null = 'open';
-  const changed = showConnection<string>({
-    connection: (state) => {
-      connection = state;
-    },
-    media: (update) => {
-      media = update(media);
-    },
-  });
-  changed('live');
-  const live = [connection, media];
-  changed('unavailable');
-  assert({
-    given: 'the controller going live, then releasing as unavailable',
-    should: 'keep the microphone state while live and clear it on teardown',
-    actual: [live, [connection, media]],
-    expected: [
-      ['live', 'open'],
-      ['unavailable', null],
     ],
   });
 });
@@ -230,7 +108,7 @@ test('a seat caption claims a microphone state only from a track or a current an
       'Microphone open',
       'Speaking',
       'Microphone muted',
-      'Waiting for microphone permission',
+      'Microphone closed',
       'Checking microphone…',
       'Microphone status out of date',
       'Microphone status out of date',

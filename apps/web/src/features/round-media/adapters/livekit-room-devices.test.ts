@@ -1,13 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createBrowserMediaTransport, type Source } from './browser-transport';
-import { createMediaController } from './media-controller';
-import { admission, snapshot, roundId } from './media-controller.test-support';
-import {
-  events,
-  publish,
-  sources,
-  stubSdk,
-} from './browser-transport.test-support';
+import type { Source } from '../model/media-state';
+import { createBrowserMediaTransport } from '../media-harness.test-support';
+import { createMediaController } from '../media-harness.test-support';
+import { admission, snapshot, roundId } from '../media-fixtures.test-support';
+import { events, publish, sources, stubSdk } from './livekit-room.test-support';
 setupRitewayBun();
 
 /** Returns the error name an apply failed with, or '' when it resolved. */
@@ -67,7 +63,7 @@ test('a missing checked camera at Round entry is reported explicitly and never f
         choices: { camera: 'gone-device' },
       }),
       missing: (source) => void missing.push(source),
-      sourceFailed: (source, error) => void reported.push([source, error.name]),
+      sourceFailed: (source, error) => void reported.push([source, error.kind]),
     },
     stub.sdk,
   );
@@ -108,7 +104,7 @@ test('a missing checked microphone keeps the camera turn live and is reported ex
         choices: { microphone: 'gone-device' },
       }),
       missing: (source) => void missing.push(source),
-      sourceFailed: (source, error) => void reported.push([source, error.name]),
+      sourceFailed: (source, error) => void reported.push([source, error.kind]),
     },
     stub.sdk,
   );
@@ -155,7 +151,7 @@ test('only a checked device the Room check passed is named missing; other failur
     {
       ...events,
       missing: (source) => void missing.push(source),
-      sourceFailed: (source, error) => void reported.push([source, error.name]),
+      sourceFailed: (source, error) => void reported.push([source, error.kind]),
     },
     absent.sdk,
   ).transport;
@@ -172,7 +168,7 @@ test('only a checked device the Room check passed is named missing; other failur
         choices: { camera: 'checked-camera' },
       }),
       missing: (source) => void missing.push(source),
-      sourceFailed: (source, error) => void reported.push([source, error.name]),
+      sourceFailed: (source, error) => void reported.push([source, error.kind]),
     },
     refused.sdk,
   ).transport;
@@ -193,8 +189,8 @@ test('only a checked device the Room check passed is named missing; other failur
       uncheckedFailure: '',
       deniedFailure: '',
       typed: [
-        ['camera', 'OverconstrainedError'],
-        ['camera', 'NotAllowedError'],
+        ['camera', 'absence'],
+        ['camera', 'permission'],
       ],
       missing: [],
     },
@@ -217,7 +213,7 @@ test('a camera failure no longer stops the microphone: the pass isolates per sou
         state: 'available',
         choices: { camera: 'empty-slots' },
       }),
-      sourceFailed: (source, error) => void typed.push([source, error.name]),
+      sourceFailed: (source, error) => void typed.push([source, error.kind]),
     },
     broken.sdk,
   );
@@ -237,7 +233,7 @@ test('a camera failure no longer stops the microphone: the pass isolates per sou
     },
     expected: {
       failure: '',
-      typed: [['camera', 'NotReadableError']],
+      typed: [['camera', 'failure']],
       published: ['microphone'],
       microphoneLive: true,
     },
@@ -270,7 +266,7 @@ test('the real controller keeps the working microphone and its subscriptions liv
         state: 'available',
         choices: { camera: 'empty-slots' },
       }),
-      sourceFailed: (source, error) => void typed.push([source, error.name]),
+      sourceFailed: (source, error) => void typed.push([source, error.kind]),
       sourceHealthy: (source) => void healthy.push(source),
     },
     broken.sdk,
@@ -310,7 +306,7 @@ test('the real controller keeps the working microphone and its subscriptions liv
       connection: 'live',
       published: ['microphone'],
       microphoneTrackLive: true,
-      reported: [['camera', 'NotReadableError']],
+      reported: [['camera', 'failure']],
       recovered: ['microphone'],
       announcements: 1,
     },
@@ -331,7 +327,7 @@ test('a checked camera gone keeps the microphone live at Round entry through the
         choices: { camera: 'gone-device' },
       }),
       missing: (source) => void missing.push(source),
-      sourceFailed: (source, error) => void typed.push([source, error.name]),
+      sourceFailed: (source, error) => void typed.push([source, error.kind]),
     },
     gone.sdk,
   );
@@ -393,7 +389,7 @@ test('warm capture failure is reported and a later grant recovers with a fresh c
   const { transport } = createBrowserMediaTransport(
     {
       ...events,
-      sourceFailed: (source, error) => void typed.push([source, error.name]),
+      sourceFailed: (source, error) => void typed.push([source, error.kind]),
       sourceHealthy: (source) => void recovered.push(source),
     },
     failingSdk,
@@ -414,7 +410,7 @@ test('warm capture failure is reported and a later grant recovers with a fresh c
     },
     expected: {
       cameraOnly: '',
-      typed: [['microphone', 'NotReadableError']],
+      typed: [['microphone', 'failure']],
       published: ['camera', 'microphone'],
       recovered: ['camera', 'microphone'],
       live: true,

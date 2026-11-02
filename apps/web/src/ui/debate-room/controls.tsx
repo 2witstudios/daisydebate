@@ -1,7 +1,7 @@
 'use client';
 
 import { startSpeechLabel } from '../../features/debate-room/vocabulary';
-import type { LocalPublication } from '../../features/round-media/local-publication';
+import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import type { ReactNode } from 'react';
 import {
   clockMilestone,
