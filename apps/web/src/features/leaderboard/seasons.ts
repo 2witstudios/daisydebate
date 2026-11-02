@@ -32,11 +32,17 @@ export const seasonsHref = (
 /** Rows in a season's snapshot. */
 const SNAPSHOT_SIZE = 10;
 
+/**
+ * `running`: the season shown is active. `past`: a closed one, picked while
+ * another runs. `none-active`: every season is closed, and this is a closed one.
+ */
+export type SeasonViewState = 'running' | 'past' | 'none-active';
+
 export type SeasonsView = {
   readonly season: Season;
   readonly ladderLabel: string;
   readonly label: string;
-  readonly closed: boolean;
+  readonly state: SeasonViewState;
   readonly tag: string;
   readonly dates: string;
   readonly statusLine: string;
@@ -74,7 +80,11 @@ export function buildSeasonsView(
     season,
     ladderLabel: ladder[0]!.toUpperCase() + ladder.slice(1),
     label: seasonLabel(season),
-    closed,
+    state: !closed
+      ? 'running'
+      : data.seasons.every(isClosed)
+        ? 'none-active'
+        : 'past',
     tag: closed ? 'Closed' : 'Current season',
     dates: seasonDates(season),
     statusLine: closed
@@ -95,3 +105,11 @@ export function buildSeasonsView(
     ladderHref: ladderHref(query),
   };
 }
+
+/**
+ * Publications have no link to a season (ADR 0092), so the page lists them
+ * unless the viewer picked a closed season while another runs. Null is no
+ * season at all.
+ */
+export const listsPublishedResolutions = (view: SeasonsView | null): boolean =>
+  view?.state !== 'past';
