@@ -200,12 +200,12 @@ test('a turn the rules cannot name stays owed (ISSUE-965)', async () => {
   await withRoomRuntime(async (f) => {
     const played = await playedBotRound(f);
     const sealSilent = await silentSeals(f, played.roundId);
-    const [{ sequence }] = await f.sql<
+    const [segment] = await f.sql<
       { sequence: number }[]
     >`select sequence from round_segments where id=${played.answering}`;
     await f.sql.begin(async (tx) => {
       await tx`set local session_replication_role = replica`;
-      await tx`update rounds set rules_snapshot=rules_snapshot #- ${`{segments,${sequence},side}`}::text[] where id=${played.roundId}`;
+      await tx`update rounds set rules_snapshot=rules_snapshot #- ${`{segments,${segment!.sequence},side}`}::text[] where id=${played.roundId}`;
     });
     const seal = await sealSilent(played.answering, played.bot.id);
     assert({
