@@ -213,6 +213,27 @@ describe('forfeitInOpening', () => {
   });
 });
 
+test('a forfeit after prep ended invents no played segment, whatever the countdown', () => {
+  const rules = oneOnOneRules();
+  const projection = forfeitInOpening({
+    ...noDraw(PREP_MS),
+    rules: { ...rules, countdownMs: 0 },
+    now: at(1201),
+    actorId: oneOnOneActors.negative,
+  });
+  assert({
+    given: 'a zero countdown and a forfeit before any sweep started the Round',
+    should: 'write no segment and no final segment end',
+    actual: [
+      projection.segmentInserts,
+      projection.segmentCloses,
+      projection.finalSegmentEndedAt,
+      projection.round?.status,
+    ],
+    expected: [[], [], undefined, 'completed'],
+  });
+});
+
 test('inPreRoundPrep is true only while prep runs', () => {
   const opening = { startedAt: edges.now, draw: null, prepMs: PREP_MS };
   assert({
