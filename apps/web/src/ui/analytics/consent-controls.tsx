@@ -4,37 +4,37 @@ import {
   type AnalyticsAvailability,
   type Consent,
 } from '../../features/analytics/consent';
+import type { ConsentChoice } from '../../features/analytics/viewer-analytics';
 import { buttonClass } from '../components/button/button-class';
 
-type ConsentControlsProps = {
-  readonly consent: Consent;
-  readonly available: AnalyticsAvailability;
-  readonly banner?: boolean;
-  /** The stored choice could not be read: `consent` is not it, so offer no form. */
-  readonly consentUnreadable?: boolean;
-};
-
+/** A preference surface: the viewer's choice when readable, never a guess at it. */
 export function ConsentControls({
-  consentUnreadable = false,
-  ...form
-}: ConsentControlsProps) {
-  const { analytics, replay } = form.available;
-  if (!analytics && !replay) return null;
-  if (consentUnreadable)
+  choice,
+  available,
+}: {
+  readonly choice: ConsentChoice;
+  readonly available: AnalyticsAvailability;
+}) {
+  if (!available.analytics && !available.replay) return null;
+  if (choice.kind === 'unreadable')
     return (
       <p role="status">
         We can&apos;t read your saved privacy choices right now. Reload this
         page to try again.
       </p>
     );
-  return <ConsentForm {...form} />;
+  return <ConsentForm consent={choice.consent} available={available} />;
 }
 
-function ConsentForm({
+export function ConsentForm({
   consent,
   available,
   banner = false,
-}: Omit<ConsentControlsProps, 'consentUnreadable'>) {
+}: {
+  readonly consent: Consent;
+  readonly available: AnalyticsAvailability;
+  readonly banner?: boolean;
+}) {
   if (banner && consentNeeded(consent, available).length === 0) return null;
   return (
     <aside

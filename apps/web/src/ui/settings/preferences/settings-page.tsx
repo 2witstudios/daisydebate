@@ -1,8 +1,6 @@
 import { ConsentControls } from '../../analytics/consent-controls';
-import type {
-  Consent,
-  AnalyticsAvailability,
-} from '../../../features/analytics/consent';
+import type { AnalyticsAvailability } from '../../../features/analytics/consent';
+import type { ConsentChoice } from '../../../features/analytics/viewer-analytics';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { OnboardingAnswers } from '../../../features/onboarding/answers';
@@ -67,9 +65,8 @@ export type SettingsPageProps = {
   readonly profileAction: FormStateAction;
   readonly notificationsAction: FormStateAction;
   readonly analytics: {
-    readonly consent: Consent;
+    readonly choice: ConsentChoice;
     readonly available: AnalyticsAvailability;
-    readonly consentUnreadable?: boolean;
   };
   /** The member's data-rights notices, parsed from the handlers' fixed keys. */
   readonly dataRightsNotices: DataRightsNotices;

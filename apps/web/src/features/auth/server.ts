@@ -254,7 +254,7 @@ const sessionReaderOf = (instance: AuthInstance) => (headers: Headers) =>
 
 /**
  * Only what production callers read off the result: the app's routes and
- * pages (`server/app.ts` composes it) use `config`, `instance`,
+ * pages (`server/app.ts` composes it) use `config`, `instance`, `readSession`,
  * `clock` and `logger`, and the app's close waits on `settled`. Mail delivery, `database`, `ledger` and `ids` stay
  * internal to composition; tests reach delivery through a real auth
  * request.

@@ -74,7 +74,7 @@ export const isCapacityRefusal = (error: unknown): boolean =>
  */
 export const isTemporaryRefusal = (error: unknown): boolean => {
   const reason = capacityRefusalDetail(error)?.reason;
-  return reason !== undefined && reason !== 'unconfigured';
+  return reason === 'saturated' || reason === 'expired';
 };
 /** The lane and reason of the refusal `error` carries, if it carries one. */
 export function capacityRefusalDetail(

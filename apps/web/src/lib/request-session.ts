@@ -13,11 +13,7 @@ import { admitsOptionalAnswers } from '@daisy/auth/account-age';
 import type { MatchHistoryQuery, MemberProfile } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
-import {
-  analyticsView,
-  analyticsViewerOf,
-  readStoredConsent,
-} from '../features/analytics/viewer-analytics';
+import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
@@ -47,30 +43,11 @@ export const requestIdentity = async (): Promise<Identity> =>
 /** Public adapter config only; management credentials never enter a rendered prop. */
 export const requestAnalytics = cache(async () => {
   const app = processApp();
-  const config = analyticsConfiguration(app.config);
-  const cookie = parseConsent((await cookies()).get(CONSENT_COOKIE)?.value);
-  if (!config.key)
-    return {
-      needsAdoption: false,
-      keyValue: null,
-      host: null,
-      userId: null,
-      consent: cookie,
-      consentUnreadable: false,
-      available: config.available,
-    };
-  const identity = await requestIdentity();
-  const userId = analyticsViewerOf(identity);
-  return analyticsView({
-    config: { ...config, key: config.key },
-    identity,
-    cookie,
-    read: userId
-      ? await readStoredConsent(
-          (id) => app.database.readAnalyticsConsent(id),
-          userId,
-        )
-      : { kind: 'found', stored: null },
+  return readViewerAnalytics({
+    config: analyticsConfiguration(app.config),
+    identity: await requestIdentity(),
+    cookie: parseConsent((await cookies()).get(CONSENT_COOKIE)?.value),
+    readConsent: (userId) => app.database.readAnalyticsConsent(userId),
   });
 });
 

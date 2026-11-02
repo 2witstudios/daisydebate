@@ -13,6 +13,12 @@ import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 
+/** Plain data on an outage minted from an identity a refusal made unavailable. */
+const TEMPORARY_OUTAGE = { temporary: true } as const;
+const isTemporaryOutage = (error: unknown) =>
+  error instanceof Error &&
+  (error.cause as { temporary?: unknown } | undefined)?.temporary === true;
+
 /** An `Identity` once anonymous and unavailable are ruled out. */
 export type SignedInIdentity = Extract<
   Identity,
@@ -26,15 +32,13 @@ export type SignedInIdentity = Extract<
  * that requires a full member (not merely signed in) narrows the result
  * itself.
  */
-/** Outages minted here from an identity a refusal made unavailable. */
-const temporaryOutages = new WeakSet<Error>();
-
 export function requireSignedIn(identity: Identity): SignedInIdentity {
-  if (identity.state === 'unavailable') {
-    const outage = createAppError('INFRASTRUCTURE');
-    if (identity.temporary) temporaryOutages.add(outage);
-    throw outage;
-  }
+  if (identity.state === 'unavailable')
+    throw createAppError(
+      'INFRASTRUCTURE',
+      undefined,
+      identity.temporary ? TEMPORARY_OUTAGE : undefined,
+    );
   if (identity.state === 'anonymous') throw createAppError('AUTHENTICATION');
   return identity;
 }
@@ -162,9 +166,7 @@ export async function handleOperation(
 }
 /** Only a temporary refusal's 503 is known to pass: the work never ran (ADR 0088). */
 const retryAdvice = (status: number, error: unknown) =>
-  status === 503 &&
-  (isTemporaryRefusal(error) ||
-    (error instanceof Error && temporaryOutages.has(error)))
+  status === 503 && (isTemporaryRefusal(error) || isTemporaryOutage(error))
     ? { 'Retry-After': '1' }
     : {};
 
