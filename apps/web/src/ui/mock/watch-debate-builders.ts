@@ -60,7 +60,7 @@ export const published = (
   winner: Side,
   judgesFor: number,
   judgesAgainst: number,
-  rated: boolean,
+  ranked: boolean,
   aff: Debater,
   neg: Debater,
 ): Ballots => {
@@ -70,7 +70,7 @@ export const published = (
     ...Array.from({ length: judgesAgainst }, () => judgeBallot(loser)),
   ];
   const change = (debater: Debater, won: boolean) =>
-    rated
+    ranked
       ? { from: debater.rating, to: debater.rating + (won ? 9 : -9) }
       : null;
   return {

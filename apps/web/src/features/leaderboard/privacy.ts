@@ -33,7 +33,7 @@ export const privacySections: readonly PrivacySection[] = [
       {
         title: 'Rating, rank, W–L',
         where: 'Everywhere on the ladder',
-        note: 'Rated competitive records remain after account closure.',
+        note: 'Ranked competitive records remain after account closure.',
         tag: 'competitive record',
       },
       {

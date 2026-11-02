@@ -189,10 +189,10 @@ describe('buildSpectateView: an ended debate', () => {
     const view = viewOf('open-table');
     assert({
       given: 'a casual debate',
-      should: 'say casual debates are not rated',
+      should: 'say casual debates are not ranked',
       actual: view.banner?.kind === 'result' && view.banner.detail,
       expected:
-        'Casual debates are not rated. Judge reasons are in the recording.',
+        'Casual debates are not ranked. Judge reasons are in the recording.',
     });
   });
 });

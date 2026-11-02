@@ -28,7 +28,7 @@ export function CreateRoomEditor({
   initialChoice,
   values: kept,
   commandId,
-  initialRated,
+  initialRanked,
   pending,
   error,
 }: {
@@ -37,7 +37,7 @@ export function CreateRoomEditor({
   readonly initialChoice: RoomCatalogChoice;
   readonly values: Readonly<Record<string, string>>;
   readonly commandId: string;
-  readonly initialRated: boolean;
+  readonly initialRanked: boolean;
   readonly pending: boolean;
   readonly error?: string | undefined;
 }) {
@@ -50,7 +50,7 @@ export function CreateRoomEditor({
       ...kept,
     };
     if (
-      initialRated &&
+      initialRanked &&
       Object.keys(kept).length === 0 &&
       initialChoice.preset.rankedEligible
     )

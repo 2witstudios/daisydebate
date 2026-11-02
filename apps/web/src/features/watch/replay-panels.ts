@@ -67,7 +67,7 @@ export function buildResult(
     kind: 'published',
     headline: `${sideLabel(ballots.winner)} wins, ${ballots.judgesFor} to ${ballots.judgesAgainst}`,
     lines: ratingLines(debate, ballots),
-    note: debate.mode === 'ranked' ? `Ranked · season ${season}` : 'Unrated',
+    note: debate.mode === 'ranked' ? `Ranked · season ${season}` : 'Casual',
     judges: ballots.judges.map((judge, index) => ({
       title: `Judge ${index + 1}`,
       summary: `${sideLabel(judge.winner)} · Aff ${judge.affPoints}, Neg ${judge.negPoints}`,

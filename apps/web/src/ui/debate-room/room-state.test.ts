@@ -6,7 +6,7 @@ setupRitewayBun();
 
 const now = '2026-10-05T18:30:00.000Z';
 const casual = sampleRound('prep', 'casual');
-const rated = sampleRound('prep', 'ranked');
+const ranked = sampleRound('prep', 'ranked');
 
 test('an accepted recovery uses the ordinary document and tab transitions', () => {
   const reduce = reduceRoom(casual);
@@ -177,11 +177,11 @@ describe('reduceRoom agent/edit', () => {
 });
 
 describe('reduceRoom drawer', () => {
-  test('a rated round has no AI tab', () => {
-    const before = initialRoomState(rated);
-    const reduce = reduceRoom(rated);
+  test('a ranked round has no AI tab', () => {
+    const before = initialRoomState(ranked);
+    const reduce = reduceRoom(ranked);
     assert({
-      given: 'a request for the AI tab in a rated round, on either screen',
+      given: 'a request for the AI tab in a ranked round, on either screen',
       should: 'leave the drawer as it was',
       actual: [
         reduce(before, { type: 'drawer/tab', tab: 'ai' }),

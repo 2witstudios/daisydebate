@@ -116,7 +116,7 @@ A ranked round resolves from an approved `RoomConfig`, so ranked and unranked sh
 compiler and the only difference is where the config came from. An invalid ranked
 configuration is **unrepresentable** rather than detectable afterwards.
 `rulesMatchFormat()` is deleted along with the validation responsibility it named;
-`assertRatedRoundIntegrity` instead compares the round's frozen provenance.
+`assertRankedRoundIntegrity` instead compares the round's frozen provenance.
 
 `format_presets` holds sanctioned format settings (`FormatSettings`, which a
 `RoomConfig` embeds; ADR 0078 §10) as immutable revisions, keyed
@@ -182,7 +182,7 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
 
 ### 8. Constraints that are decisions, not shape
 
-- **Rated eligibility is a construction-time invariant.** A ranked round is resolved from a
+- **Ranked eligibility is a construction-time invariant.** A ranked round is resolved from a
   sanctioned preset or it does not exist. `ratingEligibility()` re-checks nothing about
   format; a failure there is an invariant violation, not `{kind:'unrated', reason:'rules'}`.
 - **Ratedness has one authority.** The frozen `ladder_id` alone decides it

@@ -52,7 +52,7 @@ describe('Dashboard', () => {
   test('shows coming-soon cards instead of sample tournament and live data', () => {
     const html = render();
     assert({
-      given: 'the home dashboard with rated play and real standings launched',
+      given: 'the home dashboard with ranked play and real standings launched',
       should:
         'carry five Coming soon tags and no sample event now that Train is real',
       actual: [

@@ -6,7 +6,7 @@ import { everyoneReady } from './round-judging.test-support';
 import { strikeStanding } from './room-draw.test-support';
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 /** Canonical setup proof; only the test-owned prep anchor advances, never real time. */
-export async function readyRatedRoom(
+export async function readyRankedRoom(
   f: Fixture,
   ladder: RatingLadder,
   judgeKind: 'human' | 'ai',
@@ -77,7 +77,7 @@ export async function readyRatedRoom(
 }
 
 /** Exercise duplicate delivery plus a fresh sweep over durable rating discovery. */
-export async function recoverRatedResults(f: Fixture) {
+export async function recoverRankedResults(f: Fixture) {
   const sweep = () =>
     createRatingSweep({
       database: f.store,

@@ -168,7 +168,7 @@ function bannerFor(debate: WatchDebate): Banner | null {
   return {
     kind: 'result',
     headline: `${sideLabel(ballots.winner)} wins, ${ballots.judgesFor} to ${ballots.judgesAgainst}`,
-    detail: `${ratings.length > 0 ? `${ratings.join(', ')}. ` : 'Casual debates are not rated. '}Judge reasons are in the recording.`,
+    detail: `${ratings.length > 0 ? `${ratings.join(', ')}. ` : 'Casual debates are not ranked. '}Judge reasons are in the recording.`,
     replayHref: href,
   };
 }

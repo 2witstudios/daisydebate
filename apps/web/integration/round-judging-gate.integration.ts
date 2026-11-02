@@ -2,7 +2,7 @@ import { createRoundJudgingOperations } from '../src/features/round-judging/oper
 import { createId } from '@paralleldrive/cuid2';
 import { withSeasons } from '@daisy/db/seasons';
 import { buildRoundTopic } from '@daisy/protocol';
-import { recoverRatedResults } from './rated-room.test-support';
+import { recoverRankedResults } from './ranked-room.test-support';
 import { roundWaitingOn } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
@@ -150,7 +150,7 @@ const judgingOptions = {
   },
 };
 
-test('a failed AI judge ends a rated Round honestly: no human countdown, no winner, no rating, Room released', async () => {
+test('a failed AI judge ends a ranked Round honestly: no human countdown, no winner, no rating, Room released', async () => {
   await withRoomRuntime(async (f) => {
     const { roundId } = await frozenBotJudgeRound(f, true);
     await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
@@ -243,7 +243,7 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
       const done = (await f.store.getRound(roundId))!;
       const [receipt] =
         await f.sql`select result from round_commands where round_id=${roundId} and type='complete'`;
-      await recoverRatedResults(f);
+      await recoverRankedResults(f);
       const ledger =
         await f.sql`select actor_id from rating_changes where round_id=${roundId}`;
       assert({

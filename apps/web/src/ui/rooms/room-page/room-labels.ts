@@ -70,7 +70,7 @@ const competitionLabels = {
   casual: 'Casual · ratings don’t change',
 } as const;
 
-/** Host, who can join, and whether the result is rated: the header's meta line. */
+/** Host, who can join, and whether the result is ranked: the header's meta line. */
 export function roomMeta(
   view: Pick<RoomView, 'hostLabel' | 'visibility' | 'competitionType'>,
 ): readonly string[] {

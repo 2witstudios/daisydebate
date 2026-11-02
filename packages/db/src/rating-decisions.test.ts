@@ -2,7 +2,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import type { RatingPlan } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  assertRatedRoundIntegrity,
+  assertRankedRoundIntegrity,
   projectionLockOrder,
   ratedResult,
   ratingChangeRows,
@@ -43,12 +43,12 @@ test('only ranked Rounds pin a preset and ladder', async () => {
     given: 'a ranked Round with both and a casual Round with neither',
     should: 'accept both as intact',
     actual: [
-      assertRatedRoundIntegrity({
+      assertRankedRoundIntegrity({
         competitionType: 'ranked',
         presetVersion: 1,
         ladderId: 'ladder',
       }),
-      assertRatedRoundIntegrity({
+      assertRankedRoundIntegrity({
         competitionType: 'casual',
         presetVersion: null,
         ladderId: null,
@@ -65,7 +65,7 @@ test('only ranked Rounds pin a preset and ladder', async () => {
     await assertRejects({
       given: `a ${round.competitionType} Round with preset ${round.presetVersion} and ladder ${round.ladderId}`,
       should: 'report corrupted rating provenance as an invariant',
-      actual: () => assertRatedRoundIntegrity(round),
+      actual: () => assertRankedRoundIntegrity(round),
       code: 'INVARIANT',
       invariantId: 'round.rating.integrity',
     });

@@ -3,7 +3,6 @@
 import type { Dispatch } from 'react';
 import {
   drawerTabs,
-  roundKindOf,
   type DrawerTab,
 } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
@@ -43,7 +42,7 @@ export function RoundTabs({
   readonly dispatch: Dispatch<RoomAction>;
   readonly unread: number;
 }) {
-  const tabs = [null, ...drawerTabs(roundKindOf(round.competition))] as const;
+  const tabs = [null, ...drawerTabs(round.competition)] as const;
   const current = state.phoneDrawer ? state.drawer : null;
   return (
     <nav

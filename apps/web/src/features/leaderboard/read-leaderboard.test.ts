@@ -31,7 +31,7 @@ test('a season without postings is empty, and no season invents no dates or stan
     { seasonId: null, ladder: 'value', now, username: 'ada' },
   );
   assert({
-    given: 'no season or an active Season1 without a rated result',
+    given: 'no season or an active Season1 without a ranked result',
     should:
       'show no season or authoritative empty standings with actual open-ended dates',
     actual: {

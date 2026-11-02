@@ -13,7 +13,7 @@ and the room's settings then drifted with no record of where they came
 from. Debaters arrive with a league in mind (NSDA Lincoln-Douglas, NDT
 policy, Public Forum), and the owner wants rooms pushed toward three Daisy
 standards that ranked play will share, with league rules available as a
-starting point rather than as equal choices. A preset meant "rated
+starting point rather than as equal choices. A preset meant "ranked
 config", so giving a league template a starting config would also have
 made it rankable.
 

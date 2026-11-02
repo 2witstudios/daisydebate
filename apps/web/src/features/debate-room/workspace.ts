@@ -1,8 +1,6 @@
 import type { CompetitionType } from '@daisy/protocol';
 import type { FolderId, WorkspaceDocument } from './documents/documents';
 
-export type RoundKind = 'rated' | 'unrated';
-
 type Folder = {
   readonly id: FolderId;
   readonly title: string;
@@ -64,15 +62,11 @@ export function activateTab(tabs: TabsState, id: string): TabsState {
   return tabs.open.includes(id) ? { ...tabs, active: id } : tabs;
 }
 
-/** A ranked round is rated; a casual round is not. */
-export const roundKindOf = (competition: CompetitionType): RoundKind =>
-  competition === 'ranked' ? 'rated' : 'unrated';
-
 export type DrawerTab = 'files' | 'chat' | 'ai' | 'room';
 
-/** A rated round has no AI: outside help would make the result unfair. */
-export function drawerTabs(kind: RoundKind): readonly DrawerTab[] {
-  return kind === 'rated'
+/** A ranked round has no AI: outside help would make the result unfair. */
+export function drawerTabs(competition: CompetitionType): readonly DrawerTab[] {
+  return competition === 'ranked'
     ? ['files', 'chat', 'room']
     : ['files', 'chat', 'ai', 'room'];
 }
@@ -85,18 +79,18 @@ export type Channel = {
 
 export function visibleChannels(
   channels: readonly Channel[],
-  kind: RoundKind,
+  competition: CompetitionType,
 ): readonly Channel[] {
-  return kind === 'rated'
+  return competition === 'ranked'
     ? channels.filter((c) => c.scope === 'round')
     : channels;
 }
 
-/** A rated round shows no club folder: the club's files are outside help (DEC-175). */
+/** A ranked round shows no club folder: the club's files are outside help (DEC-175). */
 export const visibleClub = (
   clubName: string | null,
-  kind: RoundKind,
-): string | null => (kind === 'rated' ? null : clubName);
+  competition: CompetitionType,
+): string | null => (competition === 'ranked' ? null : clubName);
 
 export type Agent = {
   readonly id: string;
@@ -106,9 +100,9 @@ export type Agent = {
 
 export function visibleAgents(
   agents: readonly Agent[],
-  kind: RoundKind,
+  competition: CompetitionType,
 ): readonly Agent[] {
-  return kind === 'rated' ? [] : agents;
+  return competition === 'ranked' ? [] : agents;
 }
 
 /** Reconcile stored documents without replacing a still-open valid tab. */

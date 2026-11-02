@@ -13,7 +13,7 @@ import {
   playOut,
   submitHumanBallot,
 } from './round-judging.test-support';
-import { readyRatedRoom, recoverRatedResults } from './rated-room.test-support';
+import { readyRankedRoom, recoverRankedResults } from './ranked-room.test-support';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
@@ -36,7 +36,7 @@ for (const ladder of ratingLadders)
               const season = await withSeasons(databaseUrl, (s) =>
                 s.activateBetaSeason({ id: seasonId }),
               );
-              const room = await readyRatedRoom(f, ladder, judgeKind);
+              const room = await readyRankedRoom(f, ladder, judgeKind);
               ({ roundId } = await startRuntimeRound(f, room));
               await playOut(f, roundId, true);
               const frozen = await finalizeAsWeb(f, roundId);
@@ -90,7 +90,7 @@ for (const ladder of ratingLadders)
               const candidates = await f.store.readUnratedRatingRounds({
                 limit: 64,
               });
-              await recoverRatedResults(f);
+              await recoverRankedResults(f);
               const ledger =
                 await f.sql`select actor_id,ladder,season_id,rating_before,rating_after from rating_changes where round_id=${roundId}`;
               const projection =

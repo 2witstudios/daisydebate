@@ -187,7 +187,7 @@ describe('the replay result', () => {
       given: 'a casual debate',
       should: 'publish with no rating lines',
       actual: result.kind === 'published' && [result.lines.length, result.note],
-      expected: [0, 'Unrated'],
+      expected: [0, 'Casual'],
     });
   });
 });

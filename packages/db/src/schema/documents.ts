@@ -79,7 +79,7 @@ export const documents = pgTable(
 /**
  * The Round's view over what its participants can read (ADR 0058 §9):
  * scope, not existence. Removing a document from a round removes this row
- * and nothing else; `pinned_revision` is where rated-round evidence later
+ * and nothing else; `pinned_revision` is where ranked-round evidence later
  * pins an immutable revision.
  */
 export const roundDocumentRefs = pgTable(

@@ -26,7 +26,7 @@ type RoundInput = {
   readonly ladder?: 'freestyle' | 'policy' | 'value';
   readonly affirmative: string;
   readonly negative: string;
-  /** `ladderId` null marks an unrated (casual) round. */
+  /** `ladderId` null marks a casual round. */
   readonly competitionType?: 'ranked' | 'casual';
   readonly status?: 'active' | 'completed' | 'abandoned';
   readonly outcome?: string;

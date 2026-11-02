@@ -16,7 +16,7 @@ const options: readonly PlayOption[] = [
   {
     id: 'ranked',
     title: 'Ranked match',
-    blurb: 'Matched near your rating. Rated.',
+    blurb: 'Matched near your rating. Ranked.',
     href: '/coming-soon/ranked',
     comingSoon: true,
   },

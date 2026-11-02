@@ -10,7 +10,7 @@ export type Visibility = 'public' | 'unlisted' | 'private';
 export type DebateMode = 'ranked' | 'casual';
 export type Side = 'aff' | 'neg';
 
-/** `provisional` ratings are still settling (few rated debates). */
+/** `provisional` ratings are still settling (few ranked Rounds). */
 type Standing = 'established' | 'provisional';
 
 export type Debater = {

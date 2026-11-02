@@ -10,7 +10,7 @@ import { and, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RateDebateInput, RateDebateResult } from './rating-facts';
 import {
-  assertRatedRoundIntegrity,
+  assertRankedRoundIntegrity,
   projectionLockOrder,
   ratedResult,
   ratingChangeRows,
@@ -146,7 +146,7 @@ async function rateOnce(
     .where(eq(rounds.id, roundId))
     .for('no key update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
-  assertRatedRoundIntegrity(round);
+  assertRankedRoundIntegrity(round);
   const [rated] = await tx
     .select({ id: ratingChanges.id })
     .from(ratingChanges)

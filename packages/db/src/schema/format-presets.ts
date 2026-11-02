@@ -15,7 +15,7 @@ import { jsonbColumn, jsonbIsObject, timestampColumn } from './columns';
 import { formatRevisions } from './format-revisions';
 
 /**
- * Sanctioned format settings for rated play, as immutable revisions
+ * Sanctioned format settings for ranked play, as immutable revisions
  * (ADR 0058 §3). A ranked round resolves from the current revision for its
  * format (every Round is full length, DEC-237); every earlier revision is
  * retained, because a live

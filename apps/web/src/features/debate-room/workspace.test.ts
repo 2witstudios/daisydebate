@@ -5,7 +5,6 @@ import {
   buildTree,
   closeTab,
   openTab,
-  roundKindOf,
   drawerTabs,
   visibleAgents,
   visibleChannels,
@@ -137,7 +136,7 @@ describe('tabs', () => {
   });
 });
 
-describe('rated rounds', () => {
+describe('ranked rounds', () => {
   const channels: readonly Channel[] = [
     { id: 'r', title: 'Round', scope: 'round' },
     { id: 'c', title: 'Club', scope: 'club' },
@@ -148,25 +147,25 @@ describe('rated rounds', () => {
 
   test('drawer visibility', () => {
     assert({
-      given: 'a rated round',
+      given: 'a ranked round',
       should:
         'offer files, chat and room, round channels only, no agents and no club folder',
       actual: [
-        drawerTabs('rated'),
-        visibleChannels(channels, 'rated').map((c) => c.id),
-        visibleAgents(agents, 'rated'),
-        visibleClub('Riverside', 'rated'),
+        drawerTabs('ranked'),
+        visibleChannels(channels, 'ranked').map((c) => c.id),
+        visibleAgents(agents, 'ranked'),
+        visibleClub('Riverside', 'ranked'),
       ],
       expected: [['files', 'chat', 'room'], ['r'], [], null],
     });
     assert({
-      given: 'an unrated round',
+      given: 'a casual round',
       should: 'offer every tab with every channel, agent and the club folder',
       actual: [
-        drawerTabs('unrated'),
-        visibleChannels(channels, 'unrated').map((c) => c.id),
-        visibleAgents(agents, 'unrated').map((a) => a.id),
-        visibleClub('Riverside', 'unrated'),
+        drawerTabs('casual'),
+        visibleChannels(channels, 'casual').map((c) => c.id),
+        visibleAgents(agents, 'casual').map((a) => a.id),
+        visibleClub('Riverside', 'casual'),
       ],
       expected: [
         ['files', 'chat', 'ai', 'room'],
@@ -174,17 +173,6 @@ describe('rated rounds', () => {
         ['g'],
         'Riverside',
       ],
-    });
-  });
-});
-
-describe('roundKindOf', () => {
-  test('the room decides the round', () => {
-    assert({
-      given: 'a ranked and a casual round',
-      should: 'make only the ranked round rated',
-      actual: [roundKindOf('ranked'), roundKindOf('casual')],
-      expected: ['rated', 'unrated'],
     });
   });
 });

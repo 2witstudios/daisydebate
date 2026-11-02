@@ -198,7 +198,7 @@ export const formatOperations = ({
 
   /**
    * The historical definition revision a round or preset pinned, for
-   * `assertRatedRoundIntegrity` and provenance reads. Refuses when absent:
+   * `assertRankedRoundIntegrity` and provenance reads. Refuses when absent:
    * a pinned version that no longer resolves is corruption.
    */
   async getFormatRevision(
