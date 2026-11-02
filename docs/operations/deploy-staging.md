@@ -812,6 +812,11 @@ deploy keeps them (BCAST-2, superseding DEC-228). LiveKit needs this Redis while
 it runs, so the app is never stopped when idle. To detach, run
 `fly secrets unset REDIS_HOST REDIS_PASSWORD -a daisy-debate-staging-livekit`.
 
+**Egress and storage.** `daisy-debate-staging-egress` (`fly.egress.toml`) holds its whole
+config in the `EGRESS_CONFIG_BODY` secret and writes to the private Tigris bucket
+`daisy-debate-staging-broadcast`, created with `fly storage create`. Stop the
+machine when idle: it has no proxy to auto-stop it.
+
 **LiveKit on Fly.** Browsers signal over `wss://daisy-debate-staging-livekit.fly.dev`
 (fly-proxy terminates TLS on 443 and forwards to 7880). Media is UDP 7882,
 with ICE over raw TCP 7881 as the fallback; both need the app's dedicated

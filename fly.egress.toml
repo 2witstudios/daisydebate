@@ -1,0 +1,14 @@
+# Staging Egress (BCAST-2, owner sign-off under BCAST-H, 2026-11-02): renders
+# Daisy's stage page in headless Chrome and writes its output to the private
+# Tigris bucket. Shares daisy-debate-staging-media-redis with LiveKit. No public
+# services. EGRESS_CONFIG_BODY is a Fly secret. Stop the machine when idle: it
+# has no proxy to auto-stop it.
+app = "daisy-debate-staging-egress"
+primary_region = "ord"
+
+[build]
+  image = "livekit/egress:v1.15.0"
+
+[[vm]]
+  size = "performance-4x"
+  memory = "8gb"
