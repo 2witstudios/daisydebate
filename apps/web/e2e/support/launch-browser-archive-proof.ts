@@ -150,8 +150,8 @@ try {
   log({ case: 'receipt-identity', outcome: 'rejected', reason: 'identity' });
   await Bun.write(receiptPath, receiptText);
 
-  // The shared outer owner: a corrupt archive directory warns and causes one
-  // fresh preparation. A real CI hit stays offline; its key covers this proof
+  // The shared outer owner: a corrupt archive directory is rejected and causes
+  // one fresh preparation. A real CI hit stays offline; its key covers this proof
   // and its entry saved only after the proof passed on these exact inputs.
   if (
     process.env.LAUNCH_IMAGE_CACHE_HIT === 'true' &&

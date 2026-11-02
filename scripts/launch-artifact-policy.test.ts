@@ -130,6 +130,7 @@ test('the prepared image cache is input-bound and saved only after its proofs', 
           run?: string;
           if?: string;
           env?: Record<string, string>;
+          'continue-on-error'?: boolean;
         }[];
       }
     >;
@@ -141,7 +142,7 @@ test('the prepared image cache is input-bound and saved only after its proofs', 
   assert({
     given: 'the native job',
     should:
-      'fail on an unresolved key, never restore on a fork, save only a real archive after every proof, and pass the real hit signal',
+      'fail on an unresolved key, treat a stalled cache as a miss, never restore on a fork, save only a real archive after every proof, and pass the real hit signal',
     actual: {
       keyLine: steps
         .find(
@@ -154,6 +155,10 @@ test('the prepared image cache is input-bound and saved only after its proofs', 
         'Prove prepared browser trust, repository isolation and cleanup',
       ].every((name) => position(name) >= 0 && position(name) < save),
       beforeSuite: save < position('Run real isolated Launch browser suite'),
+      cacheNeverFails: [
+        'Restore prepared Launch browser archive',
+        'Save trusted prepared Launch browser archive',
+      ].map((name) => steps[position(name)]?.['continue-on-error']),
       restoreGuard: steps.find(
         (step) => step.name === 'Restore prepared Launch browser archive',
       )?.if,
@@ -167,6 +172,7 @@ test('the prepared image cache is input-bound and saved only after its proofs', 
       keyLine: 'key=$(bun apps/web/e2e/support/launch-browser-image.ts --key)',
       afterProofs: true,
       beforeSuite: true,
+      cacheNeverFails: [true, true],
       restoreGuard:
         "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
       saveRequiresReceipt: true,

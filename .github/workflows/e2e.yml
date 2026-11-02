@@ -475,6 +475,9 @@ jobs:
       # never restore it; the shared preparer validates receipt and image again.
       - name: Restore prepared Launch browser archive
         id: launch-image-cache
+        # A stalled cache is a miss, never a red required check: the hit output stays
+        # empty, so the proofs run in full, and a partial directory is rebuilt.
+        continue-on-error: true
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         timeout-minutes: 8
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -497,6 +500,7 @@ jobs:
         run: bun scripts/heavy.ts bun apps/web/e2e/support/launch-browser-image-proof.ts
       # After the proofs, so a cache hit means they passed on these exact inputs.
       - name: Save trusted prepared Launch browser archive
+        continue-on-error: true
         if: >-
           steps.launch-image-cache.outputs.cache-hit != 'true' &&
           hashFiles('.pu/worktrees/wt-roomlaunchci/.cache/launch-browser-image/receipt.json') != '' &&

@@ -146,7 +146,7 @@ image checks decide identity. The store family comes from `docker info` and sele
 the expected image ID: the config digest on classic `overlay2`, the manifest digest
 on containerd `overlayfs`. Family and format are in the cache key.
 
-A plain miss is quiet. A rejected entry emits a `cache-rejected` warning annotation
+A plain miss is quiet, and a stalled cache step counts as one. A rejected entry emits a `cache-rejected` warning annotation
 naming its reason, then rebuilds from pinned digests under the same eight-minute
 owner, and never fails the run. A CI entry cannot be replaced under its key, so a
 rejected one rebuilds on every run until its key changes: bump `refresh` in the
