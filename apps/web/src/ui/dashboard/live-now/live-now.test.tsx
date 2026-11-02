@@ -18,7 +18,7 @@ describe('LiveNow', () => {
         liveDebates: [
           {
             topic: 'Tests Are Specifications',
-            viewers: 77,
+            spectators: 77,
             challenger: 'Ada Byron',
             challengerRating: 2100,
             defender: 'Alan Kay',
@@ -33,7 +33,7 @@ describe('LiveNow', () => {
     assert({
       given: 'a store with one live debate',
       should:
-        'render the see-all link plus one /watch debate link with topic, both sides, ratings, viewers',
+        'render the see-all link plus one /watch debate link with topic, both sides, ratings, spectators',
       actual: [
         html.split('<a ').length - 1,
         html.includes('href="/watch"'),

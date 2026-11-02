@@ -71,7 +71,7 @@ export function LiveNow() {
                 <p className="flex items-center justify-center gap-2 text-xs text-ink-faint">
                   <Icon name="users" size={14} />
                   <span className="font-strong text-ink-muted tabular-nums">
-                    {debate.viewers}
+                    {debate.spectators}
                   </span>
                   watching
                 </p>

@@ -25,7 +25,7 @@ import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
 import { readPersistedTranscript } from '../../../../(shell)/rounds/[id]/read-persisted-transcript';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
 import {
-  spectatorAudienceOf,
+  spectatorKindOf,
   watchingRoomOf,
 } from '../../../../../features/spectating/spectator-view';
 import { LiveSpectatorRoom } from '../../../../../ui/spectating/live-spectator-room';
@@ -47,14 +47,14 @@ async function watchingRoom(
   if (assigned.kind === 'unavailable') throw createAppError('INFRASTRUCTURE');
   const room = watchingRoomOf({
     judgeRound: assigned.kind === 'found' ? assigned.round : null,
-    audience: spectatorAudienceOf(round, actorId),
+    spectatorKind: spectatorKindOf(round, actorId),
   });
   if (room.kind === 'receipt') redirect(`/rounds/${id}`);
   if (room.kind === 'spectator')
     return (
       <LiveSpectatorRoom
         view={round}
-        audience={room.audience}
+        spectatorKind={room.spectatorKind}
         transcript={transcript}
         renderedAtMs={Date.parse(systemClock.now())}
         read={readPersistedRound.bind(null, id)}

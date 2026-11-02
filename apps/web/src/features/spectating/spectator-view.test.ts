@@ -12,7 +12,7 @@ import {
   view,
 } from '../../ui/debate-room/live-round.test-support';
 import {
-  spectatorAudienceOf,
+  spectatorKindOf,
   spectatorViewOf,
   watchingRoomOf,
 } from './spectator-view';
@@ -25,19 +25,19 @@ const hosted = (round: RoundView): RoundView => ({
   viewerIsHost: true,
 });
 
-describe('spectatorAudienceOf', () => {
+describe('spectatorKindOf', () => {
   test('who watches as a spectator today', () => {
     assert({
       given:
         'a seatless host of a live Round, the same host once it ended or was abandoned, a seated host, and a member who does not host (ISSUE-673)',
       should: 'admit only the seatless host of a Round that has not ended',
       actual: [
-        spectatorAudienceOf(hosted(ran(1)), host),
-        spectatorAudienceOf(hosted({ ...view, status: 'scheduled' }), host),
-        spectatorAudienceOf(hosted({ ...view, status: 'completed' }), host),
-        spectatorAudienceOf(hosted({ ...view, status: 'abandoned' }), host),
-        spectatorAudienceOf(hosted(ran(1)), aff.actorId),
-        spectatorAudienceOf({ ...ran(1), viewerIsHost: false }, host),
+        spectatorKindOf(hosted(ran(1)), host),
+        spectatorKindOf(hosted({ ...view, status: 'scheduled' }), host),
+        spectatorKindOf(hosted({ ...view, status: 'completed' }), host),
+        spectatorKindOf(hosted({ ...view, status: 'abandoned' }), host),
+        spectatorKindOf(hosted(ran(1)), aff.actorId),
+        spectatorKindOf({ ...ran(1), viewerIsHost: false }, host),
       ],
       expected: ['host', 'host', null, null, null, null],
     });
@@ -205,17 +205,17 @@ describe('watchingRoomOf', () => {
       actual: [
         watchingRoomOf({
           judgeRound: judging,
-          audience: spectatorAudienceOf(hosted(judging), host),
+          spectatorKind: spectatorKindOf(hosted(judging), host),
         }).kind,
         watchingRoomOf({
           judgeRound: { ...judging, status: 'completed' },
-          audience: 'host',
+          spectatorKind: 'host',
         }).kind,
         watchingRoomOf({
           judgeRound: null,
-          audience: spectatorAudienceOf(hosted(judging), host),
+          spectatorKind: spectatorKindOf(hosted(judging), host),
         }).kind,
-        watchingRoomOf({ judgeRound: null, audience: null }).kind,
+        watchingRoomOf({ judgeRound: null, spectatorKind: null }).kind,
       ],
       expected: ['judge', 'receipt', 'spectator', 'receipt'],
     });

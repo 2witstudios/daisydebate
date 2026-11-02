@@ -33,6 +33,24 @@ browsing surface of open Rooms. A LiveKit room is a media session
 
 No shared "Topic" entity spans them.
 
+Three words about watching each keep one meaning (WATCH-10):
+
+- **Viewer** is whoever a read is for, the requester: `viewerActorId`,
+  `viewerIsHost`, `WatchViewer`. A viewer may be a debater, a judge, a spectator
+  or a visitor with no account.
+- **Spectator** is one person watching a Round without a seat in it. Spectators
+  are never `round_participants`. A count of people watching counts spectators;
+  `SpectatorKind` says why a viewer is one.
+- **Audience** is the group something is released to, such as the audience of a
+  Broadcast or a transcript's audience policy. It is never one person.
+
+An operator signature's `audience` is the HTTP signing term for the service it
+is bound to, unrelated to watching.
+
+"Ranked" is the competition type; "rated" says only that a rating was written,
+as in `kind: 'rated'`, `lastRatedAt` or a Highest rated sort, and "Unrated" only
+that a member or a tournament has no rating.
+
 ## Formats
 
 A casual Room runs one of Daisy's standards (Policy, Value and Freestyle,
@@ -121,8 +139,8 @@ The Round's room page sends each member to their own view: a debater to the
 live room, the assigned judge to the judge view, and a seatless host to the
 spectator view, a read-only projection of the Round (who holds the floor, the
 clock and the speech order) with no controls and no media. The spectator
-view is the seed of spectating: `SpectatorAudience` names why a viewer
-watches, today only `host`, and later audiences join that union without a
+view is the seed of spectating: `SpectatorKind` names why a viewer
+watches, today only `host`, and later kinds join that union without a
 second view. Everyone else gets the Round's public page.
 
 Unranked Custom rules can use points of information (POI): both sides have

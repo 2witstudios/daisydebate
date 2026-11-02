@@ -16,7 +16,7 @@ import {
  * host does; public and invited spectators join this union when spectating
  * opens to them, and everything below already renders for any of them.
  */
-export type SpectatorAudience = 'host';
+export type SpectatorKind = 'host';
 
 export type SpectatorActivity =
   'speaking' | 'listening' | 'asking' | 'answering' | 'preparing' | 'waiting';
@@ -61,11 +61,11 @@ export type SpectatorView = {
   readonly judge: 'ai' | 'human' | null;
 };
 
-/** The audience a viewer watches as; null when they debate, or the Round is over or not theirs to watch. */
-export function spectatorAudienceOf(
+/** The kind of spectator a viewer watches as; null when they debate, or the Round is over or not theirs to watch. */
+export function spectatorKindOf(
   view: RoundView,
   actorId: string,
-): SpectatorAudience | null {
+): SpectatorKind | null {
   if (!isLiveRound(view) || !view.viewerIsHost) return null;
   const seated = view.participants
     .filter(isSeat)
@@ -197,23 +197,23 @@ export function spectatorViewOf(view: RoundView, nowMs: number): SpectatorView {
 /** Which live view a member without a debater's seat gets, with what it needs. */
 export type WatchingRoom<R> =
   | { readonly kind: 'judge'; readonly round: R }
-  | { readonly kind: 'spectator'; readonly audience: SpectatorAudience }
+  | { readonly kind: 'spectator'; readonly spectatorKind: SpectatorKind }
   | { readonly kind: 'receipt' };
 
 /**
  * The room route's order for a member without a debater's seat (ISSUE-673):
  * the assigned judge's live view first, so a host who also judges judges;
- * then a spectator's view for an audience; else the Round's receipt.
+ * then a spectator's view for a spectator kind; else the Round's receipt.
  */
 export function watchingRoomOf<R extends Pick<RoundView, 'status'>>(input: {
   readonly judgeRound: R | null;
-  readonly audience: SpectatorAudience | null;
+  readonly spectatorKind: SpectatorKind | null;
 }): WatchingRoom<R> {
   if (input.judgeRound !== null)
     return isLiveRound(input.judgeRound)
       ? { kind: 'judge', round: input.judgeRound }
       : { kind: 'receipt' };
-  return input.audience === null
+  return input.spectatorKind === null
     ? { kind: 'receipt' }
-    : { kind: 'spectator', audience: input.audience };
+    : { kind: 'spectator', spectatorKind: input.spectatorKind };
 }
