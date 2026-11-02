@@ -214,8 +214,14 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
           <p className="text-sm text-ink-muted">
             The debate is over, so leaving forfeits nothing.
           </p>
+        ) : links.held ? (
+          <p role="status" className="text-sm text-ink-muted">
+            Leaving is unavailable for a moment while this round catches up. You
+            can step away, but this is not leaving: the round continues, your
+            seat stays, and the normal attendance rules apply if you are absent.
+          </p>
         ) : null}
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <a
             ref={stay}
             href={links.stayHref}
@@ -230,15 +236,9 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
           {links.forfeit ? (
             <ForfeitLeave forfeit={links.forfeit} left={links.left} />
           ) : links.held ? (
-            <>
-              <p role="status" className="text-sm text-ink-muted">
-                Leaving is unavailable for a moment while this round catches up.
-                You can step away, but this is not leaving: the round continues,
-                your seat stays, and the normal attendance rules apply if you
-                are absent.
-              </p>
-              {links.left ? <StepAway left={links.left} /> : null}
-            </>
+            links.left ? (
+              <StepAway left={links.left} />
+            ) : null
           ) : links.left ? (
             <LeavePermanent
               links={

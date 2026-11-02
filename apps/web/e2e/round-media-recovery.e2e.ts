@@ -1,9 +1,13 @@
+import type { Page } from '@playwright/test';
 import { roundMediaStateSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import { displayDeltaMs } from './support/round-clock';
-import { createHumanBallotRound } from './support/human-ballot-round';
+import {
+  createHumanBallotRound,
+  readBallotRound,
+} from './support/human-ballot-round';
 import {
   MEDIA_POLL,
   grantedDebaters,
@@ -239,15 +243,15 @@ test('network loss during a live speech restores peer sound and video without Re
     });
     await expectPeerCamera(peer);
     await expectPeerAudio(peer);
-    // Resumed play reads the server's timetable, after the outage and on a new document.
-    const onTimetable = () =>
+    // After an outage the clock is still on schedule; on a new document it reads afresh.
+    const onTimetable = (page: Page, member: typeof speaker) =>
       expect
-        .poll(() => displayDeltaMs(source, speaker, round.id), MEDIA_POLL)
+        .poll(() => displayDeltaMs(page, member, round.id), MEDIA_POLL)
         .toBeLessThan(2_000);
-    await onTimetable();
+    await onTimetable(source, speaker);
     await source.reload();
     await expectConnected(source);
-    await onTimetable();
+    await onTimetable(source, speaker);
     const state = await readMediaState(speaker, round.id);
     expect(state.state).toBe('ready');
     expect(state.grants.publish).toEqual(['camera', 'microphone']);
@@ -255,6 +259,24 @@ test('network loss during a live speech restores peer sound and video without Re
     await peer.screenshot({
       path: test.info().outputPath('peer-after-network-recovery.png'),
     });
+    // The timetable moves while the listener is away: only a fresh read can show it.
+    await listener.context.setOffline(true);
+    await source
+      .getByRole('button', { name: 'End speech', exact: true })
+      .click();
+    await source
+      .getByRole('button', { name: 'Confirm end speech', exact: true })
+      .click();
+    await expect
+      .poll(
+        async () =>
+          (await readBallotRound(speaker.context.request, round.id)).segments
+            .length,
+        MEDIA_POLL,
+      )
+      .toBeGreaterThan(1);
+    await listener.context.setOffline(false);
+    await onTimetable(peer, listener);
   } finally {
     await closeSettledLaunchContexts(accounts);
   }

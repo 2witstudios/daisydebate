@@ -95,14 +95,13 @@ function RoundMediaSession({
   readonly onRefresh: () => void;
   readonly roundTime: RoundTime;
   /** The signed-in member whose device choices are restored (ISSUE-879). */
-  readonly actorId?: string | null | undefined;
-  readonly tab?: RoundMediaTab | undefined;
+  readonly actorId: string;
+  readonly tab: RoundMediaTab;
   readonly onPublication?: ((value: LocalPublication) => void) | undefined;
   /** Another account was here before: its owner clears what it kept. */
   readonly onAccountChanged: () => void;
 }) {
-  // Absent for a viewer with no seat to coordinate; such a mount never gates.
-  const owns = tab ? tab.owns : true;
+  const { owns, onStepDown } = tab;
   const poi = view.ladderId === null && hasOpenQuestioning(view.rules);
   /**
    * One mute truth: the same value reaches the UI and the transport. A saved
@@ -140,8 +139,7 @@ function RoundMediaSession({
     null,
   );
   const defaultChoices = useRef(false);
-  const onStepDown = tab?.onStepDown;
-  useEffect(() => onStepDown?.(() => controller.current?.stop()), [onStepDown]);
+  useEffect(() => onStepDown(() => controller.current?.stop()), [onStepDown]);
   const sound = useRef<(() => Promise<void>) | null>(null);
   /** The latest accepted version, read when a Round mount's controller starts. */
   const acceptedVersion = useRef(view.version);
@@ -159,9 +157,8 @@ function RoundMediaSession({
   /** The restore must precede the transport so one truth reaches both. */
   const restoreMute = useRef(poi);
   useEffect(() => {
-    if (selectMediaAccount(actorId ?? null)) onAccountChanged();
-    const prior =
-      (poi ? readMutePreference(actorId ?? null, view.id) : null) ?? poi;
+    if (selectMediaAccount(actorId)) onAccountChanged();
+    const prior = (poi ? readMutePreference(actorId, view.id) : null) ?? poi;
     if (prior !== restoreMute.current) {
       restoreMute.current = prior;
       muted.current = prior;
@@ -232,7 +229,7 @@ function RoundMediaSession({
           checkedDevices: () =>
             defaultChoices.current
               ? { state: 'available', choices: {} }
-              : readCheckedDevices(view.roomId, undefined, actorId ?? null),
+              : readCheckedDevices(view.roomId, undefined, actorId),
           missing: (source) =>
             setMissing((current) =>
               current.includes(source) ? current : [...current, source],
@@ -253,7 +250,7 @@ function RoundMediaSession({
           playbackChanged: (allowed) => setSoundBlocked(!allowed),
           microphoneChanged: (value) => {
             setMuted(value);
-            writeMutePreference(actorId ?? null, view.id, value);
+            writeMutePreference(actorId, view.id, value);
           },
           invalidated: () => {
             refresh.current();
@@ -299,7 +296,7 @@ function RoundMediaSession({
     if (controller.current?.state() === 'ended') return;
     if (view.status === 'completed' || view.status === 'abandoned') {
       controller.current?.stop();
-      clearMutePreference(actorId ?? null, view.id);
+      clearMutePreference(actorId, view.id);
       return;
     }
     acceptedVersion.current = view.version;
@@ -348,7 +345,7 @@ function RoundMediaSession({
     return (
       <section aria-label="Live camera and sound">
         {owns === false ? (
-          <TabElsewhere takeOver={tab!.takeOver} />
+          <TabElsewhere takeOver={tab.takeOver} />
         ) : (
           <p role="status">Checking this Round’s tab…</p>
         )}
@@ -420,11 +417,9 @@ function RoundMediaSession({
             onClick={() => {
               if (retryUsesDefaults(illHealth)) {
                 defaultChoices.current = true;
-                clearCheckedDevices(view.roomId, undefined, actorId ?? null);
+                clearCheckedDevices(view.roomId, undefined, actorId);
               }
-              setMissing(
-                retryMissingDevices(view.roomId, missing, actorId ?? null),
-              );
+              setMissing(retryMissingDevices(view.roomId, missing, actorId));
               refresh.current();
               void controller.current?.retry();
             }}
@@ -449,8 +444,8 @@ export type RoundMediaTab = {
 export const roundMediaSlot = (input: {
   readonly onRefresh: () => void;
   readonly roundTime: RoundTime;
-  readonly actorId?: string | null;
-  readonly tab?: RoundMediaTab;
+  readonly actorId: string;
+  readonly tab: RoundMediaTab;
   readonly onPublication?: (value: LocalPublication) => void;
   readonly onAccountChanged: () => void;
 }) =>

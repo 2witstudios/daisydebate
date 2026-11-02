@@ -477,7 +477,6 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
   }
 });
 
-/** |displayed remaining − server-authoritative remaining| at one instant. */
 async function serverNow(
   accounts: Awaited<ReturnType<typeof createRoomLaunchAccounts>>,
   roundId: string,
