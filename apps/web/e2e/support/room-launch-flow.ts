@@ -85,9 +85,14 @@ export async function submitCreateRoom(
   const apply = form.getByRole('button', { name: 'Apply format', exact: true });
   if (await apply.count()) await apply.click();
   await form.getByLabel('Room name', { exact: true }).fill(title);
-  if (rated)
+  if (rated) {
     await form.getByRole('checkbox', { name: 'Ranked', exact: true }).check();
-  await form.getByLabel('Who can join').selectOption('public');
+    // A ranked Room is always public, so the form offers no choice (WATCH-5).
+    await expect(form.getByLabel('Who can join')).toHaveCount(0);
+    await expect(
+      form.getByText('Ranked Rounds are always public'),
+    ).toBeVisible();
+  } else await form.getByLabel('Who can join').selectOption('public');
   return createConfiguredRoom(page);
 }
 /** Submits the settings already configured by the host, then reads the durable Room. */
