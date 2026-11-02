@@ -681,7 +681,7 @@ test('failed Discard removal keeps its recovery offer and warns', async () => {
   });
 });
 
-test('untrusted preexisting draft counts are bounded when read', async () => {
+test('preexisting drafts over the count bound are all still offered', async () => {
   const store = memoryStorage();
   const documents = Array.from({ length: 17 }, (_, i) => `d${i}`);
   for (const [i, id] of documents.entries())
@@ -701,12 +701,12 @@ test('untrusted preexisting draft counts are bounded when read', async () => {
   await sync.load();
   assert({
     given: 'seventeen preexisting valid local records',
-    should: 'bound offers without silently deleting any unexpired copy',
+    should: 'offer every retained copy and delete none of them',
     actual: [
       sync.recoveryOffers().length,
       store.dump().size,
       store.dump().has('daisy:round-notes:draft:p:r:d0'),
     ],
-    expected: [16, 17, true],
+    expected: [17, 17, true],
   });
 });

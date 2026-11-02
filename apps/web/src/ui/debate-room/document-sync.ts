@@ -12,8 +12,8 @@ import {
   newNoteCopy,
   noteCopies,
   sameNoteCopy,
-  NOTE_RECORD_MAX_COUNT,
   offerNoteRecord,
+  ownUnansweredCommit,
   restoreNoteRecord,
   settleNoteRecord,
   type NoteCopy,
@@ -86,6 +86,8 @@ const statusOf = (error: unknown): number | null => {
 };
 const retryable = (status: number | null) =>
   status === null || status === 408 || status === 429 || status >= 500;
+const UNANSWERED_LIMIT = 8;
+const LATE_COMMIT_RECHECK_MS = 2000;
 const sameOffers = (one: readonly NoteOffer[], two: readonly NoteOffer[]) =>
   one.length === two.length &&
   one.every((offer, i) => {
@@ -132,7 +134,6 @@ export function createDocumentSync({
 }): DocumentSync {
   let disposed = false;
   let offers: readonly NoteOffer[] = [];
-  let unavailableCopies = false;
   let expiryHandle: unknown;
   const revisions = new Map<string, number>();
   const serverCopies = new Map<string, string>();
@@ -144,8 +145,10 @@ export function createDocumentSync({
   const failures = new Map<string, number>();
   const refused = new Map<string, string>();
   const conflicted = new Set<string>();
-  // One uncertain request, not an unbounded history of private note content.
-  const unanswered = new Map<string, NoteCopy>();
+  // Recent uncertain requests since the last acknowledgement, bounded because
+  // they hold private text; past the bound a false conflict is the safe failure.
+  const unanswered = new Map<string, readonly NoteCopy[]>();
+  const latestRevisions = new Map<string, number>();
   const storageProblems = new Set<string>();
   const listeners = new Set<() => void>();
   const failedStorage = (id: string) => {
@@ -189,8 +192,12 @@ export function createDocumentSync({
     return result.stored;
   };
   const idle = (id: string) => {
+    if (conflicted.size > 0) {
+      onConflict([...conflicted][0]!);
+      return;
+    }
     if (pending.size !== 0) return;
-    if (storageProblems.size > 0 || unavailableCopies) return;
+    if (storageProblems.size > 0) return;
     if (offers.length > 0) onRecoveryChanged(offers);
     else onSaved(id);
   };
@@ -199,37 +206,34 @@ export function createDocumentSync({
     const retained = [...records].filter(
       ([, snapshot]) => noteCopies(snapshot.record).length > 0,
     );
-    unavailableCopies = retained.length > NOTE_RECORD_MAX_COUNT;
-    if (unavailableCopies) onDraftStorageFailed('');
-    const next: NoteOffer[] = retained
-      .slice(0, NOTE_RECORD_MAX_COUNT)
-      .flatMap(([documentId, { record }]) => {
-        const serverHtml = serverCopies.get(documentId) ?? '';
-        const candidates: NoteOffer[] = [];
-        if (record.recovery)
-          candidates.push({
-            documentId,
-            slot: 'recovery',
-            copy: record.recovery,
-            serverHtml,
-          });
-        if (record.active && activeOffered(documentId, record))
-          candidates.push({
-            documentId,
-            slot: 'active',
-            copy: record.active,
-            serverHtml,
-          });
-        return candidates.filter(
-          (offer) =>
-            offer.copy.baseRevision <= (revisions.get(documentId) ?? -1),
-        );
-      });
+    const next: NoteOffer[] = retained.flatMap(([documentId, { record }]) => {
+      const serverHtml = serverCopies.get(documentId) ?? '';
+      const candidates: NoteOffer[] = [];
+      if (record.recovery)
+        candidates.push({
+          documentId,
+          slot: 'recovery',
+          copy: record.recovery,
+          serverHtml,
+        });
+      if (record.active && activeOffered(documentId, record))
+        candidates.push({
+          documentId,
+          slot: 'active',
+          copy: record.active,
+          serverHtml,
+        });
+      return candidates.filter(
+        (offer) => offer.copy.baseRevision <= (revisions.get(documentId) ?? -1),
+      );
+    });
     if (!sameOffers(offers, next)) {
+      const emptied = offers.length > 0 && next.length === 0;
       offers = next;
       for (const listener of listeners) listener();
-      if (offers.length > 0 && storageProblems.size === 0 && !unavailableCopies)
+      if (offers.length > 0 && storageProblems.size === 0)
         onRecoveryChanged(offers);
+      else if (emptied) idle('');
     }
     timers.clear(expiryHandle);
     const deadlines = retained.flatMap(([, snapshot]) =>
@@ -286,35 +290,40 @@ export function createDocumentSync({
     const current = pending.get(id);
     if (current?.generation === sent.generation) pending.delete(id);
     else if (current) pending.set(id, { ...current, baseRevision: revision });
+    // The server holds this text now, so its durability is no longer at risk.
+    if (!pending.has(id)) storageProblems.delete(id);
     const previous = read(id, wallClock());
     const proposal = acknowledgeNoteRecord(previous.record, {
       generation: sent.generation,
       revision,
       rebaseGeneration: pending.get(id)?.generation ?? null,
+      ownedActive: ownedDurable.get(id) ?? null,
     });
-    write(id, previous, proposal.record, wallClock());
-    // A memory-only newer edit must also attempt durable rebasing; failure
-    // preserves the old offer and leaves the current text in the online path.
-    const later = pending.get(id);
-    if (later) persist(id, later);
+    if (proposal.record !== previous.record)
+      write(id, previous, proposal.record, wallClock());
     publish();
     idle(id);
   };
   const conflict = async (id: string, revision: number) => {
-    const uncertain = unanswered.get(id);
-    if (uncertain && revision === uncertain.baseRevision + 1) {
-      const doc = (await api.list(roundId)).find((one) => one.id === id);
-      if (disposed) return;
-      if (
-        doc?.revision === revision &&
-        sameDocumentHtml(doc.html, uncertain.html)
-      ) {
-        saved(id, uncertain, revision);
-        return;
-      }
-    }
+    const doc = await api
+      .list(roundId)
+      .then((documents) => documents.find((one) => one.id === id))
+      .catch(() => undefined);
     if (disposed) return;
+    const own =
+      doc?.revision === revision
+        ? ownUnansweredCommit(unanswered.get(id) ?? [], revision, (html) =>
+            sameDocumentHtml(doc.html, html),
+          )
+        : undefined;
+    if (own) {
+      saved(id, own, revision);
+      return;
+    }
+    if (doc) serverCopies.set(id, doc.html);
+    latestRevisions.set(id, doc?.revision ?? revision);
     conflicted.add(id);
+    publish();
     onConflict(id);
   };
   const failed = (id: string, sent: NoteCopy, error: unknown) => {
@@ -325,7 +334,10 @@ export function createDocumentSync({
       onSaveRefused(id, status);
       return;
     }
-    if (!unanswered.has(id)) unanswered.set(id, sent);
+    unanswered.set(id, [
+      ...(unanswered.get(id) ?? []).slice(-(UNANSWERED_LIMIT - 1)),
+      sent,
+    ]);
     const attempts = (failures.get(id) ?? 0) + 1;
     failures.set(id, attempts);
     onSaveFailed(id, attempts);
@@ -345,7 +357,6 @@ export function createDocumentSync({
     const body = { id, html: sent.html, expectedRevision };
     const reservation = keepalive ? budget.reserve(body) : null;
     if (keepalive && reservation === null) {
-      persist(id, sent);
       // Teardown cancels this timer; a page that survives pagehide resumes it.
       schedule(id, delayMs);
       return;
@@ -412,6 +423,21 @@ export function createDocumentSync({
     if (keepalive) for (const [id, copy] of pending) persist(id, copy);
     await Promise.all([...pending.keys()].map((id) => saveNow(id, keepalive)));
   };
+  const reconcileLateCommits = async () => {
+    const documents = await api.list(roundId).catch(() => null);
+    if (disposed || documents === null) return;
+    const now = wallClock();
+    for (const doc of documents) {
+      if (pending.has(doc.id) || conflicted.has(doc.id)) continue;
+      remember([doc]);
+      const previous = read(doc.id, now);
+      const settled = settleNoteRecord(previous.record, (html) =>
+        sameDocumentHtml(html, doc.html),
+      );
+      if (settled !== previous.record) write(doc.id, previous, settled, now);
+    }
+    publish();
+  };
   return {
     load: async () => {
       if (disposed) return [];
@@ -431,6 +457,9 @@ export function createDocumentSync({
         if (offered !== previous.record) write(doc.id, previous, offered, now);
       }
       publish();
+      // A previous page's exit save can commit after this list; check once.
+      if (offers.length > 0)
+        timers.set(() => void reconcileLateCommits(), LATE_COMMIT_RECHECK_MS);
       return documents;
     },
     create: async (folder, templateId) => {
@@ -449,13 +478,22 @@ export function createDocumentSync({
         generation: nextGeneration(),
         now: wallClock(),
       });
-      accepted(id, copy);
+      pending.set(id, copy);
       persist(id, copy);
+      if (conflicted.has(id)) {
+        // Nothing sends until the conflict resolves, so never claim "saving".
+        onConflict(id);
+        return;
+      }
+      onChanged(id);
+      schedule(id, delayMs);
     },
     restoreRecovered: (id, generation) => {
       if (disposed) return null;
-      const previous = currentOffer(id, generation),
-        revision = revisions.get(id);
+      const previous = currentOffer(id, generation);
+      // Restore is the explicit choice that resolves a conflict: it saves
+      // against the fresh server revision, through the ordinary CAS.
+      const revision = latestRevisions.get(id) ?? revisions.get(id);
       if (!previous || revision === undefined) return null;
       const proposal = restoreNoteRecord(previous.record, {
         generation,
@@ -468,6 +506,9 @@ export function createDocumentSync({
         return null;
       const copy = proposal.record.active;
       ownedDurable.set(id, copy.generation);
+      revisions.set(id, revision);
+      latestRevisions.delete(id);
+      conflicted.delete(id);
       accepted(id, copy);
       publish();
       return copy.html;

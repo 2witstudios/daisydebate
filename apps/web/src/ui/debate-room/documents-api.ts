@@ -1,3 +1,4 @@
+import { serializeSaveBody } from './keepalive-budget';
 import type { DocumentsApi, StoredDocument } from './document-sync';
 
 /** A refused or failed document request, with the public error code. */
@@ -58,11 +59,11 @@ export function createDocumentsApi({
   readonly send?: Fetch;
   readonly signal?: () => AbortSignal;
 } = {}): DocumentsApi {
-  const post = (path: string, body: unknown, keepalive = false) =>
+  const post = (path: string, body: string, keepalive = false) =>
     send(`/api/debate-room/documents/${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body,
       signal: signal(),
       keepalive,
     });
@@ -70,14 +71,21 @@ export function createDocumentsApi({
     list: async (roundId) =>
       (
         await read<{ documents: readonly StoredDocument[] }>(
-          await post('list', { roundId }),
+          await post('list', JSON.stringify({ roundId })),
         )
       ).documents,
     create: async (input) =>
-      (await read<{ document: StoredDocument }>(await post('create', input)))
-        .document,
+      (
+        await read<{ document: StoredDocument }>(
+          await post('create', JSON.stringify(input)),
+        )
+      ).document,
     save: async ({ keepalive, ...input }) => {
-      const response = await post('save', input, keepalive === true);
+      const response = await post(
+        'save',
+        serializeSaveBody(input),
+        keepalive === true,
+      );
       if (response.status === 409)
         return {
           status: 'conflict',

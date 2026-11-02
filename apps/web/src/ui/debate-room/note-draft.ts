@@ -26,24 +26,6 @@ export const sameNoteCopy = (one: NoteCopy, two: NoteCopy): boolean =>
   one.savedAt === two.savedAt &&
   one.expiresAt === two.expiresAt;
 
-/** Overfull untrusted storage permits removal only, never replacement or renewal. */
-export const removesOnlyNoteCopies = (
-  before: NoteRecord,
-  after: NoteRecord,
-  beforeBytes: number,
-  afterBytes: number,
-): boolean => {
-  const previous = noteCopies(before),
-    next = noteCopies(after);
-  return (
-    next.length < previous.length &&
-    afterBytes <= beforeBytes &&
-    next.every((copy) =>
-      previous.some((original) => sameNoteCopy(copy, original)),
-    )
-  );
-};
-
 const NOTE_RECORD_MAX_BYTES = 256 * 1024;
 export const NOTE_RECORD_MAX_TOTAL_BYTES = 4 * 1024 * 1024;
 export const NOTE_RECORD_MAX_COUNT = 16;
@@ -155,11 +137,10 @@ export function decodeNoteRecord(
     (active && recovery && active.generation === recovery.generation)
   )
     return { ok: false };
+  // A clock can step backwards past savedAt, so only expiresAt governs time.
   if (
     [active, recovery].some(
-      (copy) =>
-        copy !== undefined &&
-        (copy.savedAt > now || copy.baseRevision > serverRevision),
+      (copy) => copy !== undefined && copy.baseRevision > serverRevision,
     )
   )
     return { ok: false };
@@ -197,28 +178,51 @@ export function editNoteRecord(
   return proposed(record, slots(active, record.recovery));
 }
 
-/** Only a named active generation can be cleared/rebased. Recovery is independent. */
+/**
+ * An acknowledged generation is proven committed, so no slot keeps it. A named
+ * newer edit rebases. With nothing newer pending, this owner's own older active
+ * copy is obsolete too: its newest edit could not be stored but has now saved.
+ */
 export function acknowledgeNoteRecord(
   record: NoteRecord,
   {
     generation,
     revision,
     rebaseGeneration,
+    ownedActive,
   }: {
     readonly generation: string;
     readonly revision: number;
     readonly rebaseGeneration: string | null;
+    readonly ownedActive: string | null;
   },
 ): NoteTransition {
-  if (record.active?.generation === generation)
-    return proposed(record, slots(undefined, record.recovery));
-  if (record.active && record.active.generation === rebaseGeneration)
-    return proposed(record, {
-      active: { ...record.active, baseRevision: revision },
-      ...(record.recovery ? { recovery: record.recovery } : {}),
-    });
-  return { status: 'unchanged', record };
+  const recovery =
+    record.recovery?.generation === generation ? undefined : record.recovery;
+  const active = record.active;
+  if (active && active.generation === rebaseGeneration)
+    return proposed(
+      record,
+      slots({ ...active, baseRevision: revision }, recovery),
+    );
+  const obsolete =
+    active !== undefined &&
+    (active.generation === generation ||
+      (rebaseGeneration === null && active.generation === ownedActive));
+  if (!obsolete && recovery === record.recovery)
+    return { status: 'unchanged', record };
+  return proposed(record, slots(obsolete ? undefined : active, recovery));
 }
+
+/** Whether a 409 revision is the server's copy of one of this owner's unanswered saves. */
+export const ownUnansweredCommit = (
+  unanswered: readonly NoteCopy[],
+  revision: number,
+  matchesServer: (html: string) => boolean,
+): NoteCopy | undefined =>
+  unanswered.find(
+    (copy) => revision === copy.baseRevision + 1 && matchesServer(copy.html),
+  );
 
 /** A copy matching the server's text has nothing left to recover, whichever save committed it. */
 export const settleNoteRecord = (

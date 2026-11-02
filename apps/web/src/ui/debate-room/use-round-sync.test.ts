@@ -236,3 +236,44 @@ test('a recovery choice remains actionable after newer typing is acknowledged', 
     expected: ['<p>Recovered copy</p>', '<p>Recovered copy</p>', 3],
   });
 });
+
+for (const status of [401, 403] as const)
+  test(`a ${status} refused save keeps every private copy`, async () => {
+    const storage = memoryStorage();
+    storage.setItem(
+      'daisy:round-notes:draft:p:other-round:x',
+      recoveryRecord({
+        html: '<p>Other Round</p>',
+        baseRevision: 1,
+        generation: 'other',
+        savedAt: 100,
+      }),
+    );
+    const api: DocumentsApi = documentApi(
+      async () => {
+        throw Object.assign(new Error('refused'), { status });
+      },
+      () => [stored('a')],
+    );
+    const events: SaveEvent[] = [];
+    const sync = roundSync('r', 'p', api, (event) => events.push(event), {
+      ...manualNoteResources(`use-round-sync.test:${status}`, { storage }),
+    });
+    await sync.load();
+    sync.change('a', '<p>Typed before refusal</p>');
+    await sync.flush();
+    assert({
+      given: `a save refused with ${status}`,
+      should:
+        '401 fences the owner and 403 leaves it working, with both drafts on disk',
+      actual: [
+        sync.available(),
+        events.at(-1),
+        storage
+          .getItem('daisy:round-notes:draft:p:r:a')
+          ?.includes('Typed before'),
+        storage.getItem('daisy:round-notes:draft:p:other-round:x') !== null,
+      ],
+      expected: [status === 403, { type: 'refused', status }, true, true],
+    });
+  });

@@ -371,3 +371,162 @@ test('load keeps only the copy that differs from the server text', async () => {
     expected: [{ recovery: f.recovery }, [f.recovery]],
   });
 });
+
+test('a save the server committed under a later unanswered request is not a false conflict', async () => {
+  const f = fixture();
+  const conflicts: string[] = [];
+  let server = { ...stored('a', 3), html: '<p>SERVER</p>' };
+  let attempt = 0;
+  const api: DocumentsApi = documentApi(
+    async (input) => {
+      attempt += 1;
+      if (attempt === 1) throw new Error('first request never arrived');
+      if (input.expectedRevision !== server.revision)
+        return { status: 'conflict', revision: server.revision };
+      server = { ...server, html: input.html, revision: server.revision + 1 };
+      if (attempt === 2) throw new Error('second answer lost after commit');
+      return { status: 'saved', revision: server.revision };
+    },
+    () => [server],
+  );
+  const sync = f.owner({ api, onConflict: (id) => conflicts.push(id) });
+  await sync.load();
+  sync.change('a', '<p>A</p>');
+  await sync.flush();
+  sync.change('a', '<p>B</p>');
+  await sync.flush();
+  await sync.flush();
+  assert({
+    given: 'A never arrives, then B commits but its answer is lost',
+    should: "recognize B as this owner's own commit, not another tab",
+    actual: [conflicts, server.html, server.revision],
+    expected: [[], '<p>B</p>', 4],
+  });
+});
+
+test('conflict state stays true through typing, Discard and Restore', async () => {
+  const f = fixture();
+  const events: string[] = [];
+  let server = { ...stored('a', 3), html: '<p>SERVER</p>' };
+  const sent: { html: string; expectedRevision: number }[] = [];
+  const api: DocumentsApi = documentApi(
+    async (input) => {
+      sent.push({ html: input.html, expectedRevision: input.expectedRevision });
+      if (input.expectedRevision !== server.revision)
+        return { status: 'conflict', revision: server.revision };
+      server = { ...server, html: input.html, revision: server.revision + 1 };
+      return { status: 'saved', revision: server.revision };
+    },
+    () => [server],
+  );
+  const sync = f.owner({
+    api,
+    onConflict: () => events.push('conflict'),
+    onChanged: () => events.push('saving'),
+    onSaved: () => events.push('saved'),
+  });
+  await sync.load();
+  server = { ...server, html: '<p>THEIRS</p>', revision: 4 };
+  sync.change('a', '<p>MINE</p>');
+  await sync.flush();
+  const sentAtConflict = sent.length;
+  events.length = 0;
+  sync.change('a', '<p>MINE MORE</p>');
+  await sync.flush();
+  const afterTyping = [...events];
+  const serverCopy = sync.recoveryOffers()[0]?.serverHtml;
+  const html = sync.restoreRecovered('a', 'REC');
+  await sync.flush();
+  assert({
+    given:
+      'another tab saved, this tab conflicted, then typed and pressed Restore',
+    should:
+      'never claim saving, send nothing while conflicted, and let Restore save on the fresh revision',
+    actual: [
+      afterTyping.includes('saving'),
+      sent.length - sentAtConflict > 0 && sent[sentAtConflict]?.html,
+      serverCopy,
+      html,
+      server.html,
+      server.revision,
+    ],
+    expected: [
+      false,
+      '<p>REC</p>',
+      '<p>THEIRS</p>',
+      '<p>REC</p>',
+      '<p>REC</p>',
+      5,
+    ],
+  });
+});
+
+test('the status clears when the last offer goes away in another tab', async () => {
+  const f = fixture();
+  const saved: string[] = [];
+  const sync = f.owner({ onSaved: (id) => saved.push(id) });
+  await sync.load();
+  f.storage.removeItem(key);
+  sync.refreshRecovery();
+  assert({
+    given: 'the only offer was discarded elsewhere and nothing is pending',
+    should: 'report the room saved rather than keep promising a draft below',
+    actual: [sync.recoveryOffers().length, saved.length > 0],
+    expected: [0, true],
+  });
+});
+
+test('a corrupt record for one file does not block another file from Saved', async () => {
+  const f = fixture();
+  const saved: string[] = [];
+  f.storage.setItem(key, '{malformed');
+  const documents = [stored('a', 3), stored('b', 3)];
+  const sync = f.owner({
+    api: documentApi(
+      async ({ expectedRevision }) => ({
+        status: 'saved',
+        revision: expectedRevision + 1,
+      }),
+      () => documents,
+    ),
+    onSaved: (id) => saved.push(id),
+  });
+  await sync.load();
+  sync.change('b', '<p>NEW</p>');
+  await sync.flush();
+  assert({
+    given: 'file a has a corrupt record discarded at load, then file b saves',
+    should: 'discard the record and report file b Saved',
+    actual: [f.storage.getItem(key), saved],
+    expected: [null, ['b']],
+  });
+});
+
+test('an exit save committing after the list withdraws its false offer', async () => {
+  const f = fixture();
+  const clock = manualTimers();
+  const late = newNoteCopy({
+    html: '<p>EXIT</p>',
+    generation: 'EXIT',
+    baseRevision: 3,
+    now: 100,
+  });
+  f.storage.setItem(key, JSON.stringify({ active: late }));
+  let server = { ...stored('a', 3), html: '<p>SERVER</p>' };
+  const api: DocumentsApi = documentApi(
+    async () => ({ status: 'saved', revision: 4 }),
+    () => [server],
+  );
+  const sync = f.owner({ api, timers: clock.timers });
+  await sync.load();
+  const before = sync.recoveryOffers().length;
+  server = { ...server, html: '<p>EXIT</p>', revision: 4 };
+  clock.fire();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert({
+    given: 'a previous page exit save that commits just after this page lists',
+    should: 'withdraw the offer once and clear the copy',
+    actual: [before, sync.recoveryOffers().length, f.storage.getItem(key)],
+    expected: [1, 0, null],
+  });
+});

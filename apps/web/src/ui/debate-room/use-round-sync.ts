@@ -16,8 +16,9 @@ import type { DraftStorage } from './note-draft-storage';
 import { releaseNoteOwner } from './note-owner';
 import { createKeepaliveBudget } from './keepalive-budget';
 import {
+  NOTES_FENCE_EVENT,
+  NOTES_IDENTITY_CHECK_EVENT,
   NOTES_PRINCIPAL_EVENT,
-  publishNotesPrincipal,
 } from './notes-principal';
 import { refusedNotice, RETRYING_NOTICE } from './save-notice';
 
@@ -111,10 +112,9 @@ export function roundSync(
     onConflict: () => report({ type: 'conflict' }),
     onSaveFailed: () => report({ type: 'retrying' }),
     onSaveRefused: (_id, status) => {
-      if (status === 401 || status === 403) {
-        stored.dispose({ purge: true });
-        if (typeof window !== 'undefined') publishNotesPrincipal(null);
-      }
+      // An expired session stops and hides the notes but keeps their copies for
+      // the same person. A 403 is not about identity, so nothing is withdrawn.
+      if (status === 401) stored.dispose();
       report({ type: 'refused', status });
     },
     onRecoveryChanged: () => report({ type: 'recovered' }),
@@ -132,14 +132,18 @@ export function useRoundSync(
 ): SaveStatus & {
   readonly sync: DocumentSync;
 } {
-  const [status, report] = useReducer(reduceSave, initialSaveStatus);
+  const [status, dispatch] = useReducer(reduceSave, initialSaveStatus);
   const sync = useMemo(
     () =>
       roundSync(
         roundId,
         principalId,
         createDocumentsApi(),
-        report,
+        (event) => {
+          dispatch(event);
+          if (event.type === 'refused' && event.status === 401)
+            window.dispatchEvent(new Event(NOTES_IDENTITY_CHECK_EVENT));
+        },
         browserNoteResources(),
       ),
     [roundId, principalId],
@@ -148,10 +152,9 @@ export function useRoundSync(
     if (socketUrl === null) return;
     const connection = tabConnection(socketUrl);
     const stop = connection.subscribe((state) => {
-      if (state.terminal === 'revoked' || state.terminal === 'signed-out') {
-        sync.dispose({ purge: true });
-        publishNotesPrincipal(null);
-      }
+      // A socket can close this way on a transient failure, so it only asks.
+      if (state.terminal === 'revoked' || state.terminal === 'signed-out')
+        window.dispatchEvent(new Event(NOTES_IDENTITY_CHECK_EVENT));
     });
     connection.connect();
     return () => {
@@ -167,13 +170,17 @@ export function useRoundSync(
       if ((event as CustomEvent<unknown>).detail !== principalId)
         sync.dispose({ purge: true });
     };
+    const fenced = () => sync.dispose();
     window.addEventListener(NOTES_PRINCIPAL_EVENT, changed);
+    window.addEventListener(NOTES_FENCE_EVENT, fenced);
     return () => {
       // Strict Mode reattaches the same owner in this turn. A real unmount
       // drains normal saves while the identity listener still fences it.
       queueMicrotask(() => {
-        const remove = () =>
+        const remove = () => {
           window.removeEventListener(NOTES_PRINCIPAL_EVENT, changed);
+          window.removeEventListener(NOTES_FENCE_EVENT, fenced);
+        };
         void releaseNoteOwner(token, lifetime.current).finally(remove);
       });
     };

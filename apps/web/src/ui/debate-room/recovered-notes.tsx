@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useSyncExternalStore, type Dispatch } from 'react';
+import { generateJSON, generateText } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { systemClock } from '@daisy/clock';
 import { documentExtensions } from '../../features/documents/document-schema';
@@ -51,9 +52,12 @@ function RecoveredNote({
   const copy = async () => {
     let text = draft.html;
     try {
-      const container = window.document.createElement('template');
-      container.innerHTML = draft.html;
-      text = container.content.textContent ?? '';
+      // Block-aware, so paragraphs and list items do not run together.
+      text = generateText(
+        generateJSON(draft.html, documentExtensions),
+        documentExtensions,
+        { blockSeparator: '\n\n' },
+      );
       await navigator.clipboard.writeText(text);
       setManualText(null);
       setCopied('Copied recovered text.');

@@ -206,9 +206,11 @@ test('newer server copy stays intact until an informed Restore, with copy availa
   const { page, documentId, roundId } = roundFiles;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'Local conflict copy');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('Second paragraph');
   await expect
     .poll(async () => (await draftFor(page, documentId))?.active?.html)
-    .toContain('Local conflict copy');
+    .toContain('Second paragraph');
   const current = await serverDocument(page, roundId, documentId);
   const saved = await page.request.post(`${documentsPath}save`, {
     headers: { origin },
@@ -296,8 +298,8 @@ test('newer server copy stays intact until an informed Restore, with copy availa
   await expect(
     page.getByRole('status').filter({ hasText: 'Copied recovered text.' }),
   ).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
-    'Local conflict copy',
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    'Local conflict copy\n\nSecond paragraph',
   );
   await page.unroute(`**${documentsPath}save`);
   const ack = page.waitForResponse(
@@ -488,7 +490,7 @@ test('native logout erases recovery and a stale tab cannot recreate it', async (
   expect(lateSends).toBe(0);
 });
 
-test('observed session revocation purges private notes and fences further editing', async ({
+test('observed session revocation fences editing and hides the notes, keeping the copy for the same person', async ({
   roundFiles,
 }) => {
   await roundFiles.finishRound();
@@ -502,12 +504,142 @@ test('observed session revocation purges private notes and fences further editin
   });
   expect(revoked.status()).toBe(200);
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect.poll(() => draftFor(page, documentId)).toBeNull();
   await expect(
     page.getByRole('textbox', { name: 'Flow', exact: true }),
   ).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText(
+    'Pending notes before revocation',
+  );
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
-  expect(await draftFor(page, documentId)).toBeNull();
+  expect((await draftFor(page, documentId)).active.html).toContain(
+    'Pending notes before revocation',
+  );
+});
+
+/** Cookies leaving the browser, as they do when a session expires. */
+const endSession = async (page: Page) => {
+  const { cookies } = await page.context().storageState();
+  await page.context().clearCookies();
+  return cookies;
+};
+
+test('a session ending mid-Round hides the notes with nothing readable, and the same person gets them back', async ({
+  roundFiles,
+}) => {
+  await roundFiles.finishRound();
+  const { page, roundId, documentId } = roundFiles;
+  const cookies = await endSession(page);
+  await edit(page, 'Typed as the session ended');
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText('Sign in again to save')).toBeVisible();
+  await expect(page.locator('body')).not.toContainText(
+    'Typed as the session ended',
+  );
+  expect((await draftFor(page, documentId)).active.html).toContain(
+    'Typed as the session ended',
+  );
+  await page.goto(`${origin}/`);
+  expect(await draftFor(page, documentId)).not.toBeNull();
+  await page.context().addCookies(cookies);
+  await page.goto(`${origin}/rounds/${roundId}`);
+  await page.getByRole('button', { name: 'Restore Flow', exact: true }).click();
+  await expect
+    .poll(async () => (await serverDocument(page, roundId, documentId)).html)
+    .toContain('Typed as the session ended');
+});
+
+test('a session ending and then a different account signing in erases the copy without showing it', async ({
+  roundFiles,
+}) => {
+  await roundFiles.finishRound();
+  const { page, documentId, stranger } = roundFiles;
+  await endSession(page);
+  await edit(page, 'Private to the expired account');
+  await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toHaveCount(0);
+  await page.goto(`${origin}/`);
+  expect(await draftFor(page, documentId)).not.toBeNull();
+  const { cookies } = await stranger.storageState();
+  await page.context().addCookies(cookies);
+  await page.goto(`${origin}/settings`);
+  await expect.poll(() => draftFor(page, documentId)).toBeNull();
+  await expect(page.locator('body')).not.toContainText(
+    'Private to the expired account',
+  );
+});
+
+test('a 403 refused save keeps the editor text and the draft', async ({
+  roundFiles,
+}) => {
+  await roundFiles.finishRound();
+  const { page, documentId } = roundFiles;
+  await page.route(`**${documentsPath}save`, (route) =>
+    route.fulfill({
+      status: 403,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: { code: 'AUTHORIZATION' } }),
+    }),
+  );
+  await edit(page, 'Typed while refused');
+  await expect(page.getByText('can’t be saved')).toBeVisible();
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toContainText('Typed while refused');
+  expect((await draftFor(page, documentId)).active.html).toContain(
+    'Typed while refused',
+  );
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeVisible();
+});
+
+test('after a lost exit save, conflict state stays true through typing, Restore and Discard', async ({
+  roundFiles,
+}) => {
+  await roundFiles.finishRound();
+  const { page, roundId, documentId } = roundFiles;
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  await offeredAfterReload(page, documentId, 'Offered before the conflict');
+  await page.unroute(`**${documentsPath}save`);
+  const current = await serverDocument(page, roundId, documentId);
+  const elsewhere = await page.request.post(`${documentsPath}save`, {
+    headers: { origin },
+    data: {
+      id: documentId,
+      html: '<p>Saved in another tab</p>',
+      expectedRevision: current.revision,
+    },
+  });
+  expect(elsewhere.status()).toBe(200);
+  const conflict = page
+    .getByRole('alert')
+    .filter({ hasText: 'This file changed in another tab.' });
+  await edit(page, 'Typed into the conflict');
+  await expect(conflict).toBeVisible();
+  await edit(page, 'Typed again into the conflict');
+  await expect(conflict).toBeVisible();
+  await expect(page.getByText('Saving', { exact: true })).toHaveCount(0);
+  await page.getByText('Compare recovered and server copies').click();
+  await expect(page.getByLabel('Server copy of Flow')).toContainText(
+    'Saved in another tab',
+  );
+  await page.getByRole('button', { name: 'Restore Flow', exact: true }).click();
+  await expect
+    .poll(async () => (await serverDocument(page, roundId, documentId)).html)
+    .toContain('Offered before the conflict');
+  await expect(conflict).toBeHidden();
+  await page
+    .getByRole('button', { name: 'Discard recovered Flow', exact: true })
+    .click();
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toBeHidden();
+  await expect(page.getByText('An unsaved draft is available')).toHaveCount(0);
 });
 
 test('account switch purges old-principal recovery across tabs without revealing it to the next member', async ({

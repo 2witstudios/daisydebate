@@ -1,11 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createNoteStorage } from './note-draft-storage';
 import {
-  newNoteCopy,
-  removesOnlyNoteCopies,
-  type NoteCopy,
-  type NoteRecord,
-} from './note-draft';
+  createNoteStorage,
+  pruneExpiredNoteDrafts,
+} from './note-draft-storage';
+import { newNoteCopy } from './note-draft';
 import { memoryStorage } from './document-sync.test-support';
 setupRitewayBun();
 const fixture = () => {
@@ -43,42 +41,17 @@ const fixture = () => {
   });
   return { storage, adapter, key, active, recovery, warnings };
 };
-const changes: readonly [string, Partial<NoteCopy>][] = [
-  ['generation', { generation: 'other' }],
-  ['content', { html: '<p>B</p>' }],
-  ['base', { baseRevision: 4 }],
-  ['renewal', { savedAt: 101, expiresAt: 604800101 }],
-  ['saved timestamp', { savedAt: 101 }],
-  ['expiry', { expiresAt: 604800101 }],
-];
-for (const [name, mutation] of changes)
-  test(`overfull cleanup refuses a survivor ${name} mutation`, () => {
-    const f = fixture(),
-      previous = f.adapter.read('d0', 100),
-      before = [...f.storage.dump()];
-    const result = f.adapter.write(
-      'd0',
-      previous,
-      { active: { ...f.active, ...mutation } },
-      100,
-    );
-    assert({
-      given: 'removal mixed with a changed surviving copy',
-      should: 'refuse without mutating the target or unrelated records',
-      actual: [result.stored, [...f.storage.dump()], f.warnings.length > 0],
-      expected: [false, before, true],
-    });
-  });
-
-test('overfull state refuses unchanged/replaced records and insertion of a new record', () => {
+test('over the browser bound a shrinking write proceeds and anything larger is refused', () => {
   const f = fixture(),
     previous = f.adapter.read('d0', 100),
     before = [...f.storage.dump()];
-  const unchanged = f.adapter.write('d0', previous, previous.record, 100);
-  const replaced = f.adapter.write(
+  const grown = f.adapter.write(
     'd0',
     previous,
-    { active: { ...f.active, generation: 'new' }, recovery: f.recovery },
+    {
+      active: { ...f.active, html: '<p>A much longer private note</p>' },
+      recovery: f.recovery,
+    },
     100,
   );
   const inserted = f.adapter.write(
@@ -87,31 +60,115 @@ test('overfull state refuses unchanged/replaced records and insertion of a new r
     { active: f.active },
     100,
   );
+  const unchanged = [...f.storage.dump()];
+  const shrunk = f.adapter.write('d0', previous, { active: f.active }, 100);
   assert({
     given: '17 preexisting records',
-    should: 'admit no insertion, replacement or non-shrinking write',
-    actual: [
-      unchanged.stored,
-      replaced.stored,
-      inserted.stored,
-      [...f.storage.dump()],
-    ],
-    expected: [false, false, false, before],
+    should:
+      'refuse growth and insertion without mutating anything, and allow removal',
+    actual: [grown.stored, inserted.stored, unchanged, shrunk.stored],
+    expected: [false, false, before, true],
   });
 });
 
-test('strict copy removal also requires non-increasing serialized bytes', () => {
-  const f = fixture(),
-    before: NoteRecord = { active: f.active, recovery: f.recovery },
-    after = { active: f.active };
+test('another record the write cannot decode is never deleted by that write', () => {
+  const storage = memoryStorage();
+  const adapter = createNoteStorage({
+    storage,
+    roundId: 'r',
+    principalId: 'p',
+    failed: () => {},
+  });
+  storage.setItem('daisy:round-notes:draft:p:r:other', '{malformed');
+  const later = newNoteCopy({
+    generation: 'later',
+    html: '<p>later</p>',
+    baseRevision: 1,
+    now: 500,
+  });
+  storage.setItem(
+    'daisy:round-notes:draft:p:r:clock',
+    JSON.stringify({ active: later }),
+  );
+  const written = adapter.write(
+    'd',
+    { record: {}, raw: null },
+    {
+      active: newNoteCopy({
+        generation: 'g',
+        html: '<p>x</p>',
+        baseRevision: 1,
+        now: 100,
+      }),
+    },
+    100,
+  );
   assert({
-    given: 'the exact same survivor but a larger serialized candidate',
-    should: 'refuse the cleanup exception',
+    given: 'a malformed record and a copy saved later than this clock',
+    should: 'write its own record and leave both of those untouched',
     actual: [
-      removesOnlyNoteCopies(before, after, 100, 101),
-      removesOnlyNoteCopies(before, after, 100, 100),
+      written.stored,
+      storage.getItem('daisy:round-notes:draft:p:r:other'),
+      storage.getItem('daisy:round-notes:draft:p:r:clock') !== null,
     ],
-    expected: [false, true],
+    expected: [true, '{malformed', true],
+  });
+});
+
+test('a corrupt record is discarded without reporting a storage problem', () => {
+  const storage = memoryStorage(),
+    warnings: string[] = [];
+  const adapter = createNoteStorage({
+    storage,
+    roundId: 'r',
+    principalId: 'p',
+    failed: (id) => warnings.push(id),
+  });
+  storage.setItem('daisy:round-notes:draft:p:r:d', '{malformed');
+  const read = adapter.read('d', 100);
+  assert({
+    given: 'a malformed record that can be removed',
+    should: 'discard it and report nothing',
+    actual: [read.raw, storage.dump().size, warnings],
+    expected: [null, 0, []],
+  });
+});
+
+test('pruning removes expired copies for every principal and keeps live ones', () => {
+  const storage = memoryStorage();
+  const old = newNoteCopy({
+    generation: 'old',
+    html: '<p>old</p>',
+    baseRevision: 1,
+    now: 100,
+  });
+  const fresh = newNoteCopy({
+    generation: 'fresh',
+    html: '<p>fresh</p>',
+    baseRevision: 1,
+    now: old.expiresAt,
+  });
+  storage.setItem(
+    'daisy:round-notes:draft:p:r:gone',
+    JSON.stringify({ recovery: old }),
+  );
+  storage.setItem(
+    'daisy:round-notes:draft:q:r:partial',
+    JSON.stringify({ active: fresh, recovery: old }),
+  );
+  storage.setItem('theme', 'dark');
+  pruneExpiredNoteDrafts(storage, old.expiresAt);
+  assert({
+    given: 'a page load after one copy passed its seven days',
+    should: 'drop only expired copies, whichever Round or principal holds them',
+    actual: [
+      [...storage.dump().keys()],
+      JSON.parse(storage.getItem('daisy:round-notes:draft:q:r:partial')!),
+    ],
+    expected: [
+      ['daisy:round-notes:draft:q:r:partial', 'theme'],
+      { active: fresh },
+    ],
   });
 });
 

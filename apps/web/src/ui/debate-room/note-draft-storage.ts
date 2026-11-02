@@ -2,7 +2,6 @@ import {
   decodeNoteRecord,
   encodeNoteRecord,
   expireNoteRecord,
-  removesOnlyNoteCopies,
   NOTE_RECORD_MAX_COUNT,
   NOTE_RECORD_MAX_TOTAL_BYTES,
   type NoteRecord,
@@ -21,19 +20,75 @@ export type NoteWrite = {
   readonly snapshot: NoteSnapshot;
 };
 const prefix = 'daisy:round-notes:draft:';
+export const isNoteDraftKey = (key: string) => key.startsWith(prefix);
+const principalPrefix = (principalId: string) => `${prefix}${principalId}:`;
+export const isPrincipalDraftKey = (key: string, principalId: string) =>
+  key.startsWith(principalPrefix(principalId));
 const keyOf = (principalId: string, roundId: string, id: string) =>
-  `${prefix}${principalId}:${roundId}:${id}`;
+  `${principalPrefix(principalId)}${roundId}:${id}`;
 export const noteDraftKeys = (storage: DraftStorage): readonly string[] => {
   const keys: string[] = [];
   for (let i = 0; i < storage.length; i++) {
     const key = storage.key(i);
-    if (key?.startsWith(prefix)) keys.push(key);
+    if (key && isNoteDraftKey(key)) keys.push(key);
   }
   return keys;
 };
 const empty = (): NoteSnapshot => ({ record: {}, raw: null });
 const hasCopies = (record: NoteRecord) =>
   record.active !== undefined || record.recovery !== undefined;
+
+const bytesOf = (raw: string) => new TextEncoder().encode(raw).length;
+
+const otherRecords = (storage: DraftStorage, key: string) =>
+  noteDraftKeys(storage).flatMap((other) => {
+    const raw = other === key ? null : storage.getItem(other);
+    return raw === null ? [] : [raw];
+  });
+
+const fits = (count: number, bytes: number) =>
+  count <= NOTE_RECORD_MAX_COUNT && bytes <= NOTE_RECORD_MAX_TOTAL_BYTES;
+
+/** Stored size decides this on every keystroke; only a full browser pays to decode. */
+const withinBrowserBound = (
+  storage: DraftStorage,
+  key: string,
+  bytes: number,
+  now: number,
+) => {
+  const others = otherRecords(storage, key);
+  const stored = others.reduce((sum, raw) => sum + bytesOf(raw), bytes);
+  if (fits(others.length + 1, stored)) return true;
+  const live = others.flatMap((raw) => {
+    const decoded = decodeNoteRecord(raw, {
+      now,
+      serverRevision: Number.MAX_SAFE_INTEGER,
+    });
+    if (!decoded.ok) return [raw];
+    return hasCopies(decoded.record)
+      ? [encodeNoteRecord(decoded.record)!.raw]
+      : [];
+  });
+  return fits(
+    live.length + 1,
+    live.reduce((sum, raw) => sum + bytesOf(raw), bytes),
+  );
+};
+
+/** Retention holds while a browser stays in use, not only for the Round reopened. */
+export function pruneExpiredNoteDrafts(storage: DraftStorage, now: number) {
+  for (const key of noteDraftKeys(storage)) {
+    const raw = storage.getItem(key);
+    if (raw === null) continue;
+    const decoded = decodeNoteRecord(raw, {
+      now,
+      serverRevision: Number.MAX_SAFE_INTEGER,
+    });
+    if (!decoded.ok || !hasCopies(decoded.record)) storage.removeItem(key);
+    else if (decoded.expired)
+      storage.setItem(key, encodeNoteRecord(decoded.record)!.raw);
+  }
+}
 
 /** One principal's note-storage adapter. Each complete record write is atomic; no pre-delete eviction. */
 export function createNoteStorage({
@@ -59,11 +114,12 @@ export function createNoteStorage({
       if (raw === null) return empty();
       const decoded = decodeNoteRecord(raw, { now, serverRevision });
       if (!decoded.ok) {
-        failed(id);
+        // A corrupt record is simply discarded; only a failed removal is a problem.
         try {
           storage.removeItem(key);
           return empty();
         } catch {
+          failed(id);
           return { record: {}, raw };
         }
       }
@@ -116,57 +172,13 @@ export function createNoteStorage({
         storage.removeItem(key);
         return { stored: true, snapshot: empty() };
       }
-      let otherCount = 0,
-        otherBytes = 0;
-      for (const storedKey of noteDraftKeys(storage)) {
-        if (storedKey === key) continue;
-        const raw = storage.getItem(storedKey);
-        if (raw === null) continue;
-        const decoded = decodeNoteRecord(raw, {
-          now,
-          serverRevision: Number.MAX_SAFE_INTEGER,
-        });
-        if (!decoded.ok) {
-          storage.removeItem(storedKey);
-          continue;
-        }
-        const bounded = encodeNoteRecord(decoded.record)!;
-        if (!hasCopies(decoded.record)) {
-          storage.removeItem(storedKey);
-          continue;
-        }
-        if (decoded.expired) storage.setItem(storedKey, bounded.raw);
-        otherCount += 1;
-        otherBytes += decoded.expired
-          ? bounded.bytes
-          : new TextEncoder().encode(raw).length;
-      }
-      const overfull =
-        otherCount + 1 > NOTE_RECORD_MAX_COUNT ||
-        otherBytes + encoded.bytes > NOTE_RECORD_MAX_TOTAL_BYTES;
-      if (overfull) {
-        // Decode the fresh durable value, never a caller-supplied record, for
-        // this strict-removal decision. Shrinking cannot strand both choices
-        // in an already overfull record, nor admit new or changed copies.
-        const prior =
-          currentRaw === null
-            ? null
-            : decodeNoteRecord(currentRaw, {
-                now,
-                serverRevision: Number.MAX_SAFE_INTEGER,
-              });
-        if (
-          !prior?.ok ||
-          !removesOnlyNoteCopies(
-            prior.record,
-            record,
-            new TextEncoder().encode(currentRaw!).length,
-            encoded.bytes,
-          )
-        ) {
-          failed(id);
-          return { stored: false, snapshot: previous };
-        }
+      // A shrinking write can never add to the browser total, so it always
+      // proceeds; anything else pays the bound over every other record.
+      const shrinks =
+        currentRaw !== null && encoded.bytes <= bytesOf(currentRaw);
+      if (!shrinks && !withinBrowserBound(storage, key, encoded.bytes, now)) {
+        failed(id);
+        return { stored: false, snapshot: previous };
       }
       storage.setItem(key, encoded.raw);
       return { stored: true, snapshot: { record, raw: encoded.raw } };
@@ -180,7 +192,7 @@ export function createNoteStorage({
     if (!storage) return true;
     try {
       for (const key of noteDraftKeys(storage))
-        if (key.startsWith(`${prefix}${principalId}:`)) storage.removeItem(key);
+        if (isPrincipalDraftKey(key, principalId)) storage.removeItem(key);
       return true;
     } catch {
       failed('');

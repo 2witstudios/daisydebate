@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type Dispatch } from 'react';
 import type { DocumentSync } from './document-sync';
+import { isNoteDraftKey } from './note-draft-storage';
 import type { RoomAction } from './room-state';
 
 /**
@@ -28,13 +29,12 @@ export function useDocumentSync(
     const unsubscribe = sync.subscribe(() => {
       if (!live || sync.available()) return;
       dispatch({ type: 'doc/loaded', documents: [] });
-      setProblem('Your session changed. Reopen the Round to load your files.');
+      setProblem(
+        'Your session ended. Sign in and reopen the Round to get your notes back.',
+      );
     });
     const refresh = (event: StorageEvent) => {
-      if (
-        event.key === null ||
-        event.key.startsWith('daisy:round-notes:draft:')
-      )
+      if (event.key === null || isNoteDraftKey(event.key))
         sync.refreshRecovery();
     };
     window.addEventListener('storage', refresh);

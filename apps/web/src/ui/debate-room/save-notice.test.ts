@@ -15,7 +15,7 @@ describe('refusedNotice', () => {
         'This file is too large to save. Shorten it.',
         'This file is too large to save. Shorten it.',
         'Sign in again to save your changes.',
-        'Sign in again to save your changes.',
+        'This file can’t be saved with your current access. Your text stays here.',
         'This file can no longer be saved. Reload the page.',
       ],
     });

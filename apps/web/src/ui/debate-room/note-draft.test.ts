@@ -25,6 +25,7 @@ test('typing and acknowledgements preserve an independent recovery identity and 
     generation: 'NEW',
     revision: 4,
     rebaseGeneration: null,
+    ownedActive: null,
   });
   assert({
     given: 'REC followed by NEW typing and acknowledgement',
@@ -41,6 +42,7 @@ test('an older acknowledgement rebases only the named current active copy', () =
     generation: 'A',
     revision: 4,
     rebaseGeneration: 'B',
+    ownedActive: null,
   });
   assert({
     given: 'A acknowledges with B pending and REC independent',
@@ -80,7 +82,12 @@ test('a recovery offer survives serialization and reload after NEW acknowledgeme
   const active = copy('NEW', '<p>new</p>', 200);
   const acked = acknowledgeNoteRecord(
     { active, recovery },
-    { generation: 'NEW', revision: 4, rebaseGeneration: null },
+    {
+      generation: 'NEW',
+      revision: 4,
+      rebaseGeneration: null,
+      ownedActive: null,
+    },
   );
   const encoded = encodeNoteRecord(acked.record)!;
   const loaded = decodeNoteRecord(encoded.raw, { now: 300, serverRevision: 4 });
@@ -176,5 +183,63 @@ test('the pre-ship record validator rejects the old shape and malformed or futur
         }).ok,
     ),
     expected: [false, false, false, false],
+  });
+});
+
+test('an acknowledgement clears every slot it proves saved', () => {
+  const rec = copy('REC', '<p>REC</p>');
+  const older = copy('older', '<p>older</p>');
+  const moved = acknowledgeNoteRecord(
+    { recovery: rec },
+    {
+      generation: 'REC',
+      revision: 4,
+      rebaseGeneration: null,
+      ownedActive: null,
+    },
+  );
+  const unstored = acknowledgeNoteRecord(
+    { active: older },
+    {
+      generation: 'newest-not-stored',
+      revision: 4,
+      rebaseGeneration: null,
+      ownedActive: 'older',
+    },
+  );
+  const foreign = acknowledgeNoteRecord(
+    { active: older },
+    {
+      generation: 'newest-not-stored',
+      revision: 4,
+      rebaseGeneration: null,
+      ownedActive: 'mine',
+    },
+  );
+  assert({
+    given:
+      'a copy moved to recovery by another tab, an older copy of mine, and a copy of another tab',
+    should: 'drop the first two and leave the other tab its own copy',
+    actual: [moved.record, unstored.record, foreign.status],
+    expected: [{}, {}, 'unchanged'],
+  });
+});
+
+test('a copy saved later than a stepped-back clock is kept', () => {
+  const later = newNoteCopy({
+    generation: 'later',
+    html: '<p>later</p>',
+    baseRevision: 3,
+    now: 5000,
+  });
+  const decoded = decodeNoteRecord(JSON.stringify({ active: later }), {
+    now: 4000,
+    serverRevision: 3,
+  });
+  assert({
+    given: 'a wall clock now earlier than the copy savedAt',
+    should: 'keep the copy, since only its expiry decides',
+    actual: decoded.ok && decoded.record,
+    expected: { active: later },
   });
 });

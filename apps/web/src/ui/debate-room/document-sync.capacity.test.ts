@@ -88,7 +88,7 @@ test('explicit exact-copy cleanup can reduce an already overfull untrusted two-s
       [...storage.dump()],
       warnings.length > 0,
     ],
-    expected: [true, ['active'], true, 16, unrelated, true],
+    expected: [true, ['active'], true, 16, unrelated, false],
   });
 });
 

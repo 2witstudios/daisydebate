@@ -1,7 +1,17 @@
-import { noteDraftKeys, type DraftStorage } from './note-draft-storage';
+import {
+  isPrincipalDraftKey,
+  noteDraftKeys,
+  type DraftStorage,
+} from './note-draft-storage';
 
 export const NOTES_PRINCIPAL_KEY = 'daisy:round-notes:principal';
 export const NOTES_PRINCIPAL_EVENT = 'daisy:round-notes:principal-changed';
+/** The session ended without proof of who is next: stop and hide, keep the copies. */
+export const NOTES_FENCE_EVENT = 'daisy:round-notes:fence';
+/** Something suggests the identity changed; only the session read may decide. */
+export const NOTES_IDENTITY_CHECK_EVENT = 'daisy:round-notes:check-identity';
+/** Survives the sign-out form's navigation, so only a real sign-out purges. */
+export const NOTES_SIGN_OUT_INTENT_KEY = 'daisy:round-notes:sign-out-intent';
 
 /** Identity markers only remove local data; they never authorize a document request. */
 export function retainPrincipalDrafts(
@@ -10,10 +20,7 @@ export function retainPrincipalDrafts(
 ) {
   try {
     for (const key of noteDraftKeys(storage))
-      if (
-        principalId === null ||
-        !key.startsWith(`daisy:round-notes:draft:${principalId}:`)
-      )
+      if (principalId === null || !isPrincipalDraftKey(key, principalId))
         storage.removeItem(key);
     return true;
   } catch {
@@ -26,17 +33,19 @@ export function publishNotesPrincipal(principalId: string | null) {
   window.dispatchEvent(
     new CustomEvent(NOTES_PRINCIPAL_EVENT, { detail: principalId }),
   );
-  let cleared = false;
+  let storage: Storage;
   try {
-    cleared = retainPrincipalDrafts(window.localStorage, principalId);
+    storage = window.localStorage;
   } catch {
-    // Even obtaining the storage object can be denied by the browser.
+    // Denied storage holds nothing this browser can reach or erase.
+    return true;
   }
+  const cleared = retainPrincipalDrafts(storage, principalId);
   try {
     // Notify other tabs even when this tab could not remove a stored record.
-    window.localStorage.setItem(NOTES_PRINCIPAL_KEY, principalId ?? '');
+    storage.setItem(NOTES_PRINCIPAL_KEY, principalId ?? '');
   } catch {
-    return false;
+    // The cross-tab notice is separate from whether this cleanup succeeded.
   }
   return cleared;
 }
@@ -71,9 +80,19 @@ export function hasPrincipalDrafts(
 ): boolean | null {
   try {
     return noteDraftKeys(storage).some((key) =>
-      key.startsWith(`daisy:round-notes:draft:${principalId}:`),
+      isPrincipalDraftKey(key, principalId),
     );
   } catch {
     return null;
   }
 }
+
+/** What the root does on a server-rendered mount. Only proof of a change purges. */
+export const rootMountAction = (
+  principalId: string | null,
+  signOutIntent: boolean,
+): 'publish' | 'keep' =>
+  principalId !== null || signOutIntent ? 'publish' : 'keep';
+
+export const isSignOutForm = (form: HTMLFormElement) =>
+  new URL(form.action, window.location.href).pathname === '/auth/sign-out';

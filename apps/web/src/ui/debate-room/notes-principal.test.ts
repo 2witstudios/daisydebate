@@ -69,3 +69,18 @@ test('only an explicit valid session identity changes the notes principal', asyn
     expected: [null, 'member', undefined, undefined],
   });
 });
+
+test('only proof of a change purges on a server-rendered mount', async () => {
+  const { rootMountAction } = await import('./notes-principal');
+  assert({
+    given:
+      'an anonymous mount with and without a sign-out, and a signed-in mount',
+    should: 'keep the copies on expiry and publish otherwise',
+    actual: [
+      rootMountAction(null, false),
+      rootMountAction(null, true),
+      rootMountAction('member', false),
+    ],
+    expected: ['keep', 'publish', 'publish'],
+  });
+});

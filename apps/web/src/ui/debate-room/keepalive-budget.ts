@@ -25,8 +25,15 @@ export type KeepaliveBudget = {
 
 const KEEPALIVE_BODY_BUDGET = 64 * 1024;
 
+/** The one serialized save body, so the budget measures exactly what is sent. */
+export const serializeSaveBody = ({
+  id,
+  html,
+  expectedRevision,
+}: KeepaliveSaveBody): string => JSON.stringify({ id, html, expectedRevision });
+
 const serializedBodyBytes = (body: KeepaliveSaveBody): number =>
-  new TextEncoder().encode(JSON.stringify(body)).length;
+  new TextEncoder().encode(serializeSaveBody(body)).length;
 
 export const createKeepaliveBudget = (
   limitBytes: number = KEEPALIVE_BODY_BUDGET,
