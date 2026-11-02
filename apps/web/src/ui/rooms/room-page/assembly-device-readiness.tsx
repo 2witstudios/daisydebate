@@ -30,7 +30,6 @@ type Props = {
   /** Seats and the round setup summary: the right-hand column below Start. */
   readonly side: ReactNode;
   /** Prep before the round, inside the Start card; null when the format has none. */
-  readonly prep: ReactNode;
   readonly view: RoomView;
   readonly actorId: string;
   readonly action: FormAction<RoomFormState>;
@@ -58,7 +57,7 @@ function GatheringLayout({
   const ready = ReadyControl(controls);
   const side = (
     <div className="room-side flex min-w-0 flex-col gap-4">
-      {StartControl({ ...controls, prep: props.prep })}
+      {StartControl(controls)}
       {props.side}
     </div>
   );

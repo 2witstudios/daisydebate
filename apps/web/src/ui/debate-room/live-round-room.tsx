@@ -20,6 +20,7 @@ import {
 } from '../../features/round-runtime/command-ids';
 import type { RoundFormState } from '../../features/round-runtime/command-form';
 import type { FormAction } from '../form-action/form-action';
+import { OpeningChosen, OpeningStrike } from './opening-strike';
 import { RoundCommandActions } from './round-command-actions';
 import { leaveIntent } from '../../features/round-runtime/leave-intent';
 import { RoundEndedNotice } from './round-ended';
@@ -119,6 +120,13 @@ export function LiveRoundRoom({
         </p>
       ) : null}
       {attendanceSlot}
+      {view.opening?.draw ? (
+        <OpeningChosen
+          view={view}
+          draw={view.opening.draw}
+          actorId={actorId}
+        />
+      ) : null}
       <RoundCommandActions
         view={view}
         actorId={actorId}
@@ -127,8 +135,19 @@ export function LiveRoundRoom({
         action={commandAction}
         onAnswer={onAnswer}
       >
-        {(actions) =>
-          round ? (
+        {(actions, form) =>
+          view.opening?.step.step === 'strike' && view.opening.draw ? (
+            <OpeningStrike
+              view={view}
+              opening={view.opening}
+              draw={view.opening.draw}
+              actorId={actorId}
+              nowMs={now}
+              commandId={ids.strike_resolution}
+              post={form.post}
+              pending={form.pending}
+            />
+          ) : round ? (
             <DebateRoom
               key={`${view.id}:${principalId}`}
               transcript={transcript}

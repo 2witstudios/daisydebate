@@ -23,12 +23,12 @@ function seatName(
 
 /** Who and what Launch still waits on, in seat order; empty once nothing does. */
 export function waitingOn(
-  view: Pick<RoomView, 'participants' | 'prep'> & {
+  view: Pick<RoomView, 'participants'> & {
     readonly definition: Pick<RoomView['definition'], 'seats'>;
   },
   actorId: string,
 ): readonly string[] {
-  const seats = declaredSeats(view.definition.seats).flatMap(
+  return declaredSeats(view.definition.seats).flatMap(
     ({ role, slot }) => {
       const occupant = view.participants.find(
         (seat) => seat.role === role && seat.slot === slot,
@@ -39,8 +39,6 @@ export function waitingOn(
       return [occupant.actorId === actorId ? 'You' : occupant.label];
     },
   );
-  const prepRunning = view.prep.startedAt !== null && !view.prep.finished;
-  return prepRunning ? [...seats, 'Prep before the round'] : seats;
 }
 
 export const ROOM_SETUP_ID = 'room-setup';
@@ -119,17 +117,12 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'incomplete-cast': 'every seat to be filled',
   'not-ready': 'everyone to be ready',
   'readiness-unavailable': 'everyone’s camera and microphone check',
-  'prep-running': 'prep before the round to finish',
-  'prep-unavailable': 'prep before the round',
   'command-conflict': 'the latest room changes',
   'consent-conflict': 'the latest readiness changes',
   'active-room': 'everyone to leave their other rooms',
   'format-unavailable': 'a format that is currently offered',
   'ranked-unavailable': 'an active Ranked season',
   'draw-unavailable': 'enough resolutions to draw from',
-  'strike-unavailable': 'a resolution still in the draw',
-  'strike-conflict': 'the latest strike',
-  'not-your-turn': 'the other side to strike',
   'bots-busy': 'a free bot: bots are busy, try again shortly',
 };
 

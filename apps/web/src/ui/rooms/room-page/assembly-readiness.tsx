@@ -7,7 +7,6 @@ import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { readinessControl, type LocalReadiness } from './assembly-controls';
 import { startRefusalText, waitingOn } from './room-labels';
-import type { ReactNode } from 'react';
 
 type Control = 'ready' | 'unready' | 'start-round';
 type View = Pick<
@@ -17,10 +16,8 @@ type View = Pick<
   | 'readiness'
   | 'startRefusal'
   | 'botAdmission'
-  | 'resolutionDraw'
 > & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
-  readonly prep: RoomView['prep'];
   readonly capabilities: Pick<
     RoomView['capabilities'],
     'canReady' | 'host' | 'canStart'
@@ -39,8 +36,6 @@ function startFence(
   actorId: string,
   local: LocalReadiness,
 ): boolean {
-  if (view.prep.startedAt !== null || view.resolutionDraw !== null)
-    return false;
   if (local.unreadyPending) return true;
   const own = view.participants
     .filter(isNamedSeat)
@@ -59,7 +54,7 @@ export function CommandForm({
   expectedConsentVersion = null,
   className,
 }: {
-  readonly type: Control | 'start-pre-round' | 'finish-prep';
+  readonly type: Control;
   readonly version: number;
   readonly commandId: string;
   readonly action: FormAction<RoomFormState>;
@@ -142,15 +137,14 @@ function startNotice(
   return 'Everyone is here and ready.';
 }
 
-/** The Start card: what it waits on for everyone, Start round for the host, then prep. */
+/** The Start card: what it waits on for everyone, and Start round for the host. */
 export function StartControl({
   view,
   actorId,
   local,
   action,
   commandIds,
-  prep,
-}: Props & { readonly prep: ReactNode }) {
+}: Props) {
   const blocked = startFence(view, actorId, local);
   const admissionBlocked =
     view.botAdmission !== null &&
@@ -185,7 +179,6 @@ export function StartControl({
       ) : (
         <p className="text-sm text-ink-muted">The host starts the round.</p>
       )}
-      {prep}
     </section>
   );
 }

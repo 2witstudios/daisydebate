@@ -1,3 +1,4 @@
+import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import {
   roundPositionAt,
   type RoundPosition,
@@ -127,7 +128,7 @@ function clockOf(
   if (position.countdownRemainingMs !== null)
     return { label: 'Starts in', remainingMs: position.countdownRemainingMs };
   const first = view.rules.segments[0];
-  if (view.status !== 'scheduled' || !first) return null;
+  if (view.status !== 'opening' || !first) return null;
   return {
     label: `${first.key} · ${first.label}`,
     remainingMs: first.durationMs,
@@ -174,6 +175,17 @@ function liveParts(
 ): Pick<RoundSnapshot, 'phase' | 'liveIndex' | 'clock' | 'prepMs'> {
   if (view.status === 'active' && view.checkpoint === null)
     return { phase: 'waiting', liveIndex: -1, clock: null, prepMs: null };
+  const step = view.opening?.step;
+  if (step?.step === 'prep')
+    return {
+      phase: 'prep',
+      liveIndex: -1,
+      clock: {
+        label: 'Prep',
+        remainingMs: Math.max(0, Date.parse(step.endsAt) - nowMs),
+      },
+      prepMs: null,
+    };
   const position = positionOf(view, nowMs);
   const phase = phaseOf(view, position, side);
   return {
@@ -208,7 +220,7 @@ export function liveRoundOf(
   if (!opponent) return null;
   const { phase, ...clocks } = liveParts(view, seat.role, nowMs);
   return {
-    resolution: view.topic,
+    resolution: view.topic ?? drawnTopicLabel,
     competition: view.competitionType,
     phase,
     self: debater(seat),

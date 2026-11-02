@@ -1,4 +1,4 @@
-import { createRoundRuntime, decideStartHorizon } from '@daisy/debate-engine';
+import { advanceOpening, createRoundRuntime } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
 
 type BuildProjection = Parameters<
@@ -9,26 +9,14 @@ export function roundTickProjection(
   nextSegmentId: () => string,
 ): BuildProjection {
   return ({ round, now }) =>
-    createRoundRuntime({ ...round, round, nextSegmentId }).tick(now);
-}
-
-/**
- * Maintenance's tick: a Round still scheduled past its start horizon is
- * abandoned (DEC-214); any other Round advances by the clock alone.
- */
-export function maintenanceTickProjection(
-  nextSegmentId: () => string,
-  startHorizonMs: number,
-): BuildProjection {
-  return ({ round, now }) => {
-    const runtime = createRoundRuntime({ ...round, round, nextSegmentId });
-    return decideStartHorizon({
-      status: round.status,
-      launchedAtMs: Date.parse(round.launchedAt),
-      horizonMs: startHorizonMs,
-      nowMs: Date.parse(now),
-    }) === 'abandon'
-      ? runtime.abandonUnstarted(now)
-      : runtime.tick(now);
-  };
+    round.opening
+      ? advanceOpening({
+          ...round,
+          round,
+          nextSegmentId,
+          opening: round.opening.state,
+          seed: round.opening.seed,
+          now,
+        })
+      : createRoundRuntime({ ...round, round, nextSegmentId }).tick(now);
 }

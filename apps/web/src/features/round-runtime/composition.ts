@@ -1,3 +1,4 @@
+import { readRoundOpening } from '@daisy/debate-engine';
 import { composeRoundMemberDependencies } from './member-composition';
 import type { App } from '../../server/app';
 import { canReadRound, canReadTranscript } from './reads';
@@ -12,8 +13,11 @@ export function composeRoundRoutes(app: App) {
       nextSegmentId: () => app.ids.next(),
     }),
     view: (caller, roundId) =>
-      app.database.readLaunchedRound(roundId, caller, (round, account) =>
-        canReadRound(caller, round, account),
+      app.database.readLaunchedRound(
+        roundId,
+        caller,
+        (round, account) => canReadRound(caller, round, account),
+        readRoundOpening,
       ),
     transcript: (caller, roundId) =>
       app.database.readRoundTranscript({

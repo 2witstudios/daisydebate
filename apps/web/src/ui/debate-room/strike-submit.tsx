@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { buttonClass } from '../../components/button/button-class';
+import { buttonClass } from '../components/button/button-class';
 
 /**
  * What a press does, given the position the prompt names (null before the

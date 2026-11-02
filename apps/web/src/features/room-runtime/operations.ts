@@ -9,6 +9,7 @@ import { resolveRoomSelection } from './selection';
 import { canReadRound } from '../round-runtime/reads';
 import type { Database } from '@daisy/db';
 import {
+  readRoundOpening,
   activeRoomMembers,
   executeRoomCommand,
   hostIdentityHidden,
@@ -119,8 +120,6 @@ export function createRoomRuntimeOperations({
         state,
         caller.actorId,
         currentRoomConsent(consent, now),
-        now,
-        facts.drawSeed,
       ),
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
@@ -261,7 +260,6 @@ export function createRoomRuntimeOperations({
                         eligible: target.eligible && botsAvailable(),
                       }
                     : null,
-                  drawSeed: null,
                   drawStart: null,
                 },
               ),
@@ -296,8 +294,11 @@ export function createRoomRuntimeOperations({
       return facts && projectActiveRoom(facts, caller.actorId);
     },
     roundView: (caller: Caller, roundId: string) =>
-      store.readLaunchedRound(roundId, caller, (view, account) =>
-        canReadRound(caller, view, account),
+      store.readLaunchedRound(
+        roundId,
+        caller,
+        (view, account) => canReadRound(caller, view, account),
+        readRoundOpening,
       ),
     catalog,
     async castChoices(caller: Caller): Promise<readonly RoomCastChoice[]> {

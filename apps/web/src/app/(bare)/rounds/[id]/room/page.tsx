@@ -66,6 +66,7 @@ async function watchingRoom(
       <MediaDocument />
       <LiveJudgeRoom
         view={room.round}
+        renderedAtMs={Date.parse(systemClock.now())}
         transcript={transcript}
         read={readPersistedJudgeRound.bind(null, id)}
         socketUrl={socketUrl}

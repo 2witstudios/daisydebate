@@ -4,7 +4,8 @@ import { createAppError } from '@daisy/errors';
 import { debateSides } from '@daisy/protocol';
 type Round = {
   readonly id: string;
-  readonly resolution: string;
+  /** Null only before a reveal, which no frozen, played Round is. */
+  readonly resolution: string | null;
   readonly participants: readonly {
     readonly id: string;
     readonly role: string;
@@ -44,6 +45,7 @@ export function transcriptEvidenceInput(input: {
     if (!segment) throw changed();
     return segment.sequence;
   };
+  if (round.resolution === null) throw changed();
   return {
     resolution: round.resolution,
     revision: frozen.revision,

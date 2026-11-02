@@ -4,7 +4,7 @@ export type RoundCommandIds = Readonly<
 >;
 /** Server seeds hydration; each new canonical revision gets fresh intent identifiers. */
 export const roundCommandIds = (nextId: () => string): RoundCommandIds => ({
-  start: nextId(),
+  strike_resolution: nextId(),
   start_prep: nextId(),
   start_speech: nextId(),
   yield: nextId(),

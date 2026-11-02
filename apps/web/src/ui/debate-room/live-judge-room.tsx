@@ -1,4 +1,7 @@
 'use client';
+import { useSecond } from './use-second';
+import { OpeningStatus } from './opening-strike';
+import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import './zod-jitless';
 import Link from 'next/link';
 import { useCallback, useMemo, type ReactNode } from 'react';
@@ -18,6 +21,7 @@ import { useRoundEndedRoute } from './use-round-ended';
 export function LiveJudgeRoom(props: {
   readonly transcript?: ReactNode;
   readonly view: RoundView;
+  readonly renderedAtMs: number;
   readonly read: () => Promise<RoundRead>;
   readonly socketUrl: string | null;
 }) {
@@ -25,6 +29,7 @@ export function LiveJudgeRoom(props: {
   const refresh = useCallback(() => driver?.signal(), [driver]);
   const media = useMemo(() => roundMediaSlot(refresh), [refresh]);
   const view = synced.value;
+  const now = useSecond(props.renderedAtMs);
   const ended = useRoundEndedRoute(view);
   if (ended) return <RoundEndedNotice roundId={view.id} />;
   return (
@@ -42,8 +47,11 @@ export function LiveJudgeRoom(props: {
         >
           Resolution
         </h2>
-        <p className="font-display text-xl wrap-anywhere">{view.topic}</p>
+        <p className="font-display text-xl wrap-anywhere">
+          {view.topic ?? drawnTopicLabel}
+        </p>
       </section>
+      <OpeningStatus view={view} nowMs={now} />
       <p>
         You can watch and listen. Your ballot opens once the speeches are over
         and the transcript is saved.

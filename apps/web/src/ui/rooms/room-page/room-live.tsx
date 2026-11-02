@@ -24,8 +24,6 @@ import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import type { RoomRead } from '../../../features/rooms/read-assembly';
 import type { submitAssembly } from '../../../features/rooms/submit-assembly';
 import {
-  presentedView,
-  roomDeadline,
   seedRoomSync,
 } from '../../../features/rooms/room-sync';
 import { createRoomSyncDriver } from '../../../features/rooms/room-sync-driver';
@@ -36,9 +34,6 @@ import { AssemblyHeader, RoomResolution } from './assembly-header';
 import { RoomSetup } from './room-setup';
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 import { AssemblySeats } from './assembly-seats';
-import { RoomPrep } from './room-prep';
-import { RoomStrike } from './room-strike';
-import { RoomStrikeReveal } from './room-strike-reveal';
 import { RoomSettings } from './room-settings';
 import { RoomSyncContext } from './room-sync-context';
 import { MediaPageLink } from '../../round-media/media-page-link';
@@ -61,17 +56,6 @@ type Props = {
   readonly read: () => Promise<RoomRead>;
   readonly send: (form: FormData) => ReturnType<typeof submitAssembly>;
 };
-
-/** Re-renders each second while a prep countdown runs. */
-function useNow(running: boolean, anchor: number) {
-  const [now, setNow] = useState(anchor);
-  useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(() => setNow(systemScheduler.now()), 1000);
-    return () => clearInterval(timer);
-  }, [running]);
-  return Math.max(now, anchor);
-}
 
 /**
  * The room's client owner (ADR 0066): seeded by the server render, kept
@@ -98,8 +82,7 @@ export function RoomLive(props: Props) {
     () => driver && { accepted: driver.accepted, signal: driver.signal },
     [driver],
   );
-  const now = useNow(roomDeadline(sync) !== null, sync.readAt);
-  const syncedView = useMemo(() => presentedView(sync, now), [sync, now]);
+  const syncedView = sync.value.view;
   const [terminalRound, setTerminalRound] = useState<Pick<
     RoomView,
     'id' | 'roundRef'
@@ -134,14 +117,7 @@ export function RoomLive(props: Props) {
           commandAction={props.commandAction}
         />
       ) : null}
-      <RoomStrike
-        view={view}
-        actorId={props.actorId}
-        action={props.commandAction}
-        strikeIds={ids.strikes}
-      />
       <RoomResolution view={view} />
-      <RoomStrikeReveal view={view} actorId={props.actorId} />
       <FreshnessNotice freshness={sync.freshness} noun="room" />
       {props.refusal ? (
         <p role="alert">{commandRefusalText(props.refusal.reason)}</p>
@@ -158,17 +134,6 @@ export function RoomLive(props: Props) {
             />
             <RoomSettings view={view} />
           </>
-        }
-        prep={
-          view.config.resolutionDraw.enabled ||
-          (view.definition.configurable.preRoundPrep &&
-            view.config.preRoundPrep.enabled) ? (
-            <RoomPrep
-              view={view}
-              action={props.commandAction}
-              commandIds={ids.prep}
-            />
-          ) : null
         }
         view={view}
         actorId={props.actorId}

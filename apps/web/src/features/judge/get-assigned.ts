@@ -17,7 +17,7 @@ export const getAssignedDebates = (
     status: assignmentStatus(assignment),
     ballotHref: `/judge/ballot/${assignment.roundId}`,
     ballotLabel: assignment.ballotStatus ? 'View ballot' : 'Open ballot',
-    followHref: `/rounds/${assignment.roundId}${assignment.status === 'active' || assignment.status === 'scheduled' ? '/room' : ''}`,
+    followHref: `/rounds/${assignment.roundId}${assignment.status === 'active' || assignment.status === 'opening' ? '/room' : ''}`,
   }));
 function assignmentStatus(a: RoundJudgeAssignment): string {
   if (a.ballotStatus === 'voided')
@@ -30,7 +30,7 @@ function assignmentStatus(a: RoundJudgeAssignment): string {
     return 'Your ballot is recorded. Other votes or attendance settlement are pending.';
   if (a.freezeRevision !== null)
     return 'The recorded transcript is frozen. Your ballot is open.';
-  return a.status === 'scheduled'
+  return a.status === 'opening'
     ? 'The Round has not started.'
     : 'The Round is in progress. Your ballot opens after its recorded transcript is frozen.';
 }

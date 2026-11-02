@@ -67,7 +67,7 @@ export function roomCommandOperation({
       seatsBotDebater: castSeatsBotDebater,
       authorizeRead: (state, account) =>
         can(caller, 'room.read', account, state),
-      prepare: async (raw, preparedAt, account, preparedSeed) => {
+      prepare: async (raw, preparedAt, account) => {
         if (!can(caller, capabilityOf(command), account, raw))
           throw createAppError('AUTHORIZATION');
         const prepared = eligible(raw);
@@ -83,7 +83,6 @@ export function roomCommandOperation({
               participantId: ids.next(),
               formatId: ids.next(),
               target: null,
-              drawSeed: preparedSeed,
               drawStart: null,
             },
           );
@@ -96,9 +95,10 @@ export function roomCommandOperation({
               ttlMs: consentTtlMs(),
             });
         }
-        // Only a pre-round start draws, so only it mints a draw id and entropy.
+        // Only a Start round draws, so only it mints a draw id and entropy.
         const secrets =
-          command.type === 'start-pre-round'
+          command.type === 'start-round' &&
+          prepared.executionPlan.resolutionDraw.enabled
             ? { drawId: ids.next(), seed: entropy(), salt: entropy() }
             : null;
         return (
@@ -140,7 +140,6 @@ export function roomCommandOperation({
                       (target.kind === 'human' || botsAvailable()),
                   }
                 : null,
-              drawSeed: draw.seed,
               drawStart: secrets
                 ? {
                     ...secrets,

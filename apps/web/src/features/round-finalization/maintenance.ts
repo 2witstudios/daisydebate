@@ -9,12 +9,10 @@ import {
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
 import { createRatingSweep } from '../ratings/sweep';
-import { maintenanceTickProjection, roundTickProjection } from './operations';
+import { roundTickProjection } from './operations';
 
 /** Judges may rule for 30 minutes after the immutable freeze (DEC-201). */
 export const DEFAULT_BALLOT_DEADLINE_MS = 30 * 60_000;
-/** A Round not started 15 minutes after Launch is abandoned (DEC-214). */
-export const ROUND_START_HORIZON_MS = 15 * 60_000;
 type JudgingPlanner = Parameters<
   Database['finalizeDueRoundTranscript']
 >[0]['planJudging'];
@@ -89,7 +87,6 @@ export function createRoundMaintenanceOperations(input: {
   /** Injected policy: how long after the freeze judges may rule (DEC-201). */
   readonly ballotDeadlineMs?: number;
   /** Injected policy, never defaulted: how long a launched Round may stay unstarted (DEC-214). */
-  readonly startHorizonMs: number;
   /**
    * The public check-in probe's Round (ATTENDANCE_PUBLIC_PROBE), or null. It
    * is synthetic and must stay active for its receipt to stay valid, so
@@ -101,10 +98,6 @@ export function createRoundMaintenanceOperations(input: {
     input.ballotDeadlineMs ?? DEFAULT_BALLOT_DEADLINE_MS,
   );
   const buildProjection = roundTickProjection(() => input.ids.next());
-  const tickProjection = maintenanceTickProjection(
-    () => input.ids.next(),
-    input.startHorizonMs,
-  );
   const ratings = createRatingSweep({
     database: input.store,
     ids: input.ids,
@@ -119,7 +112,6 @@ export function createRoundMaintenanceOperations(input: {
         const page = await input.store.readRoundMaintenanceCandidates({
           instanceId: input.instanceId,
           limit: 64,
-          startHorizonMs: input.startHorizonMs,
           ...(afterId ? { afterId } : {}),
         });
         ids.push(...page.roundIds.filter((id) => id !== input.probeRoundId));
@@ -136,7 +128,7 @@ export function createRoundMaintenanceOperations(input: {
       input.store.tickDueRound({
         instanceId: input.instanceId,
         roundId,
-        buildProjection: tickProjection,
+        buildProjection,
       }),
     evaluate: input.evaluate,
     async finalize(roundId: string) {

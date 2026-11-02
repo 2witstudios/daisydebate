@@ -31,7 +31,7 @@ export function roundEntry(
   return {
     ...observed,
     href:
-      round && ['scheduled', 'active'].includes(round.status) && seated
+      round && ['opening', 'active'].includes(round.status) && seated
         ? `/rounds/${round.id}/room`
         : null,
   };

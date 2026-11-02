@@ -3,6 +3,7 @@ import type { RoundProjection } from '@daisy/protocol';
 import { bytesOf } from './draw-random';
 import { createRoundRuntime } from './round-runtime';
 import {
+  projectOpening,
   settleOpening,
   strikeOpening,
   type OpeningSeat,
@@ -99,3 +100,18 @@ export const inPreRoundPrep = (input: {
     input.seed === null ? null : bytesOf(input.seed),
     input.now,
   ).step.step === 'prep';
+
+/** One viewer's opening for a Round read; every seat counts as eligible to read. */
+export const readRoundOpening = (
+  opening: { readonly state: RoundOpening; readonly seed: string | null },
+  seats: readonly Omit<OpeningSeat, 'eligible'>[],
+  viewerActorId: string,
+  now: string,
+) =>
+  projectOpening(
+    opening.state,
+    opening.seed === null ? null : bytesOf(opening.seed),
+    seats.map((seat) => ({ ...seat, eligible: true })),
+    viewerActorId,
+    now,
+  );

@@ -28,6 +28,7 @@ export {
   advanceOpening,
   forfeitInOpening,
   inPreRoundPrep,
+  readRoundOpening,
   strikeInOpening,
 } from './round-opening-runtime';
 export {

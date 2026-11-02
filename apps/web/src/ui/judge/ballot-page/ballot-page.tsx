@@ -1,4 +1,5 @@
 'use client';
+import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import Link from 'next/link';
 import { StoredBallotScores } from '../../ballot/stored-ballot-scores';
 import { useRouter } from 'next/navigation';
@@ -74,7 +75,7 @@ export function BallotPage({
       >
         Back to Judge
       </Link>
-      <PageHeader title="Your ballot" lede={view.round.topic} />
+      <PageHeader title="Your ballot" lede={view.round.topic ?? drawnTopicLabel} />
       <BallotOpensNotice
         round={view.round}
         opensInMs={opensInMs}

@@ -97,7 +97,13 @@ export function RoundCommandActions({
   onAnswer,
   children,
 }: {
-  readonly children: (actions: ReactNode) => ReactNode;
+  readonly children: (
+    actions: ReactNode,
+    form: {
+      readonly post: (form: FormData) => void;
+      readonly pending: boolean;
+    },
+  ) => ReactNode;
   readonly view: RoundView;
   readonly actorId: string;
   readonly nowMs: number;
@@ -153,7 +159,7 @@ export function RoundCommandActions({
         <FormError error={answer.error} />
       </div>
       <UnacknowledgedCommand answer={answer} post={post} pending={pending} />
-      {children(actions)}
+      {children(actions, { post, pending })}
     </>
   );
 }

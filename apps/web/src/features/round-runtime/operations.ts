@@ -1,6 +1,10 @@
 import { bindRoundCommandPrincipal } from '@daisy/auth';
-import { createRoundRuntime, decideStartHorizon } from '@daisy/debate-engine';
-import { ROUND_START_HORIZON_MS } from '../round-finalization/maintenance';
+import {
+  createRoundRuntime,
+  forfeitInOpening,
+  strikeInOpening,
+} from '@daisy/debate-engine';
+import { roundTickProjection } from '../round-finalization/operations';
 import type { Database } from '@daisy/db';
 import type { LockedRoundCommandContext } from '@daisy/db/rounds';
 import { createAppError, isAppError } from '@daisy/errors';
@@ -19,15 +23,7 @@ export function createRoundRuntimeOperations(input: {
     tick: (roundId: string) =>
       input.store.executeRoundTick({
         roundId,
-        buildProjection: ({ round, now }) =>
-          createRoundRuntime({
-            round,
-            rules: round.rules,
-            participants: round.participants,
-            checkpoint: round.checkpoint,
-            segments: round.segments,
-            nextSegmentId: input.nextSegmentId,
-          }).tick(now),
+        buildProjection: roundTickProjection(input.nextSegmentId),
       }),
     async command(
       principal: RoundCommandPrincipal,
@@ -58,27 +54,48 @@ export function createRoundRuntimeOperations(input: {
         },
         buildProjection: (context) => {
           const bound = bind(context);
-          const runtime = createRoundRuntime({
-            round: context.round,
-            rules: context.round.rules,
-            participants: context.round.participants,
-            checkpoint: context.round.checkpoint,
-            segments: context.round.segments,
+          const { round } = context;
+          const hydrated = {
+            round,
+            rules: round.rules,
+            participants: round.participants,
+            checkpoint: round.checkpoint,
+            segments: round.segments,
             nextSegmentId: input.nextSegmentId,
-          });
+          };
+          const { command } = envelope;
           try {
+            if (command.type === 'strike_resolution') {
+              if (!round.opening || bound.actorId === null)
+                throw createAppError('CONFLICT', 'No strike is open');
+              return strikeInOpening({
+                ...hydrated,
+                opening: round.opening.state,
+                seed: round.opening.seed,
+                now: context.now,
+                seats: context.authority.participants,
+                strike: {
+                  actorId: bound.actorId,
+                  commandId: envelope.commandId,
+                  ordinal: command.ordinal,
+                  position: command.position,
+                },
+              });
+            }
             if (
-              envelope.command.type === 'start' &&
-              decideStartHorizon({
-                status: context.round.status,
-                launchedAtMs: Date.parse(context.round.launchedAt),
-                horizonMs: ROUND_START_HORIZON_MS,
-                nowMs: Date.parse(context.now),
-              }) === 'abandon'
+              round.opening &&
+              command.type === 'forfeit' &&
+              bound.actorId !== null
             )
-              throw createAppError('CONFLICT', 'Start horizon has passed');
-            return runtime.execute({
-              command: { type: envelope.command.type },
+              return forfeitInOpening({
+                ...hydrated,
+                opening: round.opening.state,
+                seed: round.opening.seed,
+                now: context.now,
+                actorId: bound.actorId,
+              });
+            return createRoundRuntime(hydrated).execute({
+              command: { type: command.type },
               actorId: bound.actorId,
               now: context.now,
             });

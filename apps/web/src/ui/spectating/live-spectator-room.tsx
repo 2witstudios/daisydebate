@@ -1,4 +1,6 @@
 'use client';
+import { OpeningStatus } from '../debate-room/opening-strike';
+import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import '../debate-room/zod-jitless';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -134,8 +136,7 @@ function SpeechOrder({ watched }: { readonly watched: SpectatorView }) {
 }
 
 const stageNote = (watched: SpectatorView): string | null => {
-  if (watched.stage === 'starting')
-    return 'The round is about to start. The first speech begins once both debaters check in.';
+  if (watched.stage === 'starting') return null;
   if (watched.stage === 'judging')
     return watched.judge === 'ai'
       ? 'The speeches are over. The AI judge is deciding.'
@@ -190,9 +191,10 @@ export function LiveSpectatorRoom(props: {
           Resolution
         </h2>
         <p className="font-display text-2xl leading-tight font-semibold wrap-anywhere">
-          {view.topic}
+          {view.topic ?? drawnTopicLabel}
         </p>
       </section>
+      <OpeningStatus view={view} nowMs={now} />
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       {note ? <p role="status">{note}</p> : null}
       <ul

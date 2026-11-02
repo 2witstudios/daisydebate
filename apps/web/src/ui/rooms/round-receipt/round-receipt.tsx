@@ -24,7 +24,7 @@ export type RoundReceiptView = Pick<
 };
 
 const statusLabel: Readonly<Record<RoundView['status'], string>> = {
-  scheduled: 'Not started',
+  opening: 'Starting',
   active: 'In progress',
   completed: 'Finished',
   abandoned: 'Closed',
@@ -119,7 +119,7 @@ export function RoundReceipt({
           >
             Resolution
           </h2>
-          <p className="font-display text-xl wrap-anywhere">{round.topic}</p>
+          <p className="font-display text-xl wrap-anywhere">{round.topic ?? 'Not chosen'}</p>
         </section>
         <MediaPageLink href={`/rooms/${round.roomId}`}>
           Return to room
