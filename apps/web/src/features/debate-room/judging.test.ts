@@ -1,9 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  ballotLines,
-  judgingBallotsOf,
-  judgingClockOf,
-} from './judging';
+import { ballotLines, judgingBallotsOf, judgingClockOf } from './judging';
 
 setupRitewayBun();
 

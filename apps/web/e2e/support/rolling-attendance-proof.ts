@@ -1,13 +1,5 @@
 import type { Browser } from '@playwright/test';
-import {
-  deriveOutageIntervals,
-  effectiveAttendanceDeadline,
-} from '@daisy/debate-engine';
 import { attendanceTimingPolicy } from '@daisy/protocol';
-import {
-  attendanceReceiptTime,
-  attendanceTimestamp,
-} from '../../src/features/attendance/receipt-time';
 import { expect } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { createHumanBallotRound } from './human-ballot-round';
@@ -38,10 +30,9 @@ const latestSample = async (roundId: string) =>
  * each process start the measured window resumes only once three
  * consecutive samples taken after the start are healthy (the started
  * process is ready); both ingress switches stay inside the window.
- * An outage outside the windows (a boot, an opening check-in still in
- * flight) still postpones the deadline, so the deadline equals the engine's
- * over the samples (the wiring) and is bounded engine-free: nothing after
- * `since` postponed it, and the grace ended inside measured window 1.
+ * The speaker's on-time receipt settles the window with no horizon (ADR 0095),
+ * so this proves the samples stay healthy across both restarts and the decision
+ * survives them.
  */
 async function settledAfter(roundId: string, after: string) {
   let resumed = after;
@@ -165,37 +156,16 @@ export async function rollingAttendancePeer({
     const decision = facts.adjudications.find(
       (row) => row.segmentId === speech.id,
     )!;
-    const settled = facts.samples.filter(
-      (row) => row.at <= decision.settledHorizon,
-    );
-    expect(settled[0]!.at <= speech.startedAt).toBe(true);
-    expect(decision.effectiveDeadline).toBe(
-      attendanceTimestamp(
-        effectiveAttendanceDeadline({
-          openedAtMs: attendanceReceiptTime(speech.startedAt),
-          graceMs: attendanceTimingPolicy.graceMs,
-          availability: deriveOutageIntervals(
-            settled.map((row) => ({
-              atMs: attendanceReceiptTime(row.at),
-              healthy: row.healthy,
-            })),
-          ),
-        })!,
-      ),
-    );
-    const graceUs = BigInt(attendanceTimingPolicy.graceMs) * 1000n;
+    // The speaker's on-time receipt settles it alone, with no horizon (ADR 0095).
+    expect(decision.evidence).toBe('on_time_receipt');
+    expect(decision.effectiveDeadline).toBeNull();
+    expect(decision.settledHorizon).toBeNull();
     expect(
       elapsedAttendanceObservationUs(
-        decision.effectiveDeadline,
+        present[0]!.receipt.receivedAt,
         speech.startedAt,
       ),
-    ).toBeGreaterThanOrEqual(graceUs);
-    expect(
-      elapsedAttendanceObservationUs(decision.effectiveDeadline, since),
-    ).toBeLessThanOrEqual(graceUs);
-    expect(
-      elapsedAttendanceObservationUs(paused, decision.effectiveDeadline),
-    ).toBeGreaterThanOrEqual(0n);
+    ).toBeLessThanOrEqual(BigInt(attendanceTimingPolicy.graceMs) * 1000n);
     await closeAttendedFixture(
       host.request,
       round.id,

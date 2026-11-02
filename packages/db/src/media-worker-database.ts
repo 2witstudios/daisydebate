@@ -1,3 +1,4 @@
+import { idSchema } from '@daisy/protocol';
 import { SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
 import { RUNTIME_SESSION } from './session-bounds';
@@ -49,7 +50,12 @@ export function createMediaWorkerDatabase(input: {
       limit: number,
       excluded: readonly string[] = [],
     ) {
-      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
+      if (
+        !Number.isSafeInteger(limit) ||
+        limit < 1 ||
+        limit > 64 ||
+        !excluded.every((id) => idSchema.safeParse(id).success)
+      )
         throw createAppError('VALIDATION');
       const rows: { round_id: string; session_id: string }[] = await client`
         select s.round_id, s.id as session_id
@@ -60,7 +66,7 @@ export function createMediaWorkerDatabase(input: {
           and s.deletion_requested_at is null
           and r.status in ('scheduled', 'active')
           and (l.session_id is null or l.expires_at <= clock_timestamp())
-          and s.id not in (select jsonb_array_elements_text(${JSON.stringify(excluded)}::jsonb))
+          and s.id <> all(string_to_array(${excluded.join(',')}, ','))
         order by s.created_at, s.id
         limit ${limit}`;
       return rows.map((row) => ({
