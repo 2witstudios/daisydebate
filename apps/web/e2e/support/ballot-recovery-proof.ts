@@ -64,8 +64,8 @@ export async function proveBallotRecovery(
     fixtures.members[2]!.username,
   );
   // The last judge's ballot ends a debated Round; a debater can no longer
-  // forfeit it. The split decides a draw, so a retry that overwrote the outcome
-  // with its own negative vote fails the outcome check below.
+  // forfeit it. The panel splits, so the Round is not the negative's: a retry
+  // that overwrote the outcome with its own negative vote fails the check below.
   await submitJudgeBallot(fixtures.members[3]!, roundId, {
     winner: fixtures.affirmative,
     reason: 'The affirmative carried the decisive clash.',
@@ -87,9 +87,10 @@ export async function proveBallotRecovery(
   await expect(
     page.getByText('Ballot submitted.', { exact: false }),
   ).toBeVisible();
+  await expect(page.getByText(/^Round outcome:/)).toBeVisible();
   await expect(
-    page.getByText('Round outcome: draw', { exact: true }),
-  ).toBeVisible();
+    page.getByText('Round outcome: negative', { exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole('button', { name: 'Submit ballot', exact: true }),
   ).toHaveCount(0);
