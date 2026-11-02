@@ -11,7 +11,7 @@ export type SpeechSlot = {
 };
 
 /** A new document's title until its owner renames it. */
-export const NEW_DOCUMENT_TITLE = 'Untitled';
+const NEW_DOCUMENT_TITLE = 'Untitled';
 
 /** A drive: the viewer's own, or their club's. */
 export type FolderId = 'library' | 'club';

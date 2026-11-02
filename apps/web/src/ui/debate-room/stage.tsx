@@ -1,13 +1,13 @@
 import { cn } from '../cn';
 import type { Debater } from './round';
 
-export const sideName = { aff: 'Aff', neg: 'Neg' } as const;
+const sideName = { aff: 'Aff', neg: 'Neg' } as const;
 const sideDisc = { aff: 'bg-hue-sky', neg: 'bg-hue-clay' } as const;
 
 /** How much of a tile its occupant fills: a disc and a pill, or a caption. */
 type Look = 'large' | 'medium' | 'small';
 
-export const discLook: Readonly<Record<Look, string>> = {
+const discLook: Readonly<Record<Look, string>> = {
   large: 'size-room-disc text-3xl',
   medium: 'size-room-disc-md text-2xl',
   small: 'size-room-disc-sm text-md',

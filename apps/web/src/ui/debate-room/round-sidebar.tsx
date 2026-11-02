@@ -19,7 +19,7 @@ import type { RoundSnapshot } from './round';
 
 export const ROUND_SIDEBAR_ID = 'round-sidebar';
 
-export const sidebarNames: Readonly<Record<SidebarTab, string>> = {
+const sidebarNames: Readonly<Record<SidebarTab, string>> = {
   transcript: 'Transcript',
   channels: 'Channels',
   ai: 'AI chat',
@@ -102,7 +102,7 @@ export function RoundSidebar({
     >
       <div
         role="tablist"
-        aria-label="Round sidebar"
+        aria-label="Sidebar tabs"
         onKeyDown={key}
         className="grid h-12 shrink-0 auto-cols-fr grid-flow-col border-b border-border max-compact:hidden"
       >

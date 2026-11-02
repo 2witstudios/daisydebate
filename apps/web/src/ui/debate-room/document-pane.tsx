@@ -30,7 +30,12 @@ type TabsProps = {
 /** Open files across the top of the editor, and whether they are saved. */
 function DocumentTabs({ tabs, active, dispatch, save, leading }: TabsProps) {
   return (
-    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface px-4">
+    <div
+      className={cn(
+        'flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface px-4',
+        tabs.length === 0 && !save && 'max-compact:hidden',
+      )}
+    >
       {leading}
       <div
         role="group"
