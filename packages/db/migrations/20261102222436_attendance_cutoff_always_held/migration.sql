@@ -1,0 +1,4 @@
+-- Backfill first: a row the old schema allowed must not refuse this deploy.
+UPDATE "rounds" SET "attendance_resolution_cutoff_at" = "final_segment_ended_at" + interval '60 minutes' WHERE "final_segment_ended_at" IS NOT NULL AND "attendance_resolution_cutoff_at" IS DISTINCT FROM "final_segment_ended_at" + interval '60 minutes';--> statement-breakpoint
+UPDATE "rounds" SET "attendance_resolution_cutoff_at" = NULL WHERE "final_segment_ended_at" IS NULL AND "attendance_resolution_cutoff_at" IS NOT NULL;--> statement-breakpoint
+ALTER TABLE "rounds" ADD CONSTRAINT "rounds_attendance_cutoff_check" CHECK (("final_segment_ended_at" is null and "attendance_resolution_cutoff_at" is null) or ("final_segment_ended_at" is not null and "attendance_resolution_cutoff_at" is not null and "attendance_resolution_cutoff_at" = "final_segment_ended_at" + interval '60 minutes'));

@@ -13,25 +13,25 @@ test('actual final close pins one immutable 120-second transcript admission cuto
       started_at: new Date('2026-10-22T05:00:00Z'),
     });
     await fixture.sql.unsafe(
-      "update rounds set final_segment_ended_at='2026-10-22T05:01:00Z', transcript_admission_cutoff='2026-10-22T05:03:00Z' where id=$1",
+      "update rounds set final_segment_ended_at='2026-10-22T05:01:00Z', transcript_admission_cutoff='2026-10-22T05:03:00Z', attendance_resolution_cutoff_at='2026-10-22T06:01:00Z' where id=$1",
       [roundId],
     );
     const immutable = await rejectedBy(() =>
       fixture.sql.unsafe(
-        "update rounds set final_segment_ended_at='2026-10-22T05:02:00Z', transcript_admission_cutoff='2026-10-22T05:04:00Z' where id=$1",
+        "update rounds set final_segment_ended_at='2026-10-22T05:02:00Z', transcript_admission_cutoff='2026-10-22T05:04:00Z', attendance_resolution_cutoff_at='2026-10-22T06:02:00Z' where id=$1",
         [roundId],
       ),
     );
     const cleared = await rejectedBy(() =>
       fixture.sql.unsafe(
-        'update rounds set final_segment_ended_at=null, transcript_admission_cutoff=null where id=$1',
+        'update rounds set final_segment_ended_at=null, transcript_admission_cutoff=null, attendance_resolution_cutoff_at=null where id=$1',
         [roundId],
       ),
     );
     const otherRoundId = await fixture.round();
     const mismatched = await rejectedBy(() =>
       fixture.sql.unsafe(
-        "update rounds set final_segment_ended_at='2026-10-22T05:01:00Z', transcript_admission_cutoff='2026-10-22T05:04:00Z' where id=$1",
+        "update rounds set final_segment_ended_at='2026-10-22T05:01:00Z', transcript_admission_cutoff='2026-10-22T05:04:00Z', attendance_resolution_cutoff_at='2026-10-22T06:01:00Z' where id=$1",
         [otherRoundId],
       ),
     );

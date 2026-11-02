@@ -15,14 +15,13 @@ import { roundJudgingJobs } from './schema/round-judging-jobs';
 const heldBallotGrace = sql`${attendanceTimingPolicy.heldBallotGraceMs}::int*interval '1 millisecond'`;
 export const judgingJobCanRule = sql`(round_judging_jobs.status in ('queued','leased') and (
   round_judging_jobs.generation_deadline_at>clock_timestamp()
-  or (round_judging_jobs.pending_ballot is not null and coalesce(
-    (select greatest(
+  or (round_judging_jobs.pending_ballot is not null and (select greatest(
       cutoff_round.attendance_resolution_cutoff_at,
       (select max(decided.applied_at) from round_attendance_adjudications decision
         join round_commands decided on decided.command_id=decision.command_id and decided.round_id=decision.round_id
         where decision.round_id=cutoff_round.id)+${heldBallotGrace},
       (select max(writer.resolved_at) from round_check_in_attempts writer where writer.round_id=cutoff_round.id)+${heldBallotGrace}
-    )>clock_timestamp() from rounds cutoff_round where cutoff_round.id=round_judging_jobs.round_id),true))))`;
+    )>clock_timestamp() from rounds cutoff_round where cutoff_round.id=round_judging_jobs.round_id)))`;
 
 /**
  * A judging job still open when its Round ends has ended too, with that reason.
