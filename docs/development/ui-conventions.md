@@ -81,12 +81,6 @@ JavaScript only enhances it.
   still run and reveal what a script-less browser never sees. See the
   "with JavaScript off" block in `apps/web/e2e/journey.e2e.ts`.
 
-### Conversation completion ownership
-
-A hydrated DM send's durable result and its right to navigate are separate: the
-conversation owns both, and a newer same-tab choice in it supersedes the send's
-destination. See [messaging](../domains/messaging.md#send-completion-ownership).
-
 Recorded exceptions:
 
 - The planned media Ready check for a human debater needs JavaScript. It
@@ -100,6 +94,12 @@ Recorded exceptions:
 
 Forms that predate this rule are tracked as issues in the PageSpace `Issues`
 list. Bring each one into line when you next change it.
+
+### Conversation completion ownership
+
+A hydrated DM send's durable result and its right to navigate are separate: the
+conversation owns both, and a newer same-tab choice in it supersedes the send's
+destination. See [messaging](../domains/messaging.md#send-completion-ownership).
 
 ## Copy says what the interface cannot
 

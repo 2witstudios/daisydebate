@@ -3,7 +3,6 @@ import { test } from './fixtures';
 import { effectsRan } from './hydration';
 import {
   acceptMessagingJourney,
-  closingJourney,
   openMessagingJourney,
 } from './messaging-journey';
 import { ownMessageEdit } from './messaging-completion';
@@ -44,7 +43,7 @@ export function testEditCompletionWindow() {
     browser,
   }) => {
     const journey = await openMessagingJourney(browser);
-    await closingJourney(journey, async () => {
+    try {
       const page = await acceptMessagingJourney(journey);
       const held = holdConversationResponses(page, journey.channelId);
       await page.goto(`/messages/${journey.channelId}`);
@@ -63,6 +62,8 @@ export function testEditCompletionWindow() {
       expect(held.state.sends).toBe(1);
       expect(held.state.routeOrder[0]).toBe('navigation');
       expect(held.state.sentDestinations).toBe(0);
-    });
+    } finally {
+      await journey.close();
+    }
   });
 }

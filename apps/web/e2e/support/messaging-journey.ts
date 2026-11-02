@@ -1,6 +1,7 @@
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { idSchema } from '@daisy/protocol';
-import { expect, openPage, test } from './fixtures';
+import { expect, openPage } from './fixtures';
+import { reportingTeardown } from './journey-teardown';
 import { createRoomAccounts } from './room-accounts';
 import { origin } from './accounts';
 import { openMessagingBrowserData } from './messaging-data';
@@ -61,14 +62,19 @@ async function openJourney(
       senderUsername: signup.members[0].username,
       recipientUsername: signup.members[1].username,
       outsiderUsername: browserMemberUsername(signup.members, 2),
-      async close() {
-        await Promise.all(contexts.map((context) => context.close()));
-        try {
-          await data?.close();
-        } finally {
-          await signup.dispose();
-        }
-      },
+      close: reportingTeardown(
+        async () => {
+          await Promise.all(contexts.map((context) => context.close()));
+          try {
+            await data?.close();
+          } finally {
+            await signup.dispose();
+          }
+        },
+        // Soft: the test still fails, and its primary failure stays reported.
+        (teardown) =>
+          expect.soft(teardown, 'journey teardown failed').toBeUndefined(),
+      ),
     };
   } catch (error) {
     await Promise.all(contexts.map((context) => context.close()));
@@ -79,26 +85,6 @@ async function openJourney(
     }
     throw error;
   }
-}
-/** A teardown failure is recorded beside the test's primary failure, never over it. */
-export async function closingJourney(
-  journey: { readonly close: () => Promise<void> },
-  verify: () => Promise<void>,
-) {
-  const primary = await verify().then(
-    () => null,
-    (error: unknown) => ({ error }),
-  );
-  try {
-    await journey.close();
-  } catch (teardown) {
-    if (primary === null) throw teardown;
-    test.info().annotations.push({
-      type: 'teardown-failure',
-      description: String(teardown),
-    });
-  }
-  if (primary !== null) throw primary.error;
 }
 export function openMessagingJourney(
   browser: Browser,
