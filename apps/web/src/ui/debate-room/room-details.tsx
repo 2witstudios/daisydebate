@@ -29,11 +29,6 @@ function keptRows(round: RoundSnapshot) {
       value: round.recording ? (after ? 'Saved' : 'On') : 'Off',
       live: round.recording && !after,
     },
-    {
-      term: 'Transcript',
-      value: round.transcribing ? (after ? 'Complete' : 'Live') : 'Off',
-      live: false,
-    },
     ...(after && round.recording
       ? [{ term: 'This room now', value: 'Not recorded', live: false }]
       : []),
@@ -44,7 +39,7 @@ const stakesLabel = (stakes: NonNullable<RoundSnapshot['stakes']>) =>
   `+${stakes.win} / −${stakes.loss}`;
 
 /** Who is in the round, and what the round is keeping. */
-export function DrawerRoom({ round }: { readonly round: RoundSnapshot }) {
+export function RoomDetails({ round }: { readonly round: RoundSnapshot }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
       {groups.map(({ role, title }) => {

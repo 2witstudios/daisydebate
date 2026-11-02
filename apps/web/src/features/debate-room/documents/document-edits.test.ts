@@ -5,7 +5,7 @@ setupRitewayBun();
 
 const plan =
   '<h1>NR</h1><ul><li><p><strong>0:30</strong> overview</p></li>' +
-  '<li><p><strong>0:30</strong> N3 <span data-debate-mark="new">New</span></p></li>' +
+  '<li><p><strong>0:30</strong> N3 <em>New</em></p></li>' +
   '<li><p>voters</p></li></ul>';
 
 describe('blockText', () => {
