@@ -3,6 +3,30 @@ import { createTimerQueue } from '../realtime/connection-store.test-support';
 import { createRoundTime } from '../round-runtime/round-time';
 import { scheduleMediaDeadline } from './schedule-deadline';
 setupRitewayBun();
+test('a clock with no sample still fires, at its seed projection', () => {
+  const scheduler = createTimerQueue((now, ms) => now + ms);
+  const roundTime = createRoundTime({
+    monotonicNowMs: scheduler.now,
+    hydrationSeedServerMs: 10000,
+  });
+  let refreshes = 0;
+  scheduleMediaDeadline({
+    deadlineMs: 15000,
+    roundTime,
+    scheduler,
+    refresh: () => refreshes++,
+  });
+  scheduler.advance(4999);
+  const before = refreshes;
+  scheduler.advance(1);
+  assert({
+    given: 'a seed, whose instant is already behind the server',
+    should: 'use no margin and fire when its projection reaches the deadline',
+    actual: [before, refreshes],
+    expected: [0, 1],
+  });
+});
+
 test('same-view calibration re-arms the actual media boundary and disposal cancels it', () => {
   const scheduler = createTimerQueue((now, ms) => now + ms);
   const roundTime = createRoundTime({

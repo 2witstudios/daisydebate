@@ -9,6 +9,7 @@ import { origin } from './support/accounts';
 import {
   createClockReadWitness,
   routeStepped,
+  serverOffsetMs,
   type RoutedRequest,
   type StepRoute,
 } from './support/round-timing-response';
@@ -353,12 +354,6 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     expect(heldClock.read()!.serverNowMs).not.toBeNull();
     await clockReads.pass();
 
-    // The deadline on this process's clock, the one every instant here is read on.
-    const offsetFrom = elapsedMs();
-    const serverStamp = await serverNow(accounts, roundId!);
-    const deadlineHere =
-      deadline - (serverStamp - (offsetFrom + elapsedMs()) / 2);
-
     // Start the stale read close enough that its own 10 s request deadline falls
     // well after the boundary. The peer leaving is the SDK invalidation asking;
     // leaving for a blank page commits at once, with no wait on a server render.
@@ -367,7 +362,15 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
         timeout: 60000,
       })
       .toBeLessThan(STALE_READ_LEAD_MS);
-    const staleReply = Promise.withResolvers<unknown>();
+    // The deadline on this process's clock, the one every instant here is read on.
+    const deadlineHere =
+      deadline -
+      (await serverOffsetMs(() => serverNow(accounts, roundId!), elapsedMs));
+    expect(
+      deadlineHere - elapsedMs(),
+      'the journey ran out of speech before its boundary',
+    ).toBeGreaterThan(2000);
+    let staleGrants: readonly string[] | null = null;
     const releaseStale = Promise.withResolvers<void>();
     let staleStartedAt: number | null = null;
     const freshReads: { startedAt: number; microphone: boolean }[] = [];
@@ -377,7 +380,8 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       if (staleStartedAt === null) {
         staleStartedAt = startedAt;
         const held = await route.fetch();
-        staleReply.resolve(await held.json());
+        staleGrants = roundMediaStateSchema.parse(await held.json()).grants
+          .publish;
         await releaseStale.promise;
         await route.abort().catch(() => undefined);
         return;
@@ -398,8 +402,13 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
         intervals: [50],
       })
       .not.toBeNull();
-    const stale = roundMediaStateSchema.parse(await staleReply.promise);
-    expect(stale.grants.publish).toContain('microphone');
+    await expect
+      .poll(() => staleGrants, {
+        message: 'the held read should reach the server before the deadline',
+        timeout: deadlineHere - elapsedMs(),
+        intervals: [50],
+      })
+      .toContain('microphone');
     expect(await serverNow(accounts, roundId!)).toBeLessThan(deadline);
 
     // The boundary: the actual caller supersedes the stale read at the deadline.

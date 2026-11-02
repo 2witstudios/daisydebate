@@ -5,6 +5,7 @@ import {
 import { createMediaService } from '@daisy/media';
 import { test, expect, openPage } from './support/fixtures';
 import { launchLiveKit } from './support/launch-livekit';
+import { serverOffsetMs } from './support/round-timing-response';
 import { origin } from './support/accounts';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
@@ -522,7 +523,15 @@ for (const [name, tickOnly] of [
       );
       if (!seat || !('id' in seat))
         throw new Error('Actual debater seat missing');
-      const sentAt = now();
+      const offset = await serverOffsetMs(
+        async () =>
+          Number(
+            (
+              await speaker!.context.request.get(`/api/rounds/${round.id}`)
+            ).headers()['x-server-now-ms'],
+          ),
+        now,
+      );
       const yielded = await ballotRoundCommand(speaker!.context.request, view, {
         type: 'yield',
         participantId: seat.id,
@@ -532,7 +541,6 @@ for (const [name, tickOnly] of [
         .at(-1)?.endedAt;
       if (!endedAt) throw new Error('Actual speech end missing');
       // The yield's reply stamps the server: read the deadline on this clock.
-      const offset = Date.parse(endedAt) - (sentAt + now()) / 2;
       const deadline = Date.parse(endedAt) + COUNTDOWN_MS - offset;
 
       await expect

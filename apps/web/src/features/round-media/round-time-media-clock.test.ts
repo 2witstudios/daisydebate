@@ -57,6 +57,47 @@ const followed = (leadMs: number) => {
   return { scheduler, roundTime, follow, boundaries, state };
 };
 
+/** The real controller on the sampled clock, with its next reads held forever. */
+const heldReads = async (paced: boolean) => {
+  const { scheduler, roundTime } = calibrated(5000);
+  const signals: AbortSignal[] = [];
+  const reply = { held: false };
+  const controller = createMediaController({
+    roundId,
+    initialRoundViewVersion: view.version,
+    api: {
+      admit: async () => admission,
+      reconcile: async (_id, signal) => {
+        signals.push(signal);
+        if (reply.held) await new Promise(() => undefined);
+        return snapshot;
+      },
+    },
+    transport: () => transportStub(),
+    changed: () => undefined,
+    ...(paced
+      ? {
+          readBudget: {
+            now: scheduler.now,
+            ms: MEDIA_READ_BUDGET_MS,
+            at: (ms: number, fire: () => void) => {
+              const timer = scheduler.setTimeout(fire, ms);
+              return () => scheduler.clearTimeout(timer);
+            },
+          },
+        }
+      : {}),
+  });
+  await controller.join();
+  const follow = createRoundViewFollower({
+    clock: roundTimeMediaClock({ roundTime, scheduler }),
+    reconcile: (event) => void controller.reconcile(event),
+    refresh: () => undefined,
+  });
+  reply.held = true;
+  return { scheduler, controller, follow, signals };
+};
+
 test('the follower emits its boundary from the sampled clock, once the lower bound has passed', () => {
   const { scheduler, follow, boundaries, state } = followed(5000);
   const cancel = follow(view);
@@ -123,38 +164,7 @@ test('a view accepted while the deadline is inside the uncertainty waits for the
 });
 
 test('in a burst the boundary lets a young read finish, for at most the let-finish window', async () => {
-  const { scheduler, roundTime } = calibrated(5000);
-  const signals: AbortSignal[] = [];
-  const reply = { held: false };
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: view.version,
-    api: {
-      admit: async () => admission,
-      reconcile: async (_id, signal) => {
-        signals.push(signal);
-        if (reply.held) await new Promise(() => undefined);
-        return snapshot;
-      },
-    },
-    transport: () => transportStub(),
-    changed: () => undefined,
-    readBudget: {
-      now: scheduler.now,
-      ms: MEDIA_READ_BUDGET_MS,
-      at: (ms, fire) => {
-        const timer = scheduler.setTimeout(fire, ms);
-        return () => scheduler.clearTimeout(timer);
-      },
-    },
-  });
-  await controller.join();
-  const follow = createRoundViewFollower({
-    clock: roundTimeMediaClock({ roundTime, scheduler }),
-    reconcile: (event) => void controller.reconcile(event),
-    refresh: () => undefined,
-  });
-  reply.held = true;
+  const { scheduler, controller, follow, signals } = await heldReads(true);
   const cancel = follow(view);
   await settle();
   const AGE_AT_BOUNDARY_MS = 500;
@@ -183,30 +193,7 @@ test('in a burst the boundary lets a young read finish, for at most the let-fini
 });
 
 test('the sampled clock boundary supersedes a held read through the real controller', async () => {
-  const { scheduler, roundTime } = calibrated(5000);
-  const signals: AbortSignal[] = [];
-  const reply = { held: false };
-  const controller = createMediaController({
-    roundId,
-    initialRoundViewVersion: view.version,
-    api: {
-      admit: async () => admission,
-      reconcile: async (_id, signal) => {
-        signals.push(signal);
-        if (reply.held) await new Promise(() => undefined);
-        return snapshot;
-      },
-    },
-    transport: () => transportStub(),
-    changed: () => undefined,
-  });
-  await controller.join();
-  const follow = createRoundViewFollower({
-    clock: roundTimeMediaClock({ roundTime, scheduler }),
-    reconcile: (event) => void controller.reconcile(event),
-    refresh: () => undefined,
-  });
-  reply.held = true;
+  const { scheduler, controller, follow, signals } = await heldReads(false);
   follow(view);
   await settle();
   const stale = signals.at(-1)!;

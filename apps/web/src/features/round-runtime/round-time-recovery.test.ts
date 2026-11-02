@@ -280,7 +280,7 @@ test('a jump between wall and monotonic time wakes the sampler', () => {
 });
 
 test('a throttled timer is not a sleep, however far it stretches', () => {
-  const { edges } = timingFixture<Clock>();
+  const edges = driverEdges<never>();
   let wall = 1_000_000;
   let wakes = 0;
   const stop = watchClockSuspension({
@@ -288,7 +288,8 @@ test('a throttled timer is not a sleep, however far it stretches', () => {
     wallNowMs: () => wall,
     onResume: () => wakes++,
   });
-  // The fixture's timers fire when advanced; both clocks move together.
+  // This fixture moves its clock in one step before firing, so the one check
+  // sees both deltas at a minute. A stepping timer queue would see a false gap.
   wall += 60_000;
   edges.advance(60_000);
   stop();
@@ -322,6 +323,28 @@ test('a hidden tab ignores a wake and reads on its visibility return', async () 
     should: 'read only on the return',
     actual: [hidden - before, edges.reads() - before],
     expected: [0, 1],
+  });
+  sampler.stop();
+});
+
+test('a suspension reads even while hidden, so a boundary does not stay behind', async () => {
+  const { edges, roundTime, read } = timingFixture<Clock>(10_000);
+  const sampler = sampleRoundTime({
+    ...edges,
+    read,
+    roundTime,
+    random: () => 0.5,
+  });
+  edges.answer(found(10_000));
+  await edges.flush();
+  const before = edges.reads();
+  edges.hide();
+  sampler.resumed();
+  assert({
+    given: 'the watcher reporting a sleep while the tab is hidden',
+    should: 'read at once',
+    actual: edges.reads() - before,
+    expected: 1,
   });
   sampler.stop();
 });

@@ -29,8 +29,8 @@ export function watchClockSuspension(options: {
       options.onResume();
     lastWall = wall;
     lastMonotonic = monotonic;
-    timer = options.scheduler.setTimeout(check, CHECK_EVERY_MS);
+    timer = scheduler.setTimeout(check, CHECK_EVERY_MS);
   };
-  timer = options.scheduler.setTimeout(check, CHECK_EVERY_MS);
-  return () => options.scheduler.clearTimeout(timer);
+  timer = scheduler.setTimeout(check, CHECK_EVERY_MS);
+  return () => scheduler.clearTimeout(timer);
 }

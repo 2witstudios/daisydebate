@@ -1,10 +1,37 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createClockReadWitness,
+  serverOffsetMs,
   routeStepped,
 } from '../e2e/support/round-timing-response';
 
 setupRitewayBun();
+
+test('the server offset comes from the shortest of its round trips', async () => {
+  let time = 0;
+  const trips = [
+    { roundTripMs: 1500, stampAt: 1500 },
+    { roundTripMs: 10, stampAt: 5 },
+    { roundTripMs: 400, stampAt: 0 },
+  ];
+  let trip = 0;
+  const offsetMs = await serverOffsetMs(
+    async () => {
+      const { roundTripMs, stampAt } = trips[trip++]!;
+      const stamp = time + stampAt + 1000;
+      time += roundTripMs;
+      return stamp;
+    },
+    () => time,
+  );
+  assert({
+    given:
+      'a late-stamped slow trip, a quick trip and an early-stamped slow trip',
+    should: 'take the quick one, whose midpoint is true to within its length',
+    actual: offsetMs,
+    expected: 1000,
+  });
+});
 
 const CLOCK_BODY = Buffer.from('{"id":"round"}');
 const mainFrame = { name: 'main' };

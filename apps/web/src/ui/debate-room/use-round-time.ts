@@ -47,7 +47,7 @@ export function useRoundTime(options: {
     const stopWatching = watchClockSuspension({
       scheduler: systemScheduler,
       wallNowMs: () => Date.parse(systemClock.now()),
-      onResume: sampler.wake,
+      onResume: sampler.resumed,
     });
     window.addEventListener('pageshow', sampler.wake);
     window.addEventListener('online', sampler.wake);

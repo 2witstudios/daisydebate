@@ -17,7 +17,8 @@ const abandoned = (signal: AbortSignal) =>
  * One serial chain of clock reads per mounted Round. A read past the sample
  * envelope is abandoned, so a read that never settles cannot end sampling.
  * Wakes during a read coalesce into one followup; a hidden tab waits for its
- * visibility return.
+ * visibility return, unless a suspension left its clock behind, since a boundary
+ * still counts on that clock while the tab is hidden.
  */
 export function sampleRoundTime(options: {
   readonly read: (signal: AbortSignal) => Promise<{ readonly kind: string }>;
@@ -81,6 +82,7 @@ export function sampleRoundTime(options: {
     wake: () => {
       if (visibility.isVisible()) void resample();
     },
+    resumed: () => void resample(),
     stop: () => {
       lifetime.abort();
       clear();

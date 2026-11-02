@@ -90,6 +90,29 @@ const passThrough: StepRoute = (route) => route.fallback();
  * One long-lived route whose behavior the journey swaps. `pass` returns to
  * pass-through once in-flight steps finish.
  */
+/**
+ * How far the server's clock is from this process's. A stamp may be taken anywhere
+ * in its round trip, so the shortest of a few bounds the error best.
+ */
+export async function serverOffsetMs(
+  readServerNow: () => Promise<number>,
+  now: () => number,
+  samples = 3,
+) {
+  let best = { roundTripMs: Number.POSITIVE_INFINITY, offsetMs: 0 };
+  for (let sample = 0; sample < samples; sample++) {
+    const sentAt = now();
+    const stamp = await readServerNow();
+    const receivedAt = now();
+    if (receivedAt - sentAt < best.roundTripMs)
+      best = {
+        roundTripMs: receivedAt - sentAt,
+        offsetMs: stamp - (sentAt + receivedAt) / 2,
+      };
+  }
+  return best.offsetMs;
+}
+
 export async function routeStepped(
   page: Pick<Page, 'route'>,
   url: string,
