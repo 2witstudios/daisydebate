@@ -44,11 +44,6 @@ function hasReport(steps: readonly unknown[], command: string | undefined) {
     );
   });
 }
-// The one sanctioned job condition: the Room Launch path filter, which skips
-// the native job on a PR that changes none of its paths (ADR 0083).
-const scoped = (job: Record<string, unknown>) =>
-  job.if === undefined ||
-  (job.needs === 'scope' && job.if === "needs.scope.outputs.native == 'true'");
 export function claimedBrowserSteps(
   workflow: string,
   command: string,
@@ -61,7 +56,7 @@ export function claimedBrowserSteps(
       const job = record(value);
       if (
         !job ||
-        !scoped(job) ||
+        job.if !== undefined ||
         job['continue-on-error'] !== undefined ||
         !Array.isArray(job.steps)
       )

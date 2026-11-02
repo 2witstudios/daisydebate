@@ -11,28 +11,18 @@ const TIP = 'f5e5b89c8f6ab18fde56c07c0e4c5fea9fa7ae8c';
 const OLDER = '87bdb47000000000000000000000000000000000';
 
 const green: StagingEvidence = {
-  trigger: 'Browser E2E',
   sha: TIP,
   mainTip: TIP,
-  ci: {
-    status: 'completed',
-    gate: 'success',
-    completedAt: '2026-09-23T17:58:00Z',
-  },
-  e2e: {
-    status: 'completed',
-    conclusion: 'success',
-    completedAt: '2026-09-23T18:02:00Z',
-  },
+  ci: { status: 'completed', gate: 'success' },
 };
 
 describe('stagingDecision', () => {
-  test('a green CI gate and green E2E', () => {
+  test('a green CI gate', () => {
     assert({
-      given: 'a green CI gate and a green E2E run, triggered by the later run',
+      given: "a green CI gate on main's tip, with no Browser E2E verdict read",
       should: 'deploy',
-      actual: stagingDecision(green).deploy,
-      expected: true,
+      actual: stagingDecision(green),
+      expected: { deploy: true, reason: 'the CI gate is green' },
     });
   });
 
@@ -42,9 +32,9 @@ describe('stagingDecision', () => {
       should: 'not deploy',
       actual: stagingDecision({
         ...green,
-        ci: { ...green.ci, gate: 'failure' },
-      }).deploy,
-      expected: false,
+        ci: { status: 'completed', gate: 'failure' },
+      }),
+      expected: { deploy: false, reason: 'the CI gate ended failure' },
     });
   });
 
@@ -52,151 +42,74 @@ describe('stagingDecision', () => {
     assert({
       given: 'a CI run whose gate job never ran',
       should: 'not deploy',
-      actual: stagingDecision({ ...green, ci: { ...green.ci, gate: null } })
-        .deploy,
-      expected: false,
-    });
-  });
-
-  test('a red E2E run', () => {
-    assert({
-      given: 'a green CI gate but a failed E2E run',
-      should: 'not deploy',
       actual: stagingDecision({
         ...green,
-        e2e: { ...green.e2e, conclusion: 'failure' },
+        ci: { status: 'completed', gate: null },
       }).deploy,
       expected: false,
-    });
-  });
-
-  test('E2E still running', () => {
-    assert({
-      given: 'CI finished green while E2E is still in progress',
-      should: 'wait for the E2E completion to decide',
-      actual: stagingDecision({
-        ...green,
-        trigger: 'CI',
-        e2e: { status: 'in_progress', conclusion: null, completedAt: null },
-      }),
-      expected: {
-        deploy: false,
-        reason: 'Browser E2E has not completed; its completion decides',
-      },
     });
   });
 
   test('CI still running', () => {
     assert({
-      given: 'E2E finished green while CI is still in progress',
-      should: 'wait for the CI completion to decide',
+      given: 'a CI run still in progress',
+      should: 'wait for its completion to decide',
       actual: stagingDecision({
         ...green,
-        ci: { status: 'in_progress', gate: null, completedAt: null },
-      }).deploy,
-      expected: false,
+        ci: { status: 'in_progress', gate: null },
+      }),
+      expected: {
+        deploy: false,
+        reason: 'CI has not completed; its completion decides',
+      },
     });
   });
 
-  test('missing runs', () => {
+  test('no CI run', () => {
     assert({
-      given: 'no E2E run for the commit',
+      given: 'no CI run for the commit',
       should: 'not deploy',
-      actual: stagingDecision({ ...green, e2e: undefined }).deploy,
+      actual: stagingDecision({ sha: TIP, mainTip: TIP }).deploy,
       expected: false,
-    });
-  });
-
-  test('both runs complete, the earlier one triggering', () => {
-    assert({
-      given:
-        'both runs green, triggered by the run that completed first (CI here)',
-      should: 'leave the deploy to the later completion so it ships once',
-      actual: stagingDecision({ ...green, trigger: 'CI' }).deploy,
-      expected: false,
-    });
-  });
-
-  test('both runs complete at the same instant', () => {
-    const at = '2026-09-23T18:00:00Z';
-    const tie = {
-      ...green,
-      ci: { ...green.ci, completedAt: at },
-      e2e: { ...green.e2e, completedAt: at },
-    };
-    assert({
-      given: 'both runs green and completed at the same second',
-      should: 'deploy from exactly one trigger, the CI one',
-      actual: [
-        stagingDecision({ ...tie, trigger: 'CI' }).deploy,
-        stagingDecision({ ...tie, trigger: 'Browser E2E' }).deploy,
-      ],
-      expected: [true, false],
     });
   });
 });
 
-describe('stagingDecision: re-runs', () => {
+describe('stagingDecision: the main-tip rule', () => {
   test('a re-run on a commit that is no longer main tip', () => {
     assert({
-      given:
-        'a green CI gate and E2E for a commit main has moved past (a CI or E2E re-run on it completing later)',
+      given: 'a green CI gate for a commit main has moved past',
       should: 'not deploy, so staging never rolls back to older code',
-      actual: stagingDecision({ ...green, sha: OLDER, trigger: 'CI' }),
+      actual: stagingDecision({ ...green, sha: OLDER }),
       expected: {
         deploy: false,
         reason: `${OLDER} is no longer main's tip (${TIP})`,
       },
     });
   });
+});
 
-  test('a re-run on main tip', () => {
-    const rerun = {
-      ...green,
-      trigger: 'CI' as const,
-      ci: { ...green.ci, completedAt: '2026-09-23T19:30:00Z' },
-    };
+describe('the deploy-staging trigger', () => {
+  test('only CI starts it', async () => {
+    const workflow = Bun.YAML.parse(
+      await Bun.file('.github/workflows/deploy-staging.yml').text(),
+    ) as { on: { workflow_run: { workflows: string[] } } };
     assert({
-      given:
-        'the tip already deployed from its E2E completion, then its CI re-run completes later',
-      should:
-        'deploy the same tip commit again, which leaves staging where it was',
-      actual: [stagingDecision(green), stagingDecision(rerun)].map(
-        (decision) => decision.deploy,
-      ),
-      expected: [true, true],
+      given: 'the deploy-staging workflow',
+      should: 'start on CI completion, never on Browser E2E',
+      actual: workflow.on.workflow_run.workflows,
+      expected: ['CI'],
     });
   });
 });
 
 describe('readStagingEvidence', () => {
-  const sha = 'f5e5b89c8f6ab18fde56c07c0e4c5fea9fa7ae8c';
+  const sha = TIP;
   const runs = {
     workflow_runs: [
-      {
-        id: 2,
-        path: '.github/workflows/ci.yml',
-        status: 'completed',
-        conclusion: 'failure',
-        updated_at: '2026-09-23T17:58:00Z',
-        head_branch: 'main',
-      },
-      {
-        id: 1,
-        path: '.github/workflows/ci.yml',
-        status: 'completed',
-        conclusion: 'cancelled',
-        updated_at: '2026-09-23T17:50:00Z',
-        head_branch: 'main',
-      },
-      {
-        id: 3,
-        path: '.github/workflows/e2e.yml',
-        status: 'completed',
-        conclusion: 'success',
-        updated_at: '2026-09-23T18:02:00Z',
-        head_branch: 'main',
-      },
+      { id: 2, path: '.github/workflows/ci.yml', status: 'completed' },
+      { id: 1, path: '.github/workflows/ci.yml', status: 'completed' },
+      { id: 3, path: '.github/workflows/e2e.yml', status: 'in_progress' },
     ],
   };
   const jobs = {
@@ -214,28 +127,18 @@ describe('readStagingEvidence', () => {
         if (path.endsWith('/commits/main')) return { sha };
         return path.includes('/jobs') ? jobs : runs;
       },
-      { repository: '2witstudios/daisydebate', sha, trigger: 'Browser E2E' },
+      { repository: '2witstudios/daisydebate', sha },
     );
     assert({
       given:
-        'the newest CI run failed on the audit, which the CI gate needs, and E2E passed',
+        'the newest CI run failed on the audit, which the CI gate needs, and E2E is still running',
       should: "read the CI gate's verdict and hold staging back",
       actual: { evidence, deploy: stagingDecision(evidence).deploy },
       expected: {
         evidence: {
-          trigger: 'Browser E2E',
           sha,
           mainTip: sha,
-          ci: {
-            status: 'completed',
-            gate: 'failure',
-            completedAt: '2026-09-23T17:58:00Z',
-          },
-          e2e: {
-            status: 'completed',
-            conclusion: 'success',
-            completedAt: '2026-09-23T18:02:00Z',
-          },
+          ci: { status: 'completed', gate: 'failure' },
         },
         deploy: false,
       },
@@ -250,6 +153,30 @@ describe('readStagingEvidence', () => {
         `repos/2witstudios/daisydebate/actions/runs?head_sha=${sha}&event=push&branch=main&per_page=100`,
         'repos/2witstudios/daisydebate/actions/runs/2/jobs?filter=latest&per_page=100',
       ],
+    });
+  });
+
+  test('a CI run still in progress', () => {
+    const evidence = readStagingEvidence(
+      (path) =>
+        path.endsWith('/commits/main')
+          ? { sha }
+          : {
+              workflow_runs: [
+                {
+                  id: 5,
+                  path: '.github/workflows/ci.yml',
+                  status: 'in_progress',
+                },
+              ],
+            },
+      { repository: '2witstudios/daisydebate', sha },
+    );
+    assert({
+      given: 'a CI run that has not completed',
+      should: 'read no gate verdict',
+      actual: evidence.ci,
+      expected: { status: 'in_progress', gate: null },
     });
   });
 });

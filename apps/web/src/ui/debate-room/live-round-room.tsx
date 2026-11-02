@@ -105,7 +105,7 @@ export function LiveRoundRoom({
   const [outcome, setOutcome] = useState<string | null>(null);
   const onAnswer = useCallback(
     (answer: RoundFormState) => {
-      setOutcome(answer.error ?? 'Done.');
+      if (!answer.error) setOutcome('Done.');
       if (answer.view) driver?.accepted(answer.view);
       else if (answer.error) driver?.signal();
     },
@@ -125,42 +125,54 @@ export function LiveRoundRoom({
           },
         }
       : { ...leave, freed: intent.kind === 'freed' };
-  return (
+  const notices = (
     <>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       <RoundTimeNotice roundTime={roundTime} />
       {outcome ? (
-        <p role="status" className="px-4 py-1 text-sm text-ink-muted">
+        <p role="status" className="sr-only">
           {outcome}
         </p>
       ) : null}
       {attendanceSlot}
-      <RoundCommandActions
-        view={view}
-        actorId={actorId}
-        nowMs={now}
-        ids={ids}
-        action={commandAction}
-        onAnswer={onAnswer}
-      >
-        {(actions) =>
-          round ? (
-            <DebateRoom
-              key={`${view.id}:${principalId}`}
-              transcript={transcript}
-              media={(mediaSlot ?? defaultMedia)(view)}
-              actions={actions}
-              round={round}
-              sync={sync}
-              notice={notice}
-              save={save}
-              leave={leaving}
-            />
-          ) : (
-            <RoundEndedNotice roundId={view.id} />
-          )
-        }
-      </RoundCommandActions>
     </>
+  );
+  return (
+    <RoundCommandActions
+      view={view}
+      actorId={actorId}
+      nowMs={now}
+      ids={ids}
+      action={commandAction}
+      onAnswer={onAnswer}
+    >
+      {(actions, feedback) =>
+        round ? (
+          <DebateRoom
+            key={`${view.id}:${principalId}`}
+            transcript={transcript}
+            notices={
+              <>
+                {notices}
+                {feedback}
+              </>
+            }
+            media={(mediaSlot ?? defaultMedia)(view)}
+            actions={actions}
+            round={round}
+            sync={sync}
+            notice={notice}
+            save={save}
+            leave={leaving}
+          />
+        ) : (
+          <>
+            {notices}
+            {feedback}
+            <RoundEndedNotice roundId={view.id} />
+          </>
+        )
+      }
+    </RoundCommandActions>
   );
 }

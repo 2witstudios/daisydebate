@@ -17,7 +17,7 @@ import type { PageTone } from '../document-editor/document-editor';
 type State = {
   readonly documents: readonly WorkspaceDocument[];
   readonly tabs: TabsState;
-  readonly pages: Readonly<Record<string, PageTone>>;
+  readonly pages: Readonly<Record<string, PageTone | null>>;
   readonly paletteOpen: boolean;
 };
 export const initialPersistedWorkspace: State = {

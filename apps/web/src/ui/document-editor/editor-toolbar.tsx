@@ -3,10 +3,6 @@
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import {
-  debateMarks,
-  type DebateMark,
-} from '../../features/documents/debate-mark';
-import {
   pageColumnChoices,
   pageLayoutOf,
   parsePageColumns,
@@ -22,22 +18,6 @@ import {
   toolbarFocus,
   type TextSize,
 } from './editor-view';
-
-const markNames: Readonly<Record<DebateMark, string>> = {
-  aff: 'Aff',
-  neg: 'Neg',
-  extend: 'Extend',
-  dropped: 'Dropped',
-  new: 'New',
-};
-
-const markTone: Readonly<Record<DebateMark, string>> = {
-  aff: 'bg-hue-sky-soft text-hue-sky',
-  neg: 'bg-hue-clay-soft text-hue-clay',
-  extend: 'bg-hue-teal-soft text-hue-teal',
-  dropped: 'bg-live-soft text-ink line-through decoration-live decoration-2',
-  new: 'bg-gold-soft text-gold',
-};
 
 type Format = {
   readonly id: string;
@@ -87,9 +67,6 @@ const tool = (on: boolean) =>
     on ? 'bg-surface-overlay text-ink' : 'text-ink-muted hover:text-ink',
   );
 
-/** Formats then marks, in the toolbar's focus order. */
-const toolCount = formats.length + debateMarks.length;
-
 const layoutValue = (layout: PageLayout) =>
   layout.orientation === 'portrait' ? 'portrait' : String(layout.columns);
 
@@ -101,15 +78,15 @@ const layoutFrom = (value: string): PageLayout => {
 type Props = {
   readonly editor: Editor;
   readonly access: string;
-  readonly page: PageTone;
-  readonly onPage: (tone: PageTone) => void;
+  /** The viewer's own choice for this page; null follows their theme. */
+  readonly page: PageTone | null;
+  readonly onPage: (tone: PageTone | null) => void;
   readonly textSize: TextSize;
   readonly onTextSize: (size: TextSize) => void;
 };
 
 /**
- * Formatting and the five debate marks as one toolbar (one tab stop, arrow
- * keys within it), then who can read the file, its page layout, the view's
+ * Formatting as one toolbar (one tab stop, arrow keys within it), then who can read the file, its page layout, the view's
  * text size and the page tone.
  */
 export function EditorToolbar({
@@ -129,9 +106,6 @@ export function EditorToolbar({
           e.isActive(f.id === 'heading' ? 'heading' : f.id),
         ]),
       ),
-      marks: Object.fromEntries(
-        debateMarks.map((m) => [m, e.isActive('debateMark', { kind: m })]),
-      ),
       layout: pageLayoutOf(e.state.doc),
     }),
   });
@@ -145,7 +119,7 @@ export function EditorToolbar({
     onFocus: () => setFocus(index),
   });
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const next = toolbarFocus(event.key, focus, toolCount);
+    const next = toolbarFocus(event.key, focus, formats.length);
     if (next === null) return;
     event.preventDefault();
     setFocus(next);
@@ -172,29 +146,6 @@ export function EditorToolbar({
             <Icon name={f.icon} size={16} />
           </button>
         ))}
-        <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-border" />
-        <div
-          role="group"
-          aria-label="Debate marks"
-          className="flex items-center gap-1"
-        >
-          {debateMarks.map((m, index) => (
-            <button
-              key={m}
-              type="button"
-              aria-pressed={Boolean(active.marks[m])}
-              className={cn(
-                'h-room-target min-w-room-target shrink-0 cursor-pointer rounded-sm px-3 text-sm font-strong',
-                markTone[m],
-                active.marks[m] && 'ring-2 ring-current',
-              )}
-              onClick={() => editor.chain().focus().toggleDebateMark(m).run()}
-              {...roving(formats.length + index)}
-            >
-              {markNames[m]}
-            </button>
-          ))}
-        </div>
       </div>
       <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs whitespace-nowrap text-ink-faint">
         <Icon name="lock" size={13} />
@@ -251,7 +202,7 @@ export function EditorToolbar({
             aria-label={tone === 'dark' ? 'Dark page' : 'Light page'}
             aria-pressed={page === tone}
             className={tool(page === tone)}
-            onClick={() => onPage(tone)}
+            onClick={() => onPage(page === tone ? null : tone)}
           >
             <Icon name={toneIcon[tone]} size={15} />
           </button>

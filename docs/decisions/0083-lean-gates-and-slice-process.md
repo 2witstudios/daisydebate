@@ -1,6 +1,8 @@
 # 0083: Lean gates and the slice process
 
-Status: accepted (owner decision, 2026-10-27).
+Status: accepted (owner decision, 2026-10-27). Its required checks, browser
+gates and staging gate are amended by
+[ADR 0098](0098-ci-gate-only-while-greenfield.md).
 
 Supersedes the review-evidence, documentation-only classification and review-record rules of [ADR 0064](0064-greenfield-feature-integration-and-review-evidence.md)
 and the main-acceptance, review-record and receiving-branch rules of

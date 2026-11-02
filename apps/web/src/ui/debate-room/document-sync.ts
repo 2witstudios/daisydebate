@@ -1,9 +1,5 @@
 import { sameDocumentHtml } from '../../features/documents/document-lines';
-import type {
-  FolderId,
-  TemplateId,
-  WorkspaceDocument,
-} from '../../features/debate-room/documents/documents';
+import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
 import type { KeepaliveBudget } from './keepalive-budget';
 import {
   acknowledgeNoteRecord,
@@ -35,8 +31,6 @@ export type DocumentsApi = {
   readonly list: (roundId: string) => Promise<readonly StoredDocument[]>;
   readonly create: (input: {
     readonly roundId: string;
-    readonly folder: Exclude<FolderId, 'club'>;
-    readonly templateId: TemplateId;
   }) => Promise<StoredDocument>;
   readonly save: (input: {
     readonly id: string;
@@ -65,10 +59,7 @@ export type DocumentSyncResources = {
 };
 export type DocumentSync = {
   readonly load: () => Promise<readonly StoredDocument[]>;
-  readonly create: (
-    folder: Exclude<FolderId, 'club'>,
-    templateId: TemplateId,
-  ) => Promise<StoredDocument>;
+  readonly create: () => Promise<StoredDocument>;
   readonly change: (id: string, html: string) => void;
   readonly flush: () => Promise<void>;
   readonly flushKeepalive: () => Promise<void>;
@@ -532,10 +523,10 @@ export function createDocumentSync({
       }
       return documents;
     },
-    create: async (folder, templateId) => {
+    create: async () => {
       if (isClosed())
         throw new Error('The document owner is no longer active.');
-      const doc = await api.create({ roundId, folder, templateId });
+      const doc = await api.create({ roundId });
       if (isClosed())
         throw new Error('The document owner is no longer active.');
       remember([doc]);
