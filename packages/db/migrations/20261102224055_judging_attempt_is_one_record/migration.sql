@@ -6,6 +6,7 @@ UPDATE "round_judging_jobs" j SET "terminal_reason" = CASE WHEN (
       AND a."configuration_snapshot"->>'providerOutcome' IN ('unknown', 'received')
   ) >= 2 THEN 'attempts_exhausted' ELSE 'round_ended' END
 WHERE j."status" = 'failed' AND j."terminal_reason" IS NULL;--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "round_judging_attempts" ADD COLUMN "outcome" text;--> statement-breakpoint
 ALTER TABLE "round_judging_attempts" ADD COLUMN "answered_at" timestamp with time zone;--> statement-breakpoint
 UPDATE "round_judging_attempts" SET "outcome" = 'failed';--> statement-breakpoint
@@ -22,8 +23,10 @@ WHERE a."kind" = 'judging' AND a."configuration_snapshot"->>'providerOutcome' IN
   AND NOT EXISTS (SELECT 1 FROM "round_judging_attempts" t WHERE t."agent_run_id" = a."id");--> statement-breakpoint
 UPDATE "round_judging_attempts" t SET "answered_at" = t."created_at"
 FROM "agent_runs" a WHERE a."id" = t."agent_run_id" AND a."configuration_snapshot"->>'providerOutcome' = 'received';--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "round_judging_attempts" ALTER COLUMN "outcome" SET NOT NULL;--> statement-breakpoint
 UPDATE "agent_runs" SET "configuration_snapshot" = "configuration_snapshot" - 'providerOutcome' WHERE "kind" = 'judging';--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "round_judging_jobs" ALTER COLUMN "generation_deadline_at" DROP DEFAULT;--> statement-breakpoint
 ALTER TABLE "round_judging_attempts" DROP CONSTRAINT "round_judging_attempts_category_check", ADD CONSTRAINT "round_judging_attempts_category_check" CHECK ("category" is null or "category" in ('invalid_json', 'schema_rejected', 'truncated', 'refused', 'provider_refused', 'provider_error', 'timeout'));--> statement-breakpoint
 ALTER TABLE "round_judging_attempts" ADD CONSTRAINT "round_judging_attempts_outcome_check" CHECK ("outcome" in ('dispatched', 'succeeded', 'failed') and ("outcome" = 'failed') = ("category" is not null) and ("category" is null) = ("diagnostic" is null));--> statement-breakpoint
