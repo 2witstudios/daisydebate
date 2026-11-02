@@ -1,3 +1,4 @@
+import { botGrantUnused } from '@daisy/debate-engine';
 import {
   createAdmissionPriority,
   MEDIA_ADMISSION_HINT_TIMEOUT_MS,
@@ -71,6 +72,7 @@ export function createRoundMediaRuntime(
         capture: app.database.createMediaCaptureOperations({
           sttLagMs: CAPTURE_STT_LAG_MS,
           coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
+          botGrantUnused,
           nextId: resources.nextId,
           buildProjection: (context) =>
             mediaRuntime(context, resources.nextId).tick(context.now),

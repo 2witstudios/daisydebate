@@ -1,6 +1,17 @@
 import { z } from 'zod';
 import { debateSides, idSchema, type DebateSide } from './primitives';
 
+/** What one AI judge seat can still do. One state per seat. */
+export type AiSeatStanding =
+  /** No job: an AI judge never decides from an incomplete transcript (DEC-208). */
+  | { readonly state: 'not_dispatched' }
+  | { readonly state: 'generating'; readonly deadlineAt: string }
+  /** A validated ballot waiting for attendance and a worker to submit it. */
+  | { readonly state: 'holding_ballot' }
+  /** Its job ended, or ran out of budget, with no ballot. */
+  | { readonly state: 'ended' }
+  | { readonly state: 'succeeded' };
+
 /** Internal facts from the locked Round; never a public command body. */
 export type RoundPanelCompletion = {
   readonly now: string;

@@ -1,11 +1,14 @@
 import { createAppError } from '@daisy/errors';
-import { and, eq, sql, type SQLWrapper } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type {
   CaptureTx,
   CaptureStream,
   CoverageTolerance,
 } from './media-capture-context';
-import type { CaptureInterval } from './capture-coverage';
+import {
+  coalesceCreditedWindows,
+  type CaptureInterval,
+} from './capture-coverage';
 import { actors } from './schema/actors';
 import { roundBotPublicationWindows } from './schema/round-bot-publications';
 import { roundParticipants } from './schema/round-participants';
@@ -63,29 +66,62 @@ export async function captureHistory(
     throw createAppError('CONFLICT', 'No historical capture authority');
   return required;
 }
-/**
- * True for a bot seat holding a grant it did not use: not its scheduled turn,
- * and no credited publication window. It owes no stream, so nothing of it can
- * be missing. Its scheduled turn stays owed, so a bot that fails to speak never
- * passes as complete. A turn the rules cannot name stays owed. Takes SQL columns or
- * values, so the freeze and the seal decide by this one rule.
- */
-export const botGrantUnused = (
-  roundId: SQLWrapper | string,
-  segmentId: SQLWrapper | string,
-  roundParticipantId: SQLWrapper | string,
-) => sql`exists(select 1 from round_participants unused_seat
-    join actors unused_actor on unused_actor.id=unused_seat.actor_id
-    join rounds unused_round on unused_round.id=unused_seat.round_id
-    join round_segments unused_segment on unused_segment.round_id=unused_seat.round_id and unused_segment.id=${segmentId}
-    where unused_seat.round_id=${roundId} and unused_seat.id=${roundParticipantId} and unused_actor.kind='bot'
-      and (
-        unused_round.rules_snapshot->'segments'->unused_segment.sequence->>'side'=unused_seat.role
-        and (unused_round.rules_snapshot->'segments'->unused_segment.sequence->>'slot')::integer=unused_seat.slot
-      ) is false
-      and not exists(select 1 from round_bot_publication_windows unused_credit
-        where unused_credit.round_id=${roundId} and unused_credit.segment_id=${segmentId}
-          and unused_credit.round_participant_id=${roundParticipantId}))`;
+/** One seat's grant in one segment, as read for the injected engine rule. */
+export type SeatGrantFacts = {
+  readonly seat: {
+    readonly kind: 'human' | 'bot';
+    readonly role: string;
+    readonly slot: number;
+  };
+  readonly turn:
+    | { readonly side?: string | undefined; readonly slot?: number | undefined }
+    | undefined;
+  readonly hasCreditedWindow: boolean;
+};
+/** The engine's rule: whether a bot's grant owes no stream. The seal and the freeze both ask it. */
+export type BotGrantRule = (facts: SeatGrantFacts) => boolean;
+
+/** Facts only, for a Round's grants or for one seat's grant in one segment. */
+export async function readSeatGrants(
+  tx: Pick<CaptureTx, 'execute'>,
+  input: { readonly roundId: string } & Partial<CaptureStream>,
+) {
+  const one =
+    input.segmentId !== undefined && input.roundParticipantId !== undefined;
+  const rows = (await tx.execute(sql`select distinct
+      i.segment_id as "segmentId", i.round_participant_id as "roundParticipantId",
+      a.kind, p.role, p.slot, s.sequence,
+      r.rules_snapshot->'segments'->s.sequence as turn,
+      exists(select 1 from round_bot_publication_windows w
+        where w.round_id=i.round_id and w.segment_id=i.segment_id
+          and w.round_participant_id=i.round_participant_id) as credited
+    from round_speaking_intervals i
+    join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
+    join actors a on a.id=p.actor_id
+    join rounds r on r.id=i.round_id
+    left join round_segments s on s.round_id=i.round_id and s.id=i.segment_id
+    where i.round_id=${input.roundId} and p.role<>'judge'
+      and (i.ended_at is null or i.ended_at>i.started_at)
+      ${one ? sql`and i.segment_id=${input.segmentId} and i.round_participant_id=${input.roundParticipantId}` : sql``}
+    order by i.segment_id, i.round_participant_id`)) as unknown as {
+    segmentId: string;
+    roundParticipantId: string;
+    kind: 'human' | 'bot';
+    role: string;
+    slot: number;
+    turn: { side?: string; slot?: number } | null;
+    credited: boolean;
+  }[];
+  return rows.map((row) => ({
+    segmentId: row.segmentId,
+    roundParticipantId: row.roundParticipantId,
+    grant: {
+      seat: { kind: row.kind, role: row.role, slot: row.slot },
+      turn: row.turn ?? undefined,
+      hasCreditedWindow: row.credited,
+    } satisfies SeatGrantFacts,
+  }));
+}
 
 /**
  * What a seat's stream must cover for a 'complete' seal and how far its edges
@@ -141,10 +177,13 @@ export function coverageRule(
       tolerance: { openMs: tolerance.joinMs, closeMs: tolerance.relayMs },
     };
   return {
-    authority: botWindows.map((row) => ({
-      start: row.start.getTime(),
-      end: row.end.getTime(),
-    })),
+    authority: coalesceCreditedWindows(
+      botWindows.map((row) => ({
+        start: row.start.getTime(),
+        end: row.end.getTime(),
+      })),
+      tolerance.relayMs,
+    ),
     tolerance: {
       openMs: tolerance.relayMs,
       closeMs: tolerance.relayMs,

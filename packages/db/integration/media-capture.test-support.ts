@@ -1,3 +1,4 @@
+import { botGrantUnused } from './bot-grant-rule.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol';
 import type { BoundedTransaction } from '../src/bounded-transaction';
@@ -51,6 +52,7 @@ export async function historicalCapture(
     transaction,
     sttLagMs,
     coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
+    botGrantUnused,
     nextId: createId,
     buildProjection: () => {
       throw new Error(

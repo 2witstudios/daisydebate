@@ -1,3 +1,4 @@
+import type { BotGrantRule } from './capture-history';
 import {
   appendRoundPhaseChanged,
   lockedRoundVersion,
@@ -34,6 +35,8 @@ export const transcriptFinalizationOperations = (input: {
 });
 
 export type FreezeRequest = LockedRoundTickInput & {
+  /** The engine's rule, shared with the seal: a bot's unused grant owes no stream. */
+  readonly botGrantUnused: BotGrantRule;
   /**
    * The caller's judging rule for this freeze (DEC-201, DEC-207, DEC-208): how
    * long judges may rule after it, and whether AI judges are dispatched.
@@ -109,7 +112,11 @@ export async function finalizeLockedRoundTranscript(
     clock.transcriptAdmissionCutoff === null
   )
     return { status: 'pending' as const, reason: 'final-segment' as const };
-  const facts = await lockFinalizationStreams(tx, request.roundId);
+  const facts = await lockFinalizationStreams(
+    tx,
+    request.roundId,
+    request.botGrantUnused,
+  );
   const now = await sampleRoundExecutionTime(tx);
   await assertCurrent();
   const state = finalizationState(facts, now, clock.transcriptAdmissionCutoff);

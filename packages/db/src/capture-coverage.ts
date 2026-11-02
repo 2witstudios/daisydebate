@@ -19,6 +19,28 @@ export type CoverageEdges = {
 };
 type Range = { readonly start: number; readonly end: number };
 
+/**
+ * A bot's credited windows separated by less than relay latency are one window
+ * for coverage (DEC-294): a publisher stall must not create a tiny window that
+ * has to hold a frame. A real hole stays, and still fails contiguity.
+ */
+export function coalesceCreditedWindows(
+  windows: readonly Range[],
+  relayMs: number,
+): Range[] {
+  const merged: Range[] = [];
+  for (const window of [...windows].sort((a, b) => a.start - b.start)) {
+    const last = merged.at(-1);
+    if (last && window.start - last.end < relayMs)
+      merged[merged.length - 1] = {
+        start: last.start,
+        end: Math.max(last.end, window.end),
+      };
+    else merged.push(window);
+  }
+  return merged;
+}
+
 const validRange = (range: CaptureInterval): range is Range =>
   Number.isFinite(range.start) &&
   range.end !== null &&

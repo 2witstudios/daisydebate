@@ -1,6 +1,6 @@
 import { asc, eq, sql } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
-import { botGrantUnused } from './capture-history';
+import { readSeatGrants, type BotGrantRule } from './capture-history';
 import { transcriptSegments } from './schema/transcript-segments';
 
 export type ExpectedTranscriptStream = {
@@ -10,6 +10,7 @@ export type ExpectedTranscriptStream = {
 export async function lockFinalizationStreams(
   tx: BoundedTransactionContext,
   roundId: string,
+  botGrantUnused: BotGrantRule,
 ) {
   // Takeover requests only lease, never Round afterward. Missing sessions need no lease.
   await tx.execute(sql`select l.session_id from media_worker_leases l
@@ -26,12 +27,14 @@ export async function lockFinalizationStreams(
     .for('update');
   // Discovery from actual history, never from seal rows or a predicted timetable.
   // A human owes a stream for every grant; a bot not for a grant it did not use.
-  const expected =
-    (await tx.execute(sql`select distinct i.segment_id as "segmentId", i.round_participant_id as "roundParticipantId"
-    from round_speaking_intervals i join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
-    where i.round_id=${roundId} and p.role<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)
-      and not ${botGrantUnused(sql`i.round_id`, sql`i.segment_id`, sql`i.round_participant_id`)}
-    order by i.segment_id, i.round_participant_id`)) as unknown as ExpectedTranscriptStream[];
+  const expected: ExpectedTranscriptStream[] = (
+    await readSeatGrants(tx, { roundId })
+  )
+    .filter(({ grant }) => !botGrantUnused(grant))
+    .map(({ segmentId, roundParticipantId }) => ({
+      segmentId,
+      roundParticipantId,
+    }));
   return { streams, expected };
 }
 

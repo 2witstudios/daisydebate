@@ -1,3 +1,4 @@
+import { botGrantUnused } from '@daisy/debate-engine';
 import { judgingPolicy } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -31,6 +32,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
       buildCompletion: panelCompletion(createId),
+      botGrantUnused,
       planJudging: judgingPlan(judgingPolicy.humanBallotWindowMs),
     };
     try {
@@ -150,6 +152,7 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
       buildCompletion: panelCompletion(createId),
+      botGrantUnused,
       planJudging: judgingPlan(judgingPolicy.humanBallotWindowMs),
     };
     try {

@@ -5,6 +5,7 @@ import type {
 } from '@daisy/db/attendance';
 import type { Database } from '@daisy/db';
 import {
+  botGrantUnused,
   createRoundRuntime,
   decidePanelCompletion,
   freezeJudgingPlan,
@@ -165,6 +166,7 @@ export function createRoundMaintenanceOperations(input: {
         roundId,
         buildProjection,
         planJudging,
+        botGrantUnused,
       });
       if (result.status !== 'frozen') return result;
       try {

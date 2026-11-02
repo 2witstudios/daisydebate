@@ -1,3 +1,4 @@
+import { botGrantUnused } from '@daisy/debate-engine';
 import { createCaptureProofDiagnostics } from './media-worker-diagnostics';
 import { randomBytes } from 'node:crypto';
 import { createOpenRouter } from '@daisy/ai-voice';
@@ -103,6 +104,7 @@ function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
   const capture = f.store.createMediaCaptureOperations({
     sttLagMs: CAPTURE_STT_LAG_MS,
     coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
+    botGrantUnused,
     nextId,
     buildProjection: (context) =>
       mediaRuntime(context, nextId).tick(context.now),
@@ -275,6 +277,7 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
       roundId,
       buildProjection: (context) =>
         mediaRuntime(context, nextId).tick(context.now),
+      botGrantUnused,
       planJudging: judgingPlan(judgingPolicy.humanBallotWindowMs),
     });
     const transcript = await f.store.readFrozenRoundTranscript(roundId);

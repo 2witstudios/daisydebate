@@ -6,6 +6,7 @@ import {
   closeUnresolvedStreams,
   lockFinalizationStreams,
 } from '../src/transcript-finalization-streams';
+import { botGrantUnused } from './bot-grant-rule.test-support';
 import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import type { Fixture } from './constraint-helpers';
@@ -95,7 +96,11 @@ const freezeOf = async (
       const seats = await crossExamination(fixture, roundId);
       await setup(fixture, roundId, seats);
       const decided = await transaction(async (tx) => {
-        const facts = await lockFinalizationStreams(tx, roundId);
+        const facts = await lockFinalizationStreams(
+          tx,
+          roundId,
+          botGrantUnused,
+        );
         await closeUnresolvedStreams(tx, roundId, facts);
         return {
           beforeCutoff: finalizationState(facts, before, cutoff),

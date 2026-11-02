@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  coalesceCreditedWindows,
   captureGaps,
   hasCompleteCaptureCoverage,
   type CaptureInterval,
@@ -320,5 +321,42 @@ test('gaps are the required speech with no capture, by the coverage edges', () =
       [],
       [],
     ],
+  });
+});
+
+test('a bot’s credited windows a stall apart are one window for coverage (DEC-294)', () => {
+  const relayMs = 500;
+  assert({
+    given: 'two windows 115 ms apart, out of order',
+    should: 'merge them into one',
+    actual: coalesceCreditedWindows(
+      [
+        { start: 2115, end: 3000 },
+        { start: 1000, end: 2000 },
+      ],
+      relayMs,
+    ),
+    expected: [{ start: 1000, end: 3000 }],
+  });
+  assert({
+    given: 'two windows exactly the relay latency apart',
+    should: 'keep them apart: a real hole stays',
+    actual: coalesceCreditedWindows(
+      [
+        { start: 1000, end: 2000 },
+        { start: 2500, end: 3000 },
+      ],
+      relayMs,
+    ),
+    expected: [
+      { start: 1000, end: 2000 },
+      { start: 2500, end: 3000 },
+    ],
+  });
+  assert({
+    given: 'no windows: a dead bot',
+    should: 'stay empty',
+    actual: coalesceCreditedWindows([], relayMs),
+    expected: [],
   });
 });

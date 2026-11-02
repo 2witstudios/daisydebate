@@ -1,3 +1,4 @@
+import type { BotGrantRule } from './capture-history';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { and, eq } from 'drizzle-orm';
@@ -37,6 +38,7 @@ export type CaptureDependencies = {
   readonly sttLagMs: number;
   /** Injected policy: how far required coverage may move to captured frames (DEC-218, DEC-220). */
   readonly coverageTolerance: CoverageTolerance;
+  readonly botGrantUnused: BotGrantRule;
   readonly nextId: () => string;
   readonly buildProjection: LockedRoundTickInput['buildProjection'];
 };

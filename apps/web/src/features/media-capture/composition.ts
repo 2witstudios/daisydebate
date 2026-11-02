@@ -1,4 +1,4 @@
-import { createRoundRuntime } from '@daisy/debate-engine';
+import { createRoundRuntime, botGrantUnused } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import type { App } from '../../server/app';
@@ -21,6 +21,7 @@ export function composeMediaCaptureRoutes(app: App) {
     (capture ??= app.database.createMediaCaptureOperations({
       sttLagMs: CAPTURE_STT_LAG_MS,
       coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
+      botGrantUnused,
       nextId: () => app.ids.next(),
       buildProjection: ({ round, now }) =>
         createRoundRuntime({

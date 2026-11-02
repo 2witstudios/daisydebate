@@ -1,3 +1,4 @@
+import { botGrantUnused } from '@daisy/debate-engine';
 import {
   createAdmissionPriority,
   MEDIA_ADMISSION_HINT_TIMEOUT_MS,
@@ -105,6 +106,7 @@ export const captureOperations = (
   fixture.store.createMediaCaptureOperations({
     sttLagMs: CAPTURE_STT_LAG_MS,
     coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
+    botGrantUnused,
     nextId: createId,
     buildProjection: (context) =>
       mediaRuntime(context, createId).tick(context.now),
@@ -127,6 +129,7 @@ export async function openRoundCapture(
     capture: f.store.createMediaCaptureOperations({
       sttLagMs: CAPTURE_STT_LAG_MS,
       coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
+      botGrantUnused,
       nextId: createId,
       buildProjection,
     }),

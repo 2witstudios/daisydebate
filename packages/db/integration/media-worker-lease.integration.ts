@@ -1,3 +1,4 @@
+import { botGrantUnused } from './bot-grant-rule.test-support';
 import { requireTestServices } from '@daisy/config';
 import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
@@ -20,6 +21,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
     const store = mediaCaptureOperations({
       sttLagMs: 60_000,
       coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
+      botGrantUnused,
       transaction,
       nextId: createId,
       buildProjection: () => {
