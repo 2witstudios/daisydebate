@@ -46,7 +46,7 @@ function MessageComposerForm({
   maxUnits,
   readThrough,
 }: ComposerProps & { readonly requestId: string }) {
-  const dispatch = useConversationAction(action, requestId);
+  const dispatch = useConversationAction(action);
   const [answer, post, pending] = useFormAction(
     dispatch,
     { text: '', requestId },
@@ -91,7 +91,7 @@ function MessageComposerForm({
         defaultValue={answer.text}
         maxUnits={maxUnits}
         required
-        disabled={pending}
+        disabled={pending || answer.next !== undefined}
         rows={4}
         onInput={(event) => {
           void typing.current?.activity(event.currentTarget.value.length > 0);

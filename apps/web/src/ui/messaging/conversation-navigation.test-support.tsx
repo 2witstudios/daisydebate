@@ -173,6 +173,15 @@ export async function runMessagingNavigationProbe(
     answer.resolve();
     await answer.promise;
   });
+  // Text typed here would be wiped when the fresh command replaces this form.
+  const awaitingFresh =
+    scenario === 'same-conversation-late'
+      ? {
+          editable:
+            !host.querySelector<HTMLTextAreaElement>('textarea')!.disabled,
+          ready: readMountedComposer(host).ready,
+        }
+      : undefined;
   if (scenario === 'same-conversation-late')
     await act(async () => root.render(tree('channel', router, 'fresh')));
   const nextCommand = scenario.startsWith('same-conversation')
@@ -246,6 +255,7 @@ export async function runMessagingNavigationProbe(
     commits: activity.commits(),
     commands,
     ...(nextCommand ? { nextCommand, retainedNew, submissions } : {}),
+    ...(awaitingFresh ? { awaitingFresh } : {}),
     ...(failedDraft
       ? {
           failedDraft,

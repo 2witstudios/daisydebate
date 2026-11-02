@@ -1,6 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 setupRitewayBun();
 
+/** Each scenario boots its own realm: bounded and killed on expiry under load. */
+const realmLimitMs = 25_000;
 const sentReplace = 'replace:/messages/channel?sent=message';
 const pending = true;
 /** One command committed once; `commands` are the router effects it left. */
@@ -36,7 +38,10 @@ const scenarios: Readonly<Record<string, object>> = {
   ]),
   preferences: oneSend(['intent:/messages/channel/preferences']),
   'same-conversation': sameConversation,
-  'same-conversation-late': sameConversation,
+  'same-conversation-late': {
+    ...sameConversation,
+    awaitingFresh: { editable: false, ready: false },
+  },
   'refreshed-draft': oneSend([sentReplace], {
     beforeDispatch: { text: 'Draft', requestId: 'request' },
   }),
@@ -72,27 +77,31 @@ const scenarios: Readonly<Record<string, object>> = {
 };
 
 for (const [scenario, expected] of Object.entries(scenarios)) {
-  test(`actual composer completion ownership: ${scenario}`, async () => {
-    const child = Bun.spawn(
-      [
-        'bun',
-        `${import.meta.dir}/../../../../../scripts/messaging-navigation-realm.ts`,
-        scenario,
-      ],
-      { stdout: 'pipe', stderr: 'pipe' },
-    );
-    const [stdout, stderr, code] = await Promise.all([
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-      child.exited,
-    ]);
-    if (code !== 0) throw new Error(`Mounted caller failed: ${stderr}`);
-    assert({
-      given: `${scenario} with a deferred actual composer action and StrictMode effect replay`,
-      should:
-        'respect the current local navigation owner without replaying completion or repeating committed work',
-      actual: JSON.parse(stdout),
-      expected,
-    });
-  });
+  test(
+    `actual composer completion ownership: ${scenario}`,
+    async () => {
+      const child = Bun.spawn(
+        [
+          'bun',
+          `${import.meta.dir}/../../../../../scripts/messaging-navigation-realm.ts`,
+          scenario,
+        ],
+        { stdout: 'pipe', stderr: 'pipe', timeout: realmLimitMs },
+      );
+      const [stdout, stderr, code] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited,
+      ]);
+      if (code !== 0) throw new Error(`Mounted caller failed: ${stderr}`);
+      assert({
+        given: `${scenario} with a deferred actual composer action and StrictMode effect replay`,
+        should:
+          'respect the current local navigation owner without replaying completion or repeating committed work',
+        actual: JSON.parse(stdout),
+        expected,
+      });
+    },
+    realmLimitMs + 5_000,
+  );
 }

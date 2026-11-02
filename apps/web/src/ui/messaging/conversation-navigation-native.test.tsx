@@ -10,7 +10,7 @@ setupRitewayBun();
 test('server rendering retains the exact server action identity', () => {
   const action = async (state: MessageFormState) => state;
   function NativeIdentity() {
-    const dispatch = useConversationAction(action, 'server-request');
+    const dispatch = useConversationAction(action);
     return (
       <output>
         {dispatch === action ? 'original server action' : 'wrapped action'}

@@ -139,15 +139,11 @@ const serverState = ({
 /** The server keeps the actual action identity; only the browser stamps its answer. */
 export function useConversationAction(
   action: FormAction<MessageFormState>,
-  requestId: string,
 ): FormAction<CompletionAnswer> {
   const navigation = useNavigation();
   const latest = useRef<Origin | null>(null);
-  const mounted = useRef(true);
   useEffect(() => {
-    mounted.current = true;
     return () => {
-      mounted.current = false;
       const captured = latest.current;
       if (captured !== null)
         captured.scope.accept({ type: 'abandon', origin: captured.id });
@@ -157,17 +153,10 @@ export function useConversationAction(
   if (typeof window === 'undefined') return action;
   return async (state, form) => {
     const scope = navigation.current();
-    let completion: Origin | null = null;
-    if (
-      mounted.current &&
-      scope.snapshot().command.id === requestId &&
-      !scope.snapshot().disposed
-    ) {
-      // Actual dispatch, synchronously before invoking/awaiting the server action.
-      scope.accept({ type: 'dispatch' });
-      completion = { scope, id: scope.snapshot().sequence };
-      latest.current = completion;
-    }
+    // Actual dispatch, synchronously before invoking/awaiting the server action.
+    scope.accept({ type: 'dispatch' });
+    const completion = { scope, id: scope.snapshot().sequence };
+    latest.current = completion;
     const answer = await answerUnavailableOnThrow(
       action,
       messageFormUnavailable,
