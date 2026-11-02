@@ -257,3 +257,35 @@ test('a failed local microphone change stops capture before offering device reco
     expected: [true, true],
   });
 });
+
+test('a failed publish rejects its own apply and the next apply still publishes', async () => {
+  const stub = stubSdk({ settles: true, failFirstPublish: true });
+  const { transport } = createBrowserMediaTransport(events, stub.sdk);
+  const failure = await transport
+    .apply(publish(['camera']))
+    .catch((error: Error) => error.message);
+  await transport.apply(publish(['camera']));
+  assert({
+    given: 'an apply whose publish fails, then a later apply',
+    should: 'report the failure once and publish on the later apply',
+    actual: [failure, sources(stub.published)],
+    expected: ['Publish refused', ['camera']],
+  });
+});
+
+test('only the first stop empties the shared track list', () => {
+  const stub = stubSdk();
+  const emitted: number[] = [];
+  const { transport } = createBrowserMediaTransport(
+    { ...events, tracks: (tracks) => emitted.push(tracks.length) },
+    stub.sdk,
+  );
+  transport.stopTracks();
+  transport.stopTracks();
+  assert({
+    given: 'a released transport stopped again after a successor owns the list',
+    should: 'emit the empty list once',
+    actual: emitted,
+    expected: [0],
+  });
+});

@@ -7,8 +7,8 @@ import {
   mediaFailure,
   transientMediaFailure,
 } from './media-controller';
-setupRitewayBun();
 import { roundId, admission, snapshot } from './media-controller.test-support';
+setupRitewayBun();
 
 test('terminal stop closes tracks immediately while admission is pending', async () => {
   let finish!: (value: RoundMediaAdmission) => void;

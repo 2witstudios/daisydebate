@@ -172,3 +172,23 @@ test('a non-OK answer releases its unread body and its one deadline', async () =
     expected: [true, true, 1],
   });
 });
+
+test('the adapter runs on supported browsers without Promise.withResolvers', async () => {
+  const native = Promise.withResolvers;
+  Reflect.deleteProperty(Promise, 'withResolvers');
+  try {
+    const timer = deadline();
+    const request = createMediaRequest({
+      fetch: async () => Response.json({ version: 1 }),
+      scheduleDeadline: timer.schedule,
+    });
+    assert({
+      given: 'a browser older than Chrome 119 or Safari 17.4',
+      should: 'still complete a media request',
+      actual: await request('round', 'session', new AbortController().signal),
+      expected: { version: 1 },
+    });
+  } finally {
+    Promise.withResolvers = native;
+  }
+});

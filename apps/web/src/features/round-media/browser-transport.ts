@@ -131,11 +131,13 @@ export function createBrowserMediaTransport(
     events.tracks(snapshot);
   };
   const stopTracks = () => {
+    const first = !stopped;
     stopped = true;
     for (const track of tracks.values()) track.stop();
     tracks.clear();
     releaseWarm();
-    events.tracks([]);
+    // A late repeat must not blank the list a successor connection now owns.
+    if (first) events.tracks([]);
   };
   room
     .on(RoomEvent.TrackSubscribed, emit)
@@ -256,17 +258,20 @@ export function createBrowserMediaTransport(
   let work = Promise.resolve();
   /** Serialized and idempotent: each pass publishes only what is missing. */
   const settle = () => {
-    work = work.then(async () => {
-      if (stopped) return;
-      const desired = desiredSources(granted, permitted());
-      for (const [source, track] of tracks)
-        if (!desired.includes(source)) await retire(source, track, desired);
-      for (const source of desired) {
-        if (!stopped && !tracks.has(source)) await publishSource(source);
-      }
-      await warmMicrophone(desired);
-      if (!stopped) emit();
-    });
+    // One failed pass rejects its own caller, not every later pass.
+    work = work
+      .catch(() => undefined)
+      .then(async () => {
+        if (stopped) return;
+        const desired = desiredSources(granted, permitted());
+        for (const [source, track] of tracks)
+          if (!desired.includes(source)) await retire(source, track, desired);
+        for (const source of desired) {
+          if (!stopped && !tracks.has(source)) await publishSource(source);
+        }
+        await warmMicrophone(desired);
+        if (!stopped) emit();
+      });
     return work;
   };
   const apply = (state: RoundMediaState) => {

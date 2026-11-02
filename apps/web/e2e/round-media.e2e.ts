@@ -272,14 +272,18 @@ test('a media read held across a real Round transition is superseded without tou
     const page = await openPage(speaker!.context, 'held read speaker');
     const mediaPath = `/api/rounds/${round.id}/media`;
     let admissions = 0;
-    const cancelled: string[] = [];
+    const cancelled: { error: string; ageMs: number }[] = [];
+    let heldAt = 0;
     page.on('request', (request) => {
       if (new URL(request.url()).pathname === `${mediaPath}/session`)
         admissions++;
     });
     page.on('requestfailed', (request) => {
       if (new URL(request.url()).pathname === `${mediaPath}/reconcile`)
-        cancelled.push(request.failure()?.errorText ?? '');
+        cancelled.push({
+          error: request.failure()?.errorText ?? '',
+          ageMs: performance.now() - heldAt,
+        });
     });
     await page.goto(`/rounds/${round.id}/room`);
     const status = page.getByRole('status').filter({ hasText: /^Connected$/ });
@@ -321,6 +325,7 @@ test('a media read held across a real Round transition is superseded without tou
     await page.route(`**${mediaPath}/reconcile`, async (route) => {
       if (!holding) return route.fallback();
       holding = false;
+      heldAt = performance.now();
       const response = await route.fetch();
       fetched.resolve(await response.json());
       await release.promise;
@@ -353,10 +358,12 @@ test('a media read held across a real Round transition is superseded without tou
       participantId: seat.id,
     });
     expect(yielded.version).toBeGreaterThan(view.version);
-    // Under the held request's own 10 s deadline, so only supersession explains it.
+    // The age bound keeps this below the held request's 10 s deadline, so only
+    // supersession can explain the abort.
     const SUPERSEDED = { timeout: 8_000 };
     await expect.poll(() => cancelled.length, SUPERSEDED).toBe(1);
-    expect(cancelled[0]).toContain('ERR_ABORTED');
+    expect(cancelled[0]!.error).toContain('ERR_ABORTED');
+    expect(cancelled[0]!.ageMs).toBeLessThan(9_000);
     await expect(caption).toContainText('Microphone closed', SUPERSEDED);
     const mark = await page.evaluate(
       () =>

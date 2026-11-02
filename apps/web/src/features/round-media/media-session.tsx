@@ -2,7 +2,7 @@
 import '../../ui/debate-room/zod-jitless';
 import { systemClock } from '@daisy/clock';
 import { readCheckedDevices } from '../video/device-selection';
-import { nextMediaRefreshAt } from './refresh-deadline';
+import { followRoundView } from './follow-round-view';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
 import {
@@ -16,7 +16,7 @@ import {
 } from './media-controller';
 import { createMediaRequest } from './request-media';
 import { MediaStage } from './media-stage';
-import { mediaStatus, retryMissingDevices } from './media-status';
+import { mediaStatus, mediaWhile, retryMissingDevices } from './media-status';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
 
 /** Backoff for an admission refused for now, about 3.5 s in all (ISSUE-494). */
@@ -78,7 +78,10 @@ function RoundMediaSession({
         admit: (id, signal) => requestMedia(id, 'session', signal),
         reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),
       },
-      changed: setConnection,
+      changed: (state) => {
+        setConnection(state);
+        setMedia((current) => mediaWhile(state, current));
+      },
       received: setMedia,
       retry: { delaysMs: ADMISSION_RETRY_MS, wait: pause },
       transport: () => {
@@ -120,24 +123,16 @@ function RoundMediaSession({
       return;
     }
     acceptedVersion.current = view.version;
-    void controller.current?.reconcile({
-      kind: 'view',
-      roundViewVersion: view.version,
-    });
-    const next = nextMediaRefreshAt(view);
-    if (next === null) return;
-    const timer = window.setTimeout(
-      () => {
-        refresh.current();
-        void controller.current?.reconcile({
-          kind: 'boundary',
-          roundViewVersion: view.version,
-          deadlineMs: next,
-        });
+    return followRoundView({
+      view,
+      nowMs: Date.parse(systemClock.now()),
+      reconcile: (event) => void controller.current?.reconcile(event),
+      refresh: () => refresh.current(),
+      schedule: (fire, delayMs) => {
+        const timer = window.setTimeout(fire, delayMs);
+        return () => window.clearTimeout(timer);
       },
-      Math.max(0, next - Date.parse(systemClock.now())),
-    );
-    return () => window.clearTimeout(timer);
+    });
   }, [view]);
   const status = mediaStatus(connection, missing);
   return (

@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { mediaStatus, retryMissingDevices } from './media-status';
+import { mediaStatus, mediaWhile, retryMissingDevices } from './media-status';
 
 setupRitewayBun();
 
@@ -71,5 +71,16 @@ test('Retry forgets only the checked devices found gone, then clears them', () =
       'forget the camera choice alone for this Room and report nothing missing',
     actual: { forgotten, next },
     expected: { forgotten: [['room-a', ['camera']]], next: [] },
+  });
+});
+
+test('a released connection shows no last-known microphone state', () => {
+  assert({
+    given: 'the last server media state as the connection changes',
+    should: 'keep it only while live, never after teardown',
+    actual: (['live', 'reconnecting', 'unavailable', 'ended'] as const).map(
+      (connection) => mediaWhile(connection, 'open'),
+    ),
+    expected: ['open', null, null, null],
   });
 });

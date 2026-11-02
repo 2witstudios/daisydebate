@@ -1,3 +1,4 @@
+import { cancelMediaWork } from './cancel-media-work';
 import { mediaFailure, transientMediaFailure } from './media-controller';
 
 /** One request deadline includes headers and body; effects belong to the media mount. */
@@ -14,18 +15,12 @@ export function createMediaRequest(input: {
     parent: AbortSignal,
   ): Promise<unknown> => {
     const controller = new AbortController();
-    const interruption = Promise.withResolvers<never>();
-    const cancel = () => {
-      controller.abort();
-      interruption.reject(
-        new DOMException('Media request cancelled', 'AbortError'),
-      );
-    };
-    parent.addEventListener('abort', cancel, { once: true });
-    const cancelDeadline = input.scheduleDeadline(() => {
-      controller.abort();
-      interruption.reject(transientMediaFailure());
-    });
+    const cancel = () => controller.abort(parent.reason);
+    if (parent.aborted) cancel();
+    else parent.addEventListener('abort', cancel, { once: true });
+    const cancelDeadline = input.scheduleDeadline(() =>
+      controller.abort(transientMediaFailure()),
+    );
     const read = async () => {
       let response: Response;
       try {
@@ -53,11 +48,7 @@ export function createMediaRequest(input: {
       }
     };
     try {
-      if (parent.aborted) {
-        cancel();
-        return await interruption.promise;
-      }
-      return await Promise.race([read(), interruption.promise]);
+      return await cancelMediaWork(controller.signal, read);
     } finally {
       cancelDeadline();
       // An unread non-OK or abandoned body must not hold the connection open.

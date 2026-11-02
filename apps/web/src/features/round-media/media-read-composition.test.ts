@@ -37,6 +37,7 @@ async function compose(mode: 'headers' | 'body', retryDelaysMs: number[] = []) {
     admissions: 0,
   };
   let heldSignal: AbortSignal | undefined;
+  let stallAll = false;
   const request = createMediaRequest({
     scheduleDeadline: (expire) => {
       const id = timer.setTimeout(expire, REQUEST_DEADLINE_MS);
@@ -67,7 +68,7 @@ async function compose(mode: 'headers' | 'body', retryDelaysMs: number[] = []) {
       }
       counts.reads++;
       if (counts.reads === 1) return responseOf(snapshot);
-      if (counts.reads > 2) return responseOf(cameraOnly);
+      if (counts.reads > 2 && !stallAll) return responseOf(cameraOnly);
       heldSignal = signal;
       if (mode === 'headers') return headers.promise;
       const response = Response.json({});
@@ -126,6 +127,9 @@ async function compose(mode: 'headers' | 'body', retryDelaysMs: number[] = []) {
     applied,
     received,
     heldAborted: () => heldSignal?.aborted,
+    stallEveryRead: () => {
+      stallAll = true;
+    },
     release: () => {
       if (mode === 'headers') headers.resolve(Response.json(snapshot));
       else body.resolve(snapshot);
@@ -298,3 +302,28 @@ for (const mode of ['headers', 'body'] as const) {
     });
   });
 }
+
+test('a live connection whose every read stalls ends unavailable after the retries', async () => {
+  const media = await compose('headers', [500, 1_000, 2_000]);
+  media.stallEveryRead();
+  const pending = media.controller.reconcile({ kind: 'wake' });
+  await settle();
+  for (const waitMs of [10_000, 500, 10_000, 1_000, 10_000, 2_000, 10_000]) {
+    media.timer.advance(waitMs);
+    await settle();
+  }
+  await pending;
+  assert({
+    given: 'four 10 s expiries with no newer view',
+    should:
+      'keep the plan and main retry policy, leaving recovery to its owner: released, unavailable, no readmission and no timers',
+    actual: [
+      media.controller.state(),
+      media.counts.reads,
+      media.counts.stops,
+      media.counts.admissions,
+      media.timer.pending(),
+    ],
+    expected: ['unavailable', 5, 1, 1, 0],
+  });
+});

@@ -62,7 +62,8 @@ at the current version with a new deadline, supersedes the read in flight:
 `decideMediaRead` advances the intent, the old ticket is invalid before its own
 abort signal fires, and one fresh read starts on the same connection. Malformed,
 equal, older and duplicate events change nothing, and wakes coalesce into one
-followup. These inputs only request a read; the server's reply still decides
+followup; each accepted projection also sends one, so a refresh at the same
+version corrects a boundary read that reached the server too early. These inputs only request a read; the server's reply still decides
 every grant.
 
 An obsolete reply or rejection cannot apply, announce, fail the connection or
@@ -75,6 +76,8 @@ are recorded and the first read uses them, without another admission.
 `createMediaRequest` owns the one 10-second deadline over headers and body for
 each attempt. Expiry is a transient failure, handled by the controller's existing
 retry and no second retry owner.
+Exhausted retries on a live connection release it as `unavailable`, about 43.5 s
+after a total stall; recovery from that state belongs to the recovery owner.
 
 ### Admission fairness
 

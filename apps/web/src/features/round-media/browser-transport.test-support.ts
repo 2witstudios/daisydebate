@@ -33,18 +33,25 @@ export function stubSdk(
     /** Publishes settle at once, recorded in `published`. */
     readonly settles?: boolean;
     readonly unpublishGate?: Promise<void>;
+    /** The first publish rejects; later ones follow `settles`. */
+    readonly failFirstPublish?: boolean;
   } = {},
 ) {
   const captures: unknown[] = [];
   const captured: Captured[] = [];
   const published: Captured[] = [];
   const gates = [...(options.captureGates ?? [])];
+  let failPublish = options.failFirstPublish ?? false;
   const handlers = new Map<string, (...args: unknown[]) => void>();
   const localParticipant = {
     trackPublications: new Map(),
     permissions: undefined as
       { canPublish: boolean; canPublishSources: number[] } | undefined,
     publishTrack: (track: Captured) => {
+      if (failPublish) {
+        failPublish = false;
+        return Promise.reject(new Error('Publish refused'));
+      }
       if (!options.settles) return new Promise(() => {});
       published.push(track);
       return Promise.resolve();

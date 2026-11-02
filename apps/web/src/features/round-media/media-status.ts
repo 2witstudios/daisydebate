@@ -15,6 +15,12 @@ const messages: Record<MediaConnectionState, string> = {
 };
 
 /** What the Round media bar says, and whether it offers Retry (ISSUE-573). */
+/** Only a live connection may keep showing the last server media state. */
+export const mediaWhile = <Media>(
+  connection: MediaConnectionState,
+  media: Media | null,
+) => (connection === 'live' ? media : null);
+
 export function mediaStatus(
   connection: MediaConnectionState,
   missing: readonly Source[],
