@@ -322,8 +322,34 @@ const sharedFixtureRestrictions = [
   })),
 ];
 
+/**
+ * ISSUE-1010: a refusal is a closed `reason`, and a message is free text no
+ * behaviour reads. The literal rule also catches a mint from a branch cut
+ * before this, which would otherwise quietly lose its refusal. A vendor's own
+ * error text (`error.message.includes('NOSCRIPT')`) is out of its reach.
+ */
+const refusalRestrictions = [
+  {
+    selector:
+      "BinaryExpression[operator=/^[!=]==$/] > MemberExpression[property.name='message'][object.name=/^(error|err|e|cause|failure)$/]",
+    message: 'Branch on error.reason (createRefusal), never on error.message.',
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name=/^(includes|has|hasOwn|get)$/] > MemberExpression.arguments[property.name='message'][object.name=/^(error|err|e|cause|failure)$/]",
+    message: 'Look up error.reason (createRefusal), never error.message.',
+  },
+  {
+    selector:
+      "CallExpression[callee.name='createAppError'] Literal[value=/^[a-z]+(-[a-z]+)+$/]",
+    message:
+      'A refusal word is a reason: createRefusal(code, reason), from a closed @daisy/protocol vocabulary.',
+  },
+];
+
 /** The repo-wide `no-restricted-syntax` list; overrides extend or replace it. */
 const repoSyntaxRestrictions = [
+  ...refusalRestrictions,
   {
     selector:
       "CallExpression[callee.object.name='Date'][callee.property.name='now']",

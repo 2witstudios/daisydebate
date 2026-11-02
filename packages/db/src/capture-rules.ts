@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { captureDigest } from './capture-input';
 import {
   hasCompleteCaptureCoverage,
@@ -152,7 +152,11 @@ export function sealAction(
     !timeline.segmentEnded ||
     timeline.required.some((grant) => grant.end === null)
   )
-    throw createAppError('CONFLICT', 'Capture timeline is still open');
+    throw createRefusal(
+      'CONFLICT',
+      'timeline-open',
+      'Capture timeline is still open',
+    );
   return 'seal';
 }
 
@@ -227,5 +231,9 @@ export function captureAdmissionClosed(input: {
 
 export function requireLiveCaptureLease(expiresAt: Date, now: Date): void {
   if (expiresAt <= now)
-    throw createAppError('CONFLICT', 'Capture worker lease expired');
+    throw createRefusal(
+      'CONFLICT',
+      'lease-expired',
+      'Capture worker lease expired',
+    );
 }

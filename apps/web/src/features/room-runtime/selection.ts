@@ -3,7 +3,7 @@ import {
   decideFormatSelection,
   resolveRoomConfiguration,
 } from '@daisy/debate-engine';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import type { IdGenerator } from '@daisy/clock';
 import type { Store } from './operations';
 
@@ -47,7 +47,7 @@ export async function resolveRoomSelection(
         await store.getFormatSelectionFacts(basisRequest),
       );
     if (basisDecision && !basisDecision.ok)
-      throw createAppError('VALIDATION', basisDecision.refusal);
+      throw createRefusal('VALIDATION', basisDecision.refusal);
     const basisFingerprint = basisDecision?.ok
       ? fingerprint(basisDecision)
       : null;

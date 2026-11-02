@@ -133,7 +133,7 @@ test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0
   const handlers = createRoomHandlers(
     dependencies(member, {
       create: async () => {
-        throw createAppError('CONFLICT', 'active-room');
+        throw createRefusal('CONFLICT', 'active-room');
       },
       activeRoom: async () => activeRoom,
     }),

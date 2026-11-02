@@ -3,6 +3,7 @@ import { errorSchema } from '@daisy/protocol';
 import {
   createAppError,
   createInvariantError,
+  createRefusal,
   isAppError,
   isRefusal,
   toPublicError,
@@ -176,6 +177,36 @@ describe('error mapping', () => {
       actual: toPublicError({ code: 'VALIDATION', message: 'forged' }, 'r')
         .status,
       expected: 500,
+    });
+  });
+});
+
+describe('createRefusal', () => {
+  test('carries a closed reason beside a free message', () => {
+    const refusal = createRefusal('CONFLICT', 'active-room', 'Reworded', 'why');
+    assert({
+      given: 'a refusal with a reason, a message and a cause',
+      should: 'mint a known app error holding each',
+      actual: [
+        isAppError(refusal),
+        refusal.code,
+        refusal.reason,
+        refusal.message,
+        refusal.cause,
+      ],
+      expected: [true, 'CONFLICT', 'active-room', 'Reworded', 'why'],
+    });
+  });
+  test('never exposes its internal text', () => {
+    const { status, body } = toPublicError(
+      createRefusal('CONFLICT', 'active-room', 'Internal sentence'),
+      'r'.repeat(24),
+    );
+    assert({
+      given: 'a refusal with an internal message',
+      should: "answer the code's fixed public message",
+      actual: [status, body.error.message],
+      expected: [409, 'Resource conflict'],
     });
   });
 });

@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { attendanceTimingPolicy, idSchema } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -20,7 +20,7 @@ export async function assertRoundAttendanceSettled(
     sql`select ${unresolvedAttendance(sql`${input.roundId}`, sql`${input.now}::timestamptz`)} as unresolved`,
   );
   if ((row as { unresolved: boolean }).unresolved)
-    throw createAppError('CONFLICT', 'attendance-unsettled');
+    throw createRefusal('CONFLICT', 'attendance-unsettled');
 }
 
 /** One authoritative settlement predicate for finalizers, rating discovery and locked posting. */

@@ -1,4 +1,4 @@
-import type { ProtocolError } from '@daisy/protocol';
+import type { ProtocolError, RefusalReason } from '@daisy/protocol';
 
 /** The code vocabulary is the protocol's; this table only maps each code. */
 export type ErrorCode = ProtocolError['code'];
@@ -19,6 +19,8 @@ const definitions: Readonly<
 export type AppError = Error & {
   readonly code: ErrorCode;
   readonly invariantId?: string;
+  /** Why the operation was refused: what code branches on, never `message`. */
+  readonly reason?: RefusalReason;
 };
 const knownErrors = new WeakSet<Error>();
 /** Details and cause remain internal. Public messages are fixed by error code. */
@@ -40,6 +42,18 @@ export function createInvariantError(
   const error = createAppError('INVARIANT', message, cause);
   Object.assign(error, { invariantId });
   return error;
+}
+/**
+ * A refusal with a closed reason. `message` is free text for a person reading
+ * a trace, so rewording it changes no behaviour.
+ */
+export function createRefusal(
+  code: ErrorCode,
+  reason: RefusalReason,
+  message?: string,
+  cause?: unknown,
+): AppError {
+  return Object.assign(createAppError(code, message, cause), { reason });
 }
 /** Only factory-minted errors carry a trustworthy public code. */
 export function isAppError(error: unknown): error is AppError {

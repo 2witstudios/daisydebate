@@ -105,7 +105,7 @@ export function createRoomHandlers(dependencies: Dependencies) {
             roomRefusalSchema.options,
           );
           if (!response) throw error;
-          if (isAppError(error) && error.message === 'active-room')
+          if (isAppError(error) && error.reason === 'active-room')
             // The caller's own Room, so the UI can return them to it.
             return Response.json(
               {

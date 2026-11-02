@@ -41,6 +41,60 @@ describe('repository ESLint configuration', () => {
   });
 });
 
+describe('refusal reasons, never messages (ISSUE-1010)', () => {
+  const problems = async (code: string) => {
+    const [result] = await repositoryEslint().lintText(code, {
+      filePath: 'packages/db/src/refusal-probe.ts',
+    });
+    return result!.messages.filter(
+      ({ ruleId }) => ruleId === 'no-restricted-syntax',
+    ).length;
+  };
+  test('refuses behaviour read from a message and refusal words minted as one', async () => {
+    assert({
+      given:
+        'a comparison, a lookup and a refusal word or ternary as a message',
+      should: 'report each one',
+      actual: [
+        await problems(
+          "export const a = (error: Error) => error.message === 'x';",
+        ),
+        await problems(
+          'export const a = (error: Error, known: string[]) => known.includes(error.message);',
+        ),
+        await problems(
+          'export const a = (error: Error, map: object) => Object.hasOwn(map, error.message);',
+        ),
+        await problems(
+          "export const a = createAppError('CONFLICT', 'round-decided');",
+        ),
+        await problems(
+          "export const a = (b: boolean) => createAppError('CONFLICT', b ? 'too-early' : 'closed-window');",
+        ),
+      ],
+      expected: [1, 1, 1, 1, 2],
+    });
+  });
+  test('leaves a reason, plain internal text and a vendor error alone', async () => {
+    assert({
+      given: 'a reason read, an English message and a vendor text check',
+      should: 'report nothing',
+      actual: [
+        await problems(
+          "export const a = (error: AppError) => error.reason === 'x';",
+        ),
+        await problems(
+          "export const a = createAppError('CONFLICT', 'The round moved on');",
+        ),
+        await problems(
+          "export const a = (error: Error) => error.message.includes('NOSCRIPT');",
+        ),
+      ],
+      expected: [0, 0, 0],
+    });
+  });
+});
+
 describe('token-locked Tailwind lint rules (ADR 0028)', () => {
   const lintMarkup = async (classes: string) => {
     const eslint = repositoryEslint();

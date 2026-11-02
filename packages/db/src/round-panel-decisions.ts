@@ -1,5 +1,5 @@
 import { CryptoHasher } from 'bun';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import {
   idSchema,
   roundPanelReceiptSchema,
@@ -26,9 +26,9 @@ export type PanelDurableFacts = {
   readonly ratings: unknown;
 };
 
-const ineligible = () => createAppError('CONFLICT', 'panel-ineligible');
+const ineligible = () => createRefusal('CONFLICT', 'panel-ineligible');
 const receiptConflict = () =>
-  createAppError('CONFLICT', 'panel-receipt-conflict');
+  createRefusal('CONFLICT', 'panel-receipt-conflict');
 
 export function requirePanelRequest(input: PanelRequest): void {
   if (
@@ -169,7 +169,7 @@ export function requireCompletionProjection(completion: {
     projection.segmentInserts.length ||
     projection.segmentCloses.length
   )
-    throw createAppError('CONFLICT', 'panel-projection');
+    throw createRefusal('CONFLICT', 'panel-projection');
 }
 
 export const panelReceipt = (input: {

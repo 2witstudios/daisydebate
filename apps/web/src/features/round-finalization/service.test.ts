@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRoundMaintenance } from './service';
-import { createAppError } from '@daisy/errors';
+import { createRefusal } from '@daisy/errors';
 setupRitewayBun();
 
 type Ports = Parameters<typeof startRoundMaintenance>[0];
@@ -148,7 +148,7 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
     discover: async () => page(['terminal', 'forfeit', 'pending', 'fault']),
     evaluate: async (id) => {
       if (id === 'terminal')
-        throw createAppError('CONFLICT', 'attendance-terminal');
+        throw createRefusal('CONFLICT', 'attendance-terminal');
       if (id === 'fault') throw new Error('actual maintenance failure');
       return id === 'forfeit' ? { decision: 'forfeit' } : null;
     },

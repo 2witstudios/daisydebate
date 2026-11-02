@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { signedCaptureClient } from './capture-client.test-support';
 import { createTrackClocks } from '@daisy/media/observation';
@@ -386,7 +386,7 @@ test('a new track past the calibration age is refused: the recorded limit', () =
 
 test('a refused write ends the consumer rather than being retried', async () => {
   const { finished, events } = await consumeOne({
-    append: [createAppError('CONFLICT', 'Capture worker lease expired')],
+    append: [createRefusal('CONFLICT', 'lease-expired')],
     observe: [],
   });
   await assertRejects({

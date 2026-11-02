@@ -1,4 +1,15 @@
 import { z } from 'zod';
+
+/** The closed vocabulary a check-in refusal answers with. */
+export const attendanceRefusalSchema = z.enum([
+  'attendance-terminal',
+  'attendance-finalized',
+  'attendance-segment',
+  'attendance-window-closed',
+  'attendance-too-early',
+  'command-conflict',
+]);
+export type AttendanceRefusal = z.infer<typeof attendanceRefusalSchema>;
 import { idSchema } from './primitives';
 /** Actor/service identity is always bound server-side; no identity field is accepted. */
 export const attendanceEnvelopeSchema = z.strictObject({

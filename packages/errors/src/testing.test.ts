@@ -1,6 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError, createInvariantError } from './index';
+import { createAppError, createInvariantError, createRefusal } from './index';
 import { assertRejects, rejectionOf } from './testing';
 
 setupRitewayBun();
@@ -137,15 +137,15 @@ describe('assertRejects', () => {
 });
 
 describe('assertRejects with a message', () => {
-  test('passes only on the named code and message together', async () => {
+  test('passes only on the named code and reason together', async () => {
     await assertRejects({
-      given: 'an app error with the expected code and message',
+      given: 'a refusal with the expected code and reason',
       should: 'pass',
       actual: async () => {
-        throw createAppError('CONFLICT', 'bots-busy');
+        throw createRefusal('CONFLICT', 'bots-busy');
       },
       code: 'CONFLICT',
-      message: 'bots-busy',
+      reason: 'bots-busy',
     });
     const fails = async (actual: () => unknown) => {
       try {
@@ -154,7 +154,7 @@ describe('assertRejects with a message', () => {
           should: 'fail',
           actual,
           code: 'CONFLICT',
-          message: 'bots-busy',
+          reason: 'bots-busy',
         });
         return false;
       } catch {
@@ -163,14 +163,14 @@ describe('assertRejects with a message', () => {
     };
     assert({
       given:
-        'the right code with another message, another code with the right message, and a stray error with the right message',
+        'the right code with another reason, another code with the right reason, and a stray error',
       should: 'fail every one',
       actual: [
         await fails(async () => {
-          throw createAppError('CONFLICT', 'Bot admission refused: allowance');
+          throw createRefusal('CONFLICT', 'active-room');
         }),
         await fails(async () => {
-          throw createAppError('INFRASTRUCTURE', 'bots-busy');
+          throw createRefusal('INFRASTRUCTURE', 'bots-busy');
         }),
         await fails(async () => {
           throw new Error('bots-busy');
