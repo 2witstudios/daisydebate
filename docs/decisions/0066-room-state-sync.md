@@ -145,6 +145,11 @@ its whole lifetime. Debater, assigned judge and spectator owners measure the
 start and completion of authorized reads on the browser's monotonic clock.
 The server action returns only `serverNowMs`, from the handler's injected
 server clock; server and browser monotonic epochs never cross the wire.
+Both authorized Round and judge readers decode `x-server-now-ms` through
+`round-runtime/server-clock-header`: nonnegative decimal integer milliseconds
+within the supported timestamp range. Missing, blank or malformed metadata
+supplies no calibration evidence; explicit decimal zero remains valid. A read
+without evidence retains the accepted anchor and reports seed/stale timing.
 Request generations are allocated before sending. Fresh evidence calibrates
 even when the competitive Round revision is unchanged.
 

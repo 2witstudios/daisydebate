@@ -1,5 +1,6 @@
 import { idSchema, roundViewSchema, type RoundView } from '@daisy/protocol';
 import { realtimeEndpointOf } from '../realtime/endpoint-header';
+import { parseServerClockHeader } from './server-clock-header';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -36,15 +37,12 @@ export async function readRoundReceipt(
     const parsed = roundViewSchema.safeParse(await response.json());
     if (!parsed.success || parsed.data.id !== id)
       return { kind: 'unavailable', socketUrl: null };
-    const header = response.headers.get('x-server-now-ms');
-    const serverNowMs = header === null ? null : Number(header);
     return {
       kind: 'found',
       round: parsed.data,
-      serverNowMs:
-        serverNowMs !== null && Number.isFinite(serverNowMs)
-          ? serverNowMs
-          : null,
+      serverNowMs: parseServerClockHeader(
+        response.headers.get('x-server-now-ms'),
+      ),
       socketUrl: realtimeEndpointOf(response),
     };
   } catch {
