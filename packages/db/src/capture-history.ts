@@ -2,7 +2,6 @@ import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type {
   CaptureTx,
-  CaptureIdentity,
   CaptureStream,
   CoverageTolerance,
 } from './media-capture-context';
@@ -15,9 +14,12 @@ import { roundTranscripts } from './schema/transcript-segments';
 import type { roundSegments } from './schema/round-segments';
 
 type Segment = typeof roundSegments.$inferSelect;
-export async function captureHistory(
-  tx: CaptureTx,
-  input: CaptureIdentity & CaptureStream,
+type StreamScope = CaptureStream & { readonly roundId: string };
+type Reader = Pick<CaptureTx, 'select'>;
+/** A stream's speaking windows within its segment, possibly none. */
+async function speakingWindows(
+  tx: Reader,
+  input: StreamScope,
   segment: Segment,
 ) {
   const rows = await tx
@@ -30,16 +32,33 @@ export async function captureHistory(
         eq(roundSpeakingIntervals.roundParticipantId, input.roundParticipantId),
       ),
     );
+  return grantWindows(rows, segment);
+}
+/** Grants clamped to their segment's speaking time; an open grant stays open. */
+export function grantWindows(
+  rows: readonly {
+    readonly startedAt: Date;
+    readonly endedAt: Date | null;
+  }[],
+  segment: Pick<Segment, 'startedAt' | 'endedAt' | 'durationMs'>,
+) {
   const segmentStart = segment.startedAt.getTime();
   const segmentEnd = Math.min(
     segment.endedAt?.getTime() ?? Infinity,
     segmentStart + segment.durationMs,
   );
-  const required = rows.map((row) => ({
+  return rows.map((row) => ({
     start: Math.max(row.startedAt.getTime(), segmentStart),
     end:
       row.endedAt === null ? null : Math.min(row.endedAt.getTime(), segmentEnd),
   }));
+}
+export async function captureHistory(
+  tx: Reader,
+  input: StreamScope,
+  segment: Segment,
+) {
+  const required = await speakingWindows(tx, input, segment);
   if (!required.some((row) => row.end === null || row.end > row.start))
     throw createAppError('CONFLICT', 'No historical capture authority');
   return required;
@@ -51,8 +70,8 @@ export async function captureHistory(
  * latency. Silence outside a bot's windows is not speech.
  */
 export async function coverageAuthority(
-  tx: CaptureTx,
-  input: CaptureIdentity & CaptureStream,
+  tx: Reader,
+  input: StreamScope,
   grants: readonly CaptureInterval[],
   tolerance: CoverageTolerance,
 ) {
@@ -66,11 +85,7 @@ export async function coverageAuthority(
         eq(roundParticipants.roundId, input.roundId),
       ),
     );
-  if (seat?.kind !== 'bot')
-    return {
-      authority: grants,
-      tolerance: { openMs: tolerance.joinMs, closeMs: tolerance.relayMs },
-    };
+  if (seat?.kind !== 'bot') return coverageRule('human', grants, [], tolerance);
   const windows = await tx
     .select({
       start: roundBotPublicationWindows.creditedFrom,
@@ -87,8 +102,22 @@ export async function coverageAuthority(
         ),
       ),
     );
+  return coverageRule('bot', grants, windows, tolerance);
+}
+/** The authority and edges for one seat's kind: the decision, with no reads. */
+export function coverageRule(
+  kind: 'human' | 'bot',
+  grants: readonly CaptureInterval[],
+  botWindows: readonly { readonly start: Date; readonly end: Date }[],
+  tolerance: CoverageTolerance,
+) {
+  if (kind !== 'bot')
+    return {
+      authority: grants,
+      tolerance: { openMs: tolerance.joinMs, closeMs: tolerance.relayMs },
+    };
   return {
-    authority: windows.map((row) => ({
+    authority: botWindows.map((row) => ({
       start: row.start.getTime(),
       end: row.end.getTime(),
     })),

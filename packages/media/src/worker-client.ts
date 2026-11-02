@@ -14,6 +14,7 @@ export {
   isCaptureClosedRefusal,
   isDefiniteRefusal,
   isOpenTimelineRefusal,
+  isTransientControlFailure,
 } from './worker-response';
 
 type Stream = {
@@ -66,9 +67,16 @@ export function createMediaWorkerClient(input: WorkerTransportDependencies) {
     ) =>
       (await call('observe', observation, captureMutationReply, signal)).value,
     seal: async (
-      stream: Stream & { readonly expectedChunkCount: number },
+      stream: Stream & {
+        readonly expectedChunkCount: number;
+        readonly framesLost: boolean;
+      },
       signal?: AbortSignal,
     ) => (await call('seal', stream, sealReply, signal)).value,
+    /** Gives up this worker's lease so a successor claims at once; best effort. */
+    release: async (epoch: number, signal?: AbortSignal) => {
+      await call('release', { epoch }, acknowledgedReply, signal);
+    },
     /** Capture hears a bot seat's track (ISSUE-514-r2); the server owns admission. */
     heard: async (
       track: Stream & { readonly trackId: string },

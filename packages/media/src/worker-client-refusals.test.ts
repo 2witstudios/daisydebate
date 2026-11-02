@@ -12,6 +12,7 @@ const sealing = {
   segmentId: 'g'.repeat(24),
   roundParticipantId: 'p'.repeat(24),
   expectedChunkCount: 0,
+  framesLost: false,
 };
 const refusedSeal = async (body: object) => {
   const f = localClient(() => Response.json(body, { status: 409 }));

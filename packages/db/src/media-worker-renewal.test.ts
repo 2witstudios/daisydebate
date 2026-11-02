@@ -31,8 +31,8 @@ for (const [label, lease, request, now, message] of [
     refusals.stale,
   ],
   [
-    'expired',
-    current,
+    'expired and taken over',
+    { ...current, workerId: 'successor', epoch: 3 },
     { workerId: 'worker', expectedEpoch: 2 },
     1000,
     refusals.stale,
@@ -81,5 +81,19 @@ test('one claim rule decides every media worker lease epoch (ISSUE-764)', () => 
       ),
     ],
     expected: [1, 2, 2, 3],
+  });
+});
+
+test('a renewal after expiry reinstates only an untouched lease', () => {
+  assert({
+    given: 'an expired lease row still naming this worker and epoch',
+    should: 'keep the same epoch, since no other authority ever existed',
+    actual: mediaWorkerLeaseEpoch(
+      current,
+      { workerId: 'worker', expectedEpoch: 2 },
+      new Date(5000),
+      refusals,
+    ),
+    expected: 2,
   });
 });

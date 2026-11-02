@@ -15,11 +15,8 @@ import { RoundResult } from '../../../../ui/round-result/round-result';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
-import {
-  readPersistedRound,
-  readPersistedRoundAnalysis,
-  readPersistedTranscript,
-} from './actions';
+import { readPersistedRound, readPersistedRoundAnalysis } from './actions';
+import { readPersistedTranscript } from './read-persisted-transcript';
 import { MediaDocument } from '../../../../ui/round-media/media-document';
 
 export const metadata: Metadata = { title: 'Round' };

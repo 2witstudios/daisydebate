@@ -191,7 +191,11 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
         observedFrom: start.toISOString(),
         observedUntil: end.toISOString(),
       });
-      const sealed = await replay('seal', { ...stream, expectedChunkCount: 1 });
+      const sealed = await replay('seal', {
+        ...stream,
+        expectedChunkCount: 1,
+        framesLost: false,
+      });
       const [facts] = await f.sql`select
         (select count(*)::int from utterances where round_id=${f.roundId}) as utterances,
         (select count(*)::int from transcript_observations where round_id=${f.roundId}) as observations,

@@ -52,7 +52,7 @@ test('the actual coverage command requires all workspace receipts from disk', as
           .toString()
           .includes('Missing receipt: apps/log-shipper:4/4'),
       },
-      expected: { workspaces: 7, complete: 0, missing: true, reason: true },
+      expected: { workspaces: 8, complete: 0, missing: true, reason: true },
     });
   } finally {
     rmSync(directory, { recursive: true, force: true });

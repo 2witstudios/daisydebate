@@ -1,7 +1,6 @@
 'use server';
 
 import { headers } from 'next/headers';
-import { readTranscript } from '../../../../features/round-runtime/read-transcript';
 import { readRoundReceipt } from '../../../../features/round-runtime/read-round';
 import { readRoundAnalysis } from '../../../../features/round-analysis/reads';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
@@ -19,21 +18,6 @@ const roundRead = processRoute(
 export async function readPersistedRound(id: string) {
   return readRoundReceipt(
     inProcessFetch(roundRead, new Headers(await headers())),
-    id,
-  );
-}
-
-const transcriptRead = processRoute(
-  (routes) => (request) =>
-    routes.rounds.transcript(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
-/** A fresh transcript audience decision on every server action or native reload. */
-export async function readPersistedTranscript(id: string) {
-  return readTranscript(
-    inProcessFetch(transcriptRead, new Headers(await headers())),
     id,
   );
 }

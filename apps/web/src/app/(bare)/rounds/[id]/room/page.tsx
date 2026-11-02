@@ -21,10 +21,8 @@ import type { SearchParams } from '../../../../../features/access/decision';
 import { requireAccess } from '../../../../../lib/access';
 import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
-import {
-  readPersistedRound,
-  readPersistedTranscript,
-} from '../../../../(shell)/rounds/[id]/actions';
+import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
+import { readPersistedTranscript } from '../../../../(shell)/rounds/[id]/read-persisted-transcript';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
 import {
   spectatorAudienceOf,
@@ -102,11 +100,7 @@ export default async function RoundRoomPage({
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const transcript =
     text.kind === 'found' ? (
-      <LiveTranscript
-        seed={text.value}
-        read={readPersistedTranscript.bind(null, id)}
-        socketUrl={result.socketUrl}
-      />
+      <LiveTranscript key={id} seed={text.value} socketUrl={result.socketUrl} />
     ) : text.kind === 'unavailable' ? (
       // Refusals read as missing; only an outage, never a denial, says this.
       <p role="status">Transcript unavailable. Reload to try again.</p>

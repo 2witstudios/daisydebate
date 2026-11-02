@@ -1,11 +1,25 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { historicalCapture } from './media-capture.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
+
+/** One chunk stored by epoch 1, then a takeover; returns the new epoch. */
+async function takenOverAfterOneChunk(
+  fixture: Parameters<Parameters<typeof withBoundedRound>[0]>[0],
+  f: Awaited<ReturnType<typeof historicalCapture>>,
+) {
+  await f.store.claimMediaWorkerLease({ ...f.lease, leaseMs: 15000 });
+  await f.store.appendCapturedTranscript(f.clip);
+  await fixture.sql`update media_worker_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${f.lease.sessionId}`;
+  const { epoch } = await f.store.claimMediaWorkerLease({
+    ...f.lease,
+    leaseMs: 15000,
+  });
+  return epoch;
+}
 
 for (const mode of [
   'old-observation',
@@ -80,6 +94,7 @@ for (const mode of [
           ...f.stream,
           epoch,
           expectedChunkCount,
+          framesLost: false,
         });
         assert({
           given:
@@ -98,38 +113,83 @@ for (const mode of [
   });
 }
 
-test('a takeover seal never records fewer chunks than are stored', async () => {
+test('a takeover seal answered late can be retried', async () => {
+  await withBoundedRound(async (fixture, transaction, roundId) => {
+    const f = await historicalCapture(fixture, transaction, roundId);
+    try {
+      const epoch = await takenOverAfterOneChunk(fixture, f);
+      const seal = {
+        ...f.stream,
+        epoch,
+        expectedChunkCount: 0,
+        framesLost: false,
+      };
+      const first = await f.store.sealCapturedStream(seal);
+      const retry = await f.store.sealCapturedStream(seal);
+      assert({
+        given: 'the same takeover seal sent again after a lost reply',
+        should: 'answer the same closed state, not a conflict',
+        actual: [first.state, retry.state],
+        expected: ['partial', 'partial'],
+      });
+    } finally {
+      await fixture.sql`delete from rounds where id=${roundId}`;
+    }
+  });
+});
+
+test('a worker reporting loss may seal below chunks it never heard answered', async () => {
   await withBoundedRound(async (fixture, transaction, roundId) => {
     const f = await historicalCapture(fixture, transaction, roundId);
     try {
       await f.store.claimMediaWorkerLease({ ...f.lease, leaseMs: 15000 });
       await f.store.appendCapturedTranscript(f.clip);
-      await fixture.sql`update media_worker_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${f.lease.sessionId}`;
-      const { epoch } = await f.store.claimMediaWorkerLease({
-        ...f.lease,
-        leaseMs: 15000,
+      const sealed = await f.store.sealCapturedStream({
+        ...f.stream,
+        expectedChunkCount: 0,
+        framesLost: true,
       });
-      await assertRejects({
+      const [stream] = await fixture.sql`
+        select sealed_chunk_count from transcript_segments
+        where segment_id=${f.stream.segmentId}`;
+      assert({
         given:
-          'a new epoch sealing a remembered stream with only its own zero count',
-        should: 'refuse a seal below the stored chunk count',
-        code: 'CONFLICT',
-        actual: () =>
-          f.store.sealCapturedStream({
-            ...f.stream,
-            epoch,
-            expectedChunkCount: 0,
-          }),
+          'an append stored though its reply never came, and a loss report',
+        should: 'close partial at the stored count',
+        actual: [sealed.state, stream.sealed_chunk_count],
+        expected: ['partial', 1],
+      });
+    } finally {
+      await fixture.sql`delete from rounds where id=${roundId}`;
+    }
+  });
+});
+
+test('a takeover seal never records fewer chunks than are stored', async () => {
+  await withBoundedRound(async (fixture, transaction, roundId) => {
+    const f = await historicalCapture(fixture, transaction, roundId);
+    try {
+      const epoch = await takenOverAfterOneChunk(fixture, f);
+      const sealed = await f.store.sealCapturedStream({
+        ...f.stream,
+        epoch,
+        expectedChunkCount: 0,
+        framesLost: false,
       });
       const [stream] = await fixture.sql`
         select state, chunk_count, sealed_chunk_count from transcript_segments
         where segment_id=${f.stream.segmentId}
           and round_participant_id=${f.stream.roundParticipantId}`;
       assert({
-        given: 'the refused under-count seal',
-        should: 'leave the stream open for finalization with its stored count',
-        actual: { ...stream },
-        expected: { state: 'open', chunk_count: 1, sealed_chunk_count: null },
+        given:
+          'a new epoch sealing a remembered stream with only its own zero count',
+        should:
+          'close it partial at the stored count, so a finished speech stops reading as capturing',
+        actual: [sealed.state, { ...stream }],
+        expected: [
+          'partial',
+          { state: 'partial', chunk_count: 1, sealed_chunk_count: 1 },
+        ],
       });
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;

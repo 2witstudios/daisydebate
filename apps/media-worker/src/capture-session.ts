@@ -16,6 +16,7 @@ import { createStreamTracker } from './capture-streams';
 import { closeCaptureSession, gracefulStop } from './capture-drain';
 import { captureSessionClosed, createSessionOutcome } from './capture-outcome';
 import { sealCaptureStreams } from './capture-seal';
+import { captureMemoryBudget } from './capture-memory';
 import { atStage } from './capture-exit';
 import { maintainCaptureLease } from './capture-lease';
 import { issueCaptureToken } from './capture-token';
@@ -29,7 +30,11 @@ type Dependencies = {
   /** The LiveKit subscription and the clip consumer (capture-run.ts). */
   readonly subscribe: typeof createAudioSubscription;
   readonly consume: typeof consumeCaptureClips;
+  /** This session's share of the worker's pending-audio bound (capture-memory.ts). */
+  readonly pendingBytes: number;
 };
+/** How long a stopping session may spend giving up its lease. */
+const RELEASE_BUDGET_MS = 2000;
 /** Assigned session only. Discovery and process isolation live at the deployment edge. */
 export async function runCaptureSession(
   input: Dependencies,
@@ -66,6 +71,10 @@ export async function runCaptureSession(
   } finally {
     renewalStop.abort();
     await renewing;
+    // A successor need not wait out the expiry; if this fails, it still can.
+    await input.client
+      .release(lease.epoch, AbortSignal.timeout(RELEASE_BUDGET_MS))
+      .catch(() => undefined);
   }
 }
 
@@ -89,22 +98,29 @@ async function captureSession(
   };
   let current = await atStage(
     'history',
-    readCaptureHistory(input.client, epoch, signal),
+    readCaptureHistory(input.client, epoch, signal, input),
   );
   const token = await issueCaptureToken(input.client, epoch, signal);
+  const budget = captureMemoryBudget(input.pendingBytes);
+  const streams = createStreamTracker(16384);
   const staging = createCaptureStaging({
     current: () => current,
     dropped,
+    maxFrames: budget.maxStagedFrames,
+    lost: (frame) =>
+      streams.lost({
+        segmentId: frame.segmentId,
+        roundParticipantId: frame.seat,
+      }),
     retained: () => {
       stats.stagedFrames++;
     },
   });
   const queue = createClipQueue<QueuedClip>({
-    maxClips: 10,
-    maxBytes: 20 * 1024 * 1024,
-    maxDurationMs: 120000,
+    maxClips: budget.maxQueueClips,
+    maxBytes: budget.maxQueueBytes,
+    maxDurationMs: budget.maxQueueMs,
   });
-  const streams = createStreamTracker(16384);
   const carries: ClipCarries = new Map();
   const heard = createHeardReporter({ heard: input.client.heard });
   const enqueue = (clip: QueuedClip | Omit<QueuedClip, 'bytes'>) => {
@@ -112,6 +128,7 @@ async function captureSession(
     streams.queued(queued);
     for (const discarded of queue.push(queued)) {
       streams.settled(discarded);
+      streams.lost(discarded);
       dropped(discarded.durationMs / 10);
     }
   };
@@ -145,6 +162,7 @@ async function captureSession(
       take: queue.shift,
       straddles: staging.straddles,
       dropped,
+      lost: streams.lost,
       transcribed: () => {
         stats.transcribedClips++;
       },
@@ -172,7 +190,7 @@ async function captureSession(
       const due = input.nowMs() + CAPTURE_BATCH_INTERVAL_MS;
       current = await atStage(
         'refresh',
-        readCaptureHistory(input.client, epoch, signal),
+        readCaptureHistory(input.client, epoch, signal, input),
       );
       streams.remember(current.state);
       staging.refresh(current.calibration);
@@ -248,11 +266,13 @@ async function captureSession(
           let frames = 0;
           for (let clip = queue.shift(); clip; clip = queue.shift()) {
             streams.settled(clip);
+            streams.lost(clip);
             frames += clip.durationMs / 10;
           }
           return frames;
         },
         dropped,
+        lost: streams.lost,
         // Fallback for every stream not yet finished.
         seal: (cleanup) =>
           sealCaptureStreams(

@@ -10,6 +10,8 @@ type Stream = {
   pending: number;
   /** When its segment was known to have ended, in server time. */
   endedAtMs: number | null;
+  /** This process held frames of this stream and lost them. */
+  framesLost: boolean;
   /** Sealed, or definitely refused: never offered for sealing again. */
   finished: boolean;
 };
@@ -50,6 +52,7 @@ export function createStreamTracker(ceiling: number) {
         count: 0,
         pending: 0,
         endedAtMs: null,
+        framesLost: false,
         finished: false,
       };
       streams.set(id, stream);
@@ -81,6 +84,9 @@ export function createStreamTracker(ceiling: number) {
     },
     settled(key: Key) {
       forClip(key).pending--;
+    },
+    lost(key: Key) {
+      forClip(key).framesLost = true;
     },
     finished(key: Key) {
       forClip(key).finished = true;

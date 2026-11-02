@@ -22,11 +22,13 @@ export type StagedFrame = {
  * frame waits for the next batch however long that batch's history read
  * takes, since dropping it would leave a hole in coverage (ISSUE-577).
  */
-const MAX_STAGED = 4096;
 export function createCaptureStaging(input: {
   readonly current: () => Snapshot;
   readonly dropped: (count: number) => void;
+  /** A held frame was dropped by the bound: its stream has a real gap. */
+  readonly lost: (frame: StagedFrame) => void;
   readonly retained: () => void;
+  readonly maxFrames: number;
 }) {
   const clocks = createTrackClocks();
   // Frames refused for crossing a grant edge: the edge evidence observedWindow reads.
@@ -36,11 +38,11 @@ export function createCaptureStaging(input: {
     edges.set(trackId, kept.slice(-8));
   };
   let pending: StagedFrame[] = [];
-  /** At most MAX_STAGED frames, however they arrived: the oldest are dropped. */
+  /** At most maxFrames frames, however they arrived: the oldest are dropped. */
   const bound = () => {
-    const excess = pending.length - MAX_STAGED;
+    const excess = pending.length - input.maxFrames;
     if (excess <= 0) return;
-    pending = pending.slice(excess);
+    pending.splice(0, excess).forEach(input.lost);
     input.dropped(excess);
   };
   const candidate = (raw: Raw): StagedFrame | null => {
@@ -123,6 +125,7 @@ export function createCaptureStaging(input: {
     },
     clear() {
       input.dropped(pending.length);
+      pending.forEach(input.lost);
       pending = [];
       clocks.clear();
       edges.clear();
