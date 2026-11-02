@@ -112,13 +112,20 @@ async function consumeClip(
   }
   input.transcribed();
   // A transcribed window is captured coverage, speech or honest silence.
-  if (result.text) await appendClip(input, clip, result.text);
+  const lostWrite = () => {
+    input.dropped(clip.durationMs / 10);
+    input.lost(clip);
+  };
+  if (result.text && !(await appendClip(input, clip, result.text))) {
+    lostWrite();
+    return;
+  }
   const window = clipObservation(
     fresh.state,
     clip,
     input.straddles(clip.trackId),
   );
-  await untilAnswered(input, () =>
+  const observed = await untilAnswered(input, () =>
     input.client.observe(
       {
         epoch: input.epoch,
@@ -131,6 +138,7 @@ async function consumeClip(
       input.signal,
     ),
   );
+  if (!observed) lostWrite();
 }
 
 /** The clip's window within its fresh grant, extended to an edge only by contiguous evidence. */
@@ -165,20 +173,29 @@ function clipObservation(
 
 /** How soon a write the control plane could not answer is sent again. */
 const WRITE_RETRY_MS = 250;
-/** A write stays pending in memory until the server answers or the session stops. */
-async function untilAnswered<T>(
+/** The agreed outage: past it a write refused for now must not hold every later clip. */
+const WRITE_BUDGET_MS = 120_000;
+/**
+ * A write stays pending in memory until the server answers. False when it is
+ * still refused for now at the budget: the server can keep doing so for good,
+ * as it does for a late clip of a closed session, and the clip is then lost.
+ */
+async function untilAnswered(
   input: Pick<
     Parameters<typeof consumeCaptureClips>[0],
     'signal' | 'nowMs' | 'waitUntilMs'
   >,
-  write: () => Promise<T>,
-): Promise<T> {
+  write: () => Promise<unknown>,
+) {
+  const giveUpAt = input.nowMs() + WRITE_BUDGET_MS;
   for (;;) {
     try {
-      return await write();
+      await write();
+      return true;
     } catch (error) {
       input.signal.throwIfAborted();
       if (!isTransientControlFailure(error)) throw error;
+      if (input.nowMs() >= giveUpAt) return false;
       await input.waitUntilMs(input.nowMs() + WRITE_RETRY_MS, input.signal);
     }
   }
@@ -204,6 +221,9 @@ async function appendClip(
     text,
   };
   // Retry preserves the exact captured result and durable dedupe identity.
-  await untilAnswered(input, () => input.client.append(payload, input.signal));
-  input.committed(clip);
+  const answered = await untilAnswered(input, () =>
+    input.client.append(payload, input.signal),
+  );
+  if (answered) input.committed(clip);
+  return answered;
 }

@@ -24,40 +24,46 @@ type Entry = {
 function webApp() {
   const startedAt = new Date(nowMs() - 1000).toISOString();
   const log: Entry[] = [];
-  let lease: { workerId: string; epoch: number; expiresAt: number } | undefined;
+  type Lease = { workerId: string; epoch: number; expiresAt: number };
+  const state: { lease?: Lease } = {};
   let server: ReturnType<typeof Bun.serve> | undefined;
   let port = 0;
   const claim = (body: Record<string, unknown>) => {
     const now = nowMs();
-    const live = lease !== undefined && lease.expiresAt > now;
-    if (live && lease!.workerId !== body.workerId)
+    const current = state.lease;
+    const live = current !== undefined && current.expiresAt > now;
+    if (live && current.workerId !== body.workerId)
       return Response.json({ error: { code: 'CONFLICT' } }, { status: 409 });
     if (body.expectedEpoch !== undefined) {
       if (
-        lease?.workerId !== body.workerId ||
-        lease.epoch !== body.expectedEpoch
+        current?.workerId !== body.workerId ||
+        current.epoch !== body.expectedEpoch
       )
         return Response.json({ error: { code: 'CONFLICT' } }, { status: 409 });
-    } else if (!live)
-      lease = {
-        workerId: String(body.workerId),
-        epoch: (lease?.epoch ?? 0) + 1,
-        expiresAt: 0,
-      };
-    lease!.expiresAt = now + Number(body.leaseMs);
+    }
+    const next: Lease = {
+      workerId: String(body.workerId),
+      epoch:
+        live || body.expectedEpoch !== undefined
+          ? current!.epoch
+          : (current?.epoch ?? 0) + 1,
+      expiresAt: now + Number(body.leaseMs),
+    };
+    state.lease = next;
     return Response.json({
-      epoch: lease!.epoch,
-      expiresAt: new Date(lease!.expiresAt).toISOString(),
+      epoch: next.epoch,
+      expiresAt: new Date(next.expiresAt).toISOString(),
     });
   };
   const answer = (op: string, body: Record<string, unknown>) => {
     if (op === 'lease') return claim(body);
     if (op === 'release') {
-      if (lease?.workerId === body.workerId && lease.epoch === body.epoch)
-        lease.expiresAt = Math.min(lease.expiresAt, nowMs());
+      const held = state.lease;
+      if (held?.workerId === body.workerId && held.epoch === body.epoch)
+        held.expiresAt = Math.min(held.expiresAt, nowMs());
       return Response.json(null);
     }
-    if ((lease?.expiresAt ?? 0) <= nowMs())
+    if ((state.lease?.expiresAt ?? 0) <= nowMs())
       return Response.json({ refusal: 'lease-expired' }, { status: 503 });
     if (op === 'token')
       return Response.json({

@@ -56,3 +56,27 @@ test('only an authorization answer clears the transcript', async () => {
     ],
   });
 });
+
+test('a read that never answers gives up rather than holding the sync', async () => {
+  let signal: AbortSignal | null | undefined;
+  const deadline = new AbortController();
+  const read = readTranscript(
+    (_url, init) => {
+      signal = init.signal;
+      return new Promise<Response>((_resolve, reject) =>
+        init.signal?.addEventListener('abort', () =>
+          reject(new Error('aborted')),
+        ),
+      );
+    },
+    round.id,
+    deadline.signal,
+  );
+  deadline.abort();
+  assert({
+    given: 'a fetch left hanging with a deadline',
+    should: 'pass the deadline and answer unavailable when it passes',
+    actual: [(await read).kind, signal?.aborted],
+    expected: ['unavailable', true],
+  });
+});

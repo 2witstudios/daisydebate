@@ -29,20 +29,24 @@ export function LiveTranscript({
   readonly socketUrl: string | null;
 }) {
   const roundId = seed.round.id;
-  const first = useRef(seed);
+  // A replaced driver starts from the newest text held, never an older seed.
+  const held = useRef(seed);
   const start = useCallback(
     () =>
       createTranscriptSync({
-        seed: seedTranscript(first.current),
+        seed: seedTranscript(held.current),
         read: () => readTranscript(window.fetch.bind(window), roundId),
         ...browserSyncEdges(socketUrl),
       }),
     [roundId, socketUrl],
   );
   const [synced, driver] = useResourceSync(
-    () => seedTranscript(first.current),
+    () => seedTranscript(held.current),
     start,
   );
+  useEffect(() => {
+    held.current = synced.value;
+  }, [synced.value]);
   useEffect(() => {
     driver?.accepted(seed);
   }, [driver, seed]);

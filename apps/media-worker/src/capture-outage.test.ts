@@ -179,11 +179,13 @@ const heldClip = {
 async function consumeOne(answers: {
   append: (Error | object)[];
   observe: (Error | object)[];
+  stepMs?: number;
 }) {
   const stop = new AbortController();
   const queue = [heldClip];
   const writes: unknown[] = [];
   const events: string[] = [];
+  let now = 0;
   const answer =
     (list: (Error | object)[], name: string) => async (body: unknown) => {
       events.push(name);
@@ -202,14 +204,15 @@ async function consumeOne(answers: {
     voice: { transcribe: async () => ({ text: 'words' }) } as never,
     sttModel: 'stt',
     signal: stop.signal,
-    nowMs: () => 0,
+    nowMs: () => now,
     waitUntilMs: async (due) => {
-      if (due === 25) stop.abort();
+      if (due === now + 25) stop.abort();
+      now = due + (answers.stepMs ?? 0);
     },
     take: () => queue.shift(),
     straddles: () => [],
     dropped: () => undefined,
-    lost: () => undefined,
+    lost: () => events.push('lost'),
     transcribed: () => undefined,
     committed: () => events.push('committed'),
     settled: () => undefined,
@@ -243,6 +246,26 @@ test('a transcribed clip stays pending through an outage and commits once it end
       ],
       1,
     ],
+  });
+});
+
+test('a write refused for now past the outage budget is lost, not a block on every later clip', async () => {
+  const forever = Array.from({ length: 2000 }, outage);
+  const { finished, events } = await consumeOne({
+    append: forever,
+    observe: [],
+    stepMs: 10_000,
+  });
+  await finished;
+  assert({
+    given: 'an append the server keeps refusing for now, on a moving clock',
+    should: 'give up within the budget, record the loss and keep consuming',
+    actual: [
+      events.filter((event) => event === 'append').length < 20,
+      events.includes('lost'),
+      events.includes('committed'),
+    ],
+    expected: [true, true, false],
   });
 });
 
