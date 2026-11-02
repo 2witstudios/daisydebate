@@ -17,8 +17,9 @@ const labels = {
   casual: 'Casual',
 } as const;
 
-const summaryOf = (offer: ChallengeList['incoming'][number]) =>
-  `${labels[offer.format]} · ${labels[offer.mode]}`;
+const summaryOf = (
+  offer: Pick<ChallengeList['outgoing'][number], 'format' | 'mode'>,
+) => `${labels[offer.format]} · ${labels[offer.mode]}`;
 
 const stageAccept =
   'min-h-nav-target rounded-sm bg-stage-accent px-4 text-sm font-bold text-stage-accent-ink disabled:opacity-60';

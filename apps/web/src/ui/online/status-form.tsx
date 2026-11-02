@@ -54,7 +54,12 @@ function StatusChoice({
       disabled={pending}
       className="flex min-h-nav-target w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-semibold text-ink-muted hover:bg-surface-overlay hover:text-ink aria-pressed:text-ink"
     >
-      <span aria-hidden="true" className={presenceDotClass(status)} />
+      <span
+        aria-hidden="true"
+        className={presenceDotClass(
+          status === 'appearing_offline' ? 'offline' : status,
+        )}
+      />
       {labels[status]}
       {status === current ? (
         <Icon name="check" size={16} className="ml-auto" />

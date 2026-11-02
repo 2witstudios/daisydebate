@@ -140,7 +140,9 @@ export async function readFriendList(
   const accepted = rows.filter((row) => row.state === 'accepted');
   // A friend appearing offline is offline to everyone (ADR 0098): their
   // leases are never even read.
-  const visible = accepted.filter((row) => row.otherChosen !== 'offline');
+  const visible = accepted.filter(
+    (row) => row.otherChosen !== 'appearing_offline',
+  );
   const activity = visible.length
     ? await dependencies.presence(visible.map((row) => row.otherActorId))
     : new Map<string, PresenceActivity | null>();

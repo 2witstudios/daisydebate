@@ -215,7 +215,7 @@ test('readFriendList', async () => {
     requestedAt: now,
     otherChosen:
       otherActorId === 'g'.repeat(24)
-        ? ('offline' as const)
+        ? ('appearing_offline' as const)
         : ('online' as const),
     otherPlacement: null,
   });
