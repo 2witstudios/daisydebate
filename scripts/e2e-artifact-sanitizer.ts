@@ -10,7 +10,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
-  statSync,
+  lstatSync,
   writeFileSync,
 } from 'node:fs';
 import { mkdtempSync } from 'node:fs';
@@ -217,7 +217,9 @@ function walk(directory: string): readonly string[] {
   const files: string[] = [];
   for (const entry of readdirSync(directory)) {
     const absolute = join(directory, entry);
-    const info = statSync(absolute);
+    const info = lstatSync(absolute);
+    if (info.isSymbolicLink())
+      throw new Error('Artifact symlink refused; refusing publication');
     if (info.isDirectory()) files.push(...walk(absolute));
     else files.push(absolute);
   }
@@ -285,12 +287,23 @@ export function sanitizeArtifactTree(root: string): {
 } {
   let scanned = 0;
   let redacted = 0;
-  let entries: readonly string[];
   try {
-    entries = walk(root);
-  } catch {
-    return { scanned, redacted };
+    const info = lstatSync(root);
+    if (info.isSymbolicLink() || !info.isDirectory())
+      throw new Error('Artifact root must be an owned directory');
+  } catch (error) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    )
+      return { scanned, redacted };
+    throw new Error(
+      'Artifact directory cannot be inspected; refusing publication',
+    );
   }
+  const entries = walk(root);
   for (const file of entries) {
     scanned += 1;
     if (zipExtension.test(file)) {
