@@ -11,8 +11,8 @@ import { messagingContactReactions } from './messaging/contact-reactions';
 export const contactReactions: ContactReactions = {
   onBlock: [
     friendContactReactions.onBlock,
-    messagingContactReactions.onBlock,
     challengeContactReactions.onBlock,
+    messagingContactReactions.onBlock,
   ],
   relations: [
     friendContactReactions.relation,

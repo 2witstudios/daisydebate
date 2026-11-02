@@ -148,9 +148,9 @@ test('declining a friend request counts toward the DEC-251 decline block; cancel
   });
 });
 
-test('Friends’ block reaction deletes the pair’s friendship and challenges; an unblock touches neither', async () => {
+test('Friends’ block reaction deletes the pair’s friendship; an unblock leaves it', async () => {
   const run = async (blocked: boolean) => {
-    const { client, queries } = fakeSql([[], []]);
+    const { client, queries } = fakeSql([[]]);
     await friendContactReactions.onBlock(drizzle({ client }), pair, blocked);
     return queries.map(
       (query) => query.query.match(/delete from "?([a-z_]+)/)?.[1],
@@ -158,8 +158,8 @@ test('Friends’ block reaction deletes the pair’s friendship and challenges; 
   };
   assert({
     given: 'a block and then an unblock',
-    should: 'delete the friendship and its challenges only on the block',
+    should: 'delete the friendship only on the block',
     actual: [await run(true), await run(false)],
-    expected: [['friendships', 'challenges'], []],
+    expected: [['friendships'], []],
   });
 });
