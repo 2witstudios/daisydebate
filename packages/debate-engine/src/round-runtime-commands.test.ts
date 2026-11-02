@@ -37,7 +37,7 @@ describe('round runtime lifecycle', () => {
 
     test('lets only the floor holder yield, and returns unused time when the rules say so', async () => {
       const world = runtime();
-      world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+      world.activate({ at: at(0), now: at(0) });
       world.tick(at(10_000));
       const before = world.position(at(20_000));
       await assertRejects({
@@ -89,7 +89,7 @@ describe('round runtime lifecycle', () => {
           },
         },
       });
-      world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+      world.activate({ at: at(0), now: at(0) });
       world.tick(at(20_000)); // AC live, affirmative speaking
       const interrupted = world.execute({
         command: { type: 'interrupt' },
@@ -147,7 +147,7 @@ describe('round runtime lifecycle', () => {
 
     test('refuses interruptions the policy forbids', async () => {
       const world = runtime();
-      world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+      world.activate({ at: at(0), now: at(0) });
       world.tick(at(10_000));
       await assertRejects({
         given: 'an interrupt during a speech with interruptions off',
@@ -166,11 +166,7 @@ describe('round runtime lifecycle', () => {
     test("completes only after the final segment's time, with an outcome, and is then terminal", async () => {
       const { world, totalMs } = completedSchedule(rules);
       const beforeDeadline = runtime();
-      beforeDeadline.execute({
-        command: { type: 'start' },
-        actorId: null,
-        now: at(0),
-      });
+      beforeDeadline.activate({ at: at(0), now: at(0) });
       beforeDeadline.tick(at(totalMs - 1));
       await assertRejects({
         given: "a completion one millisecond before the last segment's end",
@@ -229,7 +225,7 @@ describe('round runtime lifecycle', () => {
 
     test("forfeit completes with the other side's outcome", () => {
       const world = runtime();
-      world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+      world.activate({ at: at(0), now: at(0) });
       world.tick(at(10_000));
       const forfeited = world.execute({
         command: { type: 'forfeit' },

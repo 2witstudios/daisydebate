@@ -11,7 +11,7 @@ setupRitewayBun();
 const { rules, at, person, opponent } = oneOnOneCast();
 
 describe('round runtime command refusals and seat order', () => {
-  test('forfeit before start abandons without inventing a competition result', () => {
+  test('a forfeit in the opening stands as a result for the other side', () => {
     const world = runtime();
     const projection = world.execute({
       command: { type: 'forfeit' },
@@ -19,15 +19,15 @@ describe('round runtime command refusals and seat order', () => {
       now: at(5_000),
     });
     assert({
-      given: 'a seated debater leaves a scheduled round',
-      should: 'record abandonment with no started instant or winner',
+      given: 'a seated debater forfeits an opening round',
+      should: 'complete it for the other side, starting and ending at that instant',
       actual: projection.round,
       expected: {
-        status: 'abandoned',
+        status: 'completed',
         currentStage: null,
-        startedAt: null,
+        startedAt: at(5_000),
         completedAt: at(5_000),
-        outcome: null,
+        outcome: 'negative',
         checkpoint: world.checkpoint(),
       },
     });
@@ -62,11 +62,7 @@ describe('round runtime command refusals and seat order', () => {
       given: 'a start command against an already active round',
       should: 'refuse with a conflict, not an invariant',
       actual: () =>
-        started.execute({
-          command: { type: 'start' },
-          actorId: null,
-          now: at(0),
-        }),
+        started.activate({ at: at(0), now: at(0) }),
       code: 'CONFLICT',
     });
     // AC is live at 20_000 under a policy that permits interrupting it.
@@ -79,7 +75,7 @@ describe('round runtime command refusals and seat order', () => {
         },
       },
     });
-    world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+    world.activate({ at: at(0), now: at(0) });
     world.tick(at(20_000));
     await assertRejects({
       given: 'an interrupt from no seat at all',
@@ -233,11 +229,7 @@ describe('round runtime command refusals and seat order', () => {
         seats: { affirmative: 1, negative: 2, judge: 1 },
       },
     });
-    const projection = world.execute({
-      command: { type: 'start' },
-      actorId: null,
-      now: at(0),
-    });
+    const projection = world.activate({ at: at(0), now: at(0) });
     assert({
       given: 'a round whose negative role holds two seats, out of order',
       should: 'start once the held slots are exactly 0..1',

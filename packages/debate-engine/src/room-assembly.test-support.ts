@@ -99,9 +99,6 @@ export const state = (): RoomAssemblyState => ({
       consentCommandId: 'r2',
     },
   ],
-  prepStartedAt: null,
-  prepRemainingMs: null,
-  resolutionDraw: null,
   roundRef: null,
 });
 export const edges = {
@@ -109,7 +106,6 @@ export const edges = {
   participantId: 'new-seat',
   formatId: 'new-format',
   target: null,
-  drawSeed: null,
   drawStart: null,
 };
 export const consent = { available: true, readyActorIds: ['host', 'other'] };

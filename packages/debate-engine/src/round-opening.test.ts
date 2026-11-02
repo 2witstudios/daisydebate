@@ -5,7 +5,7 @@ import {
   settleOpening,
   type RoundOpening,
 } from './round-opening';
-import { begin } from './room-pre-round.test-support';
+import { begin } from './round-opening.test-support';
 
 setupRitewayBun();
 
@@ -15,7 +15,7 @@ const after = (ms: number, from = STARTED_AT) =>
   new Date(Date.parse(from) + ms).toISOString();
 
 const humanDraw = (): ResolutionDrawState => ({
-  ...begin().state.resolutionDraw!,
+  ...begin().draw!.state,
   startedAt: STARTED_AT,
   strikes: [],
 });

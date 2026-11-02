@@ -1,8 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { executeRoomCommand, projectRoom } from './room-assembly';
+import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 import { drawResolutions } from './resolution-draw';
-import { preRoundPhase } from './pre-round-phase';
 import {
   SEED,
   SALT,
@@ -12,7 +11,7 @@ import {
   seedBytes,
   command,
   begin,
-} from './room-pre-round.test-support';
+} from './round-opening.test-support';
 
 setupRitewayBun();
 
@@ -80,14 +79,14 @@ describe('drawResolutions', () => {
   });
 });
 
-describe('start-pre-round', () => {
+describe('Start round on a draw Room', () => {
   test('a draw starts only with a complete, ready, eligible cast', () => {
     const room = drawRoom();
     const run = (overrides: Partial<typeof consent>, r = room) =>
       executeRoomCommand(
         r,
         'host',
-        command('start-pre-round', {}, r),
+        command('start-round', {}, r),
         { ...consent, ...overrides },
         { ...edges, drawStart },
       );
@@ -107,7 +106,7 @@ describe('start-pre-round', () => {
 
   test('the draw is committed, private inputs ride separately, and the topic stays null', () => {
     const mutation = begin();
-    const draw = mutation.state.resolutionDraw!;
+    const draw = mutation.draw!.state;
     assert({
       given: 'a started host-list draw',
       should:
@@ -115,9 +114,9 @@ describe('start-pre-round', () => {
       actual: [
         draw.items.length,
         mutation.state.topic,
-        mutation.drawSecrets?.seed,
-        mutation.drawSecrets?.inputs.salt,
-        mutation.drawSecrets?.inputs.candidateIds.length,
+        mutation.draw?.seed,
+        mutation.draw?.inputs.salt,
+        mutation.draw?.inputs.candidateIds.length,
         draw.manifest.source,
       ],
       expected: [5, null, SEED, SALT, 5, { kind: 'host', count: 5 }],
@@ -148,7 +147,7 @@ describe('start-pre-round', () => {
     assert({
       given: 'the same facts twice',
       should: 'produce the same commitment',
-      actual: begin().state.resolutionDraw!.commitment,
+      actual: begin().draw!.state.commitment,
       expected: draw.commitment,
     });
   });
@@ -161,7 +160,7 @@ describe('start-pre-round', () => {
       actual: executeRoomCommand(
         room,
         'host',
-        command('start-pre-round', {}, room),
+        command('start-round', {}, room),
         consent,
         { ...edges, drawStart },
       ),
@@ -188,11 +187,11 @@ describe('start-pre-round', () => {
     const outcome = executeRoomCommand(
       room,
       'host',
-      command('start-pre-round', {}, room),
+      command('start-round', {}, room),
       consent,
       { ...edges, drawStart: { ...drawStart, bank } },
     );
-    const inputs = outcome.ok ? outcome.mutation.drawSecrets?.inputs : null;
+    const inputs = outcome.ok ? outcome.mutation.draw?.inputs : null;
     assert({
       given:
         'a value-and-policy bank draw over a mixed-locale, three-category bank',
@@ -200,7 +199,7 @@ describe('start-pre-round', () => {
         'draw five from the six English value and policy entries and record the bank selection',
       actual: outcome.ok && [
         [...(inputs?.candidateIds ?? [])].sort(),
-        outcome.mutation.state.resolutionDraw!.items.every(
+        outcome.mutation.draw!.state.items.every(
           (item) => item.category !== 'fact',
         ),
         inputs?.sourceInput,
@@ -219,7 +218,7 @@ describe('start-pre-round', () => {
     });
   });
 
-  test('a Room with neither a draw nor prep keeps its setup open until Launch', () => {
+  test('a Room with no draw takes edits until Start round and creates no draw', () => {
     const room = state();
     const edited = executeRoomCommand(
       room,
@@ -235,47 +234,21 @@ describe('start-pre-round', () => {
       consent,
       edges,
     );
+    const started = executeRoomCommand(
+      room,
+      'host',
+      command('start-round', {}, room),
+      consent,
+      edges,
+    );
     assert({
-      given: 'no draw and no prep',
-      should:
-        'be satisfied, accept edits, refuse start-pre-round and allow Launch',
+      given: 'no draw',
+      should: 'accept edits, then freeze with no draw on Start round',
       actual: [
-        preRoundPhase(room, edges.now).phase,
         edited.ok && edited.mutation.state.topic,
-        executeRoomCommand(
-          room,
-          'host',
-          command('start-pre-round', {}, room),
-          consent,
-          edges,
-        ),
-        projectRoom(room, 'host', consent, edges.now, null).capabilities
-          .canStart,
+        started.ok && [started.mutation.freeze, started.mutation.draw],
       ],
-      expected: [
-        'satisfied',
-        'New motion',
-        { ok: false, refusal: 'prep-unavailable' },
-        true,
-      ],
+      expected: ['New motion', [true, null]],
     });
-  });
-});
-
-test('the draw button shows only when the draw would start (PR #472 review)', () => {
-  const room = drawRoom();
-  const can = (ready: { available: boolean; readyActorIds: string[] }) =>
-    projectRoom(room, 'host', ready, edges.now, null).capabilities
-      .canStartPreRound;
-  assert({
-    given:
-      'a full draw Room with everyone Ready, one debater not Ready, and Ready unreadable',
-    should: 'offer the draw only when the draw gate would let it start',
-    actual: [
-      can(consent),
-      can({ available: true, readyActorIds: ['host'] }),
-      can({ available: false, readyActorIds: [] }),
-    ],
-    expected: [true, false, false],
   });
 });

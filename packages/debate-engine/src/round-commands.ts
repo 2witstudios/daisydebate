@@ -57,15 +57,12 @@ const iso = (ms: number): string => new Date(ms).toISOString();
 const other = (side: DebateSide): DebateSide =>
   side === 'affirmative' ? 'negative' : 'affirmative';
 
-/** `scheduled` is the only status that starts; the clock anchors here. */
-const start = (c: CommandContext): void => {
-  if (c.on.lifecycle().status !== 'scheduled')
-    refuse('CONFLICT', 'Only a scheduled round starts');
+/** Only an opening Round starts; the clock anchors here. */
+export const startRound = (c: CommandContext): void => {
+  if (c.on.lifecycle().status !== 'opening')
+    refuse('CONFLICT', 'Only an opening round starts');
   c.assertSeatCompleteness();
-  c.on.setLifecycle({
-    status: 'active',
-    startedAtMs: c.now,
-  });
+  c.on.setLifecycle({ status: 'active', startedAtMs: c.now });
   c.into.effects.push({ kind: 'round_started', at: iso(c.now) });
 };
 
@@ -168,13 +165,9 @@ const startSpeech = (c: CommandContext): void => {
 const forfeit = (c: CommandContext): void => {
   const side = c.sideOf(c.actorId);
   if (side === null) refuse('CONFLICT', 'A seated debater forfeits');
-  if (c.on.lifecycle().status === 'scheduled') {
-    c.on.setLifecycle({
-      status: 'abandoned',
-      completedAtMs: c.now,
-    });
-    return;
-  }
+  // A forfeit in the opening stands as a result, with no resolution before a
+  // reveal; the record needs a start, so the Round starts and ends here.
+  if (c.on.lifecycle().status === 'opening') startRound(c);
   closePlayedRound(c);
   completeWith(c, other(side));
 };
@@ -240,8 +233,6 @@ export const applyRoundCommand = (
   if (status === 'abandoned')
     refuse('CONFLICT', 'An abandoned round takes no commands');
   switch (command.type) {
-    case 'start':
-      return start(c);
     case 'start_prep':
       return startPrep(c);
     case 'start_speech':

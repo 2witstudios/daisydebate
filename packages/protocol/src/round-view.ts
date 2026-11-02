@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { idSchema, debateRoleSchema, ratingLadders } from './primitives';
 import { frozenRoomConfigSchema } from './room';
-import { resolutionAuditSchema } from './resolution-draw';
+import { resolutionAuditSchema, resolutionDrawViewSchema } from './resolution-draw';
 import { roundRulesSchema, segmentTypes } from './format';
 import {
   competitionTypes,
@@ -33,6 +33,27 @@ const anonymousJudgeSchema = z.strictObject({
 });
 
 /**
+ * A Round's opening as one viewer reads it (ADR 0098). `complete` means every
+ * step has run and the Round is about to become active. The draw stays visible
+ * through prep, so a debater can see how the resolution was chosen.
+ */
+const roundOpeningViewSchema = z.strictObject({
+  step: z.discriminatedUnion('step', [
+    z.strictObject({ step: z.literal('strike') }),
+    z.strictObject({
+      step: z.literal('prep'),
+      startedAt: instant,
+      endsAt: instant,
+      remainingMs: z.int().min(0),
+    }),
+    z.strictObject({ step: z.literal('complete'), at: instant }),
+  ]),
+  draw: resolutionDrawViewSchema.nullable(),
+  /** The strike turn this viewer may take now. */
+  canStrike: z.boolean(),
+});
+
+/**
  * One viewer's Round: the durable Launch read grammar plus the runtime
  * snapshot (checkpoint and segment rows, in sequence order) a client derives
  * the live position from with the shared reader
@@ -47,7 +68,10 @@ export const roundViewSchema = z.strictObject({
   status: roundStatusSchema,
   competitionType: z.enum(competitionTypes),
   ladderId: z.enum(ratingLadders).nullable(),
-  topic: z.string().min(1),
+  /** Null until a draw's reveal; stays null when a Round ended before its reveal. */
+  topic: z.string().min(1).nullable(),
+  /** Where the opening stands for this viewer; null once the Round leaves it. */
+  opening: roundOpeningViewSchema.nullable(),
   visibility: z.enum(['public', 'unlisted', 'private']),
   config: frozenRoomConfigSchema,
   rules: roundRulesSchema,
@@ -88,7 +112,10 @@ export type RoundSeat = z.infer<typeof seatSchema>;
  * The Round as stored, before projection for a viewer: every seat named
  * and the host's actor. Authorization reads it; it never leaves the server.
  */
-export type LaunchedRound = Omit<RoundView, 'participants' | 'viewerIsHost'> & {
+export type LaunchedRound = Omit<
+  RoundView,
+  'participants' | 'viewerIsHost' | 'opening'
+> & {
   readonly hostActorId: string | null;
   readonly participants: readonly RoundSeat[];
 };

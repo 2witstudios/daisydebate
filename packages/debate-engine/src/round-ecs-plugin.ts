@@ -27,7 +27,7 @@ const plugin = Database.Plugin.create({
     durationMs: { type: 'number' },
   },
   resources: {
-    status: { enum: roundStatuses, default: 'scheduled' },
+    status: { enum: roundStatuses, default: 'opening' },
     startedAtMs: { ...Schema.Nullable({ type: 'number' }), default: null },
     completedAtMs: { ...Schema.Nullable({ type: 'number' }), default: null },
     outcome: {

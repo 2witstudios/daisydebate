@@ -164,7 +164,7 @@ const turnSchema = z
 /**
  * What a viewer sees of a draw. Seated debaters see every drawn text;
  * everyone else sees only progress. A revealed survivor reaches everyone
- * through the Room's topic, never through this field.
+ * through the Round's topic, never through this field.
  */
 export const resolutionDrawViewSchema = z.discriminatedUnion('visibility', [
   z.strictObject({

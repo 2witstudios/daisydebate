@@ -81,7 +81,7 @@ export const emptyCheckpoint = {
 
 /** Options `runtimeWorld` takes; every field defaults to a fresh round. */
 export type RuntimeWorldOptions = {
-  readonly status?: 'scheduled' | 'active' | 'completed' | 'abandoned';
+  readonly status?: 'opening' | 'active' | 'completed' | 'abandoned';
   readonly segments?: Parameters<typeof createRoundRuntime>[0]['segments'];
   readonly checkpoint?: unknown;
   readonly rules?: RoundRules;
@@ -90,7 +90,7 @@ export type RuntimeWorldOptions = {
 
 /** A runtime over the one-on-one format, as the runtime tests execute it. */
 export const runtimeWorld = ({
-  status = 'scheduled',
+  status = 'opening',
   segments = [],
   checkpoint = emptyCheckpoint,
   rules = oneOnOneRules(),
@@ -129,7 +129,7 @@ export const oneOnOneCast = () => ({
 /** A started one-on-one world, ticked to the instant its final segment is due. */
 export const completedSchedule = (rules: RoundRules) => {
   const world = runtimeWorld();
-  world.execute({ command: { type: 'start' }, actorId: null, now: roundAt(0) });
+  world.activate({ at: roundAt(0), now: roundAt(0) });
   const totalMs = oneOnOneRoundTotalMs(rules);
   world.tick(roundAt(totalMs));
   return { world, totalMs };

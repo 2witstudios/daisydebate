@@ -29,7 +29,7 @@ const facts = (competitionType: CompetitionType, now: string) => ({
 });
 const played = () => {
   const world = runtimeWorld({ rules, participants });
-  world.execute({ command: { type: 'start' }, actorId: null, now: roundAt(0) });
+  world.activate({ at: roundAt(0), now: roundAt(0) });
   world.tick(roundAt(total));
   return world;
 };
@@ -37,11 +37,7 @@ const played = () => {
 /** Rehydrate actual engine projections with deliberately inconsistent cast evidence. */
 const closedWith = (overrides: Parameters<typeof runtimeWorld>[0]) => {
   const source = runtimeWorld({ rules, participants });
-  source.execute({
-    command: { type: 'start' },
-    actorId: null,
-    now: roundAt(0),
-  });
+  source.activate({ at: roundAt(0), now: roundAt(0) });
   const projected = source.tick(roundAt(total));
   return runtimeWorld({
     rules,

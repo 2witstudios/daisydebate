@@ -40,7 +40,6 @@ export type RoundParticipantSeat = {
 };
 
 export type RoundCommand =
-  | { readonly type: 'start' }
   | { readonly type: 'start_prep' }
   | { readonly type: 'start_speech' }
   | { readonly type: 'yield' }

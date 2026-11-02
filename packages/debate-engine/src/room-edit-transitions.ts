@@ -50,10 +50,6 @@ export const updateConfig = (
     topic,
     publishedResolutionId:
       topic === room.topic ? room.publishedResolutionId : null,
-    prepStartedAt: null,
-    prepRemainingMs: resolved.roomPlan.preRoundPrep.enabled
-      ? resolved.roomPlan.preRoundPrep.durationMs
-      : null,
   };
   return acceptedRoomMutation(next, { publishDefinition });
 };
@@ -122,10 +118,6 @@ export const selectFormat = (
     executionPlan: roomPlan,
     topic,
     publishedResolutionId: fixedStandard ? publication!.id : null,
-    prepStartedAt: null,
-    prepRemainingMs: roomPlan.preRoundPrep.enabled
-      ? roomPlan.preRoundPrep.durationMs
-      : null,
   });
 };
 export const updateDetails = (

@@ -18,7 +18,7 @@ const bot = {
   consentCommandId: null,
 };
 const withRound = (
-  status: 'scheduled' | 'active' | 'completed' | 'abandoned',
+  status: 'opening' | 'active' | 'completed' | 'abandoned',
 ): RoomAssemblyState => ({
   ...state(),
   status: 'started',
@@ -44,7 +44,7 @@ describe('one active Room per user', () => {
       given: 'a launched Room whose Round is scheduled or active',
       should: 'keep holding its members while the Round is live',
       actual: [
-        activeRoomMembers(withRound('scheduled')),
+        activeRoomMembers(withRound('opening')),
         activeRoomMembers(withRound('active')),
       ],
       expected: [

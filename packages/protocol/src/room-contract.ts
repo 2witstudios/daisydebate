@@ -166,16 +166,9 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
       expectedConsentVersion: z.int().min(0),
     }),
   ),
-  ...(['start-pre-round', 'finish-prep', 'start-round', 'close'] as const).map(
-    (type) => z.strictObject({ ...envelope, type: z.literal(type) }),
+  ...(['start-round', 'close'] as const).map((type) =>
+    z.strictObject({ ...envelope, type: z.literal(type) }),
   ),
-  z.strictObject({
-    ...envelope,
-    type: z.literal('strike-resolution'),
-    /** The strike this form means to make: a stale form conflicts. */
-    ordinal: z.int().min(0),
-    position: z.int().min(0),
-  }),
 ]);
 export type RoomCommand = z.infer<typeof roomCommandSchema>;
 export type RoomCreate = z.infer<typeof roomCreateSchema>;
@@ -191,7 +184,7 @@ export type RoomParticipant = {
 };
 type RoomRoundRef = {
   readonly id: string;
-  readonly status: 'scheduled' | 'active' | 'completed' | 'abandoned';
+  readonly status: 'opening' | 'active' | 'completed' | 'abandoned';
 };
 export type RoomRefusal = z.infer<typeof roomRefusalSchema>;
 /** Receipts acknowledge an accepted command; effective consent always comes from a fresh view. */
@@ -212,7 +205,7 @@ export type RoomAssemblyState = {
   readonly version: number;
   readonly changeVersion: number;
   readonly title: string;
-  /** Null exactly while a draw Room has not revealed its resolution. */
+  /** Null exactly for a draw Room: its resolution belongs to the Round. */
   readonly topic: string | null;
   readonly publishedResolutionId: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
@@ -253,10 +246,6 @@ export type RoomAssemblyState = {
     readonly eligible: boolean;
     readonly consentCommandId: string | null;
   })[];
-  readonly prepStartedAt: string | null;
-  readonly prepRemainingMs: number | null;
-  /** The Room's one draw, once its pre-round has begun with one. */
-  readonly resolutionDraw: ResolutionDrawState | null;
 };
 export type RoomConsent = {
   readonly available: boolean;
@@ -275,8 +264,9 @@ type RoomMutation = {
   /** A freeze that takes a slot of the global bot-debater capacity, ranked included. */
   readonly seatsBotDebater: boolean;
   readonly publishDefinition: boolean;
-  /** The seed and private inputs of a draw this mutation creates; never delivered. */
-  readonly drawSecrets: {
+  /** The draw a Start round creates with its Round, secrets never delivered. */
+  readonly draw: {
+    readonly state: ResolutionDrawState;
     readonly seed: string;
     readonly inputs: DrawPrivateInputs;
   } | null;
@@ -318,7 +308,7 @@ const roomListEntrySchema = z.strictObject({
   id: idSchema,
   version: z.int().positive(),
   title: z.string().min(1),
-  /** Null while a draw Room has not revealed its resolution. */
+  /** Null until a draw's reveal; a live Round's resolution once it has one. */
   topic: z.string().min(1).nullable(),
   visibility: z.enum(['public', 'unlisted', 'private']),
   /** Null when the host sits as a judge this viewer may not name (DEC-174). */
@@ -328,7 +318,7 @@ const roomListEntrySchema = z.strictObject({
   competitionType: z.enum(competitionTypes),
   seated: z.boolean(),
   roundRef: z
-    .strictObject({ id: idSchema, status: z.enum(['scheduled', 'active']) })
+    .strictObject({ id: idSchema, status: z.enum(['opening', 'active']) })
     .nullable(),
   /** The joined catalog format's stored name. */
   formatLabel: z.string().min(1),

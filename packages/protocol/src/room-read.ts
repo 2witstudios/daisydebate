@@ -3,7 +3,6 @@ import { idSchema, debateRoleSchema } from './primitives';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
 import { formatSettingsSchema } from './format-settings';
 import { frozenRoomConfigSchema, frozenRoomExecutionPlanSchema } from './room';
-import { resolutionDrawViewSchema } from './resolution-draw';
 import { competitionTypes, roundStatusSchema } from './round';
 import { formatStandingSchema } from './format-standing';
 import { roomStatuses } from './room-contract';
@@ -47,8 +46,6 @@ export const roomRefusalSchema = z.enum([
   'incomplete-cast',
   'not-ready',
   'readiness-unavailable',
-  'prep-running',
-  'prep-unavailable',
   'command-conflict',
   'consent-conflict',
   /** The caller already holds another active Room (ADR 0070). */
@@ -58,12 +55,6 @@ export const roomRefusalSchema = z.enum([
   'ranked-unavailable',
   /** The draw's source cannot supply enough resolutions. */
   'draw-unavailable',
-  /** No draw, or the position is not standing. */
-  'strike-unavailable',
-  /** The form's strike is not the next one: refresh and strike again. */
-  'strike-conflict',
-  /** The side holding this strike is not yours to strike for. */
-  'not-your-turn',
   /** Live bot-debater capacity is full; a later Launch may succeed (ISSUE-773). */
   'bots-busy',
 ]);
@@ -131,7 +122,6 @@ export const roomViewSchema = z.strictObject({
   authoredDrawSource: z
     .strictObject({ resolutions: z.array(z.string().min(1)).readonly() })
     .nullable(),
-  resolutionDraw: resolutionDrawViewSchema.nullable(),
   rules: roundRulesSchema,
   participants: z
     .array(
@@ -153,19 +143,11 @@ export const roomViewSchema = z.strictObject({
     version,
     readyActorIds: z.array(idSchema).readonly(),
   }),
-  prep: z.strictObject({
-    startedAt: nullableTimestamp,
-    remainingMs: z.int().nonnegative().nullable(),
-    finished: z.boolean(),
-  }),
   capabilities: z.strictObject({
     host: z.boolean(),
     canEdit: z.boolean(),
     canClaimSeat: z.boolean(),
     canReady: z.boolean(),
-    canStartPreRound: z.boolean(),
-    canStrike: z.boolean(),
-    canFinishPrep: z.boolean(),
     canStart: z.boolean(),
   }),
   startRefusal: roomRefusalSchema.nullable(),
