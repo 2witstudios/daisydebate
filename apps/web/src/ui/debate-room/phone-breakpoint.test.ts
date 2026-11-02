@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { narrowMediaQuery } from './narrow-breakpoint';
+import { phoneMediaQuery } from './phone-breakpoint';
 
 setupRitewayBun();
 
@@ -8,12 +8,12 @@ const style = (token: string) => ({
     name === '--breakpoint-narrow' ? token : '',
 });
 
-describe('narrowMediaQuery', () => {
+describe('phoneMediaQuery', () => {
   test('the globals.css token', () => {
     assert({
       given: 'the computed --breakpoint-narrow token',
       should: 'build the matching range query',
-      actual: narrowMediaQuery(style(' 901px ')),
+      actual: phoneMediaQuery(style(' 901px ')),
       expected: '(width < 901px)',
     });
   });
@@ -22,7 +22,7 @@ describe('narrowMediaQuery', () => {
     assert({
       given: 'a computed style without the token',
       should: 'fall back to the documented 901px default',
-      actual: narrowMediaQuery(style('')),
+      actual: phoneMediaQuery(style('')),
       expected: '(width < 901px)',
     });
   });

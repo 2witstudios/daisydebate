@@ -3,12 +3,12 @@
 import { useLayoutEffect, useState } from 'react';
 
 /**
- * The room's one narrow threshold as a media query: `--breakpoint-compact`
+ * The room's one phone-layout threshold as a media query: `--breakpoint-compact`
  * in globals.css defines it, so the CSS hiding (`max-compact:`) and any
  * effect observing it cannot drift apart. Without the token the documented
  * 901px default applies.
  */
-export const narrowMediaQuery = (computed: {
+export const phoneMediaQuery = (computed: {
   getPropertyValue: (name: string) => string;
 }): string => {
   const px =
@@ -19,26 +19,26 @@ export const narrowMediaQuery = (computed: {
 /**
  * True while the viewport is below the room's phone layout, live
  * across resizes and rotations: a crossing re-runs the effects that depend
- * on it, so a drawer hidden by the media query alone still returns focus.
+ * on it, so a region hidden by the media query alone still returns focus.
  * The first value is read synchronously so a phone's first render already
  * knows, and no crossing fires on load.
  */
-export const useNarrowBreakpoint = (): boolean => {
-  const [narrow, setNarrow] = useState(liveBelowBreakpoint);
+export const usePhoneBreakpoint = (): boolean => {
+  const [phone, setPhone] = useState(liveBelowBreakpoint);
   useLayoutEffect(() => {
     const query = matchMedia(
-      narrowMediaQuery(getComputedStyle(document.documentElement)),
+      phoneMediaQuery(getComputedStyle(document.documentElement)),
     );
-    const report = () => setNarrow(query.matches);
+    const report = () => setPhone(query.matches);
     report();
     query.addEventListener('change', report);
     return () => query.removeEventListener('change', report);
   }, []);
-  return narrow;
+  return phone;
 };
 
 const liveBelowBreakpoint = () =>
   typeof window === 'undefined'
     ? false
-    : matchMedia(narrowMediaQuery(getComputedStyle(document.documentElement)))
+    : matchMedia(phoneMediaQuery(getComputedStyle(document.documentElement)))
         .matches;

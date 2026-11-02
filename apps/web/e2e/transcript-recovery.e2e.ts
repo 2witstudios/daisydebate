@@ -48,7 +48,6 @@ test('committed transcript survives reads failing and returning, and clears on r
     const page = await openPage(members[0]!.context, 'transcript recovery');
     await page.goto(`/rounds/${round.id}/room`);
     const transcript = transcriptOf(page);
-    await transcript.getByText('Show the transcript', { exact: true }).click();
     const first = transcript.getByText('Fixture line 0.', { exact: false });
     await expect(first).toBeVisible();
     await first.scrollIntoViewIfNeeded();
@@ -105,9 +104,6 @@ test('committed transcript survives reads failing and returning, and clears on r
     await page.unroute(routeOf(round.id));
 
     await page.reload();
-    await transcriptOf(page)
-      .getByText('Show the transcript', { exact: true })
-      .click();
     await expect(
       transcriptOf(page)
         .getByRole('listitem')

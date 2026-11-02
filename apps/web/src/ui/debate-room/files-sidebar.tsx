@@ -4,8 +4,8 @@ import { useMemo, type Dispatch } from 'react';
 import { buildTree } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
-import { DrawerFiles } from './drawer-files';
-import { DrawerRoom } from './drawer-room';
+import { FileTree } from './file-tree';
+import { RoomDetails } from './room-details';
 import type { RoomAction, RoomState } from './room-state';
 import type { RoundSnapshot } from './round';
 
@@ -66,7 +66,7 @@ export function FilesSidebar({
       id={FILES_ID}
       aria-label="Your files"
       className={cn(
-        'flex min-h-0 w-round-drawer shrink-0 flex-col border-r border-border bg-surface max-compact:w-full max-compact:flex-1 max-compact:border-r-0',
+        'flex min-h-0 w-round-files shrink-0 flex-col border-r border-border bg-surface max-compact:w-full max-compact:flex-1 max-compact:border-r-0',
         !state.filesOpen && 'compact:hidden',
         phoneClass,
       )}
@@ -94,18 +94,14 @@ export function FilesSidebar({
         </button>
       </div>
       <div className="flex min-h-0 flex-1 flex-col p-3">
-        <DrawerFiles
-          tree={tree}
-          active={state.tabs.active}
-          dispatch={dispatch}
-        />
+        <FileTree tree={tree} active={state.tabs.active} dispatch={dispatch} />
       </div>
       <details className="shrink-0 border-t border-border max-compact:hidden">
         <summary className="flex h-room-target cursor-pointer items-center px-4 text-sm font-strong">
           Room
         </summary>
         <div className="flex max-h-room-details flex-col overflow-y-auto px-3 pb-3">
-          <DrawerRoom round={round} transcribing={transcribing} />
+          <RoomDetails round={round} transcribing={transcribing} />
         </div>
       </details>
     </aside>

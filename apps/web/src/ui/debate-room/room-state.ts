@@ -191,10 +191,9 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
 };
 
 /** The room's one transition: every change a debater makes goes through it. */
-export function reduceRoom() {
-  return (state: RoomState, action: RoomAction): RoomState =>
-    (reducers[action.type] as Reducer<typeof action.type>)(
-      state,
-      action as never,
-    );
+export function reduceRoom(state: RoomState, action: RoomAction): RoomState {
+  return (reducers[action.type] as Reducer<typeof action.type>)(
+    state,
+    action as never,
+  );
 }

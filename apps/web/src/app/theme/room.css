@@ -4,11 +4,10 @@
 
 @theme {
   /* The round room's fixed metrics: a touch target, the round bar, the
-     controls row, the Files sidebar and the leave confirm. */
+     Files sidebar and the leave confirm. */
   --spacing-room-target: 44px;
   --spacing-round-bar: 56px;
-  --spacing-round-controls: 72px;
-  --spacing-round-drawer: 260px;
+  --spacing-round-files: 260px;
   --spacing-room-details: 288px;
   --spacing-room-dialog: 320px;
   /* The video tiles: initials discs by tile size and a phone's two small
@@ -68,6 +67,20 @@
       width: auto;
       height: var(--spacing-room-phone-tile);
       aspect-ratio: auto;
+    }
+  }
+}
+
+/* Before script a phone's tabs cannot switch, so its panels stack and the
+   workspace scrolls: each keeps a readable height. */
+@utility room-stacked {
+  @media (width < 901px) {
+    flex-direction: column;
+    overflow-y: auto;
+
+    & > * {
+      flex: none;
+      min-height: 24rem;
     }
   }
 }

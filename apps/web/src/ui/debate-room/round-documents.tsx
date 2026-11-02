@@ -4,7 +4,7 @@ import { useReducer } from 'react';
 import { buildTree } from '../../features/debate-room/workspace';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { DocumentPane } from './document-pane';
-import { DrawerFiles } from './drawer-files';
+import { FileTree } from './file-tree';
 import {
   initialPersistedWorkspace,
   reducePersistedWorkspace,
@@ -62,8 +62,8 @@ function RoundWorkspace({
       <h2 className="text-lg font-bold">Your files</h2>
       {(problem ?? notice) ? <p role="alert">{problem ?? notice}</p> : null}
       <div className="flex room-workspace border-t border-border max-narrow:flex-col">
-        <div className="flex w-round-drawer shrink-0 flex-col border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
-          <DrawerFiles
+        <div className="flex w-round-files shrink-0 flex-col border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
+          <FileTree
             tree={buildTree(state.documents, null)}
             active={state.tabs.active}
             dispatch={dispatch}

@@ -2,7 +2,6 @@
 
 import {
   useLayoutEffect,
-  useMemo,
   useReducer,
   useRef,
   useSyncExternalStore,
@@ -18,7 +17,7 @@ import { CommandPalette, type PaletteChoice } from './command-palette';
 import { PhoneActions, RoundControls } from './controls';
 import type { DocumentSync } from './document-sync';
 import type { SaveState } from './document-pane';
-import { DrawerRoom } from './drawer-room';
+import { RoomDetails } from './room-details';
 import {
   FILES_ID,
   FILES_SHOW_ID,
@@ -27,7 +26,7 @@ import {
 } from './files-sidebar';
 import { focusReturnTarget, firstShown } from './focus-return';
 import type { LeaveLinks } from './leave-room';
-import { useNarrowBreakpoint } from './narrow-breakpoint';
+import { usePhoneBreakpoint } from './phone-breakpoint';
 import { RoomDocument } from './room-document';
 import { initialRoomState, reduceRoom, type RoomAction } from './room-state';
 import type { RoundSnapshot } from './round';
@@ -87,7 +86,7 @@ const focusTargets = () => [
  * region held on the body, so the crossing brings it back itself.
  */
 function useFocusReturn(filesOpen: boolean, phone: PhonePanel) {
-  const narrow = useNarrowBreakpoint();
+  const phoneLayout = usePhoneBreakpoint();
   useLayoutEffect(() => {
     focusReturnTarget(
       document.activeElement,
@@ -95,17 +94,17 @@ function useFocusReturn(filesOpen: boolean, phone: PhonePanel) {
       focusTargets(),
     )?.focus();
   }, [filesOpen, phone]);
-  const crossed = useRef(narrow);
+  const crossed = useRef(phoneLayout);
   useLayoutEffect(() => {
-    if (crossed.current === narrow) return;
-    crossed.current = narrow;
+    if (crossed.current === phoneLayout) return;
+    crossed.current = phoneLayout;
     const active = document.activeElement;
     const targets = focusTargets();
     const target =
       focusReturnTarget(active, focusRegions(), targets) ??
       (active === document.body ? firstShown(targets) : null);
     target?.focus();
-  }, [narrow]);
+  }, [phoneLayout]);
 }
 
 const noLeave: LeaveLinks = {
@@ -160,8 +159,7 @@ type RoomProps = {
  * same help (ADR 0097).
  */
 export function DebateRoom({ round, sync, ...props }: RoomProps) {
-  const reducer = useMemo(() => reduceRoom(), []);
-  const [state, dispatch] = useReducer(reducer, round, initialRoomState);
+  const [state, dispatch] = useReducer(reduceRoom, round, initialRoomState);
   const root = useTileHeight(tileHeightFor(round.phase));
   usePaletteShortcut(dispatch);
   useFocusReturn(state.filesOpen, state.phone);
@@ -200,12 +198,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
         </p>
       ) : null}
       <BallotStatus round={round} />
-      <div
-        className={cn(
-          'flex min-h-0 flex-1',
-          !hydrated && 'max-compact:flex-col max-compact:overflow-y-auto',
-        )}
-      >
+      <div className={cn('flex min-h-0 flex-1', !hydrated && 'room-stacked')}>
         <FilesSidebar
           round={round}
           state={state}
@@ -241,7 +234,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
             phoneHides('room') || 'flex flex-1',
           )}
         >
-          <DrawerRoom round={round} transcribing={transcribing} />
+          <RoomDetails round={round} transcribing={transcribing} />
         </div>
       </div>
       <PhoneActions round={round} actions={props.actions} />

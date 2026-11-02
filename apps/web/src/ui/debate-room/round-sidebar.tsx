@@ -13,7 +13,7 @@ import {
   type SidebarTab,
 } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
-import { AgentPanel, Badge, ChatPanel } from './drawer-panels';
+import { AgentPanel, Badge, ChatPanel } from './sidebar-panels';
 import type { RoomAction, RoomState } from './room-state';
 import type { RoundSnapshot } from './round';
 

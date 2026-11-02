@@ -1,5 +1,6 @@
 import { origin } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
+import { openPage } from './support/fixtures';
 import { documentsPath, expect, test } from './support/round-files';
 
 test('the round room: palette and editor', async ({ roundFiles }) => {
@@ -313,4 +314,32 @@ test('the round room fits the viewport and the workspace starts on one line', as
     ].map(async (region) => Math.round((await region.boundingBox())?.y ?? -1)),
   );
   expect(new Set(tops).size).toBe(1);
+});
+
+test('without JavaScript a phone reads the transcript and keeps Leave', async ({
+  roundFiles,
+  browser,
+}) => {
+  const { page } = roundFiles;
+  const native = await browser.newContext({
+    baseURL: origin,
+    javaScriptEnabled: false,
+    ignoreHTTPSErrors: false,
+    viewport: { width: 390, height: 844 },
+    storageState: await page.context().storageState(),
+  });
+  try {
+    const phone = await openPage(native, 'no-JavaScript phone room');
+    await phone.goto(new URL(page.url()).pathname);
+    await expect(
+      phone.getByRole('complementary', { name: 'Round sidebar' }),
+    ).toBeVisible();
+    await expect(
+      phone.locator('[aria-labelledby="live-transcript"]'),
+    ).toBeVisible();
+    await expect(phone.getByRole('region', { name: 'Document' })).toBeVisible();
+    await expect(phone.getByRole('link', { name: /Leave/ })).toBeVisible();
+  } finally {
+    await native.close();
+  }
 });

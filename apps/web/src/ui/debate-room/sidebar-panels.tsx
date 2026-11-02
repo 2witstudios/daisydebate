@@ -9,7 +9,7 @@ import type { RoomAction, RoomState } from './room-state';
 import type { RoundSnapshot } from './round';
 import { AgentThread, ChatThread, Composer } from './threads';
 
-/** What a drawer panel reads and writes. */
+/** What a sidebar panel reads and writes. */
 export type PanelProps = {
   readonly round: RoundSnapshot;
   readonly state: RoomState;

@@ -24,8 +24,10 @@ they changed nothing on the live media stage.
 
 **Help.** All communication and all AI help are allowed in every Round, ranked
 included. Daisy cannot enforce a ban, because anyone can open another device,
-so it does not pretend to. Nothing the room offers depends on the Round's type.
-The Terms of Service say the same.
+so it does not pretend to. Nothing the room offers depends on the Round's type,
+and the Terms of Service say the same. A plan may later decide who has the AI
+assistant, as a paid entitlement (owner, 2026-11-02); it never decides by round
+type, and this slice adds no such gate.
 
 **Documents.** A user owns documents, and a club will too. A Round only opens
 them, so Daisy has no Round concept of files: the `round` folder, the stored
@@ -35,7 +37,8 @@ creator's drive, whichever Round it was created in.
 **A document is just a document.** Templates are gone, including
 `template_id`, and so are the debate marks (Aff, Neg, Extend, Dropped, New).
 A stored mark loses its styling and keeps its text the next time the document
-is opened. A page follows the viewer's theme until they choose otherwise. A new document is titled `Untitled` and starts empty, and a flow
+is opened. A page follows the viewer's theme until they choose otherwise.
+A new document is titled `Untitled` and starts empty, and a flow
 is one a debater chooses to write. With nothing open, the room opens the
 document edited last, or offers New document when there are none.
 

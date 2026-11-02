@@ -8,7 +8,7 @@ const now = '2026-10-05T18:30:00.000Z';
 const casual = sampleRound('prep', 'casual');
 
 test('an accepted recovery uses the ordinary document and tab transitions', () => {
-  const reduce = reduceRoom();
+  const reduce = reduceRoom;
   const before = initialRoomState(casual);
   const updated = reduce(before, {
     type: 'doc/update',
@@ -43,7 +43,7 @@ describe('initialRoomState', () => {
 
 describe('reduceRoom doc/create', () => {
   test('a new document from the palette', () => {
-    const reduce = reduceRoom();
+    const reduce = reduceRoom;
     const state = reduce(
       { ...initialRoomState(casual), paletteOpen: true },
       {
@@ -66,7 +66,7 @@ describe('reduceRoom doc/create', () => {
 });
 
 describe('reduceRoom agent/edit', () => {
-  const reduce = reduceRoom();
+  const reduce = reduceRoom;
   const apply = {
     type: 'agent/edit',
     turnId: 'a2',
@@ -132,7 +132,7 @@ describe('reduceRoom agent/edit', () => {
 });
 
 describe('reduceRoom sidebars', () => {
-  const reduce = reduceRoom();
+  const reduce = reduceRoom;
   const before = initialRoomState(casual);
 
   test('Files closes and reopens by hand', () => {
@@ -192,7 +192,7 @@ describe('reduceRoom sidebars', () => {
 });
 
 describe('reduceRoom doc/loaded and doc/add', () => {
-  const reduce = reduceRoom();
+  const reduce = reduceRoom;
   const flow = casual.documents.find((d) => d.id === 'doc-flow')!;
 
   test('the server’s documents arrive', () => {
@@ -228,7 +228,7 @@ describe('reduceRoom doc/loaded and doc/add', () => {
 
 describe('reduceRoom page/tone', () => {
   test('one document’s page', () => {
-    const state = reduceRoom()(initialRoomState(casual), {
+    const state = reduceRoom(initialRoomState(casual), {
       type: 'page/tone',
       documentId: 'doc-flow',
       tone: 'light',

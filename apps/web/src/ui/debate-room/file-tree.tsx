@@ -22,7 +22,7 @@ type Props = {
 };
 
 /** Open or create, then the viewer's drive and their club's. */
-export function DrawerFiles({ tree, active, dispatch }: Props) {
+export function FileTree({ tree, active, dispatch }: Props) {
   const open = (id: string) => dispatch({ type: 'tabs/open', id });
   return (
     <nav aria-label="Files" className="flex min-h-0 flex-1 flex-col gap-4">

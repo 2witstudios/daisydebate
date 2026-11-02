@@ -25,7 +25,7 @@ const panels: Readonly<
 export const CURRENT_ROUND_TAB =
   'nav[aria-label="Round"] [aria-current="page"]';
 
-/** The phone round tab bar's Doc tab: the drawer's way back when none is current. */
+/** The phone round tab bar's Doc tab: the way back when none is current. */
 export const FIRST_ROUND_TAB = 'nav[aria-label="Round"] button';
 
 /** The phone round tab bar itself: a breakpoint crossing can hide it under focus. */

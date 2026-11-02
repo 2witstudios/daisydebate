@@ -122,6 +122,28 @@ describe('DebateRoom', () => {
     });
   });
 
+  test('without script a phone keeps every panel readable', () => {
+    const html = renderToString(
+      h(DebateRoom, {
+        round: sampleRound('opponent-speaking', 'casual'),
+        transcript: h('p', null, 'the line'),
+      }),
+    );
+    assert({
+      given: 'the server’s markup, before any script runs',
+      should:
+        'stack the panels in one scroll, hide none for the phone and show the transcript',
+      actual: [
+        html.includes('room-stacked'),
+        html.includes('max-compact:hidden" id'),
+        /id="round-sidebar"[^>]*max-compact:hidden/.test(html),
+        /id="round-document"[^>]*max-compact:hidden/.test(html),
+        html.includes('the line'),
+      ],
+      expected: [true, false, false, false, true],
+    });
+  });
+
   test('page notices stay inside the frame', () => {
     const html = renderToString(
       h(DebateRoom, {

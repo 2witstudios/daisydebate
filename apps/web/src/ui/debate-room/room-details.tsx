@@ -44,7 +44,7 @@ const stakesLabel = (stakes: NonNullable<RoundSnapshot['stakes']>) =>
   `+${stakes.win} / −${stakes.loss}`;
 
 /** Who is in the round, and what the round is keeping. */
-export function DrawerRoom({
+export function RoomDetails({
   round,
   transcribing,
 }: {
