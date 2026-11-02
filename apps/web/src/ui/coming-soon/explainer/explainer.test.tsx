@@ -53,6 +53,19 @@ describe('Explainer', () => {
     });
   });
 
+  test('previews Seasons as Seasons', () => {
+    const preview = render('seasons').split('<figure')[1] ?? '';
+    assert({
+      given: 'the Seasons explainer',
+      should: 'preview resolutions, not the leaderboard page',
+      actual: [
+        preview.includes('Resolutions'),
+        preview.includes('Leaderboard'),
+      ],
+      expected: [true, false],
+    });
+  });
+
   test('keeps the preview inert and hidden from assistive technology', () => {
     const html = render('lobby');
     const preview = html.slice(html.indexOf('<figure'));

@@ -96,12 +96,14 @@ describe('SeasonsPage', () => {
     ).replace(/<!-- -->/g, '');
     assert({
       given: 'no active season',
-      should: 'say so and still list the current resolutions',
+      should: 'say so, list the current resolutions and keep the page frame',
       actual: [
         html.includes('No season is active.'),
         html.includes('Resolved: Test wording.'),
+        html.includes('max-w-dash-column'),
+        html.includes('font-display'),
       ],
-      expected: [true, true],
+      expected: [true, true, true, true],
     });
   });
 

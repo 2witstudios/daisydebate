@@ -23,6 +23,14 @@ export type SeasonsPageProps = {
 const card = 'flex flex-col gap-3 rounded-lg bg-surface p-5 shadow-1';
 const eyebrow = 'text-2xs font-bold tracking-wider text-ink-faint uppercase';
 const openLadder = 'text-base font-strong';
+const frame =
+  'mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4';
+const title =
+  'font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl';
+
+function NoActiveSeason() {
+  return <p className="text-base text-ink-muted">No season is active.</p>;
+}
 
 const howItWorks: readonly { title: string; body: string }[] = [
   {
@@ -92,24 +100,20 @@ function RangePicture() {
 export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
   if (view === null)
     return (
-      <div className="flex flex-col gap-5 p-6">
-        <h1>Seasons</h1>
-        <p>No season is active.</p>
+      <div className={frame}>
+        <h1 className={title}>Seasons</h1>
+        <NoActiveSeason />
         <PublishedResolutions resolutions={resolutions} />
       </div>
     );
   const champion = view.champion;
   return (
-    <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
+    <div className={frame}>
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-        <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-          Seasons
-        </h1>
+        <h1 className={title}>Seasons</h1>
         <Segmented label="Season" segments={view.chips} />
       </header>
-      {view.noActiveSeason ? (
-        <p className="text-base text-ink-muted">No season is active.</p>
-      ) : null}
+      {view.noActiveSeason ? <NoActiveSeason /> : null}
       {view.listsPublishedResolutions ? (
         <PublishedResolutions resolutions={resolutions} />
       ) : null}

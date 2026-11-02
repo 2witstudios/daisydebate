@@ -23,14 +23,15 @@ export default async function SeasonsRoute({
   const now = systemClock.now();
   const params = await searchParams;
   const { ladder } = parseLadderQuery(params);
-  const [read, resolutions] = await Promise.all([
-    requestLadder({ seasonId: parseSeasonsQuery(params), ladder, now }),
-    requestPublishedResolutions(),
-  ]);
-  return (
-    <SeasonsPage
-      view={read && buildSeasonsView(read.data, now, read.viewer, ladder)}
-      resolutions={resolutions}
-    />
-  );
+  const read = await requestLadder({
+    seasonId: parseSeasonsQuery(params),
+    ladder,
+    now,
+  });
+  const view = read && buildSeasonsView(read.data, now, read.viewer, ladder);
+  const resolutions =
+    view === null || view.listsPublishedResolutions
+      ? await requestPublishedResolutions()
+      : [];
+  return <SeasonsPage view={view} resolutions={resolutions} />;
 }

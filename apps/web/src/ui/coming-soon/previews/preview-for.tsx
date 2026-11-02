@@ -4,6 +4,7 @@ import { JudgePreview } from './judge-preview';
 import { LeaderboardPreview } from './leaderboard-preview';
 import { LobbyPreview } from './lobby-preview';
 import { PrepPreview } from './prep-preview';
+import { SeasonsPreview } from './seasons-preview';
 import { TournamentsPreview } from './tournaments-preview';
 import { TrainPreview } from './train-preview';
 import { WatchPreview } from './watch-preview';
@@ -13,7 +14,7 @@ const previews: Readonly<Record<DestinationSlug, () => ReactNode>> = {
   watch: WatchPreview,
   judge: JudgePreview,
   tournaments: TournamentsPreview,
-  seasons: LeaderboardPreview,
+  seasons: SeasonsPreview,
   leaderboard: LeaderboardPreview,
   train: TrainPreview,
   prep: PrepPreview,

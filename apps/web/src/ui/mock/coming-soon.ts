@@ -96,6 +96,11 @@ export const tournamentBracket: readonly PreviewRowData[] = [
   { id: 'b3', title: 'Winner QF1 vs Winner QF2', detail: 'Semifinal' },
 ];
 
+export const seasonsResolutions: readonly PreviewRowData[] = [
+  { id: 'p1', title: 'Sample policy resolution', detail: 'Policy' },
+  { id: 'v1', title: 'Sample value resolution', detail: 'Value' },
+];
+
 export const leaderboardRows: readonly PreviewRowData[] = [
   {
     id: 'a1',
