@@ -6,8 +6,8 @@ import {
 type StreamState = { readonly state: string } & ExpectedTranscriptStream;
 
 /**
- * Before the admission cutoff, keep capturing until every expected stream is
- * closed. Complete only when every expected and every observed stream sealed
+ * Before the admission cutoff, keep capturing until every expected and every
+ * observed stream is closed. Complete only when every expected and every observed stream sealed
  * complete; any partial, missing or open stream freezes incomplete.
  */
 export function finalizationState(
@@ -23,6 +23,7 @@ export function finalizationState(
   );
   const allClosed =
     facts.expected.length > 0 &&
+    facts.streams.every((stream) => stream.state !== 'open') &&
     facts.expected.every((stream) =>
       ['complete', 'partial'].includes(states.get(streamKey(stream)) ?? 'open'),
     );

@@ -97,7 +97,7 @@ describe('rounds (DATA-2.1)', () => {
           current_stage: 'countdown',
           started_at: at,
         })),
-        completedUnjudgedCasual: !(await attempt({
+        completedWithoutOutcome: !(await attempt({
           status: 'completed',
           started_at: at,
           completed_at: at,
@@ -157,7 +157,7 @@ describe('rounds (DATA-2.1)', () => {
           activeWithOutcome: true,
           activeWithCompletion: true,
           activeFull: true,
-          completedUnjudgedCasual: true,
+          completedWithoutOutcome: true,
           completedWithoutCompletedAt: true,
           completedFull: true,
           completedNeverStarted: true,

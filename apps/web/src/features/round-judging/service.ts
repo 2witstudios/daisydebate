@@ -1,6 +1,7 @@
 import { isAppError } from '@daisy/errors';
 import type { WorkerTimers } from '../../lib/worker-timers';
 type Target = { readonly roundId: string; readonly judgeParticipantId: string };
+type Found = Target & { readonly holdsBallot?: boolean };
 type Claim = { readonly scope: Target; readonly token: string };
 type Entry<C> = {
   readonly claim: C;
@@ -13,12 +14,14 @@ type Entry<C> = {
 };
 /** Submissions of a saved ballot tried in a row before the slot is released (ISSUE-463). */
 const MAX_SUBMISSION_REFUSALS = 3;
+const awaitingAttendance = (error: unknown) =>
+  isAppError(error) &&
+  error.code === 'CONFLICT' &&
+  error.message === 'attendance-unsettled';
 /** Lease renewal never queues behind provider execution or attendance settlement. */
 export function startRoundJudgingService<C extends Claim>(input: {
   readonly store: {
-    readonly scanRoundJudgingJobs: (
-      limit: number,
-    ) => Promise<readonly Target[]>;
+    readonly scanRoundJudgingJobs: (limit: number) => Promise<readonly Found[]>;
     readonly claimRoundJudgingJob: (target: Target) => Promise<C>;
     readonly renewRoundJudgingJob: (
       scope: C['scope'],
@@ -40,6 +43,8 @@ export function startRoundJudgingService<C extends Claim>(input: {
     readonly renewMs: number;
   };
   readonly timers: WorkerTimers;
+  /** A renewal found the job out of budget and ended it. */
+  readonly outOfBudget?: () => void;
   /** `stage` names the work that failed: execute, scan or renew. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
@@ -81,7 +86,8 @@ export function startRoundJudgingService<C extends Claim>(input: {
           /* A lost authority never becomes a retry permission. */
         }
         release(entry);
-        input.failed(error, 'execute');
+        // A ballot waiting on attendance is a state the Round reports, not a fault.
+        if (!awaitingAttendance(error)) input.failed(error, 'execute');
       } finally {
         entry.running = false;
         if (entry.abort.signal.aborted) remove(entry);
@@ -99,7 +105,10 @@ export function startRoundJudgingService<C extends Claim>(input: {
         for (const target of targets) {
           if (stopped || entries.size >= input.limits.parallel) break;
           if (entries.has(key(target))) continue;
-          const freeCapacity = input.reserveCapacity();
+          // Submitting a held ballot buys nothing, so it takes no provider slot.
+          const freeCapacity = target.holdsBallot
+            ? () => {}
+            : input.reserveCapacity();
           if (!freeCapacity) break;
           try {
             const claim = await input.store.claimRoundJudgingJob(target);
@@ -138,10 +147,15 @@ export function startRoundJudgingService<C extends Claim>(input: {
       [...entries.values()].map(async (entry) => {
         if (entry.abort.signal.aborted) return;
         try {
-          await input.store.renewRoundJudgingJob(
+          // Null: the budget ran out and the job has ended (DEC-275). Cancel the call.
+          const renewed = await input.store.renewRoundJudgingJob(
             entry.claim.scope,
             entry.claim.token,
           );
+          if (renewed === null) {
+            release(entry);
+            input.outOfBudget?.();
+          }
         } catch (error) {
           // A lease lost to completion or another claimant is a release, not
           // a fault. Any other failure leaves the paid call running; the next

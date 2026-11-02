@@ -1,7 +1,7 @@
 import { speakingChangesOf } from './round-speaking';
 import { startRound } from './round-commands';
 import { roundHoldsMembers } from './room-membership';
-import { applyUnjudgedCompletion } from './round-unjudged';
+import { applyPanelCompletion } from './round-panel-completion';
 import type { RoundRuntime } from './round-runtime-api';
 import { applyRoundAdjudication } from './round-adjudication';
 import { assertAttendanceRules } from './attendance-policy';
@@ -311,9 +311,9 @@ export function createRoundRuntime(input: {
       store = scratch;
       return project(into);
     },
-    completeUnjudged: (completion) =>
+    completePanel: (completion) =>
       onScratch(completion.now, (c) =>
-        applyUnjudgedCompletion(c, completion, input.participants),
+        applyPanelCompletion(c, completion, input.participants),
       ),
     /**
      * The opening has run: the Round becomes active at the instant it ended,

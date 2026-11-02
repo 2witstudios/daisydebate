@@ -143,19 +143,6 @@ function liveIndexOf(view: RoundView, position: RoundPosition): number {
   return position.nextSegment?.sequence ?? -1;
 }
 
-/**
- * Judging-clock display uses the persisted final close when available.
- * Before a durable tick arrives, the scheduled end is a display prediction;
- * capture admission and finalization use the committed database anchor.
- */
-const finalCloseMs = (view: RoundView): number => {
-  const last = view.segments.at(-1);
-  if (!last) return Date.parse(view.startedAt ?? '');
-  return last.endedAt === null
-    ? Date.parse(last.startedAt) + last.durationMs
-    : Date.parse(last.endedAt);
-};
-
 const prepOf = (position: RoundPosition): RoundSnapshot['prepMs'] => {
   const budget = position.prepBudgetRemainingMs;
   return budget ? { aff: budget.affirmative, neg: budget.negative } : null;
@@ -194,9 +181,7 @@ function liveParts(
     clock:
       phase !== 'judging'
         ? clockOf(view, position, side)
-        : judgeKindOf(view)
-          ? judgingClockOf(finalCloseMs(view), nowMs)
-          : null,
+        : judgingClockOf(view.waitingOn, nowMs),
     prepMs: prepOf(position),
   };
 }
@@ -228,6 +213,7 @@ export function liveRoundOf(
     people: view.participants.map(person),
     judge: judgeKindOf(view),
     ballots: judgingBallotsOf(judgeKindOf(view)),
+    judgingState: view.waitingOn?.state ?? null,
     stakes: null,
     recording: false,
     transcribing: false,

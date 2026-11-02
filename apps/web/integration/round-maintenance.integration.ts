@@ -86,6 +86,7 @@ test(
         instanceId,
       });
       const maintenance = startRoundMaintenance({
+        now: () => performance.now(),
         ...createRoundMaintenanceOperations({
           ratingFailed: (_id, error) => {
             throw error;

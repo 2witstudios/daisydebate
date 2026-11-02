@@ -10,7 +10,7 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const migration = '20261102194340_round_owns_opening';
+const migration = '20261102220847_round_owns_opening';
 const scratch = scratchDatabase(databaseUrl, 'roundopeningit');
 afterAll(() => scratch.drop());
 

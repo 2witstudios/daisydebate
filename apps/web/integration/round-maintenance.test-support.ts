@@ -118,6 +118,7 @@ export function maintenanceAvailability(input: {
   });
   const sampler = input.store.availabilitySampler();
   const service = startAvailabilityService({
+    nowMs: () => performance.now(),
     instanceId: input.instanceId,
     store: {
       ...input.store,

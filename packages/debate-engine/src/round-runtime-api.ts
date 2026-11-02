@@ -3,7 +3,7 @@ import type {
   RoundCommand,
   RoundPosition,
   RoundProjection,
-  RoundUnjudgedCompletion,
+  RoundPanelCompletion,
   RuntimeCheckpoint,
 } from '@daisy/protocol';
 
@@ -20,9 +20,7 @@ export type RoundRuntime = {
   /** Internal durable attendance decision; never a public command. */
   readonly adjudicate: (input: RoundAdjudication) => RoundProjection;
   /** Internal completion after durable freeze/attendance verification; does not advance time. */
-  readonly completeUnjudged: (
-    input: RoundUnjudgedCompletion,
-  ) => RoundProjection;
+  readonly completePanel: (input: RoundPanelCompletion) => RoundProjection;
   /** The opening ended at `at`: the Round starts there and catches up to `now`. */
   readonly activate: (input: {
     readonly at: string;

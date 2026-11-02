@@ -199,11 +199,13 @@ async function attendanceSettled(judge: Page, roundId: string) {
       const ruled = evidence.adjudications.find(
         (row) => row.segmentId === segment.id,
       );
-      const deadline = Date.parse(ruled?.effectiveDeadline ?? '');
+      if (ruled?.decision !== 'attended') return false;
+      // An on-time receipt settles alone (ADR 0095); anything else needs its horizon.
+      if (ruled.evidence === 'on_time_receipt') return true;
+      const deadline = Date.parse(ruled.effectiveDeadline ?? '');
       return (
-        ruled?.decision === 'attended' &&
         deadline <= now - buffer &&
-        Date.parse(ruled.settledHorizon) >= deadline + buffer
+        Date.parse(ruled.settledHorizon ?? '') >= deadline + buffer
       );
     });
 }

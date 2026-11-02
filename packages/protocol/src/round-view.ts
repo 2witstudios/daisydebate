@@ -11,7 +11,7 @@ import {
   roundStatusSchema,
   runtimeCheckpointSchema,
 } from './round';
-import { unjudgedRulingSchema } from './round-unjudged';
+import { panelRulingSchema } from './round-panel-completion';
 
 const instant = z.iso.datetime({ offset: true });
 
@@ -34,6 +34,39 @@ const anonymousJudgeSchema = z.strictObject({
   slot: z.int().nonnegative(),
   anonymous: z.literal(true),
 });
+
+/** What a played Round is waiting on, with the persisted deadline when one exists. */
+export const roundWaitingOnSchema = z.strictObject({
+  state: z.enum([
+    'closing_transcript',
+    'human_window',
+    'ai_processing',
+    'ai_failed',
+    'awaiting_attendance',
+    'held_by_writer',
+    'settling',
+  ]),
+  deadlineAt: instant.nullable(),
+});
+export type RoundWaitingOn = z.infer<typeof roundWaitingOnSchema>;
+/** Facts the read supplies so the engine can decide what a Round is waiting on. */
+export type RoundWaitingFacts = {
+  readonly nowMs: number;
+  readonly finalSegmentEnded: boolean;
+  readonly frozen: boolean;
+  /** An uncertain check-in writer holds every attendance decision. */
+  readonly heldByWriter: boolean;
+  readonly attendanceUnresolved: boolean;
+  readonly ballotDeadlineAt: string | null;
+  readonly attendanceCutoffAt: string | null;
+  /** A human judge seat has not ruled. */
+  readonly humanJudgeUnruled: boolean;
+  readonly jobs: readonly {
+    readonly generationDeadlineAt: string;
+    readonly canRule: boolean;
+    readonly holdsBallot: boolean;
+  }[];
+};
 
 /**
  * A Round's opening as one viewer reads it (ADR 0098). `complete` means every
@@ -82,8 +115,12 @@ export const roundViewSchema = z.strictObject({
   startedAt: instant.nullable(),
   completedAt: instant.nullable(),
   outcome: z.enum(['affirmative', 'negative', 'draw']).nullable(),
-  /** The unjudged finalizer's ruling, from its durable receipt; null for any other completion. */
-  unjudgedRuling: unjudgedRulingSchema.nullable(),
+  /** The panel completion's ruling, from its durable receipt; null for any other completion. */
+  panelRuling: panelRulingSchema.nullable(),
+  /** What a played Round is waiting on; null until its speeches end. */
+  waitingOn: roundWaitingOnSchema.nullable(),
+  /** The frozen transcript's completeness; null until it freezes. */
+  transcriptCompleteness: z.enum(['complete', 'incomplete']).nullable(),
   /** Whether this viewer hosts the Round; never which actor does. */
   viewerIsHost: z.boolean(),
   /** The draw's public envelope once the Round has ended; null otherwise. */

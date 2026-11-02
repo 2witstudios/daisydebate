@@ -66,6 +66,8 @@ export async function claimLockedJudgingJob(
   const epoch = nextEpoch(job.attempts, 'Judging epoch exhausted');
   for (const prior of priorRuns)
     await endLockedRoundAgentRun(tx, prior.id, seat.id);
+  // The first claim pins the model; a deploy cannot change it for a later attempt.
+  const model = job.model ?? input.model;
   const agentRunId = input.nextId(),
     token = input.nextToken();
   const scope: JudgingScope = {
@@ -80,7 +82,7 @@ export async function claimLockedJudgingJob(
     id: agentRunId,
     participantId: seat.id,
     kind: 'judging',
-    model: input.model,
+    model,
     configuration: {
       ...scope,
       executionTokenDigest: agentLeaseDigest(token),
@@ -94,6 +96,8 @@ export async function claimLockedJudgingJob(
       commandId,
       status: 'leased',
       attempts: epoch,
+      model,
+      retryAt: null,
       leaseTokenDigest: agentLeaseDigest(token),
       leaseExpiresAt,
     })
@@ -103,7 +107,7 @@ export async function claimLockedJudgingJob(
     token,
     leaseExpiresAt: leaseExpiresAt.toISOString(),
     expectedVersion: round.version,
-    model: input.model,
+    model,
     pendingBallot: job.pendingBallot,
     frozen,
     round,

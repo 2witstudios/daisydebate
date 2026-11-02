@@ -24,3 +24,15 @@ export async function readUnratedRatingRounds(
     order by r.id limit ${input.limit}`);
   return (rows as unknown as { id: string }[]).map(({ id }) => id);
 }
+
+/** Whether this Round still has a rating coming: the writer's own predicate. */
+export async function readRoundAwaitsRating(
+  db: Pick<BunSQLDatabase, 'execute'>,
+  roundId: string,
+): Promise<boolean> {
+  if (!idSchema.safeParse(roundId).success) throw createAppError('VALIDATION');
+  const rows = await db.execute(sql`select 1 from rounds r
+    where r.id=${roundId} and ${finalizedRatingInput}
+      and not exists(select 1 from rating_changes c where c.round_id=r.id)`);
+  return (rows as unknown as unknown[]).length > 0;
+}

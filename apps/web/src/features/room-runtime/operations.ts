@@ -1,3 +1,4 @@
+import { roundWaitingOn } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
@@ -295,6 +296,7 @@ export function createRoomRuntimeOperations({
         caller,
         (view, account) => canReadRound(caller, view, account),
         readRoundOpening,
+        roundWaitingOn,
       ),
     catalog,
     async castChoices(caller: Caller): Promise<readonly RoomCastChoice[]> {

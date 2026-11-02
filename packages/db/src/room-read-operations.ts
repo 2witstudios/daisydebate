@@ -6,13 +6,18 @@ import {
   type RoomListQuery,
   type RoomListPage,
 } from '@daisy/protocol';
-import { and, asc, eq, isNotNull, isNull, or } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { unresolvedAttendance } from './attendance-settlement';
+import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
+import { judgingJobCanRule } from './round-judging-end';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   LaunchedRound,
   RoundView,
   RoomAssemblyState,
   RoomCommandReceipt,
+  RoundWaitingFacts,
+  RoundWaitingOn,
 } from '@daisy/protocol';
 
 import { createAppError } from '@daisy/errors';
@@ -27,7 +32,7 @@ import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { segmentRows } from './round-hydration';
-import { recordedUnjudgedRuling } from './round-unjudged-decisions';
+import { recordedPanelRuling } from './round-panel-decisions';
 import { roundCommands } from './schema/round-commands';
 import { readableCheckpoint, roundViewFor } from './round-view-projection';
 import { roundParticipants } from './schema/round-participants';
@@ -50,6 +55,57 @@ import {
   replayReceipt,
 } from './room-command-facts';
 import { roundResolutionAudit } from './room-draw-persistence';
+/** Spares the hottest read this query for the whole of a running debate. */
+const speechesEnded = (round: Pick<LaunchedRound, 'rules' | 'segments'>) =>
+  round.segments.length === round.rules.segments.length &&
+  round.segments.at(-1)?.endedAt !== null;
+
+/** Facts only: the injected engine decision says what they mean. */
+async function readWaitingFacts(
+  tx: Pick<BunSQLDatabase, 'execute'>,
+  round: Pick<LaunchedRound, 'id' | 'participants'>,
+): Promise<RoundWaitingFacts> {
+  const [facts] = (await tx.execute(sql`select
+    clock_timestamp()::text as now,
+    r.final_segment_ended_at is not null as ended,
+    to_char(r.ballot_deadline_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "ballotDeadlineAt",
+    to_char(r.attendance_resolution_cutoff_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "attendanceCutoffAt",
+    exists(select 1 from round_transcript_freezes where round_id=r.id) as frozen,
+    exists(select 1 from round_check_in_attempts where round_id=r.id and state='pending') as held,
+    ${unresolvedAttendance(sql`r.id`, sql`clock_timestamp()`)} as unresolved,
+    coalesce((select json_agg(judge_participant_id) from ballots where round_id=r.id and status='submitted'),'[]'::json) as ruled,
+    coalesce((select json_agg(json_build_object(
+      'generationDeadlineAt',to_char(generation_deadline_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+      'canRule',${judgingJobCanRule},
+      'holdsBallot',pending_ballot is not null)) from round_judging_jobs where round_id=r.id and status<>'succeeded'),'[]'::json) as jobs
+    from rounds r where r.id=${round.id}`)) as unknown as {
+    now: string;
+    ended: boolean;
+    ballotDeadlineAt: string | null;
+    attendanceCutoffAt: string | null;
+    frozen: boolean;
+    held: boolean;
+    unresolved: boolean;
+    ruled: readonly string[];
+    jobs: RoundWaitingFacts['jobs'];
+  }[];
+  return {
+    nowMs: Date.parse(facts!.now),
+    finalSegmentEnded: facts!.ended,
+    frozen: facts!.frozen,
+    heldByWriter: facts!.held,
+    attendanceUnresolved: facts!.unresolved,
+    ballotDeadlineAt: facts!.ballotDeadlineAt,
+    attendanceCutoffAt: facts!.attendanceCutoffAt,
+    humanJudgeUnruled: round.participants.some(
+      (seat) =>
+        seat.role === 'judge' &&
+        seat.kind === 'human' &&
+        !facts!.ruled.includes(seat.id),
+    ),
+    jobs: facts!.jobs,
+  };
+}
 export async function launchedRoundRows(
   tx: Pick<BunSQLDatabase, 'select'>,
   roundId: string,
@@ -95,7 +151,7 @@ export async function launchedRoundRows(
     startedAt: row.startedAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
     outcome: row.outcome,
-    unjudgedRuling: recordedUnjudgedRuling(
+    panelRuling: recordedPanelRuling(
       await tx
         .select()
         .from(roundCommands)
@@ -106,6 +162,14 @@ export async function launchedRoundRows(
           ),
         ),
     ),
+    waitingOn: null,
+    transcriptCompleteness:
+      (
+        await tx
+          .select({ completeness: roundTranscriptFreezes.completeness })
+          .from(roundTranscriptFreezes)
+          .where(eq(roundTranscriptFreezes.roundId, roundId))
+      )[0]?.completeness ?? null,
     resolutionAudit: await roundResolutionAudit(tx, row),
     checkpoint: readableCheckpoint(row.runtimeState),
     segments: await segmentRows(tx, roundId),
@@ -126,16 +190,22 @@ export const roomReadOperations = ({
     caller: Caller,
     authorize: (round: LaunchedRound, account: Account) => boolean,
     readOpening: ReadOpening,
+    /** The engine's decision, injected; only the live room's reads ask for it. */
+    decideWaitingOn?: (facts: RoundWaitingFacts) => RoundWaitingOn | null,
   ): Promise<RoundView> {
     return instrumented(eventSink, 'readLaunchedRound', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);
         const round = await launchedRoundRows(tx, roundId);
         if (!authorize(round, account)) throw createAppError('NOT_FOUND');
+        const waitingOn =
+          decideWaitingOn && round.status === 'active' && speechesEnded(round)
+            ? decideWaitingOn(await readWaitingFacts(tx, round))
+            : null;
         return withOpening(
           tx,
           round,
-          roundViewFor(round, caller.actorId),
+          roundViewFor({ ...round, waitingOn }, caller.actorId),
           caller.actorId,
           readOpening,
         );

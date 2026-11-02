@@ -1,6 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import type { CompetitionType } from '@daisy/protocol';
 import {
   oneOnOneRules,
   oneOnOneSeats,
@@ -19,13 +18,14 @@ const total = rules.segments.reduce(
   0,
 );
 /** Completion facts with no ballots and a deadline that has long passed. */
-const facts = (competitionType: CompetitionType, now: string) => ({
-  competitionType,
+const facts = (now: string) => ({
   now,
   ballots: [],
   ballotDeadlineAt: roundAt(0),
   completeness: 'complete' as const,
   humanJudgeSeatIds: [],
+  runningAiSeatIds: [],
+  failedAiSeatIds: [],
 });
 const played = () => {
   const world = runtimeWorld({ rules, participants });
@@ -52,11 +52,9 @@ const closedWith = (overrides: Parameters<typeof runtimeWorld>[0]) => {
   });
 };
 
-test('zero-judge casual completion projects an unjudged terminal result in the shared engine', () => {
+test('zero-judge completion projects an unjudged terminal result in the shared engine', () => {
   const world = played();
-  const result = world.completeUnjudged(
-    facts('casual', roundAt(total + 120_000)),
-  );
+  const result = world.completePanel(facts(roundAt(total + 120_000)));
   assert({
     given: 'the actual closed zero-judge schedule',
     should: 'complete with no competitive outcome or fabricated ballot',
@@ -83,52 +81,27 @@ test('zero-judge casual completion projects an unjudged terminal result in the s
   });
 });
 
-test('unjudged completion refuses with the zero-judge casual invariant and preserves state', async () => {
+test('panel completion refuses with its invariant and preserves state', async () => {
   const cases = [
-    { world: played(), competitionType: 'ranked' as const },
-    {
-      world: closedWith({ participants: oneOnOneSeats }),
-      competitionType: 'casual' as const,
-    },
-    {
-      world: closedWith({ rules: oneOnOneRules() }),
-      competitionType: 'casual' as const,
-    },
-    {
-      world: runtimeWorld({ rules, participants, status: 'active' }),
-      competitionType: 'casual' as const,
-    },
-    {
-      world: runtimeWorld({ rules, participants, status: 'completed' }),
-      competitionType: 'casual' as const,
-    },
-    {
-      world: runtimeWorld({ rules, participants, status: 'abandoned' }),
-      competitionType: 'casual' as const,
-    },
-    {
-      world: runtimeWorld({ status: 'active' }),
-      competitionType: 'casual' as const,
-    },
-    {
-      world: runtimeWorld({ rules, status: 'active' }),
-      competitionType: 'casual' as const,
-    },
+    { world: closedWith({ participants: oneOnOneSeats }) },
+    { world: closedWith({ rules: oneOnOneRules() }) },
+    { world: runtimeWorld({ rules, participants, status: 'active' }) },
+    { world: runtimeWorld({ rules, participants, status: 'completed' }) },
+    { world: runtimeWorld({ rules, participants, status: 'abandoned' }) },
+    { world: runtimeWorld({ status: 'active' }) },
+    { world: runtimeWorld({ rules, status: 'active' }) },
   ];
-  for (const { world, competitionType } of cases) {
+  for (const { world } of cases) {
     const before = world.position(roundAt(total + 120_000));
     await assertRejects({
-      given: competitionType,
+      given: 'a Round not played to its end, or with judges still able to rule',
       should: 'refuse an ineligible completion',
-      actual: () =>
-        world.completeUnjudged(
-          facts(competitionType, roundAt(total + 120_000)),
-        ),
+      actual: () => world.completePanel(facts(roundAt(total + 120_000))),
       code: 'INVARIANT',
-      invariantId: 'round.complete.unjudged-casual-only',
+      invariantId: 'round.complete.panel-played-round',
     });
     assert({
-      given: competitionType,
+      given: 'that refusal',
       should: 'preserve every refused runtime fact',
       actual: world.position(roundAt(total + 120_000)),
       expected: before,
@@ -143,9 +116,9 @@ test('unjudged completion does not accept a clock before the actual final end', 
     await assertRejects({
       given: now,
       should: 'refuse time preceding actual final closure',
-      actual: () => world.completeUnjudged(facts('casual', now)),
+      actual: () => world.completePanel(facts(now)),
       code: 'INVARIANT',
-      invariantId: 'round.complete.unjudged-casual-only',
+      invariantId: 'round.complete.panel-played-round',
     });
     assert({
       given: now,

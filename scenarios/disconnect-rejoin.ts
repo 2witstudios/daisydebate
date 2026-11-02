@@ -84,6 +84,7 @@ function verifyDisconnectRejoin(facts: ScenarioFacts): void {
   if (
     !decision ||
     decision.decision !== 'attended' ||
+    decision.evidence !== 'settled_availability' ||
     facts.nowMs < decision.effectiveDeadlineMs + 5000
   )
     throw new Error(

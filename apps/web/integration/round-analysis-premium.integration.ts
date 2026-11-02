@@ -66,6 +66,8 @@ test('round analysis discovery and claims use the seat account’s own entitleme
               calls++;
               return {
                 text: JSON.stringify(sampleRoundAnalysisReport),
+                finish: 'stop' as const,
+                refused: false,
                 promptTokens: 1,
                 completionTokens: 1,
               };

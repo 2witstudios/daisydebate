@@ -120,6 +120,10 @@ export const rounds = pgTable(
     transcriptAdmissionCutoff: timestampColumn('transcript_admission_cutoff'),
     /** Set once at the transcript freeze from the injected policy; judges rule before it (DEC-201, DEC-207). */
     ballotDeadlineAt: timestampColumn('ballot_deadline_at'),
+    /** Past this, a window settled evidence cannot resolve stops waiting (DEC-276). */
+    attendanceResolutionCutoffAt: timestampColumn(
+      'attendance_resolution_cutoff_at',
+    ),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
@@ -127,9 +131,8 @@ export const rounds = pgTable(
   (table) => {
     const opening = sql`${table.status} = 'opening' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;
     const active = sql`${table.status} = 'active' and ${table.resolution} is not null and ${table.currentStage} is not null and ${table.outcome} is null and ${table.startedAt} is not null and ${table.completedAt} is null`;
-    /** No outcome: a zero-judge casual Round, or judges past their ballot deadline (DEC-201). */
-    const unjudged = sql`${table.competitionType} = 'casual' and ${table.ladderId} is null`;
-    const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and (${table.outcome} is not null or (${unjudged})) and ${table.startedAt} is not null and ${table.completedAt} is not null`;
+    /** A null outcome is a real ending on any ladder and writes no rating (DEC-277). */
+    const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and ${table.startedAt} is not null and ${table.completedAt} is not null`;
     const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${table.outcome} is null and ${table.completedAt} is not null`;
     return [
       index('rounds_published_resolution_idx').on(table.publishedResolutionId),

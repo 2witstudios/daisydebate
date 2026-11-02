@@ -24,15 +24,26 @@ const operations = (ids: readonly string[], probeRoundId: string | null) =>
     probeRoundId,
   });
 
+/** Walks one whole discovery cycle, one page per pulse. */
+const wholeCycle = async (
+  maintenance: ReturnType<typeof operations>,
+): Promise<readonly string[]> => {
+  const ids: string[] = [];
+  for (;;) {
+    const page = await maintenance.discover();
+    ids.push(...page.roundIds);
+    if (page.cycleComplete) return ids;
+  }
+};
+
 test('maintenance discovery leaves the configured probe Round alone (ISSUE-530)', async () => {
   assert({
     given:
       'active candidates across pages, one of them the public check-in probe Round',
     should: 'discover every candidate except the probe Round',
-    actual: await operations(
-      ['rounda', 'probe', 'roundb', 'roundc'],
-      'probe',
-    ).discover(),
+    actual: await wholeCycle(
+      operations(['rounda', 'probe', 'roundb', 'roundc'], 'probe'),
+    ),
     expected: ['rounda', 'roundb', 'roundc'],
   });
 });
@@ -41,10 +52,9 @@ test('maintenance discovery without a probe discovers every candidate', async ()
   assert({
     given: 'the same candidates and no probe configured',
     should: 'discover all of them',
-    actual: await operations(
-      ['rounda', 'probe', 'roundb', 'roundc'],
-      null,
-    ).discover(),
+    actual: await wholeCycle(
+      operations(['rounda', 'probe', 'roundb', 'roundc'], null),
+    ),
     expected: ['rounda', 'probe', 'roundb', 'roundc'],
   });
 });
