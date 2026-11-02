@@ -108,6 +108,11 @@ test('native Start affirmative constructive and enhanced round controls retain c
       expect(crossEx?.startedAt).toEqual(expect.any(String));
       await formPage.reload();
       await expect(interrupt).toHaveCount(0);
+      // Read after rendering, so that page really showed the open segment.
+      const after = (await read()).segments.find(
+        (segment) => segment.rulesSegmentKey === 'CX1',
+      );
+      expect(after?.endedAt).toBeNull();
     }).toPass({ timeout: 45000 });
     await expect(async () => {
       const opened = await read();

@@ -1,6 +1,8 @@
 -- ADR 0096 backfill: cross-examination always opens every debater's microphone
 -- and never has interruptions, so no stored format, Room or Round names a mode.
 -- A stored cross_ex_only policy allowed only that interruption, so it is off.
+-- The lock makes a Round starting on the serving release wait for this commit.
+LOCK TABLE "rounds" IN SHARE ROW EXCLUSIVE MODE;--> statement-breakpoint
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM "rounds" WHERE "status" = 'active') THEN

@@ -14,11 +14,11 @@ const meterHeights = ['h-1', 'h-2', 'h-3', 'h-4', 'h-5', 'h-6'] as const;
 function PersonaCard({
   round,
   compact,
-  speaking,
+  state,
 }: {
   readonly round: RoundSnapshot;
   readonly compact: boolean;
-  readonly speaking: boolean;
+  readonly state: string;
 }) {
   const bot = round.opponent;
   return (
@@ -33,7 +33,7 @@ function PersonaCard({
         className={cn(
           'flex shrink-0 items-center justify-center rounded-round bg-hue-plum font-display text-background max-narrow:size-room-disc-sm max-narrow:text-md',
           compact ? discLook.small : discLook.large,
-          speaking && 'ring-4 ring-hue-plum-soft',
+          state && 'ring-4 ring-hue-plum-soft',
         )}
       >
         {bot.initials}
@@ -53,7 +53,12 @@ function PersonaCard({
           {bot.name}
         </p>
         <p className="m-0 text-sm text-ink-muted">
-          {['Bot', bot.bot?.level, sideName[bot.side]]
+          {[
+            'Bot',
+            bot.bot?.level,
+            sideName[bot.side],
+            state === 'Speaking' ? '' : state,
+          ]
             .filter(Boolean)
             .join(' · ')}
         </p>
@@ -132,7 +137,7 @@ export function BotStage({ round, preset }: StageProps) {
       aria-label={state ? `${name}, ${state.toLowerCase()}` : name}
       className={cn(band, 'max-narrow:flex-col')}
     >
-      <PersonaCard round={round} compact={compact} speaking={state !== ''} />
+      <PersonaCard round={round} compact={compact} state={state} />
       <Captions round={round} compact={compact} />
     </section>
   );
