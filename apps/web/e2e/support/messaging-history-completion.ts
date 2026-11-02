@@ -117,6 +117,8 @@ export function testMessagingHistoryCompletion() {
         expect(original.changeVersion).toBe(sent.changeVersion);
         expect(held.state.sends).toBe(1);
         expect(held.state.navigations).toBe(1);
+        expect(held.state.refreshes).toBe(1);
+        expect(held.state.sentDestinations).toBe(0);
         expect(formPosts).toBe(2);
       } finally {
         held?.releaseAll();

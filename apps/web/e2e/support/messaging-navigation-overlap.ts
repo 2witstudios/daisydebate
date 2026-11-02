@@ -19,7 +19,7 @@ import {
 import { watchChannelObservation } from './channel-observation';
 import { effectsRan, paintedFrames } from './hydration';
 
-/** Which actual Next request this is: its send, chosen navigation or editor save. */
+/** Which actual Next request this is: send, chosen route, stale `?sent` or save. */
 function heldKind(
   request: Request,
   channelId: string,
@@ -35,14 +35,19 @@ function heldKind(
       : pathname === editor
         ? 'save'
         : 'other';
-  const chosen =
+  if (
+    request.method() !== 'GET' ||
+    headers.rsc !== '1' ||
+    headers['next-router-prefetch']
+  )
+    return 'other';
+  if (pathname === conversation && searchParams.has('sent'))
+    return 'sentDestination';
+  return (
     target === 'editor'
       ? pathname === editor
-      : pathname === conversation && searchParams.has('before');
-  return chosen &&
-    request.method() === 'GET' &&
-    headers.rsc === '1' &&
-    !headers['next-router-prefetch']
+      : pathname === conversation && searchParams.has('before')
+  )
     ? 'navigation'
     : 'other';
 }
@@ -63,6 +68,10 @@ export function holdConversationResponses(
     navigationReady: false,
     sends: 0,
     navigations: 0,
+    /** Next's one refresh after a discarded action that revalidated. */
+    refreshes: 0,
+    /** A superseded send's replacement, if it were ever issued. */
+    sentDestinations: 0,
     saves: 0,
   };
   const intercept = async (route: Route) => {
@@ -76,6 +85,9 @@ export function holdConversationResponses(
       if (sendResult === 'lose') await route.abort('internetdisconnected');
       else await route.fulfill({ response });
       deliveredSend.resolve();
+    } else if (kind === 'navigation' && state.navigationReady) {
+      state.refreshes++;
+      await route.continue();
     } else if (kind === 'navigation') {
       state.navigations++;
       const response = await route.fetch();
@@ -86,6 +98,7 @@ export function holdConversationResponses(
       deliveredNavigation.resolve();
     } else {
       if (kind === 'save') state.saves++;
+      if (kind === 'sentDestination') state.sentDestinations++;
       await route.continue();
     }
   };
@@ -233,6 +246,8 @@ export function testMessagingNavigationOverlap() {
           );
           expect(held.state.sends).toBe(1);
           expect(held.state.navigations).toBe(1);
+          expect(held.state.refreshes).toBe(1);
+          expect(held.state.sentDestinations).toBe(0);
           expect(held.state.saves).toBe(1);
         },
       );
