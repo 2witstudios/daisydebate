@@ -8,6 +8,7 @@ import {
 } from '../../../../lib/request-session';
 import {
   buildSeasonsView,
+  listsPublishedResolutions,
   parseSeasonsQuery,
 } from '../../../../features/leaderboard/seasons';
 import { SeasonsPage } from '../../../../ui/leaderboard/seasons-page/seasons-page';
@@ -29,9 +30,8 @@ export default async function SeasonsRoute({
     now,
   });
   const view = read && buildSeasonsView(read.data, now, read.viewer, ladder);
-  const resolutions =
-    view === null || view.listsPublishedResolutions
-      ? await requestPublishedResolutions()
-      : [];
+  const resolutions = listsPublishedResolutions(view)
+    ? await requestPublishedResolutions()
+    : [];
   return <SeasonsPage view={view} resolutions={resolutions} />;
 }

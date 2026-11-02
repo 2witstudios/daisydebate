@@ -1,3 +1,4 @@
+import { leaderboardDestinations } from '../leaderboard/actions';
 import type { DestinationSlug } from './destinations';
 
 type LaunchConfig = Readonly<Record<DestinationSlug, boolean>>;
@@ -6,7 +7,9 @@ type LaunchConfig = Readonly<Record<DestinationSlug, boolean>>;
  * Which destinations are open. Flip one to `true` when its real screens ship:
  * the nav then lists it, every link into it reaches the live route, and its
  * explainer redirects there. Until then the nav leaves it out and every link
- * into it goes to its explainer, never to sample data.
+ * into it goes to its explainer, never to sample data. Seasons is the exception:
+ * a tile for a public page under the Leaderboard, so its flag changes only the
+ * tile and the explainer redirect.
  */
 export const launched: LaunchConfig = {
   lobby: true,
@@ -29,14 +32,9 @@ export type PlaceLaunchConfig = Readonly<Record<'notifications', boolean>>;
  */
 export const launchedPlaces: PlaceLaunchConfig = { notifications: false };
 
-/** The destinations that live somewhere other than their own slug. */
-const nestedRoutes: Partial<Readonly<Record<DestinationSlug, string>>> = {
-  seasons: '/leaderboard/seasons',
-};
-
-/** The live route of a destination. */
+/** The live route of a destination; Seasons lives under the Leaderboard. */
 export const liveHref = (slug: DestinationSlug): string =>
-  nestedRoutes[slug] ?? `/${slug}`;
+  slug === 'seasons' ? leaderboardDestinations.seasons : `/${slug}`;
 
 /** The public explainer route of a destination. */
 export const explainerHref = (slug: DestinationSlug): string =>

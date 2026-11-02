@@ -2,7 +2,12 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { NOW } from './ladder.test-support';
 import { readLadder as readStoredLadder } from './read-leaderboard';
 import { readLadder } from './read-leaderboard.test-support';
-import { buildSeasonsView, parseSeasonsQuery, seasonsHref } from './seasons';
+import {
+  buildSeasonsView,
+  listsPublishedResolutions,
+  parseSeasonsQuery,
+  seasonsHref,
+} from './seasons';
 
 setupRitewayBun();
 
@@ -73,14 +78,14 @@ describe('buildSeasonsView', () => {
       given: 'a closed season',
       should: 'name the champion, freeze the standings and fill the bar',
       actual: [
-        view.closed,
+        view.state,
         view.championLabel,
         view.snapshotTitle,
         view.percent,
         view.snapshot[0]?.href,
       ],
       expected: [
-        true,
+        'past',
         'Champion',
         'Final standings',
         100,
@@ -107,15 +112,14 @@ describe('when the current resolutions show', () => {
       buildSeasonsView(readLadder(season, NOW, null).data, NOW);
     assert({
       given: 'the running season, then a closed one with another running',
-      should:
-        'list them for the running season only and say nothing is missing',
+      should: 'list them for the running season only',
       actual: [null, '3'].map((season) => [
-        view(season).listsPublishedResolutions,
-        view(season).noActiveSeason,
+        view(season).state,
+        listsPublishedResolutions(view(season)),
       ]),
       expected: [
-        [true, false],
-        [false, false],
+        ['running', true],
+        ['past', false],
       ],
     });
   });
@@ -141,13 +145,9 @@ describe('when the current resolutions show', () => {
     const view = buildSeasonsView(read!.data, NOW);
     assert({
       given: 'only a closed season, which the read falls back to',
-      should: 'show that closed season, say none is active and list them',
-      actual: [
-        view.closed,
-        view.noActiveSeason,
-        view.listsPublishedResolutions,
-      ],
-      expected: [true, true, true],
+      should: 'mark that none is active and list them',
+      actual: [view.state, listsPublishedResolutions(view)],
+      expected: ['none-active', true],
     });
   });
 });

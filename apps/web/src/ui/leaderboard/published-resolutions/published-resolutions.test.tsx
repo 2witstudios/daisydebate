@@ -27,14 +27,15 @@ describe('PublishedResolutions', () => {
     const html = render([publication]);
     assert({
       given: 'a published resolution with an edition and theme',
-      should: 'show its kind, edition, exact wording and theme',
+      should: 'show its kind, exact wording and theme, not its edition',
       actual: [
-        html.includes('Policy · Edition one'),
+        html.includes('>Policy<'),
         html.includes(publication.text),
         html.includes('Cities</span>'),
         html.includes('Test publication'),
+        html.includes('Edition one'),
       ],
-      expected: [true, true, true, false],
+      expected: [true, true, true, false, false],
     });
   });
 
@@ -43,9 +44,9 @@ describe('PublishedResolutions', () => {
       { ...publication, kind: 'value', edition: null, theme: null },
     ]);
     assert({
-      given: 'a value resolution with no edition or theme',
-      should: 'label it Value alone',
-      actual: [html.includes('>Value<'), html.includes(' · ')],
+      given: 'a value resolution with no theme',
+      should: 'label it Value and show no theme line',
+      actual: [html.includes('>Value<'), html.includes('text-ink-muted')],
       expected: [true, false],
     });
   });

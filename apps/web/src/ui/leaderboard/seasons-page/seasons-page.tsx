@@ -12,16 +12,18 @@ import { LadderRow } from '../ladder-row/ladder-row';
 import { PublishedResolutions } from '../published-resolutions/published-resolutions';
 import { LadderHeading } from '../ladder-row/ladder-heading';
 import { Segmented } from '../segmented/segmented';
+import { seasonsCardClass, seasonsEyebrowClass } from './seasons-class';
 import { cn } from '../../cn';
 
 export type SeasonsPageProps = {
-  /** Null when no season is active. */
+  /** Null when no season has opened. */
   readonly view: SeasonsView | null;
+  /** Empty when this view does not list them; see listsPublishedResolutions. */
   readonly resolutions: readonly PublishedResolution[];
 };
 
-const card = 'flex flex-col gap-3 rounded-lg bg-surface p-5 shadow-1';
-const eyebrow = 'text-2xs font-bold tracking-wider text-ink-faint uppercase';
+const card = seasonsCardClass;
+const eyebrow = seasonsEyebrowClass;
 const openLadder = 'text-base font-strong';
 const frame =
   'mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4';
@@ -93,8 +95,8 @@ function RangePicture() {
 }
 
 /**
- * One season at a glance: the current resolutions where they apply, dates, champion,
- * a top-ten snapshot, and how rating works. With no active season, the
+ * One season at a glance: the resolutions it was given, dates, champion, a
+ * top-ten snapshot, and how rating works. With no season at all, the
  * resolutions alone.
  */
 export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
@@ -106,6 +108,7 @@ export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
         <PublishedResolutions resolutions={resolutions} />
       </div>
     );
+  const closed = view.state !== 'running';
   const champion = view.champion;
   return (
     <div className={frame}>
@@ -113,12 +116,10 @@ export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
         <h1 className={title}>Seasons</h1>
         <Segmented label="Season" segments={view.chips} />
       </header>
-      {view.noActiveSeason ? <NoActiveSeason /> : null}
-      {view.listsPublishedResolutions ? (
-        <PublishedResolutions resolutions={resolutions} />
-      ) : null}
+      {view.state === 'none-active' ? <NoActiveSeason /> : null}
+      <PublishedResolutions resolutions={resolutions} />
       <section className={card}>
-        <Badge tone={view.closed ? 'gold' : 'accent'}>{view.tag}</Badge>
+        <Badge tone={closed ? 'gold' : 'accent'}>{view.tag}</Badge>
         <h2 className="font-display text-2xl font-bold">
           {view.ladderLabel} · {view.label}
         </h2>
@@ -160,10 +161,10 @@ export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
           <h2 className="text-lg font-bold">{view.snapshotTitle}</h2>
           <span className="text-sm text-ink-faint">{`${view.label} · top ${view.snapshot.length}`}</span>
         </div>
-        <LadderHeading closed={view.closed} />
+        <LadderHeading closed={closed} />
         <ul>
           {view.snapshot.map((row) => (
-            <LadderRow key={row.key} row={row} closed={view.closed} />
+            <LadderRow key={row.key} row={row} closed={closed} />
           ))}
         </ul>
         <div className="border-t border-border px-5 py-3">

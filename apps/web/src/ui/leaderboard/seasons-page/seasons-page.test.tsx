@@ -3,7 +3,10 @@ import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { NOW } from '../../../features/leaderboard/ladder.test-support';
 import { readLadder } from '../../../features/leaderboard/read-leaderboard.test-support';
-import { buildSeasonsView } from '../../../features/leaderboard/seasons';
+import {
+  buildSeasonsView,
+  listsPublishedResolutions,
+} from '../../../features/leaderboard/seasons';
 import { SeasonsPage } from './seasons-page';
 
 setupRitewayBun();
@@ -23,10 +26,12 @@ const resolutions = [
 const render = (season: string | null, entries?: 'none') => {
   const data = readLadder(season, NOW, null).data;
   const view = buildSeasonsView(entries ? { ...data, entries: [] } : data, NOW);
-  return renderToString(h(SeasonsPage, { view, resolutions })).replace(
-    /<!-- -->/g,
-    '',
-  );
+  return renderToString(
+    h(SeasonsPage, {
+      view,
+      resolutions: listsPublishedResolutions(view) ? resolutions : [],
+    }),
+  ).replace(/<!-- -->/g, '');
 };
 
 describe('SeasonsPage', () => {

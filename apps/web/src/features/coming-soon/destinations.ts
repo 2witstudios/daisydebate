@@ -24,6 +24,7 @@ export type Destination = {
  * Explainer copy for every destination. Rated play shares the normal Room lifecycle.
  */
 export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
+  // The slug names the route it opens; its name everywhere is Play.
   lobby: {
     slug: 'lobby',
     title: 'Play',
