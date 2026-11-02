@@ -32,7 +32,9 @@ loop asks for one; no reviewer has to re-review every push.
 Every review, of a plan or a PR, judges against the stated intent and the
 ideal design, not only against the existing code: consistent-with-flawed-code
 is not a pass. A breach of the [architecture rules](../../AGENTS.md#architecture-rules)
-(concept coupling) is a **blocker**, never a minor.
+(concept coupling, a model that can represent impossible states, impure
+decisions or transitions, or names and file organization that do not state the
+product concept) is a **blocker**, never a minor.
 
 ## The `/review` comment
 
