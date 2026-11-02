@@ -23,6 +23,7 @@ import {
 } from 'react';
 import { realtimeEndpointOf } from '../../features/realtime/endpoint-header';
 import {
+  secureRandom,
   systemScheduler,
   tabConnection,
 } from '../../features/realtime/browser-adapters';
@@ -166,7 +167,7 @@ export function OnlineProvider({
         now: systemScheduler.now(),
         lastReadAt: lastRead.current,
         onlineCount: shown.current.count,
-        jitter: systemScheduler.random(),
+        jitter: secureRandom(),
       }),
     );
   }, [readRoster]);
