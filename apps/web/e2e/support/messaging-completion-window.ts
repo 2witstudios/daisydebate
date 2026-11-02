@@ -11,72 +11,57 @@ import {
   holdConversationResponses,
 } from './messaging-navigation-overlap';
 
-/** Clicks Edit this long after the send response body arrives, via the real Link. */
-async function clickEditAfterSendResponse(page: Page, delayMs: number) {
-  await page.evaluate((delay) => {
-    const real = window.fetch;
-    window.fetch = (async (...args: Parameters<typeof fetch>) => {
-      const response = await real(...args);
-      if (new Headers(args[1]?.headers).has('next-action'))
-        void response
-          .clone()
-          .text()
-          .then(() =>
-            setTimeout(() => {
-              [...document.querySelectorAll('a')]
-                .filter(
-                  (link) => link.textContent === 'Edit or remove your message',
-                )
-                .at(-1)
-                ?.click();
-            }, delay),
-          );
-      return response;
-    }) as typeof window.fetch;
-  }, delayMs);
-}
-
-async function clickInsideCompletion(
-  page: Page,
-  channelId: string,
-  delayMs: number,
-  text: string,
-) {
-  const held = holdConversationResponses(page, channelId);
-  await page.goto(`/messages/${channelId}`);
-  await effectsRan(page);
-  await page.route('**/messages/**', held.intercept);
-  await clickEditAfterSendResponse(page, delayMs);
-  await beginHeldSend(page, held, text);
-  await expect(ownMessageEdit(page, text)).toBeVisible();
-  held.releaseAll();
-  await expect(page.getByLabel('Revise your message')).toBeVisible();
-  await expect(page).toHaveURL(/\/message\?/);
-  // A send destination issued before the click is preempted by Next; one issued
-  // after the member's Edit is the stale completion this slice forbids.
-  expect(held.state.routeOrder.join('>')).not.toContain('navigation>sent');
-  await page.unroute('**/messages/**', held.intercept);
+/**
+ * Clicks the real Edit Link as the send's answer reaches the DOM. A transition's
+ * passive effects run in a later task than its commit, while a MutationObserver
+ * callback runs straight after the commit: this click is always between the two.
+ */
+async function clickEditWhenAnswerCommits(page: Page) {
+  await page.evaluate(() => {
+    const observer = new MutationObserver(() => {
+      const sending = [...document.querySelectorAll('button')].some(
+        (button) => button.textContent === 'Sending…',
+      );
+      if (sending) return;
+      observer.disconnect();
+      [...document.querySelectorAll('a')]
+        .filter((link) => link.textContent === 'Edit or remove your message')
+        .at(-1)
+        ?.click();
+    });
+    observer.observe(document.body, {
+      attributes: true,
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+  });
 }
 
 export function testEditCompletionWindow() {
-  // The click must land after the action settles and before its answer commits, a
-  // window of a few milliseconds whose position varies by machine, so this samples
-  // it. Green can never be a timing accident; red depends on landing in the window.
-  test('Edit clicked inside the send completion window reaches the editor', async ({
+  test('Edit clicked as the send answer commits reaches the editor without a stale send destination', async ({
     browser,
   }) => {
-    test.setTimeout(120_000);
     const journey = await openMessagingJourney(browser);
     try {
       const page = await acceptMessagingJourney(journey);
-      const delays = [1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6];
-      for (const [index, delayMs] of delays.entries())
-        await clickInsideCompletion(
-          page,
-          journey.channelId,
-          delayMs,
-          `Completion window ${index}`,
-        );
+      const held = holdConversationResponses(page, journey.channelId);
+      await page.goto(`/messages/${journey.channelId}`);
+      await effectsRan(page);
+      await page.route('**/messages/**', held.intercept);
+      const text = 'Edit as the answer commits';
+      await beginHeldSend(page, held, text);
+      await expect(ownMessageEdit(page, text)).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Sending…', exact: true }),
+      ).toBeDisabled();
+      await clickEditWhenAnswerCommits(page);
+      held.releaseAll();
+      await expect(page.getByLabel('Revise your message')).toBeVisible();
+      await expect(page).toHaveURL(/\/message\?/);
+      expect(held.state.sends).toBe(1);
+      expect(held.state.routeOrder[0]).toBe('navigation');
+      expect(held.state.sentDestinations).toBe(0);
     } finally {
       await journey.close();
     }
