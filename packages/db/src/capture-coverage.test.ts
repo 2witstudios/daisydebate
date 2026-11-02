@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  captureGaps,
   hasCompleteCaptureCoverage,
   type CaptureInterval,
   type CoverageEdges,
@@ -287,5 +288,37 @@ test('captured evidence added in a bot’s terminal zone never flips complete to
     should: 'never seal partial where less evidence sealed complete',
     actual: flips.slice(0, 3),
     expected: [],
+  });
+});
+
+const tolerance = { openMs: 4000, closeMs: 1000 };
+test('gaps are the required speech with no capture, by the coverage edges', () => {
+  const gaps = (
+    authority: { start: number; end: number | null }[],
+    observed: { start: number; end: number | null }[],
+  ) => captureGaps({ authority, observed, tolerance });
+  assert({
+    given:
+      'capture either side of a hole, none at all, a late join and an open window',
+    should:
+      'report the hole, the whole window, nothing within tolerance and nothing for an open window',
+    actual: [
+      gaps(
+        [{ start: 0, end: 300_000 }],
+        [
+          { start: 355, end: 234_145 },
+          { start: 251_900, end: 300_000 },
+        ],
+      ),
+      gaps([{ start: 0, end: 1000 }], []),
+      gaps([{ start: 0, end: 10_000 }], [{ start: 3000, end: 10_000 }]),
+      gaps([{ start: 0, end: null }], [{ start: 0, end: 5000 }]),
+    ],
+    expected: [
+      [{ start: 234_145, end: 251_900 }],
+      [{ start: 0, end: 1000 }],
+      [],
+      [],
+    ],
   });
 });

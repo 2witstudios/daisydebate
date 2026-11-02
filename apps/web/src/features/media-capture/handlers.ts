@@ -83,8 +83,19 @@ export function createMediaCaptureHandlers(input: {
               return Response.json(null);
             }
             const capture = input.capture();
+            if (operation === 'lease') {
+              const { reinstatedAfterMs, ...lease } =
+                await capture.claimMediaWorkerLease(payload);
+              if (reinstatedAfterMs !== undefined)
+                input.logger.log(
+                  'media.capture.lease_reinstated',
+                  { durationMs: reinstatedAfterMs },
+                  'Capture lease reinstated after an outage',
+                );
+              return Response.json(lease);
+            }
             const operations = {
-              lease: capture.claimMediaWorkerLease,
+              release: capture.releaseMediaWorkerLease,
               read: capture.readMediaCaptureState,
               append: capture.appendCapturedTranscript,
               observe: capture.observeCapturedStream,
@@ -119,6 +130,9 @@ const namedRefusals: Readonly<
   'Capture session has ended': { refusal: 'capture-closed', status: 409 },
   'Capture admission is closed': { refusal: 'capture-closed', status: 409 },
   'Capture session is closed': { refusal: 'capture-paused', status: 503 },
+  // Its worker may still reinstate it: only a takeover makes this final, and
+  // that is answered as stale.
+  'Capture worker lease expired': { refusal: 'lease-expired', status: 503 },
 };
 export function namedCaptureRefusal(error: unknown, requestId: string) {
   if (

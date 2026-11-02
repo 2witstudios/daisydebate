@@ -2,8 +2,7 @@ import {
   isNamedSeat,
   type Ballot,
   type RoundBallotRead,
-  type RoundTranscriptRead,
-  type RoundView,
+  type LiveTranscriptRead,
 } from '@daisy/protocol';
 import { seatLabel } from '../rooms/room-page/assembly-controls';
 import { speechName } from '../../features/debate-room/vocabulary';
@@ -25,13 +24,46 @@ export type TranscriptSection = {
   readonly heading: string;
   readonly side: 'affirmative' | 'negative';
   readonly status?: 'capturing' | 'partial' | 'complete' | 'pending';
-  readonly lines: readonly {
-    readonly id: string;
-    readonly speaker: string;
-    readonly text: string;
-    readonly partial: boolean;
-  }[];
+  readonly lines: readonly TranscriptLine[];
+  /** Required speech with no capture; the live read reports these. */
+  readonly gaps?: readonly TranscriptGap[];
 };
+type TranscriptLine = {
+  readonly id: string;
+  readonly speaker: string;
+  readonly text: string;
+  readonly partial: boolean;
+  readonly startOffsetMs: number | null;
+};
+type TranscriptGap = {
+  readonly key: string;
+  readonly speaker: string;
+  readonly fromOffsetMs: number;
+  readonly untilOffsetMs: number;
+};
+export type TranscriptItem =
+  | ({ readonly kind: 'line' } & TranscriptLine)
+  | ({ readonly kind: 'gap' } & TranscriptGap);
+
+/** A section's lines in order, each gap placed before the first line captured after it. */
+export function sectionItems(
+  section: TranscriptSection,
+): readonly TranscriptItem[] {
+  const gaps = [...(section.gaps ?? [])].sort(
+    (a, b) => a.fromOffsetMs - b.fromOffsetMs,
+  );
+  const items: TranscriptItem[] = [];
+  for (const line of section.lines) {
+    while (
+      gaps[0] &&
+      line.startOffsetMs !== null &&
+      gaps[0].fromOffsetMs <= line.startOffsetMs
+    )
+      items.push({ kind: 'gap', ...gaps.shift()! });
+    items.push({ kind: 'line', ...line });
+  }
+  return [...items, ...gaps.map((gap) => ({ kind: 'gap' as const, ...gap }))];
+}
 
 const author = (entry: Released) =>
   entry.judge === 'ai' ? 'AI judge' : 'Human judge';
@@ -61,14 +93,36 @@ export function transcriptSections(
 ): readonly TranscriptSection[] {
   const transcript = view.transcript;
   if (!transcript) return [];
-  return sectionsOf(view.round, transcript.utterances);
+  const sections = sectionsOf(view.round, transcript.utterances);
+  const played = view.round.segments.filter((segment) =>
+    transcript.gaps.some((gap) => gap.segmentId === segment.id),
+  );
+  const keys = new Set(sections.map((section) => section.key));
+  return [
+    ...sections,
+    ...played
+      .filter((segment) => !keys.has(`${segment.sequence}`))
+      .map((segment) => emptySection(view.round, segment.sequence)),
+  ]
+    .sort((a, b) => Number(a.key) - Number(b.key))
+    .map((section) => {
+      const segment = view.round.segments.find(
+        (each) => `${each.sequence}` === section.key,
+      );
+      return {
+        ...section,
+        gaps: transcript.gaps
+          .filter((gap) => gap.segmentId === segment?.id)
+          .map((gap) => gapRow(view.round, gap)),
+      };
+    });
 }
 
 /**
  * A transcript's lines by played position with their speaker's seat name,
  * for any card on the page that cites a line.
  */
-export function transcriptLines(view: RoundTranscriptRead) {
+export function transcriptLines(view: LiveTranscriptRead) {
   return view.utterances.map((line) => ({
     segment: line.segmentSequence,
     sequence: line.sequence,
@@ -77,12 +131,29 @@ export function transcriptLines(view: RoundTranscriptRead) {
   }));
 }
 
-const speakerOf = (round: RoundView, participantId: string) =>
+const gapRow = (
+  round: TranscriptRound,
+  gap: {
+    readonly roundParticipantId: string;
+    readonly fromOffsetMs: number;
+    readonly untilOffsetMs: number;
+  },
+): TranscriptGap => ({
+  key: `${gap.roundParticipantId}:${gap.fromOffsetMs}`,
+  speaker: speakerOf(round, gap.roundParticipantId),
+  fromOffsetMs: gap.fromOffsetMs,
+  untilOffsetMs: gap.untilOffsetMs,
+});
+
+/** The Round's fields a transcript renders; any fuller view satisfies it. */
+type TranscriptRound = LiveTranscriptRead['round'];
+
+const speakerOf = (round: TranscriptRound, participantId: string) =>
   round.participants.filter(isNamedSeat).find((p) => p.id === participantId)
     ?.label ?? 'Unknown speaker';
 
 function sectionsOf(
-  round: RoundView,
+  round: TranscriptRound,
   utterances: NonNullable<RoundBallotRead['transcript']>['utterances'],
 ): readonly TranscriptSection[] {
   const speaker = (participantId: string) => speakerOf(round, participantId);
@@ -100,6 +171,7 @@ function sectionsOf(
           speaker: speaker(line.roundParticipantId),
           text: line.text,
           partial: !line.complete,
+          startOffsetMs: line.startOffsetMs,
         },
       ],
     });
@@ -109,7 +181,7 @@ function sectionsOf(
 
 /** Only explicit open coverage can claim capture; a freeze always closes it. */
 export function transcriptState(
-  view: RoundTranscriptRead,
+  view: LiveTranscriptRead,
 ): NonNullable<TranscriptSection['status']> {
   if (view.freeze)
     return view.freeze.completeness === 'complete' ? 'complete' : 'partial';
@@ -119,7 +191,7 @@ export function transcriptState(
 
 /** Viewer-neutral sections: authorization has already happened at the read boundary. */
 export function liveTranscriptSections(
-  view: RoundTranscriptRead,
+  view: LiveTranscriptRead,
 ): readonly TranscriptSection[] {
   const sections = sectionsOf(view.round, view.utterances);
   return view.round.segments.map((segment) => {
@@ -129,11 +201,22 @@ export function liveTranscriptSections(
     return {
       ...(existing ?? emptySection(view.round, segment.sequence)),
       status,
+      gaps: streams.flatMap((stream) =>
+        stream.gaps.map((gap) =>
+          gapRow(view.round, {
+            roundParticipantId: stream.roundParticipantId,
+            ...gap,
+          }),
+        ),
+      ),
     };
   });
 }
 
-function emptySection(round: RoundView, sequence: number): TranscriptSection {
+function emptySection(
+  round: TranscriptRound,
+  sequence: number,
+): TranscriptSection {
   const played = round.segments[sequence];
   const rules = round.rules.segments.find(
     (s) => s.key === played?.rulesSegmentKey,
@@ -154,7 +237,7 @@ function emptySection(round: RoundView, sequence: number): TranscriptSection {
  * short). Before the freeze it is pending.
  */
 function streamStatus(
-  streams: RoundTranscriptRead['streams'],
+  streams: LiveTranscriptRead['streams'],
   frozen: boolean,
 ): NonNullable<TranscriptSection['status']> {
   const open = streams.some((s) => s.state === 'open');

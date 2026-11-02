@@ -103,7 +103,32 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
           target: mediaWorkerLeases.sessionId,
           set: { workerId: input.workerId, epoch, expiresAt },
         });
-      return { epoch, expiresAt: expiresAt.toISOString() };
+      // A renewal past expiry is a ride-through ending: its length is the measure.
+      const expiredForMs =
+        current && input.expectedEpoch !== undefined
+          ? now.getTime() - current.expiresAt.getTime()
+          : 0;
+      return {
+        epoch,
+        expiresAt: expiresAt.toISOString(),
+        ...(expiredForMs > 0 ? { reinstatedAfterMs: expiredForMs } : {}),
+      };
+    });
+  },
+  /**
+   * Ends this exact epoch's lease now, so a successor need not wait out its
+   * expiry. Any other epoch or worker is left alone. The row stays: the next
+   * claim still moves the epoch on.
+   */
+  releaseMediaWorkerLease(raw: unknown) {
+    const input = parseCapture(captureWorkerIdentitySchema, raw);
+    return dependencies.transaction(async (tx) => {
+      await tx.execute(sql`
+        update media_worker_leases set expires_at=least(expires_at,clock_timestamp())
+        where session_id=${input.sessionId} and worker_id=${input.workerId}
+          and epoch=${input.epoch}
+          and session_id in (select id from media_sessions where round_id=${input.roundId})`);
+      return null;
     });
   },
   appendCapturedTranscript(raw: unknown) {

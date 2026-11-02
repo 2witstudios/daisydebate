@@ -41,6 +41,7 @@ test('real bounded capture appends once and seals only actual continuous histori
       const sealed = await store.sealCapturedStream({
         ...stream,
         expectedChunkCount: 1,
+        framesLost: false,
       });
       assert({
         given:
@@ -106,6 +107,7 @@ test('capture gaps and mismatching committed chunk counts cannot produce complet
         const sealed = await store.sealCapturedStream({
           ...stream,
           expectedChunkCount: mismatch ? 1 : 0,
+          framesLost: false,
         });
         assert({
           given: mismatch
@@ -202,7 +204,12 @@ test('frozen input and expired actual-final-end cutoff fence every capture mutat
             observedFrom: start.toISOString(),
             observedUntil: end.toISOString(),
           }),
-        () => store.sealCapturedStream({ ...stream, expectedChunkCount: 0 }),
+        () =>
+          store.sealCapturedStream({
+            ...stream,
+            expectedChunkCount: 0,
+            framesLost: false,
+          }),
         () => store.claimMediaWorkerLease({ ...lease, leaseMs: 15000 }),
       ];
       for (const actual of writes)

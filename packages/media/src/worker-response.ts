@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 
 export const unavailable = () =>
   createAppError('INFRASTRUCTURE', 'Media control is unavailable');
@@ -32,6 +32,14 @@ const definite = new WeakSet<object>();
  */
 export const isDefiniteRefusal = (error: unknown) =>
   typeof error === 'object' && error !== null && definite.has(error);
+/**
+ * Whether the control plane may still answer: its outcome is unknown, or the
+ * server refused only for now. A named refusal or any other code is an answer.
+ */
+export const isTransientControlFailure = (error: unknown) =>
+  isAppError(error) &&
+  error.code === 'INFRASTRUCTURE' &&
+  !isDefiniteRefusal(error);
 /** Whether a seal may be resent: its timeline was still open (VIDEO-4.1-r1). */
 export const isOpenTimelineRefusal = (error: unknown) =>
   typeof error === 'object' && error !== null && openTimeline.has(error);
