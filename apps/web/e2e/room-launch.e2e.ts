@@ -428,12 +428,13 @@ test('a Ready made in one tab survives a mounted tab and a reload that never che
     });
 
     await readyUp(readyTab);
-    const ready = await reread(readyTab.request, roomId);
-    const ownActorId = ready.hostActorId!;
-    const standing = seated(ready, ownActorId);
     // The mounted tab reads the Ready through its own Room sync and keeps it.
     const standingReady = uncheckedTab.getByText('✓ Ready', { exact: true });
     await expect(standingReady).toBeVisible();
+    // Read only now: the checked tab's control moves before the Ready commits.
+    const ready = await reread(readyTab.request, roomId);
+    const ownActorId = ready.hostActorId!;
+    const standing = seated(ready, ownActorId);
     // A reload mounts a new controller over the standing Ready.
     await uncheckedTab.reload();
     await expect(checkControl).toBeVisible();
