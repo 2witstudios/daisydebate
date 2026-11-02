@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Source } from '../model/media-state';
 import { createBrowserMediaTransport } from '../media-harness.test-support';
-import { createMediaController } from '../media-harness.test-support';
+import { createMediaHarness } from '../media-harness.test-support';
 import { admission, snapshot, roundId } from '../media-fixtures.test-support';
 import { events, publish, sources, stubSdk } from './livekit-room.test-support';
 setupRitewayBun();
@@ -271,7 +271,7 @@ test('the real controller keeps the working microphone and its subscriptions liv
     },
     broken.sdk,
   );
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 1,
     api: {
@@ -331,7 +331,7 @@ test('a checked camera gone keeps the microphone live at Round entry through the
     },
     gone.sdk,
   );
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 1,
     api: {
@@ -444,7 +444,7 @@ test('serialized SDK capture failures cross the actual adapter as closed device 
         },
       },
     );
-    const controller = createMediaController({
+    const controller = createMediaHarness({
       roundId,
       initialRoundViewVersion: 1,
       api: { admit: async () => admission, reconcile: async () => snapshot },

@@ -10,7 +10,7 @@ import {
   createBrowserMediaTransport,
   type MediaTrack,
 } from './media-harness.test-support';
-import { createMediaController } from './media-harness.test-support';
+import { createMediaHarness } from './media-harness.test-support';
 type SourceIllHealth = readonly [Source, SourceFailureKind | 'waiting'];
 import { admission, snapshot, roundId } from './media-fixtures.test-support';
 import { events, stubSdk } from './adapters/livekit-room.test-support';
@@ -60,7 +60,7 @@ export const enterCameraTurn = async (failFirstWarm: boolean) => {
     ...snapshot,
     grants: { ...snapshot.grants, publish },
   });
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 1,
     api: {

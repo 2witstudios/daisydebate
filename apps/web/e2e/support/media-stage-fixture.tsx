@@ -42,6 +42,12 @@ Object.assign(window, {
                 local: false,
                 speaking,
                 muted: false,
+              },
+            ]}
+            handles={[
+              {
+                identity: 'peer',
+                source: 'camera',
                 track: tracks[index],
               } as unknown as TrackHandle,
             ]}

@@ -1,4 +1,4 @@
-import type { MediaEffect } from './media-effects';
+import type { PlannedEffect } from './media-step';
 import type { LiveConnection, Source, SourceState } from './media-state';
 import { SOURCES } from './media-state';
 
@@ -12,24 +12,25 @@ const warmable = (source: Source, desired: readonly Source[]) =>
 
 type SourceStep = {
   readonly source: SourceState;
-  readonly effects: readonly MediaEffect[];
+  readonly effects: readonly PlannedEffect[];
 };
 const stay = (source: SourceState): SourceStep => ({ source, effects: [] });
 
 /** Moves one source toward what the seat may publish. Only idle phases can move. */
-export function convergeSource(input: {
+function convergeSource(input: {
   readonly name: Source;
   readonly state: SourceState;
   readonly desired: readonly Source[];
   readonly connection: number;
+  readonly useDefaults: boolean;
   readonly atMs: number;
 }): SourceStep {
-  const { name: source, state, desired, connection } = input;
+  const { name: source, state, desired, connection, useDefaults } = input;
   const wanted = desired.includes(source);
   const warm = warmable(source, desired);
   const capture = (): SourceStep => ({
     source: { phase: 'capturing', waiting: false },
-    effects: [{ type: 'capture', connection, source }],
+    effects: [{ type: 'capture', connection, source, useDefaults }],
   });
   switch (state.phase) {
     case 'off':
@@ -64,13 +65,14 @@ export function convergeSource(input: {
 }
 
 /** A newly wanted source starts over; what stopped mattering leaves the bar. */
-export function reconsiderFailure(input: {
+function reconsiderFailure(input: {
   readonly name: Source;
   readonly state: SourceState;
   readonly wasWanted: boolean;
   readonly desired: readonly Source[];
 }): SourceState {
   const { name, state, wasWanted, desired } = input;
+  if (state.phase === 'failed' && state.removingSinceMs !== null) return state;
   if (
     state.phase !== 'failed' &&
     state.phase !== 'missing' &&
@@ -83,14 +85,18 @@ export function reconsiderFailure(input: {
   return { phase: 'off' };
 }
 
-/** Applies a change of what the seat may publish to both sources. */
+/** Applies what the seat may publish to both sources. */
 export function convergeSources(
   live: LiveConnection,
   previouslyDesired: readonly Source[],
+  useDefaults: boolean,
   atMs: number,
-): { readonly live: LiveConnection; readonly effects: readonly MediaEffect[] } {
+): {
+  readonly live: LiveConnection;
+  readonly effects: readonly PlannedEffect[];
+} {
   const desired = desiredSources(live);
-  const effects: MediaEffect[] = [];
+  const effects: PlannedEffect[] = [];
   const next: Record<Source, SourceState> = { ...live.sources };
   for (const name of SOURCES) {
     const reconsidered = reconsiderFailure({
@@ -104,6 +110,7 @@ export function convergeSources(
       state: reconsidered,
       desired,
       connection: live.connection,
+      useDefaults,
       atMs,
     });
     next[name] = step.source;
@@ -113,7 +120,7 @@ export function convergeSources(
   return { live: same ? live : { ...live, sources: next }, effects };
 }
 
-/** What a source's own work reporting back does to it. Null when it is not expected. */
+/** A capture answered: publish it, keep it warm, or let it go. */
 export function settleCaptured(input: {
   readonly name: Source;
   readonly desired: readonly Source[];
@@ -135,10 +142,11 @@ export function settleCaptured(input: {
   };
 }
 
-export const isOccupied = (state: SourceState, patienceExpired: boolean) =>
+/** Whether an answer still has to wait for this source. Past patience a prompt does not hold it. */
+export const holdsAnswer = (state: SourceState) =>
   state.phase === 'publishing' ||
   state.phase === 'unpublishing' ||
-  (state.phase === 'capturing' && !patienceExpired);
+  (state.phase === 'capturing' && !state.waiting);
 
 /** A stuck SDK call holds every later answer, so only a new connection escapes it. */
 export const hasStuckWork = (
@@ -148,8 +156,11 @@ export const hasStuckWork = (
 ) =>
   SOURCES.some((name) => {
     const state = live.sources[name];
-    return (
-      (state.phase === 'publishing' || state.phase === 'unpublishing') &&
-      atMs - state.sinceMs >= budgetMs
-    );
+    const sinceMs =
+      state.phase === 'publishing' || state.phase === 'unpublishing'
+        ? state.sinceMs
+        : state.phase === 'failed'
+          ? state.removingSinceMs
+          : null;
+    return sinceMs !== null && atMs - sinceMs >= budgetMs;
   });

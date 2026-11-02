@@ -17,7 +17,7 @@ import type { SourceFailureKind } from '../source-failure';
 export const testPolicy: MediaPolicy = {
   requestRetryDelaysMs: [500, 1_000, 2_000],
   readBudgetMs: 43_500,
-  letFinishMs: 2_000,
+
   capturePatienceMs: 3_000,
   recoveryDelaysMs: [1_000, 2_000, 4_000, 8_000, 10_000],
   eventFloorMs: 5_000,
@@ -35,24 +35,20 @@ export const liveLink = (
   phase: 'live',
   connection: 1,
   identity: 'seat',
-  reconnecting: false,
-  established: true,
+  establishment: {
+    stage: 'established',
+    media: answerWith([]),
+    freshness: { status: 'current' },
+  },
   grants: [],
   permission: null,
-  media: null,
-  freshness: 'current',
   sources: { camera: { phase: 'off' }, microphone: { phase: 'off' } },
   tracks: [],
   peers: [],
   sound: 'allowed',
-  reads: {
-    flight: null,
-    queued: false,
-    startDeferred: false,
-    supersededSinceAnswer: 0,
-    budgetRunning: false,
-  },
-  apply: { running: null, next: null },
+  changingMicrophone: false,
+  reads: { flight: null, next: 'none', supersededSinceAnswer: 0 },
+  apply: null,
   ...overrides,
 });
 
@@ -92,9 +88,7 @@ const linkFor = (
         phase: 'admitting',
         connection: 1,
         reconnecting: connection === 'reconnecting',
-        attempt: 0,
-        retries: false,
-        stage: 'requesting',
+        ownRetry: null,
       };
     case 'unavailable':
       return { phase: 'released', why: evidence.failure ?? 'definite' };
@@ -111,14 +105,19 @@ const linkFor = (
             ? { phase: 'capturing', waiting: true }
             : kind === 'removal'
               ? { phase: 'stale-publication' }
-              : { phase: 'failed', kind };
+              : { phase: 'failed', kind, removingSinceMs: null };
       for (const source of missing) sources[source] = { phase: 'missing' };
       const mic = evidence.microphone;
       return liveLink({
-        freshness:
-          connection === 'out-of-date' ? { stale: 'transient' } : 'current',
+        establishment: {
+          stage: 'established',
+          media: answerWith(mic?.granted ? ['microphone'] : []),
+          freshness:
+            connection === 'out-of-date'
+              ? { status: 'stale', cause: 'transient', wakeArmed: true }
+              : { status: 'current' },
+        },
         sources,
-        media: answerWith(mic?.granted ? ['microphone'] : []),
         sound: evidence.sound?.blocked ? 'blocked' : 'allowed',
         tracks: mic?.published
           ? [
@@ -161,7 +160,13 @@ export const localPublicationOf = (input: {
       base.phase === 'live'
         ? {
             ...base,
-            media: input.grants ? answerWith(input.grants) : null,
+            establishment: input.grants
+              ? {
+                  stage: 'established',
+                  media: answerWith(input.grants),
+                  freshness: { status: 'current' },
+                }
+              : { stage: 'establishing', reconnecting: false },
             tracks: input.captured?.includes('microphone')
               ? [
                   {

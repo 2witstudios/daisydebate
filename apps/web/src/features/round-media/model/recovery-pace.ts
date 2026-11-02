@@ -1,13 +1,16 @@
-import type { MediaEffect } from './media-effects';
-import type { MediaPolicy, Recovery } from './media-state';
+import type { PlannedEffect } from './media-step';
+import type { MediaPolicy, RecoveryPace } from './media-state';
+import { schedule } from './media-step';
 
 /** Sets the one timer. The pace resets only once a connection has held for the floor. */
 export function armRecovery(
-  recovery: Recovery,
-  action: 'rejoin' | 'wake',
+  recovery: RecoveryPace,
   atMs: number,
   policy: MediaPolicy,
-): { readonly recovery: Recovery; readonly effects: readonly MediaEffect[] } {
+): {
+  readonly recovery: RecoveryPace;
+  readonly effects: readonly PlannedEffect[];
+} {
   const held =
     recovery.heldSinceMs !== null &&
     atMs - recovery.heldSinceMs >= policy.eventFloorMs;
@@ -16,26 +19,13 @@ export function armRecovery(
   const ms = delays[Math.min(step, delays.length - 1)];
   if (ms === undefined) return { recovery, effects: [] };
   return {
-    recovery: { ...recovery, step: step + 1, heldSinceMs: null, armed: action },
-    effects: [
-      { type: 'cancel', timer: 'recovery' },
-      { type: 'schedule', timer: 'recovery', ms },
-    ],
+    recovery: { ...recovery, step: step + 1, heldSinceMs: null },
+    effects: [schedule('recovery', ms)],
   };
 }
 
-export const disarmRecovery = (
-  recovery: Recovery,
-): { readonly recovery: Recovery; readonly effects: readonly MediaEffect[] } =>
-  recovery.armed === null
-    ? { recovery, effects: [] }
-    : {
-        recovery: { ...recovery, armed: null },
-        effects: [{ type: 'cancel', timer: 'recovery' }],
-      };
-
 export const clearOfEventFloor = (
-  recovery: Recovery,
+  recovery: RecoveryPace,
   atMs: number,
   policy: MediaPolicy,
 ) =>

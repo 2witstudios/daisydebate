@@ -19,9 +19,10 @@ export function publicationOf(state: MediaState): LocalPublication {
     case 'connecting':
       return link.reconnecting ? 'ill' : null;
     case 'live': {
-      if (!link.established) return link.reconnecting ? 'ill' : null;
-      const granted =
-        link.media?.grants.publish.includes('microphone') ?? false;
+      const { establishment } = link;
+      if (establishment.stage === 'establishing')
+        return establishment.reconnecting ? 'ill' : null;
+      const granted = establishment.media.grants.publish.includes('microphone');
       const own = link.tracks.find(
         (track) => track.local && track.source === 'microphone',
       );

@@ -40,8 +40,10 @@ const livekit: MediaSdk = {
   capture: createLocalTracks,
 };
 
-/** A track to attach to an element. It decides nothing. */
-export type TrackHandle = ObservedTrack & { readonly track: Track };
+/** A track to attach to an element: what it says about itself is the model's to read. */
+export type TrackHandle = Pick<ObservedTrack, 'identity' | 'source'> & {
+  readonly track: Track;
+};
 
 type HeldTrack = {
   readonly track: LocalTrack;
@@ -49,7 +51,6 @@ type HeldTrack = {
   held: boolean;
   /** A warm microphone is published many times, and watched once. */
   watched: boolean;
-  published: boolean;
 };
 
 export type MediaRoom = ReturnType<typeof createLiveKitRoom>;
@@ -96,7 +97,7 @@ export function createLiveKitRoom(
   };
   const observe = () => {
     if (released) return;
-    const snapshot: TrackHandle[] = [];
+    const snapshot: (TrackHandle & ObservedTrack)[] = [];
     for (const participant of [
       room.localParticipant,
       ...room.remoteParticipants.values(),
@@ -122,7 +123,13 @@ export function createLiveKitRoom(
             track: publication.track,
           });
       }
-    input.handles(snapshot);
+    input.handles(
+      snapshot.map(({ identity, source, track }) => ({
+        identity,
+        source,
+        track,
+      })),
+    );
     say({
       type: 'observed',
       tracks: snapshot.map(({ identity, source, local, speaking, muted }) => ({
@@ -142,13 +149,8 @@ export function createLiveKitRoom(
   };
   const reportEndedTracks = () => {
     for (const [source, resource] of held)
-      if (
-        resource.published &&
-        resource.track.mediaStreamTrack?.readyState === 'ended'
-      ) {
-        resource.published = false;
+      if (resource.track.mediaStreamTrack?.readyState === 'ended')
         say({ type: 'track-ended', source });
-      }
   };
   const playback = () =>
     say({ type: 'playback-changed', allowed: room.canPlaybackAudio });
@@ -250,8 +252,10 @@ export function createLiveKitRoom(
       observe();
     },
     /** One immutable attempt snapshot supplies both constraints and attribution. */
-    capture: async (source: Source) => {
-      const read = readChoices();
+    capture: async (source: Source, useDefaults: boolean) => {
+      const read: CheckedDeviceRead = useDefaults
+        ? { state: 'available', choices: {} }
+        : readChoices();
       if (read.state === 'unavailable') {
         say({
           type: 'capture-failed',
@@ -263,10 +267,12 @@ export function createLiveKitRoom(
       }
       const choices = { ...read.choices };
       const deviceId = choices[source] ?? null;
+      // One device, one track: what it already holds needs no second prompt. This is the
+      // SDK resource, not a media decision. Defaults accept whichever input already works.
       const current = held.get(source);
       if (
         current?.held &&
-        current.deviceId === deviceId &&
+        (useDefaults || current.deviceId === deviceId) &&
         current.track.mediaStreamTrack?.readyState !== 'ended'
       ) {
         say({ type: 'captured', source });
@@ -312,7 +318,6 @@ export function createLiveKitRoom(
           deviceId,
           held: true,
           watched: false,
-          published: false,
         });
         say({ type: 'captured', source });
       } catch (error) {
@@ -342,11 +347,8 @@ export function createLiveKitRoom(
         });
         return;
       }
-      if (released) {
-        releaseOne(resource);
-        return;
-      }
-      resource.published = true;
+      // Release already stopped it, and nothing listens to a stopped track.
+      if (released) return;
       watch(source, resource);
       say({ type: 'published', source });
       observe();
@@ -354,7 +356,6 @@ export function createLiveKitRoom(
     unpublish: async (source: Source) => {
       const resource = held.get(source);
       if (!resource) return;
-      resource.published = false;
       try {
         await room.localParticipant.unpublishTrack(resource.track, false);
       } catch {
@@ -373,7 +374,8 @@ export function createLiveKitRoom(
     },
     setMuted: async (muted: boolean) => {
       const resource = held.get('microphone');
-      const microphone = resource?.track;
+      // A released track reopens the device if unmuted, on a track nothing would stop.
+      const microphone = resource?.held ? resource.track : undefined;
       // A replacement microphone is not what this outcome is about.
       const stale = () => held.get('microphone') !== resource;
       try {

@@ -12,6 +12,7 @@ import {
   initialMediaState,
   type MediaPolicy,
   type MediaState,
+  type ObservedTrack,
   type Source,
   type SourceState,
 } from './model/media-state';
@@ -43,18 +44,22 @@ type RoomHooks = {
   readonly report: (event: RoomEvent) => void;
   readonly handles: (handles: readonly TrackHandle[]) => void;
 };
-export type MediaTrack = TrackHandle;
+export type MediaTrack = TrackHandle & ObservedTrack;
 export type { MediaSdk };
 
 const ticks = async (count = 40) => {
   for (let i = 0; i < count; i++) await Promise.resolve();
 };
 
+const answeredOf = (link: MediaState['link']) =>
+  link.phase === 'live' && link.establishment.stage === 'established'
+    ? link.establishment
+    : null;
+
 const failureOfLink = (state: MediaState) => {
   if (state.link.phase === 'released') return state.link.why;
-  if (state.link.phase === 'live' && typeof state.link.freshness === 'object')
-    return state.link.freshness.stale;
-  return undefined;
+  const freshness = answeredOf(state.link)?.freshness;
+  return freshness?.status === 'stale' ? freshness.cause : undefined;
 };
 
 /** A stub transport as a room: its promises stand in for the SDK's. */
@@ -126,7 +131,7 @@ const stubRoom = (
   } as unknown as MediaRoom;
 };
 
-export function createMediaController(input: {
+export function createMediaHarness(input: {
   readonly roundId: string;
   readonly initialRoundViewVersion: number;
   readonly api: {
@@ -158,7 +163,6 @@ export function createMediaController(input: {
   const policy: MediaPolicy = {
     requestRetryDelaysMs: retryDelays,
     readBudgetMs: BUDGET,
-    letFinishMs: 2_000,
     capturePatienceMs: 3_000,
     recoveryDelaysMs: input.recoveryDelaysMs ?? [],
     eventFloorMs: 5_000,
@@ -209,7 +213,7 @@ export function createMediaController(input: {
     },
     refreshView: () => undefined,
     mute: { remember: () => undefined, forget: () => undefined },
-    devices: { forget: () => true, useDefaults: () => undefined },
+    devices: { forget: () => true, clear: () => undefined },
   });
   let label: MediaConnectionState | null = null;
   let previous = runtime.state();
@@ -218,13 +222,13 @@ export function createMediaController(input: {
     const next = connectionOf(state);
     const prior = previous;
     previous = state;
-    const live = state.link.phase === 'live' ? state.link : null;
-    const was = prior.link.phase === 'live' ? prior.link : null;
-    if (live?.media && live.media !== was?.media) input.received?.(live.media);
+    const live = answeredOf(state.link);
+    const was = answeredOf(prior.link);
+    if (live && live.media !== was?.media) input.received?.(live.media);
     if (
-      was?.freshness === 'current' &&
-      live?.freshness !== 'current' &&
-      live !== null
+      was?.freshness.status === 'current' &&
+      live &&
+      live.freshness.status !== 'current'
     )
       input.superseded?.();
     if (
@@ -233,7 +237,7 @@ export function createMediaController(input: {
     ) {
       if (
         next !== label ||
-        (typeof live?.freshness === 'object' && next === 'out-of-date')
+        (live?.freshness.status === 'stale' && next === 'out-of-date')
       )
         input.changed?.(next, failureOfLink(state));
       label = next;
@@ -246,8 +250,8 @@ export function createMediaController(input: {
     if (link.phase !== 'live') return true;
     return (
       link.reads.flight === null &&
-      !link.reads.queued &&
-      link.apply.running === null
+      link.reads.next === 'none' &&
+      link.apply === null
     );
   };
   const settled = async () => {
@@ -391,19 +395,36 @@ export function createBrowserMediaTransport(
       }
     });
   };
-  const opens = (hooks: RoomHooks) =>
-    createLiveKitRoom(
+  const opens = (hooks: RoomHooks) => {
+    let attachable: readonly TrackHandle[] = [];
+    return createLiveKitRoom(
       {
-        ...hooks,
+        report: (event) => {
+          hooks.report(event);
+          if (event.type === 'observed')
+            events.tracks(
+              event.tracks.flatMap((observed) =>
+                attachable
+                  .filter(
+                    (handle) =>
+                      handle.identity === observed.identity &&
+                      handle.source === observed.source,
+                  )
+                  .map((handle) => ({ ...observed, ...handle })),
+              ),
+            );
+        },
         handles: (handles) => {
+          attachable = handles;
           hooks.handles(handles);
-          events.tracks(handles);
+          if (handles.length === 0) events.tracks([]);
         },
         checkedDevices: () =>
           events.checkedDevices?.() ?? { state: 'available', choices: {} },
       },
       sdk,
     );
+  };
   const start = (roundId: string) => {
     if (runtime) return runtime;
     const started = createMediaRuntime({
@@ -415,7 +436,6 @@ export function createBrowserMediaTransport(
       policy: {
         requestRetryDelaysMs: [],
         readBudgetMs: 1e12,
-        letFinishMs: 2_000,
         capturePatienceMs: 3_000,
         recoveryDelaysMs: [],
         eventFloorMs: 0,
@@ -435,7 +455,7 @@ export function createBrowserMediaTransport(
         remember: (muted) => events.microphoneChanged?.(muted),
         forget: () => undefined,
       },
-      devices: { forget: () => true, useDefaults: () => undefined },
+      devices: { forget: () => true, clear: () => undefined },
     });
     bridge(started);
     started.dispatch({ type: 'tab-changed', owns: true });
@@ -478,7 +498,7 @@ export function createBrowserMediaTransport(
           const current = started.state().link;
           if (
             current.phase !== 'live' ||
-            (current.apply.running === null && answers.length === 0)
+            (current.apply === null && answers.length === 0)
           ) {
             stop?.();
             done();

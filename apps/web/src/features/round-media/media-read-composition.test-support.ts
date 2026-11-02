@@ -1,5 +1,5 @@
 import { createMediaRequest } from './request-media';
-import { createMediaController } from './media-harness.test-support';
+import { createMediaHarness } from './media-harness.test-support';
 import { createBrowserMediaTransport } from './media-harness.test-support';
 import { stubSdk, events } from './adapters/livekit-room.test-support';
 import { admission, snapshot } from './media-fixtures.test-support';
@@ -85,7 +85,7 @@ export async function compose(
       return response;
     },
   });
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId: snapshot.roundId,
     initialRoundViewVersion: 1,
     api: {

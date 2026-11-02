@@ -26,7 +26,7 @@ import {
   MEDIA_READ_BUDGET_MS,
   MEDIA_RETRY_DELAYS_MS,
 } from './request-media';
-import { MEDIA_READ_LET_FINISH_MS } from './media-read-intent';
+
 import { roundTimeMediaClock } from './schedule-deadline';
 import { systemScheduler } from '../realtime/browser-adapters';
 import type { RoundTime } from '../round-runtime/round-time';
@@ -40,7 +40,7 @@ import {
 const MEDIA_POLICY: MediaPolicy = {
   requestRetryDelaysMs: MEDIA_RETRY_DELAYS_MS,
   readBudgetMs: MEDIA_READ_BUDGET_MS,
-  letFinishMs: MEDIA_READ_LET_FINISH_MS,
+
   /** A prompt may stay open indefinitely; the connection does not wait for it. */
   capturePatienceMs: 3_000,
   recoveryDelaysMs: [1_000, 2_000, 4_000, 8_000, 10_000],
@@ -97,9 +97,8 @@ function RoundMediaSession({
   useEffect(() => {
     refresh.current = onRefresh;
   }, [onRefresh]);
-  const [runtime] = useState(() => {
-    let useDefaults = false;
-    return createMediaRuntime({
+  const [runtime] = useState(() =>
+    createMediaRuntime({
       roundId: view.id,
       initial: initialMediaState({
         roundViewVersion: view.version,
@@ -120,9 +119,7 @@ function RoundMediaSession({
         createLiveKitRoom({
           ...hooks,
           checkedDevices: () =>
-            useDefaults
-              ? { state: 'available', choices: {} }
-              : readCheckedDevices(view.roomId, undefined, actorId),
+            readCheckedDevices(view.roomId, undefined, actorId),
         }),
       refreshView: () => refresh.current(),
       mute: {
@@ -132,13 +129,10 @@ function RoundMediaSession({
       devices: {
         forget: (sources) =>
           forgetCheckedDevices(view.roomId, sources, undefined, actorId),
-        useDefaults: () => {
-          useDefaults = true;
-          clearCheckedDevices(view.roomId, undefined, actorId);
-        },
+        clear: () => clearCheckedDevices(view.roomId, undefined, actorId),
       },
-    });
-  });
+    }),
+  );
   const state = useSyncExternalStore(
     runtime.subscribe,
     runtime.state,
@@ -224,7 +218,8 @@ function RoundMediaSession({
         view={view}
         media={stage.media}
         microphoneConfirmed={stage.microphoneConfirmed}
-        tracks={handles}
+        tracks={stage.tracks}
+        handles={handles}
         connection={stage.connection}
         ownIdentity={stage.ownIdentity}
         ownMuted={stage.ownMuted}
@@ -238,5 +233,12 @@ function RoundMediaSession({
 
 export const roundMediaSlot = (input: SessionInput) =>
   function RoundMediaSlot(view: RoundView) {
-    return <RoundMediaSession key={view.id} view={view} {...input} />;
+    // Another account is another session: nothing in this one may carry over.
+    return (
+      <RoundMediaSession
+        key={`${view.id}:${input.actorId}`}
+        view={view}
+        {...input}
+      />
+    );
   };

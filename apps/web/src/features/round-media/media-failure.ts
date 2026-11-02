@@ -1,11 +1,11 @@
 import type { RequestFailure } from './model/media-events';
 
-/** What a media failure means for the connection. Pure; effects stay in the controller. */
+/** What a media failure means for the connection. Pure; what it causes is the model's to decide. */
 
 const transient = new WeakSet<object>();
 /**
  * A media request that may succeed unchanged (a 429 or 5xx, or the network): the
- * controller retries it before calling media unavailable (ISSUE-494).
+ * model retries it before calling media unavailable (ISSUE-494).
  */
 export function transientMediaFailure() {
   const failure = new Error('Media unavailable for now');

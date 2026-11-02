@@ -4,7 +4,7 @@ import {
   createBrowserMediaTransport,
   type MediaTrack,
 } from './media-harness.test-support';
-import { createMediaController } from './media-harness.test-support';
+import { createMediaHarness } from './media-harness.test-support';
 import { admission, snapshot, roundId } from './media-fixtures.test-support';
 import { events, sources, stubSdk } from './adapters/livekit-room.test-support';
 setupRitewayBun();
@@ -27,7 +27,7 @@ test('stale controller cleanup cannot clear the successor track snapshot after d
   let latest: readonly MediaTrack[] = [];
   let publish: readonly Source[] = ['camera', 'microphone'];
   let transports = 0;
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 1,
     api: {

@@ -1,9 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaController } from './media-harness.test-support';
+import { createMediaHarness } from './media-harness.test-support';
 import { mediaFailure } from './media-failure';
 import {
   admission,
-  readController,
+  readHarness,
   roundId,
   snapshot,
   transportStub,
@@ -20,7 +20,7 @@ test('new authority supersedes ignored-abort pending read without releasing heal
   let signal: AbortSignal | undefined;
   const applied: string[] = [],
     received: string[] = [];
-  const controller = readController({
+  const controller = readHarness({
     admit: async () => {
       admits++;
       return admission;
@@ -85,7 +85,7 @@ test('old retry pause cannot hold or reuse the new intent signal', async () => {
   const pause = Promise.withResolvers<void>();
   let reads = 0;
   const signals: AbortSignal[] = [];
-  const controller = readController({
+  const controller = readHarness({
     admit: async () => admission,
     reconcile: async (_id, signal) => {
       signals.push(signal);
@@ -118,7 +118,7 @@ test('stop settles an ignored-abort admission and receipt reentrancy cannot revi
   const held = Promise.withResolvers<unknown>();
   let created = 0,
     settled = false;
-  const pendingController = createMediaController({
+  const pendingHarness = createMediaHarness({
     roundId,
     initialRoundViewVersion: 3,
     api: { admit: () => held.promise, reconcile: async () => snapshot },
@@ -128,15 +128,15 @@ test('stop settles an ignored-abort admission and receipt reentrancy cannot revi
     },
     changed: () => undefined,
   });
-  const pending = pendingController.join().then(() => {
+  const pending = pendingHarness.join().then(() => {
     settled = true;
   });
-  pendingController.stop();
+  pendingHarness.stop();
   await settle();
-  const stopped = [created, settled, pendingController.state()];
+  const stopped = [created, settled, pendingHarness.state()];
   held.resolve(admission);
   await pending;
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 3,
     api: { admit: async () => admission, reconcile: async () => snapshot },
@@ -158,7 +158,7 @@ test('the caller learns when the last answer stopped being current', async () =>
   const held = Promise.withResolvers<unknown>();
   const events: string[] = [];
   let reads = 0;
-  const controller = readController({
+  const controller = readHarness({
     reconcile: async () => (++reads === 2 ? held.promise : snapshot),
     superseded: () => events.push('superseded'),
     received: () => events.push('received'),

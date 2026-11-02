@@ -23,6 +23,7 @@ const render = (
       } as Parameters<typeof MediaStage>[0]['media'],
       microphoneConfirmed: true,
       tracks: [],
+      handles: [],
       connection,
       ownIdentity: local ? 'local' : null,
       ownMuted,
@@ -84,5 +85,53 @@ test('a remote seat says what the transport actually observes of that peer', () 
     should: 'report the floor, not a device problem',
     actual: remote(false, present(false)).includes('Microphone closed'),
     expected: true,
+  });
+});
+
+const observed = (muted = false) =>
+  ({
+    identity: 'local',
+    source: 'camera',
+    local: false,
+    speaking: false,
+    muted,
+  }) as const;
+const handle = {
+  identity: 'local',
+  source: 'camera',
+  track: { attach: () => undefined, detach: () => undefined },
+} as never;
+const stage = (
+  tracks: readonly ReturnType<typeof observed>[],
+  handles: readonly never[],
+) =>
+  renderToString(
+    createElement(MediaStage, {
+      view,
+      media: {
+        peers: [{ participantId: aff.id, identity: 'local', microphone: true }],
+      } as Parameters<typeof MediaStage>[0]['media'],
+      microphoneConfirmed: true,
+      tracks,
+      handles,
+      connection: 'live',
+      ownIdentity: null,
+      ownMuted: false,
+      remotePeers: [],
+    }),
+  ).includes('<video');
+
+test('the stage shows what the model says, and only attaches what it can', () => {
+  assert({
+    given:
+      'a camera the model reports, one it reports muted, one it does not report, and one with nothing to attach',
+    should: 'render video only for the first',
+    actual: [
+      stage([observed()], [handle]),
+      stage([observed(true)], [handle]),
+      stage([], [handle]),
+      stage([observed()], []),
+    ],
+    expected: [true, false, false, false],
   });
 });

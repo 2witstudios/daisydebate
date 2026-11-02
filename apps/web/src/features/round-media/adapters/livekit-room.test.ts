@@ -799,3 +799,50 @@ test('a removal report lasts until the next grant or a Retry, not the next read'
     },
   });
 });
+
+test('unmuting a released microphone cannot reopen the device', async () => {
+  const stub = stubSdk({ settles: true });
+  const reported: string[] = [];
+  const room = createLiveKitRoom(
+    {
+      report: (event) => reported.push(event.type),
+      handles: () => undefined,
+      checkedDevices: () => ({ state: 'available', choices: {} }),
+    },
+    stub.sdk,
+  );
+  await room.capture('microphone', false);
+  const microphone = stub.captured[0]!;
+  await microphone.mute();
+  room.releaseTrack('microphone');
+  await room.setMuted(false);
+  assert({
+    given: 'a microphone the model released, then Unmute',
+    should: 'leave the stopped track alone and finish the change',
+    actual: [microphone.muted, microphone.ended, reported.at(-1)],
+    expected: [true, true, 'mute-applied'],
+  });
+});
+
+test('tracks stopped by a local failure still follow the connected room', async () => {
+  const stub = stubSdk({ settles: true });
+  let emitted = 0;
+  const room = createLiveKitRoom(
+    {
+      report: () => undefined,
+      handles: () => void emitted++,
+      checkedDevices: () => ({ state: 'available', choices: {} }),
+    },
+    stub.sdk,
+  );
+  await room.capture('camera', false);
+  room.releaseTrack('camera');
+  const before = emitted;
+  stub.fire(RoomEvent.TrackSubscribed);
+  assert({
+    given: 'local tracks stopped while the room stays connected',
+    should: 'keep reporting the room, so remote media can return',
+    actual: emitted - before,
+    expected: 1,
+  });
+});

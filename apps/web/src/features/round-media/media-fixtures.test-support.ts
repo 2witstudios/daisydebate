@@ -1,7 +1,7 @@
 import type { RoundMediaAdmission } from '@daisy/protocol';
 import { settle } from './adapters/livekit-room.test-support';
 import {
-  createMediaController,
+  createMediaHarness,
   type BrowserMediaTransport,
 } from './media-harness.test-support';
 
@@ -65,16 +65,16 @@ export const trackedSignal = () => {
   };
 };
 
-type ControllerInput = Parameters<typeof createMediaController>[0];
+type ControllerInput = Parameters<typeof createMediaHarness>[0];
 
 /** A controller at Round view 3 that admits at once; tests supply what differs. */
-export const readController = (
+export const readHarness = (
   input: Pick<ControllerInput['api'], 'reconcile'> &
     Partial<Pick<ControllerInput['api'], 'admit'>> &
     Partial<Omit<ControllerInput, 'api' | 'roundId'>>,
 ) => {
   const { reconcile, admit, ...rest } = input;
-  return createMediaController({
+  return createMediaHarness({
     roundId,
     initialRoundViewVersion: 3,
     transport: () => transportStub(),
@@ -90,7 +90,7 @@ export const viewAt = (value: number) =>
 
 /** Joins, forgets the join's receipts, and starts one wake that is now in flight. */
 export const wakeAfterJoin = async (
-  controller: ReturnType<typeof readController>,
+  controller: ReturnType<typeof readHarness>,
   receipts: unknown[],
 ) => {
   await controller.join();
@@ -106,7 +106,7 @@ export const heldSecondRead = async () => {
   const held = Promise.withResolvers<unknown>();
   let reads = 0;
   let stops = 0;
-  const controller = readController({
+  const controller = readHarness({
     admit: async () => admission,
     reconcile: async () => (++reads === 2 ? held.promise : snapshot),
     transport: () => transportStub({ stopTracks: () => void stops++ }),

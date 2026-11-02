@@ -23,7 +23,7 @@ for (const spec of mediaSpecs)
     const plans = [
       selectBrowserSpecs([`apps/web/e2e/${spec}`], 'pull_request', true),
       selectBrowserSpecs(
-        ['apps/web/src/features/round-media/browser-transport.ts'],
+        ['apps/web/src/features/round-media/adapters/livekit-room.ts'],
         'pull_request',
         true,
       ),

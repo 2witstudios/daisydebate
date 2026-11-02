@@ -27,6 +27,8 @@ export type MediaEffect =
       readonly type: 'capture';
       readonly connection: number;
       readonly source: Source;
+      /** Use the browser's default rather than the checked device. */
+      readonly useDefaults: boolean;
     }
   | {
       readonly type: 'publish';
@@ -54,6 +56,7 @@ export type MediaEffect =
       readonly type: 'schedule';
       readonly timer: MediaTimer;
       readonly ms: number;
+      readonly id: number;
     }
   | { readonly type: 'cancel'; readonly timer: MediaTimer }
   | { readonly type: 'refresh-view' }
@@ -63,4 +66,4 @@ export type MediaEffect =
       readonly type: 'forget-checked-devices';
       readonly sources: readonly Source[];
     }
-  | { readonly type: 'use-default-devices' };
+  | { readonly type: 'clear-checked-devices' };

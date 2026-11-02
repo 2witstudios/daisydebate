@@ -4,7 +4,7 @@ import { createRoundTime } from '../round-runtime/round-time';
 import { ran } from '../../ui/debate-room/live-round.test-support';
 import { settle } from './adapters/livekit-room.test-support';
 import { createRoundViewFollower } from './follow-round-view';
-import { createMediaController } from './media-harness.test-support';
+import { createMediaHarness } from './media-harness.test-support';
 import {
   admission,
   roundId,
@@ -62,7 +62,7 @@ const heldReads = async (paced: boolean) => {
   const { scheduler, roundTime } = calibrated(5000);
   const signals: AbortSignal[] = [];
   const reply = { held: false };
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: view.version,
     api: {

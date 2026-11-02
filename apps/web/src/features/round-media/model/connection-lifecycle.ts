@@ -1,25 +1,9 @@
 import { decideMediaRead } from '../media-read-intent';
-import type { MediaEffect } from './media-effects';
+import type { PlannedEffect } from './media-step';
 import type { RequestFailure } from './media-events';
-import type {
-  LiveConnection,
-  MediaLink,
-  MediaPolicy,
-  MediaState,
-  ReleaseReason,
-} from './media-state';
+import type { MediaLink, MediaState, ReleaseReason } from './media-state';
+import { cancel, type Decision, type StepContext } from './media-step';
 import { armRecovery } from './recovery-pace';
-
-export type MediaStep = {
-  readonly state: MediaState;
-  readonly effects: readonly MediaEffect[];
-};
-export type Context = { readonly atMs: number; readonly policy: MediaPolicy };
-
-export const unchanged = (state: MediaState): MediaStep => ({
-  state,
-  effects: [],
-});
 
 const CONNECTION_TIMERS = [
   'admission-retry',
@@ -30,11 +14,9 @@ const CONNECTION_TIMERS = [
   'recovery',
 ] as const;
 
-/** Ends whatever the link holds, synchronously as far as the world can be asked. */
-export const teardownEffects = (link: MediaLink): readonly MediaEffect[] => {
-  const cancels = CONNECTION_TIMERS.map(
-    (timer) => ({ type: 'cancel', timer }) as const,
-  );
+/** Ends whatever the link holds, as far as the world can be asked synchronously. */
+export const teardownEffects = (link: MediaLink): readonly PlannedEffect[] => {
+  const cancels = CONNECTION_TIMERS.map(cancel);
   switch (link.phase) {
     case 'admitting':
       return [
@@ -62,32 +44,31 @@ export const teardownEffects = (link: MediaLink): readonly MediaEffect[] => {
 export const release = (
   state: MediaState,
   why: ReleaseReason,
-  { atMs, policy }: Context,
-): MediaStep => {
+  { atMs, policy }: StepContext,
+): Decision => {
   const effects = teardownEffects(state.link);
   const link: MediaLink = { phase: 'released', why };
   if (why === 'transient') {
-    const armed = armRecovery(state.recovery, 'rejoin', atMs, policy);
+    const armed = armRecovery(state.recovery, atMs, policy);
     return {
       state: { ...state, link, recovery: armed.recovery },
       effects: [...effects, ...armed.effects],
     };
   }
   return {
-    state: { ...state, link, recovery: { ...state.recovery, armed: null } },
+    state: { ...state, link },
     effects: [...effects, { type: 'refresh-view' }],
   };
 };
 
 export const finish = (
   state: MediaState,
-  extra: readonly MediaEffect[],
-): MediaStep => ({
+  extra: readonly PlannedEffect[],
+): Decision => ({
   state: {
     ...state,
     link: { phase: 'ended' },
     intent: decideMediaRead(state.intent, { kind: 'dispose' }).intent,
-    recovery: { ...state.recovery, armed: null },
   },
   effects: [...teardownEffects(state.link), ...extra],
 });
@@ -97,8 +78,7 @@ export const join = (
   state: MediaState,
   reconnecting: boolean,
   atMs: number,
-  policy: MediaPolicy,
-): MediaStep => {
+): Decision => {
   const connection = state.nextConnection;
   return {
     state: {
@@ -107,32 +87,18 @@ export const join = (
         phase: 'admitting',
         connection,
         reconnecting,
-        attempt: 0,
-        retries: !reconnecting && policy.requestRetryDelaysMs.length > 0,
-        stage: 'requesting',
+        ownRetry: reconnecting ? null : { attempt: 0, pausing: false },
       },
       nextConnection: connection + 1,
       recovery: {
         ...state.recovery,
-        armed: null,
         lastAttemptMs: atMs,
         heldSinceMs: null,
       },
     },
-    effects: [
-      { type: 'cancel', timer: 'recovery' },
-      { type: 'admit', connection },
-    ],
+    effects: [cancel('recovery'), { type: 'admit', connection }],
   };
 };
-
-export const withLive = (
-  state: MediaState,
-  live: LiveConnection,
-): MediaState => ({
-  ...state,
-  link: live,
-});
 
 export const whyOf = (failure: RequestFailure): ReleaseReason =>
   failure === 'transient'

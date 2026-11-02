@@ -1,8 +1,8 @@
 import type { RoundMediaAdmission, RoundMediaState } from '@daisy/protocol';
 import type { MediaReadEvent } from '../media-read-intent';
 import type { SourceFailureKind } from '../source-failure';
-import type { ObservedPeer, ObservedTrack, Source } from './media-state';
 import type { MediaTimer } from './media-effects';
+import type { ObservedPeer, ObservedTrack, Source } from './media-state';
 
 /** How a request failed, classified at the edge: the model only reads the kind. */
 export type RequestFailure = 'transient' | 'definite' | 'ending' | 'refused';
@@ -16,7 +16,7 @@ export type RoomEvent =
   | { readonly type: 'connect-failed'; readonly failure: RequestFailure }
   | { readonly type: 'dropped' }
   | { readonly type: 'replaced' }
-  /** Something a read should look at again: a peer, or this seat's permission. */
+  /** Something a read should look at again: a peer moved. */
   | { readonly type: 'room-changed' }
   | {
       readonly type: 'permission-changed';
@@ -79,7 +79,12 @@ export type MediaEvent =
       readonly failure: RequestFailure;
     }
   | { readonly type: 'read-aborted'; readonly ticket: number }
-  | { readonly type: 'timer-fired'; readonly timer: MediaTimer }
+  | {
+      readonly type: 'timer-fired';
+      readonly timer: MediaTimer;
+      /** Which schedule fired; a replaced one is rejected. */
+      readonly id: number;
+    }
   | { readonly type: 'browser-nudged' }
   | { readonly type: 'retry-pressed' }
   | { readonly type: 'mute-requested'; readonly muted: boolean }

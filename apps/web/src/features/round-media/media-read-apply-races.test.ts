@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   admission,
-  readController,
+  readHarness,
   snapshot,
   viewAt,
   heldSecondRead,
@@ -46,7 +46,7 @@ test('a receipt superseded in any microtask gap after apply is never announced',
     const applying = Promise.withResolvers<void>();
     const receipts: string[] = [];
     let reads = 0;
-    const controller = readController({
+    const controller = readHarness({
       admit: async () => admission,
       reconcile: async () => {
         reads++;

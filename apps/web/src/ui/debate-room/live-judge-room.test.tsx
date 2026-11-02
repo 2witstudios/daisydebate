@@ -36,6 +36,7 @@ test('an assigned judge watches debaters without competitive controls or attenda
       connection="live"
       microphoneConfirmed
       tracks={[]}
+      handles={[]}
       ownIdentity={null}
       ownMuted={false}
       remotePeers={[]}

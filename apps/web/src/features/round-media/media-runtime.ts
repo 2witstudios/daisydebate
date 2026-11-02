@@ -41,7 +41,7 @@ export function createMediaRuntime(input: {
   readonly devices: {
     /** False when the choice could not be removed. */
     readonly forget: (sources: readonly Source[]) => boolean;
-    readonly useDefaults: () => void;
+    readonly clear: () => void;
   };
 }) {
   let state = input.initial;
@@ -117,14 +117,24 @@ export function createMediaRuntime(input: {
         return;
       case 'connect': {
         const { connection, admission } = effect;
-        const room = input.openRoom({
-          report: (event) => dispatch({ ...event, connection } as MediaEvent),
-          handles: (next) => {
-            if (rooms.get(connection) !== room) return;
-            handles = next;
-            notify();
-          },
-        });
+        let room: MediaRoom;
+        try {
+          room = input.openRoom({
+            report: (event) => dispatch({ ...event, connection } as MediaEvent),
+            handles: (next) => {
+              if (rooms.get(connection) !== room) return;
+              handles = next;
+              notify();
+            },
+          });
+        } catch {
+          dispatch({
+            type: 'connect-failed',
+            failure: 'transient',
+            connection,
+          });
+          return;
+        }
         rooms.set(connection, room);
         void room.connect(admission);
         return;
@@ -146,7 +156,9 @@ export function createMediaRuntime(input: {
         reads.get(effect.ticket)?.abort();
         return;
       case 'capture':
-        void rooms.get(effect.connection)?.capture(effect.source);
+        void rooms
+          .get(effect.connection)
+          ?.capture(effect.source, effect.useDefaults);
         return;
       case 'publish':
         void rooms.get(effect.connection)?.publish(effect.source, effect.muted);
@@ -164,13 +176,13 @@ export function createMediaRuntime(input: {
         void rooms.get(effect.connection)?.startAudio();
         return;
       case 'schedule': {
-        const { timer, ms } = effect;
+        const { timer, ms, id } = effect;
         clearTimer(timer);
         timers.set(
           timer,
           input.at(ms, () => {
             timers.delete(timer);
-            dispatch({ type: 'timer-fired', timer });
+            dispatch({ type: 'timer-fired', timer, id });
           }),
         );
         return;
@@ -191,9 +203,13 @@ export function createMediaRuntime(input: {
         if (!input.devices.forget(effect.sources))
           dispatch({ type: 'forget-failed', sources: effect.sources });
         return;
-      case 'use-default-devices':
-        input.devices.useDefaults();
+      case 'clear-checked-devices':
+        input.devices.clear();
         return;
+      default: {
+        const unknown: never = effect;
+        return unknown;
+      }
     }
   };
   const notify = () => {

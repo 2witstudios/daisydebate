@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { subscribeBrowserPageEvents } from './browser-page-events';
-import { createMediaController } from '../media-harness.test-support';
+import { createMediaHarness } from '../media-harness.test-support';
 import {
   admission,
   snapshot,
@@ -41,7 +41,7 @@ test('real online and visible events nudge once each, and a disposed lifetime he
 test('leaving the page ends the media lifetime once, so its disconnect cannot request a new admission', async () => {
   const page = new EventTarget();
   let admits = 0;
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId: admission.roundId,
     initialRoundViewVersion: 1,
     api: {

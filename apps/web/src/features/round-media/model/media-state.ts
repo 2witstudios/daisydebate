@@ -1,17 +1,19 @@
 import type { RoundMediaState } from '@daisy/protocol';
 import type { MediaReadIntent } from '../media-read-intent';
 import type { SourceFailureKind } from '../source-failure';
+import type { MediaTimer } from './media-effects';
 
 /**
- * The whole picture of one Round's media on this tab. Only `live` holds tracks,
- * grants or a read, so a dead connection cannot say Connected and a released one
- * has no grants to misread.
+ * The whole picture of one Round's media on this tab. The types carry the rules: only
+ * a `live` link holds tracks, grants or a read; only an `established` one has an answer
+ * to be out of date; a released link has nothing to misread.
  */
 export type Source = 'camera' | 'microphone';
 export const SOURCES: readonly Source[] = ['camera', 'microphone'];
 
 export type SourceState =
   | { readonly phase: 'off' }
+  /** `waiting`: past patience, so the answer no longer waits for this prompt. */
   | { readonly phase: 'capturing'; readonly waiting: boolean }
   /** A debater's microphone between turns: its grant costs a publish, not a device open. */
   | { readonly phase: 'warm' }
@@ -23,7 +25,12 @@ export type SourceState =
       readonly sinceMs: number;
       readonly keepWarm: boolean;
     }
-  | { readonly phase: 'failed'; readonly kind: SourceFailureKind }
+  /** `removingSinceMs`: its publication is still being taken down after the failure. */
+  | {
+      readonly phase: 'failed';
+      readonly kind: SourceFailureKind;
+      readonly removingSinceMs: number | null;
+    }
   /** The device the Room check passed is gone. */
   | { readonly phase: 'missing' }
   /** The SDK would not remove it. Lasts until this source's next grant or a Retry. */
@@ -44,59 +51,84 @@ export type ObservedPeer = {
 /** Why nothing is connected: it decides whether anything will try again. */
 export type ReleaseReason = 'transient' | 'definite' | 'refused' | 'replaced';
 
-/** Whether the last server answer still describes what is shown. */
+/**
+ * Whether the last server answer still describes what is shown. `wakeArmed`: recovery
+ * will read again by itself; false once that read has been sent.
+ */
 export type Freshness =
-  'current' | 'checking' | { readonly stale: 'transient' | 'definite' };
+  | { readonly status: 'current' }
+  | { readonly status: 'checking' }
+  | {
+      readonly status: 'stale';
+      readonly cause: 'transient';
+      readonly wakeArmed: boolean;
+    }
+  | { readonly status: 'stale'; readonly cause: 'definite' };
 
-export type ReadFlight = {
+type ReadIdentity = {
   readonly ticket: number;
   readonly generation: number;
+  /** Failed attempts so far. */
   readonly attempt: number;
-  readonly stage: 'requesting' | 'pausing';
   readonly startedAtMs: number;
-  /** A superseded young read finishes; its reply is fenced like any other. */
-  readonly letFinishing: boolean;
 };
+/** The one read in flight, in the stage it is really in. */
+export type ReadFlight = ReadIdentity &
+  (
+    | { readonly stage: 'requesting' }
+    /** Waiting out a retry delay: no request is open. */
+    | { readonly stage: 'pausing' }
+    /** Superseded while young: it may finish, and its reply is fenced like any other. */
+    | { readonly stage: 'letting-finish' }
+    /** Asked to stop; waiting for that to settle. */
+    | { readonly stage: 'aborting' }
+  );
+
 export type LiveReads = {
   readonly flight: ReadFlight | null;
-  readonly queued: boolean;
-  /** A read is due once this burst of events ends, so a burst costs one read. */
-  readonly startDeferred: boolean;
+  /**
+   * `wanted`: a read follows when nothing holds it. `starting`: it starts when this
+   * burst of events ends, so a burst costs one read.
+   */
+  readonly next: 'none' | 'wanted' | 'starting';
   readonly supersededSinceAnswer: number;
-  /** The one timer for "no answer for too long". */
-  readonly budgetRunning: boolean;
 };
+
 export type PendingAnswer = {
   readonly generation: number;
   readonly answer: RoundMediaState;
 };
 /** One answer applies at a time; only one still current may announce. */
-export type LiveApply = {
-  readonly running:
-    (PendingAnswer & { readonly patienceExpired: boolean }) | null;
+export type RunningApply = PendingAnswer & {
   readonly next: PendingAnswer | null;
 };
+
+/** Before the first answer applies there is nothing to be out of date. */
+export type Establishment =
+  | { readonly stage: 'establishing'; readonly reconnecting: boolean }
+  | {
+      readonly stage: 'established';
+      /** The last applied answer. */
+      readonly media: RoundMediaState;
+      readonly freshness: Freshness;
+    };
 
 export type LiveConnection = {
   readonly phase: 'live';
   readonly connection: number;
   readonly identity: string;
-  /** Shown while not yet established: this is a return, not a first join. */
-  readonly reconnecting: boolean;
-  /** The first answer applied. Before this it cannot be out of date. */
-  readonly established: boolean;
+  readonly establishment: Establishment;
   readonly grants: readonly Source[];
   /** What LiveKit allows now, which outranks a reply crossing it; null if unknown. */
   readonly permission: readonly Source[] | null;
-  /** The last applied answer, for layout. */
-  readonly media: RoundMediaState | null;
-  readonly freshness: Freshness;
   readonly sources: Readonly<Record<Source, SourceState>>;
   readonly tracks: readonly ObservedTrack[];
   readonly peers: readonly ObservedPeer[];
   readonly sound: 'allowed' | 'blocked';
+  /** A mute change this connection is carrying out. */
+  readonly changingMicrophone: boolean;
   readonly reads: LiveReads;
-  readonly apply: LiveApply;
+  readonly apply: RunningApply | null;
 };
 
 export type MediaLink =
@@ -105,10 +137,11 @@ export type MediaLink =
       readonly phase: 'admitting';
       readonly connection: number;
       readonly reconnecting: boolean;
-      /** Attempts this admission may still retry itself. */
-      readonly attempt: number;
-      readonly retries: boolean;
-      readonly stage: 'requesting' | 'pausing';
+      /** A first join retries its own admission; null: recovery paces the next try. */
+      readonly ownRetry: {
+        readonly attempt: number;
+        readonly pausing: boolean;
+      } | null;
     }
   | {
       readonly phase: 'connecting';
@@ -117,32 +150,36 @@ export type MediaLink =
       readonly reconnecting: boolean;
     }
   | LiveConnection
+  /** Released `transient` always has its rejoin waiting. */
   | { readonly phase: 'released'; readonly why: ReleaseReason }
   | { readonly phase: 'ended' };
 
-/** The one paced owner of "try again". */
-export type Recovery = {
+/** The pace of the one owner of "try again". What it waits to do is in the link. */
+export type RecoveryPace = {
   readonly step: number;
   readonly lastAttemptMs: number | null;
   readonly heldSinceMs: number | null;
-  readonly armed: 'rejoin' | 'wake' | null;
 };
 
 export type MediaState = {
   readonly link: MediaLink;
   readonly intent: MediaReadIntent;
-  readonly recovery: Recovery;
+  readonly recovery: RecoveryPace;
   readonly microphoneMuted: boolean;
-  readonly changingMicrophone: boolean;
+  /** A person chose the browser's default after a saved choice could not be read. */
+  readonly devices: 'checked' | 'defaults';
   readonly nextConnection: number;
   readonly nextTicket: number;
+  /** Which schedule of each timer is current, so a late firing is rejected. */
+  readonly timers: Readonly<Partial<Record<MediaTimer, number>>>;
+  readonly nextTimer: number;
 };
 
 /** Every number the model decides with. Injected, so it holds no constants of its own. */
 export type MediaPolicy = {
   readonly requestRetryDelaysMs: readonly number[];
   readonly readBudgetMs: number;
-  readonly letFinishMs: number;
+
   readonly capturePatienceMs: number;
   readonly recoveryDelaysMs: readonly number[];
   readonly eventFloorMs: number;
@@ -165,10 +202,12 @@ export const initialMediaState = (input: {
       generation: 0,
       disposed: false,
     },
-    recovery: { step: 0, lastAttemptMs: null, heldSinceMs: null, armed: null },
+    recovery: { step: 0, lastAttemptMs: null, heldSinceMs: null },
     microphoneMuted: input.microphoneMuted,
-    changingMicrophone: false,
+    devices: 'checked',
     nextConnection: 1,
     nextTicket: 1,
+    timers: {},
+    nextTimer: 1,
   };
 };

@@ -1,102 +1,53 @@
-import type { MediaEffect } from './media-effects';
-import type { MediaEvent } from './media-events';
-import type { MediaState, Source, SourceState } from './media-state';
-import { SOURCES } from './media-state';
 import {
   finish,
   join,
   release,
   teardownEffects,
-  unchanged,
   whyOf,
+} from './connection-lifecycle';
+import type { MediaEffect, MediaTimer } from './media-effects';
+import type { MediaEvent } from './media-events';
+import type { MediaState } from './media-state';
+import {
+  moved,
+  prepend,
+  rejected,
+  schedule,
   withLive,
-  type Context,
-  type MediaStep,
-} from './media-transitions';
+  withoutTimer,
+  type Decision,
+  type StepContext,
+} from './media-step';
+import { startNextRead } from './read-start';
+import { patienceExpired } from './reduce-apply';
 import {
-  clearFlight,
-  letFinishCancel,
-  queueRead,
-  reduceAnswered,
-  reduceFailed,
-  reduceNudge,
-  reduceRead,
-  reduceTimer,
-  startNextRead,
+  reduceReadAborted,
+  reduceReadAnswered,
+  reduceReadFailed,
+  reduceReadRequest,
+  retryRead,
 } from './reduce-reads';
-import { reduceRoom } from './reduce-room';
 import {
-  convergeSources,
-  desiredSources,
-  hasStuckWork,
-} from './reduce-sources';
+  attemptRecovery,
+  budgetExpired,
+  reduceNudge,
+  reduceRetry,
+} from './reduce-recovery';
+import { reduceRoom } from './reduce-room';
 
-const reduceRetry = (state: MediaState, ctx: Context): MediaStep => {
-  const link = state.link;
-  if (link.phase === 'released') {
-    if (link.why === 'refused') return unchanged(state);
-    const joined = join(state, true, ctx.atMs, ctx.policy);
-    return {
-      state: joined.state,
-      effects: [{ type: 'refresh-view' }, ...joined.effects],
-    };
-  }
-  if (link.phase !== 'live') return unchanged(state);
-  const effects: MediaEffect[] = [{ type: 'refresh-view' }];
-  const forgotten: Source[] = [];
-  let useDefaults = false;
-  const sources: Record<Source, SourceState> = { ...link.sources };
-  for (const name of SOURCES) {
-    const source = sources[name];
-    if (source.phase === 'missing') forgotten.push(name);
-    if (source.phase === 'published' && source.swapped) {
-      forgotten.push(name);
-      sources[name] = { phase: 'published', swapped: false };
-    }
-    if (
-      source.phase === 'failed' &&
-      (source.kind === 'preference-unreadable' ||
-        source.kind === 'preference-invalid')
-    )
-      useDefaults = true;
-    if (
-      source.phase === 'failed' ||
-      source.phase === 'missing' ||
-      source.phase === 'stale-publication'
-    )
-      sources[name] = { phase: 'off' };
-  }
-  if (useDefaults) effects.push({ type: 'use-default-devices' });
-  if (forgotten.length > 0)
-    effects.push({ type: 'forget-checked-devices', sources: forgotten });
-  if (
-    !link.established ||
-    hasStuckWork(link, ctx.atMs, ctx.policy.readBudgetMs)
-  ) {
-    const torn = teardownEffects(link);
-    const joined = join(state, true, ctx.atMs, ctx.policy);
-    return {
-      state: joined.state,
-      effects: [...effects, ...torn, ...joined.effects],
-    };
-  }
-  const desired = desiredSources(link);
-  const converged = convergeSources({ ...link, sources }, desired, ctx.atMs);
-  const started = startNextRead(state, queueRead(converged.live), ctx.atMs);
-  return {
-    state: started.state,
-    effects: [...effects, ...converged.effects, ...started.effects],
-  };
+export type MediaStep = {
+  readonly state: MediaState;
+  readonly effects: readonly MediaEffect[];
 };
 
 const reduceAdmission = (
   state: MediaState,
   event: MediaEvent & { type: 'admission-answered' | 'admission-failed' },
-  ctx: Context,
-): MediaStep => {
+  ctx: StepContext,
+): Decision => {
   const link = state.link;
   if (link.phase !== 'admitting' || link.connection !== event.connection)
-    return unchanged(state);
+    return rejected(state);
   if (event.type === 'admission-answered')
     return {
       state: {
@@ -116,21 +67,185 @@ const reduceAdmission = (
         },
       ],
     };
-  const pause = ctx.policy.requestRetryDelaysMs[link.attempt];
-  if (event.failure === 'transient' && link.retries && pause !== undefined)
+  const pause = link.ownRetry
+    ? ctx.policy.requestRetryDelaysMs[link.ownRetry.attempt]
+    : undefined;
+  if (event.failure === 'transient' && link.ownRetry && pause !== undefined)
     return {
       state: {
         ...state,
         link: {
           ...link,
           reconnecting: true,
-          attempt: link.attempt + 1,
-          stage: 'pausing',
+          ownRetry: { attempt: link.ownRetry.attempt + 1, pausing: true },
         },
       },
-      effects: [{ type: 'schedule', timer: 'admission-retry', ms: pause }],
+      effects: [schedule('admission-retry', pause)],
     };
   return release(state, whyOf(event.failure), ctx);
+};
+
+const reduceTimer = (
+  state: MediaState,
+  timer: MediaTimer,
+  ctx: StepContext,
+): Decision => {
+  const link = state.link;
+  switch (timer) {
+    case 'admission-retry':
+      if (link.phase !== 'admitting' || !link.ownRetry?.pausing)
+        return rejected(state);
+      return {
+        state: {
+          ...state,
+          link: { ...link, ownRetry: { ...link.ownRetry, pausing: false } },
+        },
+        effects: [{ type: 'admit', connection: link.connection }],
+      };
+    case 'read-retry':
+      return link.phase === 'live' && link.reads.flight?.stage === 'pausing'
+        ? retryRead(state, link, link.reads.flight)
+        : rejected(state);
+    case 'read-let-finish':
+      if (
+        link.phase !== 'live' ||
+        link.reads.flight?.stage !== 'letting-finish'
+      )
+        return rejected(state);
+      return {
+        state: withLive(state, {
+          ...link,
+          reads: {
+            ...link.reads,
+            flight: { ...link.reads.flight, stage: 'aborting' },
+          },
+        }),
+        effects: [{ type: 'abort-read', ticket: link.reads.flight.ticket }],
+      };
+    case 'read-budget':
+      return budgetExpired(state, ctx);
+    case 'capture-patience':
+      return link.phase === 'live' && link.apply
+        ? patienceExpired(state, link, ctx)
+        : rejected(state);
+    case 'recovery':
+      return attemptRecovery(state, ctx);
+  }
+};
+
+const decide = (
+  state: MediaState,
+  event: MediaEvent,
+  ctx: StepContext,
+): Decision => {
+  const link = state.link;
+  if (link.phase === 'ended') return rejected(state);
+  switch (event.type) {
+    case 'tab-changed': {
+      if (event.owns === true)
+        return link.phase === 'waiting'
+          ? join(state, false, ctx.atMs)
+          : rejected(state);
+      const tab = event.owns === false ? 'elsewhere' : 'checking';
+      if (link.phase === 'waiting' && link.tab === tab) return rejected(state);
+      return {
+        state: { ...state, link: { phase: 'waiting', tab } },
+        effects: teardownEffects(link),
+      };
+    }
+    case 'page-left':
+      return finish(state, []);
+    case 'round-ended':
+      return finish(state, [{ type: 'forget-mute' }]);
+    case 'frozen-page-restored':
+      return prepend(
+        [{ type: 'refresh-view' }],
+        reduceReadRequest(state, { kind: 'wake' }, ctx),
+      );
+    case 'mute-restored':
+      return event.muted === state.microphoneMuted
+        ? rejected(state)
+        : moved({ ...state, microphoneMuted: event.muted });
+    case 'admission-answered':
+    case 'admission-failed':
+      return reduceAdmission(state, event, ctx);
+    case 'read-requested':
+      return reduceReadRequest(state, event.read, ctx);
+    case 'read-start-due':
+      return link.phase === 'live' && link.reads.next === 'starting'
+        ? startNextRead(
+            state,
+            { ...link, reads: { ...link.reads, next: 'wanted' } },
+            ctx.atMs,
+          )
+        : rejected(state);
+    case 'read-answered':
+    case 'read-failed':
+    case 'read-aborted': {
+      if (link.phase !== 'live') return rejected(state);
+      const { flight } = link.reads;
+      if (flight?.ticket !== event.ticket) return rejected(state);
+      if (event.type === 'read-answered')
+        return reduceReadAnswered(state, link, flight, event.answer, ctx);
+      if (event.type === 'read-failed')
+        return reduceReadFailed(state, link, flight, event.failure, ctx);
+      return reduceReadAborted(state, link, ctx);
+    }
+    case 'timer-fired':
+      return reduceTimer(state, event.timer, ctx);
+    case 'browser-nudged':
+      return reduceNudge(state, ctx);
+    case 'retry-pressed':
+      return reduceRetry(state, ctx);
+    case 'mute-requested':
+      if (link.phase !== 'live' || link.changingMicrophone)
+        return rejected(state);
+      return {
+        state: withLive(state, { ...link, changingMicrophone: true }),
+        effects: [
+          { type: 'set-mute', connection: link.connection, muted: event.muted },
+        ],
+      };
+    case 'enable-sound-pressed':
+      return link.phase === 'live'
+        ? {
+            state,
+            effects: [{ type: 'start-audio', connection: link.connection }],
+          }
+        : rejected(state);
+    case 'forget-failed': {
+      if (link.phase !== 'live') return rejected(state);
+      const sources = { ...link.sources };
+      for (const name of event.sources)
+        sources[name] =
+          sources[name].phase === 'published'
+            ? { phase: 'published', swapped: true }
+            : { phase: 'missing' };
+      return moved(withLive(state, { ...link, sources }));
+    }
+    default:
+      return reduceRoom(state, event, ctx);
+  }
+};
+
+/** Gives each schedule its identity, and tracks which one of each timer is current. */
+const stampTimers = ({ state, effects }: Decision): MediaStep => {
+  let { timers, nextTimer } = state;
+  const stamped = effects.map((effect): MediaEffect => {
+    if (effect.type === 'cancel') {
+      if (timers[effect.timer] !== undefined)
+        timers = withoutTimer(timers, effect.timer);
+      return effect;
+    }
+    if (effect.type !== 'schedule') return effect;
+    const id = nextTimer++;
+    timers = { ...timers, [effect.timer]: id };
+    return { ...effect, id };
+  });
+  return {
+    state: timers === state.timers ? state : { ...state, timers, nextTimer },
+    effects: stamped,
+  };
 };
 
 /**
@@ -140,109 +255,11 @@ const reduceAdmission = (
 export function reduceMedia(
   state: MediaState,
   event: MediaEvent,
-  ctx: Context,
+  ctx: StepContext,
 ): MediaStep {
-  const link = state.link;
-  if (link.phase === 'ended') return unchanged(state);
-  switch (event.type) {
-    case 'tab-changed':
-      if (event.owns === true)
-        return link.phase === 'waiting'
-          ? join(state, false, ctx.atMs, ctx.policy)
-          : unchanged(state);
-      {
-        const tab = event.owns === false ? 'elsewhere' : 'checking';
-        if (link.phase === 'waiting' && link.tab === tab)
-          return unchanged(state);
-        return {
-          state: {
-            ...state,
-            link: { phase: 'waiting', tab },
-            recovery: { ...state.recovery, armed: null },
-          },
-          effects: teardownEffects(link),
-        };
-      }
-    case 'page-left':
-      return finish(state, []);
-    case 'round-ended':
-      return finish(state, [{ type: 'forget-mute' }]);
-    case 'frozen-page-restored': {
-      const read = reduceRead(state, { kind: 'wake' }, ctx);
-      return {
-        state: read.state,
-        effects: [{ type: 'refresh-view' }, ...read.effects],
-      };
-    }
-    case 'mute-restored':
-      return event.muted === state.microphoneMuted
-        ? unchanged(state)
-        : unchanged({ ...state, microphoneMuted: event.muted });
-    case 'admission-answered':
-    case 'admission-failed':
-      return reduceAdmission(state, event, ctx);
-    case 'read-requested':
-      return reduceRead(state, event.read, ctx);
-    case 'read-start-due':
-      return link.phase === 'live' && link.reads.startDeferred
-        ? startNextRead(
-            state,
-            { ...link, reads: { ...link.reads, startDeferred: false } },
-            ctx.atMs,
-          )
-        : unchanged(state);
-    case 'read-answered':
-    case 'read-failed':
-    case 'read-aborted': {
-      if (link.phase !== 'live' || link.reads.flight?.ticket !== event.ticket)
-        return unchanged(state);
-      if (event.type === 'read-answered')
-        return reduceAnswered(state, link, event.answer, ctx);
-      if (event.type === 'read-failed')
-        return reduceFailed(state, link, event.failure, ctx);
-      const started = startNextRead(state, clearFlight(link), ctx.atMs);
-      return {
-        state: started.state,
-        effects: [...letFinishCancel(link), ...started.effects],
-      };
-    }
-    case 'timer-fired':
-      return reduceTimer(state, event, ctx);
-    case 'browser-nudged':
-      return reduceNudge(state, ctx);
-    case 'retry-pressed':
-      return reduceRetry(state, ctx);
-    case 'mute-requested':
-      if (link.phase !== 'live' || state.changingMicrophone)
-        return unchanged(state);
-      return {
-        state: { ...state, changingMicrophone: true },
-        effects: [
-          {
-            type: 'set-mute',
-            connection: link.connection,
-            muted: event.muted,
-          },
-        ],
-      };
-    case 'enable-sound-pressed':
-      return link.phase === 'live'
-        ? {
-            state,
-            effects: [{ type: 'start-audio', connection: link.connection }],
-          }
-        : unchanged(state);
-    case 'forget-failed': {
-      if (link.phase !== 'live') return unchanged(state);
-      const sources = { ...link.sources };
-      for (const name of event.sources)
-        sources[name] =
-          sources[name].phase === 'published'
-            ? { phase: 'published', swapped: true }
-            : { phase: 'missing' };
-      return unchanged(withLive(state, { ...link, sources }));
-    }
-    default:
-      return reduceRoom(state, event, ctx);
-  }
+  if (event.type !== 'timer-fired')
+    return stampTimers(decide(state, event, ctx));
+  if (state.timers[event.timer] !== event.id) return { state, effects: [] };
+  const timers = withoutTimer(state.timers, event.timer);
+  return stampTimers(decide({ ...state, timers }, event, ctx));
 }

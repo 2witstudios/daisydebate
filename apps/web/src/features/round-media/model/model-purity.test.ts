@@ -30,3 +30,26 @@ test('the media model reads no clock, timer, storage, SDK or track handle', asyn
     expected: [],
   });
 });
+
+test('the stage attaches handles and decides from the model', async () => {
+  const stage = await Bun.file(
+    resolve(import.meta.dir, '../media-stage.tsx'),
+  ).text();
+  const reads = [...stage.matchAll(/\b(handle|candidate)\.(\w+)/g)].map(
+    ([, , field]) => field,
+  );
+  const support = await Bun.file(
+    resolve(import.meta.dir, '../adapters/livekit-room.ts'),
+  ).text();
+  assert({
+    given: 'every read of a track handle on the stage, and what a handle holds',
+    should: 'only find it by identity and source, and attach its track',
+    actual: {
+      fields: [...new Set(reads)].sort(),
+      shape: /TrackHandle = Pick<ObservedTrack, 'identity' \| 'source'> &/.test(
+        support,
+      ),
+    },
+    expected: { fields: ['identity', 'source', 'track'], shape: true },
+  });
+});

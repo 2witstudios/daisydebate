@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   fakeBudget,
-  readController,
+  readHarness,
   snapshot,
   transportStub,
   viewAt,
@@ -17,7 +17,7 @@ test('only an authority answer ends a live connection', async () => {
   for (const answer of [401, 403, 404, 409, 410, 429, 500, 502, 504]) {
     let reads = 0;
     let stops = 0;
-    const controller = readController({
+    const controller = readHarness({
       reconcile: async () => {
         if (++reads === 1) return snapshot;
         throw mediaFailure(answer);
@@ -51,7 +51,7 @@ test('only an authority answer ends a live connection', async () => {
 test('a server reply saying unavailable still ends a live connection', async () => {
   let reads = 0;
   let stops = 0;
-  const controller = readController({
+  const controller = readHarness({
     reconcile: async () =>
       ++reads === 1 ? snapshot : { ...snapshot, state: 'unavailable' },
     transport: () => transportStub({ stopTracks: () => void stops++ }),
@@ -71,7 +71,7 @@ const readsStallAfterFirst = async (answeredRead?: number) => {
   const { budget, advance, pending } = fakeBudget();
   const signals: AbortSignal[] = [];
   let reads = 0;
-  const controller = readController({
+  const controller = readHarness({
     readBudget: budget,
     reconcile: (_id, signal) => {
       signals.push(signal);
@@ -118,11 +118,11 @@ test('reads that keep being superseded still show out of date at the budget', as
 });
 
 /** A controller driving a seat's caption as the session does, on a test budget. */
-const watchedCaption = (input: Parameters<typeof readController>[0]) => {
+const watchedCaption = (input: Parameters<typeof readHarness>[0]) => {
   let connection: MediaConnectionState = 'connecting';
   let confirmed = true;
   const { budget, advance } = fakeBudget();
-  const controller = readController({
+  const controller = readHarness({
     ...input,
     readBudget: budget,
     changed: (state) => {
@@ -183,7 +183,7 @@ test('a seat checking its microphone cannot stick when no answer comes', async (
 test('an answer ends the budget, and stopping leaves it inert', async () => {
   const { budget, advance } = fakeBudget();
   const states: string[] = [];
-  const controller = readController({
+  const controller = readHarness({
     readBudget: budget,
     reconcile: async () => snapshot,
     changed: (state) => states.push(state),
@@ -192,7 +192,7 @@ test('an answer ends the budget, and stopping leaves it inert', async () => {
   await controller.reconcile(viewAt(4));
   advance(40_000);
   const afterAnswer = controller.state();
-  const held = readController({
+  const held = readHarness({
     readBudget: budget,
     reconcile: async () => snapshot,
   });
@@ -212,9 +212,7 @@ test('an answer ends the budget, and stopping leaves it inert', async () => {
 test('no timer outlives what it was timing', async () => {
   const pendings: number[] = [];
   const scenario = async (
-    end: (
-      controller: ReturnType<typeof readController>,
-    ) => Promise<void> | void,
+    end: (controller: ReturnType<typeof readHarness>) => Promise<void> | void,
   ) => {
     const { controller, advance, pending } = await readsStallAfterFirst();
     await burstOfThree(controller, advance);
@@ -240,7 +238,7 @@ test('no timer outlives what it was timing', async () => {
 test('a first read that cannot pass by itself is labelled definite', async () => {
   const failures: unknown[] = [];
   let reads = 0;
-  const controller = readController({
+  const controller = readHarness({
     reconcile: async () => {
       reads++;
       throw reads === 1 ? new Error('Malformed') : transientMediaFailure();
@@ -265,7 +263,7 @@ test('in a burst a young read finishes, is fenced, and the newest read applies',
   const signals: AbortSignal[] = [];
   const replies: ReturnType<typeof Promise.withResolvers<unknown>>[] = [];
   const applied: string[] = [];
-  const controller = readController({
+  const controller = readHarness({
     readBudget: budget,
     reconcile: (_id, signal) => {
       signals.push(signal);
@@ -345,7 +343,7 @@ test('a fenced read does not spend retries', async () => {
   let reads = 0;
   const first = Promise.withResolvers<unknown>();
   const second = Promise.withResolvers<unknown>();
-  const controller = readController({
+  const controller = readHarness({
     readBudget: budget,
     retry: { delaysMs: [1, 1, 1], wait: async () => undefined },
     reconcile: () => {
@@ -378,7 +376,7 @@ test('a fenced read does not spend retries', async () => {
 test('an answered read ends the burst, so the next newer view aborts at once', async () => {
   const signals: AbortSignal[] = [];
   const replies: ReturnType<typeof Promise.withResolvers<unknown>>[] = [];
-  const controller = readController({
+  const controller = readHarness({
     readBudget: fakeBudget().budget,
     reconcile: (_id, signal) => {
       signals.push(signal);

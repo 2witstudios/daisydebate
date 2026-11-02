@@ -1,14 +1,20 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import type { RoundView, RoundMediaState } from '@daisy/protocol';
 import type { TrackHandle } from './adapters/livekit-room';
-import type { ObservedPeer } from './model/media-state';
+import type { ObservedPeer, ObservedTrack } from './model/media-state';
 import type { MediaConnectionLabel } from './model/media-status';
 import { seatMicrophoneCaption } from './model/seat-caption';
 
-function TrackElement({ track }: { readonly track: TrackHandle }) {
+function TrackElement({
+  observed,
+  handle,
+}: {
+  readonly observed: ObservedTrack;
+  readonly handle: TrackHandle;
+}) {
   const element = useRef<HTMLVideoElement & HTMLAudioElement>(null);
-  const mediaTrack = track.track;
+  const mediaTrack = handle.track;
   useEffect(() => {
     const node = element.current;
     if (!node) return;
@@ -18,14 +24,14 @@ function TrackElement({ track }: { readonly track: TrackHandle }) {
       node.srcObject = null;
     };
   }, [mediaTrack]);
-  return track.source === 'camera' ? (
+  return observed.source === 'camera' ? (
     <video
       ref={element}
       autoPlay
       playsInline
-      muted={track.local}
+      muted={observed.local}
       className="h-full w-full object-cover"
-      aria-label={track.local ? 'Your camera' : 'Participant camera'}
+      aria-label={observed.local ? 'Your camera' : 'Participant camera'}
     />
   ) : (
     <audio ref={element} autoPlay aria-label="Participant audio" />
@@ -39,6 +45,7 @@ export function MediaStage({
   media,
   microphoneConfirmed,
   tracks,
+  handles,
   ownIdentity,
   ownMuted,
   remotePeers,
@@ -48,7 +55,10 @@ export function MediaStage({
   readonly media: RoundMediaState | null;
   /** False from a supersession until the next answer is applied. */
   readonly microphoneConfirmed: boolean;
-  readonly tracks: readonly TrackHandle[];
+  /** What the model says is there. Every decision on this stage reads these. */
+  readonly tracks: readonly ObservedTrack[];
+  /** How to attach what the model says is there, and nothing more. */
+  readonly handles: readonly TrackHandle[];
   /** The signed-in member's own media identity, or null for a viewer. */
   readonly ownIdentity: string | null;
   /** My own deliberate mute choice; presence remains separately observed. */
@@ -56,6 +66,14 @@ export function MediaStage({
   /** Peers the media room observes now; a grant never implies presence. */
   readonly remotePeers: readonly ObservedPeer[];
 }) {
+  const attached = (observed: ObservedTrack) => {
+    const handle = handles.find(
+      (candidate) =>
+        candidate.identity === observed.identity &&
+        candidate.source === observed.source,
+    );
+    return handle ? <TrackElement observed={observed} handle={handle} /> : null;
+  };
   return (
     <div
       data-room-media="grid"
@@ -73,7 +91,9 @@ export function MediaStage({
           const mediaTracks = tracks.filter(
             (track) => track.identity === identity,
           );
-          const camera = mediaTracks.find((track) => track.source === 'camera');
+          const camera = mediaTracks.find(
+            (track) => track.source === 'camera' && !track.muted,
+          );
           const microphoneTrack = mediaTracks.find(
             (track) => track.source === 'microphone',
           );
@@ -84,9 +104,7 @@ export function MediaStage({
               data-room-media="tile"
               className="relative m-0 flex aspect-video min-w-0 items-center justify-center overflow-hidden rounded-xl bg-surface-stage text-stage-ink"
             >
-              {camera && seat.kind === 'human' ? (
-                <TrackElement track={camera} />
-              ) : (
+              {(camera && seat.kind === 'human' && attached(camera)) || (
                 <span
                   aria-hidden="true"
                   className="flex size-12 items-center justify-center rounded-round bg-hue-sky text-lg font-strong"
@@ -122,10 +140,7 @@ export function MediaStage({
                     !track.muted,
                 )
                 .map((track) => (
-                  <TrackElement
-                    key={track.track.sid ?? identity}
-                    track={track}
-                  />
+                  <Fragment key={track.identity}>{attached(track)}</Fragment>
                 ))}
             </figure>
           );

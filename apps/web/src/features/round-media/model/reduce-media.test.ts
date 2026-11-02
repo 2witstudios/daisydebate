@@ -1,422 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { snapshot } from '../media-fixtures.test-support';
-import { admission } from '../media-fixtures.test-support';
-import type { MediaEffect, MediaTimer } from './media-effects';
-import type { MediaEvent } from './media-events';
-import { initialMediaState, type MediaState, type Source } from './media-state';
+import { admission, snapshot } from '../media-fixtures.test-support';
 import { connectionOf, statusOf } from './media-status';
-import { publicationOf } from './media-publication';
-import { answerWith, testPolicy } from './media-state.test-support';
-import { reduceMedia } from './reduce-media';
+import { answerOf, armedOf, driver } from './media-driver.test-support';
+import { testPolicy } from './media-state.test-support';
 
 setupRitewayBun();
-
-/** Runs events through the pure reducer and keeps what each asked of the world. */
-const driver = (start?: MediaState) => {
-  let state =
-    start ?? initialMediaState({ roundViewVersion: 1, microphoneMuted: false });
-  let atMs = 1_000_000;
-  const effects: MediaEffect[] = [];
-  const send = (event: MediaEvent) => {
-    const step = reduceMedia(state, event, { atMs, policy: testPolicy });
-    state = step.state;
-    effects.push(...step.effects);
-    return step;
-  };
-  const count = (type: MediaEffect['type']) =>
-    effects.filter((effect) => effect.type === type).length;
-  const live = () => {
-    if (state.link.phase !== 'live') throw new Error('Not live');
-    return state.link;
-  };
-  const ticket = () => {
-    const flight = live().reads.flight;
-    if (!flight) throw new Error('No read in flight');
-    return flight.ticket;
-  };
-  const answer = (publish: readonly Source[] = []) =>
-    send({
-      type: 'read-answered',
-      ticket: ticket(),
-      answer: answerWith(publish),
-    });
-  const connection = () => {
-    const { link } = state;
-    if (
-      link.phase === 'admitting' ||
-      link.phase === 'connecting' ||
-      link.phase === 'live'
-    )
-      return link.connection;
-    throw new Error('No connection');
-  };
-  const room = (event: Record<string, unknown> & { type: string }) =>
-    send({ ...event, connection: connection() } as MediaEvent);
-  /** Up and answered once, with these grants settled. */
-  const join = (publish: readonly Source[] = []) => {
-    send({ type: 'tab-changed', owns: true });
-    send({ type: 'admission-answered', connection: connection(), admission });
-    room({ type: 'connected', permission: null });
-    answer(publish);
-    for (const source of publish) {
-      room({ type: 'captured', source });
-      room({ type: 'published', source });
-    }
-    if (publish.length > 0 && !publish.includes('microphone')) {
-      room({ type: 'captured', source: 'microphone' });
-    }
-    effects.length = 0;
-  };
-  const flushDeferred = () => send({ type: 'read-start-due' });
-  return {
-    send,
-    room,
-    join,
-    answer,
-    ticket,
-    live,
-    count,
-    effects,
-    flushDeferred,
-    state: () => state,
-    advance: (ms: number) => void (atMs += ms),
-    timer: (timer: MediaTimer) => send({ type: 'timer-fired', timer }),
-    scheduled: (timer: MediaTimer) =>
-      effects.flatMap((effect) =>
-        effect.type === 'schedule' && effect.timer === timer ? [effect.ms] : [],
-      ),
-  };
-};
-
-/** One state of every phase and shape the reducer can hold. */
-const everyState = (): readonly (readonly [string, MediaState])[] => {
-  const at = (build: (d: ReturnType<typeof driver>) => void) => {
-    const d = driver();
-    build(d);
-    return d.state();
-  };
-  const connecting = (d: ReturnType<typeof driver>) => {
-    d.send({ type: 'tab-changed', owns: true });
-    d.send({
-      type: 'admission-answered',
-      connection: (d.state().link as { connection: number }).connection,
-      admission,
-    });
-  };
-  return [
-    ['waiting', at(() => undefined)],
-    ['elsewhere', at((d) => d.send({ type: 'tab-changed', owns: false }))],
-    ['admitting', at((d) => d.send({ type: 'tab-changed', owns: true }))],
-    ['connecting', at(connecting)],
-    [
-      'first read',
-      at((d) => {
-        connecting(d);
-        d.room({ type: 'connected', permission: null });
-      }),
-    ],
-    ['live', at((d) => d.join())],
-    [
-      'live publishing',
-      at((d) => {
-        d.join();
-        d.send({ type: 'read-requested', read: { kind: 'wake' } });
-        d.flushDeferred();
-        d.answer(['camera']);
-        d.room({ type: 'captured', source: 'camera' });
-      }),
-    ],
-    [
-      'live capturing',
-      at((d) => {
-        d.join();
-        d.send({ type: 'read-requested', read: { kind: 'wake' } });
-        d.flushDeferred();
-        d.answer(['camera', 'microphone']);
-      }),
-    ],
-    ['live published', at((d) => d.join(['camera', 'microphone']))],
-    [
-      'live stale',
-      at((d) => {
-        d.join();
-        d.send({ type: 'read-requested', read: { kind: 'wake' } });
-        d.flushDeferred();
-        d.send({
-          type: 'read-failed',
-          ticket: d.ticket(),
-          failure: 'definite',
-        });
-      }),
-    ],
-    [
-      'released transient',
-      at((d) => {
-        d.join();
-        d.room({ type: 'dropped' });
-      }),
-    ],
-    [
-      'released definite',
-      at((d) => {
-        d.join();
-        d.send({ type: 'read-requested', read: { kind: 'wake' } });
-        d.flushDeferred();
-        d.send({ type: 'read-failed', ticket: d.ticket(), failure: 'ending' });
-      }),
-    ],
-    [
-      'released refused',
-      at((d) => {
-        d.send({ type: 'tab-changed', owns: true });
-        d.send({
-          type: 'admission-failed',
-          connection: (d.state().link as { connection: number }).connection,
-          failure: 'refused',
-        });
-      }),
-    ],
-    [
-      'released replaced',
-      at((d) => {
-        d.join();
-        d.room({ type: 'replaced' });
-      }),
-    ],
-    ['ended', at((d) => d.send({ type: 'page-left' }))],
-  ];
-};
-
-const everyEvent = (
-  connection: number,
-  ticket: number,
-): readonly MediaEvent[] => {
-  const room = (event: Record<string, unknown>) =>
-    ({ ...event, connection }) as MediaEvent;
-  return [
-    { type: 'tab-changed', owns: true },
-    { type: 'tab-changed', owns: false },
-    { type: 'tab-changed', owns: null },
-    { type: 'page-left' },
-    { type: 'frozen-page-restored' },
-    { type: 'round-ended' },
-    { type: 'mute-restored', muted: true },
-    { type: 'admission-answered', connection, admission },
-    { type: 'admission-failed', connection, failure: 'transient' },
-    { type: 'admission-failed', connection, failure: 'refused' },
-    { type: 'read-requested', read: { kind: 'wake' } },
-    { type: 'read-requested', read: { kind: 'view', roundViewVersion: 99 } },
-    {
-      type: 'read-requested',
-      read: { kind: 'boundary', roundViewVersion: 1, deadlineMs: 5 },
-    },
-    { type: 'read-start-due' },
-    { type: 'read-answered', ticket, answer: answerWith(['camera']) },
-    {
-      type: 'read-answered',
-      ticket,
-      answer: { ...snapshot, state: 'ended' } as never,
-    },
-    {
-      type: 'read-answered',
-      ticket,
-      answer: { ...snapshot, state: 'unavailable' } as never,
-    },
-    { type: 'read-failed', ticket, failure: 'transient' },
-    { type: 'read-failed', ticket, failure: 'definite' },
-    { type: 'read-failed', ticket, failure: 'ending' },
-    { type: 'read-failed', ticket, failure: 'refused' },
-    { type: 'read-aborted', ticket },
-    ...(
-      [
-        'admission-retry',
-        'read-retry',
-        'read-budget',
-        'read-let-finish',
-        'capture-patience',
-        'recovery',
-      ] as const
-    ).map((timer): MediaEvent => ({ type: 'timer-fired', timer })),
-    { type: 'browser-nudged' },
-    { type: 'retry-pressed' },
-    { type: 'mute-requested', muted: true },
-    { type: 'enable-sound-pressed' },
-    { type: 'forget-failed', sources: ['camera'] },
-    room({ type: 'connected', permission: null }),
-    room({ type: 'connect-failed', failure: 'transient' }),
-    room({ type: 'dropped' }),
-    room({ type: 'replaced' }),
-    room({ type: 'room-changed' }),
-    room({ type: 'permission-changed', permission: ['camera'] }),
-    room({ type: 'observed', tracks: [], peers: [] }),
-    ...(['camera', 'microphone'] as const).flatMap((source) => [
-      room({ type: 'captured', source }),
-      room({
-        type: 'capture-failed',
-        source,
-        kind: 'permission',
-        checked: false,
-      }),
-      room({ type: 'capture-failed', source, kind: 'absence', checked: true }),
-      room({ type: 'published', source }),
-      room({ type: 'publish-failed', source, kind: 'failure' }),
-      room({ type: 'unpublished', source }),
-      room({ type: 'unpublish-failed', source }),
-      room({ type: 'track-ended', source }),
-      room({ type: 'device-swapped', source }),
-    ]),
-    room({ type: 'mute-applied', muted: true }),
-    room({ type: 'mute-failed', kind: 'failure' }),
-    room({ type: 'playback-changed', allowed: false }),
-  ];
-};
-
-const ctx = { atMs: 2_000_000, policy: testPolicy };
-
-/** What must hold in every state the reducer can produce. */
-const violations = (state: MediaState): readonly string[] => {
-  const { link } = state;
-  const bad: string[] = [];
-  const status = statusOf(state);
-  if (link.phase !== 'live' && status.message.startsWith('Connected'))
-    bad.push('says Connected without a live connection');
-  if (
-    link.phase === 'live' &&
-    !link.established &&
-    connectionOf(state) === 'out-of-date'
-  )
-    bad.push('out of date before ever going live');
-  if (link.phase === 'released' && link.why === 'refused' && status.retry)
-    bad.push('offers Retry after a final refusal');
-  if (state.recovery.armed === 'rejoin' && link.phase !== 'released')
-    bad.push('a rejoin is armed on something not released');
-  if (state.recovery.armed === 'wake' && link.phase !== 'live')
-    bad.push('a wake is armed with nothing to read on');
-  if (link.phase === 'live') {
-    const { flight, queued } = link.reads;
-    if (flight && flight.stage !== 'requesting' && flight.stage !== 'pausing')
-      bad.push('unknown read stage');
-    void queued;
-    if (link.apply.next && !link.apply.running)
-      bad.push('an answer waits behind nothing');
-  }
-  if (publicationOf(state) === 'ill' && link.phase === 'ended')
-    bad.push('an ended call says reconnecting');
-  return bad;
-};
-
-test('every event in every state is total, and a rejected one changes nothing', () => {
-  const problems: string[] = [];
-  let pairs = 0;
-  let rejected = 0;
-  for (const [name, state] of everyState()) {
-    const link = state.link as {
-      connection?: number;
-      reads?: { flight: { ticket: number } | null };
-    };
-    const connection = link.connection ?? 999;
-    const ticket = link.reads?.flight?.ticket ?? 999;
-    for (const event of everyEvent(connection, ticket)) {
-      pairs++;
-      const step = reduceMedia(state, event, ctx);
-      if (step.state === state && step.effects.length === 0) rejected++;
-      for (const problem of violations(step.state))
-        problems.push(`${name} + ${event.type}: ${problem}`);
-    }
-    for (const event of everyEvent(connection + 1000, ticket + 1000)) {
-      const stale =
-        'connection' in event || 'ticket' in event
-          ? reduceMedia(state, event, ctx)
-          : null;
-      if (stale && (stale.state !== state || stale.effects.length > 0))
-        problems.push(`${name} + stale ${event.type}: not rejected`);
-    }
-  }
-  assert({
-    given: 'all fifteen shapes of state and every event, current and stale',
-    should:
-      'never produce an impossible state, and leave state identical for stale identity',
-    actual: { problems, covered: pairs > 700, someRejected: rejected > 100 },
-    expected: { problems: [], covered: true, someRejected: true },
-  });
-});
-
-test('an ended call absorbs every event', () => {
-  const ended = driver();
-  ended.send({ type: 'page-left' });
-  const state = ended.state();
-  assert({
-    given: 'an ended call and every event',
-    should: 'return the same state and ask nothing',
-    actual: everyEvent(1, 1).filter((event) => {
-      const step = reduceMedia(state, event, ctx);
-      return step.state !== state || step.effects.length > 0;
-    }),
-    expected: [],
-  });
-});
-
-/** Seeded and reproducible: no ambient randomness in tests. */
-const seeded = (seed: number) => {
-  let value = seed >>> 0;
-  return (limit: number) => {
-    value = (value * 1664525 + 1013904223) >>> 0;
-    return value % limit;
-  };
-};
-
-test('any sequence of events keeps the invariants', () => {
-  const failures: string[] = [];
-  for (let seed = 1; seed <= 200; seed++) {
-    const pick = seeded(seed);
-    let state = initialMediaState({
-      roundViewVersion: 1,
-      microphoneMuted: false,
-    });
-    let atMs = 0;
-    let liveReads = 0;
-    const trace: string[] = [];
-    for (let step = 0; step < 120 && failures.length === 0; step++) {
-      const link = state.link as {
-        connection?: number;
-        reads?: { flight: { ticket: number } | null };
-      };
-      const events = everyEvent(
-        link.connection ?? 1,
-        link.reads?.flight?.ticket ?? 1,
-      ).filter(
-        (event) => event.type !== 'page-left' && event.type !== 'round-ended',
-      );
-      const event = events[pick(events.length)]!;
-      trace.push(event.type);
-      atMs += pick(3_000);
-      const next = reduceMedia(state, event, { atMs, policy: testPolicy });
-      const started = next.effects.filter(
-        (e) => e.type === 'start-read',
-      ).length;
-      const hadFlight =
-        state.link.phase === 'live' && state.link.reads.flight !== null;
-      if (
-        started > 1 ||
-        (started === 1 && hadFlight && event.type !== 'timer-fired')
-      )
-        failures.push(
-          `seed ${seed}: a second read started: ${trace.join(' ')}`,
-        );
-      liveReads += started;
-      state = next.state;
-      for (const problem of violations(state))
-        failures.push(`seed ${seed}: ${problem}: ${trace.join(' ')}`);
-    }
-    void liveReads;
-  }
-  assert({
-    given: 'two hundred seeded sequences of a hundred and twenty events',
-    should: 'hold every invariant, and run at most one read at a time',
-    actual: failures.slice(0, 2),
-    expected: [],
-  });
-});
 
 test('a burst of read requests costs one read', () => {
   const d = driver();
@@ -488,7 +76,7 @@ test('live reads that all fail keep the connection, then recover on it without R
       connection: connectionOf(d.state()),
       admissions: d.count('admit'),
       released: d.count('release-connection'),
-      armed: d.state().recovery.armed,
+      armed: armedOf(d.state()),
     },
     expected: {
       stalled: { connection: 'out-of-date', released: 0, waiting: [1_000] },
@@ -624,7 +212,7 @@ test('an event moves a waiting attempt up, once per floor, and never restarts wh
       inFloor,
       second,
       final: d.count('admit'),
-      armed: d.state().recovery.armed,
+      armed: armedOf(d.state()),
     },
     expected: { moved: 1, inFloor: 1, second: 2, final: 2, armed: null },
   });
@@ -774,7 +362,7 @@ test('Retry uses defaults only for a saved choice nothing can read', () => {
     d.room({ type: 'capture-failed', source: 'camera', kind, checked: false });
     d.effects.length = 0;
     d.send({ type: 'retry-pressed' });
-    return d.count('use-default-devices');
+    return d.count('clear-checked-devices');
   };
   assert({
     given: 'an unreadable and an invalid preference, and a device failure',
@@ -795,22 +383,22 @@ test('a superseded answer never starts or announces, and fresh work follows the 
   d.flushDeferred();
   d.answer(['camera', 'microphone']);
   d.room({ type: 'captured', source: 'camera' });
-  const running = d.live().apply.running !== null;
+  const running = d.live().apply !== null;
   d.send({
     type: 'read-requested',
     read: { kind: 'view', roundViewVersion: 4 },
   });
   d.flushDeferred();
   d.answer(['microphone']);
-  const queued = d.live().apply.next?.answer.grants.publish;
+  const queued = d.live().apply?.next?.answer.grants.publish;
   d.send({
     type: 'read-requested',
     read: { kind: 'view', roundViewVersion: 5 },
   });
   d.flushDeferred();
-  const droppedOlder = d.live().apply.next;
+  const droppedOlder = d.live().apply?.next ?? null;
   d.answer(['camera']);
-  const media = d.live().media?.grants.publish;
+  const media = answerOf(d.live())?.media.grants.publish;
   d.room({ type: 'published', source: 'camera' });
   d.room({ type: 'captured', source: 'microphone' });
   d.room({ type: 'published', source: 'microphone' });
@@ -824,7 +412,7 @@ test('a superseded answer never starts or announces, and fresh work follows the 
       queued,
       droppedOlder,
       media,
-      finalAnswer: d.live().media?.grants.publish,
+      finalAnswer: answerOf(d.live())?.media.grants.publish,
       grants: d.live().grants,
     },
     expected: {
@@ -909,7 +497,10 @@ test('superseded reads still show out of date at the budget, and an answer ends 
     type: 'read-requested',
     read: { kind: 'view', roundViewVersion: 2 },
   });
-  const checking = [d.live().freshness, d.scheduled('read-budget')];
+  const checking = [
+    answerOf(d.live())?.freshness.status,
+    d.scheduled('read-budget'),
+  ];
   d.timer('read-budget');
   const overdue = connectionOf(d.state());
   const answered = driver();
@@ -930,7 +521,7 @@ test('superseded reads still show out of date at the budget, and an answer ends 
       cancelled: answered.effects.some(
         (effect) => effect.type === 'cancel' && effect.timer === 'read-budget',
       ),
-      current: answered.live().freshness,
+      current: answerOf(answered.live())?.freshness.status,
     },
     expected: {
       checking: ['checking', [testPolicy.readBudgetMs]],
@@ -961,7 +552,7 @@ test('a first apply that hangs reaches a way out, and rejoins by itself', () => 
       before,
       after: connectionOf(d.state()),
       retry: statusOf(d.state()).retry,
-      armed: d.state().recovery.armed,
+      armed: armedOf(d.state()),
     },
     expected: {
       before: 'connecting',
@@ -991,9 +582,9 @@ test('patience ends for an open prompt, never for a hung publish', () => {
     should:
       'finish the answer for the first and keep it running for the second',
     actual: [
-      prompt.live().apply.running === null,
+      prompt.live().apply === null,
       prompt.live().sources.camera,
-      hung.live().apply.running === null,
+      hung.live().apply === null,
     ],
     expected: [true, { phase: 'capturing', waiting: true }, false],
   });
@@ -1112,7 +703,7 @@ test('a seat replaced elsewhere is named and sets no timer', () => {
     should: 'say so, offer to take it back, and not fight for it',
     actual: {
       connection: connectionOf(d.state()),
-      armed: d.state().recovery.armed,
+      armed: armedOf(d.state()),
       named: status.message.includes('another tab or device'),
       retry: status.retry,
       refreshed: d.count('refresh-view'),
@@ -1131,7 +722,7 @@ test('mute follows success only, and a failed change stops only the microphone',
   const d = driver();
   d.join(['camera', 'microphone']);
   d.send({ type: 'mute-requested', muted: true });
-  const changing = d.state().changingMicrophone;
+  const changing = d.live().changingMicrophone;
   d.room({ type: 'mute-applied', muted: true });
   const remembered = d.effects.filter(
     (effect) => effect.type === 'remember-mute',

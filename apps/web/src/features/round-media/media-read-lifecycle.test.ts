@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   admission,
-  readController,
+  readHarness,
   snapshot,
   transportStub,
 } from './media-fixtures.test-support';
@@ -13,7 +13,7 @@ test('connection replacement fences old rejection and cleanup', async () => {
   let reads = 0,
     admits = 0;
   const stopped: number[] = [];
-  const controller = readController({
+  const controller = readHarness({
     admit: async () => {
       admits++;
       return admission;
@@ -56,7 +56,7 @@ test('accepted views during admission and first read use current intent without 
     reads = 0;
   let signal: AbortSignal | undefined;
   const receipts: string[] = [];
-  const controller = readController({
+  const controller = readHarness({
     admit: async () => {
       admits++;
       return mint.promise;
@@ -108,7 +108,7 @@ test('accepted views during admission and first read use current intent without 
 test('release callbacks cannot revive a synchronously disposed replacement', async () => {
   let disposeOnRelease = false,
     admits = 0;
-  const controller = readController({
+  const controller = readHarness({
     admit: async () => {
       admits++;
       return admission;

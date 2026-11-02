@@ -24,9 +24,11 @@ export function connectionOf(state: MediaState): MediaConnectionLabel {
     case 'connecting':
       return link.reconnecting ? 'reconnecting' : 'connecting';
     case 'live':
-      if (!link.established)
-        return link.reconnecting ? 'reconnecting' : 'connecting';
-      return typeof link.freshness === 'object' ? 'out-of-date' : 'live';
+      if (link.establishment.stage === 'establishing')
+        return link.establishment.reconnecting ? 'reconnecting' : 'connecting';
+      return link.establishment.freshness.status === 'stale'
+        ? 'out-of-date'
+        : 'live';
     case 'released':
       return 'unavailable';
     case 'ended':
@@ -34,8 +36,17 @@ export function connectionOf(state: MediaState): MediaConnectionLabel {
   }
 }
 
-const established = (state: MediaState): LiveConnection | null =>
-  state.link.phase === 'live' && state.link.established ? state.link : null;
+type EstablishedLive = LiveConnection & {
+  readonly establishment: Extract<
+    LiveConnection['establishment'],
+    { readonly stage: 'established' }
+  >;
+};
+const established = (state: MediaState): EstablishedLive | null =>
+  state.link.phase === 'live' &&
+  state.link.establishment.stage === 'established'
+    ? (state.link as EstablishedLive)
+    : null;
 
 type IllHealth = readonly [Source, SourceFailureKind | 'waiting'];
 
@@ -77,7 +88,7 @@ const sourceFailureMessage = ([source, kind]: IllHealth) =>
 /** Claims nothing about a source without its own evidence; a grant never implies publication. */
 const illHealthMessage = (
   bad: readonly IllHealth[],
-  live: LiveConnection,
+  live: EstablishedLive,
   ownMuted: boolean,
 ): string => {
   const [first, second] = bad;
@@ -93,7 +104,7 @@ const illHealthMessage = (
     (track) => track.local && track.source === 'microphone',
   );
   if (!own)
-    return live.media?.grants.publish.includes('microphone')
+    return live.establishment.media.grants.publish.includes('microphone')
       ? `${cameraSentence} Your microphone is not publishing.`
       : cameraSentence;
   return own.muted || ownMuted
@@ -113,17 +124,10 @@ const releasedMessages = {
     'Camera and sound were refused for this Round. A fresh admission is needed; refresh the page or leave and return once admitted.',
 } as const;
 
-const plainMessages: Record<
-  Exclude<MediaConnectionLabel, 'unavailable'>,
-  string
-> = {
+const connectingMessage = {
   connecting: 'Connecting camera and sound…',
   reconnecting: 'Reconnecting camera and sound…',
-  live: 'Connected',
-  'out-of-date':
-    'Connected, but camera and sound status may be out of date. Retry if this lasts.',
-  ended: 'The call has ended.',
-};
+} as const;
 
 /** What the Round media bar says, and whether it offers Retry (ISSUE-573). */
 export function statusOf(state: MediaState): {
@@ -136,18 +140,31 @@ export function statusOf(state: MediaState): {
       message: releasedMessages[link.why],
       retry: link.why !== 'refused',
     };
-  const connection = connectionOf(state);
-  if (connection === 'unavailable') throw new Error('Unreachable media status');
+  if (link.phase === 'ended')
+    return { message: 'The call has ended.', retry: false };
   const live = established(state);
-  if (!live) return { message: plainMessages[connection], retry: false };
-  const stale = connection === 'out-of-date';
+  if (!live) {
+    const reconnecting =
+      link.phase === 'admitting' || link.phase === 'connecting'
+        ? link.reconnecting
+        : link.phase === 'live' &&
+          link.establishment.stage === 'establishing' &&
+          link.establishment.reconnecting;
+    return {
+      message: connectingMessage[reconnecting ? 'reconnecting' : 'connecting'],
+      retry: false,
+    };
+  }
+  const stale = live.establishment.freshness.status === 'stale';
   const missing = missingOf(live);
   const bad = illHealthOf(live);
   return {
     message: [
       missing.length > 0
         ? missingMessage(missing, stale)
-        : plainMessages[connection],
+        : stale
+          ? 'Connected, but camera and sound status may be out of date. Retry if this lasts.'
+          : 'Connected',
       live.sound === 'blocked'
         ? 'Sound is blocked by your browser. Press Enable sound to play it.'
         : '',
@@ -162,14 +179,14 @@ export function statusOf(state: MediaState): {
 /** The other controls the bar offers. */
 export function controlsOf(state: MediaState) {
   const live = established(state);
-  const grants = live?.media?.grants.publish ?? [];
+  const grants = live?.establishment.media.grants.publish ?? [];
   return {
     enableSound: live !== null,
     /** Offered only to a seat that may publish; muting needs a microphone grant. */
     muteOffered: grants.includes('camera'),
     muteEnabled:
       live !== null &&
-      !state.changingMicrophone &&
+      !live.changingMicrophone &&
       grants.includes('microphone'),
   };
 }
@@ -178,10 +195,12 @@ export function controlsOf(state: MediaState) {
 export function stageOf(state: MediaState) {
   const { link } = state;
   const live = link.phase === 'live' ? link : null;
+  const settled = established(state);
   return {
     connection: connectionOf(state),
-    media: live?.media ?? null,
-    microphoneConfirmed: live === null || live.freshness === 'current',
+    media: settled?.establishment.media ?? null,
+    microphoneConfirmed:
+      settled === null || settled.establishment.freshness.status === 'current',
     tracks: live?.tracks ?? [],
     remotePeers: live?.peers ?? [],
     ownIdentity: live?.identity ?? null,

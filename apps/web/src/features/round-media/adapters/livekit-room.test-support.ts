@@ -22,6 +22,7 @@ const capturedTrack = (source: string) => {
       return this;
     },
     emit: (event: string) => listeners.get(event)?.(),
+    listening: () => listeners.size,
     async mute() {
       this.muted = true;
       return this;
@@ -51,6 +52,10 @@ export function stubSdk(
     /** Publishes settle at once, recorded in `published`. */
     readonly settles?: boolean;
     readonly unpublishGate?: Promise<void>;
+    /** Each publish waits for its gate here, in call order; undefined follows `settles`. */
+    readonly publishGates?: readonly (Promise<void> | undefined)[];
+    /** Each connect waits for its gate here, in call order; undefined connects at once. */
+    readonly connectGates?: readonly (Promise<void> | undefined)[];
     /** The first publish rejects; later ones follow `settles`. */
     readonly failFirstPublish?: boolean;
     /** The first unpublish rejects. */
@@ -61,6 +66,8 @@ export function stubSdk(
   const captured: Captured[] = [];
   const published: Captured[] = [];
   const gates = [...(options.captureGates ?? [])];
+  const publishGates = [...(options.publishGates ?? [])];
+  const connectGates = [...(options.connectGates ?? [])];
   let failPublish = options.failFirstPublish ?? false;
   let failUnpublish = options.failFirstUnpublish ?? false;
   const handlers = new Map<string, (...args: unknown[]) => void>();
@@ -73,6 +80,11 @@ export function stubSdk(
         failPublish = false;
         return Promise.reject(new Error('Publish refused'));
       }
+      const gate = publishGates.shift();
+      if (gate)
+        return gate.then(() => {
+          published.push(track);
+        });
       if (!options.settles) return new Promise(() => {});
       published.push(track);
       return Promise.resolve();
@@ -93,7 +105,9 @@ export function stubSdk(
       handlers.set(event, handler);
       return room;
     },
-    connect: async () => undefined,
+    connect: async () => {
+      await connectGates.shift();
+    },
     disconnect: async () => undefined,
     removeAllListeners: () => undefined,
     startAudio: async () => undefined,

@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   admission,
-  readController,
+  readHarness,
   snapshot,
   transportStub,
   viewAt,
@@ -42,7 +42,7 @@ test('events emitted synchronously from an abort still leave one fresh read', as
   let reads = 0;
   const seen: AbortSignal[] = [];
   const held = Promise.withResolvers<unknown>();
-  const controller = readController({
+  const controller = readHarness({
     admit: async () => admission,
     reconcile: async (_id, signal) => {
       seen.push(signal);
@@ -74,7 +74,7 @@ test('a newer view emitted from a receipt rereads before announcing live', async
   const states: string[] = [];
   const receipts: number[] = [];
   let reads = 0;
-  const controller = readController({
+  const controller = readHarness({
     admit: async () => admission,
     reconcile: async () => {
       reads++;
@@ -103,7 +103,7 @@ test('a newer view emitted from a receipt rereads before announcing live', async
 test('events after failure stay inert until reconnect, which uses the current intent', async () => {
   let reads = 0;
   let admits = 0;
-  const controller = readController({
+  const controller = readHarness({
     admit: async () => {
       admits++;
       return admission;
@@ -140,7 +140,7 @@ test('stop during connect releases when the connect later settles either way', a
     let reads = 0;
     let stops = 0;
     const states: string[] = [];
-    const controller = readController({
+    const controller = readHarness({
       admit: async () => admission,
       reconcile: async () => {
         reads++;
@@ -181,7 +181,7 @@ test('each read removes its listener from the connection signal', async () => {
   const connection: { signal?: AbortSignal; listeners: number } = {
     listeners: 0,
   };
-  const controller = readController({
+  const controller = readHarness({
     admit: async (_id, signal) => {
       connection.signal = signal;
       const add = signal.addEventListener.bind(signal);
@@ -218,7 +218,7 @@ test('the failure kind is exposed and a definite live refusal still releases', a
   let reads = 0;
   let stops = 0;
   const refusal = { value: mediaFailure(503) };
-  const controller = readController({
+  const controller = readHarness({
     reconcile: async () => {
       if (++reads === 1) return snapshot;
       throw refusal.value;

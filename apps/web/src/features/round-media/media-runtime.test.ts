@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundMediaAdmission } from '@daisy/protocol';
-import { createMediaController } from './media-harness.test-support';
+import { createMediaHarness } from './media-harness.test-support';
 import {
   mediaFailure,
   requestFailureOf,
@@ -14,7 +14,7 @@ setupRitewayBun();
 test('terminal stop closes tracks immediately while admission is pending', async () => {
   let finish!: (value: RoundMediaAdmission) => void;
   let created = 0;
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 1,
     api: {
@@ -47,7 +47,7 @@ test('cleanup never waits for an unfinished publication request', async () => {
   const entered = Promise.withResolvers<void>();
   let stopped = 0;
   let disconnected = 0;
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 1,
     api: { admit: async () => admission, reconcile: async () => snapshot },
@@ -84,7 +84,7 @@ test('cleanup never waits for an unfinished publication request', async () => {
 test('reconnect obtains a fresh admission and teardown leaves no old transport', async () => {
   let minted = 0;
   const transports: { stopped: number }[] = [];
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 1,
     api: {
@@ -139,7 +139,7 @@ const retryingController = (api: {
 }) => {
   const states: string[] = [];
   const waits: number[] = [];
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 1,
     api,
@@ -209,7 +209,7 @@ test('a transient reconcile refusal is retried, joining or live', async () => {
 test('a lasting or definite admission failure is reported unavailable', async () => {
   const outcome = async (failure: () => Error) => {
     let admits = 0;
-    const controller = createMediaController({
+    const controller = createMediaHarness({
       roundId,
       initialRoundViewVersion: 1,
       api: {

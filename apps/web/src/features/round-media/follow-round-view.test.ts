@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaController } from './media-harness.test-support';
+import { createMediaHarness } from './media-harness.test-support';
 import {
   admission,
   roundId,
@@ -18,7 +18,7 @@ const deadlineMs = nextMediaRefreshAt(view)!;
 const mounted = async () => {
   const state = { reads: 0, refreshes: 0, signals: [] as AbortSignal[] };
   const held = { reply: null as Promise<unknown> | null };
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: view.version,
     api: {

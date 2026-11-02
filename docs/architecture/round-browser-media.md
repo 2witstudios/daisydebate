@@ -233,27 +233,38 @@ data, and holds no clock, timer, storage or SDK. A rejected event returns the sa
 object and no effects. `media-runtime.ts` queues events, so an effect's result is always a
 later event and never a nested reduce, and it runs effects at the edge.
 `adapters/livekit-room.ts` reports what the SDK did and does what it is told. Its track
-handles attach to elements and decide nothing. Status, publication and captions are pure
+handles only attach to elements: the stage decides from the model's tracks. Status, publication and captions are pure
 derivations of the state, with no stored copy.
 
 The link is one of `waiting`, `admitting`, `connecting`, `live`, `released` or `ended`.
-Only `live` holds tracks, grants or a read, so a dead connection cannot say Connected.
-Before its first answer applies a `live` link is not `established`, and cannot be out of
-date. Each source has its own state, so one failing leaves the other working. Connection
-events carry their connection and read events their ticket, and stale ones change nothing.
-One answer applies at a time. An answer superseded while waiting never starts, and one
-superseded while running finishes without announcing. Read intent decisions stay in
+Only `live` holds tracks, grants, a read or a mute change, so a dead connection cannot say
+Connected and a new one inherits nothing. A `live` link is `establishing` until its first
+answer applies, with no media and nothing to be out of date, then `established` with both.
+What recovery waits to do is in the link: a transient release has its rejoin coming, and a
+stale answer its read. Each source has its own state, so one failing leaves the other
+working. Connection events carry their connection, read events their ticket and timer
+firings their schedule, and stale ones change nothing. One answer applies at a time. An
+answer superseded while waiting never starts, and one superseded while running finishes
+without announcing. An older apply never holds a fresh read. Whatever waits has a timer
+that ends the wait, and SDK work stuck past the read budget is rebuilt on a new connection
+when its paced wake fires, or by Retry. Read intent decisions stay in
 `media-read-intent.ts`, which the model composes.
 
-| Module                                                             | Holds                                        |
-| ------------------------------------------------------------------ | -------------------------------------------- |
-| `model/media-state.ts`, `media-events.ts`, `media-effects.ts`      | The types                                    |
-| `model/reduce-media.ts`                                            | The reducer: phases, Retry and admission     |
-| `model/reduce-reads.ts`, `reduce-room.ts`, `reduce-sources.ts`     | Reads and applying, room reports, one source |
-| `model/media-transitions.ts`, `recovery-pace.ts`                   | Release, join and the pace                   |
-| `model/media-status.ts`, `media-publication.ts`, `seat-caption.ts` | Derivations                                  |
-| `media-runtime.ts`, `adapters/`                                    | The edge                                     |
-| `media-session.tsx`, `media-bar.tsx`, `media-stage.tsx`            | The UI                                       |
+`model/media-transitions.test-support.ts` states what every event does in every shape of
+state, and an event it does not list is rejected. A change there is a change of behaviour.
+
+| Module                                                             | Holds                                      |
+| ------------------------------------------------------------------ | ------------------------------------------ |
+| `model/media-state.ts`, `media-events.ts`, `media-effects.ts`      | The types                                  |
+| `model/reduce-media.ts`, `media-step.ts`                           | The reducer's routing, and what a step is  |
+| `model/reduce-reads.ts`, `read-start.ts`                           | Reads: requests, outcomes, the next start  |
+| `model/reduce-apply.ts`                                            | Applying one answer at a time              |
+| `model/reduce-room.ts`, `reduce-sources.ts`                        | Room reports, and each source              |
+| `model/reduce-recovery.ts`, `recovery-pace.ts`                     | Recovery attempts, nudges, Retry, the pace |
+| `model/connection-lifecycle.ts`                                    | Joining, releasing and ending              |
+| `model/media-status.ts`, `media-publication.ts`, `seat-caption.ts` | Derivations                                |
+| `media-runtime.ts`, `adapters/`                                    | The edge                                   |
+| `media-session.tsx`, `media-bar.tsx`, `media-stage.tsx`            | The UI                                     |
 
 ### Browser effect ownership
 

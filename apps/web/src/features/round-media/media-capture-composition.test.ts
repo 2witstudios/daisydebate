@@ -8,7 +8,7 @@ import {
   createBrowserMediaTransport,
   type MediaTrack,
 } from './media-harness.test-support';
-import { createMediaController } from './media-harness.test-support';
+import { createMediaHarness } from './media-harness.test-support';
 import { mediaStatus } from './model/media-state.test-support';
 import type { SourceFailureKind } from './source-failure';
 type SourceIllHealth = readonly [Source, SourceFailureKind | 'waiting'];
@@ -82,7 +82,7 @@ for (const scenario of scenarios)
       },
     );
     const grants = { ...admission.grants, publish: scenario.grants };
-    const controller = createMediaController({
+    const controller = createMediaHarness({
       roundId,
       initialRoundViewVersion: 1,
       api: {
@@ -148,7 +148,7 @@ test('explicit local Retry rereads grants and preserves the healthy subscribed t
       },
     },
   );
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 1,
     api: {
@@ -242,7 +242,7 @@ test('scoped missing-device Retry refreshes capture inputs while retaining healt
       },
     },
   );
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 1,
     api: {

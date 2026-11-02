@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createMediaController } from '../src/features/round-media/media-harness.test-support';
+import { createMediaHarness } from '../src/features/round-media/media-harness.test-support';
 import {
   createRoundMediaOperations,
   MEDIA_ADMISSION_WAIT_MS,
@@ -56,7 +56,7 @@ const browserClient = (
       );
     },
   });
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 0,
     api: {
