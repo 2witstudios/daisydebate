@@ -159,7 +159,7 @@ const runApprove = (pulls: unknown[], runs: unknown[]) => {
 echo "$*" >> '${calls}'
 case "$*" in
   *"/pulls") echo '${JSON.stringify(pulls)}' ;;
-  *"/actions/runs?"*) echo '${JSON.stringify({ workflow_runs: runs })}' ;;
+  *"/actions/workflows/ci.yml/runs?"*) echo '${JSON.stringify({ workflow_runs: runs })}' ;;
 esac
 `,
     );
@@ -186,10 +186,15 @@ esac
   }
 };
 
-const heldRun = (id: number, name: string) => ({
+const ciRun = (
+  id: number,
+  conclusion: string | null,
+  head_sha = 'a'.repeat(40),
+) => ({
   id,
-  name,
-  conclusion: 'action_required',
+  conclusion,
+  head_sha,
+  event: 'pull_request',
 });
 
 describe('Rebaseline visuals start-checks', () => {
@@ -211,27 +216,33 @@ describe('Rebaseline visuals start-checks', () => {
     });
   });
 
-  test('both runs held for approval', () => {
+  test('a CI run held for approval', () => {
     assert({
-      given: 'CI and Browser E2E held at the pushed commit',
-      should: 'approve both and finish',
-      actual: runApprove(
-        [{ number: 1 }],
-        [heldRun(11, 'CI'), heldRun(12, 'Browser E2E')],
-      ),
-      expected: { ok: true, approved: ['11', '12'] },
+      given: 'CI held at the pushed commit',
+      should: 'approve it and finish',
+      actual: runApprove([{ number: 1 }], [ciRun(11, 'action_required')]),
+      expected: { ok: true, approved: ['11'] },
     });
   });
 
-  test('a run already started', () => {
+  test('a CI run already started', () => {
     assert({
-      given: 'CI already running and Browser E2E held',
-      should: 'approve only the held run',
+      given: 'CI already running at the pushed commit',
+      should: 'finish without approving anything',
+      actual: runApprove([{ number: 1 }], [ciRun(11, null)]),
+      expected: { ok: true, approved: [] },
+    });
+  });
+
+  test('a held CI run at another commit', () => {
+    assert({
+      given: 'CI held only at some other pull request head',
+      should: 'never approve that run, and fail when its own never appears',
       actual: runApprove(
         [{ number: 1 }],
-        [{ id: 11, name: 'CI', conclusion: null }, heldRun(12, 'Browser E2E')],
+        [ciRun(11, 'action_required', 'b'.repeat(40))],
       ),
-      expected: { ok: true, approved: ['12'] },
+      expected: { ok: false, approved: [] },
     });
   });
 
@@ -244,11 +255,11 @@ describe('Rebaseline visuals start-checks', () => {
     });
   });
 
-  test('required runs that never appear', () => {
+  test('a CI run that never appears', () => {
     assert({
-      given: 'a pull request whose Browser E2E run never appears',
+      given: 'a pull request whose CI run never appears',
       should: 'fail rather than report the checks as started',
-      actual: runApprove([{ number: 1 }], [heldRun(11, 'CI')]).ok,
+      actual: runApprove([{ number: 1 }], []).ok,
       expected: false,
     });
   });

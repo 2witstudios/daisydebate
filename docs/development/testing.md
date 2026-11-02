@@ -365,9 +365,9 @@ fork or `main`).
 What that does to checks: the commit is a new PR head, so every check from the
 previous head stops counting and every required check runs again from zero.
 GitHub holds a workflow token's `pull_request` runs for approval, so the
-workflow's `Start CI on the rebaselined head` job approves CI and Browser E2E
-at exactly that commit; nobody clicks anything or pushes anything. If that job
-fails the runs stay waiting, so rerun the job. Reviews also attach to the old
+workflow's `Start CI on the rebaselined head` job approves CI at exactly that
+commit; nobody clicks anything or pushes anything. If that job fails the run
+stays waiting, so rerun the job. Reviews also attach to the old
 head, so rebaseline before reviewers start, and pull before you commit again.
 
 Review the image diff on the PR. `bun visual:server` runs `scripts/visual-server.ts`,

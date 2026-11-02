@@ -6,7 +6,7 @@ name: Rebaseline visuals
 # --update-snapshots on the E2E job's runner image under a read-only token,
 # `commit` runs no branch code: it copies the rendered PNGs into the
 # baselines folder and pushes only that folder's changes, and `start-checks`
-# checks out nothing and approves the CI runs GitHub holds for that push.
+# checks out nothing and approves the CI run GitHub holds for that push.
 on:
   workflow_dispatch:
     inputs:
@@ -265,9 +265,11 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      # Only runs at the commit this workflow just pushed, which differs from
-      # the rendered head by baseline PNGs alone.
-      - name: Approve the held runs at the pushed commit
+      # Only CI at the commit this workflow just pushed, which differs from
+      # the rendered head by baseline PNGs alone. GitHub's head_sha, branch and
+      # status filters all omitted a held CI run (run 41538127991), so read
+      # CI's recent runs unfiltered and match the commit here.
+      - name: Approve the held CI run at the pushed commit
         id: approve
         env:
           GH_TOKEN: ${{ github.token }}
@@ -281,15 +283,16 @@ jobs:
           attempt=0
           while [ "$attempt" -lt 24 ]; do
             attempt=$((attempt + 1))
-            runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA&event=pull_request&per_page=100")
-            for id in $(printf '%s' "$runs" | jq -r '.workflow_runs[] | select(.conclusion == "action_required") | .id'); do
+            runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?per_page=100" |
+              jq --arg sha "$SHA" '[.workflow_runs[] | select(.head_sha == $sha and .event == "pull_request")]')
+            for id in $(printf '%s' "$runs" | jq -r '.[] | select(.conclusion == "action_required") | .id'); do
               gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/approve" > /dev/null
               echo "Approved run $id"
             done
-            if printf '%s' "$runs" | jq -e '[.workflow_runs[].name] | contains(["CI", "Browser E2E"])' > /dev/null; then
+            if printf '%s' "$runs" | jq -e 'length > 0' > /dev/null; then
               exit 0
             fi
             sleep 10
           done
-          echo "::error::CI and Browser E2E did not both appear at $SHA"
+          echo "::error::No CI run appeared at $SHA"
           exit 1
