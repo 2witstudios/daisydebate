@@ -16,7 +16,7 @@ export function firstShown<T extends Region>(
 }
 
 /**
- * Where focus goes when a region holding it stops being drawn (the drawer
+ * Where focus goes when a region holding it stops being drawn (Files
  * closes, a phone tab hides the document): the first target still drawn.
  * Null while the focus is elsewhere or its region is still shown. Read the
  * active element before any layout read, which can blur a hidden node.

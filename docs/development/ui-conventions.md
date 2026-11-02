@@ -246,22 +246,24 @@ The pre-round Room has no chat composer; Messages stays in the rail.
 
 ## Round room
 
-A debater's live round (`/rounds/[id]/room`, ADR 0054) has no app shell:
-one round bar, one closable drawer (Files, Chat, AI, Room; ranked rounds
-drop AI and club channels), the video, the three-column controls row and
-the document. Leave is alone in the round bar's far corner; every step of
+A debater's live round (`/rounds/[id]/room`, ADR 0054, ADR 0097) has no app
+shell: a full-width section with the round bar, the video and the
+three-column controls, then the workspace on one line below it. Files is on
+the left, the open documents are in the centre, and a sidebar on the right
+switches between Transcript, Channels and AI chat, the same in every Round.
+Below 901px one panel shows at a time behind bottom tabs. Leave is alone in the round bar's far corner; every step of
 its confirm is a link, so it works without script. Mics follow the server:
 the room shows `Mic live` or `Mic closed` and never a Mute control. A
 human judge appears only as `Judge present`; the judge's name never
-reaches the debaters' browsers. Only the video resizes. Controls with no
+reaches the debaters' browsers. Tile height follows the phase. Controls with no
 backend are shown disabled, never faked.
 
 After the last speech the room is in its judging window (30 minutes,
 ADR 0053): the clock counts the window down, the controls offer Report a
 problem instead of Tech issue, a Ballots section lists each ballot with its
 status (the deciding ballot `Writing`, any AI ballot beside a human judge
-`Ready` or `Writing`), the Room tab lists the judge as `Judge · Writing
-ballot`, and the document opens on the completed transcript. The judge's
+`Ready` or `Writing`), Room lists the judge as `Judge · Writing
+ballot`, and the sidebar's Transcript tab shows the completed transcript. The judge's
 ballot completes the round (DEC-80), so round sync hands the
 debaters to the receipt at `/rounds/[id]`, which shows the result and keeps
 a human judge's seat unnamed.

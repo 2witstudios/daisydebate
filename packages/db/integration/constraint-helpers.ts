@@ -67,7 +67,6 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
   ['round_segments', 'id'],
   ['round_participants', 'id'],
   ['usage_reservations', 'id'],
-  ['round_document_refs', 'round_id'],
   ['rounds', 'id'],
   ['room_participants', 'id'],
   ['rooms', 'id'],

@@ -97,8 +97,10 @@ export function RoundCommandActions({
   onAnswer,
   children,
 }: {
+  /** The command forms, any answer about them for the frame to show, and the form the opening's strike posts through. */
   readonly children: (
     actions: ReactNode,
+    feedback: ReactNode,
     form: {
       readonly post: (form: FormData) => void;
       readonly pending: boolean;
@@ -153,13 +155,14 @@ export function RoundCommandActions({
   ) : (
     <></>
   );
-  return (
+  return children(
+    actions,
     <>
       <div id={feedback} tabIndex={-1}>
         <FormError error={answer.error} />
       </div>
       <UnacknowledgedCommand answer={answer} post={post} pending={pending} />
-      {children(actions, { post, pending })}
-    </>
+    </>,
+    { post, pending },
   );
 }

@@ -72,7 +72,6 @@ const round = {
 /** An in-memory store with the database adapter's semantics. */
 const memoryStore = (seed: DocumentRecord[] = []) => {
   const documents = new Map(seed.map((d) => [d.id, d]));
-  const refs = new Set<string>();
   const owned = (id: string, ownerActorId: string) => {
     const found = documents.get(id);
     return found?.ownerActorId === ownerActorId ? found : undefined;
@@ -93,6 +92,10 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
     },
     listDocuments: async ({ ownerActorId }) =>
       [...documents.values()].filter((d) => d.ownerActorId === ownerActorId),
+    listDocumentTitles: async ({ ownerActorId }) =>
+      [...documents.values()]
+        .filter((d) => d.ownerActorId === ownerActorId)
+        .map((d) => d.title),
     saveDocument: async ({ id, ownerActorId, html, expectedRevision }) => {
       const found = owned(id, ownerActorId);
       if (!found) return { status: 'missing' };
@@ -108,11 +111,8 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
       documents.set(id, renamed);
       return renamed;
     },
-    attachRoundDocument: async ({ roundId, documentId }) => {
-      refs.add(`${roundId}:${documentId}`);
-    },
   };
-  return { store, documents, refs };
+  return { store, documents };
 };
 
 export const stored = (
@@ -120,9 +120,7 @@ export const stored = (
 ): DocumentRecord => ({
   id: 'doc-1',
   ownerActorId: 'actor-me',
-  folder: 'scratch',
-  templateId: 'flow',
-  title: 'Flow',
+  title: 'Notes',
   html: '<p>a</p>',
   revision: 1,
   createdAt: new Date(NOW),

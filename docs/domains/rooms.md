@@ -79,7 +79,9 @@ membership. Every terminal state frees its members:
   sweep (its own worker, apart from Round maintenance) closes an open Room
   with no accepted command for that long, by database time.
 - **Leave.** A guest leaving their seat frees only themselves. Leaving a live
-  Round forfeits it, which ends the Round.
+  Round forfeits it, which ends the Round, until the last speech ends. After
+  that the debate is over: leaving forfeits nothing, the engine refuses a
+  forfeit, and the Round waits for its ballot.
 - **The debate ends**: the last speech ends, or the Round completes, is
   forfeited or is abandoned. Judges ballot from their Round seats.
 
@@ -149,8 +151,9 @@ A Round reaches one terminal state, and only once:
   opponent forfeits. Both missing abandons. A bot worker's loss abandons and
   never forfeits (ADR 0067). Media, capture or speech-to-text failure is
   never evidence of absence.
-- **Forfeit by command.** A debater can forfeit from Start round onward. In the
-  opening it stands as a result, and before a reveal the Round has no resolution.
+- **Forfeit by command.** A debater can forfeit from Start round until the last
+  speech ends. In the opening it stands as a result, and before a reveal the
+  Round has no resolution.
 
 There is no winner, draw, forfeit or rating for an absent ruling. Ratings
 apply only to ranked Rounds; ranked play is out of this goal's scope

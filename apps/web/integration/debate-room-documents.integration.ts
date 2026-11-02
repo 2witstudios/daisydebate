@@ -87,16 +87,8 @@ const withDebater = async (
 describe('debate room documents over PostgreSQL', () => {
   test('create, save, rename and list round-trip for the owner only', async () => {
     await withDebater(async ({ operations, me, stranger, roundId }) => {
-      const flow = await operations.createDocument(me, {
-        roundId,
-        folder: 'round',
-        templateId: 'flow',
-      });
-      const library = await operations.createDocument(me, {
-        roundId,
-        folder: 'library',
-        templateId: 'case',
-      });
+      const flow = await operations.createDocument(me, { roundId });
+      const library = await operations.createDocument(me, { roundId });
       const saved = await operations.saveDocument(me, {
         id: flow.id,
         html: '<p onclick="x()">Turn</p>',
@@ -112,21 +104,20 @@ describe('debate room documents over PostgreSQL', () => {
       await operations.renameDocument(me, { id: library.id, title: ' Aff ' });
       const listed = await operations.listDocuments(me, { roundId });
       assert({
-        given: 'a round flow, a library case, a save, a stale save, a rename',
-        should:
-          'list both by creation then title, with saved HTML and revisions',
+        given: 'two new documents, a save, a stale save, a rename',
+        should: 'list both by title, with saved HTML and revisions',
         actual: {
           saved,
           stale: conflictRevision(stale),
-          documents: listed.map((d) => [d.title, d.folder, d.revision]),
+          documents: listed.map((d) => [d.title, d.revision]),
           html: listed.find((d) => d.id === flow.id)?.html,
         },
         expected: {
           saved: { revision: 2 },
           stale: 2,
           documents: [
-            ['Aff', 'library', 1],
-            ['Flow', 'round', 2],
+            ['Aff', 1],
+            ['Untitled', 2],
           ],
           html: '<p>\nTurn\n</p>',
         },
