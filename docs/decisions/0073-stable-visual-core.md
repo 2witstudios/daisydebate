@@ -73,5 +73,5 @@ widths. Measured on `origin/main`:
 - Visual coverage of the removed surfaces is gone by choice; their
   behavior, accessibility and contrast remain covered by the E2E, axe and
   palette suites.
-- `scripts/rebaseline-visuals.test.ts` pins the workflow's trigger,
+- `scripts/rebaseline-visuals*.test.ts` pin the workflow's trigger,
   permissions, credential separation and target refusals.
