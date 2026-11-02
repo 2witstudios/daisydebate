@@ -530,7 +530,8 @@ test('a Round in its opening has no attendance yet, so a failing tick keeps its 
   await pulse();
   await flush();
   assert({
-    given: 'a failing tick on a Round whose attendance refuses it as not active',
+    given:
+      'a failing tick on a Round whose attendance refuses it as not active',
     should: 'not retry or report the tick again inside its wait',
     actual: { ticks, stages },
     expected: { ticks: 1, stages: ['tick'] },
