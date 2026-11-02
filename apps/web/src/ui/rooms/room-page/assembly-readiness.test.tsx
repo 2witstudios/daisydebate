@@ -215,6 +215,51 @@ describe('native room readiness and Start round controls', () => {
       expected: ['Waiting on: Affirmative, Negative, You', undefined],
     });
   });
+
+  test('only the host reads that the Start waits on their device check', () => {
+    const debater = {
+      ...base.participants[0]!,
+      role: 'affirmative' as const,
+      ready: 'ready' as const,
+    };
+    const notice = (host: boolean) =>
+      byText(
+        StartControl({
+          ...props,
+          prep: null,
+          view: {
+            ...base,
+            participants: [
+              debater,
+              {
+                ...debater,
+                actorId: 'bot',
+                kind: 'bot' as const,
+                role: 'negative' as const,
+                needsReady: false,
+              },
+              {
+                ...debater,
+                actorId: 'judge-bot',
+                kind: 'bot' as const,
+                role: 'judge' as const,
+                needsReady: false,
+              },
+            ],
+            capabilities: { ...base.capabilities, host, canStart: true },
+            startRefusal: null,
+          },
+        }),
+        'p',
+        'Waiting on',
+      )?.props.children;
+    assert({
+      given: 'a standing Ready in a tab that has not checked its devices',
+      should: 'name the check to the host, whose Start it fences, and no other',
+      actual: [notice(true), notice(false)],
+      expected: ['Waiting on: your camera and microphone check', undefined],
+    });
+  });
 });
 
 test('host Start round refuses unavailable admission without changing Ready or command authority', () => {
