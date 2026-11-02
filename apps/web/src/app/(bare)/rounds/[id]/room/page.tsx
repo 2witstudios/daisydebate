@@ -103,7 +103,6 @@ export default async function RoundRoomPage({
     text.kind === 'found' ? (
       <LiveTranscript
         seed={text.value}
-        read={readPersistedTranscript.bind(null, id)}
         socketUrl={result.socketUrl}
       />
     ) : text.kind === 'unavailable' ? (

@@ -3,7 +3,11 @@ import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundTranscriptRead } from '@daisy/protocol';
 import { completed } from './result.test-support';
-import { liveTranscriptSections, transcriptState } from './result-view';
+import {
+  liveTranscriptSections,
+  sectionItems,
+  transcriptState,
+} from './result-view';
 import { TranscriptContent } from './transcript-content';
 setupRitewayBun();
 const read = (
@@ -21,6 +25,7 @@ const read = (
       roundParticipantId:
         completed.transcript!.utterances[0]!.roundParticipantId,
       state,
+      gaps: [],
     },
   ],
   utterances: completed.transcript!.utterances,
@@ -78,5 +83,43 @@ test('a frozen speech with no capture stream owed no text', () => {
       ['complete', 'complete'],
       ['complete', 'complete'],
     ],
+  });
+});
+
+test('a gap sits where the capture stopped and shows the seat it belongs to', () => {
+  const base = read('partial');
+  const utterances = base.utterances.map((line, index) => ({
+    ...line,
+    segmentId: base.round.segments[0]!.id,
+    segmentSequence: 0,
+    sequence: index,
+    startOffsetMs: index === 0 ? 355 : 251_900,
+  }));
+  const value: RoundTranscriptRead = {
+    ...base,
+    utterances,
+    streams: base.streams.map((stream) => ({
+      ...stream,
+      gaps: [{ fromOffsetMs: 234_145, untilOffsetMs: 251_900 }],
+    })),
+  };
+  const section = liveTranscriptSections(value)[0]!;
+  assert({
+    given: 'a line before and after a gap between epochs',
+    should: 'keep the line before it, then the gap, then the line after',
+    actual: sectionItems(section).map((item) => item.kind),
+    expected: ['line', 'gap', 'line'],
+  });
+  const html = renderToString(
+    h(TranscriptContent, { sections: [section], empty: '' }),
+  );
+  assert({
+    given: 'the rendered gap',
+    should: 'give its span with no explanation',
+    actual:
+      html.includes('not captured') &&
+      html.includes('3:54') &&
+      html.includes('4:11'),
+    expected: true,
   });
 });

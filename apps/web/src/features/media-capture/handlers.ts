@@ -120,6 +120,9 @@ const namedRefusals: Readonly<
   'Capture session has ended': { refusal: 'capture-closed', status: 409 },
   'Capture admission is closed': { refusal: 'capture-closed', status: 409 },
   'Capture session is closed': { refusal: 'capture-paused', status: 503 },
+  // Its worker may still reinstate it: only a takeover makes this final, and
+  // that is answered as stale.
+  'Capture worker lease expired': { refusal: 'lease-expired', status: 503 },
 };
 export function namedCaptureRefusal(error: unknown, requestId: string) {
   if (

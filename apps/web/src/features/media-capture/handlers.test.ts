@@ -183,18 +183,22 @@ test('only an ended session or closed admission is named closed for good', async
   };
   assert({
     given:
-      'capture refused because its session has ended, its admission is closed, or its session is only temporarily unsafe or being deleted',
+      'capture refused because its session has ended, its admission is closed, its session is only temporarily unsafe or being deleted, its lease expired, or a takeover moved it',
     should:
-      'name the first two capture-closed (409) and the temporary window capture-paused (503, retried), never closed (ISSUE-494-r3)',
+      'name the first two capture-closed (409), the temporary window capture-paused and an expired lease its worker may reinstate lease-expired (503, retried), never closed (ISSUE-494-r3), and leave a takeover final',
     actual: [
       await refusal('Capture session has ended'),
       await refusal('Capture admission is closed'),
       await refusal('Capture session is closed'),
+      await refusal('Capture worker lease expired'),
+      await refusal('Capture worker lease is stale'),
     ],
     expected: [
       [409, 'capture-closed'],
       [409, 'capture-closed'],
       [503, 'capture-paused'],
+      [503, 'lease-expired'],
+      [409, undefined],
     ],
   });
 });

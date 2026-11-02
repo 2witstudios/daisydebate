@@ -8,6 +8,8 @@ export const roundUtteranceSchema = z.strictObject({
   segmentId: idSchema,
   segmentSequence: z.int().nonnegative(),
   sequence: z.int().nonnegative(),
+  /** Where in its speech the line was captured; null for a line with no clip. */
+  startOffsetMs: z.int().nonnegative().nullable(),
   roundParticipantId: idSchema,
   text: z.string(),
   complete: z.boolean(),
@@ -26,6 +28,13 @@ export const roundTranscriptReadSchema = z.strictObject({
       segmentId: idSchema,
       roundParticipantId: idSchema,
       state: z.enum(['open', 'complete', 'partial']),
+      /** Required speech with no capture, as offsets into the speech. Closed streams only. */
+      gaps: z.array(
+        z.strictObject({
+          fromOffsetMs: z.int().nonnegative(),
+          untilOffsetMs: z.int().nonnegative(),
+        }),
+      ),
     }),
   ),
   utterances: z.array(roundUtteranceSchema),

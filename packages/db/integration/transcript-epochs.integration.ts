@@ -25,6 +25,12 @@ test('a transcript read returns the committed prefix across capture epochs', asy
       });
       await f.store.appendCapturedTranscript(clip(1, 100, 'first'));
       await f.store.appendCapturedTranscript(clip(1, 200, 'second'));
+      await f.store.observeCapturedStream({
+        ...f.stream,
+        trackId: f.clip.trackId,
+        observedFrom: at(0, 0),
+        observedUntil: at(300, 0),
+      });
       await fixture.sql`update media_worker_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${f.lease.sessionId}`;
       const { epoch } = await f.store.claimMediaWorkerLease({
         ...f.lease,
@@ -39,6 +45,44 @@ test('a transcript read returns the committed prefix across capture epochs', asy
         should: 'read every committed line in order, prefix first',
         actual: [epoch, read.utterances.map((line) => line.text)],
         expected: [2, ['first', 'second', 'third']],
+      });
+      assert({
+        given: 'the same lines',
+        should: 'carry where each was captured',
+        actual: read.utterances.map((line) => line.startOffsetMs),
+        expected: [100, 200, 700],
+      });
+      const observe = (epochNow: number, from: number, until: number) =>
+        f.store.observeCapturedStream({
+          ...f.stream,
+          epoch: epochNow,
+          trackId: f.clip.trackId,
+          observedFrom: at(from, 0),
+          observedUntil: at(until, 0),
+        });
+      await observe(epoch, 700, 1000);
+      const sealed = await f.store.sealCapturedStream({
+        ...f.stream,
+        epoch,
+        expectedChunkCount: 1,
+      });
+      const closed = await transaction((tx) =>
+        readTranscriptSnapshot(tx, roundId),
+      );
+      assert({
+        given: 'a takeover worker sealing with only its own chunk',
+        should:
+          'close the stream partial and report the span nobody observed, keeping every line',
+        actual: [
+          sealed.state,
+          closed.streams.map((stream) => [stream.state, stream.gaps]),
+          closed.utterances.length,
+        ],
+        expected: [
+          'partial',
+          [['partial', [{ fromOffsetMs: 300, untilOffsetMs: 700 }]]],
+          3,
+        ],
       });
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;

@@ -1,8 +1,8 @@
 'use client';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { RoundTranscriptRead } from '@daisy/protocol';
-import type { ResourceRead } from '../../features/resource-sync/driver';
 import { browserSyncEdges } from '../../features/resource-sync/browser';
+import { readTranscript } from '../../features/round-runtime/read-transcript';
 import {
   createTranscriptSync,
   seedTranscript,
@@ -14,26 +14,42 @@ import {
   transcriptStatusLabels as labels,
 } from './transcript-content';
 
-/** Authorized data only: this component has no reader identity or seat assumption. */
+/**
+ * Authorized data only: this component has no reader identity or seat
+ * assumption. One driver holds a Round's transcript for as long as the page
+ * shows it, reading the versioned route, which survives a web deploy as a
+ * build's server actions do not. A later server render's seed is offered to
+ * it and never replaces newer text.
+ */
 export function LiveTranscript({
   seed,
-  read,
   socketUrl,
 }: {
   readonly seed: RoundTranscriptRead;
-  readonly read: () => Promise<ResourceRead<RoundTranscriptRead>>;
   readonly socketUrl: string | null;
 }) {
+  const roundId = seed.round.id;
+  const first = useRef(seed);
   const start = useCallback(
     () =>
       createTranscriptSync({
-        seed: seedTranscript(seed),
-        read,
+        seed: seedTranscript(first.current),
+        read: () => readTranscript(window.fetch.bind(window), roundId),
         ...browserSyncEdges(socketUrl),
       }),
-    [seed, read, socketUrl],
+    [roundId, socketUrl],
   );
-  const [synced] = useResourceSync(() => seedTranscript(seed), start);
+  const [synced, driver] = useResourceSync(
+    () => seedTranscript(first.current),
+    start,
+  );
+  useEffect(() => {
+    driver?.accepted(seed);
+  }, [driver, seed]);
+  // Whatever rendered this page may be old: durable history decides.
+  useEffect(() => {
+    driver?.signal();
+  }, [driver]);
   if (synced.freshness === 'gone') return null;
   return (
     <section
@@ -44,11 +60,10 @@ export function LiveTranscript({
         <h2 id="live-transcript" className="font-strong">
           Transcript
         </h2>
-        <p role="status" className="text-sm text-ink-muted">
-          {synced.freshness === 'stale'
-            ? 'Reconnecting to the transcript'
-            : labels[transcriptState(synced.value)]}
-        </p>
+        <div role="status" className="flex gap-2 text-sm text-ink-muted">
+          <p>{labels[transcriptState(synced.value)]}</p>
+          {synced.freshness === 'stale' ? <p>Reconnecting</p> : null}
+        </div>
       </div>
       <TranscriptContent
         sections={liveTranscriptSections(synced.value)}

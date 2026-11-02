@@ -109,29 +109,27 @@ test('a takeover seal never records fewer chunks than are stored', async () => {
         ...f.lease,
         leaseMs: 15000,
       });
-      await assertRejects({
-        given:
-          'a new epoch sealing a remembered stream with only its own zero count',
-        should: 'refuse a seal below the stored chunk count',
-        code: 'CONFLICT',
-        actual: () =>
-          f.store.sealCapturedStream({
-            ...f.stream,
-            epoch,
-            expectedChunkCount: 0,
-          }),
+      const sealed = await f.store.sealCapturedStream({
+        ...f.stream,
+        epoch,
+        expectedChunkCount: 0,
       });
       const [stream] = await fixture.sql`
         select state, chunk_count, sealed_chunk_count from transcript_segments
         where segment_id=${f.stream.segmentId}
           and round_participant_id=${f.stream.roundParticipantId}`;
       assert({
-        given: 'the refused under-count seal',
-        should: 'leave the stream open for finalization with its stored count',
-        actual: { ...stream },
-        expected: { state: 'open', chunk_count: 1, sealed_chunk_count: null },
+        given:
+          'a new epoch sealing a remembered stream with only its own zero count',
+        should:
+          'close it partial at the stored count, so a finished speech stops reading as capturing',
+        actual: [sealed.state, { ...stream }],
+        expected: [
+          'partial',
+          { state: 'partial', chunk_count: 1, sealed_chunk_count: 1 },
+        ],
       });
-    } finally {
+        } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;
     }
   });

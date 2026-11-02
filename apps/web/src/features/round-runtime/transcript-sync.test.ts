@@ -107,3 +107,45 @@ test('the first subscription acknowledgment closes the server-seed gap', async (
   });
   driver.dispose();
 });
+
+test('an older seed offered after newer text never regresses the transcript', () => {
+  const { edges, driver } = connectedTranscript();
+  driver.accepted(transcript(9));
+  driver.accepted(transcript(4));
+  assert({
+    given: 'revision 9 held and a server render carrying revision 4',
+    should: 'keep revision 9',
+    actual: driver.readSnapshot().value.revision,
+    expected: 9,
+  });
+  driver.dispose();
+});
+
+test('transient unavailability keeps committed text and real refusal clears it', async () => {
+  const { edges, driver } = connectedTranscript();
+  driver.accepted(transcript(5));
+  driver.signal();
+  edges.answer({ kind: 'unavailable' });
+  await edges.flush();
+  const during = driver.readSnapshot();
+  edges.advance(30000);
+  edges.answer({ kind: 'found', value: transcript(6) });
+  await edges.flush();
+  const after = driver.readSnapshot();
+  driver.signal();
+  edges.answer({ kind: 'missing' });
+  await edges.flush();
+  assert({
+    given: 'an outage, recovery, then a refused read',
+    should: 'hold the text as stale, return to current, then go gone',
+    actual: [
+      during.freshness,
+      during.value.revision,
+      after.freshness,
+      after.value.revision,
+      driver.readSnapshot().freshness,
+    ],
+    expected: ['stale', 5, 'current', 6, 'gone'],
+  });
+  driver.dispose();
+});

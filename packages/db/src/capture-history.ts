@@ -15,9 +15,12 @@ import { roundTranscripts } from './schema/transcript-segments';
 import type { roundSegments } from './schema/round-segments';
 
 type Segment = typeof roundSegments.$inferSelect;
-export async function captureHistory(
-  tx: CaptureTx,
-  input: CaptureIdentity & CaptureStream,
+type StreamScope = CaptureStream & { readonly roundId: string };
+type Reader = Pick<CaptureTx, 'select'>;
+/** A stream's speaking windows within its segment, possibly none. */
+export async function speakingWindows(
+  tx: Reader,
+  input: StreamScope,
   segment: Segment,
 ) {
   const rows = await tx
@@ -35,11 +38,18 @@ export async function captureHistory(
     segment.endedAt?.getTime() ?? Infinity,
     segmentStart + segment.durationMs,
   );
-  const required = rows.map((row) => ({
+  return rows.map((row) => ({
     start: Math.max(row.startedAt.getTime(), segmentStart),
     end:
       row.endedAt === null ? null : Math.min(row.endedAt.getTime(), segmentEnd),
   }));
+}
+export async function captureHistory(
+  tx: Reader,
+  input: StreamScope,
+  segment: Segment,
+) {
+  const required = await speakingWindows(tx, input, segment);
   if (!required.some((row) => row.end === null || row.end > row.start))
     throw createAppError('CONFLICT', 'No historical capture authority');
   return required;
@@ -51,8 +61,8 @@ export async function captureHistory(
  * latency. Silence outside a bot's windows is not speech.
  */
 export async function coverageAuthority(
-  tx: CaptureTx,
-  input: CaptureIdentity & CaptureStream,
+  tx: Reader,
+  input: StreamScope,
   grants: readonly CaptureInterval[],
   tolerance: CoverageTolerance,
 ) {

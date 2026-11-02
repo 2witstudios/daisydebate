@@ -25,13 +25,46 @@ export type TranscriptSection = {
   readonly heading: string;
   readonly side: 'affirmative' | 'negative';
   readonly status?: 'capturing' | 'partial' | 'complete' | 'pending';
-  readonly lines: readonly {
-    readonly id: string;
-    readonly speaker: string;
-    readonly text: string;
-    readonly partial: boolean;
-  }[];
+  readonly lines: readonly TranscriptLine[];
+  /** Required speech with no capture; the live read reports these. */
+  readonly gaps?: readonly TranscriptGap[];
 };
+type TranscriptLine = {
+  readonly id: string;
+  readonly speaker: string;
+  readonly text: string;
+  readonly partial: boolean;
+  readonly startOffsetMs: number | null;
+};
+type TranscriptGap = {
+  readonly key: string;
+  readonly speaker: string;
+  readonly fromOffsetMs: number;
+  readonly untilOffsetMs: number;
+};
+export type TranscriptItem =
+  | ({ readonly kind: 'line' } & TranscriptLine)
+  | ({ readonly kind: 'gap' } & TranscriptGap);
+
+/** A section's lines in order, each gap placed before the first line captured after it. */
+export function sectionItems(
+  section: TranscriptSection,
+): readonly TranscriptItem[] {
+  const gaps = [...(section.gaps ?? [])].sort(
+    (a, b) => a.fromOffsetMs - b.fromOffsetMs,
+  );
+  const items: TranscriptItem[] = [];
+  for (const line of section.lines) {
+    while (
+      gaps[0] &&
+      line.startOffsetMs !== null &&
+      gaps[0].fromOffsetMs <= line.startOffsetMs
+    )
+      items.push({ kind: 'gap', ...gaps.shift()! });
+    items.push({ kind: 'line', ...line });
+  }
+  return [...items, ...gaps.map((gap) => ({ kind: 'gap' as const, ...gap }))];
+}
 
 const author = (entry: Released) =>
   entry.judge === 'ai' ? 'AI judge' : 'Human judge';
@@ -100,6 +133,7 @@ function sectionsOf(
           speaker: speaker(line.roundParticipantId),
           text: line.text,
           partial: !line.complete,
+          startOffsetMs: line.startOffsetMs,
         },
       ],
     });
@@ -129,6 +163,13 @@ export function liveTranscriptSections(
     return {
       ...(existing ?? emptySection(view.round, segment.sequence)),
       status,
+      gaps: streams.flatMap((stream) =>
+        stream.gaps.map((gap) => ({
+          key: `${stream.roundParticipantId}:${gap.fromOffsetMs}`,
+          speaker: speakerOf(view.round, stream.roundParticipantId),
+          ...gap,
+        })),
+      ),
     };
   });
 }

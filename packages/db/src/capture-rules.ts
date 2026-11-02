@@ -125,15 +125,16 @@ export function sealAction(
     readonly segmentEnded: boolean;
     readonly required: readonly CaptureInterval[];
   },
+  otherEpochChunks = 0,
 ): 'retry' | 'seal' {
   if (stream.state !== 'open') {
     if (stream.sealedChunkCount !== expectedChunkCount)
       throw createAppError('CONFLICT', 'Conflicting capture seal retry');
     return 'retry';
   }
-  // A takeover worker knows only its own epoch's chunks; never seal below the
-  // stored count. The stream stays open for finalization instead.
-  if (expectedChunkCount < stream.chunkCount)
+  // A takeover worker counts only its own chunks, so an earlier epoch's are
+  // added: it never seals below the stored count, and they make it partial.
+  if (expectedChunkCount + otherEpochChunks < stream.chunkCount)
     throw createAppError('CONFLICT', 'Capture seal is below stored chunks');
   if (
     !timeline.segmentEnded ||
