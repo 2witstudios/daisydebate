@@ -42,9 +42,7 @@
           "strict_required_status_checks_policy": false,
           "do_not_enforce_on_create": false,
           "required_status_checks": [
-            { "context": "CI gate", "integration_id": 15368 },
-            { "context": "Playwright E2E", "integration_id": 15368 },
-            { "context": "Isolated Room Launch E2E", "integration_id": 15368 }
+            { "context": "CI gate", "integration_id": 15368 }
           ]
         }
       }

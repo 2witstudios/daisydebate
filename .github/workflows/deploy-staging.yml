@@ -1,7 +1,7 @@
 name: Deploy staging
 # Continuous deployment of main to the always-on Fly.io staging app
-# (AUTH-7.0, DEC-40). A main push deploys once the CI gate job and the Browser E2E
-# run are both green (scripts/staging-gate.ts, ISSUE-51); the gate includes
+# (AUTH-7.0, DEC-40). A main push deploys once its CI gate job is green, without
+# waiting for Browser E2E (scripts/staging-gate.ts, ADR 0098); the gate includes
 # the dependency audit (ADR 0039). The release-only migrator app
 # (fly.migrate.toml) deploys first: its release command migrates as the
 # schema owner and it creates no machines. Only then does `fly deploy` build
@@ -13,7 +13,7 @@ name: Deploy staging
 # a separate, human-gated step (AUTH-7.2/7.3) and is never automated here.
 on:
   workflow_run:
-    workflows: [CI, Browser E2E]
+    workflows: [CI]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -24,11 +24,11 @@ concurrency:
   cancel-in-progress: false
 jobs:
   ready:
-    name: Require a green CI gate and green E2E
+    name: Require a green CI gate
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    # Both workflows also run on pull_request, so a PR whose source branch
-    # is named "main" would satisfy the branches filter: require the run to
+    # CI also runs on pull_request, so a PR whose source branch is named
+    # "main" would satisfy the branches filter: require the run to
     # come from a push to this repository's main, never from a PR head.
     if: >-
       github.event.workflow_run.event == 'push' &&
@@ -57,8 +57,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          TRIGGER: ${{ github.event.workflow_run.name }}
-        run: bun scripts/staging-gate.ts --sha "$HEAD_SHA" --trigger "$TRIGGER"
+        run: bun scripts/staging-gate.ts --sha "$HEAD_SHA"
 
   deploy:
     name: Deploy main to daisy-debate-staging

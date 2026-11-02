@@ -95,7 +95,7 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    main run (ADR 0083). CI additionally runs the
    integration tier (Redis and LiveKit from `infra/compose.yaml`, the same
    memory-only Redis and dev-key SFU every slot uses) and the browser tier in the
-   dedicated `e2e.yml` workflow (one E2E owner per PR; `bun evidence`
+   dedicated `e2e.yml` workflow (one E2E owner; `bun evidence`
    fails if a second workflow also runs `test:e2e`). `bun verify` runs those additional gates locally and also applies
    the committed migrations twice to `TEST_DATABASE_URL` to prove reruns are
    idempotent.
@@ -136,10 +136,9 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
 
 ### Release qualification (`bun test:e2e:qualify`)
 
-The single-run `test:e2e` in the PR/push workflow proves the suite passes
+The single-run `test:e2e` in the main push workflow proves the suite passes
 once; it is not release proof by itself. Before opening a release PR (or as a
-manual/scheduled job, never as an additional required PR check — that would
-triple E2E wall-clock time on every push), run `bun test:e2e:qualify`. It
+manual/scheduled job, never as a required PR check), run `bun test:e2e:qualify`. It
 runs the complete Playwright suite three consecutive times with retries
 disabled (the standing config), saves each run's JSON report under
 `apps/web/qualification-results/run-{1,2,3}.json` plus a `summary.json` —
@@ -365,9 +364,10 @@ fork or `main`).
 What that does to checks: the commit is a new PR head, so every check from the
 previous head stops counting and every required check runs again from zero.
 GitHub holds a workflow token's `pull_request` runs for approval, so the
-workflow's `Start CI on the rebaselined head` job approves CI and Browser E2E
-at exactly that commit; nobody clicks anything or pushes anything. If that job
-fails the runs stay waiting, so rerun the job. Reviews also attach to the old
+workflow's `Start CI on the rebaselined head` job approves the CI run at exactly
+that commit; nobody clicks anything or pushes anything. If that job fails, CI
+stays waiting: rerun it alone with `gh run rerun <run id> --failed`. A pull
+request with a merge conflict gets no CI run until the conflict is resolved. Reviews also attach to the old
 head, so rebaseline before reviewers start, and pull before you commit again.
 
 Review the image diff on the PR. `bun visual:server` runs `scripts/visual-server.ts`,
@@ -568,36 +568,26 @@ static and unit checks even when HEAD equals the base.
 The browser workflow runs no quick check of its own, so a lint failure never
 cascades into browser reds.
 
-- **Projects.** `scripts/select-e2e.ts` passes `--project=chromium` on PRs,
-  main pushes and merge groups. The visual spec, which no Chromium project
-  runs, is left out of those selections. The nightly scheduled run on main
-  runs every project (chromium, chromium-mobile, firefox, webkit,
-  webkit-mobile and visual) and posts a failure to the drive's Incidents
-  channel.
-- **Isolated Room Launch.** A light `scope` job runs the same selector
-  without installing anything. It fails safe: a PR skips the native suite
-  only when every changed file is documentation (`docs/` or any `.md`) or
-  sits in a known area the suite does not exercise:
-  - agent process files (`.claude/`, `.opencode/`);
-  - the admin app;
-  - theme, dashboard and the beta gate screens.
-
-  Anything else runs it, including room, round, realtime, messaging, media,
-  auth, database, Redis, dependency and unknown paths, and so does an empty
-  diff.
-
-  Main pushes, merge groups, the nightly run and dispatches always run it.
-  The required `Isolated Room Launch E2E` check passes when the suite
-  passed, or when `scope` succeeded, ruled the suite out, and the suite was
-  skipped for that reason alone.
-
-- **Spec ownership.** `scripts/affected-e2e.ts` explicitly owns every
-  `apps/web/e2e/*.e2e.ts` file, and an inventory mismatch fails before
-  browser work. Affected spec selection within a suite activates only once
-  the live main rules report a merge queue and the three required checks
-  bound to GitHub Actions. Absent, unreadable or incomplete enforcement keeps
-  the full spec set. Every selected spec must have a passed result in its
-  report. The zero-discovery, skipped-test and retry guards stay enforced.
+- **When it runs.** `e2e.yml` runs on main pushes, nightly on main, and on
+  manual dispatch; it is not a PR check. The only required check is CI gate
+  ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)). A builder
+  proves the specs its change touches, locally or by dispatching the workflow
+  on its branch (`gh workflow run e2e.yml --ref <branch>`), which runs the
+  three-run release qualification below on every project plus Isolated Room
+  Launch. A red run on main gets an owner at once, who fixes forward or
+  reverts. Strict gating returns before real users.
+- **Projects.** `scripts/select-e2e.ts` passes `--project=chromium` on main
+  pushes. The visual spec, which no Chromium project runs, is left out of
+  those selections. The nightly scheduled run on main runs every project
+  (chromium, chromium-mobile, firefox, webkit, webkit-mobile and visual) and
+  posts a failure to the drive's Incidents channel.
+- **Isolated Room Launch.** Every run executes it in full.
+- **Spec selection.** `scripts/browser-selection.ts` names the native specs,
+  which run only in the Isolated Room Launch job; every other discovered
+  `apps/web/e2e/*.e2e.ts` runs in the ordinary browser job. A named native spec
+  that does not exist fails before browser work. Every selected spec must have
+  a passed result in its report. The zero-discovery, skipped-test and retry
+  guards stay enforced.
 
 ### Isolated integration shards (ISSUE-869)
 
