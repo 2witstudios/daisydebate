@@ -1,5 +1,4 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { browserOwners } from './affected-e2e';
 setupRitewayBun();
 
 describe('selection manifest lifecycle', () => {
@@ -13,7 +12,7 @@ describe('selection manifest lifecycle', () => {
       // No browser/server fixture: Playwright itself performs output cleanup.
       await mkdir(join(scratch, 'apps/web/e2e'), { recursive: true });
       await mkdir(join(scratch, 'apps/web/test-results'), { recursive: true });
-      for (const spec of Object.keys(browserOwners))
+      for (const spec of new Bun.Glob('*.e2e.ts').scanSync('apps/web/e2e'))
         await writeFile(join(scratch, 'apps/web/e2e', spec), '');
       const child = Bun.spawnSync(
         ['bun', `${process.cwd()}/scripts/select-e2e.ts`],
@@ -21,7 +20,7 @@ describe('selection manifest lifecycle', () => {
           cwd: scratch,
           env: {
             ...process.env,
-            GITHUB_EVENT_NAME: 'merge_group',
+            GITHUB_EVENT_NAME: 'push',
             RUNNER_TEMP: join(scratch, 'runner-temp'),
             GITHUB_ENV: '',
             GITHUB_STEP_SUMMARY: '',
