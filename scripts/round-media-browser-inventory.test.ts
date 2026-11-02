@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { selectBrowserSpecs } from './affected-e2e';
+import { selectBrowserSpecs } from './browser-selection';
 import { missingSelectedSpecs } from './e2e-selection-report';
 import { nativeSpecArguments } from '../apps/web/e2e/support/affected-projects';
 setupRitewayBun();
@@ -12,7 +12,7 @@ const mediaSpecs = [
 ];
 
 for (const spec of mediaSpecs)
-  test(`${spec} belongs only to the native full and affected inventories`, async () => {
+  test(`${spec} belongs only to the native inventory`, async () => {
     const [ordinary, dedicated] = await Promise.all([
       Bun.file('apps/web/playwright.config.ts').text(),
       Bun.file('apps/web/e2e/support/room-launch-config.ts').text(),
@@ -20,16 +20,9 @@ for (const spec of mediaSpecs)
     const inventory = [...dedicated.matchAll(/'([^']+\.e2e\.ts)'/g)].map(
       (match) => match[1],
     );
-    const plans = [
-      selectBrowserSpecs([`apps/web/e2e/${spec}`], 'pull_request', true),
-      selectBrowserSpecs(
-        ['apps/web/src/features/round-media/adapters/livekit-room.ts'],
-        'pull_request',
-        true,
-      ),
-      selectBrowserSpecs(['unowned.ts'], 'pull_request', true),
-      selectBrowserSpecs([], 'push', false),
-    ];
+    const plans = ['push', 'schedule', 'workflow_dispatch'].map((event) =>
+      selectBrowserSpecs([spec, 'other.e2e.ts'], event),
+    );
     let admitted = false;
     try {
       admitted =
@@ -41,7 +34,7 @@ for (const spec of mediaSpecs)
       /* An inventory hole must remain a failed assertion. */
     }
     assert({
-      given: `${spec} directly changed, source affected, unknown/full PR and full push`,
+      given: `${spec} on a main push, the nightly run and a dispatch`,
       should:
         'exclude ordinary execution, retain native execution and admit its exact CI runner selection',
       actual: {
@@ -49,7 +42,6 @@ for (const spec of mediaSpecs)
         dedicated: inventory.includes(`**/${spec}`),
         admitted,
         plans: plans.map((plan) => [
-          plan.mode,
           plan.specs.includes(spec),
           plan.nativeSpecs.includes(spec),
         ]),
@@ -59,10 +51,9 @@ for (const spec of mediaSpecs)
         dedicated: true,
         admitted: true,
         plans: [
-          ['affected', false, true],
-          ['affected', false, true],
-          ['full', false, true],
-          ['full', false, true],
+          [false, true],
+          [false, true],
+          [false, true],
         ],
       },
     });

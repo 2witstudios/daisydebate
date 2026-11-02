@@ -846,3 +846,26 @@ test('tracks stopped by a local failure still follow the connected room', async 
     expected: 1,
   });
 });
+
+test('a device lost while its publish ran is reported once it lands', async () => {
+  const stub = stubSdk({ settles: true });
+  const reported: string[] = [];
+  const room = createLiveKitRoom(
+    {
+      report: (event) => reported.push(event.type),
+      handles: () => undefined,
+      checkedDevices: () => ({ state: 'available', choices: {} }),
+    },
+    stub.sdk,
+  );
+  await room.capture('camera', false);
+  stub.captured[0]!.mediaStreamTrack.readyState = 'ended';
+  await room.publish('camera', false);
+  assert({
+    given: 'a camera whose device dies before its publish settles',
+    should:
+      'report published and then ended, so the model does not call it healthy',
+    actual: reported.filter((type) => type.match(/published|track-ended/)),
+    expected: ['published', 'track-ended'],
+  });
+});

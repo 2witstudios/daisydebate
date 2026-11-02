@@ -246,7 +246,7 @@ working. Connection events carry their connection, read events their ticket and 
 firings their schedule, and stale ones change nothing. One answer applies at a time. An
 answer superseded while waiting never starts, and one superseded while running finishes
 without announcing. An older apply never holds a fresh read. Whatever waits has a timer
-that ends the wait, and SDK work stuck past the read budget is rebuilt on a new connection when its paced wake fires only if no source is healthy. Beside a healthy source it is named, and Retry is the person's choice, because a rebuild drops what works. Read intent decisions stay in
+that ends the wait, and SDK work stuck past the read budget is rebuilt on a new connection when its paced wake fires only if nothing is live either way: nothing published and nothing received. Otherwise it is named, and Retry is the person's choice, because a rebuild drops what works. Read intent decisions stay in
 `media-read-intent.ts`, which the model composes.
 
 `model/media-transitions.test-support.ts` states what every event does in every shape of

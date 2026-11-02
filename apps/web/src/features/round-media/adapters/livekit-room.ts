@@ -350,6 +350,8 @@ export function createLiveKitRoom(
       if (released) return;
       watch(source, resource);
       say({ type: 'published', source });
+      // A device lost while publishing ended before the model could hear it.
+      reportEndedTracks();
       observe();
     },
     unpublish: async (source: Source) => {

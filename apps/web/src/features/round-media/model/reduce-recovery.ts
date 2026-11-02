@@ -22,7 +22,7 @@ import { showStale } from './reduce-reads';
 import {
   convergeSources,
   desiredSources,
-  hasHealthySource,
+  hasLiveMedia,
   hasStuckAnswerWork,
   hasStuckWork,
   nameStuckSources,
@@ -52,9 +52,9 @@ export const attemptRecovery = (
   )
     return rejected(state);
   const stuck = hasStuckAnswerWork(link, ctx.atMs, ctx.policy.readBudgetMs);
-  // Only a new connection escapes stuck SDK work, but it drops what is healthy. With
-  // nothing healthy there is nothing to protect; otherwise Retry is the person's choice.
-  if (stuck && !hasHealthySource(link))
+  // Only a new connection escapes stuck SDK work, but it drops what is live. With nothing
+  // live either way there is nothing to protect; otherwise Retry is the person's choice.
+  if (stuck && !hasLiveMedia(link))
     return prepend(
       teardownEffects(link),
       join({ ...state, recovery }, true, ctx.atMs),

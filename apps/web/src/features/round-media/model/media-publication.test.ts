@@ -89,10 +89,10 @@ test('only what recovery is working on says it is reconnecting', () => {
   });
 });
 
-test('a muted microphone with no grant does not read as a deliberate mute', () => {
+test('a muted microphone never reads as live, with or without a grant', () => {
   assert({
     given: 'a muted publication still captured after its grant is gone',
-    should: 'report the publication, not a mute the member could lift',
+    should: 'say muted, not Mic live',
     actual: localPublicationOf({
       failure: null,
       connection: 'live',
@@ -100,6 +100,6 @@ test('a muted microphone with no grant does not read as a deliberate mute', () =
       captured: ['microphone'],
       muted: true,
     }),
-    expected: 'published',
+    expected: 'muted',
   });
 });

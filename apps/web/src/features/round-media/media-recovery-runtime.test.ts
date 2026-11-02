@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { RoomEvent } from 'livekit-client';
 import { settle } from './adapters/livekit-room.test-support';
 import { snapshot } from './media-fixtures.test-support';
 import { mediaFailure, transientMediaFailure } from './media-failure';
@@ -369,6 +370,33 @@ test('a stuck camera beside a live microphone is named, and only a person rebuil
       },
       rooms: 2,
     },
+  });
+  w.stop();
+});
+
+test('a stuck publish while receiving a peer is named, and only a person rebuilds', async () => {
+  const w = await sdkWorld({
+    replies: (read) => (read === 1 ? publishing() : publishing('camera')),
+    sdk: { publishGates: [never] },
+  });
+  w.stub.subscribePeer('microphone');
+  w.stub.fire(RoomEvent.TrackSubscribed);
+  await settle();
+  await w.send({ kind: 'wake' });
+  await w.advance(testPolicy.readBudgetMs);
+  for (const paced of testPolicy.recoveryDelaysMs) await w.advance(paced);
+  const { message, retry } = statusOf(w.runtime.state());
+  assert({
+    given:
+      'nothing published, a peer audible, and a publish hung past every wake',
+    should:
+      'keep the room and name the camera, because rebuilding costs the reception',
+    actual: [
+      w.rooms(),
+      message.includes('Your camera is not responding'),
+      retry,
+    ],
+    expected: [1, true, true],
   });
   w.stop();
 });

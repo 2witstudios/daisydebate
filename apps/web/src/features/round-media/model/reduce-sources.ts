@@ -149,9 +149,10 @@ export const holdsAnswer = (state: SourceState) =>
   state.phase === 'unpublishing' ||
   (state.phase === 'capturing' && !state.waiting);
 
-/** Something a rebuild would cost: a source published and live. */
-export const hasHealthySource = (live: LiveConnection) =>
-  SOURCES.some((name) => live.sources[name].phase === 'published');
+/** What a rebuild would cost: a source published, or anything heard or seen from others. */
+export const hasLiveMedia = (live: LiveConnection) =>
+  SOURCES.some((name) => live.sources[name].phase === 'published') ||
+  live.tracks.some((track) => !track.local);
 
 /** SDK work past the budget that holds later answers, as a wake weighs a rebuild. */
 export const hasStuckAnswerWork = (

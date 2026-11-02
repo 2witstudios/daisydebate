@@ -410,3 +410,42 @@ test('a grant moving during a failed removal keeps that failure named', () => {
     expected: { phase: 'failed', kind: 'absence', removingSinceMs: 1_000_000 },
   });
 });
+
+test('reception counts as live when a wake weighs a rebuild', () => {
+  const receiving = stuckCamera([]);
+  const fresh = driver();
+  fresh.join();
+  fresh.room({
+    type: 'observed',
+    tracks: [
+      {
+        identity: 'peer',
+        source: 'microphone',
+        local: false,
+        speaking: false,
+        muted: false,
+      },
+    ],
+    peers: [],
+  });
+  fresh.send({ type: 'read-requested', read: { kind: 'wake' } });
+  fresh.flushDeferred();
+  fresh.answer(['camera']);
+  fresh.room({ type: 'captured', source: 'camera' });
+  fresh.room({
+    type: 'capture-failed',
+    source: 'microphone',
+    kind: 'permission',
+    checked: false,
+  });
+  fresh.timer('read-budget');
+  fresh.advance(testPolicy.readBudgetMs);
+  fresh.timer('recovery');
+  assert({
+    given:
+      'a stuck publish with nothing live, and the same with a peer audible',
+    should: 'rebuild only the first',
+    actual: [receiving.state().link.phase, fresh.state().link.phase],
+    expected: ['admitting', 'live'],
+  });
+});

@@ -27,7 +27,7 @@ export function publicationOf(state: MediaState): LocalPublication {
       const own = link.tracks.find(
         (track) => track.local && track.source === 'microphone',
       );
-      if (own) return own.muted && granted ? 'muted' : 'published';
+      if (own) return own.muted ? 'muted' : 'published';
       return granted ? 'absent' : null;
     }
   }

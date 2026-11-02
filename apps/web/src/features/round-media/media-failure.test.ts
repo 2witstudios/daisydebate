@@ -11,13 +11,13 @@ test('the one classifier names every media answer', () => {
       'answers that may pass, answers about authority, and everything else',
     should: 'class each by whether it can pass by itself',
     actual: [
-      kinds([408, 429, 500, 502, 503, 504]),
+      kinds([408, 429, 500, 502, 503, 504, 507, 520]),
       kinds([401, 403, 404, 410]),
       kinds([409]),
       kinds([400, 422]),
     ],
     expected: [
-      Array(6).fill('transient'),
+      Array(8).fill('transient'),
       Array(4).fill('refused'),
       ['ending'],
       Array(2).fill('definite'),

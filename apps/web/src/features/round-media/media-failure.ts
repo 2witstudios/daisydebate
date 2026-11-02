@@ -14,7 +14,8 @@ export function transientMediaFailure() {
 }
 /** Answers no attempt from this page can change; a new page may. */
 const FINAL_REFUSALS = [401, 403, 404, 410];
-const FOR_NOW = [408, 429, 500, 502, 503, 504];
+const passesByItself = (status: number) =>
+  status === 408 || status === 429 || status >= 500;
 const endsConnection = new WeakSet<object>();
 const finalForPage = new WeakSet<object>();
 /** An answer about authority: it ends the connection, and a person may ask again. */
@@ -34,7 +35,7 @@ const finalMediaRefusal = () => {
  * leaves its tracks up but will not pass by itself.
  */
 export function mediaFailure(status: number) {
-  if (FOR_NOW.includes(status)) return transientMediaFailure();
+  if (passesByItself(status)) return transientMediaFailure();
   if (FINAL_REFUSALS.includes(status)) return finalMediaRefusal();
   return status === 409 ? mediaRefusal() : new Error('Media unavailable');
 }
