@@ -157,7 +157,8 @@ test('transient unavailability keeps committed text and real refusal clears it',
 const holding = () => {
   const edges = driverEdges<ResourceRead<RoundTranscriptRead>>();
   const holder = createTranscriptHolder(transcript(5), edges.read);
-  const { read: _read, ...driverOnly } = edges;
+  const { scheduler, visibility, connection } = edges;
+  const driverOnly = { scheduler, visibility, connection };
   return { edges, holder, driverOnly };
 };
 test('a replaced driver starts from the newest text held, not the first seed', async () => {
