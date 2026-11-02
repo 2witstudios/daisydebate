@@ -75,16 +75,8 @@ function RoundMediaSession({
     refresh.current = onRefresh;
   }, [onRefresh]);
   /** Once per mount: it remembers which deadline has already refreshed. */
-  const [follow] = useState(() =>
-    createRoundViewFollower({
-      now: () => Date.parse(systemClock.now()),
-      reconcile: (event) => void controller.current?.reconcile(event),
-      refresh: () => refresh.current(),
-      schedule: (fire, delayMs) => {
-        const timer = window.setTimeout(fire, delayMs);
-        return () => window.clearTimeout(timer);
-      },
-    }),
+  const follower = useRef<ReturnType<typeof createRoundViewFollower> | null>(
+    null,
   );
   useEffect(() => {
     const mounted = createMediaController({
@@ -136,8 +128,17 @@ function RoundMediaSession({
       return;
     }
     acceptedVersion.current = view.version;
-    return follow(view);
-  }, [view, follow]);
+    follower.current ??= createRoundViewFollower({
+      now: () => Date.parse(systemClock.now()),
+      reconcile: (event) => void controller.current?.reconcile(event),
+      refresh: () => refresh.current(),
+      schedule: (fire, delayMs) => {
+        const timer = window.setTimeout(fire, delayMs);
+        return () => window.clearTimeout(timer);
+      },
+    });
+    return follower.current(view);
+  }, [view]);
   const status = mediaStatus(connection, missing);
   return (
     <section aria-label="Live camera and sound">
