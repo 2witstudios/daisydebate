@@ -7,7 +7,7 @@ import { Avatar } from '../components/avatar/avatar';
 import { statusLabels } from '../components/presence-dot/status-labels';
 import { Icon } from '../components/icon/icon';
 import { cn } from '../cn';
-import { MemberCardBody, ratingsLabel } from './member-card';
+import { anchorAt, MemberCardBody, ratingsLabel } from './member-card';
 import { outgoingTo, PersonMenu } from './person-menu';
 import { useOnline } from './online-provider';
 import type { PersonActions } from './person-actions';
@@ -88,8 +88,8 @@ export function usePersonOverlay(
     <>
       {hovered && !opened ? (
         <div
-          style={{ top: hover?.top }}
-          className="pointer-events-none absolute right-full z-20 mr-2 flex w-person-card flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 max-compact:hidden"
+          ref={anchorAt(hover?.top ?? 0)}
+          className="person-anchor pointer-events-none absolute right-full z-20 mr-2 flex w-person-card flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 max-compact:hidden"
         >
           <MemberCardBody member={hovered} />
         </div>

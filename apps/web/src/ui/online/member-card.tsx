@@ -18,6 +18,11 @@ export const ratingsLabel = (member: OnlineMember): string =>
     .map((rating) => `${ladderLabels[rating.ladder]} ${ratingText(rating)}`)
     .join(', ');
 
+/** Places an overlay beside its row; CSP and policy keep inline styles out of markup. */
+export const anchorAt = (top: number) => (element: HTMLElement | null) => {
+  element?.style.setProperty('--person-anchor', `${top}px`);
+};
+
 /** Name, status, record and the ratings this person shows. */
 export function MemberCardBody({ member }: { readonly member: OnlineMember }) {
   return (

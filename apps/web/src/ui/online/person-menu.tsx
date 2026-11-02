@@ -21,7 +21,7 @@ import { cn } from '../cn';
 import { buttonClass } from '../components/button/button-class';
 import { useFormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
-import { MemberCardBody } from './member-card';
+import { anchorAt, MemberCardBody } from './member-card';
 import { useOnline } from './online-provider';
 import type { PersonActions } from './person-actions';
 
@@ -353,8 +353,8 @@ export function PersonMenu({
       <section
         role="dialog"
         aria-label={`@${username}`}
-        style={{ top }}
-        className="absolute right-full z-40 mr-2 flex w-person-card flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 max-narrow:fixed max-narrow:inset-x-0 max-narrow:top-auto! max-narrow:bottom-0 max-narrow:mr-0 max-narrow:w-auto max-narrow:rounded-b-none"
+        ref={anchorAt(top)}
+        className="person-anchor absolute right-full z-40 mr-2 flex w-person-card flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 max-narrow:fixed max-narrow:inset-x-0 max-narrow:bottom-0 max-narrow:mr-0 max-narrow:w-auto max-narrow:rounded-b-none"
       >
         <MemberCardBody member={member} />
         <hr className="border-border" />

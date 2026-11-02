@@ -112,6 +112,16 @@
   grid-area: main;
 }
 
+/* An overlay beside its row: the row's offset, set from script. On a phone the
+   menu is a sheet at the foot of the screen instead. */
+@utility person-anchor {
+  top: var(--person-anchor, 0);
+
+  @media (width < 641px) {
+    top: auto;
+  }
+}
+
 @utility area-online {
   grid-area: online;
 }
