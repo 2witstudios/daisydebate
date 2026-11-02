@@ -180,14 +180,18 @@ const typePendingEdit = async (
   await edit(page, text);
   expect((await draftFor(page, documentId)).active.html).toContain(text);
 };
-/** The other Round shows only its own offer, never the Round just left. */
-const expectSecondRoundOffer = async (page: Page) => {
+/** The other Round offers its own document's copy, never the Round just left's. */
+const expectSecondRoundOffer = async (page: Page, title: string) => {
+  await page
+    .getByRole('navigation', { name: 'Files' })
+    .getByRole('button', { name: title, exact: true })
+    .click();
   await expect(
-    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
+    page.getByRole('button', { name: `Restore ${title}`, exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole('textbox', { name: untitled })).not.toContainText(
-    'First Round pending NEW',
-  );
+  await expect(
+    page.getByRole('textbox', { name: title, exact: true }),
+  ).not.toContainText('First Round pending NEW');
   await page.getByText('Compare recovered and server copies').click();
   await expect(page.getByLabel('Recovered copy of Untitled')).toContainText(
     'Second Round REC',
@@ -885,7 +889,7 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
     page.getByRole('button', { name: `Restore ${second.title}`, exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
+    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
   ).toHaveCount(0);
   await page
     .getByRole('button', { name: `Restore ${second.title}`, exact: true })
@@ -1351,6 +1355,10 @@ test('controlled router-lifecycle proof, not end-user navigation: Round replacem
   await page.evaluate(() =>
     Reflect.set(window, '__notesRoundNavigation', 'same-browser-owner'),
   );
+  await page
+    .getByRole('navigation', { name: 'Files' })
+    .getByRole('button', { name: 'Untitled', exact: true })
+    .click();
   await typePendingEdit(page, documentId, 'First Round pending NEW');
   // Next exposes its actual public AppRouter instance for browser diagnostics.
   // Exercise its production route transition without adding a test bridge to the app.
@@ -1371,7 +1379,7 @@ test('controlled router-lifecycle proof, not end-user navigation: Round replacem
   expect(await draftFor(page, second.documentId)).toEqual({
     recovery: secondRecovery,
   });
-  await expectSecondRoundOffer(page);
+  await expectSecondRoundOffer(page, second.title);
   expect(sends).toHaveLength(1);
   expect(sends[0]).toContain('First Round pending NEW');
   await page.clock.runFor(30_000);
@@ -1415,7 +1423,7 @@ test('end-user navigation: leaving a Round through the account menu saves pendin
   ).toBeHidden();
   await page.goBack();
   await expect(page).toHaveURL(`${origin}/rounds/${second.roundId}`);
-  await expectSecondRoundOffer(page);
+  await expectSecondRoundOffer(page, second.title);
   expect(sends).toHaveLength(1);
   expect(await draftFor(page, second.documentId)).toEqual({
     recovery: secondRecovery,
