@@ -11,8 +11,8 @@ export type ComingSoonCardProps = {
 };
 
 /**
- * A dashboard card for a destination that is not open yet, standing where its
- * live version (featured tournament, live debates) goes once it launches.
+ * A dashboard card for a destination that is not open yet. It leaves the
+ * dashboard when the destination launches.
  */
 export function ComingSoonCard({ title, href }: ComingSoonCardProps) {
   return (

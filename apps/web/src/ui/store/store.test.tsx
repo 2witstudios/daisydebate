@@ -7,32 +7,12 @@ import { createUiStore, useUiState, UiStoreProvider } from './store';
 setupRitewayBun();
 
 describe('UI store state', () => {
-  test('seeds collections and resources from the mock fixtures', () => {
-    const state = createInitialState();
+  test('seeds no sample data', () => {
     assert({
       given: 'a freshly created UI state',
-      should:
-        'seed two live debates, the tournament and no friends count until read',
-      actual: [
-        state.collections.liveDebates.length,
-        state.resources.friendsOnline,
-        state.resources.tournament.name,
-      ],
-      expected: [2, null, 'Global Debate Championship'],
-    });
-  });
-
-  test('joins debate participants with their ratings', () => {
-    const state = createInitialState();
-    assert({
-      given: 'the first seeded live debate',
-      should: 'carry both participants with their seeded ratings',
-      actual: [
-        state.collections.liveDebates[0]?.challenger,
-        state.collections.liveDebates[0]?.challengerRating,
-        state.collections.liveDebates[0]?.defenderRating,
-      ],
-      expected: ['Maya Singh', 1810, 1762],
+      should: 'know only that no friends count has been read',
+      actual: createInitialState(),
+      expected: { resources: { friendsOnline: null } },
     });
   });
 });
@@ -68,8 +48,7 @@ describe('UI store snapshot subscription', () => {
 
 function Probe() {
   const online = useUiState((state) => state.resources.friendsOnline);
-  const debate = useUiState((state) => state.collections.liveDebates[0]);
-  return h('p', null, `${debate?.challenger ?? 'none'}:${online ?? 'unread'}`);
+  return h('p', null, online ?? 'unread');
 }
 
 describe('useUiState SSR snapshot', () => {
@@ -84,7 +63,7 @@ describe('useUiState SSR snapshot', () => {
       given: 'a component reading the store rendered to string',
       should: 'render the seeded content through the server snapshot',
       actual: html,
-      expected: '<p>Maya Singh:unread</p>',
+      expected: '<p>unread</p>',
     });
   });
 });
@@ -159,7 +138,7 @@ describe('UI store request scoping (ADR 0024)', () => {
       given: 'two provider trees rendered with different seeded state',
       should: 'render each tree from its own store, not a shared one',
       actual: [htmlA, htmlB],
-      expected: ['<p>Maya Singh:unread</p>', '<p>Maya Singh:7</p>'],
+      expected: ['<p>unread</p>', '<p>7</p>'],
     });
   });
 });
