@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { agentRuns } from './schema/agent-runs';
 import { ballots } from './schema/ballots';
 import { botProfiles } from './schema/bot-profiles';
-import { documents, roundDocumentRefs } from './schema/documents';
+import { documents } from './schema/documents';
 import { roundCommands } from './schema/round-commands';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
@@ -115,7 +115,6 @@ describe('competitive schema child tables', () => {
         runs: rules(agentRuns),
         reservations: rules(usageReservations),
         documents: rules(documents),
-        refs: rules(roundDocumentRefs),
         bots: rules(botProfiles),
       },
       expected: {
@@ -171,27 +170,10 @@ describe('competitive schema child tables', () => {
           namedKeys: [],
         },
         documents: {
-          checks: [
-            'documents_folder_check',
-            'documents_revision_positive',
-            'documents_template_check',
-            'documents_title_length',
-          ],
-          indexes: [
-            'documents_owner_created_idx',
-            'documents_owner_folder_idx',
-          ],
+          checks: ['documents_revision_positive', 'documents_title_length'],
+          indexes: ['documents_owner_created_idx'],
           uniques: [],
           namedKeys: [],
-        },
-        refs: {
-          checks: ['round_document_refs_role_check'],
-          indexes: ['round_document_refs_document_idx'],
-          uniques: [],
-          namedKeys: [
-            'round_document_refs_document_fk',
-            'round_document_refs_round_fk',
-          ],
         },
         bots: {
           checks: ['bot_profiles_difficulty_check'],

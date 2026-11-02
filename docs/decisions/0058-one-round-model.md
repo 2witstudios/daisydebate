@@ -313,13 +313,10 @@ clock anchors and transcript schedule positions agree.
 
 ### 9. Documents: prep is the source, the Round is a view
 
-`documents` is owned by an actor and has no round FK. Round references grant
-workspace scope only; every document read still requires ownership unless an
-explicit sharing permission is introduced. `round_document_refs` is the Round's
-view over what the owner can read. **Ending or deleting a Round never implies deleting a
-Document** — removing one from a Round removes the ref row only. The ownership decision is
-included here so the kernel is not built on the inverted dependency; the build is separate
-leaves, and the PageSpace boundary remains open.
+`documents` is owned by an actor and has no round FK. Every document read
+requires ownership unless an explicit sharing permission is introduced. A Round
+only opens its participants' documents, so **ending or deleting a Round never
+implies deleting a Document** (ADR 0097, which removed `round_document_refs`).
 
 ## Consequences
 

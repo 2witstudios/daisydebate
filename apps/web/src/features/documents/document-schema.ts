@@ -1,6 +1,5 @@
 import { OrderedList, TaskItem, TaskList } from '@tiptap/extension-list';
 import StarterKit from '@tiptap/starter-kit';
-import { DebateMarkExtension } from './debate-mark';
 import { PageLayoutNode, PagedDocument } from './page-layout';
 
 /**
@@ -37,7 +36,6 @@ export const documentExtensions = [
   KnownTypeOrderedList,
   TaskList,
   TaskItem.configure({ nested: true }),
-  DebateMarkExtension,
   PagedDocument,
   PageLayoutNode,
 ];

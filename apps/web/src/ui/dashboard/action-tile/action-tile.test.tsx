@@ -56,9 +56,9 @@ describe('ActionTile', () => {
   test('marks a destination that is not open yet', () => {
     const html = renderToString(
       h(ActionTile, {
-        href: '/coming-soon/ranked',
-        glyph: 'swords',
-        title: 'Ranked',
+        href: '/coming-soon/watch',
+        glyph: 'eye',
+        title: 'Watch',
         description: 'd',
         comingSoon: true,
         status: { tone: 'online', text: 'Open' },
@@ -69,7 +69,7 @@ describe('ActionTile', () => {
       should:
         'link to the explainer with a Coming soon tag and Learn more, and no status line',
       actual: [
-        html.includes('href="/coming-soon/ranked"'),
+        html.includes('href="/coming-soon/watch"'),
         html.includes('Coming soon'),
         html.includes('Learn more'),
         html.includes('Open'),

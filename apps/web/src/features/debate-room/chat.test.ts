@@ -55,8 +55,8 @@ describe('unreadByChannel and totalUnread', () => {
     const counts = unreadByChannel(
       messages,
       [
-        { id: 'round', title: 'Round', scope: 'round' },
-        { id: 'club', title: 'Club', scope: 'club' },
+        { id: 'round', title: 'Round' },
+        { id: 'club', title: 'Club' },
       ],
       { club: t3 },
       'me',

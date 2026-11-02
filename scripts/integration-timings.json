@@ -230,7 +230,6 @@
     "packages/db/integration/debate-documents.integration.ts": 819,
     "packages/db/integration/debate-participants.integration.ts": 328,
     "packages/db/integration/dev-seed-email-preservation.integration.ts": 194,
-    "packages/db/integration/document-workspace.integration.ts": 193,
     "packages/db/integration/email-delivery.integration.ts": 201,
     "packages/db/integration/fenced-admission.integration.ts": 727,
     "packages/db/integration/format-catalog.integration.ts": 355,

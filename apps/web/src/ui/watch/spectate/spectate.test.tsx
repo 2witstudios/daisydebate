@@ -117,7 +117,7 @@ describe('Spectate: report dialog', () => {
       actual: [
         html.includes('role="dialog"'),
         html.includes('Report the debate'),
-        html.includes('Cheating or outside help'),
+        html.includes('Second account or arranged result'),
         /href="\/watch\/top-of-the-ladder"[^>]*>Cancel/.test(html),
         html.includes('href="?did=Send+report"'),
       ],

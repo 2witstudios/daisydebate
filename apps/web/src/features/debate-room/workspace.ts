@@ -1,42 +1,13 @@
-import type { CompetitionType } from '@daisy/protocol';
-import type { FolderId, WorkspaceDocument } from './documents/documents';
-
-type Folder = {
-  readonly id: FolderId;
-  readonly title: string;
-  readonly shared: boolean;
-};
-
-/** The club folder's title is the club's name, filled in by buildTree. */
-const folders: readonly Folder[] = [
-  { id: 'round', title: 'This round', shared: false },
-  { id: 'library', title: 'My library', shared: false },
-  { id: 'club', title: '', shared: true },
-];
-
-export type TreeNode = {
-  readonly folder: Folder;
-  readonly documents: readonly WorkspaceDocument[];
-};
+import type { WorkspaceDocument } from './documents/documents';
 
 const byCreated = (a: WorkspaceDocument, b: WorkspaceDocument) =>
   Date.parse(a.createdAt) - Date.parse(b.createdAt) ||
   (a.title < b.title ? -1 : a.title > b.title ? 1 : 0);
 
-export function buildTree(
+/** The viewer's own drive, oldest first. Club drives arrive with prep-documents. */
+export const driveDocuments = (
   documents: readonly WorkspaceDocument[],
-  clubName: string | null,
-): readonly TreeNode[] {
-  return folders
-    .filter((folder) => folder.id !== 'club' || clubName !== null)
-    .map((folder) => ({
-      folder:
-        folder.id === 'club' ? { ...folder, title: clubName ?? '' } : folder,
-      documents: documents
-        .filter((d) => d.folder === folder.id)
-        .sort(byCreated),
-    }));
-}
+): readonly WorkspaceDocument[] => [...documents].sort(byCreated);
 
 export type TabsState = {
   readonly open: readonly string[];
@@ -62,50 +33,45 @@ export function activateTab(tabs: TabsState, id: string): TabsState {
   return tabs.open.includes(id) ? { ...tabs, active: id } : tabs;
 }
 
-export type DrawerTab = 'files' | 'chat' | 'ai' | 'room';
+/** The right sidebar's tabs, the same in every Round. */
+export type SidebarTab = 'transcript' | 'channels' | 'ai';
+export const sidebarTabs: readonly SidebarTab[] = [
+  'transcript',
+  'channels',
+  'ai',
+];
 
-/** A ranked round has no AI: outside help would make the result unfair. */
-export function drawerTabs(competition: CompetitionType): readonly DrawerTab[] {
-  return competition === 'ranked'
-    ? ['files', 'chat', 'room']
-    : ['files', 'chat', 'ai', 'room'];
-}
+/** A phone shows one panel at a time; the sidebar's tabs are among them. */
+export type PhonePanel = 'doc' | SidebarTab | 'files' | 'room';
+
+/** Which region a phone shows; the sidebar's own tab says which of its panels. */
+export type PhoneView = 'doc' | 'sidebar' | 'files' | 'room';
+export const phonePanels: readonly PhonePanel[] = [
+  'doc',
+  ...sidebarTabs,
+  'files',
+  'room',
+];
 
 export type Channel = {
   readonly id: string;
   readonly title: string;
-  readonly scope: 'round' | 'club';
 };
-
-export function visibleChannels(
-  channels: readonly Channel[],
-  competition: CompetitionType,
-): readonly Channel[] {
-  return competition === 'ranked'
-    ? channels.filter((c) => c.scope === 'round')
-    : channels;
-}
-
-/** A ranked round shows no club folder: the club's files are outside help (DEC-175). */
-export const visibleClub = (
-  clubName: string | null,
-  competition: CompetitionType,
-): string | null => (competition === 'ranked' ? null : clubName);
 
 export type Agent = {
   readonly id: string;
   readonly title: string;
-  readonly scope: 'round' | 'club';
 };
 
-export function visibleAgents(
-  agents: readonly Agent[],
-  competition: CompetitionType,
-): readonly Agent[] {
-  return competition === 'ranked' ? [] : agents;
-}
+const lastEdited = (documents: readonly WorkspaceDocument[]) =>
+  [...documents].sort(
+    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+  )[0]?.id;
 
-/** Reconcile stored documents without replacing a still-open valid tab. */
+/**
+ * Reconcile stored documents without replacing a still-open valid tab. With
+ * nothing open, the document edited last opens, so a reload lands on the work.
+ */
 export function loadWorkspaceDocuments<
   T extends {
     readonly tabs: TabsState;
@@ -116,8 +82,8 @@ export function loadWorkspaceDocuments<
   const open = state.tabs.open.filter(
     (id) => ids.has(id) || !state.documents.some((d) => d.id === id),
   );
-  const round = documents.filter((d) => d.folder === 'round').map((d) => d.id);
-  const kept = open.length > 0 ? open : round;
+  const latest = lastEdited(documents);
+  const kept = open.length > 0 || !latest ? open : [latest];
   const active =
     state.tabs.active !== null && kept.includes(state.tabs.active)
       ? state.tabs.active

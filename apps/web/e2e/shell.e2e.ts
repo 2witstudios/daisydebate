@@ -43,6 +43,27 @@ test.describe('dashboard shell chrome', () => {
     await expect(page).toHaveURL(/\/sign-in\?next=%2Flobby$/);
   });
 
+  test('a visitor reaches the resolutions from the Seasons tile', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    const tiles = page.getByRole('list', { name: 'Debate destinations' });
+    await expect(tiles.getByRole('link', { name: /^Play/ })).toHaveAttribute(
+      'href',
+      '/lobby',
+    );
+    await tiles.getByRole('link', { name: /^Seasons/ }).click();
+    await expect(page).toHaveURL(/\/leaderboard\/seasons$/);
+    await expect(
+      page.getByRole('heading', { name: 'Resolutions', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        'Resolved: Competitive debate should be a mandatory component',
+      ),
+    ).toBeVisible();
+  });
+
   test('the rail foot stays reachable on a short viewport', async ({
     page,
   }) => {

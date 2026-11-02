@@ -8,9 +8,7 @@ import type { WorkspaceDocument } from '../../features/debate-room/documents/doc
 setupRitewayBun();
 const document: WorkspaceDocument = {
   id: 'd'.repeat(24),
-  title: 'Flow',
-  folder: 'round',
-  templateId: 'flow',
+  title: 'Notes',
   html: '<p>saved</p>',
   createdAt: '2026-10-09T00:00:00.000Z',
   updatedAt: '2026-10-09T00:00:00.000Z',
@@ -33,7 +31,7 @@ test('persisted workspace loads actual documents and keeps valid active tabs', (
 });
 test('scheduled workspace ignores competitive floor and fabricated chat actions', () => {
   const unchanged = reducePersistedWorkspace(initialPersistedWorkspace, {
-    type: 'drawer/toggle',
+    type: 'files/toggle',
   });
   assert({
     given: 'a scheduled document workspace',
