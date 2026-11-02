@@ -22,21 +22,14 @@ test('blank clock metadata cannot promote the hydration seed into accepted time'
   const sampled = createMeasuredRead({
     read: () => read(''),
     roundTime: clock,
-    monotonicNowMs: () => 1000,
-    nextGeneration: () => 1,
   });
   const result = await sampled();
   assert({
     given: 'an authorized read carrying an empty server clock header',
     should:
       'retain an untrusted seed instead of accepting a fabricated zero instant',
-    actual: [
-      result.serverNowMs,
-      clock.status().kind,
-      clock.nowMs(),
-      clock.calibration().real,
-    ],
-    expected: [null, 'seed', 10000, false],
+    actual: [result.serverNowMs, clock.status().kind, clock.nowMs()],
+    expected: [null, 'seed', 10000],
   });
 });
 
@@ -114,21 +107,17 @@ test('the clock read reports refusal and transport failure without an instant', 
   });
 });
 
-test('malformed clock metadata preserves an accepted anchor and read generation ordering', async () => {
+test('malformed clock metadata preserves an accepted anchor', async () => {
   const clock = createRoundTime({
     monotonicNowMs: () => 1000,
     hydrationSeedServerMs: 10000,
   });
-  let generation = 0;
   let header = '10000';
   const sampled = createMeasuredRead({
     read: () => read(header),
     roundTime: clock,
-    monotonicNowMs: () => 1000,
-    nextGeneration: () => ++generation,
   });
   await sampled();
-  const before = structuredClone(clock.calibration());
   const observations = [];
   for (const malformed of [
     '',
@@ -140,20 +129,20 @@ test('malformed clock metadata preserves an accepted anchor and read generation 
   ]) {
     header = malformed;
     await sampled();
-    observations.push([clock.calibration(), clock.status().kind, generation]);
+    observations.push([clock.nowMs(), clock.status().kind]);
   }
   assert({
     given: 'an accepted anchor followed by malformed metadata',
-    should: 'retain the anchor, mark stale and consume each request generation',
+    should: 'retain the anchor and mark stale',
     actual: observations,
-    expected: Array.from({ length: 6 }, (_, i) => [before, 'stale', i + 2]),
+    expected: Array.from({ length: 6 }, () => [10000, 'stale']),
   });
-  header = '10000';
+  header = '20000';
   await sampled();
   assert({
     given: 'the next valid read after refused metadata',
-    should: 'accept only the later measured read generation',
-    actual: clock.calibration().generation,
-    expected: 8,
+    should: 'accept it under its later generation',
+    actual: [clock.nowMs(), clock.status().kind],
+    expected: [20000, 'current'],
   });
 });

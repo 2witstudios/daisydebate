@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { readRoundClock } from '../../features/round-runtime/read-round-clock';
 import {
   createMeasuredRead,
@@ -27,10 +27,6 @@ export function useRoundTime(options: {
       hydrationSeedServerMs: options.renderedAtMs,
     }),
   );
-  const nextGeneration = useMemo(() => {
-    let allocated = 0;
-    return () => ++allocated;
-  }, []);
   const wake = useRef(noWake);
   const wakeClock = useCallback(() => wake.current(), []);
   useEffect(() => {
@@ -39,8 +35,6 @@ export function useRoundTime(options: {
         read: (signal) =>
           readRoundClock((url, init) => fetch(url, init), clockUrl, signal),
         roundTime,
-        monotonicNowMs: systemScheduler.now,
-        nextGeneration,
       }),
       roundTime,
       scheduler: systemScheduler,
@@ -52,6 +46,6 @@ export function useRoundTime(options: {
       wake.current = noWake;
       sampler.stop();
     };
-  }, [clockUrl, roundTime, nextGeneration]);
+  }, [clockUrl, roundTime]);
   return { roundTime, wakeClock };
 }

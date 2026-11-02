@@ -261,9 +261,10 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     const view = roundViewSchema.parse(await response.json());
     const segment = view.segments[0]!;
     const deadline = Date.parse(segment.startedAt) + segment.durationMs;
-    // Hold every Server Action for both debaters across the boundary. Neither
-    // view can change, so a new view cannot be what reconciles here; the
-    // guest's would otherwise wake the host's transport.
+    // Hold every Server Action for both debaters across the boundary, so a new
+    // view cannot be what reconciles here. A LiveKit permission push still can,
+    // inside the tolerance, so this does not isolate the timer on its own.
+    mediaAt.length = 0;
     let releaseActions = () => {};
     const actionsHeld = new Promise<void>((release) => {
       releaseActions = release;

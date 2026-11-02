@@ -9,6 +9,7 @@ import {
   roomListQuerySchema,
   roomRefusalSchema,
 } from '@daisy/protocol';
+import { serverClockHeaders } from '../round-runtime/server-clock-header';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import type { Clock } from '@daisy/clock';
 import {
@@ -207,9 +208,7 @@ export function createRoomHandlers(dependencies: Dependencies) {
           ),
         {
           ...doorbell,
-          // The client's round clock calibrates on this authorized read's own
-          // server instant; it is millisecond, not the HTTP Date's seconds.
-          'x-server-now-ms': String(Date.parse(dependencies.clock.now())),
+          ...serverClockHeaders(dependencies.clock),
         },
       ),
     roundRef: (request: Request, roomId: string) =>

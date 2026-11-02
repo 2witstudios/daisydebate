@@ -103,8 +103,6 @@ test('unmount aborts the sampling read lifetime and discards its late calibratio
   const measured = createMeasuredRead({
     read: edges.read,
     roundTime,
-    monotonicNowMs: edges.scheduler.now,
-    nextGeneration: () => 1,
   });
   let receivedSignal: AbortSignal | undefined;
   const { stop } = sampleRoundTime({

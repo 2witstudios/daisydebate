@@ -30,8 +30,8 @@ test('wakes during a pending read coalesce into one bounded followup', async () 
   assert({
     given: 'success after those wakes',
     should: 'arm one two-second followup rather than wait thirty seconds',
-    actual: [edges.reads(), edges.timers(), roundTime.calibration().generation],
-    expected: [2, [2000], 2],
+    actual: [edges.reads(), edges.timers()],
+    expected: [2, [2000]],
   });
   edges.advance(2000);
   edges.answer({ kind: 'found', serverNowMs: 42000 });
@@ -39,8 +39,8 @@ test('wakes during a pending read coalesce into one bounded followup', async () 
   assert({
     given: 'the followup succeeding with no further wake',
     should: 'settle at thirty seconds without a notification loop',
-    actual: [edges.reads(), edges.timers(), roundTime.calibration().generation],
-    expected: [3, [30000], 3],
+    actual: [edges.reads(), edges.timers()],
+    expected: [3, [30000]],
   });
   stop();
   assert({
@@ -82,8 +82,8 @@ test('a failed pending read preserves its anchor and coalesces wakes into one re
   });
   edges.answer({ kind: 'found', serverNowMs: 10000 });
   await edges.flush();
-  const accepted = { ...roundTime.calibration() };
   edges.advance(1000);
+  const accepted = roundTime.nowMs();
   edges.show();
   edges.show();
   edges.show();
@@ -95,7 +95,7 @@ test('a failed pending read preserves its anchor and coalesces wakes into one re
     actual: [
       edges.reads(),
       edges.timers(),
-      roundTime.calibration(),
+      roundTime.nowMs(),
       roundTime.status().kind,
     ],
     expected: [2, [2000], accepted, 'stale'],
@@ -106,13 +106,8 @@ test('a failed pending read preserves its anchor and coalesces wakes into one re
   assert({
     given: 'success on that recovery',
     should: 'advance one generation and restore the settled cadence',
-    actual: [
-      edges.reads(),
-      edges.timers(),
-      roundTime.calibration().generation,
-      roundTime.status().kind,
-    ],
-    expected: [3, [30000], 3, 'current'],
+    actual: [edges.reads(), edges.timers(), roundTime.status().kind],
+    expected: [3, [30000], 'current'],
   });
   stop();
 });

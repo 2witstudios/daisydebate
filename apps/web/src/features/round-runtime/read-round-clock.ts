@@ -1,4 +1,4 @@
-import { parseServerClockHeader } from './server-clock-header';
+import { serverInstantOf } from './server-clock-header';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -28,9 +28,7 @@ export async function readRoundClock(
     if (!response.ok) return { kind: 'unavailable', serverNowMs: null };
     return {
       kind: 'found',
-      serverNowMs: parseServerClockHeader(
-        response.headers.get('x-server-now-ms'),
-      ),
+      serverNowMs: serverInstantOf(response.headers),
     };
   } catch {
     return { kind: 'unavailable', serverNowMs: null };

@@ -12,17 +12,6 @@ export function timingFixture<
     monotonicNowMs: edges.scheduler.now,
     hydrationSeedServerMs,
   });
-  let generation = 0;
-  const read = createMeasuredRead({
-    read: edges.read,
-    roundTime,
-    monotonicNowMs: edges.scheduler.now,
-    nextGeneration: () => ++generation,
-  });
-  return {
-    edges,
-    roundTime,
-    read,
-    fail: () => roundTime.unavailable(++generation),
-  };
+  const read = createMeasuredRead({ read: edges.read, roundTime });
+  return { edges, roundTime, read };
 }

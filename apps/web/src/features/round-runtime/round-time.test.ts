@@ -146,11 +146,7 @@ describe('decideSample', () => {
     assert({
       given: 'a sample measured inside a 300 ms request interval',
       should: 'anchor at receive with the midpoint estimate and honest bound',
-      actual: [
-        decision.accepted,
-        clock.nowMs(),
-        clock.calibration().uncertaintyMs,
-      ],
+      actual: [decision.accepted, clock.nowMs(), clock.status().uncertaintyMs],
       expected: [true, 60_150, 150],
     });
   });
@@ -164,8 +160,8 @@ describe('decideSample', () => {
     assert({
       given: 'a mounted room before its first authorized read lands',
       should: 'project from the seed and report it is not yet real',
-      actual: [clock.nowMs(), clock.calibration().real],
-      expected: [10_000, false],
+      actual: [clock.nowMs(), clock.status().kind],
+      expected: [10_000, 'seed'],
     });
     mono = 2_000;
     const accepted = clock.sample(
@@ -178,9 +174,9 @@ describe('decideSample', () => {
     );
     assert({
       given: 'the first authorized sample arrives',
-      should: 'replace the seed and mark the calibration real',
-      actual: [accepted.accepted, clock.nowMs(), clock.calibration().real],
-      expected: [true, 42_000, true],
+      should: 'replace the seed and report current time',
+      actual: [accepted.accepted, clock.nowMs(), clock.status().kind],
+      expected: [true, 42_000, 'current'],
     });
   });
 });
@@ -198,11 +194,6 @@ describe('createMeasuredRead', () => {
       read: async () =>
         ({ kind: 'found', serverNowMs: 90_000, extra: 'view' }) as const,
       roundTime: clock,
-      monotonicNowMs: () => mono,
-      nextGeneration: (() => {
-        let last = 0;
-        return () => ++last;
-      })(),
     });
     const started = read();
     mono = 1_200; // the response lands, then its body parse delay elapses
@@ -212,17 +203,11 @@ describe('createMeasuredRead', () => {
       given: 'an in-process read whose body parse delay lands after receive',
       should:
         'answer the caller unchanged and calibrate on the measured interval',
-      actual: [
-        response,
-        clock.calibration().serverAtReceiveMs,
-        clock.calibration().monoAtReceiveMs,
-        clock.nowMs(),
-      ],
+      actual: [response, clock.nowMs(), clock.status().uncertaintyMs],
       expected: [
         { kind: 'found', serverNowMs: 90_000, extra: 'view' },
-        90_100,
-        1_200,
         90_200,
+        100,
       ],
     });
   });
@@ -238,7 +223,7 @@ describe('createMeasuredRead', () => {
     const read = createMeasuredRead({
       read: () =>
         new Promise<{ kind: 'found'; serverNowMs: number }>((resolve) => {
-          const g = generation;
+          const g = ++generation;
           const waiters = pending.get(g) ?? [];
           waiters.push((serverNowMs) =>
             resolve({ kind: 'found', serverNowMs }),
@@ -246,8 +231,6 @@ describe('createMeasuredRead', () => {
           pending.set(g, waiters);
         }),
       roundTime: clock,
-      monotonicNowMs: () => mono,
-      nextGeneration: () => ++generation,
     });
     const first = read(); // generation 1, would resolve later with older time
     const second = read(); // generation 2, resolves first with newer time
@@ -261,8 +244,8 @@ describe('createMeasuredRead', () => {
     assert({
       given: 'two concurrent reads whose completions arrive out of order',
       should: 'keep the newer accepted sample and refuse the late older one',
-      actual: [fresh, clock.nowMs(), clock.calibration().generation],
-      expected: [30_025, 30_075, 2],
+      actual: [fresh, clock.nowMs()],
+      expected: [30_025, 30_075],
     });
   });
 
@@ -272,23 +255,23 @@ describe('createMeasuredRead', () => {
       monotonicNowMs: () => mono,
       hydrationSeedServerMs: 0,
     });
-    clock.sample(sample({ serverNowMs: 50_000, generation: 5 }));
+    clock.sample(
+      sample({
+        serverNowMs: 50_000,
+        generation: clock.beginSample().generation,
+      }),
+    );
     mono = 500;
     let decision: SampleDecision | null = null;
     const read = createMeasuredRead({
       read: async () => ({ kind: 'found', serverNowMs: 10_000 }) as const,
       roundTime: {
         ...clock,
-        sample: (candidate) => {
-          decision = clock.sample(candidate);
+        received: (reply) => {
+          decision = clock.received(reply);
           return decision;
         },
       },
-      monotonicNowMs: () => mono,
-      nextGeneration: (() => {
-        let last = 5;
-        return () => ++last;
-      })(),
     });
     const before = clock.nowMs();
     await read();
