@@ -23,7 +23,7 @@ export type SessionReader = (cookie: string) => Promise<VerifiedSession | null>;
 export type Participation = {
   readonly betaState: BetaAccessState | null;
   readonly ageBand: AgeBand | null;
-  /** A suspension or ban is in force (ADR 0098). */
+  /** A suspension or ban is in force (ADR 0103). */
   readonly restricted: boolean;
 };
 

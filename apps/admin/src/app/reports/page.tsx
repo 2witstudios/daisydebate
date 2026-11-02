@@ -15,7 +15,7 @@ const notices: Readonly<Record<string, string>> = {
 
 const when = (iso: string) => iso.slice(0, 16).replace('T', ' ');
 
-/** The open report queue and the restrictions in force (ADR 0098). */
+/** The open report queue and the restrictions in force (ADR 0103). */
 export default async function ReportsPage({
   searchParams,
 }: {

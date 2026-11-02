@@ -7,7 +7,7 @@ import { casualSelection } from '../rooms/format-browser';
 import type { RoomTemplate } from '../rooms/read-catalog';
 
 /**
- * The room an accepted challenge opens (ADR 0098), through the one room-create
+ * The room an accepted challenge opens (ADR 0103), through the one room-create
  * form on the format they agreed. Casual is unlisted, so only the two of them
  * reach it. Ranked takes the ranked selection and is public: a human judge has
  * to be able to find it, a public result counts on both records, and the two

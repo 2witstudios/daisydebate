@@ -205,7 +205,7 @@ test('a friend’s hidden choice reaches the other member’s list as one stored
       should:
         'list them as visible until they hide, follow each choice, and keep one row',
       actual: [beforeAnyChoice, shown, await otherChosen(), stored?.count],
-      expected: [['online'], ['online'], ['offline'], 1],
+      expected: [['online'], ['online'], ['appearing_offline'], 1],
     });
   } finally {
     await client.unsafe('delete from presence_settings where actor_id=$1', [

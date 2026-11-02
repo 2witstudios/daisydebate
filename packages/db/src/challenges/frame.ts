@@ -21,7 +21,7 @@ type Tx = Pick<
   'select' | 'insert' | 'update' | 'delete' | 'execute'
 >;
 
-/** One challenge command over a locked contact pair (ADR 0098). */
+/** One challenge command over a locked contact pair (ADR 0103). */
 export type ChallengeFrame = {
   readonly otherActorId: string;
   /** Records a new offer; a repeat of the open one answers it unchanged. */

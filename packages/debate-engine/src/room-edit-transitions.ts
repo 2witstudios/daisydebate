@@ -199,7 +199,7 @@ const wrongSeatForAi = (
 /**
  * How many free debater seats `actorId` may not take at `now`: one for each
  * named member who has neither arrived in a debater seat nor run out of time
- * (ADR 0098). A judge seat is never held.
+ * (ADR 0103). A judge seat is never held.
  */
 export const debaterSeatsHeldFrom = (
   room: Pick<RoomAssemblyState, 'seatHolds' | 'participants'>,

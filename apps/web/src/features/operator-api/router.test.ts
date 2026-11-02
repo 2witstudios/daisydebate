@@ -328,7 +328,7 @@ test('an unexpected handler failure reaches the error reporter; a refusal does n
   });
 });
 
-describe('the report routes (ADR 0098)', () => {
+describe('the report routes (ADR 0103)', () => {
   const report = {
     id: 'r'.repeat(24),
     reporter: 'ada',

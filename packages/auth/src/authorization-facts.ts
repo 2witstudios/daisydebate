@@ -52,7 +52,7 @@ export type AccountAuthorizationFact = {
    * null when it has none. Participant access needs a band at the floor.
    */
   readonly ageBand: import('./age-band').AgeBand | null;
-  /** A suspension or ban is in force (ADR 0098); it withdraws participant access. */
+  /** A suspension or ban is in force (ADR 0103); it withdraws participant access. */
   readonly restricted: boolean;
 };
 export type RoomAuthorizationFact = {
@@ -240,22 +240,22 @@ type FriendCollectionAuthorizationFact = {
   readonly kind: 'friend_collection';
   readonly actorId: string;
 };
-/** A member's own challenges (ADR 0098), never another's. */
+/** A member's own challenges (ADR 0103), never another's. */
 type ChallengeCollectionAuthorizationFact = {
   readonly kind: 'challenge_collection';
   readonly actorId: string;
 };
-/** The online list as this member may read it (ADR 0098). */
+/** The online list as this member may read it (ADR 0103). */
 type OnlineRosterAuthorizationFact = {
   readonly kind: 'online_roster';
   readonly actorId: string;
 };
-/** A member's own rating visibility choice (ADR 0098). */
+/** A member's own rating visibility choice (ADR 0103). */
 type RatingVisibilityAuthorizationFact = {
   readonly kind: 'rating_visibility';
   readonly actorId: string;
 };
-/** A member's own moderation notices (ADR 0098). */
+/** A member's own moderation notices (ADR 0103). */
 type ModerationNoticeAuthorizationFact = {
   readonly kind: 'moderation_notice';
   readonly actorId: string;

@@ -10,7 +10,7 @@ import {
 
 const MAX_BODY_BYTES = 1024;
 
-/** The member's own moderation notices (ADR 0098). */
+/** The member's own moderation notices (ADR 0103). */
 export function composeModerationRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   return {

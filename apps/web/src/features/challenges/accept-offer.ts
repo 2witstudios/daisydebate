@@ -34,7 +34,7 @@ export type AcceptOfferPorts = {
 };
 
 /**
- * Accepts an offer (ADR 0098): the acceptor opens the agreed room through the
+ * Accepts an offer (ADR 0103): the acceptor opens the agreed room through the
  * one room-create route, then names it on the challenge, then both go there. A
  * room that opens but cannot be named still holds them.
  */

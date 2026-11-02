@@ -16,7 +16,7 @@ import { restrictionInForce } from '../moderation/in-force';
 import { roomIsOpen } from '../room-open';
 import { challengeFrame, type ChallengeFrame } from './frame';
 
-/** Challenges over the shared Contacts fence (ADR 0098). */
+/** Challenges over the shared Contacts fence (ADR 0103). */
 export type ChallengeStore = {
   readonly withContacts: <T>(
     input: ContactInput,
@@ -119,7 +119,7 @@ export async function purgeExpiredChallenges(
   return rows.length;
 }
 
-/** Challenges' reads (ADR 0098), instrumented. */
+/** Challenges' reads (ADR 0103), instrumented. */
 export const challengeReadOperations = ({
   database,
   eventSink,

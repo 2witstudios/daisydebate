@@ -2,7 +2,7 @@ import { expect, openPage, test } from './support/fixtures';
 import { origin, resetRateLimits, signUpMember } from './support/accounts';
 
 /**
- * The online list's forms with JavaScript off (ADR 0098). The live journeys
+ * The online list's forms with JavaScript off (ADR 0103). The live journeys
  * need a real realtime service, so they run in the realtime proof
  * (support/whos-online-live.ts, from messaging-realtime.e2e.ts).
  */

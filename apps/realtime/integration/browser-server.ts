@@ -97,7 +97,7 @@ const resources = createRealtimeApp({
   clock: systemClock,
 });
 const runtime = await serveRealtime({
-  // A browser proof exercises real presence, as production does (ADR 0098).
+  // A browser proof exercises real presence, as production does (ADR 0103).
   presence: { instanceId: systemId.next(), nextId: () => systemId.next() },
   resources,
   readingPolicy: (input) =>

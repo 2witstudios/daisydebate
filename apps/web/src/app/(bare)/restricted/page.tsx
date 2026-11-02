@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** A suspended or banned account's page (ADR 0098); anyone else goes on. */
+/** A suspended or banned account's page (ADR 0103); anyone else goes on. */
 export default async function RestrictedPage({
   searchParams,
 }: {

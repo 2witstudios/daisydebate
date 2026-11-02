@@ -26,7 +26,7 @@ import {
 } from '../operator-command';
 import { reports } from '../schema/reports';
 
-/** Reports over the shared Contacts fence (ADR 0098). */
+/** Reports over the shared Contacts fence (ADR 0103). */
 export type ReportStore = {
   /**
    * Files one report. A second open report of the same member by the same
@@ -181,7 +181,7 @@ async function resolveReport(
   return result;
 }
 
-/** Reports' operations (ADR 0098), instrumented. */
+/** Reports' operations (ADR 0103), instrumented. */
 export const reportOperations = ({
   database,
   eventSink,

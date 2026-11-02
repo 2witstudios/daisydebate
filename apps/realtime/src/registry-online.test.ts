@@ -4,7 +4,7 @@ import { fixture } from './registry.test-support';
 
 setupRitewayBun();
 
-describe('the online ring (ADR 0098)', () => {
+describe('the online ring (ADR 0103)', () => {
   test('reaches a subscriber with no authority read, naming nobody', async () => {
     let reads = 0;
     const { registry, connection, sent } = fixture({

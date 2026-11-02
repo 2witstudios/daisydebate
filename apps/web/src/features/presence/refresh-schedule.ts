@@ -6,7 +6,7 @@ export const ROSTER_CEILING_MS = 30_000;
 const MS_PER_MEMBER = 20;
 
 /**
- * The gap between a browser's reads (ADR 0098). It grows with the list, so the
+ * The gap between a browser's reads (ADR 0103). It grows with the list, so the
  * fleet's request rate stays near 50 reads a second up to about 1,500 online,
  * and a small room still feels instant.
  */

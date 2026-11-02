@@ -214,10 +214,10 @@ export type RoomCommandResponse = {
   readonly receipt: RoomCommandReceipt;
   readonly view: RoomView;
 };
-/** How long a seat stays held for a named member who has not arrived (ADR 0098). */
+/** How long a seat stays held for a named member who has not arrived (ADR 0103). */
 export const ROOM_SEAT_HOLD_MS = 120_000;
 
-/** A debater seat kept for a named member until `until` (ADR 0098). */
+/** A debater seat kept for a named member until `until` (ADR 0103). */
 export type RoomSeatHold = {
   readonly actorId: string;
   readonly until: string;

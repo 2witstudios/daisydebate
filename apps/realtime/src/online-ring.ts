@@ -12,7 +12,7 @@ const statusRows = new Set([
 ]);
 
 /**
- * The online list's doorbell (ADR 0098). Lease writes move one Redis revision,
+ * The online list's doorbell (ADR 0103). Lease writes move one Redis revision,
  * and room, Round and chosen-status changes arrive as outbox rows on every
  * node, so each node rings its own subscribers at most once a tick. Redis being
  * down costs a ring, never a socket: browsers re-read on their own schedule too.

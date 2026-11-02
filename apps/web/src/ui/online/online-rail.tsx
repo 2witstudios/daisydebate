@@ -94,7 +94,7 @@ function RailToggle({
 }
 
 /**
- * Who's online, on every page (ADR 0098): open beside the page, or collapsed to
+ * Who's online, on every page (ADR 0103): open beside the page, or collapsed to
  * avatars with friends first. Below 1101px it stays collapsed and on a phone it
  * gives way to the Lobby's Online view. Filling the whole column keeps it flush
  * to the right edge, mirroring the left rail.

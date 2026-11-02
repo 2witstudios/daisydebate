@@ -65,7 +65,7 @@ CREATE TABLE "room_seat_holds" (
 --> statement-breakpoint
 DROP TABLE "friend_challenges";--> statement-breakpoint
 ALTER TABLE "presence_settings" ADD COLUMN "chosen_status" text;--> statement-breakpoint
--- Hiding was the only choice; it becomes appearing offline (ADR 0098).
+-- Hiding was the only choice; it becomes appearing offline (ADR 0103).
 UPDATE "presence_settings" SET "chosen_status" = CASE WHEN "hidden" THEN 'appearing_offline' ELSE 'online' END;--> statement-breakpoint
 SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "presence_settings" ALTER COLUMN "chosen_status" SET NOT NULL;--> statement-breakpoint
@@ -91,7 +91,7 @@ ALTER TABLE "reports" ADD CONSTRAINT "reports_subject_actor_id_actors_id_fkey" F
 ALTER TABLE "room_seat_holds" ADD CONSTRAINT "room_seat_holds_room_id_rooms_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "room_seat_holds" ADD CONSTRAINT "room_seat_holds_actor_id_actors_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "actors"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "presence_settings" ADD CONSTRAINT "presence_settings_chosen_status_check" CHECK ("chosen_status" in ('online', 'busy', 'appearing_offline'));--> statement-breakpoint
--- ADR 0098: the one rule for a sanction in force, and for a restricted account.
+-- ADR 0103: the one rule for a sanction in force, and for a restricted account.
 CREATE FUNCTION public.daisy_moderation_action_in_force(
   kind text, starts_at timestamptz, ends_at timestamptz, lifted_at timestamptz, at_instant timestamptz
 ) RETURNS boolean
@@ -114,7 +114,7 @@ AS $restriction_in_force$
 $restriction_in_force$;--> statement-breakpoint
 REVOKE ALL ON FUNCTION public.daisy_restriction_in_force(text, timestamptz) FROM PUBLIC;--> statement-breakpoint
 GRANT EXECUTE ON FUNCTION public.daisy_restriction_in_force(text, timestamptz) TO daisy_web;--> statement-breakpoint
--- ADR 0098: a suspension or ban in force withdraws participant access through
+-- ADR 0103: a suspension or ban in force withdraws participant access through
 -- the one account producer, so web and realtime stop at the same check. The
 -- added column is ignored by a release that still selects the old ones.
 DROP FUNCTION public.daisy_authorization_read_accounts_v2(text[]);--> statement-breakpoint
@@ -166,7 +166,7 @@ BEGIN
     -- or for an erased account.
     CASE WHEN u.deleted_at IS NOT NULL THEN NULL::text
       ELSE public.daisy_age_band(ag.birth_month, ag.version, ag.recorded_at, checked) END,
-    -- ADR 0098: a suspension or ban in force at that same instant.
+    -- ADR 0103: a suspension or ban in force at that same instant.
     public.daisy_restriction_in_force(u.id, checked)
     FROM public.users AS u LEFT JOIN public.actors AS a ON a.user_id = u.id
     LEFT JOIN public.account_beta_access AS b ON b.user_id = u.id

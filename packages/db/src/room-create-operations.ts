@@ -101,7 +101,7 @@ export const roomCreateOperations = ({
       readonly seats: readonly InitialCastSeat[];
       readonly apply: InitialCastApplier;
     } | null;
-    /** Members a debater seat stays held for (ADR 0098), the host included. */
+    /** Members a debater seat stays held for (ADR 0103), the host included. */
     readonly holdSeatsFor?: readonly string[];
   }): Promise<RoomCommandReceipt> {
     return instrumented(eventSink, 'createRoomCommand', () =>

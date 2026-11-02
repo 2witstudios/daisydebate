@@ -320,7 +320,7 @@ function ReportView({
 
 /**
  * The one menu a person opens by right-click, three dots, long press or click
- * (ADR 0098): their card, then what the viewer can do. A sheet on a phone.
+ * (ADR 0103): their card, then what the viewer can do. A sheet on a phone.
  */
 export function PersonMenu({
   member,

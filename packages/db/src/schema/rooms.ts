@@ -225,7 +225,7 @@ export const roomParticipants = pgTable(
 );
 
 /**
- * A debater seat kept for a named member until `until` (ADR 0098): both
+ * A debater seat kept for a named member until `until` (ADR 0103): both
  * sides of a challenge, while the room is public and either may be on the way.
  * It reserves, never seats: the member still takes the seat themselves, and an
  * old row holds nothing.

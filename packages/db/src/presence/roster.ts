@@ -72,7 +72,7 @@ const textArray = (values: readonly string[]) =>
   sql`string_to_array(${values.join(',')}, ',')`;
 
 /**
- * Who this reader may see of those online (ADR 0098): named, current humans
+ * Who this reader may see of those online (ADR 0103): named, current humans
  * other than the reader, not appearing offline, with no block either way. The
  * block filter is why this is an HTTP read rather than a shared observed body.
  */
@@ -153,7 +153,7 @@ export async function readAvailability(
   return readSelf(tx, actorId);
 }
 
-/** The online list's read (ADR 0098), instrumented. */
+/** The online list's read (ADR 0103), instrumented. */
 export const rosterOperations = ({
   database,
   eventSink,

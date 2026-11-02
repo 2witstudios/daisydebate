@@ -180,7 +180,7 @@ export const ratingChanges = pgTable(
 );
 
 /**
- * Which ratings a member shows on their card besides Freestyle (ADR 0098).
+ * Which ratings a member shows on their card besides Freestyle (ADR 0103).
  * No row shows Freestyle alone. Ladders stay public either way.
  */
 export const ratingVisibility = pgTable('rating_visibility', {

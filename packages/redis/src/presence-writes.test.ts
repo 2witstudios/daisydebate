@@ -241,7 +241,7 @@ describe('presence lease delete', () => {
   });
 });
 
-describe('the roster revision (ADR 0098)', () => {
+describe('the roster revision (ADR 0103)', () => {
   test('reads as a number, zero before any lease', async () => {
     const { redis } = createTestRedis();
     assert({

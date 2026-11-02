@@ -64,7 +64,7 @@ const unnamed = async <T>(work: () => Promise<T>): Promise<T> => {
 };
 
 /**
- * Offers a debate to anyone available (ADR 0098), ranked or casual. No such
+ * Offers a debate to anyone available (ADR 0103), ranked or casual. No such
  * member, a block, no lease, Busy, appearing offline or already placed are one
  * answer, so a status code never tells a blocked member someone is online.
  * Nothing is created until the other member accepts.

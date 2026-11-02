@@ -3,7 +3,7 @@ import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 
-/** The rating choice's subject rights (ADR 0098): the member's own row. */
+/** The rating choice's subject rights (ADR 0103): the member's own row. */
 export const ratingVisibilityPrivacyAdopter: PrivacyAdopter = {
   id: 'rating-visibility',
   phase: 'after-close',

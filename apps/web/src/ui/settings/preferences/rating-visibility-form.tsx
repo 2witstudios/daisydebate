@@ -11,7 +11,7 @@ const unavailable = (): RatingVisibilityState => ({
 });
 
 /**
- * Which ratings your card shows when people look at you (ADR 0098). Freestyle
+ * Which ratings your card shows when people look at you (ADR 0103). Freestyle
  * always shows. A native form, and your ladders stay public either way.
  */
 export function RatingVisibilityForm({

@@ -12,7 +12,7 @@ const bandsAtFloor: Record<AgeFloor, readonly AgeBand[]> = {
 };
 /**
  * The one participant admission rule (ADR 0075): an approved beta account
- * under no suspension or ban (ADR 0098) whose durable age record meets the
+ * under no suspension or ban (ADR 0103) whose durable age record meets the
  * account floor. A missing age record is no access. Identity, realtime and UI hints ask this, never the raw
  * facts.
  */

@@ -6,7 +6,7 @@ import { contactActorColumn } from './contacts';
 import { rooms } from './rooms';
 
 /**
- * One member's offer to debate another (ADR 0098). Pending while `room_id`
+ * One member's offer to debate another (ADR 0103). Pending while `room_id`
  * is null and `expires_at` is ahead; accepting sets `room_id` and `follow_until`
  * together, for the room the acceptor just opened. Declining or cancelling
  * deletes the row, and it goes with its room.

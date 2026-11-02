@@ -87,7 +87,7 @@ const rosterUrl = (filter: OnlineFilter, query: string, cursor?: string) => {
 };
 
 /**
- * The tab's one view of who is online (ADR 0098). The page
+ * The tab's one view of who is online (ADR 0103). The page
  * opens with the server's read, a ring on the shared socket asks for a fresh
  * one, and a timer covers a ring that never comes. Rings say only that
  * something changed, so what a member sees is always an authorized read.

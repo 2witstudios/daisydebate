@@ -14,7 +14,7 @@ type Visibility = {
   readonly showValue: boolean;
 };
 
-/** Which ratings a member shows on their card besides Freestyle (ADR 0098). */
+/** Which ratings a member shows on their card besides Freestyle (ADR 0103). */
 export const ratingVisibilityOperations = ({
   database,
   eventSink,

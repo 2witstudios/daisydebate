@@ -24,7 +24,7 @@ import { moderationActions } from '../schema/moderation';
 import { appendSessionRevokedFor } from '../session-revoked';
 import { actionInForce } from './in-force';
 
-/** What a reviewer does to an account (ADR 0098). */
+/** What a reviewer does to an account (ADR 0103). */
 export type Sanction =
   | { readonly kind: 'warning' }
   | { readonly kind: 'suspension'; readonly endsAt: string }
@@ -156,7 +156,7 @@ async function liftModeration(
 
 type Scope = { readonly userId: string; readonly actorId: string };
 
-/** Moderation's operations (ADR 0098), instrumented. */
+/** Moderation's operations (ADR 0103), instrumented. */
 export const moderationOperations = ({
   database,
   eventSink,

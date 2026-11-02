@@ -16,7 +16,7 @@ export const REPORT_RULE = { windowSeconds: 3_600, max: 20 } as const;
 export const REPORT_EVIDENCE_RETENTION_MS = 365 * 24 * 60 * 60 * 1000;
 
 /**
- * Files a report (ADR 0098): a reason and where it was made, nothing else. A
+ * Files a report (ADR 0103): a reason and where it was made, nothing else. A
  * safety exit, so it stays open across a block. An unknown name or a closed
  * account answers NOT_FOUND. Filing twice while one is open changes nothing.
  */

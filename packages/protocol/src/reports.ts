@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { usernameSchema as username } from './username';
 
-/** The one reasons list, everywhere a member can report (ADR 0098). */
+/** The one reasons list, everywhere a member can report (ADR 0103). */
 export const reportReasons = [
   'harassment',
   'hate',

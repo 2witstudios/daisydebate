@@ -3,7 +3,7 @@ import type { Clock } from '@daisy/clock';
 import type { ChosenStatus } from '@daisy/protocol';
 import { requireMemberActor } from '../access/actor';
 
-/** The member's own status choice (ADR 0098): Online, Busy or Appear offline. */
+/** The member's own status choice (ADR 0103): Online, Busy or Appear offline. */
 export async function setChosenStatus(
   principal: AuthorizationPrincipal,
   status: ChosenStatus,

@@ -233,7 +233,7 @@ export function retentionTargets({
           limit,
         }),
     },
-    /** Offers past their time; the list already ignores them (ADR 0098). */
+    /** Offers past their time; the list already ignores them (ADR 0103). */
     {
       name: 'retention.challenges',
       batchSize: 1000,

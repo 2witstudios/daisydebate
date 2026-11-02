@@ -6,7 +6,7 @@ import type {
 } from '@daisy/protocol';
 
 /**
- * What anyone sees of a member, the one rule (ADR 0098). Appearing offline or
+ * What anyone sees of a member, the one rule (ADR 0103). Appearing offline or
  * holding no lease is offline, and nothing tells which. Being in a Round or a
  * room shows over a chosen status, then Busy; otherwise activity decides.
  */

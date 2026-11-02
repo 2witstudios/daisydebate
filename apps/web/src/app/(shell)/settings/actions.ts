@@ -35,7 +35,7 @@ export async function saveNotificationsAction(
 
 const ratingVisibilityRoute = processRoute((all) => all.ratingVisibility.write);
 
-/** Which ratings the member's card shows besides Freestyle (ADR 0098). */
+/** Which ratings the member's card shows besides Freestyle (ADR 0103). */
 export async function saveRatingVisibilityAction(
   _previous: RatingVisibilityState,
   form: FormData,

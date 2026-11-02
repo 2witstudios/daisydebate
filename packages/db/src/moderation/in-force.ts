@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 
-/** The one rule for a sanction in force, in SQL (ADR 0098), on `moderation_actions`. */
+/** The one rule for a sanction in force, in SQL (ADR 0103), on `moderation_actions`. */
 export const actionInForce = (at: Date) =>
   sql`public.daisy_moderation_action_in_force(moderation_actions.kind, moderation_actions.starts_at, moderation_actions.ends_at, moderation_actions.lifted_at, ${at}::timestamptz)`;
 

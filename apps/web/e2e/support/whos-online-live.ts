@@ -5,7 +5,7 @@ import { expect, openPage, test } from './fixtures';
 import { origin, resetRateLimits, signUpMember } from './accounts';
 
 /**
- * The connected outcome (ADR 0098): two members on different pages see each
+ * The connected outcome (ADR 0103): two members on different pages see each
  * other online, live, one challenges the other, ranked, and they land in the
  * same room. Then what must stop it: Busy, and a block.
  */

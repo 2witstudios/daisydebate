@@ -6,7 +6,7 @@ import { exportRows } from '../privacy/export-rows';
 const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
 
 /**
- * Reports' subject rights (ADR 0098). Closing an account never wipes its
+ * Reports' subject rights (ADR 0103). Closing an account never wipes its
  * record: reports about the subject stay through their proposed retention
  * (DEC-298), and a report they filed stays with its reporter removed, so one
  * member's erasure cannot empty another's report from the queue. Export gives a

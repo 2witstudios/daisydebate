@@ -1,5 +1,5 @@
 /**
- * One scan of the online set per web process per second (ADR 0098): every
+ * One scan of the online set per web process per second (ADR 0103): every
  * browser re-reads after a ring, and they all need the same ids. Concurrent
  * callers share the scan in flight. A failure is not kept.
  */

@@ -4,7 +4,7 @@ import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
 
 /**
- * Moderation's subject rights (ADR 0098). Closing an account never wipes its
+ * Moderation's subject rights (ADR 0103). Closing an account never wipes its
  * sanctions: they stay through their proposed retention (DEC-298). Export gives
  * the subject their own.
  */

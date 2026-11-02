@@ -2,7 +2,7 @@ import { OnboardingFrame } from '../onboarding/frame/frame';
 import { AccountExit } from '../onboarding/account-exit/account-exit';
 
 /**
- * Where a suspended or banned account lands (ADR 0098). Plain markup, so it
+ * Where a suspended or banned account lands (ADR 0103). Plain markup, so it
  * works without JavaScript; export and deletion stay one link away.
  */
 export function RestrictedAccount({

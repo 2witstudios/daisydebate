@@ -26,7 +26,7 @@ type CardRecordRow = {
 };
 
 /**
- * What each person's card may show (ADR 0098): every rated ladder they turned
+ * What each person's card may show (ADR 0103): every rated ladder they turned
  * on, Freestyle always, in the active season, and the shape of their public
  * record, taken as a named read of Ratings and Rounds. One read for a page of
  * people. Ladders stay public regardless.
