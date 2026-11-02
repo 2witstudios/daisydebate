@@ -62,6 +62,11 @@ export type DryRunFacts = {
   }[];
 };
 
+type DryRunPrediction = {
+  readonly mostNewPaidCalls: number;
+  readonly [fact: string]: unknown;
+};
+
 /** The calls one job may buy; the job itself enforces this. */
 const MAX_CALLS = 2;
 /** `judgingJobCanRule`'s grace for a worker to submit a held ballot. */
@@ -154,7 +159,10 @@ export function predictRoundCompletion(facts: DryRunFacts) {
   };
   const done = (prediction: Record<string, unknown>) => ({
     ...report,
-    prediction: { mostNewPaidCalls: newPaidCalls(facts), ...prediction },
+    prediction: {
+      mostNewPaidCalls: newPaidCalls(facts),
+      ...prediction,
+    } as DryRunPrediction,
   });
   if (facts.status !== 'active')
     return done({ result: 'unchanged', reason: 'already_terminal' });
