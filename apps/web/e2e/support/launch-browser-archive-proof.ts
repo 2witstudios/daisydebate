@@ -189,6 +189,8 @@ try {
     try {
       await check();
     } finally {
+      // Tar wrote over the zero tail, so clear it back to zeros before regrowing.
+      await tail.truncate(end);
       await tail.truncate(size);
       await tail.close();
       await rm(source, { recursive: true, force: true });
