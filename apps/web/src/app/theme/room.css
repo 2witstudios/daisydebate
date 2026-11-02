@@ -1,23 +1,21 @@
-/* The debater's round room (ADR 0054). The video height is
-   person-adjustable, so it lives in custom properties the room sets through
-   the CSSOM (never a style attribute, which the nonce CSP refuses); these
-   utilities read them with the defaults the room starts from. */
+/* The debater's round room (ADR 0097). The tile height follows the phase, so
+   it lives in a custom property the room sets through the CSSOM (never a style
+   attribute, which the nonce CSP refuses). */
 
 @theme {
   /* The round room's fixed metrics: a touch target, the round bar, the
-     controls row, the drawer, the layout menu and the leave confirm. */
+     controls row, the Files sidebar and the leave confirm. */
   --spacing-room-target: 44px;
   --spacing-round-bar: 56px;
   --spacing-round-controls: 72px;
-  --spacing-round-drawer: 300px;
-  --spacing-room-menu: 160px;
+  --spacing-round-drawer: 260px;
+  --spacing-room-details: 288px;
   --spacing-room-dialog: 320px;
-  /* The video band: initials discs by tile size, the bot persona card, and
-     a phone's two small tiles. */
+  /* The video tiles: initials discs by tile size and a phone's two small
+     tiles. */
   --spacing-room-disc: 112px;
   --spacing-room-disc-md: 80px;
   --spacing-room-disc-sm: 56px;
-  --spacing-room-persona: 340px;
   --spacing-room-phone-tile: 100px;
   /* The spectator view: the speaker's stage, the other debater's inset
      tile and the live column (transcript and chat). */
@@ -27,13 +25,50 @@
   --aspect-video: 16 / 9;
 }
 
-@utility room-video-band {
-  height: var(--room-video, 300px);
-  box-sizing: content-box;
+@utility round-sidebar {
+  width: clamp(260px, 26vw, 340px);
 
-  /* A phone shows both debaters small above the document. */
-  @media (width < 641px) {
-    height: auto;
+  @media (width < 901px) {
+    width: 100%;
+  }
+}
+
+/* Inside the Round's top section the live tiles sit in one row, sized by the
+   phase and capped so a short or narrow window keeps its workspace. The judge
+   room keeps MediaStage's own full-width grid. */
+@utility room-stage {
+  & [data-room-media='grid'] {
+    display: flex;
+    background: transparent;
+    padding: 0;
+    gap: 12px;
+  }
+
+  & [data-room-media='tile'] {
+    flex: none;
+    width: min(
+      calc(var(--room-tile-height, 200px) * 16 / 9),
+      24vw,
+      calc(30dvh * 16 / 9)
+    );
+  }
+
+  & [data-room-media='status'] {
+    background: transparent;
+    padding: 4px 0 0;
+  }
+
+  @media (width < 901px) {
+    & [data-room-media='grid'] {
+      display: grid;
+      gap: 8px;
+    }
+
+    & [data-room-media='tile'] {
+      width: auto;
+      height: var(--spacing-room-phone-tile);
+      aspect-ratio: auto;
+    }
   }
 }
 
@@ -50,7 +85,7 @@
 }
 
 @utility room-workspace {
-  min-height: var(--room-workspace, 516px);
+  min-height: 516px;
 }
 
 /* Tiptap runs with injectCSS off (its style tag carries no nonce); these are

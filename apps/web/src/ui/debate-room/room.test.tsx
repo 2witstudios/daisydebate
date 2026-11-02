@@ -16,23 +16,45 @@ const renderRound = (round: RoundSnapshot) =>
 const count = (html: string, pattern: RegExp) =>
   (html.match(pattern) ?? []).length;
 
+const before = (html: string, first: string, second: string) =>
+  html.indexOf(first) >= 0 && html.indexOf(first) < html.indexOf(second);
+
 describe('DebateRoom', () => {
   test('the frame before any script runs', () => {
     const html = render('opponent-speaking', 'casual');
     assert({
       given: 'a casual round while the opponent speaks',
       should:
-        'draw the round bar, one drawer with four tabs, the debaters, the centred clock, one video divider and the document',
+        'draw the round section, the clock, then Files, the document and a sidebar with three tabs',
       actual: [
-        html.includes('aria-label="Hide drawer" aria-expanded="true"'),
-        html.includes('aria-label="Round drawer"'),
-        count(html, /role="tab"/g),
-        html.includes('aria-label="Debaters"'),
+        html.includes('aria-label="Round"'),
         html.includes('role="timer" aria-label="1AR 2:46"'),
-        count(html, /role="separator"/g),
-        html.includes('aria-label="Document"'),
+        before(html, 'aria-label="Round"', 'aria-label="Your files"'),
+        before(html, 'aria-label="Your files"', 'aria-label="Document"'),
+        before(html, 'aria-label="Document"', 'aria-label="Round sidebar"'),
+        count(html, /role="tab"/g),
+        html.includes('role="separator"'),
       ],
-      expected: [true, true, 4, true, true, 1, true],
+      expected: [true, true, true, true, true, 3, false],
+    });
+  });
+
+  test('the same help in every Round', () => {
+    const tabs = (html: string) =>
+      [...html.matchAll(/role="tab"[^>]*>([^<]+)/g)].map((m) => m[1]);
+    const ranked = render('prep', 'ranked');
+    assert({
+      given: 'a ranked Round and a casual one',
+      should:
+        'offer both the same tabs, the club’s drive and the AI panel, and mark only the rank',
+      actual: [
+        tabs(ranked),
+        tabs(ranked).join() === tabs(render('prep', 'casual')).join(),
+        ranked.includes('Riverside Debate'),
+        ranked.includes('Ask Assistant'),
+        ranked.includes('>Ranked<'),
+      ],
+      expected: [['Transcript', 'Channels', 'AI chat'], true, true, true, true],
     });
   });
 
@@ -72,76 +94,46 @@ describe('DebateRoom', () => {
     });
   });
 
-  test('a ranked round', () => {
-    const html = render('prep', 'ranked');
-    assert({
-      given: 'a ranked round',
-      should:
-        'show the Ranked badge, offer Files, Chat and Room only, and list no club folder',
-      actual: [
-        html.includes('>Ranked<'),
-        count(html, /role="tab"/g),
-        />AI</.test(html),
-        html.includes('Riverside Debate'),
-        render('prep', 'casual').includes('Riverside Debate'),
-      ],
-      expected: [true, 3, false, false, true],
-    });
-  });
-
-  test('the layout menu', () => {
-    assert({
-      given: 'Auto layout during cross-examination',
-      should: 'name the preset Auto chose on the menu button',
-      actual: render('cross-ex', 'casual').includes(
-        'aria-label="Layout: Auto, Stage"',
-      ),
-      expected: true,
-    });
-  });
-
-  test('the speaker layout', () => {
-    const html = render('opponent-speaking', 'casual');
-    assert({
-      given: 'Auto while the opponent speaks',
-      should:
-        'name Speaker on the menu, put the speaker in the large tile and list what comes next',
-      actual: [
-        html.includes('aria-label="Layout: Auto, Speaker"'),
-        html.includes('aria-label="Maya Okafor, speaking"'),
-        html.includes('aria-label="Sam Reyes, you"'),
-        />Next</.test(html),
-        />NR · You · 5:00</.test(html),
-        />Then</.test(html),
-      ],
-      expected: [true, true, true, true, true, true],
-    });
-  });
-
-  test('cross-examination', () => {
+  test('no layout controls', () => {
     const html = render('cross-ex', 'casual');
     assert({
-      given: 'cross-examination',
-      should: 'show the asker and the answerer as equal tiles',
-      actual: [
-        html.includes('aria-label="Sam Reyes, you, asking"'),
-        html.includes('aria-label="Maya Okafor, answering"'),
-      ],
-      expected: [true, true],
+      given: 'any phase',
+      should: 'offer no layout menu and no video divider',
+      actual: [html.includes('Layout:'), html.includes('Resize video')],
+      expected: [false, false],
     });
   });
 
-  test('prep and judging', () => {
+  test('the transcript slot', () => {
+    const round = sampleRound('opponent-speaking', 'casual');
+    const slot = renderToString(
+      h(DebateRoom, { round, transcript: h('p', null, 'the line') }),
+    );
     assert({
-      given: 'prep, then judging',
-      should: 'make the video small, then hold a conversation',
+      given: 'a viewer with a transcript, then one without',
+      should:
+        'show it in the sidebar’s open panel, else say there is none and keep the panel',
       actual: [
-        render('prep', 'casual').includes('aria-label="Layout: Auto, Focus"'),
-        render('judging', 'casual').includes(
-          'aria-label="Layout: Auto, Conversation"',
-        ),
+        slot.includes('the line'),
+        slot.includes('No transcript.'),
+        renderRound(round).includes('No transcript.'),
       ],
-      expected: [true, true],
+      expected: [true, false, true],
+    });
+  });
+
+  test('page notices stay inside the frame', () => {
+    const html = renderToString(
+      h(DebateRoom, {
+        round: sampleRound('prep', 'casual'),
+        notices: h('p', null, 'the notice'),
+      }),
+    );
+    assert({
+      given: 'a page-level notice',
+      should: 'render it inside the viewport-height frame',
+      actual: html.indexOf('h-dvh') < html.indexOf('the notice'),
+      expected: true,
     });
   });
 
@@ -210,71 +202,28 @@ describe('DebateRoom', () => {
     });
   });
 
-  test('the transcript after the last speech', () => {
+  test('the recording after the last speech', () => {
     const html = render('judging', 'casual');
     assert({
-      given: 'the judging window of a transcribed, recorded round',
-      should: 'mark the transcript complete and the recording stopped',
-      actual: [
-        html.includes('● Live'),
-        html.includes('>Complete<'),
-        html.includes('>Recording stopped<'),
-        html.includes('● Rec'),
-      ],
-      expected: [false, true, true, false],
+      given: 'the judging window of a recorded round',
+      should: 'mark the recording stopped',
+      actual: [html.includes('>Recording stopped<'), html.includes('● Rec')],
+      expected: [true, false],
     });
   });
 
-  test('44px targets and 12px drawer text', () => {
+  test('44px targets and 12px sidebar text', () => {
     const html = render('judging', 'casual');
-    const drawer = html.slice(
-      html.indexOf('aria-label="Round drawer"'),
-      html.indexOf('id="round-column"'),
-    );
     assert({
-      given: 'the judging window with its transcript open',
+      given: 'the sidebars',
       should:
-        'size the filter chips, Add to Flow and the video divider at the target, ring the divider on focus, and keep drawer text at 12px or more',
+        'size the file and new-document controls at the target and keep text at 12px or more',
       actual: [
-        count(html, /aria-pressed="(?:true|false)" class="h-room-target /g) > 1,
-        count(html, /aria-label="Add to Flow" class="flex size-room-target /g) >
-          0,
-        /role="separator"[^>]*class="[^"]*h-room-target[^"]*focus-visible:ring-2/.test(
-          html,
-        ),
-        drawer.length > 0 && !drawer.includes('text-2xs'),
+        /aria-label="New document" class="[^"]*size-room-target/.test(html),
+        /aria-label="Hide files"[^>]*class="[^"]*size-room-target/.test(html),
+        html.includes('text-2xs'),
       ],
-      expected: [true, true, true, true],
-    });
-  });
-
-  test('a bot opponent', () => {
-    const round = sampleRound('opponent-speaking', 'casual');
-    const html = renderRound({
-      ...round,
-      opponent: {
-        ...round.opponent,
-        name: 'Wren',
-        bot: { level: 'Intermediate' },
-      },
-      voiceLevel: 0.5,
-    });
-    assert({
-      given: 'a bot opponent speaking',
-      should:
-        'show its persona card with a voice meter and live captions instead of a video tile',
-      actual: [
-        html.includes('aria-label="Wren, speaking"'),
-        html.includes('>Bot · Intermediate · Aff<'),
-        html.includes('role="meter" aria-label="Voice level"'),
-        html.includes('aria-valuenow="50"'),
-        html.includes(
-          'role="log" aria-live="polite" aria-label="Live captions"',
-        ),
-        html.includes('Fibers degrade within months.'),
-        html.includes('aria-label="Debaters"'),
-      ],
-      expected: [true, true, true, true, true, true, false],
+      expected: [true, true, false],
     });
   });
 });

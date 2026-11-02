@@ -1,55 +1,41 @@
 'use client';
 
-import { useMemo, type Dispatch } from 'react';
-import {
-  groupTranscript,
-  TRANSCRIPT_ID,
-} from '../../features/debate-room/transcript';
+import type { Dispatch } from 'react';
 import { DocumentPane, type SaveState } from './document-pane';
-import type { RoomAction, RoomState } from './room-state';
-import type { RoundSnapshot } from './round';
-import { RecoveredNotes } from './recovered-notes';
 import type { DocumentSync } from './document-sync';
-import { TranscriptView } from './transcript-view';
+import { ShowFiles } from './files-sidebar';
+import { RecoveredNotes } from './recovered-notes';
+import type { RoomAction, RoomState } from './room-state';
 
-/** The open files below the video: tabs, saved state, editor or transcript. */
+/** The open documents: tabs, saved state and the editor, or a way to start one. */
 export function RoomDocument({
-  round,
   state,
   dispatch,
   onEdit,
+  onNew,
   save,
   sync,
 }: {
   readonly sync?: DocumentSync;
-  readonly round: RoundSnapshot;
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
   readonly onEdit: ((id: string, html: string) => void) | undefined;
+  readonly onNew: () => void;
   readonly save: SaveState | null;
 }) {
-  const sections = useMemo(
-    () =>
-      groupTranscript(round.transcript, round.speeches, (slot) =>
-        slot.side === round.self.side ? 'You' : round.opponent.name,
-      ),
-    [round],
-  );
-  const live =
-    round.phase === 'opponent-speaking'
-      ? (round.speeches[round.liveIndex]?.id ?? null)
-      : null;
   return (
     <section
       aria-label="Document"
-      className="flex room-workspace flex-1 flex-col bg-surface-raised max-narrow:rounded-t-xl"
+      className="flex min-h-0 flex-1 flex-col bg-surface-raised"
     >
       {sync ? (
-        <RecoveredNotes
-          documents={state.documents}
-          sync={sync}
-          dispatch={dispatch}
-        />
+        <div className="max-h-1/2 shrink-0 overflow-y-auto empty:hidden">
+          <RecoveredNotes
+            documents={state.documents}
+            sync={sync}
+            dispatch={dispatch}
+          />
+        </div>
       ) : null}
       <DocumentPane
         documents={state.documents}
@@ -58,16 +44,19 @@ export function RoomDocument({
         dispatch={dispatch}
         onEdit={onEdit}
         save={save}
-      >
-        {state.tabs.active === TRANSCRIPT_ID ? (
-          <TranscriptView
-            sections={sections}
-            liveSpeechId={live}
-            filter={state.transcriptFilter}
-            dispatch={dispatch}
-          />
-        ) : null}
-      </DocumentPane>
+        leading={<ShowFiles state={state} dispatch={dispatch} />}
+        empty={
+          <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+            <button
+              type="button"
+              onClick={onNew}
+              className="h-room-target cursor-pointer rounded-sm bg-accent px-4 text-sm font-strong text-accent-ink hover:bg-accent-strong"
+            >
+              New document
+            </button>
+          </div>
+        }
+      />
     </section>
   );
 }

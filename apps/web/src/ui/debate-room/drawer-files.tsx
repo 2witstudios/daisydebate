@@ -2,7 +2,6 @@
 
 import type { Dispatch } from 'react';
 import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
-import { TRANSCRIPT_ID } from '../../features/debate-room/transcript';
 import type { TreeNode } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
@@ -20,12 +19,10 @@ type Props = {
   readonly tree: readonly TreeNode[];
   readonly active: string | null;
   readonly dispatch: Dispatch<RoomAction>;
-  /** The round's transcript: being written, complete, or none kept. */
-  readonly transcript: 'live' | 'complete' | null;
 };
 
-/** Open or create, then This round, My library and the club's shared files. */
-export function DrawerFiles({ tree, active, dispatch, transcript }: Props) {
+/** Open or create, then the viewer's drive and their club's. */
+export function DrawerFiles({ tree, active, dispatch }: Props) {
   const open = (id: string) => dispatch({ type: 'tabs/open', id });
   return (
     <nav aria-label="Files" className="flex min-h-0 flex-1 flex-col gap-4">
@@ -57,25 +54,6 @@ export function DrawerFiles({ tree, active, dispatch, transcript }: Props) {
               ) : null}
             </h2>
             <ul className="flex flex-col gap-px">
-              {node.folder.id === 'round' && transcript !== null ? (
-                <li>
-                  <button
-                    type="button"
-                    aria-current={active === TRANSCRIPT_ID ? 'page' : undefined}
-                    className={row(active === TRANSCRIPT_ID)}
-                    onClick={() => open(TRANSCRIPT_ID)}
-                  >
-                    <span className="min-w-0 flex-1 truncate">Transcript</span>
-                    {transcript === 'live' ? (
-                      <span className="text-xs font-strong text-live">
-                        ● Live
-                      </span>
-                    ) : (
-                      <span className="text-xs text-ink-muted">Complete</span>
-                    )}
-                  </button>
-                </li>
-              ) : null}
               {node.documents.map((doc: WorkspaceDocument) => (
                 <li key={doc.id}>
                   <button

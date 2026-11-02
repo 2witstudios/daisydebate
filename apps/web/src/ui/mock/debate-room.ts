@@ -3,7 +3,6 @@ import type { ChatMessage } from '../../features/debate-room/chat';
 import type { SpeechSlot } from '../../features/debate-room/documents/documents';
 import { judgingClockOf } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
-import type { TranscriptSegment } from '../../features/debate-room/transcript';
 import type { Debater, RoundSnapshot } from '../debate-room/round';
 import { sampleRoomDocuments } from './debate-room-docs';
 
@@ -131,60 +130,6 @@ const messages: readonly ChatMessage[] = [
   message('m7', 'general', ana, 'Practice moves to Thursday this week.', 5),
 ];
 
-const segment = (
-  id: string,
-  speechId: string,
-  offsetMs: number,
-  text: string,
-): TranscriptSegment => ({
-  id,
-  speechId,
-  offsetMs,
-  text,
-});
-
-const transcript: readonly TranscriptSegment[] = [
-  segment(
-    't1',
-    'ac',
-    12_000,
-    'Plastic in the ocean doesn’t go away. That’s why this harm outweighs.',
-  ),
-  segment('t2', 'ac', 65_000, 'Eight million tonnes a year enter the ocean.'),
-  segment(
-    't3',
-    'ac',
-    220_000,
-    'Kenya banned plastic bags in 2017, and it worked.',
-  ),
-  segment('t4', 'nc', 20_000, 'Weigh this round on net emissions.'),
-  segment(
-    't5',
-    'nc',
-    130_000,
-    'Paper and glass carry higher lifecycle emissions.',
-  ),
-  segment('t6', 'nc', 270_000, 'The plan has no medical exemption.'),
-  segment(
-    't7',
-    '1ar',
-    62_000,
-    'On their framework, plastic is permanent. Emissions are not.',
-  ),
-  segment(
-    't8',
-    '1ar',
-    118_000,
-    'Fibers degrade within months. That turn goes away.',
-  ),
-  segment(
-    't9',
-    '1ar',
-    131_000,
-    'On the medical point, our plan exempts hospitals, so',
-  ),
-];
-
 const phases: Readonly<
   Record<
     Exclude<RoundPhase, 'waiting'>,
@@ -246,13 +191,11 @@ export function sampleRound(
     ballots: { judge: 'human', ai: 'ready' },
     stakes: competition === 'ranked' ? { win: 14, loss: 12 } : null,
     recording: true,
-    transcribing: true,
     speeches,
     liveIndex: at.liveIndex,
     clock: at.clock,
     prepMs: { neg: at.prepMs, aff: 120_000 },
     micLive: at.micLive,
-    voiceLevel: 0,
     clubName: 'Riverside Debate',
     documents: sampleRoomDocuments,
     channels: [
@@ -296,13 +239,8 @@ export function sampleRound(
       ],
     },
     agentPrompts: {
-      assistant: [
-        'What did they drop?',
-        'Add the 1AR to Flow',
-        'Tighten my NR plan',
-      ],
+      assistant: ['What did they drop?', 'Tighten my NR plan'],
       drill: ['Drill me', 'Review my last round'],
     },
-    transcript,
   };
 }

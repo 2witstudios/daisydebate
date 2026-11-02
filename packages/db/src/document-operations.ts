@@ -1,15 +1,13 @@
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { documents, roundDocumentRefs } from './schema/documents';
+import { documents } from './schema/documents';
 
 export type DocumentRecord = {
   readonly id: string;
   readonly ownerActorId: string;
   readonly title: string;
   readonly html: string;
-  readonly templateId: string;
-  readonly folder: string;
   readonly revision: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -25,8 +23,6 @@ const documentColumns = {
   ownerActorId: documents.ownerActorId,
   title: documents.title,
   html: documents.html,
-  templateId: documents.templateId,
-  folder: documents.folder,
   revision: documents.revision,
   createdAt: documents.createdAt,
   updatedAt: documents.updatedAt,
@@ -39,24 +35,10 @@ const toDocumentRecord = (
   ownerActorId: row.ownerActorId,
   title: row.title,
   html: row.html,
-  templateId: row.templateId,
-  folder: row.folder,
   revision: row.revision,
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
 });
-
-/** Each owned or referenced document once (a later row wins), ordered by title. */
-export const workspaceDocuments = (
-  owned: readonly DocumentRecord[],
-  referenced: readonly DocumentRecord[],
-): DocumentRecord[] => {
-  const byId = new Map<string, DocumentRecord>();
-  for (const row of [...owned, ...referenced]) byId.set(row.id, row);
-  return [...byId.values()].sort((a, b) =>
-    a.title < b.title ? -1 : a.title > b.title ? 1 : 0,
-  );
-};
 
 /** A swapped row saved; otherwise a present document conflicts, an absent one is missing. */
 export const documentSaveOutcome = (
@@ -72,7 +54,7 @@ export const documentSaveOutcome = (
 /**
  * The member's prep documents (ADR 0054, ADR 0058 §9): owned by an actor,
  * with no round FK — the round's workspace is a view over what the owner
- * can read, carried by `round_document_refs`. A save is a revision
+ * can read. A save is a revision
  * compare-and-swap; a rename never touches the revision, so an open
  * editor keeps saving.
  */
@@ -88,8 +70,6 @@ export const documentOperations = ({
     readonly ownerActorId: string;
     readonly title: string;
     readonly html: string;
-    readonly templateId: string;
-    readonly folder: 'library' | 'scratch';
   }): Promise<DocumentRecord> {
     return instrumented(eventSink, 'createDocument', async () => {
       const [row] = await database
@@ -99,8 +79,6 @@ export const documentOperations = ({
           ownerActorId: input.ownerActorId,
           title: input.title,
           html: input.html,
-          templateId: input.templateId,
-          folder: input.folder,
         })
         .returning();
       if (!row) throw new Error('Document insert returned no row');
@@ -108,46 +86,17 @@ export const documentOperations = ({
     });
   },
 
-  /**
-   * Only the reader's own documents. A round ref scopes a document into a
-   * workspace; it grants no sharing permission. Round workspaces include
-   * the owner's library and referenced scratch; an unscoped list includes
-   * all owned documents. Ordered by title.
-   */
+  /** Only the reader's own documents, ordered by title. */
   async listDocuments(input: {
     readonly ownerActorId: string;
-    readonly roundId: string | null;
   }): Promise<readonly DocumentRecord[]> {
-    return instrumented(eventSink, 'listDocuments', async () => {
-      const owned = await database
+    return instrumented(eventSink, 'listDocuments', async () =>
+      database
         .select(documentColumns)
         .from(documents)
-        .where(
-          and(
-            eq(documents.ownerActorId, input.ownerActorId),
-            input.roundId === null
-              ? undefined
-              : eq(documents.folder, 'library'),
-          ),
-        );
-      const referenced =
-        input.roundId === null
-          ? []
-          : await database
-              .select(documentColumns)
-              .from(roundDocumentRefs)
-              .innerJoin(
-                documents,
-                eq(documents.id, roundDocumentRefs.documentId),
-              )
-              .where(
-                and(
-                  eq(roundDocumentRefs.roundId, input.roundId),
-                  eq(documents.ownerActorId, input.ownerActorId),
-                ),
-              );
-      return workspaceDocuments(owned, referenced);
-    });
+        .where(eq(documents.ownerActorId, input.ownerActorId))
+        .orderBy(documents.title),
+    );
   },
 
   async saveDocument(input: {
@@ -207,27 +156,6 @@ export const documentOperations = ({
         )
         .returning();
       return row ? toDocumentRecord(row) : null;
-    });
-  },
-
-  /**
-   * Scopes a document into one round's workspace. Scope, not existence:
-   * removing the ref never touches the owned document.
-   */
-  async attachRoundDocument(input: {
-    readonly roundId: string;
-    readonly documentId: string;
-    readonly role: 'flow' | 'case' | 'evidence' | 'notes';
-  }): Promise<void> {
-    return instrumented(eventSink, 'attachRoundDocument', async () => {
-      await database
-        .insert(roundDocumentRefs)
-        .values({
-          roundId: input.roundId,
-          documentId: input.documentId,
-          role: input.role,
-        })
-        .onConflictDoNothing();
     });
   },
 });

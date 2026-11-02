@@ -1,28 +1,15 @@
 'use client';
 
 import { startSpeechLabel } from '../../features/debate-room/vocabulary';
-import {
-  useEffect,
-  useRef,
-  useState,
-  type Dispatch,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+import type { ReactNode } from 'react';
 import {
   clockMilestone,
   clockUrgency,
   type ClockUrgency,
 } from '../../features/debate-room/clock';
 import { formatCountdown } from '../../lib/clock-display';
-import {
-  effectivePreset,
-  layoutPresets,
-  type LayoutMode,
-} from '../../features/debate-room/layout';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
-import type { RoomAction, RoomState } from './room-state';
 import type { RoundSnapshot } from './round';
 
 const urgencyInk: Readonly<Record<ClockUrgency, string>> = {
@@ -42,8 +29,6 @@ const sideName = { aff: 'Affirmative', neg: 'Negative' } as const;
 
 type Props = {
   readonly round: RoundSnapshot;
-  readonly state: RoomState;
-  readonly dispatch: Dispatch<RoomAction>;
   readonly actions?: ReactNode;
 };
 
@@ -94,108 +79,6 @@ function TechIssue({
   );
 }
 
-const presetNames: Readonly<Record<LayoutMode, string>> = {
-  auto: 'Auto',
-  speaker: 'Speaker',
-  stage: 'Stage',
-  focus: 'Focus',
-  conversation: 'Conversation',
-};
-
-/**
- * The video layout: Auto follows the phase; a preset, or resizing the
- * video, pins the preset shown. The sizes belong to the layout module.
- */
-export function LayoutMenu({ round, state, dispatch }: Props) {
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const menu = useRef<HTMLUListElement>(null);
-  const shown = effectivePreset(state.layout, round.phase);
-  const label =
-    state.layout.mode === 'auto'
-      ? `Auto · ${presetNames[shown]}`
-      : presetNames[state.layout.mode];
-  useEffect(() => {
-    if (open)
-      menu.current
-        ?.querySelector<HTMLButtonElement>('[aria-checked="true"]')
-        ?.focus();
-  }, [open]);
-  const close = () => {
-    setOpen(false);
-    trigger.current?.focus();
-  };
-  const key = (event: KeyboardEvent<HTMLUListElement>) => {
-    const items = [
-      ...(menu.current?.querySelectorAll<HTMLButtonElement>(
-        '[role="menuitemradio"]',
-      ) ?? []),
-    ];
-    const at = items.indexOf(document.activeElement as HTMLButtonElement);
-    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
-    if (event.key === 'Escape' || event.key === 'Tab') {
-      if (event.key === 'Escape') event.preventDefault();
-      close();
-    } else if (step !== undefined) {
-      event.preventDefault();
-      items[(at + step + items.length) % items.length]?.focus();
-    }
-  };
-  return (
-    <div className="relative">
-      <button
-        ref={trigger}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls="round-layout-menu"
-        aria-label={`Layout: ${label.replace(' · ', ', ')}`}
-        onClick={() => setOpen(!open)}
-        className={quiet}
-      >
-        {label}
-        <Icon name="chevronDown" size={14} />
-      </button>
-      {open ? (
-        <ul
-          ref={menu}
-          id="round-layout-menu"
-          role="menu"
-          aria-label="Layout"
-          onKeyDown={key}
-          className="absolute right-0 bottom-full z-40 mb-2 flex w-room-menu flex-col rounded-md border border-border-strong bg-surface p-1 shadow-2"
-        >
-          {(['auto', ...layoutPresets] as const).map((mode) => (
-            <li key={mode} role="none">
-              <button
-                type="button"
-                role="menuitemradio"
-                aria-checked={state.layout.mode === mode}
-                tabIndex={-1}
-                className={cn(
-                  'flex h-room-target w-full cursor-pointer items-center gap-2 rounded-sm px-3 text-left text-sm hover:bg-surface-raised',
-                  state.layout.mode === mode && 'font-strong',
-                )}
-                onClick={() => {
-                  dispatch({ type: 'layout/mode', mode });
-                  close();
-                }}
-              >
-                <span className="w-4">
-                  {state.layout.mode === mode ? (
-                    <Icon name="check" size={14} />
-                  ) : null}
-                </span>
-                {presetNames[mode]}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
 /** Both sides' prep left, until the speeches end. */
 function PrepClocks({ round }: { readonly round: RoundSnapshot }) {
   const prep = round.prepMs;
@@ -222,7 +105,7 @@ const idleLabel = (round: RoundSnapshot) => {
 function MainClock({ round }: { readonly round: RoundSnapshot }) {
   const { clock } = round;
   const center =
-    'flex flex-col items-center leading-tight max-narrow:items-end';
+    'flex flex-col items-center leading-tight max-compact:items-end';
   if (!clock)
     return (
       <div className={center}>
@@ -259,17 +142,13 @@ function MainClock({ round }: { readonly round: RoundSnapshot }) {
 
 /**
  * Three columns: the mic the server controls and both prep clocks; the
- * clock; the phase action, Tech issue and the layout menu. No Mute.
+ * clock; the phase action and Tech issue. No Mute.
  */
-export function RoundControls({
-  round,
-  layout,
-  actions,
-}: Props & { readonly layout?: ReactNode }) {
+export function RoundControls({ round, actions }: Props) {
   return (
     <nav
       aria-label="Round controls"
-      className="grid min-h-round-controls shrink-0 grid-cols-3 items-center gap-4 border-y border-border px-4 py-2 max-narrow:grid-cols-2 max-narrow:border-y-0"
+      className="grid min-w-0 flex-1 grid-cols-3 items-center gap-4 max-compact:flex-none max-compact:grid-cols-2"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <span
@@ -286,10 +165,9 @@ export function RoundControls({
         <PrepClocks round={round} />
       </div>
       <MainClock round={round} />
-      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-narrow:hidden">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-compact:hidden">
         {actions ?? <PhaseActions round={round} />}
         <TechIssue round={round} />
-        {layout}
       </div>
     </nav>
   );
@@ -298,7 +176,7 @@ export function RoundControls({
 /** A phone's actions, above its round tabs. */
 export function PhoneActions(props: Props) {
   return (
-    <div className="flex shrink-0 gap-2 border-t border-border bg-surface-raised px-4 py-2 narrow:hidden">
+    <div className="flex shrink-0 gap-2 border-t border-border bg-surface-raised px-4 py-2 compact:hidden">
       <TechIssue round={props.round} wide />
       {props.actions ?? <PhaseActions round={props.round} wide />}
     </div>

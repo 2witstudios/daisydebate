@@ -20,9 +20,8 @@ const member: Extract<Identity, { state: 'member' }> = {
 
 const document = {
   id: DOC,
-  title: 'Flow',
-  folder: 'round' as const,
-  templateId: 'flow' as const,
+  title: 'Notes',
+  folder: 'library' as const,
   html: '<p>\n</p>',
   createdAt: '2026-10-05T18:00:00.000Z',
   updatedAt: '2026-10-05T18:00:00.000Z',
@@ -89,11 +88,7 @@ describe('debate room document routes', () => {
       should: 'answer documents, the created document and the renamed one',
       actual: [
         await read(await handlers.list.POST(post({ roundId: DEBATE }))),
-        await read(
-          await handlers.create.POST(
-            post({ roundId: DEBATE, folder: 'round', templateId: 'flow' }),
-          ),
-        ),
+        await read(await handlers.create.POST(post({ roundId: DEBATE }))),
         await read(
           await handlers.rename.POST(post({ id: DOC, title: 'Plan' })),
         ),
@@ -108,10 +103,7 @@ describe('debate room document routes', () => {
       given: 'the create call',
       should: 'pass the explicit principal and only the validated fields',
       actual: calls[1],
-      expected: [
-        { userId: 'user1', actorId: 'actor1' },
-        { roundId: DEBATE, folder: 'round', templateId: 'flow' },
-      ],
+      expected: [{ userId: 'user1', actorId: 'actor1' }, { roundId: DEBATE }],
     });
   });
 
@@ -187,11 +179,8 @@ describe('debate room document routes', () => {
         (await provisional.handlers.list.POST(post(list))).status,
         (await waitlisted.handlers.list.POST(post(list))).status,
         (await handlers.list.POST(post({ roundId: 'not-a-cuid' }))).status,
-        (
-          await handlers.create.POST(
-            post({ roundId: DEBATE, folder: 'club', templateId: 'flow' }),
-          )
-        ).status,
+        (await handlers.create.POST(post({ roundId: 'not a valid id!' })))
+          .status,
         (
           await handlers.save.POST(
             post({ id: DOC, html: '<p></p>', expectedRevision: 0 }),

@@ -110,7 +110,7 @@ export function LiveRoundRoom({
           },
         }
       : { ...leave, freed: intent.kind === 'freed' };
-  return (
+  const notices = (
     <>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       {outcome ? (
@@ -119,32 +119,38 @@ export function LiveRoundRoom({
         </p>
       ) : null}
       {attendanceSlot}
-      <RoundCommandActions
-        view={view}
-        actorId={actorId}
-        nowMs={now}
-        ids={ids}
-        action={commandAction}
-        onAnswer={onAnswer}
-      >
-        {(actions) =>
-          round ? (
-            <DebateRoom
-              key={`${view.id}:${principalId}`}
-              transcript={transcript}
-              media={(mediaSlot ?? defaultMedia)(view)}
-              actions={actions}
-              round={round}
-              sync={sync}
-              notice={notice}
-              save={save}
-              leave={leaving}
-            />
-          ) : (
-            <RoundEndedNotice roundId={view.id} />
-          )
-        }
-      </RoundCommandActions>
     </>
+  );
+  return (
+    <RoundCommandActions
+      view={view}
+      actorId={actorId}
+      nowMs={now}
+      ids={ids}
+      action={commandAction}
+      onAnswer={onAnswer}
+    >
+      {(actions) =>
+        round ? (
+          <DebateRoom
+            key={`${view.id}:${principalId}`}
+            transcript={transcript}
+            notices={notices}
+            media={(mediaSlot ?? defaultMedia)(view)}
+            actions={actions}
+            round={round}
+            sync={sync}
+            notice={notice}
+            save={save}
+            leave={leaving}
+          />
+        ) : (
+          <>
+            {notices}
+            <RoundEndedNotice roundId={view.id} />
+          </>
+        )
+      }
+    </RoundCommandActions>
   );
 }

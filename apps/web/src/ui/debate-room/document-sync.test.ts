@@ -19,7 +19,7 @@ const fakeApi = (answer: (revision: number) => SaveResult) => {
   const saves: { id: string; html: string; expectedRevision: number }[] = [];
   const api: DocumentsApi = {
     list: async () => [stored('a', 3)],
-    create: async ({ templateId }) => ({ ...stored('new'), templateId }),
+    create: async () => stored('new'),
     save: async (input) => {
       saves.push(input);
       return answer(input.expectedRevision);
@@ -120,17 +120,14 @@ describe('createDocumentSync', () => {
   test('a new document', async () => {
     const { api, saves } = fakeApi(bumping);
     const sync = quietSync(api);
-    const doc = await sync.create('round', 'cross-ex');
+    const doc = await sync.create();
     sync.change(doc.id, '<p>q</p>');
     await sync.flush();
     assert({
       given: 'a document created and then edited',
       should: 'save it against the revision it was created at',
-      actual: { templateId: doc.templateId, saves },
-      expected: {
-        templateId: 'cross-ex',
-        saves: [{ id: 'new', html: '<p>q</p>', expectedRevision: 1 }],
-      },
+      actual: saves,
+      expected: [{ id: 'new', html: '<p>q</p>', expectedRevision: 1 }],
     });
   });
 });

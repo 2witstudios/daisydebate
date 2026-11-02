@@ -13,17 +13,17 @@ describe('narrowMediaQuery', () => {
     assert({
       given: 'the computed --breakpoint-narrow token',
       should: 'build the matching range query',
-      actual: narrowMediaQuery(style(' 641px ')),
-      expected: '(width < 641px)',
+      actual: narrowMediaQuery(style(' 901px ')),
+      expected: '(width < 901px)',
     });
   });
 
   test('a missing token', () => {
     assert({
       given: 'a computed style without the token',
-      should: 'fall back to the documented 641px default',
+      should: 'fall back to the documented 901px default',
       actual: narrowMediaQuery(style('')),
-      expected: '(width < 641px)',
+      expected: '(width < 901px)',
     });
   });
 });

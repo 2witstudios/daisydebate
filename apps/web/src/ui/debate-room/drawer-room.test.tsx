@@ -9,7 +9,10 @@ setupRitewayBun();
 describe('DrawerRoom', () => {
   test('the Room tab while the ballots are written', () => {
     const html = renderToString(
-      h(DrawerRoom, { round: sampleRound('judging', 'casual') }),
+      h(DrawerRoom, {
+        round: sampleRound('judging', 'casual'),
+        transcribing: true,
+      }),
     );
     assert({
       given: 'the judging window of a recorded, transcribed round',

@@ -2,23 +2,23 @@
 
 import type { Dispatch } from 'react';
 import {
-  drawerTabs,
-  roundKindOf,
-  type DrawerTab,
+  phonePanels,
+  type PhonePanel,
 } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import type { IconName } from '../components/icon/icons';
-import { tabNames } from './drawer';
 import type { RoomAction, RoomState } from './room-state';
-import type { RoundSnapshot } from './round';
 
-const icons: Readonly<Record<DrawerTab | 'doc', IconName>> = {
-  doc: 'file',
-  files: 'book',
-  chat: 'message',
-  ai: 'sparkle',
-  room: 'users',
+const panels: Readonly<
+  Record<PhonePanel, { readonly name: string; readonly icon: IconName }>
+> = {
+  doc: { name: 'Doc', icon: 'file' },
+  transcript: { name: 'Transcript', icon: 'mic' },
+  channels: { name: 'Channels', icon: 'message' },
+  ai: { name: 'AI chat', icon: 'sparkle' },
+  files: { name: 'Files', icon: 'book' },
+  room: { name: 'Room', icon: 'users' },
 };
 
 /** The phone round tab that is showing, the target a focus return lands on. */
@@ -31,42 +31,38 @@ export const FIRST_ROUND_TAB = 'nav[aria-label="Round"] button';
 /** The phone round tab bar itself: a breakpoint crossing can hide it under focus. */
 export const ROUND_TAB_BAR = 'nav[aria-label="Round"]';
 
-/** A phone's round tabs: the document, then each drawer tab in its place. */
+/** A phone's round tabs: one panel at a time below the video. */
 export function RoundTabs({
-  round,
   state,
   dispatch,
   unread,
 }: {
-  readonly round: RoundSnapshot;
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
   readonly unread: number;
 }) {
-  const tabs = [null, ...drawerTabs(roundKindOf(round.competition))] as const;
-  const current = state.phoneDrawer ? state.drawer : null;
   return (
     <nav
       aria-label="Round"
-      className="grid shrink-0 auto-cols-fr grid-flow-col border-t border-border bg-surface-sunken px-1 pt-1 pb-5 narrow:hidden"
+      className="grid shrink-0 auto-cols-fr grid-flow-col border-t border-border bg-surface-sunken px-1 pt-1 pb-5 compact:hidden"
     >
-      {tabs.map((tab) => {
-        const name = tab === null ? 'Doc' : tabNames[tab];
-        const dot = tab === 'chat' && current !== 'chat' && unread > 0;
-        const glyph = icons[tab ?? 'doc'];
+      {phonePanels.map((panel) => {
+        const { name, icon } = panels[panel];
+        const current = state.phone === panel;
+        const dot = panel === 'channels' && !current && unread > 0;
         return (
           <button
-            key={name}
+            key={panel}
             type="button"
-            aria-current={tab === current ? 'page' : undefined}
+            aria-current={current ? 'page' : undefined}
             aria-label={dot ? `${name}, ${unread} unread` : undefined}
-            onClick={() => dispatch({ type: 'drawer/phone', tab })}
+            onClick={() => dispatch({ type: 'phone/panel', panel })}
             className={cn(
               'relative flex h-12 cursor-pointer flex-col items-center justify-center gap-px text-xs',
-              tab === current ? 'font-strong text-accent' : 'text-ink-muted',
+              current ? 'font-strong text-accent' : 'text-ink-muted',
             )}
           >
-            <Icon name={glyph} size={20} />
+            <Icon name={icon} size={20} />
             {name}
             {dot ? (
               <span className="absolute top-1 right-1/4 size-2 rounded-round bg-live" />

@@ -44,11 +44,10 @@ function RoundWorkspace({
       dispatch({ type: 'palette/close' });
       return;
     }
-    if (choice.folder === 'club') return;
     try {
       dispatch({
         type: 'doc/add',
-        document: await sync.create(choice.folder, choice.templateId),
+        document: await sync.create(),
       });
     } catch {
       setProblem('That file was not created. Try again.');
@@ -68,7 +67,6 @@ function RoundWorkspace({
             tree={buildTree(state.documents, null)}
             active={state.tabs.active}
             dispatch={dispatch}
-            transcript={null}
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col bg-surface-raised">

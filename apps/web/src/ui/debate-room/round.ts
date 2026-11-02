@@ -7,7 +7,6 @@ import type {
 } from '../../features/debate-room/documents/documents';
 import type { JudgingBallots } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
-import type { TranscriptSegment } from '../../features/debate-room/transcript';
 import type { Agent, Channel } from '../../features/debate-room/workspace';
 
 export type Debater = {
@@ -58,8 +57,6 @@ export type RoundSnapshot = {
   readonly stakes: { readonly win: number; readonly loss: number } | null;
   /** The round is recorded; once the speeches end, the recording is saved. */
   readonly recording: boolean;
-  /** The round is transcribed; once the speeches end, the transcript is complete. */
-  readonly transcribing: boolean;
   readonly speeches: readonly SpeechSlot[];
   readonly liveIndex: number;
   /** The main clock; null when the room cannot read the running round. */
@@ -70,8 +67,6 @@ export type RoundSnapshot = {
   /** Each side's prep left; null when the round has no in-round prep. */
   readonly prepMs: Readonly<Record<Side, number>> | null;
   readonly micLive: boolean;
-  /** A bot opponent's voice level, 0 (silent) to 1. */
-  readonly voiceLevel: number;
   readonly clubName: string | null;
   readonly documents: readonly WorkspaceDocument[];
   readonly channels: readonly Channel[];
@@ -79,5 +74,4 @@ export type RoundSnapshot = {
   readonly agents: readonly Agent[];
   readonly agentThreads: Readonly<Record<string, readonly AgentTurn[]>>;
   readonly agentPrompts: Readonly<Record<string, readonly string[]>>;
-  readonly transcript: readonly TranscriptSegment[];
 };

@@ -3,7 +3,6 @@
 import type { Dispatch, ReactNode } from 'react';
 import { systemClock } from '@daisy/clock';
 import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
-import { TRANSCRIPT_ID } from '../../features/debate-room/transcript';
 import type { TabsState } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
@@ -25,12 +24,14 @@ type TabsProps = {
   readonly active: string | null;
   readonly dispatch: Dispatch<RoomAction>;
   readonly save: SaveState | null;
+  readonly leading?: ReactNode;
 };
 
 /** Open files across the top of the editor, and whether they are saved. */
-function DocumentTabs({ tabs, active, dispatch, save }: TabsProps) {
+function DocumentTabs({ tabs, active, dispatch, save, leading }: TabsProps) {
   return (
-    <div className="flex shrink-0 items-center gap-2 border-b border-border px-4">
+    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface px-4">
+      {leading}
       <div
         role="group"
         aria-label="Open files"
@@ -86,8 +87,8 @@ export function DocumentPane({
   pages,
   dispatch,
   onEdit,
-  children,
   empty,
+  leading,
   save = null,
 }: {
   readonly documents: readonly WorkspaceDocument[];
@@ -95,7 +96,7 @@ export function DocumentPane({
   readonly pages: Readonly<Record<string, PageTone>>;
   readonly dispatch: Dispatch<RoomAction>;
   readonly onEdit?: ((id: string, html: string) => void) | undefined;
-  readonly children?: ReactNode;
+  readonly leading?: ReactNode;
   readonly empty?: ReactNode;
   readonly save?: SaveState | null;
 }) {
@@ -105,16 +106,13 @@ export function DocumentPane({
       <DocumentTabs
         tabs={tabs.open.map((id) => ({
           id,
-          title:
-            id === TRANSCRIPT_ID
-              ? 'Transcript'
-              : (documents.find((d) => d.id === id)?.title ?? ''),
+          title: documents.find((d) => d.id === id)?.title ?? '',
         }))}
         active={tabs.active}
         dispatch={dispatch}
         save={save}
+        leading={leading}
       />
-      {children}
       {active ? (
         <DocumentEditor
           key={active.id}

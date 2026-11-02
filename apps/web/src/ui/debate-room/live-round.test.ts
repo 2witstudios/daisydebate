@@ -84,7 +84,6 @@ describe('liveRoundOf before the start', () => {
         clock: room?.clock,
         prepMs: room?.prepMs,
         micLive: room?.micLive,
-        voiceLevel: room?.voiceLevel,
         recording: room?.recording,
       },
       expected: {
@@ -96,7 +95,6 @@ describe('liveRoundOf before the start', () => {
         },
         prepMs: { aff: 240_000, neg: 240_000 },
         micLive: false,
-        voiceLevel: 0,
         recording: false,
       },
     });
@@ -105,13 +103,16 @@ describe('liveRoundOf before the start', () => {
   test('ranked and casual', () => {
     assert({
       given: 'the same round, ranked and then casual',
-      should: 'give the ranked round no agents and the casual round one',
+      should: 'offer the same assistant in both',
       actual: [
-        liveRoundOf({ ...view, competitionType: 'ranked' }, aff.actorId, origin)
-          ?.agents.length,
+        liveRoundOf(
+          { ...view, competitionType: 'ranked' },
+          aff.actorId,
+          origin,
+        )?.agents.map((a) => a.title),
         room?.agents.map((a) => a.title),
       ],
-      expected: [0, ['Assistant']],
+      expected: [['Assistant'], ['Assistant']],
     });
   });
 

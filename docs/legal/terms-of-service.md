@@ -38,7 +38,7 @@ You may not choose a username that impersonates another person, an organisation 
 
 Argue the resolution, not the person. Harassment, threats, hate speech, sexual content, doxxing, spam and impersonation are not allowed.
 
-Do not cheat: no outside help during a round, no second account, and no arranged results.
+You may use any help you like during a round, including notes, other people and AI. Do not cheat in other ways: no second account and no arranged results.
 
 Do not misuse the service: no attempts to break or overload it, to get around its limits or the age requirement, to access other people’s accounts or data, or to scrape it.
 

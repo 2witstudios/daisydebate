@@ -98,9 +98,14 @@ export default async function RoundRoomPage({
   ]);
   if (result.kind === 'missing') notFound();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
-  const transcript =
+  const transcriptIn = (placement: 'card' | 'sidebar') =>
     text.kind === 'found' ? (
-      <LiveTranscript key={id} seed={text.value} socketUrl={result.socketUrl} />
+      <LiveTranscript
+        key={id}
+        seed={text.value}
+        socketUrl={result.socketUrl}
+        placement={placement}
+      />
     ) : text.kind === 'unavailable' ? (
       // Refusals read as missing; only an outage, never a denial, says this.
       <p role="status">Transcript unavailable. Reload to try again.</p>
@@ -111,7 +116,7 @@ export default async function RoundRoomPage({
       result.round,
       actorId,
       result.socketUrl,
-      transcript,
+      transcriptIn('card'),
     );
   const here = `/rounds/${id}/room`;
   return (
@@ -127,7 +132,7 @@ export default async function RoundRoomPage({
             />
           </>
         }
-        transcript={transcript}
+        transcript={transcriptIn('sidebar')}
         commandAction={roundCommandAction.bind(null, id)}
         commandIds={roundCommandIds(() => systemId.next())}
         view={result.round}

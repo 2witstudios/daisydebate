@@ -169,7 +169,10 @@ function RoundMediaSession({
         microphoneConfirmed={microphoneConfirmed}
         tracks={tracks}
       />
-      <div className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2">
+      <div
+        data-room-media="status"
+        className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2"
+      >
         <p role="status" className="m-0 text-sm text-ink-muted">
           {status.message}
         </p>

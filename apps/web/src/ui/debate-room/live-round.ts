@@ -21,7 +21,6 @@ import {
   judgingClockOf,
 } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
-import { roundKindOf } from '../../features/debate-room/workspace';
 import type { Debater, RoundPerson, RoundSnapshot } from './round';
 
 type Participant = RoundView['participants'][number];
@@ -218,21 +217,15 @@ export function liveRoundOf(
     ballots: judgingBallotsOf(judgeKindOf(view)),
     stakes: null,
     recording: false,
-    transcribing: false,
     speeches: speechesOf(view),
     ...clocks,
     micLive: phase === 'own-speech' || phase === 'cross-ex',
-    voiceLevel: 0,
     clubName: null,
     documents: [],
     channels: [{ id: 'round', title: 'round', scope: 'round' }],
     messages: [],
-    agents:
-      roundKindOf(view.competitionType) === 'rated'
-        ? []
-        : [{ id: 'assistant', title: 'Assistant', scope: 'round' }],
+    agents: [{ id: 'assistant', title: 'Assistant', scope: 'round' }],
     agentThreads: {},
     agentPrompts: {},
-    transcript: [],
   };
 }
