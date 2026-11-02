@@ -64,6 +64,8 @@ export const captureSealSchema = z
   .object({
     ...streamFields,
     expectedChunkCount: z.number().int().nonnegative(),
+    /** The sealing process lost frames or writes it held; never complete. */
+    framesLost: z.boolean(),
   })
   .strict();
 export function parseCapture<T>(schema: z.ZodType<T>, raw: unknown): T {

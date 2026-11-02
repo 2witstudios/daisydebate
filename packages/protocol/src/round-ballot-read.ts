@@ -45,6 +45,15 @@ export const roundBallotReadSchema = z.strictObject({
     .strictObject({
       completeness: z.enum(['complete', 'incomplete']),
       utterances: z.array(roundUtteranceSchema),
+      /** Required speech with no capture, by stream. */
+      gaps: z.array(
+        z.strictObject({
+          segmentId: idSchema,
+          roundParticipantId: idSchema,
+          fromOffsetMs: z.int().nonnegative(),
+          untilOffsetMs: z.int().nonnegative(),
+        }),
+      ),
     })
     .nullable(),
 });

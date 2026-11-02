@@ -89,6 +89,50 @@ function speechEnded(w: Range, runs: readonly Range[], closeMs: number) {
   return run ? Math.min(w.end, run.end) : w.end;
 }
 
+/** The parts of `range` no capture run reaches, in order. */
+function uncovered(range: Range, runs: readonly Range[]): Range[] {
+  const gaps: Range[] = [];
+  let at = range.start;
+  for (const run of runs) {
+    if (run.end <= at) continue;
+    if (run.start >= range.end) break;
+    if (run.start > at) gaps.push({ start: at, end: run.start });
+    at = Math.max(at, run.end);
+  }
+  if (at < range.end) gaps.push({ start: at, end: range.end });
+  return gaps;
+}
+
+/**
+ * Where a stream's required speech has no capture, by the same edges
+ * hasCompleteCaptureCoverage judges: never a stored opinion, and a window with
+ * no frames at all is one whole gap.
+ */
+export function captureGaps(input: {
+  readonly authority: readonly CaptureInterval[];
+  readonly observed: readonly CaptureInterval[];
+  readonly tolerance: CoverageEdges;
+}): readonly Range[] {
+  const windows = input.authority
+    .filter(validRange)
+    .filter((w) => w.end > w.start);
+  if (!windows.length) return [];
+  const runs = captureRuns(input.observed.filter(validRange));
+  const terminal = terminalZone(windows, runs, input.tolerance.terminalCloseMs);
+  return windows.flatMap((w) =>
+    uncovered(
+      {
+        start: speechBegan(w, runs, input.tolerance.openMs),
+        end: Math.min(
+          speechEnded(w, runs, input.tolerance.closeMs),
+          terminal ?? Infinity,
+        ),
+      },
+      runs,
+    ),
+  );
+}
+
 /**
  * Whether every authority window, a human's speaking grant or a bot's credited
  * publication window, is captured (DEC-218): one contiguous capture run from

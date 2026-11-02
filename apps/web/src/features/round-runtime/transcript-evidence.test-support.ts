@@ -27,6 +27,7 @@ export const frozen = {
       segmentId: 'segment',
       segmentSequence: 0,
       sequence: 0,
+      startOffsetMs: null,
       roundParticipantId: 'seat',
       text: 'Access improves.',
       complete: false,

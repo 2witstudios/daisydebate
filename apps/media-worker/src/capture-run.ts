@@ -37,6 +37,8 @@ export async function runCaptureProcess(input: {
   readonly argv: readonly string[];
   readonly env: Record<string, string | undefined>;
   readonly fetch: Fetch;
+  /** The LiveKit subscription; a process proof supplies its own frames. */
+  readonly subscribe?: typeof createAudioSubscription;
 }) {
   // A rejection nothing awaited still ends the process, as Bun would, but
   // with a status the worker can tell apart from a staged failure.
@@ -66,7 +68,15 @@ export async function runCaptureProcess(input: {
   const url = input.env.PUBLIC_APP_URL,
     secret = input.env.MEDIA_WORKER_SECRET,
     apiKey = input.env.OPENROUTER_API_KEY;
-  if (!url || !secret || !apiKey) refuse('environment');
+  const pendingBytes = Number(input.env.CAPTURE_PENDING_BYTES);
+  if (
+    !url ||
+    !secret ||
+    !apiKey ||
+    !Number.isSafeInteger(pendingBytes) ||
+    pendingBytes <= 0
+  )
+    refuse('environment');
   const authentication = createMediaWorkerAuthentication({
     secret,
     now: Date.now,
@@ -93,8 +103,9 @@ export async function runCaptureProcess(input: {
           timeoutMs: CAPTURE_STT_TIMEOUT_MS,
         }),
         sttModel: 'openai/whisper-large-v3-turbo',
-        subscribe: createAudioSubscription,
+        subscribe: input.subscribe ?? createAudioSubscription,
         consume: consumeCaptureClips,
+        pendingBytes,
         nowMs: performance.now,
         waitUntilMs: async (due, signal) => {
           while (performance.now() < due && !signal.aborted)

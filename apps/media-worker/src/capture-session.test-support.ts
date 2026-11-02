@@ -63,6 +63,7 @@ const closedForGood = createMediaWorkerClient({
  */
 export function createCaptureSessionFixture(
   options: {
+    pendingBytes?: number;
     readonly lease?: CaptureClient['lease'];
     readonly waitUntilMs?: (due: number, signal: AbortSignal) => Promise<void>;
     readonly drop?: number;
@@ -148,6 +149,7 @@ export function createCaptureSessionFixture(
       return {};
     },
     heard: async () => undefined,
+    release: async () => undefined,
   } as unknown as CaptureClient;
   const done = runCaptureSession(
     {
@@ -155,6 +157,7 @@ export function createCaptureSessionFixture(
       client,
       voice: { transcribe: async () => '' } as never,
       sttModel: 'model',
+      pendingBytes: options.pendingBytes ?? 32 * 1024 * 1024,
       nowMs: performance.now,
       waitUntilMs:
         options.waitUntilMs ??

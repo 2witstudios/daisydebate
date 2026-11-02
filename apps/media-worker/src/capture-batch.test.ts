@@ -68,6 +68,8 @@ const staged = (
 test('a batch frame crossing a grant end the staging cache missed becomes edge evidence', async () => {
   const straddled: number[] = [];
   await validateCaptureBatch({
+    nowMs: () => 0,
+    waitUntilMs: async () => undefined,
     frames: [staged(10010, 10009, 10021), staged(10020, 10019, 10031)],
     current,
     client: {} as CaptureClient,
@@ -102,6 +104,8 @@ test('a frame newer than the history read is held for the next batch, never drop
   const carries = new Map();
   let dropped = 0;
   await validateCaptureBatch({
+    nowMs: () => 0,
+    waitUntilMs: async () => undefined,
     frames: [staged(10050, 10049, 10061), staged(10090, 10089, 10101)],
     current: open,
     client: {} as CaptureClient,
@@ -149,6 +153,8 @@ const speechBatch = (
   }) => void = () => {},
 ) =>
   validateCaptureBatch({
+    nowMs: () => 0,
+    waitUntilMs: async () => undefined,
     frames: Array.from({ length: 25 }, (_, i) => {
       const at = from + i * 10;
       const frame = staged(at, at - 1, at + 11);

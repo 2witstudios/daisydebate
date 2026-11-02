@@ -112,7 +112,12 @@ test('late actual capture cannot bypass a missing cutoff after the scheduler has
           observedFrom: new Date(start).toISOString(),
           observedUntil: new Date(start + 1000).toISOString(),
         }),
-      () => store.sealCapturedStream({ ...stream, expectedChunkCount: 0 }),
+      () =>
+        store.sealCapturedStream({
+          ...stream,
+          expectedChunkCount: 0,
+          framesLost: false,
+        }),
     ];
     const [anchors] =
       await f.sql`select final_segment_ended_at,transcript_admission_cutoff from rounds where id=${roundId}`;

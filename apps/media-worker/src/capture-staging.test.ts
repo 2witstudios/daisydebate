@@ -58,6 +58,8 @@ function fixture() {
     retained: () => {
       retained++;
     },
+    maxFrames: 4096,
+    lost: () => undefined,
   });
   const observe = (sequence: number, beforeMs: number) => {
     now = beforeMs + 0.1;

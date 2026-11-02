@@ -29,6 +29,11 @@ export async function closeCaptureSession(input: {
   /** Empties the queue; returns its frames. */
   readonly discardQueued: () => number;
   readonly dropped: (frames: number) => void;
+  /** Frames a stream's carry held and this close drops. */
+  readonly lost: (stream: {
+    readonly segmentId: string;
+    readonly roundParticipantId: string;
+  }) => void;
   readonly seal: (signal: AbortSignal) => Promise<number>;
   readonly nowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
@@ -37,16 +42,16 @@ export async function closeCaptureSession(input: {
   const drainUntil =
     input.nowMs() + CAPTURE_CLEANUP_BUDGET_MS - SEAL_RESERVE_MS;
   for (const [key, carry] of input.carries) {
-    if (input.graceful) {
-      const [segmentId, roundParticipantId] = JSON.parse(key) as [
-        string,
-        string,
-      ];
-      flushClipCarry(input.carries, input.roundId, {
-        segmentId,
-        roundParticipantId,
-      }).forEach(input.enqueue);
-    } else input.dropped(carry.frames.length);
+    const [segmentId, roundParticipantId] = JSON.parse(key) as [string, string];
+    const stream = { segmentId, roundParticipantId };
+    if (input.graceful)
+      flushClipCarry(input.carries, input.roundId, stream).forEach(
+        input.enqueue,
+      );
+    else {
+      input.dropped(carry.frames.length);
+      if (carry.frames.length) input.lost(stream);
+    }
   }
   input.carries.clear();
   while (

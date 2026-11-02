@@ -85,6 +85,7 @@ async function capturedRound(f: Fixture) {
   await capture.sealCapturedStream({
     ...streams[0]!.stream,
     expectedChunkCount: 1,
+    framesLost: false,
   });
   return { roundId, capture, last: streams[1]! };
 }
@@ -120,7 +121,11 @@ async function raceBehindRoundLock(
     const finalize = finalizeRound(roundId);
     races = [
       appendAt(capture, last, 300, 'Concurrent final clip'),
-      capture.sealCapturedStream({ ...last.stream, expectedChunkCount: 1 }),
+      capture.sealCapturedStream({
+        ...last.stream,
+        expectedChunkCount: 1,
+        framesLost: false,
+      }),
       finalize,
     ];
     const settled = Promise.allSettled(races);
@@ -163,6 +168,7 @@ test('actual append seal and finalizer contention freezes one truthful committed
           await round.capture.sealCapturedStream({
             ...round.last.stream,
             expectedChunkCount: 2,
+            framesLost: false,
           });
         return { ...raced, frozen: await finalize(roundId) };
       },
