@@ -128,6 +128,7 @@ export function createRoundMaintenanceOperations(input: {
       input.store.tickDueRound({
         instanceId: input.instanceId,
         roundId,
+        runsOpening: true,
         buildProjection,
       }),
     evaluate: input.evaluate,

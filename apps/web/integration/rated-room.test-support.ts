@@ -83,6 +83,7 @@ export async function runRatedOpening(f: Fixture, roundId: string) {
   await f.sql`update rounds set pre_round_prep_ms=1 where id=${roundId}`;
   await f.store.executeRoundTick({
     roundId,
+    runsOpening: true,
     buildProjection: roundTickProjection(createId),
   });
 }

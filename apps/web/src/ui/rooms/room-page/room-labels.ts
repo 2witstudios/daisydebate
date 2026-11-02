@@ -28,17 +28,15 @@ export function waitingOn(
   },
   actorId: string,
 ): readonly string[] {
-  return declaredSeats(view.definition.seats).flatMap(
-    ({ role, slot }) => {
-      const occupant = view.participants.find(
-        (seat) => seat.role === role && seat.slot === slot,
-      );
-      if (!occupant) return [seatName(view.definition.seats, role, slot)];
-      if (!occupant.needsReady || occupant.ready === 'ready') return [];
-      if (!isNamedSeat(occupant)) return ['Judge'];
-      return [occupant.actorId === actorId ? 'You' : occupant.label];
-    },
-  );
+  return declaredSeats(view.definition.seats).flatMap(({ role, slot }) => {
+    const occupant = view.participants.find(
+      (seat) => seat.role === role && seat.slot === slot,
+    );
+    if (!occupant) return [seatName(view.definition.seats, role, slot)];
+    if (!occupant.needsReady || occupant.ready === 'ready') return [];
+    if (!isNamedSeat(occupant)) return ['Judge'];
+    return [occupant.actorId === actorId ? 'You' : occupant.label];
+  });
 }
 
 export const ROOM_SETUP_ID = 'room-setup';

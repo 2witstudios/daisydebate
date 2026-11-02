@@ -4,10 +4,7 @@ import { canOfferFreshRoom } from '../room-runtime/fresh-room';
 import { roundEntry } from './round-entry';
 import { assemblySnapshot } from './assembly.test-support';
 import type { RoomCommandIds } from './room-command-ids';
-import {
-  roomSync,
-  seedRoomSync,
-} from './room-sync';
+import { roomSync, seedRoomSync } from './room-sync';
 
 setupRitewayBun();
 

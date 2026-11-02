@@ -28,7 +28,8 @@ test('actual post-start shared engine advancement remains safe for media reconci
         f.host.actorId,
       );
       assert({
-        given: 'a Round active from Start round, then real provider reconciliation',
+        given:
+          'a Round active from Start round, then real provider reconciliation',
         should:
           'hydrate and tick the actual first speech without becoming unsafe',
         actual: [state.state, state.grants.publish],

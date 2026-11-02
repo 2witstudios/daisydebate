@@ -5,9 +5,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
-import {
-  createRoundMaintenanceOperations,
-} from '../src/features/round-finalization/maintenance';
+import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
 import { withAttendanceRound } from './attendance.test-support';
 import { settleAttendanceFixture } from './attendance-evaluator.test-support';
 setupRitewayBun();

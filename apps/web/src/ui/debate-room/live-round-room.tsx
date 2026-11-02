@@ -121,11 +121,7 @@ export function LiveRoundRoom({
       ) : null}
       {attendanceSlot}
       {view.opening?.draw ? (
-        <OpeningChosen
-          view={view}
-          draw={view.opening.draw}
-          actorId={actorId}
-        />
+        <OpeningChosen view={view} draw={view.opening.draw} actorId={actorId} />
       ) : null}
       <RoundCommandActions
         view={view}

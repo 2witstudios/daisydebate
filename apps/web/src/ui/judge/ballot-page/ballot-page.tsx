@@ -75,7 +75,10 @@ export function BallotPage({
       >
         Back to Judge
       </Link>
-      <PageHeader title="Your ballot" lede={view.round.topic ?? drawnTopicLabel} />
+      <PageHeader
+        title="Your ballot"
+        lede={view.round.topic ?? drawnTopicLabel}
+      />
       <BallotOpensNotice
         round={view.round}
         opensInMs={opensInMs}

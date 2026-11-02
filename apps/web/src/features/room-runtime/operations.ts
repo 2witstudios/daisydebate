@@ -116,11 +116,7 @@ export function createRoomRuntimeOperations({
     const consent = await consentOf(state, await store.databaseNow());
     const now = await store.databaseNow();
     return {
-      ...projectRoom(
-        state,
-        caller.actorId,
-        currentRoomConsent(consent, now),
-      ),
+      ...projectRoom(state, caller.actorId, currentRoomConsent(consent, now)),
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
       ),

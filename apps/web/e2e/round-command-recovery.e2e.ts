@@ -7,10 +7,7 @@ for (const command of ['yield', 'forfeit'] as const)
     roundFiles,
   }) => {
     const { page, roundId } = roundFiles;
-    for (const name of [
-      'Take prep time',
-      'Start affirmative constructive',
-    ])
+    for (const name of ['Take prep time', 'Start affirmative constructive'])
       await page.getByRole('button', { name, exact: true }).click();
     const label = command === 'yield' ? 'End speech' : 'Forfeit round';
     await page.getByRole('button', { name: label, exact: true }).click();

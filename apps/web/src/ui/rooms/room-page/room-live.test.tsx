@@ -69,5 +69,4 @@ describe('RoomLive', () => {
       expected: [true, true],
     });
   });
-
 });

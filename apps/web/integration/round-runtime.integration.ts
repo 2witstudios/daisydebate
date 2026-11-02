@@ -26,7 +26,11 @@ test('shared human commands run the engine with atomic refusals and recover lost
       },
       expected: { version: 1, status: 'active', started: true },
     });
-    const envelope = { version: 1 as const, commandId: createId(), expectedVersion: 1 };
+    const envelope = {
+      version: 1 as const,
+      commandId: createId(),
+      expectedVersion: 1,
+    };
     const before = JSON.stringify(await f.store.getRound(roundId));
     const seat = round!.participants.find((p) => p.actorId === f.host.actorId)!;
     await assertRejects({
@@ -168,4 +172,3 @@ for (const revoke of ['lease', 'run'] as const)
       });
     }, botAdmissionForTests);
   });
-

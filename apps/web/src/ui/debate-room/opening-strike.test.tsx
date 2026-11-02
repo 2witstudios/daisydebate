@@ -8,7 +8,12 @@ setupRitewayBun();
 const SENTINEL = 'A drawn resolution';
 const dueAt = '2026-10-12T00:01:00.000Z';
 const nowMs = Date.parse('2026-10-12T00:00:00.000Z');
-const turn = { ordinal: 0, side: 'negative', dueAt, remainingMs: 60_000 } as const;
+const turn = {
+  ordinal: 0,
+  side: 'negative',
+  dueAt,
+  remainingMs: 60_000,
+} as const;
 const debaterDraw = {
   visibility: 'debater',
   commitment: '0'.repeat(64),
@@ -31,8 +36,22 @@ const view = {
     resolutionDraw: { enabled: true, firstStriker: 'negative' },
   },
   participants: [
-    { id: 'a'.repeat(24), actorId: 'aff', role: 'affirmative', label: 'Ana', kind: 'human', slot: 0 },
-    { id: 'n'.repeat(24), actorId: 'neg', role: 'negative', label: 'Noor', kind: 'human', slot: 0 },
+    {
+      id: 'a'.repeat(24),
+      actorId: 'aff',
+      role: 'affirmative',
+      label: 'Ana',
+      kind: 'human',
+      slot: 0,
+    },
+    {
+      id: 'n'.repeat(24),
+      actorId: 'neg',
+      role: 'negative',
+      label: 'Noor',
+      kind: 'human',
+      slot: 0,
+    },
   ],
 } as unknown as RoundView;
 const render = (actorId: string, canStrike: boolean) =>
@@ -98,7 +117,11 @@ describe('OpeningStatus', () => {
         view={
           {
             ...view,
-            opening: { step: { step: 'strike' }, draw: progress, canStrike: false },
+            opening: {
+              step: { step: 'strike' },
+              draw: progress,
+              canStrike: false,
+            },
           } as RoundView
         }
         nowMs={nowMs}

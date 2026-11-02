@@ -270,14 +270,17 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
       slot: 0,
     });
     const readyAtReceipt = [...view.readiness.readyActorIds];
-    const startRound = await page.request.post(`/api/rooms/${roomId}/commands`, {
-      headers: { origin },
-      data: {
-        type: 'start-round',
-        commandId: createId(),
-        expectedVersion: view.version,
+    const startRound = await page.request.post(
+      `/api/rooms/${roomId}/commands`,
+      {
+        headers: { origin },
+        data: {
+          type: 'start-round',
+          commandId: createId(),
+          expectedVersion: view.version,
+        },
       },
-    });
+    );
     const startReceipt = (await startRound.json()) as {
       refusal?: string;
       view?: RoomView;

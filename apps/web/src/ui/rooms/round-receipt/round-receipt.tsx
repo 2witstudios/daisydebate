@@ -119,7 +119,9 @@ export function RoundReceipt({
           >
             Resolution
           </h2>
-          <p className="font-display text-xl wrap-anywhere">{round.topic ?? 'Not chosen'}</p>
+          <p className="font-display text-xl wrap-anywhere">
+            {round.topic ?? 'Not chosen'}
+          </p>
         </section>
         <MediaPageLink href={`/rooms/${round.roomId}`}>
           Return to room

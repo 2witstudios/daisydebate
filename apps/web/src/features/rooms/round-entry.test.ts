@@ -21,12 +21,7 @@ const view = (status: NonNullable<RoomView['roundRef']>['status']) => ({
   roundRef: { id: 'round', status },
 });
 test('only scheduled or active Rounds automatically admit seated members', () => {
-  for (const status of [
-    'opening',
-    'active',
-    'completed',
-    'abandoned',
-  ] as const)
+  for (const status of ['opening', 'active', 'completed', 'abandoned'] as const)
     assert({
       given: `a seated member and ${status} shared Round`,
       should:

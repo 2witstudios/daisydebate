@@ -21,8 +21,9 @@ test('a tick settles only the strikes that are due, with nobody online', async (
     // Two humans: the Negative's window is nowhere near due.
     const cast = await f.freshCast();
     const humans = await f.assemble(overrides, cast);
-    const humanRound = (await f.command(cast.host, humans, { type: 'start-round' }))
-      .view.roundRef!.id;
+    const humanRound = (
+      await f.command(cast.host, humans, { type: 'start-round' })
+    ).view.roundRef!.id;
     // A bot Negative strikes first, automatically, three seconds after the start.
     const botRoom = await f.seatBotOpponent(
       (await f.create(overrides)).view,
@@ -33,6 +34,7 @@ test('a tick settles only the strikes that are due, with nobody online', async (
     const tick = (roundId: string) =>
       f.store.executeRoundTick({
         roundId,
+        runsOpening: true,
         buildProjection: roundTickProjection(createId),
       });
     const strikes = (roundId: string) => f.sql`
@@ -93,15 +95,17 @@ test('a tick starts a Round at the instant its prep ended, however late it runs'
     ).view;
     for (const who of [f.host, f.guest])
       view = (await f.consent(who, view, 'ready')).view;
-    const roundId = (await f.command(f.host, view, { type: 'start-round' })).view
-      .roundRef!.id;
+    const roundId = (await f.command(f.host, view, { type: 'start-round' }))
+      .view.roundRef!.id;
     const tick = () =>
       f.store.executeRoundTick({
         roundId,
+        runsOpening: true,
         buildProjection: roundTickProjection(createId),
       });
     await tick();
-    const [during] = await f.sql`select status, started_at from rounds where id = ${roundId}`;
+    const [during] =
+      await f.sql`select status, started_at from rounds where id = ${roundId}`;
     // Prep ran long ago: created_at is the Start round anchor.
     await f.sql`update rounds set created_at = created_at - interval '90 seconds' where id = ${roundId}`;
     await tick();

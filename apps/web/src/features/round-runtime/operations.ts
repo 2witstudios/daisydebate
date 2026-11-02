@@ -23,6 +23,7 @@ export function createRoundRuntimeOperations(input: {
     tick: (roundId: string) =>
       input.store.executeRoundTick({
         roundId,
+        runsOpening: true,
         buildProjection: roundTickProjection(input.nextSegmentId),
       }),
     async command(

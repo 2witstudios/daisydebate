@@ -88,5 +88,4 @@ describe('room sync driver', () => {
       expected: ['Accepted', 'n-7', 0],
     });
   });
-
 });

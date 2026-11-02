@@ -8,9 +8,7 @@ import {
   maintenanceAvailability,
   maintenanceTestTimers as timers,
 } from './round-maintenance.test-support';
-import {
-  createRoundMaintenanceOperations,
-} from '../src/features/round-finalization/maintenance';
+import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { startRoundMaintenance } from '../src/features/round-finalization/service';
 

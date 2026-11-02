@@ -29,10 +29,7 @@ const base = {
 };
 const action = async () => ({ values: {} });
 type Props = Parameters<typeof ReadyControl>[0];
-const controls = (props: Props) => [
-  ReadyControl(props),
-  StartControl(props),
-];
+const controls = (props: Props) => [ReadyControl(props), StartControl(props)];
 const props = {
   view: base,
   actorId: 'viewer',

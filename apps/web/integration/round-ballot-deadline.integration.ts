@@ -4,9 +4,7 @@ import type { Ballot } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
-import {
-  createRoundMaintenanceOperations,
-} from '../src/features/round-finalization/maintenance';
+import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import {
   fixtureBallot,

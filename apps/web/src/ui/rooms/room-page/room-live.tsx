@@ -23,9 +23,7 @@ import {
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import type { RoomRead } from '../../../features/rooms/read-assembly';
 import type { submitAssembly } from '../../../features/rooms/submit-assembly';
-import {
-  seedRoomSync,
-} from '../../../features/rooms/room-sync';
+import { seedRoomSync } from '../../../features/rooms/room-sync';
 import { createRoomSyncDriver } from '../../../features/rooms/room-sync-driver';
 import type { FormAction } from '../../form-action/form-action';
 import { FreshnessNotice } from '../../resource-sync/freshness-notice';

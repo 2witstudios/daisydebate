@@ -116,8 +116,8 @@ test('a forfeit during prep stands as a result and frees the Room', async () => 
     let view = await withPrep(f);
     for (const who of [f.host, f.guest])
       view = (await f.consent(who, view, 'ready')).view;
-    const roundId = (await f.command(f.host, view, { type: 'start-round' })).view
-      .roundRef!.id;
+    const roundId = (await f.command(f.host, view, { type: 'start-round' }))
+      .view.roundRef!.id;
     const round = await f.operations.roundView(f.guest, roundId);
     const seat = round.participants
       .filter(isNamedSeat)

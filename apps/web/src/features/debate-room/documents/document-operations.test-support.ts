@@ -78,7 +78,8 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
     return found?.ownerActorId === ownerActorId ? found : undefined;
   };
   const store: DebateDocumentStore = {
-    getRound: async (id) => (id === round.id ? { ...round, opening: null } : null),
+    getRound: async (id) =>
+      id === round.id ? { ...round, opening: null } : null,
     createDocument: async (document) => {
       // The database stamps created_at/updated_at itself (ADR 0033 §3.2).
       const record = {

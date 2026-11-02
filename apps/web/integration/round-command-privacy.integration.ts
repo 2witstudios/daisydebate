@@ -81,11 +81,7 @@ test('real authenticated Round responses and JSON and server-action form replays
         should:
           'return truthful receipts without judge identifiers or names and replay the native form encoding without mutation',
         actual: {
-          statuses: [
-            first.status,
-            retry.status,
-            refused.status,
-          ],
+          statuses: [first.status, retry.status, refused.status],
           versions: [
             firstBody.view.version,
             retryBody.view.version,

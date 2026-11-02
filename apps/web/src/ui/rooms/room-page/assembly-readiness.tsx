@@ -11,11 +11,7 @@ import { startRefusalText, waitingOn } from './room-labels';
 type Control = 'ready' | 'unready' | 'start-round';
 type View = Pick<
   RoomView,
-  | 'participants'
-  | 'version'
-  | 'readiness'
-  | 'startRefusal'
-  | 'botAdmission'
+  'participants' | 'version' | 'readiness' | 'startRefusal' | 'botAdmission'
 > & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
   readonly capabilities: Pick<
