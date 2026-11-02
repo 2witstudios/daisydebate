@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
 import { openSpectate } from '../../../../features/watch/open-spectate';
 import { parseSpectateQuery } from '../../../../features/watch/spectate-query';
+import { watchSource } from '../../../../features/watch/round-source';
 import { viewerOf } from '../../../../features/watch/viewer';
 import { requestIdentity } from '../../../../lib/request-session';
 import { Spectate } from '../../../../ui/watch/spectate/spectate';
@@ -27,6 +28,7 @@ export default async function LiveRoundPage({
     roundId,
     viewer,
     parseSpectateQuery(await searchParams),
+    watchSource,
   );
   return screen.kind === 'watch' ? (
     <Spectate view={screen.view} />

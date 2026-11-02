@@ -3,6 +3,7 @@ import type { SearchParams } from '../../../features/access/decision';
 import { countHub } from '../../../features/watch/list-live';
 import { listRecordings } from '../../../features/watch/list-recordings';
 import { parseRecordingsQuery } from '../../../features/watch/recordings-query';
+import { watchSource } from '../../../features/watch/round-source';
 import { viewerOf } from '../../../features/watch/viewer';
 import { requireAccess } from '../../../lib/access';
 import { RecordingsTab } from '../../../ui/watch/recordings-tab/recordings-tab';
@@ -19,8 +20,11 @@ export default async function RecordingsPage({
   const viewer = viewerOf(await requireAccess('/recordings', searchParams));
   const query = parseRecordingsQuery(await searchParams);
   return (
-    <WatchHub active="recordings" counts={countHub()}>
-      <RecordingsTab query={query} listing={listRecordings(query, viewer)} />
+    <WatchHub active="recordings" counts={countHub(watchSource)}>
+      <RecordingsTab
+        query={query}
+        listing={listRecordings(query, viewer, watchSource)}
+      />
     </WatchHub>
   );
 }

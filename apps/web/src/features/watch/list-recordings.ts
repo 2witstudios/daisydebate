@@ -1,5 +1,5 @@
 import type { WatchViewer } from './round';
-import { listRounds } from './round-source';
+import type { WatchSource } from './round-source';
 import { recordingRowOf, type RecordingRow } from './recording-row';
 import { buildRecordingsListing } from './recordings-list';
 import type { RecordingsQuery } from './recordings-query';
@@ -12,14 +12,13 @@ export type RecordingsHubListing = {
 
 /**
  * The archive's data seam: the recordings a viewer may list for one query.
- * The backend read of recordings replaces `listDebates`; the scope and
- * visibility rules stay.
  */
 export function listRecordings(
   query: RecordingsQuery,
   viewer: WatchViewer,
+  source: WatchSource,
 ): RecordingsHubListing {
-  const listing = buildRecordingsListing(listRounds(), query, viewer);
+  const listing = buildRecordingsListing(source.rounds, query, viewer);
   return {
     rows: listing.rows.map((round) => recordingRowOf(round, viewer)),
     inScope: listing.inScope,

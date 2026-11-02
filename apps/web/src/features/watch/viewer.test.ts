@@ -22,15 +22,28 @@ const provisional = {
   principal: { kind: 'user' },
 } as unknown as Identity;
 
+const waitlisted = {
+  state: 'waitlisted',
+  username: 'y',
+  principal: { kind: 'user' },
+} as unknown as Identity;
+
 describe('viewerOf', () => {
-  test('accounts may watch, nobody else', () => {
+  test('a public name makes a viewer known, under their real name', () => {
     assert({
       given: 'each identity state',
-      should: 'sign in members and provisional accounts only',
-      actual: [anonymous, unavailable, member, provisional].map(
-        (identity) => viewerOf(identity).signedIn,
+      should:
+        'name members and waitlisted accounts and treat the rest as visitors',
+      actual: [anonymous, unavailable, member, provisional, waitlisted].map(
+        viewerOf,
       ),
-      expected: [false, false, true, true],
+      expected: [
+        { signedIn: false },
+        { signedIn: false },
+        { signedIn: true, handle: 'x' },
+        { signedIn: false },
+        { signedIn: true, handle: 'y' },
+      ],
     });
   });
 });

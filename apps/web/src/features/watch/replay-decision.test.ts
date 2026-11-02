@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { findRound, watchViewer } from './round-source';
+import { findRound, watchViewer } from './sample-source.test-support';
 import { decideReplay } from './replay-decision';
 
 setupRitewayBun();

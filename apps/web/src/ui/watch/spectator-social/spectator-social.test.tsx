@@ -4,7 +4,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   spectatorSocial,
   findRound,
-} from '../../../features/watch/round-source';
+} from '../../../features/watch/sample-source.test-support';
 import { defaultSpectateQuery } from '../../../features/watch/spectate-query';
 import { ChatComposer, ChatMessages, Reactions } from './spectator-social';
 

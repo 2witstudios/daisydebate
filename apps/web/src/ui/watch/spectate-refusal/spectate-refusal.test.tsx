@@ -1,7 +1,10 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from '../../../features/watch/round-source';
+import {
+  sampleWatchSource,
+  watchViewer,
+} from '../../../features/watch/sample-source.test-support';
 import {
   openSpectate,
   type SpectateScreen,
@@ -16,6 +19,7 @@ const html = (id: string, signedIn = true): string => {
     id,
     watchViewer(signedIn),
     defaultSpectateQuery,
+    sampleWatchSource,
   );
   if (screen.kind === 'watch') throw new Error('not a refusal');
   return renderToString(h(SpectateRefusal, { screen }));

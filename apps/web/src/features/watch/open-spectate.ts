@@ -1,9 +1,4 @@
-import {
-  roundSchedule,
-  roundContext,
-  findRound,
-  spectatorSocial,
-} from './round-source';
+import { findRound, type WatchSource } from './round-source';
 import type { WatchRound, WatchViewer } from './round';
 import { decideSpectate } from './spectate';
 import type { SpectateQuery } from './spectate-query';
@@ -56,15 +51,15 @@ function teaserFor(round: WatchRound | null): Teaser | null {
 
 /**
  * The live route's one flow driver: the Round id and the viewer decide the
- * screen. Today it reads the sample Rounds; the backend read and the
- * realtime subscription replace `findDebate` and the view's connection.
+ * screen.
  */
 export function openSpectate(
   id: string,
   viewer: WatchViewer,
   query: SpectateQuery,
+  source: WatchSource,
 ): SpectateScreen {
-  const round = findRound(id);
+  const round = findRound(source, id);
   const decision = decideSpectate(round, viewer);
   if (decision === 'signed-out')
     return {
@@ -97,7 +92,7 @@ export function openSpectate(
         },
       ],
     };
-  const { phases, turns } = roundSchedule(round);
+  const { phases, turns } = source.schedule(round);
   return {
     kind: 'watch',
     view: buildSpectateView({
@@ -105,8 +100,8 @@ export function openSpectate(
       query,
       phases,
       turns,
-      social: spectatorSocial(round),
-      context: roundContext(round),
+      social: source.social(round),
+      context: source.context(round),
     }),
   };
 }

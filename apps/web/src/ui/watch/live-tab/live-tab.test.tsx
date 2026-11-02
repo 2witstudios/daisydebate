@@ -1,3 +1,4 @@
+import { sampleWatchSource } from '../../../features/watch/sample-source.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -11,7 +12,12 @@ import { LiveTab } from './live-tab';
 setupRitewayBun();
 
 const render = (query = defaultLiveQuery, listing?: LiveHubListing) =>
-  renderToString(h(LiveTab, { query, listing: listing ?? listLive(query) }));
+  renderToString(
+    h(LiveTab, {
+      query,
+      listing: listing ?? listLive(query, sampleWatchSource),
+    }),
+  );
 
 describe('LiveTab', () => {
   test('the default list', () => {

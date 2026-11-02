@@ -1,13 +1,14 @@
+import { sampleWatchSource } from './sample-source.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { openSpectate } from './open-spectate';
 import { defaultSpectateQuery } from './spectate-query';
-import { watchViewer } from './round-source';
+import { watchViewer } from './sample-source.test-support';
 
 setupRitewayBun();
 
 const member = watchViewer(true);
 const kind = (id: string, viewer = member) =>
-  openSpectate(id, viewer, defaultSpectateQuery).kind;
+  openSpectate(id, viewer, defaultSpectateQuery, sampleWatchSource).kind;
 
 describe('openSpectate over the sample Rounds', () => {
   test('each sample Round reaches its screen', () => {
@@ -43,8 +44,14 @@ describe('openSpectate over the sample Rounds', () => {
       'top-of-the-ladder',
       anonymous,
       defaultSpectateQuery,
+      sampleWatchSource,
     );
-    const hidden = openSpectate('closed-door', anonymous, defaultSpectateQuery);
+    const hidden = openSpectate(
+      'closed-door',
+      anonymous,
+      defaultSpectateQuery,
+      sampleWatchSource,
+    );
     assert({
       given: 'an anonymous viewer at a public live Round and a private one',
       should: 'show a teaser only for the public one, both signing in to it',

@@ -1,10 +1,5 @@
 import type { WatchRound, WatchViewer } from './round';
-import {
-  roundContext,
-  roundSchedule,
-  findRound,
-  replayDensity,
-} from './round-source';
+import { findRound, type WatchSource } from './round-source';
 import { buildReplayView, type ReplayView } from './replay-build';
 import { decideReplay } from './replay-decision';
 import type { ReplayQuery } from './replay-query';
@@ -25,15 +20,15 @@ const isEnded = (round: WatchRound | null): round is Ended =>
 
 /**
  * The replay route's one flow driver: the recording id and the viewer decide
- * the screen. Today it reads the sample Rounds; the backend read of a
- * recording and its transcript replace `findDebate` and `debateSchedule`.
+ * the screen.
  */
 export function openReplay(
   id: string,
   viewer: WatchViewer,
   query: ReplayQuery,
+  source: WatchSource,
 ): ReplayScreen {
-  const round = findRound(id);
+  const round = findRound(source, id);
   const decision = decideReplay(round, viewer);
   if (decision !== 'watch' || !isEnded(round)) {
     return { kind: decision === 'watch' ? 'unavailable' : decision };
@@ -44,9 +39,9 @@ export function openReplay(
       round,
       viewer,
       query,
-      table: roundSchedule(round),
-      density: replayDensity(round),
-      context: roundContext(round),
+      table: source.schedule(round),
+      density: source.density(round),
+      context: source.context(round),
     }),
   };
 }

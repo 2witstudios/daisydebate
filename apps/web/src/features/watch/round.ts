@@ -105,13 +105,12 @@ export type WatchRound = {
   readonly state: RoundState;
 };
 
-/** The signed-in viewer, or nobody. */
+/** A viewer with a public name, or a visitor. */
 export type WatchViewer =
   | { readonly signedIn: false }
   | {
       readonly signedIn: true;
       readonly handle: string;
-      readonly rating: number;
     };
 
 export const debaterOn = (round: WatchRound, side: Side): Debater =>

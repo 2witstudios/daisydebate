@@ -4,7 +4,7 @@ import {
   roundSchedule,
   findRound,
   spectatorSocial,
-} from './round-source';
+} from './sample-source.test-support';
 import { defaultSpectateQuery, type SpectateQuery } from './spectate-query';
 import { buildSpectateView } from './spectate-view';
 

@@ -1,12 +1,13 @@
+import { sampleWatchSource } from './sample-source.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from './round-source';
+import { watchViewer } from './sample-source.test-support';
 import { openReplay } from './open-replay';
 import { defaultReplayQuery } from './replay-query';
 
 setupRitewayBun();
 
 const kind = (id: string) =>
-  openReplay(id, watchViewer(true), defaultReplayQuery).kind;
+  openReplay(id, watchViewer(true), defaultReplayQuery, sampleWatchSource).kind;
 
 describe('openReplay over the sample recordings', () => {
   test('each sample reaches its screen', () => {

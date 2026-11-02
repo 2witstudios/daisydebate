@@ -3,6 +3,7 @@ import type { SearchParams } from '../../../../features/access/decision';
 import { openReplay } from '../../../../features/watch/open-replay';
 import { parseReplayQuery } from '../../../../features/watch/replay-query';
 import { replayHref } from '../../../../features/watch/routes';
+import { watchSource } from '../../../../features/watch/round-source';
 import { viewerOf } from '../../../../features/watch/viewer';
 import { requireAccess } from '../../../../lib/access';
 import { Replay } from '../../../../ui/watch/replay/replay';
@@ -24,6 +25,7 @@ export default async function ReplayPage({
     roundId,
     viewerOf(identity),
     parseReplayQuery(await searchParams),
+    watchSource,
   );
   return screen.kind === 'watch' ? (
     <Replay view={screen.view} />

@@ -1,3 +1,4 @@
+import { sampleWatchSource } from './sample-source.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { defaultLiveQuery } from './live-query';
 import { listLive } from './list-live';
@@ -6,7 +7,7 @@ setupRitewayBun();
 
 describe('listLive over the sample Rounds', () => {
   test('the default listing', () => {
-    const listing = listLive(defaultLiveQuery);
+    const listing = listLive(defaultLiveQuery, sampleWatchSource);
     assert({
       given: 'no filters',
       should:
@@ -33,7 +34,7 @@ describe('listLive over the sample Rounds', () => {
   });
 
   test('a card carries the speech in progress', () => {
-    const card = listLive(defaultLiveQuery).featured;
+    const card = listLive(defaultLiveQuery, sampleWatchSource).featured;
     assert({
       given: 'the featured Round',
       should: 'show its phase, speaker, progress and audience',
@@ -57,7 +58,10 @@ describe('listLive over the sample Rounds', () => {
   });
 
   test('a filter that matches nothing', () => {
-    const listing = listLive({ ...defaultLiveQuery, q: 'zzz' });
+    const listing = listLive(
+      { ...defaultLiveQuery, q: 'zzz' },
+      sampleWatchSource,
+    );
     assert({
       given: 'a search matching nothing',
       should: 'list nothing but still count what is live',

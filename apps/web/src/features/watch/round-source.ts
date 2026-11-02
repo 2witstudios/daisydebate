@@ -1,80 +1,55 @@
-import {
-  sampleChat,
-  sampleChatRules,
-  sampleDelaySeconds,
-  sampleDensity,
-  sampleFollowing,
-  sampleHistory,
-  samplePhases,
-  sampleReactions,
-  sampleResolution,
-  sampleSeason,
-  sampleTurns,
-  sampleViewer,
-} from '../../ui/mock/watch';
-import { sampleRounds } from '../../ui/mock/watch-rounds';
 import type { SpeechPhase, WatchRound, WatchViewer } from './round';
 import type { Turn } from './schedule';
 import type { Following, SpectatorSocial } from './social';
 
 /**
- * Watch's data seams. Today each reads the sample Rounds; the backend reads
- * (a Round by id, the public live listing, the viewer's follows and
- * history, the room's spectator chat and reactions) replace these functions
- * and nothing else. Nothing outside this file imports the mock.
+ * What Watch reads, injected into its flow drivers so the rules never reach
+ * for a store. The real listing, Broadcast and Recording reads fill this;
+ * until they exist `watchSource` holds nothing, so every screen shows its
+ * empty state and never a sample.
  */
+export type WatchSource = {
+  /** Every Round the viewer might be shown; each caller filters by rule. */
+  readonly rounds: readonly WatchRound[];
+  /** Seconds spectators watch behind the Round. */
+  readonly delaySeconds: number;
+  /** The Round's timetable: its speech slots and the turns spoken in them. */
+  readonly schedule: (round: WatchRound) => {
+    readonly phases: readonly SpeechPhase[];
+    readonly turns: readonly Turn[];
+  };
+  /** Context lines a Round shows: its resolution, season and spectator delay. */
+  readonly context: (round: WatchRound) => {
+    readonly resolution: string;
+    readonly season: string;
+    readonly delaySeconds: number;
+  };
+  /** The reaction density drawn under a replay's timeline. */
+  readonly density: (round: WatchRound) => readonly number[];
+  /** The spectators' reactions and chat for a live Round. */
+  readonly social: (round: WatchRound) => SpectatorSocial;
+  /** Who the viewer follows, and what they recently watched (private to them). */
+  readonly following: (viewer: WatchViewer) => Following;
+};
 
-/** Every Round the viewer might be shown; each caller filters by rule. */
-export const listRounds = (): readonly WatchRound[] => sampleRounds;
+/** The one delay every Round starts from (owner decision 2026-11-02). */
+const DEFAULT_DELAY_SECONDS = 60;
+
+/** Nothing is listed, opened or followed until the real reads exist. */
+export const watchSource: WatchSource = {
+  rounds: [],
+  delaySeconds: DEFAULT_DELAY_SECONDS,
+  schedule: () => ({ phases: [], turns: [] }),
+  context: () => ({
+    resolution: '',
+    season: '',
+    delaySeconds: DEFAULT_DELAY_SECONDS,
+  }),
+  density: () => [],
+  social: () => ({ reactions: [], messages: [], chatRules: '' }),
+  following: () => ({ people: [], history: [] }),
+};
 
 /** One Round by id, or null when there is none. */
-export const findRound = (id: string): WatchRound | null =>
-  sampleRounds.find((round) => round.id === id) ?? null;
-
-/** The viewer for this request: nobody, or the sample signed-in member. */
-export const watchViewer = (signedIn: boolean): WatchViewer =>
-  signedIn ? sampleViewer : { signedIn: false };
-
-/** The Round's timetable: its speech slots and the turns spoken in them. */
-export const roundSchedule = (
-  _round: WatchRound,
-): {
-  readonly phases: readonly SpeechPhase[];
-  readonly turns: readonly Turn[];
-} => ({
-  phases: samplePhases,
-  turns: sampleTurns,
-});
-
-/** Context lines a Round shows: its resolution, season and spectator delay. */
-export const roundContext = (
-  _round: WatchRound,
-): {
-  readonly resolution: string;
-  readonly season: string;
-  readonly delaySeconds: number;
-} => ({
-  resolution: sampleResolution,
-  season: sampleSeason,
-  delaySeconds: sampleDelaySeconds,
-});
-
-/** The reaction density drawn under a replay's timeline. */
-export const replayDensity = (_round: WatchRound): readonly number[] =>
-  sampleDensity;
-
-/** Seconds spectators watch behind the Round. */
-export const spectatorDelaySeconds = sampleDelaySeconds;
-
-/** The spectators' reactions and chat for a live Round. */
-export const spectatorSocial = (_round: WatchRound): SpectatorSocial => ({
-  reactions: sampleReactions,
-  messages: sampleChat,
-  chatRules: sampleChatRules,
-});
-
-/** Who the viewer follows, and what they recently watched (private to them). */
-export const followingOf = (viewer: WatchViewer): Following =>
-  viewer.signedIn
-    ? { people: sampleFollowing, history: sampleHistory }
-    : { people: [], history: [] };
+export const findRound = (source: WatchSource, id: string): WatchRound | null =>
+  source.rounds.find((round) => round.id === id) ?? null;

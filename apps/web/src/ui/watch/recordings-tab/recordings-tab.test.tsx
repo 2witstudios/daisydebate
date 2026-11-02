@@ -1,7 +1,8 @@
+import { sampleWatchSource } from '../../../features/watch/sample-source.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from '../../../features/watch/round-source';
+import { watchViewer } from '../../../features/watch/sample-source.test-support';
 import {
   listRecordings,
   type RecordingsHubListing,
@@ -18,7 +19,8 @@ const render = (query: RecordingsQuery, listing?: RecordingsHubListing) =>
   renderToString(
     h(RecordingsTab, {
       query,
-      listing: listing ?? listRecordings(query, watchViewer(true)),
+      listing:
+        listing ?? listRecordings(query, watchViewer(true), sampleWatchSource),
     }),
   );
 

@@ -1,12 +1,13 @@
+import { sampleWatchSource } from './sample-source.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from './round-source';
+import { watchViewer } from './sample-source.test-support';
 import { openReplay } from './open-replay';
 import { defaultReplayQuery, type ReplayQuery } from './replay-query';
 
 setupRitewayBun();
 
 const viewOf = (id: string, query: ReplayQuery = defaultReplayQuery) => {
-  const screen = openReplay(id, watchViewer(true), query);
+  const screen = openReplay(id, watchViewer(true), query, sampleWatchSource);
   if (screen.kind !== 'watch') throw new Error(`not watchable: ${screen.kind}`);
   return screen.view;
 };

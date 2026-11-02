@@ -25,7 +25,6 @@ const round = (over: Partial<WatchRound> = {}): WatchRound => ({
 const member = (handle: string): WatchViewer => ({
   signedIn: true,
   handle,
-  rating: 1400,
 });
 const nobody: WatchViewer = { signedIn: false };
 

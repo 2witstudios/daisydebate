@@ -1,8 +1,9 @@
+import { sampleWatchSource } from '../../../features/watch/sample-source.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
-import { watchViewer } from '../../../features/watch/round-source';
+import { watchViewer } from '../../../features/watch/sample-source.test-support';
 import { openReplay } from '../../../features/watch/open-replay';
 import {
   defaultReplayQuery,
@@ -16,7 +17,7 @@ await mockNextRouter();
 const { Replay } = await import('./replay');
 
 const render = (id: string, query: ReplayQuery = defaultReplayQuery) => {
-  const screen = openReplay(id, watchViewer(true), query);
+  const screen = openReplay(id, watchViewer(true), query, sampleWatchSource);
   if (screen.kind !== 'watch') throw new Error('not watchable');
   return renderToString(h(Replay, { view: screen.view }));
 };

@@ -1,7 +1,8 @@
+import { sampleWatchSource } from '../../../features/watch/sample-source.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from '../../../features/watch/round-source';
+import { watchViewer } from '../../../features/watch/sample-source.test-support';
 import { openSpectate } from '../../../features/watch/open-spectate';
 import {
   defaultSpectateQuery,
@@ -16,7 +17,7 @@ const view = (
   id: string,
   query: SpectateQuery = defaultSpectateQuery,
 ): SpectateView => {
-  const screen = openSpectate(id, watchViewer(true), query);
+  const screen = openSpectate(id, watchViewer(true), query, sampleWatchSource);
   if (screen.kind !== 'watch') throw new Error('not watchable');
   return screen.view;
 };

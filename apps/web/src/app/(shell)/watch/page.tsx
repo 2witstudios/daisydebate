@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
 import { signInHref } from '../../../features/access/decision';
-import { followingOf } from '../../../features/watch/round-source';
+import { watchSource } from '../../../features/watch/round-source';
 import { countHub, listLive } from '../../../features/watch/list-live';
 import { hubHref, parseLiveQuery } from '../../../features/watch/live-query';
 import { viewerOf } from '../../../features/watch/viewer';
@@ -21,14 +21,14 @@ export default async function WatchPage({
   const query = parseLiveQuery(await searchParams);
   const viewer = viewerOf(await requestIdentity());
   return (
-    <WatchHub active={query.tab} counts={countHub()}>
+    <WatchHub active={query.tab} counts={countHub(watchSource)}>
       {query.tab === 'following' ? (
         <FollowingTab
-          following={viewer.signedIn ? followingOf(viewer) : null}
+          following={viewer.signedIn ? watchSource.following(viewer) : null}
           signInHref={signInHref(hubHref(query))}
         />
       ) : (
-        <LiveTab query={query} listing={listLive(query)} />
+        <LiveTab query={query} listing={listLive(query, watchSource)} />
       )}
     </WatchHub>
   );

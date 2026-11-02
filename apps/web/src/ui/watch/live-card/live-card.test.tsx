@@ -1,3 +1,4 @@
+import { sampleWatchSource } from '../../../features/watch/sample-source.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -9,7 +10,7 @@ setupRitewayBun();
 
 describe('LiveCard', () => {
   test('a live Round', () => {
-    const card = listLive(defaultLiveQuery).rows.find(
+    const card = listLive(defaultLiveQuery, sampleWatchSource).rows.find(
       (row) => row.id === 'finals-rehearsal',
     );
     if (!card) throw new Error('sample missing');

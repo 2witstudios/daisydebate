@@ -1,7 +1,10 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { followingOf, watchViewer } from '../../../features/watch/round-source';
+import {
+  followingOf,
+  watchViewer,
+} from '../../../features/watch/sample-source.test-support';
 import { FollowingTab } from './following-tab';
 
 setupRitewayBun();

@@ -1,7 +1,10 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from '../../../features/watch/round-source';
+import {
+  sampleWatchSource,
+  watchViewer,
+} from '../../../features/watch/sample-source.test-support';
 import { listRecordings } from '../../../features/watch/list-recordings';
 import { defaultRecordingsQuery } from '../../../features/watch/recordings-query';
 import { RecordingRow } from './recording-row';
@@ -12,6 +15,7 @@ const row = (scope: 'all' | 'mine', index: number) => {
   const found = listRecordings(
     { ...defaultRecordingsQuery, scope },
     watchViewer(true),
+    sampleWatchSource,
   ).rows[index];
   if (!found) throw new Error('sample missing');
   return renderToString(h(RecordingRow, { row: found }));

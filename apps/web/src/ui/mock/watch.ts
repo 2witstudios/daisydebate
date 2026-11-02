@@ -6,7 +6,6 @@ import type { SpeechPhase, WatchViewer } from '../../features/watch/round';
 export const sampleViewer: WatchViewer = {
   signedIn: true,
   handle: 'you',
-  rating: 1412,
 };
 
 /**

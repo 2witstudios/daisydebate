@@ -1,8 +1,4 @@
-import {
-  roundSchedule,
-  listRounds,
-  spectatorDelaySeconds,
-} from './round-source';
+import type { WatchSource } from './round-source';
 import { liveCardOf, type LiveCard } from './live-card';
 import { hubCounts, type HubCounts } from './hub-counts';
 import { buildLiveListing } from './live-list';
@@ -18,22 +14,25 @@ export type LiveHubListing = {
 
 /**
  * The hub's live data seam: the public live Rounds for a query, with the
- * featured pick. The backend listing of public live Rounds replaces
- * `listDebates` and `debateSchedule`; the rules here stay.
+ * featured pick.
  */
-export function listLive(query: LiveQuery): LiveHubListing {
-  const listing = buildLiveListing(listRounds(), query);
+export function listLive(
+  query: LiveQuery,
+  source: WatchSource,
+): LiveHubListing {
+  const listing = buildLiveListing(source.rounds, query);
   const card = (round: Parameters<typeof liveCardOf>[0]) => {
-    const { phases, turns } = roundSchedule(round);
+    const { phases, turns } = source.schedule(round);
     return liveCardOf(round, phases, turns);
   };
   return {
     featured: listing.featured ? card(listing.featured) : null,
     rows: listing.rows.map(card),
     total: listing.total,
-    delaySeconds: spectatorDelaySeconds,
+    delaySeconds: source.delaySeconds,
   };
 }
 
 /** The tab counts for the hub header. */
-export const countHub = (): HubCounts => hubCounts(listRounds());
+export const countHub = (source: WatchSource): HubCounts =>
+  hubCounts(source.rounds);
