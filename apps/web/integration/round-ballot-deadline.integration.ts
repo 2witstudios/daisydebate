@@ -177,8 +177,8 @@ test('a judge who never rules is recorded as no ruling at the persisted deadline
       expected: {
         persisted: true,
         early: [
-          'rounds_unjudged_participants_check',
-          'rounds_unjudged_participants_check',
+          'rounds_winnerless_completion_check',
+          'rounds_winnerless_completion_check',
         ],
         waiting: ['active', null],
         late: 'CONFLICT round-decided',

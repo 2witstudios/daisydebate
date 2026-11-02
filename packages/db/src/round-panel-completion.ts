@@ -45,7 +45,6 @@ type CompletionFacts = Parameters<
   readonly ballotIds: readonly {
     readonly id: string;
     readonly judgeParticipantId: string;
-    readonly status: 'submitted' | 'voided';
   }[];
 };
 type Request = LockedRoundTickInput & {
@@ -116,7 +115,6 @@ async function readCompletionFacts(
     .select({
       id: ballots.id,
       judgeParticipantId: ballots.judgeParticipantId,
-      status: ballots.status,
     })
     .from(ballots)
     .where(eq(ballots.roundId, input.roundId));
@@ -128,7 +126,6 @@ async function readCompletionFacts(
     panel: await readJudgingPanelFacts(tx, {
       roundId: input.roundId,
       completeness: frozen.completeness,
-      seats: facts.seats,
     }),
   };
 }

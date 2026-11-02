@@ -5,11 +5,6 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { ballots } from './schema/ballots';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 
-type JudgeSeat = {
-  readonly id: string;
-  readonly role: string;
-  readonly kind: string;
-};
 const iso = (column: string) =>
   sql.raw(
     `to_char(${column} at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
@@ -26,7 +21,6 @@ export async function readJudgingPanelFacts(
   input: {
     readonly roundId: string;
     readonly completeness: JudgingPanelFacts['completeness'];
-    readonly seats: readonly JudgeSeat[];
   },
 ): Promise<JudgingPanelFacts> {
   const { roundId } = input;
@@ -58,7 +52,13 @@ export async function readJudgingPanelFacts(
     })
     .from(roundJudgingJobs)
     .where(eq(roundJudgingJobs.roundId, roundId));
-  const judges = input.seats.filter((seat) => seat.role === 'judge');
+  const judges =
+    (await tx.execute(sql`select p.id, a.kind from round_participants p
+    join actors a on a.id=p.actor_id
+    where p.round_id=${roundId} and p.role='judge' order by p.slot`)) as unknown as {
+      id: string;
+      kind: string;
+    }[];
   return {
     completeness: input.completeness,
     humanJudgeSeatIds: judges
@@ -81,7 +81,6 @@ export async function readJudgingPanelFacts(
       .select({
         judgeParticipantId: ballots.judgeParticipantId,
         winner: ballots.winner,
-        status: ballots.status,
       })
       .from(ballots)
       .where(eq(ballots.roundId, roundId))) as JudgingPanelFacts['ballots'],

@@ -20,8 +20,6 @@ export const getAssignedDebates = (
     followHref: `/rounds/${assignment.roundId}${assignment.status === 'active' || assignment.status === 'scheduled' ? '/room' : ''}`,
   }));
 function assignmentStatus(a: RoundJudgeAssignment): string {
-  if (a.ballotStatus === 'voided')
-    return 'Your ballot is voided. A replacement cannot be submitted.';
   if (a.status === 'completed' || a.status === 'abandoned')
     return a.ballotStatus === 'submitted'
       ? 'Your ballot and the Round result are recorded.'

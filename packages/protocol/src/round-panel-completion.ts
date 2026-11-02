@@ -31,7 +31,6 @@ export type JudgingPanel = {
 export type PanelRuling = {
   readonly judgeParticipantId: string;
   readonly winner: DebateSide;
-  readonly status: 'submitted' | 'voided';
 };
 
 /** One judging job as read; the engine decides what it means. */
@@ -77,11 +76,14 @@ export const panelRulingSchema = z.enum([
   'transcript-incomplete',
   'judging-failed',
   'partial',
+  'ruled',
+  'judges-split',
 ]);
 
 /**
  * One durable finalization command; replay keeps its original result. A
- * zero-judge Round is `unjudged`. Past the ballot deadline (DEC-201) the
+ * zero-judge Round is `unjudged`. Every seat ruling is `ruled`, or
+ * `judges-split` when they tie, with no outcome (DEC-277). Past the ballot deadline (DEC-201) the
  * judges in `noRuling` gave no ruling: with no ballot at all the judges did
  * not rule and there is no outcome; otherwise the submitted ballots decide.
  */

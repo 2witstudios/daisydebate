@@ -62,7 +62,7 @@ const speechesEnded = (round: Pick<LaunchedRound, 'rules' | 'segments'>) =>
 /** Facts only: the injected engine decision says what they mean. */
 async function readWaitingFacts(
   tx: Pick<BunSQLDatabase, 'select' | 'execute'>,
-  round: Pick<LaunchedRound, 'id' | 'participants' | 'transcriptCompleteness'>,
+  round: Pick<LaunchedRound, 'id' | 'transcriptCompleteness'>,
 ): Promise<RoundWaitingFacts> {
   const [facts] = (await tx.execute(sql`select
     clock_timestamp()::text as now,
@@ -85,7 +85,6 @@ async function readWaitingFacts(
       ? await readJudgingPanelFacts(tx, {
           roundId: round.id,
           completeness: round.transcriptCompleteness,
-          seats: round.participants,
         })
       : null,
   };

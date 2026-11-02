@@ -21,7 +21,6 @@ const ballot = (
 ) => ({
   judgeParticipantId,
   winner,
-  status: 'submitted' as const,
 });
 const iso = (ms: number) => new Date(ms).toISOString();
 const deadline = iso(61_000);
@@ -69,7 +68,7 @@ test('the ballot deadline decides when a Round without a full ruling completes (
   });
   assert({
     given: 'judges still inside the deadline, and every judge already ruled',
-    should: 'leave completion to the ballots',
+    should: 'wait for the unruled judge, and complete once none is left',
     actual: [
       at(60_999, [ballot(judges[0]!, 'negative')]),
       at(
@@ -82,7 +81,12 @@ test('the ballot deadline decides when a Round without a full ruling completes (
         kind: 'pending',
         waiting: { on: 'human_window', deadlineAt: deadline },
       },
-      { kind: 'pending', waiting: { on: 'all_ruled' } },
+      {
+        kind: 'complete',
+        ruling: 'ruled',
+        outcome: 'affirmative',
+        noRuling: [],
+      },
     ],
   });
   assert({
@@ -274,7 +278,7 @@ test('an incomplete freeze completes once every human judge has ruled decisively
     given:
       'a human and an AI judge before the deadline: the human ruled on an incomplete freeze, has not ruled, ruled with the AI seat still running, and two humans split',
     should:
-      'complete with the human ruling and the AI seat as no ruling only once every human ruled decisively on an incomplete freeze; otherwise keep waiting, and say on what',
+      'complete with the human ruling and the AI seat as no ruling only once every human ruled decisively on an incomplete freeze; a human split ends at once; otherwise keep waiting, and say on what',
     actual: [
       decide([human], [ballot(human, 'negative')]),
       decide([human], []),
@@ -296,7 +300,12 @@ test('an incomplete freeze completes once every human judge has ruled decisively
         kind: 'pending',
         waiting: { on: 'ai_generating', deadlineAt: iso(90_000) },
       },
-      { kind: 'pending', waiting: window_ },
+      {
+        kind: 'complete',
+        ruling: 'judges-split',
+        outcome: null,
+        noRuling: [ai],
+      },
     ],
   });
 });
@@ -383,7 +392,7 @@ test('the panel decides from each seat: every mode ends, and only a judge who ca
         noJob: [ai, other],
         ballots: [ballot(ai, 'negative'), ballot(other, 'affirmative')],
       },
-      'pending',
+      'judges-split:null',
     ],
     [
       'a tied panel of three with one failed seat',
@@ -433,5 +442,45 @@ test('a seat with a human judge and no deadline has no panel', () => {
       humanWindow: { deadlineAt: deadline, seatIds: [judges[0]!] },
       aiSeats: [{ id: judges[1]!, standing: { state: 'not_dispatched' } }],
     },
+  });
+});
+
+test('a tied panel ends one way, however it was reached (ISSUE-996, ISSUE-997)', () => {
+  const [human, other, ai] = judges as [string, string, string];
+  const split = [ballot(human, 'negative'), ballot(other, 'affirmative')];
+  const decide = (aiSeats: JudgingPanel['aiSeats'], nowMs = 1_000) =>
+    decidePanelCompletion({
+      completeness: 'complete',
+      panel: { humanWindow: window([human, other]), aiSeats },
+      ballots: split,
+      nowMs,
+    });
+  assert({
+    given: 'two humans split inside the window, with no other seat',
+    should: 'end at once with no outcome, since nobody can rule again',
+    actual: decide([]),
+    expected: {
+      kind: 'complete',
+      ruling: 'judges-split',
+      outcome: null,
+      noRuling: [],
+    },
+  });
+  assert({
+    given: 'that split beside a failed AI seat, inside the window',
+    should: 'end at once with no outcome',
+    actual: decide([standing(ai, 'ended')]),
+    expected: {
+      kind: 'complete',
+      ruling: 'judges-split',
+      outcome: null,
+      noRuling: [ai],
+    },
+  });
+  assert({
+    given: 'that split beside an AI seat still generating',
+    should: 'wait for the seat that can still break it',
+    actual: decide([running(ai)]).kind,
+    expected: 'pending',
   });
 });

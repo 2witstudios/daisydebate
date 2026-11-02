@@ -144,30 +144,20 @@ describe('roundWaitingOn', () => {
       });
   });
 
-  test('a tied panel inside the human window agrees with the panel decision (ISSUE-942)', () => {
+  test('a tied panel reads what the panel decision says (ISSUE-997)', () => {
     const split = humanFacts(2_000, {
       humanJudgeSeatIds: [human, other],
       aiJudgeSeatIds: [ai],
       jobs: [job({ status: 'failed' })],
       ballots: [
-        {
-          judgeParticipantId: human,
-          winner: 'affirmative',
-          status: 'submitted',
-        },
-        { judgeParticipantId: other, winner: 'negative', status: 'submitted' },
+        { judgeParticipantId: human, winner: 'affirmative' },
+        { judgeParticipantId: other, winner: 'negative' },
       ],
     });
     assert({
       given: 'human judges split and a failed AI seat with the window open',
-      should: 'read human_window with its persisted deadline, not ai_failed',
+      should: 'show no clock: nobody can still rule, so the Round is ending',
       actual: roundWaitingOn(ended(split)),
-      expected: { state: 'human_window', deadlineAt: at(2_000) },
-    });
-    assert({
-      given: 'that split once the window closes',
-      should: 'stop showing the clock',
-      actual: roundWaitingOn({ ...ended(split), nowMs: 2_000 }),
       expected: { state: 'ai_failed' },
     });
   });

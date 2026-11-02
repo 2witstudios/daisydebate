@@ -211,12 +211,6 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       actorId: opponent,
       now: t0,
     }),
-  'complete-after-final-segment': () =>
-    round({ status: 'active' }).execute({
-      command: { type: 'complete', outcome: 'affirmative' },
-      actorId: null,
-      now: t0,
-    }),
   'rating-state-bounded': () =>
     rateDebate({
       affirmative: {

@@ -1,9 +1,9 @@
 import { createInvariantError } from '@daisy/errors';
 import type {
+  DebateSide,
   JudgingPanel,
   JudgingPanelFacts,
   PanelRuling,
-  RatedOutcome,
   RoundPanelCompletion,
 } from '@daisy/protocol';
 import { aiSeatStanding } from './judging-job-rules';
@@ -16,8 +16,7 @@ type Ruling = PanelRuling;
 export type PanelWait =
   | { readonly on: 'human_window'; readonly deadlineAt: string }
   | { readonly on: 'ai_generating'; readonly deadlineAt: string }
-  | { readonly on: 'held_ballot' }
-  | { readonly on: 'all_ruled' };
+  | { readonly on: 'held_ballot' };
 export type PanelDecision =
   | { readonly kind: 'pending'; readonly waiting: PanelWait }
   | {
@@ -27,8 +26,10 @@ export type PanelDecision =
         | 'judges-did-not-rule'
         | 'transcript-incomplete'
         | 'judging-failed'
-        | 'partial';
-      readonly outcome: RatedOutcome | null;
+        | 'partial'
+        | 'ruled'
+        | 'judges-split';
+      readonly outcome: DebateSide | null;
       /** Judge seats recorded as giving no ruling. */
       readonly noRuling: readonly string[];
     };
@@ -123,8 +124,8 @@ function awaitedSeat(
  * DEC-207), or an AI seat whose job is still running or holds a validated
  * ballot (DEC-275). A failed AI judge never holds the Round and never blocks a
  * human ballot (DEC-277). Then the submitted ballots decide by the existing
- * rule; with none, or a tie the absent rulings would otherwise turn into a
- * draw, there is no outcome, and the ruling says why.
+ * rule; with none, or a tie, there is no outcome (DEC-277), and the ruling says
+ * why. Nobody can rule twice, so a tie with every seat ruled ends at once.
  */
 export function decidePanelCompletion(input: {
   readonly completeness: 'complete' | 'incomplete';
@@ -144,8 +145,6 @@ export function decidePanelCompletion(input: {
   const submitted = participatingRulings(judgeSeatIds, input.ballots);
   const ruled = new Set(submitted.map((ballot) => ballot.judgeParticipantId));
   const noRuling = judgeSeatIds.filter((id) => !ruled.has(id));
-  if (noRuling.length === 0)
-    return { kind: 'pending', waiting: { on: 'all_ruled' } };
   const window = panel.humanWindow;
   const humanWindowOpen =
     window !== null && input.nowMs < Date.parse(window.deadlineAt);
@@ -157,17 +156,18 @@ export function decidePanelCompletion(input: {
         submitted,
       )
     : null;
-  if (outcome !== null && outcome !== 'draw')
-    return { kind: 'complete', ruling: 'partial', outcome, noRuling };
-  // A tie can still change while the human window is open: a voided seat may rule again.
-  if (humanWindowOpen)
+  if (noRuling.length === 0)
     return {
-      kind: 'pending',
-      waiting: { on: 'human_window', deadlineAt: window.deadlineAt },
+      kind: 'complete',
+      ruling: outcome === null ? 'judges-split' : 'ruled',
+      outcome,
+      noRuling,
     };
+  if (outcome !== null)
+    return { kind: 'complete', ruling: 'partial', outcome, noRuling };
   return {
     kind: 'complete',
-    ruling: noOutcomeRuling(input),
+    ruling: noOutcomeRuling({ ...input, ruled }),
     outcome: null,
     noRuling,
   };
@@ -177,11 +177,16 @@ export function decidePanelCompletion(input: {
 const noOutcomeRuling = ({
   panel,
   completeness,
+  ruled,
 }: {
   readonly panel: JudgingPanel;
   readonly completeness: 'complete' | 'incomplete';
+  readonly ruled: ReadonlySet<string>;
 }) => {
-  if (panel.humanWindow !== null) return 'judges-did-not-rule' as const;
+  if (panel.humanWindow !== null)
+    return panel.humanWindow.seatIds.every((id) => ruled.has(id))
+      ? ('judges-split' as const)
+      : ('judges-did-not-rule' as const);
   if (completeness === 'incomplete') return 'transcript-incomplete' as const;
   return panel.aiSeats.some((seat) => seat.standing.state === 'ended')
     ? ('judging-failed' as const)

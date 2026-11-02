@@ -85,9 +85,6 @@ for (const ladder of ratingLadders)
                   },
                 }).executeClaim(claim, new AbortController().signal);
               }
-              // Membership survives a later ballot-status change; the Round's
-              // finalized outcome, not a re-aggregation, remains authoritative.
-              await f.sql`update ballots set status='voided',voided_at=clock_timestamp(),voided_by_actor_id=${f.host.actorId} where round_id=${roundId}`;
               const candidates = await f.store.readUnratedRatingRounds({
                 limit: 64,
               });

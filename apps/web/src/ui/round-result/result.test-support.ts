@@ -24,7 +24,7 @@ export const completed: RoundBallotRead = {
       },
     },
     {
-      status: 'voided',
+      status: 'submitted',
       judge: 'ai',
       ballot: { ...sampleJudgeBallot, feedback: {} },
     },

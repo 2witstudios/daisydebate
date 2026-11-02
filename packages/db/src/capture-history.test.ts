@@ -56,7 +56,7 @@ test('a bot seat must cover only its credited windows, joined within relay laten
           [{ kind: 'bot' }],
           [
             { start: new Date(1880), end: new Date(4790) },
-            { start: new Date(5000), end: new Date(5500) },
+            { start: new Date(6000), end: new Date(6500) },
           ],
         ),
         stream,
@@ -74,7 +74,7 @@ test('a bot seat must cover only its credited windows, joined within relay laten
       {
         authority: [
           { start: 1880, end: 4790 },
-          { start: 5000, end: 5500 },
+          { start: 6000, end: 6500 },
         ],
         tolerance: { openMs: 1000, closeMs: 1000, terminalCloseMs: 1000 },
       },

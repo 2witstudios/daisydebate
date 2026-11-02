@@ -1,3 +1,5 @@
+import type { JudgingPanelFacts } from '@daisy/protocol';
+import { readJudgingPanelFacts } from './judging-panel-read';
 import { roundBallotReads } from './round-ballot-reads';
 import { assertRoundAttendanceSettled } from './attendance-settlement';
 import { createAppError } from '@daisy/errors';
@@ -76,6 +78,8 @@ export type LockedRoundBallotInput = {
   readonly buildProjection: (
     context: LockedRoundBallotContext & {
       readonly ballots: readonly (typeof ballots.$inferSelect)[];
+      /** Read with this ballot in place, for the engine's one panel decision. */
+      readonly panel: JudgingPanelFacts;
     },
   ) => RoundProjection | null;
 };
@@ -171,6 +175,10 @@ export async function executeLockedRoundBallot(
   const projection = input.buildProjection({
     ...context,
     ballots: [...existing, stored],
+    panel: await readJudgingPanelFacts(tx, {
+      roundId: input.roundId,
+      completeness: context.frozen.completeness,
+    }),
   });
   return persistBallotResult(tx, input, context, current, ballotId, projection);
 }

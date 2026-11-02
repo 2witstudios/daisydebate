@@ -41,9 +41,11 @@ const resultText = (round: RoundReceiptView) =>
       ? 'Transcript incomplete'
       : round.panelRuling === 'judging-failed'
         ? 'AI judge could not rule'
-        : round.participants.some((seat) => seat.role === 'judge')
-          ? 'Judges did not rule'
-          : 'Unjudged';
+        : round.panelRuling === 'judges-split'
+          ? 'Judges split'
+          : round.participants.some((seat) => seat.role === 'judge')
+            ? 'Judges did not rule'
+            : 'Unjudged';
 const resultLabel: Readonly<Record<NonNullable<RoundView['outcome']>, string>> =
   {
     affirmative: 'Affirmative won',

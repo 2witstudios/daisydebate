@@ -366,7 +366,6 @@ test('a held ballot outlives the cutoff until it has had its chance to submit', 
       readJudgingPanelFacts(drizzle({ client: fixture.sql }), {
         roundId,
         completeness: 'complete',
-        seats: [],
       });
     await assertRejects({
       given: 'a frozen Round with no cutoff',
@@ -412,7 +411,6 @@ test('a fresh attendance decision also gives a held ballot its chance', async ()
         await readJudgingPanelFacts(drizzle({ client: fixture.sql }), {
           roundId,
           completeness: 'complete',
-          seats: [],
         })
       ).held.lastAttendanceDecisionAt;
     const before = await lastDecision();

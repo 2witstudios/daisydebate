@@ -138,10 +138,15 @@ describe('round runtime command refusals and seat order', () => {
       actual: spent.position(at(1_000)).awaitingBallot,
       expected: true,
     });
-    const completed = spent.execute({
-      command: { type: 'complete', outcome: 'affirmative' },
-      actorId: oneOnOneSeats[2].actorId,
+    const judge = oneOnOneSeats[2].id;
+    const completed = spent.completePanel({
       now: at(1_000),
+      ballots: [{ judgeParticipantId: judge, winner: 'affirmative' }],
+      completeness: 'complete',
+      panel: {
+        humanWindow: { deadlineAt: at(1_001), seatIds: [judge] },
+        aiSeats: [],
+      },
     });
     assert({
       given: 'a judge ruling after the final speech yielded early',

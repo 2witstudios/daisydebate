@@ -189,26 +189,6 @@ export function closePlayedRound(c: CommandContext): void {
     c.into.finalPlayedEnd = iso(lastPlayed);
 }
 
-/** Completion follows the final segment's spent time, and carries an outcome. */
-const complete = (c: CommandContext, outcome: RatedOutcome): void => {
-  const open = c.on.openRow();
-  const finalClosed =
-    open === undefined && c.closedCount() === c.rules.segments.length;
-  if (
-    !finalClosed &&
-    (open === undefined ||
-      open.sequence !== c.rules.segments.length - 1 ||
-      c.now < open.startedAtMs + open.durationMs)
-  )
-    invariant(
-      debateInvariantIds.completeAfterFinalSegment,
-      'Completion follows the final segment’s time',
-    );
-  if (open !== undefined) c.closeRowAt(open.sequence, c.now);
-  c.on.endPrep();
-  completeWith(c, outcome);
-};
-
 const completeWith = (c: CommandContext, outcome: RatedOutcome): void => {
   c.on.setLifecycle({
     status: 'completed',
@@ -252,7 +232,5 @@ export const applyRoundCommand = (
       return interrupt(c);
     case 'forfeit':
       return forfeit(c);
-    case 'complete':
-      return complete(c, command.outcome);
   }
 };

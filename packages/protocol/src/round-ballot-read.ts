@@ -4,7 +4,7 @@ import { idSchema } from './primitives';
 import { roundViewSchema } from './round-view';
 import { roundUtteranceSchema } from './round-transcript';
 
-const ballotStatus = z.enum(['submitted', 'voided']);
+const ballotStatus = z.literal('submitted');
 
 /**
  * A caller's own judge seat is private; other judges' seats never accompany
