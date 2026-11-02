@@ -1,10 +1,18 @@
 import { and, asc, eq, or, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { ballotSchema } from '@daisy/protocol';
+import {
+  ballotSchema,
+  judgingAttemptDiagnosticSchema,
+  type JudgingAttemptDiagnostic,
+  type JudgingTerminalReason,
+} from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentRuns } from './schema/agent-runs';
-import { roundJudgingJobs } from './schema/round-judging-jobs';
+import {
+  roundJudgingAttempts,
+  roundJudgingJobs,
+} from './schema/round-judging-jobs';
 import { rounds } from './schema/rounds';
 import {
   endLockedRoundAgentRun,
@@ -27,39 +35,60 @@ import {
 export type { JudgingScope } from './round-judging-context';
 /** Paid model calls one judging job may buy over all its leases (ISSUE-461). */
 const MAX_JUDGING_CALLS = 2;
+/** Wait before another attempt after a failure that may be transient. */
+const JUDGING_RETRY_MS = 5_000;
 /**
  * One paid answer per attempt, a bounded number of attempts (DEC-210's rule
- * for judges): a job that already bought its calls, or whose ballot deadline
- * has passed, buys nothing more. Calls that may have been served count.
+ * for judges): a job that already bought its calls, or whose AI judging budget
+ * has passed (DEC-275), buys nothing more. Calls that may have been served
+ * count; a call the vendor certainly refused does not.
  */
 async function judgingDispatchEnded(
   tx: BoundedTransactionContext,
   scope: JudgingScope,
-) {
+): Promise<JudgingTerminalReason | null> {
   const [facts] = (await tx.execute(sql`select
     (select count(*)::int from agent_runs
       where round_participant_id=${scope.judgeParticipantId} and kind='judging'
         and configuration_snapshot->>'commandId'=${scope.commandId}
         and configuration_snapshot->>'providerOutcome' in ('unknown','received')) as paid,
-    (select coalesce(ballot_deadline_at<=clock_timestamp(),false) from rounds
-      where id=${scope.roundId}) as late`)) as unknown as {
+    (select generation_deadline_at<=clock_timestamp() from round_judging_jobs
+      where round_id=${scope.roundId} and judge_participant_id=${scope.judgeParticipantId}) as late`)) as unknown as {
     paid: number;
     late: boolean;
   }[];
-  return facts!.paid >= MAX_JUDGING_CALLS || facts!.late;
+  if (facts!.paid >= MAX_JUDGING_CALLS) return 'attempts_exhausted';
+  return facts!.late ? 'generation_deadline' : null;
 }
-/** The terminal state: no lease, never rediscovered; DEC-201's deadline completes the Round. */
+/** The terminal state: no lease, never rediscovered; panel completion reads it. */
 async function failLockedJudgingJob(
   tx: BoundedTransactionContext,
   scope: JudgingScope,
   runId: string,
+  terminalReason: JudgingTerminalReason,
 ) {
   await endLockedRoundAgentRun(tx, runId, scope.judgeParticipantId);
   await tx
     .update(roundJudgingJobs)
-    .set({ status: 'failed', leaseTokenDigest: null, leaseExpiresAt: null })
+    .set({
+      status: 'failed',
+      terminalReason,
+      retryAt: null,
+      leaseTokenDigest: null,
+      leaseExpiresAt: null,
+    })
     .where(judgingJobWhere(scope));
 }
+/** The budget bounds generation only: a held pending ballot is never expired by it. */
+const budgetSpent = (
+  job: {
+    readonly generationDeadlineAt: Date;
+    readonly pendingBallot: unknown;
+  },
+  now: Date,
+) =>
+  job.pendingBallot === null &&
+  job.generationDeadlineAt.getTime() <= now.getTime();
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
   readonly run: BoundedTransaction;
@@ -109,7 +138,10 @@ export function createRoundJudgingJobs(input: {
             and(
               eq(rounds.status, 'active'),
               or(
-                eq(roundJudgingJobs.status, 'queued'),
+                and(
+                  eq(roundJudgingJobs.status, 'queued'),
+                  sql`coalesce(${roundJudgingJobs.retryAt}<=clock_timestamp(),true)`,
+                ),
                 and(
                   eq(roundJudgingJobs.status, 'leased'),
                   sql`${roundJudgingJobs.leaseExpiresAt}<=clock_timestamp()`,
@@ -142,8 +174,9 @@ export function createRoundJudgingJobs(input: {
     beginModelCall: (scope: JudgingScope, token: string) =>
       withLease(scope, token, async (tx, { run, job }) => {
         requireUndispatched(job, run);
-        if (await judgingDispatchEnded(tx, scope)) {
-          await failLockedJudgingJob(tx, scope, run.id);
+        const ended = await judgingDispatchEnded(tx, scope);
+        if (ended) {
+          await failLockedJudgingJob(tx, scope, run.id, ended);
           return false;
         }
         await tx
@@ -173,7 +206,12 @@ export function createRoundJudgingJobs(input: {
       const parsed = ballotSchema.safeParse(response);
       if (!parsed.success) throw createAppError('VALIDATION');
       return withLease(scope, token, async (tx, { run, job, now }) => {
-        if (pendingBallotAction(job, run, parsed.data) === 'kept') return;
+        if (pendingBallotAction(job, run, parsed.data) === 'kept') return true;
+        // A late answer keeps its accounted usage above and gains no authority.
+        if (budgetSpent(job, now)) {
+          await failLockedJudgingJob(tx, scope, run.id, 'generation_deadline');
+          return false;
+        }
         await tx
           .update(roundJudgingJobs)
           .set({
@@ -183,10 +221,76 @@ export function createRoundJudgingJobs(input: {
             pendingBallotReceivedAt: now,
           })
           .where(judgingJobWhere(scope));
+        return true;
+      });
+    },
+    /**
+     * Durable and immediate: the attempt's safe reason, then either a later
+     * retry or the job's terminal state, on the failed call itself and never on
+     * some future claim. Returns which, so the worker can release its slot.
+     */
+    recordAttemptFailure: (
+      scope: JudgingScope,
+      token: string,
+      input_: {
+        readonly diagnostic: JudgingAttemptDiagnostic;
+        readonly contractVersion: string;
+        /** The vendor certainly did not serve this call, so it buys nothing. */
+        readonly definite: boolean;
+      },
+    ): Promise<'retry' | JudgingTerminalReason> => {
+      const diagnostic = judgingAttemptDiagnosticSchema.parse(
+        input_.diagnostic,
+      );
+      return withLease(scope, token, async (tx, { run, job, now }) => {
+        await tx.insert(roundJudgingAttempts).values({
+          agentRunId: run.id,
+          roundId: scope.roundId,
+          judgeParticipantId: scope.judgeParticipantId,
+          jobEpoch: scope.jobEpoch,
+          model: run.model ?? input.model,
+          contractVersion: input_.contractVersion,
+          category: diagnostic.category,
+          diagnostic,
+        });
+        if (
+          input_.definite &&
+          run.configurationSnapshot.providerOutcome === 'unknown'
+        )
+          await tx
+            .update(agentRuns)
+            .set({
+              configurationSnapshot: {
+                ...run.configurationSnapshot,
+                providerOutcome: 'refused',
+              },
+            })
+            .where(eq(agentRuns.id, run.id));
+        const ended = await judgingDispatchEnded(tx, scope);
+        if (ended && !job.pendingBallot) {
+          await failLockedJudgingJob(tx, scope, run.id, ended);
+          return ended;
+        }
+        await endLockedRoundAgentRun(tx, run.id, scope.judgeParticipantId);
+        await tx
+          .update(roundJudgingJobs)
+          .set({
+            status: 'queued',
+            leaseTokenDigest: null,
+            leaseExpiresAt: null,
+            retryAt: new Date(now.getTime() + JUDGING_RETRY_MS),
+          })
+          .where(judgingJobWhere(scope));
+        return 'retry';
       });
     },
     renew: (scope: JudgingScope, token: string) =>
-      withLease(scope, token, async (tx, { now }) => {
+      withLease(scope, token, async (tx, { run, job, now }) => {
+        // Cancels the running call: the worker releases on this refusal.
+        if (budgetSpent(job, now)) {
+          await failLockedJudgingJob(tx, scope, run.id, 'generation_deadline');
+          return null;
+        }
         const expires = new Date(now.getTime() + input.leaseMs);
         await tx
           .update(roundJudgingJobs)

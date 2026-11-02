@@ -138,10 +138,12 @@ export function startRoundJudgingService<C extends Claim>(input: {
       [...entries.values()].map(async (entry) => {
         if (entry.abort.signal.aborted) return;
         try {
-          await input.store.renewRoundJudgingJob(
+          // Null: the budget ran out and the job has ended (DEC-275). Cancel the call.
+          const renewed = await input.store.renewRoundJudgingJob(
             entry.claim.scope,
             entry.claim.token,
           );
+          if (renewed === null) release(entry);
         } catch (error) {
           // A lease lost to completion or another claimant is a release, not
           // a fault. Any other failure leaves the paid call running; the next

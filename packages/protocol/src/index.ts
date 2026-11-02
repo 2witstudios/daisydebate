@@ -83,6 +83,19 @@ export type {
   RuntimeCheckpoint,
 } from './round';
 export {
+  judgingAttemptCategories,
+  judgingAttemptDiagnosticSchema,
+  judgingBallotFields,
+  judgingFinishes,
+  judgingRecordedIssueLimit,
+  judgingTerminalReasons,
+  type JudgingAttemptCategory,
+  type JudgingAttemptDiagnostic,
+  type JudgingFinish,
+  type JudgingIssueCode,
+  type JudgingTerminalReason,
+} from './round-judging-attempt';
+export {
   ballotSchema,
   ballotDefaultScore,
   ballotLimits,

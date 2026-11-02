@@ -1,4 +1,14 @@
-import { parseBallot, type OpenRouter } from '@daisy/ai-voice';
+import {
+  ballotWireSchema,
+  isDefiniteProviderFailure,
+  judgeAnswer,
+  judgeContractVersion,
+  type OpenRouter,
+} from '@daisy/ai-voice';
+import type {
+  JudgingAttemptCategory,
+  JudgingAttemptDiagnostic,
+} from '@daisy/protocol';
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { prepareRoundBallotSubmission } from '../round-ballots/operations';
@@ -9,6 +19,7 @@ type Store = Pick<
   Database,
   | 'verifyRoundJudgingJob'
   | 'beginRoundJudgingModelCall'
+  | 'recordRoundJudgingAttemptFailure'
   | 'recordRoundJudgingUsage'
   | 'saveRoundJudgingResult'
   | 'submitRoundJudgingResult'
@@ -17,17 +28,45 @@ type Claim = Awaited<ReturnType<Database['claimRoundJudgingJob']>>;
 function requireNotCancelled(signal: AbortSignal) {
   if (signal.aborted) throw createAppError('CONFLICT', 'Judging cancelled');
 }
+/** The provider call failed: what can be said without any provider text. */
+const providerFailure = (
+  error: unknown,
+  signal: AbortSignal,
+): JudgingAttemptDiagnostic => {
+  const category: JudgingAttemptCategory = isDefiniteProviderFailure(error)
+    ? 'provider_refused'
+    : signal.reason instanceof DOMException &&
+        signal.reason.name === 'TimeoutError'
+      ? 'timeout'
+      : 'provider_error';
+  return { category, finish: 'none', issueCount: 0, issues: [] };
+};
 /** Durable response caching precedes shared submission; attendance rollback never repeats a cached model call. */
 export function createRoundJudgingOperations(input: {
   readonly store: Store;
   readonly nextId: () => string;
   readonly voice: () => Pick<OpenRouter, 'complete'>;
   readonly withProvider: ProviderCall;
+  /** Once, when a job ends with no ballot. Holds only the closed category. */
+  readonly jobEnded?: (category: JudgingAttemptCategory) => void;
 }) {
   return {
     async executeClaim(claim: Claim, signal: AbortSignal) {
       const { scope, token } = claim;
       const verify = () => input.store.verifyRoundJudgingJob(scope, token);
+      /** Durable first; true means this attempt has nothing further to do. */
+      const attemptFailed = async (
+        diagnostic: JudgingAttemptDiagnostic,
+        definite: boolean,
+      ) => {
+        const next = await input.store.recordRoundJudgingAttemptFailure(
+          scope,
+          token,
+          { diagnostic, contractVersion: judgeContractVersion, definite },
+        );
+        if (next !== 'retry') input.jobEnded?.(diagnostic.category);
+      };
+      let concluded = false;
       requireNotCancelled(signal);
       if (!(await verify()).pendingBallot) {
         await input.withProvider(signal, async () => {
@@ -36,30 +75,53 @@ export function createRoundJudgingOperations(input: {
           const messages = frozenJudgingMessages(claim);
           const voice = input.voice();
           // The job may buy no more calls: it has ended failed (ISSUE-461).
-          if (!(await input.store.beginRoundJudgingModelCall(scope, token)))
-            throw createAppError('CONFLICT', 'Judging attempts exhausted');
-          const answer = await voice.complete({
-            model: claim.model,
-            messages,
-            maxTokens: 6000,
-            temperature: 0.2,
-            json: true,
-            reasoning: 'medium',
-            signal,
-          });
+          if (!(await input.store.beginRoundJudgingModelCall(scope, token))) {
+            concluded = true;
+            return;
+          }
+          let answer: Awaited<ReturnType<typeof voice.complete>>;
+          try {
+            answer = await voice.complete({
+              model: claim.model,
+              messages,
+              maxTokens: 6000,
+              temperature: 0.2,
+              outputSchema: { name: 'ballot', schema: ballotWireSchema },
+              reasoning: 'medium',
+              signal,
+            });
+          } catch (error) {
+            const diagnostic = providerFailure(error, signal);
+            // A release, not a failure: this worker no longer holds the lease.
+            if (signal.aborted && diagnostic.category !== 'timeout')
+              throw error;
+            await attemptFailed(
+              diagnostic,
+              diagnostic.category === 'provider_refused',
+            );
+            concluded = true;
+            return;
+          }
           const usage = {
             inputTokens: answer.promptTokens,
             outputTokens: answer.completionTokens,
           };
           await input.store.recordRoundJudgingUsage(scope, token, usage);
-          await input.store.saveRoundJudgingResult(
+          const judged = judgeAnswer(answer);
+          if (!judged.ok) {
+            await attemptFailed(judged.diagnostic, false);
+            concluded = true;
+            return;
+          }
+          concluded = !(await input.store.saveRoundJudgingResult(
             scope,
             token,
-            parseBallot(answer.text),
+            judged.ballot,
             usage,
-          );
+          ));
         });
       }
+      if (concluded) return null;
       requireNotCancelled(signal);
       const fresh = await verify();
       if (!fresh.pendingBallot)

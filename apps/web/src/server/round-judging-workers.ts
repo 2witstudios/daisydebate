@@ -1,4 +1,5 @@
 import type { RoundJudgingPolicy } from '@daisy/config';
+import { createAppError } from '@daisy/errors';
 import type { ErrorReporter } from '@daisy/observability';
 import { createRoundJudgingOperations } from '../features/round-judging/operations';
 import { startRoundJudgingService } from '../features/round-judging/service';
@@ -24,6 +25,15 @@ export function startRoundJudgingWorkers(input: {
     voice: app.aiVoice,
     // The service reserves before claiming and holds admission through retries.
     withProvider: (_signal, work) => work(),
+    jobEnded: (category) =>
+      failure(
+        'round.judging.failed',
+        'round.judging',
+        'Judging ended without a ballot',
+      )(
+        createAppError('INFRASTRUCTURE', `Judging ended: ${category}`),
+        'execute',
+      ),
   });
   return startRoundJudgingService({
     reserveCapacity: () => input.budget.reserve(),

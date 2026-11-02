@@ -166,6 +166,7 @@ test('an incomplete freeze dispatches no AI judge and, with no human judge, clos
       completeness,
       humanJudges,
       ballotDeadlineMs: 1_800_000,
+      aiJudgingBudgetMs: 300_000,
     });
   assert({
     given: 'complete and incomplete freezes, with and without a human judge',
@@ -177,9 +178,21 @@ test('an incomplete freeze dispatches no AI judge and, with no human judge, clos
       plan('incomplete', false),
     ],
     expected: [
-      { dispatchAiJudges: true, ballotDeadlineMs: 1_800_000 },
-      { dispatchAiJudges: false, ballotDeadlineMs: 1_800_000 },
-      { dispatchAiJudges: false, ballotDeadlineMs: 0 },
+      {
+        dispatchAiJudges: true,
+        ballotDeadlineMs: 1_800_000,
+        aiJudgingBudgetMs: 300_000,
+      },
+      {
+        dispatchAiJudges: false,
+        ballotDeadlineMs: 1_800_000,
+        aiJudgingBudgetMs: 300_000,
+      },
+      {
+        dispatchAiJudges: false,
+        ballotDeadlineMs: 0,
+        aiJudgingBudgetMs: 300_000,
+      },
     ],
   });
   const decide = (

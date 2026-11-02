@@ -39,12 +39,14 @@ export function freezeJudgingPlan(
     /** Whether any judge seat is a human, who heard the Round live. */
     readonly humanJudges: boolean;
     readonly ballotDeadlineMs: number;
+    readonly aiJudgingBudgetMs: number;
   },
 ) {
   const gated = input.completeness === 'incomplete';
   return {
     dispatchAiJudges: !gated,
     ballotDeadlineMs: gated && !input.humanJudges ? 0 : input.ballotDeadlineMs,
+    aiJudgingBudgetMs: input.aiJudgingBudgetMs,
   };
 }
 

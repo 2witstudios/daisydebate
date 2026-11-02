@@ -1,3 +1,4 @@
+import type { JudgingFinish } from '@daisy/protocol';
 import { createAppError, isAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { readPcmSpeech, requireSpeechNotCancelled } from './pcm';
@@ -19,6 +20,14 @@ export type CompletionRequest = {
   /** Ask the model for a JSON object (structured output). */
   readonly json?: boolean;
   /**
+   * Ask for output constrained to this schema, served only by an endpoint
+   * supporting it. The caller still validates the answer.
+   */
+  readonly outputSchema?: {
+    readonly name: string;
+    readonly schema: Record<string, unknown>;
+  };
+  /**
    * How hard the model thinks before answering; its reasoning is never
    * returned. Some models require reasoning and refuse 'none'.
    */
@@ -35,12 +44,27 @@ const DATA_POLICY = { zdr: true } as const;
 
 const completionSchema = z.object({
   choices: z
-    .array(z.object({ message: z.object({ content: z.string().nullable() }) }))
+    .array(
+      z.object({
+        message: z.object({
+          content: z.string().nullable(),
+          refusal: z.string().nullable().optional(),
+        }),
+        finish_reason: z.string().nullable().optional(),
+      }),
+    )
     .min(1),
   usage: z
     .object({ prompt_tokens: z.number(), completion_tokens: z.number() })
     .optional(),
 });
+/** A provider's finish reason as a closed fact; its raw string goes no further. */
+const finishOf = (reason: string | null | undefined): JudgingFinish => {
+  if (reason === undefined || reason === null) return 'none';
+  return reason === 'stop' || reason === 'length' || reason === 'content_filter'
+    ? reason
+    : 'other';
+};
 const transcriptionSchema = z.object({ text: z.string() });
 
 const definiteFailures = new WeakSet<Error>();
@@ -168,10 +192,24 @@ export function createOpenRouter({
       ? { temperature: request.temperature }
       : {}),
     ...(request.json ? { response_format: { type: 'json_object' } } : {}),
+    ...(request.outputSchema
+      ? {
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: request.outputSchema.name,
+              strict: true,
+              schema: request.outputSchema.schema,
+            },
+          },
+        }
+      : {}),
     ...(request.reasoning
       ? { reasoning: { effort: request.reasoning, exclude: true } }
       : {}),
-    provider: DATA_POLICY,
+    provider: request.outputSchema
+      ? { ...DATA_POLICY, require_parameters: true }
+      : DATA_POLICY,
   });
   return {
     async complete(request: CompletionRequest) {
@@ -191,6 +229,8 @@ export function createOpenRouter({
       );
       return {
         text: body.choices[0]!.message.content ?? '',
+        finish: finishOf(body.choices[0]!.finish_reason),
+        refused: Boolean(body.choices[0]!.message.refusal),
         promptTokens: body.usage?.prompt_tokens ?? 0,
         completionTokens: body.usage?.completion_tokens ?? 0,
       };

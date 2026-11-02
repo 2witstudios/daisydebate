@@ -1,4 +1,11 @@
-import { ballotSchema } from '@daisy/protocol';
+import {
+  ballotSchema,
+  judgingAttemptCategories,
+  judgingAttemptDiagnosticSchema,
+  judgingTerminalReasons,
+  type JudgingAttemptCategory,
+  type JudgingTerminalReason,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -12,6 +19,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
+  jsonbColumn,
   jsonbColumnNullable,
   jsonbIsObject,
   oneOf,
@@ -41,10 +49,21 @@ export const roundJudgingJobs = pgTable(
     pendingBallotAgentRunId: text('pending_ballot_agent_run_id'),
     pendingBallotEpoch: integer('pending_ballot_epoch'),
     pendingBallotReceivedAt: timestampColumn('pending_ballot_received_at'),
+    /** The AI judging budget, persisted at the freeze (DEC-275). Bounds provider work only. */
+    generationDeadlineAt: timestampColumn('generation_deadline_at').notNull(),
+    /** Pinned by the first claim, so a deploy cannot change a job's model between attempts. */
+    model: text('model'),
+    /** The job is not claimable before this; set by a retryable attempt failure. */
+    retryAt: timestampColumn('retry_at'),
+    terminalReason: text('terminal_reason').$type<JudgingTerminalReason>(),
     createdAt: createdAtColumn(),
   },
   (table) => [
     jsonbIsObject('round_judging_jobs', table.pendingBallot),
+    check(
+      'round_judging_jobs_terminal_reason_check',
+      sql`${table.terminalReason} is null or (${table.status} = 'failed' and ${oneOf(table.terminalReason, judgingTerminalReasons)})`,
+    ),
     foreignKey({
       name: 'round_judging_jobs_pending_run_judge_fk',
       columns: [table.pendingBallotAgentRunId, table.judgeParticipantId],
@@ -113,6 +132,56 @@ export const roundJudgingJobs = pgTable(
     check(
       'round_judging_jobs_result_check',
       sql`(${table.status} = 'succeeded') = (${table.resultBallotId} is not null)`,
+    ),
+  ],
+);
+
+/**
+ * Why one execution produced no ballot. Allowlisted facts only: never a
+ * message, received value, transcript or provider text.
+ */
+export const roundJudgingAttempts = pgTable(
+  'round_judging_attempts',
+  {
+    agentRunId: text('agent_run_id').primaryKey(),
+    roundId: text('round_id').notNull(),
+    judgeParticipantId: text('judge_participant_id').notNull(),
+    jobEpoch: integer('job_epoch').notNull(),
+    model: text('model').notNull(),
+    contractVersion: text('contract_version').notNull(),
+    category: text('category').$type<JudgingAttemptCategory>().notNull(),
+    diagnostic: jsonbColumn(
+      'diagnostic',
+      judgingAttemptDiagnosticSchema,
+    ).notNull(),
+    createdAt: createdAtColumn(),
+  },
+  (table) => [
+    jsonbIsObject('round_judging_attempts', table.diagnostic),
+    foreignKey({
+      name: 'round_judging_attempts_job_fk',
+      columns: [table.roundId, table.judgeParticipantId],
+      foreignColumns: [
+        roundJudgingJobs.roundId,
+        roundJudgingJobs.judgeParticipantId,
+      ],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'round_judging_attempts_run_judge_fk',
+      columns: [table.agentRunId, table.judgeParticipantId],
+      foreignColumns: [agentRuns.id, agentRuns.roundParticipantId],
+    }).onDelete('cascade'),
+    index('round_judging_attempts_job_idx').on(
+      table.roundId,
+      table.judgeParticipantId,
+    ),
+    index('round_judging_attempts_run_judge_idx').on(
+      table.agentRunId,
+      table.judgeParticipantId,
+    ),
+    check(
+      'round_judging_attempts_category_check',
+      oneOf(table.category, judgingAttemptCategories),
     ),
   ],
 );
