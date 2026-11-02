@@ -1,60 +1,34 @@
 name: Browser E2E
 
 on:
+  # Not a PR check (ADR 0098): the suite runs on main after merge. A red run
+  # gets an owner at once, who fixes forward or reverts. A PR that wants the
+  # proof first dispatches this workflow on its branch.
   push:
     branches: [main]
-  pull_request:
-  merge_group:
-    types: [checks_requested]
   # The nightly main run: every Playwright project (engines, mobile layouts
-  # and visual), where PRs and main pushes run Chromium alone (ADR 0083).
+  # and visual), where main pushes run Chromium alone (ADR 0083).
   schedule:
     - cron: '41 6 * * *'
   # AUTH-6.2-AC7: the release-qualification gate (three consecutive full
-  # suite runs, retries disabled) is not a per-PR check — it runs only on
-  # manual dispatch, on this uncontended runner instead of a shared
-  # development machine, alongside the unchanged single-run push/PR gate.
+  # suite runs, retries disabled) runs only on manual dispatch, on this
+  # uncontended runner instead of a shared development machine, alongside
+  # the single-run push suite.
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Superseded PR runs cancel; main, queue and manual candidates each finish
-# independently so a later merge cannot erase the previous candidate's proof.
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
+# No concurrency group: every run finishes independently, so a later merge
+# cannot erase the previous commit's proof.
 # No quick check here: ci.yml runs it once per PR or main push, and a lint failure there
 # never cascades into browser reds (ADR 0083).
 jobs:
-  # Decides, without installing or building anything, whether this run needs
-  # the Isolated Room Launch suite: a PR needs it only when it changes room,
-  # round, realtime, messaging or media paths (scripts/affected-e2e.ts).
-  scope:
-    name: Browser scope
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      native: ${{ steps.select.outputs.native }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: .bun-version
-      - id: select
-        run: bun scripts/select-e2e.ts
-        env:
-          GH_TOKEN: ${{ github.token }}
-
   e2e:
     name: Playwright browser suite
     runs-on: ubuntu-24.04
     # A manual dispatch runs the three-consecutive-run release
-    # qualification instead of the single-run PR gate; three full suites
+    # qualification instead of the single run; three full suites
     # need more than the single-run budget below.
     timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 60 || 20 }}
     # The read-only fixture admission CLI derives the canonical main slot
@@ -112,11 +86,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Select owned browser specs with full-suite fallback
+      - name: Select browser specs and projects
         id: select
         run: bun scripts/select-e2e.ts
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Apply migrations to the e2e database
         run: bun run --cwd packages/db db:migrate
@@ -193,7 +165,7 @@ jobs:
             ~/.cache/daisy-apt-archives
           key: ${{ steps.browser-cache.outputs.cache-primary-key }}
 
-      # DAISY_E2E_PROJECT_ARGS is --project=chromium on per-change runs and
+      # DAISY_E2E_PROJECT_ARGS is --project=chromium on main pushes and
       # empty on the nightly run (scripts/select-e2e.ts).
       - name: Run browser tests
         if: ${{ github.event_name != 'workflow_dispatch' }}
@@ -356,8 +328,6 @@ jobs:
           retention-days: 7
 
   room-launch:
-    needs: scope
-    if: needs.scope.outputs.native == 'true'
     name: Isolated Room Launch browser suite
     runs-on: ubuntu-24.04
     # One shared slot keeps the suite on a single worker: about 3 min of
@@ -393,10 +363,8 @@ jobs:
         run: git worktree add --detach .pu/worktrees/wt-roomlaunchci "$GITHUB_SHA"
       - name: Install exact dependencies
         run: bun install --frozen-lockfile
-      - name: Select native specs with enforced queue fallback
+      - name: Select native specs
         run: bun scripts/select-e2e.ts
-        env:
-          GH_TOKEN: ${{ github.token }}
       - name: Initialize own environment
         run: cp .env.example .env
       - name: Create and migrate only the derived proof slot
@@ -471,14 +439,13 @@ jobs:
         run: |
           key=$(bun apps/web/e2e/support/launch-browser-image.ts --key)
           echo "key=$key" >> "$GITHUB_OUTPUT"
-      # Exact input keys only. Cache is a repository-scoped optimization and forks
-      # never restore it; the shared preparer validates receipt and image again.
+      # Exact input keys only. Cache is a repository-scoped optimization; the
+      # shared preparer validates receipt and image again.
       - name: Restore prepared Launch browser archive
         id: launch-image-cache
         # A stalled cache is a miss, never a red required check: the hit output stays
         # empty, so the proofs run in full, and a partial directory is rebuilt.
         continue-on-error: true
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         timeout-minutes: 8
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -504,8 +471,7 @@ jobs:
         if: >-
           steps.launch-image-cache.outputs.cache-hit != 'true' &&
           hashFiles('.pu/worktrees/wt-roomlaunchci/.cache/launch-browser-image/receipt.json') != '' &&
-          ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
+          github.event_name == 'push' && github.ref == 'refs/heads/main'
         timeout-minutes: 8
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -574,21 +540,17 @@ jobs:
           SUITE: ${{ needs.e2e.result }}
         run: test "$SUITE" = success
 
-  # Passes when the suite ran and passed, or when scope found no Room Launch
-  # path in the change and the suite was skipped for that reason alone.
   native-gate:
     name: Isolated Room Launch E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [scope, room-launch]
+    needs: [room-launch]
     if: always()
     steps:
-      - name: Require native execution or a scoped skip
+      - name: Require native execution
         env:
-          SCOPE: ${{ needs.scope.result }}
-          NATIVE: ${{ needs.scope.outputs.native }}
           SUITE: ${{ needs.room-launch.result }}
-        run: test "$SUITE" = success || { test "$SCOPE" = success && test "$NATIVE" = false && test "$SUITE" = skipped; }
+        run: test "$SUITE" = success
 
   # The nightly run has no PR to show its result on, so a failure goes to
   # the drive's Incidents channel, as a failed CI run on main does.
