@@ -210,11 +210,12 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
   });
   try {
     const formPage = await openPage(native, 'native refused reload');
+    await formPage.goto(path);
     const seats = [page, formPage];
     await controlLaunch('refuse-round-reads');
     try {
       for (const seat of seats) {
-        const answer = await seat.goto(path);
+        const answer = await seat.reload();
         // A Next page cannot choose a 5xx; it can stay uncacheable.
         expect(answer?.headers()['cache-control']).toContain('no-store');
         await expect(
