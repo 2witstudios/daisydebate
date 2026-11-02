@@ -149,7 +149,10 @@ export const appendRoundStrikes = async (
 };
 
 /** The strikes a draw has stored, without loading it. */
-export const storedStrikeCount = async (tx: Pick<Tx, 'select'>, drawId: string) => {
+export const storedStrikeCount = async (
+  tx: Pick<Tx, 'select'>,
+  drawId: string,
+) => {
   const [row] = await tx
     .select({ count: sql<number>`count(*)::int` })
     .from(roundResolutionStrikes)

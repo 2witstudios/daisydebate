@@ -142,7 +142,10 @@ export const roundResolutionDrawItems = pgTable(
     foreignKey({
       name: 'round_resolution_draw_items_kind_fk',
       columns: [table.drawId, table.sourceKind],
-      foreignColumns: [roundResolutionDraws.id, roundResolutionDraws.sourceKind],
+      foreignColumns: [
+        roundResolutionDraws.id,
+        roundResolutionDraws.sourceKind,
+      ],
     }).onDelete('cascade'),
     foreignKey({
       name: 'round_resolution_draw_items_size_fk',

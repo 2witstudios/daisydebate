@@ -210,7 +210,11 @@ test('Round read returns only the stored receipt and current participant identit
       candidate.hostActorId === caller.actorId &&
       candidate.status === 'active',
     (_opening, _seats, _viewer, now) => ({
-      view: { step: { step: 'complete', at: now }, draw: null, canStrike: false },
+      view: {
+        step: { step: 'complete', at: now },
+        draw: null,
+        canStrike: false,
+      },
       topic: null,
     }),
   );

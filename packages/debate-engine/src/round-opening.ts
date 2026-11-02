@@ -87,10 +87,7 @@ const mayStrike = (
   );
 
 export type StrikeRefusal =
-  | 'not-seated'
-  | 'strike-conflict'
-  | 'strike-unavailable'
-  | 'not-your-turn';
+  'not-seated' | 'strike-conflict' | 'strike-unavailable' | 'not-your-turn';
 
 /**
  * A debater's strike on the settled opening. The ordinal names the turn the

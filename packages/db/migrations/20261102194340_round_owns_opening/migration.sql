@@ -28,6 +28,7 @@ WHERE "status" IN ('assembling', 'ready') AND (
   "prep_started_at" IS NOT NULL
   OR EXISTS (SELECT 1 FROM "room_resolution_draws" d WHERE d."room_id" = "rooms"."id")
 );--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 CREATE TABLE "round_resolution_draw_items" (
 	"draw_id" text,
 	"position" integer,

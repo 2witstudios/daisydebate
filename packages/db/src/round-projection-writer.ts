@@ -89,7 +89,11 @@ export async function writeProjectionWithPhaseSignal(
   const draw = projection.openingDraw;
   const stored = draw ? await storedStrikeCount(tx, draw.id) : 0;
   const addedStrikes = draw ? await appendRoundStrikes(tx, draw, stored) : 0;
-  if (addedStrikes > 0 && draw && draw.strikes.length >= draw.manifest.drawSize - 1) {
+  if (
+    addedStrikes > 0 &&
+    draw &&
+    draw.strikes.length >= draw.manifest.drawSize - 1
+  ) {
     const { survivorText, ...evidence } = revealEvidence(draw);
     await tx
       .update(rounds)

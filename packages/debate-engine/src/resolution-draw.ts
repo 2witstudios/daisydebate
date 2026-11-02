@@ -1,10 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import type { DebateSide, RoomAssemblyState } from '@daisy/protocol';
-import {
-  automaticChoice,
-  canonicalOrder,
-  shuffle,
-} from './draw-random';
+import { automaticChoice, canonicalOrder, shuffle } from './draw-random';
 import type {
   ResolutionCategory,
   ResolutionDrawItem,

@@ -80,7 +80,8 @@ export async function launchedRoundRows(
       };
     }),
   );
-  const draw = row.status === 'opening' ? await loadRoundDraw(tx, roundId) : null;
+  const draw =
+    row.status === 'opening' ? await loadRoundDraw(tx, roundId) : null;
   const round: LaunchedRound = {
     opening:
       row.status === 'opening'

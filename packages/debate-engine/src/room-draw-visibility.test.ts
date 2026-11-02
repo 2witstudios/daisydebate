@@ -56,8 +56,11 @@ const reveal = (
     return { ...current, opening: outcome.opening };
   }, world);
 
-const read = (world: ReturnType<typeof opened>, viewer: string, now = edges.now) =>
-  projectOpening(world.opening, seedBytes, world.seats, viewer, now);
+const read = (
+  world: ReturnType<typeof opened>,
+  viewer: string,
+  now = edges.now,
+) => projectOpening(world.opening, seedBytes, world.seats, viewer, now);
 
 const distinctLines = (json: string, prefix: string) =>
   new Set(json.match(new RegExp(`${prefix}-\\d+`, 'g')) ?? []).size;

@@ -1,7 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import type {
-  RoomAssemblyState,
-} from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol';
 import {
   bytesOf,
   canonicalJson,

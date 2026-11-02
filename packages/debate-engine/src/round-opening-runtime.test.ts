@@ -54,7 +54,11 @@ describe('advanceOpening', () => {
           ...noDraw(PREP_MS),
           now: at(60),
         });
-        return [projection.round?.status, projection.opensAt, projection.openingDraw];
+        return [
+          projection.round?.status,
+          projection.opensAt,
+          projection.openingDraw,
+        ];
       })(),
       expected: ['opening', undefined, undefined],
     });

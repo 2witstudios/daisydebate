@@ -74,8 +74,7 @@ export function forfeitInOpening(
 ): RoundProjection {
   const { opening, step } = settled(input);
   const runtime = createRoundRuntime(input);
-  if (step.step === 'complete')
-    runtime.activate({ at: step.at, now: step.at });
+  if (step.step === 'complete') runtime.activate({ at: step.at, now: step.at });
   return withDraw(
     {
       ...runtime.execute({

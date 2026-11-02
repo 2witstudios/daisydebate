@@ -137,7 +137,7 @@ describe('competitive schema rules', () => {
             'rounds_ladder_check',
             'rounds_lifecycle_check',
             'rounds_outcome_check',
-        'rounds_pre_round_prep_positive',
+            'rounds_pre_round_prep_positive',
             'rounds_ranked_has_preset_check',
             'rounds_rated_ladder_check',
             'rounds_resolution_evidence_is_object',

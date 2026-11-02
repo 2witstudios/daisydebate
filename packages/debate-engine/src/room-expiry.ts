@@ -15,7 +15,10 @@ export function maintainRoom(
   },
 ) {
   if (!assemblyOpen(room) || input.idleTimeoutMs === null) return null;
-  if (Date.parse(input.lastCommandAt) + input.idleTimeoutMs > Date.parse(input.now))
+  if (
+    Date.parse(input.lastCommandAt) + input.idleTimeoutMs >
+    Date.parse(input.now)
+  )
     return null;
   return acceptedRoomMutation({
     ...room,

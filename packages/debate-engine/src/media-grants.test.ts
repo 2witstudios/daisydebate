@@ -84,7 +84,7 @@ test('terminal and ineligible participants have no grants', () => {
       position: world.position(roundAt(0)),
       now: roundAt(0),
       finalSegmentEndedAt: null,
-    inPreRoundPrep: false,
+      inPreRoundPrep: false,
     }).subscribe,
     expected: false,
   });
@@ -98,7 +98,7 @@ test('terminal and ineligible participants have no grants', () => {
       position: world.position(roundAt(0)),
       now: roundAt(0),
       finalSegmentEndedAt: null,
-    inPreRoundPrep: false,
+      inPreRoundPrep: false,
     }),
     expected: { publish: [], subscribe: false, hidden: true, capture: false },
   });
@@ -169,7 +169,7 @@ test('cross-examination opens every debater microphone across legal custom seats
           position,
           now: roundAt(10_000),
           finalSegmentEndedAt: null,
-    inPreRoundPrep: false,
+          inPreRoundPrep: false,
         }).publish,
     ),
     expected: [
@@ -259,7 +259,7 @@ test('competitive bot rights remain publish-only through reconciliation', () => 
       position: runtimeWorld().position(roundAt(0)),
       now: roundAt(0),
       finalSegmentEndedAt: null,
-    inPreRoundPrep: false,
+      inPreRoundPrep: false,
     }),
     expected: {
       publish: ['microphone'],

@@ -53,7 +53,13 @@ test('a started Room takes no further Ready, edit or close', () => {
           edges,
         ),
       ),
-      executeRoomCommand(room, 'host', command('close', {}, room), consent, edges),
+      executeRoomCommand(
+        room,
+        'host',
+        command('close', {}, room),
+        consent,
+        edges,
+      ),
     ],
     expected: [
       { ok: false, refusal: 'room-closed' },

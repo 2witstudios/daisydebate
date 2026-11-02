@@ -22,7 +22,11 @@ test(
       const actor = await f.actor();
       const format = await f.format();
       const scheduled = (createdAt: Date) =>
-        f.round({ created_by_actor_id: actor, format_id: format, created_at: createdAt });
+        f.round({
+          created_by_actor_id: actor,
+          format_id: format,
+          created_at: createdAt,
+        });
       const stale = await scheduled(new Date(Date.now() - 16 * 60_000));
       const fresh = await scheduled(new Date());
       const started = await f.round({
@@ -45,10 +49,14 @@ test(
       await scratch.migrate((folder) => folder <= migration);
       await scratch.migrate((folder) => folder <= migration);
 
-      const statuses = await f.sql`select id, status, current_stage, started_at is not null as started, completed_at is not null as completed from rounds where id in ${f.sql([stale, fresh, started])}`;
-      const of = (id: string) => statuses.find((r: { id: string }) => r.id === id);
-      const tables = await f.sql`select table_name from information_schema.tables where table_name like 'room_resolution_%'`;
-      const columns = await f.sql`select column_name from information_schema.columns where table_name = 'rooms' and column_name like 'prep_%'`;
+      const statuses =
+        await f.sql`select id, status, current_stage, started_at is not null as started, completed_at is not null as completed from rounds where id in ${f.sql([stale, fresh, started])}`;
+      const of = (id: string) =>
+        statuses.find((r: { id: string }) => r.id === id);
+      const tables =
+        await f.sql`select table_name from information_schema.tables where table_name like 'room_resolution_%'`;
+      const columns =
+        await f.sql`select column_name from information_schema.columns where table_name = 'rooms' and column_name like 'prep_%'`;
       assert({
         given: 'a stale and a fresh scheduled Round and a running one',
         should:
@@ -81,10 +89,11 @@ test(
         actual: [tables.length, columns.length],
         expected: [0, 0],
       });
-      const refused = await f.sql`update rounds set status = 'active', resolution = null, current_stage = 'countdown', started_at = now() where id = ${stale}`.then(
-        () => 'accepted',
-        () => 'refused',
-      );
+      const refused =
+        await f.sql`update rounds set status = 'active', resolution = null, current_stage = 'countdown', started_at = now() where id = ${stale}`.then(
+          () => 'accepted',
+          () => 'refused',
+        );
       assert({
         given: 'an active Round with no resolution',
         should: 'be refused by the lifecycle CHECK',

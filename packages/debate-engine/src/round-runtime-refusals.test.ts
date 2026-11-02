@@ -20,7 +20,8 @@ describe('round runtime command refusals and seat order', () => {
     });
     assert({
       given: 'a seated debater forfeits an opening round',
-      should: 'complete it for the other side, starting and ending at that instant',
+      should:
+        'complete it for the other side, starting and ending at that instant',
       actual: projection.round,
       expected: {
         status: 'completed',
@@ -61,8 +62,7 @@ describe('round runtime command refusals and seat order', () => {
     await assertRejects({
       given: 'a start command against an already active round',
       should: 'refuse with a conflict, not an invariant',
-      actual: () =>
-        started.activate({ at: at(0), now: at(0) }),
+      actual: () => started.activate({ at: at(0), now: at(0) }),
       code: 'CONFLICT',
     });
     // AC is live at 20_000 under a policy that permits interrupting it.

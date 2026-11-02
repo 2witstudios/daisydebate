@@ -1,10 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { ResolutionDrawState } from '@daisy/protocol/resolution-draw';
-import {
-  openingStep,
-  settleOpening,
-  type RoundOpening,
-} from './round-opening';
+import { openingStep, settleOpening, type RoundOpening } from './round-opening';
 import { begin } from './round-opening.test-support';
 
 setupRitewayBun();

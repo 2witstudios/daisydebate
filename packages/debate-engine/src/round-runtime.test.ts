@@ -157,8 +157,7 @@ describe('round runtime lifecycle', () => {
     await assertRejects({
       given: 'a round missing its negative seat',
       should: 'refuse with the seat-completeness invariant',
-      actual: () =>
-        world.activate({ at: at(0), now: at(0) }),
+      actual: () => world.activate({ at: at(0), now: at(0) }),
       code: 'INVARIANT',
       invariantId: 'round.seats.complete',
     });
