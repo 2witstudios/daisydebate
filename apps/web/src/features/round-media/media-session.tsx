@@ -82,6 +82,9 @@ function RoundMediaSession({
   useEffect(() => {
     refresh.current = onRefresh;
   }, [onRefresh]);
+  const [clock] = useState(() =>
+    roundTimeMediaClock({ roundTime, scheduler: systemScheduler }),
+  );
   /** Once per mount: it remembers which deadline has already refreshed. */
   const follower = useRef<ReturnType<typeof createRoundViewFollower> | null>(
     null,
@@ -150,12 +153,12 @@ function RoundMediaSession({
     }
     acceptedVersion.current = view.version;
     follower.current ??= createRoundViewFollower({
-      clock: roundTimeMediaClock({ roundTime, scheduler: systemScheduler }),
+      clock,
       reconcile: (event) => void controller.current?.reconcile(event),
       refresh: () => refresh.current(),
     });
     return follower.current(view);
-  }, [view, roundTime]);
+  }, [view, clock]);
   const status = mediaStatus(connection, missing);
   return (
     <section aria-label="Live camera and sound">

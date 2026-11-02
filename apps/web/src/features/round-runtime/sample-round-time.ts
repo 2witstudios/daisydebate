@@ -78,7 +78,9 @@ export function sampleRoundTime(options: {
   const unsubscribe = visibility.onVisible(() => void resample());
   void resample();
   return {
-    wake: () => void resample(),
+    wake: () => {
+      if (visibility.isVisible()) void resample();
+    },
     stop: () => {
       lifetime.abort();
       clear();

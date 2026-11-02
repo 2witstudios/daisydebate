@@ -279,6 +279,86 @@ test('a jump between wall and monotonic time wakes the sampler', () => {
   });
 });
 
+test('a throttled timer is not a sleep, however far it stretches', () => {
+  const { edges } = timingFixture<Clock>();
+  let wall = 1_000_000;
+  let wakes = 0;
+  const stop = watchClockSuspension({
+    scheduler: edges.scheduler,
+    wallNowMs: () => wall,
+    onResume: () => wakes++,
+  });
+  // The fixture's timers fire when advanced; both clocks move together.
+  wall += 60_000;
+  edges.advance(60_000);
+  stop();
+  assert({
+    given: 'a tick stretched to a minute with the monotonic clock moving too',
+    should: 'not call it a suspension',
+    actual: wakes,
+    expected: 0,
+  });
+});
+
+test('a hidden tab ignores a wake and reads on its visibility return', async () => {
+  const { edges, roundTime, read } = timingFixture<Clock>(10_000);
+  const sampler = sampleRoundTime({
+    ...edges,
+    read,
+    roundTime,
+    random: () => 0.5,
+  });
+  edges.answer(found(10_000));
+  await edges.flush();
+  const before = edges.reads();
+  edges.hide();
+  sampler.wake();
+  await edges.flush();
+  const hidden = edges.reads();
+  edges.show();
+  await edges.flush();
+  assert({
+    given: 'a wake while hidden, then the tab returning',
+    should: 'read only on the return',
+    actual: [hidden - before, edges.reads() - before],
+    expected: [0, 1],
+  });
+  sampler.stop();
+});
+
+test('a slow reply whose interval overlaps the anchor cannot move the display', () => {
+  let monotonic = 0;
+  const roundTime = createRoundTime({
+    monotonicNowMs: () => monotonic,
+    hydrationSeedServerMs: 10_000,
+  });
+  monotonic = 80;
+  roundTime.sample({
+    serverNowMs: 100_000,
+    sentAtMs: 0,
+    receivedAtMs: 80,
+    generation: 1,
+  });
+  monotonic = 5000;
+  const projected = roundTime.nowMs();
+  const sentAtMs = monotonic;
+  monotonic += 1900;
+  // Stamped late in its round trip: the midpoint overstates by 960, within
+  // the sum of both uncertainties (950 + 40) though outside its own 950.
+  roundTime.sample({
+    serverNowMs: projected + 1900 + 10,
+    sentAtMs,
+    receivedAtMs: monotonic,
+    generation: 2,
+  });
+  assert({
+    given: 'an agreeing slow reply just outside its own interval',
+    should: 'keep the tighter anchor and its reading',
+    actual: [roundTime.nowMs() - projected, roundTime.status().uncertaintyMs],
+    expected: [1900, 40],
+  });
+});
+
 test('the clock notice announces only its state, never the changing number', () => {
   assert({
     given: 'two synchronized statuses whose uncertainty differs',

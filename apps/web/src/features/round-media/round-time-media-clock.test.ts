@@ -11,7 +11,11 @@ import {
   snapshot,
   transportStub,
 } from './media-controller.test-support';
-import type { MediaReadEvent } from './media-read-intent';
+import {
+  MEDIA_READ_LET_FINISH_MS,
+  type MediaReadEvent,
+} from './media-read-intent';
+import { MEDIA_READ_BUDGET_MS } from './request-media';
 import { nextMediaRefreshAt } from './refresh-deadline';
 import { roundTimeMediaClock } from './schedule-deadline';
 setupRitewayBun();
@@ -75,8 +79,8 @@ test('the follower emits its boundary from the sampled clock, once the lower bou
   assert({
     given: 'the same view accepted again after its deadline fired',
     should: 'keep the one fired record: offer again, refresh no more',
-    actual: state.refreshes,
-    expected: 1,
+    actual: [boundaries(), state.refreshes],
+    expected: [2, 1],
   });
 });
 
@@ -116,6 +120,66 @@ test('a view accepted while the deadline is inside the uncertainty waits for the
     actual: [inside, before, boundaries()],
     expected: [true, 0, 1],
   });
+});
+
+test('in a burst the boundary lets a young read finish, for at most the let-finish window', async () => {
+  const { scheduler, roundTime } = calibrated(5000);
+  const signals: AbortSignal[] = [];
+  const reply = { held: false };
+  const controller = createMediaController({
+    roundId,
+    initialRoundViewVersion: view.version,
+    api: {
+      admit: async () => admission,
+      reconcile: async (_id, signal) => {
+        signals.push(signal);
+        if (reply.held) await new Promise(() => undefined);
+        return snapshot;
+      },
+    },
+    transport: () => transportStub(),
+    changed: () => undefined,
+    readBudget: {
+      now: scheduler.now,
+      ms: MEDIA_READ_BUDGET_MS,
+      at: (ms, fire) => {
+        const timer = scheduler.setTimeout(fire, ms);
+        return () => scheduler.clearTimeout(timer);
+      },
+    },
+  });
+  await controller.join();
+  const follow = createRoundViewFollower({
+    clock: roundTimeMediaClock({ roundTime, scheduler }),
+    reconcile: (event) => void controller.reconcile(event),
+    refresh: () => undefined,
+  });
+  reply.held = true;
+  const cancel = follow(view);
+  await settle();
+  const AGE_AT_BOUNDARY_MS = 500;
+  scheduler.advance(5000 + UNCERTAINTY_MS - AGE_AT_BOUNDARY_MS);
+  cancel();
+  follow({ ...view, version: view.version + 1 });
+  await settle();
+  const young = signals.at(-1)!;
+  const started = signals.length;
+  scheduler.advance(AGE_AT_BOUNDARY_MS);
+  await settle();
+  const atBoundary = [young.aborted, signals.length - started];
+  scheduler.advance(MEDIA_READ_LET_FINISH_MS - AGE_AT_BOUNDARY_MS - 1);
+  await settle();
+  const justBefore = [young.aborted, signals.length - started];
+  scheduler.advance(1);
+  await settle();
+  assert({
+    given: 'a new view starting a read 500 ms before the boundary',
+    should:
+      'hold the fresh read until that read is 2 s old, the worst case being 2 s after the boundary',
+    actual: [atBoundary, justBefore, young.aborted, signals.length - started],
+    expected: [[false, 0], [false, 0], true, 1],
+  });
+  controller.stop();
 });
 
 test('the sampled clock boundary supersedes a held read through the real controller', async () => {

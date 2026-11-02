@@ -165,8 +165,7 @@ One serial sampling chain owns calibration. It reads the authorized route the
 role already holds (`/api/rounds/:id`, or `/api/rounds/:id/ballots` for an
 assigned judge) directly from the browser rather than through a Server Action:
 Next dispatches those one at a time, so an unrelated stuck action would hold
-calibration and queueing would inflate the measured RTT. Resource reads no
-longer sample. A read past the 2000 ms envelope is abandoned and reports no
+calibration and queueing would inflate the measured RTT. A read past the 2000 ms envelope is abandoned and reports no
 evidence, so a read that never settles cannot end sampling. Failed samples retry
 from two seconds, doubling to thirty with half-range jitter; current evidence
 resamples every thirty. A hidden tab does not sample. Visibility returns and
@@ -184,7 +183,11 @@ cannot move the clock. Three fresh, ordered samples whose offsets agree are the
 authority having moved, and the clock re-anchors on the third. A media boundary
 waits for the clock's lower bound to pass, deadline plus uncertainty, because it
 fires once and a read sent before the true boundary would only see the old
-grant.
+grant. A seed needs no margin, since its render instant is already behind the
+server. That wait trusts the evidence: a wrong server stamp ahead of the truth
+can still fire the boundary early, once, and then the next accepted view's read
+corrects the grant. A clock that never gets a sample fires late by the page's
+delivery time, and the same read corrects it. Both are accepted.
 
 Display/control hints and media deadlines read
 the same clock. The media follower of ISSUE-899 takes this clock as its "now" and "at deadline", and calls a deadline due only past the same lower bound.

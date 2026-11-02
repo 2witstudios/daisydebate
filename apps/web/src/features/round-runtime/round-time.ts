@@ -87,7 +87,8 @@ const keepsAnchor = (
   return (
     current.real &&
     uncertaintyMs >= current.uncertaintyMs &&
-    Math.abs(serverNowMs + uncertaintyMs - projected) <= uncertaintyMs
+    Math.abs(serverNowMs + uncertaintyMs - projected) <=
+      uncertaintyMs + current.uncertaintyMs
   );
 };
 type RollbackRun = {
@@ -113,6 +114,9 @@ export type RoundTimeStatus = {
 };
 export type RoundTime = {
   nowMs(): number;
+  /** The earliest the server's time can be. A seed needs no margin: the render
+   * instant it holds is already behind the server by the page's delivery. */
+  lowerBoundMs(): number;
   sample(candidate: RoundTimeSample): SampleDecision;
   /** Samples a reply arriving now, on this clock's own monotonic epoch. */
   received(reply: Omit<RoundTimeSample, 'receivedAtMs'>): SampleDecision;
@@ -181,10 +185,13 @@ export function createRoundTime(options: {
     notify();
     return { accepted: true };
   };
+  const nowMs = () =>
+    calibration.serverAtReceiveMs +
+    Math.max(0, monotonic() - calibration.monoAtReceiveMs);
   return {
-    nowMs: () =>
-      calibration.serverAtReceiveMs +
-      Math.max(0, monotonic() - calibration.monoAtReceiveMs),
+    nowMs,
+    lowerBoundMs: () =>
+      nowMs() - (calibration.real ? calibration.uncertaintyMs : 0),
     sample,
     received: (reply) => sample({ ...reply, receivedAtMs: monotonic() }),
     unavailable,

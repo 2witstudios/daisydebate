@@ -316,7 +316,10 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await host.evaluate(() => {
       const statuses: string[] = [];
       new MutationObserver(() => {
-        for (const node of document.querySelectorAll('[role="status"]'))
+        // Only this region's status: clock and Round notices say other things.
+        for (const node of document.querySelectorAll(
+          '[aria-label="Live camera and sound"] [role="status"]',
+        ))
           statuses.push(node.textContent ?? '');
       }).observe(document.body, {
         subtree: true,
@@ -350,8 +353,15 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     expect(heldClock.read()!.serverNowMs).not.toBeNull();
     await clockReads.pass();
 
+    // The deadline on this process's clock, the one every instant here is read on.
+    const offsetFrom = elapsedMs();
+    const serverStamp = await serverNow(accounts, roundId!);
+    const deadlineHere =
+      deadline - (serverStamp - (offsetFrom + elapsedMs()) / 2);
+
     // Start the stale read close enough that its own 10 s request deadline falls
-    // well after the boundary. The peer leaving is the SDK invalidation asking.
+    // well after the boundary. The peer leaving is the SDK invalidation asking;
+    // leaving for a blank page commits at once, with no wait on a server render.
     await expect
       .poll(async () => deadline - (await serverNow(accounts, roundId!)), {
         timeout: 60000,
@@ -359,7 +369,6 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       .toBeLessThan(STALE_READ_LEAD_MS);
     const staleReply = Promise.withResolvers<unknown>();
     const releaseStale = Promise.withResolvers<void>();
-    const staleDelivered = Promise.withResolvers<void>();
     let staleStartedAt: number | null = null;
     const freshReads: { startedAt: number; microphone: boolean }[] = [];
     superseded.length = 0;
@@ -370,8 +379,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
         const held = await route.fetch();
         staleReply.resolve(await held.json());
         await releaseStale.promise;
-        await route.fulfill({ response: held }).catch(() => undefined);
-        staleDelivered.resolve();
+        await route.abort().catch(() => undefined);
         return;
       }
       const fresh = await route.fetch();
@@ -382,41 +390,46 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       });
       await route.fulfill({ response: fresh });
     });
-    void guest.reload().catch(() => undefined);
+    void guest.goto('about:blank').catch(() => undefined);
+    await expect
+      .poll(() => staleStartedAt, {
+        message: 'the peer leaving should ask for a read before the deadline',
+        timeout: deadlineHere - elapsedMs() - 500,
+        intervals: [50],
+      })
+      .not.toBeNull();
     const stale = roundMediaStateSchema.parse(await staleReply.promise);
     expect(stale.grants.publish).toContain('microphone');
-    expect(staleStartedAt!).toBeLessThan(deadline - 500);
     expect(await serverNow(accounts, roundId!)).toBeLessThan(deadline);
 
     // The boundary: the actual caller supersedes the stale read at the deadline.
     await expect
       .poll(() => superseded.length, {
-        timeout: deadline - elapsedMs() + MEDIA_BOUNDARY_BAR_MS,
+        timeout: deadlineHere - elapsedMs() + MEDIA_BOUNDARY_BAR_MS,
         intervals: [50],
       })
       .toBeGreaterThan(0);
     const supersededAt = superseded[0]!;
     expect(supersededAt.error).toContain('ERR_ABORTED');
     expect(supersededAt.at - staleStartedAt!).toBeLessThan(9000);
-    expect(Math.abs(supersededAt.at - deadline)).toBeLessThan(
+    expect(Math.abs(supersededAt.at - deadlineHere)).toBeLessThan(
       MEDIA_BOUNDARY_BAR_MS,
     );
     // The healthy transition: this debater's closed microphone, on time.
     await expect
       .poll(() => hostMicrophone.textContent(), {
-        timeout: deadline - elapsedMs() + MEDIA_BOUNDARY_BAR_MS,
+        timeout: deadlineHere - elapsedMs() + MEDIA_BOUNDARY_BAR_MS,
         intervals: [50],
       })
       .toContain('Microphone closed');
     const closedAt = elapsedMs();
-    expect(closedAt - deadline).toBeLessThan(MEDIA_BOUNDARY_BAR_MS);
+    expect(closedAt - deadlineHere).toBeLessThan(MEDIA_BOUNDARY_BAR_MS);
     expect(freshReads.at(0)?.microphone).toBe(false);
     await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
 
-    // The stale reply arrives late and changes nothing, and the connection held.
+    // The connection held through it. The fence on a late reply is not exercised
+    // here, since an aborted fetch cannot deliver one: unit races own that.
     releaseStale.resolve();
-    await staleDelivered.promise;
-    await expect(hostMicrophone).toContainText('Microphone closed');
     await hostMedia.pass();
     const statuses = await host.evaluate(
       () =>
@@ -442,7 +455,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
           'reverse wall skew',
           'six-second SSR delay',
           'abandoned read past the RTT envelope with visible stale',
-          'agreeing400ms reply that cannot loosen the anchor',
+          'agreeing 400ms reply that cannot loosen the anchor',
           'renderer freeze/resume with fresh authorized read',
           'clock read reaches the server while Server Actions are held',
           'real caller boundary supersedes a held read',
@@ -451,10 +464,10 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
         clockStatus: await clockStatus.textContent(),
         displayDeltaMs: await displayDeltaMs(host, accounts, roundId!),
         deadlineMs: deadline,
-        staleReadLeadMs: deadline - staleStartedAt!,
-        boundaryAbortDeltaMs: supersededAt.at - deadline,
-        freshReadDeltaMs: freshReads.at(0)!.startedAt - deadline,
-        microphoneClosedDeltaMs: closedAt - deadline,
+        staleReadLeadMs: deadlineHere - staleStartedAt!,
+        boundaryAbortDeltaMs: supersededAt.at - deadlineHere,
+        freshReadDeltaMs: freshReads.at(0)!.startedAt - deadlineHere,
+        microphoneClosedDeltaMs: closedAt - deadlineHere,
         e8BaselineDeltaMs: 43856,
       }),
       contentType: 'application/json',

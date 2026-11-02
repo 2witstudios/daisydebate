@@ -17,9 +17,7 @@ export function scheduleMediaDeadline(options: {
   // Fires once, so wait until even the clock's lower bound has passed: a read
   // sent before the true boundary would only see the old grant.
   const remainingMs = () =>
-    options.deadlineMs +
-    (options.roundTime.status().uncertaintyMs ?? 0) -
-    options.roundTime.nowMs();
+    options.deadlineMs - options.roundTime.lowerBoundMs();
   const arm = () => {
     clear();
     if (fired) return;
@@ -46,14 +44,16 @@ export function scheduleMediaDeadline(options: {
 }
 
 /** What this mount means by "now" and "at this deadline": the sampled Round clock,
- * due only once its lower bound has passed, so a read cannot beat the boundary. */
+ * due only once its lower bound has passed. That holds a read back from the
+ * boundary as far as the clock's evidence goes; a wrong server stamp can still
+ * fire it early, and then the next view's read corrects the grant (ADR 0066). */
 export function roundTimeMediaClock(options: {
   readonly roundTime: RoundTime;
   readonly scheduler: Scheduler;
 }) {
   const { roundTime, scheduler } = options;
   return {
-    now: () => roundTime.nowMs() - (roundTime.status().uncertaintyMs ?? 0),
+    now: () => roundTime.lowerBoundMs(),
     at: (deadlineMs: number, fire: () => void) =>
       scheduleMediaDeadline({
         deadlineMs,
