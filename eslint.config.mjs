@@ -331,7 +331,7 @@ const sharedFixtureRestrictions = [
 const refusalRestrictions = [
   {
     selector:
-      "CallExpression[callee.name='createAppError'] > MemberExpression.arguments:nth-child(2)[property.name=/^(refusal|reason)$/]",
+      "CallExpression[callee.name='createAppError'] > MemberExpression.arguments:nth-child(2)[computed=false][property.name=/^(refusal|reason)$/]",
     message:
       "A decision's refusal is a reason: createRefusal(code, decision.refusal), never a message.",
   },

@@ -81,7 +81,7 @@ describe('refusal reasons, never messages (ISSUE-1010)', () => {
   test('leaves a reason, plain internal text and a vendor error alone', async () => {
     assert({
       given:
-        'a reason read, an English message, a vendor text check, a code ternary and a cause object',
+        'a reason read, an English message, a vendor text check, a code ternary, a cause object and a lookup by refusal',
       should: 'report nothing',
       actual: [
         await problems(
@@ -99,8 +99,11 @@ describe('refusal reasons, never messages (ISSUE-1010)', () => {
         await problems(
           "export const a = createAppError('INFRASTRUCTURE', 'Transaction failed', { recovery: 'rolled-back' });",
         ),
+        await problems(
+          "export const a = (refusal: 'CONFLICT', copy: Record<string, string>) => createAppError(refusal, copy[refusal]);",
+        ),
       ],
-      expected: [0, 0, 0, 0, 0],
+      expected: [0, 0, 0, 0, 0, 0],
     });
   });
 });
