@@ -4,7 +4,7 @@ import { oneOf, timestampColumn } from './columns';
 import { contactActorColumn } from './contacts';
 
 /**
- * The status a member chose (ADR 0097). No row means `online`. `offline` is
+ * The status a member chose (ADR 0098). No row means `online`. `offline` is
  * appearing offline: nobody else sees them, and nothing says they chose it.
  */
 export const presenceSettings = pgTable(

@@ -5,7 +5,7 @@ import { oneOf, timestampColumn } from './columns';
 import { contactActorColumn } from './contacts';
 
 /**
- * One member's report of another (ADR 0097): a bounded reason and where it
+ * One member's report of another (ADR 0098): a bounded reason and where it
  * was made, never a copy of any conversation. `purge_after` starts when it
  * closes, from the proposed evidence retention (DEC-298, COMP-4).
  */

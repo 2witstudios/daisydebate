@@ -145,7 +145,7 @@ export const betaAccessCommandSchema = z.strictObject({
   adminAuditHead: z.string().regex(/^[0-9a-f]{64}$/),
 });
 
-/** The operator's report queue (ADR 0097), oldest open report first. */
+/** The operator's report queue (ADR 0098), oldest open report first. */
 export const operatorReportsQuerySchema = z.strictObject({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   cursor: z.string().max(256).optional(),

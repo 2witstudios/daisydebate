@@ -5,7 +5,7 @@ import { oneOf, timestampColumn } from './columns';
 import { users } from './users';
 
 /**
- * What a reviewer did to an account (ADR 0097): a warning the member reads,
+ * What a reviewer did to an account (ADR 0098): a warning the member reads,
  * a timed suspension or a ban. It outlives the report that caused it, names
  * no report and is deleted with the account. A suspension or ban in force
  * withdraws participant access; lifting it keeps the row for the record.

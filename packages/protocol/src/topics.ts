@@ -104,7 +104,7 @@ export const buildUserInboxTopic = (actorId: string): string =>
   `user:${idSchema.parse(actorId)}:inbox`;
 
 /**
- * The online list's doorbell (ADR 0097): one shared topic for every member.
+ * The online list's doorbell (ADR 0098): one shared topic for every member.
  * Its frame names nobody, and the list itself is an authorized read.
  */
 export const ONLINE_TOPIC = 'online:members';

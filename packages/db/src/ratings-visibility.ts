@@ -1,13 +1,37 @@
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { ratingLadders, type RatingLadder } from '@daisy/protocol';
+import { idSchema, ratingLadders, type RatingLadder } from '@daisy/protocol';
 import {
   readOwnCollection,
   requireOwnScope,
   type OwnCollectionFence,
 } from './authorization';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import type { PrivacyAdopter, PrivacyExport } from './privacy/contracts';
+import { exportRows } from './privacy/export-rows';
 import { ratingVisibility } from './schema/ratings';
+
+/** The rating choice's subject rights (ADR 0098): the member's own row. */
+export const ratingVisibilityPrivacyAdopter: PrivacyAdopter = {
+  id: 'rating-visibility',
+  phase: 'after-close',
+  async erase(tx, subject) {
+    const actorId = idSchema.parse(subject.actorId);
+    await tx.execute(
+      sql`delete from rating_visibility where actor_id=${actorId}`,
+    );
+  },
+  async export(tx, subject): Promise<PrivacyExport> {
+    const actorId = idSchema.parse(subject.actorId);
+    return {
+      rating_visibility: exportRows(
+        (await tx.execute(
+          sql`select * from rating_visibility where actor_id=${actorId}`,
+        )) as unknown as Record<string, unknown>[],
+      ),
+    };
+  },
+};
 
 type Scope = { readonly userId: string; readonly actorId: string };
 type Visibility = {
@@ -83,7 +107,7 @@ export const ratingVisibilityOperations = ({
     );
   },
   /**
-   * What each person's card may show (ADR 0097): every rated ladder they turned
+   * What each person's card may show (ADR 0098): every rated ladder they turned
    * on, Freestyle always, in the active season, and the shape of their public
    * record. One read for a page of people. Ladders stay public regardless.
    */

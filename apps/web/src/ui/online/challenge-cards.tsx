@@ -124,21 +124,37 @@ function AcceptedCard({
   );
 }
 
-/** Takes a challenger to the room the moment they are accepted, once per room. */
+const FOLLOWED_KEY = 'daisy.followed-room';
+const followedRoom = () => {
+  try {
+    return localStorage.getItem(FOLLOWED_KEY);
+  } catch {
+    return null;
+  }
+};
+const rememberFollowed = (roomId: string) => {
+  try {
+    localStorage.setItem(FOLLOWED_KEY, roomId);
+  } catch {
+    // Without storage the short follow window is the only limit.
+  }
+};
+
+/**
+ * Takes a challenger to the room the moment they are accepted, once per room,
+ * so leaving it never pulls them back. A member already in a room stays put.
+ */
 function useFollowAccepted(
   accepted: ChallengeList['accepted'],
   activeRoomId: string | null,
 ) {
-  const followed = useRef(new Set<string>());
   useEffect(() => {
-    for (const offer of accepted) {
-      if (offer.roomId === activeRoomId || followed.current.has(offer.roomId))
-        continue;
-      followed.current.add(offer.roomId);
-      if (!window.location.pathname.startsWith(`/rooms/${offer.roomId}`))
-        window.location.assign(`/rooms/${offer.roomId}`);
-      return;
-    }
+    if (activeRoomId !== null) return;
+    const offer = accepted.find((row) => row.roomId !== followedRoom());
+    if (!offer) return;
+    rememberFollowed(offer.roomId);
+    if (!window.location.pathname.startsWith(`/rooms/${offer.roomId}`))
+      window.location.assign(`/rooms/${offer.roomId}`);
   }, [accepted, activeRoomId]);
 }
 

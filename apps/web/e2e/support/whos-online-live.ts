@@ -122,7 +122,7 @@ export function testWhoIsOnline() {
           format: 'freestyle',
         },
       });
-      expect(refused.status()).toBe(409);
+      expect(refused.status()).toBe(404);
 
       // A report is taken; a block removes them from the list.
       await rail.getByText(`@${b}`).first().click({ button: 'right' });

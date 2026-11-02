@@ -16,7 +16,7 @@ const messagingInboxChangedPayloadSchema = z.strictObject({
   kind: z.literal('messaging.inbox.changed'),
 });
 
-/** A member's challenges changed: they re-read them (ADR 0097). */
+/** A member's challenges changed: they re-read them (ADR 0098). */
 const challengeChangedPayloadSchema = z.strictObject({
   kind: z.literal('challenge.changed'),
 });
@@ -124,7 +124,7 @@ const storageFamilyPayloadKinds: Readonly<
   // Channel content is observed (ADR 0089), never a doorbell; the channel
   // topic carries only typing hints, which are not outbox rows.
   channel: [],
-  // Rung by each realtime node, never an outbox row (ADR 0097).
+  // Rung by each realtime node, never an outbox row (ADR 0098).
   online: [],
   room: ['room.changed'],
   round: ['round.phase-changed', 'round.transcript-changed'],

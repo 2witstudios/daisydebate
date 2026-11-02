@@ -30,6 +30,7 @@ import {
 import {
   nextReadDelayMs,
   ROSTER_CEILING_MS,
+  rosterFloorMs,
 } from '../../features/presence/refresh-schedule';
 
 type OnlineView = {
@@ -103,7 +104,7 @@ const rosterUrl = (filter: OnlineFilter, query: string, cursor?: string) => {
 };
 
 /**
- * The tab's one view of who is online and its challenges (ADR 0097). The page
+ * The tab's one view of who is online and its challenges (ADR 0098). The page
  * opens with the server's read, a ring on the shared socket asks for a fresh
  * one, and a timer covers a ring that never comes. Rings say only that
  * something changed, so what a member sees is always an authorized read.
@@ -137,8 +138,12 @@ export function OnlineProvider({
   // A re-read walks as many pages as the viewer loaded, so a ring never
   // snatches the list out from under someone who scrolled.
   const pagesLoaded = useRef(1);
+  // Only the newest read may land, so an old answer never undoes a block.
+  const readSeq = useRef(0);
   const readRoster = useCallback(async () => {
     const { filter: wanted, query: named } = shown.current;
+    readSeq.current += 1;
+    const seq = readSeq.current;
     lastRead.current = systemScheduler.now();
     let merged: OnlineRoster | null = null;
     for (let page = 0; page < pagesLoaded.current; page += 1) {
@@ -157,12 +162,7 @@ export function OnlineProvider({
       merged = next;
       if (!next.nextCursor) break;
     }
-    if (
-      merged &&
-      shown.current.filter === wanted &&
-      shown.current.query === named
-    )
-      setRoster(merged);
+    if (merged && seq === readSeq.current) setRoster(merged);
   }, []);
   const readChallenges = useCallback(async () => {
     const { value } = await readJson('/api/challenges', parseChallenges);
@@ -194,6 +194,7 @@ export function OnlineProvider({
       return;
     }
     pagesLoaded.current = 1;
+    readSeq.current += 1;
     const handle = setTimeout(() => void readRoster(), 200);
     return () => clearTimeout(handle);
   }, [filter, query, readRoster]);
@@ -202,7 +203,8 @@ export function OnlineProvider({
   useEffect(() => {
     if (socketUrl === null) void readRoster();
     const poll = setInterval(() => {
-      void readRoster();
+      const since = systemScheduler.now() - lastRead.current;
+      if (since >= rosterFloorMs(shown.current.count)) void readRoster();
       void readChallenges();
     }, ROSTER_CEILING_MS);
     return () => clearInterval(poll);
@@ -242,17 +244,19 @@ export function OnlineProvider({
   const loadMore = useCallback(() => {
     const cursor = roster.nextCursor;
     if (!cursor) return;
+    const seq = readSeq.current;
     void readJson(rosterUrl(filter, query, cursor), parseRoster).then(
       ({ value }) => {
-        if (value) pagesLoaded.current += 1;
-        if (value)
-          setRoster((current) => ({
-            ...value,
-            members: [...current.members, ...value.members],
-          }));
+        if (!value || seq !== readSeq.current) return;
+        pagesLoaded.current += 1;
+        setRoster((current) => ({
+          ...value,
+          members: [...current.members, ...value.members],
+        }));
       },
     );
   }, [filter, query, roster.nextCursor]);
+
   const refresh = useCallback(() => {
     void readRoster();
     void readChallenges();

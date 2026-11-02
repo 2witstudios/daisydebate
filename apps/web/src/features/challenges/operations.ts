@@ -59,9 +59,10 @@ const unnamed = async <T>(work: () => Promise<T>): Promise<T> => {
 };
 
 /**
- * Offers a debate to anyone available (ADR 0097), ranked or casual. No lease,
- * Busy, appearing offline or already placed are one refusal, so a challenger
- * never learns which. Nothing is created until the other member accepts.
+ * Offers a debate to anyone available (ADR 0098), ranked or casual. No such
+ * member, a block, no lease, Busy, appearing offline or already placed are one
+ * answer, so a status code never tells a blocked member someone is online.
+ * Nothing is created until the other member accepts.
  */
 export async function sendChallenge(
   principal: AuthorizationPrincipal,
@@ -80,7 +81,7 @@ export async function sendChallenge(
   if (!otherActorId || otherActorId === actorId)
     throw createAppError('NOT_FOUND');
   if ((await dependencies.activity(otherActorId)) === null)
-    throw createAppError('CONFLICT', 'challenge-unavailable');
+    throw createAppError('NOT_FOUND');
   const now = dependencies.clock.now();
   const { challengeId } = await unnamed(() =>
     dependencies
@@ -112,6 +113,7 @@ export async function acceptChallenge(
   await dependencies.limit(actorId);
   const other = await dependencies.counterpart(actorId, input.challengeId);
   if (!other) throw createAppError('NOT_FOUND');
+  const now = dependencies.clock.now();
   await unnamed(() =>
     dependencies
       .store('social.challenge.accept')
@@ -121,7 +123,10 @@ export async function acceptChallenge(
           frame.accept({
             challengeId: input.challengeId,
             roomId: input.roomId,
-            now: dependencies.clock.now(),
+            now,
+            followUntil: new Date(
+              Date.parse(now) + CHALLENGE_TTL_MS,
+            ).toISOString(),
           }),
       ),
   );

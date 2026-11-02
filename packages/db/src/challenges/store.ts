@@ -15,7 +15,7 @@ import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { roomIsOpen } from '../room-open';
 import { challengeFrame, type ChallengeFrame } from './frame';
 
-/** Challenges over the shared Contacts fence (ADR 0097). */
+/** Challenges over the shared Contacts fence (ADR 0098). */
 export type ChallengeStore = {
   readonly withContacts: <T>(
     input: ContactInput,
@@ -55,8 +55,8 @@ export type ChallengeListRow = {
 const CHALLENGE_LIST_MAX = 40;
 
 /**
- * Challenges naming this member: open offers, and accepted ones whose room is
- * still gathering. Blocked pairs and closed accounts drop out. Reads only.
+ * Challenges naming this member: open offers, and ones accepted moments ago
+ * whose room is still gathering. Blocked pairs and closed accounts drop out. Reads only.
  */
 export function listChallenges(
   database: BunSQLDatabase,
@@ -80,7 +80,8 @@ export function listChallenges(
         and p.high_actor_id = greatest(c.challenger_actor_id, c.challenged_actor_id)
       where (c.challenged_actor_id = ${scope.actorId} or c.challenger_actor_id = ${scope.actorId})
         and not coalesce(p.low_blocks_high or p.high_blocks_low, false)
-        and ((c.room_id is null and c.expires_at > ${new Date(now)}) or (c.room_id is not null and ${roomIsOpen()}))
+        and c.expires_at > ${new Date(now)}
+        and (c.room_id is null or ${roomIsOpen()})
       order by c.created_at desc, c.id
       limit ${CHALLENGE_LIST_MAX}`)) as unknown as (Omit<
       ChallengeListRow,
@@ -108,7 +109,7 @@ export async function purgeExpiredChallenges(
   return rows.length;
 }
 
-/** Challenges' reads (ADR 0097), instrumented. */
+/** Challenges' reads (ADR 0098), instrumented. */
 export const challengeReadOperations = ({
   database,
   eventSink,

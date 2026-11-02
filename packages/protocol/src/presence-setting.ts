@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ratingLadders } from './primitives';
 
 /**
- * The status a member chooses (ADR 0097). `offline` is appearing offline.
+ * The status a member chooses (ADR 0098). `offline` is appearing offline.
  * Away and being in a room or a Round are never chosen: they follow what the
  * member is doing.
  */
@@ -30,7 +30,7 @@ export const presenceSettingResultSchema = z.strictObject({
   status: z.enum(chosenStatuses),
 });
 
-/** Which ratings a member's card shows besides Freestyle (ADR 0097). */
+/** Which ratings a member's card shows besides Freestyle (ADR 0098). */
 export const ratingVisibilitySchema = z.strictObject({
   version: z.literal(1),
   showPolicy: z.boolean(),
@@ -70,7 +70,7 @@ export const onlineQuerySchema = z.strictObject({
   cursor: z.string().max(256).optional(),
 });
 
-/** One page of who is online, friends first, for this viewer (ADR 0097). */
+/** One page of who is online, friends first, for this viewer (ADR 0098). */
 export const onlineRosterSchema = z.strictObject({
   version: z.literal(1),
   members: z.array(onlineMemberSchema).max(100),

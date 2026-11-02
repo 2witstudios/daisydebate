@@ -258,6 +258,108 @@ test('a challenge is offered, listed both ways, repeated once, and goes on decli
   }
 });
 
+test('accepting names only a room made for the offer, and only for a free challenger', async () => {
+  const ctx = await open();
+  const store = createChallengeStore({
+    database: ctx.database,
+    authorize: unfenced,
+  });
+  const members = [ctx.me.actorId, ctx.them.actorId];
+  const expiresAt = new Date(Date.parse(ctx.now) + 120_000).toISOString();
+  const send = (mode: 'ranked' | 'casual') =>
+    store.withContacts({ ...ctx.me, memberActorIds: members }, (frame) =>
+      frame.send({
+        id: createId(),
+        mode,
+        format: 'policy',
+        now: ctx.now,
+        expiresAt,
+      }),
+    );
+  const accept = (challengeId: string, roomId: string) =>
+    store
+      .withContacts({ ...ctx.them, memberActorIds: members }, (frame) =>
+        frame.accept({
+          challengeId,
+          roomId,
+          now: ctx.now,
+          followUntil: expiresAt,
+        }),
+      )
+      .then(
+        () => 'accepted',
+        (error: { code?: string }) => error.code,
+      );
+  await withFixture(databaseUrl, async (fixture) => {
+    const room = (overrides: Readonly<Record<string, unknown>>) =>
+      fixture.room(ctx.them.actorId, 'policy', overrides);
+    await send('ranked');
+    const { challengeId } = await send('casual');
+    const terms = (
+      await listChallenges(ctx.database, ctx.them, ctx.now, unfenced)
+    ).map((row) => row.mode);
+    const publicRoom = await room({});
+    const wrongFormat = await fixture.room(ctx.them.actorId, 'freestyle', {
+      visibility: 'unlisted',
+    });
+    const refused = [
+      await accept(challengeId, publicRoom),
+      await accept(challengeId, wrongFormat),
+    ];
+    const mine = await fixture.room(ctx.me.actorId, 'policy', {});
+    await ctx.client.unsafe(
+      'insert into room_active_memberships (actor_id, room_id) values ($1, $2)',
+      [ctx.me.actorId, mine],
+    );
+    const right = await room({ visibility: 'unlisted' });
+    const whilePlaced = await accept(challengeId, right);
+    await ctx.client.unsafe(
+      'delete from room_active_memberships where actor_id = $1',
+      [ctx.me.actorId],
+    );
+    const accepted = await accept(challengeId, right);
+    const listed = await listChallenges(
+      ctx.database,
+      ctx.me,
+      ctx.now,
+      unfenced,
+    );
+    const later = await listChallenges(
+      ctx.database,
+      ctx.me,
+      new Date(Date.parse(expiresAt) + 1).toISOString(),
+      unfenced,
+    );
+    await ctx.client.unsafe('delete from challenges where id = $1', [
+      challengeId,
+    ]);
+    assert({
+      given:
+        'an offer resent as casual, a public room, another format, a placed challenger, then the right room',
+      should:
+        'take the new terms, refuse the wrong rooms and the placed challenger, accept the right room, then stop sending the challenger there',
+      actual: [
+        terms,
+        refused,
+        whilePlaced,
+        accepted,
+        listed.map((row) => row.roomId),
+        later,
+      ],
+      expected: [
+        ['casual'],
+        ['NOT_FOUND', 'NOT_FOUND'],
+        'NOT_FOUND',
+        'accepted',
+        [right],
+        [],
+      ],
+    });
+  });
+  await ctx.cleanup();
+  await ctx.client.close();
+});
+
 test('a challenge is refused while its target is Busy or appearing offline, and expires', async () => {
   const ctx = await open();
   const store = createChallengeStore({
@@ -313,7 +415,7 @@ test('a challenge is refused while its target is Busy or appearing offline, and 
       given: 'Busy, appearing offline, then an offer past its time',
       should: 'refuse alike, then stop listing it and let the sweep take it',
       actual: [statuses, listed, purged >= 1],
-      expected: [['CONFLICT', 'CONFLICT'], [], true],
+      expected: [['NOT_FOUND', 'NOT_FOUND'], [], true],
     });
   } finally {
     await ctx.cleanup();

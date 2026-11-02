@@ -6,9 +6,10 @@ import { exportRows } from '../privacy/export-rows';
 const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
 
 /**
- * Reports' and moderation's subject rights (ADR 0097). Erasure removes every
+ * Reports' and moderation's subject rights (ADR 0098). Erasure removes every
  * report naming the subject and their moderation record. Export gives a
- * subject reports they filed, and those about them without who filed them.
+ * subject reports they filed, without another member's sanction, and those
+ * about them without who filed them.
  */
 export const reportsPrivacyAdopter: PrivacyAdopter = {
   id: 'reports',
@@ -30,7 +31,7 @@ export const reportsPrivacyAdopter: PrivacyAdopter = {
       reports_filed: exportRows(
         rowsOf(
           await tx.execute(
-            sql`select id, subject_actor_id, reason, surface, created_at, closed_at, outcome from reports where reporter_actor_id=${actorId} order by created_at,id`,
+            sql`select id, subject_actor_id, reason, surface, created_at, closed_at from reports where reporter_actor_id=${actorId} order by created_at,id`,
           ),
         ),
       ),

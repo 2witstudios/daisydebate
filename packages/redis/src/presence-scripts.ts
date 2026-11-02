@@ -31,7 +31,7 @@ local function arm(key, top, now)
 end
 `;
 /**
- * ADR 0097: a lease appeared, changed activity or went, so the online list may
+ * ADR 0098: a lease appeared, changed activity or went, so the online list may
  * have changed. Realtime nodes read this revision and ring their browsers. A
  * refresh never rings: nothing anyone can see changed. KEYS[4] the revision.
  */

@@ -21,7 +21,7 @@ type Tx = Pick<
   'select' | 'insert' | 'update' | 'delete' | 'execute'
 >;
 
-/** One challenge command over a locked contact pair (ADR 0097). */
+/** One challenge command over a locked contact pair (ADR 0098). */
 export type ChallengeFrame = {
   readonly otherActorId: string;
   /** Records a new offer; a repeat of the open one answers it unchanged. */
@@ -37,6 +37,8 @@ export type ChallengeFrame = {
     readonly challengeId: string;
     readonly roomId: string;
     readonly now: string;
+    /** How long the challenger is still sent to the room. */
+    readonly followUntil: string;
   }) => Promise<void>;
   /** The challenged member refuses, or the challenger withdraws. */
   readonly remove: (input: {
@@ -101,13 +103,13 @@ export function challengeFrame(
         readAvailability(owner, input.actorId),
         readAvailability(owner, other),
       ]);
-      // Appearing offline is refused exactly as busy is: never which.
+      // One answer with a block, no such member and no lease: never which.
       if (
         mine.placement !== null ||
         theirs.placement !== null ||
         theirs.chosen !== 'online'
       )
-        throw createAppError('CONFLICT', 'challenge-unavailable');
+        throw createAppError('NOT_FOUND');
       await tx.execute(sql`
         delete from challenges
         where challenger_actor_id = ${input.actorId} and challenged_actor_id = ${other}
@@ -129,30 +131,46 @@ export function challengeFrame(
         await ring(owner, [input.actorId, other]);
         return { challengeId: inserted[0].id };
       }
+      // A second offer while one stands replaces its terms, so "sent" is true.
       const [open] = await tx
-        .select({ id: challenges.id })
-        .from(challenges)
+        .update(challenges)
+        .set({
+          mode,
+          formatId: format,
+          expiresAt: new Date(expiresAt),
+        })
         .where(
           and(
             eq(challenges.challengerActorId, input.actorId),
             eq(challenges.challengedActorId, other),
             sql`${challenges.roomId} is null`,
           ),
-        );
+        )
+        .returning({ id: challenges.id });
       if (!open) throw createAppError('CONFLICT');
+      await ring(owner, [input.actorId, other]);
       return { challengeId: open.id };
     },
-    async accept({ challengeId, roomId, now }) {
+    async accept({ challengeId, roomId, now, followUntil }) {
       await authorize();
       requireId(roomId);
-      const [hosted] = await tx
-        .select({ id: rooms.id })
-        .from(rooms)
-        .where(openRoomHostedBy(roomId, input.actorId));
-      if (!hosted) throw createAppError('NOT_FOUND');
-      const updated = await tx
-        .update(challenges)
-        .set({ roomId })
+      requireId(challengeId);
+      // Only a room made for this offer: unlisted, on its format and mode, so
+      // no other room the acceptor hosts can receive the challenger.
+      const [offer] = await tx
+        .select({
+          id: challenges.id,
+        })
+        .from(challenges)
+        .innerJoin(
+          rooms,
+          and(
+            eq(rooms.formatId, challenges.formatId),
+            eq(rooms.competitionType, challenges.mode),
+            eq(rooms.visibility, 'unlisted'),
+            openRoomHostedBy(roomId, input.actorId),
+          ),
+        )
         .where(
           and(
             eq(challenges.id, challengeId),
@@ -160,6 +178,19 @@ export function challengeFrame(
             eq(challenges.challengedActorId, input.actorId),
             sql`${challenges.roomId} is null`,
             sql`${challenges.expiresAt} > ${new Date(now)}`,
+          ),
+        );
+      if (!offer) throw createAppError('NOT_FOUND');
+      // A challenger who took another room since cannot be sent to this one.
+      if ((await readAvailability(owner, other)).placement !== null)
+        throw createAppError('NOT_FOUND');
+      const updated = await tx
+        .update(challenges)
+        .set({ roomId, expiresAt: new Date(followUntil) })
+        .where(
+          and(
+            eq(challenges.id, challengeId),
+            sql`${challenges.roomId} is null`,
           ),
         )
         .returning({ id: challenges.id });

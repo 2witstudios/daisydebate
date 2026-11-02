@@ -37,8 +37,8 @@ be able to see who is online."
    `online_changed`, names nobody, so a ring takes no authority read per
    recipient; a subscribe needs a live participant session. Browsers re-read
    with jitter and a floor of 20ms per person online, between 2s and 30s, which
-   holds the fleet near 50 reads a second at any size, and on a 30s timer if no
-   ring comes.
+   holds the fleet near 50 reads a second up to about 1,500 online and about 330
+   a second at the 10,000 limit, and on a 30s timer if no ring comes.
    ADR 0089 observation does not fit: a body must disclose identically to every
    permit, and this list differs per viewer by blocks.
 4. **Challenge is its own concept**, leaving Friends: table `challenges`,
@@ -46,10 +46,13 @@ be able to see who is online."
    Anyone can challenge any available member, ranked or casual, in Freestyle,
    Policy or Value. An offer stands two minutes and creates nothing. Accepting
    opens an unlisted room through the one room-create route as the acceptor, so
-   ranked keeps its judge requirement, then names it on the offer. The inbox
+   ranked keeps its judge requirement, then names it on the offer, which accepts
+   only a room matching its format and mode, and only while the challenger is
+   unplaced. The challenger is sent there for two more minutes, once. The inbox
    doorbell `challenge.changed` reaches both members on any page, and the
-   challenger follows to the room. No lease, Busy, appearing offline or being
-   placed are one refusal, so a challenger never learns which.
+   challenger follows to the room. No such member, a block, no lease, Busy,
+   appearing offline or being placed are one answer, so a status code never
+   tells a blocked member someone is online.
 5. **A row is name, status and three dots.** Right-click, three dots, long press
    or a click open one menu: the person's card, then Challenge, Add friend,
    Message, Profile, Report and Block. Hover shows the card. Without script the

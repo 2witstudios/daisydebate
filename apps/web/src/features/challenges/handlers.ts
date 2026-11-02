@@ -17,7 +17,7 @@ import {
 const MAX_BODY_BYTES = 1024;
 type Answer = Promise<Omit<ChallengeResult, 'version'>>;
 
-/** The challenge routes (ADR 0097): same-origin, member-only, bounded bodies. */
+/** The challenge routes (ADR 0098): same-origin, member-only, bounded bodies. */
 export function createChallengeHandlers(dependencies: {
   readonly boundary: MemberBoundary;
   readonly websocketEndpoint: string | null;

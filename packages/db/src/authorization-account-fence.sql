@@ -3,7 +3,7 @@
 CREATE FUNCTION public.daisy_authorization_accounts_v2(
   actor_ids text[], account_user_id text, take_fence boolean
 ) RETURNS TABLE ("userId" text, "actorId" text, "member" boolean, "erased" boolean, "revision" integer,
-  "betaState" text, "betaRevision" integer, "ageBand" text)
+  "betaState" text, "betaRevision" integer, "ageBand" text, "restricted" boolean)
 LANGUAGE plpgsql VOLATILE PARALLEL UNSAFE SECURITY DEFINER
 SET search_path = pg_catalog, pg_temp
 AS $authorization_accounts$
@@ -46,7 +46,11 @@ BEGIN
     -- shared validity rule; never birth data. Null without a valid record
     -- or for an erased account.
     CASE WHEN u.deleted_at IS NOT NULL THEN NULL::text
-      ELSE public.daisy_age_band(ag.birth_month, ag.version, ag.recorded_at, checked) END
+      ELSE public.daisy_age_band(ag.birth_month, ag.version, ag.recorded_at, checked) END,
+    -- ADR 0098: a suspension or ban in force at that same instant.
+    EXISTS (SELECT 1 FROM public.moderation_actions AS m
+      WHERE m.user_id = u.id AND m.kind IN ('suspension', 'ban') AND m.lifted_at IS NULL
+        AND m.starts_at <= checked AND (m.ends_at IS NULL OR m.ends_at > checked))
     FROM public.users AS u LEFT JOIN public.actors AS a ON a.user_id = u.id
     LEFT JOIN public.account_beta_access AS b ON b.user_id = u.id
     LEFT JOIN public.account_age AS ag ON ag.user_id = u.id

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { idSchema } from './primitives';
 import { usernameSchema as username } from './username';
 
-/** A challenge is ranked or casual, like a game of chess (ADR 0097). */
+/** A challenge is ranked or casual, like a game of chess (ADR 0098). */
 export const challengeModes = ['ranked', 'casual'] as const;
 export type ChallengeMode = (typeof challengeModes)[number];
 export const challengeFormats = ['freestyle', 'policy', 'value'] as const;

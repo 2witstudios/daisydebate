@@ -18,7 +18,7 @@ import { fileReport, REPORT_RULE } from './operations';
 
 const MAX_BODY_BYTES = 1024;
 
-/** Reports and the member's own moderation notices (ADR 0097). */
+/** Reports and the member's own moderation notices (ADR 0098). */
 export function composeReportRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   return {

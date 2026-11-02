@@ -93,7 +93,7 @@ export function createRealtimeAuthorization({
     if (parsed.family === 'standings')
       return { revision: fingerprint(base), validUntil: bound };
     // A live participant session is all it takes: the frame names nobody and
-    // the list itself is authorized per read (ADR 0097).
+    // the list itself is authorized per read (ADR 0098).
     if (parsed.family === 'online')
       return { revision: fingerprint(base), validUntil: bound };
     switch (parsed.family) {

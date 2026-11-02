@@ -138,7 +138,7 @@ export async function readFriendList(
   const { actorId, userId } = requireMemberActor(principal);
   const rows = await dependencies.list({ userId, actorId });
   const accepted = rows.filter((row) => row.state === 'accepted');
-  // A friend appearing offline is offline to everyone (ADR 0097): their
+  // A friend appearing offline is offline to everyone (ADR 0098): their
   // leases are never even read.
   const visible = accepted.filter((row) => row.otherChosen !== 'offline');
   const activity = visible.length

@@ -131,7 +131,7 @@ const relationOf = (
 };
 
 /**
- * Who is online, as this member may see them (ADR 0097): lease ids from Redis,
+ * Who is online, as this member may see them (ADR 0098): lease ids from Redis,
  * then one SQL read that drops anyone appearing offline and any blocked pair.
  * A row whose lease lapsed since the scan drops out here. Presence grants
  * nothing, and everything on a row is already public on a profile or a ladder.

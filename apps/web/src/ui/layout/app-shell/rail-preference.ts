@@ -41,7 +41,7 @@ export const flipRailPreference = (
 ): RailPreference => (preference === 'mini' ? 'extended' : 'mini');
 
 /**
- * The online rail's choice (ADR 0097). Absent is automatic: CSS opens it on a
+ * The online rail's choice (ADR 0098). Absent is automatic: CSS opens it on a
  * screen wider than 1280px, and the first choice sticks across every page.
  */
 const ONLINE_RAIL_CHOICES = ['open', 'mini'] as const;

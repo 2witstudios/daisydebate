@@ -26,7 +26,7 @@ const summary =
 
 /**
  * Everything the online list's menu offers, as native forms on the profile,
- * which is where its three dots lead before any script (ADR 0097).
+ * which is where its three dots lead before any script (ADR 0098).
  */
 export function ProfilePersonActions({
   username,

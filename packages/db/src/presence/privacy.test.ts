@@ -18,7 +18,7 @@ test('Presence erases and exports only the member’s own visibility choice', as
     },
   );
   const exported = fakeSql([
-    [{ actor_id: actorId, hidden: true, updated_at: date }],
+    [{ actor_id: actorId, status: 'offline', updated_at: date }],
   ]);
   assert({
     given: 'an erased subject, then an exporting one',
@@ -39,7 +39,11 @@ test('Presence erases and exports only the member’s own visibility choice', as
       [['presence_settings', [actorId]]],
       {
         presence_settings: [
-          { actor_id: actorId, hidden: true, updated_at: date.toISOString() },
+          {
+            actor_id: actorId,
+            status: 'offline',
+            updated_at: date.toISOString(),
+          },
         ],
       },
     ],

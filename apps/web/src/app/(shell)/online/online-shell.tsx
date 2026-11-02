@@ -43,7 +43,7 @@ const noChallenges = {
 };
 
 /**
- * A member's online list for the shell (ADR 0097): read here so the first HTML
+ * A member's online list for the shell (ADR 0098): read here so the first HTML
  * already holds it, and a failed read still renders the rail, empty until the
  * browser's own read lands.
  */

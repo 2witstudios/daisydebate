@@ -54,7 +54,7 @@ CREATE TABLE "reports" (
 --> statement-breakpoint
 DROP TABLE "friend_challenges";--> statement-breakpoint
 ALTER TABLE "presence_settings" ADD COLUMN "status" text;--> statement-breakpoint
--- Hiding was the only choice; it becomes appearing offline (ADR 0097).
+-- Hiding was the only choice; it becomes appearing offline (ADR 0098).
 UPDATE "presence_settings" SET "status" = CASE WHEN "hidden" THEN 'offline' ELSE 'online' END;--> statement-breakpoint
 SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "presence_settings" ALTER COLUMN "status" SET NOT NULL;--> statement-breakpoint
@@ -77,7 +77,7 @@ ALTER TABLE "rating_visibility" ADD CONSTRAINT "rating_visibility_actor_id_actor
 ALTER TABLE "reports" ADD CONSTRAINT "reports_reporter_actor_id_actors_id_fkey" FOREIGN KEY ("reporter_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "reports" ADD CONSTRAINT "reports_subject_actor_id_actors_id_fkey" FOREIGN KEY ("subject_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "presence_settings" ADD CONSTRAINT "presence_settings_status_check" CHECK ("status" in ('online', 'busy', 'offline'));--> statement-breakpoint
--- ADR 0097: a suspension or ban in force withdraws participant access through
+-- ADR 0098: a suspension or ban in force withdraws participant access through
 -- the one account producer, so web and realtime stop at the same check. The
 -- added column is ignored by a release that still selects the old ones.
 DROP FUNCTION public.daisy_authorization_read_accounts_v2(text[]);--> statement-breakpoint
@@ -129,7 +129,7 @@ BEGIN
     -- or for an erased account.
     CASE WHEN u.deleted_at IS NOT NULL THEN NULL::text
       ELSE public.daisy_age_band(ag.birth_month, ag.version, ag.recorded_at, checked) END,
-    -- ADR 0097: a suspension or ban in force at that same instant.
+    -- ADR 0098: a suspension or ban in force at that same instant.
     EXISTS (SELECT 1 FROM public.moderation_actions AS m
       WHERE m.user_id = u.id AND m.kind IN ('suspension', 'ban') AND m.lifted_at IS NULL
         AND m.starts_at <= checked AND (m.ends_at IS NULL OR m.ends_at > checked))

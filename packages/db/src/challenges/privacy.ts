@@ -3,7 +3,7 @@ import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
 
-/** Challenges' subject rights (ADR 0097): every challenge naming the subject. */
+/** Challenges' subject rights (ADR 0098): every challenge naming the subject. */
 export const challengesPrivacyAdopter: PrivacyAdopter = {
   id: 'challenges',
   phase: 'after-close',

@@ -27,7 +27,7 @@ const own =
       context: { account },
     });
 
-/** Which ratings the member's card shows besides Freestyle (ADR 0097). */
+/** Which ratings the member's card shows besides Freestyle (ADR 0098). */
 export function composeRatingVisibilityRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   return {

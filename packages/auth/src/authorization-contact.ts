@@ -77,7 +77,7 @@ const pairCapabilities = {
   'social.friend.end': 'exit',
   'social.challenge.decline': 'exit',
   'social.challenge.cancel': 'exit',
-  // Reporting is safety, so it stays open across a block (ADR 0097).
+  // Reporting is safety, so it stays open across a block (ADR 0098).
   'social.report': 'exit',
   'social.friend.request': 'ask',
   'social.challenge.send': 'ask',

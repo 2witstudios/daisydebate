@@ -12,7 +12,7 @@ export type BetaWaitingProps = {
   /**
    * `pending` waits for approval; `revoked` access was paused;
    * `age-required` has no durable age record yet (the beta is 16+);
-   * `restricted` is under a suspension or ban (ADR 0097).
+   * `restricted` is under a suspension or ban (ADR 0098).
    */
   readonly reason: 'pending' | 'revoked' | 'age-required' | 'restricted';
   /** The age step, which returns here once answered. */

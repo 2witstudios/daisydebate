@@ -69,14 +69,12 @@ export type RosterPage = {
 /** The largest set one read considers; the caller's Redis scan stops here. */
 export const ROSTER_ACTORS_MAX = 10_000;
 
+/** One bound value however many ids: every id was validated above. */
 const textArray = (values: readonly string[]) =>
-  sql`array[${sql.join(
-    values.map((value) => sql`${value}`),
-    sql`, `,
-  )}]::text[]`;
+  sql`string_to_array(${values.join(',')}, ',')`;
 
 /**
- * Who this reader may see of those online (ADR 0097): named, current humans
+ * Who this reader may see of those online (ADR 0098): named, current humans
  * other than the reader, not appearing offline, with no block either way. The
  * block filter is why this is an HTTP read rather than a shared observed body.
  */
@@ -157,7 +155,7 @@ export async function readAvailability(
   return readSelf(tx, actorId);
 }
 
-/** The online list's read (ADR 0097), instrumented. */
+/** The online list's read (ADR 0098), instrumented. */
 export const rosterOperations = ({
   database,
   eventSink,

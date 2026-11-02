@@ -43,7 +43,7 @@ async function mayAct(deps: CommandDeps, operatorId: string): Promise<boolean> {
 }
 
 /**
- * One operator decision (ADR 0097), audited on this side before and after it
+ * One operator decision (ADR 0098), audited on this side before and after it
  * is sent, with the chain head after the intent as the cross-database anchor.
  * A report closes once: an unknown outcome is safe to resend from the queue,
  * since a decision that landed takes the report off it, and a second answers

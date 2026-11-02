@@ -44,7 +44,7 @@
   }
 }
 
-/* The online rail's column (ADR 0097), mirroring the left rail: collapsed
+/* The online rail's column (ADR 0098), mirroring the left rail: collapsed
    wherever the viewport cannot hold it, and absent on a phone, where the
    Lobby's Online view takes its place. */
 @utility grid-shell-online-mini {

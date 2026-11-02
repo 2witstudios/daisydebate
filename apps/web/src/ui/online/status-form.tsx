@@ -64,7 +64,7 @@ function StatusChoice({
 }
 
 /**
- * The member's own status (ADR 0097): one click, from any page. A native form
+ * The member's own status (ADR 0098): one click, from any page. A native form
  * whose buttons each post their value, so it works before any script. Being in
  * a room or a Round shows over this on its own, and goes when they leave.
  */

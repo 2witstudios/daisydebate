@@ -346,7 +346,7 @@ const parseBody = (body: Uint8Array): unknown => {
   }
 };
 
-/** The open report queue, oldest first (ADR 0097). */
+/** The open report queue, oldest first (ADR 0098). */
 async function listReports(
   deps: OperatorApiDependencies,
   principal: AuthorizationPrincipal,
@@ -386,7 +386,7 @@ async function listReports(
   });
 }
 
-/** Closes a report and applies its action, once per command (ADR 0097). */
+/** Closes a report and applies its action, once per command (ADR 0098). */
 async function resolveReport(
   deps: OperatorApiDependencies,
   principal: AuthorizationPrincipal,

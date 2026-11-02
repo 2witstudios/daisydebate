@@ -31,6 +31,7 @@ import {
 } from '../../../features/presence/person-action';
 import type { CreationFormState } from '../../../features/messaging/forms/create-form';
 import { requestIdentity } from '../../../lib/request-session';
+import { activeRoomRead } from '../actions';
 import { createConversationAction } from '../messages/new/actions';
 import { moveOn } from '../../../server/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
@@ -149,6 +150,9 @@ export async function acceptChallengeAction(
       ? list.data.incoming.find((row) => row.id === challengeId)
       : undefined;
     if (!offer) return { notice: challengeRefusal('accept', 404) };
+    // A member already in a room finishes there first; nothing else is opened.
+    if ((await activeRoomRead()) !== null)
+      return { notice: challengeRefusal('accept-placed', 409) };
     const catalog = await readRoomTemplates(
       inProcessFetch(routes.catalog, incoming),
     );
@@ -171,15 +175,19 @@ export async function acceptChallengeAction(
       }),
       '/api/rooms',
       async (roomId) => {
-        const named = await inProcessFetch(routes.accept, incoming)(
-          '/api/challenges/accept',
-          {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ version: 1, challengeId, roomId }),
-          },
-        );
-        return named.ok ? undefined : challengeRefusal('accept', named.status);
+        try {
+          const named = await inProcessFetch(routes.accept, incoming)(
+            '/api/challenges/accept',
+            {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ version: 1, challengeId, roomId }),
+            },
+          );
+          return named.ok ? undefined : challengeRefusal('accept-lost', 404);
+        } catch {
+          return challengeRefusal('accept-lost', 500);
+        }
       },
       moveOn,
     );
@@ -187,7 +195,9 @@ export async function acceptChallengeAction(
     return {
       notice:
         offer.mode === 'ranked'
-          ? challengeRefusal('accept-ranked', 500)
+          ? created.error === challengeRefusal('accept-lost', 404)
+            ? created.error
+            : challengeRefusal('accept-ranked', 500)
           : (created.error ?? challengeRefusal('accept', 500)),
     };
   } catch (error) {

@@ -241,7 +241,7 @@ export function createPresenceOperations({
       }
     },
     /**
-     * Every online actor id, scanned a page at a time up to `max` (ADR 0097).
+     * Every online actor id, scanned a page at a time up to `max` (ADR 0098).
      * A member who moves between pages mid-scan appears at most once, and the
      * next ring reads them again.
      */
@@ -258,7 +258,7 @@ export function createPresenceOperations({
       return [...ids];
     },
     /**
-     * The roster revision (ADR 0097): it moves when a lease appears, changes
+     * The roster revision (ADR 0098): it moves when a lease appears, changes
      * activity or goes. Zero when none has yet. Names nobody.
      */
     async readRosterRevision(): Promise<number> {

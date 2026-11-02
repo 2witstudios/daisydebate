@@ -15,7 +15,7 @@ export function OnlineCount() {
 }
 
 /**
- * The phone's Rooms and Online switch (ADR 0097). Plain links, so it works
+ * The phone's Rooms and Online switch (ADR 0098). Plain links, so it works
  * without script; from a tablet up the rail holds the list and this is hidden.
  */
 export function LobbyViews({

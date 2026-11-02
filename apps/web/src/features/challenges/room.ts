@@ -7,7 +7,7 @@ import { casualSelection } from '../rooms/format-browser';
 import type { RoomTemplate } from '../rooms/read-catalog';
 
 /**
- * The room an accepted challenge opens (ADR 0097): unlisted, so only the two of
+ * The room an accepted challenge opens (ADR 0098): unlisted, so only the two of
  * them reach it, on the format they agreed, through the one room-create form.
  * A ranked challenge takes the ranked selection and so its judge requirement.
  */

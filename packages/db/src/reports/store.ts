@@ -33,7 +33,7 @@ import { appendSessionRevokedFor } from '../session-revoked';
 
 type Transaction = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 
-/** Reports over the shared Contacts fence (ADR 0097). */
+/** Reports over the shared Contacts fence (ADR 0098). */
 export type ReportStore = {
   /**
    * Files one report. A second open report of the same member by the same
@@ -299,7 +299,7 @@ async function liftModeration(
 
 type Scope = { readonly userId: string; readonly actorId: string };
 
-/** Reports' and moderation's operations (ADR 0097), instrumented. */
+/** Reports' and moderation's operations (ADR 0098), instrumented. */
 export const reportOperations = ({
   database,
   eventSink,

@@ -236,7 +236,7 @@ export function retentionTargets({
      * never delete. Redis is expendable, so a failure here only leaves
      * stale members for the next run. 1000 is the adapter's per-call cap.
      */
-    /** Offers past their time; the list already ignores them (ADR 0097). */
+    /** Offers past their time; the list already ignores them (ADR 0098). */
     {
       name: 'retention.challenges',
       batchSize: 1000,

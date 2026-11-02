@@ -49,7 +49,7 @@ export function readChosenStatus(
 
 /**
  * Sets the member's own choice after `authorize` on their locked account. The
- * control row rings every realtime node (ADR 0097); it names only the member,
+ * control row rings every realtime node (ADR 0098); it names only the member,
  * on their own inbox, and is never forwarded to a client.
  */
 export function writeChosenStatus(
@@ -82,7 +82,7 @@ export function writeChosenStatus(
   });
 }
 
-/** The member's own chosen status (ADR 0097), instrumented. */
+/** The member's own chosen status (ADR 0098), instrumented. */
 export const presenceSettingOperations = ({
   database,
   eventSink,

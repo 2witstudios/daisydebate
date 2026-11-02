@@ -18,7 +18,7 @@ const MAX_BODY_BYTES = 1024;
 
 type Answer = Promise<{ readonly status: ChosenStatus }>;
 
-/** The member's own status, and who is online as they may see it (ADR 0097). */
+/** The member's own status, and who is online as they may see it (ADR 0098). */
 export function createPresenceHandlers(dependencies: {
   readonly boundary: MemberBoundary;
   /** Where browsers open the socket that rings them; null without realtime. */

@@ -12,7 +12,13 @@ export const challengeFormUnavailable = (): ChallengeFormState => ({
 
 /** The refusal for an HTTP status, never naming a block or a status. */
 export function challengeRefusal(
-  intent: 'send' | 'accept' | 'accept-ranked' | 'end',
+  intent:
+    | 'send'
+    | 'accept'
+    | 'accept-ranked'
+    | 'accept-placed'
+    | 'accept-lost'
+    | 'end',
   status: number,
 ): string {
   if (intent === 'send') {
@@ -21,6 +27,9 @@ export function challengeRefusal(
     if (status === 429) return 'You have reached a challenge limit for now.';
     return 'Could not send that challenge. Try again.';
   }
+  if (intent === 'accept-placed') return 'Leave your room first.';
+  if (intent === 'accept-lost')
+    return 'That challenge is no longer open. Your new room is still open.';
   if (intent === 'accept-ranked')
     return 'Could not open a ranked room right now. Decline, or ask them for a casual one.';
   if (intent === 'accept') {

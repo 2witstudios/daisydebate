@@ -105,8 +105,8 @@ describe('sendChallenge', () => {
     const { calls, dependencies } = harness({ activity: async () => null });
     await assertRejects({
       given: 'a member with no live lease',
-      should: 'refuse, touching no pair',
-      code: 'CONFLICT',
+      should: 'answer as for no such member, touching no pair',
+      code: 'NOT_FOUND',
       actual: () => sendChallenge(member, offer, dependencies),
     });
     assert({
@@ -160,7 +160,17 @@ describe('acceptChallenge', () => {
       actual: { answer, last: calls.at(-1) },
       expected: {
         answer: { challengeId: id, state: 'accepted' },
-        last: ['accept', { challengeId: id, roomId: room, now }],
+        last: [
+          'accept',
+          {
+            challengeId: id,
+            roomId: room,
+            now,
+            followUntil: new Date(
+              Date.parse(now) + CHALLENGE_TTL_MS,
+            ).toISOString(),
+          },
+        ],
       },
     });
   });

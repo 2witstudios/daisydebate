@@ -1,5 +1,6 @@
 import { challengesPrivacyAdopter } from './challenges/privacy';
 import { contactsPrivacyAdopter } from './contacts/privacy';
+import { ratingVisibilityPrivacyAdopter } from './ratings-visibility';
 import { reportsPrivacyAdopter } from './reports/privacy';
 import { friendsPrivacyAdopter } from './friends/privacy';
 import { createMessagingPrivacyAdopter } from './messaging/privacy';
@@ -16,6 +17,7 @@ export const socialPrivacyAdoption = () => [
   friendsPrivacyAdopter,
   challengesPrivacyAdopter,
   reportsPrivacyAdopter,
+  ratingVisibilityPrivacyAdopter,
   presencePrivacyAdopter,
   contactsPrivacyAdopter,
 ];
