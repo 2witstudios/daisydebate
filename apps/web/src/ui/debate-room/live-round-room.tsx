@@ -66,15 +66,21 @@ export function LiveRoundRoom({
   readonly socketUrl: string | null;
 }) {
   const reconnect = useMemo(() => createAttendanceReconnect(), []);
-  // One shared round clock: the SSR render instant seeds it, then every
-  // authorized read — the sync driver's own, the periodic resample's, a
-  // visibility return's — calibrates the same seam display and media read.
-  const { roundTime, sampledRead } = useRoundTime({ renderedAtMs, read });
+  // One shared round clock: the SSR render instant seeds it, then its own
+  // sampler calibrates the seam display and media read.
+  const { roundTime, wakeClock } = useRoundTime({
+    renderedAtMs,
+    clockUrl: `/api/rounds/${seed.id}`,
+  });
+  const onConnectionOpen = useCallback(() => {
+    reconnect.opened();
+    wakeClock();
+  }, [reconnect, wakeClock]);
   const [synced, driver] = useLiveRoundView({
     view: seed,
-    read: sampledRead,
+    read,
     socketUrl,
-    onConnectionOpen: reconnect.opened,
+    onConnectionOpen,
   });
   const view = synced.value;
   const refresh = useCallback(() => driver?.signal(), [driver]);

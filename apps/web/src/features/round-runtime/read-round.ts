@@ -1,51 +1,39 @@
 import { idSchema, roundViewSchema, type RoundView } from '@daisy/protocol';
 import { realtimeEndpointOf } from '../realtime/endpoint-header';
-import { parseServerClockHeader } from './server-clock-header';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
-
-/** What a round read must answer for a consumer that needs only the round. */
-export type RoundRead =
+type Read =
   | {
       readonly kind: 'found';
       readonly round: RoundView;
-      /**
-       * The explicit millisecond server instant the authorized read itself
-       * generated, from the round server's own clock — never the HTTP Date's
-       * seconds. The client's lifetime owner brackets the request on its own
-       * monotonic clock; this instant is what it calibrates against.
-       */
-      readonly serverNowMs: number | null;
       /** Where the round's doorbell rings, when realtime is configured. */
       readonly socketUrl: string | null;
     }
-  | {
-      readonly kind: 'missing' | 'unavailable';
-      readonly socketUrl: string | null;
-    };
+  | { readonly kind: 'missing' | 'unavailable' };
+
+/** What a round read must answer for a consumer that needs only the round. */
+export type RoundRead =
+  | { readonly kind: 'found'; readonly round: RoundView }
+  | { readonly kind: 'missing' | 'unavailable' };
 
 export async function readRoundReceipt(
   fetch: FetchLike,
   id: string,
-): Promise<RoundRead> {
-  if (!idSchema.safeParse(id).success)
-    return { kind: 'missing', socketUrl: null };
+): Promise<Read> {
+  if (!idSchema.safeParse(id).success) return { kind: 'missing' };
   try {
     const response = await fetch(`/api/rounds/${id}`, { method: 'GET' });
-    if (response.status === 404) return { kind: 'missing', socketUrl: null };
-    if (!response.ok) return { kind: 'unavailable', socketUrl: null };
+    if (response.status === 404) return { kind: 'missing' };
+    if (!response.ok) return { kind: 'unavailable' };
     const parsed = roundViewSchema.safeParse(await response.json());
-    if (!parsed.success || parsed.data.id !== id)
-      return { kind: 'unavailable', socketUrl: null };
-    return {
-      kind: 'found',
-      round: parsed.data,
-      serverNowMs: parseServerClockHeader(
-        response.headers.get('x-server-now-ms'),
-      ),
-      socketUrl: realtimeEndpointOf(response),
-    };
+    return parsed.success && parsed.data.id === id
+      ? {
+          kind: 'found',
+          round: parsed.data,
+          socketUrl: realtimeEndpointOf(response),
+        }
+      : { kind: 'unavailable' };
   } catch {
-    return { kind: 'unavailable', socketUrl: null };
+    return { kind: 'unavailable' };
   }
 }

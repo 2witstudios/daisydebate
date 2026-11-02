@@ -3,7 +3,6 @@ import {
   roundBallotReadSchema,
   roundJudgeAssignmentsSchema,
 } from '@daisy/protocol';
-import { parseServerClockHeader } from '../round-runtime/server-clock-header';
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 /** Canonical protected input/result read; query parameters never choose a ballot state. */
 export async function readRoundBallot(fetch: FetchLike, roundId: string) {
@@ -16,13 +15,7 @@ export async function readRoundBallot(fetch: FetchLike, roundId: string) {
     if (!response.ok) return { kind: 'unavailable' as const };
     const parsed = roundBallotReadSchema.safeParse(await response.json());
     return parsed.success && parsed.data.round.id === roundId
-      ? {
-          kind: 'found' as const,
-          view: parsed.data,
-          serverNowMs: parseServerClockHeader(
-            response.headers.get('x-server-now-ms'),
-          ),
-        }
+      ? { kind: 'found' as const, view: parsed.data }
       : { kind: 'unavailable' as const };
   } catch {
     return { kind: 'unavailable' as const };

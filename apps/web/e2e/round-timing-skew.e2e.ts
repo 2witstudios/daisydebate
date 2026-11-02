@@ -7,11 +7,11 @@
  */
 import { origin } from './support/accounts';
 import {
-  createResumedClockWitness,
-  routeServerActions,
-  type ActionRoute,
+  createClockReadWitness,
+  routeStepped,
+  type StepRoute,
 } from './support/round-timing-response';
-import type { Page } from '@playwright/test';
+import type { Page, Request } from '@playwright/test';
 import { expect, openPage, test } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import {
@@ -167,29 +167,27 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
       .toBeLessThan(2000);
 
-    // One route owns every Server Action for the rest of the journey. Each
-    // step swaps its behavior; replacing the route itself between steps left
-    // requests that no handler saw (host diagnostic, 32a116dfe).
+    // One route owns the page's clock reads for the rest of the journey; each
+    // step swaps its behavior.
     let delayed = false;
-    let clockActionId = '';
-    const delayClockReplies =
-      (delayMs: number, delivered?: () => void): ActionRoute =>
+    const delayClockReads =
+      (delayMs: number, delivered?: () => void): StepRoute =>
       async (route) => {
         const response = await route.fetch();
-        const body = await response.text();
-        if (body.includes('serverNowMs')) {
-          clockActionId = route.request().headers()['next-action'] ?? '';
-          delivered?.();
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-        }
-        await route.fulfill({ response, body });
+        delivered?.();
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await route.fulfill({ response });
       };
-    const actions = await routeServerActions(host, roomUrl);
+    const clockReads = await routeStepped(
+      host,
+      new URL(`/api/rounds/${roundId}`, roomUrl).href,
+      (request) => request.method() === 'GET',
+    );
 
-    // Delay real authorized action replies beyond the accepted RTT envelope.
+    // Delay real authorized clock reads beyond the accepted RTT envelope.
     // The resource may be current while its clock evidence is visibly stale.
-    actions.use(
-      delayClockReplies(2300, () => {
+    clockReads.use(
+      delayClockReads(2300, () => {
         delayed = true;
       }),
     );
@@ -200,7 +198,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await expect(clockStatus).toHaveAttribute('data-round-time', 'stale', {
       timeout: 10000,
     });
-    await actions.pass();
+    await clockReads.pass();
     await host.evaluate(() =>
       document.dispatchEvent(new Event('visibilitychange')),
     );
@@ -209,7 +207,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     });
 
     // A bounded delayed reply is accepted and its measured RTT is visible.
-    actions.use(delayClockReplies(400));
+    clockReads.use(delayClockReads(400));
     await host.evaluate(() =>
       document.dispatchEvent(new Event('visibilitychange')),
     );
@@ -218,18 +216,20 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await expect
       .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
       .toBeLessThan(2000);
-    await actions.pass();
+    await clockReads.pass();
 
     // Freeze the browser renderer, let the real server advance, then resume.
     // Visibility return must obtain fresh evidence, not merely retick the seed.
-    expect(clockActionId).not.toBe('');
-    const resumed = createResumedClockWitness({
-      actionId: clockActionId,
-      frame: host.mainFrame(),
-      documentEpoch: () => documentEpoch,
-      now: elapsedMs,
-    });
-    actions.use((route) => resumed.handle(route));
+    const witnessClockRead = () => {
+      const witness = createClockReadWitness({
+        frame: host.mainFrame(),
+        documentEpoch: () => documentEpoch,
+        now: elapsedMs,
+      });
+      clockReads.use((route) => witness.handle(route));
+      return witness;
+    };
+    const resumed = witnessClockRead();
     const session = await host.context().newCDPSession(host);
     const before = await serverNow(accounts, roundId!);
     await session.send('Page.setWebLifecycleState', { state: 'frozen' });
@@ -249,7 +249,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await expect
       .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
       .toBeLessThan(2000);
-    await actions.pass();
+    await clockReads.pass();
     await session.detach();
     await expect(mediaStatus).toBeVisible({ timeout: 15000 });
 
@@ -261,30 +261,43 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     const view = roundViewSchema.parse(await response.json());
     const segment = view.segments[0]!;
     const deadline = Date.parse(segment.startedAt) + segment.durationMs;
-    // Hold every Round read for both debaters across the boundary. Neither
-    // view can change, so only a deadline timer on the shared clock can
-    // reconcile here; the guest's view would otherwise wake the host's
-    // transport and satisfy this assertion without any timer.
-    let releaseReads = () => {};
-    const readsHeld = new Promise<void>((release) => {
-      releaseReads = release;
+    // Hold every Server Action for both debaters across the boundary. Neither
+    // view can change, so a new view cannot be what reconciles here; the
+    // guest's would otherwise wake the host's transport.
+    let releaseActions = () => {};
+    const actionsHeld = new Promise<void>((release) => {
+      releaseActions = release;
     });
-    const holdRoundReads: ActionRoute = async (route) => {
-      if (route.request().headers()['next-action'] === clockActionId)
-        await readsHeld;
+    const holdActions: StepRoute = async (route) => {
+      await actionsHeld;
       await route.fallback();
     };
-    const guestActions = await routeServerActions(guest, roomUrl);
-    guestActions.use(holdRoundReads);
-    actions.use(holdRoundReads);
+    const isServerAction = (request: Pick<Request, 'method' | 'headers'>) =>
+      request.method() === 'POST' && Boolean(request.headers()['next-action']);
+    const hostActions = await routeStepped(host, roomUrl, isServerAction);
+    const guestActions = await routeStepped(guest, roomUrl, isServerAction);
+    hostActions.use(holdActions);
+    guestActions.use(holdActions);
+    // Calibration does not wait on that queue: a stuck action cannot hold it.
+    const heldClock = witnessClockRead();
+    heldClock.arm();
+    await host.evaluate(() =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+    await expect
+      .poll(() => heldClock.read(), { timeout: 15000 })
+      .not.toBeNull();
+    expect(heldClock.read()!.serverNowMs).not.toBeNull();
+    await clockReads.pass();
     expect(await serverNow(accounts, roundId!)).toBeLessThan(deadline);
     await expect
       .poll(() => Math.min(...mediaAt.map((at) => Math.abs(at - deadline))), {
         timeout: 70000,
       })
       .toBeLessThan(2000);
-    releaseReads();
-    await Promise.all([actions.pass(), guestActions.pass()]);
+    await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
+    releaseActions();
+    await Promise.all([hostActions.pass(), guestActions.pass()]);
     await expect
       .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
       .toBeLessThan(2000);
@@ -295,9 +308,10 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
           'ahead wall skew',
           'reverse wall skew',
           'six-second SSR delay',
-          'rejected2300ms RTT with visible stale',
+          'abandoned read past the RTT envelope with visible stale',
           'accepted400ms reply with visible uncertainty',
           'renderer freeze/resume with fresh authorized read',
+          'clock read reaches the server while Server Actions are held',
           'actual media boundary',
         ],
         clockStatus: await clockStatus.textContent(),

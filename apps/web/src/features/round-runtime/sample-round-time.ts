@@ -1,72 +1,86 @@
 import type { Scheduler } from '../realtime/connection-store';
 import type { SyncVisibility } from '../resource-sync/driver';
-import { RESAMPLE_EVERY_MS, SEED_RETRY_MS, type RoundTime } from './round-time';
+import {
+  MAX_SAMPLE_RTT_MS,
+  RESAMPLE_EVERY_MS,
+  retryDelayMs,
+  SEED_RETRY_MS,
+  type RoundTime,
+} from './round-time';
 
-/** One serial retry chain per mounted Round; visibility requests coalesce while pending. */
+const abandoned = (signal: AbortSignal) =>
+  new Promise<void>((resolve) =>
+    signal.addEventListener('abort', () => resolve(), { once: true }),
+  );
+
+/**
+ * One serial chain of clock reads per mounted Round. A read past the sample
+ * envelope is abandoned, so a read that never settles cannot end sampling.
+ * Wakes during a read coalesce into one followup; a hidden tab waits for its
+ * visibility return.
+ */
 export function sampleRoundTime(options: {
   readonly read: (signal: AbortSignal) => Promise<unknown>;
   readonly roundTime: RoundTime;
   readonly scheduler: Scheduler;
   readonly visibility: SyncVisibility;
-}): () => void {
+  readonly random: () => number;
+}) {
+  const { scheduler, visibility, roundTime } = options;
   const lifetime = new AbortController();
-  let stopped = false;
-  let fastRetry = false;
   let pending = false;
   let followup = false;
+  let failures = 0;
   let timer: unknown = null;
   const clear = () => {
-    if (timer !== null) options.scheduler.clearTimeout(timer);
+    if (timer !== null) scheduler.clearTimeout(timer);
     timer = null;
-    fastRetry = false;
+  };
+  const arm = (delayMs: number) => {
+    timer = scheduler.setTimeout(() => {
+      timer = null;
+      if (visibility.isVisible()) void resample();
+      else arm(RESAMPLE_EVERY_MS);
+    }, delayMs);
+  };
+  const nextDelayMs = () => {
+    failures = roundTime.status().kind === 'current' ? 0 : failures + 1;
+    if (followup) return SEED_RETRY_MS;
+    return failures === 0
+      ? RESAMPLE_EVERY_MS
+      : retryDelayMs(failures, options.random());
   };
   const resample = async () => {
-    if (stopped) return;
+    if (lifetime.signal.aborted) return;
     if (pending) {
-      // External visibility wakes latch once; clock notifications below never enqueue themselves.
       followup = true;
       return;
     }
     clear();
     followup = false;
     pending = true;
-    try {
-      await options.read(lifetime.signal);
-    } catch {
-      // The measured read has already marked the clock stale. Keep retrying.
-    } finally {
-      pending = false;
-      if (!stopped) {
-        fastRetry = followup || options.roundTime.status().kind !== 'current';
-        timer = options.scheduler.setTimeout(
-          () => void resample(),
-          fastRetry ? SEED_RETRY_MS : RESAMPLE_EVERY_MS,
-        );
-      }
-    }
+    const attempt = new AbortController();
+    const release = () => attempt.abort();
+    lifetime.signal.addEventListener('abort', release, { once: true });
+    const deadline = scheduler.setTimeout(release, MAX_SAMPLE_RTT_MS);
+    await Promise.race([
+      // The measured read has already marked a failed read stale.
+      options.read(attempt.signal).catch(() => undefined),
+      abandoned(attempt.signal),
+    ]);
+    scheduler.clearTimeout(deadline);
+    lifetime.signal.removeEventListener('abort', release);
+    pending = false;
+    if (!lifetime.signal.aborted) arm(nextDelayMs());
   };
-  const stopClock = options.roundTime.subscribe(() => {
-    // A concurrent resource read can reject time while its Round value is
-    // current. Bring the sampling retry forward without overlapping reads.
-    if (
-      stopped ||
-      pending ||
-      fastRetry ||
-      options.roundTime.status().kind === 'current'
-    )
-      return;
-    clear();
-    fastRetry = true;
-    timer = options.scheduler.setTimeout(() => void resample(), SEED_RETRY_MS);
-  });
-  const unsubscribe = options.visibility.onVisible(() => void resample());
+  const unsubscribe = visibility.onVisible(() => void resample());
   void resample();
-  return () => {
-    stopped = true;
-    followup = false;
-    lifetime.abort();
-    clear();
-    unsubscribe();
-    stopClock();
+  return {
+    wake: () => void resample(),
+    stop: () => {
+      lifetime.abort();
+      clear();
+      unsubscribe();
+    },
   };
 }

@@ -3,91 +3,95 @@ import { sampleRoundTime } from './sample-round-time';
 import { timingFixture } from './sample-round-time.test-support';
 setupRitewayBun();
 
-test('visibility wakes during a pending recovery coalesce one bounded followup before settling', async () => {
-  const { createRoundSyncDriver, seedRoundSync } =
-    await import('./round-sync-driver');
-  const { round } = await import('../room-runtime/operations.test-support');
-  const { edges, roundTime, read } =
-    timingFixture<import('./read-round').RoundRead>();
-  const stop = sampleRoundTime({ ...edges, read, roundTime });
-  edges.answer({ kind: 'found', round, serverNowMs: 10000, socketUrl: null });
-  await edges.flush();
-  const driver = createRoundSyncDriver({
+type Clock = { kind: 'found'; serverNowMs: number };
+
+test('wakes during a pending read coalesce into one bounded followup', async () => {
+  const { edges, roundTime, read } = timingFixture<Clock>();
+  const { stop, wake } = sampleRoundTime({
     ...edges,
-    visibility: { isVisible: () => true, onVisible: () => () => {} },
-    seed: seedRoundSync(round, edges.scheduler.now()),
     read,
+    roundTime,
+    random: () => 0.5,
   });
-  driver.signal();
-  edges.answer({ kind: 'unavailable', socketUrl: null });
+  edges.answer({ kind: 'found', serverNowMs: 10000 });
   await edges.flush();
-  edges.advance(2000);
+  edges.advance(30_000);
   edges.show();
+  wake();
   edges.show();
   assert({
-    given:
-      'a real resource failure and two visibility wakes during the recovery sample',
-    should: 'keep only the pending sample until it finishes',
+    given: 'visibility and reconnect wakes during a pending sample',
+    should: 'keep only the pending read',
     actual: edges.reads(),
-    expected: 3,
+    expected: 2,
   });
-  edges.answer({ kind: 'found', round, serverNowMs: 12000, socketUrl: null });
+  edges.answer({ kind: 'found', serverNowMs: 40000 });
   await edges.flush();
   assert({
-    given: 'success after those pending visibility wakes',
-    should:
-      'retain one bounded two-second followup instead of dropping the wakes for thirty seconds',
-    actual: [
-      edges.reads(),
-      edges.timers().sort((a, b) => a - b),
-      roundTime.calibration()?.generation,
-    ],
-    expected: [3, [2000, 3000], 3],
+    given: 'success after those wakes',
+    should: 'arm one two-second followup rather than wait thirty seconds',
+    actual: [edges.reads(), edges.timers(), roundTime.calibration().generation],
+    expected: [2, [2000], 2],
   });
   edges.advance(2000);
-  edges.answer({ kind: 'found', round, serverNowMs: 14000, socketUrl: null });
+  edges.answer({ kind: 'found', serverNowMs: 42000 });
   await edges.flush();
   assert({
-    given:
-      'the single coalesced followup succeeds without another external wake',
-    should:
-      'settle at thirty seconds without self-notification reentry or generation reset',
-    actual: [
-      edges.reads(),
-      edges.timers().sort((a, b) => a - b),
-      roundTime.calibration()?.generation,
-    ],
-    expected: [4, [1000, 30000], 4],
+    given: 'the followup succeeding with no further wake',
+    should: 'settle at thirty seconds without a notification loop',
+    actual: [edges.reads(), edges.timers(), roundTime.calibration().generation],
+    expected: [3, [30000], 3],
   });
-  driver.dispose();
   stop();
   assert({
-    given: 'both real owners disposed',
+    given: 'the owner disposed',
     should: 'cancel all pending timers',
     actual: edges.timers(),
     expected: [],
   });
 });
 
-test('a failed pending read preserves its anchor and coalesces external wakes into one recovery', async () => {
-  const { edges, roundTime, read } = timingFixture<{
-    kind: 'found';
-    serverNowMs: number;
-  }>();
-  const stop = sampleRoundTime({ ...edges, read, roundTime });
+test('a reconnect wake samples at once while settled', async () => {
+  const { edges, roundTime, read } = timingFixture<Clock>();
+  const { stop, wake } = sampleRoundTime({
+    ...edges,
+    read,
+    roundTime,
+    random: () => 0.5,
+  });
+  edges.answer({ kind: 'found', serverNowMs: 10000 });
+  await edges.flush();
+  edges.advance(1000);
+  wake();
+  assert({
+    given: 'a realtime reconnect between settled samples',
+    should: 'read immediately and drop the settled timer',
+    actual: [edges.reads(), edges.timers()],
+    expected: [2, [2000]],
+  });
+  stop();
+});
+
+test('a failed pending read preserves its anchor and coalesces wakes into one recovery', async () => {
+  const { edges, roundTime, read } = timingFixture<Clock>();
+  const { stop } = sampleRoundTime({
+    ...edges,
+    read,
+    roundTime,
+    random: () => 0.5,
+  });
   edges.answer({ kind: 'found', serverNowMs: 10000 });
   await edges.flush();
   const accepted = { ...roundTime.calibration() };
+  edges.advance(1000);
   edges.show();
   edges.show();
   edges.show();
   edges.answer(new Error('Authorized read unavailable'));
   await edges.flush();
   assert({
-    given:
-      'a read failure after repeated visibility wakes during that pending read',
-    should:
-      'keep the accepted anchor and arm only one bounded recovery without self-notification reentry',
+    given: 'a read failure after repeated visibility wakes',
+    should: 'keep the accepted anchor and arm one bounded recovery',
     actual: [
       edges.reads(),
       edges.timers(),
@@ -97,16 +101,15 @@ test('a failed pending read preserves its anchor and coalesces external wakes in
     expected: [2, [2000], accepted, 'stale'],
   });
   edges.advance(2000);
-  edges.answer({ kind: 'found', serverNowMs: 12000 });
+  edges.answer({ kind: 'found', serverNowMs: 13000 });
   await edges.flush();
   assert({
-    given:
-      'success on the one coalesced recovery without further visibility wakes',
-    should: 'advance generation once and restore the ordinary cadence',
+    given: 'success on that recovery',
+    should: 'advance one generation and restore the settled cadence',
     actual: [
       edges.reads(),
       edges.timers(),
-      roundTime.calibration()?.generation,
+      roundTime.calibration().generation,
       roundTime.status().kind,
     ],
     expected: [3, [30000], 3, 'current'],

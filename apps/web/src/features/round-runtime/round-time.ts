@@ -2,6 +2,12 @@
 export const MAX_SAMPLE_RTT_MS = 2000;
 export const RESAMPLE_EVERY_MS = 30_000;
 export const SEED_RETRY_MS = 2000;
+/** Fresh ordered samples that must agree before a server step back is believed. */
+export const ROLLBACK_CONFIRMATIONS = 3;
+/** Doubles from the first retry to the settled cadence, with half-range jitter. */
+export const retryDelayMs = (failures: number, random: number) =>
+  Math.min(SEED_RETRY_MS * 2 ** (failures - 1), RESAMPLE_EVERY_MS) *
+  (0.5 + random);
 export type MonotonicClock = () => number;
 export type RoundTimeSample = {
   readonly serverNowMs: number;
@@ -66,6 +72,23 @@ export const decideSample = (
   }
   return { accepted: true };
 };
+type RollbackRun = {
+  readonly offsetMs: number;
+  readonly uncertaintyMs: number;
+  readonly count: number;
+};
+/** Extends a run of refused samples only while their offsets can agree. */
+const nextRollbackRun = (
+  run: RollbackRun | null,
+  { serverNowMs, sentAtMs, receivedAtMs }: RoundTimeSample,
+): RollbackRun => {
+  const uncertaintyMs = (receivedAtMs - sentAtMs) / 2;
+  const offsetMs = serverNowMs + uncertaintyMs - receivedAtMs;
+  const agrees =
+    run !== null &&
+    Math.abs(offsetMs - run.offsetMs) <= uncertaintyMs + run.uncertaintyMs;
+  return { offsetMs, uncertaintyMs, count: agrees ? run.count + 1 : 1 };
+};
 export type RoundTimeStatus = {
   readonly kind: 'seed' | 'current' | 'stale';
   readonly uncertaintyMs: number | null;
@@ -93,6 +116,7 @@ export function createRoundTime(options: {
     real: false,
   };
   let failedGeneration = -1;
+  let rollbackRun: RollbackRun | null = null;
   const listeners = new Set<() => void>();
   const notify = () => {
     for (const listener of listeners) listener();
@@ -113,10 +137,14 @@ export function createRoundTime(options: {
       Math.max(0, monotonic() - calibration.monoAtReceiveMs),
     sample: (candidate) => {
       const decision = decideSample(calibration, candidate);
-      if (!decision.accepted) {
+      if (!decision.accepted && decision.refusal === 'server-rollback')
+        rollbackRun = nextRollbackRun(rollbackRun, candidate);
+      const confirmed = (rollbackRun?.count ?? 0) >= ROLLBACK_CONFIRMATIONS;
+      if (!decision.accepted && !confirmed) {
         unavailable(candidate.generation);
         return decision;
       }
+      rollbackRun = null;
       const rtt = candidate.receivedAtMs - candidate.sentAtMs;
       calibration = {
         serverAtReceiveMs: candidate.serverNowMs + rtt / 2,
@@ -126,7 +154,7 @@ export function createRoundTime(options: {
         real: true,
       };
       notify();
-      return decision;
+      return { accepted: true };
     },
     unavailable,
     calibration: () => calibration,
@@ -149,14 +177,14 @@ export function createRoundTime(options: {
   };
 }
 
-/** This wrapper executes in the browser, outside any server action's clock epoch. */
+/** Brackets one authorized read on the browser's monotonic clock. */
 export function createMeasuredRead<
   T extends {
     readonly kind: 'found' | 'missing' | 'unavailable';
     readonly serverNowMs?: number | null;
   },
 >(options: {
-  readonly read: () => Promise<T>;
+  readonly read: (signal?: AbortSignal) => Promise<T>;
   readonly roundTime: RoundTime;
   readonly monotonicNowMs: MonotonicClock;
   readonly nextGeneration: () => number;
@@ -165,24 +193,28 @@ export function createMeasuredRead<
     signal?.throwIfAborted();
     const generation = options.nextGeneration();
     const sentAtMs = options.monotonicNowMs();
+    const abandoned = () => options.roundTime.unavailable(generation);
+    signal?.addEventListener('abort', abandoned, { once: true });
     try {
-      const response = await options.read();
-      // A server action cannot cancel work already executing on the server;
-      // cancellation discards its client evidence and all subsequent effects.
+      const response = await options.read(signal);
+      // An abandoned read's late reply is not evidence.
       if (signal?.aborted) return response;
-      const receivedAtMs = options.monotonicNowMs();
-      if (response.kind === 'found' && response.serverNowMs != null)
+      const serverNowMs =
+        response.kind === 'found' ? response.serverNowMs : null;
+      if (serverNowMs == null) abandoned();
+      else
         options.roundTime.sample({
-          serverNowMs: response.serverNowMs,
+          serverNowMs,
           sentAtMs,
-          receivedAtMs,
+          receivedAtMs: options.monotonicNowMs(),
           generation,
         });
-      else options.roundTime.unavailable(generation);
       return response;
     } catch (error) {
-      if (!signal?.aborted) options.roundTime.unavailable(generation);
+      abandoned();
       throw error;
+    } finally {
+      signal?.removeEventListener('abort', abandoned);
     }
   };
 }

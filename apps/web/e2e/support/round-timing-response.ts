@@ -1,6 +1,6 @@
-import type { Page, Route } from '@playwright/test';
+import type { Page, Request, Route } from '@playwright/test';
 
-export type ActionRoute = (route: Route) => Promise<void>;
+export type StepRoute = (route: Route) => Promise<void>;
 
 export type RoundClockDelivery = {
   readonly status: number;
@@ -9,14 +9,11 @@ export type RoundClockDelivery = {
 
 type FetchedResponse = {
   status(): number;
+  headers(): Record<string, string>;
   body(): Promise<Buffer>;
 };
 type DeliveredRoute<Response extends FetchedResponse> = {
-  request(): {
-    method(): string;
-    headers(): Record<string, string>;
-    frame(): unknown;
-  };
+  request(): { frame(): unknown };
   fallback(): Promise<void>;
   fetch(): Promise<Response>;
   fulfill(options: { response: Response; body: Buffer }): Promise<void>;
@@ -26,18 +23,15 @@ type Observed =
   | { readonly kind: 'captured'; readonly delivery: RoundClockDelivery }
   | { readonly kind: 'failed'; readonly failure: unknown };
 
-const serverNowOf = (body: Buffer) => {
-  const instant = /"serverNowMs":(\d+)/.exec(body.toString('utf8'))?.[1];
-  return instant === undefined ? null : Number(instant);
-};
+const serverNowOf = (header: string | undefined) =>
+  header !== undefined && /^\d+$/.test(header) ? Number(header) : null;
 
 /**
- * Witnesses the first clock read a resumed Round starts, at delivery time: a
- * browser response body can be gone by the time a listener asks for it. Only
- * status and the server instant are retained; bytes reach the page unchanged.
+ * Witnesses the first clock read the page starts after arming, at delivery
+ * time. Only status and the server instant are retained; bytes reach the page
+ * unchanged. Route it to the clock URL only.
  */
-export function createResumedClockWitness(expected: {
-  readonly actionId: string;
+export function createClockReadWitness(expected: {
   readonly frame: unknown;
   readonly documentEpoch: () => number;
   readonly now: () => number;
@@ -54,13 +48,10 @@ export function createResumedClockWitness(expected: {
     async handle<Response extends FetchedResponse>(
       route: DeliveredRoute<Response>,
     ) {
-      const request = route.request();
       if (
         armed === null ||
         claimed ||
-        request.method() !== 'POST' ||
-        request.headers()['next-action'] !== expected.actionId ||
-        request.frame() !== expected.frame ||
+        route.request().frame() !== expected.frame ||
         expected.documentEpoch() !== armed.epoch ||
         expected.now() < armed.cutoffMs
       )
@@ -74,7 +65,7 @@ export function createResumedClockWitness(expected: {
           kind: 'captured',
           delivery: {
             status: response.status(),
-            serverNowMs: serverNowOf(body),
+            serverNowMs: serverNowOf(response.headers()['x-server-now-ms']),
           },
         };
       } catch (failure) {
@@ -89,19 +80,22 @@ export function createResumedClockWitness(expected: {
   };
 }
 
-const passThrough: ActionRoute = (route) => route.fallback();
+const passThrough: StepRoute = (route) => route.fallback();
 
 /**
- * One long-lived route over a page's Server Actions, whose behavior the
- * journey swaps. `pass` returns to pass-through once in-flight steps finish.
+ * One long-lived route whose behavior the journey swaps. Replacing the route
+ * between steps left requests no handler saw. `pass` returns to pass-through
+ * once in-flight steps finish.
  */
-export async function routeServerActions(page: Page, url: string) {
+export async function routeStepped(
+  page: Pick<Page, 'route'>,
+  url: string,
+  matches: (request: Pick<Request, 'method' | 'headers'>) => boolean,
+) {
   let current = passThrough;
   const inFlight = new Set<Promise<void>>();
   await page.route(url, async (route) => {
-    const request = route.request();
-    if (request.method() !== 'POST' || !request.headers()['next-action'])
-      return route.fallback();
+    if (!matches(route.request())) return route.fallback();
     const handled = current(route);
     inFlight.add(handled);
     try {
@@ -111,7 +105,7 @@ export async function routeServerActions(page: Page, url: string) {
     }
   });
   return {
-    use(next: ActionRoute) {
+    use(next: StepRoute) {
       current = next;
     },
     async pass() {

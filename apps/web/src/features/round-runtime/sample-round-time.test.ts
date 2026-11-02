@@ -5,25 +5,29 @@ import { sampleRoundTime } from './sample-round-time';
 import { timingFixture } from './sample-round-time.test-support';
 setupRitewayBun();
 
-test('seed failures retry serially, a live sample slows retries, visibility resamples and stop disposes', async () => {
+test('seed failures retry serially, a live sample settles the cadence and stop disposes', async () => {
   const { edges, roundTime, read } = timingFixture<
     { kind: 'found'; serverNowMs: number } | { kind: 'unavailable' }
   >(10_000);
-  const stop = sampleRoundTime({ ...edges, read, roundTime });
+  const { stop } = sampleRoundTime({
+    ...edges,
+    read,
+    roundTime,
+    random: () => 0.5,
+  });
   edges.show();
   edges.show();
-  edges.advance(60_000);
   assert({
     given: 'a pending initial read and repeated wakeups',
-    should: 'keep one outstanding read and no growing retry timers',
+    should: 'keep one outstanding read under its one deadline',
     actual: [edges.reads(), edges.timers(), roundTime.status()],
-    expected: [1, [], { kind: 'seed', uncertaintyMs: null }],
+    expected: [1, [2000], { kind: 'seed', uncertaintyMs: null }],
   });
   edges.answer({ kind: 'unavailable' });
   await edges.flush();
   assert({
-    given: 'failed seed read',
-    should: 'schedule a fast retry',
+    given: 'failed seed read after those wakes',
+    should: 'arm one fast retry and release the read deadline',
     actual: edges.timers(),
     expected: [2000],
   });
@@ -36,15 +40,7 @@ test('seed failures retry serially, a live sample slows retries, visibility resa
     actual: [roundTime.status(), edges.timers()],
     expected: [{ kind: 'current', uncertaintyMs: 0 }, [30_000]],
   });
-  edges.hide();
   edges.advance(30_000);
-  edges.show();
-  assert({
-    given: 'periodic read pending when visibility returns',
-    should: 'coalesce wake reads',
-    actual: edges.reads(),
-    expected: 3,
-  });
   stop();
   edges.answer({ kind: 'unavailable' });
   await edges.flush();
@@ -98,83 +94,6 @@ test('missing, rejected and aged evidence becomes stale without losing the accep
   });
 });
 
-test('a failed concurrent resource read wakes the settled sampling retry', async () => {
-  const { edges, roundTime, read, fail } = timingFixture<{
-    kind: 'found';
-    serverNowMs: number;
-  }>();
-  const stop = sampleRoundTime({ ...edges, read, roundTime });
-  edges.answer({ kind: 'found', serverNowMs: 10000 });
-  await edges.flush();
-  edges.advance(1000);
-  fail();
-  assert({
-    given:
-      'a failed resource-sync read while the clock owner waits on its settled cadence',
-    should: 'retry stale timing after2seconds instead of waiting29seconds',
-    actual: [roundTime.status().kind, edges.timers()],
-    expected: ['stale', [2000]],
-  });
-  stop();
-});
-
-test('repeated stale notifications cannot debounce the fast retry forever', async () => {
-  const { edges, roundTime, read, fail } = timingFixture<{
-    kind: 'found';
-    serverNowMs: number;
-  }>();
-  const stop = sampleRoundTime({ ...edges, read, roundTime });
-  edges.answer({ kind: 'found', serverNowMs: 10000 });
-  await edges.flush();
-  fail();
-  edges.advance(500);
-  fail();
-  edges.advance(500);
-  fail();
-  assert({
-    given: 'more stale notifications while a two-second retry is already armed',
-    should: 'retain its original deadline',
-    actual: edges.timers(),
-    expected: [1000],
-  });
-  edges.advance(1000);
-  assert({
-    given: 'the original retry deadline',
-    should: 'start one read with no synchronous reentry',
-    actual: [edges.reads(), edges.timers()],
-    expected: [2, []],
-  });
-  edges.show();
-  edges.show();
-  edges.answer({ kind: 'found', serverNowMs: 12000 });
-  await edges.flush();
-  assert({
-    given: 'success from that retry after repeated pending visibility wakes',
-    should:
-      'retain one bounded followup without resetting generations or overlapping reads',
-    actual: [
-      edges.reads(),
-      edges.timers(),
-      roundTime.calibration()?.generation,
-    ],
-    expected: [2, [2000], 5],
-  });
-  edges.advance(2000);
-  edges.answer({ kind: 'found', serverNowMs: 14000 });
-  await edges.flush();
-  assert({
-    given: 'that one followup succeeds without further visibility wakes',
-    should: 'restore thirty seconds without a self-notification loop',
-    actual: [
-      edges.reads(),
-      edges.timers(),
-      roundTime.calibration()?.generation,
-    ],
-    expected: [3, [30000], 6],
-  });
-  stop();
-});
-
 test('unmount aborts the sampling read lifetime and discards its late calibration', async () => {
   const edges = driverEdges<{ kind: 'found'; serverNowMs: number }>();
   const roundTime = createRoundTime({
@@ -188,9 +107,10 @@ test('unmount aborts the sampling read lifetime and discards its late calibratio
     nextGeneration: () => 1,
   });
   let receivedSignal: AbortSignal | undefined;
-  const stop = sampleRoundTime({
+  const { stop } = sampleRoundTime({
     ...edges,
     roundTime,
+    random: () => 0.5,
     read: (signal) => {
       receivedSignal = signal;
       return measured(signal);
@@ -213,77 +133,5 @@ test('unmount aborts the sampling read lifetime and discards its late calibratio
       edges.reads(),
     ],
     expected: [true, 'seed', 10000, [], 1],
-  });
-});
-
-test('an actual resource-sync failure publishes clock staleness and wakes the serial sampler', async () => {
-  const { createRoundSyncDriver, seedRoundSync } =
-    await import('./round-sync-driver');
-  const { round } = await import('../room-runtime/operations.test-support');
-  const edges = driverEdges<import('./read-round').RoundRead>();
-  const roundTime = createRoundTime({
-    monotonicNowMs: edges.scheduler.now,
-    hydrationSeedServerMs: 0,
-  });
-  let generation = 0;
-  const read = createMeasuredRead({
-    read: edges.read,
-    roundTime,
-    monotonicNowMs: edges.scheduler.now,
-    nextGeneration: () => ++generation,
-  });
-  const stop = sampleRoundTime({
-    ...edges,
-    visibility: { isVisible: () => true, onVisible: () => () => {} },
-    read,
-    roundTime,
-  });
-  edges.answer({ kind: 'found', round, serverNowMs: 10000, socketUrl: null });
-  await edges.flush();
-  const driver = createRoundSyncDriver({
-    ...edges,
-    seed: seedRoundSync(round, edges.scheduler.now()),
-    read,
-  });
-  driver.signal();
-  edges.answer({ kind: 'unavailable', socketUrl: null });
-  await edges.flush();
-  assert({
-    given:
-      'the production Round driver receives an unavailable authorized read',
-    should:
-      'publish stale clock evidence and arm the sampler at2seconds alongside resource polling',
-    actual: [roundTime.status().kind, edges.timers().sort((a, b) => a - b)],
-    expected: ['stale', [2000, 5000]],
-  });
-  edges.advance(2000);
-  assert({
-    given: 'that sampling deadline',
-    should: 'issue exactly one followup through the measured production reader',
-    actual: edges.reads(),
-    expected: 3,
-  });
-  edges.answer({ kind: 'found', round, serverNowMs: 12000, socketUrl: null });
-  await edges.flush();
-  assert({
-    given: 'success on the same Round version',
-    should:
-      'restore current timing and30second sample cadence without reentering',
-    actual: [
-      roundTime.status().kind,
-      roundTime.calibration()?.generation,
-      edges.timers().includes(30000),
-      edges.reads(),
-    ],
-    expected: ['current', 3, true, 3],
-  });
-  driver.dispose();
-  stop();
-  roundTime.unavailable(4);
-  assert({
-    given: 'both owners disposed before a further clock notification',
-    should: 'leave no timer subscriptions alive',
-    actual: edges.timers(),
-    expected: [],
   });
 });

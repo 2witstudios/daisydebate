@@ -1,24 +1,21 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  createResumedClockWitness,
-  routeServerActions,
+  createClockReadWitness,
+  routeStepped,
 } from '../e2e/support/round-timing-response';
 
 setupRitewayBun();
 
-const CLOCK_ACTION = 'clock-action';
-const CLOCK_BODY = Buffer.from('1:{"kind":"found","serverNowMs":20000}\n');
+const CLOCK_BODY = Buffer.from('{"id":"round"}');
 const mainFrame = { name: 'main' };
 
 /**
- * A delivered Server Action at the route seam. The browser's own response is
+ * A delivered clock read at the route seam. The browser's own response is
  * unreadable, as in the e5 trace; only the fetched APIResponse carries bytes.
  */
 const delivery = ({
-  actionId = CLOCK_ACTION,
-  method = 'POST',
   frame = mainFrame as object,
-  body = CLOCK_BODY,
+  serverNow = '20000' as string | null,
   status = 200,
   fetchFailure = null as Error | null,
 } = {}) => {
@@ -26,7 +23,12 @@ const delivery = ({
   const fulfilled: { response: unknown; body: Buffer }[] = [];
   const response = {
     status: () => status,
-    body: async () => body,
+    headers: () =>
+      (serverNow === null ? {} : { 'x-server-now-ms': serverNow }) as Record<
+        string,
+        string
+      >,
+    body: async () => CLOCK_BODY,
   };
   return {
     calls,
@@ -34,8 +36,6 @@ const delivery = ({
     response,
     route: {
       request: () => ({
-        method: () => method,
-        headers: () => ({ 'next-action': actionId }),
         frame: () => frame,
         response: async () => ({
           text: async () => {
@@ -60,8 +60,7 @@ const delivery = ({
 };
 
 const witnessAt = (documentEpoch = { current: 3 }, clock = { nowMs: 5000 }) =>
-  createResumedClockWitness({
-    actionId: CLOCK_ACTION,
+  createClockReadWitness({
     frame: mainFrame,
     documentEpoch: () => documentEpoch.current,
     now: () => clock.nowMs,
@@ -96,21 +95,17 @@ test('the resume witness leaves every other request untouched', async () => {
   const before = delivery();
   await witness.handle(before.route);
   witness.arm();
-  const others = [
-    delivery({ actionId: 'transcript-action' }),
-    delivery({ method: 'GET' }),
-    delivery({ frame: { name: 'child' } }),
-  ];
+  const others = [delivery({ frame: { name: 'child' } })];
   for (const other of others) await witness.handle(other.route);
   documentEpoch.current = 4;
   const otherDocument = delivery();
   await witness.handle(otherDocument.route);
   assert({
     given:
-      'requests before arming, of another action, method or frame, or from a later document',
+      'requests before arming, from another frame, or from a later document',
     should: 'fall through unread and capture nothing',
     actual: [before, ...others, otherDocument].map(({ calls }) => calls),
-    expected: Array.from({ length: 5 }, () => ['fallback']),
+    expected: Array.from({ length: 3 }, () => ['fallback']),
   });
   assert({
     given: 'no matching delivery yet',
@@ -139,7 +134,7 @@ test('the resume witness captures once and forwards later reads unread', async (
   const witness = witnessAt();
   witness.arm();
   const first = delivery();
-  const second = delivery({ body: Buffer.from('{"serverNowMs":30000}') });
+  const second = delivery({ serverNow: '30000' });
   await witness.handle(first.route);
   await witness.handle(second.route);
   assert({
@@ -153,9 +148,7 @@ test('the resume witness captures once and forwards later reads unread', async (
 test('a matching read without clock evidence is recorded without a server instant', async () => {
   const witness = witnessAt();
   witness.arm();
-  await witness.handle(
-    delivery({ body: Buffer.from('{"kind":"unavailable"}') }).route,
-  );
+  await witness.handle(delivery({ serverNow: null }).route);
   assert({
     given: 'a matching reply that carries no server instant',
     should: 'report a null instant the journey must reject',
@@ -211,11 +204,12 @@ const actionRoute = (nextAction?: string, method = 'POST') => {
   };
 };
 
-test('one Server Action route serves every journey step', async () => {
+test('one stepped route serves every journey step', async () => {
   const fixture = serverActionsPage();
-  const actions = await routeServerActions(
+  const actions = await routeStepped(
     fixture.page as never,
     'https://room',
+    (request) => request.method() === 'POST',
   );
   const passed = actionRoute('a');
   await fixture.deliver(passed);
@@ -233,7 +227,7 @@ test('one Server Action route serves every journey step', async () => {
   assert({
     given: 'pass-through, then a step, then pass-through again',
     should:
-      'keep one installed route, give the step only Server Actions and fall back otherwise',
+      'keep one installed route, give the step only matching requests and fall back otherwise',
     actual: [
       fixture.routes(),
       passed.calls,
@@ -248,9 +242,10 @@ test('one Server Action route serves every journey step', async () => {
 
 test('passing through waits for a step already delivering', async () => {
   const fixture = serverActionsPage();
-  const actions = await routeServerActions(
+  const actions = await routeStepped(
     fixture.page as never,
     'https://room',
+    (request) => request.method() === 'POST',
   );
   let release = () => {};
   actions.use(

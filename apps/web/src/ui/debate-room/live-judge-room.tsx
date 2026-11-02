@@ -30,14 +30,15 @@ export function LiveJudgeRoom({
   readonly socketUrl: string | null;
   readonly renderedAtMs: number;
 }) {
-  const { roundTime, sampledRead } = useRoundTime({
+  const { roundTime, wakeClock } = useRoundTime({
     renderedAtMs,
-    read,
+    clockUrl: `/api/rounds/${seed.id}/ballots`,
   });
   const [synced, driver] = useLiveRoundView({
     view: seed,
-    read: sampledRead,
+    read,
     socketUrl,
+    onConnectionOpen: wakeClock,
   });
   const refresh = useCallback(() => driver?.signal(), [driver]);
   const media = useMemo(

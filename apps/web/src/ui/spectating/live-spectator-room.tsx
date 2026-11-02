@@ -159,11 +159,11 @@ export function LiveSpectatorRoom(props: {
   readonly read: () => Promise<RoundRead>;
   readonly socketUrl: string | null;
 }) {
-  const { roundTime, sampledRead } = useRoundTime({
+  const { roundTime, wakeClock } = useRoundTime({
     renderedAtMs: props.renderedAtMs,
-    read: props.read,
+    clockUrl: `/api/rounds/${props.view.id}`,
   });
-  const [synced] = useLiveRoundView({ ...props, read: sampledRead });
+  const [synced] = useLiveRoundView({ ...props, onConnectionOpen: wakeClock });
   const view = synced.value;
   const now = useSecond(props.renderedAtMs, roundTime);
   const ended = useRoundEndedRoute(view);

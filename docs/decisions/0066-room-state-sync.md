@@ -143,10 +143,9 @@ a navigation itself fails.
 A mounted live Round owns one `features/round-runtime/round-time` clock for
 its whole lifetime. Debater, assigned judge and spectator owners measure the
 start and completion of authorized reads on the browser's monotonic clock.
-The server action returns only `serverNowMs`, from the handler's injected
-server clock; server and browser monotonic epochs never cross the wire.
-Both authorized Round and judge readers decode `x-server-now-ms` through
-`round-runtime/server-clock-header`: nonnegative decimal integer milliseconds
+The route supplies only `x-server-now-ms`, from the handler's injected server
+clock; server and browser monotonic epochs never cross the wire. The clock read
+decodes it through `round-runtime/server-clock-header`: nonnegative decimal integer milliseconds
 within the supported timestamp range. Missing, blank or malformed metadata
 supplies no calibration evidence; explicit decimal zero remains valid. A read
 without evidence retains the accepted anchor and reports seed/stale timing.
@@ -162,12 +161,27 @@ before effects, never evidence of synchronization. Missing or rejected
 samples retain the projection and visibly report stale timing; accepted
 samples show their uncertainty. Evidence older than 32 seconds is stale.
 
-One serial sampling chain retries seed/stale evidence after two seconds and
-current evidence after thirty. Visibility returns request a sample; returns
-while a read is pending coalesce into one followup after two seconds. The
-clock's own sample notifications never enqueue that followup. Existing
-resource reads also sample on reconnect and invalidation. Unmount aborts
-the sampling lifetime and cancels its timers, latched wake and subscriptions. Display/control hints and media deadlines read
+One serial sampling chain owns calibration. It reads the authorized route the
+role already holds (`/api/rounds/:id`, or `/api/rounds/:id/ballots` for an
+assigned judge) directly from the browser rather than through a Server Action:
+Next dispatches those one at a time, so an unrelated stuck action would hold
+calibration and queueing would inflate the measured RTT. Resource reads no
+longer sample. A read past the 2000 ms envelope is abandoned and reports no
+evidence, so a read that never settles cannot end sampling. Failed samples retry
+from two seconds, doubling to thirty with half-range jitter; current evidence
+resamples every thirty. A hidden tab does not sample. Visibility returns and
+realtime reconnects request a sample at once, and wakes during a read coalesce
+into one followup after two seconds. Unmount aborts the sampling lifetime and
+cancels its timers and subscriptions.
+
+A sample rolling back past both uncertainty bounds is refused, so one outlier
+cannot move the clock. Three fresh, ordered samples whose offsets agree are the
+authority having moved, and the clock re-anchors on the third. A media boundary
+waits for the clock's lower bound to pass, deadline plus uncertainty, because it
+fires once and a read sent before the true boundary would only see the old
+grant.
+
+Display/control hints and media deadlines read
 the same clock. Calibration changes rearm the actual media timeout without
 requiring a new Round view; view updates do not replace the clock or media
 session. These are display estimates and read triggers only: commands,

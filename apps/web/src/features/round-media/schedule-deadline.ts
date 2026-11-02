@@ -14,20 +14,26 @@ export function scheduleMediaDeadline(options: {
     if (timer !== null) options.scheduler.clearTimeout(timer);
     timer = null;
   };
+  // Fires once, so wait until even the clock's lower bound has passed: a read
+  // sent before the true boundary would only see the old grant.
+  const remainingMs = () =>
+    options.deadlineMs +
+    (options.roundTime.status().uncertaintyMs ?? 0) -
+    options.roundTime.nowMs();
   const arm = () => {
     clear();
     if (fired) return;
     timer = options.scheduler.setTimeout(
       () => {
         timer = null;
-        if (options.roundTime.nowMs() < options.deadlineMs) {
+        if (remainingMs() > 0) {
           arm();
           return;
         }
         fired = true;
         options.refresh();
       },
-      Math.max(0, options.deadlineMs - options.roundTime.nowMs()),
+      Math.max(0, remainingMs()),
     );
   };
   const unsubscribe = options.roundTime.subscribe(arm);
