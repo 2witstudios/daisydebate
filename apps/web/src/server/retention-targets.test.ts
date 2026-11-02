@@ -6,6 +6,8 @@ import { createRecordingLogger } from './test-loggers.test-support';
 
 setupRitewayBun();
 
+type Instant = { readonly now: string; readonly limit: number };
+
 // ISSUE-8 AC5 / AUTH-7.5: the production target list's shape and windows,
 // split from retention-sweep.test.ts (the sweep's own run behaviour) to
 // stay under the file's line budget.
@@ -30,9 +32,9 @@ describe('retention targets', () => {
       sweeps,
       database: {
         purgeExpiredVerifications: record('verification'),
-        purgeExpiredChallenges: ({ now, limit }) =>
+        purgeExpiredChallenges: ({ now, limit }: Instant) =>
           record('challenges')({ before: now, limit }),
-        purgeClosedReports: ({ now, limit }) =>
+        purgeClosedReports: ({ now, limit }: Instant) =>
           record('reports')({ before: now, limit }),
         purgeExpiredOutboxEvents: record('outbox'),
         purgeExpiredEmailDeliveryEvents: record('email_delivery_event'),

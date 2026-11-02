@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "770e18c9-5db6-43d2-8c80-d2548466d396",
+  "id": "2ec48ca4-5981-4ce0-bdac-3a33753f83c4",
   "prevIds": [
     "6fa213e4-5b45-4f54-98d9-2b91d9a6d40f"
   ],
@@ -12675,6 +12675,27 @@
       "method": "btree",
       "concurrently": false,
       "name": "reports_queue_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "reports"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "reporter_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "reports_reporter_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "reports"

@@ -24,5 +24,4 @@ export function displayStatus(input: {
 }
 
 /** Whether a status counts as around: everything but offline. */
-export const isAround = (status: MemberStatus): boolean =>
-  status !== 'offline';
+export const isAround = (status: MemberStatus): boolean => status !== 'offline';

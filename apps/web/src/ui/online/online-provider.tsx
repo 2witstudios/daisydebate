@@ -54,7 +54,10 @@ export const useOptionalOnline = () => useContext(OnlineContext);
 const readJson = async <T,>(
   url: string,
   parse: (value: unknown) => T | null,
-): Promise<{ readonly value: T | null; readonly response: Response | null }> => {
+): Promise<{
+  readonly value: T | null;
+  readonly response: Response | null;
+}> => {
   try {
     const response = await fetch(url, {
       credentials: 'same-origin',
@@ -88,11 +91,7 @@ const parseChallenges = (value: unknown) => {
   };
 };
 
-const rosterUrl = (
-  filter: OnlineFilter,
-  query: string,
-  cursor?: string,
-) => {
+const rosterUrl = (filter: OnlineFilter, query: string, cursor?: string) => {
   const search = new URLSearchParams({ filter });
   if (query.trim()) search.set('q', query.trim());
   if (cursor) search.set('cursor', cursor);
@@ -197,7 +196,10 @@ export function OnlineProvider({
     });
     const stopChallenges = actorId
       ? connection.subscribeTopic(buildUserInboxTopic(actorId), (frame) => {
-          if (frame.type === 'event' && frame.payload.kind === 'challenge.changed')
+          if (
+            frame.type === 'event' &&
+            frame.payload.kind === 'challenge.changed'
+          )
             void readChallenges();
         })
       : undefined;

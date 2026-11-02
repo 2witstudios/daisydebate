@@ -1,7 +1,7 @@
 -- Canonical standalone Room reader fence (v2, ADR 0075). Writers retain the exclusive account producer.
 CREATE FUNCTION public.daisy_room_read_account_v2(requested_actor_id text, requested_user_id text)
 RETURNS TABLE ("userId" text, "actorId" text, "member" boolean, "erased" boolean, "revision" integer,
-  "betaState" text, "betaRevision" integer, "ageBand" text)
+  "betaState" text, "betaRevision" integer, "ageBand" text, "restricted" boolean)
 LANGUAGE plpgsql VOLATILE PARALLEL UNSAFE SECURITY DEFINER
 SET search_path = pg_catalog, pg_temp
 AS $room_read_account$

@@ -36,8 +36,13 @@ export async function readChallenges() {
 
 /** The status the viewer chose. */
 export const readChosenStatus = async () =>
-  (await readOwnRoute(readPresenceRoute, '/api/presence', presenceSettingResultSchema))
-    ?.status ?? 'online';
+  (
+    await readOwnRoute(
+      readPresenceRoute,
+      '/api/presence',
+      presenceSettingResultSchema,
+    )
+  )?.status ?? 'online';
 
 /** The viewer's own unread warnings. */
 export const readModerationNotices = async () =>

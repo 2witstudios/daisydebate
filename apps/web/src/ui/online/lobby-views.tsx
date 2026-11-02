@@ -50,7 +50,9 @@ export function LobbyViews({
           Online {onlineCount}
         </Link>
       </nav>
-      <div className={cn(view === 'online' && 'max-narrow:hidden')}>{rooms}</div>
+      <div className={cn(view === 'online' && 'max-narrow:hidden')}>
+        {rooms}
+      </div>
       <div
         className={cn(
           'hidden px-4 pt-4',

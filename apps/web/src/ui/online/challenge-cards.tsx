@@ -55,19 +55,19 @@ function IncomingCard({
     <section
       aria-label={`Challenge from @${offer.username}`}
       className={cn(
-        'flex flex-col gap-1 rounded-lg bg-stage px-4 py-3 text-stage-ink',
+        'bg-stage flex flex-col gap-1 rounded-lg px-4 py-3 text-stage-ink',
         className,
       )}
     >
-      <p className="text-xs font-bold tracking-wide text-stage-muted uppercase">
+      <p className="text-stage-muted text-xs font-bold tracking-wide uppercase">
         Challenge
       </p>
       <p className="font-display text-lg leading-tight font-semibold">
         @{offer.username}
       </p>
-      <p className="text-sm text-stage-muted">{summaryOf(offer)}</p>
+      <p className="text-stage-muted text-sm">{summaryOf(offer)}</p>
       {notice ? (
-        <p role="status" className="text-sm text-stage-muted">
+        <p role="status" className="text-stage-muted text-sm">
           {notice}
         </p>
       ) : null}
@@ -106,14 +106,17 @@ function AcceptedCard({
     <section
       aria-label={`@${offer.username} accepted`}
       className={cn(
-        'flex flex-col gap-1 rounded-lg bg-stage px-4 py-3 text-stage-ink',
+        'bg-stage flex flex-col gap-1 rounded-lg px-4 py-3 text-stage-ink',
         className,
       )}
     >
-      <p className="text-sm text-stage-muted">@{offer.username} accepted</p>
+      <p className="text-stage-muted text-sm">@{offer.username} accepted</p>
       <a
         href={`/rooms/${offer.roomId}`}
-        className={cn(stageAccept, 'inline-flex items-center self-start no-underline')}
+        className={cn(
+          stageAccept,
+          'inline-flex items-center self-start no-underline',
+        )}
       >
         Go to room
       </a>
@@ -122,7 +125,10 @@ function AcceptedCard({
 }
 
 /** Takes a challenger to the room the moment they are accepted, once per room. */
-function useFollowAccepted(accepted: ChallengeList['accepted'], activeRoomId: string | null) {
+function useFollowAccepted(
+  accepted: ChallengeList['accepted'],
+  activeRoomId: string | null,
+) {
   const followed = useRef(new Set<string>());
   useEffect(() => {
     for (const offer of accepted) {

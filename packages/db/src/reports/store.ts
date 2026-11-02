@@ -212,12 +212,13 @@ async function resolveReport(
   await commandGate(tx, input.commandId);
   const replayed = await storedResult(tx, input.commandId, input.requestDigest);
   if (replayed) return replayed as ReportResolveResult;
-  const [row] = (await tx.execute(sql`select r.subject_actor_id as "actorId", a.user_id as "userId"
+  const [row] =
+    (await tx.execute(sql`select r.subject_actor_id as "actorId", a.user_id as "userId"
     from reports r join actors a on a.id = r.subject_actor_id
     where r.id = ${input.reportId}`)) as unknown as {
-    actorId: string;
-    userId: string;
-  }[];
+      actorId: string;
+      userId: string;
+    }[];
   if (!row) throw createAppError('NOT_FOUND');
   await lockAuthorizationActors(tx, [row.actorId], { maxActors: 1 });
   const closed = await tx
@@ -261,12 +262,13 @@ async function liftModeration(
   await commandGate(tx, input.commandId);
   const replayed = await storedResult(tx, input.commandId, input.requestDigest);
   if (replayed) return replayed as ModerationLiftResult;
-  const [row] = (await tx.execute(sql`select m.user_id as "userId", a.id as "actorId"
+  const [row] =
+    (await tx.execute(sql`select m.user_id as "userId", a.id as "actorId"
     from moderation_actions m join actors a on a.user_id = m.user_id and a.kind = 'human'
     where m.id = ${input.actionId}`)) as unknown as {
-    userId: string;
-    actorId: string;
-  }[];
+      userId: string;
+      actorId: string;
+    }[];
   if (!row) throw createAppError('NOT_FOUND');
   await lockAuthorizationActors(tx, [row.actorId], { maxActors: 1 });
   const lifted = await tx

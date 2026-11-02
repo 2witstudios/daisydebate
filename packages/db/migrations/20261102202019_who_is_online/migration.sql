@@ -64,6 +64,7 @@ CREATE INDEX "challenges_expiry_idx" ON "challenges" ("expires_at") WHERE "room_
 CREATE UNIQUE INDEX "challenges_one_pending_per_direction" ON "challenges" ("challenger_actor_id","challenged_actor_id") WHERE "room_id" is null;--> statement-breakpoint
 CREATE INDEX "moderation_actions_user_idx" ON "moderation_actions" ("user_id","starts_at");--> statement-breakpoint
 CREATE INDEX "reports_queue_idx" ON "reports" ("closed_at","created_at","id");--> statement-breakpoint
+CREATE INDEX "reports_reporter_idx" ON "reports" ("reporter_actor_id");--> statement-breakpoint
 CREATE INDEX "reports_subject_idx" ON "reports" ("subject_actor_id");--> statement-breakpoint
 CREATE INDEX "reports_purge_idx" ON "reports" ("purge_after") WHERE "purge_after" is not null;--> statement-breakpoint
 CREATE UNIQUE INDEX "reports_one_open_per_pair" ON "reports" ("reporter_actor_id","subject_actor_id") WHERE "closed_at" is null;--> statement-breakpoint
@@ -167,4 +168,29 @@ BEGIN
 END;
 $authorization_read_accounts$;--> statement-breakpoint
 REVOKE ALL ON FUNCTION public.daisy_authorization_read_accounts_v2(text[]) FROM PUBLIC;--> statement-breakpoint
-GRANT EXECUTE ON FUNCTION public.daisy_authorization_read_accounts_v2(text[]) TO daisy_web, daisy_realtime;
+GRANT EXECUTE ON FUNCTION public.daisy_authorization_read_accounts_v2(text[]) TO daisy_web, daisy_realtime;--> statement-breakpoint
+DROP FUNCTION public.daisy_room_read_account_v2(text, text);--> statement-breakpoint
+-- Canonical standalone Room reader fence (v2, ADR 0075). Writers retain the exclusive account producer.
+CREATE FUNCTION public.daisy_room_read_account_v2(requested_actor_id text, requested_user_id text)
+RETURNS TABLE ("userId" text, "actorId" text, "member" boolean, "erased" boolean, "revision" integer,
+  "betaState" text, "betaRevision" integer, "ageBand" text, "restricted" boolean)
+LANGUAGE plpgsql VOLATILE PARALLEL UNSAFE SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $room_read_account$
+BEGIN
+  IF requested_actor_id IS NULL OR requested_user_id IS NULL
+    OR requested_actor_id !~ '^[a-z0-9]{24}$' OR requested_user_id !~ '^[a-z0-9]{24}$' THEN
+    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid Room read account selector';
+  END IF;
+  -- SHARE permits peer readers but excludes UPDATE, DELETE and NO KEY UPDATE.
+  -- One caller is the complete reader set; use the canonical user-id ordering.
+  PERFORM u.id FROM public.users AS u JOIN public.actors AS a ON a.user_id = u.id
+    WHERE a.id = requested_actor_id AND u.id = requested_user_id ORDER BY u.id FOR SHARE OF u;
+  -- A fresh statement after the wait, never a pre-wait authorization snapshot.
+  RETURN QUERY SELECT account.*
+    FROM public.daisy_authorization_accounts_v2(NULL::text[], requested_user_id, false) AS account
+    WHERE account."actorId" = requested_actor_id;
+END;
+$room_read_account$;--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_room_read_account_v2(text, text) FROM PUBLIC;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_room_read_account_v2(text, text) TO daisy_web, daisy_realtime;

@@ -57,6 +57,7 @@ describe('the account fence after its contract step (ADR 0075, BETA-2C)', () => 
         'betaState',
         'betaRevision',
         'ageBand',
+        'restricted',
       ];
       assert({
         given:

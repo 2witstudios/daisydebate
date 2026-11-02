@@ -8,7 +8,8 @@ import {
 import { findOperator } from '../../auth/store';
 import type { CommandDeps } from '../accounts/commands';
 
-export type ReportNotice = 'resolved' | 'lifted' | 'denied' | 'refused' | 'unknown';
+export type ReportNotice =
+  'resolved' | 'lifted' | 'denied' | 'refused' | 'unknown';
 
 /** Whether the operator row read now may act; a denial is audited. */
 async function mayAct(deps: CommandDeps, operatorId: string): Promise<boolean> {
@@ -55,7 +56,10 @@ async function audited<T>(
     readonly decision: string;
     readonly targetUserId: string;
   },
-  send: (commandId: string, anchor: string) => Promise<
+  send: (
+    commandId: string,
+    anchor: string,
+  ) => Promise<
     | { readonly kind: 'ok'; readonly value: T }
     | { readonly kind: 'rejected'; readonly code: string }
     | { readonly kind: 'unknown' }

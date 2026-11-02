@@ -11,7 +11,13 @@ const me = 'a'.repeat(24),
 const account = ownReader(me, userId);
 
 test('presence visibility reads and writes only behind the reader’s fence', async () => {
-  const { client, queries } = fakeSql([[account], [['busy']], [account], [], [{ txid: '1', seq: '1' }]]);
+  const { client, queries } = fakeSql([
+    [account],
+    [['busy']],
+    [account],
+    [],
+    [{ txid: '1', seq: '1' }],
+  ]);
   const fenced: string[] = [];
   const fence = async () => {
     fenced.push('fenced');

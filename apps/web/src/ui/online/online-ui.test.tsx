@@ -79,8 +79,8 @@ const inProvider = (children: unknown, members: readonly OnlineMember[]) =>
           },
           actorId: null,
           socketUrl: null,
+          children: children as never,
         },
-        children as never,
       ),
     ),
   );
@@ -93,7 +93,10 @@ describe('the online rail', () => {
       setRail: async () => {},
       activeRoomId: null,
     }),
-    [person(), person({ username: 'bea', relation: 'friends', status: 'round' })],
+    [
+      person(),
+      person({ username: 'bea', relation: 'friends', status: 'round' }),
+    ],
   );
   test('a row works before any script', () => {
     assert({
@@ -111,8 +114,12 @@ describe('the online rail', () => {
   test('a row carries no action button of its own', () => {
     assert({
       given: 'a row',
-      should: 'keep Challenge and Add friend in the menu, so the rail stays narrow',
-      actual: [html.includes('>Challenge</button>'), html.includes('Add friend')],
+      should:
+        'keep Challenge and Add friend in the menu, so the rail stays narrow',
+      actual: [
+        html.includes('>Challenge</button>'),
+        html.includes('Add friend'),
+      ],
       expected: [false, false],
     });
   });
@@ -171,8 +178,8 @@ describe('canBeChallenged', () => {
     assert({
       given: 'each status a row can show',
       should: 'allow online and away only',
-      actual: (['online', 'away', 'busy', 'room', 'round'] as const).map((status) =>
-        canBeChallenged(person({ status })),
+      actual: (['online', 'away', 'busy', 'room', 'round'] as const).map(
+        (status) => canBeChallenged(person({ status })),
       ),
       expected: [true, true, false, false, false],
     });

@@ -83,7 +83,8 @@ export type OnlineRosterDependencies = {
 
 /** The ladders a card shows: Freestyle always, the rest by the member's choice. */
 export const shownLadders = (
-  visibility: { readonly showPolicy: boolean; readonly showValue: boolean } | undefined,
+  visibility:
+    { readonly showPolicy: boolean; readonly showValue: boolean } | undefined,
 ): readonly RatingLadder[] => [
   'freestyle',
   ...(visibility?.showPolicy ? (['policy'] as const) : []),
@@ -97,7 +98,9 @@ export const encodeRosterCursor = (cursor: RosterCursor): string =>
     'utf8',
   ).toString('base64url');
 
-export function decodeRosterCursor(value: string | undefined): RosterCursor | null {
+export function decodeRosterCursor(
+  value: string | undefined,
+): RosterCursor | null {
   if (value === undefined) return null;
   try {
     const parsed: unknown = JSON.parse(
@@ -190,7 +193,8 @@ export async function readOnlineRoster(
       relation: relationOf(row, actorId),
       ratings: shownLadders(visibilityOf.get(row.actorId)).map((ladder) => {
         const state = cards.ratings.find(
-          (rating) => rating.actorId === row.actorId && rating.ladder === ladder,
+          (rating) =>
+            rating.actorId === row.actorId && rating.ladder === ladder,
         );
         if (!state || hidden.has(row.actorId))
           return { ladder, rating: null, provisional: false };

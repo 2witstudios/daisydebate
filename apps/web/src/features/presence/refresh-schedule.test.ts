@@ -24,7 +24,12 @@ describe('nextReadDelayMs', () => {
     assert({
       given: 'a read 500ms ago with a 2s floor',
       should: 'wait the remaining 1500ms plus the jitter',
-      actual: nextReadDelayMs({ now: 1_500, lastReadAt: 1_000, onlineCount: 2, jitter: 0.5 }),
+      actual: nextReadDelayMs({
+        now: 1_500,
+        lastReadAt: 1_000,
+        onlineCount: 2,
+        jitter: 0.5,
+      }),
       expected: 2_000,
     });
   });
@@ -32,7 +37,12 @@ describe('nextReadDelayMs', () => {
     assert({
       given: 'no read for a minute',
       should: 'not wait',
-      actual: nextReadDelayMs({ now: 61_000, lastReadAt: 1_000, onlineCount: 2, jitter: 0 }),
+      actual: nextReadDelayMs({
+        now: 61_000,
+        lastReadAt: 1_000,
+        onlineCount: 2,
+        jitter: 0,
+      }),
       expected: 0,
     });
   });

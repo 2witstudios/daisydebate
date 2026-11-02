@@ -92,7 +92,9 @@ describe('sendChallenge', () => {
               mode: 'ranked',
               format: 'policy',
               now,
-              expiresAt: new Date(Date.parse(now) + CHALLENGE_TTL_MS).toISOString(),
+              expiresAt: new Date(
+                Date.parse(now) + CHALLENGE_TTL_MS,
+              ).toISOString(),
             },
           ],
         ],
@@ -108,7 +110,12 @@ describe('sendChallenge', () => {
       code: 'CONFLICT',
       actual: () => sendChallenge(member, offer, dependencies),
     });
-    assert({ given: 'that refusal', should: 'reach no store', actual: calls, expected: [] });
+    assert({
+      given: 'that refusal',
+      should: 'reach no store',
+      actual: calls,
+      expected: [],
+    });
   });
 
   test('an unknown name or yourself answers the same', async () => {
@@ -166,7 +173,11 @@ describe('acceptChallenge', () => {
       should: 'answer NOT_FOUND',
       code: 'NOT_FOUND',
       actual: () =>
-        acceptChallenge(member, { challengeId: id, roomId: room }, dependencies),
+        acceptChallenge(
+          member,
+          { challengeId: id, roomId: room },
+          dependencies,
+        ),
     });
   });
 });

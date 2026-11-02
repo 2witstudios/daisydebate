@@ -7,9 +7,7 @@ const ladderLabels = {
   value: 'Value',
 } as const;
 
-export const ratingText = (
-  rating: OnlineMember['ratings'][number],
-): string =>
+export const ratingText = (rating: OnlineMember['ratings'][number]): string =>
   rating.rating === null
     ? 'Unrated'
     : `${rating.rating}${rating.provisional ? '*' : ''}`;

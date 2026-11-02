@@ -30,7 +30,9 @@ const ownSetting =
 
 /** The decision over the member's own view of the list, on their locked account. */
 const ownList =
-  (principal: AuthorizationPrincipal): OwnCollectionFence<{ readonly actorId: string }> =>
+  (
+    principal: AuthorizationPrincipal,
+  ): OwnCollectionFence<{ readonly actorId: string }> =>
   async ({ scope, account }) =>
     requireAuthorization({
       principal,

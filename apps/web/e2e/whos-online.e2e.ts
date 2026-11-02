@@ -29,14 +29,18 @@ test('two members see each other live, challenge, accept and share a room', asyn
   try {
     const challenger = await openPage(first, 'the challenger');
     await challenger.goto('/friends');
-    const rail = challenger.getByRole('complementary', { name: "Who's online" });
+    const rail = challenger.getByRole('complementary', {
+      name: "Who's online",
+    });
     await expect(rail).toBeVisible();
 
     const challenged = await openPage(second, 'the challenged member');
     await challenged.goto('/leaderboard');
 
     // The second member arriving reaches the first without a reload.
-    await expect(rail.getByText(`@${b}`).first()).toBeVisible({ timeout: 45_000 });
+    await expect(rail.getByText(`@${b}`).first()).toBeVisible({
+      timeout: 45_000,
+    });
 
     // Hover shows the card; the row itself offers no buttons.
     await rail.getByText(`@${b}`).first().hover();
@@ -80,16 +84,23 @@ test('Busy refuses a challenge, and a block hides each from the other', async ({
     const rail = viewer.getByRole('complementary', { name: "Who's online" });
     const other = await openPage(second, 'the other member');
     await other.goto('/friends');
-    await expect(rail.getByText(`@${b}`).first()).toBeVisible({ timeout: 45_000 });
+    await expect(rail.getByText(`@${b}`).first()).toBeVisible({
+      timeout: 45_000,
+    });
 
     // Status changes reach the other member live.
-    await other.getByLabel(/^Your account/).first().click();
+    await other
+      .getByLabel(/^Your account/)
+      .first()
+      .click();
     await other
       .getByRole('form', { name: 'Status' })
       .first()
       .getByRole('button', { name: 'Busy' })
       .click();
-    await expect(rail.getByText('Busy').first()).toBeVisible({ timeout: 45_000 });
+    await expect(rail.getByText('Busy').first()).toBeVisible({
+      timeout: 45_000,
+    });
     const refused = await first.request.post('/api/challenges', {
       headers: { origin },
       data: {
@@ -107,7 +118,9 @@ test('Busy refuses a challenge, and a block hides each from the other', async ({
     await rail.getByRole('menuitem', { name: 'Report' }).click();
     await rail.getByRole('button', { name: 'Harassment' }).click();
     await rail.getByRole('button', { name: 'Send report' }).click();
-    await expect(rail.getByRole('menuitem', { name: 'Reported' })).toBeDisabled();
+    await expect(
+      rail.getByRole('menuitem', { name: 'Reported' }),
+    ).toBeDisabled();
     await rail.getByRole('menuitem', { name: 'Block' }).click();
     await expect(rail.getByText(`@${b}`)).toHaveCount(0, { timeout: 30_000 });
     const theirs = other.getByRole('complementary', { name: "Who's online" });
@@ -134,7 +147,9 @@ test('a row reaches its actions with JavaScript off', async ({ browser }) => {
     const { username } = await signUpMember(target.request);
     const page = await openPage(context, 'a member without script');
     await page.goto(`/profile/${username}`);
-    await expect(page.getByRole('button', { name: 'Send challenge' })).toBeAttached();
+    await expect(
+      page.getByRole('button', { name: 'Send challenge' }),
+    ).toBeAttached();
     await page.getByText('Report', { exact: true }).click();
     await page.getByRole('button', { name: 'Send report' }).click();
     await expect(page.getByText('Reported.')).toBeVisible();

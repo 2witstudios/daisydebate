@@ -44,10 +44,8 @@ const formatLabels: Readonly<Record<ChallengeFormat, string>> = {
 export const canBeChallenged = (member: OnlineMember): boolean =>
   member.status === 'online' || member.status === 'away';
 
-export const outgoingTo = (
-  challenges: ChallengeList,
-  username: string,
-) => challenges.outgoing.find((row) => row.username === username);
+export const outgoingTo = (challenges: ChallengeList, username: string) =>
+  challenges.outgoing.find((row) => row.username === username);
 
 /** The friend form's button, closing the menu once it has answered. */
 function FriendItem({
@@ -244,7 +242,11 @@ function ChallengeView({
       >
         Send challenge
       </button>
-      <button type="button" onClick={onBack} className={cn(item, 'w-auto self-start text-ink-muted')}>
+      <button
+        type="button"
+        onClick={onBack}
+        className={cn(item, 'w-auto self-start text-ink-muted')}
+      >
         Back
       </button>
     </form>
@@ -299,7 +301,11 @@ function ReportView({
       >
         Send report
       </button>
-      <button type="button" onClick={onBack} className={cn(item, 'w-auto self-start text-ink-muted')}>
+      <button
+        type="button"
+        onClick={onBack}
+        className={cn(item, 'w-auto self-start text-ink-muted')}
+      >
         Back
       </button>
     </form>
@@ -353,7 +359,11 @@ export function PersonMenu({
         <MemberCardBody member={member} />
         <hr className="border-border" />
         {view === 'menu' ? (
-          <div role="menu" aria-label={`@${username}`} className="flex flex-col">
+          <div
+            role="menu"
+            aria-label={`@${username}`}
+            className="flex flex-col"
+          >
             {outgoing ? (
               <CancelChallengeItem
                 action={actions.endChallenge}
@@ -398,7 +408,11 @@ export function PersonMenu({
               />
             ) : null}
             <MessageItem action={actions.message} username={username} />
-            <Link role="menuitem" href={`/profile/${username}`} className={item}>
+            <Link
+              role="menuitem"
+              href={`/profile/${username}`}
+              className={item}
+            >
               Profile
             </Link>
             <hr className="my-1 border-border" />
@@ -411,7 +425,11 @@ export function PersonMenu({
             >
               {reported ? 'Reported' : 'Report'}
             </button>
-            <BlockItem action={actions.block} username={username} onDone={finish} />
+            <BlockItem
+              action={actions.block}
+              username={username}
+              onDone={finish}
+            />
           </div>
         ) : null}
         {view === 'challenge' ? (

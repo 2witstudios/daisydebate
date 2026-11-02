@@ -19,7 +19,9 @@ export const reportsPrivacyAdopter: PrivacyAdopter = {
     await tx.execute(
       sql`delete from reports where reporter_actor_id=${actorId} or subject_actor_id=${actorId}`,
     );
-    await tx.execute(sql`delete from moderation_actions where user_id=${userId}`);
+    await tx.execute(
+      sql`delete from moderation_actions where user_id=${userId}`,
+    );
   },
   async export(tx, subject): Promise<PrivacyExport> {
     const actorId = idSchema.parse(subject.actorId);

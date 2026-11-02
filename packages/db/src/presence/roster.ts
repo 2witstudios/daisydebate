@@ -1,6 +1,10 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { idSchema, type ChosenStatus, type OnlineFilter } from '@daisy/protocol';
+import {
+  idSchema,
+  type ChosenStatus,
+  type OnlineFilter,
+} from '@daisy/protocol';
 import {
   readOwnCollection,
   requireOwnScope,
@@ -127,7 +131,11 @@ export function readRosterPage(
       ${from} ${named} ${friendsOnly} ${after}
       order by ${rank}, lower(u.username), a.id
       limit ${input.limit}`)) as unknown as RosterRow[];
-    return { rows: [...rows], counts: counts ?? { everyone: 0, friends: 0 }, self };
+    return {
+      rows: [...rows],
+      counts: counts ?? { everyone: 0, friends: 0 },
+      self,
+    };
   });
 }
 

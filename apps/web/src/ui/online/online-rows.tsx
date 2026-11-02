@@ -126,7 +126,10 @@ export function PersonRow({
   readonly active: boolean;
 }) {
   const { challenges } = useOnline();
-  const detail = rowDetail(member, Boolean(outgoingTo(challenges, member.username)));
+  const detail = rowDetail(
+    member,
+    Boolean(outgoingTo(challenges, member.username)),
+  );
   const href = `/profile/${member.username}`;
   return (
     <div
@@ -137,7 +140,12 @@ export function PersonRow({
         active && 'bg-surface-overlay',
       )}
     >
-      <Avatar name={member.username} presence={member.status} size="sm" nameVisible />
+      <Avatar
+        name={member.username}
+        presence={member.status}
+        size="sm"
+        nameVisible
+      />
       <Link
         href={href}
         aria-label={`@${member.username}, ${detail}, ${ratingsLabel(member)}`}

@@ -15,7 +15,10 @@ import {
   challengeRefusal,
   type ChallengeFormState,
 } from '../../../features/challenges/forms';
-import { challengeRoomForm, templateFor } from '../../../features/challenges/room';
+import {
+  challengeRoomForm,
+  templateFor,
+} from '../../../features/challenges/room';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
 import { submitRoomCreation } from '../../../features/rooms/create-room-form';
 import {
@@ -203,11 +206,10 @@ export async function endChallengeAction(
 ): Promise<ChallengeFormState> {
   const command = text(form, 'command') === 'cancel' ? 'cancel' : 'decline';
   try {
-    const response = await post(
-      routes[command],
-      `/api/challenges/${command}`,
-      { version: 1, challengeId: text(form, 'challengeId') },
-    );
+    const response = await post(routes[command], `/api/challenges/${command}`, {
+      version: 1,
+      challengeId: text(form, 'challengeId'),
+    });
     return response.ok
       ? {}
       : { notice: challengeRefusal('end', response.status) };

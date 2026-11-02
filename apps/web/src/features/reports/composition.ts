@@ -41,11 +41,18 @@ export function composeReportRoutes(app: App) {
                 clock: app.clock,
                 ids: app.ids,
                 limit: (actorId) =>
-                  consumeOrThrow(app.limiter, `reports:${actorId}`, REPORT_RULE),
+                  consumeOrThrow(
+                    app.limiter,
+                    `reports:${actorId}`,
+                    REPORT_RULE,
+                  ),
                 discover: appDiscoverActor(app),
                 store: () =>
                   app.database.reportStore(
-                    contactPairFence({ principal, capability: 'social.report' }),
+                    contactPairFence({
+                      principal,
+                      capability: 'social.report',
+                    }),
                   ),
               },
             )),
@@ -66,7 +73,10 @@ export function composeReportRoutes(app: App) {
                 requireAuthorization({
                   principal,
                   capability: 'social.moderation_notice.read',
-                  resource: { kind: 'friend_collection', actorId: scope.actorId },
+                  resource: {
+                    kind: 'friend_collection',
+                    actorId: scope.actorId,
+                  },
                   context: { account },
                 }),
             ),

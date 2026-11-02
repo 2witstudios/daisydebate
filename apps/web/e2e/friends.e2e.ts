@@ -141,13 +141,22 @@ test('a member sets their status from the account menu with JavaScript off', asy
     await signUpMember(context.request);
     const page = await openPage(context, 'a member choosing their status');
     await page.goto('/friends');
-    await page.getByLabel(/^Your account/).first().click();
+    await page
+      .getByLabel(/^Your account/)
+      .first()
+      .click();
     const status = page.getByRole('form', { name: 'Status' }).first();
     await status.getByRole('button', { name: 'Busy' }).click();
     await page.goto('/friends');
-    await page.getByLabel(/^Your account/).first().click();
+    await page
+      .getByLabel(/^Your account/)
+      .first()
+      .click();
     await expect(
-      page.getByRole('form', { name: 'Status' }).first().getByRole('button', { name: 'Busy' }),
+      page
+        .getByRole('form', { name: 'Status' })
+        .first()
+        .getByRole('button', { name: 'Busy' }),
     ).toHaveAttribute('aria-pressed', 'true');
   });
 });

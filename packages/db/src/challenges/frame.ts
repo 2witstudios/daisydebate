@@ -16,7 +16,10 @@ import { openRoomHostedBy } from '../room-open';
 import { challenges } from '../schema/challenges';
 import { rooms } from '../schema/rooms';
 
-type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'delete' | 'execute'>;
+type Tx = Pick<
+  BunSQLDatabase,
+  'select' | 'insert' | 'update' | 'delete' | 'execute'
+>;
 
 /** A challenge's facts as a command reads them under the pair lock. */
 export type ChallengeRow = {

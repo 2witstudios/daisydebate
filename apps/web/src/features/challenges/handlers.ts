@@ -66,7 +66,10 @@ export function createChallengeHandlers(dependencies: {
         readInput: async () => null,
         operation: async (_input, principal) => {
           const { actorId, ...list } = await dependencies.list(principal);
-          return { actorId, ...challengeListSchema.parse({ version: 1, ...list }) };
+          return {
+            actorId,
+            ...challengeListSchema.parse({ version: 1, ...list }),
+          };
         },
         headers: {
           'cache-control': 'no-store',
@@ -81,7 +84,12 @@ export function createChallengeHandlers(dependencies: {
           challengeCommandSchemas.send,
           input,
         );
-        return dependencies.send(principal, { commandId, username, mode, format });
+        return dependencies.send(principal, {
+          commandId,
+          username,
+          mode,
+          format,
+        });
       }),
     accept: (request: Request) =>
       write(request, 'accept', (input, principal) => {

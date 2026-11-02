@@ -19,7 +19,9 @@ import {
 } from './operations';
 
 const ownList =
-  (principal: AuthorizationPrincipal): OwnCollectionFence<{ readonly actorId: string }> =>
+  (
+    principal: AuthorizationPrincipal,
+  ): OwnCollectionFence<{ readonly actorId: string }> =>
   async ({ scope, account }) =>
     requireAuthorization({
       principal,

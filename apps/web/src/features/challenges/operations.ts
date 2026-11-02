@@ -38,9 +38,7 @@ export type ChallengeDependencies = {
   readonly limitSend: (actorId: string) => Promise<void>;
   /** The one username port: it spends discovery before each lookup. */
   readonly discover: DiscoverActor;
-  readonly activity: (
-    actorId: string,
-  ) => Promise<PresenceActivity | null>;
+  readonly activity: (actorId: string) => Promise<PresenceActivity | null>;
   readonly store: (capability: Capability) => ChallengeStore;
   /** The actor an offer names on the other end, for its contact fence. */
   readonly counterpart: (
@@ -85,17 +83,21 @@ export async function sendChallenge(
     throw createAppError('CONFLICT', 'challenge-unavailable');
   const now = dependencies.clock.now();
   const { challengeId } = await unnamed(() =>
-    dependencies.store('social.challenge.send').withContacts(
-      { actorId, userId, memberActorIds: [actorId, otherActorId] },
-      (frame) =>
-        frame.send({
-          id: input.commandId,
-          mode: input.mode,
-          format: input.format,
-          now,
-          expiresAt: new Date(Date.parse(now) + CHALLENGE_TTL_MS).toISOString(),
-        }),
-    ),
+    dependencies
+      .store('social.challenge.send')
+      .withContacts(
+        { actorId, userId, memberActorIds: [actorId, otherActorId] },
+        (frame) =>
+          frame.send({
+            id: input.commandId,
+            mode: input.mode,
+            format: input.format,
+            now,
+            expiresAt: new Date(
+              Date.parse(now) + CHALLENGE_TTL_MS,
+            ).toISOString(),
+          }),
+      ),
   );
   return { challengeId, state: 'sent' };
 }
@@ -111,15 +113,17 @@ export async function acceptChallenge(
   const other = await dependencies.counterpart(actorId, input.challengeId);
   if (!other) throw createAppError('NOT_FOUND');
   await unnamed(() =>
-    dependencies.store('social.challenge.accept').withContacts(
-      { actorId, userId, memberActorIds: [actorId, other] },
-      (frame) =>
-        frame.accept({
-          challengeId: input.challengeId,
-          roomId: input.roomId,
-          now: dependencies.clock.now(),
-        }),
-    ),
+    dependencies
+      .store('social.challenge.accept')
+      .withContacts(
+        { actorId, userId, memberActorIds: [actorId, other] },
+        (frame) =>
+          frame.accept({
+            challengeId: input.challengeId,
+            roomId: input.roomId,
+            now: dependencies.clock.now(),
+          }),
+      ),
   );
   return { challengeId: input.challengeId, state: 'accepted' };
 }
@@ -164,7 +168,14 @@ export function challengeListOf(
     format,
     createdAt,
     expiresAt,
-  }: ChallengeListRow) => ({ id, username, mode, format, createdAt, expiresAt });
+  }: ChallengeListRow) => ({
+    id,
+    username,
+    mode,
+    format,
+    createdAt,
+    expiresAt,
+  });
   const open = rows.filter((row) => row.roomId === null);
   return {
     incoming: open

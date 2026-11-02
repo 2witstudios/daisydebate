@@ -36,7 +36,11 @@ describe('setChosenStatus', () => {
         answer: { status: 'busy' },
         seen: [
           ['limit', actorId],
-          ['write', { userId, actorId }, { status: 'busy', now: '2026-11-02T00:00:00.000Z' }],
+          [
+            'write',
+            { userId, actorId },
+            { status: 'busy', now: '2026-11-02T00:00:00.000Z' },
+          ],
         ],
       },
     });
@@ -47,18 +51,27 @@ describe('setChosenStatus', () => {
     await assertRejects({
       given: 'no member actor',
       should: 'refuse',
-      code: 'AUTHORIZATION',
+      code: 'AUTHENTICATION',
       actual: () =>
-        setChosenStatus({ kind: 'anonymous' } as unknown as AuthorizationPrincipal, 'online', {
-          clock: fixedClock('2026-11-02T00:00:00.000Z'),
-          limit: async () => {},
-          write: async (_scope, input) => {
-            writes += 1;
-            return input.status;
+        setChosenStatus(
+          { kind: 'anonymous' } as unknown as AuthorizationPrincipal,
+          'online',
+          {
+            clock: fixedClock('2026-11-02T00:00:00.000Z'),
+            limit: async () => {},
+            write: async (_scope, input) => {
+              writes += 1;
+              return input.status;
+            },
           },
-        }),
+        ),
     });
-    assert({ given: 'the refusal', should: 'write nothing', actual: writes, expected: 0 });
+    assert({
+      given: 'the refusal',
+      should: 'write nothing',
+      actual: writes,
+      expected: 0,
+    });
   });
 });
 

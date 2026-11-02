@@ -48,7 +48,10 @@ export function OnlineControls() {
           onClick={() => setFilter('all')}
           className={tab}
         >
-          All <span className="font-normal text-ink-faint">{roster.counts.everyone}</span>
+          All{' '}
+          <span className="font-normal text-ink-faint">
+            {roster.counts.everyone}
+          </span>
         </button>
         <button
           type="button"
@@ -56,7 +59,10 @@ export function OnlineControls() {
           onClick={() => setFilter('friends')}
           className={tab}
         >
-          Friends <span className="font-normal text-ink-faint">{roster.counts.friends}</span>
+          Friends{' '}
+          <span className="font-normal text-ink-faint">
+            {roster.counts.friends}
+          </span>
         </button>
       </div>
     </>
@@ -129,13 +135,22 @@ export function OnlineRail({
                 {roster.counts.everyone}
               </span>
             </h2>
-            <RailToggle to="mini" action={setRail} label="Collapse online list" />
+            <RailToggle
+              to="mini"
+              action={setRail}
+              label="Collapse online list"
+            />
           </div>
           <OnlineControls />
         </div>
         <PersonList overlay={overlay} className="min-h-0 flex-1 pb-1" />
       </div>
-      <div className={cn('h-full flex-col items-center gap-1 py-2', miniClass[preference])}>
+      <div
+        className={cn(
+          'h-full flex-col items-center gap-1 py-2',
+          miniClass[preference],
+        )}
+      >
         <RailToggle to="open" action={setRail} label="Expand online list" />
         <p className="text-xs font-bold text-online">
           <span className="sr-only">Online </span>
@@ -160,7 +175,12 @@ export function OnlineRail({
                   overlay.menuName === member.username && 'bg-surface-overlay',
                 )}
               >
-                <Avatar name={member.username} presence={member.status} size="sm" nameVisible />
+                <Avatar
+                  name={member.username}
+                  presence={member.status}
+                  size="sm"
+                  nameVisible
+                />
               </button>
             </li>
           ))}
@@ -182,15 +202,15 @@ export function OnlineRail({
  * The phone's Online view, in the Lobby, with the same menu as a sheet. Its
  * challenge cards sit on every page through `PhoneChallengeCards`.
  */
-export function OnlinePanel({
-  actions,
-}: {
-  readonly actions: PersonActions;
-}) {
+export function OnlinePanel({ actions }: { readonly actions: PersonActions }) {
   const panel = useRef<HTMLElement>(null);
   const overlay = usePersonOverlay(panel, actions);
   return (
-    <section ref={panel} aria-label="Who's online" className="relative flex flex-col gap-3">
+    <section
+      ref={panel}
+      aria-label="Who's online"
+      className="relative flex flex-col gap-3"
+    >
       <OnlineControls />
       <PersonList overlay={overlay} className="-mx-4" />
       {overlay.overlay}
@@ -208,7 +228,11 @@ export function PhoneChallengeCards({
 }) {
   return (
     <div className="fixed inset-x-2 more-sheet z-30 hidden max-h-fit max-narrow:block">
-      <ChallengeCards actions={actions} activeRoomId={activeRoomId} cardClassName="shadow-3" />
+      <ChallengeCards
+        actions={actions}
+        activeRoomId={activeRoomId}
+        cardClassName="shadow-3"
+      />
     </div>
   );
 }

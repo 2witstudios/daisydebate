@@ -40,9 +40,13 @@ export function ProfilePersonActions({
     {},
     challengeFormUnavailable,
   );
-  const [reported, report, reporting] = useFormAction(actions.report, {}, () => ({
-    notice: personActionNotices.reportFailed,
-  }));
+  const [reported, report, reporting] = useFormAction(
+    actions.report,
+    {},
+    () => ({
+      notice: personActionNotices.reportFailed,
+    }),
+  );
   const [blocked, block, blocking] = useFormAction(actions.block, {}, () => ({
     notice: personActionNotices.blockFailed,
   }));
@@ -64,7 +68,11 @@ export function ProfilePersonActions({
           </label>
           <label>
             <span className="sr-only">Format</span>
-            <select name="format" defaultValue="freestyle" className={controlClass}>
+            <select
+              name="format"
+              defaultValue="freestyle"
+              className={controlClass}
+            >
               {challengeFormats.map((format) => (
                 <option key={format} value={format}>
                   {labels[format]}
@@ -84,7 +92,10 @@ export function ProfilePersonActions({
       </details>
       <details>
         <summary className={summary}>Report</summary>
-        <form action={report} className="flex flex-wrap items-center gap-2 pt-2">
+        <form
+          action={report}
+          className="flex flex-wrap items-center gap-2 pt-2"
+        >
           <input type="hidden" name="username" value={username} />
           <input type="hidden" name="surface" value="profile" />
           <label>

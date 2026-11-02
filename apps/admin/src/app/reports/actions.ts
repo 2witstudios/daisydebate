@@ -23,11 +23,7 @@ const resolveForm = z.strictObject({
   reportId: idSchema,
   subjectUserId: idSchema,
   outcome: z.enum(reportOutcomes),
-  suspendDays: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(moderationSuspensionMaxDays),
+  suspendDays: z.coerce.number().int().min(1).max(moderationSuspensionMaxDays),
 });
 
 export async function resolveReportAction(form: FormData): Promise<never> {

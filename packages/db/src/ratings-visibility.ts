@@ -40,7 +40,10 @@ export const ratingVisibilityOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  readRatingVisibility: (scope: Scope, authorize: OwnCollectionFence<Scope>) => {
+  readRatingVisibility: (
+    scope: Scope,
+    authorize: OwnCollectionFence<Scope>,
+  ) => {
     requireOwnScope(scope);
     return instrumented(eventSink, 'readRatingVisibility', () =>
       readOwnCollection(database, scope, authorize, async (tx) => {
@@ -71,7 +74,10 @@ export const ratingVisibilityOperations = ({
         await tx
           .insert(ratingVisibility)
           .values({ actorId: scope.actorId, ...values })
-          .onConflictDoUpdate({ target: ratingVisibility.actorId, set: values });
+          .onConflictDoUpdate({
+            target: ratingVisibility.actorId,
+            set: values,
+          });
         return { showPolicy: input.showPolicy, showValue: input.showValue };
       }),
     );

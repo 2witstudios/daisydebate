@@ -46,7 +46,10 @@ const deps = (
       [bea, 'idle' as const],
     ]),
   page: async () => ({
-    rows: [row(ada, 'ada', { friend: true, friendshipState: 'accepted' }), row(bea, 'bea')],
+    rows: [
+      row(ada, 'ada', { friend: true, friendshipState: 'accepted' }),
+      row(bea, 'bea'),
+    ],
     counts: { everyone: 2, friends: 1 },
     self: { chosen: 'busy', placement: null },
   }),
@@ -140,7 +143,10 @@ describe('readOnlineRoster', () => {
   });
 
   test('a card shows only the ratings its owner turned on', async () => {
-    const state = (actorId: string, ladder: 'freestyle' | 'policy' | 'value') => ({
+    const state = (
+      actorId: string,
+      ladder: 'freestyle' | 'policy' | 'value',
+    ) => ({
       actorId,
       ladder,
       rating: 1600.4,
@@ -158,14 +164,27 @@ describe('readOnlineRoster', () => {
           state(bea, 'policy'),
         ],
         records: [
-          { actorId: ada, status: 'completed', outcome: 'affirmative', role: 'affirmative', rounds: 3 },
-          { actorId: ada, status: 'completed', outcome: 'negative', role: 'affirmative', rounds: 1 },
+          {
+            actorId: ada,
+            status: 'completed',
+            outcome: 'affirmative',
+            role: 'affirmative',
+            rounds: 3,
+          },
+          {
+            actorId: ada,
+            status: 'completed',
+            outcome: 'negative',
+            role: 'affirmative',
+            rounds: 1,
+          },
         ],
       }),
     });
     assert({
       given: 'Ada showing Policy, and Bea rated on Policy but not showing it',
-      should: 'leave Value off Ada’s card, Policy off Bea’s, and tally the record',
+      should:
+        'leave Value off Ada’s card, Policy off Bea’s, and tally the record',
       actual: roster.members.map((m) => ({
         ratings: m.ratings.map((r) => [r.ladder, r.rating]),
         record: [m.wins, m.losses],
@@ -214,7 +233,8 @@ describe('readOnlineRoster', () => {
       row(`${String(index).padStart(2, '0')}${'d'.repeat(22)}`, `m${index}`),
     );
     const roster = await read({
-      activity: async (ids) => new Map(ids.map((id) => [id, 'active' as const])),
+      activity: async (ids) =>
+        new Map(ids.map((id) => [id, 'active' as const])),
       page: async () => ({
         rows,
         counts: { everyone: rows.length, friends: 0 },

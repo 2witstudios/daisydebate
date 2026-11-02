@@ -29,6 +29,7 @@ export const reports = pgTable(
   },
   (table) => [
     index('reports_queue_idx').on(table.closedAt, table.createdAt, table.id),
+    index('reports_reporter_idx').on(table.reporterActorId),
     index('reports_subject_idx').on(table.subjectActorId),
     index('reports_purge_idx')
       .on(table.purgeAfter)
