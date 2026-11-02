@@ -28,6 +28,20 @@ test('periodic session checks start together rather than starving later connecti
   });
 });
 
+test('a periodic session check that cannot answer closes retryably, not as revoked', async () => {
+  const f = fixture();
+  f.setNow(50_000);
+  await f.registry.revalidate(() =>
+    Promise.reject(new Error('private adapter failure')),
+  );
+  assert({
+    given: 'a session read that fails rather than answering',
+    should: 'close with the retryable code',
+    actual: f.closed,
+    expected: [4007],
+  });
+});
+
 test('periodic topic checks start together after the session check', async () => {
   const reads = Array.from({ length: 3 }, () => pendingRead<null>());
   let checking = false;

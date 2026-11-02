@@ -52,14 +52,14 @@ const lane = (connections: number, queue: number, maxWaitMs: number) => ({
  */
 const COMPETITIVE = lane(10, 16, 1000);
 /**
- * Subscribes and hellos share one connection, and each read takes the account
- * fence, so one read can hold it for a writer's whole transaction, up to the
- * session's lock bound. A waiter outlasts that bound (ISSUE-914): queueing
- * behind another participant's fence is not a failure. The queue count sheds a
- * real flood and the authority check's 5s budget bounds the whole subscribe.
- * This outlasts one blocked read, not several in a row. If `admission.expired`
- * or `budget` shows in `realtime.subscription.unavailable`, stop blocked reads
- * holding the one connection rather than raising this wait.
+ * Subscribes and hellos share one connection and each read takes the account
+ * fence. A mitigation for ISSUE-914, whose trigger is not established: a
+ * waiter outlasts one read blocked to the session's lock bound, and a burst of
+ * reads, instead of expiring at 250 ms. It does not outlast several blocked
+ * reads in a row. The queue count sheds a flood and the authority check's 5s
+ * budget bounds an authority read. If `admission.expired` or `budget` shows in
+ * `realtime.subscription.unavailable`, its pressure fields say which it was;
+ * add capacity or stop blocked reads holding the connection, not more wait.
  */
 const SUBSCRIBE_ADMISSION = lane(1, 100, RUNTIME_SESSION.lock_timeout + 1000);
 /** The deployed starting profiles; the connection budget is checked from them. */
@@ -141,6 +141,7 @@ export type LaneGate = {
   };
 };
 export type LaneTimer = (ms: number, fire: () => void) => () => void;
+export type LaneClock = () => number;
 const systemTimer: LaneTimer = (ms, fire) => {
   const handle = setTimeout(fire, ms);
   return () => clearTimeout(handle);
@@ -162,18 +163,33 @@ export function createLaneGate(
   name: WorkloadLane,
   budget: LaneBudget | undefined,
   timer: LaneTimer = systemTimer,
+  clock: LaneClock = () => performance.now(),
 ): LaneGate {
   let active = 0;
   let waiting = 0;
+  const held = new Set<{ readonly since: number }>();
   const queues = new Map<string, Waiter[]>();
   const order: string[] = [];
   const refuse = (reason: 'unconfigured' | 'saturated' | 'expired') =>
-    refuseCapacity({ lane: name, reason });
+    refuseCapacity({
+      lane: name,
+      reason,
+      pressure: {
+        pending: waiting,
+        running: active,
+        oldestAgeMs: Math.round(
+          Math.max(0, ...[...held].map(({ since }) => clock() - since)),
+        ),
+      },
+    });
   const release = (weight: number): LaneRelease => {
     let released = false;
+    const hold = { since: clock() };
+    held.add(hold);
     return () => {
       if (released) return;
       released = true;
+      held.delete(hold);
       active -= weight;
       pump();
     };

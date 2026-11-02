@@ -113,14 +113,16 @@ export async function readSubscriptionDecision(
   }
 }
 
-/** A periodic session check that fails to answer counts as invalid. */
+/** A periodic session check: valid, invalid, or unavailable after a reported failure. */
 export async function principalValid(
   connection: Connection,
   validate: (principal: SocketPrincipal) => Promise<boolean>,
+  failed: (error: unknown) => void,
 ) {
   try {
     return await validate(connection.principal);
-  } catch {
-    return false;
+  } catch (error) {
+    failed(error);
+    return AUTHORITY_UNAVAILABLE;
   }
 }

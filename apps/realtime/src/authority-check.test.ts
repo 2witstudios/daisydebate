@@ -1,8 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from '@daisy/db/testing';
 import {
-  authorityFailureCause,
+  authorityFailureFields,
   boundedAuthorityCheck,
 } from './authority-check';
 import { deferred } from './outbox-drain.test-support';
@@ -61,19 +60,39 @@ for (const result of ['allow', 'failure', 'late-allow'] as const)
     });
   });
 
-test('an authority failure names its cause without the raw error', () => {
+test('an authority failure names its cause without the raw error', async () => {
+  let fire!: () => void;
+  const checked = boundedAuthorityCheck({
+    check: () => new Promise(() => {}),
+    timers: {
+      setInterval: (callback) => {
+        fire = callback;
+        return {} as ReturnType<typeof setInterval>;
+      },
+      clearInterval: () => {},
+    },
+    budgetMs: 5_000,
+  });
+  fire();
+  const spent = await checked.catch((error: unknown) => error);
   assert({
     given: 'a lane refusal, the spent budget and a failed read',
-    should: 'report the lane and reason, the budget, or the read',
+    should: 'report the lane, reason and pressure, the budget, or the read',
     actual: [
-      authorityFailureCause(
-        refuseCapacity({ lane: 'admission', reason: 'expired' }),
+      authorityFailureFields(
+        refuseCapacity({
+          lane: 'admission',
+          reason: 'expired',
+          pressure: { pending: 2, running: 1, oldestAgeMs: 400 },
+        }),
       ),
-      authorityFailureCause(
-        createAppError('INFRASTRUCTURE', 'Authority check budget spent'),
-      ),
-      authorityFailureCause(new Error('private adapter failure')),
+      authorityFailureFields(spent),
+      authorityFailureFields(new Error('private adapter failure')),
     ],
-    expected: ['admission.expired', 'budget', 'read'],
+    expected: [
+      { cause: 'admission.expired', pending: 2, running: 1, oldestAgeMs: 400 },
+      { cause: 'budget' },
+      { cause: 'read' },
+    ],
   });
 });

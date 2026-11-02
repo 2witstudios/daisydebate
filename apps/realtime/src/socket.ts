@@ -144,11 +144,14 @@ export function createWebSocketHandlers({
     try {
       principal = await authenticate(outcome.ticket, ws.data.origin);
     } catch {
-      principal = null;
+      // Nothing was decided, so this is not a failed authentication.
+      if (ws.data.phase === 'authenticating')
+        reject(ws, 'authority_unavailable');
+      return;
     }
     if (ws.data.phase !== 'authenticating') return;
     if (!principal || helloExpired(ws)) {
-      reject(ws, 'auth_failed');
+      reject(ws, principal ? 'authority_unavailable' : 'auth_failed');
       return;
     }
     acceptHello(ws, principal);
@@ -283,15 +286,17 @@ export function createWebSocketHandlers({
   }
   async function currentPrincipal(ws: ServerWebSocket<SocketData>) {
     if (!validatePrincipal || !ws.data.principal) return true;
-    let valid = false;
+    let valid: boolean | 'unavailable';
     try {
       valid = await validatePrincipal(ws.data.principal);
     } catch {
-      valid = false;
+      valid = 'unavailable';
     }
     if (ws.data.phase !== 'authenticated') return false;
-    if (!valid) reject(ws, 'revoked');
-    return valid;
+    // Fail closed either way; only a definite answer is a revocation.
+    if (valid === 'unavailable') reject(ws, 'authority_unavailable');
+    else if (!valid) reject(ws, 'revoked');
+    return valid === true;
   }
   return {
     open(ws: ServerWebSocket<SocketData>) {
@@ -299,7 +304,14 @@ export function createWebSocketHandlers({
       ws.data.helloDeadline = now() + HELLO_TIMEOUT_MS;
       ws.data.helloTimer = timers.setTimeout(() => {
         ws.data.helloTimer = undefined;
-        reject(ws, 'auth_failed', 'hello_timeout');
+        // A hello already being checked was sent in time: the check is slow.
+        reject(
+          ws,
+          ws.data.phase === 'authenticating'
+            ? 'authority_unavailable'
+            : 'auth_failed',
+          'hello_timeout',
+        );
       }, HELLO_TIMEOUT_MS);
     },
     async message(ws: ServerWebSocket<SocketData>, message: string | Buffer) {

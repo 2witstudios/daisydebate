@@ -284,8 +284,14 @@ export function createSubscriptionDelivery({
     connection: Connection,
     validate: (principal: SocketPrincipal) => Promise<boolean>,
   ) {
-    const valid = await principalValid(connection, validate);
+    const valid = await principalValid(connection, validate, failed);
     if (connection.closed) return;
+    if (valid === AUTHORITY_UNAVAILABLE) {
+      // Fail closed, retryably: the reconnect re-authenticates from scratch.
+      remove(connection);
+      connection.socket.close(4007, 'authority_unavailable');
+      return;
+    }
     if (!valid) {
       revoke(connection);
       return;

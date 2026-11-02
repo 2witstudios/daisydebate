@@ -135,7 +135,11 @@ test('a subscribe refused by a lane logs the lane and reason', async () => {
     database: bothLanes({
       readAuthorizationSession: () =>
         Promise.reject(
-          refuseCapacity({ lane: 'admission', reason: 'expired' }),
+          refuseCapacity({
+            lane: 'admission',
+            reason: 'expired',
+            pressure: { pending: 2, running: 1, oldestAgeMs: 400 },
+          }),
         ),
     }),
     clock: { now: () => '2026-10-09T00:00:00.000Z' },
@@ -173,7 +177,7 @@ test('a subscribe refused by a lane logs the lane and reason', async () => {
   });
   assert({
     given: 'a first subscribe whose authority read a lane refuses',
-    should: 'log the code, lane and reason',
+    should: 'log the code, lane, reason and pressure',
     actual: logged,
     expected: [
       [
@@ -182,6 +186,9 @@ test('a subscribe refused by a lane logs the lane and reason', async () => {
           operation: 'realtime.subscription',
           errorCode: 'INFRASTRUCTURE',
           cause: 'admission.expired',
+          pending: 2,
+          running: 1,
+          oldestAgeMs: 400,
         },
       ],
     ],

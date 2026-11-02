@@ -12,7 +12,7 @@ import { createAdmission } from './admission';
 import { isAppError } from '@daisy/errors';
 import { liveParticipantSession } from './participant-session';
 import {
-  authorityFailureCause,
+  authorityFailureFields,
   boundedAuthorityCheck,
 } from './authority-check';
 import type { IntervalTimers } from './outbox-drain';
@@ -83,7 +83,7 @@ export function createRealtimeDelivery({
         {
           operation: 'realtime.subscription',
           errorCode: isAppError(error) ? error.code : 'INTERNAL',
-          cause: authorityFailureCause(error),
+          ...authorityFailureFields(error),
         },
         'Subscription authority unavailable',
       ),

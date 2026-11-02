@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { ENVELOPE_VERSION } from '@daisy/protocol';
 import { harness, flush, openAndReady } from './connection-store.test-support';
 
 setupRitewayBun();
@@ -105,6 +106,66 @@ describe('connection store: close-code reactions and backoff (ADR 0031 §8)', ()
       should: 'reconnect within the 0-5s jitter window',
       actual: h.sockets.length,
       expected: 2,
+    });
+  });
+
+  test('4007 authority_unavailable reconnects with a fresh ticket and no terminal state', async () => {
+    const h = harness();
+    h.store.connect();
+    h.latestSocket().open();
+    await flush();
+    const ticketsBefore = h.ticketCalls.length;
+    h.latestSocket().remoteClose(4007);
+    const whileWaiting = h.store.getState();
+    h.scheduler.advance(30_000);
+    await flush();
+
+    assert({
+      given: 'the server closing 4007 because a session check could not answer',
+      should:
+        'stay non-terminal, fetch another ticket and open a second socket',
+      actual: {
+        terminal: whileWaiting.terminal,
+        freshTicket: h.ticketCalls.length > ticketsBefore,
+        sockets: h.sockets.length,
+      },
+      expected: { terminal: null, freshTicket: true, sockets: 2 },
+    });
+  });
+
+  test('repeated 4007 after ready stays paced until a frame is answered', async () => {
+    const h = harness({ random: () => 1 });
+    const delays: number[] = [];
+    const failRightAfterReady = async () => {
+      await openAndReady(h);
+      h.latestSocket().remoteClose(4007);
+      const closedAt = h.scheduler.now();
+      h.scheduler.advance(60_000);
+      await flush();
+      delays.push(h.ticketCalls.at(-1)! - closedAt);
+    };
+    for (let close = 0; close < 7; close += 1) await failRightAfterReady();
+    assert({
+      given: 'a session check that keeps failing right after each ready',
+      should: 'double the reconnect ceiling up to its cap, not restart it',
+      actual: delays,
+      expected: [1_000, 2_000, 4_000, 8_000, 16_000, 30_000, 30_000],
+    });
+    await openAndReady(h);
+    h.latestSocket().message({
+      v: ENVELOPE_VERSION,
+      type: 'subscribed',
+      id: 'first',
+      topic: 'standings:global',
+      position: '1:1',
+    });
+    delays.length = 0;
+    await failRightAfterReady();
+    assert({
+      given: 'a frame answered before the next 4007',
+      should: 'start the ceiling again',
+      actual: delays,
+      expected: [1_000],
     });
   });
 

@@ -19,7 +19,11 @@ import {
 } from './realtime-hints';
 import { roomAuthorizationRead } from './room-authorization-read';
 import { createWorkload, dialDedicated, dialLanes } from './workload';
-import { WORKLOAD_PROFILES, type WorkloadProfile } from './workload-admission';
+import {
+  WORKLOAD_PROFILES,
+  type LaneTimer,
+  type WorkloadProfile,
+} from './workload-admission';
 
 /**
  * The shared-fence authority reads a socket subscription needs, on one
@@ -45,15 +49,19 @@ export function createRealtimeDatabase({
   profile = WORKLOAD_PROFILES.realtime,
   eventSink,
   client: injectedClient,
+  laneTimer,
 }: {
   url: string;
   profile?: WorkloadProfile;
   eventSink?: DatabaseEventSink;
   /** Overrides dialing `url` for every lane; tests inject a client at this seam. */
   client?: SQL;
+  /** Overrides the lanes' waiter timer; tests drive expiry at this seam. */
+  laneTimer?: LaneTimer;
 }) {
   const workload = createWorkload({
     profile,
+    timer: laneTimer,
     connect: injectedClient ? () => injectedClient : dialLanes(url),
   });
   const admission = workload.lane('admission').database;

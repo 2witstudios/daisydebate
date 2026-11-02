@@ -43,6 +43,9 @@ export function createConnectionStore(
   let socket: WebSocketLike | null = null;
   let consecutiveAuthFailures = 0;
   let reconnectAttempt = 0;
+  // `ready` resets the attempt, but only an answered frame proves the session
+  // check is back, so a sustained outage stays paced across connections.
+  let authorityFailures = 0;
   // Death is judged by the oldest unanswered ping's age, never by how late a
   // (possibly throttled) tick ran.
   const outstanding = createOutstandingPing(HEARTBEAT_DEAD_AFTER_MS);
@@ -212,6 +215,7 @@ export function createConnectionStore(
       return;
     }
     if (status !== 'open') return;
+    if (type === 'pong' || type === 'subscribed') authorityFailures = 0;
     if (type === 'pong') {
       // Only a pong matching the earliest outstanding ping's own id clears
       // it (ADR 0031 §7): a late pong for an older, already-superseded ping
@@ -229,6 +233,10 @@ export function createConnectionStore(
     if (closeReasonForCode(code) === 'auth_failed')
       consecutiveAuthFailures += 1;
     else consecutiveAuthFailures = 0;
+    if (closeReasonForCode(code) === 'authority_unavailable') {
+      reconnectAttempt = authorityFailures;
+      authorityFailures += 1;
+    }
     if (!decision.reconnect) {
       status = 'closed';
       terminal = decision.terminal;

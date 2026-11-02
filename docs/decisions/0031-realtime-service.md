@@ -235,14 +235,15 @@ application message; server-side reaping uses the protocol's own pings:
 `@daisy/protocol` owns the close-code table, in the 4000–4999 application
 range. The client reacts per code:
 
-| Code | Name                   | Server closes when                                                                                    | Client reaction                                                                                               |
-| ---- | ---------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 4001 | `auth_failed`          | no `hello` within 5 s; bad, expired, replayed or origin-mismatched ticket; any message before `hello` | fetch a fresh ticket and reconnect with backoff; after 3 consecutive failures, stop and show signed-out state |
-| 4002 | `revoked`              | `session.revoked`, or the 60 s revalidation finds the session gone                                    | do not reconnect; refetch the session over HTTP                                                               |
-| 4003 | `protocol_unsupported` | `hello.protocolVersion` unsupported, or an inbound message (including the first) fails to parse       | do not reconnect; ask the user to reload                                                                      |
-| 4004 | `rate_limited`         | connection or inbound-message rate limit exceeded                                                     | reconnect with jittered backoff from a 30 s floor                                                             |
-| 4005 | `slow_consumer`        | the socket's send buffer passed the soft bound (section 9)                                            | reconnect with jitter and resubscribe from cursors                                                            |
-| 4006 | `server_restarting`    | SIGTERM drain                                                                                         | reconnect with 0–5 s jitter (another instance takes it)                                                       |
+| Code | Name                    | Server closes when                                                                                    | Client reaction                                                                                               |
+| ---- | ----------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 4001 | `auth_failed`           | no `hello` within 5 s; bad, expired, replayed or origin-mismatched ticket; any message before `hello` | fetch a fresh ticket and reconnect with backoff; after 3 consecutive failures, stop and show signed-out state |
+| 4002 | `revoked`               | `session.revoked`, or the 60 s revalidation finds the session gone                                    | do not reconnect; refetch the session over HTTP                                                               |
+| 4003 | `protocol_unsupported`  | `hello.protocolVersion` unsupported, or an inbound message (including the first) fails to parse       | do not reconnect; ask the user to reload                                                                      |
+| 4004 | `rate_limited`          | connection or inbound-message rate limit exceeded                                                     | reconnect with jittered backoff from a 30 s floor                                                             |
+| 4005 | `slow_consumer`         | the socket's send buffer passed the soft bound (section 9)                                            | reconnect with jitter and resubscribe from cursors                                                            |
+| 4006 | `server_restarting`     | SIGTERM drain                                                                                         | reconnect with 0–5 s jitter (another instance takes it)                                                       |
+| 4007 | `authority_unavailable` | the session or ticket check could not answer, so nothing was decided                                  | fetch a fresh ticket and reconnect with standard backoff, paced across connections until a frame is answered  |
 
 Transport-level closes the client also handles: `1000` (normal) and `1001`
 (going away) reconnect only if still wanted; `1006` (abnormal: network loss,
