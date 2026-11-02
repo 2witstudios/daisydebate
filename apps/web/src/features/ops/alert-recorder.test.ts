@@ -128,10 +128,7 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
   test('a healthy worker refreshes only its own marker', () => {
     const { calls, redis } = fakeAlertRedis();
     const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
-    recorder.observe('worker.run.completed', {
-      operation: 'privacy_jobs',
-      delivered: 1,
-    });
+    recorder.observe('worker.run.completed', { operation: 'privacy_jobs' });
     recorder.observe('worker.run.failed', { operation: 'privacy_jobs' });
     recorder.observe('worker.run.completed', { operation: 'not_a_worker' });
     assert({

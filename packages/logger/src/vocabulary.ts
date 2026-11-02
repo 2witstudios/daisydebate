@@ -135,8 +135,6 @@ export const loggableFields = {
   port: 'count',
   deleted: 'count',
   batches: 'count',
-  delivered: 'count',
-  retried: 'count',
   closeCode: 'count',
   deliverySeqLagEstimate: 'count',
   retained: 'count',

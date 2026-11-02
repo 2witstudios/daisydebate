@@ -123,8 +123,6 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       port: 3000,
       deleted: 0,
       batches: 3,
-      delivered: 1,
-      retried: 2,
       closeCode: 4001,
       deliverySeqLagEstimate: 42,
       retained: 5,

@@ -103,13 +103,12 @@ describe('createScheduledWorker', () => {
     }).run();
     assert({
       given: 'a failed run',
-      should: 'name the worker and its counts',
+      should: 'name the worker and what it still owes',
       actual: logged[0]?.fields,
       expected: {
         operation: 'observation_purges',
         errorCode: 'INFRASTRUCTURE',
-        delivered: 1,
-        retried: 2,
+        pending: 2,
       },
     });
   });

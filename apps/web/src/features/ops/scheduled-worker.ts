@@ -39,8 +39,8 @@ export const workerOutcome = (pass: WorkerPass): WorkerOutcome => {
 /**
  * One run of one worker. Only a healthy pass logs `worker.run.completed`, the
  * event its alert marker reads; a failed pass or a thrown one logs
- * `worker.run.failed`; a waiting pass logs nothing. Counts and a stable error
- * code only, never subjects or the error.
+ * `worker.run.failed`; a waiting pass logs nothing. A stable error code and a
+ * count only, never subjects or the error.
  */
 export function createScheduledWorker({
   name,
@@ -53,10 +53,10 @@ export function createScheduledWorker({
   readonly clock: Clock;
   readonly logger: Logger;
 }) {
-  const failed = (counts: { delivered: number; retried: number }) =>
+  const failed = (fields: { readonly pending?: number } = {}) =>
     logger.log(
       'worker.run.failed',
-      { operation: name, errorCode: 'INFRASTRUCTURE', ...counts },
+      { operation: name, errorCode: 'INFRASTRUCTURE', ...fields },
       'Scheduled worker run failed',
     );
   return {
@@ -65,16 +65,15 @@ export function createScheduledWorker({
       try {
         result = await pass(clock.now());
       } catch {
-        failed({ delivered: 0, retried: 0 });
+        failed();
         return;
       }
-      const { delivered, retried } = result;
       const outcome = workerOutcome(result);
-      if (outcome === 'failed') failed({ delivered, retried });
+      if (outcome === 'failed') failed({ pending: result.owed });
       if (outcome === 'healthy')
         logger.log(
           'worker.run.completed',
-          { operation: name, delivered },
+          { operation: name },
           'Scheduled worker run completed',
         );
     },
