@@ -382,17 +382,39 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     },
     reconcile,
     async recoverActiveSessions() {
-      for (const session of await input.store.activeMediaSessions()) {
+      const sweepAt = Date.now();
+      const passes: { r: string; at: number; ms: number; ok: boolean }[] = [];
+      const sessions = await input.store.activeMediaSessions();
+      for (const session of sessions) {
+        const at = Date.now();
+        let ok = true;
         try {
           await reconcile(session.roundId);
         } catch (error) {
+          ok = false;
           input.reporter.capture(error, {
             requestId: input.nextId(),
             route: '/api/rounds/:id/media/reconcile',
             errorCode: 'INFRASTRUCTURE',
           });
         }
+        passes.push({
+          r: session.roundId.slice(0, 8),
+          at,
+          ms: Date.now() - at,
+          ok,
+        });
       }
+      // TEMPORARY ISSUE-972 diagnostic: dropped before the PR is ready.
+      console.log(
+        JSON.stringify({
+          event: 'temp.recovery.sweep',
+          at: sweepAt,
+          sessions: sessions.length,
+          durationMs: Date.now() - sweepAt,
+          passes,
+        }),
+      );
     },
   };
 }

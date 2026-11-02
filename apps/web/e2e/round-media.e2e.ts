@@ -564,6 +564,9 @@ for (const [name, tickOnly] of [
       await test.info().attach('boundary-after-supersession', {
         body: JSON.stringify({
           tickOnly,
+          roundPrefix: round.id.slice(0, 8),
+          deadlineAt: deadline + offset,
+          grantedAt: grantedAt + offset,
           countdownMs: COUNTDOWN_MS,
           youngReadAgeAtDeadlineMs: deadline - young!.startedAt,
           freshReadAfterDeadlineMs: fresh!.startedAt - deadline,
