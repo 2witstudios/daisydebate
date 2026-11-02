@@ -9,42 +9,49 @@ import { nextMediaRefreshAt } from './refresh-deadline';
 import { ran } from '../../ui/debate-room/live-round.test-support';
 setupRitewayBun();
 
-/** Controlled monotonic scheduling; these numbers do not reconstruct a native trace. */
-async function exercise(mode: 'headers' | 'body', dispose: boolean) {
+const REQUEST_DEADLINE_MS = 10_000;
+const cameraOnly = {
+  ...snapshot,
+  grants: { ...snapshot.grants, publish: ['camera'] },
+};
+
+/**
+ * The actual bounded adapter, controller and browser transport over a stub SDK.
+ * The second reconcile stalls at `mode`. Controlled monotonic scheduling; these
+ * numbers do not reconstruct a native trace.
+ */
+async function compose(mode: 'headers' | 'body', retryDelaysMs: number[] = []) {
   const timer = createTimerQueue((now, delay) => now + delay);
-  const view = ran(1);
-  const deadlineMs = nextMediaRefreshAt(view)!;
-  const startMs = deadlineMs - 60000;
-  const clock = { now: () => new Date(startMs + timer.now()).toISOString() };
-  const held = Promise.withResolvers<Response>();
+  const headers = Promise.withResolvers<Response>();
   const body = Promise.withResolvers<unknown>();
   const sdk = stubSdk({ settles: true });
   const browser = createBrowserMediaTransport(events, sdk.sdk);
-  const applied: string[] = [],
-    received: string[] = [];
-  let reads = 0,
-    active = 0,
-    maxActive = 0,
-    stops = 0,
-    connects = 0,
-    admissions = 0;
-  let oldSignal: AbortSignal | undefined;
-  let fresh = false;
+  const applied: string[] = [];
+  const received: string[] = [];
+  const counts = {
+    reads: 0,
+    active: 0,
+    maxActive: 0,
+    stops: 0,
+    connects: 0,
+    admissions: 0,
+  };
+  let heldSignal: AbortSignal | undefined;
   const request = createMediaRequest({
     scheduleDeadline: (expire) => {
-      const id = timer.setTimeout(expire, 10000);
+      const id = timer.setTimeout(expire, REQUEST_DEADLINE_MS);
       return () => timer.clearTimeout(id);
     },
     fetch: async (url, options) => {
       const signal = options?.signal;
       if (!signal) throw new Error('Missing media request signal');
-      active++;
-      maxActive = Math.max(maxActive, active);
+      counts.active++;
+      counts.maxActive = Math.max(counts.maxActive, counts.active);
       let finished = false;
       const finish = () => {
         if (finished) return;
         finished = true;
-        active--;
+        counts.active--;
         signal.removeEventListener('abort', finish);
       };
       signal.addEventListener('abort', finish, { once: true });
@@ -55,20 +62,14 @@ async function exercise(mode: 'headers' | 'body', dispose: boolean) {
         return response;
       };
       if (String(url).endsWith('/session')) {
-        admissions++;
+        counts.admissions++;
         return responseOf(admission);
       }
-      if (++reads !== 2)
-        return responseOf(
-          fresh
-            ? {
-                ...snapshot,
-                grants: { ...snapshot.grants, publish: ['camera'] },
-              }
-            : snapshot,
-        );
-      oldSignal = signal;
-      if (mode === 'headers') return held.promise;
+      counts.reads++;
+      if (counts.reads === 1) return responseOf(snapshot);
+      if (counts.reads > 2) return responseOf(cameraOnly);
+      heldSignal = signal;
+      if (mode === 'headers') return headers.promise;
       const response = Response.json({});
       response.json = () => body.promise.finally(finish);
       return response;
@@ -76,7 +77,7 @@ async function exercise(mode: 'headers' | 'body', dispose: boolean) {
   });
   const controller = createMediaController({
     roundId: snapshot.roundId,
-    initialRoundViewVersion: view.version,
+    initialRoundViewVersion: 1,
     api: {
       admit: (id, signal) => request(id, 'session', signal),
       reconcile: (id, signal) => request(id, 'reconcile', signal),
@@ -84,7 +85,7 @@ async function exercise(mode: 'headers' | 'body', dispose: boolean) {
     transport: () => ({
       ...browser.transport,
       connect: async (value) => {
-        connects++;
+        counts.connects++;
         await browser.transport.connect(value);
       },
       apply: async (value) => {
@@ -92,97 +93,207 @@ async function exercise(mode: 'headers' | 'body', dispose: boolean) {
         await browser.transport.apply(value);
       },
       stopTracks: () => {
-        stops++;
+        counts.stops++;
         browser.transport.stopTracks();
       },
     }),
     changed: () => undefined,
     received: (value) => received.push(value.grants.publish.join(',')),
+    retry: {
+      delaysMs: retryDelaysMs,
+      wait: (ms, signal) =>
+        new Promise<void>((done) => {
+          const id = timer.setTimeout(done, ms);
+          signal.addEventListener(
+            'abort',
+            () => {
+              timer.clearTimeout(id);
+              done();
+            },
+            { once: true },
+          );
+        }),
+    },
   });
   await controller.join();
   const camera = sdk.captured.find((track) => track.source === 'camera');
   applied.length = 0;
   received.length = 0;
-  const boundary = timer.setTimeout(
-    () => {
-      fresh = true;
-      void controller.reconcile({
-        kind: 'boundary',
-        roundViewVersion: view.version,
-        deadlineMs,
-      });
+  return {
+    timer,
+    controller,
+    counts,
+    applied,
+    received,
+    heldAborted: () => heldSignal?.aborted,
+    release: () => {
+      if (mode === 'headers') headers.resolve(Response.json(snapshot));
+      else body.resolve(snapshot);
     },
-    Math.max(0, deadlineMs - Date.parse(clock.now())),
-  );
-  timer.advance(59000);
-  const pending = controller.reconcile({ kind: 'wake' });
-  await settle();
-  if (dispose) {
-    timer.clearTimeout(boundary);
-    controller.stop();
-  } else {
-    timer.advance(1000);
-    await settle();
-    timer.advance(200);
-    void controller.reconcile({
-      kind: 'view',
-      roundViewVersion: view.version + 1,
-    });
-    await settle();
-  }
-  const current = [
-    oldSignal?.aborted,
-    active,
-    maxActive,
-    admissions,
-    connects,
-    stops,
-    controller.state(),
-    camera?.ended,
-  ];
-  if (mode === 'headers') held.resolve(Response.json(snapshot));
-  else body.resolve(snapshot);
-  await pending;
-  await settle();
-  const after = [
-    applied.some((sources) => sources.includes('microphone')),
-    received.some((sources) => sources.includes('microphone')),
-    sdk.captured.find((track) => track.source === 'camera') === camera,
-  ];
-  controller.stop();
-  timer.advance(120000);
-  await settle();
-  return { current, after, timers: timer.pending(), active };
+    sameCamera: () =>
+      sdk.captured.find((track) => track.source === 'camera') === camera &&
+      camera?.ended === false,
+    cameraEnded: () => camera?.ended,
+  };
 }
+
 for (const mode of ['headers', 'body'] as const) {
-  test(`within-budget ${mode} supersession preserves actual SDK camera and rejects old authority`, async () => {
-    const result = await exercise(mode, false);
+  test(`a within-budget ${mode} read is superseded at the boundary and again by a newer view`, async () => {
+    const view = ran(1);
+    const deadlineMs = nextMediaRefreshAt(view)!;
+    const media = await compose(mode);
+    const boundary = {
+      kind: 'boundary',
+      roundViewVersion: 1,
+      deadlineMs,
+    } as const;
+    media.timer.setTimeout(
+      () => void media.controller.reconcile(boundary),
+      60_000,
+    );
+    media.timer.advance(59_000);
+    const pending = media.controller.reconcile({ kind: 'wake' });
+    await settle();
+    const stalled = [media.counts.reads, media.heldAborted()];
+    media.timer.advance(1_000);
+    await settle();
+    // The boundary's fresh apply is still running, so only a later ticket announces.
+    const atBoundary = [
+      media.counts.reads,
+      media.heldAborted(),
+      media.applied.length,
+      media.received.length,
+    ];
+    media.timer.advance(200);
+    await media.controller.reconcile({ kind: 'view', roundViewVersion: 2 });
+    const atView = media.counts.reads;
+    await media.controller.reconcile(boundary);
+    await media.controller.reconcile({ kind: 'view', roundViewVersion: 2 });
+    await media.controller.reconcile({ kind: 'view', roundViewVersion: 1 });
+    const afterInert = media.counts.reads;
+    const wakes = Array.from({ length: 5 }, () =>
+      media.controller.reconcile({ kind: 'wake' }),
+    );
+    await Promise.all(wakes);
+    const afterWakes = media.counts.reads;
+    media.release();
+    await pending;
+    await settle();
+    const health = [
+      media.controller.state(),
+      media.counts.admissions,
+      media.counts.connects,
+      media.counts.stops,
+      media.sameCamera(),
+    ];
+    media.controller.stop();
+    media.timer.advance(120_000);
+    await settle();
     assert({
       given:
-        'actual bounded HTTP adapter, controller, SDK and a due deadline followed by a newer accepted view',
+        'the actual adapter, controller and SDK with a read held across a due boundary and a newer view',
       should:
-        'abort obsolete work, retain the same healthy camera/transport and apply/announce only fresh server authority',
-      actual: result,
+        'abort it at once, read fresh with one active request, keep the same connection and camera, and never apply or announce the old microphone',
+      actual: {
+        stalled,
+        atBoundary,
+        atView,
+        afterInert,
+        afterWakes,
+        health,
+        maxActive: media.counts.maxActive,
+        applied: media.applied,
+        received: media.received,
+        timers: media.timer.pending(),
+        active: media.counts.active,
+      },
       expected: {
-        current: [true, 0, 1, 1, 1, 0, 'live', false],
-        after: [false, false, true],
+        stalled: [2, false],
+        atBoundary: [3, true, 1, 0],
+        atView: 4,
+        afterInert: 4,
+        afterWakes: 5,
+        health: ['live', 1, 1, 0, true],
+        maxActive: 1,
+        applied: ['camera', 'camera', 'camera'],
+        received: ['camera', 'camera'],
         timers: 0,
         active: 0,
       },
     });
   });
-  test(`disposal cancels actual ${mode} and browser SDK ownership`, async () => {
-    const result = await exercise(mode, true);
+
+  test(`a stalled ${mode} read expires at its one deadline and its retry owns a new one`, async () => {
+    const media = await compose(mode, [500]);
+    const pending = media.controller.reconcile({ kind: 'wake' });
+    await settle();
+    media.timer.advance(REQUEST_DEADLINE_MS - 1);
+    await settle();
+    const before = [media.heldAborted(), media.counts.reads];
+    media.timer.advance(1);
+    await settle();
+    const expired = [media.heldAborted(), media.counts.reads];
+    media.timer.advance(500);
+    await pending;
+    await settle();
+    const retried = [
+      media.counts.reads,
+      media.counts.stops,
+      media.sameCamera(),
+    ];
+    media.release();
+    await settle();
+    const late = [media.applied, media.received];
     assert({
-      given: 'terminal/account mount disposal with actual bounded HTTP and SDK',
+      given:
+        'a read that stalls past its 10 s deadline on a healthy connection',
       should:
-        'settle without deadline or queued work and never apply late media',
-      actual: result,
+        'abort at exactly the deadline, keep the camera live through the existing retry, and leave the late reply inert',
+      actual: { before, expired, retried, late, timers: media.timer.pending() },
       expected: {
-        current: [true, 0, 1, 1, 1, 1, 'ended', true],
-        after: [false, false, true],
+        before: [false, 2],
+        expired: [true, 2],
+        retried: [3, 0, true],
+        late: [['camera'], ['camera']],
         timers: 0,
-        active: 0,
+      },
+    });
+    media.controller.stop();
+  });
+
+  test(`disposal cancels actual ${mode} and browser SDK ownership`, async () => {
+    const media = await compose(mode);
+    const pending = media.controller.reconcile({ kind: 'wake' });
+    await settle();
+    media.controller.stop();
+    await pending;
+    const stopped = [
+      media.heldAborted(),
+      media.counts.active,
+      media.controller.state(),
+      media.cameraEnded(),
+    ];
+    media.release();
+    await settle();
+    media.timer.advance(120_000);
+    await settle();
+    assert({
+      given: 'terminal or account mount disposal during a held read',
+      should:
+        'settle without a deadline or queued work and never apply late media',
+      actual: {
+        stopped,
+        applied: media.applied,
+        received: media.received,
+        reads: media.counts.reads,
+        timers: media.timer.pending(),
+      },
+      expected: {
+        stopped: [true, 0, 'ended', true],
+        applied: [],
+        received: [],
+        reads: 2,
+        timers: 0,
       },
     });
   });

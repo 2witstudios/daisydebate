@@ -145,3 +145,30 @@ test('already cancelled parent does not start fetch', async () => {
     expected: [0, 'AbortError', 1],
   });
 });
+
+test('a non-OK answer releases its unread body and its one deadline', async () => {
+  const timer = deadline();
+  let signal: AbortSignal | undefined;
+  const request = createMediaRequest({
+    scheduleDeadline: timer.schedule,
+    fetch: async (_url, options) => {
+      signal = options?.signal ?? undefined;
+      return new Response('{}', { status: 503 });
+    },
+  });
+  const failure = await request(
+    'round',
+    'reconcile',
+    new AbortController().signal,
+  ).catch((error: unknown) => error);
+  assert({
+    given: 'a refused request whose body is never read',
+    should: 'classify it, abort its own request and cancel its deadline once',
+    actual: [
+      isTransientMediaFailure(failure),
+      signal?.aborted,
+      timer.cancelled(),
+    ],
+    expected: [true, true, 1],
+  });
+});

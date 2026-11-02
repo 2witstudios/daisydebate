@@ -60,6 +60,8 @@ export function createMediaRequest(input: {
       return await Promise.race([read(), interruption.promise]);
     } finally {
       cancelDeadline();
+      // An unread non-OK or abandoned body must not hold the connection open.
+      controller.abort();
       parent.removeEventListener('abort', cancel);
     }
   };

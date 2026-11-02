@@ -64,6 +64,8 @@ function RoundMediaSession({
     null,
   );
   const sound = useRef<(() => Promise<void>) | null>(null);
+  /** The latest accepted version, read when a Round mount's controller starts. */
+  const acceptedVersion = useRef(view.version);
   const refresh = useRef(onRefresh);
   useEffect(() => {
     refresh.current = onRefresh;
@@ -71,7 +73,7 @@ function RoundMediaSession({
   useEffect(() => {
     const mounted = createMediaController({
       roundId: view.id,
-      initialRoundViewVersion: view.version,
+      initialRoundViewVersion: acceptedVersion.current,
       api: {
         admit: (id, signal) => requestMedia(id, 'session', signal),
         reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),
@@ -117,6 +119,7 @@ function RoundMediaSession({
       controller.current?.stop();
       return;
     }
+    acceptedVersion.current = view.version;
     void controller.current?.reconcile({
       kind: 'view',
       roundViewVersion: view.version,

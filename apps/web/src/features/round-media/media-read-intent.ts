@@ -13,50 +13,49 @@ export type MediaReadIntent = {
   readonly generation: number;
   readonly disposed: boolean;
 };
-const validVersion = (version: number) =>
-  Number.isSafeInteger(version) && version >= 0;
+type Decision = {
+  readonly intent: MediaReadIntent;
+  readonly action: 'ignore' | 'wake' | 'supersede';
+};
+type RoundEvent = Exclude<MediaReadEvent, { readonly kind: 'wake' }>;
+
+const newerView = (intent: MediaReadIntent, version: number) =>
+  Number.isSafeInteger(version) && version > intent.roundViewVersion;
+const newBoundary = (
+  intent: MediaReadIntent,
+  event: Extract<RoundEvent, { readonly kind: 'boundary' }>,
+) =>
+  event.roundViewVersion === intent.roundViewVersion &&
+  Number.isSafeInteger(event.deadlineMs) &&
+  (intent.deadlineMs === null || event.deadlineMs > intent.deadlineMs);
+const supersede = (next: MediaReadIntent): Decision => ({
+  intent: { ...next, generation: next.generation + 1 },
+  action: 'supersede',
+});
+const decideRoundEvent = (
+  intent: MediaReadIntent,
+  event: RoundEvent,
+): Decision => {
+  if (event.kind === 'view')
+    return newerView(intent, event.roundViewVersion)
+      ? supersede({
+          ...intent,
+          roundViewVersion: event.roundViewVersion,
+          deadlineMs: null,
+        })
+      : { intent, action: 'ignore' };
+  return newBoundary(intent, event)
+    ? supersede({ ...intent, deadlineMs: event.deadlineMs })
+    : { intent, action: 'ignore' };
+};
 
 /** Rejected events preserve identity, including every event after disposal. */
 export function decideMediaRead(
   intent: MediaReadIntent,
   event: MediaReadEvent | { readonly kind: 'dispose' },
-): {
-  readonly intent: MediaReadIntent;
-  readonly action: 'ignore' | 'wake' | 'supersede';
-} {
-  const ignore = { intent, action: 'ignore' as const };
-  if (intent.disposed) return ignore;
+): Decision {
+  if (intent.disposed) return { intent, action: 'ignore' };
   if (event.kind === 'wake') return { intent, action: 'wake' };
-  if (event.kind === 'dispose')
-    return {
-      intent: { ...intent, disposed: true, generation: intent.generation + 1 },
-      action: 'supersede',
-    };
-  if (!validVersion(event.roundViewVersion)) return ignore;
-  if (event.kind === 'view')
-    return event.roundViewVersion > intent.roundViewVersion
-      ? {
-          intent: {
-            ...intent,
-            roundViewVersion: event.roundViewVersion,
-            deadlineMs: null,
-            generation: intent.generation + 1,
-          },
-          action: 'supersede',
-        }
-      : ignore;
-  if (
-    event.roundViewVersion !== intent.roundViewVersion ||
-    !Number.isSafeInteger(event.deadlineMs) ||
-    (intent.deadlineMs !== null && event.deadlineMs <= intent.deadlineMs)
-  )
-    return ignore;
-  return {
-    intent: {
-      ...intent,
-      deadlineMs: event.deadlineMs,
-      generation: intent.generation + 1,
-    },
-    action: 'supersede',
-  };
+  if (event.kind === 'dispose') return supersede({ ...intent, disposed: true });
+  return decideRoundEvent(intent, event);
 }

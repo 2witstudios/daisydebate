@@ -61,6 +61,12 @@ const deviceBlocked = (error: unknown) =>
     'NotReadableError',
   ].includes(error.name);
 
+const failureState = (error: unknown): MediaConnectionState => {
+  if (error instanceof Error && error.name === CHECKED_DEVICE_MISSING)
+    return 'device-missing';
+  return deviceBlocked(error) ? 'device-blocked' : 'unavailable';
+};
+
 type ReadTicket = {
   readonly generation: number;
   readonly abort: AbortController;
@@ -137,22 +143,12 @@ export function createMediaController(input: {
     release(previous?.transport ?? null);
     change('ended');
   };
-  const fail = (
-    owner: Connection | null,
-    generation: number,
-    error: unknown,
-  ) => {
+  const fail = (generation: number, error: unknown) => {
     if (stale(generation)) return;
+    const previous = connection;
     connection = null;
-    release(owner?.transport ?? null);
-    if (stale(generation)) return;
-    change(
-      error instanceof Error && error.name === CHECKED_DEVICE_MISSING
-        ? 'device-missing'
-        : deviceBlocked(error)
-          ? 'device-blocked'
-          : 'unavailable',
-    );
+    release(previous?.transport ?? null);
+    if (!stale(generation)) change(failureState(error));
   };
   const retrying = async (
     signal: AbortSignal,
@@ -197,7 +193,7 @@ export function createMediaController(input: {
       try {
         await owner.transport.apply(snapshot);
       } finally {
-        if (stale(owner.generation)) release(owner.transport);
+        if (!active(owner)) release(owner.transport);
       }
     });
     owner.applying = applying.catch(() => undefined);
@@ -224,7 +220,7 @@ export function createMediaController(input: {
           try {
             await synchronize(owner, ticket);
           } catch (error) {
-            if (current(owner, ticket)) fail(owner, owner.generation, error);
+            if (current(owner, ticket)) fail(owner.generation, error);
           } finally {
             owner.signal.removeEventListener('abort', cancel);
             if (owner.read === ticket) owner.read = null;
@@ -241,6 +237,51 @@ export function createMediaController(input: {
     owner.loop = loop;
     return loop;
   };
+  const open = async (
+    generation: number,
+    signal: AbortSignal,
+    admission: RoundMediaAdmission,
+  ) => {
+    const owner: Connection = {
+      generation,
+      signal,
+      transport: input.transport(),
+      connected: false,
+      queued: false,
+      read: null,
+      loop: null,
+      applying: Promise.resolve(),
+    };
+    if (stale(generation)) {
+      release(owner.transport);
+      return;
+    }
+    connection = owner;
+    const connecting = owner.transport.connect(admission);
+    void connecting
+      .finally(() => {
+        if (!active(owner)) release(owner.transport);
+      })
+      .catch(() => undefined);
+    await cancelMediaWork(signal, () => connecting);
+    if (!active(owner)) return;
+    owner.connected = true;
+    await read(owner);
+  };
+  const admit = async (generation: number, signal: AbortSignal) => {
+    const admission = roundMediaAdmissionSchema.parse(
+      await retrying(
+        signal,
+        () => input.api.admit(input.roundId, signal),
+        () => {
+          if (!stale(generation)) change('reconnecting');
+        },
+      ),
+    );
+    if (!stale(generation) && admission.roundId !== input.roundId)
+      throw new Error('Media Round mismatch');
+    return admission;
+  };
   const join = async (reconnect = false) => {
     if (intent.disposed) return;
     const generation = ++epoch;
@@ -253,48 +294,12 @@ export function createMediaController(input: {
     release(previous?.transport ?? null);
     if (stale(generation)) return;
     change(reconnect ? 'reconnecting' : 'connecting');
-    let owner: Connection | null = null;
     try {
-      const admission = roundMediaAdmissionSchema.parse(
-        await retrying(
-          signal,
-          () => input.api.admit(input.roundId, signal),
-          () => {
-            if (!stale(generation)) change('reconnecting');
-          },
-        ),
-      );
+      const admission = await admit(generation, signal);
       if (stale(generation)) return;
-      if (admission.roundId !== input.roundId)
-        throw new Error('Media Round mismatch');
-      owner = {
-        generation,
-        signal,
-        transport: input.transport(),
-        connected: false,
-        queued: false,
-        read: null,
-        loop: null,
-        applying: Promise.resolve(),
-      };
-      if (stale(generation)) {
-        release(owner.transport);
-        return;
-      }
-      connection = owner;
-      const target = owner;
-      const connecting = target.transport.connect(admission);
-      void connecting
-        .finally(() => {
-          if (stale(generation)) release(target.transport);
-        })
-        .catch(() => undefined);
-      await cancelMediaWork(signal, () => connecting);
-      if (!active(owner)) return;
-      owner.connected = true;
-      await read(owner);
+      await open(generation, signal, admission);
     } catch (error) {
-      fail(owner, generation, error);
+      fail(generation, error);
     }
   };
   const reconcile = (event: MediaReadEvent) => {
