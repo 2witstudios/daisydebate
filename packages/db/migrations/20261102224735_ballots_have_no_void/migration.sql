@@ -1,10 +1,10 @@
--- No code ever wrote a voided ballot, so this touches no row on a real database. It runs first so one could not refuse the constraint below.
-UPDATE "ballots" SET "status" = 'submitted' WHERE "status" <> 'submitted';--> statement-breakpoint
-SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "ballots" DROP CONSTRAINT "ballots_voided_by_actor_fk";--> statement-breakpoint
 ALTER TABLE "ballots" DROP CONSTRAINT "ballots_voided_fields_check";--> statement-breakpoint
 ALTER TABLE "ballots" DROP CONSTRAINT "ballots_voided_after_submitted";--> statement-breakpoint
 DROP INDEX "ballots_voided_by_actor_idx";--> statement-breakpoint
+-- No code ever wrote a voided ballot, so this touches no row on a real database. It runs first so one could not refuse the constraint below.
+UPDATE "ballots" SET "status" = 'submitted' WHERE "status" <> 'submitted';--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "ballots" DROP COLUMN "voided_at";--> statement-breakpoint
 ALTER TABLE "ballots" DROP COLUMN "voided_by_actor_id";--> statement-breakpoint
 ALTER TABLE "ballots" DROP CONSTRAINT "ballots_status_check", ADD CONSTRAINT "ballots_status_check" CHECK ("status" in ('submitted'));--> statement-breakpoint

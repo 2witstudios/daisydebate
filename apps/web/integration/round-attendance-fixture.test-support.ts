@@ -23,7 +23,7 @@ export async function seedSettledAttendanceLedger(
       deadline.getTime() + attendanceTimingPolicy.finalizationBufferMs,
     );
     await f.sql`insert into round_commands(command_id,round_id,service_id,type,payload_digest,result,resulting_version,applied_at) values(${commandId},${roundId},${`round-attendance:${createId()}`},'adjudicate',${'a'.repeat(64)},${{ segmentId: segment.id, decision: 'attended', effectiveDeadline: deadline.toISOString(), settledHorizon: horizon.toISOString() }},${round.version},clock_timestamp())`;
-    await f.sql`insert into round_attendance_adjudications(round_id,segment_id,command_id,decision,effective_deadline,settled_horizon) values(${roundId},${segment.id},${commandId},'attended',${deadline},${horizon})`;
+    await f.sql`insert into round_attendance_adjudications(evidence,round_id,segment_id,command_id,decision,effective_deadline,settled_horizon) values('settled_availability',${roundId},${segment.id},${commandId},'attended',${deadline},${horizon})`;
   }
 }
 

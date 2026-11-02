@@ -6,7 +6,7 @@ import {
   type RoomListPage,
 } from '@daisy/protocol';
 import { and, asc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
-import { unresolvedAttendance } from './attendance-settlement';
+import { readAttendanceLedger } from './attendance-settlement';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import { readJudgingPanelFacts } from './judging-panel-read';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -66,21 +66,16 @@ async function readWaitingFacts(
 ): Promise<RoundWaitingFacts> {
   const [facts] = (await tx.execute(sql`select
     clock_timestamp()::text as now,
-    r.final_segment_ended_at is not null as ended,
-    exists(select 1 from round_check_in_attempts where round_id=r.id and state='pending') as held,
-    ${unresolvedAttendance(sql`r.id`, sql`clock_timestamp()`)} as unresolved
+    r.final_segment_ended_at is not null as ended
     from rounds r where r.id=${round.id}`)) as unknown as {
     now: string;
     ended: boolean;
-    held: boolean;
-    unresolved: boolean;
   }[];
   if (!facts!.ended) return { speeches: 'running' };
   return {
     speeches: 'ended',
     nowMs: Date.parse(facts!.now),
-    heldByWriter: facts!.held,
-    attendanceUnresolved: facts!.unresolved,
+    attendance: await readAttendanceLedger(tx, round.id),
     frozen: round.transcriptCompleteness
       ? await readJudgingPanelFacts(tx, {
           roundId: round.id,

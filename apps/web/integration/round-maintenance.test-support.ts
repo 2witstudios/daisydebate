@@ -65,7 +65,7 @@ export const ordinaryMaintenance = (
     store,
     instanceId,
     ids: { next: createId },
-    evaluate: async () => null,
+    evaluate: async () => ({ kind: 'undecided' as const }),
   });
 
 export async function finalizeByMaintenance(

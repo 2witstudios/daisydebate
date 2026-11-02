@@ -138,7 +138,7 @@ async function writeProjection(
 
 async function rateOnce(
   tx: Tx,
-  { roundId, changeIds, decide }: RateDebateInput,
+  { roundId, changeIds, decide, attendanceSettled }: RateDebateInput,
 ): Promise<RateDebateResult> {
   const [round] = await tx
     .select()
@@ -173,6 +173,7 @@ async function rateOnce(
     await assertRoundAttendanceSettled(tx, {
       roundId,
       now: round.completedAt!.toISOString(),
+      attendanceSettled,
     });
 
   const seats = await tx

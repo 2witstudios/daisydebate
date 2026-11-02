@@ -35,7 +35,7 @@ if (import.meta.main) {
       store: database,
       instanceId,
       ids: { next: createId },
-      evaluate: async () => null,
+      evaluate: async () => ({ kind: 'undecided' as const }),
     });
     const pending = new Set(roundIds);
     const deadline = performance.now() + 150_000;

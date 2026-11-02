@@ -50,3 +50,31 @@ export const availabilityRecoveryPolicy = {
   recoverySamples: 3,
   maxSampleGapMs: 2000,
 } as const;
+
+/** What the attendance ledger holds for one Round, read for the engine's settlement rule. */
+export type AttendanceLedgerFacts = {
+  readonly ruleSegments: readonly {
+    readonly key: string;
+    readonly type: string;
+  }[];
+  readonly speeches: readonly {
+    readonly id: string;
+    readonly rulesSegmentKey: string | null;
+    readonly startedAt: string;
+  }[];
+  readonly adjudications: readonly {
+    readonly segmentId: string;
+    readonly decision: string;
+    readonly evidence: string;
+    readonly effectiveDeadline: string | null;
+    readonly settledHorizon: string | null;
+    readonly receiptParticipantId: string | null;
+  }[];
+  readonly receipts: readonly {
+    readonly segmentId: string;
+    readonly participantId: string;
+    readonly receivedAt: string;
+  }[];
+  /** An uncertain check-in writer holds every attendance decision. */
+  readonly pendingWriter: boolean;
+};

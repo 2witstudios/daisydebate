@@ -419,3 +419,4 @@ export type {
   PanelRuling,
   RoundEnding,
 } from './round-panel-completion';
+export type { AttendanceLedgerFacts } from './attendance';

@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { JudgingPanelFacts } from '@daisy/protocol';
+import type { attendanceSettled } from './attendance-order';
 import { roundWaitingOn } from './round-waiting-on';
 
 setupRitewayBun();
@@ -41,16 +42,26 @@ const humanFacts = (deadline: number, overrides = {}) =>
     ballotDeadlineAt: at(deadline),
     ...overrides,
   });
+const noSpeeches = {
+  ruleSegments: [],
+  speeches: [],
+  adjudications: [],
+  receipts: [],
+  pendingWriter: false,
+};
+/** A played speech with no decision: attendance is not settled. */
+const unsettled = {
+  ...noSpeeches,
+  speeches: [{ id: 's', rulesSegmentKey: 'AC', startedAt: at(0) }],
+};
 const ended = (
   facts: JudgingPanelFacts | null,
-  overrides: { heldByWriter?: boolean; attendanceUnresolved?: boolean } = {},
+  attendance: Parameters<typeof attendanceSettled>[0] = noSpeeches,
 ) => ({
   speeches: 'ended' as const,
   nowMs: 1_000,
-  heldByWriter: false,
-  attendanceUnresolved: false,
+  attendance,
   frozen: facts,
-  ...overrides,
 });
 
 describe('roundWaitingOn', () => {
@@ -98,7 +109,7 @@ describe('roundWaitingOn', () => {
       ],
       [
         'a validated ballot waiting on attendance',
-        ended(aiFacts({ holdsBallot: true }), { attendanceUnresolved: true }),
+        ended(aiFacts({ holdsBallot: true }), unsettled),
         { state: 'awaiting_attendance', deadlineAt: at(9_000) },
       ],
       [
@@ -128,10 +139,7 @@ describe('roundWaitingOn', () => {
       ],
       [
         'an uncertain writer: it outranks everything, with no deadline',
-        ended(humanFacts(2_000), {
-          heldByWriter: true,
-          attendanceUnresolved: true,
-        }),
+        ended(humanFacts(2_000), { ...unsettled, pendingWriter: true }),
         { state: 'held_by_writer' },
       ],
     ];

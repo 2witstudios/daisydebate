@@ -4,7 +4,10 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import { fenceAttendance } from './attendance-facts';
-import { assertRoundAttendanceSettled } from './attendance-settlement';
+import {
+  assertRoundAttendanceSettled,
+  type AttendanceSettledRule,
+} from './attendance-settlement';
 import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
@@ -54,6 +57,7 @@ type Request = LockedRoundTickInput & {
   /** Once per AI job this completion ended without a ballot. */
   readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
   readonly judgingEndReason: JudgingEndRule;
+  readonly attendanceSettled: AttendanceSettledRule;
   /** The engine decides; the caller supplies the ruling it decided with the projection. */
   readonly buildCompletion: (facts: CompletionFacts) => {
     readonly projection: ReturnType<LockedRoundTickInput['buildProjection']>;
@@ -110,7 +114,11 @@ async function readCompletionFacts(
     freeze,
     durable: durable as PanelDurableFacts | undefined,
   });
-  await assertRoundAttendanceSettled(tx, { roundId: input.roundId, now });
+  await assertRoundAttendanceSettled(tx, {
+    roundId: input.roundId,
+    now,
+    attendanceSettled: input.attendanceSettled,
+  });
   const stored = await tx
     .select({
       id: ballots.id,

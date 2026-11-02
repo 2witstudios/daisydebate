@@ -1,5 +1,6 @@
 import { bindRoundBallotPrincipal } from '@daisy/auth';
 import {
+  attendanceSettled,
   createRoundRuntime,
   decidePanelCompletion,
   judgingPanelOf,
@@ -52,6 +53,7 @@ export function prepareRoundBallotSubmission(
       .update(JSON.stringify(envelope))
       .digest('hex'),
     authorize,
+    attendanceSettled,
     /**
      * The panel's one decision. Only every seat ruling for one side completes
      * here; any other ending, a tie included, is panel completion's to record

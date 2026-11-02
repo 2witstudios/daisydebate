@@ -1,6 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import type { RoundProjection } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { NextAttendanceWindow } from './attendance-adjudication';
 import {
   adjudicationColumns,
   adjudicationCommand,
@@ -38,16 +39,33 @@ const resolution = (
 });
 const projection = {} as RoundProjection;
 
+/** The engine's rule, as injected; the db never imports the engine. */
+const nextWindow: NextAttendanceWindow = ({
+  ruleSegments: rules,
+  segments: rows,
+  finalizedSegmentIds,
+}) => {
+  const last = rules.filter((s) => s.type === 'speech').at(-1)?.key;
+  return rows.find(
+    (s) =>
+      s.type === 'speech' &&
+      s.rulesSegmentKey !== last &&
+      !finalizedSegmentIds.includes(s.id),
+  );
+};
+
 test('attendance resolves the earliest unadjudicated speech before the last one', async () => {
   assert({
     given: 'no adjudicated speech, then the first speech adjudicated',
     should: 'target the first, then the next speech, skipping cross-ex',
     actual: [
       requireAttendanceTarget(
+        nextWindow,
         { ruleSegments, segments, finalizedSegmentIds: [] },
         { segmentId: 'ac' },
       ).id,
       requireAttendanceTarget(
+        nextWindow,
         { ruleSegments, segments, finalizedSegmentIds: ['ac'] },
         { segmentId: 'nc' },
       ).id,
@@ -64,6 +82,7 @@ test('attendance resolves the earliest unadjudicated speech before the last one'
       should: 'refuse as an ordering invariant',
       actual: () =>
         requireAttendanceTarget(
+          nextWindow,
           { ruleSegments, segments, finalizedSegmentIds },
           { segmentId },
         ),
@@ -162,7 +181,7 @@ test('each evidence stores only its own shape', () => {
     should: 'store no deadline, horizon or receipt',
     actual: adjudicationColumns({
       segmentId: 'ac',
-      evidence: 'infrastructure_unresolved',
+      evidence: 'resolution_cutoff',
       decision: 'abandoned',
       projection,
     }),

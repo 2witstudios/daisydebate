@@ -19,7 +19,7 @@ export type AttendanceResolution = {
       readonly receiptParticipantId: string;
     }
   | {
-      readonly evidence: 'infrastructure_unresolved';
+      readonly evidence: 'resolution_cutoff';
       readonly decision: 'abandoned';
     }
 );
@@ -37,30 +37,18 @@ type AttendanceOrder<S> = {
   readonly segments: readonly S[];
   readonly finalizedSegmentIds: readonly string[];
 };
-/**
- * Windows resolve in actual speech order: the earliest unadjudicated speech
- * other than the final one. The final speech has no later check-in window.
- */
-export function nextAttendanceSegment<S extends AttendanceSegment>(
-  input: AttendanceOrder<S>,
-): S | undefined {
-  const lastSpeech = input.ruleSegments
-    .filter((segment) => segment.type === 'speech')
-    .at(-1)?.key;
-  return input.segments.find(
-    (segment) =>
-      segment.type === 'speech' &&
-      segment.rulesSegmentKey !== lastSpeech &&
-      !input.finalizedSegmentIds.includes(segment.id),
-  );
-}
+/** The engine's speech-order rule, injected: the db never imports the engine. */
+export type NextAttendanceWindow = <S extends AttendanceSegment>(
+  order: AttendanceOrder<S>,
+) => S | undefined;
 
 /** A resolution must name the window whose turn it is. */
 export function requireAttendanceTarget<S extends AttendanceSegment>(
+  nextWindow: NextAttendanceWindow,
   input: AttendanceOrder<S>,
   resolution: Pick<AttendanceResolution, 'segmentId'>,
 ): S {
-  const target = nextAttendanceSegment(input);
+  const target = nextWindow(input);
   if (!target || target.id !== resolution.segmentId)
     throw createAppError(
       'INVARIANT',

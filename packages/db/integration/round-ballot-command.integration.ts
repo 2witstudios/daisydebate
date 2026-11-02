@@ -1,3 +1,4 @@
+import { attendanceSettled } from './attendance-settled-rule.test-support';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { ballotCategories, type Ballot } from '@daisy/protocol';
@@ -49,6 +50,7 @@ test('ballot writes require actual frozen input and replay reauthorizes without 
       payloadDigest: 'a'.repeat(64),
       nextBallotId: createId,
       authorize: () => {},
+      attendanceSettled,
       buildProjection: () => null,
     };
     await assertRejects({

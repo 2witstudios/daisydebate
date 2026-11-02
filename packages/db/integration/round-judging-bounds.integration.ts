@@ -12,15 +12,18 @@ import {
 setupRitewayBun();
 requireTestServices(process.env);
 
-/** The Round's final speech ended long enough ago that its cutoff has passed. */
+/** The Round's final speech ended long enough ago that its cutoff has passed; its end is write-once, so the guard stays out of the way. */
 const playedOut = (
   fixture: Parameters<Parameters<typeof withJudgingJob>[0]>[0]['fixture'],
   roundId: string,
 ) =>
-  fixture.sql`update rounds set final_segment_ended_at=ended.at,
-    transcript_admission_cutoff=ended.at+interval '120 seconds',
-    attendance_resolution_cutoff_at=ended.at+interval '60 minutes'
-    from (select date_trunc('milliseconds',clock_timestamp())-interval '61 minutes' as at) ended where id=${roundId}`;
+  fixture.sql.begin(async (tx) => {
+    await tx`set local session_replication_role = replica`;
+    await tx`update rounds set final_segment_ended_at=ended.at,
+      transcript_admission_cutoff=ended.at+interval '120 seconds',
+      attendance_resolution_cutoff_at=ended.at+interval '60 minutes'
+      from (select date_trunc('milliseconds',clock_timestamp())-interval '61 minutes' as at) ended where id=\${roundId}`;
+  });
 
 const expire = (
   fixture: Parameters<Parameters<typeof withJudgingJob>[0]>[0]['fixture'],
@@ -367,12 +370,18 @@ test('a held ballot outlives the cutoff until it has had its chance to submit', 
         roundId,
         completeness: 'complete',
       });
+    const unended = await fixture.round();
     await assertRejects({
-      given: 'a frozen Round with no cutoff',
+      given: 'a Round read as frozen with no final end, so no cutoff',
       should: 'refuse rather than hold the ballot without end',
-      actual: facts,
+      actual: () =>
+        readJudgingPanelFacts(drizzle({ client: fixture.sql }), {
+          roundId: unended,
+          completeness: 'complete',
+        }),
       code: 'INVARIANT',
     });
+    await fixture.sql\`delete from rounds where id=\${unended}\`;
     await playedOut(fixture, roundId);
     const before = (await facts()).held;
     const attemptId = createId();
@@ -440,6 +449,7 @@ test('a fresh attendance decision also gives a held ballot its chance', async ()
       segment_id: segmentId,
       command_id: commandId,
       decision: 'none',
+      evidence: 'settled_availability',
       effective_deadline: new Date(),
       settled_horizon: new Date(),
     });

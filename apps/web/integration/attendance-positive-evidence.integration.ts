@@ -1,3 +1,4 @@
+import { decisionOf } from './attendance-evaluation.test-support';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { requireTestServices } from '@daisy/config';
 import { attendanceTimingPolicy, buildRoundTopic } from '@daisy/protocol';
@@ -63,7 +64,7 @@ test('an on-time speaker is credited with no availability history, inventing no 
         given: 'an on-time speaker receipt and no availability samples at all',
         should: 'record attendance from the receipt alone, Round still active',
         actual: {
-          decision: resolved?.decision,
+          decision: decisionOf(resolved),
           evidence: row.evidence,
           deadline: row.effective_deadline,
           horizon: row.settled_horizon,
@@ -136,9 +137,9 @@ test('the persisted cutoff ends an unprovable window with no winner, and a pendi
         should:
           'hold while a writer is uncertain, then abandon with no winner and no rating',
         actual: {
-          held: held?.decision,
+          held: decisionOf(held),
           whileHeld,
-          ended: ended?.decision,
+          ended: decisionOf(ended),
           evidence: row.evidence,
           horizon: row.settled_horizon,
           status: round.status,
@@ -149,7 +150,7 @@ test('the persisted cutoff ends an unprovable window with no winner, and a pendi
           held: 'held',
           whileHeld: 'active',
           ended: 'abandoned',
-          evidence: 'infrastructure_unresolved',
+          evidence: 'resolution_cutoff',
           horizon: null,
           status: 'abandoned',
           outcome: null,
@@ -227,7 +228,7 @@ test('a long-outage evaluation at the read cap stays inside its transaction budg
       assert({
         given: 'that history past the cutoff',
         should: 'end the Round with no winner',
-        actual: ended?.decision,
+        actual: decisionOf(ended),
         expected: 'abandoned',
       });
     } finally {
@@ -255,7 +256,7 @@ test('past the cutoff a provable absence is still decided, not abandoned', () =>
       assert({
         given: 'healthy history proving the absence, read after the cutoff',
         should: 'forfeit on the evidence',
-        actual: resolved?.decision,
+        actual: decisionOf(resolved),
         expected: 'forfeit',
       });
     } finally {

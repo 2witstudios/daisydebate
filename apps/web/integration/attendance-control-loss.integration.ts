@@ -1,3 +1,4 @@
+import { decisionOf } from './attendance-evaluation.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -61,7 +62,7 @@ test('a bot speaker missing its whole window abandons once even after a relaunch
           abandoned: results.filter(
             (result) =>
               result.status === 'fulfilled' &&
-              result.value?.decision === 'abandoned',
+              decisionOf(result.value) === 'abandoned',
           ).length,
           ...(await facts()),
         },

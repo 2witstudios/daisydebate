@@ -21,7 +21,7 @@ async function maintained(probe: string | undefined) {
         tickDueRound: async ({ roundId }: { roundId: string }) => {
           seen.push(roundId);
         },
-        evaluateRoundAttendance: async () => null,
+        evaluateRoundAttendance: async () => ({ kind: 'undecided' as const }),
         finalizeDueRoundTranscript: async () => ({ status: 'pending' }),
         readUnratedRatingRounds: async () => [],
       },
@@ -73,7 +73,7 @@ async function reportedBy(database: Record<string, unknown>) {
           exhausted: true,
         }),
         tickDueRound: async () => {},
-        evaluateRoundAttendance: async () => null,
+        evaluateRoundAttendance: async () => ({ kind: 'undecided' as const }),
         finalizeDueRoundTranscript: async () => ({ status: 'pending' }),
         readUnratedRatingRounds: async () => [],
         ...database,
@@ -96,7 +96,7 @@ test('a judging job maintenance ended reaches the failure report, by either path
     actual: await reportedBy({
       evaluateRoundAttendance: async (input: Reports) => {
         input.judgingEnded?.('ballot_hold_ended');
-        return null;
+        return { kind: 'undecided' as const };
       },
     }),
     expected: true,

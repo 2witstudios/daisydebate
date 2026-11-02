@@ -1,10 +1,8 @@
 import type { IdGenerator } from '@daisy/clock';
-import type {
-  AttendanceHold,
-  AttendanceResolution,
-} from '@daisy/db/attendance';
+import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import type { Database } from '@daisy/db';
 import {
+  attendanceSettled,
   botGrantUnused,
   createRoundRuntime,
   decidePanelCompletion,
@@ -82,9 +80,7 @@ export function createRoundMaintenanceOperations(input: {
   /** An AI judge's job ended at completion, with no worker there to report it. */
   readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
   readonly ids: IdGenerator;
-  readonly evaluate: (
-    roundId: string,
-  ) => Promise<AttendanceResolution | AttendanceHold | null>;
+  readonly evaluate: (roundId: string) => Promise<AttendanceEvaluation>;
   /** Injected policy: how long after the freeze judges may rule (DEC-201). */
   readonly ballotDeadlineMs?: number;
   /** Injected policy, never defaulted: how long a launched Round may stay unstarted (DEC-214). */
@@ -161,6 +157,7 @@ export function createRoundMaintenanceOperations(input: {
           buildProjection,
           buildCompletion: panelCompletion(() => input.ids.next()),
           judgingEndReason: judgingJobEndReason,
+          attendanceSettled,
           judgingEnded: (reason) => {
             if (judgingEndIsReported(reason)) input.judgingEnded?.(reason);
           },

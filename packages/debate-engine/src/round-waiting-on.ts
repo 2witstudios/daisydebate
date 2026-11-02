@@ -1,3 +1,4 @@
+import { attendanceSettled } from './attendance-order';
 import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
 import {
   decidePanelCompletion,
@@ -14,7 +15,7 @@ export function roundWaitingOn(
   input: RoundWaitingFacts,
 ): RoundWaitingOn | null {
   if (input.speeches === 'running') return null;
-  if (input.heldByWriter) return { state: 'held_by_writer' };
+  if (input.attendance.pendingWriter) return { state: 'held_by_writer' };
   if (input.frozen === null) return { state: 'closing_transcript' };
   const facts = input.frozen;
   const panel = judgingPanelOf(facts, input.nowMs);
@@ -29,7 +30,7 @@ export function roundWaitingOn(
     return { state: 'human_window', deadlineAt: decision.waiting.deadlineAt };
   if (decision.kind === 'pending' && decision.waiting.on === 'ai_generating')
     return { state: 'ai_processing', deadlineAt: decision.waiting.deadlineAt };
-  if (input.attendanceUnresolved)
+  if (!attendanceSettled(input.attendance, input.nowMs))
     return {
       state: 'awaiting_attendance',
       deadlineAt: facts.held.attendanceCutoffAt,

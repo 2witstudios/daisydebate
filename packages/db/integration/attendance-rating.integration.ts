@@ -31,7 +31,7 @@ test('RT rating discovery requires committed forfeit evidence and survives consu
         await session`insert into round_segments(id,round_id,sequence,type,rules_segment_key,started_at,duration_ms) values(${segmentId},${roundId},0,'speech',${first.key},'2026-10-05T12:00:00Z',${first.durationMs})`;
         await session`insert into round_commands(command_id,round_id,service_id,type,payload_digest,result,resulting_version,applied_at) values(${commandId},${roundId},${`round-attendance:${createId()}`},'adjudicate',${'a'.repeat(64)},${{}},1,'2026-10-05T12:01:00Z')`;
         await session`insert into round_finalizations(round_id,command_id,resulting_version) values(${roundId},${commandId},1)`;
-        await session`insert into round_attendance_adjudications(segment_id,round_id,command_id,decision,effective_deadline,settled_horizon) values(${segmentId},${roundId},${commandId},'forfeit','2026-10-05T12:00:40Z','2026-10-05T12:00:45Z')`;
+        await session`insert into round_attendance_adjudications(evidence,segment_id,round_id,command_id,decision,effective_deadline,settled_horizon) values('settled_availability',${segmentId},${roundId},${commandId},'forfeit','2026-10-05T12:00:40Z','2026-10-05T12:00:45Z')`;
       }
       assert({
         given: 'writer has not committed RT receipt',

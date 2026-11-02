@@ -1,3 +1,4 @@
+import { decisionOf } from './attendance-evaluation.test-support';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { withSeasons } from '@daisy/db/seasons';
@@ -73,7 +74,7 @@ async function maintainWith<T>(
       store: f.store,
       instanceId,
       ids: { next: createId },
-      evaluate: async () => null,
+      evaluate: async () => ({ kind: 'undecided' as const }),
     }),
   );
   try {
@@ -334,7 +335,7 @@ test('an AI job out of budget with no worker running is reported once, with the 
         instanceId,
         ids: { next: createId },
         ratingFailed: () => {},
-        evaluate: async () => null,
+        evaluate: async () => ({ kind: 'undecided' as const }),
         startHorizonMs: 60_000,
         probeRoundId: null,
         judgingEnded: (reason) => reported.push(reason),
@@ -411,7 +412,7 @@ test('a held ballot dropped at its bound is reported once, with the reason', asy
       instanceId,
       ids: { next: createId },
       ratingFailed: () => {},
-      evaluate: async () => null,
+      evaluate: async () => ({ kind: 'undecided' as const }),
       startHorizonMs: 60_000,
       probeRoundId: null,
       judgingEnded: (reason) => reported.push(reason),
@@ -454,7 +455,8 @@ for (const { holds, reason } of [
       });
       for (let pass = 0; pass < 8; pass++) {
         const decided = await attendance.evaluate(roundId);
-        if (!decided || decided.decision === 'abandoned') break;
+        if (decided.kind !== 'decided' || decisionOf(decided) === 'abandoned')
+          break;
       }
       const [job] =
         await f.sql`select terminal_reason from round_judging_jobs where round_id=${roundId}`;
@@ -495,7 +497,7 @@ test('a forfeit cutting off a held ballot ends it round_ended and reports nothin
         given: 'settled evidence of an absence, and a job holding a ballot',
         should: 'forfeit, end the job round_ended, and report nothing',
         actual: {
-          decision: decided?.decision,
+          decision: decisionOf(decided),
           reason: job.terminal_reason,
           reported,
         },
@@ -555,7 +557,7 @@ test('a forfeit on an incomplete freeze still has a rating coming', async () => 
         given: 'a provable absence deciding a ranked Round frozen incomplete',
         should: 'answer that the writer would still rate it',
         actual: {
-          decision: decided?.decision,
+          decision: decisionOf(decided),
           awaits: await f.store.readRoundAwaitsRating(roundId),
         },
         expected: { decision: 'forfeit', awaits: true },
@@ -601,7 +603,7 @@ for (const { pastBudget, reason, reported } of [
           given: 'a provable absence with an open judging job',
           should: 'report only an ending that is not the forfeit itself',
           actual: {
-            decision: decided?.decision,
+            decision: decisionOf(decided),
             reason: job.terminal_reason,
             ended,
           },

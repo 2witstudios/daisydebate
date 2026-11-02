@@ -5,6 +5,7 @@ import type {
   RoundParticipantSeat,
 } from '@daisy/protocol';
 import { attendancePolicy } from './attendance';
+import { finalSpeechKey } from './attendance-order';
 import {
   applyRoundCommand,
   closePlayedRound,
@@ -21,7 +22,7 @@ export type RoundAdjudication = {
       }
     | { readonly decision: 'abandoned'; readonly effectiveDeadlineMs: number }
     /** Settled evidence never came and the persisted cutoff passed (DEC-276). */
-    | { readonly decision: 'unresolved'; readonly cutoffAtMs: number };
+    | { readonly decision: 'abandoned'; readonly cutoffAtMs: number };
   readonly now: string;
 };
 /** Only the durable evaluator supplies a verified decision; this guards its actual runtime target. */
@@ -32,7 +33,7 @@ export function applyRoundAdjudication(
   participants: readonly RoundParticipantSeat[],
 ): void {
   const { row, target } = requireActualSpeech(c, input, segments);
-  if (input.decision.decision === 'unresolved') {
+  if ('cutoffAtMs' in input.decision) {
     if (
       !Number.isFinite(input.decision.cutoffAtMs) ||
       !Number.isFinite(c.now) ||
@@ -67,15 +68,11 @@ function requireActualSpeech(
 ) {
   const row = segments.find((s) => s.id === input.segmentId);
   const target = row ? c.rules.segments[row.sequence] : undefined;
-  const lastSpeech = c.rules.segments.reduce(
-    (last, s, index) => (s.type === 'speech' ? index : last),
-    -1,
-  );
   if (
     !row ||
     !target ||
     target.type !== 'speech' ||
-    row.sequence === lastSpeech ||
+    target.key === finalSpeechKey(c.rules.segments) ||
     c.on.lifecycle().status !== 'active'
   )
     throw createAppError('INVARIANT');

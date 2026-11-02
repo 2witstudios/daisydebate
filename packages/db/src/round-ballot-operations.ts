@@ -1,7 +1,10 @@
 import type { JudgingPanelFacts } from '@daisy/protocol';
 import { readJudgingPanelFacts } from './judging-panel-read';
 import { roundBallotReads } from './round-ballot-reads';
-import { assertRoundAttendanceSettled } from './attendance-settlement';
+import {
+  assertRoundAttendanceSettled,
+  type AttendanceSettledRule,
+} from './attendance-settlement';
 import { createAppError } from '@daisy/errors';
 import {
   roundBallotEnvelopeSchema,
@@ -74,6 +77,7 @@ export type LockedRoundBallotInput = {
     tx: RoundWriteTransaction,
     context: RoundBallotLeaseContext,
   ) => Promise<void>;
+  readonly attendanceSettled: AttendanceSettledRule;
   /** Pure engine callback. Null means other required judges have not submitted yet. */
   readonly buildProjection: (
     context: LockedRoundBallotContext & {
@@ -194,6 +198,7 @@ async function persistBallotResult(
     await assertRoundAttendanceSettled(tx, {
       roundId: input.roundId,
       now: context.now,
+      attendanceSettled: input.attendanceSettled,
     });
   const changed = projection
     ? await writeProjectionWithPhaseSignal(

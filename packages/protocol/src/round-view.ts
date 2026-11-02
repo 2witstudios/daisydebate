@@ -1,3 +1,4 @@
+import type { AttendanceLedgerFacts } from './attendance';
 import type { JudgingPanelFacts } from './round-panel-completion';
 import { z } from 'zod';
 import { idSchema, debateRoleSchema, ratingLadders } from './primitives';
@@ -53,9 +54,7 @@ export type RoundWaitingFacts =
   | {
       readonly speeches: 'ended';
       readonly nowMs: number;
-      /** An uncertain check-in writer holds every attendance decision. */
-      readonly heldByWriter: boolean;
-      readonly attendanceUnresolved: boolean;
+      readonly attendance: AttendanceLedgerFacts;
       /** Null until the transcript freezes. */
       readonly frozen: JudgingPanelFacts | null;
     };

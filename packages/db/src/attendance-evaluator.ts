@@ -21,10 +21,10 @@ import { eligibleCompetitorIds } from './seat-eligibility';
 import {
   adjudicationColumns,
   adjudicationCommand,
-  nextAttendanceSegment,
   requireAttendanceTarget,
   requireResolutionProjection,
   type AttendanceResolution,
+  type NextAttendanceWindow,
 } from './attendance-adjudication';
 
 async function readResolutionCutoff(
@@ -46,13 +46,14 @@ async function withEvidence(
   tx: AttendanceTransactionContext,
   facts: AttendanceReceiptFacts,
   finalizedSegmentIds: readonly string[],
+  nextWindow: NextAttendanceWindow,
 ): Promise<AttendanceEvaluationFacts> {
   return {
     ...facts,
     resolutionCutoffAt: await readResolutionCutoff(tx, facts.round.id),
     samples: await attendanceSamples(
       tx,
-      nextAttendanceSegment({
+      nextWindow({
         ruleSegments: facts.round.rules.segments,
         segments: facts.round.segments,
         finalizedSegmentIds,
@@ -76,11 +77,12 @@ export type AttendanceEvaluationFacts = AttendanceReceiptFacts & {
   /** Null until the actual final speech has ended (DEC-276). */
   readonly resolutionCutoffAt: string | null;
 };
-/** An uncertain check-in writer holds every decision, including the cutoff. */
-export type AttendanceHold = {
-  readonly decision: 'held';
-  readonly reason: 'pending_writer';
-};
+/** What one attendance pass found. */
+export type AttendanceEvaluation =
+  | { readonly kind: 'undecided' }
+  /** An uncertain check-in writer holds every decision, including the cutoff. */
+  | { readonly kind: 'held'; readonly reason: 'pending_writer' }
+  | { readonly kind: 'decided'; readonly resolution: AttendanceResolution };
 /** One Round fence, immutable ordered receipts, and the SAME engine projection/history/outbox writer. */
 export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
   return async (input: {
@@ -89,6 +91,8 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
     readonly instanceId: string;
     /** An AI job this decision found out of budget, with no worker to report it. */
     readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
+    /** The engine's speech-order rule. */
+    readonly nextWindow: NextAttendanceWindow;
     /** Judging, not attendance, names why the Round's end ended a job. */
     readonly judgingEndReason: JudgingEndRule;
     /** Decided first, with no history read: the common case stays cheap. */
@@ -98,7 +102,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
     readonly resolve: (
       facts: AttendanceEvaluationFacts,
     ) => AttendanceResolution | null;
-  }): Promise<AttendanceResolution | AttendanceHold | null> => {
+  }): Promise<AttendanceEvaluation> => {
     if (
       ![input.roundId, input.commandId, input.instanceId].every(
         (id) => idSchema.safeParse(id).success,
@@ -107,7 +111,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
       throw createAppError('VALIDATION');
     let ended: readonly JudgingTerminalReason[] = [];
     const outcome = await transaction(
-      async (tx): Promise<AttendanceResolution | AttendanceHold | null> => {
+      async (tx): Promise<AttendanceEvaluation> => {
         await requireCurrentWeb(tx, input.instanceId);
         const { current, round, seats } = await fenceAttendance(
           tx,
@@ -120,7 +124,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
           sql`select attempt_id from round_check_in_attempts where round_id=${round.id} and state='pending' limit 1`,
         );
         if (pending.length > 0)
-          return { decision: 'held', reason: 'pending_writer' };
+          return { kind: 'held', reason: 'pending_writer' };
         const finalizedSegmentIds = await finalizedAttendanceSegments(
           tx,
           round.id,
@@ -151,9 +155,17 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
         };
         const resolution =
           input.resolveOnReceipts(facts) ??
-          input.resolve(await withEvidence(tx, facts, finalizedSegmentIds));
-        if (!resolution) return null;
+          input.resolve(
+            await withEvidence(
+              tx,
+              facts,
+              finalizedSegmentIds,
+              input.nextWindow,
+            ),
+          );
+        if (!resolution) return { kind: 'undecided' };
         const target = requireAttendanceTarget(
+          input.nextWindow,
           {
             ruleSegments: round.rules.segments,
             segments: round.segments,
@@ -204,7 +216,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
             judgingEndReason: input.judgingEndReason,
           });
         await requireCurrentWeb(tx, input.instanceId);
-        return resolution;
+        return { kind: 'decided', resolution };
       },
     );
     // After commit.

@@ -1,5 +1,5 @@
 import type { RoundHydration } from '@daisy/db/rounds';
-import type { AttendanceWindow } from '@daisy/debate-engine';
+import { finalSpeechKey, type AttendanceWindow } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 /** Actual immutable opening + frozen scheduled slot; current floor/media eligibility grant no attendance authority. */
 export function attendanceWindowFor(
@@ -23,9 +23,6 @@ export function attendanceWindowFor(
       'INVARIANT',
       'Actual speech requires its scheduled speaker slot',
     );
-  const last = round.rules.segments
-    .filter((segment) => segment.type === 'speech')
-    .at(-1);
   return {
     segmentId,
     openedAtMs: Date.parse(actual.startedAt),
@@ -40,6 +37,6 @@ export function attendanceWindowFor(
         id: seat.id,
         side: seat.role as 'affirmative' | 'negative',
       })),
-    lastSpeech: last?.key === scheduled.key,
+    lastSpeech: finalSpeechKey(round.rules.segments) === scheduled.key,
   };
 }
