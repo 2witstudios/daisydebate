@@ -1,5 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createResumedClockWitness } from '../e2e/support/round-timing-response';
+import {
+  createResumedClockWitness,
+  routeServerActions,
+} from '../e2e/support/round-timing-response';
 
 setupRitewayBun();
 
@@ -177,5 +180,98 @@ test('a matching capture failure is fatal to the witness', async () => {
     should: 'throw that failure from the read rather than report no evidence',
     actual: thrown,
     expected: failure,
+  });
+});
+
+const serverActionsPage = () => {
+  let handler: (route: never) => Promise<void> = async () => undefined;
+  let routes = 0;
+  return {
+    routes: () => routes,
+    deliver: (route: unknown) => handler(route as never),
+    page: {
+      route: async (_url: string, next: (route: never) => Promise<void>) => {
+        routes++;
+        handler = next;
+      },
+    },
+  };
+};
+const actionRoute = (nextAction?: string, method = 'POST') => {
+  const calls: string[] = [];
+  return {
+    calls,
+    request: () => ({
+      method: () => method,
+      headers: () => (nextAction ? { 'next-action': nextAction } : {}),
+    }),
+    fallback: async () => {
+      calls.push('fallback');
+    },
+  };
+};
+
+test('one Server Action route serves every journey step', async () => {
+  const fixture = serverActionsPage();
+  const actions = await routeServerActions(
+    fixture.page as never,
+    'https://room',
+  );
+  const passed = actionRoute('a');
+  await fixture.deliver(passed);
+  const seen: unknown[] = [];
+  actions.use(async (route) => {
+    seen.push(route);
+  });
+  const stepped = actionRoute('a');
+  const document = actionRoute(undefined, 'GET');
+  await fixture.deliver(stepped);
+  await fixture.deliver(document);
+  await actions.pass();
+  const after = actionRoute('a');
+  await fixture.deliver(after);
+  assert({
+    given: 'pass-through, then a step, then pass-through again',
+    should:
+      'keep one installed route, give the step only Server Actions and fall back otherwise',
+    actual: [
+      fixture.routes(),
+      passed.calls,
+      seen,
+      stepped.calls,
+      document.calls,
+      after.calls,
+    ],
+    expected: [1, ['fallback'], [stepped], [], ['fallback'], ['fallback']],
+  });
+});
+
+test('passing through waits for a step already delivering', async () => {
+  const fixture = serverActionsPage();
+  const actions = await routeServerActions(
+    fixture.page as never,
+    'https://room',
+  );
+  let release = () => {};
+  actions.use(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+  );
+  const delivering = fixture.deliver(actionRoute('a'));
+  let drained = false;
+  const passing = actions.pass().then(() => {
+    drained = true;
+  });
+  await Promise.resolve();
+  const beforeRelease = drained;
+  release();
+  await Promise.all([delivering, passing]);
+  assert({
+    given: 'a step still holding a reply when the journey moves on',
+    should: 'finish draining only after that reply is delivered',
+    actual: [beforeRelease, drained],
+    expected: [false, true],
   });
 });

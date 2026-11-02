@@ -1,4 +1,4 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createRoundTime,
   decideSample,
@@ -63,5 +63,26 @@ test('rollback tolerance uses the previous and candidate error bounds', () => {
       }),
     ).accepted,
     expected: false,
+  });
+});
+
+describe('decideSample pure boundary', () => {
+  test('interval boundaries are inclusive at zero and exclusive beyond the envelope', () => {
+    assert({
+      given:
+        'an instantaneous interval and an interval one millisecond too long',
+      should: 'accept the first and refuse the second',
+      actual: [
+        decideSample(
+          seed,
+          sample({ sentAtMs: 7, receivedAtMs: 7, generation: 1 }),
+        ).accepted,
+        decideSample(
+          seed,
+          sample({ sentAtMs: 0, receivedAtMs: -1, generation: 2 }),
+        ).accepted,
+      ],
+      expected: [true, false],
+    });
   });
 });

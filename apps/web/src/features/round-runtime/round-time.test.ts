@@ -2,21 +2,12 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createMeasuredRead,
   createRoundTime,
-  decideSample,
   MAX_SAMPLE_RTT_MS,
-  type Calibration,
   type RoundTimeSample,
   type SampleDecision,
 } from './round-time';
 
 setupRitewayBun();
-const seed: Calibration = {
-  serverAtReceiveMs: 0,
-  monoAtReceiveMs: 0,
-  uncertaintyMs: Number.POSITIVE_INFINITY,
-  generation: -1,
-  real: false,
-};
 
 const sample = (overrides: Partial<RoundTimeSample> = {}): RoundTimeSample => ({
   serverNowMs: 10_000,
@@ -310,27 +301,6 @@ describe('createMeasuredRead', () => {
         50_500,
         { accepted: false, refusal: 'server-rollback' },
       ],
-    });
-  });
-});
-
-describe('decideSample pure boundary', () => {
-  test('interval boundaries are inclusive at zero and exclusive beyond the envelope', () => {
-    assert({
-      given:
-        'an instantaneous interval and an interval one millisecond too long',
-      should: 'accept the first and refuse the second',
-      actual: [
-        decideSample(
-          seed,
-          sample({ sentAtMs: 7, receivedAtMs: 7, generation: 1 }),
-        ).accepted,
-        decideSample(
-          seed,
-          sample({ sentAtMs: 0, receivedAtMs: -1, generation: 2 }),
-        ).accepted,
-      ],
-      expected: [true, false],
     });
   });
 });

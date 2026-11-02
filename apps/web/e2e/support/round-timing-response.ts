@@ -1,3 +1,7 @@
+import type { Page, Route } from '@playwright/test';
+
+export type ActionRoute = (route: Route) => Promise<void>;
+
 export type RoundClockDelivery = {
   readonly status: number;
   readonly serverNowMs: number | null;
@@ -81,6 +85,38 @@ export function createResumedClockWitness(expected: {
     read(): RoundClockDelivery | null {
       if (observed.kind === 'failed') throw observed.failure;
       return observed.kind === 'captured' ? observed.delivery : null;
+    },
+  };
+}
+
+const passThrough: ActionRoute = (route) => route.fallback();
+
+/**
+ * One long-lived route over a page's Server Actions, whose behavior the
+ * journey swaps. `pass` returns to pass-through once in-flight steps finish.
+ */
+export async function routeServerActions(page: Page, url: string) {
+  let current = passThrough;
+  const inFlight = new Set<Promise<void>>();
+  await page.route(url, async (route) => {
+    const request = route.request();
+    if (request.method() !== 'POST' || !request.headers()['next-action'])
+      return route.fallback();
+    const handled = current(route);
+    inFlight.add(handled);
+    try {
+      await handled;
+    } finally {
+      inFlight.delete(handled);
+    }
+  });
+  return {
+    use(next: ActionRoute) {
+      current = next;
+    },
+    async pass() {
+      current = passThrough;
+      await Promise.all(inFlight);
     },
   };
 }
