@@ -1,10 +1,12 @@
 import {
   challengeListSchema,
+  moderationNoticesSchema,
   onlineRosterSchema,
   presenceSettingResultSchema,
 } from '@daisy/protocol';
 import { headers } from 'next/headers';
 import { GET as readChallengesRoute } from '../../api/challenges/route';
+import { GET as readNoticesRoute } from '../../api/reports/notices/route';
 import { GET as readOnlineRoute } from '../../api/online/route';
 import { GET as readPresenceRoute } from '../../api/presence/route';
 import { readOwnRoute } from '../friends/read-route';
@@ -36,3 +38,13 @@ export async function readChallenges() {
 export const readChosenStatus = async () =>
   (await readOwnRoute(readPresenceRoute, '/api/presence', presenceSettingResultSchema))
     ?.status ?? 'online';
+
+/** The viewer's own unread warnings. */
+export const readModerationNotices = async () =>
+  (
+    await readOwnRoute(
+      readNoticesRoute,
+      '/api/reports/notices',
+      moderationNoticesSchema,
+    )
+  )?.notices ?? [];

@@ -101,7 +101,7 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
   assert({
     given: 'a request, an acceptance and a removal',
     should:
-      'fence each write, spend the request on the ledger, clear declines on acceptance, and end the pair’s challenges with the friendship',
+      'fence each write, spend the request on the ledger, clear declines on acceptance, and leave challenges alone when a friendship ends',
     actual: [fences, tables(queries), queries[1]?.params.at(-2)],
     expected: [
       3,
@@ -112,7 +112,6 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
         'delete social_request_declines',
         'update friendships',
         'delete friendships',
-        'delete friend_challenges',
       ],
       true,
     ],
@@ -161,6 +160,6 @@ test('Friends’ block reaction deletes the pair’s friendship and challenges; 
     given: 'a block and then an unblock',
     should: 'delete the friendship and its challenges only on the block',
     actual: [await run(true), await run(false)],
-    expected: [['friendships', 'friend_challenges'], []],
+    expected: [['friendships', 'challenges'], []],
   });
 });

@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { fixedClock } from '@daisy/clock/testing';
+import { fixedClock } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { readChosen, setChosenStatus } from './setting';
 
@@ -48,7 +48,7 @@ describe('setChosenStatus', () => {
       given: 'no member actor',
       should: 'refuse',
       code: 'AUTHORIZATION',
-      run: () =>
+      actual: () =>
         setChosenStatus({ kind: 'anonymous' } as unknown as AuthorizationPrincipal, 'online', {
           clock: fixedClock('2026-11-02T00:00:00.000Z'),
           limit: async () => {},

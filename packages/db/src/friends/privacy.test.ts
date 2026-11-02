@@ -24,7 +24,7 @@ test('Friends erases and exports only its own tables, after Messaging', async ()
   assert({
     given: 'an erased subject, then an exporting one',
     should:
-      'delete their challenges then friendships after the before-auth phase, and export both tables',
+      'delete their friendships after the before-auth phase, and export them',
     actual: [
       friendsPrivacyAdopter.phase,
       erased.queries.map(
@@ -34,8 +34,8 @@ test('Friends erases and exports only its own tables, after Messaging', async ()
     ],
     expected: [
       'after-close',
-      ['friend_challenges', 'friendships'],
-      ['friendships', 'friend_challenges'],
+      ['friendships'],
+      ['friendships'],
     ],
   });
 });

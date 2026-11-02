@@ -30,6 +30,10 @@ describe('retention targets', () => {
       sweeps,
       database: {
         purgeExpiredVerifications: record('verification'),
+        purgeExpiredChallenges: ({ now, limit }) =>
+          record('challenges')({ before: now, limit }),
+        purgeClosedReports: ({ now, limit }) =>
+          record('reports')({ before: now, limit }),
         purgeExpiredOutboxEvents: record('outbox'),
         purgeExpiredEmailDeliveryEvents: record('email_delivery_event'),
         purgeExpiredEmailDeliveries: record('email_delivery'),
@@ -117,6 +121,8 @@ describe('retention targets', () => {
           { name: 'retention.round_analyses', batchSize: 500, maxBatches: 20 },
           { name: 'retention.social_declines', batchSize: 500, maxBatches: 20 },
           { name: 'retention.social_requests', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.challenges', batchSize: 1000, maxBatches: 50 },
+          { name: 'retention.reports', batchSize: 1000, maxBatches: 50 },
           {
             name: 'retention.presence_online',
             batchSize: 1000,
@@ -124,6 +130,8 @@ describe('retention targets', () => {
           },
         ],
         calls: {
+          challenges: [{ before: '2026-09-20T12:00:00.000Z', limit: 1000 }],
+          reports: [{ before: '2026-09-20T12:00:00.000Z', limit: 1000 }],
           verification: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           session: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           provisional_user: [{ before: '2026-09-19T12:00:00.000Z', limit: 50 }],
@@ -170,7 +178,7 @@ describe('retention targets', () => {
     assert({
       given: 'a clock that returns an unparsable timestamp',
       should:
-        'report ok:false for the sixteen database targets with no purge issued, and sweep the Redis online set by its own clock',
+        'report ok:false for the database targets with no purge issued, and sweep the Redis online set by its own clock',
       actual: {
         ok: results.map(({ operation, ok }) => [operation, ok]),
         calls,
@@ -197,11 +205,13 @@ describe('retention targets', () => {
           ['retention.round_analyses', false],
           ['retention.social_declines', false],
           ['retention.social_requests', false],
+          ['retention.challenges', false],
+          ['retention.reports', false],
           ['retention.presence_online', true],
         ],
         calls: {},
         sweeps: [1000],
-        failed: 17,
+        failed: 19,
       },
     });
   });

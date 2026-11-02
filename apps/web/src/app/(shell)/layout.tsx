@@ -12,7 +12,9 @@ import { UiStoreProvider } from '../../ui/store/store';
 import { OnlineShell } from './online/online-shell';
 import { setStatusAction } from './online/actions';
 import { StatusForm } from '../../ui/online/status-form';
-import { readChosenStatus } from './online/read-online';
+import { acknowledgeNoticeAction } from './online/actions';
+import { readChosenStatus, readModerationNotices } from './online/read-online';
+import { ModerationNotices } from '../../ui/online/moderation-notices';
 import { shellAccount } from '../../lib/shell-account';
 import {
   requestIdentity,
@@ -49,8 +51,10 @@ export default async function ShellLayout({
     identity.state === 'member'
       ? await OnlineShell({ preference: onlineRail, activeRoomId: activeRoom?.id ?? null })
       : null;
-  const chosen =
-    identity.state === 'member' ? await readChosenStatus() : null;
+  const [chosen, notices] =
+    identity.state === 'member'
+      ? await Promise.all([readChosenStatus(), readModerationNotices()])
+      : [null, []];
   const ratings: Promise<ShellRatings> | null =
     identity.state === 'member'
       ? requestMemberStandings(identity.username).then(
@@ -73,6 +77,10 @@ export default async function ShellLayout({
           ) : undefined
         }
       >
+        <ModerationNotices
+          notices={notices}
+          acknowledge={acknowledgeNoticeAction}
+        />
         <Suspense fallback={null}>
           <SampleActionNotice />
         </Suspense>

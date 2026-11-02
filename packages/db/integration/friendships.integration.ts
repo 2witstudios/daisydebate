@@ -3,7 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
 import { listFriendships } from '../src/friends/reads';
-import { writePresenceHidden } from '../src/presence/settings';
+import { writeChosenStatus } from '../src/presence/settings';
 import {
   friendCommand,
   openPairStore,
@@ -163,19 +163,19 @@ test('a friend’s hidden choice reaches the other member’s list as one stored
   const { userId, otherUserId, actorId, otherActorId, low, high, now } =
     fixture;
   const unfenced = async () => {};
-  const otherHidden = async () =>
+  const otherChosen = async () =>
     (
       await listFriendships(
         database,
         { userId: userId!, actorId: actorId! },
         unfenced,
       )
-    ).map((row) => row.otherHidden);
+    ).map((row) => row.otherChosen);
   const hide = (hidden: boolean) =>
-    writePresenceHidden(
+    writeChosenStatus(
       database,
       { userId: otherUserId!, actorId: otherActorId! },
-      { hidden, now },
+      { status: hidden ? ('offline' as const) : ('online' as const), now },
       unfenced,
     );
   try {
@@ -187,10 +187,10 @@ test('a friend’s hidden choice reaches the other member’s list as one stored
       "insert into friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) values($1,$2,$3,'accepted',$4,$4)",
       [low, high, actorId, now],
     );
-    const beforeAnyChoice = await otherHidden();
+    const beforeAnyChoice = await otherChosen();
     await hide(true);
     await hide(false);
-    const shown = await otherHidden();
+    const shown = await otherChosen();
     await hide(true);
     const [stored] = (await client.unsafe(
       'select count(*)::int as count from presence_settings where actor_id=$1',
@@ -201,8 +201,8 @@ test('a friend’s hidden choice reaches the other member’s list as one stored
         'a friend with no stored choice, who then hides, shows and hides again',
       should:
         'list them as visible until they hide, follow each choice, and keep one row',
-      actual: [beforeAnyChoice, shown, await otherHidden(), stored?.count],
-      expected: [[false], [false], [true], 1],
+      actual: [beforeAnyChoice, shown, await otherChosen(), stored?.count],
+      expected: [['online'], ['online'], ['offline'], 1],
     });
   } finally {
     await client.unsafe('delete from presence_settings where actor_id=$1', [

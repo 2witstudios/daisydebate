@@ -241,14 +241,16 @@ export function retentionTargets({
       name: 'retention.challenges',
       batchSize: 1000,
       maxBatches: 50,
-      purge: (batch) => database.purgeExpiredChallenges(batch),
+      purge: ({ now, limit }) =>
+        database.purgeExpiredChallenges({ now: cutoff(now, 0), limit }),
     },
     /** Closed reports past their proposed evidence retention (DEC-298). */
     {
       name: 'retention.reports',
       batchSize: 1000,
       maxBatches: 50,
-      purge: (batch) => database.purgeClosedReports(batch),
+      purge: ({ now, limit }) =>
+        database.purgeClosedReports({ now: cutoff(now, 0), limit }),
     },
     {
       name: 'retention.presence_online',

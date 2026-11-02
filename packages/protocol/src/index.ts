@@ -373,8 +373,9 @@ export type {
   ChallengeResult,
 } from './challenges';
 export {
+  moderationAcknowledgeSchema,
   moderationKinds,
-  moderationNoticeSchema,
+  moderationNoticesSchema,
   reportCommandSchema,
   reportOutcomes,
   reportReasonLabels,

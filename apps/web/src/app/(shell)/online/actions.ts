@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { cookies, headers } from 'next/headers';
 import { systemId } from '@daisy/clock';
 import {
@@ -45,6 +46,7 @@ const routes = {
   decline: processRoute((all) => all.challenges.decline),
   cancel: processRoute((all) => all.challenges.cancel),
   report: processRoute((all) => all.reports.file),
+  acknowledge: processRoute((all) => all.reports.acknowledge),
   block: processRoute((all) => all.contacts.blockByUsername),
   createRoom: processRoute((all) => all.rooms.create),
   catalog: processRoute((all) => all.rooms.catalog),
@@ -267,4 +269,13 @@ export async function blockAction(
   } catch {
     return { notice: personActionNotices.blockFailed };
   }
+}
+
+/** Marks a warning read. A form with no typed input, so a failure stays silent. */
+export async function acknowledgeNoticeAction(form: FormData): Promise<void> {
+  await post(routes.acknowledge, '/api/reports/notices', {
+    version: 1,
+    id: text(form, 'id'),
+  });
+  revalidatePath('/', 'layout');
 }

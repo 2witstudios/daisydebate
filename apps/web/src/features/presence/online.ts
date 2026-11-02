@@ -36,6 +36,7 @@ type RosterCursor = {
 
 export type OnlineRosterDependencies = {
   readonly now: () => string;
+  readonly limit: (actorId: string) => Promise<void>;
   readonly onlineActorIds: () => Promise<readonly string[]>;
   readonly activity: (
     actorIds: readonly string[],
@@ -142,6 +143,7 @@ export async function readOnlineRoster(
   dependencies: OnlineRosterDependencies,
 ): Promise<Omit<OnlineRoster, 'version'>> {
   const { actorId, userId } = requireMemberActor(principal);
+  await dependencies.limit(actorId);
   const after = decodeRosterCursor(input.cursor);
   const onlineActorIds = await dependencies.onlineActorIds();
   const page = await dependencies.page(

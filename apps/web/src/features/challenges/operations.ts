@@ -175,8 +175,9 @@ export function challengeListOf(
       .filter((row) => row.direction === 'outgoing')
       .slice(0, 20)
       .map(summary),
+    // The acceptor already holds the room; only the challenger still has to go.
     accepted: rows
-      .filter((row) => row.roomId !== null)
+      .filter((row) => row.roomId !== null && row.direction === 'outgoing')
       .slice(0, 20)
       .map((row) => ({ ...summary(row), roomId: row.roomId! })),
   };

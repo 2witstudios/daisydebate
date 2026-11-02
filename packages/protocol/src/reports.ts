@@ -53,3 +53,11 @@ export const moderationNoticeSchema = z.strictObject({
   startsAt: z.iso.datetime(),
 });
 export type ModerationNotice = z.infer<typeof moderationNoticeSchema>;
+
+export const moderationAcknowledgeSchema = z.strictObject({
+  version: z.literal(1),
+  id: idSchema,
+});
+export const moderationNoticesSchema = z.strictObject({
+  notices: z.array(moderationNoticeSchema).max(5),
+});

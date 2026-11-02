@@ -1,5 +1,9 @@
 import { requireAuthorization } from '@daisy/auth/request-authorization';
-import { reportCommandSchema, reportResultSchema } from '@daisy/protocol';
+import {
+  moderationAcknowledgeSchema,
+  reportCommandSchema,
+  reportResultSchema,
+} from '@daisy/protocol';
 import { requireMemberActor } from '../access/actor';
 import { appDiscoverActor } from '../account/username-discovery';
 import { contactPairFence } from '../contacts/authorization';
@@ -69,6 +73,28 @@ export function composeReportRoutes(app: App) {
           };
         },
         headers: { 'cache-control': 'no-store' },
+      }),
+    acknowledge: (request: Request) =>
+      runMemberHandler(boundary, request, {
+        name: 'reports.acknowledge',
+        readOnly: false,
+        readInput: () => readJson(request, MAX_BODY_BYTES),
+        operation: async (input, principal) => {
+          const { actorId, userId } = requireMemberActor(principal);
+          const { id } = parseValidated(moderationAcknowledgeSchema, input);
+          await app.database.acknowledgeModerationNotice(
+            { userId, actorId },
+            { id, now: app.clock.now() },
+            async ({ scope, account }) =>
+              requireAuthorization({
+                principal,
+                capability: 'social.moderation_notice.read',
+                resource: { kind: 'friend_collection', actorId: scope.actorId },
+                context: { account },
+              }),
+          );
+          return { version: 1, id };
+        },
       }),
   };
 }

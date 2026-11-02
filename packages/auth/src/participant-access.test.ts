@@ -27,6 +27,7 @@ test('a member who is not admitted keeps exactly the withdrawals (ADR 0075)', ()
     'channel.request.result',
     'channel.invitation.cancel',
     'social.challenge.decline',
+    'social.challenge.cancel',
   ];
   const sorted = (values: readonly string[]) => [...values].sort();
   assert({

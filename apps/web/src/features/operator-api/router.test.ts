@@ -149,6 +149,14 @@ describe('the private operator API (ADR 0079)', () => {
   test('malformed, oversize, unknown and conflicting requests map to their codes', async () => {
     const conflicting = api({
       store: {
+        listOperatorReports: async () => [],
+        listOperatorRestrictions: async () => [],
+        resolveReport: async () => {
+          throw new Error('Unexpected report command');
+        },
+        liftModeration: async () => {
+          throw new Error('Unexpected lift');
+        },
         listOperatorAccounts: async () => [],
         runBetaAccessCommand: async () => {
           throw createAppError('CONFLICT');
@@ -252,6 +260,14 @@ test('an unexpected handler failure reaches the error reporter; a refusal does n
   const broken = api({
     reporter,
     store: {
+      listOperatorReports: async () => [],
+      listOperatorRestrictions: async () => [],
+      resolveReport: async () => {
+        throw new Error('Unexpected report command');
+      },
+      liftModeration: async () => {
+        throw new Error('Unexpected lift');
+      },
       listOperatorAccounts: async () => {
         throw new Error('pool exhausted');
       },

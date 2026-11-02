@@ -11,6 +11,8 @@ import { readChosen, setChosenStatus } from './setting';
 
 /** Status changes per member per minute, Presence's own budget. */
 const PRESENCE_RULE = { windowSeconds: 60, max: 30 } as const;
+/** Online list reads per member per minute: rings, scrolling and a search box. */
+const ONLINE_RULE = { windowSeconds: 60, max: 240 } as const;
 
 /** The decision over the member's own presence setting, on their locked account. */
 const ownSetting =
@@ -64,6 +66,8 @@ export function composePresenceRoutes(app: App) {
     online: (principal, input) =>
       readOnlineRoster(principal, input, {
         now: () => app.clock.now(),
+        limit: (actorId) =>
+          consumeOrThrow(app.limiter, `online:${actorId}`, ONLINE_RULE),
         onlineActorIds: () => app.redis.readOnlineActorIds(ROSTER_ACTORS_MAX),
         activity: (actorIds) => app.redis.readActorsPresence(actorIds),
         page: (scope, page) =>

@@ -118,7 +118,7 @@ test('absent-DM block preserves direct counterpart binding and owns only its dir
       [low, high],
       true,
       true,
-      ['friendships', 'friend_challenges', 'messaging_dm_pairs'],
+      ['friendships', 'challenges', 'messaging_dm_pairs'],
       false,
     ],
   });
