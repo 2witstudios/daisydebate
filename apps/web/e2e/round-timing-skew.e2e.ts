@@ -114,15 +114,6 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await expect(host).toHaveURL(/\/rounds\/[a-z0-9]+\/room$/);
     roundId = new URL(host.url()).pathname.split('/').at(-2)!;
     await expect(guest).toHaveURL(host.url());
-    // The Room's start-round admits a frozen scheduled Round; its own host
-    // Start command is what begins the speeches (the probe posts the same
-    // command over HTTP; this journey presses the real control).
-    await expect(
-      host.getByRole('button', { name: 'Start round', exact: true }),
-    ).toBeEnabled({ timeout: 15_000 });
-    await host
-      .getByRole('button', { name: 'Start round', exact: true })
-      .click();
 
     const mediaStatus = host
       .getByRole('region', { name: 'Live camera and sound' })

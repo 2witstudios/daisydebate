@@ -193,7 +193,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       const round = roundViewSchema.parse(await receipt.json());
       expect(round).toMatchObject({
         status: 'active',
-        startedAt: null,
+        startedAt: expect.any(String),
         topic: view.topic,
         config: view.config,
       });

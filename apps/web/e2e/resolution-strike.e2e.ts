@@ -186,11 +186,15 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     const survivor = (await revealed()).topic!;
     expect(lines).toContain(survivor);
     await negative.page.getByRole('link', { name: 'Refresh' }).click();
-    await expect(negative.page.getByText(survivor).first()).toBeVisible();
+    await expect(
+      negative.page.getByText(survivor).locator('visible=true').first(),
+    ).toBeVisible();
     await expect(negative.page).not.toHaveURL(/notice=/);
 
     await spectator.reload();
-    await expect(spectator.getByText(survivor).first()).toBeVisible();
+    await expect(
+      spectator.getByText(survivor).locator('visible=true').first(),
+    ).toBeVisible();
     const html = await spectator.content();
     for (const line of lines.filter((line) => line !== survivor))
       expect(html).not.toContain(line);
@@ -285,9 +289,9 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
       expect((await read()).topic).not.toBeNull();
     }).toPass({ timeout: 60_000 });
     const survivor = (await read()).topic!;
-    await expect(page.getByText(survivor).first()).toBeVisible({
-      timeout: 20_000,
-    });
+    await expect(
+      page.getByText(survivor).locator('visible=true').first(),
+    ).toBeVisible({ timeout: 20_000 });
     await page.getByText(/^How it was chosen/).click();
     await expect(
       page.getByText('Daisy struck this for you · time ran out'),
