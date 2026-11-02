@@ -16,7 +16,8 @@ test('presence visibility reads and writes only behind the reader’s fence', as
     [['busy']],
     [account],
     [],
-    [{ txid: '1', seq: '1' }],
+    [['1', '1']],
+    [],
   ]);
   const fenced: string[] = [];
   const fence = async () => {
