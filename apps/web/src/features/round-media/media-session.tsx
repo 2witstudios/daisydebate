@@ -12,10 +12,9 @@ import {
 } from './browser-transport';
 import {
   createMediaController,
-  mediaFailure,
-  transientMediaFailure,
   type MediaConnectionState,
 } from './media-controller';
+import { createMediaRequest } from './request-media';
 import { MediaStage } from './media-stage';
 import { mediaStatus, retryMissingDevices } from './media-status';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
@@ -34,32 +33,13 @@ const pause = (ms: number, signal: AbortSignal) =>
       { once: true },
     );
   });
-const requestMedia = async (
-  roundId: string,
-  operation: 'session' | 'reconcile',
-  signal: AbortSignal,
-) => {
-  let response: Response;
-  try {
-    response = await fetch(
-      `/api/rounds/${encodeURIComponent(roundId)}/media/${operation}`,
-      {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-        signal,
-        cache: 'no-store',
-      },
-    );
-  } catch (error) {
-    // The network, not the server, failed; a cancelled request stays final.
-    if (signal.aborted) throw error;
-    throw transientMediaFailure();
-  }
-  if (!response.ok) throw mediaFailure(response.status);
-  return response.json() as Promise<unknown>;
-};
+const requestMedia = createMediaRequest({
+  fetch: (url, options) => fetch(url, options),
+  scheduleDeadline: (expire) => {
+    const timer = setTimeout(expire, 10_000);
+    return () => clearTimeout(timer);
+  },
+});
 
 /** Mount once per Round; changing projections never resets command or media lifetimes. */
 function RoundMediaSession({
@@ -91,6 +71,7 @@ function RoundMediaSession({
   useEffect(() => {
     const mounted = createMediaController({
       roundId: view.id,
+      initialRoundViewVersion: view.version,
       api: {
         admit: (id, signal) => requestMedia(id, 'session', signal),
         reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),
@@ -109,7 +90,7 @@ function RoundMediaSession({
           tracks: setTracks,
           invalidated: () => {
             refresh.current();
-            void mounted.reconcile();
+            void mounted.reconcile({ kind: 'wake' });
           },
           reconnect: () => {
             refresh.current();
@@ -136,13 +117,20 @@ function RoundMediaSession({
       controller.current?.stop();
       return;
     }
-    void controller.current?.reconcile();
+    void controller.current?.reconcile({
+      kind: 'view',
+      roundViewVersion: view.version,
+    });
     const next = nextMediaRefreshAt(view);
     if (next === null) return;
     const timer = window.setTimeout(
       () => {
         refresh.current();
-        void controller.current?.reconcile();
+        void controller.current?.reconcile({
+          kind: 'boundary',
+          roundViewVersion: view.version,
+          deadlineMs: next,
+        });
       },
       Math.max(0, next - Date.parse(systemClock.now())),
     );

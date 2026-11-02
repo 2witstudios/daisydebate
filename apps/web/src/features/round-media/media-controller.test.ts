@@ -8,37 +8,14 @@ import {
   transientMediaFailure,
 } from './media-controller';
 setupRitewayBun();
-const roundId = 'r'.repeat(24);
-const admission: RoundMediaAdmission = {
-  version: 1,
-  roundId,
-  state: 'ready',
-  grants: {
-    publish: ['camera', 'microphone'],
-    subscribe: true,
-    hidden: false,
-    capture: false,
-  },
-  peers: [],
-  identity: 'p'.repeat(24),
-  token: 'private-token',
-  url: 'wss://media.invalid',
-  expiresAt: '2026-10-22T09:01:00.000Z',
-};
-
-const snapshot = {
-  version: admission.version,
-  roundId,
-  state: admission.state,
-  grants: admission.grants,
-  peers: admission.peers,
-};
+import { roundId, admission, snapshot } from './media-controller.test-support';
 
 test('terminal stop closes tracks immediately while admission is pending', async () => {
   let finish!: (value: RoundMediaAdmission) => void;
   let created = 0;
   const controller = createMediaController({
     roundId,
+    initialRoundViewVersion: 1,
     api: {
       admit: () =>
         new Promise((accept) => {
@@ -71,6 +48,7 @@ test('cleanup never waits for an unfinished publication request', async () => {
   let disconnected = 0;
   const controller = createMediaController({
     roundId,
+    initialRoundViewVersion: 1,
     api: { admit: async () => admission, reconcile: async () => snapshot },
     transport: () => ({
       connect: async () => undefined,
@@ -106,6 +84,7 @@ test('reconnect obtains a fresh admission and teardown leaves no old transport',
   const transports: { stopped: number }[] = [];
   const controller = createMediaController({
     roundId,
+    initialRoundViewVersion: 1,
     api: {
       admit: async () => {
         minted++;
@@ -158,6 +137,7 @@ const retryingController = (api: {
   const waits: number[] = [];
   const controller = createMediaController({
     roundId,
+    initialRoundViewVersion: 1,
     api,
     transport: transportStub,
     changed: (state) => states.push(state),
@@ -206,7 +186,7 @@ test('a transient reconcile refusal is retried, joining or live', async () => {
     },
   });
   await controller.join();
-  await controller.reconcile();
+  await controller.reconcile({ kind: 'wake' });
   assert({
     given:
       'a reconcile refused for now (a 503 under load) while joining, and again once live',
@@ -227,6 +207,7 @@ test('a lasting or definite admission failure is reported unavailable', async ()
     let admits = 0;
     const controller = createMediaController({
       roundId,
+      initialRoundViewVersion: 1,
       api: {
         admit: async () => {
           admits++;
@@ -272,6 +253,7 @@ test('only a missing checked device says so; an unchecked missing device is bloc
   const stateAfter = async (failure: Error) => {
     const controller = createMediaController({
       roundId,
+      initialRoundViewVersion: 1,
       api: { admit: async () => admission, reconcile: async () => snapshot },
       transport: () => ({
         connect: async () => undefined,
