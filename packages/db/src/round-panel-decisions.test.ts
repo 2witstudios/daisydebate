@@ -58,9 +58,7 @@ const durable = {
   ballot_deadline_at: '2026-10-22T12:05:00.000Z',
   ratings: false,
 };
-const facts = (
-  overrides: Partial<Parameters<typeof requirePanelFacts>[0]>,
-) =>
+const facts = (overrides: Partial<Parameters<typeof requirePanelFacts>[0]>) =>
   requirePanelFacts({
     freezeRevision: 2,
     freeze: { revision: 2 },

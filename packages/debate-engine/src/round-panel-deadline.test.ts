@@ -1,6 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { decidePanelCompletion, freezeJudgingPlan } from './round-panel-completion';
+import {
+  decidePanelCompletion,
+  freezeJudgingPlan,
+} from './round-panel-completion';
 import {
   oneOnOneRules,
   oneOnOneSeats,

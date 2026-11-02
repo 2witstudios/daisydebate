@@ -158,3 +158,32 @@ test('missing probe resources are named at start and hourly, and never decide he
   });
   await service.stop();
 });
+
+test('every process checks the probe resources at start, elected or not', async () => {
+  const invalid: string[] = [];
+  const service = startAvailabilityService({
+    instanceId: 'a'.repeat(24),
+    store: {
+      reconcileRoundCheckInAttempts: async () => 0,
+      renewServiceInstance: async () => {},
+      availabilitySampler: () => ({
+        elect: async () => false,
+        sample: async () => {},
+        close: async () => {},
+      }),
+    },
+    probe: async () => true,
+    probeResources: async () => ['segment_missing'],
+    probeInvalid: (problem) => invalid.push(problem),
+    timers: { setInterval: () => 1, clearInterval: () => {} },
+    failed: () => {},
+  });
+  await service.probeChecked;
+  assert({
+    given: 'a process that lost the sampler election',
+    should: 'still name the problem before readiness opens',
+    actual: invalid,
+    expected: ['segment_missing'],
+  });
+  await service.stop();
+});

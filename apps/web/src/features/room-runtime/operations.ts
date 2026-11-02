@@ -297,8 +297,10 @@ export function createRoomRuntimeOperations({
       return facts && projectActiveRoom(facts, caller.actorId);
     },
     roundView: (caller: Caller, roundId: string) =>
-      store.readLaunchedRound(roundId, caller, (view, account) =>
-        canReadRound(caller, view, account),
+      store.readLaunchedRound(
+        roundId,
+        caller,
+        (view, account) => canReadRound(caller, view, account),
         roundWaitingOn,
       ),
     catalog,

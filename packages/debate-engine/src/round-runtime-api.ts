@@ -20,9 +20,7 @@ export type RoundRuntime = {
   /** Internal durable attendance decision; never a public command. */
   readonly adjudicate: (input: RoundAdjudication) => RoundProjection;
   /** Internal completion after durable freeze/attendance verification; does not advance time. */
-  readonly completePanel: (
-    input: RoundPanelCompletion,
-  ) => RoundProjection;
+  readonly completePanel: (input: RoundPanelCompletion) => RoundProjection;
   /** Maintenance ends a Round never started by its start horizon (DEC-214). */
   readonly abandonUnstarted: (now: string) => RoundProjection;
   /** Advances time alone, projecting whatever the clock moved. */

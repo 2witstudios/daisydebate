@@ -5,7 +5,9 @@ import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
  * deadline is always a persisted one; no client ever invents a competitive
  * window. Null while the speeches are still running.
  */
-export function roundWaitingOn(input: RoundWaitingFacts): RoundWaitingOn | null {
+export function roundWaitingOn(
+  input: RoundWaitingFacts,
+): RoundWaitingOn | null {
   if (!input.finalSegmentEnded) return null;
   if (input.heldByWriter) return { state: 'held_by_writer', deadlineAt: null };
   if (!input.frozen) return { state: 'closing_transcript', deadlineAt: null };

@@ -3,9 +3,10 @@ import { view, aff, neg } from '../../ui/debate-room/live-round.test-support';
 import { readRoundRatings } from './read-round';
 setupRitewayBun();
 
+const seasonId = 's'.repeat(24);
+const at = '2026-10-28T00:00:00.000Z';
+
 test('a historical Round badge uses its posting rather than later established standing', async () => {
-  const seasonId = 's'.repeat(24);
-  const at = '2026-10-28T00:00:00.000Z';
   const result = await readRoundRatings(
     {
       listLadderSeasons: async () => [
@@ -74,10 +75,10 @@ test('a rated result on an incomplete transcript is not pending: it never posts'
           {
             id: seasonId,
             name: 'Season',
-            status: 'active',
-            ladder: 'freestyle',
             startsAt: at,
             endsAt: null,
+            status: 'active',
+            version: 1,
           },
         ],
         readRatingBlindings: async () => [],

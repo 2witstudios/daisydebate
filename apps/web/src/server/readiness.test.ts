@@ -28,6 +28,30 @@ describe('createReadinessHandler (ISSUE-146: cold-start ordering)', () => {
     });
   });
 
+  test('stays closed until start-up checks settle', async () => {
+    let checked = false;
+    const handler = createReadinessHandler({
+      database: probe(true),
+      redis: probe(true),
+      isDraining: () => false,
+      startupChecked: () => checked,
+      logger: createRecordingLogger().logger,
+      reporter: noopErrorReporter,
+    });
+    const before = (await handler(new Request('http://x/api/health/ready')))
+      .status;
+    checked = true;
+    assert({
+      given: 'a start-up check still running, then settled',
+      should: 'refuse traffic until it settles',
+      actual: [
+        before,
+        (await handler(new Request('http://x/api/health/ready'))).status,
+      ],
+      expected: [503, 200],
+    });
+  });
+
   test('reports unavailable while a dependency is genuinely down — no persistent boot flag, a live check every call', async () => {
     const { logger } = createRecordingLogger();
     // Simulates the cold-start window: Redis is not reachable yet.

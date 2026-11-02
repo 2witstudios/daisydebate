@@ -21,9 +21,7 @@ const awaitingAttendance = (error: unknown) =>
 /** Lease renewal never queues behind provider execution or attendance settlement. */
 export function startRoundJudgingService<C extends Claim>(input: {
   readonly store: {
-    readonly scanRoundJudgingJobs: (
-      limit: number,
-    ) => Promise<readonly Found[]>;
+    readonly scanRoundJudgingJobs: (limit: number) => Promise<readonly Found[]>;
     readonly claimRoundJudgingJob: (target: Target) => Promise<C>;
     readonly renewRoundJudgingJob: (
       scope: C['scope'],

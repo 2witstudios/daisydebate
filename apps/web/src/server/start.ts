@@ -108,6 +108,14 @@ const availability = startRoundAvailability({
   fetch: fetchPublicAttendanceProbe,
   timers: workerTimers,
 });
+// Name a broken probe before this process takes Rounds, without letting a slow
+// read hold readiness: the check reports, it never refuses (ADR 0095).
+app.holdReadinessUntil(
+  Promise.race([
+    availability.probeChecked,
+    new Promise((settle) => oneShotTimer.setTimeout(() => settle(null), 2000)),
+  ]),
+);
 const roundMaintenance = startRoundCompetitiveMaintenance({
   app,
   instanceId: availability.instanceId,

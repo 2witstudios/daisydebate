@@ -13,8 +13,10 @@ export function composeRoundRoutes(app: App) {
       nextSegmentId: () => app.ids.next(),
     }),
     view: (caller, roundId) =>
-      app.database.readLaunchedRound(roundId, caller, (round, account) =>
-        canReadRound(caller, round, account),
+      app.database.readLaunchedRound(
+        roundId,
+        caller,
+        (round, account) => canReadRound(caller, round, account),
         roundWaitingOn,
       ),
     transcript: (caller, roundId) =>

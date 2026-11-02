@@ -36,7 +36,7 @@ export function startAvailabilityService(deps: {
   let resourcesCheckedAt = Number.NEGATIVE_INFINITY;
   let checkingResources = false;
   /** Beside the cycle, never in it: pool pressure must not stall the sampler. */
-  const checkProbeResources = () => {
+  const checkProbeResources = async () => {
     if (
       !deps.probeResources ||
       checkingResources ||
@@ -44,16 +44,15 @@ export function startAvailabilityService(deps: {
     )
       return;
     checkingResources = true;
-    void deps
-      .probeResources()
-      .then((problems) => {
-        resourcesCheckedAt = nowMs();
-        for (const problem of problems) deps.probeInvalid?.(problem);
-      })
-      .catch(() => deps.probeInvalid?.('check_failed'))
-      .finally(() => {
-        checkingResources = false;
-      });
+    try {
+      const problems = await deps.probeResources();
+      resourcesCheckedAt = nowMs();
+      for (const problem of problems) deps.probeInvalid?.(problem);
+    } catch {
+      deps.probeInvalid?.('check_failed');
+    } finally {
+      checkingResources = false;
+    }
   };
   const sampler = deps.store.availabilitySampler();
   let stopped = false;
@@ -61,7 +60,7 @@ export function startAvailabilityService(deps: {
   let renewing: Promise<boolean> | null = null;
   const cycle = async () => {
     if (!(await sampler.elect())) return;
-    checkProbeResources();
+    void checkProbeResources();
     const [probe, reconciliation] = await Promise.allSettled([
       deps.probe(),
       deps.store.reconcileRoundCheckInAttempts(100),
@@ -104,6 +103,8 @@ export function startAvailabilityService(deps: {
   const timer = deps.timers.setInterval(async () => tick(), 1000);
   tick();
   return {
+    /** Settles once this process has checked the probe's resources at start. */
+    probeChecked: checkProbeResources(),
     async stop() {
       stopped = true;
       deps.timers.clearInterval(timer);

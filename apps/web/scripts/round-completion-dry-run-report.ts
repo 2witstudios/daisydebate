@@ -4,6 +4,8 @@ import {
 } from '@daisy/debate-engine';
 import { attendanceTimingPolicy, type RoundRules } from '@daisy/protocol';
 import type { SQL } from 'bun';
+import { attendanceReceiptTime } from '../src/features/attendance/receipt-time';
+import { attendanceWindowFor } from '../src/features/attendance/windows';
 import { AI_JUDGING_BUDGET_MS } from '../src/features/round-finalization/maintenance';
 
 type Seat = {
@@ -59,49 +61,39 @@ export type DryRunFacts = {
 /** The calls one job may buy; the job itself enforces this. */
 const MAX_CALLS = 2;
 
-/** Which non-final speeches the on-time rule settles, in actual order. */
+/** Each non-final speech through the real window and on-time decisions. */
 function windowsOf(facts: DryRunFacts) {
   const speeches = facts.rules.segments.filter((s) => s.type === 'speech');
   const lastKey = speeches.at(-1)?.key;
+  const round = {
+    rules: facts.rules,
+    participants: facts.seats,
+    segments: facts.segments.map((segment) => ({
+      id: segment.id,
+      type: segment.type,
+      rulesSegmentKey: segment.key,
+      startedAt: segment.startedAt,
+    })),
+  } as unknown as Parameters<typeof attendanceWindowFor>[0];
+  const debaters = facts.seats
+    .filter((seat) => seat.role !== 'judge')
+    .map((seat) => seat.id);
   return facts.segments
     .filter((s) => s.type === 'speech' && s.key !== lastKey)
-    .map((segment) => {
-      const rule = speeches.find((s) => s.key === segment.key);
-      const speaker = facts.seats.find(
-        (seat) =>
-          rule?.type === 'speech' &&
-          seat.role === rule.side &&
-          seat.slot === rule.slot,
-      );
-      const onTime =
-        !!speaker &&
-        !!onTimeSpeakerReceipt({
-          window: {
-            segmentId: segment.id,
-            openedAtMs: Date.parse(segment.startedAt),
-            speakerId: speaker.id,
-            speakerSide: speaker.role as 'affirmative' | 'negative',
-            eligibleSeats: [
-              {
-                id: speaker.id,
-                side: speaker.role as 'affirmative' | 'negative',
-              },
-            ],
-            lastSpeech: false,
-          },
+    .map((segment) => ({
+      key: segment.key,
+      alreadyDecided: facts.decidedSegmentIds.includes(segment.id),
+      onTimeSpeakerReceipt:
+        onTimeSpeakerReceipt({
+          window: attendanceWindowFor(round, segment.id, debaters),
           checkIns: facts.receipts
             .filter((receipt) => receipt.segmentId === segment.id)
             .map((receipt) => ({
               participantId: receipt.participantId,
-              receivedAtMs: Date.parse(receipt.receivedAt),
+              receivedAtMs: attendanceReceiptTime(receipt.receivedAt),
             })),
-        });
-      return {
-        key: segment.key,
-        alreadyDecided: facts.decidedSegmentIds.includes(segment.id),
-        onTimeSpeakerReceipt: onTime,
-      };
-    });
+        }) !== null,
+    }));
 }
 
 /**
@@ -186,7 +178,10 @@ export function predictRoundCompletion(facts: DryRunFacts) {
   return done({
     mostNewPaidCalls: running
       .filter((job) => !job.holdsBallot)
-      .reduce((calls, job) => calls + Math.max(0, MAX_CALLS - job.paidCalls), 0),
+      .reduce(
+        (calls, job) => calls + Math.max(0, MAX_CALLS - job.paidCalls),
+        0,
+      ),
     ...(decision.kind === 'pending'
       ? { result: 'waiting_on_a_judge' }
       : {

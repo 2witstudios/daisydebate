@@ -59,11 +59,7 @@ const completionSchema = z.object({
 });
 /** How a completion ended, as a closed fact; the raw string goes no further. */
 export type CompletionFinish =
-  | 'stop'
-  | 'length'
-  | 'content_filter'
-  | 'other'
-  | 'none';
+  'stop' | 'length' | 'content_filter' | 'other' | 'none';
 
 const finishOf = (reason: string | null | undefined): CompletionFinish => {
   if (reason === undefined || reason === null) return 'none';

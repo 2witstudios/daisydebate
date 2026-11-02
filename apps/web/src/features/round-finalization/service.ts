@@ -130,7 +130,10 @@ async function maintainRound(
   pacing: ReturnType<typeof createEvaluationPacing>,
   roundId: string,
 ) {
-  const stage = async (name: 'tick' | 'finalize', work: () => Promise<unknown>) => {
+  const stage = async (
+    name: 'tick' | 'finalize',
+    work: () => Promise<unknown>,
+  ) => {
     const key = `${name}:${roundId}`;
     if (!pacing.due(key)) return true;
     try {

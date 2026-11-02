@@ -148,7 +148,8 @@ test('a failed AI judge ends a rated Round honestly: no human countdown, no winn
   await withRoomRuntime(async (f) => {
     const { roundId } = await frozenBotJudgeRound(f, true);
     await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
-    const seen = () => f.store.readLaunchedRound(roundId, f.host, () => true, roundWaitingOn);
+    const seen = () =>
+      f.store.readLaunchedRound(roundId, f.host, () => true, roundWaitingOn);
     const processing = await seen();
     const [row] =
       await f.sql`select ballot_deadline_at from rounds where id=${roundId}`;
