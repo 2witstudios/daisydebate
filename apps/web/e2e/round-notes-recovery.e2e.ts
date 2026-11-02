@@ -466,7 +466,7 @@ test('an exit save landing after the next page listed moves the editor, with no 
   await expect
     .poll(async () => serverDocument(page, roundId, documentId))
     .toMatchObject({
-      html: expect.stringContaining('First: '),
+      html: expect.stringMatching(/Landed after the list[\s\S]*First:/),
       revision: revision + 2,
     });
   await expect(page.getByText('A newer save of this file')).toHaveCount(0);

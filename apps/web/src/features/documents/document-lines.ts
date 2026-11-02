@@ -67,7 +67,6 @@ export function breakLines(html: string): string {
 export const joinLines = (html: string): string =>
   html.replace(/\n(?=<)|(?<=>)\n/g, '');
 
-/** True when two HTML strings differ only by storage line breaks. */
 const withoutTrailingParagraph = (html: string) =>
   joinLines(html).replace(/<p><\/p>$/, '');
 
