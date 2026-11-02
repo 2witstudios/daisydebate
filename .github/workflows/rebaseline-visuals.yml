@@ -267,9 +267,10 @@ jobs:
       pull-requests: read
     steps:
       # Only CI at this commit, which is the head this workflow rendered or that
-      # plus baseline PNGs alone. GitHub's head_sha, branch and status filters
-      # all omitted a held CI run (run 41538127991), so read CI's recent runs
-      # unfiltered and match the commit here. A failed API call is one more try.
+      # plus baseline PNGs alone, and never a fork's run at the same commit.
+      # GitHub's head_sha, branch and status filters omitted held CI run
+      # 41539295130 for at least 10 minutes after the push, so read CI's recent
+      # runs unfiltered and match here. A failed API call is one more try.
       - name: Approve the held CI run at the head
         id: approve
         env:
@@ -298,7 +299,7 @@ jobs:
               exit 0
             fi
             if ! runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?per_page=100" |
-              jq --arg sha "$SHA" '[.workflow_runs[] | select(.head_sha == $sha and .event == "pull_request")]'); then
+              jq --arg sha "$SHA" --arg repo "$GITHUB_REPOSITORY" '[.workflow_runs[] | select(.head_sha == $sha and .event == "pull_request" and .head_repository.full_name == $repo)]'); then
               continue
             fi
             held=$(printf '%s' "$runs" | jq -r '.[] | select(.conclusion == "action_required") | .id')
