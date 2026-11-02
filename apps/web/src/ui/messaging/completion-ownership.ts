@@ -12,6 +12,11 @@ type CompletionOwnership = {
   readonly disposed: boolean;
   readonly sequence: number;
   readonly command: Command;
+  /**
+   * Fresh commands adopted in this mounted lifetime. Every server render starts
+   * at 0, so a native POST finds its form again despite each render's new ID.
+   */
+  readonly generation: number;
   readonly offeredId: string;
   /** Used IDs stay spent for this mounted conversation lifetime. */
   readonly committedIds: readonly string[];
@@ -30,6 +35,7 @@ export const initialCompletionOwnership = (
   disposed: false,
   sequence: 0,
   command: { id: requestId, status: 'draft' },
+  generation: 0,
   offeredId: requestId,
   committedIds: [],
 });
@@ -37,7 +43,11 @@ export const initialCompletionOwnership = (
 function nextCommand(state: CompletionOwnership): CompletionOwnership {
   return state.command.status === 'committed' &&
     !state.committedIds.includes(state.offeredId)
-    ? { ...state, command: { id: state.offeredId, status: 'draft' } }
+    ? {
+        ...state,
+        command: { id: state.offeredId, status: 'draft' },
+        generation: state.generation + 1,
+      }
     : state;
 }
 

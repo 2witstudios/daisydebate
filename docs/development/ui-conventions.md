@@ -99,12 +99,21 @@ answers cannot reset a newly typed draft. Client dispatch stamps its own
 completion origin before awaiting the server, and removes that client-only
 origin from the previous state sent over the action boundary. Server rendering
 retains the exact original action reference for native POST and 303.
+The composer form is keyed by the count of adopted commands, never by the
+request ID: React adopts a native POST’s answer only into the same key path, and
+every server render issues a new ID.
 Other form consumers keep the shared `useMovedOn` behavior.
 
 The sequential browser journey waits for the exact sent-message destination
 and ready composer before Edit. Separate held-action/held-editor response
 proofs exercise overlapping intent through the real Next router; mounted
 command controls alone do not establish a real router winner.
+
+A navigation started during the pending send shares that action’s React lane,
+so the send answer and the route commit together once both responses arrive;
+neither alone reaches the screen. When the composer survives that commit, as it
+does on a same-conversation page, the ownership decision is what keeps the
+member on their chosen page instead of the send’s `?sent` destination.
 
 Recorded exceptions:
 

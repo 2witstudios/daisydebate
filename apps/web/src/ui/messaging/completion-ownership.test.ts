@@ -29,6 +29,44 @@ test('a dispatched action may consume its completion once', () => {
   });
 });
 
+test('form generation changes only when a fresh command is adopted', () => {
+  const offered = completionOwnership(initialCompletionOwnership('request'), {
+    type: 'rendered',
+    requestId: 'another-render',
+  }).state;
+  const pending = completionOwnership(offered, { type: 'dispatch' }).state;
+  const failed = completionOwnership(pending, {
+    type: 'failed',
+    origin: pending.sequence,
+  }).state;
+  const retried = completionOwnership(failed, { type: 'dispatch' }).state;
+  const held = completionOwnership(
+    completionOwnership(initialCompletionOwnership('request'), {
+      type: 'dispatch',
+    }).state,
+    { type: 'complete', origin: 1 },
+  ).state;
+  const adopted = completionOwnership(held, {
+    type: 'rendered',
+    requestId: 'fresh',
+  }).state;
+  assert({
+    given:
+      'server renders offering new IDs, a refused draft and a committed send',
+    should:
+      'keep the form key path for every draft and renew it only for the adopted command',
+    actual: [
+      offered.generation,
+      failed.generation,
+      retried.generation,
+      held.generation,
+      adopted.generation,
+      adopted.command.id,
+    ],
+    expected: [0, 0, 0, 0, 1, 'fresh'],
+  });
+});
+
 test('accepted navigation supersedes completion before any pathname changes', () => {
   const started = completionOwnership(initialCompletionOwnership('request'), {
     type: 'dispatch',

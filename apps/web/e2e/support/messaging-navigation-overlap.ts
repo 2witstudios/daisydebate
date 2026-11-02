@@ -11,7 +11,7 @@ import {
   ownMessageEdit,
 } from './messaging-completion';
 import { watchChannelObservation } from './channel-observation';
-import { effectsRan } from './hydration';
+import { effectsRan, paintedFrames } from './hydration';
 
 /** Hold actual Next action/RSC responses, after each real server request completes. */
 export function holdConversationResponses(
@@ -92,7 +92,7 @@ export function holdConversationResponses(
   };
 }
 
-export async function observeConversation(page: Page, channelId: string) {
+async function observeConversation(page: Page, channelId: string) {
   const observed = watchChannelObservation(page, channelId);
   await page.reload();
   await observed.ready();
@@ -115,6 +115,22 @@ export async function beginHeldSend(
   await page.getByLabel('Your message').fill(text);
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
   await expect.poll(() => held.state.sendReady).toBe(true);
+}
+
+/**
+ * React keeps a transition begun during an async action in that action's lane, and
+ * the lane waits on the router's navigation: neither answer alone can commit.
+ */
+export async function expectEntangledUntilBothAnswer(
+  page: Page,
+  channelId: string,
+) {
+  await paintedFrames(page);
+  await expect(page.getByLabel('Your message')).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'Sending…', exact: true }),
+  ).toBeDisabled();
+  expect(new URL(page.url()).pathname).toBe(`/messages/${channelId}`);
 }
 
 type HeldConversation = {
@@ -177,19 +193,14 @@ export function testMessagingNavigationOverlap() {
           // Neither response has reached Next; origin really remains mounted.
           await expect(page.getByLabel('Your message')).toBeDisabled();
           expect(new URL(page.url()).pathname).toBe(`/messages/${channelId}`);
-          if (first === 'send') {
-            await held.releaseSend();
-            // The action has settled in the still-mounted origin before Edit commits.
-            await expect(page.getByLabel('Your message')).toBeEnabled();
-            await expect(
-              page.getByRole('button', { name: 'Sending…', exact: true }),
-            ).toHaveCount(0);
-            await held.releaseNavigation();
-          } else {
-            await held.releaseNavigation();
-            await expect(page.getByLabel('Revise your message')).toBeVisible();
-            await held.releaseSend();
-          }
+          await (first === 'send'
+            ? held.releaseSend()
+            : held.releaseNavigation());
+          await expectEntangledUntilBothAnswer(page, channelId);
+          await (first === 'send'
+            ? held.releaseNavigation()
+            : held.releaseSend());
+          await expect(page.getByLabel('Revise your message')).toBeVisible();
           await expect(page).toHaveURL(editorDestination);
           const editor = page.getByLabel('Revise your message');
           await editor.fill(`Revised overlap ${first}`);

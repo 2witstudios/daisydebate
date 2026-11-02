@@ -9,12 +9,14 @@ import {
   composerRequestId,
   completedSend,
   durableMessage,
+  durableMessages,
 } from './messaging-completion';
 import {
   holdConversationResponses,
-  observeConversation,
+  expectEntangledUntilBothAnswer,
   beginHeldSend,
 } from './messaging-navigation-overlap';
+import { effectsRan } from './hydration';
 
 export function testMessagingHistoryCompletion() {
   for (const first of ['send', 'history'] as const) {
@@ -26,7 +28,7 @@ export function testMessagingHistoryCompletion() {
       try {
         const page = await acceptMessagingJourney(journey);
         // Real authenticated setup: 11 sends per actor remain below the fixture's
-        // 20/min budget and make the actual 20-row history expose Earlier messages.
+        // 20/min budget and fill more than one 20-row HTTP history page.
         for (let index = 0; index < 22; index++) {
           const member = index % 2 === 0 ? journey.sender : journey.recipient;
           const response = await member.request.post(
@@ -43,7 +45,12 @@ export function testMessagingHistoryCompletion() {
           );
           expect(response.status()).toBe(200);
         }
-        const observed = await observeConversation(page, journey.channelId);
+        // The live window holds 50 rows, so its 23 rows offer no Earlier link. An
+        // explicit HTTP page does, and keeps this same composer mounted across it.
+        const { messages } = await durableMessages(page, journey.channelId);
+        const newest = messages[0]!.sequence;
+        await page.goto(`/messages/${journey.channelId}?before=${newest + 1}`);
+        await effectsRan(page);
         await expect(
           page.getByRole('link', { name: 'Earlier messages', exact: true }),
         ).toBeVisible();
@@ -62,7 +69,6 @@ export function testMessagingHistoryCompletion() {
         const text = `Send before Earlier messages ${first}`;
         await beginHeldSend(page, held, text);
         const sent = await durableMessage(page, journey.channelId, text);
-        await observed.heard(sent.changeVersion);
         await expect(page.getByLabel('Your message')).toBeDisabled();
         const earlier = page.getByRole('link', {
           name: 'Earlier messages',
@@ -75,24 +81,23 @@ export function testMessagingHistoryCompletion() {
         await earlier.click();
         await expect.poll(() => held!.state.navigationReady).toBe(true);
         await expect(page.getByLabel('Your message')).toBeDisabled();
-        if (first === 'send') {
-          await held.releaseSend();
-          await expect(page.getByLabel('Your message')).toBeEnabled();
-          await held.releaseNavigation();
-        } else {
-          await held.releaseNavigation();
-          await expect(page).toHaveURL(destination);
-          // New server props have committed, but the unresolved original command owns its ID.
-          expect(await composerRequestId(page)).toBe(oldId);
-          await expect(page.getByLabel('Your message')).toBeDisabled();
-          await held.releaseSend();
-        }
+        await (first === 'send'
+          ? held.releaseSend()
+          : held.releaseNavigation());
+        await expectEntangledUntilBothAnswer(page, journey.channelId);
+        // The unresolved original command still owns its request ID.
+        expect(await composerRequestId(page)).toBe(oldId);
+        await (first === 'send'
+          ? held.releaseNavigation()
+          : held.releaseSend());
+        // The member's page, not the superseded send's ?sent destination.
         await expect(page).toHaveURL(destination);
         const send = page.getByRole('button', {
           name: 'Send message',
           exact: true,
         });
         await expect(send).toBeEnabled();
+        await expect(page).toHaveURL(destination);
         await expect(page.getByLabel('Your message')).toHaveValue('');
         const freshId = await composerRequestId(page);
         expect(freshId).not.toBe(oldId);

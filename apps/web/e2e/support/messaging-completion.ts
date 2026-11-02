@@ -4,7 +4,7 @@ import {
   messagingBetaLimits,
 } from '@daisy/protocol';
 
-async function durableMessages(page: Page, channelId: string) {
+export async function durableMessages(page: Page, channelId: string) {
   const response = await page.request.get(
     `/api/messaging/channels/${channelId}/messages`,
   );

@@ -27,11 +27,15 @@ type ComposerProps = {
   readonly readThrough?: number | null;
 };
 
-/** Form identity follows the conversation's committed-command lifecycle. */
+/**
+ * Form identity follows the committed-command lifecycle, never the request ID
+ * itself: React adopts a no-JavaScript POST's answer only into the same key path,
+ * and every server render issues a new ID.
+ */
 export function MessageComposer(props: ComposerProps) {
-  const requestId = useConversationCommand();
+  const { requestId, generation } = useConversationCommand();
   return (
-    <MessageComposerForm {...props} key={requestId} requestId={requestId} />
+    <MessageComposerForm {...props} key={generation} requestId={requestId} />
   );
 }
 

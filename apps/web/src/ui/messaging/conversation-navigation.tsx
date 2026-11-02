@@ -127,8 +127,12 @@ function useNavigation() {
 
 export function useConversationCommand() {
   const owner = useNavigation();
-  return useSyncExternalStore(owner.subscribe, owner.snapshot, owner.snapshot)
-    .command.id;
+  const { command, generation } = useSyncExternalStore(
+    owner.subscribe,
+    owner.snapshot,
+    owner.snapshot,
+  );
+  return { requestId: command.id, generation };
 }
 
 type Origin = { readonly scope: Scope; readonly id: number };

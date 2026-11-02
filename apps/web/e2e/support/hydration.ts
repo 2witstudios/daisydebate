@@ -45,3 +45,15 @@ export async function hydrated(locator: Locator) {
       await locator.elementHandle(),
     );
 }
+
+/** Resolves after the browser has painted twice: anything committable has committed. */
+export async function paintedFrames(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((painted) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => setTimeout(painted)),
+        ),
+      ),
+  );
+}
