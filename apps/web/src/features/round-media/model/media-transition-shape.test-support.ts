@@ -1,6 +1,11 @@
 import type { MediaEffect } from './media-effects';
 import type { MediaEvent } from './media-events';
-import type { MediaLink, MediaState, SourceState } from './media-state';
+import {
+  admissionReconnects,
+  type MediaLink,
+  type MediaState,
+  type SourceState,
+} from './media-state';
 
 const sourceShape = (source: SourceState) => {
   if (source.phase === 'capturing' && source.waiting)
@@ -30,7 +35,7 @@ const linkShape = (link: MediaLink): string => {
     case 'connecting':
       return link.reconnecting ? 'connecting(again)' : 'connecting';
     case 'admitting':
-      return `admitting(${link.reconnecting ? 'again' : 'first'}${
+      return `admitting(${admissionReconnects(link) ? 'again' : 'first'}${
         link.ownRetry ? `,try${link.ownRetry.attempt}` : ''
       }${link.ownRetry?.pausing ? ',pausing' : ''})`;
     case 'live': {

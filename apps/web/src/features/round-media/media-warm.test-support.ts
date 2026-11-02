@@ -11,7 +11,10 @@ import {
   type MediaTrack,
 } from './media-harness.test-support';
 import { createMediaHarness } from './media-harness.test-support';
-type SourceIllHealth = readonly [Source, SourceFailureKind | 'waiting'];
+type SourceIllHealth = readonly [
+  Source,
+  SourceFailureKind | 'removal' | 'waiting',
+];
 import { admission, snapshot, roundId } from './media-fixtures.test-support';
 import { events, stubSdk } from './adapters/livekit-room.test-support';
 export const enterCameraTurn = async (failFirstWarm: boolean) => {

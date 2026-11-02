@@ -87,7 +87,7 @@ and do not rest on a page asking.
 
 While a reply is not current the Round does not claim a microphone state: from a
 supersession until the next answer applies, a seat says it is checking. That cannot
-stick. The controller alone times "no answer for too long": the read budget runs
+stick. The model alone times "no answer for too long": the read budget runs
 from the first supersession since an answer, and past it the connection is
 `out-of-date`, including when an answer arrives but its SDK apply never settles.
 Last-known grants stay for layout, so video does not disappear. The bar's
@@ -134,7 +134,7 @@ reply superseded while waiting never starts. Events during admission or connect
 are recorded and the first read uses them, without another admission.
 
 `createMediaRequest` owns the one 10-second deadline over headers and body for
-each attempt. Expiry is a transient failure, handled by the controller's existing
+each attempt. Expiry is a transient failure, handled by the model's existing
 retry and no second retry owner.
 A read that cannot finish on a live connection keeps its transport and tracks:
 LiveKit enforces every grant on the server, so it carries no authority risk. Only

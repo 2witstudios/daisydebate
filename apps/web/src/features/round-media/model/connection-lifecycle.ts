@@ -1,4 +1,3 @@
-import { decideMediaRead } from '../media-read-intent';
 import type { PlannedEffect } from './media-step';
 import type { RequestFailure } from './media-events';
 import type { MediaLink, MediaState, ReleaseReason } from './media-state';
@@ -68,7 +67,6 @@ export const finish = (
   state: {
     ...state,
     link: { phase: 'ended' },
-    intent: decideMediaRead(state.intent, { kind: 'dispose' }).intent,
   },
   effects: [...teardownEffects(state.link), ...extra],
 });
@@ -86,7 +84,6 @@ export const join = (
       link: {
         phase: 'admitting',
         connection,
-        reconnecting,
         ownRetry: reconnecting ? null : { attempt: 0, pausing: false },
       },
       nextConnection: connection + 1,

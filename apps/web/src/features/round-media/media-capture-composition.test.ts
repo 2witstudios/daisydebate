@@ -11,7 +11,10 @@ import {
 import { createMediaHarness } from './media-harness.test-support';
 import { mediaStatus } from './model/media-state.test-support';
 import type { SourceFailureKind } from './source-failure';
-type SourceIllHealth = readonly [Source, SourceFailureKind | 'waiting'];
+type SourceIllHealth = readonly [
+  Source,
+  SourceFailureKind | 'removal' | 'waiting',
+];
 import { admission, roundId, snapshot } from './media-fixtures.test-support';
 import { events, sources, stubSdk } from './adapters/livekit-room.test-support';
 setupRitewayBun();

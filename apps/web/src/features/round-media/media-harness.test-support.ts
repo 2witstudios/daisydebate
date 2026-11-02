@@ -308,7 +308,10 @@ type TransportEvents = {
   readonly microphoneMuted?: boolean;
   readonly checkedDevices?: () => CheckedDeviceRead;
   readonly missing?: (source: Source) => void;
-  readonly sourceFailed?: (source: Source, failure: SourceFailure) => void;
+  readonly sourceFailed?: (
+    source: Source,
+    failure: { readonly kind: SourceFailure['kind'] | 'removal' },
+  ) => void;
   readonly sourceHealthy?: (source: Source) => void;
   readonly sourceWaiting?: (source: Source) => void;
   readonly capturePatience?: (expired: () => void) => () => void;

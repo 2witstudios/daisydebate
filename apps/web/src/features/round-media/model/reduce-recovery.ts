@@ -23,6 +23,7 @@ import {
   convergeSources,
   desiredSources,
   hasHealthySource,
+  hasStuckAnswerWork,
   hasStuckWork,
   nameStuckSources,
 } from './reduce-sources';
@@ -50,7 +51,7 @@ export const attemptRecovery = (
     link.establishment.stage !== 'established'
   )
     return rejected(state);
-  const stuck = hasStuckWork(link, ctx.atMs, ctx.policy.readBudgetMs);
+  const stuck = hasStuckAnswerWork(link, ctx.atMs, ctx.policy.readBudgetMs);
   // Only a new connection escapes stuck SDK work, but it drops what is healthy. With
   // nothing healthy there is nothing to protect; otherwise Retry is the person's choice.
   if (stuck && !hasHealthySource(link))

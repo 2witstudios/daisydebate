@@ -370,3 +370,43 @@ test('the source that stuck recovers without a click if its publish lands', () =
     expected: { phase: 'published', swapped: false },
   });
 });
+
+test('a hung removal holding nothing cannot cost a member their reception', () => {
+  const d = driver();
+  d.join(['camera']);
+  d.room({ type: 'captured', source: 'microphone' });
+  d.room({ type: 'track-ended', source: 'camera' });
+  d.send({
+    type: 'read-requested',
+    read: { kind: 'view', roundViewVersion: 2 },
+  });
+  d.timer('read-budget');
+  d.effects.length = 0;
+  d.advance(testPolicy.readBudgetMs);
+  d.timer('recovery');
+  assert({
+    given:
+      'a failed camera whose removal hangs, nothing published, and a wake past the budget',
+    should: 'read again on this connection rather than rebuild',
+    actual: [
+      d.count('release-connection'),
+      d.count('admit'),
+      d.count('start-read'),
+      d.live().sources.camera.phase,
+    ],
+    expected: [0, 0, 1, 'failed'],
+  });
+});
+
+test('a grant moving during a failed removal keeps that failure named', () => {
+  const d = driver();
+  d.join(['camera']);
+  d.room({ type: 'track-ended', source: 'camera' });
+  d.room({ type: 'permission-changed', permission: [] });
+  assert({
+    given: 'a grant going away while a failed source is still being removed',
+    should: 'keep naming the failure until its removal settles',
+    actual: d.live().sources.camera,
+    expected: { phase: 'failed', kind: 'absence', removingSinceMs: 1_000_000 },
+  });
+});

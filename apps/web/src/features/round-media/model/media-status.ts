@@ -1,9 +1,10 @@
 import type { SourceFailureKind } from '../source-failure';
-import type {
-  LiveConnection,
-  MediaState,
-  Source,
-  SourceState,
+import {
+  admissionReconnects,
+  type LiveConnection,
+  type MediaState,
+  type Source,
+  type SourceState,
 } from './media-state';
 import { SOURCES } from './media-state';
 
@@ -21,6 +22,7 @@ export function connectionOf(state: MediaState): MediaConnectionLabel {
     case 'waiting':
       return 'connecting';
     case 'admitting':
+      return admissionReconnects(link) ? 'reconnecting' : 'connecting';
     case 'connecting':
       return link.reconnecting ? 'reconnecting' : 'connecting';
     case 'live':
@@ -48,7 +50,10 @@ const established = (state: MediaState): EstablishedLive | null =>
     ? (state.link as EstablishedLive)
     : null;
 
-type IllHealth = readonly [Source, SourceFailureKind | 'waiting' | 'stuck'];
+type IllHealth = readonly [
+  Source,
+  SourceFailureKind | 'removal' | 'waiting' | 'stuck',
+];
 
 const illHealthOf = (live: LiveConnection): readonly IllHealth[] =>
   SOURCES.flatMap((source): IllHealth[] => {
@@ -151,11 +156,13 @@ export function statusOf(state: MediaState): {
   const live = established(state);
   if (!live) {
     const reconnecting =
-      link.phase === 'admitting' || link.phase === 'connecting'
-        ? link.reconnecting
-        : link.phase === 'live' &&
-          link.establishment.stage === 'establishing' &&
-          link.establishment.reconnecting;
+      link.phase === 'admitting'
+        ? admissionReconnects(link)
+        : link.phase === 'connecting'
+          ? link.reconnecting
+          : link.phase === 'live' &&
+            link.establishment.stage === 'establishing' &&
+            link.establishment.reconnecting;
     return {
       message: connectingMessage[reconnecting ? 'reconnecting' : 'connecting'],
       retry: false,

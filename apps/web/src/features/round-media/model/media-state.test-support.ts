@@ -66,7 +66,7 @@ type Evidence = {
   readonly failure?: ReleaseReason | null;
   readonly illHealth?: readonly (readonly [
     Source,
-    SourceFailureKind | 'waiting',
+    SourceFailureKind | 'removal' | 'waiting',
   ])[];
   readonly microphone?: {
     readonly granted: boolean | null;
@@ -87,8 +87,8 @@ const linkFor = (
       return {
         phase: 'admitting',
         connection: 1,
-        reconnecting: connection === 'reconnecting',
-        ownRetry: null,
+        ownRetry:
+          connection === 'reconnecting' ? null : { attempt: 0, pausing: false },
       };
     case 'unavailable':
       return { phase: 'released', why: evidence.failure ?? 'definite' };

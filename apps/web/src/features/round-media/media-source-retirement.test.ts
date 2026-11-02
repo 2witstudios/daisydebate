@@ -5,7 +5,10 @@ import {
   type MediaTrack,
 } from './media-harness.test-support';
 import type { SourceFailureKind } from './source-failure';
-type SourceIllHealth = readonly [Source, SourceFailureKind | 'waiting'];
+type SourceIllHealth = readonly [
+  Source,
+  SourceFailureKind | 'removal' | 'waiting',
+];
 import { snapshot } from './media-fixtures.test-support';
 import { events, stubSdk } from './adapters/livekit-room.test-support';
 import { enterCameraTurn } from './media-warm.test-support';

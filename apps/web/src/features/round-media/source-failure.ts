@@ -12,7 +12,6 @@ export type SourceFailureKind =
   | 'permission'
   | 'absence'
   | 'failure'
-  | 'removal'
   | 'preference-unreadable'
   | 'preference-invalid';
 export type SourceFailure = {

@@ -1,4 +1,4 @@
-import type { MediaState } from './media-state';
+import { admissionReconnects, type MediaState } from './media-state';
 
 /**
  * What this device's microphone is actually doing, for the Round controls. Permission
@@ -16,6 +16,7 @@ export function publicationOf(state: MediaState): LocalPublication {
     case 'released':
       return link.why === 'transient' ? 'ill' : 'disconnected';
     case 'admitting':
+      return admissionReconnects(link) ? 'ill' : null;
     case 'connecting':
       return link.reconnecting ? 'ill' : null;
     case 'live': {

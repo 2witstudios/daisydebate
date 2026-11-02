@@ -307,8 +307,7 @@ export function createLiveKitRoom(
             say({
               type: 'capture-failed',
               source,
-              kind: sourceFailureOf(new Error('Unexpected source capture'))
-                .kind,
+              kind: 'failure',
               checked: false,
             });
           return;

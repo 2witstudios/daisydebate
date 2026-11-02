@@ -7,7 +7,7 @@ import {
 } from './connection-lifecycle';
 import type { MediaEffect, MediaTimer } from './media-effects';
 import type { MediaEvent } from './media-events';
-import type { MediaState } from './media-state';
+import { admissionReconnects, type MediaState } from './media-state';
 import {
   moved,
   prepend,
@@ -56,7 +56,7 @@ const reduceAdmission = (
           phase: 'connecting',
           connection: link.connection,
           identity: event.admission.identity,
-          reconnecting: link.reconnecting,
+          reconnecting: admissionReconnects(link),
         },
       },
       effects: [
@@ -76,7 +76,6 @@ const reduceAdmission = (
         ...state,
         link: {
           ...link,
-          reconnecting: true,
           ownRetry: { attempt: link.ownRetry.attempt + 1, pausing: true },
         },
       },

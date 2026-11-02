@@ -153,6 +153,20 @@ export const holdsAnswer = (state: SourceState) =>
 export const hasHealthySource = (live: LiveConnection) =>
   SOURCES.some((name) => live.sources[name].phase === 'published');
 
+/** SDK work past the budget that holds later answers, as a wake weighs a rebuild. */
+export const hasStuckAnswerWork = (
+  live: LiveConnection,
+  atMs: number,
+  budgetMs: number,
+) =>
+  SOURCES.some((name) => {
+    const state = live.sources[name];
+    return (
+      (state.phase === 'publishing' || state.phase === 'unpublishing') &&
+      atMs - state.sinceMs >= budgetMs
+    );
+  });
+
 /** Names what is past the budget, so the bar can say which source is not responding. */
 export const nameStuckSources = (
   live: LiveConnection,
@@ -171,7 +185,7 @@ export const nameStuckSources = (
   return { ...live, sources };
 };
 
-/** A stuck SDK call holds every later answer, so only a new connection escapes it. */
+/** Any SDK call past the budget, a failed source's removal too: Retry rebuilds for these. */
 export const hasStuckWork = (
   live: LiveConnection,
   atMs: number,

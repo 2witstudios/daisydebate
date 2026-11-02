@@ -142,7 +142,6 @@ export type MediaLink =
   | {
       readonly phase: 'admitting';
       readonly connection: number;
-      readonly reconnecting: boolean;
       /** A first join retries its own admission; null: recovery paces the next try. */
       readonly ownRetry: {
         readonly attempt: number;
@@ -159,6 +158,11 @@ export type MediaLink =
   /** Released `transient` always has its rejoin waiting. */
   | { readonly phase: 'released'; readonly why: ReleaseReason }
   | { readonly phase: 'ended' };
+
+/** A first attempt says connecting; anything after it, reconnecting. */
+export const admissionReconnects = (
+  link: Extract<MediaLink, { readonly phase: 'admitting' }>,
+) => link.ownRetry === null || link.ownRetry.attempt > 0;
 
 /** The pace of the one owner of "try again". What it waits to do is in the link. */
 export type RecoveryPace = {
@@ -181,7 +185,7 @@ export type MediaState = {
   readonly nextTimer: number;
 };
 
-/** Every number the model decides with. Injected, so it holds no constants of its own. */
+/** The numbers an environment chooses. The let-finish limit stays with read intent. */
 export type MediaPolicy = {
   readonly requestRetryDelaysMs: readonly number[];
   readonly readBudgetMs: number;
