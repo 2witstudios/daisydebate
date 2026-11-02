@@ -1,4 +1,10 @@
-import { expect, type Page, type Route, type Browser } from '@playwright/test';
+import {
+  expect,
+  type Browser,
+  type Page,
+  type Request,
+  type Route,
+} from '@playwright/test';
 import { test } from './fixtures';
 import {
   acceptMessagingJourney,
@@ -12,6 +18,34 @@ import {
 } from './messaging-completion';
 import { watchChannelObservation } from './channel-observation';
 import { effectsRan, paintedFrames } from './hydration';
+
+/** Which actual Next request this is: its send, chosen navigation or editor save. */
+function heldKind(
+  request: Request,
+  channelId: string,
+  target: 'editor' | 'history',
+) {
+  const { pathname, searchParams } = new URL(request.url());
+  const headers = request.headers();
+  const conversation = `/messages/${channelId}`;
+  const editor = `${conversation}/message`;
+  if (request.method() === 'POST' && headers['next-action'])
+    return pathname === conversation
+      ? 'send'
+      : pathname === editor
+        ? 'save'
+        : 'other';
+  const chosen =
+    target === 'editor'
+      ? pathname === editor
+      : pathname === conversation && searchParams.has('before');
+  return chosen &&
+    request.method() === 'GET' &&
+    headers.rsc === '1' &&
+    !headers['next-router-prefetch']
+    ? 'navigation'
+    : 'other';
+}
 
 /** Hold actual Next action/RSC responses, after each real server request completes. */
 export function holdConversationResponses(
@@ -32,14 +66,8 @@ export function holdConversationResponses(
     saves: 0,
   };
   const intercept = async (route: Route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const headers = request.headers();
-    if (
-      url.pathname === `/messages/${channelId}` &&
-      request.method() === 'POST' &&
-      headers['next-action']
-    ) {
+    const kind = heldKind(route.request(), channelId, target);
+    if (kind === 'send') {
       state.sends++;
       const response = await route.fetch();
       expect(response.status()).toBe(200);
@@ -48,15 +76,7 @@ export function holdConversationResponses(
       if (sendResult === 'lose') await route.abort('internetdisconnected');
       else await route.fulfill({ response });
       deliveredSend.resolve();
-    } else if (
-      (target === 'editor'
-        ? url.pathname === `/messages/${channelId}/message`
-        : url.pathname === `/messages/${channelId}` &&
-          url.searchParams.has('before')) &&
-      request.method() === 'GET' &&
-      headers.rsc === '1' &&
-      !headers['next-router-prefetch']
-    ) {
+    } else if (kind === 'navigation') {
       state.navigations++;
       const response = await route.fetch();
       expect(response.status()).toBe(200);
@@ -65,12 +85,7 @@ export function holdConversationResponses(
       await route.fulfill({ response });
       deliveredNavigation.resolve();
     } else {
-      if (
-        url.pathname === `/messages/${channelId}/message` &&
-        request.method() === 'POST' &&
-        headers['next-action']
-      )
-        state.saves++;
+      if (kind === 'save') state.saves++;
       await route.continue();
     }
   };
