@@ -164,8 +164,24 @@ const startSpeech = (c: CommandContext): void => {
   c.openRowAt(c.now);
 };
 
-/** Forfeiting closes the round with the other side's outcome. */
-const forfeit = (c: CommandContext): void => {
+/**
+ * A debater's own forfeit. Once the last segment has closed the debate is over
+ * and the Round waits for its ballot, so leaving has nothing left to forfeit
+ * and must not pre-empt the judges (ADR 0070). The runtime advances the clock
+ * first, so a segment that ran out with no tick persisted counts as closed.
+ */
+const debaterForfeit = (c: CommandContext): void => {
+  if (c.closedCount() >= c.rules.segments.length)
+    refuse('CONFLICT', 'The debate is over; there is nothing to forfeit');
+  forfeit(c);
+};
+
+/**
+ * Forfeiting closes the round with the other side's outcome. A settled
+ * attendance decision applies this directly, since an absence can settle after
+ * the last segment has closed.
+ */
+export const forfeit = (c: CommandContext): void => {
   const side = c.sideOf(c.actorId);
   if (side === null) refuse('CONFLICT', 'A seated debater forfeits');
   if (c.on.lifecycle().status === 'scheduled') {
@@ -251,7 +267,7 @@ export const applyRoundCommand = (
     case 'interrupt':
       return interrupt(c);
     case 'forfeit':
-      return forfeit(c);
+      return debaterForfeit(c);
     case 'complete':
       return complete(c, command.outcome);
   }

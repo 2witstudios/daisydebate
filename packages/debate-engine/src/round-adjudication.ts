@@ -6,8 +6,8 @@ import type {
 } from '@daisy/protocol';
 import { attendancePolicy } from './attendance';
 import {
-  applyRoundCommand,
   closePlayedRound,
+  forfeit,
   type CommandContext,
 } from './round-commands';
 
@@ -38,10 +38,7 @@ export function applyRoundAdjudication(
   if (input.decision.decision === 'forfeit') {
     const winner = target.side === 'affirmative' ? 'negative' : 'affirmative';
     if (input.decision.winner !== winner) throw createAppError('INVARIANT');
-    return applyRoundCommand(
-      { ...c, actorId: speaker.actorId },
-      { type: 'forfeit' },
-    );
+    return forfeit({ ...c, actorId: speaker.actorId });
   }
   closePlayedRound(c);
   c.on.setLifecycle({ status: 'abandoned', completedAtMs: c.now });

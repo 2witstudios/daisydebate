@@ -1,7 +1,9 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from './fixtures';
-import { readBallotRound, ballotRoundCommand } from './human-ballot-round';
-import type { humanBallotFixtures } from './human-ballot-fixtures';
+import {
+  submitJudgeBallot,
+  type humanBallotFixtures,
+} from './human-ballot-fixtures';
 const formEntries = (form: Locator) =>
   form.evaluate((node) => {
     if (!(node instanceof HTMLFormElement))
@@ -61,14 +63,10 @@ export async function proveBallotRecovery(
   expect(JSON.stringify(privateView)).not.toContain(
     fixtures.members[2]!.username,
   );
-  const current = await readBallotRound(guest, roundId);
-  const seat = current.participants.find(
-    (p) => p.role === 'negative' && 'id' in p,
-  );
-  if (!seat || !('id' in seat)) throw new Error('Actual negative seat missing');
-  await ballotRoundCommand(guest, current, {
-    type: 'forfeit',
-    participantId: seat.id,
+  // The last judge's ballot is what ends a debated Round; a debater can no longer forfeit it.
+  await submitJudgeBallot(fixtures.members[3]!, roundId, {
+    winner: fixtures.negative,
+    reason: 'The negative carried the decisive clash.',
   });
   await page.getByRole('link', { name: 'Refresh Round', exact: true }).click();
   await expect(
@@ -88,7 +86,7 @@ export async function proveBallotRecovery(
     page.getByText('Ballot submitted.', { exact: false }),
   ).toBeVisible();
   await expect(
-    page.getByText('Round outcome: affirmative', { exact: true }),
+    page.getByText('Round outcome: negative', { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Submit ballot', exact: true }),
