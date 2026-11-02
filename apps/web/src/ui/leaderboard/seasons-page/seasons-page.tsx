@@ -15,7 +15,8 @@ import { Segmented } from '../segmented/segmented';
 import { cn } from '../../cn';
 
 export type SeasonsPageProps = {
-  readonly view: SeasonsView;
+  /** Null when no season is active. */
+  readonly view: SeasonsView | null;
   readonly resolutions: readonly PublishedResolution[];
 };
 
@@ -85,9 +86,18 @@ function RangePicture() {
 
 /**
  * One season at a glance: today's resolutions while it runs, dates, champion,
- * a top-ten snapshot, and how rating works.
+ * a top-ten snapshot, and how rating works. With no active season, the
+ * resolutions alone.
  */
 export function SeasonsPage({ view, resolutions }: SeasonsPageProps) {
+  if (view === null)
+    return (
+      <div className="flex flex-col gap-5 p-6">
+        <h1>Seasons</h1>
+        <p>No season is active.</p>
+        <SeasonResolutions resolutions={resolutions} />
+      </div>
+    );
   const champion = view.champion;
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">

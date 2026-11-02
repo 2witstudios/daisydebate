@@ -90,6 +90,21 @@ describe('SeasonsPage', () => {
     });
   });
 
+  test('no active season', () => {
+    const html = renderToString(
+      h(SeasonsPage, { view: null, resolutions }),
+    ).replace(/<!-- -->/g, '');
+    assert({
+      given: 'no active season',
+      should: 'say so and still list the current resolutions',
+      actual: [
+        html.includes('No season is active.'),
+        html.includes('Resolved: Test wording.'),
+      ],
+      expected: [true, true],
+    });
+  });
+
   test('no one established', () => {
     const html = render(null, 'none');
     assert({
