@@ -114,7 +114,7 @@ export const roundViewSchema = z.strictObject({
 });
 export type RoundView = z.infer<typeof roundViewSchema>;
 /**
- * A Round as a ballot or transcript read carries it: the record, with no claim
+ * A Round as a transcript read carries it: the record, with no claim
  * about what a played Round is waiting on. Only the Round read decides that.
  */
 export const roundRecordSchema = roundViewSchema.omit({ waitingOn: true });

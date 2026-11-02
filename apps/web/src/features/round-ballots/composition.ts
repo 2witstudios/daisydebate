@@ -1,3 +1,4 @@
+import { roundWaitingOn } from '@daisy/debate-engine';
 import { composeRoundMemberDependencies } from '../round-runtime/member-composition';
 import type { App } from '../../server/app';
 import { canReadRound, canReadTranscript } from '../round-runtime/reads';
@@ -14,6 +15,7 @@ export function composeRoundBallotRoutes(app: App) {
     }),
     read: (caller, roundId) =>
       app.database.readRoundBallot({
+        decideWaitingOn: roundWaitingOn,
         caller,
         roundId,
         authorize: (round, account) => canReadRound(caller, round, account),

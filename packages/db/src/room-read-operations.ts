@@ -6,9 +6,8 @@ import {
   type RoomListPage,
 } from '@daisy/protocol';
 import { and, asc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
-import { readAttendanceLedger } from './attendance-settlement';
+import { readWaitingOn } from './round-waiting-read';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
-import { readJudgingPanelFacts } from './judging-panel-read';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   LaunchedRound,
@@ -54,36 +53,6 @@ import {
   replayReceipt,
 } from './room-command-facts';
 import { roundResolutionAudit } from './room-draw-persistence';
-/** Spares the hottest read this query for the whole of a running debate. */
-const speechesEnded = (round: Pick<LaunchedRound, 'rules' | 'segments'>) =>
-  round.segments.length === round.rules.segments.length &&
-  round.segments.at(-1)?.endedAt !== null;
-
-/** Facts only: the injected engine decision says what they mean. */
-async function readWaitingFacts(
-  tx: Pick<BunSQLDatabase, 'select' | 'execute'>,
-  round: Pick<LaunchedRound, 'id' | 'transcriptCompleteness'>,
-): Promise<RoundWaitingFacts> {
-  const [facts] = (await tx.execute(sql`select
-    clock_timestamp()::text as now,
-    r.final_segment_ended_at is not null as ended
-    from rounds r where r.id=${round.id}`)) as unknown as {
-    now: string;
-    ended: boolean;
-  }[];
-  if (!facts!.ended) return { speeches: 'running' };
-  return {
-    speeches: 'ended',
-    nowMs: Date.parse(facts!.now),
-    attendance: await readAttendanceLedger(tx, round.id),
-    frozen: round.transcriptCompleteness
-      ? await readJudgingPanelFacts(tx, {
-          roundId: round.id,
-          completeness: round.transcriptCompleteness,
-        })
-      : null,
-  };
-}
 export async function launchedRoundRows(
   tx: Pick<BunSQLDatabase, 'select'>,
   roundId: string,
@@ -174,11 +143,10 @@ export const roomReadOperations = ({
         const account = await sharedAccount(tx, caller);
         const round = await launchedRoundRows(tx, roundId);
         if (!authorize(round, account)) throw createAppError('NOT_FOUND');
-        const waitingOn =
-          round.status === 'active' && speechesEnded(round)
-            ? decideWaitingOn(await readWaitingFacts(tx, round))
-            : null;
-        return { ...roundViewFor(round, caller.actorId), waitingOn };
+        return {
+          ...roundViewFor(round, caller.actorId),
+          waitingOn: await readWaitingOn(tx, round, decideWaitingOn),
+        };
       }),
     );
   },

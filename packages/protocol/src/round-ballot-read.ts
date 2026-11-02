@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ballotSchema } from './ballot';
 import { idSchema } from './primitives';
-import { roundRecordSchema, roundViewSchema } from './round-view';
+import { roundViewSchema } from './round-view';
 import { roundUtteranceSchema } from './round-transcript';
 
 const ballotStatus = z.literal('submitted');
@@ -12,7 +12,7 @@ const ballotStatus = z.literal('submitted');
  * side reaches only that side's debater.
  */
 export const roundBallotReadSchema = z.strictObject({
-  round: roundRecordSchema,
+  round: roundViewSchema,
   own: z
     .strictObject({
       participantId: idSchema,

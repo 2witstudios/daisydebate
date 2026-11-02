@@ -1,3 +1,4 @@
+import { roundWaitingOn } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -131,6 +132,7 @@ test('round analysis discovery and claims use the seat account’s own entitleme
       await analyse(true);
       const ballotRead = () =>
         f.store.readRoundBallot({
+          decideWaitingOn: roundWaitingOn,
           roundId,
           caller: f.host,
           authorize: (r, a) => canReadRound(f.host, r, a),
