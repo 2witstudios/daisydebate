@@ -365,8 +365,13 @@ test('a suspension owes a read until one is accepted, even hidden', async () => 
   edges.answer(new Error('network down after waking'));
   await edges.flush();
   const afterFailure = edges.reads();
+  // The debt lets a wake through too: the network coming back need not wait.
+  sampler.wake();
+  edges.answer(new Error('still down'));
+  await edges.flush();
+  const wokeDuringDebt = edges.reads() - afterFailure;
   edges.advance(edges.timers()[0]!);
-  const retried = edges.reads() - afterFailure;
+  const retried = edges.reads() - afterFailure - wokeDuringDebt;
   // A reply at the true time: a stale stamp here would be refused as a rollback.
   edges.answer(found(roundTime.nowMs()));
   await edges.flush();
@@ -375,9 +380,10 @@ test('a suspension owes a read until one is accepted, even hidden', async () => 
   sampler.wake();
   assert({
     given: 'the read after a sleep failing, then the retry accepted',
-    should: 'retry while hidden, then stop reading once the debt is paid',
-    actual: [retried, edges.reads() - paid],
-    expected: [1, 0],
+    should:
+      'let a wake through and retry while hidden, then stop once the debt is paid',
+    actual: [wokeDuringDebt, retried, edges.reads() - paid],
+    expected: [1, 1, 0],
   });
   sampler.stop();
 });

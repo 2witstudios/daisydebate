@@ -458,7 +458,6 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       .toBeLessThan(2000);
     await test.info().attach('round-timing-evidence', {
       body: JSON.stringify({
-        candidate: process.env.GIT_COMMIT ?? null,
         cases: [
           'ahead wall skew',
           'reverse wall skew',

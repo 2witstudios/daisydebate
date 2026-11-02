@@ -563,7 +563,6 @@ for (const [name, tickOnly] of [
       expect(fresh!.startedAt - young!.startedAt).toBeLessThan(2_500);
       await test.info().attach('boundary-after-supersession', {
         body: JSON.stringify({
-          candidate: process.env.GIT_COMMIT ?? null,
           tickOnly,
           countdownMs: COUNTDOWN_MS,
           youngReadAgeAtDeadlineMs: deadline - young!.startedAt,
