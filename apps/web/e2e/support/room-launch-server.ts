@@ -153,6 +153,10 @@ const control = await createLaunchControl({
     'restore-check-in': async () => {
       blocked = false;
     },
+    'refuse-round-reads': () =>
+      callLaunchControl(launchAppControlPath(slot.id), 'refuse-round-reads'),
+    'allow-round-reads': () =>
+      callLaunchControl(launchAppControlPath(slot.id), 'allow-round-reads'),
     'stop-realtime': realtime.stop,
     'start-realtime': realtime.start,
     'stop-web': web.stop,

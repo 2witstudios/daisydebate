@@ -7,6 +7,7 @@ import { launchAppInput } from './room-launch-app-input';
 import { requireLaunchSlot } from './room-launch-slot';
 import { launchAppControlPath } from './room-launch-settled';
 import { createLaunchControl } from './room-launch-control';
+import { refusableRoundReads } from './refusable-round-reads';
 
 const slot = requireLaunchSlot(
   resolve(import.meta.dir, '../../../..'),
@@ -25,10 +26,15 @@ const app = createApp(
   ),
 );
 adoptProcessApp(app);
+const roundReads = refusableRoundReads(app.database);
 const control = await createLaunchControl({
   path: launchAppControlPath(slot.id, peer),
   settled: () => app.auth().settled(),
   pending: () => app.auth().pendingWork(),
+  actions: {
+    'refuse-round-reads': async () => roundReads.refuse(),
+    'allow-round-reads': async () => roundReads.allow(),
+  },
 });
 // The production entry owns availability, competitive workers, drain and pool close.
 await import('../../src/server/start');

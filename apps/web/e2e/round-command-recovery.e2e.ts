@@ -1,5 +1,6 @@
 import { openPage } from './support/fixtures';
 import { test, expect } from './support/round-files';
+import { controlLaunch } from './support/room-launch-settled';
 import { roundViewSchema } from '@daisy/protocol';
 test.use({ roundCommands: true });
 for (const command of ['yield', 'forfeit'] as const)
@@ -180,6 +181,62 @@ test('native browser retry resubmits the original accepted command after a lost 
     );
     expect(after.version).toBe(before.version);
     expect(after.segments).toEqual(before.segments);
+  } finally {
+    await native.close();
+  }
+});
+
+test('a capacity refusal on a mid-speech reload recovers on its own, End speech included, with and without JavaScript (ISSUE-927)', async ({
+  roundFiles,
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const { page, roundId } = roundFiles;
+  const path = `/rounds/${roundId}/room`;
+  for (const name of [
+    'Start round',
+    'Take prep time',
+    'Start affirmative constructive',
+  ])
+    await page.getByRole('button', { name, exact: true }).click();
+  const endSpeech = (seat: typeof page) =>
+    seat.getByRole('button', { name: 'End speech', exact: true });
+  await expect(endSpeech(page)).toBeEnabled();
+  const native = await browser.newContext({
+    baseURL: new URL(page.url()).origin,
+    ignoreHTTPSErrors: true,
+    javaScriptEnabled: false,
+    storageState: await page.context().storageState(),
+  });
+  try {
+    const formPage = await openPage(native, 'native refused reload');
+    const seats = [page, formPage];
+    await controlLaunch('refuse-round-reads');
+    try {
+      for (const seat of seats) {
+        await seat.goto(path);
+        await expect(
+          seat.getByRole('heading', {
+            name: 'Reconnecting to your Round',
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(endSpeech(seat)).toHaveCount(0);
+      }
+    } finally {
+      await controlLaunch('allow-round-reads');
+    }
+    // Nothing touches either page from here: each must come back by itself.
+    for (const seat of seats) await expect(endSpeech(seat)).toBeEnabled();
+    await endSpeech(formPage).click();
+    await formPage
+      .getByRole('button', { name: 'Confirm end speech', exact: true })
+      .click();
+    await expect(async () => {
+      const response = await native.request.get(`/api/rounds/${roundId}`);
+      const view = roundViewSchema.parse(await response.json());
+      expect(view.segments.some((s) => s.endedAt !== null)).toBe(true);
+    }).toPass({ timeout: 30_000 });
   } finally {
     await native.close();
   }

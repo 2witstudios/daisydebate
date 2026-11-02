@@ -5,6 +5,8 @@ export type LaunchControlOperation =
   | 'settled'
   | 'block-check-in'
   | 'restore-check-in'
+  | 'refuse-round-reads'
+  | 'allow-round-reads'
   | 'stop-realtime'
   | 'start-realtime'
   | 'stop-web'
