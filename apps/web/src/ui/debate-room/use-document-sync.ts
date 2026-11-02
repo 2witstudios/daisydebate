@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState, type Dispatch } from 'react';
+import { flushSync } from 'react-dom';
 import type { DocumentSync } from './document-sync';
+import { systemClock } from '@daisy/clock';
+import { isNoteDraftKey } from './note-draft-storage';
+import { closedFilesNotice } from './save-notice';
 import type { RoomAction } from './room-state';
 
 /**
@@ -19,17 +23,44 @@ export function useDocumentSync(
     sync
       .load()
       .then((documents) => {
-        if (live) dispatch({ type: 'doc/loaded', documents });
+        if (!live) return;
+        dispatch({ type: 'doc/loaded', documents });
       })
       .catch(() => {
         if (live) setProblem('Your files did not load. Reload the page.');
       });
-    const flush = () => void sync.flush();
+    const unsubscribe = sync.subscribe(() => {
+      if (!live || sync.available()) return;
+      dispatch({ type: 'doc/loaded', documents: [] });
+      setProblem(closedFilesNotice(sync.closedBy()));
+    });
+    const adopted = sync.subscribeServerText((id, html) => {
+      // In this same task as the revision moving, so no keystroke can land on
+      // the old text with the new revision.
+      if (live)
+        flushSync(() =>
+          dispatch({
+            type: 'doc/server-text',
+            id,
+            html,
+            now: systemClock.now(),
+          }),
+        );
+    });
+    const refresh = (event: StorageEvent) => {
+      if (event.key === null || isNoteDraftKey(event.key))
+        sync.refreshRecovery();
+    };
+    window.addEventListener('storage', refresh);
+    const flush = () => void sync.flushKeepalive();
     window.addEventListener('pagehide', flush);
     return () => {
       live = false;
+      unsubscribe();
+      adopted();
+      window.removeEventListener('storage', refresh);
       window.removeEventListener('pagehide', flush);
-      flush();
+      void sync.flush();
     };
   }, [sync, dispatch]);
   return { problem, setProblem };

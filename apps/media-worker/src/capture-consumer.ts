@@ -1,5 +1,7 @@
 import { isTransientProviderFailure, type OpenRouter } from '@daisy/ai-voice';
 import type { cutCaptureClips } from '@daisy/media/clips';
+import { isTransientControlFailure } from '@daisy/media/worker';
+import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
 import {
   contained,
   observedWindow,
@@ -23,6 +25,8 @@ export async function consumeCaptureClips(input: {
   /** Edge-straddling frames seen on a track (capture-staging). */
   readonly straddles: (trackId: string) => readonly FrameWindow[];
   readonly dropped: (n: number) => void;
+  /** A clip within its grant was heard, then lost before it could be committed. */
+  readonly lost: (clip: QueuedClip) => void;
   readonly transcribed: () => void;
   readonly committed: (clip: QueuedClip) => void;
   /** The clip left the pipeline: transcribed and observed, or dropped. */
@@ -37,6 +41,10 @@ export async function consumeCaptureClips(input: {
     }
     try {
       await consumeClip(input, clip, failed);
+    } catch (error) {
+      // Heard, and stopped before it committed.
+      input.lost(clip);
+      throw error;
     } finally {
       input.settled(clip);
     }
@@ -88,22 +96,24 @@ async function consumeClip(
     input.client,
     input.epoch,
     input.signal,
+    input,
     clip.segmentId,
   );
-  if (
-    !contained(fresh.state, clip.roundParticipantId, {
-      beforeMs: Date.parse(clip.before),
-      afterMs: Date.parse(clip.after),
-    }) ||
-    Date.parse(clip.after) > Date.parse(fresh.state.serverNow)
-  ) {
+  const allowed = contained(fresh.state, clip.roundParticipantId, {
+    beforeMs: Date.parse(clip.before),
+    afterMs: Date.parse(clip.after),
+  });
+  if (!allowed || Date.parse(clip.after) > Date.parse(fresh.state.serverNow)) {
     input.dropped(clip.durationMs / 10);
+    // Outside its grant it was never owed; inside it, it was heard and lost.
+    if (allowed) input.lost(clip);
     return;
   }
   const result = await transcribeClip(input, clip, failed);
   input.signal.throwIfAborted();
   if (!result) {
     input.dropped(clip.durationMs / 10);
+    input.lost(clip);
     return;
   }
   input.transcribed();
@@ -114,16 +124,18 @@ async function consumeClip(
     clip,
     input.straddles(clip.trackId),
   );
-  await input.client.observe(
-    {
-      epoch: input.epoch,
-      segmentId: clip.segmentId,
-      roundParticipantId: clip.roundParticipantId,
-      trackId: clip.trackId,
-      observedFrom: new Date(window.fromMs).toISOString(),
-      observedUntil: new Date(window.untilMs).toISOString(),
-    },
-    input.signal,
+  await untilAnswered(input, () =>
+    input.client.observe(
+      {
+        epoch: input.epoch,
+        segmentId: clip.segmentId,
+        roundParticipantId: clip.roundParticipantId,
+        trackId: clip.trackId,
+        observedFrom: new Date(window.fromMs).toISOString(),
+        observedUntil: new Date(window.untilMs).toISOString(),
+      },
+      input.signal,
+    ),
   );
 }
 
@@ -157,10 +169,39 @@ function clipObservation(
   });
 }
 
+/** How soon a write the control plane could not answer is sent again. */
+const WRITE_RETRY_MS = 250;
+/**
+ * A write stays pending in memory until the server answers. Still refused for
+ * now at the outage budget, its failure ends the consumer and so the session,
+ * which logs and relaunches: the server can keep refusing for good, and every
+ * later clip waits behind this one.
+ */
+async function untilAnswered(
+  input: Pick<
+    Parameters<typeof consumeCaptureClips>[0],
+    'signal' | 'nowMs' | 'waitUntilMs'
+  >,
+  write: () => Promise<unknown>,
+) {
+  const giveUpAt = input.nowMs() + CAPTURE_OUTAGE_BUDGET_MS;
+  for (;;) {
+    try {
+      await write();
+      return;
+    } catch (error) {
+      input.signal.throwIfAborted();
+      if (!isTransientControlFailure(error) || input.nowMs() >= giveUpAt)
+        throw error;
+      await input.waitUntilMs(input.nowMs() + WRITE_RETRY_MS, input.signal);
+    }
+  }
+}
+
 async function appendClip(
   input: Pick<
     Parameters<typeof consumeCaptureClips>[0],
-    'client' | 'epoch' | 'signal' | 'committed'
+    'client' | 'epoch' | 'signal' | 'committed' | 'nowMs' | 'waitUntilMs'
   >,
   clip: QueuedClip,
   text: string,
@@ -177,11 +218,6 @@ async function appendClip(
     text,
   };
   // Retry preserves the exact captured result and durable dedupe identity.
-  try {
-    await input.client.append(payload, input.signal);
-  } catch {
-    input.signal.throwIfAborted();
-    await input.client.append(payload, input.signal);
-  }
+  await untilAnswered(input, () => input.client.append(payload, input.signal));
   input.committed(clip);
 }

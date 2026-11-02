@@ -5,6 +5,7 @@ import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 setupRitewayBun();
+const pace = { nowMs: () => 0, waitUntilMs: async () => undefined };
 
 test('a history deadline restarts acquisition without mixing partial snapshot pages', async () => {
   const deadline = new AbortController();
@@ -61,6 +62,7 @@ test('a history deadline restarts acquisition without mixing partial snapshot pa
     client,
     1,
     new AbortController().signal,
+    pace,
     undefined,
     {
       deadlineSignal: () =>
@@ -105,7 +107,7 @@ test('caller cancellation never becomes permission to reacquire history', async 
   await assertRejects({
     given: 'capture already stopped by its caller',
     should: 'propagate cancellation without reading or retrying',
-    actual: () => readCaptureHistory(client, 1, stop.signal),
+    actual: () => readCaptureHistory(client, 1, stop.signal, pace),
     code: 'CONFLICT',
   });
   assert({
@@ -146,10 +148,17 @@ test('a definite server response wins when fetch completes as the history deadli
     should:
       'retain that definite refusal without retrying through caller-cancellation classification',
     actual: () =>
-      readCaptureHistory(client, 1, new AbortController().signal, undefined, {
-        deadlineSignal: () =>
-          ++attempts === 1 ? deadline.signal : new AbortController().signal,
-      }),
+      readCaptureHistory(
+        client,
+        1,
+        new AbortController().signal,
+        pace,
+        undefined,
+        {
+          deadlineSignal: () =>
+            ++attempts === 1 ? deadline.signal : new AbortController().signal,
+        },
+      ),
     code: 'AUTHORIZATION',
   });
   assert({

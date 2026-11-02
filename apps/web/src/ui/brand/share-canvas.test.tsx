@@ -37,12 +37,13 @@ describe('share surfaces', () => {
             'show the brand, tagline and shared generated geometry without stylesheet dependencies',
           actual: [
             html.includes('Daisy Debate'),
-            html.includes('Competitive debate,'),
-            html.includes('structured like chess.'),
+            html.includes('The arena for'),
+            html.includes('competitive debate'),
+            html.includes('Better arguments. A more thoughtful world.'),
             html.includes(bloomPetals(petalShape, markGeometry)[0]!.d),
             html.includes('class='),
           ],
-          expected: [true, true, true, true, false],
+          expected: [true, true, true, true, true, false],
         });
       }
   });

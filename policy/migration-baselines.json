@@ -2,13 +2,6 @@
   "version": 1,
   "baselines": [
     {
-      "baseMigrationsHash": "sha256:b285028ef90065fa5b300569c1b8ec2fa827e0db9572041d7f4c59850694d9a4",
-      "adr": "docs/decisions/0038-drizzle-1-baseline.md",
-      "owner": "platform",
-      "reason": "One-time squash of the five drizzle-kit 0.x migrations (0000-0004) into one drizzle-kit 1.0 baseline carrying the runtime roles, constraints, indexes and reference data before first ship (ISSUE-6); inert once the baseline lands on the default branch.",
-      "reviewBy": "2026-10-31"
-    },
-    {
       "baseMigrationsHash": "sha256:87edd01120330487df69322984407a552ac48fe3006e0f71236d7dd16e851a14",
       "adr": "docs/decisions/0058-one-round-model.md",
       "owner": "platform",

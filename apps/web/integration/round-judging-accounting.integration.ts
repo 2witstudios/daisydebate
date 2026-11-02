@@ -111,6 +111,8 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
             await f.sql`select pending_ballot,status from round_judging_jobs where round_id=${roundId} and judge_participant_id=${target.judgeParticipantId}`;
           const [count] =
             await f.sql`select count(*)::int as n from ballots where round_id=${roundId}`;
+          const attempts =
+            await f.sql`select category from round_judging_attempts where round_id=${roundId}`;
           assert({
             given: `actual PG dispatch plus controlled loopback ${mode} response (not vendor acceptance)`,
             should:
@@ -118,6 +120,10 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
             actual: {
               calls,
               refusal,
+              status: job.status,
+              attempts: attempts.map(
+                (row: { category: string }) => row.category,
+              ),
               requests: run.requests,
               usage: [run.input_tokens, run.output_tokens],
               outcome: run.outcome,
@@ -130,7 +136,17 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
             },
             expected: {
               calls: 1,
-              refusal: mode === 'terminal' ? 'CONFLICT' : 'INFRASTRUCTURE',
+              // A rejected answer is a durable attempt outcome, not an exception.
+              refusal: mode === 'terminal' ? 'CONFLICT' : 'NO_REJECTION',
+              status: mode === 'terminal' ? 'leased' : 'queued',
+              attempts:
+                mode === 'terminal'
+                  ? []
+                  : [
+                      mode === 'http-error'
+                        ? 'provider_error'
+                        : 'schema_rejected',
+                    ],
               requests: 1,
               usage: mode === 'http-error' ? [0, 0] : [11, 5],
               outcome: mode === 'http-error' ? 'unknown' : 'received',

@@ -45,7 +45,6 @@ const round = {
     inRoundPrep: null,
     countdownMs: 10_000,
     interaction: {
-      crossExMode: 'ordered' as const,
       yield: null,
       interruptions: null,
     },

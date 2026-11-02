@@ -70,7 +70,6 @@ test('legal speech keys cannot collide with ancillary native duration fields', (
   );
   const form = nativeInputFields(html);
   for (const [name, value] of Object.entries({
-    crossExMode: 'free',
     interruptionsMode: 'disabled',
     yield: 'off',
   }))
@@ -118,7 +117,6 @@ test('settings use the exact persisted sequence and capability-specific controls
         'inRoundPrep',
         'duration.budget',
         'duration.countdown',
-        'crossExMode',
         'interruptionsMode',
         'duration.minRemaining',
         'yield',

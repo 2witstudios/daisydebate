@@ -29,7 +29,6 @@ export const validRules: RoundRules = {
   },
   countdownMs: 10_000,
   interaction: {
-    crossExMode: 'ordered',
     yield: null,
     interruptions: null,
   },

@@ -1,6 +1,7 @@
 import { sideTextClass } from '../ballot/ballot-class';
 import { cn } from '../cn';
-import type { TranscriptSection } from './result-view';
+import { formatCountdown, formatSeconds } from '../../lib/clock-display';
+import { sectionItems, type TranscriptSection } from './result-view';
 
 /** One wording for a transcript's capture state, live and completed. */
 export const transcriptStatusLabels = {
@@ -38,15 +39,23 @@ export function TranscriptContent({
             </p>
           ) : null}
           <ol className="flex flex-col gap-1">
-            {section.lines.map((line) => (
-              <li key={line.id} className="text-sm wrap-anywhere text-ink">
-                <span className="font-strong">{line.speaker}: </span>
-                {line.text}
-                {line.partial ? (
-                  <span className="text-ink-muted"> (cut off)</span>
-                ) : null}
-              </li>
-            ))}
+            {sectionItems(section).map((item) =>
+              item.kind === 'gap' ? (
+                <li key={item.key} className="text-sm text-ink-muted">
+                  {item.speaker}: not captured{' '}
+                  {formatSeconds(item.fromOffsetMs / 1000)}–
+                  {formatCountdown(item.untilOffsetMs)}
+                </li>
+              ) : (
+                <li key={item.id} className="text-sm wrap-anywhere text-ink">
+                  <span className="font-strong">{item.speaker}: </span>
+                  {item.text}
+                  {item.partial ? (
+                    <span className="text-ink-muted"> (cut off)</span>
+                  ) : null}
+                </li>
+              ),
+            )}
           </ol>
         </section>
       ))}

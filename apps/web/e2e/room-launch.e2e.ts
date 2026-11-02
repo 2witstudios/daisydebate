@@ -19,6 +19,7 @@ import {
   claim,
   prepareJudgeRoom,
   assertFrozenLaunch,
+  readyUp,
   turnOffPreRoundPrep,
   clockText,
   openRoomSetup,
@@ -381,6 +382,80 @@ test('Train carries its chosen bot through the durable Room into one scheduled R
       }),
       contentType: 'application/json',
     });
+  } finally {
+    await closeSettledLaunchContexts(accounts);
+  }
+});
+
+test('a Ready made in one tab survives a mounted tab and a reload that never checked devices', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const { context } = accounts.members[0]!;
+    await context.grantPermissions(['camera', 'microphone'], { origin });
+    const readyTab = await openPage(context, 'Checked Ready tab');
+    const uncheckedTab = await openPage(context, 'Unchecked tab');
+    const opponent = (await readRoomBotRoster(readyTab.request)).find(
+      (bot) => bot.label === 'Wren' && bot.seatRole === 'debater',
+    );
+    const roomId = await startTrainPractice(
+      readyTab,
+      opponent!.actorId,
+      'Wren',
+    );
+    await claim(
+      readyTab,
+      await reread(readyTab.request, roomId),
+      'Affirmative 1',
+    );
+    await uncheckedTab.goto(`/rooms/${roomId}`);
+    // The controller is mounted once its check control replaces the SSR notice.
+    const checkControl = uncheckedTab.getByRole('button', {
+      name: 'Check camera',
+      exact: true,
+    });
+    await expect(checkControl).toBeVisible();
+    const consentSent = (page: typeof readyTab) => {
+      const sent: string[] = [];
+      page.on('request', (request) => {
+        const value = /\r?\n\r?\n(ready|unready)\r?\n/.exec(
+          (request.headers()['next-action'] && request.postData()) || '',
+        )?.[1];
+        if (value) sent.push(value);
+      });
+      return sent;
+    };
+    const fromChecked = consentSent(readyTab);
+    const fromUnchecked = consentSent(uncheckedTab);
+
+    await readyUp(readyTab);
+    // The mounted tab reads the Ready through its own Room sync and keeps it.
+    const standingReady = uncheckedTab.getByText('✓ Ready', { exact: true });
+    await expect(standingReady).toBeVisible();
+    // Read only now: the checked tab's control moves before the Ready commits.
+    const ready = await reread(readyTab.request, roomId);
+    const ownActorId = ready.hostActorId!;
+    const standing = seated(ready, ownActorId);
+    // A reload mounts a new controller over the standing Ready.
+    await uncheckedTab.reload();
+    await expect(checkControl).toBeVisible();
+    await expect(standingReady).toBeVisible();
+    // The new mount's Room sync effects have run by the next frame.
+    await uncheckedTab.evaluate(
+      () =>
+        new Promise((settled) =>
+          requestAnimationFrame(() => setTimeout(settled)),
+        ),
+    );
+
+    const after = await reread(readyTab.request, roomId);
+    // The checked tab's own Ready shows the detector reads these commands.
+    expect(fromChecked).toEqual(['ready']);
+    expect(fromUnchecked).toEqual([]);
+    expect(after.readiness.readyActorIds).toEqual([ownActorId]);
+    expect(seated(after, ownActorId)).toEqual(standing);
   } finally {
     await closeSettledLaunchContexts(accounts);
   }

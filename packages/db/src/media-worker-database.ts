@@ -1,3 +1,4 @@
+import { idSchema } from '@daisy/protocol';
 import { SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
 import { RUNTIME_SESSION } from './session-bounds';
@@ -45,8 +46,16 @@ export function createMediaWorkerDatabase(input: {
       connection: RUNTIME_SESSION,
     });
   return {
-    async discoverCaptureSessions(limit: number) {
-      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
+    async discoverCaptureSessions(
+      limit: number,
+      excluded: readonly string[] = [],
+    ) {
+      if (
+        !Number.isSafeInteger(limit) ||
+        limit < 1 ||
+        limit > 64 ||
+        !excluded.every((id) => idSchema.safeParse(id).success)
+      )
         throw createAppError('VALIDATION');
       const rows: { round_id: string; session_id: string }[] = await client`
         select s.round_id, s.id as session_id
@@ -57,12 +66,30 @@ export function createMediaWorkerDatabase(input: {
           and s.deletion_requested_at is null
           and r.status in ('scheduled', 'active')
           and (l.session_id is null or l.expires_at <= clock_timestamp())
+          and s.id <> all(string_to_array(${excluded.join(',')}, ','))
         order by s.created_at, s.id
         limit ${limit}`;
       return rows.map((row) => ({
         roundId: row.round_id,
         sessionId: row.session_id,
       }));
+    },
+    /**
+     * Active Rounds' sessions some worker is capturing right now, as a deploy
+     * hold reads them. Only a fresh lease counts: a stuck or orphaned session
+     * stops renewing, so it can never hold a deploy.
+     */
+    async countLiveCaptures() {
+      const [row]: { live: number }[] = await client`
+        select count(*)::integer as live
+        from media_worker_leases l
+        join media_sessions s on s.id = l.session_id
+        join rounds r on r.id = s.round_id
+        where l.expires_at > clock_timestamp()
+          and s.ended_at is null and s.unsafe_at is null
+          and s.deletion_requested_at is null
+          and r.status = 'active'`;
+      return row?.live ?? 0;
     },
     /** Startup refuses any login broader than `daisy_media_worker`. */
     async privilegeProblems() {

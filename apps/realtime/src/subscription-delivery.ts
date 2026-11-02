@@ -41,7 +41,7 @@ export function createSubscriptionDelivery({
 }: {
   readonly connections: Set<Connection>;
   readonly authorize: AuthorizeSubscription;
-  readonly failed: (error: unknown) => void;
+  readonly failed: (error: unknown, operation?: string) => void;
   readonly publish: (topic: string, frame: ServerMessage) => void;
   readonly event: (row: OutboxRow) => ServerMessage;
   readonly transport: SubscriptionTransport;
@@ -284,8 +284,16 @@ export function createSubscriptionDelivery({
     connection: Connection,
     validate: (principal: SocketPrincipal) => Promise<boolean>,
   ) {
-    const valid = await principalValid(connection, validate);
+    const valid = await principalValid(connection, validate, (error) =>
+      failed(error, 'realtime.revalidation'),
+    );
     if (connection.closed) return;
+    if (valid === AUTHORITY_UNAVAILABLE) {
+      // Fail closed, retryably: the reconnect re-authenticates from scratch.
+      remove(connection);
+      connection.socket.close(4007, 'authority_unavailable');
+      return;
+    }
     if (!valid) {
       revoke(connection);
       return;

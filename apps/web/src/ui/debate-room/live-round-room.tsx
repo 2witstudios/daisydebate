@@ -24,6 +24,8 @@ import { RoundCommandActions } from './round-command-actions';
 import { leaveIntent } from '../../features/round-runtime/leave-intent';
 import { RoundEndedNotice } from './round-ended';
 import { useSecond } from './use-second';
+import { useRoundTime } from './use-round-time';
+import { RoundTimeNotice } from './round-time-notice';
 
 /**
  * The mounted round room: the position derived each second from the
@@ -36,6 +38,7 @@ import { useSecond } from './use-second';
 export function LiveRoundRoom({
   view: seed,
   actorId,
+  principalId,
   renderedAtMs,
   leave,
   leaveAction,
@@ -55,6 +58,7 @@ export function LiveRoundRoom({
   readonly mediaSlot?: (view: RoundView) => ReactNode;
   readonly renderedAtMs: number;
   readonly actorId: string;
+  readonly principalId: string;
   readonly leave: LeaveLinks;
   /** Posts the forfeit that leaving a live Round is (ADR 0070). */
   readonly leaveAction: FormAction<RoundFormState>;
@@ -63,15 +67,33 @@ export function LiveRoundRoom({
   readonly socketUrl: string | null;
 }) {
   const reconnect = useMemo(() => createAttendanceReconnect(), []);
+  // One shared round clock: the SSR render instant seeds it, then its own
+  // sampler calibrates the seam display and media read.
+  const { roundTime, wakeClock } = useRoundTime({
+    renderedAtMs,
+    clockUrl: `/api/rounds/${seed.id}`,
+  });
+  const onConnectionOpen = useCallback(() => {
+    reconnect.opened();
+    wakeClock();
+  }, [reconnect, wakeClock]);
   const [synced, driver] = useLiveRoundView({
     view: seed,
     read,
     socketUrl,
-    onConnectionOpen: reconnect.opened,
+    onConnectionOpen,
   });
   const view = synced.value;
   const refresh = useCallback(() => driver?.signal(), [driver]);
-  const defaultMedia = useMemo(() => roundMediaSlot(refresh), [refresh]);
+  const now = useSecond(renderedAtMs, roundTime);
+  const round = useMemo(
+    () => liveRoundOf(view, actorId, now),
+    [view, actorId, now],
+  );
+  const defaultMedia = useMemo(
+    () => roundMediaSlot(refresh, roundTime),
+    [refresh, roundTime],
+  );
   useRoundAttendance({ view, actorId, reconnect });
   const ids = useMemo(
     () =>
@@ -89,12 +111,7 @@ export function LiveRoundRoom({
     },
     [driver],
   );
-  const now = useSecond(renderedAtMs);
-  const round = useMemo(
-    () => liveRoundOf(view, actorId, now),
-    [view, actorId, now],
-  );
-  const { sync, notice, save } = useRoundSync(view.id);
+  const { sync, notice, save } = useRoundSync(view.id, principalId, socketUrl);
   const intent = leaveIntent(view, actorId, now);
   const leaving: LeaveLinks =
     intent.kind === 'forfeit'
@@ -111,6 +128,7 @@ export function LiveRoundRoom({
   return (
     <>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
+      <RoundTimeNotice roundTime={roundTime} />
       {outcome ? (
         <p role="status" className="px-4 py-1 text-sm text-ink-muted">
           {outcome}
@@ -128,6 +146,7 @@ export function LiveRoundRoom({
         {(actions) =>
           round ? (
             <DebateRoom
+              key={`${view.id}:${principalId}`}
               transcript={transcript}
               media={(mediaSlot ?? defaultMedia)(view)}
               actions={actions}

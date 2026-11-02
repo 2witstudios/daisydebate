@@ -37,6 +37,7 @@ export function composeRoomRoutes(app: App) {
     handlers ??= createRoomHandlers({
       logger: app.logger,
       reporter: app.reporter,
+      clock: app.clock,
       origin: () => app.auth().config.PUBLIC_APP_URL,
       identify: (request) => identify(app.auth(), request.headers),
       getActorByUserId: (userId) => app.database.getActorByUserId(userId),

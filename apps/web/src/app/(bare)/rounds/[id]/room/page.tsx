@@ -1,3 +1,4 @@
+import { roundDocumentPrincipal } from '../../../../../features/debate-room/documents/document-principal';
 import { requestRoundRatings } from '../../../../../lib/request-session';
 import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
@@ -20,10 +21,8 @@ import type { SearchParams } from '../../../../../features/access/decision';
 import { requireAccess } from '../../../../../lib/access';
 import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
-import {
-  readPersistedRound,
-  readPersistedTranscript,
-} from '../../../../(shell)/rounds/[id]/actions';
+import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
+import { readPersistedTranscript } from '../../../../(shell)/rounds/[id]/read-persisted-transcript';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
 import {
   spectatorAudienceOf,
@@ -70,6 +69,7 @@ async function watchingRoom(
         transcript={transcript}
         read={readPersistedJudgeRound.bind(null, id)}
         socketUrl={socketUrl}
+        renderedAtMs={Date.parse(systemClock.now())}
       />
     </>
   );
@@ -89,9 +89,9 @@ export default async function RoundRoomPage({
   const { id } = await params;
   const identity = await requireAccess(`/rounds/${id}/room`, searchParams);
   if (!idSchema.safeParse(id).success) notFound();
-  const actorId =
-    identity.state === 'member' ? identity.principal.actorId : null;
-  if (actorId === null) redirect(`/rounds/${id}`);
+  const principal = roundDocumentPrincipal(identity);
+  if (principal === null) redirect(`/rounds/${id}`);
+  const { actorId, userId: principalId } = principal;
   // Independent reads; the transcript's own audience policy decides it.
   const [result, text] = await Promise.all([
     readPersistedRound(id),
@@ -101,11 +101,7 @@ export default async function RoundRoomPage({
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const transcript =
     text.kind === 'found' ? (
-      <LiveTranscript
-        seed={text.value}
-        read={readPersistedTranscript.bind(null, id)}
-        socketUrl={result.socketUrl}
-      />
+      <LiveTranscript key={id} seed={text.value} socketUrl={result.socketUrl} />
     ) : text.kind === 'unavailable' ? (
       // Refusals read as missing; only an outage, never a denial, says this.
       <p role="status">Transcript unavailable. Reload to try again.</p>
@@ -137,6 +133,7 @@ export default async function RoundRoomPage({
         commandIds={roundCommandIds(() => systemId.next())}
         view={result.round}
         actorId={actorId}
+        principalId={principalId}
         renderedAtMs={Date.parse(systemClock.now())}
         read={readPersistedRound.bind(null, id)}
         socketUrl={result.socketUrl}

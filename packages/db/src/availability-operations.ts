@@ -28,6 +28,17 @@ export function createAvailabilitySampler(client: SQL) {
   let session: ReservedSQL | null = null;
   let running = false;
   let stopped = false;
+  /**
+   * A failed session may be dead, and a kept handle would fail every later
+   * call (ISSUE-893). Retire it; ending its backend frees the election lock,
+   * and the next call reserves and elects on a new one. Health stays unknown:
+   * nothing here writes a sample.
+   */
+  const retireSession = () => {
+    const failed = session;
+    session = null;
+    void failed?.close({ timeout: 0 }).catch(() => undefined);
+  };
   const electSession = async () => {
     session ??= await client.reserve({ signal: AbortSignal.timeout(900) });
     const [election] =
@@ -45,6 +56,7 @@ export function createAvailabilitySampler(client: SQL) {
       try {
         return await electSession();
       } catch (error) {
+        retireSession();
         throw createAppError(
           'INFRASTRUCTURE',
           'Availability election unavailable',
@@ -89,6 +101,7 @@ export function createAvailabilitySampler(client: SQL) {
             }
           : null;
       } catch (error) {
+        retireSession();
         throw createAppError(
           'INFRASTRUCTURE',
           'Availability sampling unavailable',
@@ -114,6 +127,33 @@ export function createAvailabilitySampler(client: SQL) {
   };
 }
 
+export type PublicProbeProblem =
+  | 'round_missing'
+  | 'round_not_active'
+  | 'segment_missing'
+  | 'participant_missing';
+const publicProbeProblems = (facts: {
+  readonly status: string | null;
+  readonly segment: boolean;
+  readonly participant: boolean;
+}): readonly PublicProbeProblem[] => [
+  ...(facts.status === null
+    ? (['round_missing'] as const)
+    : facts.status === 'active'
+      ? []
+      : (['round_not_active'] as const)),
+  ...(facts.segment ? [] : (['segment_missing'] as const)),
+  ...(facts.participant ? [] : (['participant_missing'] as const)),
+];
+
+/**
+ * The most history one read returns: about three hours at one sample a second,
+ * past any Round plus its cutoff, and inside the transaction budget. A longer
+ * history is cut at its end, so the result is a true settled prefix: what it
+ * decides still holds, and what it cannot decide stays undecided.
+ */
+const MAX_ATTENDANCE_SAMPLES = 10_800;
+
 /**
  * The samples a decision about anything opened at or after `from` needs
  * (ISSUE-529): the latest recovery samples before `from`, which fix the
@@ -127,7 +167,7 @@ export const availabilitySamplesFrom = <T>(
 ): T =>
   query`select to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause from availability_samples
     where at >= coalesce((select at from availability_samples where at < ${from}::timestamptz order by at desc offset ${availabilityRecoveryPolicy.recoverySamples - 1} limit 1),'-infinity'::timestamptz)
-    order by at`;
+    order by at limit ${MAX_ATTENDANCE_SAMPLES}`;
 
 /**
  * Service leases and samples on the control lane; the sampler's election
@@ -157,6 +197,22 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
         where service_instances.role=excluded.role`;
     },
     availabilitySampler: () => createAvailabilitySampler(dedicated),
+    /**
+     * Whether the configured probe's synthetic resources still exist and can
+     * take a receipt. A healthy answer says nothing about public ingress: only
+     * a real check-in proves that.
+     */
+    async publicProbeResourceProblems(probe: {
+      readonly roundId: string;
+      readonly segmentId: string;
+      readonly participantId: string;
+    }): Promise<readonly PublicProbeProblem[]> {
+      const [facts] = await client`select
+        (select status from rounds where id=${probe.roundId}) as status,
+        exists(select 1 from round_segments where id=${probe.segmentId} and round_id=${probe.roundId}) as segment,
+        exists(select 1 from round_participants where id=${probe.participantId} and round_id=${probe.roundId}) as participant`;
+      return publicProbeProblems(facts);
+    },
     async readAvailabilitySamples(
       from: string,
     ): Promise<readonly AvailabilityEvidence[]> {

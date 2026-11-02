@@ -12,10 +12,12 @@ import {
   THEME_COOKIE,
 } from '../ui/theme/theme-preference';
 import {
+  requestIdentity,
   requestMetadataBase,
   sessionRefreshDueNow,
 } from '../lib/request-session';
 import { SessionRefresh } from '../ui/auth/session-refresh/session-refresh';
+import { RoundNotesPrivacy } from '../ui/debate-room/round-notes-privacy';
 import './globals.css';
 
 // Self-hosted via next/font: same-origin at runtime, CSP-safe, no dependency.
@@ -40,7 +42,8 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: { type: 'website', siteName: 'Daisy Debate' },
     twitter: { card: 'summary_large_image' },
     title: { default: 'Daisy Debate', template: '%s · Daisy Debate' },
-    description: 'Competitive debate, structured like chess.',
+    description:
+      'The arena for competitive debate. Better arguments. A more thoughtful world.',
   };
 }
 
@@ -58,6 +61,13 @@ export default async function RootLayout({
   const theme = parseThemePreference(jar.get(THEME_COOKIE)?.value);
   const refreshSession = await sessionRefreshDueNow();
   const analytics = await requestAnalytics();
+  const identity = await requestIdentity();
+  const notesPrincipal =
+    identity.state === 'unavailable'
+      ? undefined
+      : identity.state === 'anonymous'
+        ? null
+        : identity.principal.userId;
   return (
     <html
       lang="en"
@@ -66,6 +76,7 @@ export default async function RootLayout({
     >
       <body>
         <ThemeProvider initialPreference={theme}>
+          <RoundNotesPrivacy principalId={notesPrincipal} />
           {children}
           {refreshSession ? <SessionRefresh /> : null}
           {analytics.keyValue ? (

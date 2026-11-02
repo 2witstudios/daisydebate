@@ -57,12 +57,12 @@ test('Round controls follow existing runtime position and preserve floor command
     Date.parse(at(startOf(1) + 1000)),
   );
   assert({
-    given: 'the responder during ordered CX',
-    should: 'offer interruption without claiming floor-holder yield',
+    given: 'the respondent during cross-examination',
+    should: 'offer neither interruption nor floor-holder yield',
     actual: controls
       .filter((c) => c.enabled && c.type !== 'forfeit')
       .map((c) => c.type),
-    expected: ['interrupt'],
+    expected: [],
   });
   assert({
     given: 'a bot actor represented in the viewer projection',

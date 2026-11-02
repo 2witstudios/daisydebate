@@ -200,7 +200,6 @@ test('null interaction refusals preserve durable create and edit state', async (
       configurable: {
         ...choice.definition.configurable,
         interaction: {
-          crossExModes: ['ordered' as const],
           interruptions: {
             modes: ['enabled' as const],
             minRemainingMs: { min: 0, max: 1000 },

@@ -22,11 +22,17 @@ test('the canonical live Round mounts its media session and truthful native fall
       <LiveRoundRoom
         view={view}
         actorId={aff.actorId}
+        principalId="principal"
         renderedAtMs={origin}
         commandIds={roundCommandIds(() => 'c'.repeat(24))}
         commandAction={async () => ({ values: {} })}
         socketUrl={null}
-        read={async () => ({ kind: 'found', round: view, socketUrl: null })}
+        read={async () => ({
+          kind: 'found',
+          round: view,
+          serverNowMs: null,
+          socketUrl: null,
+        })}
         leave={{
           confirming: false,
           stayHref: '/stay',

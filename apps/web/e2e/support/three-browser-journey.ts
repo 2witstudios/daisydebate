@@ -135,8 +135,8 @@ async function endSpeech(page: Page) {
 }
 
 /**
- * Every turn through the debaters' own controls: the affirmative interrupts
- * the first cross-examination and yields the floor back, the negative spends prep before
+ * Every turn through the debaters' own controls: neither debater is offered
+ * Interrupt in the first cross-examination, the negative spends prep before
  * its constructive and refreshes mid-speech, and the affirmative reconnects
  * from a new tab before its first rebuttal. Returns the pages still open.
  */
@@ -163,16 +163,10 @@ export async function playEveryTurn(
     }
     await untilSegment(holder, roundId, scheduled.key, false);
     if (scheduled.key === 'CX1') {
-      // The affirmative takes the floor, then yields it back (DEC-203); the
-      // negative, who holds CX1, ends it.
-      const interrupter = players.affirmative;
-      await interrupter
-        .getByRole('button', { name: 'Interrupt', exact: true })
-        .click();
-      await endSpeech(interrupter);
-      await expect(
-        interrupter.getByRole('button', { name: 'Interrupt', exact: true }),
-      ).toBeEnabled();
+      for (const debater of Object.values(players))
+        await expect(
+          debater.getByRole('button', { name: 'Interrupt', exact: true }),
+        ).toHaveCount(0);
     }
     if (scheduled.key === 'NC') await holder.reload();
     if (scheduled.key === '1AR') {
@@ -208,11 +202,13 @@ async function attendanceSettled(judge: Page, roundId: string) {
       const ruled = evidence.adjudications.find(
         (row) => row.segmentId === segment.id,
       );
-      const deadline = Date.parse(ruled?.effectiveDeadline ?? '');
+      if (ruled?.decision !== 'attended') return false;
+      // An on-time receipt settles alone (ADR 0095); anything else needs its horizon.
+      if (ruled.evidence === 'on_time_receipt') return true;
+      const deadline = Date.parse(ruled.effectiveDeadline ?? '');
       return (
-        ruled?.decision === 'attended' &&
         deadline <= now - buffer &&
-        Date.parse(ruled.settledHorizon) >= deadline + buffer
+        Date.parse(ruled.settledHorizon ?? '') >= deadline + buffer
       );
     });
 }

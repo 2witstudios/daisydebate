@@ -205,9 +205,6 @@ export function readRoomDraft(
       segmentDurationOverrides: overrides,
     },
     resolutionDraw: method === 'strike' ? strike : { enabled: false },
-    crossExamination: {
-      crossExMode: source.preset.config.crossExamination.crossExMode,
-    },
     interruptions: poi
       ? { mode: 'open', minRemainingMs: 0 }
       : source.preset.config.interruptions,

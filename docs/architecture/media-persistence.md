@@ -126,7 +126,14 @@ contain no audio/text and follow Round erasure. The separate judging window ends
 
 Expected streams use the stable `(segment_id, round_participant_id)` key from
 nonempty actual historical speaking intervals. They must be discovered from
-history, never merely from seal rows that happen to exist. `transcript_segments`
+history, never merely from seal rows that happen to exist. A bot owes no stream
+for a grant it did not use: not its scheduled turn, and no credited publication
+window. Its worker seals that stream complete with zero chunks when it has no
+evidence of speech, and the finalizer does not expect it (ISSUE-965). A bot
+heard with no credit has at most one refused batch of frames, and any
+observation or chunk still seals partial. A bot's scheduled turn stays owed, and
+a human owes every grant, so a failed speech or a dead microphone still freezes
+incomplete. `transcript_segments`
 stores `open`, `complete` or `partial`, with received and declared chunk counts.
 A finalizer can insert a missing stream directly as partial with zero chunks.
 Closed complete/partial records are immutable. Matching counts is necessary for
@@ -145,7 +152,7 @@ and a vendor-room deletion request (`deletion_requested_at`, which is not data
 erasure) each close the session. After the earliest close a write is admitted
 only if its audio was captured strictly before that instant (an append's clip
 end, an observation's end) and it reaches the database within the injected
-(`sttLagMs`, which web composition sets to `CAPTURE_STT_LAG_MS`: the worker's history read, speech-to-text timeout and an append with its one retry, 66.5 s, from `@daisy/protocol` `capture-timing`, which also sets the 120 s transcript admission window that must cover it), so lagging transcription of earlier audio still lands and a
+(`sttLagMs`, which web composition sets to `CAPTURE_STT_LAG_MS`: the worker's history read, speech-to-text timeout and two call deadlines, 66.5 s, a window for ordinary lag only, so a write held through an outage past it is refused and that audio is lost, from `@daisy/protocol` `capture-timing`, which also sets the 120 s transcript admission window that must cover it), so lagging transcription of earlier audio still lands and a
 worker stamp alone never admits late audio. Reads and seals carry no capture
 time and are admitted.
 
@@ -317,7 +324,8 @@ complete into partial (ISSUE-807). A human's grants have no terminal zone. Both 
 (`coverageTolerance`, which web composition sets to
 `CAPTURE_COVERAGE_TOLERANCE`, 4 s to join and 1 s for relay, from
 `@daisy/protocol` `capture-timing`). Missing expected streams are still discovered from historical grants by
-the finalizer, never inferred absent from the seal table.
+the finalizer, less a bot's unused grants, never inferred absent from the seal
+table.
 
 Real bounded PostgreSQL component proof covers duplicate/conflicting clips,
 coverage gaps and count mismatch, epoch expiry/takeover, cutoff/freeze refusal
@@ -352,10 +360,10 @@ at once, judged Rounds once their ballot deadline passes. The freeze persists
 that deadline (`rounds.ballot_deadline_at`, default 30 minutes after the freeze,
 DEC-201 and DEC-207); it is immutable, the ballot path refuses a ballot at or
 after it, and the deferred `rounds_unjudged_participants_check` triggers refuse
-a null-outcome completion of a judged Round before it. `completeUnjudgedRound` holds the global command fence,
+a null-outcome completion of a judged Round before it. `completePanelRound` holds the global command fence,
 canonical account and Round fences, reads the stored ballots and freeze time, and
-consumes the shared engine's `completeUnjudged` projection, whose
-`decideUnjudgedCompletion` decides eligibility and outcome. It refuses
+consumes the shared engine's `completePanel` projection, whose
+`decidePanelCompletion` decides eligibility and outcome. It refuses
 incomplete play, pending check-in attempts, inconsistent cast facts, ranked or
 practice inputs, existing ratings and judged Rounds inside their deadline. The
 existing command ledger stores one internal service receipt bound to the exact
@@ -412,10 +420,56 @@ stream seal and freeze transactionally append a `round.transcript-changed`
 doorbell to the existing Round topic. It contains only the Round id and the
 transcript revision. The viewer refetches the protected read on that doorbell
 and reconnect/visibility recovery; clients without a connected socket use a
-30-second fallback. Refused reads remove the displayed text. Native page reloads
+30-second fallback. Refused reads remove the displayed text; any other failed
+read keeps it and shows Reconnecting beside the evidence state, never instead
+of it. The browser reads this route rather than a server action, because a
+build's action ids do not survive a web deploy (ISSUE-904). The reply declares
+`contractVersion` and the browser parses only what it renders, so added fields
+pass; a raised version or a removed field shows Reload instead of Reconnecting,
+since retrying cannot help. One sync driver
+holds a Round's transcript for the life of the page, and a later server
+render's seed is adopted only if it is not older. Native page reloads
 use the identical read and the shared transcript disclosure works without
 JavaScript. Capturing requires an explicit open, unfrozen stream; partial
 closure and incomplete freeze never wait for a client deadline to show Partial.
+
+Each partial stream's read carries its `gaps`: required speech with no
+observation, as offsets into the speech, derived on each read from
+`transcript_observations` and the same coverage edges that decide a complete
+seal. The completed Round's transcript read carries the same gaps. A stream can
+be Partial with no gap to show: a lost tail inside the close tolerance, or a clean
+handover at a new epoch with contiguous observations. It then says Partial
+without saying where (ISSUE-944 tracks showing that). A gap is
+never stored and never implies what was said.
+
+## Capture through a control-plane outage
+
+[ADR 0094](../decisions/0094-capture-through-control-plane-outages.md). A web
+outage is not a capture failure. While LiveKit stays connected the worker keeps
+hearing; frames wait in staging, in memory only, and history reads, renewals,
+appends and observations retry until the server answers, for at most 120 s.
+Past that, the read, renewal or write ends the session, so a server failing the
+same way reaches the logs and a relaunch instead of a silent stall, and no write
+holds every later clip behind it. A definite refusal
+still stops capture at once. An expired lease refuses every write. It answers
+`503 lease-expired` rather than a final refusal, because its worker may renew
+and reinstate the same epoch if the row is untouched; a takeover or rotation
+moves the row, and the old worker is then refused as stale for good.
+
+Frames the memory bound drops, and any frames a stopping process still holds,
+are reported on seal as `framesLost`, which is
+never complete, and they leave a hole in the observations. A frame's position
+comes from its native sequence, so contiguity comes from frames actually held,
+never from the lease. `capture-memory.ts` divides one total pending-audio bound
+across `MEDIA_WORKER_MAX_SESSIONS`. A track that first produces frames more than 30 s after the last answered read
+is refused until a read answers, since calibration ages out, and a running track
+is not affected; that also records a gap. An outage that spans a speech boundary
+loses the next speech's opening, since that segment is unknown until the server
+answers, and it records a gap. A stopping session releases its lease so a
+successor need not wait out its expiry. A takeover, or a worker reporting loss, which may have written a chunk it never
+heard answered, seals at the stored count,
+partial, so a finished speech stops reading as Capturing. Nothing here recovers
+sound no worker heard, and pending audio never reaches disk.
 
 ## Revoked media room rotation
 

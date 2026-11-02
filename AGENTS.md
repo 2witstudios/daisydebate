@@ -101,7 +101,8 @@ identity, secrets, deployment and data actions retain human sign-off.
 
 ### Architecture rules
 
-These four rules are blockers in every plan and review (owner, 2026-10-27):
+These rules are blockers in every plan and review (owner, 2026-10-27 and
+2026-11-02):
 
 - **Never build on flawed architecture.** When a feature's structure (names,
   modules, types, tables, pools) does not match the product's concepts,
@@ -116,6 +117,14 @@ These four rules are blockers in every plan and review (owner, 2026-10-27):
   AI judge's ballot feedback double as the "coaching" report.
 - **Words matter.** "Coaching" and "coach" are reserved for future human
   coaches. The AI post-round report is **Round analysis**.
+- **Pure, semantic structure is mandatory.** Pure model: state is one explicit
+  data type where impossible combinations cannot be represented, not parallel
+  variables that each hold part of the truth. Pure functions: decisions and
+  transitions are pure and total, with effects described as data or run at the
+  edges through injected resources. Semantic naming: names state the product
+  concept, not the mechanism or the author. Semantic file organization and
+  modularity: one concept per file, named for it, laid out by concept, with
+  small explicit interfaces.
 
 ### Engineering constraints
 

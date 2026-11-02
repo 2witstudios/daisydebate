@@ -57,7 +57,7 @@ const clearHelloTimer = (
 
 const logRejection = (
   logger: Logger,
-  cause: 'hello_timeout' | 'message_rejected',
+  cause: 'hello_timeout' | 'message_rejected' | 'check_unanswered',
   code: number,
   reason: string,
 ) =>
@@ -79,6 +79,7 @@ export function createWebSocketHandlers({
   authenticate,
   registry,
   validatePrincipal,
+  failed,
   presence,
   observation,
 }: {
@@ -91,6 +92,8 @@ export function createWebSocketHandlers({
   ) => Promise<SocketPrincipal | null>;
   readonly registry?: SubscriptionRegistry;
   readonly validatePrincipal?: (principal: SocketPrincipal) => Promise<boolean>;
+  /** Reports a hello or frame check that failed rather than answered. */
+  readonly failed?: (error: unknown, operation: string) => void;
   readonly presence?: PresenceTracker;
   readonly observation?: ObservationNode;
 }) {
@@ -108,7 +111,7 @@ export function createWebSocketHandlers({
   function reject(
     ws: ServerWebSocket<SocketData>,
     reason: Parameters<typeof closeFor>[0],
-    cause: 'hello_timeout' | 'message_rejected' = 'message_rejected',
+    cause: Parameters<typeof logRejection>[1] = 'message_rejected',
   ) {
     if (ws.data.phase === 'closed') return;
     release(ws);
@@ -140,18 +143,26 @@ export function createWebSocketHandlers({
       return;
     }
     ws.data.phase = 'authenticating';
-    let principal;
-    try {
-      principal = await authenticate(outcome.ticket, ws.data.origin);
-    } catch {
-      principal = null;
-    }
+    settleHello(
+      ws,
+      await authenticate(outcome.ticket, ws.data.origin).catch((error) => {
+        failed?.(error, 'realtime.hello');
+        return 'unavailable' as const;
+      }),
+    );
+  }
+  /** A check that could not answer decided nothing, so it is not a failed authentication. */
+  function settleHello(
+    ws: ServerWebSocket<SocketData>,
+    principal: SocketPrincipal | null | 'unavailable',
+  ) {
     if (ws.data.phase !== 'authenticating') return;
-    if (!principal || helloExpired(ws)) {
-      reject(ws, 'auth_failed');
-      return;
-    }
-    acceptHello(ws, principal);
+    if (!principal) reject(ws, 'auth_failed');
+    else if (principal === 'unavailable')
+      reject(ws, 'authority_unavailable', 'check_unanswered');
+    else if (helloExpired(ws))
+      reject(ws, 'authority_unavailable', 'hello_timeout');
+    else acceptHello(ws, principal);
   }
   function helloExpired(ws: ServerWebSocket<SocketData>) {
     return now() >= (ws.data.helloDeadline ?? 0);
@@ -283,15 +294,19 @@ export function createWebSocketHandlers({
   }
   async function currentPrincipal(ws: ServerWebSocket<SocketData>) {
     if (!validatePrincipal || !ws.data.principal) return true;
-    let valid = false;
+    let valid: boolean | 'unavailable';
     try {
       valid = await validatePrincipal(ws.data.principal);
-    } catch {
-      valid = false;
+    } catch (error) {
+      failed?.(error, 'realtime.frame');
+      valid = 'unavailable';
     }
     if (ws.data.phase !== 'authenticated') return false;
-    if (!valid) reject(ws, 'revoked');
-    return valid;
+    // Fail closed either way; only a definite answer is a revocation.
+    if (valid === 'unavailable')
+      reject(ws, 'authority_unavailable', 'check_unanswered');
+    else if (!valid) reject(ws, 'revoked');
+    return valid === true;
   }
   return {
     open(ws: ServerWebSocket<SocketData>) {
@@ -299,7 +314,14 @@ export function createWebSocketHandlers({
       ws.data.helloDeadline = now() + HELLO_TIMEOUT_MS;
       ws.data.helloTimer = timers.setTimeout(() => {
         ws.data.helloTimer = undefined;
-        reject(ws, 'auth_failed', 'hello_timeout');
+        // A hello already being checked was sent in time: the check is slow.
+        reject(
+          ws,
+          ws.data.phase === 'authenticating'
+            ? 'authority_unavailable'
+            : 'auth_failed',
+          'hello_timeout',
+        );
       }, HELLO_TIMEOUT_MS);
     },
     async message(ws: ServerWebSocket<SocketData>, message: string | Buffer) {

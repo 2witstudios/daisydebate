@@ -1,0 +1,598 @@
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { expect } from 'bun:test';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  launchImageIdentity,
+  launchDaemonImageContract,
+  launchImageFilesystemArgs,
+  launchImagePrepareArgs,
+  launchImageCommitArgs,
+  launchPreparationRemaining,
+} from '../e2e/support/launch-browser-image-policy';
+import {
+  validateLaunchBase,
+  validateLaunchImage,
+  launchImageContractChecks,
+  validateLaunchPreparation,
+} from '../e2e/support/launch-browser-image-validation';
+import { launchBaseMetadata } from './launch-browser-image.fixture';
+setupRitewayBun();
+const inputs = {
+  version: '1.63.0',
+  coreVersion: '1.63.0',
+  platform: 'linux/arm64',
+  store: 'containerd-overlayfs' as const,
+  recipe: 'recipe',
+  toolchain: 'adapter',
+  refresh: 'noble-nss-2026-11-01-container-1',
+};
+const imageId = `sha256:${'a'.repeat(64)}`;
+const packageHash = `sha256:${'b'.repeat(64)}`;
+const imageMetadata = (image: ReturnType<typeof launchImageIdentity>) => ({
+  Id: imageId,
+  Os: 'linux',
+  Architecture: 'arm64',
+  Config: {
+    Env: image.environment,
+    Cmd: ['/bin/bash'],
+    Entrypoint: [],
+    User: '0:0',
+    WorkingDir: '/',
+    Labels: { ...image.labels, 'io.daisy.launch.packages': packageHash },
+  },
+  RootFS: { Layers: [...image.native.layers, packageHash] },
+});
+const preparationMetadata = (
+  image: ReturnType<typeof launchImageIdentity>,
+) => ({
+  Image: imageId,
+  Config: {
+    ...imageMetadata(image).Config,
+    Cmd: launchImagePrepareArgs(image, 'daisy-image-fixture', imageId).slice(
+      launchImagePrepareArgs(image, 'daisy-image-fixture', imageId).indexOf(
+        imageId,
+      ) + 1,
+    ),
+    Entrypoint: null,
+    Labels: image.preparationLabels,
+    Hostname: 'daisy-launch-preparation',
+  },
+  HostConfig: {
+    Binds: null,
+    Privileged: false,
+    CapAdd: null,
+    NetworkMode: 'bridge',
+  },
+  Mounts: [],
+  State: { Status: 'created' },
+});
+
+describe('prepared Launch browser identity', () => {
+  test('the reviewed port scheme is an explicit exact artifact contract', () => {
+    const image = launchImageIdentity(inputs),
+      valid = imageMetadata(image);
+    const changed = (Labels: Record<string, string>) =>
+      validateLaunchImage(
+        { ...valid, Config: { ...valid.Config, Labels } },
+        image,
+      );
+    const absent = { ...valid.Config.Labels } as Record<string, string>;
+    delete absent['desktop.docker.io/ports.scheme'];
+    assert({
+      given:
+        'the explicit public port scheme, its absence, substitution or an extra Desktop key',
+      should: 'construct and accept only the exact reviewed artifact labels',
+      actual: [
+        launchImageCommitArgs(
+          'daisy-image-owned',
+          'daisy-launch-preparing:fixture',
+          packageHash,
+        ).includes('LABEL desktop.docker.io/ports.scheme=v2'),
+        validateLaunchImage(valid, image) === imageId,
+        changed(absent) === null,
+        changed({
+          ...valid.Config.Labels,
+          'desktop.docker.io/ports.scheme': 'synthetic-credential',
+        }) === null,
+        changed({
+          ...valid.Config.Labels,
+          'desktop.docker.io/foreign': 'v2',
+        }) === null,
+      ],
+      expected: [true, true, true, true, true],
+    });
+  });
+
+  test('only compatible native browser artifacts are admitted', () => {
+    for (const changed of [
+      { version: '^1.63.0' },
+      { coreVersion: '1.62.0' },
+      { platform: 'linux/ppc64le' },
+    ])
+      expect(() => launchImageIdentity({ ...inputs, ...changed })).toThrow(
+        'Unsupported Launch browser image inputs',
+      );
+  });
+  test('each preparation input invalidates both image and archive', () => {
+    const original = launchImageIdentity(inputs);
+    assert({
+      given: 'a changed recipe, toolchain, refresh or native platform',
+      should: 'never reuse the earlier image identity',
+      actual: ['recipe', 'toolchain', 'refresh']
+        .map(
+          (key) =>
+            launchImageIdentity({ ...inputs, [key]: 'changed' }).key !==
+            original.key,
+        )
+        .concat(
+          launchImageIdentity({ ...inputs, platform: 'linux/amd64' }).key !==
+            original.key,
+        ),
+      expected: [true, true, true, true],
+    });
+  });
+  test('preparation cannot inherit proxy credentials or filesystem inputs', () => {
+    const image = launchImageIdentity(inputs);
+    const args = launchImagePrepareArgs(image, 'daisy-image-owned', imageId);
+    assert({
+      given: 'the exact native upstream image ID',
+      should:
+        'create a mount-free owner with explicit empty proxy overrides and no runtime pull',
+      actual: {
+        image: args.includes(imageId),
+        pull: args.includes('--pull=never'),
+        stdin: args.includes('--interactive'),
+        mounts: args.some((arg) =>
+          ['--mount', '-v', '--env-file', '--privileged'].includes(arg),
+        ),
+        env: args.flatMap((arg, index) =>
+          arg === '--env' ? [args[index + 1]] : [],
+        ),
+      },
+      expected: {
+        image: true,
+        pull: true,
+        stdin: true,
+        mounts: false,
+        env: [
+          'HTTP_PROXY=',
+          'HTTPS_PROXY=',
+          'FTP_PROXY=',
+          'ALL_PROXY=',
+          'NO_PROXY=',
+          'http_proxy=',
+          'https_proxy=',
+          'ftp_proxy=',
+          'all_proxy=',
+          'no_proxy=',
+        ],
+      },
+    });
+  });
+  test('cache metadata, config and native layers are checked even on a cache hit', () => {
+    const image = launchImageIdentity(inputs),
+      valid = imageMetadata(image);
+    assert({
+      given:
+        'valid, corrupt, wrong-platform, wrong-provenance and wrong-receipt images',
+      should: 'accept only the exact expected artifact',
+      actual: [
+        validateLaunchImage(valid, image, imageId),
+        validateLaunchImage(null, image),
+        validateLaunchImage({ ...valid, Architecture: 'amd64' }, image),
+        validateLaunchImage({ ...valid, RootFS: { Layers: [] } }, image),
+        validateLaunchImage(valid, image, packageHash),
+      ],
+      expected: [imageId, null, null, null, null],
+    });
+  });
+  test('synthetic credentials and unexpected execution config cannot enter an image', () => {
+    const image = launchImageIdentity(inputs),
+      valid = imageMetadata(image);
+    const configs = [
+      {
+        ...valid.Config,
+        Env: [
+          ...image.environment.filter(
+            (value) => !value.startsWith('HTTP_PROXY='),
+          ),
+          'HTTP_PROXY=http://synthetic:credential@proxy.invalid',
+        ],
+      },
+      {
+        ...valid.Config,
+        Env: [...image.environment, 'REGISTRY_AUTH=synthetic-credential'],
+      },
+      {
+        ...valid.Config,
+        Labels: { ...valid.Config.Labels, 'private.credential': 'synthetic' },
+      },
+      { ...valid.Config, Shell: ['sh', '-c'] },
+      { ...valid.Config, Hostname: 'synthetic-credential' },
+      { ...valid.Config, Image: 'synthetic-credential' },
+    ];
+    assert({
+      given:
+        'forged labels alongside synthetic proxy, registry or unexpected config',
+      should:
+        'reject every credential-bearing artifact without returning its values',
+      actual: configs.map(
+        (Config) => validateLaunchImage({ ...valid, Config }, image) === null,
+      ),
+      expected: [true, true, true, true, true, true],
+    });
+  });
+  test('preparation is validated before start and again before commit', () => {
+    const image = launchImageIdentity(inputs),
+      valid = preparationMetadata(image);
+    assert({
+      given:
+        'created, exited-success, failed and mounted preparation containers',
+      should:
+        'allow execution/commit only at the expected state with no mounted fixture input',
+      actual: [
+        validateLaunchPreparation(valid, image, imageId),
+        validateLaunchPreparation(
+          { ...valid, State: { Status: 'exited', ExitCode: 0 } },
+          image,
+          imageId,
+          true,
+        ),
+        validateLaunchPreparation(
+          { ...valid, State: { Status: 'exited', ExitCode: 1 } },
+          image,
+          imageId,
+          true,
+        ),
+        validateLaunchPreparation(
+          { ...valid, Mounts: [{ Destination: '/fixture' }] },
+          image,
+          imageId,
+        ),
+      ],
+      expected: [true, true, false, false],
+    });
+  });
+  test('base validation checks published native layers and safe base config', () => {
+    const image = launchImageIdentity(inputs);
+    const valid = launchBaseMetadata(
+      image,
+      image.labels['io.daisy.launch.upstream'],
+    );
+    assert({
+      given:
+        'the exact native base and a same-label base with injected environment',
+      should: 'verify original bytes/config rather than trusting labels',
+      actual: [
+        validateLaunchBase(valid, image),
+        validateLaunchBase(
+          {
+            ...valid,
+            Config: { ...valid.Config, Env: ['HTTP_PROXY=synthetic'] },
+          },
+          image,
+        ),
+      ],
+      expected: [valid.Id, null],
+    });
+  });
+});
+test('preparation leaves a real reserved cleanup window', () => {
+  assert({
+    given:
+      'an eight-minute budget at start, operation deadline and cleanup deadline',
+    should:
+      'stop work before the backend cleanup reserve and never grant extra time',
+    actual: [
+      launchPreparationRemaining(480000, 0, false),
+      launchPreparationRemaining(480000, 450000, false),
+      launchPreparationRemaining(480000, 450000, true),
+      launchPreparationRemaining(480000, 480001, true),
+    ],
+    expected: [450000, 0, 30000, 0],
+  });
+});
+test('equivalent image inputs have one identity independent of insertion order', () => {
+  assert({
+    given: 'the same logical preparation inputs in a different property order',
+    should: 'reuse the exact image and archive key',
+    actual: launchImageIdentity(
+      Object.fromEntries(Object.entries(inputs).reverse()) as typeof inputs,
+    ).key,
+    expected: launchImageIdentity(inputs).key,
+  });
+});
+test('only the committed recipe provisions tooling; fixture trust remains runtime-only', async () => {
+  const recipe = await Bun.file(
+    new URL('../e2e/support/launch-browser-image-recipe.sh', import.meta.url),
+  ).text();
+  const shell = await Bun.file(
+    new URL('../e2e/support/launch-browser-container.sh', import.meta.url),
+  ).text();
+  assert({
+    given: 'the committed preparation recipe and runtime entry point',
+    should:
+      'bound package acquisition and record packages without importing fixture trust',
+    actual: {
+      bounded:
+        recipe.includes('--max-time 45') &&
+        recipe.includes('--retry-max-time 90'),
+      inventory: recipe.includes('dpkg-query -W'),
+      noApt: !recipe.includes('apt-get'),
+      verifiesArtifact:
+        recipe.includes('sha256sum -c') &&
+        recipe.includes('dpkg-deb -f') &&
+        recipe.includes('dpkg --compare-versions'),
+      importsTrust: /certutil -A|update-ca-certificates|cp .*ca\.crt/.test(
+        recipe,
+      ),
+      runtimeApt: /apt-get/.test(shell),
+      freshCa: shell.includes('-i /fixture/ca.crt'),
+    },
+    expected: {
+      bounded: true,
+      inventory: true,
+      noApt: true,
+      verifiesArtifact: true,
+      importsTrust: false,
+      runtimeApt: false,
+      freshCa: true,
+    },
+  });
+});
+
+test('Docker-normalized label order and explicit bridge mode preserve safe preparation', () => {
+  const image = launchImageIdentity(inputs),
+    valid = preparationMetadata(image);
+  const normalized = {
+    ...valid,
+    Config: {
+      ...valid.Config,
+      Labels: Object.fromEntries(
+        Object.entries(image.preparationLabels).reverse(),
+      ),
+    },
+    HostConfig: { ...valid.HostConfig, NetworkMode: 'bridge' },
+  };
+  assert({
+    given:
+      'Docker returns the same labels in another order and resolves its network to bridge',
+    should: 'admit the exact safe native preparation configuration',
+    actual: validateLaunchPreparation(normalized, image, imageId),
+    expected: true,
+  });
+});
+
+test('native artifact and complete dependency contract are explicit recipe inputs', () => {
+  const image = launchImageIdentity(inputs),
+    args = launchImagePrepareArgs(image, 'daisy-image-artifact', imageId);
+  assert({
+    given: 'the published arm64 NSS binary and frozen base dependency contract',
+    should:
+      'bind HTTPS URL, SHA256, size, version, architecture and Debian minimum versions into the recipe invocation',
+    actual: args.slice(args.indexOf(imageId) + 1),
+    expected: [
+      'sh',
+      '-s',
+      '--',
+      '2:3.98-1build1',
+      'arm64',
+      'https://ports.ubuntu.com/ubuntu-ports/pool/main/n/nss/libnss3-tools_3.98-1build1_arm64.deb',
+      '273a3da5dc5d11dbc4efceb787cbe65e1775a3489c84bb393a672f7df17060b8',
+      '597570',
+      'libc6 (>= 2.34), libnspr4 (>= 2:4.34), libnss3 (>= 2:3.94), zlib1g (>= 1:1.1.4)',
+      'libc6',
+      '2.34',
+      'libnspr4',
+      '2:4.34',
+      'libnss3',
+      '2:3.94',
+      'zlib1g',
+      '1:1.1.4',
+    ],
+  });
+});
+
+test('preparation preserves the verified base entrypoint instead of inheriting a shell', () => {
+  const image = launchImageIdentity(inputs),
+    args = launchImagePrepareArgs(image, 'daisy-image-entrypoint', imageId);
+  assert({
+    given: 'a verified upstream image with no entrypoint',
+    should:
+      'run the recipe as an explicit command so commit cannot inherit a preparation shell',
+    actual: {
+      override: args.includes('--entrypoint'),
+      command: args[args.indexOf(imageId) + 1],
+    },
+    expected: { override: false, command: 'sh' },
+  });
+});
+test('a committed image has the canonical empty hostname without accepting foreign host data', () => {
+  const image = launchImageIdentity(inputs),
+    valid = imageMetadata(image);
+  assert({
+    given: 'Docker clears the disposable container hostname at commit',
+    should:
+      'admit only absent or empty final hostname and reject foreign values',
+    actual: [
+      validateLaunchImage(
+        { ...valid, Config: { ...valid.Config, Hostname: '' } },
+        image,
+      ),
+      validateLaunchImage(
+        {
+          ...valid,
+          Config: { ...valid.Config, Hostname: 'synthetic-private' },
+        },
+        image,
+      ),
+    ],
+    expected: [imageId, null],
+  });
+});
+
+test('artifact refusal diagnostics cannot serialize credentials or unknown keys', () => {
+  const image = launchImageIdentity(inputs),
+    valid = imageMetadata(image);
+  const marker = 'synthetic-private-credential';
+  const checks = launchImageContractChecks(
+    {
+      ...valid,
+      Config: {
+        ...valid.Config,
+        Env: [marker],
+        Labels: { [marker]: marker },
+        Image: marker,
+      },
+    },
+    image,
+  );
+  assert({
+    given: 'untrusted environment, label names/values and source references',
+    should: 'emit only fixed boolean contract categories',
+    actual: [
+      Object.values(checks).every((value) => typeof value === 'boolean'),
+      JSON.stringify(checks).includes(marker),
+      checks.environment,
+      checks.labels,
+      checks.imageReference,
+    ],
+    expected: [true, false, false, false, false],
+  });
+});
+
+test('commit retains only the exact owned hostname or its OCI omission', () => {
+  const image = launchImageIdentity(inputs),
+    valid = imageMetadata(image);
+  assert({
+    given:
+      'the observed empty OCI form, exact created hostname, or foreign hostname',
+    should: 'accept only the two deterministic safe producer forms',
+    actual: [
+      '',
+      'daisy-launch-preparation',
+      'synthetic-private-credential',
+    ].map((Hostname) =>
+      validateLaunchImage(
+        { ...valid, Config: { ...valid.Config, Hostname } },
+        image,
+      ),
+    ),
+    expected: [imageId, imageId, null],
+  });
+});
+
+test('daemon identity representation is an explicit cache and base contract', () => {
+  const manifest = launchImageIdentity(inputs);
+  const config = launchImageIdentity({
+    ...inputs,
+    store: 'overlay2' as const,
+  });
+  const base = {
+    Os: 'linux',
+    Architecture: 'arm64',
+    RootFS: { Layers: manifest.native.layers },
+    Config: {
+      Env: manifest.environment.slice(0, 4),
+      Cmd: ['/bin/bash'],
+      Labels: manifest.baseLabels,
+    },
+  };
+  assert({
+    given: 'the measured manifest-ID or config-ID daemon contract',
+    should:
+      'invalidate cache across stores and admit only its verified native base identity representation',
+    actual: [
+      manifest.key !== config.key,
+      validateLaunchBase({ ...base, Id: manifest.native.config }, manifest),
+      validateLaunchBase(
+        { ...base, Id: manifest.labels['io.daisy.launch.upstream'] },
+        config,
+      ),
+      validateLaunchBase({ ...base, Id: manifest.native.config }, config),
+    ],
+    expected: [true, null, null, manifest.native.config],
+  });
+});
+
+test('only measured daemon image-store contracts select receipt identity', () => {
+  const info = {
+    OSType: 'linux',
+    Architecture: 'aarch64',
+    Driver: 'overlayfs',
+    DriverStatus: [['driver-type', 'io.containerd.snapshotter.v1']],
+  };
+  assert({
+    given:
+      'containerd overlayfs, classic overlay2, an ambiguous store, or an unsupported driver',
+    should: 'derive one explicit native identity contract or refuse',
+    actual: [
+      launchDaemonImageContract(info),
+      launchDaemonImageContract({
+        ...info,
+        Architecture: 'x86_64',
+        Driver: 'overlay2',
+        DriverStatus: [['Backing Filesystem', 'extfs']],
+      }),
+      launchDaemonImageContract({ ...info, Driver: 'overlay2' }),
+      launchDaemonImageContract({ ...info, Driver: 'unknown' }),
+    ],
+    expected: [
+      { platform: 'linux/arm64', store: 'containerd-overlayfs' },
+      { platform: 'linux/amd64', store: 'overlay2' },
+      null,
+      null,
+    ],
+  });
+});
+
+test('the artifact trust check runs as the home owner and only no such file counts as absent', () => {
+  const image = launchImageIdentity(inputs);
+  const args = launchImageFilesystemArgs(image, 'daisy-image-fixture', imageId);
+  const script = args.at(-1)!;
+  const directory = mkdtempSync(join(tmpdir(), 'daisy-trust-check-'));
+  const present = join(directory, 'present');
+  const locked = join(directory, 'locked');
+  mkdirSync(present);
+  mkdirSync(locked);
+  chmodSync(locked, 0o000);
+  const absent = (path: string) =>
+    Bun.spawnSync([
+      'sh',
+      '-ec',
+      `${script.slice(0, script.indexOf('; absent /fixture'))}; absent "${path}"`,
+    ]).exitCode;
+  try {
+    assert({
+      given: 'a path that is missing, present, or behind a permission error',
+      should:
+        'pass only the missing path, so a denied stat cannot read as absent',
+      actual: [
+        absent(join(directory, 'missing')),
+        absent(present),
+        absent(join(locked, 'nssdb')),
+      ],
+      expected: [0, 1, 1],
+    });
+  } finally {
+    chmodSync(locked, 0o700);
+    rmSync(directory, { recursive: true, force: true });
+  }
+  assert({
+    given: 'nssdb paths under a mode-750 home',
+    should: 'run as pwuser with no capabilities, checking every fixture path',
+    actual: [
+      args[args.indexOf('--user') + 1],
+      args[args.indexOf('--cap-drop') + 1],
+      script.includes('absent /fixture/ca.crt'),
+      script.includes('absent /home/pwuser/.pki/nssdb'),
+      script.includes('absent /home/pwuser/.local/share/pki/nssdb'),
+    ],
+    expected: ['pwuser', 'ALL', true, true, true],
+  });
+  expect(() =>
+    launchImageFilesystemArgs(image, 'daisy-image-fixture', 'foreign:latest'),
+  ).toThrow('Invalid image filesystem inspection input');
+});

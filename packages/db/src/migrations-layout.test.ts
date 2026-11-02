@@ -40,7 +40,7 @@ describe('the migration history (ISSUE-6)', () => {
     });
   });
 
-  test('is sanctioned by a live baseline entry for each squash, none expired', async () => {
+  test('retires the completed Drizzle sanction and retains the one-Round sanction', async () => {
     const registry = (await Bun.file(
       `${repository}policy/migration-baselines.json`,
     ).json()) as {
@@ -49,15 +49,12 @@ describe('the migration history (ISSUE-6)', () => {
     assert({
       given: 'policy/migration-baselines.json',
       should:
-        'hold one sanction per squash — ADR 0038 for the drizzle 1.0 baseline and ADR 0058 for the one-Round baseline — each unexpired',
+        'retire the completed ADR 0038 sanction and retain the ADR 0058 one-Round sanction',
       actual: registry.baselines.map(({ adr, reviewBy }) => ({
         adr,
         live: new Date(reviewBy) >= new Date('2026-10-06'),
       })),
-      expected: [
-        { adr: 'docs/decisions/0038-drizzle-1-baseline.md', live: true },
-        { adr: 'docs/decisions/0058-one-round-model.md', live: true },
-      ],
+      expected: [{ adr: 'docs/decisions/0058-one-round-model.md', live: true }],
     });
   });
 

@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBrowserMediaTransport } from './browser-transport';
-import { CHECKED_DEVICE_MISSING } from './media-controller';
+import { CHECKED_DEVICE_MISSING } from './media-failure';
 import {
   events,
   publish,

@@ -1,12 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RealtimeApp } from './app';
 import { createRealtimeDelivery } from './delivery';
+import { bothLanes } from './delivery.test-support';
 import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
 
-/** One fake authority for both the admission and renewal lanes. */
-const bothLanes = <T>(reads: T) => ({ admission: reads, renewal: reads });
 test('ticket admission refuses session expiry crossed during the durable await', async () => {
   let instant = '2026-10-09T00:00:00.000Z';
   let resolve!: (value: unknown) => void;

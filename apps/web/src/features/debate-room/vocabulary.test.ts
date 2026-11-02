@@ -1,6 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  crossExModeLabel,
   interruptionLabel,
   roundLength,
   shapeLabel,
@@ -34,13 +33,10 @@ test('a speech reads by its full name with its code second', () => {
 
 test('rules read in plain words, never as raw values', () => {
   assert({
-    given: 'every cross-examination, interruption and yield setting',
+    given: 'every interruption and yield setting',
     should: 'name each one for a newcomer',
     actual: [
-      crossExModeLabel.ordered,
-      crossExModeLabel.free,
       interruptionLabel.disabled,
-      interruptionLabel.cross_ex_only,
       interruptionLabel.enabled,
       yieldLabel(null),
       yieldLabel({ allowed: false, returnsTime: true }),
@@ -48,10 +44,7 @@ test('rules read in plain words, never as raw values', () => {
       yieldLabel({ allowed: true, returnsTime: true }),
     ],
     expected: [
-      'Questioner leads',
-      'Open floor',
       'Off',
-      'Only during cross-examination',
       'During any speech',
       'Off',
       'Off',

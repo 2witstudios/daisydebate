@@ -97,9 +97,12 @@ describe('createWebSocketHandlers', () => {
     await pending;
     assert({
       given: 'authentication resolving after the hello deadline',
-      should: 'close and never send ready',
+      should: 'close retryably, as the hello was in time, and never send ready',
       actual: { closes, sent },
-      expected: { closes: [{ code: 4001, reason: 'auth_failed' }], sent: [] },
+      expected: {
+        closes: [{ code: 4007, reason: 'authority_unavailable' }],
+        sent: [],
+      },
     });
   });
   test('arms a 5s hello deadline on open', () => {

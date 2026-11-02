@@ -54,7 +54,114 @@ Browser deadlines request fresh server views and reconciliation; they never
 open microphones. Local device checks, live tracks and speaking indicators do
 not establish capture completeness, transcript credit or peer audibility.
 
+The connection and the wanted read have separate lifetimes. Admission, the SDK
+connection and its tracks end only on reconnect, failure or terminal exit. The
+read follows named inputs: the mount's first accepted Round view version, then
+`view`, `boundary` and `wake` events to `reconcile`. A newer view, or a boundary
+at the current version with a new deadline, supersedes the read in flight:
+`decideMediaRead` advances the intent, the old ticket is invalid before its own
+abort signal fires, and one fresh read starts on the same connection. Malformed,
+equal, older and duplicate events change nothing, and wakes coalesce into one
+followup. Each accepted projection also sends one, so a refresh at the same
+version corrects a boundary read that reached the server too early. These inputs
+only request a read; the server's reply still decides every grant.
+
+In a burst, the first supersession since the last answered read aborts at once. A
+later one lets a read under 2 seconds old finish rather than abort it, so fewer
+reads overlap. This limits load and does not shorten the wait. Its reply is still
+fenced, so a reply older than the current intent never applies, and a fenced read
+does not retry. An older read is aborted as usual, and a read let finish is aborted
+once it passes that age, so a stall cannot hold the fresh read. A pass's failure is
+not its readers' answer: each gets the retryable 503.
+
+The grant moves before the reply. A pass sets LiveKit's permission as part of
+serving a read, and the browser follows LiveKit's permission without waiting for
+the reply. So the bar a debater feels is commit to permission set, under 2 seconds
+including in bursts, whether or not abort reaches the server. A reply arrives
+later and cannot apply while newer versions keep arriving, so its wait lasts at
+least the burst. Aborting
+never cancels a pass already started, and a read that follows always joins or
+starts one. Passes start from browser reads and from the server's recovery tick
+every 500 ms, so the measured commit-to-permission figures below include recovery
+and do not rest on a page asking.
+
+While a reply is not current the Round does not claim a microphone state: from a
+supersession until the next answer applies, a seat says it is checking. That cannot
+stick. The controller alone times "no answer for too long": the read budget runs
+from the first supersession since an answer, and past it the connection is
+`out-of-date`, including when an answer arrives but its SDK apply never settles. A
+local device failure hides that state, so a seat behind one says out of date at
+once. Last-known grants stay for layout, so video does not disappear. The bar's
+"Connected" describes the connection, not a grant.
+
+Measured on the CI runner, one native three-browser journey per row:
+
+| Abort reaches the server | Burst pacing | Commit to permission                       | Reply after the last event          | Refusals |
+| ------------------------ | ------------ | ------------------------------------------ | ----------------------------------- | -------- |
+| no                       | on           | 1462 ms at most                            | 2518 ms at most, 8 of 27 over 2 s   | 0        |
+| yes                      | on           | 1047 ms at most                            | 2820 ms at most, 7 of 27 over 2 s   | 0        |
+| no                       | off          | 1252 ms at most, before the journey failed | 18.6 s at most, on that failing run | 7        |
+
+So the bars are: permission under 2 seconds, burst included; reply about 2.5 to 2.8
+seconds after the last event on that runner, where a read alone takes up to about
+1.7 seconds.
+
+Inside a burst the wait is the burst's own length, not a stall. It reached 10 seconds
+on the runner because the scripted burst itself ran about 8.7 seconds, and the seat
+says it is checking throughout. The scripted journey clicks faster than a debate, but
+these bars do not rely on that.
+
+A deadline right after a supersession is the case where pacing could matter, since
+the boundary lets the young read finish and that browser's fresh read starts up to 2
+seconds late. The floor does not depend on that read. On the CI runner, one run each,
+deadline to permission took 438 ms with the next speaker's browser reading, and
+1082 ms with no browser read reaching the server, on the recovery tick alone. Pacing
+cannot slow or speed the tick, so superseding at once would not change that second
+figure, and pacing stays as it is. The tick alone is the thinner margin: locally it
+ranged from 369 to 2011 ms, the 2011 on a build with a no-op boundary timer, which
+cannot affect that path. The cause of that spread is not established (ISSUE-972).
+
+Whether a client disconnect reaches `request.signal` in production is unverified.
+Fly's documentation does not say whether its proxy closes the upstream connection,
+though Next aborts the signal when that connection closes. Assume it may not:
+abandoned reads may run to completion there, and the shared polling loop is what
+limits their load.
+
+An obsolete reply or rejection cannot apply, announce, fail the connection or
+clear its successor. Aborting releases the client's wait; it does not prove the
+server or the SDK stopped working. An SDK apply already started may finish, so
+the fresh apply waits for it and only the current ticket announces, and a queued
+reply superseded while waiting never starts. Events during admission or connect
+are recorded and the first read uses them, without another admission.
+
+`createMediaRequest` owns the one 10-second deadline over headers and body for
+each attempt. Expiry is a transient failure, handled by the controller's existing
+retry and no second retry owner.
+A read that cannot finish on a live connection keeps its transport and tracks:
+LiveKit enforces every grant on the server, so it carries no authority risk. Only
+an answer about authority ends the connection: 401, 403, 404, 409, 410, or the
+server's unavailable or ended state. Anything else, a timeout, 429 or 5xx
+included, makes the state `out-of-date`, shown as such rather than as plain
+connected, until a later read answers. Later view, boundary and wake events and the
+view's backstop poll start those reads. Supersession restarts a read's retries but
+not the stall, so reads kept unanswered past the read budget also show `out-of-date`.
+A local device failure the Round has shown is not overwritten by later reads.
+Revocation, terminal state and disposal still end the connection, and admission
+failure before a connection goes live is unchanged.
+The deadline bounds HTTP only. An SDK apply that never settles still holds later
+applies, as it always has; nothing here cancels or times out SDK work.
+
 ### Admission fairness
+
+A browser admission waits for the session's lease for at most 8 seconds, below the
+client's 10-second request deadline, and stops as soon as its request is aborted.
+Either answers the retryable 503. The bound covers the wait only: a pass won late can
+outlast the client's deadline, and a pass that has already started is not cancelled.
+Concurrent reads of a session share one polling loop in each process, so waiting
+reads do not each load the competitive lane. A browser read also stops serving when
+its request is aborted, and a read that
+crosses a vendor write in flight answers the same 503 rather than a refusal. These
+expected deferrals log `round.media.request_deferred` and reach no error tracker.
 
 Media admissions announce an expendable waiter hint through the existing Redis
 adapter before competing for the PostgreSQL reconcile lease. Other web instances'

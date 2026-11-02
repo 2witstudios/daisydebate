@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from './capacity-refusal';
+import { RUNTIME_SESSION } from './session-bounds';
 
 /**
  * The classes of PostgreSQL work one process runs (ADR 0088). A lane is a
@@ -50,6 +51,16 @@ const lane = (connections: number, queue: number, maxWaitMs: number) => ({
  * bounded writer weighs two connections (work + watchdog).
  */
 const COMPETITIVE = lane(10, 16, 1000);
+/**
+ * Subscribes and hellos share one connection and each read takes the account
+ * fence. A mitigation for ISSUE-914, whose trigger is not established: a
+ * waiter outlasts one read that blocks once to the session's lock bound, and a
+ * burst of reads, instead of expiring at 250 ms. It does not outlast several
+ * blocked reads in a row, and a Round subscribe takes this lane three times
+ * inside one 5s budget, so ADR 0088 §6 states where throughput falls. A
+ * refusal's pressure fields say what the lane was waiting on.
+ */
+const SUBSCRIBE_ADMISSION = lane(1, 100, RUNTIME_SESSION.lock_timeout + 1000);
 /** The deployed starting profiles; the connection budget is checked from them. */
 export const WORKLOAD_PROFILES = {
   web: {
@@ -69,7 +80,7 @@ export const WORKLOAD_PROFILES = {
     name: 'realtime',
     dedicated: 3,
     lanes: {
-      admission: lane(1, 100, 250),
+      admission: SUBSCRIBE_ADMISSION,
       renewal: lane(2, 64, 1000),
       control: lane(1, 16, 1000),
     },
@@ -79,7 +90,7 @@ export const WORKLOAD_PROFILES = {
     name: 'realtime-observer',
     dedicated: 3,
     lanes: {
-      admission: lane(1, 100, 250),
+      admission: SUBSCRIBE_ADMISSION,
       renewal: lane(2, 64, 1000),
       control: lane(1, 16, 1000),
       headers: lane(1, 4, 500),
@@ -129,6 +140,7 @@ export type LaneGate = {
   };
 };
 export type LaneTimer = (ms: number, fire: () => void) => () => void;
+export type LaneClock = () => number;
 const systemTimer: LaneTimer = (ms, fire) => {
   const handle = setTimeout(fire, ms);
   return () => clearTimeout(handle);
@@ -150,18 +162,33 @@ export function createLaneGate(
   name: WorkloadLane,
   budget: LaneBudget | undefined,
   timer: LaneTimer = systemTimer,
+  clock: LaneClock = () => performance.now(),
 ): LaneGate {
   let active = 0;
   let waiting = 0;
+  const held = new Set<{ readonly since: number }>();
   const queues = new Map<string, Waiter[]>();
   const order: string[] = [];
   const refuse = (reason: 'unconfigured' | 'saturated' | 'expired') =>
-    refuseCapacity({ lane: name, reason });
+    refuseCapacity({
+      lane: name,
+      reason,
+      pressure: {
+        pending: waiting,
+        running: active,
+        oldestAgeMs: Math.round(
+          Math.max(0, ...[...held].map(({ since }) => clock() - since)),
+        ),
+      },
+    });
   const release = (weight: number): LaneRelease => {
     let released = false;
+    const hold = { since: clock() };
+    held.add(hold);
     return () => {
       if (released) return;
       released = true;
+      held.delete(hold);
       active -= weight;
       pump();
     };

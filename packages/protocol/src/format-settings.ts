@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  crossExModeSchema,
-  interruptionModeSchema,
-  MAX_PRE_ROUND_PREP_MS,
-} from './format';
+import { interruptionModeSchema, MAX_PRE_ROUND_PREP_MS } from './format';
 import { formatResolutionDrawSchema } from './resolution-draw';
 
 /**
@@ -34,7 +30,7 @@ const inRoundPrepSchema = z.discriminatedUnion('enabled', [
 
 /**
  * The values a format sanctions within its definition: timing,
- * cross-examination, interruptions, yielding and prep. A Room embeds them
+ * interruptions, yielding and prep. A Room embeds them
  * and adds its own inputs (`roomConfigSchema`).
  */
 export const formatSettingsFields = {
@@ -45,7 +41,6 @@ export const formatSettingsFields = {
     /** Partial: unspecified segments take the format's defaultDurationMs. */
     segmentDurationOverrides: z.record(z.string(), z.int().positive()),
   }),
-  crossExamination: z.strictObject({ crossExMode: crossExModeSchema }),
   /** Null only when the format forbids interruptions; otherwise an explicit legal choice. */
   interruptions: z
     .strictObject({

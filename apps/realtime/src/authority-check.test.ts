@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { boundedAuthorityCheck } from './authority-check';
+import { refuseCapacity } from '@daisy/db/testing';
+import {
+  authorityFailureFields,
+  boundedAuthorityCheck,
+} from './authority-check';
 import { deferred } from './outbox-drain.test-support';
 import type { IntervalTimers } from './outbox-drain';
 
@@ -55,3 +59,45 @@ for (const result of ['allow', 'failure', 'late-allow'] as const)
       ],
     });
   });
+
+test('an authority failure names its cause without the raw error', async () => {
+  let fire!: () => void;
+  const checked = boundedAuthorityCheck({
+    check: () => new Promise(() => {}),
+    timers: {
+      setInterval: (callback) => {
+        fire = callback;
+        return {} as ReturnType<typeof setInterval>;
+      },
+      clearInterval: () => {},
+    },
+    budgetMs: 5_000,
+  });
+  fire();
+  const spent = await checked.catch((error: unknown) => error);
+  assert({
+    given: 'a lane refusal, the spent budget, a code bug and a lock timeout',
+    should:
+      'report the lane, reason and pressure, the budget, a code bug, or what the database said',
+    actual: [
+      authorityFailureFields(
+        refuseCapacity({
+          lane: 'admission',
+          reason: 'expired',
+          pressure: { pending: 2, running: 1, oldestAgeMs: 400 },
+        }),
+      ),
+      authorityFailureFields(spent),
+      authorityFailureFields(new Error('private adapter failure')),
+      authorityFailureFields(
+        Object.assign(new Error('private text'), { errno: '55P03' }),
+      ),
+    ],
+    expected: [
+      { cause: 'admission.expired', pending: 2, running: 1, oldestAgeMs: 400 },
+      { cause: 'budget' },
+      { cause: 'internal' },
+      { cause: 'lock_timeout' },
+    ],
+  });
+});

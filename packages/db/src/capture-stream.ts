@@ -8,6 +8,7 @@ import { captureObservationSchema, captureSealSchema } from './capture-input';
 import {
   captureHistory,
   advanceTranscriptRevision,
+  botGrantUnused,
   coverageAuthority,
   transcriptRevision,
 } from './capture-history';
@@ -97,10 +98,28 @@ export async function sealCapturedStream(
   const context = await captureWriteContext(tx, input, dependencies);
   const { segment, stream } = context;
   const required = await captureHistory(tx, input, segment);
-  const action = sealAction(stream, input.expectedChunkCount, {
-    segmentEnded: segment.endedAt !== null,
-    required,
-  });
+  const [chunks] = await tx
+    .select({
+      count: sql<number>`count(*)::integer`,
+      otherEpochChunks: sql<number>`count(*) filter (where ${utterances.captureWorkerEpoch} is distinct from ${input.epoch}::integer)::integer`,
+    })
+    .from(utterances)
+    .where(
+      and(
+        eq(utterances.segmentId, input.segmentId),
+        eq(utterances.roundParticipantId, input.roundParticipantId),
+        isNotNull(utterances.clipKey),
+      ),
+    );
+  const action = sealAction(
+    stream,
+    input.expectedChunkCount,
+    { segmentEnded: segment.endedAt !== null, required },
+    {
+      otherEpochChunks: chunks?.otherEpochChunks ?? 0,
+      framesLost: input.framesLost,
+    },
+  );
   if (action === 'retry')
     return {
       state: stream.state as 'complete' | 'partial',
@@ -119,21 +138,13 @@ export async function sealCapturedStream(
         eq(transcriptObservations.roundParticipantId, input.roundParticipantId),
       ),
     );
-  const [chunks] = await tx
-    .select({
-      count: sql<number>`count(*)::integer`,
-      otherEpochChunks: sql<number>`count(*) filter (where ${utterances.captureWorkerEpoch} is distinct from ${input.epoch}::integer)::integer`,
-    })
-    .from(utterances)
-    .where(
-      and(
-        eq(utterances.segmentId, input.segmentId),
-        eq(utterances.roundParticipantId, input.roundParticipantId),
-        isNotNull(utterances.clipKey),
-      ),
-    );
+  const [{ unused } = { unused: false }] = (await tx.execute(
+    sql`select ${botGrantUnused(input.roundId, input.segmentId, input.roundParticipantId)} as unused`,
+  )) as unknown as { unused: boolean }[];
   const state = sealState({
+    grantUnused: unused,
     interrupted: await captureSessionInterrupted(tx, input.sessionId, segment),
+    framesLost: input.framesLost,
     epoch: input.epoch,
     observations,
     chunks,
@@ -149,7 +160,7 @@ export async function sealCapturedStream(
   const mutationNow = await freshCaptureMutation(tx, input.roundId, context);
   await updateCaptureStream(tx, input, {
     state,
-    sealedChunkCount: input.expectedChunkCount,
+    sealedChunkCount: Math.max(input.expectedChunkCount, stream.chunkCount),
     sealedAt: mutationNow,
   });
   const revision = await advanceTranscriptRevision(tx, input.roundId);

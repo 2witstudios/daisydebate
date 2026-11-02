@@ -2,14 +2,19 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   ENVELOPE_VERSION,
   buildRoundTopic,
-  type RoundTranscriptRead,
+  type LiveTranscriptRead,
 } from '@daisy/protocol';
 import { driverEdges } from '../resource-sync/driver.test-support';
 import type { ResourceRead } from '../resource-sync/driver';
 import { round } from '../room-runtime/operations.test-support';
-import { createTranscriptSync, seedTranscript } from './transcript-sync';
+import {
+  createTranscriptHolder,
+  createTranscriptSync,
+  seedTranscript,
+} from './transcript-sync';
 setupRitewayBun();
-const transcript = (revision: number): RoundTranscriptRead => ({
+const transcript = (revision: number): LiveTranscriptRead => ({
+  contractVersion: 1,
   round,
   revision,
   freeze: null,
@@ -17,7 +22,7 @@ const transcript = (revision: number): RoundTranscriptRead => ({
   utterances: [],
 });
 const connectedTranscript = () => {
-  const edges = driverEdges<ResourceRead<RoundTranscriptRead>>();
+  const edges = driverEdges<ResourceRead<LiveTranscriptRead>>();
   const driver = createTranscriptSync({
     seed: seedTranscript(transcript(0)),
     ...edges,
@@ -61,7 +66,7 @@ test('capture invalidation refreshes independently of competitive Round version'
   driver.dispose();
 });
 test('a no-socket client has a slow single-flight fallback and a refusal removes access', async () => {
-  const edges = driverEdges<ResourceRead<RoundTranscriptRead>>();
+  const edges = driverEdges<ResourceRead<LiveTranscriptRead>>();
   const driver = createTranscriptSync({
     seed: seedTranscript(transcript(1)),
     ...edges,
@@ -104,6 +109,122 @@ test('the first subscription acknowledgment closes the server-seed gap', async (
       'catch up once after acknowledgment without needing another doorbell',
     actual: [edges.reads(), driver.readSnapshot().value.revision],
     expected: [1, 4],
+  });
+  driver.dispose();
+});
+
+test('an older seed offered after newer text never regresses the transcript', () => {
+  const { driver } = connectedTranscript();
+  driver.accepted(transcript(9));
+  driver.accepted(transcript(4));
+  assert({
+    given: 'revision 9 held and a server render carrying revision 4',
+    should: 'keep revision 9',
+    actual: driver.readSnapshot().value.revision,
+    expected: 9,
+  });
+  driver.dispose();
+});
+
+test('transient unavailability keeps committed text and real refusal clears it', async () => {
+  const { edges, driver } = connectedTranscript();
+  driver.accepted(transcript(5));
+  driver.signal();
+  edges.answer({ kind: 'unavailable' });
+  await edges.flush();
+  const during = driver.readSnapshot();
+  edges.advance(30000);
+  edges.answer({ kind: 'found', value: transcript(6) });
+  await edges.flush();
+  const after = driver.readSnapshot();
+  driver.signal();
+  edges.answer({ kind: 'missing' });
+  await edges.flush();
+  assert({
+    given: 'an outage, recovery, then a refused read',
+    should: 'hold the text as stale, return to current, then go gone',
+    actual: [
+      during.freshness,
+      during.value.revision,
+      after.freshness,
+      after.value.revision,
+      driver.readSnapshot().freshness,
+    ],
+    expected: ['stale', 5, 'current', 6, 'gone'],
+  });
+  driver.dispose();
+});
+
+const holding = () => {
+  const edges = driverEdges<ResourceRead<LiveTranscriptRead>>();
+  const holder = createTranscriptHolder(transcript(5), edges.read);
+  const { scheduler, visibility, connection } = edges;
+  const driverOnly = { scheduler, visibility, connection };
+  return { edges, holder, driverOnly };
+};
+test('a replaced driver starts from the newest text held, not the first seed', async () => {
+  const { edges, holder, driverOnly } = holding();
+  const first = holder.start(driverOnly);
+  first.signal();
+  edges.answer({ kind: 'found', value: transcript(9) });
+  await edges.flush();
+  first.dispose();
+  const second = holder.start(driverOnly);
+  holder.offer(transcript(4));
+  assert({
+    given: 'revision 9 read, the driver replaced, then a revision 4 render',
+    should: 'keep revision 9 across both',
+    actual: second.readSnapshot().value.revision,
+    expected: 9,
+  });
+  second.dispose();
+});
+
+test('a render arriving after a refusal never shows protected text again', async () => {
+  const { edges, holder, driverOnly } = holding();
+  const first = holder.start(driverOnly);
+  first.signal();
+  edges.answer({ kind: 'missing' });
+  await edges.flush();
+  holder.offer(transcript(7));
+  const during = first.readSnapshot();
+  first.dispose();
+  const second = holder.start(driverOnly);
+  assert({
+    given: 'a refused read, a later render, then a replaced driver',
+    should: 'stay gone at every step',
+    actual: [
+      during.freshness,
+      during.value.revision,
+      second.readSnapshot().freshness,
+    ],
+    expected: ['gone', 5, 'gone'],
+  });
+  second.dispose();
+});
+
+test('a shape this build cannot read asks for a reload, and an outage does not', async () => {
+  const { edges, holder, driverOnly } = holding();
+  const driver = holder.start(driverOnly);
+  const answering = async (answer: ResourceRead<LiveTranscriptRead>) => {
+    driver.signal();
+    edges.answer(answer);
+    await edges.flush();
+    return [driver.readSnapshot().freshness, holder.outdated()];
+  };
+  assert({
+    given: 'an outage, a changed contract, then a good read',
+    should: 'flag only the changed contract, keeping text throughout',
+    actual: [
+      await answering({ kind: 'unavailable' }),
+      await answering({ kind: 'unavailable', outdated: true }),
+      await answering({ kind: 'found', value: transcript(6) }),
+    ],
+    expected: [
+      ['stale', false],
+      ['stale', true],
+      ['current', false],
+    ],
   });
   driver.dispose();
 });

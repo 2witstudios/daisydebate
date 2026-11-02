@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { noopErrorReporter } from '@daisy/observability';
+import { fixedClock } from '@daisy/clock';
 import type { Identity } from '@daisy/auth';
 import { createRoomHandlers } from './handlers';
 import type { RoomRuntimeOperations } from './operations';
@@ -19,6 +20,7 @@ const dependencies = (
 ) => ({
   logger: silentLogger,
   reporter: noopErrorReporter,
+  clock: fixedClock('2026-11-01T00:00:00.000Z'),
   origin: () => origin,
   identify: async () => identity,
   getActorByUserId: async () => ({ id }),
@@ -247,5 +249,28 @@ test('a member over the create limit gets 429 and no Room (ISSUE-205)', async ()
       'answer 429 from the per-member create key, before any validation, and create nothing',
     actual: [response.status, keys, created.length],
     expected: [429, [`room:create:${id}`], 0],
+  });
+});
+
+test('authorized Round reads stamp the injected clock without changing the response body', async () => {
+  const deps = dependencies(member, { roundView: async () => ({ id }) });
+  const handlers = createRoomHandlers({
+    ...deps,
+    clock: fixedClock('2026-11-01T12:34:56.789Z'),
+  });
+  const response = await handlers.roundRead(
+    new Request(`${origin}/api/rounds/${id}`, { headers: { origin } }),
+    id,
+  );
+  assert({
+    given: 'a canonical authorized Round read',
+    should:
+      'return precise injected server timing beside the unchanged projection',
+    actual: [
+      response.status,
+      response.headers.get('x-server-now-ms'),
+      await response.json(),
+    ],
+    expected: [200, String(Date.parse('2026-11-01T12:34:56.789Z')), { id }],
   });
 });

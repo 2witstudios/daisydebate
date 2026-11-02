@@ -133,7 +133,7 @@ test('prep and closed between-segment floor keep cameras without speech rights',
   });
 });
 
-test('ordered accepted floor and free interaction preserve legal custom seats', () => {
+test('cross-examination opens every debater microphone across legal custom seats', () => {
   const rules = oneOnOneRules();
   const interaction = {
     ...rules,
@@ -153,41 +153,21 @@ test('ordered accepted floor and free interaction preserve legal custom seats', 
   const world = runtimeWorld({ rules: interaction, participants });
   world.execute({ command: { type: 'start' }, actorId: null, now: roundAt(0) });
   world.tick(roundAt(10_000));
-  const position = {
-    ...world.position(roundAt(10_000)),
-    openSegment: {
-      ...world.position(roundAt(10_000)).openSegment!,
-      floorParticipantId: seats[1]!.id,
-    },
-  };
-  const derive = (free: boolean) =>
-    participants.map(
+  const position = world.position(roundAt(10_000));
+  assert({
+    given: 'cross-examination with multiple seats including a bot',
+    should: 'open all debater microphones and no judge or bot camera',
+    actual: participants.map(
       (seat) =>
         mediaGrants({
           participants,
           participantId: seat.id,
-          rules: {
-            ...interaction,
-            interaction: {
-              ...rules.interaction,
-              crossExMode: free ? 'free' : 'ordered',
-            },
-          },
+          rules: interaction,
           position,
           now: roundAt(10_000),
           finalSegmentEndedAt: null,
         }).publish,
-    );
-  assert({
-    given: 'ordered CX with an accepted opposite floor',
-    should: 'open only the floor microphone',
-    actual: derive(false),
-    expected: [['camera'], ['camera', 'microphone'], [], []],
-  });
-  assert({
-    given: 'free CX with multiple seats including a bot',
-    should: 'open all debater microphones and no judge or bot camera',
-    actual: derive(true),
+    ),
     expected: [
       ['camera', 'microphone'],
       ['camera', 'microphone'],

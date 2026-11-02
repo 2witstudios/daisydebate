@@ -92,18 +92,18 @@ export function ShareCanvas({
               letterSpacing: -3 * unit,
             }}
           >
-            <div style={{ display: 'flex' }}>Competitive debate,</div>
-            <div style={{ display: 'flex' }}>structured like chess.</div>
+            <div style={{ display: 'flex' }}>The arena for</div>
+            <div style={{ display: 'flex' }}>competitive debate</div>
           </div>
           <div
             style={{
               display: 'flex',
               color: palette.muted,
               fontSize: 26 * unit,
-              letterSpacing: 3 * unit,
+              letterSpacing: 0,
             }}
           >
-            A PLACE FOR BETTER ARGUMENTS
+            Better arguments. A more thoughtful world.
           </div>
         </div>
         <div

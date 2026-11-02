@@ -6,6 +6,7 @@ import { createRoundBallotHandlers } from './handlers';
 export function composeRoundBallotRoutes(app: App) {
   return createRoundBallotHandlers({
     ...composeRoundMemberDependencies(app),
+    clock: app.clock,
     operations: createRoundBallotOperations({
       store: app.database,
       nextBallotId: () => app.ids.next(),

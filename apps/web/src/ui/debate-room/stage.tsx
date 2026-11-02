@@ -1,6 +1,7 @@
 import type { LayoutPreset } from '../../features/debate-room/layout';
 import {
   floorStates,
+  selfHasLiveSegment,
   speakerIsSelf,
   upNext,
 } from '../../features/debate-room/stage';
@@ -143,9 +144,15 @@ export type StageProps = {
   readonly preset: LayoutPreset;
 };
 
+const statesOf = (round: RoundSnapshot) =>
+  floorStates(
+    round.phase,
+    selfHasLiveSegment(round.speeches, round.liveIndex, round.self.side),
+  );
+
 /** The speaker large; your own view small beside it, over Next and Then. */
 function SpeakerBand({ round }: { readonly round: RoundSnapshot }) {
-  const states = floorStates(round.phase);
+  const states = statesOf(round);
   const selfSpeaks = speakerIsSelf(round.phase);
   const speaker = selfSpeaks ? round.self : round.opponent;
   const other = selfSpeaks ? round.opponent : round.self;
@@ -191,7 +198,7 @@ function PairBand({
   round,
   preset,
 }: StageProps & { readonly preset: Exclude<LayoutPreset, 'speaker'> }) {
-  const states = floorStates(round.phase);
+  const states = statesOf(round);
   const { look, tile } = pairLook[preset];
   const pair =
     round.self.side === 'aff'

@@ -23,7 +23,8 @@ kill_timeout = 30
 # reaches it and Fly never stops it for idleness.
 
 [[vm]]
-  # Each capture process decodes audio and holds up to 1.25 MiB of PCM per
-  # track; 1 GB leaves room for the default eight sessions.
+  # Each capture process decodes audio and holds its share of a 256 MiB total
+  # for pending PCM (capture-memory.ts); 1 GB leaves room for the default eight
+  # sessions.
   size = "shared-cpu-1x"
   memory = "1gb"

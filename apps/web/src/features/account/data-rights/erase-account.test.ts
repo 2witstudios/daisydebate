@@ -4,7 +4,11 @@ import { createAppError } from '@daisy/errors';
 import { silentLogger } from '../../../server/test-loggers.test-support';
 import type { RateLimiter } from '../../../server/rate-limit';
 import { createEraseAccountHandler } from './erase-account';
-import { ACCOUNT_CLOSED_QUERY, ERASE_ACCOUNT_QUERY } from './notices-keys';
+import {
+  ACCOUNT_CLOSED_QUERY,
+  ERASE_ACCOUNT_QUERY,
+  notesErasedCookie,
+} from './notices-keys';
 
 setupRitewayBun();
 const origin = 'http://localhost:3000';
@@ -60,7 +64,12 @@ test('a confirmed member erasure runs once with the session subject and closes t
       'a same-origin signed-in member posting the erase form with the confirmation',
     should:
       'run the erasure once with the session subject and the injected clock, and 303 to the sign-in page closed notice',
-    actual: [calls, response.status, response.headers.get('location')],
+    actual: [
+      calls,
+      response.status,
+      response.headers.get('location'),
+      response.headers.get('set-cookie'),
+    ],
     expected: [
       [
         {
@@ -70,6 +79,7 @@ test('a confirmed member erasure runs once with the session subject and closes t
       ],
       303,
       `/sign-in?${ACCOUNT_CLOSED_QUERY}=1`,
+      notesErasedCookie('1', 60),
     ],
   });
 });
@@ -109,13 +119,16 @@ test('an unconfirmed, cross-origin, rate-limited or anonymous erase never reache
     given:
       'a post without the confirmation, from another origin, over budget, or with no session',
     should:
-      'answer 303 to the section or sign-in with the one fixed notice and run no erasure',
+      'answer 303 to the section or sign-in with the one fixed notice, run no erasure, and clear note copies only for the confirmed post with no session',
     actual: [
       unconfirmed.headers.get('location'),
       crossOrigin.headers.get('location'),
       rateLimited.headers.get('location'),
       anonymous.headers.get('location'),
       [unconfirmed, crossOrigin, rateLimited, anonymous].map((r) => r.status),
+      [unconfirmed, crossOrigin, rateLimited, anonymous].map((r) =>
+        r.headers.get('set-cookie'),
+      ),
     ],
     expected: [
       `/settings?${ERASE_ACCOUNT_QUERY}=confirm`,
@@ -123,7 +136,83 @@ test('an unconfirmed, cross-origin, rate-limited or anonymous erase never reache
       `/settings?${ERASE_ACCOUNT_QUERY}=rate-limited`,
       '/sign-in',
       [303, 303, 303, 303],
+      [null, null, null, notesErasedCookie('1', 60)],
     ],
+  });
+});
+
+test('a confirmed request with no session left still clears the note copies', async () => {
+  const handler = createEraseAccountHandler({
+    logger: silentLogger,
+    origin: () => origin,
+    identify: async () => ({
+      state: 'anonymous',
+      principal: { kind: 'anonymous' },
+    }),
+    limiter: allowedLimiter,
+    clock: fixedClock(now),
+    eraseSubject: async () => {
+      throw new Error('must not run');
+    },
+  });
+  const form = { 'content-type': 'application/x-www-form-urlencoded' };
+  const confirmed = await handler(request({ origin, ...form }, 'confirm=on'));
+  const unconfirmed = await handler(request({ origin, ...form }, ''));
+  const crossOrigin = await handler(
+    request({ origin: 'https://evil.example', ...form }, 'confirm=on'),
+  );
+  assert({
+    given:
+      'a repeat submit after the closure committed, an unconfirmed post and a cross-origin post',
+    should: 'send the erasing cookie only for the confirmed same-origin one',
+    actual: [
+      confirmed.headers.get('location'),
+      confirmed.headers.get('set-cookie'),
+      unconfirmed.headers.get('set-cookie'),
+      crossOrigin.headers.get('set-cookie'),
+    ],
+    expected: ['/sign-in', notesErasedCookie('1', 60), null, null],
+  });
+});
+
+test('a broken upload with no session is not a refused erasure', async () => {
+  const logged: string[] = [];
+  const response = await createEraseAccountHandler({
+    logger: {
+      ...silentLogger,
+      log: (event: string) => {
+        logged.push(event);
+      },
+    } as typeof silentLogger,
+    origin: () => origin,
+    identify: async () => ({
+      state: 'anonymous',
+      principal: { kind: 'anonymous' },
+    }),
+    limiter: allowedLimiter,
+    clock: fixedClock(now),
+    eraseSubject: async () => {
+      throw new Error('must not run');
+    },
+  })(
+    new Request(`${origin}/api/privacy/erase`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new ReadableStream({
+        pull: (controller) => controller.error(new Error('truncated')),
+      }),
+      duplex: 'half',
+    } as RequestInit),
+  );
+  assert({
+    given: 'a body that fails to read, from a visitor with no session',
+    should: 'answer the sign-in page, set no cookie and log no erasure failure',
+    actual: [
+      response.headers.get('location'),
+      response.headers.get('set-cookie'),
+      logged,
+    ],
+    expected: ['/sign-in', null, []],
   });
 });
 

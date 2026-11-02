@@ -29,8 +29,8 @@ function exponentialCeilingMs(attempt: number, maxMs: number): number {
  * The delay before the next reconnect attempt, keyed by the close-code
  * reaction that triggered it (`decideOnClose` in `close-code-policy.ts`):
  * - `standard`: full jitter over an exponential ceiling capped at 30 s
- *   (1006, unknown codes, 4005 slow_consumer, and 4001 auth_failed once a
- *   fresh ticket has been fetched).
+ *   (1006, unknown codes, 4005 slow_consumer, and 4001 auth_failed or 4007
+ *   authority_unavailable once a fresh ticket has been fetched).
  * - `rate-limited`: full jitter over the same exponential ceiling, but never
  *   below a 30 s floor (4004 rate_limited, ADR 0031 §8).
  * - `immediate`: 0-5 s jitter, independent of attempt (4006

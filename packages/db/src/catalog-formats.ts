@@ -107,7 +107,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: ldSegments,
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateSettings(4, 'ordered'),
+    preset: templateSettings(4),
   }),
   template({
     id: 'ncfca-ld',
@@ -124,7 +124,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: ldSegments,
       prepBefore: ['speech'],
     }),
-    preset: templateSettings(3, 'ordered'),
+    preset: templateSettings(3),
   }),
   template({
     id: 'stoa-ld',
@@ -141,7 +141,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: ldSegments,
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateSettings(4, 'ordered'),
+    preset: templateSettings(4),
   }),
   template({
     id: 'nsda-policy',
@@ -156,7 +156,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: teamPolicySegments(8, 5),
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateSettings(8, 'ordered'),
+    preset: templateSettings(8),
   }),
   template({
     id: 'college-policy',
@@ -173,7 +173,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: teamPolicySegments(9, 6),
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateSettings(10, 'ordered'),
+    preset: templateSettings(10),
   }),
   template({
     id: 'ncfca-tp',
@@ -189,7 +189,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: teamPolicySegments(8, 5),
       prepBefore: ['speech'],
     }),
-    preset: templateSettings(5, 'ordered'),
+    preset: templateSettings(5),
   }),
   template({
     id: 'nsda-pf',
@@ -204,7 +204,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: publicForumSegments,
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateSettings(3, 'free'),
+    preset: templateSettings(3),
   }),
   template({
     id: 'nsda-bq',
@@ -219,7 +219,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
       segments: bigQuestionsSegments,
       prepBefore: ['speech', 'cross_ex'],
     }),
-    preset: templateSettings(3, 'free'),
+    preset: templateSettings(3),
   }),
   template({
     id: 'ipda',
@@ -236,7 +236,7 @@ export const catalogFormats: readonly CatalogFormat[] = [
         prepBefore: [],
       }),
     ),
-    preset: strikeSettings(templateSettings(0, 'ordered'), 30),
+    preset: strikeSettings(templateSettings(0), 30),
   }),
   template({
     id: 'team-ipda',
@@ -253,6 +253,6 @@ export const catalogFormats: readonly CatalogFormat[] = [
         prepBefore: [],
       }),
     ),
-    preset: strikeSettings(templateSettings(0, 'ordered'), 30),
+    preset: strikeSettings(templateSettings(0), 30),
   }),
 ];

@@ -1,6 +1,7 @@
 # 0058: one Round model
 
-Status: accepted (owner request, 2026-10-06). Supersedes parts of
+Status: accepted (owner request, 2026-10-06). `crossExModes[]` is retired by
+[ADR 0096](0096-cross-examination-open-microphones.md). Supersedes parts of
 [ADR 0029](0029-competitive-schema-foundation.md),
 [ADR 0054](0054-debate-room-workspace.md) and
 [ADR 0055](0055-glicko-2-calculation-ladders-and-seasons.md).
@@ -199,11 +200,13 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   verifies these facts before projecting the shared runtime completion and its
   durable receipt; callers cannot select this mode in a public command body.
   The common result says “Unjudged”, with no fabricated ballot, draw or rating.
-  Ranked, forfeit and abandonment rules retain their own guards.
+  [ADR 0095](0095-honest-round-completion.md) extends this completion to every
+  ladder: a null outcome writes no rating.
 - **Judges rule within a ballot deadline (DEC-201, DEC-207).** The freeze
   persists `rounds.ballot_deadline_at`, 30 minutes (injected policy) after the
-  freeze time, and it is immutable. A ballot at or after it is refused by the
-  database clock. A judged casual Round whose judges have not all ruled by then
+  freeze time, and it is immutable. A human ballot at or after it is refused by
+  the database clock. An AI seat is bounded by its own budget instead
+  ([ADR 0095](0095-honest-round-completion.md)). A judged Round whose judges have not all ruled by then
   completes through the same finalizer: missing ballots are recorded as no
   ruling in the receipt, and submitted ballots decide a winner by the existing
   rule. With none, or a tie the absent rulings would turn into a draw, the
@@ -219,7 +222,7 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   the persisted ballot deadline is the freeze time, and the same unjudged
   finalizer completes the Round with a null outcome. The receipt ruling is
   `transcript-incomplete`; the Round view carries that ruling as
-  `unjudgedRuling`, and the receipt says “Transcript incomplete”. There is no
+  `panelRuling`, and the receipt says “Transcript incomplete”. There is no
   winner, draw, forfeit or rating. Human
   judges still rule by the ordinary deadline, and AI seats on such a Round
   record no ruling; once every human judge has ruled decisively the Round

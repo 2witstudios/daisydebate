@@ -1,8 +1,10 @@
 'use client';
 import '../../ui/debate-room/zod-jitless';
-import { systemClock } from '@daisy/clock';
 import { readCheckedDevices } from '../video/device-selection';
-import { nextMediaRefreshAt } from './refresh-deadline';
+import { createRoundViewFollower } from './follow-round-view';
+import { roundTimeMediaClock } from './schedule-deadline';
+import { systemScheduler } from '../realtime/browser-adapters';
+import type { RoundTime } from '../round-runtime/round-time';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
 import {
@@ -12,16 +14,22 @@ import {
 } from './browser-transport';
 import {
   createMediaController,
-  mediaFailure,
-  transientMediaFailure,
   type MediaConnectionState,
 } from './media-controller';
+import {
+  createMediaRequest,
+  MEDIA_READ_BUDGET_MS,
+  MEDIA_RETRY_DELAYS_MS,
+} from './request-media';
 import { MediaStage } from './media-stage';
-import { mediaStatus, retryMissingDevices } from './media-status';
+import {
+  hasLiveTracks,
+  mediaStatus,
+  retryMissingDevices,
+  showConnection,
+} from './media-status';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
 
-/** Backoff for an admission refused for now, about 3.5 s in all (ISSUE-494). */
-const ADMISSION_RETRY_MS = [500, 1000, 2000];
 const pause = (ms: number, signal: AbortSignal) =>
   new Promise<void>((done) => {
     const timer = setTimeout(done, ms);
@@ -34,40 +42,23 @@ const pause = (ms: number, signal: AbortSignal) =>
       { once: true },
     );
   });
-const requestMedia = async (
-  roundId: string,
-  operation: 'session' | 'reconcile',
-  signal: AbortSignal,
-) => {
-  let response: Response;
-  try {
-    response = await fetch(
-      `/api/rounds/${encodeURIComponent(roundId)}/media/${operation}`,
-      {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-        signal,
-        cache: 'no-store',
-      },
-    );
-  } catch (error) {
-    // The network, not the server, failed; a cancelled request stays final.
-    if (signal.aborted) throw error;
-    throw transientMediaFailure();
-  }
-  if (!response.ok) throw mediaFailure(response.status);
-  return response.json() as Promise<unknown>;
-};
+const requestMedia = createMediaRequest({
+  fetch: (url, options) => fetch(url, options),
+  scheduleDeadline: (expire, ms) => {
+    const timer = setTimeout(expire, ms);
+    return () => clearTimeout(timer);
+  },
+});
 
 /** Mount once per Round; changing projections never resets command or media lifetimes. */
 function RoundMediaSession({
   view,
   onRefresh,
+  roundTime,
 }: {
   readonly view: RoundView;
   readonly onRefresh: () => void;
+  readonly roundTime: RoundTime;
 }) {
   const poi = view.ladderId === null && hasOpenQuestioning(view.rules);
   const [microphoneMuted, setMicrophoneMuted] = useState(poi);
@@ -77,6 +68,7 @@ function RoundMediaSession({
   const [connection, setConnection] =
     useState<MediaConnectionState>('connecting');
   const [media, setMedia] = useState<RoundMediaState | null>(null);
+  const [microphoneConfirmed, setMicrophoneConfirmed] = useState(true);
   const [tracks, setTracks] = useState<readonly MediaTrack[]>([]);
   /** Checked devices found gone; the transport keeps running (ISSUE-573). */
   const [missing, setMissing] = useState<readonly Source[]>([]);
@@ -84,20 +76,43 @@ function RoundMediaSession({
     null,
   );
   const sound = useRef<(() => Promise<void>) | null>(null);
+  /** The latest accepted version, read when a Round mount's controller starts. */
+  const acceptedVersion = useRef(view.version);
   const refresh = useRef(onRefresh);
   useEffect(() => {
     refresh.current = onRefresh;
   }, [onRefresh]);
+  const [clock] = useState(() =>
+    roundTimeMediaClock({ roundTime, scheduler: systemScheduler }),
+  );
+  /** Once per mount: it remembers which deadline has already refreshed. */
+  const follower = useRef<ReturnType<typeof createRoundViewFollower> | null>(
+    null,
+  );
   useEffect(() => {
     const mounted = createMediaController({
       roundId: view.id,
+      initialRoundViewVersion: acceptedVersion.current,
       api: {
         admit: (id, signal) => requestMedia(id, 'session', signal),
         reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),
       },
-      changed: setConnection,
-      received: setMedia,
-      retry: { delaysMs: ADMISSION_RETRY_MS, wait: pause },
+      changed: showConnection({ connection: setConnection, media: setMedia }),
+      received: (state) => {
+        setMedia(state);
+        setMicrophoneConfirmed(true);
+      },
+      superseded: () => setMicrophoneConfirmed(false),
+      retry: { delaysMs: MEDIA_RETRY_DELAYS_MS, wait: pause },
+      readBudget: {
+        // Monotonic: read age is elapsed time, and a clock step must not skew it.
+        now: () => performance.now(),
+        ms: MEDIA_READ_BUDGET_MS,
+        at: (ms, fire) => {
+          const timer = setTimeout(fire, ms);
+          return () => clearTimeout(timer);
+        },
+      },
       transport: () => {
         const browser = createBrowserMediaTransport({
           microphoneMuted: muted.current,
@@ -109,7 +124,7 @@ function RoundMediaSession({
           tracks: setTracks,
           invalidated: () => {
             refresh.current();
-            void mounted.reconcile();
+            void mounted.reconcile({ kind: 'wake' });
           },
           reconnect: () => {
             refresh.current();
@@ -136,34 +151,37 @@ function RoundMediaSession({
       controller.current?.stop();
       return;
     }
-    void controller.current?.reconcile();
-    const next = nextMediaRefreshAt(view);
-    if (next === null) return;
-    const timer = window.setTimeout(
-      () => {
-        refresh.current();
-        void controller.current?.reconcile();
-      },
-      Math.max(0, next - Date.parse(systemClock.now())),
-    );
-    return () => window.clearTimeout(timer);
-  }, [view]);
+    acceptedVersion.current = view.version;
+    follower.current ??= createRoundViewFollower({
+      clock,
+      reconcile: (event) => void controller.current?.reconcile(event),
+      refresh: () => refresh.current(),
+    });
+    return follower.current(view);
+  }, [view, clock]);
   const status = mediaStatus(connection, missing);
   return (
     <section aria-label="Live camera and sound">
-      <MediaStage view={view} media={media} tracks={tracks} />
+      <MediaStage
+        connection={connection}
+        view={view}
+        media={media}
+        microphoneConfirmed={microphoneConfirmed}
+        tracks={tracks}
+      />
       <div className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2">
         <p role="status" className="m-0 text-sm text-ink-muted">
           {status.message}
         </p>
-        {connection === 'live' ? (
+        {hasLiveTracks(connection) ? (
           <button
             type="button"
             className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             onClick={() => {
-              void sound
-                .current?.()
-                .catch(() => setConnection('device-blocked'));
+              void sound.current?.().catch(() => {
+                controller.current?.deviceFailed();
+                setConnection('device-blocked');
+              });
             }}
           >
             Enable sound
@@ -174,7 +192,7 @@ function RoundMediaSession({
             type="button"
             className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             disabled={
-              connection !== 'live' ||
+              !hasLiveTracks(connection) ||
               changingMicrophone ||
               !media.grants.publish.includes('microphone')
             }
@@ -188,6 +206,7 @@ function RoundMediaSession({
                 setMicrophoneMuted(!previous);
               } catch {
                 muted.current = previous;
+                controller.current?.deviceFailed();
                 setConnection('device-blocked');
               } finally {
                 setChangingMicrophone(false);
@@ -219,9 +238,14 @@ function RoundMediaSession({
   );
 }
 
-export const roundMediaSlot = (onRefresh: () => void) =>
+export const roundMediaSlot = (onRefresh: () => void, roundTime: RoundTime) =>
   function RoundMediaSlot(view: RoundView) {
     return (
-      <RoundMediaSession key={view.id} view={view} onRefresh={onRefresh} />
+      <RoundMediaSession
+        key={view.id}
+        view={view}
+        onRefresh={onRefresh}
+        roundTime={roundTime}
+      />
     );
   };

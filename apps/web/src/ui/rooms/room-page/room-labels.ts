@@ -190,7 +190,6 @@ export function settingRows(
         ? config.inRoundPrep.budgetMsPerSide
         : null,
       countdownMs: config.speechTiming.countdownMs,
-      crossExMode: config.crossExamination.crossExMode,
       interruptions: config.interruptions,
       yielding: config.yielding,
     }),

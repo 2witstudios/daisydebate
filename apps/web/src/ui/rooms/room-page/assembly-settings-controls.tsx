@@ -8,7 +8,6 @@ import {
   yieldChoices,
 } from '../../../features/rooms/yield-choice';
 import {
-  crossExModeLabel,
   interruptionLabel,
   yieldLabel,
 } from '../../../features/debate-room/vocabulary';
@@ -218,12 +217,7 @@ export function PreparationFields({
   );
 }
 
-const crossExDetail = {
-  ordered: 'the asking side controls the floor',
-  free: 'either side may speak',
-} as const;
-
-/** Cross-examination, interruptions and ending early: the advanced rules. */
+/** Interruptions and ending early: the advanced rules. */
 export function InteractionFields({
   view,
   state,
@@ -236,18 +230,6 @@ export function InteractionFields({
   const capability = view.definition.configurable.interaction;
   return (
     <>
-      <ChoiceField
-        name="crossExMode"
-        legend="Cross-examination"
-        choices={capability.crossExModes.map((mode) => ({
-          value: mode,
-          label: crossExModeLabel[mode],
-          detail: crossExDetail[mode],
-        }))}
-        saved={view.config.crossExamination.crossExMode}
-        state={state}
-        disabled={disabled}
-      />
       {capability.interruptions ? (
         <div className="flex flex-col gap-2">
           <ChoiceField

@@ -28,6 +28,7 @@ Check compliance and telemetry: a new data class, purpose, processor or retentio
 Look for redundancies, dead code, forgotten files and incomplete moves or deletions. Simplicity is removing the obvious and adding the meaningful.
 Judge against intent and the ideal design, not only the existing code: does the design serve the stated intent, and is it the best way or just consistent with what exists? Consistent-with-flawed-code is not a pass.
 Check concept boundaries against the repository's architecture rules (Daisy: AGENTS.md "Architecture rules"): do the names and the organization match the product's concepts? A breach of those rules (concept coupling) is a BLOCKER, never a minor.
+Check the mandatory structure the same way, each breach a BLOCKER: pure model (one explicit state type where impossible combinations cannot be represented, not parallel variables), pure functions (total decisions and transitions, effects as data or at the edges through injected resources), semantic naming (the product concept, not the mechanism or the author), and semantic file organization and modularity (one concept per file, named for it, laid out by concept, with small explicit interfaces).
 }
 
 Constraints {

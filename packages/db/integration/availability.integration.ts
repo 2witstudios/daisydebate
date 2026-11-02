@@ -2,6 +2,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { withFixture } from './constraint-helpers';
 import {
   availabilityOperations,
   type AvailabilityEvidence,
@@ -272,4 +273,197 @@ test('realtime role has the service lease write exception and no competitive or 
     await client`delete from service_instances where instance_id=${id}`;
     await client.close();
   }
+});
+
+const SAMPLER_LOCK = 59003;
+/** Terminates only the exact backend holding the sampler's election lock. */
+async function terminateElectedSampler(control: SQL) {
+  const [held] = await control`select a.pid,a.backend_start::text as started
+    from pg_locks l join pg_stat_activity a on a.pid=l.pid
+    where l.locktype='advisory' and l.classid=0 and l.objid=${SAMPLER_LOCK}
+      and l.objsubid=1 and l.granted and a.datname=current_database() and a.usename=current_user`;
+  if (!held) throw new Error('No elected sampler backend to terminate');
+  await control`select pg_terminate_backend(pid,1000) from pg_stat_activity
+    where pid=${held.pid} and backend_start::text=${held.started}
+      and datname=current_database() and usename=current_user`;
+}
+const outcomeOf = (work: Promise<boolean>) =>
+  work.catch((error: { code?: string }) => error.code ?? 'unknown');
+
+test('ISSUE-893: the same sampler recovers election after its exact backend is lost, without manufacturing evidence', async () => {
+  const dedicated = new SQL(databaseUrl, { max: 2 });
+  const control = new SQL(databaseUrl, { max: 1 });
+  const ops = availabilityOperations(control, dedicated);
+  const sampler = ops.availabilitySampler();
+  const rival = ops.availabilitySampler();
+  try {
+    const initial = await sampler.elect();
+    const rivalWhileHeld = await rival.elect();
+    const [before] =
+      await control`select count(*)::int as n from availability_samples`;
+    await terminateElectedSampler(control);
+    // The first call may fail on the dead handle; it must not be permanent.
+    const first = await outcomeOf(sampler.elect());
+    const second = await outcomeOf(sampler.elect());
+    const [after] =
+      await control`select count(*)::int as n from availability_samples`;
+    assert({
+      given: 'a sampler whose elected backend was terminated',
+      should: 'recover election with no process restart and write no sample',
+      actual: {
+        initial,
+        rivalWhileHeld,
+        first: first === true || first === 'INFRASTRUCTURE',
+        second,
+        samplesAdded: after.n - before.n,
+      },
+      expected: {
+        initial: true,
+        rivalWhileHeld: false,
+        first: true,
+        second: true,
+        samplesAdded: 0,
+      },
+    });
+    assert({
+      given: 'the recovered sampler holding election',
+      should: 'keep a competing sampler out',
+      actual: await rival.elect(),
+      expected: false,
+    });
+  } finally {
+    await sampler.close();
+    await rival.close();
+    await dedicated.close({ timeout: 0 });
+    await control.close({ timeout: 0 });
+  }
+});
+
+test('ISSUE-886: the probe check names each missing synthetic resource, without touching health', async () => {
+  await withFixture(databaseUrl, async (f) => {
+    const ops = availabilityOperations(f.sql, f.sql);
+    const absent = createId();
+    const ended = await f.round({
+      status: 'abandoned',
+      completed_at: new Date('2026-10-22T00:00:00.000Z'),
+    });
+    try {
+      const [before] =
+        await f.sql`select count(*)::int as n from availability_samples`;
+      const problems = await ops.publicProbeResourceProblems({
+        roundId: absent,
+        segmentId: absent,
+        participantId: absent,
+      });
+      const notActive = await ops.publicProbeResourceProblems({
+        roundId: ended,
+        segmentId: absent,
+        participantId: absent,
+      });
+      const [after] =
+        await f.sql`select count(*)::int as n from availability_samples`;
+      assert({
+        given: 'references to nothing, and to a Round that has ended',
+        should: 'name every problem and write no sample',
+        actual: { problems, notActive, added: after.n - before.n },
+        expected: {
+          problems: ['round_missing', 'segment_missing', 'participant_missing'],
+          notActive: [
+            'round_not_active',
+            'segment_missing',
+            'participant_missing',
+          ],
+          added: 0,
+        },
+      });
+    } finally {
+      await f.sql`delete from rounds where id=${ended}`;
+    }
+  });
+});
+
+test('ISSUE-893: backend loss while sampling also recovers, repeatedly, and close disposes cleanly', async () => {
+  const dedicated = new SQL(databaseUrl, { max: 2 });
+  const control = new SQL(databaseUrl, { max: 1 });
+  const sampler = availabilityOperations(
+    control,
+    dedicated,
+  ).availabilitySampler();
+  const written: string[] = [];
+  const sample = () =>
+    sampler.sample({ publicProbeHealthy: false }).then(
+      (row) => {
+        if (!row) return 'none';
+        written.push(row.at);
+        return 'sampled';
+      },
+      (error: { code?: string }) => error.code ?? 'unknown',
+    );
+  try {
+    const outcomes: string[] = [];
+    for (let round = 0; round < 2; round++) {
+      await sampler.elect();
+      await terminateElectedSampler(control);
+      // The dead handle fails, or a race already sees it closed; never permanently.
+      await sample();
+      outcomes.push(await sample());
+    }
+    assert({
+      given: 'the elected backend lost during sampling, twice over',
+      should: 'sample again each time on a new session',
+      actual: outcomes,
+      expected: ['sampled', 'sampled'],
+    });
+    await sampler.close();
+    assert({
+      given: 'a closed sampler',
+      should: 'refuse further work rather than reopen a session',
+      actual: await sampler.elect(),
+      expected: false,
+    });
+    const [held] =
+      await control`select count(*)::int as n from pg_locks where locktype='advisory' and classid=0 and objid=${SAMPLER_LOCK} and objsubid=1 and granted and pid in (select pid from pg_stat_activity where datname=current_database())`;
+    assert({
+      given: 'that close',
+      should: 'leave no election held',
+      actual: held.n,
+      expected: 0,
+    });
+  } finally {
+    await sampler.close().catch(() => undefined);
+    for (const at of written)
+      await control`delete from availability_samples where at=${at}::timestamptz`;
+    await dedicated.close({ timeout: 0 });
+    await control.close({ timeout: 0 });
+  }
+});
+
+test('a history past the read cap comes back as its true earliest prefix, not a sample of it', async () => {
+  await withFixture(databaseUrl, async (f) => {
+    const opening = new Date(Date.now() - 4 * 3_600_000).toISOString();
+    await f.sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(59003)`;
+      await tx`insert into availability_samples(at,healthy,cause)
+        select ${opening}::timestamptz+n*interval '1 second',true,null from generate_series(1,10805) n`;
+    });
+    try {
+      const ops = availabilityOperations(f.sql, f.sql);
+      const read = await ops.readAvailabilitySamples(opening);
+      const [first] =
+        await f.sql`select to_char(min(at) at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at from availability_samples where at>${opening}::timestamptz`;
+      assert({
+        given: 'more samples since the opening than one read may return',
+        should:
+          'return the cap from the earliest on, in order, with no gaps cut out',
+        actual: {
+          count: read.length,
+          first: read[0]?.at === first.at,
+          ordered: read.every((s, i) => i === 0 || read[i - 1]!.at < s.at),
+        },
+        expected: { count: 10_800, first: true, ordered: true },
+      });
+    } finally {
+      await f.sql`delete from availability_samples where at>${opening}::timestamptz`;
+    }
+  });
 });

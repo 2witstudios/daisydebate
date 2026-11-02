@@ -256,7 +256,6 @@ describe('format definition', () => {
         preRoundPrep: null,
         resolutionDraw: null,
         interaction: {
-          crossExModes: ['ordered'],
           interruptions: null,
           yield: null,
         },

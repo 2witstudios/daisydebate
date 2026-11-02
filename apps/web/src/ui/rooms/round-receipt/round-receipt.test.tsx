@@ -9,14 +9,13 @@ const scheduled: RoundReceiptView = {
   roomId: 'room-owned',
   status: 'scheduled',
   outcome: null,
-  unjudgedRuling: null,
+  panelRuling: null,
   topic: '<Frozen topic>',
   config: { preRoundPrep: { enabled: true, durationMs: 45000 } },
   rules: {
     countdownMs: 2000,
     inRoundPrep: null,
     interaction: {
-      crossExMode: 'free',
       yield: null,
       interruptions: null,
     },
@@ -70,7 +69,7 @@ test('persisted scheduled Round renders the frozen asymmetric schedule and cast'
       html.includes('&lt;Frozen topic&gt;'),
       html.includes('Not started'),
       html.includes('0:45'),
-      html.includes('Open floor'),
+      !html.includes('Open floor'),
       html.includes('Affirmative 2'),
       html.includes('2:05'),
       html.includes('1:30'),
@@ -179,7 +178,7 @@ test('a Round closed on an incomplete transcript says so instead of blaming the 
       round={{
         ...judged,
         outcome: null,
-        unjudgedRuling: 'transcript-incomplete',
+        panelRuling: 'transcript-incomplete',
       }}
     />,
   );
@@ -304,5 +303,21 @@ test('a spectator of a host-list draw reads struck lines as the host’s, not as
       html.includes('A removed resolution'),
     ],
     expected: [true, false],
+  });
+});
+
+test('a Round abandoned at the attendance cutoff blames nobody', () => {
+  const html = renderToStaticMarkup(
+    <RoundReceipt round={{ ...judged, status: 'abandoned', outcome: null }} />,
+  );
+  assert({
+    given: 'an abandoned judged Round, whose judge may well have ruled',
+    should: 'say it closed, with no result line blaming the judges',
+    actual: [
+      html.includes('Round · Closed'),
+      html.includes('Result ·'),
+      html.includes('Judges did not rule'),
+    ],
+    expected: [true, false, false],
   });
 });

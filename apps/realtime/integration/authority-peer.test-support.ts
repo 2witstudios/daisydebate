@@ -29,20 +29,24 @@ export async function openAuthorityPeer(port: number, ticket: string) {
     ),
   );
   await waitFor(() => frames.some((frame) => frame.type === 'ready'));
+  const ask = (topic: string, id: string, since?: string) =>
+    socket.send(
+      JSON.stringify({
+        v: ENVELOPE_VERSION,
+        type: 'subscribe',
+        id,
+        topic,
+        ...(since ? { since } : {}),
+      }),
+    );
   return {
     socket,
     frames,
     closed,
+    /** Sends the subscribe without waiting for its answer. */
+    ask,
     async subscribe(topic: string, id: string, since?: string) {
-      socket.send(
-        JSON.stringify({
-          v: ENVELOPE_VERSION,
-          type: 'subscribe',
-          id,
-          topic,
-          ...(since ? { since } : {}),
-        }),
-      );
+      ask(topic, id, since);
       await waitFor(() =>
         frames.some((frame) => 'id' in frame && frame.id === id),
       );
