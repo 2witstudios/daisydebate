@@ -242,8 +242,8 @@ export function createPresenceOperations({
     },
     /**
      * Every online actor id, scanned a page at a time up to `max` (ADR 0098).
-     * A member who moves between pages mid-scan appears at most once, and the
-     * next ring reads them again.
+     * A member who moves between pages mid-scan can be missed; the next read
+     * finds them.
      */
     async readOnlineActorIds(max: number): Promise<readonly string[]> {
       const ids = new Set<string>();

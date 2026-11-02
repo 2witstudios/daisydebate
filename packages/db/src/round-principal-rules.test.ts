@@ -137,6 +137,7 @@ test('a human Round principal needs its own live member account', async () => {
     member,
     beta: { state: 'approved' as const, revision: 1 },
     ageBand: 'adult' as const,
+    restricted: false,
     erased,
     revision: 1,
   });

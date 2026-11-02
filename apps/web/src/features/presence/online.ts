@@ -12,27 +12,13 @@ import type {
   RatedOutcome,
   DebateRole,
 } from '@daisy/protocol';
+import type { RosterCursor, RosterRow } from '@daisy/db/presence-roster';
 import { ratingStanding } from '../ratings/standing';
 import { requireMemberActor } from '../access/actor';
 import { displayStatus, isAround } from './status';
 
 /** One page of the list. A browser asks for more as the viewer scrolls. */
 export const ROSTER_PAGE = 50;
-
-type RosterRow = {
-  readonly actorId: string;
-  readonly username: string;
-  readonly chosen: 'online' | 'busy' | 'offline';
-  readonly placement: 'room' | 'round' | null;
-  readonly friend: boolean;
-  readonly requesterActorId: string | null;
-  readonly friendshipState: 'pending' | 'accepted' | null;
-};
-type RosterCursor = {
-  readonly friend: boolean;
-  readonly username: string;
-  readonly actorId: string;
-};
 
 export type OnlineRosterDependencies = {
   readonly now: () => string;
@@ -224,9 +210,10 @@ export async function readOnlineRoster(
           })
         : null,
     counts: page.counts,
+    // They are here, asking: a reload closes their socket before it reopens.
     self: displayStatus({
       chosen: page.self.chosen,
-      activity: activity.get(actorId) ?? null,
+      activity: activity.get(actorId) ?? 'active',
       placement: page.self.placement,
     }),
   };

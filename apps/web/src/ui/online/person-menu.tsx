@@ -12,11 +12,12 @@ import {
   type ReportReason,
 } from '@daisy/protocol';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { challengeFormUnavailable } from '../../features/challenges/forms';
 import { friendFormUnavailable } from '../../features/friends/forms';
 import { creationFormUnavailable } from '../../features/messaging/forms/create-form';
-import { personActionNotices } from '../../features/presence/person-action';
+import { personBlockFailedNotice } from '../../features/contacts/block-form';
+import { reportFailedNotice } from '../../features/reports/form';
 import { cn } from '../cn';
 import { buttonClass } from '../components/button/button-class';
 import { useFormAction } from '../form-action/form-action';
@@ -71,7 +72,7 @@ function FriendItem({
     <form action={post}>
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="username" value={username} />
-      <button type="submit" role="menuitem" disabled={pending} className={item}>
+      <button type="submit" disabled={pending} className={item}>
         {label}
       </button>
     </form>
@@ -107,7 +108,7 @@ function CancelChallengeItem({
     <form action={post}>
       <input type="hidden" name="command" value="cancel" />
       <input type="hidden" name="challengeId" value={challengeId} />
-      <button type="submit" role="menuitem" disabled={pending} className={item}>
+      <button type="submit" disabled={pending} className={item}>
         Cancel challenge
       </button>
     </form>
@@ -133,7 +134,7 @@ function MessageItem({
       <input type="hidden" name="introduction" value="" />
       <button
         type="submit"
-        role="menuitem"
+
         disabled={pending || answer.next !== undefined}
         className={item}
       >
@@ -158,7 +159,7 @@ function BlockItem({
   readonly onDone: () => void;
 }) {
   const [answer, post, pending] = useFormAction(action, {}, () => ({
-    notice: personActionNotices.blockFailed,
+    notice: personBlockFailedNotice,
   }));
   useAnswered(answer, () => {
     if (answer.done) onDone();
@@ -166,7 +167,7 @@ function BlockItem({
   return (
     <form action={post}>
       <input type="hidden" name="username" value={username} />
-      <button type="submit" role="menuitem" disabled={pending} className={item}>
+      <button type="submit" disabled={pending} className={item}>
         Block
       </button>
       {answer.notice && !answer.done ? (
@@ -266,7 +267,7 @@ function ReportView({
 }) {
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [answer, post, pending] = useFormAction(action, {}, () => ({
-    notice: personActionNotices.reportFailed,
+    notice: reportFailedNotice,
   }));
   useAnswered(answer, () => {
     if (answer.done) onDone();
@@ -339,6 +340,17 @@ export function PersonMenu({
   };
   const outgoing = outgoingTo(challenges, member.username);
   const { username, relation } = member;
+  // Into the dialog on open, and Escape closes it from anywhere; whoever opened
+  // it hands focus back to the row.
+  const dialog = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    dialog.current?.querySelector<HTMLElement>('button, a')?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
   return (
     <>
       <div
@@ -353,17 +365,16 @@ export function PersonMenu({
       <section
         role="dialog"
         aria-label={`@${username}`}
-        ref={anchorAt(top)}
+        ref={(element) => {
+          dialog.current = element;
+          anchorAt(top)(element);
+        }}
         className="absolute person-anchor right-full z-40 mr-2 flex w-person-card flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 max-narrow:fixed max-narrow:inset-x-0 max-narrow:bottom-0 max-narrow:mr-0 max-narrow:w-auto max-narrow:rounded-b-none"
       >
         <MemberCardBody member={member} />
         <hr className="border-border" />
         {view === 'menu' ? (
-          <div
-            role="menu"
-            aria-label={`@${username}`}
-            className="flex flex-col"
-          >
+          <div className="flex flex-col">
             {outgoing ? (
               <CancelChallengeItem
                 action={actions.endChallenge}
@@ -373,7 +384,7 @@ export function PersonMenu({
             ) : canBeChallenged(member) ? (
               <button
                 type="button"
-                role="menuitem"
+
                 onClick={() => setView('challenge')}
                 className={cn(item, 'font-bold')}
               >
@@ -408,17 +419,13 @@ export function PersonMenu({
               />
             ) : null}
             <MessageItem action={actions.message} username={username} />
-            <Link
-              role="menuitem"
-              href={`/profile/${username}`}
-              className={item}
-            >
+            <Link href={`/profile/${username}`} className={item}>
               Profile
             </Link>
             <hr className="my-1 border-border" />
             <button
               type="button"
-              role="menuitem"
+
               disabled={reported}
               onClick={() => setView('report')}
               className={item}

@@ -1,6 +1,6 @@
 import { challengesPrivacyAdopter } from './challenges/privacy';
 import { contactsPrivacyAdopter } from './contacts/privacy';
-import { ratingVisibilityPrivacyAdopter } from './ratings-visibility';
+import { ratingVisibilityPrivacyAdopter } from './ratings-visibility-privacy';
 import { reportsPrivacyAdopter } from './reports/privacy';
 import { friendsPrivacyAdopter } from './friends/privacy';
 import { createMessagingPrivacyAdopter } from './messaging/privacy';

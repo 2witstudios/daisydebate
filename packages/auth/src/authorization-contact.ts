@@ -108,6 +108,8 @@ export const contactPairAllowed = (
   return (
     kind === 'exit' ||
     (!pair.blocked &&
-      (context.contactAccounts ?? []).every((account) => account.member))
+      (context.contactAccounts ?? []).every(
+        (account) => account.member && !account.restricted,
+      ))
   );
 };

@@ -71,7 +71,7 @@ export const betaAccessOperations = ({
       return {
         betaState: account?.beta?.state ?? null,
         ageBand: account?.ageBand ?? null,
-        restricted: account?.restricted === true,
+        restricted: account?.restricted ?? false,
       };
     }),
 });

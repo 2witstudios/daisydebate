@@ -2,7 +2,8 @@ import type { FormAction } from '../form-action/form-action';
 import type { ChallengeFormState } from '../../features/challenges/forms';
 import type { FriendFormState } from '../../features/friends/forms';
 import type { CreationFormState } from '../../features/messaging/forms/create-form';
-import type { PersonActionState } from '../../features/presence/person-action';
+import type { PersonBlockState } from '../../features/contacts/block-form';
+import type { ReportFormState } from '../../features/reports/form';
 
 /** Every server action the online list uses; `ui/` never imports from `app/`. */
 export type PersonActions = {
@@ -11,6 +12,6 @@ export type PersonActions = {
   readonly acceptChallenge: FormAction<ChallengeFormState>;
   readonly endChallenge: FormAction<ChallengeFormState>;
   readonly message: FormAction<CreationFormState>;
-  readonly report: FormAction<PersonActionState>;
-  readonly block: FormAction<PersonActionState>;
+  readonly report: FormAction<ReportFormState>;
+  readonly block: FormAction<PersonBlockState>;
 };

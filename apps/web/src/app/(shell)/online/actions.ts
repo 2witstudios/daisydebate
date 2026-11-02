@@ -26,9 +26,15 @@ import {
   type PresenceFormState,
 } from '../../../features/presence/form';
 import {
-  personActionNotices,
-  type PersonActionState,
-} from '../../../features/presence/person-action';
+  personBlockedNotice,
+  personBlockFailedNotice,
+  type PersonBlockState,
+} from '../../../features/contacts/block-form';
+import {
+  reportDoneNotice,
+  reportFailedNotice,
+  type ReportFormState,
+} from '../../../features/reports/form';
 import type { CreationFormState } from '../../../features/messaging/forms/create-form';
 import { requestIdentity } from '../../../lib/request-session';
 import { activeRoomRead } from '../actions';
@@ -248,9 +254,9 @@ export async function messagePersonAction(
 
 /** Reports a member, with a reason. */
 export async function reportAction(
-  _previous: PersonActionState,
+  _previous: ReportFormState,
   form: FormData,
-): Promise<PersonActionState> {
+): Promise<ReportFormState> {
   try {
     const response = await post(routes.report, '/api/reports', {
       version: 1,
@@ -262,18 +268,18 @@ export async function reportAction(
       response.ok ? await response.json() : null,
     );
     return result.success
-      ? { done: true, notice: personActionNotices.reported }
-      : { notice: personActionNotices.reportFailed };
+      ? { done: true, notice: reportDoneNotice }
+      : { notice: reportFailedNotice };
   } catch {
-    return { notice: personActionNotices.reportFailed };
+    return { notice: reportFailedNotice };
   }
 }
 
 /** Blocks a member, through Contacts' own route. */
 export async function blockAction(
-  _previous: PersonActionState,
+  _previous: PersonBlockState,
   form: FormData,
-): Promise<PersonActionState> {
+): Promise<PersonBlockState> {
   try {
     const response = await post(routes.block, '/api/contacts/username', {
       version: 1,
@@ -285,10 +291,10 @@ export async function blockAction(
       response.ok ? await response.json() : null,
     );
     return result.success
-      ? { done: true, notice: personActionNotices.blocked }
-      : { notice: personActionNotices.blockFailed };
+      ? { done: true, notice: personBlockedNotice }
+      : { notice: personBlockFailedNotice };
   } catch {
-    return { notice: personActionNotices.blockFailed };
+    return { notice: personBlockFailedNotice };
   }
 }
 

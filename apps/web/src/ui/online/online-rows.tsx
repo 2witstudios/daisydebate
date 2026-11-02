@@ -25,6 +25,8 @@ export const rowDetail = (member: OnlineMember, challengeSent: boolean) =>
       : statusLabels[member.status];
 
 type Anchored = { readonly username: string; readonly top: number };
+/** The person as they were on opening, so leaving never closes a report. */
+type OpenMenu = Anchored & { readonly member: OnlineMember };
 
 /**
  * The hover card and menu shared by the open list, the collapsed avatars and
@@ -37,7 +39,8 @@ export function usePersonOverlay(
 ) {
   const { roster } = useOnline();
   const [hover, setHover] = useState<Anchored | null>(null);
-  const [menu, setMenu] = useState<Anchored | null>(null);
+  const [menu, setMenu] = useState<OpenMenu | null>(null);
+  const trigger = useRef<HTMLElement | null>(null);
   const [reported, setReported] = useState<ReadonlySet<string>>(new Set());
   const press = useRef<ReturnType<typeof setTimeout> | null>(null);
   const topOf = (element: Element, tallest: number) => {
@@ -50,19 +53,31 @@ export function usePersonOverlay(
     if (press.current !== null) clearTimeout(press.current);
     press.current = null;
   }, []);
+  const memberOf = (name: string | undefined) =>
+    roster.members.find((member) => member.username === name);
+  const openAt = (username: string, element: HTMLElement) => {
+    const member = memberOf(username);
+    if (!member) return;
+    trigger.current = element;
+    clearPress();
+    setHover(null);
+    setMenu({ username, member, top: topOf(element, MENU_HEIGHT) });
+  };
+  const closeMenu = useCallback(() => {
+    setMenu(null);
+    trigger.current?.focus();
+  }, []);
   const rowProps = (username: string) => ({
     onContextMenu: (event: React.MouseEvent<HTMLElement>) => {
       event.preventDefault();
-      clearPress();
-      setHover(null);
-      setMenu({ username, top: topOf(event.currentTarget, MENU_HEIGHT) });
+      openAt(username, event.currentTarget);
     },
     onPointerDown: (event: React.PointerEvent<HTMLElement>) => {
       if (event.pointerType !== 'touch') return;
       const element = event.currentTarget;
       clearPress();
       press.current = setTimeout(
-        () => setMenu({ username, top: topOf(element, MENU_HEIGHT) }),
+        () => openAt(username, element),
         LONG_PRESS_MS,
       );
     },
@@ -76,14 +91,8 @@ export function usePersonOverlay(
       setHover({ username, top: topOf(event.currentTarget, 96) }),
     onBlur: () => setHover(null),
   });
-  const open = (username: string, element: Element) => {
-    setHover(null);
-    setMenu({ username, top: topOf(element, MENU_HEIGHT) });
-  };
-  const memberOf = (name: string | undefined) =>
-    roster.members.find((member) => member.username === name);
   const hovered = memberOf(hover?.username);
-  const opened = memberOf(menu?.username);
+  const opened = menu ? (memberOf(menu.username) ?? menu.member) : undefined;
   const overlay = (
     <>
       {hovered && !opened ? (
@@ -103,12 +112,17 @@ export function usePersonOverlay(
             setReported((current) => new Set([...current, opened.username]))
           }
           top={menu.top}
-          onClose={() => setMenu(null)}
+          onClose={closeMenu}
         />
       ) : null}
     </>
   );
-  return { rowProps, open, overlay, menuName: opened?.username ?? null };
+  return {
+    rowProps,
+    open: openAt,
+    overlay,
+    menuName: opened?.username ?? null,
+  };
 }
 
 /**

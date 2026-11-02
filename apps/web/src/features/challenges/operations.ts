@@ -36,6 +36,8 @@ export type ChallengeDependencies = {
   readonly clock: Clock;
   readonly limit: (actorId: string) => Promise<void>;
   readonly limitSend: (actorId: string) => Promise<void>;
+  /** Whether a season is active, which a ranked room needs. */
+  readonly rankedOpen: () => Promise<boolean>;
   /** The one username port: it spends discovery before each lookup. */
   readonly discover: DiscoverActor;
   readonly activity: (actorId: string) => Promise<PresenceActivity | null>;
@@ -77,6 +79,9 @@ export async function sendChallenge(
   const { actorId, userId } = requireMemberActor(principal);
   await dependencies.limit(actorId);
   await dependencies.limitSend(actorId);
+  // Refused here, not at Accept: a default offer must be able to open its room.
+  if (input.mode === 'ranked' && !(await dependencies.rankedOpen()))
+    throw createAppError('INVARIANT', 'ranked-unavailable');
   const otherActorId = await dependencies.discover(actorId, input.username);
   if (!otherActorId || otherActorId === actorId)
     throw createAppError('NOT_FOUND');

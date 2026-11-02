@@ -53,14 +53,20 @@ describe('challengeRoomForm', () => {
   test('ranked takes the ranked selection, and so its judge requirement', () => {
     assert({
       given: 'a ranked challenge',
-      should: 'use the ranked selection',
-      actual: JSON.parse(String(form('ranked').get('selection'))),
-      expected: {
-        kind: 'ranked',
-        formatId: 'freestyle',
-        formatVersion: 2,
-        presetVersion: 3,
-      },
+      should: 'use the ranked selection, in public so a judge can find it',
+      actual: [
+        JSON.parse(String(form('ranked').get('selection'))),
+        form('ranked').get('visibility'),
+      ],
+      expected: [
+        {
+          kind: 'ranked',
+          formatId: 'freestyle',
+          formatVersion: 2,
+          presetVersion: 3,
+        },
+        'public',
+      ],
     });
   });
 });
@@ -80,12 +86,15 @@ describe('templateFor', () => {
 });
 
 describe('challengeRefusal', () => {
-  test('never says why someone cannot be challenged', () => {
+  test('never says why someone else cannot be challenged', () => {
     assert({
-      given: 'a conflict and a not-found on sending',
-      should: 'answer the same words',
-      actual: challengeRefusal('send', 409),
-      expected: challengeRefusal('send', 404),
+      given: 'the one answer for a block, no lease, Busy or being placed',
+      should: 'name no reason, while the caller’s own room is theirs to know',
+      actual: [challengeRefusal('send', 404), challengeRefusal('send', 409)],
+      expected: [
+        'They cannot take a challenge right now.',
+        'Leave your room first.',
+      ],
     });
   });
 });

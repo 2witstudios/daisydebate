@@ -36,6 +36,11 @@ import {
 type OnlineView = {
   readonly roster: OnlineRoster;
   readonly challenges: ChallengeList;
+  /** People who did not take this member's offer: declined, or it ran out. */
+  readonly endedOffers: readonly string[];
+  readonly dismissEnded: (username: string) => void;
+  /** The member withdrew this offer themselves, so it needs no notice. */
+  readonly noteCancelled: (id: string) => void;
   readonly filter: OnlineFilter;
   readonly query: string;
   readonly setFilter: (filter: OnlineFilter) => void;
@@ -44,6 +49,9 @@ type OnlineView = {
   /** Re-reads at once, after the member's own action. */
   readonly refresh: () => void;
 };
+
+/** How often a member with an open offer checks it still stands. */
+const OFFER_WATCH_MS = 5_000;
 
 const OnlineContext = createContext<OnlineView | null>(null);
 
@@ -124,6 +132,7 @@ export function OnlineProvider({
 }) {
   const [roster, setRoster] = useState(initialRoster);
   const [challenges, setChallenges] = useState(initialChallenges);
+  const [endedOffers, setEndedOffers] = useState<readonly string[]>([]);
   const [filter, setFilter] = useState<OnlineFilter>('all');
   const [query, setQuery] = useState('');
   const [socketUrl, setSocketUrl] = useState(initialSocketUrl);
@@ -182,9 +191,27 @@ export function OnlineProvider({
     }
   }, []);
   const readRosterRef = useRef(readRoster);
+  // Only the newest answer lands: a slow one must not restore a removed card.
+  const challengeSeq = useRef(0);
+  const shownChallenges = useRef(initialChallenges);
+  const cancelled = useRef(new Set<string>());
   const readChallenges = useCallback(async () => {
+    challengeSeq.current += 1;
+    const seq = challengeSeq.current;
     const { value } = await readJson('/api/challenges', parseChallenges);
-    if (!value) return;
+    if (!value || seq !== challengeSeq.current) return;
+    const before = shownChallenges.current;
+    const gone = before.outgoing.filter(
+      (offer) =>
+        !cancelled.current.has(offer.id) &&
+        !value.list.outgoing.some((next) => next.id === offer.id) &&
+        !value.list.accepted.some((next) => next.id === offer.id),
+    );
+    if (gone.length > 0)
+      setEndedOffers((current) => [
+        ...new Set([...current, ...gone.map((offer) => offer.username)]),
+      ]);
+    shownChallenges.current = value.list;
     setChallenges(value.list);
     if (value.actorId) setActorId(value.actorId);
   }, []);
@@ -238,9 +265,11 @@ export function OnlineProvider({
     });
     const stopChallenges = actorId
       ? connection.subscribeTopic(buildUserInboxTopic(actorId), (frame) => {
+          // A ring missed while the socket was down reads on re-subscribing.
           if (
-            frame.type === 'event' &&
-            frame.payload.kind === 'challenge.changed'
+            frame.type === 'subscribed' ||
+            (frame.type === 'event' &&
+              frame.payload.kind === 'challenge.changed')
           )
             void readChallenges();
         })
@@ -251,6 +280,20 @@ export function OnlineProvider({
       connection.dispose();
     };
   }, [actorId, readChallenges, schedule, socketUrl]);
+
+  // An offer running out rings nobody, so while one stands, keep reading.
+  const offersOpen =
+    challenges.outgoing.length > 0 || challenges.incoming.length > 0;
+  useEffect(() => {
+    if (!offersOpen) return;
+    const watch = setInterval(() => void readChallenges(), OFFER_WATCH_MS);
+    return () => clearInterval(watch);
+  }, [offersOpen, readChallenges]);
+
+  // The server rendered this list a moment ago, so the first ring waits its turn.
+  useEffect(() => {
+    lastRead.current = systemScheduler.now();
+  }, []);
 
   useEffect(
     () => () => {
@@ -284,6 +327,12 @@ export function OnlineProvider({
     );
   }, [filter, query, roster.nextCursor]);
 
+  const dismissEnded = useCallback((username: string) => {
+    setEndedOffers((current) => current.filter((name) => name !== username));
+  }, []);
+  const noteCancelled = useCallback((id: string) => {
+    cancelled.current.add(id);
+  }, []);
   const refresh = useCallback(() => {
     void readRoster();
     void readChallenges();
@@ -293,6 +342,9 @@ export function OnlineProvider({
     () => ({
       roster,
       challenges,
+      endedOffers,
+      dismissEnded,
+      noteCancelled,
       filter,
       query,
       setFilter,
@@ -300,7 +352,17 @@ export function OnlineProvider({
       loadMore,
       refresh,
     }),
-    [challenges, filter, loadMore, query, refresh, roster],
+    [
+      challenges,
+      dismissEnded,
+      endedOffers,
+      filter,
+      loadMore,
+      noteCancelled,
+      query,
+      refresh,
+      roster,
+    ],
   );
   return (
     <OnlineContext.Provider value={view}>{children}</OnlineContext.Provider>

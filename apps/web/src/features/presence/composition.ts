@@ -7,6 +7,7 @@ import { memberHttpBoundary } from '../../server/member-handler';
 import { createPresenceHandlers } from './handlers';
 import { ROSTER_ACTORS_MAX } from '@daisy/db/presence-roster';
 import { readOnlineRoster } from './online';
+import { cachedScan } from './online-scan';
 import { readChosen, setChosenStatus } from './setting';
 
 /** Status changes per member per minute, Presence's own budget. */
@@ -42,6 +43,10 @@ const ownList =
     });
 
 export function composePresenceRoutes(app: App) {
+  const onlineActorIds = cachedScan(
+    () => app.redis.readOnlineActorIds(ROSTER_ACTORS_MAX),
+    () => Date.parse(app.clock.now()),
+  );
   return createPresenceHandlers({
     boundary: memberHttpBoundary(app),
     websocketEndpoint: app.websocketEndpoint,
@@ -70,7 +75,7 @@ export function composePresenceRoutes(app: App) {
         now: () => app.clock.now(),
         limit: (actorId) =>
           consumeOrThrow(app.limiter, `online:${actorId}`, ONLINE_RULE),
-        onlineActorIds: () => app.redis.readOnlineActorIds(ROSTER_ACTORS_MAX),
+        onlineActorIds,
         activity: (actorIds) => app.redis.readActorsPresence(actorIds),
         page: (scope, page) =>
           app.database.readRosterPage(scope, page, ownList(principal)),

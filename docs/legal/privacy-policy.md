@@ -82,7 +82,7 @@ These providers are based in the United States, so your data is transferred to a
 
 ## How long we keep it
 
-Your account data (email, username, birth month, onboarding answers, terms acceptance, friends and debate record) is kept while your account exists. Reports are kept while open and [COUNSEL: confirm: 12 months] after they close; a moderation action is kept with the account.
+Your account data (email, username, birth month, onboarding answers, terms acceptance, friends and debate record) is kept while your account exists. Reports are kept while open and [COUNSEL: confirm: 12 months] after they close, and a moderation action is kept with the account. If you close your account, reports and moderation actions about it stay for that same period, and your name comes off reports you filed.
 
 A sign-in session lasts up to 7 days of inactivity and its record is deleted 24 hours after it expires, or straight away when you sign it out. Sign-in links expire after 5 minutes and are deleted within a day.
 

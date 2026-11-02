@@ -34,6 +34,7 @@ describe('retention targets', () => {
         purgeExpiredVerifications: record('verification'),
         purgeExpiredChallenges: ({ now, limit }: Instant) =>
           record('challenges')({ before: now, limit }),
+        purgeErasedModeration: record('moderation'),
         purgeClosedReports: ({ now, limit }: Instant) =>
           record('reports')({ before: now, limit }),
         purgeExpiredOutboxEvents: record('outbox'),
@@ -125,6 +126,7 @@ describe('retention targets', () => {
           { name: 'retention.social_requests', batchSize: 500, maxBatches: 20 },
           { name: 'retention.challenges', batchSize: 1000, maxBatches: 50 },
           { name: 'retention.reports', batchSize: 1000, maxBatches: 50 },
+          { name: 'retention.moderation', batchSize: 1000, maxBatches: 50 },
           {
             name: 'retention.presence_online',
             batchSize: 1000,
@@ -134,6 +136,7 @@ describe('retention targets', () => {
         calls: {
           challenges: [{ before: '2026-09-20T12:00:00.000Z', limit: 1000 }],
           reports: [{ before: '2026-09-20T12:00:00.000Z', limit: 1000 }],
+          moderation: [{ before: '2025-09-20T12:00:00.000Z', limit: 1000 }],
           verification: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           session: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           provisional_user: [{ before: '2026-09-19T12:00:00.000Z', limit: 50 }],
@@ -209,11 +212,12 @@ describe('retention targets', () => {
           ['retention.social_requests', false],
           ['retention.challenges', false],
           ['retention.reports', false],
+          ['retention.moderation', false],
           ['retention.presence_online', true],
         ],
         calls: {},
         sweeps: [1000],
-        failed: 19,
+        failed: 20,
       },
     });
   });

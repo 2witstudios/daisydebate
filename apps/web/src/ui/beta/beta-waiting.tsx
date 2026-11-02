@@ -15,6 +15,8 @@ export type BetaWaitingProps = {
    * `restricted` is under a suspension or ban (ADR 0098).
    */
   readonly reason: 'pending' | 'revoked' | 'age-required' | 'restricted';
+  /** When a suspension ends; absent for a ban. */
+  readonly restrictedUntil?: string | null;
   /** The age step, which returns here once answered. */
   readonly ageHref: string;
   /** Back from a sign-out that did not happen (ISSUE-691). */
@@ -131,6 +133,7 @@ function WaitingStatus() {
 export function BetaWaiting({
   username,
   reason,
+  restrictedUntil = null,
   ageHref,
   signOutFailed = false,
 }: BetaWaitingProps) {
@@ -146,8 +149,9 @@ export function BetaWaiting({
             Your account is restricted, @{username}
           </h1>
           <p className="text-md text-ink-muted">
-            A moderator restricted this account after a report. You can sign out
-            or manage your data in account settings.
+            A moderator restricted this account after a report
+            {restrictedUntil ? ` until ${restrictedUntil.slice(0, 10)}` : ''}.
+            You can sign out or manage your data in account settings.
           </p>
         </div>
         <Actions failed={signOutFailed}>{null}</Actions>

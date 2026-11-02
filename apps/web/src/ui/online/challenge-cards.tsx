@@ -94,6 +94,82 @@ function IncomingCard({
   );
 }
 
+/** An offer the member is waiting on, on every rail state and on a phone. */
+function OutgoingCard({
+  offer,
+  action,
+  className,
+}: {
+  readonly offer: ChallengeList['outgoing'][number];
+  readonly action: PersonActions['endChallenge'];
+  readonly className?: string;
+}) {
+  const { refresh, noteCancelled } = useOnline();
+  const [answer, post, pending] = useFormAction(
+    action,
+    {},
+    challengeFormUnavailable,
+  );
+  const initial = useRef(answer);
+  useEffect(() => {
+    if (answer !== initial.current) refresh();
+  }, [answer, refresh]);
+  return (
+    <section
+      aria-label={`Challenge sent to @${offer.username}`}
+      className={cn(
+        'flex flex-col gap-1 rounded-lg border border-border bg-surface-raised px-4 py-3 text-ink',
+        className,
+      )}
+    >
+      <p className="text-sm font-semibold">Waiting for @{offer.username}</p>
+      <p className="text-sm text-ink-muted">{summaryOf(offer)}</p>
+      <form action={post} onSubmit={() => noteCancelled(offer.id)}>
+        <input type="hidden" name="command" value="cancel" />
+        <input type="hidden" name="challengeId" value={offer.id} />
+        <button
+          type="submit"
+          disabled={pending}
+          className="min-h-nav-target text-sm font-semibold text-ink-muted hover:text-ink"
+        >
+          Cancel
+        </button>
+      </form>
+    </section>
+  );
+}
+
+/** Says when an offer ended without an answer the member could otherwise see. */
+function EndedCard({
+  username,
+  className,
+}: {
+  readonly username: string;
+  readonly className?: string;
+}) {
+  const { dismissEnded } = useOnline();
+  return (
+    <section
+      aria-label={`@${username} did not take your challenge`}
+      className={cn(
+        'flex items-center justify-between gap-2 rounded-lg border border-border bg-surface-raised px-4 py-2 text-ink',
+        className,
+      )}
+    >
+      <p role="status" className="text-sm">
+        @{username} did not take your challenge.
+      </p>
+      <button
+        type="button"
+        onClick={() => dismissEnded(username)}
+        className="min-h-nav-target text-sm font-semibold text-ink-muted hover:text-ink"
+      >
+        Dismiss
+      </button>
+    </section>
+  );
+}
+
 /** Where a challenger goes once they were accepted; a document load for the room's media policy. */
 function AcceptedCard({
   offer,
@@ -130,7 +206,7 @@ const FOLLOWED_MAX = 20;
 const followedRooms = (): readonly string[] => {
   try {
     const stored: unknown = JSON.parse(
-      localStorage.getItem(FOLLOWED_KEY) ?? '[]',
+      sessionStorage.getItem(FOLLOWED_KEY) ?? '[]',
     );
     return Array.isArray(stored)
       ? stored.filter((id): id is string => typeof id === 'string')
@@ -141,7 +217,7 @@ const followedRooms = (): readonly string[] => {
 };
 const rememberFollowed = (rooms: readonly string[]) => {
   try {
-    localStorage.setItem(
+    sessionStorage.setItem(
       FOLLOWED_KEY,
       JSON.stringify(rooms.slice(-FOLLOWED_MAX)),
     );
@@ -198,11 +274,17 @@ export function ChallengeCards({
   readonly className?: string;
   readonly cardClassName?: string;
 }) {
-  const { challenges } = useOnline();
+  const { challenges, endedOffers } = useOnline();
   const accepted = challenges.accepted.filter(
     (offer) => offer.roomId !== activeRoomId,
   );
-  if (challenges.incoming.length === 0 && accepted.length === 0) return null;
+  if (
+    challenges.incoming.length === 0 &&
+    challenges.outgoing.length === 0 &&
+    endedOffers.length === 0 &&
+    accepted.length === 0
+  )
+    return null;
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       {accepted.map((offer) => (
@@ -217,6 +299,21 @@ export function ChallengeCards({
           key={offer.id}
           offer={offer}
           actions={actions}
+          {...(cardClassName ? { className: cardClassName } : {})}
+        />
+      ))}
+      {challenges.outgoing.slice(0, 3).map((offer) => (
+        <OutgoingCard
+          key={offer.id}
+          offer={offer}
+          action={actions.endChallenge}
+          {...(cardClassName ? { className: cardClassName } : {})}
+        />
+      ))}
+      {endedOffers.map((username) => (
+        <EndedCard
+          key={username}
+          username={username}
           {...(cardClassName ? { className: cardClassName } : {})}
         />
       ))}

@@ -56,6 +56,7 @@ export function retentionTargets({
       readonly now: string;
       readonly limit: number;
     }) => Promise<number>;
+    readonly purgeErasedModeration: (batch: Batch) => Promise<number>;
     readonly purgeClosedReports: (batch: {
       readonly now: string;
       readonly limit: number;
@@ -251,6 +252,17 @@ export function retentionTargets({
       maxBatches: 50,
       purge: ({ now, limit }) =>
         database.purgeClosedReports({ now: cutoff(now, 0), limit }),
+    },
+    /** An erased account's sanctions, after the same proposed retention. */
+    {
+      name: 'retention.moderation',
+      batchSize: 1000,
+      maxBatches: 50,
+      purge: ({ now, limit }) =>
+        database.purgeErasedModeration({
+          before: cutoff(now, 365 * DAY_MS),
+          limit,
+        }),
     },
     {
       name: 'retention.presence_online',

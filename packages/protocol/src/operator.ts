@@ -75,7 +75,7 @@ export const operatorRoutes = {
   listRestrictions: {
     method: 'GET',
     path: /^\/operator\/v1\/moderation$/,
-    query: ['limit'],
+    query: ['cursor', 'limit'],
   },
   liftModeration: {
     method: 'PUT',
@@ -181,9 +181,16 @@ const operatorRestrictionSchema = z.strictObject({
 });
 export const operatorRestrictionsSchema = z.strictObject({
   items: z.array(operatorRestrictionSchema).max(100),
+  nextCursor: z.string().max(256).nullable(),
 });
 export const operatorRestrictionsQuerySchema = z.strictObject({
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.string().max(256).optional(),
+});
+export const operatorRestrictionsCursorSchema = z.strictObject({
+  v: z.literal(1),
+  startsAt: z.iso.datetime(),
+  id: idSchema,
 });
 
 export const reportResolveCommandAction = 'report.resolve';

@@ -1,37 +1,12 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { idSchema, ratingLadders, type RatingLadder } from '@daisy/protocol';
 import {
   readOwnCollection,
   requireOwnScope,
   type OwnCollectionFence,
 } from './authorization';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import type { PrivacyAdopter, PrivacyExport } from './privacy/contracts';
-import { exportRows } from './privacy/export-rows';
 import { ratingVisibility } from './schema/ratings';
-
-/** The rating choice's subject rights (ADR 0098): the member's own row. */
-export const ratingVisibilityPrivacyAdopter: PrivacyAdopter = {
-  id: 'rating-visibility',
-  phase: 'after-close',
-  async erase(tx, subject) {
-    const actorId = idSchema.parse(subject.actorId);
-    await tx.execute(
-      sql`delete from rating_visibility where actor_id=${actorId}`,
-    );
-  },
-  async export(tx, subject): Promise<PrivacyExport> {
-    const actorId = idSchema.parse(subject.actorId);
-    return {
-      rating_visibility: exportRows(
-        (await tx.execute(
-          sql`select * from rating_visibility where actor_id=${actorId}`,
-        )) as unknown as Record<string, unknown>[],
-      ),
-    };
-  },
-};
 
 type Scope = { readonly userId: string; readonly actorId: string };
 type Visibility = {
@@ -39,24 +14,7 @@ type Visibility = {
   readonly showValue: boolean;
 };
 
-type CardRatingRow = {
-  readonly actorId: string;
-  readonly ladder: RatingLadder;
-  readonly rating: number;
-  readonly deviation: number;
-  readonly volatility: number;
-  readonly lastRatedAt: string | null;
-};
-
-type CardRecordRow = {
-  readonly actorId: string;
-  readonly status: string;
-  readonly outcome: string | null;
-  readonly role: string;
-  readonly rounds: number;
-};
-
-/** The active season's ratings for a page of people, and their public record. */
+/** Which ratings a member shows on their card besides Freestyle (ADR 0098). */
 export const ratingVisibilityOperations = ({
   database,
   eventSink,
@@ -106,50 +64,4 @@ export const ratingVisibilityOperations = ({
       }),
     );
   },
-  /**
-   * What each person's card may show (ADR 0098): every rated ladder they turned
-   * on, Freestyle always, in the active season, and the shape of their public
-   * record. One read for a page of people. Ladders stay public regardless.
-   */
-  readMemberCards: (actorIds: readonly string[]) =>
-    instrumented(eventSink, 'readMemberCards', async () => {
-      if (actorIds.length === 0)
-        return { ratings: [], records: [], visibility: [] };
-      const ids = sql`array[${sql.join(
-        actorIds.map((id) => sql`${id}`),
-        sql`, `,
-      )}]::text[]`;
-      const visibility = (await database.execute(sql`
-        select actor_id as "actorId", show_policy as "showPolicy", show_value as "showValue"
-        from rating_visibility where actor_id = any(${ids})`)) as unknown as (Visibility & {
-        actorId: string;
-      })[];
-      const ratings = (await database.execute(sql`
-        select r.actor_id as "actorId", r.ladder, r.rating, r.deviation, r.volatility,
-          (select max(c.occurred_at) from rating_changes c
-            where c.actor_id = r.actor_id and c.ladder = r.ladder and c.season_id = r.season_id) as "lastRatedAt"
-        from ratings r join seasons s on s.id = r.season_id and s.status = 'active'
-        where r.actor_id = any(${ids})`)) as unknown as (Omit<
-        CardRatingRow,
-        'lastRatedAt'
-      > & { lastRatedAt: Date | string | null })[];
-      const records = (await database.execute(sql`
-        select p.actor_id as "actorId", r.status, r.outcome, p.role, count(*)::int as rounds
-        from round_participants p join rounds r on r.id = p.round_id
-        where p.actor_id = any(${ids}) and r.room_id is not null and r.visibility = 'public'
-        group by p.actor_id, r.status, r.outcome, p.role`)) as unknown as CardRecordRow[];
-      return {
-        visibility: [...visibility],
-        ratings: ratings
-          .filter((row) => ratingLadders.includes(row.ladder))
-          .map((row) => ({
-            ...row,
-            lastRatedAt:
-              row.lastRatedAt === null
-                ? null
-                : new Date(row.lastRatedAt).toISOString(),
-          })),
-        records: [...records],
-      };
-    }),
 });

@@ -6,22 +6,20 @@ import { exportRows } from '../privacy/export-rows';
 const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
 
 /**
- * Reports' and moderation's subject rights (ADR 0098). Erasure removes every
- * report naming the subject and their moderation record. Export gives a
- * subject reports they filed, without another member's sanction, and those
- * about them without who filed them.
+ * Reports' and moderation's subject rights (ADR 0098). Closing an account never
+ * wipes its record: reports about the subject and their sanctions stay through
+ * their proposed retention (DEC-298), and a report they filed stays with its
+ * reporter removed, so one member's erasure cannot empty another's report from
+ * the queue. Export gives a subject reports they filed, without another
+ * member's sanction, and those about them without who filed them.
  */
 export const reportsPrivacyAdopter: PrivacyAdopter = {
   id: 'reports',
   phase: 'after-close',
   async erase(tx, subject) {
     const actorId = idSchema.parse(subject.actorId);
-    const userId = idSchema.parse(subject.userId);
     await tx.execute(
-      sql`delete from reports where reporter_actor_id=${actorId} or subject_actor_id=${actorId}`,
-    );
-    await tx.execute(
-      sql`delete from moderation_actions where user_id=${userId}`,
+      sql`update reports set reporter_actor_id = null where reporter_actor_id=${actorId}`,
     );
   },
   async export(tx, subject): Promise<PrivacyExport> {

@@ -1,3 +1,5 @@
+import { systemClock } from '@daisy/clock';
+import { processApp } from '../../../server/process-app';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { readOnboardingEntry } from '../../../lib/auth-entry';
@@ -33,6 +35,14 @@ export default async function BetaPage({
     <BetaWaiting
       username={identity.username}
       reason={identity.reason}
+      restrictedUntil={
+        identity.reason === 'restricted'
+          ? await processApp().database.readRestrictionEnd({
+              userId: identity.principal.userId,
+              now: systemClock.now(),
+            })
+          : null
+      }
       ageHref={onboardingHref('/beta')}
       signOutFailed={(await searchParams).signOut === 'failed'}
     />

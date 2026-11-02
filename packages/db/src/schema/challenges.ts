@@ -24,6 +24,8 @@ export const challenges = pgTable(
       .references(() => rooms.id, { onDelete: 'cascade' }),
     createdAt: timestampColumn('created_at').notNull(),
     expiresAt: timestampColumn('expires_at').notNull(),
+    /** Set on acceptance: how long the challenger is still sent to the room. */
+    followUntil: timestampColumn('follow_until'),
   },
   (table) => [
     index('challenges_challenged_idx').on(table.challengedActorId),

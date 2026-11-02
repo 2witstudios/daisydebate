@@ -17,6 +17,7 @@ export const accountFact = (
   revision,
   beta: { state: 'approved' as const, revision: 1 },
   ageBand: 'adult' as const,
+  restricted: false,
 });
 /** The canonical account function's raw row behind `accountFact`. */
 export const accountRow = (
@@ -32,6 +33,7 @@ export const accountRow = (
   betaState: 'approved',
   betaRevision: 1,
   ageBand: 'adult',
+  restricted: false,
 });
 /** The checked fact a canonical account row validates to. */
 export const factOfRow = <

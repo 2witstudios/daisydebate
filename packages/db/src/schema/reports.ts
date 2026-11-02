@@ -2,6 +2,7 @@ import { reportOutcomes, reportReasons, reportSurfaces } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
+import { actors } from './actors';
 import { contactActorColumn } from './contacts';
 
 /**
@@ -13,7 +14,10 @@ export const reports = pgTable(
   'reports',
   {
     id: text('id').primaryKey(),
-    reporterActorId: contactActorColumn('reporter_actor_id'),
+    /** Null once the reporter's account is erased: the report outlives them. */
+    reporterActorId: text('reporter_actor_id').references(() => actors.id, {
+      onDelete: 'restrict',
+    }),
     subjectActorId: contactActorColumn('subject_actor_id'),
     reason: text('reason').notNull(),
     surface: text('surface').notNull(),

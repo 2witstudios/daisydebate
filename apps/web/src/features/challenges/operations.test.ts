@@ -52,6 +52,7 @@ const harness = (overrides: Partial<ChallengeDependencies> = {}) => {
     clock: fixedClock(now),
     limit: async () => {},
     limitSend: async () => {},
+    rankedOpen: async () => true,
     discover: async () => them,
     activity: async () => 'active',
     store: (capability) => {
@@ -142,6 +143,24 @@ describe('sendChallenge', () => {
       should: 'answer NOT_FOUND, never saying why',
       code: 'NOT_FOUND',
       actual: () => sendChallenge(member, offer, dependencies),
+    });
+  });
+});
+
+describe('a ranked offer', () => {
+  test('is refused while no season is active, touching no pair', async () => {
+    const { calls, dependencies } = harness({ rankedOpen: async () => false });
+    await assertRejects({
+      given: 'no active season',
+      should: 'refuse at send, not at Accept',
+      code: 'INVARIANT',
+      actual: () => sendChallenge(member, offer, dependencies),
+    });
+    assert({
+      given: 'that refusal',
+      should: 'reach no store',
+      actual: calls,
+      expected: [],
     });
   });
 });

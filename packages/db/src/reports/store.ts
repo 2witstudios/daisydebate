@@ -27,6 +27,7 @@ import {
   type ContactInput,
 } from '../contacts/fence';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
+import { endMemberOffers } from '../challenges/frame';
 import { moderationActions } from '../schema/moderation';
 import { reports } from '../schema/reports';
 import { appendSessionRevokedFor } from '../session-revoked';
@@ -238,8 +239,10 @@ async function resolveReport(
     await tx.execute(
       sql`update users set version = version + 1 where id = ${row.userId}`,
     );
-    if (action.kind !== 'warning')
+    if (action.kind !== 'warning') {
       await appendSessionRevokedFor(tx, row.userId, eventSink, 'resolveReport');
+      await endMemberOffers(tx, row.actorId);
+    }
   }
   const result: ReportResolveResult = {
     commandId: input.commandId,
@@ -321,8 +324,8 @@ export const reportOperations = ({
           su.id as "subjectUserId", r.reason, r.surface, r.created_at as "createdAt",
           (select count(*)::int from reports o where o.subject_actor_id = r.subject_actor_id) as "reportsOnSubject"
         from reports r
-        join actors ra on ra.id = r.reporter_actor_id
-        join users ru on ru.id = ra.user_id
+        left join actors ra on ra.id = r.reporter_actor_id
+        left join users ru on ru.id = ra.user_id
         join actors sa on sa.id = r.subject_actor_id
         join users su on su.id = sa.user_id
         where r.closed_at is null ${after}
@@ -333,10 +336,11 @@ export const reportOperations = ({
       > & { createdAt: Date | string })[];
       return rows.map((row) => ({ ...row, createdAt: iso(row.createdAt) }));
     }),
-  /** Suspensions and bans in force, newest first, bounded. */
+  /** One keyset page of suspensions and bans in force, newest first. */
   listOperatorRestrictions: (input: {
     readonly now: string;
     readonly limit: number;
+    readonly after: { readonly startsAt: string; readonly id: string } | null;
   }): Promise<readonly OperatorRestrictionRow[]> =>
     instrumented(eventSink, 'listOperatorRestrictions', async () => {
       const rows = (await database.execute(sql`
@@ -345,7 +349,12 @@ export const reportOperations = ({
         from moderation_actions m join users u on u.id = m.user_id
         where m.kind in ('suspension', 'ban') and m.lifted_at is null
           and (m.ends_at is null or m.ends_at > ${new Date(input.now)})
-        order by m.starts_at desc, m.id
+          ${
+            input.after
+              ? sql`and (m.starts_at, m.id) < (${input.after.startsAt}::timestamptz, ${input.after.id})`
+              : sql``
+          }
+        order by m.starts_at desc, m.id desc
         limit ${input.limit}`)) as unknown as (Omit<
         OperatorRestrictionRow,
         'startsAt' | 'endsAt'
@@ -364,6 +373,20 @@ export const reportOperations = ({
     instrumented(eventSink, 'liftModeration', () =>
       database.transaction((tx) => liftModeration(tx, input)),
     ),
+  /** When the account's suspension in force ends; null for a ban or nothing. */
+  readRestrictionEnd: (input: {
+    readonly userId: string;
+    readonly now: string;
+  }): Promise<string | null> =>
+    instrumented(eventSink, 'readRestrictionEnd', async () => {
+      const [row] = (await database.execute(sql`
+        select max(ends_at) as "endsAt" from moderation_actions
+        where user_id = ${input.userId} and kind = 'suspension' and lifted_at is null
+          and ends_at > ${new Date(input.now)}`)) as unknown as {
+        endsAt: Date | string | null;
+      }[];
+      return row?.endsAt ? iso(row.endsAt) : null;
+    }),
   /** The member's own warnings they have not acknowledged. */
   listModerationNotices: (
     scope: Scope,
@@ -399,6 +422,20 @@ export const reportOperations = ({
       }),
     );
   },
+  /** An erased account's sanctions past the same retention (DEC-298, COMP-4). */
+  purgeErasedModeration: (input: {
+    readonly before: string;
+    readonly limit: number;
+  }): Promise<number> =>
+    instrumented(eventSink, 'purgeErasedModeration', async () => {
+      const rows = await database.execute(sql`
+        delete from moderation_actions where id in (
+          select m.id from moderation_actions m join users u on u.id = m.user_id
+          where u.deleted_at is not null and m.starts_at <= ${new Date(input.before)}
+          limit ${input.limit})
+        returning id`);
+      return rows.length;
+    }),
   /** Closed reports past their evidence retention (DEC-298, COMP-4). */
   purgeClosedReports: (input: {
     readonly now: string;

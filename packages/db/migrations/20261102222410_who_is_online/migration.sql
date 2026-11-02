@@ -7,6 +7,7 @@ CREATE TABLE "challenges" (
 	"room_id" text UNIQUE,
 	"created_at" timestamp with time zone NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
+	"follow_until" timestamp with time zone,
 	CONSTRAINT "challenges_distinct" CHECK ("challenger_actor_id" <> "challenged_actor_id"),
 	CONSTRAINT "challenges_mode_check" CHECK ("mode" in ('ranked', 'casual')),
 	CONSTRAINT "challenges_format_check" CHECK ("format_id" in ('freestyle', 'policy', 'value'))
@@ -34,7 +35,7 @@ CREATE TABLE "rating_visibility" (
 --> statement-breakpoint
 CREATE TABLE "reports" (
 	"id" text PRIMARY KEY,
-	"reporter_actor_id" text NOT NULL,
+	"reporter_actor_id" text,
 	"subject_actor_id" text NOT NULL,
 	"reason" text NOT NULL,
 	"surface" text NOT NULL,

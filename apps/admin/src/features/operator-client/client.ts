@@ -209,13 +209,21 @@ export function createOperatorClient(deps: {
         },
         reportResolveResultSchema,
       ),
-    listRestrictions: (operatorRef: string, limit: number) =>
+    listRestrictions: (
+      operatorRef: string,
+      page: { readonly limit: number; readonly cursor?: string },
+    ) =>
       call(
         operatorRef,
         {
           method: 'GET',
           path: '/operator/v1/moderation',
-          query: [['limit', String(limit)]],
+          query: [
+            ...(page.cursor === undefined
+              ? []
+              : [['cursor', page.cursor] as const]),
+            ['limit', String(page.limit)],
+          ],
         },
         operatorRestrictionsSchema,
       ),

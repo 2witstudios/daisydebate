@@ -18,6 +18,7 @@ export function validResourceKind(
     'social.rating_visibility.read': 'friend_collection',
     'social.rating_visibility.update': 'friend_collection',
     'social.moderation_notice.read': 'friend_collection',
+    'social.moderation_notice.acknowledge': 'friend_collection',
     'social.presence.read': 'presence_setting',
     'social.presence.update': 'presence_setting',
     'channel.retained.read': 'messaging_collection',

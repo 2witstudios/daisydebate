@@ -10,6 +10,7 @@ const notices: Readonly<Record<string, string>> = {
   denied: 'Your operator role does not permit that.',
   refused: 'That was refused; it may already be closed.',
   unknown: 'The outcome is unknown. Check the queue before trying again.',
+  days: 'A suspension needs a length from 1 to 365 days.',
 };
 
 const when = (iso: string) => iso.slice(0, 16).replace('T', ' ');
@@ -29,12 +30,15 @@ export default async function ReportsPage({
         <NotPermitted />
       </>
     );
-  const { notice } = await searchParams;
+  const { notice, after } = await searchParams;
   const { commands } = adminRuntime();
   const [reports, restrictions] = commands
     ? await Promise.all([
         commands.client.listReports(operator.id, { limit: 50 }),
-        commands.client.listRestrictions(operator.id, 50),
+        commands.client.listRestrictions(operator.id, {
+          limit: 50,
+          ...(typeof after === 'string' ? { cursor: after } : {}),
+        }),
       ])
     : [null, null];
   return (
@@ -114,35 +118,46 @@ export default async function ReportsPage({
         </p>
       )}
       <h2>In force</h2>
-      {restrictions?.kind === 'ok' && restrictions.value.items.length > 0 ? (
-        <table>
-          <thead>
-            <tr>
-              <th>Member</th>
-              <th>Kind</th>
-              <th>From</th>
-              <th>Until</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {restrictions.value.items.map((row) => (
-              <tr key={row.id}>
-                <td>{row.username ?? 'Closed account'}</td>
-                <td>{row.kind}</td>
-                <td>{when(row.startsAt)}</td>
-                <td>{row.endsAt ? when(row.endsAt) : 'Indefinite'}</td>
-                <td>
-                  <form action={liftRestrictionAction}>
-                    <input type="hidden" name="actionId" value={row.id} />
-                    <input type="hidden" name="userId" value={row.userId} />
-                    <button type="submit">Lift</button>
-                  </form>
-                </td>
+      {restrictions?.kind !== 'ok' ? (
+        <p role="status" className="notice notice-warn">
+          Restrictions are unavailable.
+        </p>
+      ) : restrictions.value.items.length > 0 ? (
+        <>
+          <table>
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Kind</th>
+                <th>From</th>
+                <th>Until</th>
+                <th />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {restrictions.value.items.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.username ?? 'Closed account'}</td>
+                  <td>{row.kind}</td>
+                  <td>{when(row.startsAt)}</td>
+                  <td>{row.endsAt ? when(row.endsAt) : 'Indefinite'}</td>
+                  <td>
+                    <form action={liftRestrictionAction}>
+                      <input type="hidden" name="actionId" value={row.id} />
+                      <input type="hidden" name="userId" value={row.userId} />
+                      <button type="submit">Lift</button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {restrictions.value.nextCursor ? (
+            <a href={`/reports?after=${restrictions.value.nextCursor}`}>
+              Older
+            </a>
+          ) : null}
+        </>
       ) : (
         <p>No restrictions in force.</p>
       )}

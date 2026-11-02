@@ -7,6 +7,7 @@ import {
 import { friendshipReadOperations } from './friends/reads';
 import { createReportStore, reportOperations } from './reports/store';
 import { rosterOperations } from './presence/roster';
+import { memberCardOperations } from './member-cards';
 import { ratingVisibilityOperations } from './ratings-visibility';
 import { createFriendStore } from './friends/store';
 import { createContactStore } from './contacts/store';
@@ -275,6 +276,7 @@ export function createDatabase({
     ...presenceSettingOperations({ database: social, eventSink }),
     ...rosterOperations({ database: social, eventSink }),
     ...ratingVisibilityOperations({ database: social, eventSink }),
+    ...memberCardOperations({ database: social, eventSink }),
     ...challengeReadOperations({ database: social, eventSink }),
     ...reportOperations({ database: control, eventSink }),
     challengeStore: (authorize: ContactAuthorizationFence) =>

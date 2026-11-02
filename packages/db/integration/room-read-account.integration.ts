@@ -47,6 +47,7 @@ for (const role of ['daisy_web', 'daisy_realtime'])
               revision: 1,
               beta: { state: 'approved', revision: 1 },
               ageBand: 'adult',
+              restricted: false,
             },
             // The shared reader's raw v2 row (ADR 0075).
             peer: {
@@ -138,6 +139,7 @@ test('Room reader reloads tombstone after waiting for the exclusive writer', asy
           revision: 2,
           beta: { state: 'approved', revision: 1 },
           ageBand: null,
+          restricted: false,
         },
       });
     } finally {

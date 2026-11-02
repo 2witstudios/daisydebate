@@ -58,6 +58,34 @@ async function ring(tx: AuthorizationTransaction, actors: readonly string[]) {
     });
 }
 
+/**
+ * Ends a member's open offers, both ways, when a suspension or ban begins, and
+ * rings whoever was on the other end: they could never have met.
+ */
+export async function endMemberOffers(
+  tx: Pick<BunSQLDatabase, 'delete'> & AuthorizationTransaction,
+  actorId: string,
+) {
+  const removed = await tx
+    .delete(challenges)
+    .where(
+      and(
+        or(
+          eq(challenges.challengerActorId, actorId),
+          eq(challenges.challengedActorId, actorId),
+        ),
+        sql`${challenges.roomId} is null`,
+      ),
+    )
+    .returning({
+      challenger: challenges.challengerActorId,
+      challenged: challenges.challengedActorId,
+    });
+  await ring(tx, [
+    ...new Set(removed.flatMap((r) => [r.challenger, r.challenged])),
+  ]);
+}
+
 /** Ends every challenge between a pair, either way: a block leaves none. */
 export async function endPairChallenges(
   tx: Pick<BunSQLDatabase, 'delete'>,
@@ -103,12 +131,11 @@ export function challengeFrame(
         readAvailability(owner, input.actorId),
         readAvailability(owner, other),
       ]);
+      // The caller's own room is theirs to know, and to leave.
+      if (mine.placement !== null)
+        throw createAppError('CONFLICT', 'challenge-placed');
       // One answer with a block, no such member and no lease: never which.
-      if (
-        mine.placement !== null ||
-        theirs.placement !== null ||
-        theirs.chosen !== 'online'
-      )
+      if (theirs.placement !== null || theirs.chosen !== 'online')
         throw createAppError('NOT_FOUND');
       await tx.execute(sql`
         delete from challenges
@@ -155,8 +182,9 @@ export function challengeFrame(
       await authorize();
       requireId(roomId);
       requireId(challengeId);
-      // Only a room made for this offer: unlisted, on its format and mode, so
-      // no other room the acceptor hosts can receive the challenger.
+      // Only a room made for this offer: its format and mode, and public when
+      // ranked so a judge can find it, so no other room the acceptor hosts can
+      // receive the challenger.
       const [offer] = await tx
         .select({
           id: challenges.id,
@@ -167,7 +195,7 @@ export function challengeFrame(
           and(
             eq(rooms.formatId, challenges.formatId),
             eq(rooms.competitionType, challenges.mode),
-            eq(rooms.visibility, 'unlisted'),
+            sql`${rooms.visibility} = case when ${challenges.mode} = 'ranked' then 'public' else 'unlisted' end`,
             openRoomHostedBy(roomId, input.actorId),
           ),
         )
@@ -186,7 +214,7 @@ export function challengeFrame(
         throw createAppError('NOT_FOUND');
       const updated = await tx
         .update(challenges)
-        .set({ roomId, expiresAt: new Date(followUntil) })
+        .set({ roomId, followUntil: new Date(followUntil) })
         .where(
           and(
             eq(challenges.id, challengeId),

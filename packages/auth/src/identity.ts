@@ -24,7 +24,7 @@ export type Participation = {
   readonly betaState: BetaAccessState | null;
   readonly ageBand: AgeBand | null;
   /** A suspension or ban is in force (ADR 0098). */
-  readonly restricted?: boolean;
+  readonly restricted: boolean;
 };
 
 const anonymous = { kind: 'anonymous' } as const;
@@ -154,7 +154,7 @@ function participation(
   facts: {
     readonly betaState: BetaAccessState | null;
     readonly ageBand: AgeBand | null;
-    readonly restricted?: boolean;
+    readonly restricted: boolean;
   },
 ): Identity {
   const { betaState, ageBand, restricted } = facts;
@@ -162,7 +162,7 @@ function participation(
     participantAccess({
       beta: betaState && { state: betaState },
       ageBand,
-      ...(restricted ? { restricted } : {}),
+      restricted,
     })
   )
     return { state: 'member', username, principal };

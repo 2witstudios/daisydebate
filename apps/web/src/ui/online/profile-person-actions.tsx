@@ -7,7 +7,8 @@ import {
   reportReasons,
 } from '@daisy/protocol';
 import { challengeFormUnavailable } from '../../features/challenges/forms';
-import { personActionNotices } from '../../features/presence/person-action';
+import { personBlockFailedNotice } from '../../features/contacts/block-form';
+import { reportFailedNotice } from '../../features/reports/form';
 import { Button } from '../components/button/button';
 import { controlClass } from '../components/form-field/form-field-class';
 import { useFormAction } from '../form-action/form-action';
@@ -44,11 +45,11 @@ export function ProfilePersonActions({
     actions.report,
     {},
     () => ({
-      notice: personActionNotices.reportFailed,
+      notice: reportFailedNotice,
     }),
   );
   const [blocked, block, blocking] = useFormAction(actions.block, {}, () => ({
-    notice: personActionNotices.blockFailed,
+    notice: personBlockFailedNotice,
   }));
   return (
     <>

@@ -22,6 +22,7 @@ import {
   operatorReportsCursorSchema,
   operatorReportsPageSchema,
   operatorReportsQuerySchema,
+  operatorRestrictionsCursorSchema,
   operatorRestrictionsQuerySchema,
   operatorRestrictionsSchema,
   reportResolveCommandSchema,
@@ -458,11 +459,32 @@ async function listRestrictions(
     Object.fromEntries(url.searchParams.entries()),
   );
   if (!query.success) throw createAppError('VALIDATION');
+  let after: { readonly startsAt: string; readonly id: string } | null = null;
+  if (query.data.cursor !== undefined) {
+    try {
+      const cursor = operatorRestrictionsCursorSchema.parse(
+        JSON.parse(
+          Buffer.from(query.data.cursor, 'base64url').toString('utf8'),
+        ),
+      );
+      after = { startsAt: cursor.startsAt, id: cursor.id };
+    } catch {
+      throw createAppError('VALIDATION');
+    }
+  }
+  const rows = await deps.store.listOperatorRestrictions({
+    now: new Date(deps.nowMs()).toISOString(),
+    limit: query.data.limit + 1,
+    after,
+  });
+  const items = rows.slice(0, query.data.limit);
+  const last = items.at(-1);
   return operatorRestrictionsSchema.parse({
-    items: await deps.store.listOperatorRestrictions({
-      now: new Date(deps.nowMs()).toISOString(),
-      limit: query.data.limit,
-    }),
+    items,
+    nextCursor:
+      rows.length > query.data.limit && last
+        ? encodeCursor({ v: 1, startsAt: last.startsAt, id: last.id })
+        : null,
   });
 }
 

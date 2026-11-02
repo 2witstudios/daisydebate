@@ -45,13 +45,14 @@ be able to see who is online."
    `db/challenges`, `features/challenges`, routes under `/api/challenges`.
    Anyone can challenge any available member, ranked or casual, in Freestyle,
    Policy or Value. An offer stands two minutes and creates nothing. Accepting
-   opens an unlisted room through the one room-create route as the acceptor, so
-   ranked keeps its judge requirement, then names it on the offer, which accepts
+   opens a room through the one room-create route as the acceptor, unlisted when
+   casual and public when ranked, so a human judge can find it and the result
+   counts on both records, then names it on the offer, which accepts
    only a room matching its format and mode, and only while the challenger is
    unplaced. The challenger is sent there for two more minutes, once. The inbox
    doorbell `challenge.changed` reaches both members on any page, and the
    challenger follows to the room. No such member, a block, no lease, Busy,
-   appearing offline or being placed are one answer, so a status code never
+   appearing offline or the other member being placed are one answer, so a status code never
    tells a blocked member someone is online.
 5. **A row is name, status and three dots.** Right-click, three dots, long press
    or a click open one menu: the person's card, then Challenge, Add friend,
@@ -68,6 +69,8 @@ be able to see who is online."
    bans; `moderation_actions` records it apart from the report, and lifting keeps
    the row. A suspension or ban in force sets `restricted` on the one account
    producer, so `participantAccess` stops web and realtime at the same check.
+   Closing an account never wipes this: reports about it and its sanctions stay
+   through retention, and a report it filed stays with the reporter removed.
    These defaults and the evidence retention of 12 months after a report closes
    are proposed (DEC-298) and go to counsel under COMP-4.
 

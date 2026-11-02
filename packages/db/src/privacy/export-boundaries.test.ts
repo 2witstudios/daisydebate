@@ -17,6 +17,7 @@ const account = {
   betaState: 'approved',
   betaRevision: 1,
   ageBand: 'adult',
+  restricted: false,
 };
 const input = {
   jobId: 'j'.repeat(24),

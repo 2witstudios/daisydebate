@@ -19,11 +19,17 @@ async function signedIn() {
   return operator;
 }
 
+const suspensionDays = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(moderationSuspensionMaxDays);
+
 const resolveForm = z.strictObject({
   reportId: idSchema,
   subjectUserId: idSchema,
   outcome: z.enum(reportOutcomes),
-  suspendDays: z.coerce.number().int().min(1).max(moderationSuspensionMaxDays),
+  suspendDays: z.string(),
 });
 
 export async function resolveReportAction(form: FormData): Promise<never> {
@@ -33,16 +39,20 @@ export async function resolveReportAction(form: FormData): Promise<never> {
     reportId: form.get('reportId'),
     subjectUserId: form.get('subjectUserId'),
     outcome: form.get('outcome'),
-    suspendDays: form.get('suspendDays'),
+    suspendDays: String(form.get('suspendDays') ?? ''),
   });
   if (!fields.success || !commands) redirect('/reports?notice=refused');
-  const { reportId, subjectUserId, outcome, suspendDays } = fields.data;
+  const { reportId, subjectUserId, outcome } = fields.data;
+  // Only a suspension has a length: the field means nothing otherwise.
+  const days = suspensionDays.safeParse(fields.data.suspendDays);
+  if (outcome === 'suspended' && !days.success)
+    redirect('/reports?notice=days');
   const notice = await resolveReport(commands, {
     operatorId: operator.id,
     reportId,
     subjectUserId,
     outcome,
-    suspendDays: outcome === 'suspended' ? suspendDays : null,
+    suspendDays: outcome === 'suspended' && days.success ? days.data : null,
   });
   redirect(`/reports?notice=${notice}`);
 }

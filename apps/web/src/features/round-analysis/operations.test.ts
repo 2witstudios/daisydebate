@@ -41,6 +41,7 @@ const access = (
     revision: 1,
     beta: { state: 'approved', revision: 1 },
     ageBand: 'adult',
+    restricted: false,
   },
   grants,
 });

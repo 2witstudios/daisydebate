@@ -15,6 +15,7 @@ const authorizationCapabilities = [
   'social.rating_visibility.read',
   'social.rating_visibility.update',
   'social.moderation_notice.read',
+  'social.moderation_notice.acknowledge',
   'social.presence.read',
   'social.presence.update',
   'channel.retained.read',

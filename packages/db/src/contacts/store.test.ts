@@ -18,6 +18,7 @@ const accounts = [
     betaState: 'approved',
     betaRevision: 1,
     ageBand: 'adult',
+    restricted: false,
     erased: false,
     revision: 2,
   },
@@ -30,6 +31,7 @@ const accounts = [
     betaState: 'approved',
     betaRevision: 1,
     ageBand: 'adult',
+    restricted: false,
   },
 ];
 const input = { actorId: high, userId, memberActorIds: [high, low] };

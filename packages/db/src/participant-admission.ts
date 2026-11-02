@@ -25,9 +25,9 @@ export function principalAccessOf(
     ? {
         beta: account.beta?.state ?? null,
         ageBand: account.ageBand,
-        ...(account.restricted ? { restricted: true } : {}),
+        restricted: account.restricted,
       }
-    : { beta: null, ageBand: null };
+    : { beta: null, ageBand: null, restricted: false };
 }
 
 /**

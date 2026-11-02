@@ -7,9 +7,10 @@ import { casualSelection } from '../rooms/format-browser';
 import type { RoomTemplate } from '../rooms/read-catalog';
 
 /**
- * The room an accepted challenge opens (ADR 0098): unlisted, so only the two of
- * them reach it, on the format they agreed, through the one room-create form.
- * A ranked challenge takes the ranked selection and so its judge requirement.
+ * The room an accepted challenge opens (ADR 0098), through the one room-create
+ * form on the format they agreed. Casual is unlisted, so only the two of them
+ * reach it. Ranked takes the ranked selection and is public: a human judge has
+ * to be able to find it, and a public result counts on both records.
  */
 export function challengeRoomForm(input: {
   readonly host: string;
@@ -32,7 +33,7 @@ export function challengeRoomForm(input: {
     (resolution) => resolution.kind === method,
   );
   if (publication) form.set(`${publication.kind}ResolutionId`, publication.id);
-  form.set('visibility', 'unlisted');
+  form.set('visibility', input.mode === 'ranked' ? 'public' : 'unlisted');
   const casual = casualSelection(input.template);
   form.set(
     'selection',

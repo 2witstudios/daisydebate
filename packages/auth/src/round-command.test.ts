@@ -5,7 +5,7 @@ setupRitewayBun();
 const authority: RoundCommandAuthority = {
   roundId: 'round',
   // An admitted participant (ADR 0075).
-  principalAccess: { beta: 'approved', ageBand: 'adult' },
+  principalAccess: { beta: 'approved', ageBand: 'adult', restricted: false },
   hostActorId: 'host',
   participants: [
     {
@@ -149,8 +149,16 @@ test('a human without participant access keeps only the Round withdrawal (ADR 00
       authority: { ...authority, principalAccess },
       command,
     }).ok;
-  const revoked = { beta: 'revoked', ageBand: 'adult' } as const;
-  const ageless = { beta: 'approved', ageBand: null } as const;
+  const revoked = {
+    beta: 'revoked',
+    ageBand: 'adult',
+    restricted: false,
+  } as const;
+  const ageless = {
+    beta: 'approved',
+    ageBand: null,
+    restricted: false,
+  } as const;
   assert({
     given:
       'a revoked and an age-less human commanding start, yield and forfeit, and an AgentRun with no human facts',

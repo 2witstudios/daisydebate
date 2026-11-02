@@ -23,8 +23,10 @@ export function challengeRefusal(
   status: number,
 ): string {
   if (intent === 'send') {
-    if (status === 409 || status === 404)
-      return 'They cannot take a challenge right now.';
+    if (status === 404) return 'They cannot take a challenge right now.';
+    if (status === 409) return 'Leave your room first.';
+    if (status === 422)
+      return 'Ranked is not open right now. Send a casual challenge.';
     if (status === 429) return 'You have reached a challenge limit for now.';
     return 'Could not send that challenge. Try again.';
   }

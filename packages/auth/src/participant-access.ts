@@ -20,12 +20,12 @@ export function participantAccess(
   account: {
     readonly beta: { readonly state: AccountBetaState } | null;
     readonly ageBand: AgeBand | null;
-    readonly restricted?: boolean;
+    readonly restricted: boolean;
   } | null,
 ): boolean {
   return (
     account?.beta?.state === 'approved' &&
-    account.restricted !== true &&
+    !account.restricted &&
     ageAdmitted(account.ageBand)
   );
 }
@@ -76,14 +76,14 @@ export function admitsPrincipalAccess(
   access: {
     readonly beta: BetaAccessState | null;
     readonly ageBand: AgeBand | null;
-    readonly restricted?: boolean;
+    readonly restricted: boolean;
   } | null,
 ): boolean {
   return participantAccess(
     access && {
       beta: access.beta && { state: access.beta },
       ageBand: access.ageBand,
-      ...(access.restricted === true ? { restricted: true } : {}),
+      restricted: access.restricted,
     },
   );
 }

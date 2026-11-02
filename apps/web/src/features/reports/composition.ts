@@ -98,7 +98,7 @@ export function composeReportRoutes(app: App) {
             async ({ scope, account }) =>
               requireAuthorization({
                 principal,
-                capability: 'social.moderation_notice.read',
+                capability: 'social.moderation_notice.acknowledge',
                 resource: { kind: 'friend_collection', actorId: scope.actorId },
                 context: { account },
               }),

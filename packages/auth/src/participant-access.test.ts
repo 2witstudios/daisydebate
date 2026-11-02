@@ -38,7 +38,11 @@ test('a member who is not admitted keeps exactly the withdrawals (ADR 0075)', ()
     actual: [
       { beta: { state: 'pending' as const }, ageBand: 'adult' as const },
       { beta: { state: 'revoked' as const }, ageBand: 'adult' as const },
-      { beta: { state: 'approved' as const }, ageBand: null },
+      {
+        beta: { state: 'approved' as const },
+        ageBand: null,
+        restricted: false,
+      },
       { beta: null, ageBand: 'adult' as const },
     ].map((account) => sorted(admitted(account))),
     expected: Array.from({ length: 4 }, () => sorted(withdrawals)),
@@ -68,6 +72,7 @@ test('withdrawals never include adding, transferring authority or reading others
       admitsCapability(capability, {
         beta: { state: 'pending' },
         ageBand: 'adult',
+        restricted: false,
       }),
     ),
     expected: refused.map(() => false),
@@ -78,7 +83,11 @@ test('an admitted participant holds every capability the rule governs', () => {
   assert({
     given: 'an approved account with an adult age record',
     should: 'admit every capability',
-    actual: admitted({ beta: { state: 'approved' }, ageBand: 'adult' }).length,
+    actual: admitted({
+      beta: { state: 'approved' },
+      ageBand: 'adult',
+      restricted: false,
+    }).length,
     expected: capabilities.length,
   });
 });

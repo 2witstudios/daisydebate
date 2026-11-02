@@ -15,7 +15,9 @@ import { createReportStore, reportOperations } from '../src/reports/store';
 import { contactReactions } from '../src/contact-composition';
 import { createContactStore } from '../src/contacts/store';
 import { loadAuthorizationAccount } from '../src/authorization';
+import { memberCardOperations } from '../src/member-cards';
 import { ratingVisibilityOperations } from '../src/ratings-visibility';
+import { reportsPrivacyAdopter } from '../src/reports/privacy';
 import { createMessagingTestFixture } from '../src/testing';
 import { withFixture } from './constraint-helpers';
 import {
@@ -157,15 +159,16 @@ test('an active Room is a placement: room while open, round once launched', asyn
 test('a card reads a page of people, whatever they have played', async () => {
   const ctx = await open();
   const cards = ratingVisibilityOperations({ database: ctx.database });
+  const memberCards = memberCardOperations({ database: ctx.database });
   try {
-    const none = await cards.readMemberCards([]);
-    const empty = await cards.readMemberCards([ctx.them.actorId]);
+    const none = await memberCards.readMemberCards([]);
+    const empty = await memberCards.readMemberCards([ctx.them.actorId]);
     await cards.writeRatingVisibility(
       ctx.them,
       { showPolicy: true, showValue: false, now: ctx.now },
       unfenced,
     );
-    const shown = await cards.readMemberCards([ctx.them.actorId]);
+    const shown = await memberCards.readMemberCards([ctx.them.actorId]);
     const own = await cards.readRatingVisibility(ctx.them, unfenced);
     assert({
       given: 'nobody, a member with nothing played, then one turning Policy on',
@@ -483,6 +486,7 @@ test('a chosen status reads back, and a report closes once with its action', asy
     const restrictions = await ops.listOperatorRestrictions({
       now: new Date().toISOString(),
       limit: 100,
+      after: null,
     });
     const action = restrictions.find((row) => row.userId === ctx.them.userId);
     await ops.liftModeration({
@@ -531,7 +535,118 @@ test('a chosen status reads back, and a report closes once with its action', asy
   }
 });
 
-const migration = '20261102220253_who_is_online';
+test('a suspension ends the member’s offers, and closing an account keeps the record', async () => {
+  const ctx = await open();
+  const ops = reportOperations({ database: ctx.database });
+  const challengesStore = createChallengeStore({
+    database: ctx.database,
+    authorize: unfenced,
+  });
+  const reports = createReportStore({
+    database: ctx.database,
+    authorize: unfenced,
+  });
+  const members = [ctx.me.actorId, ctx.them.actorId];
+  const live = new Date().toISOString();
+  try {
+    await challengesStore.withContacts(
+      { ...ctx.them, memberActorIds: members },
+      (frame) =>
+        frame.send({
+          id: createId(),
+          mode: 'casual',
+          format: 'value',
+          now: live,
+          expiresAt: new Date(Date.now() + 120_000).toISOString(),
+        }),
+    );
+    const before = await listChallenges(ctx.database, ctx.me, live, unfenced);
+    const about = createId();
+    const filed = createId();
+    await reports.file(
+      { ...ctx.me, memberActorIds: members },
+      {
+        id: about,
+        subjectActorId: ctx.them.actorId,
+        reason: 'spam',
+        surface: 'online',
+        now: live,
+      },
+    );
+    await reports.file(
+      { ...ctx.them, memberActorIds: members },
+      {
+        id: filed,
+        subjectActorId: ctx.me.actorId,
+        reason: 'spam',
+        surface: 'profile',
+        now: live,
+      },
+    );
+    await ops.resolveReport({
+      commandId: createId(),
+      reportId: about,
+      serviceId: 'daisy-admin',
+      operatorRef: 'o'.repeat(24),
+      outcome: 'suspended',
+      suspendUntil: new Date(Date.now() + 86_400_000).toISOString(),
+      requestDigest: 'c'.repeat(64),
+      adminAuditHead: 'e'.repeat(64),
+      now: live,
+      purgeAfter: new Date(Date.now() + 86_400_000).toISOString(),
+      nextId: createId,
+      live: () => true,
+    });
+    const after = await listChallenges(ctx.database, ctx.me, live, unfenced);
+    const end = await ops.readRestrictionEnd({
+      userId: ctx.them.userId,
+      now: live,
+    });
+    await ctx.database.transaction((tx) =>
+      reportsPrivacyAdopter.erase(
+        tx,
+        ctx.them as never,
+        { now: live } as never,
+      ),
+    );
+    const [stillFiled] = (await ctx.client.unsafe(
+      'select reporter_actor_id as reporter from reports where id = $1',
+      [filed],
+    )) as { reporter: string | null }[];
+    const [stillAbout] = (await ctx.client.unsafe(
+      'select outcome from reports where id = $1',
+      [about],
+    )) as { outcome: string }[];
+    const sanctions = (await ctx.client.unsafe(
+      'select kind from moderation_actions where user_id = $1',
+      [ctx.them.userId],
+    )) as { kind: string }[];
+    assert({
+      given:
+        'an offer from a member who is then suspended, and who then closes their account',
+      should:
+        'end the offer, say when the suspension ends, keep the report about them and the sanction, and take their name off the report they filed',
+      actual: [
+        before.length,
+        after,
+        typeof end,
+        stillFiled?.reporter,
+        stillAbout?.outcome,
+        sanctions.map((row) => row.kind),
+      ],
+      expected: [1, [], 'string', null, 'suspended', ['suspension']],
+    });
+  } finally {
+    await ctx.client.unsafe(
+      'delete from moderation_actions where user_id = $1',
+      [ctx.them.userId],
+    );
+    await ctx.cleanup();
+    await ctx.client.close();
+  }
+});
+
+const migration = '20261102222410_who_is_online';
 const scratch = scratchDatabase(databaseUrl, 'whoonline');
 afterAll(() => scratch.drop());
 

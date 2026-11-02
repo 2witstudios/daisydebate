@@ -125,6 +125,7 @@ describe('resolveIdentity', () => {
         readParticipation: async () => ({
           betaState: 'approved',
           ageBand: 'adult',
+          restricted: false,
         }),
         now,
       }),
@@ -153,6 +154,7 @@ describe('resolveIdentity', () => {
       readParticipation: async () => ({
         betaState: 'approved',
         ageBand: 'adult',
+        restricted: false,
       }),
       cookie: null,
       readSession: async () => {
@@ -175,6 +177,7 @@ describe('resolveIdentity', () => {
       readParticipation: async () => ({
         betaState: 'approved',
         ageBand: 'adult',
+        restricted: false,
       }),
       cookie: 'c=1',
       readSession: async () => {
@@ -218,6 +221,7 @@ describe('resolveIdentity', () => {
         readParticipation: async () => ({
           betaState: 'approved',
           ageBand: 'adult',
+          restricted: false,
         }),
         now,
       }),

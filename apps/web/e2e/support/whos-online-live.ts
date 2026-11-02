@@ -1,10 +1,12 @@
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import type { Browser, Page } from '@playwright/test';
 import { expect, openPage, test } from './fixtures';
 import { origin, resetRateLimits, signUpMember } from './accounts';
 
 /**
  * The connected outcome (ADR 0098): two members on different pages see each
- * other online, live, one challenges the other, and they land in the
+ * other online, live, one challenges the other, ranked, and they land in the
  * same room. Then what must stop it: Busy, and a block.
  */
 /** The rail, opened: a 1280px window starts it collapsed, and the choice sticks. */
@@ -28,6 +30,18 @@ const twoMembers = async (browser: Browser) => {
   return { first, second, a: a.username, b: b.username };
 };
 
+/** A ranked room needs a season, from the same worker the ranking proof uses. */
+const activateSeason = () =>
+  new Promise<void>((resolve, reject) =>
+    execFile(
+      'bun',
+      [fileURLToPath(new URL('./rating-season-worker.ts', import.meta.url))],
+      { timeout: 20_000 },
+      (error) =>
+        error ? reject(new Error('Could not activate a season')) : resolve(),
+    ),
+  );
+
 export function testWhoIsOnline() {
   test.beforeEach(async ({ request }) => {
     await resetRateLimits(request);
@@ -37,6 +51,7 @@ export function testWhoIsOnline() {
     browser,
   }) => {
     test.setTimeout(120_000);
+    await activateSeason();
     const { first, second, a, b } = await twoMembers(browser);
     try {
       const challenger = await openPage(first, 'the challenger');
@@ -57,9 +72,9 @@ export function testWhoIsOnline() {
 
       // Right-click opens the one menu.
       await rail.getByText(`@${b}`).first().click({ button: 'right' });
-      await rail.getByRole('menuitem', { name: 'Challenge' }).click();
-      // The e2e slot has no active season, so a ranked room would be refused.
-      await rail.getByRole('button', { name: 'Casual' }).click();
+      await rail
+        .getByRole('button', { name: 'Challenge', exact: true })
+        .click();
       await rail.getByRole('button', { name: 'Send challenge' }).click();
       await expect(rail.getByText('Challenge sent').first()).toBeVisible();
 
@@ -68,7 +83,7 @@ export function testWhoIsOnline() {
         .getByRole('region', { name: `Challenge from @${a}` })
         .first();
       await expect(card).toBeVisible({ timeout: 30_000 });
-      await expect(card).toContainText('Freestyle · Casual');
+      await expect(card).toContainText('Freestyle · Ranked');
       await card.getByRole('button', { name: 'Accept' }).click();
 
       await expect(challenged).toHaveURL(/\/rooms\/[a-z0-9]{24}$/, {
@@ -126,16 +141,79 @@ export function testWhoIsOnline() {
 
       // A report is taken; a block removes them from the list.
       await rail.getByText(`@${b}`).first().click({ button: 'right' });
-      await rail.getByRole('menuitem', { name: 'Report' }).click();
+      await rail.getByRole('button', { name: 'Report', exact: true }).click();
       await rail.getByRole('button', { name: 'Harassment' }).click();
       await rail.getByRole('button', { name: 'Send report' }).click();
       await expect(
-        rail.getByRole('menuitem', { name: 'Reported' }),
+        rail.getByRole('button', { name: 'Reported', exact: true }),
       ).toBeDisabled();
-      await rail.getByRole('menuitem', { name: 'Block' }).click();
+      await rail.getByRole('button', { name: 'Block', exact: true }).click();
       await expect(rail.getByText(`@${b}`)).toHaveCount(0, { timeout: 30_000 });
       const theirs = await openRail(other);
       await expect(theirs.getByText(`@${a}`)).toHaveCount(0, {
+        timeout: 45_000,
+      });
+    } finally {
+      await Promise.all([first.close(), second.close()]);
+    }
+  });
+
+  test('a decline reaches the challenger, Appear offline hides, and the menu works from the keyboard', async ({
+    browser,
+  }) => {
+    test.setTimeout(120_000);
+    const { first, second, a, b } = await twoMembers(browser);
+    try {
+      const challenger = await openPage(first, 'the challenger');
+      await challenger.goto('/friends');
+      const rail = await openRail(challenger);
+      const challenged = await openPage(second, 'the challenged member');
+      await challenged.goto('/friends');
+      const row = rail.getByRole('link', { name: `Actions for @${b}` });
+      await expect(row).toBeAttached({ timeout: 45_000 });
+
+      // Keyboard: into the dialog on open, Escape closes and hands focus back.
+      await row.focus();
+      await challenger.keyboard.press('Enter');
+      const dialog = rail.getByRole('dialog', { name: `@${b}` });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.locator(':focus')).toHaveCount(1);
+      await challenger.keyboard.press('Escape');
+      await expect(dialog).toHaveCount(0);
+      await expect(row).toBeFocused();
+
+      // A decline tells the challenger, wherever they are looking.
+      await row.click();
+      await dialog
+        .getByRole('button', { name: 'Challenge', exact: true })
+        .click();
+      await dialog.getByRole('button', { name: 'Casual' }).click();
+      await dialog.getByRole('button', { name: 'Send challenge' }).click();
+      await expect(
+        rail.getByRole('region', { name: `Challenge sent to @${b}` }).first(),
+      ).toBeVisible();
+      const card = challenged
+        .getByRole('region', { name: `Challenge from @${a}` })
+        .first();
+      await expect(card).toBeVisible({ timeout: 30_000 });
+      await card.getByRole('button', { name: 'Decline' }).click();
+      await expect(
+        rail
+          .getByRole('region', { name: `@${b} did not take your challenge` })
+          .first(),
+      ).toBeVisible({ timeout: 30_000 });
+
+      // Appear offline takes them off the list.
+      await challenged
+        .getByLabel(/^Your account/)
+        .first()
+        .click();
+      await challenged
+        .getByRole('form', { name: 'Status' })
+        .first()
+        .getByRole('button', { name: 'Appear offline' })
+        .click();
+      await expect(rail.getByText(`@${b}`, { exact: true })).toHaveCount(0, {
         timeout: 45_000,
       });
     } finally {

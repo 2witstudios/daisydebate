@@ -47,6 +47,10 @@ const ports = (
       challengeSendLimit.key(actorId),
       challengeSendLimit.rule,
     ),
+  rankedOpen: async () =>
+    (await app.database.listLadderSeasons()).some(
+      (season) => season.status === 'active',
+    ),
   discover: appDiscoverActor(app),
   activity: async (actorId) =>
     (await app.redis.readActorsPresence([actorId])).get(actorId) ?? null,

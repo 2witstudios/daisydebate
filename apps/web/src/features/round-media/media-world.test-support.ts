@@ -15,7 +15,11 @@ import {
   type Vendor,
 } from './media-vendor.test-support';
 
-type Access = { readonly beta: 'approved' | 'revoked'; ageBand: 'adult' };
+type Access = {
+  readonly beta: 'approved' | 'revoked';
+  ageBand: 'adult';
+  restricted: false;
+};
 type Admits = (access: Access) => boolean;
 type Caller = { readonly actorId: string; readonly admits: Admits };
 
@@ -65,7 +69,10 @@ export function createMediaWorld(
   const eligible = new Map<string, boolean>(seats.map((s) => [s.id, true]));
   // Each seat's own fenced facts (ISSUE-714).
   const access = new Map<string, Access>(
-    seats.map((s) => [s.id, { beta: 'approved', ageBand: 'adult' }]),
+    seats.map((s) => [
+      s.id,
+      { beta: 'approved', ageBand: 'adult', restricted: false },
+    ]),
   );
   const bindings: { roundParticipantId: string; identity: string }[] = [];
   const pending = new Set<string>();
@@ -318,7 +325,11 @@ export function createMediaWorld(
       void eligible.set(participantId, value),
     /** An operator's beta revoke of the seat's account; membership stays (ISSUE-714). */
     withdraw: (participantId: string) =>
-      void access.set(participantId, { beta: 'revoked', ageBand: 'adult' }),
+      void access.set(participantId, {
+        beta: 'revoked',
+        ageBand: 'adult',
+        restricted: false,
+      }),
     end: () => {
       status = 'completed';
     },
