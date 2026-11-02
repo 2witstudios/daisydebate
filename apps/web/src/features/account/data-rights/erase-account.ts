@@ -87,7 +87,8 @@ export function createEraseAccountHandler({
       // committed, or an expired session. It cannot tell which, and it asked for
       // its private data to go, so its note copies go in every case.
       if (identity.state === 'anonymous')
-        return (await readConfirmation(request)) === 'confirmed'
+        return (await readConfirmation(request).catch(() => null)) ===
+          'confirmed'
           ? erasingNoteCopies(seeOther('/sign-in'))
           : seeOther('/sign-in');
       const account = requireSignedIn(identity);

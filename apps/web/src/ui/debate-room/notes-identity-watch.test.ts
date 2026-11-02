@@ -151,6 +151,23 @@ test('a live answer from before a sign-out cannot discard its mark', async () =>
   });
 });
 
+test('a mark settles at mount even with no copies stored', async () => {
+  const h = harness({
+    drafts: false,
+    signedOut: true,
+    session: { user: { id: 'member' } },
+  });
+  const stop = watchNotesIdentity(undefined, h.resources);
+  await settled();
+  stop();
+  assert({
+    given: 'a refused sign-out landing unavailable with nothing stored yet',
+    should: 'still read, and discard the mark on the live answer',
+    actual: [h.log.reads, h.resources.hasSignOutIntent()],
+    expected: [1, false],
+  });
+});
+
 test('a mark a live session refused cannot purge a later expiry', async () => {
   const h = harness({ signedOut: true });
   const answers: unknown[] = [{ user: { id: 'member' } }, null];

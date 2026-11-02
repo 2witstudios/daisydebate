@@ -111,7 +111,9 @@ export function watchNotesIdentity(
   events.addEventListener(NOTES_IDENTITY_CHECK_EVENT, read);
   events.addEventListener('storage', otherTab);
   visibility.addEventListener('visibilitychange', visible);
-  if (unavailable) void check();
+  // A mark must settle even with no copies stored yet, or it could purge text
+  // typed later when that session ends.
+  if (unavailable) void (resources.hasSignOutIntent() ? read() : check());
   return () => {
     live = false;
     pending?.abort();

@@ -6,6 +6,7 @@ import { pruneExpiredNoteDrafts } from './note-draft-storage';
 import { watchNotesIdentity } from './notes-identity-watch';
 import {
   NOTES_SIGN_OUT_INTENT_KEY,
+  cleanupFailedAfter,
   isSignOutPath,
   publishNotesPrincipal,
   takeNotesErasedCookie,
@@ -101,10 +102,16 @@ export function RoundNotesPrivacy({
         hasSignOutIntent,
         takeSignOutIntent,
         takeAccountClosedProof: () => takeNotesErasedCookie(document),
-        publish: (next) =>
-          setCleanupFailed(
-            !publishNotesPrincipal(next, window, () => window.localStorage),
-          ),
+        publish: (next) => {
+          const cleared = publishNotesPrincipal(
+            next,
+            window,
+            () => window.localStorage,
+          );
+          setCleanupFailed((failed) =>
+            cleanupFailedAfter(failed, next, cleared),
+          );
+        },
       }),
     [principalId],
   );

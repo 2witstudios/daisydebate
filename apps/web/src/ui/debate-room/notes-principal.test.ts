@@ -185,3 +185,18 @@ test('the closure cookie is taken once and a denied cookie is no proof', async (
     expected: [true, true, false, false],
   });
 });
+
+test('only a successful purge clears the cleanup warning', async () => {
+  const { cleanupFailedAfter } = await import('./notes-principal');
+  assert({
+    given: 'a failed purge followed by each later publish',
+    should: 'keep the warning through a kept account, and clear it on a purge',
+    actual: [
+      cleanupFailedAfter(false, null, false),
+      cleanupFailedAfter(true, 'member', true),
+      cleanupFailedAfter(true, null, true),
+      cleanupFailedAfter(false, 'member', false),
+    ],
+    expected: [true, true, false, true],
+  });
+});

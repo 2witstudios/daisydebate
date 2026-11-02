@@ -114,6 +114,16 @@ export function takeNotesErasedCookie(document: { cookie: string }): boolean {
   }
 }
 
+/**
+ * Keeping another account's copies says nothing about ones a purge failed to
+ * remove, so only a purge that succeeds can clear the warning.
+ */
+export const cleanupFailedAfter = (
+  failed: boolean,
+  published: string | null,
+  cleared: boolean,
+) => (published === null ? !cleared : failed || !cleared);
+
 export const isSignOutPath = (pathname: string) =>
   pathname === '/auth/sign-out';
 

@@ -175,6 +175,47 @@ test('a confirmed request with no session left still clears the note copies', as
   });
 });
 
+test('a broken upload with no session is not a refused erasure', async () => {
+  const logged: string[] = [];
+  const response = await createEraseAccountHandler({
+    logger: {
+      ...silentLogger,
+      log: (event: string) => {
+        logged.push(event);
+      },
+    } as typeof silentLogger,
+    origin: () => origin,
+    identify: async () => ({
+      state: 'anonymous',
+      principal: { kind: 'anonymous' },
+    }),
+    limiter: allowedLimiter,
+    clock: fixedClock(now),
+    eraseSubject: async () => {
+      throw new Error('must not run');
+    },
+  })(
+    new Request(`${origin}/api/privacy/erase`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new ReadableStream({
+        pull: (controller) => controller.error(new Error('truncated')),
+      }),
+      duplex: 'half',
+    } as RequestInit),
+  );
+  assert({
+    given: 'a body that fails to read, from a visitor with no session',
+    should: 'answer the sign-in page, set no cookie and log no erasure failure',
+    actual: [
+      response.headers.get('location'),
+      response.headers.get('set-cookie'),
+      logged,
+    ],
+    expected: ['/sign-in', null, []],
+  });
+});
+
 test('a waitlisted account keeps its own erasure right (ISSUE-833 review B1)', async () => {
   const calls: unknown[] = [];
   const waitlisted = {
