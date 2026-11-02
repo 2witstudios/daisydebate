@@ -19,6 +19,7 @@ export const foundationChoice: ProofChoice = {
 export const humanRoundSelection = (
   choice: ProofChoice,
   judgeSeats: 0 | 1 | 2,
+  countdownMs = 0,
 ) => ({
   kind: 'custom',
   competitionType: 'casual',
@@ -41,7 +42,7 @@ export const humanRoundSelection = (
     preRoundPrep: { enabled: false },
     resolutionDraw: { enabled: false },
     inRoundPrep: { enabled: false },
-    speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
+    speechTiming: { countdownMs, segmentDurationOverrides: {} },
     yielding: { allowed: true, returnsTime: false },
   },
 });
