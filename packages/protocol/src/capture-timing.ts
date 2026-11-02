@@ -10,9 +10,10 @@ export const CAPTURE_STT_TIMEOUT_MS = 60_000;
 /** Each signed worker call, an append included. */
 export const CAPTURE_CALL_DEADLINE_MS = 3_000;
 /**
- * The latest a clip's append can arrive after its audio: history read,
- * transcription, then the append and its one retry. A clip delayed further by
- * queueing behind others is refused, and its stream seals partial.
+ * How long after its audio a clip's append is admitted on a closed session:
+ * history read, transcription, then two call deadlines. An ordinary lag only. A
+ * clip delayed further, queued behind others or held through an outage, is
+ * refused, and its stream seals partial.
  */
 export const CAPTURE_STT_LAG_MS =
   CAPTURE_HISTORY_READ_MS +

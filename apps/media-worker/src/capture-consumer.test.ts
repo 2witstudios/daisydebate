@@ -85,6 +85,7 @@ async function consume(
       else waits.push(due);
     },
     take: () => queue.shift(),
+    lost: () => undefined,
     straddles: () => evidence,
     dropped: (n) => {
       dropped += n;

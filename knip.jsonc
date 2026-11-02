@@ -48,6 +48,7 @@
         "e2e/support/realtime-runner.ts",
         "e2e/support/messaging-realtime-config.ts",
         "e2e/support/messaging-data-worker.ts",
+        "e2e/support/transcript-seed-process.ts",
         // Launch config/server are process entries selected by runner/command replacement;
         // evidence/release are Bun subprocess CLI entries, never browser imports.
         "e2e/support/room-launch-config.ts",
@@ -56,6 +57,11 @@
         "e2e/support/room-launch-app.ts",
         "e2e/support/room-launch-queued.ts",
         "e2e/support/launch-browser-network.mjs",
+        // CI executes these proof CLIs through the heavy queue; the Node driver is spawned.
+        "e2e/support/launch-browser-archive-proof.ts",
+        "e2e/support/launch-browser-image-proof.ts",
+        "e2e/support/launch-browser-image-proof.mjs",
+        "e2e/support/launch-browser-preparation-proof.ts",
         "e2e/support/room-launch-evidence-process.ts",
         "e2e/support/attendance-evidence-process.ts",
         "e2e/support/bot-speech-evidence-process.ts",
@@ -108,6 +114,8 @@
         "src/**/*.test.ts",
         "e2e/launch-worker.ts",
         "e2e/launch-capture.ts",
+        "integration/**/*.integration.ts",
+        "integration/frame-capture-entry.ts",
       ],
     },
     "apps/realtime": {

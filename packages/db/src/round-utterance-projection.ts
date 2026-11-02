@@ -15,6 +15,7 @@ export function readOrderedRoundUtterances(
       segmentId: utterances.segmentId,
       segmentSequence: roundSegments.sequence,
       sequence: utterances.sequence,
+      startOffsetMs: utterances.captureStartOffsetMs,
       roundParticipantId: utterances.roundParticipantId,
       text: utterances.text,
       complete: utterances.complete,

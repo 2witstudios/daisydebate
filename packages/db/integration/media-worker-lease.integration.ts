@@ -146,18 +146,15 @@ test('internal capture token admission requires a fresh exact lease and safe non
         code: 'CONFLICT',
         actual: () => store.verifyMediaWorkerLease(scope, 'mint'),
       });
-      await assertRejects({
-        given: 'an expired old worker trying to renew its exact epoch',
-        should: 'refuse without acquiring replacement authority',
-        code: 'CONFLICT',
-        actual: () =>
-          store.claimMediaWorkerLease({
-            roundId,
-            sessionId: scope.sessionId,
-            workerId: scope.workerId,
-            leaseMs: 15000,
-            expectedEpoch: claimed.epoch,
-          }),
+      assert({
+        given: 'that refusal',
+        should:
+          'say expired, which its worker may retry, not stale, which is final',
+        actual: await store.verifyMediaWorkerLease(scope, 'mint').then(
+          () => 'admitted',
+          (error: Error) => error.message,
+        ),
+        expected: 'Capture worker lease expired',
       });
       const fresh = await store.claimMediaWorkerLease({
         roundId,

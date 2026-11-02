@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { requireLaunchSlot } from './room-launch-slot';
 import { createLaunchCertificates } from './launch-certificates';
 import { createLaunchBrowserContainer } from './launch-browser-container';
+import { prepareLaunchBrowserImage } from './launch-browser-image';
 
 /** All certificate/container/server/browser work runs within the machine queue. */
 export async function runLaunchProof() {
@@ -19,12 +20,14 @@ export async function runLaunchProof() {
   const node = process.env.ROOM_LAUNCH_NODE ?? 'node';
   if (!Bun.spawnSync([node, '--version']).stdout.toString().startsWith('v24.'))
     throw new Error('Launch proof requires the Node 24 browser driver');
+  const image = await prepareLaunchBrowserImage({ checkout });
   const certificates = createLaunchCertificates();
   let browser: Awaited<ReturnType<typeof createLaunchBrowserContainer>> | null =
     null;
   try {
     browser = await createLaunchBrowserContainer({
       checkout,
+      image: image.id,
       ca: certificates.ca,
       ports: [
         slot.port + 1,

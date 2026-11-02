@@ -52,6 +52,7 @@ export const eventRegistry = {
   'round.media.recovery_failed': 'error',
   'media.discovery.failed': 'error',
   'media.capture.failed': 'error',
+  'media.capture.lease_reinstated': 'warn',
   'realtime.outbox.actor_missing': 'warn',
   'realtime.outbox.drain_failed': 'error',
   'realtime.outbox.delivery_lag_estimated': 'info',

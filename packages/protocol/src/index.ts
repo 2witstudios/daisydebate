@@ -377,8 +377,10 @@ export type {
 } from './friends';
 
 export {
+  liveTranscriptReadSchema,
   roundTranscriptReadSchema,
-  type RoundTranscriptRead,
+  TRANSCRIPT_CONTRACT_VERSION,
+  type LiveTranscriptRead,
 } from './round-transcript';
 
 // Shared resource observation (ADR 0089).

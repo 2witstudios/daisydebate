@@ -75,7 +75,11 @@ test('a session closed by end, unsafe or a vendor-room deletion request admits o
           observeBefore: await outcome(() => observe(250)),
           observeAfter: await outcome(() => observe(700)),
           seal: await outcome(() =>
-            store.sealCapturedStream({ ...stream, expectedChunkCount: 1 }),
+            store.sealCapturedStream({
+              ...stream,
+              expectedChunkCount: 1,
+              framesLost: false,
+            }),
           ),
         };
       } finally {

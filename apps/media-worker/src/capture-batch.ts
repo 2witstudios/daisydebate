@@ -1,5 +1,6 @@
 import {
   CLIP_PAUSE_MS,
+  MAX_CUT_FRAMES,
   cutCaptureClips,
   type ClipCarry,
 } from '@daisy/media/clips';
@@ -7,6 +8,7 @@ import {
   readCaptureHistory,
   straddlesGrantEdge,
   type CaptureClient,
+  type CapturePace,
 } from './capture-history';
 import type { StagedFrame } from './capture-staging';
 /** How often the session loop validates its staged frames into clips. */
@@ -75,6 +77,8 @@ export async function validateCaptureBatch(input: {
   readonly roundId: string;
   readonly epoch: number;
   readonly signal: AbortSignal;
+  readonly nowMs: CapturePace['nowMs'];
+  readonly waitUntilMs: CapturePace['waitUntilMs'];
   readonly dropped: (n: number) => void;
   /** A staged frame that crosses a grant edge in the fresher history. */
   readonly straddled: (frame: StagedFrame['frame']) => void;
@@ -88,7 +92,8 @@ export async function validateCaptureBatch(input: {
   readonly held: (frames: readonly StagedFrame[]) => void;
   readonly carries: ClipCarries;
 }) {
-  for (const frames of bySegmentSeat(input.frames)) {
+  const groups = [...bySegmentSeat(input.frames)];
+  for (const [index, frames] of groups.entries()) {
     const first = frames[0]!;
     const history =
       first.segmentId === input.current.state.segment?.id
@@ -97,8 +102,13 @@ export async function validateCaptureBatch(input: {
             input.client,
             input.epoch,
             input.signal,
+            input,
             first.segmentId,
-          );
+          ).catch((error: unknown) => {
+            // Uncut frames go back, so a closing session still reports them.
+            input.held(groups.slice(index).flat());
+            throw error;
+          });
     const segment = history.state.segment;
     if (!segment) {
       input.dropped(frames.length);
@@ -111,9 +121,17 @@ export async function validateCaptureBatch(input: {
     for (const { frame } of valid)
       if (straddlesGrantEdge(history.state, first.seat, frame))
         input.straddled(frame);
-    const cut = cutStream(input, history.state, first.seat, valid);
-    input.dropped(cut.droppedFrames);
-    for (const clip of cut.clips) input.clip(clip);
+    // Each piece's carry leads the next, so a backlog cuts as one run.
+    for (let at = 0; at === 0 || at < valid.length; at += MAX_CUT_FRAMES) {
+      const cut = cutStream(
+        input,
+        history.state,
+        first.seat,
+        valid.slice(at, at + MAX_CUT_FRAMES),
+      );
+      input.dropped(cut.droppedFrames);
+      for (const clip of cut.clips) input.clip(clip);
+    }
   }
 }
 /** One stream's validated frames cut onto its carry; the uncut rest is carried again. */
