@@ -142,6 +142,17 @@ function useFollowAccepted(
   }, [accepted, activeRoomId]);
 }
 
+/** Renders nothing: one follower for the tab, however many cards are mounted. */
+export function FollowAccepted({
+  activeRoomId,
+}: {
+  readonly activeRoomId: string | null;
+}) {
+  const { challenges } = useOnline();
+  useFollowAccepted(challenges.accepted, activeRoomId);
+  return null;
+}
+
 /**
  * Whatever challenges wait on this member, wherever they are on Daisy: at the
  * top of the open rail, flown out of the collapsed one, or over a phone's tabs.
@@ -161,7 +172,6 @@ export function ChallengeCards({
   const accepted = challenges.accepted.filter(
     (offer) => offer.roomId !== activeRoomId,
   );
-  useFollowAccepted(accepted, activeRoomId);
   if (challenges.incoming.length === 0 && accepted.length === 0) return null;
   return (
     <div className={cn('flex flex-col gap-2', className)}>

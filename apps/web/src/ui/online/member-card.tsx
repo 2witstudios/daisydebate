@@ -7,10 +7,12 @@ const ladderLabels = {
   value: 'Value',
 } as const;
 
-export const ratingText = (rating: OnlineMember['ratings'][number]): string =>
-  rating.rating === null
-    ? 'Unrated'
-    : `${rating.rating}${rating.provisional ? '*' : ''}`;
+/** The account menu's words: a figure, or why there is none (ui-conventions). */
+export const ratingText = (rating: OnlineMember['ratings'][number]): string => {
+  if (rating.hidden) return 'Hidden while judging';
+  if (rating.rating === null) return 'Unrated';
+  return rating.provisional ? 'Provisional' : String(rating.rating);
+};
 
 /** What a screen reader hears for a person's shown ratings. */
 export const ratingsLabel = (member: OnlineMember): string =>

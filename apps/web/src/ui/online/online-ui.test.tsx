@@ -41,7 +41,9 @@ const person = (over: Partial<OnlineMember> = {}): OnlineMember => ({
   username: 'ada',
   status: 'online',
   relation: 'none',
-  ratings: [{ ladder: 'freestyle', rating: 1612, provisional: true }],
+  ratings: [
+    { ladder: 'freestyle', rating: 1612, provisional: true, hidden: false },
+  ],
   wins: 3,
   losses: 1,
   ...over,
@@ -138,7 +140,7 @@ describe('the online rail', () => {
       given: 'a member showing only Freestyle',
       should: 'name only that rating',
       actual: ratingsLabel(person()),
-      expected: 'Freestyle 1612*',
+      expected: 'Freestyle Provisional',
     });
   });
 });
@@ -156,16 +158,37 @@ describe('row words', () => {
       expected: ['Challenge sent', 'Friend request sent', 'In a room'],
     });
   });
-  test('ratings read as figures, stars or Unrated', () => {
+  test('ratings read as figures or the shared words', () => {
     assert({
-      given: 'established, provisional and unplayed',
-      should: 'show each',
+      given: 'established, provisional, unplayed and blinded',
+      should: 'read as the account menu does',
       actual: [
-        ratingText({ ladder: 'policy', rating: 1500, provisional: false }),
-        ratingText({ ladder: 'policy', rating: 1500, provisional: true }),
-        ratingText({ ladder: 'policy', rating: null, provisional: false }),
+        ratingText({
+          ladder: 'policy',
+          rating: 1500,
+          provisional: false,
+          hidden: false,
+        }),
+        ratingText({
+          ladder: 'policy',
+          rating: 1500,
+          provisional: true,
+          hidden: false,
+        }),
+        ratingText({
+          ladder: 'policy',
+          rating: null,
+          provisional: false,
+          hidden: false,
+        }),
+        ratingText({
+          ladder: 'policy',
+          rating: null,
+          provisional: false,
+          hidden: true,
+        }),
       ],
-      expected: ['1500', '1500*', 'Unrated'],
+      expected: ['1500', 'Provisional', 'Unrated', 'Hidden while judging'],
     });
   });
 });

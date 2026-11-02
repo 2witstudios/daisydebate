@@ -45,6 +45,8 @@ const shownRatingSchema = z.strictObject({
   ladder: z.enum(ratingLadders),
   rating: z.number().int().nullable(),
   provisional: z.boolean(),
+  /** A judge may not see this debater's rating before their ballot. */
+  hidden: z.boolean(),
 });
 
 /** One person on the online list, as this viewer may see them. */

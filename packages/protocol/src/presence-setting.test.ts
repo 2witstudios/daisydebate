@@ -42,7 +42,14 @@ test('a roster row always shows at least one rating', () => {
     should: 'accept the first and refuse the second',
     actual: [
       onlineRosterSchema.safeParse(
-        roster([{ ladder: 'freestyle', rating: null, provisional: false }]),
+        roster([
+          {
+            ladder: 'freestyle',
+            rating: null,
+            provisional: false,
+            hidden: false,
+          },
+        ]),
       ).success,
       onlineRosterSchema.safeParse(roster([])).success,
     ],

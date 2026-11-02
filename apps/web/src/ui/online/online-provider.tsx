@@ -134,21 +134,32 @@ export function OnlineProvider({
     shown.current = { filter, query, count: roster.counts.everyone };
   }, [filter, query, roster.counts.everyone]);
 
+  // A re-read walks as many pages as the viewer loaded, so a ring never
+  // snatches the list out from under someone who scrolled.
+  const pagesLoaded = useRef(1);
   const readRoster = useCallback(async () => {
     const { filter: wanted, query: named } = shown.current;
     lastRead.current = systemScheduler.now();
-    const { value, response } = await readJson(
-      rosterUrl(wanted, named),
-      parseRoster,
-    );
-    const endpoint = response && realtimeEndpointOf(response);
-    if (endpoint) setSocketUrl(endpoint);
+    let merged: OnlineRoster | null = null;
+    for (let page = 0; page < pagesLoaded.current; page += 1) {
+      const { value, response } = await readJson(
+        rosterUrl(wanted, named, merged?.nextCursor ?? undefined),
+        parseRoster,
+      );
+      const endpoint = response && realtimeEndpointOf(response);
+      if (endpoint) setSocketUrl(endpoint);
+      if (!value) return;
+      merged = merged
+        ? { ...value, members: [...merged.members, ...value.members] }
+        : value;
+      if (!merged.nextCursor) break;
+    }
     if (
-      value &&
+      merged &&
       shown.current.filter === wanted &&
       shown.current.query === named
     )
-      setRoster(value);
+      setRoster(merged);
   }, []);
   const readChallenges = useCallback(async () => {
     const { value } = await readJson('/api/challenges', parseChallenges);
@@ -179,6 +190,7 @@ export function OnlineProvider({
       first.current = false;
       return;
     }
+    pagesLoaded.current = 1;
     const handle = setTimeout(() => void readRoster(), 200);
     return () => clearTimeout(handle);
   }, [filter, query, readRoster]);
@@ -229,6 +241,7 @@ export function OnlineProvider({
     if (!cursor) return;
     void readJson(rosterUrl(filter, query, cursor), parseRoster).then(
       ({ value }) => {
+        if (value) pagesLoaded.current += 1;
         if (value)
           setRoster((current) => ({
             ...value,

@@ -6,7 +6,7 @@ import { statusLabels } from '../components/presence-dot/status-labels';
 import { Icon } from '../components/icon/icon';
 import { cn } from '../cn';
 import type { OnlineRailPreference } from '../layout/app-shell/rail-preference';
-import { ChallengeCards } from './challenge-cards';
+import { ChallengeCards, FollowAccepted } from './challenge-cards';
 import { ratingsLabel } from './member-card';
 import { useOnline } from './online-provider';
 import { PersonList, usePersonOverlay } from './online-rows';
@@ -194,6 +194,7 @@ export function OnlineRail({
         </div>
       </div>
       {overlay.overlay}
+      <FollowAccepted activeRoomId={activeRoomId} />
     </aside>
   );
 }

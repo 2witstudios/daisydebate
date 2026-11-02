@@ -196,13 +196,16 @@ export async function readOnlineRoster(
           (rating) =>
             rating.actorId === row.actorId && rating.ladder === ladder,
         );
-        if (!state || hidden.has(row.actorId))
-          return { ladder, rating: null, provisional: false };
+        if (hidden.has(row.actorId))
+          return { ladder, rating: null, provisional: false, hidden: true };
+        if (!state)
+          return { ladder, rating: null, provisional: false, hidden: false };
         const standing = ratingStanding(state, state.lastRatedAt, now);
         return {
           ladder,
           rating: standing.rating,
           provisional: standing.provisional,
+          hidden: false,
         };
       }),
       wins: record.wins,

@@ -222,9 +222,14 @@ describe('readOnlineRoster', () => {
     });
     assert({
       given: 'a viewer judging Ada with no ballot yet',
-      should: 'hide her rating from them',
-      actual: roster.members[0]?.ratings[0]?.rating,
-      expected: null,
+      should: 'hide the rating from them and say so',
+      actual: roster.members[0]?.ratings[0],
+      expected: {
+        ladder: 'freestyle',
+        rating: null,
+        provisional: false,
+        hidden: true,
+      },
     });
   });
 
