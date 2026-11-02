@@ -3,6 +3,7 @@ import type { PageTone } from '../document-editor/document-editor';
 import { applyProposal } from '../../features/debate-room/documents/document-edits';
 import {
   createDocument,
+  adoptServerText,
   updateDocumentHtml,
   type FolderId,
   type TemplateId,
@@ -75,6 +76,12 @@ export type RoomAction =
     }
   | {
       readonly type: 'doc/update';
+      readonly id: string;
+      readonly html: string;
+      readonly now: string;
+    }
+  | {
+      readonly type: 'doc/server-text';
       readonly id: string;
       readonly html: string;
       readonly now: string;
@@ -199,6 +206,8 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
   },
   'doc/update': (s, a) =>
     withDocument(s, a.id, (doc) => updateDocumentHtml(doc, a.html, a.now)),
+  'doc/server-text': (s, a) =>
+    withDocument(s, a.id, (doc) => adoptServerText(doc, a.html, a.now)),
   'doc/loaded': (s, a) => loadWorkspaceDocuments(s, a.documents),
   'doc/add': (s, a) => appendWorkspaceDocument(s, a.document),
   'drawer/tab': (s, a, r) =>

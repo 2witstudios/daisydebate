@@ -1,10 +1,12 @@
 'use client';
 
+import { createDocument } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useEffect, useState } from 'react';
 import { sameDocumentHtml } from '../../features/documents/document-lines';
 import { documentExtensions } from '../../features/documents/document-schema';
 import { EditorToolbar } from './editor-toolbar';
+import { outsideTextTransaction } from './outside-text';
 import { DEFAULT_TEXT_SIZE, type TextSize } from './editor-view';
 
 /** The page surface a document is edited on. */
@@ -15,6 +17,7 @@ type EditableDocument = {
   readonly id: string;
   readonly title: string;
   readonly html: string;
+  readonly textFromServer?: true;
 };
 
 type Props = {
@@ -60,8 +63,13 @@ export function DocumentEditor({
   // goes into the open editor without echoing back as a local update.
   useEffect(() => {
     if (!editor || sameDocumentHtml(editor.getHTML(), document.html)) return;
-    editor.commands.setContent(document.html, { emitUpdate: false });
-  }, [editor, document.html]);
+    const change = outsideTextTransaction(
+      editor.state,
+      createDocument(document.html, editor.schema),
+      { undoable: document.textFromServer !== true },
+    );
+    if (change) editor.view.dispatch(change);
+  }, [editor, document.html, document.textFromServer]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

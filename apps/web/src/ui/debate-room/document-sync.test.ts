@@ -1,10 +1,17 @@
+import {
+  loadNoteSync,
+  documentApi,
+  manualNoteResources,
+  manualTimers,
+  stored,
+} from './document-sync.test-support';
+
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createDocumentSync,
   type DocumentsApi,
   type SaveResult,
 } from './document-sync';
-import { manualTimers, stored } from './document-sync.test-support';
 
 setupRitewayBun();
 
@@ -29,7 +36,14 @@ const bumping = (revision: number): SaveResult => ({
 
 /** A sync over the api with manual timers and no conflict handling. */
 const quietSync = (api: DocumentsApi, timers = manualTimers().timers) =>
-  createDocumentSync({ api, roundId: 'd', onConflict: () => {}, timers });
+  createDocumentSync({
+    ...manualNoteResources('document-sync.test:1', { timers }),
+
+    api,
+    roundId: 'd',
+    principalId: 'p1',
+    onConflict: () => {},
+  });
 
 describe('createDocumentSync', () => {
   test('saves once typing pauses', async () => {
@@ -68,13 +82,15 @@ describe('createDocumentSync', () => {
   test('a conflict', async () => {
     const { api } = fakeApi(() => ({ status: 'conflict', revision: 7 }));
     const conflicts: string[] = [];
-    const sync = createDocumentSync({
+    const sync = await loadNoteSync({
+      ...manualNoteResources('document-sync.test:2'),
+
       api,
       roundId: 'd',
+      principalId: 'p1',
       onConflict: (id) => conflicts.push(id),
-      timers: manualTimers().timers,
     });
-    await sync.load();
+
     sync.change('a', '<p>mine</p>');
     await sync.flush();
     assert({
@@ -124,14 +140,13 @@ const recordingApi = (
   answer: (input: { html: string; expectedRevision: number }) => SaveResult,
 ) => {
   const sent: string[] = [];
-  const api: DocumentsApi = {
-    list: async () => [stored('a', 3)],
-    create: async () => stored('new'),
-    save: async (input) => {
+  const api: DocumentsApi = documentApi(
+    async (input) => {
       sent.push(input.html);
       return answer(input);
     },
-  };
+    () => [stored('a', 3)],
+  );
   return { api, sent };
 };
 
@@ -171,15 +186,17 @@ describe('createDocumentSync when a save fails', () => {
     const { timers, fire } = manualTimers();
     const failed: number[] = [];
     const saved: string[] = [];
-    const sync = createDocumentSync({
+    const sync = await loadNoteSync({
+      ...manualNoteResources('document-sync.test:3', { timers }),
+
       api,
       roundId: 'd',
+      principalId: 'p1',
       onConflict: () => {},
       onSaveFailed: (_id, attempts) => failed.push(attempts),
       onSaved: (id) => saved.push(id),
-      timers,
     });
-    await sync.load();
+
     sync.change('a', '<p>mine</p>');
     await sync.flush();
     fire();
@@ -208,14 +225,16 @@ describe('createDocumentSync when the server refuses a save', () => {
     const { api, sent } = refusingApi(422);
     const { timers, fire } = manualTimers();
     const refused: number[] = [];
-    const sync = createDocumentSync({
+    const sync = await loadNoteSync({
+      ...manualNoteResources('document-sync.test:4', { timers }),
+
       api,
       roundId: 'd',
+      principalId: 'p1',
       onConflict: () => {},
       onSaveRefused: (_id, status) => refused.push(status),
-      timers,
     });
-    await sync.load();
+
     sync.change('a', '<p>too much</p>');
     await sync.flush();
     fire();

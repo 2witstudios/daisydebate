@@ -182,6 +182,21 @@ describe('sameDocumentHtml', () => {
     });
   });
 
+  test('the trailing paragraph the editor adds', () => {
+    const body = '<h1>Flow</h1><ul><li><p>one</p></li></ul>';
+    assert({
+      given:
+        'a document with and without the empty last paragraph, and with text in it',
+      should: 'treat only the empty paragraph as the same document',
+      actual: [
+        sameDocumentHtml(body, `${body}<p></p>`),
+        sameDocumentHtml(breakLines(`${body}<p></p>`), body),
+        sameDocumentHtml(body, `${body}<p>two</p>`),
+      ],
+      expected: [true, true, false],
+    });
+  });
+
   test('a changed line', () => {
     assert({
       given: 'a document whose text changed',

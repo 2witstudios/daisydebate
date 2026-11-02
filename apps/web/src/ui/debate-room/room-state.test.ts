@@ -8,6 +8,27 @@ const now = '2026-10-05T18:30:00.000Z';
 const casual = sampleRound('prep', 'casual');
 const rated = sampleRound('prep', 'ranked');
 
+test('an accepted recovery uses the ordinary document and tab transitions', () => {
+  const reduce = reduceRoom(casual);
+  const before = initialRoomState(casual);
+  const updated = reduce(before, {
+    type: 'doc/update',
+    id: 'doc-flow',
+    html: '<p>recovered</p>',
+    now,
+  });
+  const opened = reduce(updated, { type: 'tabs/open', id: 'doc-flow' });
+  assert({
+    given: 'HTML accepted by the sync owner',
+    should: 'update and open its document through ordinary editing actions',
+    actual: [
+      opened.documents.find((d) => d.id === 'doc-flow')?.html,
+      opened.tabs.active,
+    ],
+    expected: ['<p>recovered</p>', 'doc-flow'],
+  });
+});
+
 describe('initialRoomState', () => {
   test('opens the round folder', () => {
     const state = initialRoomState(casual);
@@ -253,5 +274,27 @@ describe('reduceRoom page/tone', () => {
       actual: [pageToneOf(state, 'doc-flow'), pageToneOf(state, 'doc-cx')],
       expected: ['light', 'dark'],
     });
+  });
+});
+
+test('adopted server text is marked until the next ordinary change', async () => {
+  const { adoptServerText, updateDocumentHtml } =
+    await import('../../features/debate-room/documents/documents');
+  const start: Parameters<typeof adoptServerText>[0] = {
+    id: 'd',
+    title: 'Flow',
+    folder: 'library',
+    templateId: 'blank',
+    html: '<p>old</p>',
+    createdAt: 'then',
+    updatedAt: 'then',
+  };
+  const adopted = adoptServerText(start, '<p>server</p>', 'now');
+  const typed = updateDocumentHtml(adopted, '<p>typed</p>', 'later');
+  assert({
+    given: 'server text adopted, then an ordinary change',
+    should: 'mark the adoption, and clear the mark on the change',
+    actual: [adopted.html, adopted.textFromServer, typed.textFromServer],
+    expected: ['<p>server</p>', true, undefined],
   });
 });
