@@ -4,11 +4,10 @@ import { createRealtimeAuthorization } from './authorization';
 import { createRealtimeDelivery } from './delivery';
 import { liveParticipantSession } from './participant-session';
 import { refuseAllReading } from './authorization.test-support';
+import { bothLanes } from './delivery.test-support';
 
 setupRitewayBun();
 
-/** One fake authority for both the admission and renewal lanes. */
-const bothLanes = <T>(reads: T) => ({ admission: reads, renewal: reads });
 const lane = (app: RealtimeApp) => ({
   clock: app.clock,
   database: app.database.admission,
