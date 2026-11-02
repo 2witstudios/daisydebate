@@ -197,6 +197,37 @@ function layerDescriptor(raw: unknown) {
     : null;
 }
 
+function layerDescriptors(raw: readonly unknown[], expected: number) {
+  const layers = raw.map(layerDescriptor);
+  return layers.length === expected &&
+    layers.every((layer) => layer !== null) &&
+    new Set(layers.map(({ digest }) => digest)).size === expected
+    ? layers
+    : null;
+}
+
+function manifestDescriptors(raw: unknown) {
+  const manifest = record(raw);
+  const config = record(manifest.config);
+  return onlyKeys(manifest, [
+    'schemaVersion',
+    'mediaType',
+    'config',
+    'layers',
+  ]) &&
+    manifest.schemaVersion === 2 &&
+    manifest.mediaType === MANIFEST &&
+    config.mediaType === CONFIG &&
+    isDigest(config.digest) &&
+    onlyKeys(config, ['mediaType', 'digest', 'size']) &&
+    Array.isArray(manifest.layers)
+    ? {
+        config: { digest: config.digest, size: config.size },
+        layers: manifest.layers as readonly unknown[],
+      }
+    : null;
+}
+
 function dockerManifestMatches(
   raw: unknown,
   image: LaunchImage,
@@ -265,30 +296,15 @@ export function readLaunchArchiveGraph(
   if (!descriptor) return refuseLaunchArchive('index');
   const manifestEntry = hashed(descriptor.digest, descriptor.size);
   if (!manifestEntry) return refuseLaunchArchive('manifest-identity');
-  const manifest = record(decoded(manifestEntry));
-  const configDescriptor = record(manifest.config);
-  if (
-    !onlyKeys(manifest, ['schemaVersion', 'mediaType', 'config', 'layers']) ||
-    manifest.schemaVersion !== 2 ||
-    manifest.mediaType !== MANIFEST ||
-    configDescriptor.mediaType !== CONFIG ||
-    !isDigest(configDescriptor.digest) ||
-    !onlyKeys(configDescriptor, ['mediaType', 'digest', 'size']) ||
-    !Array.isArray(manifest.layers)
-  )
-    return refuseLaunchArchive('manifest');
+  const manifest = manifestDescriptors(decoded(manifestEntry));
+  if (!manifest) return refuseLaunchArchive('manifest');
+  const configDescriptor = manifest.config;
   const configEntry = hashed(configDescriptor.digest, configDescriptor.size);
   if (!configEntry?.bytes) return refuseLaunchArchive('config-identity');
   const diffIds = diffIdsOf(decoded(configEntry), image);
   if (!diffIds) return refuseLaunchArchive('config');
-  const layers = manifest.layers.map(layerDescriptor);
-  if (
-    layers.length !== diffIds.length ||
-    layers.some((layer) => layer === null) ||
-    new Set(layers.map((layer) => layer!.digest)).size !== layers.length
-  )
-    return refuseLaunchArchive('layers');
-  const resolved = layers as NonNullable<(typeof layers)[number]>[];
+  const resolved = layerDescriptors(manifest.layers, diffIds.length);
+  if (!resolved) return refuseLaunchArchive('layers');
   if (
     !dockerManifestMatches(
       decoded(named.get('manifest.json')),
