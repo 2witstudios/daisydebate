@@ -137,3 +137,61 @@ a navigation itself fails.
 - Messaging still refetches with `router.refresh()` on its doorbells. It
   has the same route-level coupling and should move onto resource sync in
   its own change.
+
+## Round display time
+
+A mounted live Round owns one `features/round-runtime/round-time` clock for
+its whole lifetime. Debater, assigned judge and spectator owners measure the
+start and completion of authorized reads on the browser's monotonic clock.
+The route supplies only `x-server-now-ms`, from the handler's injected server
+clock; server and browser monotonic epochs never cross the wire. The clock read
+decodes it through `round-runtime/server-clock-header`: nonnegative decimal integer milliseconds
+within the supported timestamp range. Missing, blank or malformed metadata
+supplies no calibration evidence; explicit decimal zero remains valid. A read
+without evidence retains the accepted anchor and reports seed/stale timing.
+Request generations are allocated before sending. Fresh evidence calibrates
+even when the competitive Round revision is unchanged.
+
+For RTT in 0–2000 ms, the receive estimate is the server sample plus RTT/2,
+with uncertainty RTT/2, assuming the server generates its sample within that
+request interval. Invalid intervals, older generations and rollback beyond
+the accepted and candidate uncertainty bounds cannot replace the anchor.
+The server render instant is only the hydration seed, rendered identically
+before effects, never evidence of synchronization. Missing or rejected
+samples retain the projection and visibly report stale timing; accepted
+samples show their uncertainty. Evidence older than 32 seconds is stale.
+
+One serial sampling chain owns calibration. It reads the authorized route the
+role already holds (`/api/rounds/:id`, or `/api/rounds/:id/ballots` for an
+assigned judge) directly from the browser rather than through a Server Action:
+Next dispatches those one at a time, so an unrelated stuck action would hold
+calibration and queueing would inflate the measured RTT. A read past the 2000 ms envelope is abandoned and reports no
+evidence, so a read that never settles cannot end sampling. Failed samples retry
+from two seconds, doubling to thirty with half-range jitter; current evidence
+resamples every thirty. A hidden tab samples once on mount and then only when a suspension shows its clock stands behind, retrying until a read is accepted, because a media boundary still counts on it there. Visibility returns and
+realtime reconnects request a sample at once, and wakes during a read coalesce
+into one followup after two seconds. `pageshow`, `online` and a jump between wall
+and monotonic time also wake it, because `performance.now` may not advance through
+an OS sleep; that wall reading is only a wake signal and never reaches displayed
+time. A read answering 404 ends the chain. Unmount aborts the sampling lifetime and
+cancels its timers and subscriptions.
+
+A slower reply that agrees with the anchor renews its evidence without moving it,
+so a poor sample cannot jump the countdown or loosen its uncertainty. A sample
+rolling back past both uncertainty bounds is refused, so one outlier
+cannot move the clock. Three fresh, ordered samples whose offsets agree are the
+authority having moved, and the clock re-anchors on the third. A media boundary
+waits for the clock's lower bound to pass, deadline plus uncertainty, because it
+fires once and a read sent before the true boundary would only see the old
+grant. A seed needs no margin, since its render instant is already behind the
+server. That wait trusts the evidence: a wrong server stamp ahead of the truth
+can still fire the boundary early, once, and then the next accepted view's read
+corrects the grant. A clock that never gets a sample fires late by the page's
+delivery time, and the same read corrects it. Both are accepted.
+
+Display/control hints and media deadlines read
+the same clock. The media follower of ISSUE-899 takes this clock as its "now" and "at deadline", and calls a deadline due only past the same lower bound.
+Calibration changes rearm the actual media timeout without
+requiring a new Round view; view updates do not replace the clock or media
+session. These are display estimates and read triggers only: commands,
+attendance, competitive deadlines and media grants remain server authority.

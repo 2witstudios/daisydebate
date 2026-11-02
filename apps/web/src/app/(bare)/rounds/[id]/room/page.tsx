@@ -90,6 +90,7 @@ async function watchingRoom(
         transcript={transcript}
         read={readPersistedJudgeRound.bind(null, id)}
         socketUrl={socketUrl}
+        renderedAtMs={Date.parse(systemClock.now())}
       />
     </>
   );
