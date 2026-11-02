@@ -81,10 +81,13 @@ export default async function RootLayout({
           {refreshSession ? <SessionRefresh /> : null}
           {analytics.capture ? (
             <>
-              <AnalyticsClient {...analytics.capture} />
+              <AnalyticsClient
+                {...analytics.capture}
+                consent={analytics.choice.consent}
+              />
               <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-reading">
                 <ConsentBanner
-                  consent={analytics.capture.consent}
+                  consent={analytics.choice.consent}
                   available={analytics.available}
                 />
               </div>

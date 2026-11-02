@@ -6,7 +6,9 @@ import {
   analyticsView,
   readStoredConsent,
   readViewerAnalytics,
+  type StoredConsentRead,
 } from './viewer-analytics';
+import type { Identity } from '@daisy/auth';
 import type { Consent } from './consent';
 
 setupRitewayBun();
@@ -22,7 +24,7 @@ const member = {
   state: 'member',
   username: 'ada',
   principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
-} as never;
+} as Identity;
 const config = {
   key: 'key',
   host: 'https://h.example',
@@ -73,103 +75,74 @@ test('a stored consent read reports a refusal apart from an answer', async () =>
 });
 
 const cookie = consent('granted');
-const unreadable = {
-  available: config.available,
-  choice: { kind: 'unreadable' },
-  capture: null,
-};
+const { available } = config;
+const unreadable = { available, choice: { kind: 'unreadable' }, capture: null };
 const capture = (over: object) => ({
   keyValue: 'key',
   host: config.host,
   userId: 'user1',
   needsAdoption: false,
-  consent: cookie,
   ...over,
 });
+const signedIn = (read: StoredConsentRead) =>
+  analyticsView({
+    config,
+    cookie,
+    viewer: { kind: 'signed-in', userId: 'user1', read },
+  });
 
-test('capture runs only on a known choice, and adopts only a real difference', () => {
-  const view = (read: Parameters<typeof analyticsView>[0]['read']) =>
-    analyticsView({ config, identity: member, cookie, read }).capture;
+test('a signed-in viewer captures on the stored choice, and adopts a real difference', () => {
   const denied = consent('denied');
   assert({
-    given: 'a member whose stored choice matches, differs, or does not exist',
-    should: 'capture on the stored choice, and adopt when the two differ',
+    given: 'a stored choice that matches, differs, or does not exist',
+    should: 'use the stored choice, and adopt only when the two differ',
     actual: [
-      view({ kind: 'found', stored: cookie }),
-      view({ kind: 'found', stored: denied }),
-      view({ kind: 'found', stored: null }),
+      signedIn({ kind: 'found', stored: cookie }),
+      signedIn({ kind: 'found', stored: denied }),
+      signedIn({ kind: 'found', stored: null }),
     ],
     expected: [
-      capture({}),
-      capture({ needsAdoption: true, consent: denied }),
-      capture({ needsAdoption: true }),
+      {
+        available,
+        choice: { kind: 'known', consent: cookie },
+        capture: capture({}),
+      },
+      {
+        available,
+        choice: { kind: 'known', consent: denied },
+        capture: capture({ needsAdoption: true }),
+      },
+      {
+        available,
+        choice: { kind: 'known', consent: cookie },
+        capture: capture({ needsAdoption: true }),
+      },
     ],
   });
 });
 
 test('an unread choice is unreadable, whichever read could not answer', () => {
-  const principal = { kind: 'anonymous' } as const;
   assert({
-    given: 'a refused consent read, and identities that left it unread',
+    given: 'a refused consent read, and an unavailable identity',
     should: 'carry no consent and no capture, so nothing can overwrite it',
     actual: [
-      analyticsView({
-        config,
-        identity: member,
-        cookie,
-        read: { kind: 'refused' },
-      }),
-      analyticsView({
-        config,
-        identity: { state: 'unavailable', principal, temporary: true },
-        cookie,
-        read: { kind: 'not-asked' },
-      }),
-      analyticsView({
-        config,
-        identity: { state: 'unavailable', principal },
-        cookie,
-        read: { kind: 'not-asked' },
-      }),
+      signedIn({ kind: 'refused' }),
+      analyticsView({ config, cookie, viewer: { kind: 'unavailable' } }),
     ],
-    expected: [unreadable, unreadable, unreadable],
+    expected: [unreadable, unreadable],
   });
 });
 
-test('a viewer with nothing stored has the cookie as their choice', () => {
-  const anonymous = {
-    state: 'anonymous',
-    principal: { kind: 'anonymous' },
-  } as const;
+test('a signed-out viewer has the cookie as their choice, and adopts nothing', () => {
   assert({
-    given: 'a signed-out viewer, and a deployment with no key',
-    should: 'know the cookie; capture only where there is a key',
-    actual: [
-      analyticsView({
-        config,
-        identity: anonymous,
-        cookie,
-        read: { kind: 'not-asked' },
-      }),
-      analyticsView({
-        config: { ...config, key: null },
-        identity: { state: 'unavailable', principal: { kind: 'anonymous' } },
-        cookie,
-        read: { kind: 'not-asked' },
-      }),
-    ],
-    expected: [
-      {
-        available: config.available,
-        choice: { kind: 'known', consent: cookie },
-        capture: capture({ userId: null }),
-      },
-      {
-        available: config.available,
-        choice: { kind: 'known', consent: cookie },
-        capture: null,
-      },
-    ],
+    given: 'a signed-out viewer',
+    should: 'know the cookie and capture with no user',
+    actual: analyticsView({ config, cookie, viewer: { kind: 'signed-out' } }),
+    expected: {
+      available,
+      choice: { kind: 'known', consent: cookie },
+      capture: capture({ userId: null }),
+    },
   });
 });
 
@@ -179,27 +152,51 @@ test('stored consent is read only for a signed-in viewer on a keyed deployment',
     reads.push(userId);
     return null;
   };
-  const anonymous = {
-    state: 'anonymous',
-    principal: { kind: 'anonymous' },
-  } as const;
-  await readViewerAnalytics({ config, identity: member, cookie, readConsent });
-  await readViewerAnalytics({
-    config,
-    identity: anonymous,
-    cookie,
-    readConsent,
-  });
-  await readViewerAnalytics({
-    config: { ...config, key: null },
-    identity: member,
-    cookie,
-    readConsent,
-  });
+  const principal = { kind: 'anonymous' } as const;
+  const views = [
+    await readViewerAnalytics({
+      config,
+      identity: member,
+      cookie,
+      readConsent,
+    }),
+    await readViewerAnalytics({
+      config,
+      identity: { state: 'anonymous', principal },
+      cookie,
+      readConsent,
+    }),
+    await readViewerAnalytics({
+      config,
+      identity: { state: 'unavailable', principal, temporary: true },
+      cookie,
+      readConsent,
+    }),
+    await readViewerAnalytics({
+      config: { ...config, key: null },
+      identity: member,
+      cookie,
+      readConsent,
+    }),
+  ];
   assert({
-    given: 'a member, a signed-out viewer, and a member with no key configured',
-    should: 'read once, for the first',
-    actual: reads,
-    expected: ['user1'],
+    given: 'a member, a signed-out viewer, a refused identity and no key',
+    should: 'read once, for the member, and answer each with its own view',
+    actual: {
+      reads,
+      kinds: views.map(({ choice, capture: running }) => [
+        choice.kind,
+        running !== null,
+      ]),
+    },
+    expected: {
+      reads: ['user1'],
+      kinds: [
+        ['known', true],
+        ['known', true],
+        ['unreadable', false],
+        ['known', false],
+      ],
+    },
   });
 });

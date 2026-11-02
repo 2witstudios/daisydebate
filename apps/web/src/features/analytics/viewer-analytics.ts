@@ -5,22 +5,39 @@ import type { AnalyticsAvailability, Consent } from './consent';
 /** A viewer's stored consent. A refusal says nothing about what they chose. */
 export type StoredConsentRead =
   | { readonly kind: 'found'; readonly stored: Consent | null }
-  | { readonly kind: 'refused' }
-  | { readonly kind: 'not-asked' };
+  | { readonly kind: 'refused' };
+
+/** Who is asking, with what their stored consent read answered. */
+export type AnalyticsViewer =
+  | { readonly kind: 'unavailable' }
+  | { readonly kind: 'signed-out' }
+  | {
+      readonly kind: 'signed-in';
+      readonly userId: string;
+      readonly read: StoredConsentRead;
+    };
+
+type Capture = {
+  readonly keyValue: string;
+  readonly host: string | null;
+  readonly userId: string | null;
+  readonly needsAdoption: boolean;
+};
 
 /**
- * What this viewer chose, as far as this render knows. Unreadable carries no
- * consent at all, so no surface can present a browser cookie as the stored one.
+ * What a render may do with analytics. Unreadable carries no consent, so no
+ * surface can present a browser cookie as the stored choice, and no capture.
  */
-export type ConsentChoice =
-  | { readonly kind: 'known'; readonly consent: Consent }
-  | { readonly kind: 'unreadable' };
-
-type AnalyticsConfig = {
-  readonly key: string | null;
-  readonly host: string | null;
+export type AnalyticsView = {
   readonly available: AnalyticsAvailability;
-};
+} & (
+  | {
+      readonly choice: { readonly kind: 'known'; readonly consent: Consent };
+      readonly capture: Capture | null;
+    }
+  | { readonly choice: { readonly kind: 'unreadable' }; readonly capture: null }
+);
+export type ConsentChoice = AnalyticsView['choice'];
 
 export async function readStoredConsent(
   read: (userId: string) => Promise<Consent | null>,
@@ -34,81 +51,87 @@ export async function readStoredConsent(
   }
 }
 
-/** Whose stored consent applies; nobody's when signed out or unavailable. */
-const viewerOf = (identity: Identity) =>
-  identity.state === 'anonymous' || identity.state === 'unavailable'
-    ? null
-    : identity.principal.userId;
-
 /** A signed-in viewer whose browser choice the stored consent has not caught up with. */
 const adoptionDue = (stored: Consent | null, cookie: Consent) =>
   stored
     ? JSON.stringify(stored) !== JSON.stringify(cookie)
     : cookie.analytics !== 'unanswered' || cookie.replay !== 'unanswered';
 
-const choiceOf = (
-  identity: Identity,
-  cookie: Consent,
-  read: StoredConsentRead,
-): ConsentChoice => {
-  if (identity.state === 'unavailable' || read.kind === 'refused')
-    return { kind: 'unreadable' };
-  const stored = read.kind === 'found' ? read.stored : null;
-  return { kind: 'known', consent: stored ?? cookie };
-};
-
-/**
- * What a render may do with analytics. Capture runs only with a key and a known
- * choice. With no key nothing is stored or read, so the cookie is the choice.
- */
+/** Capture runs with a key and a known choice; a stored choice outranks the cookie. */
 export function analyticsView(input: {
-  readonly config: AnalyticsConfig;
-  readonly identity: Identity;
+  readonly config: {
+    readonly key: string;
+    readonly host: string | null;
+    readonly available: AnalyticsAvailability;
+  };
   readonly cookie: Consent;
-  readonly read: StoredConsentRead;
-}) {
-  const { config, identity, cookie, read } = input;
-  const { available } = config;
-  if (!config.key)
+  readonly viewer: AnalyticsViewer;
+}): AnalyticsView {
+  const { config, cookie, viewer } = input;
+  const { key: keyValue, host, available } = config;
+  if (viewer.kind === 'unavailable')
+    return { available, choice: { kind: 'unreadable' }, capture: null };
+  if (viewer.kind === 'signed-out')
     return {
       available,
-      choice: { kind: 'known', consent: cookie } as ConsentChoice,
-      capture: null,
+      choice: { kind: 'known', consent: cookie },
+      capture: { keyValue, host, userId: null, needsAdoption: false },
     };
-  const choice = choiceOf(identity, cookie, read);
-  if (choice.kind === 'unreadable') return { available, choice, capture: null };
-  const userId = viewerOf(identity);
+  if (viewer.read.kind === 'refused')
+    return { available, choice: { kind: 'unreadable' }, capture: null };
+  const { stored } = viewer.read;
   return {
     available,
-    choice,
+    choice: { kind: 'known', consent: stored ?? cookie },
     capture: {
-      keyValue: config.key,
-      host: config.host,
-      userId,
-      needsAdoption:
-        userId !== null &&
-        adoptionDue(read.kind === 'found' ? read.stored : null, cookie),
-      consent: choice.consent,
+      keyValue,
+      host,
+      userId: viewer.userId,
+      needsAdoption: adoptionDue(stored, cookie),
     },
+  };
+}
+
+/** With no key nothing is stored or read, so the cookie is the choice. */
+const unkeyedView = (
+  available: AnalyticsAvailability,
+  cookie: Consent,
+): AnalyticsView => ({
+  available,
+  choice: { kind: 'known', consent: cookie },
+  capture: null,
+});
+
+async function viewerOf(
+  identity: Identity,
+  readConsent: (userId: string) => Promise<Consent | null>,
+): Promise<AnalyticsViewer> {
+  if (identity.state === 'unavailable') return { kind: 'unavailable' };
+  if (identity.state === 'anonymous') return { kind: 'signed-out' };
+  const { userId } = identity.principal;
+  return {
+    kind: 'signed-in',
+    userId,
+    read: await readStoredConsent(readConsent, userId),
   };
 }
 
 /** The view for this viewer, reading stored consent only when it can matter. */
 export async function readViewerAnalytics(input: {
-  readonly config: AnalyticsConfig;
+  readonly config: {
+    readonly key: string | null;
+    readonly host: string | null;
+    readonly available: AnalyticsAvailability;
+  };
   readonly identity: Identity;
   readonly cookie: Consent;
   readonly readConsent: (userId: string) => Promise<Consent | null>;
-}) {
+}): Promise<AnalyticsView> {
   const { config, identity, cookie, readConsent } = input;
-  const userId = viewerOf(identity);
+  if (!config.key) return unkeyedView(config.available, cookie);
   return analyticsView({
-    config,
-    identity,
+    config: { ...config, key: config.key },
     cookie,
-    read:
-      config.key && userId
-        ? await readStoredConsent(readConsent, userId)
-        : { kind: 'not-asked' },
+    viewer: await viewerOf(identity, readConsent),
   });
 }
