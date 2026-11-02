@@ -59,7 +59,7 @@ describe('round runtime command refusals and seat order', () => {
 
     const started = () => {
       const world = runtime();
-      world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+      world.activate({ at: at(0), now: at(0) });
       world.tick(at(totalMs - 1));
       return world;
     };
@@ -92,7 +92,7 @@ describe('round runtime command refusals and seat order', () => {
     });
   });
 
-  test('a scheduled round refuses in-round prep without changing its checkpoint', async () => {
+  test('a round in its opening refuses in-round prep without changing its checkpoint', async () => {
     const world = runtime();
     const before = world.checkpoint();
     await assertRejects({

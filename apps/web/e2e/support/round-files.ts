@@ -143,10 +143,10 @@ export const test = base.extend<{
 });
 
 /**
- * The host, seated as Affirmative 1, forfeits its fixture Round. A scheduled
- * Round becomes abandoned with its history kept, so it stops holding one of the
- * suite's shared bot Round slots (AI_ROUND_BUSY_CAP); left scheduled, every
- * Launch after the cap was refused and its fixture timed out (ISSUE-471-r1).
+ * The host, seated as Affirmative 1, forfeits its fixture Round, so it stops
+ * holding one of the suite's shared bot Round slots (AI_ROUND_BUSY_CAP); left
+ * live, every Start round after the cap was refused and its fixture timed out
+ * (ISSUE-471-r1).
  */
 async function forfeitAsHost(request: APIRequestContext, roundId: string) {
   const view = await readBallotRound(request, roundId);

@@ -3,7 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../lib/testing/mock-router';
 setupRitewayBun();
 mockNextRouter();
-const { CommandForm } = await import('./round-command-actions');
+const { CommandForm, shownError } = await import('./round-command-actions');
 
 const intent = {
   type: 'yield' as const,
@@ -53,6 +53,29 @@ test('a confirmation confirms the round the debater sees now (ISSUE-838)', () =>
       }),
     ],
     expected: ['3', '2'],
+  });
+});
+
+test('a refused strike says so only while the strike is still open', () => {
+  const refused = {
+    values: { type: 'strike_resolution' },
+    error: 'Someone struck first',
+  };
+  const opening = (step: 'strike' | 'prep') =>
+    ({ opening: { step: { step } } }) as Parameters<typeof shownError>[1];
+  assert({
+    given: 'a refused strike, on the strike step and then in prep, and a refused yield',
+    should: 'show the strike refusal only on the strike step, and the other always',
+    actual: [
+      shownError(refused, opening('strike')),
+      shownError(refused, opening('prep')),
+      shownError(refused, { opening: null }),
+      shownError(
+        { values: { type: 'yield' }, error: 'Refused' },
+        { opening: null },
+      ),
+    ],
+    expected: ['Someone struck first', undefined, undefined, 'Refused'],
   });
 });
 

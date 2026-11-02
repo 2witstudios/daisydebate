@@ -87,6 +87,16 @@ export function CommandForm({
     </form>
   );
 }
+/** A refused strike means nothing once the strike is over; other answers stay. */
+export const shownError = (
+  answer: Pick<RoundFormState, 'values' | 'error'>,
+  view: Pick<RoundView, 'opening'>,
+) =>
+  answer.values.type === 'strike_resolution' &&
+  view.opening?.step.step !== 'strike'
+    ? undefined
+    : answer.error;
+
 /** Feedback survives a canonical revision that removes the submitted action. */
 export function RoundCommandActions({
   view,
@@ -159,7 +169,7 @@ export function RoundCommandActions({
     actions,
     <>
       <div id={feedback} tabIndex={-1}>
-        <FormError error={answer.error} />
+        <FormError error={shownError(answer, view)} />
       </div>
       <UnacknowledgedCommand answer={answer} post={post} pending={pending} />
     </>,
