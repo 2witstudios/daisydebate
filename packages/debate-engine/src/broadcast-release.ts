@@ -1,13 +1,10 @@
+import type { BroadcastReleasePolicy } from '@daisy/protocol';
+
 /**
  * When a Broadcast may release its media and audience facts. The delay is a
  * floor: nothing here releases early, and facts follow media actually released,
  * never the clock (ADR 0099). Pure: time arrives as an argument.
  */
-export type BroadcastReleasePolicy =
-  | { readonly kind: 'delay'; readonly seconds: number }
-  | { readonly kind: 'round_end' }
-  | { readonly kind: 'at'; readonly atMs: number };
-
 export type HeldSegment = {
   readonly capturedAtMs: number;
   readonly durationMs: number;

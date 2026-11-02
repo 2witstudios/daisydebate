@@ -1,4 +1,6 @@
 export { formatStanding } from './format-standing';
+export { decideBroadcast, REVOCATION_LEAD_MS } from './broadcast-lifecycle';
+export type { BroadcastAction, BroadcastFacts } from './broadcast-lifecycle';
 export {
   delayAlert,
   factReleased,
@@ -6,7 +8,7 @@ export {
   resolveReleasePolicy,
   segmentDue,
 } from './broadcast-release';
-export type { BroadcastReleasePolicy, HeldSegment } from './broadcast-release';
+export type { HeldSegment } from './broadcast-release';
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
 export { mediaGrants, changedMediaGrants } from './media-grants';

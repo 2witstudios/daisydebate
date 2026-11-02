@@ -11,7 +11,8 @@
     "./subscription": "./src/audio-subscription.ts",
     "./clips": "./src/capture-clips.ts",
     "./worker": "./src/worker-client.ts",
-    "./observation": "./src/frame-clock.ts"
+    "./observation": "./src/frame-clock.ts",
+    "./broadcast": "./src/broadcast-egress.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",
