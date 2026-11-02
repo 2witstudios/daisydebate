@@ -37,6 +37,35 @@ async function readResolutionCutoff(
   return (row as { cutoff: string | null } | undefined)?.cutoff ?? null;
 }
 
+/**
+ * Past the cutoff the answer no longer depends on history, so it is not read: a
+ * Round whose read overruns its budget must still be able to reach its end.
+ */
+async function withEvidence(
+  tx: AttendanceTransactionContext,
+  facts: AttendanceReceiptFacts,
+  finalizedSegmentIds: readonly string[],
+): Promise<AttendanceEvaluationFacts> {
+  const resolutionCutoffAt = await readResolutionCutoff(tx, facts.round.id);
+  const pastCutoff =
+    resolutionCutoffAt !== null &&
+    Date.parse(facts.now) >= Date.parse(resolutionCutoffAt);
+  return {
+    ...facts,
+    resolutionCutoffAt,
+    samples: pastCutoff
+      ? []
+      : await attendanceSamples(
+          tx,
+          nextAttendanceSegment({
+            ruleSegments: facts.round.rules.segments,
+            segments: facts.round.segments,
+            finalizedSegmentIds,
+          })?.startedAt ?? null,
+        ),
+  };
+}
+
 /** Everything but availability history: enough to credit an on-time speaker. */
 export type AttendanceReceiptFacts = Omit<AttendanceFacts, 'samples'> & {
   readonly now: string;
@@ -121,18 +150,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
       };
       const resolution =
         input.resolveOnReceipts(facts) ??
-        input.resolve({
-          ...facts,
-          samples: await attendanceSamples(
-            tx,
-            nextAttendanceSegment({
-              ruleSegments: round.rules.segments,
-              segments: round.segments,
-              finalizedSegmentIds,
-            })?.startedAt ?? null,
-          ),
-          resolutionCutoffAt: await readResolutionCutoff(tx, round.id),
-        });
+        input.resolve(await withEvidence(tx, facts, finalizedSegmentIds));
       if (!resolution) return null;
       const target = requireAttendanceTarget(
         {

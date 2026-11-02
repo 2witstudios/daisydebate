@@ -126,8 +126,8 @@ type TestSources = Readonly<Record<string, string>>;
 
 const fixtures: Readonly<Record<string, Fixture>> = {
   ...attendanceInvariantFixtures(rules, seats),
-  'unjudged-played-round': () =>
-    round({ status: 'active' }).completeUnjudged({
+  'panel-played-round': () =>
+    round({ status: 'active' }).completePanel({
       now: t0,
       ballots: [],
       ballotDeadlineAt: t0,

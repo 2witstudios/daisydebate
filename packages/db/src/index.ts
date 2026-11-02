@@ -8,7 +8,7 @@ import { presenceSettingOperations } from './presence/settings';
 import type { ContactAuthorizationFence } from './contacts/fence';
 import { retainedConversationOperations } from './messaging/retained-store';
 import { createMediaSessionStore } from './media-session';
-import { roundUnjudgedCompletionOperations } from './round-unjudged-completion';
+import { roundPanelCompletionOperations } from './round-panel-completion';
 import { roundMaintenanceOperations } from './round-maintenance';
 import {
   roundWorkerEntrypoints,
@@ -165,7 +165,7 @@ export function createDatabase({
   return {
     ...botAdmissionOperations,
     ...roundMaintenanceOperations(transcriptTransaction),
-    ...roundUnjudgedCompletionOperations(transcriptTransaction),
+    ...roundPanelCompletionOperations(transcriptTransaction),
     ...roundWorkerEntrypoints({
       run: transcriptTransaction,
       nextId: nextActorId,

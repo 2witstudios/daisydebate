@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { buildRoundTopic } from '@daisy/protocol';
+import { attendanceTimingPolicy, buildRoundTopic } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withAttendanceRound } from './attendance.test-support';
@@ -177,6 +177,47 @@ test('an on-time speaker leaves the window open: a later receipt is taken, not r
         expected: segmentId,
       });
     } finally {
+      await cleanUp(input);
+    }
+  }));
+
+test('a long-outage evaluation stays inside its transaction budget, and the cutoff needs no history', () =>
+  withAttendanceRound(async (input) => {
+    const { f, attendance, roundId } = input;
+    const { opponent } = await seatsOf(input);
+    await ageOpening(input);
+    await stamp(input, opponent, 1000);
+    // About the worst a Round can read: its length plus the 60 minute cutoff, at one a second.
+    const samples = 7_200;
+    await f.sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(59003)`;
+      await tx`insert into availability_samples(at,healthy,cause)
+        select clock_timestamp()-interval '2 hours'+n*interval '1 second',false,'public_probe_failed'
+        from generate_series(1,${samples}::int) n`;
+    });
+    try {
+      const began = performance.now();
+      const undecided = await attendance.evaluate(roundId);
+      const elapsedMs = performance.now() - began;
+      assert({
+        given: `${samples} unhealthy samples since the window opened, under the Round lock`,
+        should: `decide nothing inside the ${attendanceTimingPolicy.transactionSliceMs} ms slice`,
+        actual: {
+          undecided,
+          inBudget: elapsedMs < attendanceTimingPolicy.transactionSliceMs,
+        },
+        expected: { undecided: null, inBudget: true },
+      });
+      await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+      const ended = await attendance.evaluate(roundId);
+      assert({
+        given: 'that history past the cutoff',
+        should: 'end the Round with no winner',
+        actual: ended?.decision,
+        expected: 'abandoned',
+      });
+    } finally {
+      await f.sql`delete from availability_samples where at>=clock_timestamp()-interval '3 hours' and cause='public_probe_failed'`;
       await cleanUp(input);
     }
   }));

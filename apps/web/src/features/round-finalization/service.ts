@@ -5,7 +5,7 @@ import type { WorkerTimers } from '../../lib/worker-timers';
 const MAX_ACTIVE_ROUNDS = 2;
 /** How often maintenance rediscovers due Rounds and recovers ratings. */
 export const MAINTENANCE_PULSE_MS = 500;
-/** Queued Rounds retained at once; discovery pauses at this bound, losing nothing. */
+/** Queued Rounds retained at once; ids past this wait for a later discovery cycle. */
 const MAX_WAITING_ROUNDS = 256;
 /** How long an undecided window waits before its evidence is read again. */
 const EVALUATION_RETRY_MS = 5_000;
@@ -101,41 +101,58 @@ function createEvaluationPacing(input: MaintenancePorts) {
         return 'continue';
       }
     },
-    known: () => retryAt.keys(),
+    known: () => heldSince.keys(),
+    due: (key: string) =>
+      now() >= (retryAt.get(key) ?? Number.NEGATIVE_INFINITY),
+    recovered: (key: string) => {
+      retryAt.delete(key);
+      failures.delete(key);
+    },
+    backOff,
     forget(roundId: string) {
-      retryAt.delete(roundId);
-      failures.delete(roundId);
+      for (const key of [roundId, `tick:${roundId}`, `finalize:${roundId}`]) {
+        retryAt.delete(key);
+        failures.delete(key);
+      }
       heldSince.delete(roundId);
     },
   };
 }
 
 /**
- * Each stage fails on its own: an evaluation failure must not starve a safe
- * transcript freeze. Competitive completion still refuses unsettled attendance.
+ * Each stage fails on its own and backs off on its own: a failing tick must not
+ * stop a Round reaching its cutoff, and an evaluation failure must not starve a
+ * safe transcript freeze. Competitive completion still refuses unsettled
+ * attendance.
  */
 async function maintainRound(
   input: MaintenancePorts,
   pacing: ReturnType<typeof createEvaluationPacing>,
   roundId: string,
 ) {
-  try {
-    await input.tick(roundId);
-  } catch (error) {
-    if (terminalRace(error)) pacing.forget(roundId);
-    else input.failed(error, 'tick');
-    return;
-  }
+  const stage = async (name: 'tick' | 'finalize', work: () => Promise<unknown>) => {
+    const key = `${name}:${roundId}`;
+    if (!pacing.due(key)) return true;
+    try {
+      await work();
+      pacing.recovered(key);
+      return true;
+    } catch (error) {
+      if (terminalRace(error)) {
+        pacing.forget(roundId);
+        return false;
+      }
+      pacing.backOff(key);
+      input.failed(error, name);
+      return true;
+    }
+  };
+  if (!(await stage('tick', () => input.tick(roundId)))) return;
   if ((await pacing.evaluate(roundId)) === 'ended') {
     pacing.forget(roundId);
     return;
   }
-  try {
-    await input.finalize(roundId);
-  } catch (error) {
-    if (terminalRace(error)) pacing.forget(roundId);
-    else input.failed(error, 'finalize');
-  }
+  await stage('finalize', () => input.finalize(roundId));
 }
 
 /** Discovery and committed-rating recovery never wait for a competing Round's work. */

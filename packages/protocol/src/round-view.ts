@@ -8,7 +8,7 @@ import {
   roundStatusSchema,
   runtimeCheckpointSchema,
 } from './round';
-import { unjudgedRulingSchema } from './round-unjudged';
+import { panelRulingSchema } from './round-panel-completion';
 
 const instant = z.iso.datetime({ offset: true });
 
@@ -32,16 +32,8 @@ const anonymousJudgeSchema = z.strictObject({
   anonymous: z.literal(true),
 });
 
-/**
- * One viewer's Round: the durable Launch read grammar plus the runtime
- * snapshot (checkpoint and segment rows, in sequence order) a client derives
- * the live position from with the shared reader
- * (`@daisy/debate-engine/position`); no position is precomputed. It never
- * carries the host's actor, and a human judge's identity only for that
- * judge or the host.
- */
 /** What a played Round is waiting on, with the persisted deadline when one exists. */
-export const roundJudgingStatusSchema = z.strictObject({
+export const roundWaitingOnSchema = z.strictObject({
   state: z.enum([
     'closing_transcript',
     'human_window',
@@ -53,8 +45,34 @@ export const roundJudgingStatusSchema = z.strictObject({
   ]),
   deadlineAt: instant.nullable(),
 });
-export type RoundJudgingStatus = z.infer<typeof roundJudgingStatusSchema>;
+export type RoundWaitingOn = z.infer<typeof roundWaitingOnSchema>;
+/** Facts the read supplies so the engine can decide what a Round is waiting on. */
+export type RoundWaitingFacts = {
+  readonly nowMs: number;
+  readonly finalSegmentEnded: boolean;
+  readonly frozen: boolean;
+  /** An uncertain check-in writer holds every attendance decision. */
+  readonly heldByWriter: boolean;
+  readonly attendanceUnresolved: boolean;
+  readonly ballotDeadlineAt: string | null;
+  readonly attendanceCutoffAt: string | null;
+  /** A human judge seat has not ruled. */
+  readonly humanJudgeUnruled: boolean;
+  readonly jobs: readonly {
+    readonly generationDeadlineAt: string;
+    readonly canRule: boolean;
+    readonly holdsBallot: boolean;
+  }[];
+};
 
+/**
+ * One viewer's Round: the durable Launch read grammar plus the runtime
+ * snapshot (checkpoint and segment rows, in sequence order) a client derives
+ * the live position from with the shared reader
+ * (`@daisy/debate-engine/position`); no position is precomputed. It never
+ * carries the host's actor, and a human judge's identity only for that
+ * judge or the host.
+ */
 export const roundViewSchema = z.strictObject({
   id: idSchema,
   roomId: idSchema,
@@ -71,9 +89,9 @@ export const roundViewSchema = z.strictObject({
   completedAt: instant.nullable(),
   outcome: z.enum(['affirmative', 'negative', 'draw']).nullable(),
   /** The unjudged finalizer's ruling, from its durable receipt; null for any other completion. */
-  unjudgedRuling: unjudgedRulingSchema.nullable(),
+  panelRuling: panelRulingSchema.nullable(),
   /** What a played Round is waiting on; null until its speeches end. */
-  judging: roundJudgingStatusSchema.nullable(),
+  waitingOn: roundWaitingOnSchema.nullable(),
   /** Whether this viewer hosts the Round; never which actor does. */
   viewerIsHost: z.boolean(),
   /** The draw's public envelope once the Round has ended; null otherwise. */

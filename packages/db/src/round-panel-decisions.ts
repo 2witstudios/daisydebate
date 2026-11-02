@@ -2,9 +2,9 @@ import { CryptoHasher } from 'bun';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
-  roundUnjudgedReceiptSchema,
+  roundPanelReceiptSchema,
   type RoundProjection,
-  type RoundUnjudgedReceipt,
+  type RoundPanelReceipt,
 } from '@daisy/protocol';
 import type { hydrateRoundRows } from './round-hydration';
 import type { roundCommands } from './schema/round-commands';
@@ -19,18 +19,18 @@ export type UnjudgedRequest = {
 type CommandRow = typeof roundCommands.$inferSelect;
 type HydratedRound = Awaited<ReturnType<typeof hydrateRoundRows>>;
 /** Durable Round facts read under the Round lock. */
-export type UnjudgedDurableFacts = {
+export type PanelDurableFacts = {
   readonly final_segment_ended_at: unknown;
   readonly transcript_admission_cutoff: unknown;
   readonly ballot_deadline_at: unknown;
   readonly ratings: unknown;
 };
 
-const ineligible = () => createAppError('CONFLICT', 'unjudged-ineligible');
+const ineligible = () => createAppError('CONFLICT', 'panel-ineligible');
 const receiptConflict = () =>
   createAppError('CONFLICT', 'unjudged-receipt-conflict');
 
-export function requireUnjudgedRequest(input: UnjudgedRequest): void {
+export function requirePanelRequest(input: UnjudgedRequest): void {
   if (
     ![input.instanceId, input.commandId, input.roundId].every(
       (id) => idSchema.safeParse(id).success,
@@ -42,7 +42,7 @@ export function requireUnjudgedRequest(input: UnjudgedRequest): void {
 }
 
 /** Binds a command row to this Round and frozen revision, never to the caller. */
-export const unjudgedDigest = (input: UnjudgedRequest) =>
+export const panelDigest = (input: UnjudgedRequest) =>
   new CryptoHasher('sha3-256')
     .update(
       JSON.stringify({
@@ -75,7 +75,7 @@ export function validateUnjudgedReceipt(
   digest: string,
 ) {
   requireReceiptCommand(row, input, digest);
-  const receipt = roundUnjudgedReceiptSchema.parse(row.result);
+  const receipt = roundPanelReceiptSchema.parse(row.result);
   if (
     receipt.roundId !== input.roundId ||
     receipt.freezeRevision !== input.freezeRevision ||
@@ -87,12 +87,12 @@ export function validateUnjudgedReceipt(
 }
 
 /** The ruling of the Round's unjudged completion receipt among its command rows, or null when it has none. */
-export function recordedUnjudgedRuling(
+export function recordedPanelRuling(
   rows: readonly Pick<
     CommandRow,
     'type' | 'actorId' | 'serviceId' | 'result'
   >[],
-): RoundUnjudgedReceipt['ruling'] | null {
+): RoundPanelReceipt['ruling'] | null {
   for (const row of rows) {
     if (
       row.type !== 'complete' ||
@@ -100,14 +100,14 @@ export function recordedUnjudgedRuling(
       !row.serviceId?.startsWith('round-finalization:')
     )
       continue;
-    const receipt = roundUnjudgedReceiptSchema.safeParse(row.result);
+    const receipt = roundPanelReceiptSchema.safeParse(row.result);
     if (receipt.success) return receipt.data.ruling;
   }
   return null;
 }
 
 /** A replayed receipt stands only while the Round is still completed with its recorded outcome. */
-export function requireUnjudgedTerminal(
+export function requirePanelTerminal(
   round: { readonly status: string; readonly outcome: string | null },
   recorded: string | null,
 ): void {
@@ -116,7 +116,7 @@ export function requireUnjudgedTerminal(
 }
 
 /** A Round with every segment played; its judges, if any, may not have ruled. */
-export function requireUnjudgedRound(
+export function requirePanelRound(
   round: HydratedRound,
 ): asserts round is NonNullable<HydratedRound> {
   if (!round || round.segments.some((p) => p.endedAt === null))
@@ -129,12 +129,12 @@ export function requireUnjudgedRound(
  * records no ruling for a judge who left.
  * Returns the freeze and the ballot deadline persisted at it, as UTC ISO.
  */
-export function requireUnjudgedFacts<
+export function requirePanelFacts<
   Freeze extends { readonly revision: number },
 >(input: {
   readonly freezeRevision: number;
   readonly freeze: Freeze | null | undefined;
-  readonly durable: UnjudgedDurableFacts | undefined;
+  readonly durable: PanelDurableFacts | undefined;
 }): { readonly freeze: Freeze; readonly ballotDeadlineAt: string | null } {
   const { freeze, durable } = input;
   if (
@@ -160,7 +160,7 @@ export function requireUnjudgedFacts<
  */
 export function requireCompletionProjection(completion: {
   readonly projection: RoundProjection;
-  readonly ruling: RoundUnjudgedReceipt['ruling'];
+  readonly ruling: RoundPanelReceipt['ruling'];
 }): void {
   const { projection } = completion;
   if (
@@ -169,19 +169,19 @@ export function requireCompletionProjection(completion: {
     projection.segmentInserts.length ||
     projection.segmentCloses.length
   )
-    throw createAppError('CONFLICT', 'unjudged-projection');
+    throw createAppError('CONFLICT', 'panel-projection');
 }
 
-export const unjudgedReceipt = (input: {
+export const panelReceipt = (input: {
   readonly commandId: string;
   readonly roundId: string;
   readonly freezeRevision: number;
   readonly resultingVersion: number;
-  readonly ruling: RoundUnjudgedReceipt['ruling'];
-  readonly outcome: RoundUnjudgedReceipt['outcome'];
+  readonly ruling: RoundPanelReceipt['ruling'];
+  readonly outcome: RoundPanelReceipt['outcome'];
   readonly noRuling: readonly string[];
 }) =>
-  roundUnjudgedReceiptSchema.parse({
+  roundPanelReceiptSchema.parse({
     version: 1,
     ...input,
     status: 'completed',

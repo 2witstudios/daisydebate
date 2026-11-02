@@ -6,7 +6,7 @@ import type {
 import type { Database } from '@daisy/db';
 import {
   createRoundRuntime,
-  decideUnjudgedCompletion,
+  decidePanelCompletion,
   freezeJudgingPlan,
   participatingRulings,
 } from '@daisy/debate-engine';
@@ -33,10 +33,10 @@ export const judgingPlan =
       aiJudgingBudgetMs: AI_JUDGING_BUDGET_MS,
     });
 type CompletionBuilder = Parameters<
-  Database['completeUnjudgedRound']
+  Database['completePanelRound']
 >[0]['buildCompletion'];
 /** The engine decides; a judged Round before its persisted ballot deadline is not yet eligible. */
-export const unjudgedCompletion =
+export const panelCompletion =
   (nextId: () => string): CompletionBuilder =>
   ({
     round,
@@ -48,7 +48,7 @@ export const unjudgedCompletion =
     runningAiSeatIds,
     failedAiSeatIds,
   }) => {
-    const decision = decideUnjudgedCompletion({
+    const decision = decidePanelCompletion({
       completeness,
       humanJudgeSeatIds,
       runningAiSeatIds,
@@ -62,7 +62,7 @@ export const unjudgedCompletion =
       nowMs: Date.parse(now),
     });
     if (decision.kind === 'pending')
-      throw createAppError('CONFLICT', 'unjudged-ineligible');
+      throw createAppError('CONFLICT', 'panel-ineligible');
     return {
       ruling: decision.ruling,
       noRuling: decision.noRuling,
@@ -74,7 +74,7 @@ export const unjudgedCompletion =
         ...round,
         round,
         nextSegmentId: nextId,
-      }).completeUnjudged({
+      }).completePanel({
         now,
         ballots,
         ballotDeadlineAt,
@@ -94,7 +94,7 @@ export function createRoundMaintenanceOperations(input: {
     | 'finalizeDueRoundTranscript'
     | 'readUnratedRatingRounds'
     | 'rateRound'
-    | 'completeUnjudgedRound'
+    | 'completePanelRound'
   >;
   readonly instanceId: string;
   readonly ratingFailed: (roundId: string, error: unknown) => void;
@@ -169,20 +169,20 @@ export function createRoundMaintenanceOperations(input: {
       });
       if (result.status !== 'frozen') return result;
       try {
-        await input.store.completeUnjudgedRound({
+        await input.store.completePanelRound({
           instanceId: input.instanceId,
           roundId,
           commandId: input.ids.next(),
           freezeRevision: result.freeze.revision,
           buildProjection,
-          buildCompletion: unjudgedCompletion(() => input.ids.next()),
+          buildCompletion: panelCompletion(() => input.ids.next()),
         });
       } catch (error) {
         if (
           !isAppError(error) ||
           error.code !== 'CONFLICT' ||
           ![
-            'unjudged-ineligible',
+            'panel-ineligible',
             'attendance-unsettled',
             'attendance-terminal',
           ].includes(error.message)

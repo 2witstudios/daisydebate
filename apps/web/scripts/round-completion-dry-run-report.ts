@@ -1,10 +1,10 @@
 import {
-  decideUnjudgedCompletion,
+  decidePanelCompletion,
   onTimeSpeakerReceipt,
 } from '@daisy/debate-engine';
 import { attendanceTimingPolicy, type RoundRules } from '@daisy/protocol';
 import type { SQL } from 'bun';
-import { AI_JUDGING_BUDGET_MS } from './maintenance';
+import { AI_JUDGING_BUDGET_MS } from '../src/features/round-finalization/maintenance';
 
 type Seat = {
   readonly id: string;
@@ -12,7 +12,10 @@ type Seat = {
   readonly slot: number;
   readonly kind: string;
 };
-/** Metadata only. Nothing here can hold a transcript, ballot text or a name. */
+/**
+ * One-off for ISSUE-906's sign-off: delete with that task. Metadata only:
+ * nothing here can hold a transcript, ballot text or a name.
+ */
 export type DryRunFacts = {
   readonly roundId: string;
   readonly nowMs: number;
@@ -48,8 +51,13 @@ export type DryRunFacts = {
     readonly holdsBallot: boolean;
     /** Null before the ADR 0095 migrations: then the budget from the freeze applies. */
     readonly generationDeadlineAt: string | null;
+    /** Calls that may already have been served. */
+    readonly paidCalls: number;
   }[];
 };
+
+/** The calls one job may buy; the job itself enforces this. */
+const MAX_CALLS = 2;
 
 /** Which non-final speeches the on-time rule settles, in actual order. */
 function windowsOf(facts: DryRunFacts) {
@@ -120,7 +128,7 @@ export function predictRoundCompletion(facts: DryRunFacts) {
   };
   const done = (prediction: Record<string, unknown>) => ({
     ...report,
-    prediction: { newPaidCalls: 0, ...prediction },
+    prediction: { mostNewPaidCalls: 0, ...prediction },
   });
   if (facts.status !== 'active')
     return done({ result: 'unchanged', reason: 'already_terminal' });
@@ -153,7 +161,7 @@ export function predictRoundCompletion(facts: DryRunFacts) {
       (job.holdsBallot && facts.nowMs < endsAtCutoffMs)
     );
   });
-  const decision = decideUnjudgedCompletion({
+  const decision = decidePanelCompletion({
     completeness: facts.completeness,
     humanJudgeSeatIds: facts.seats
       .filter((seat) => seat.role === 'judge' && seat.kind === 'human')
@@ -176,14 +184,19 @@ export function predictRoundCompletion(facts: DryRunFacts) {
     nowMs: facts.nowMs,
   });
   return done({
-    newPaidCalls: running.filter((job) => !job.holdsBallot).length * 2,
+    mostNewPaidCalls: running
+      .filter((job) => !job.holdsBallot)
+      .reduce((calls, job) => calls + Math.max(0, MAX_CALLS - job.paidCalls), 0),
     ...(decision.kind === 'pending'
       ? { result: 'waiting_on_a_judge' }
       : {
           result: 'completed',
           ruling: decision.ruling,
           outcome: decision.outcome,
-          ratingWritten: facts.ladderId !== null && decision.outcome !== null,
+          ratingWritten:
+            facts.ladderId !== null &&
+            decision.outcome !== null &&
+            facts.completeness === 'complete',
         }),
   });
 }
@@ -220,7 +233,7 @@ export async function readDryRunFacts(
     const ballots =
       await tx`select judge_participant_id,winner,status from ballots where round_id=${roundId}`;
     const jobs =
-      await tx`select judge_participant_id,status,pending_ballot is not null as holds,to_jsonb(j)->>'generation_deadline_at' as deadline from round_judging_jobs j where round_id=${roundId}`;
+      await tx`select judge_participant_id,status,pending_ballot is not null as holds,to_jsonb(j)->>'generation_deadline_at' as deadline,(select count(*)::int from agent_runs u where u.round_participant_id=j.judge_participant_id and u.kind='judging' and u.configuration_snapshot->>'providerOutcome' in ('unknown','received')) as paid from round_judging_jobs j where round_id=${roundId}`;
     return {
       roundId,
       nowMs: (round.now as Date).getTime(),
@@ -272,11 +285,13 @@ export async function readDryRunFacts(
           status: string;
           holds: boolean;
           deadline: string | null;
+          paid: number;
         }) => ({
           judgeParticipantId: j.judge_participant_id,
           status: j.status,
           holdsBallot: j.holds,
           generationDeadlineAt: j.deadline,
+          paidCalls: j.paid,
         }),
       ),
     };

@@ -2,7 +2,7 @@ import { createInvariantError } from '@daisy/errors';
 import type {
   DebateSide,
   RatedOutcome,
-  RoundUnjudgedCompletion,
+  RoundPanelCompletion,
 } from '@daisy/protocol';
 import { debateInvariantIds } from './invariant-ids';
 import type { CommandContext } from './round-commands';
@@ -13,7 +13,7 @@ type Ruling = {
   readonly winner: DebateSide;
   readonly status: 'submitted' | 'voided';
 };
-export type UnjudgedDecision =
+export type PanelDecision =
   | { readonly kind: 'pending' }
   | {
       readonly kind: 'complete';
@@ -61,14 +61,14 @@ export function freezeJudgingPlan(
  * rule; with none, or a tie the absent rulings would otherwise turn into a
  * draw, there is no outcome, and the ruling says why.
  */
-export function decideUnjudgedCompletion(
+export function decidePanelCompletion(
   input: PanelFacts & {
     readonly ballots: readonly Ruling[];
     /** NaN when no deadline was persisted: no human judge is waited on. */
     readonly ballotDeadlineAtMs: number;
     readonly nowMs: number;
   },
-): UnjudgedDecision {
+): PanelDecision {
   if (input.judgeSeatIds.length === 0)
     return {
       kind: 'complete',
@@ -131,15 +131,15 @@ const isClosedActiveRound = (
   c.closedCount() === c.rules.segments.length;
 
 /** The caller verifies immutable freeze and settled attendance under the Round lock. */
-export function applyUnjudgedCompletion(
+export function applyPanelCompletion(
   c: CommandContext,
-  input: RoundUnjudgedCompletion,
+  input: RoundPanelCompletion,
   participants: readonly { readonly id: string; readonly role: string }[],
 ): void {
   const judgeSeatIds = participants
     .filter((seat) => seat.role === 'judge')
     .map((seat) => seat.id);
-  const decision = decideUnjudgedCompletion({
+  const decision = decidePanelCompletion({
     completeness: input.completeness,
     humanJudgeSeatIds: input.humanJudgeSeatIds,
     runningAiSeatIds: input.runningAiSeatIds,
@@ -158,14 +158,14 @@ export function applyUnjudgedCompletion(
     decision.kind !== 'complete'
   )
     throw createInvariantError(
-      debateInvariantIds.unjudgedPlayedRound,
+      debateInvariantIds.panelPlayedRound,
       'Unjudged completion requires a closed Round with no judge still able to rule',
     );
   c.assertSeatCompleteness();
   const finalEnd = c.on.rows().at(-1)?.endedAtMs;
   if (finalEnd === undefined || finalEnd === null || c.now < finalEnd)
     throw createInvariantError(
-      debateInvariantIds.unjudgedPlayedRound,
+      debateInvariantIds.panelPlayedRound,
       'Unjudged completion follows the actual final end',
     );
   c.on.endPrep();

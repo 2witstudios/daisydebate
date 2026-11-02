@@ -234,7 +234,7 @@ describe('liveRoundOf during the round', () => {
     const room = liveRoundOf(
       {
         ...ran(rules.length, true),
-        judging: {
+        waitingOn: {
           state: 'human_window',
           // The deadline the server persisted at the freeze, never recomputed here.
           deadlineAt: new Date(origin + closedAt + 30 * 60_000).toISOString(),
@@ -293,7 +293,7 @@ describe('liveRoundOf during the round', () => {
       const room = liveRoundOf(
         {
           ...ran(rules.length, true),
-          judging: {
+          waitingOn: {
             state,
             deadlineAt:
               state === 'ai_processing'

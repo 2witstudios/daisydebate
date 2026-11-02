@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { debateSides, idSchema, type DebateSide } from './primitives';
 
 /** Internal facts from the locked Round; never a public command body. */
-export type RoundUnjudgedCompletion = {
+export type RoundPanelCompletion = {
   readonly now: string;
   /** The Round's stored ballots and the deadline persisted at its freeze (DEC-201, DEC-207). */
   readonly ballots: readonly {
@@ -20,7 +20,7 @@ export type RoundUnjudgedCompletion = {
 };
 
 /** Why the unjudged finalizer completed a Round (DEC-201, DEC-207, DEC-208). */
-export const unjudgedRulingSchema = z.enum([
+export const panelRulingSchema = z.enum([
   'unjudged',
   'judges-did-not-rule',
   'transcript-incomplete',
@@ -34,16 +34,16 @@ export const unjudgedRulingSchema = z.enum([
  * judges in `noRuling` gave no ruling: with no ballot at all the judges did
  * not rule and there is no outcome; otherwise the submitted ballots decide.
  */
-export const roundUnjudgedReceiptSchema = z.strictObject({
+export const roundPanelReceiptSchema = z.strictObject({
   version: z.literal(1),
   commandId: idSchema,
   roundId: idSchema,
   freezeRevision: z.int().positive(),
   resultingVersion: z.int().positive(),
   status: z.literal('completed'),
-  ruling: unjudgedRulingSchema,
+  ruling: panelRulingSchema,
   outcome: z.enum([...debateSides, 'draw']).nullable(),
   noRuling: z.array(idSchema).readonly(),
   replayed: z.boolean(),
 });
-export type RoundUnjudgedReceipt = z.infer<typeof roundUnjudgedReceiptSchema>;
+export type RoundPanelReceipt = z.infer<typeof roundPanelReceiptSchema>;

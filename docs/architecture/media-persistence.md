@@ -352,10 +352,10 @@ at once, judged Rounds once their ballot deadline passes. The freeze persists
 that deadline (`rounds.ballot_deadline_at`, default 30 minutes after the freeze,
 DEC-201 and DEC-207); it is immutable, the ballot path refuses a ballot at or
 after it, and the deferred `rounds_unjudged_participants_check` triggers refuse
-a null-outcome completion of a judged Round before it. `completeUnjudgedRound` holds the global command fence,
+a null-outcome completion of a judged Round before it. `completePanelRound` holds the global command fence,
 canonical account and Round fences, reads the stored ballots and freeze time, and
-consumes the shared engine's `completeUnjudged` projection, whose
-`decideUnjudgedCompletion` decides eligibility and outcome. It refuses
+consumes the shared engine's `completePanel` projection, whose
+`decidePanelCompletion` decides eligibility and outcome. It refuses
 incomplete play, pending check-in attempts, inconsistent cast facts, ranked or
 practice inputs, existing ratings and judged Rounds inside their deadline. The
 existing command ledger stores one internal service receipt bound to the exact

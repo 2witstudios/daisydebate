@@ -1,3 +1,4 @@
+import { roundWaitingOn } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -48,7 +49,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
         actual: {
           window,
           done: [done.status, done.outcome],
-          ruling: [receipt?.result.ruling, view.unjudgedRuling],
+          ruling: [receipt?.result.ruling, view.panelRuling],
           spend,
         },
         expected: {
@@ -147,7 +148,7 @@ test('a failed AI judge ends a rated Round honestly: no human countdown, no winn
   await withRoomRuntime(async (f) => {
     const { roundId } = await frozenBotJudgeRound(f, true);
     await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
-    const seen = () => f.store.readLaunchedRound(roundId, f.host, () => true);
+    const seen = () => f.store.readLaunchedRound(roundId, f.host, () => true, roundWaitingOn);
     const processing = await seen();
     const [row] =
       await f.sql`select ballot_deadline_at from rounds where id=${roundId}`;
@@ -166,12 +167,12 @@ test('a failed AI judge ends a rated Round honestly: no human countdown, no winn
       should:
         'show AI processing with no human window, then failure, then complete with no winner or rating and hold nobody',
       actual: {
-        processing: processing.judging?.state,
+        processing: processing.waitingOn?.state,
         humanDeadline: row.ballot_deadline_at,
-        failed: failed.judging?.state,
+        failed: failed.waitingOn?.state,
         done: [done.status, done.outcome],
-        ruling: view.unjudgedRuling,
-        terminalStatus: view.judging,
+        ruling: view.panelRuling,
+        terminalStatus: view.waitingOn,
         ...facts,
       },
       expected: {

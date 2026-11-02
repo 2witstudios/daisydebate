@@ -2,10 +2,10 @@
   "version": 1,
   "invariants": [
     {
-      "id": "round.complete.unjudged-played-round",
-      "check": "unjudged-played-round",
+      "id": "round.complete.panel-played-round",
+      "check": "panel-played-round",
       "testReference": {
-        "path": "packages/debate-engine/src/round-unjudged.test.ts",
+        "path": "packages/debate-engine/src/round-panel-completion.test.ts",
         "name": "unjudged completion refuses with its invariant and preserves state"
       }
     },

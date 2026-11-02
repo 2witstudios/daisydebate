@@ -52,7 +52,6 @@ export const judgingAttemptCategories = [
   'provider_refused',
   'provider_error',
   'timeout',
-  'cancelled',
 ] as const;
 export type JudgingAttemptCategory = (typeof judgingAttemptCategories)[number];
 

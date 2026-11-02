@@ -9,7 +9,7 @@ const scheduled: RoundReceiptView = {
   roomId: 'room-owned',
   status: 'scheduled',
   outcome: null,
-  unjudgedRuling: null,
+  panelRuling: null,
   topic: '<Frozen topic>',
   config: { preRoundPrep: { enabled: true, durationMs: 45000 } },
   rules: {
@@ -179,7 +179,7 @@ test('a Round closed on an incomplete transcript says so instead of blaming the 
       round={{
         ...judged,
         outcome: null,
-        unjudgedRuling: 'transcript-incomplete',
+        panelRuling: 'transcript-incomplete',
       }}
     />,
   );

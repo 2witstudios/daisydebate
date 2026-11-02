@@ -1,27 +1,11 @@
-import type { RoundJudgingStatus } from '@daisy/protocol';
+import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
 
 /**
  * The one thing a played Round is waiting on, for every viewer's room. The
  * deadline is always a persisted one; no client ever invents a competitive
  * window. Null while the speeches are still running.
  */
-export function roundJudgingStatus(input: {
-  readonly nowMs: number;
-  readonly finalSegmentEnded: boolean;
-  readonly frozen: boolean;
-  /** An uncertain check-in writer holds every attendance decision. */
-  readonly heldByWriter: boolean;
-  readonly attendanceUnresolved: boolean;
-  readonly ballotDeadlineAt: string | null;
-  readonly attendanceCutoffAt: string | null;
-  /** A human judge seat has not ruled. */
-  readonly humanJudgeUnruled: boolean;
-  readonly jobs: readonly {
-    readonly generationDeadlineAt: string;
-    readonly running: boolean;
-    readonly holdsBallot: boolean;
-  }[];
-}): RoundJudgingStatus | null {
+export function roundWaitingOn(input: RoundWaitingFacts): RoundWaitingOn | null {
   if (!input.finalSegmentEnded) return null;
   if (input.heldByWriter) return { state: 'held_by_writer', deadlineAt: null };
   if (!input.frozen) return { state: 'closing_transcript', deadlineAt: null };
@@ -32,7 +16,7 @@ export function roundJudgingStatus(input: {
   )
     return { state: 'human_window', deadlineAt: input.ballotDeadlineAt };
   const generating = input.jobs.filter(
-    (job) => job.running && !job.holdsBallot,
+    (job) => job.canRule && !job.holdsBallot,
   );
   if (generating.length > 0)
     return {
@@ -42,15 +26,14 @@ export function roundJudgingStatus(input: {
         .sort()
         .at(-1)!,
     };
-  if (
-    input.attendanceUnresolved ||
-    input.jobs.some((job) => job.running && job.holdsBallot)
-  )
+  if (input.attendanceUnresolved)
     return {
       state: 'awaiting_attendance',
       deadlineAt: input.attendanceCutoffAt,
     };
-  return input.jobs.some((job) => !job.running)
+  if (input.jobs.some((job) => job.canRule && job.holdsBallot))
+    return { state: 'settling', deadlineAt: null };
+  return input.jobs.some((job) => !job.canRule)
     ? { state: 'ai_failed', deadlineAt: null }
     : { state: 'settling', deadlineAt: null };
 }

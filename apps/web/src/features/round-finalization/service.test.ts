@@ -467,3 +467,41 @@ test('a long list is discovered a page at a time and a finished Round leaves the
   }
   await stopped;
 });
+
+test('a failing tick cannot stop a Round reaching its cutoff, and backs off too', async () => {
+  const evaluated: string[] = [];
+  const stages: string[] = [];
+  let ticks = 0;
+  const { service, pulse, advance } = driven({
+    discover: async () => page(['stuck']),
+    tick: async () => {
+      ticks++;
+      throw new Error('tick fault');
+    },
+    evaluate: async (id) => {
+      evaluated.push(id);
+      return null;
+    },
+    failed: (_error, stage) => stages.push(stage),
+  });
+  await service.ready;
+  await flush();
+  assert({
+    given: 'a tick that always fails',
+    should: 'still evaluate the Round',
+    actual: evaluated,
+    expected: ['stuck'],
+  });
+  await pulse();
+  await flush();
+  advance(1_000);
+  await pulse();
+  await flush();
+  assert({
+    given: 'repeated pulses inside the wait',
+    should: 'not retry or report the tick again',
+    actual: { ticks, stages },
+    expected: { ticks: 1, stages: ['tick'] },
+  });
+  await service.stop();
+});

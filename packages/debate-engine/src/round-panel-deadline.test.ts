@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { decideUnjudgedCompletion, freezeJudgingPlan } from './round-unjudged';
+import { decidePanelCompletion, freezeJudgingPlan } from './round-panel-completion';
 import {
   oneOnOneRules,
   oneOnOneSeats,
@@ -19,7 +19,7 @@ const ballot = (
   status: 'submitted' as const,
 });
 const at = (nowMs: number, ballots: ReturnType<typeof ballot>[] = []) =>
-  decideUnjudgedCompletion({
+  decidePanelCompletion({
     runningAiSeatIds: [],
     failedAiSeatIds: [],
     completeness: 'complete',
@@ -34,7 +34,7 @@ test('the ballot deadline decides when a Round without a full ruling completes (
   assert({
     given: 'no judge seats',
     should: 'complete at once as unjudged',
-    actual: decideUnjudgedCompletion({
+    actual: decidePanelCompletion({
       runningAiSeatIds: [],
       failedAiSeatIds: [],
       completeness: 'complete',
@@ -133,9 +133,9 @@ test('a judged Round completes without a winner only after its ballot deadline',
   await assertRejects({
     given: 'a judged Round one millisecond before its ballot deadline',
     should: 'refuse and preserve the Round',
-    actual: () => early.completeUnjudged(completion(total + 1_799_999)),
+    actual: () => early.completePanel(completion(total + 1_799_999)),
     code: 'INVARIANT',
-    invariantId: 'round.complete.unjudged-played-round',
+    invariantId: 'round.complete.panel-played-round',
   });
   assert({
     given: 'that refusal',
@@ -143,7 +143,7 @@ test('a judged Round completes without a winner only after its ballot deadline',
     actual: early.position(roundAt(total + 1_799_999)),
     expected: before,
   });
-  const result = judged().completeUnjudged(completion(total + 1_800_000));
+  const result = judged().completePanel(completion(total + 1_800_000));
   assert({
     given: `the judge seat ${judge.id} silent past its deadline`,
     should: 'complete with a null outcome and no fabricated ballot',
@@ -204,7 +204,7 @@ test('an incomplete freeze dispatches no AI judge and, with no human judge, clos
     completeness: 'complete' | 'incomplete',
     humanJudges: boolean,
   ) =>
-    decideUnjudgedCompletion({
+    decidePanelCompletion({
       runningAiSeatIds: [],
       failedAiSeatIds: [],
       completeness,
@@ -239,7 +239,7 @@ test('an incomplete freeze completes once every human judge has ruled decisively
     ballots: ReturnType<typeof ballot>[],
     completeness: 'complete' | 'incomplete' = 'incomplete',
   ) =>
-    decideUnjudgedCompletion({
+    decidePanelCompletion({
       runningAiSeatIds: [],
       failedAiSeatIds: [],
       completeness,
@@ -257,7 +257,7 @@ test('an incomplete freeze completes once every human judge has ruled decisively
     actual: [
       decide([human], [ballot(human, 'negative')]),
       decide([human], []),
-      decideUnjudgedCompletion({
+      decidePanelCompletion({
         completeness: 'complete',
         humanJudgeSeatIds: [human],
         judgeSeatIds: [human, ai],
@@ -267,7 +267,7 @@ test('an incomplete freeze completes once every human judge has ruled decisively
         ballotDeadlineAtMs: 61_000,
         nowMs: 1_000,
       }),
-      decideUnjudgedCompletion({
+      decidePanelCompletion({
         runningAiSeatIds: [],
         failedAiSeatIds: [],
         completeness: 'incomplete',
@@ -303,7 +303,7 @@ test('the panel decides from each seat: every mode ends, and only a judge who ca
     readonly completeness?: 'complete' | 'incomplete';
     readonly deadline?: number;
   }) =>
-    decideUnjudgedCompletion({
+    decidePanelCompletion({
       completeness: input.completeness ?? 'complete',
       humanJudgeSeatIds: input.humans ?? [],
       judgeSeatIds: input.seats,

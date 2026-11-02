@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { roundJudgingStatus } from './round-judging-status';
+import { roundWaitingOn } from './round-waiting-on';
 
 setupRitewayBun();
 
@@ -17,17 +17,17 @@ const base = {
 };
 const job = (overrides = {}) => ({
   generationDeadlineAt: at(5_000),
-  running: true,
+  canRule: true,
   holdsBallot: false,
   ...overrides,
 });
 
-describe('roundJudgingStatus', () => {
+describe('roundWaitingOn', () => {
   test('names the one thing the Round is waiting on, from server facts', () => {
     const cases: [
       string,
-      Partial<Parameters<typeof roundJudgingStatus>[0]>,
-      ReturnType<typeof roundJudgingStatus>,
+      Partial<Parameters<typeof roundWaitingOn>[0]>,
+      ReturnType<typeof roundWaitingOn>,
     ][] = [
       ['speeches still running', { finalSegmentEnded: false }, null],
       [
@@ -42,7 +42,7 @@ describe('roundJudgingStatus', () => {
       ],
       [
         'an AI job ended with no ballot',
-        { jobs: [job({ running: false })] },
+        { jobs: [job({ canRule: false })] },
         { state: 'ai_failed', deadlineAt: null },
       ],
       [
@@ -55,7 +55,7 @@ describe('roundJudgingStatus', () => {
         {
           humanJudgeUnruled: true,
           ballotDeadlineAt: at(2_000),
-          jobs: [job({ running: false })],
+          jobs: [job({ canRule: false })],
         },
         { state: 'human_window', deadlineAt: at(2_000) },
       ],
@@ -73,6 +73,16 @@ describe('roundJudgingStatus', () => {
         { state: 'awaiting_attendance', deadlineAt: at(9_000) },
       ],
       [
+        'a validated ballot still submitting, attendance settled: no false cause',
+        { jobs: [job({ holdsBallot: true })] },
+        { state: 'settling', deadlineAt: null },
+      ],
+      [
+        'a held ballot past its bound',
+        { jobs: [job({ holdsBallot: true, canRule: false })] },
+        { state: 'ai_failed', deadlineAt: null },
+      ],
+      [
         'an uncertain writer: it outranks everything, with no deadline',
         {
           heldByWriter: true,
@@ -87,7 +97,7 @@ describe('roundJudgingStatus', () => {
       assert({
         given,
         should: `be ${expected?.state ?? 'null'}`,
-        actual: roundJudgingStatus({ ...base, ...overrides }),
+        actual: roundWaitingOn({ ...base, ...overrides }),
         expected,
       });
   });

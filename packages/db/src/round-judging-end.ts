@@ -15,9 +15,14 @@ export const judgingJobCanRule = sql`(round_judging_jobs.status in ('queued','le
 
 /** A judging job still open when its Round ends has ended too, with that reason. */
 export async function endOpenJudgingJobs(
-  tx: Pick<BunSQLDatabase, 'update'>,
+  tx: Pick<BunSQLDatabase, 'update' | 'execute'>,
   roundId: string,
 ) {
+  // A job's run ends with it, or a dead lease reads as still running.
+  await tx.execute(sql`update agent_runs set ended_at=clock_timestamp()
+    where kind='judging' and ended_at is null and round_participant_id in (
+      select judge_participant_id from round_judging_jobs
+      where round_id=${roundId} and status in ('queued','leased'))`);
   await tx
     .update(roundJudgingJobs)
     .set({

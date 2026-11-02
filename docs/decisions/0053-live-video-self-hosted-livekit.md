@@ -92,7 +92,7 @@ rather than claiming successful permissions or removal.
 
 Join tokens last 60 s for initial admission, carry only current grants, and never grant room create/admin/list/record. Refreshed credentials may outlive that TTL. Daisy creates a missing LiveKit room before minting; `room.auto_create` is false. Terminal commit closes admission and durably schedules deletion; session fencing serializes creation and terminal reconciliation. Persist uncertain vendor outcomes across restart and retry until absence is verified before claiming cleanup. Reconcile also tears down terminal/expired sessions. Failure reports are scrubbed and cannot change a committed result.
 
-The judging window is a bounded wait, default 30 minutes from actual final segment close (ADR 0067 supersedes the earlier scheduled-end alternative). It cannot be computed from a fixed total added to the initial start when prep, yields and interruption affect execution. Persist or derive an immutable final-end anchor in the owning media implementation; do not invent a second round lifecycle.
+The judging window is a bounded wait, default 30 minutes from actual final segment close (ADR 0067 supersedes the earlier scheduled-end alternative). It cannot be computed from a fixed total added to the initial start when prep, yields and interruption affect execution. Persist or derive an immutable final-end anchor in the owning media implementation; do not invent a second round lifecycle. For a human judge it now runs from the freeze, and an AI-only panel has none ([ADR 0095](0095-honest-round-completion.md)).
 
 ### 4. Tokens, route ownership and teardown
 

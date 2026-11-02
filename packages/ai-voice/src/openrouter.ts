@@ -1,4 +1,3 @@
-import type { JudgingFinish } from '@daisy/protocol';
 import { createAppError, isAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { readPcmSpeech, requireSpeechNotCancelled } from './pcm';
@@ -58,8 +57,15 @@ const completionSchema = z.object({
     .object({ prompt_tokens: z.number(), completion_tokens: z.number() })
     .optional(),
 });
-/** A provider's finish reason as a closed fact; its raw string goes no further. */
-const finishOf = (reason: string | null | undefined): JudgingFinish => {
+/** How a completion ended, as a closed fact; the raw string goes no further. */
+export type CompletionFinish =
+  | 'stop'
+  | 'length'
+  | 'content_filter'
+  | 'other'
+  | 'none';
+
+const finishOf = (reason: string | null | undefined): CompletionFinish => {
   if (reason === undefined || reason === null) return 'none';
   return reason === 'stop' || reason === 'length' || reason === 'content_filter'
     ? reason

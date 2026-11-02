@@ -364,7 +364,7 @@ test('a held ballot that can never submit stops holding the Round at the cutoff'
       return (row as { can: boolean }).can;
     };
     const before = await canRule();
-    await fixture.sql`update rounds set final_segment_ended_at=clock_timestamp()-interval '2 hours',transcript_admission_cutoff=clock_timestamp()-interval '2 hours',attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+    await fixture.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
     assert({
       given: 'a validated ballot past its budget, before and after the cutoff',
       should: 'count as able to rule only until the cutoff',

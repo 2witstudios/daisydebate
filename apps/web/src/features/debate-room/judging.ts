@@ -1,4 +1,4 @@
-import type { CompetitionType, RoundJudgingStatus } from '@daisy/protocol';
+import type { CompetitionType, RoundWaitingOn } from '@daisy/protocol';
 
 /**
  * The ballots a round is judged by. One ballot decides it: the human
@@ -37,7 +37,7 @@ const decides = (competition: CompetitionType) =>
  */
 const decidingStatus = (
   judge: JudgingBallots['judge'],
-  state: RoundJudgingStatus['state'] | null,
+  state: RoundWaitingOn['state'] | null,
   competition: CompetitionType,
 ): string => {
   const writing = `Writing · ${decides(competition)}`;
@@ -66,7 +66,7 @@ const decidingStatus = (
 export function ballotLines(
   ballots: JudgingBallots,
   competition: CompetitionType,
-  state: RoundJudgingStatus['state'] | null = null,
+  state: RoundWaitingOn['state'] | null = null,
 ): readonly BallotLine[] {
   const deciding: BallotLine = {
     title: ballots.judge === 'ai' ? 'AI judge’s ballot' : 'Judge’s ballot',
@@ -90,7 +90,7 @@ export function ballotLines(
  * counted to the deadline the server persisted. An AI judge has no such window.
  */
 export function judgingClockOf(
-  status: RoundJudgingStatus | null,
+  status: RoundWaitingOn | null,
   nowMs: number,
 ): { readonly label: string; readonly remainingMs: number } | null {
   if (status?.state !== 'human_window' || status.deadlineAt === null)

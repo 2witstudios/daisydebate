@@ -1,15 +1,15 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  recordedUnjudgedRuling,
-  requireUnjudgedFacts,
-  requireUnjudgedRequest,
-  requireUnjudgedRound,
-  requireUnjudgedTerminal,
-  unjudgedDigest,
-  unjudgedReceipt,
+  recordedPanelRuling,
+  requirePanelFacts,
+  requirePanelRequest,
+  requirePanelRound,
+  requirePanelTerminal,
+  panelDigest,
+  panelReceipt,
   validateUnjudgedReceipt,
-} from './round-unjudged-decisions';
+} from './round-panel-decisions';
 
 setupRitewayBun();
 
@@ -19,9 +19,9 @@ const ids = {
   roundId: 'roundaaaa1b2c3d4e5f6g7h8',
 };
 const request = { ...ids, freezeRevision: 2 };
-const digest = unjudgedDigest(request);
+const digest = panelDigest(request);
 const judgeSeat = 'judgeaaaa1b2c3d4e5f6g7h8';
-const receipt = unjudgedReceipt({
+const receipt = panelReceipt({
   commandId: ids.commandId,
   roundId: ids.roundId,
   freezeRevision: 2,
@@ -44,7 +44,7 @@ const commandRow = (
   appliedAt: new Date('2026-10-22T12:00:00.000Z'),
   ...overrides,
 });
-type Round = Parameters<typeof requireUnjudgedRound>[0];
+type Round = Parameters<typeof requirePanelRound>[0];
 const round = (overrides: Record<string, unknown> = {}): Round =>
   ({
     competitionType: 'casual',
@@ -59,9 +59,9 @@ const durable = {
   ratings: false,
 };
 const facts = (
-  overrides: Partial<Parameters<typeof requireUnjudgedFacts>[0]>,
+  overrides: Partial<Parameters<typeof requirePanelFacts>[0]>,
 ) =>
-  requireUnjudgedFacts({
+  requirePanelFacts({
     freezeRevision: 2,
     freeze: { revision: 2 },
     durable,
@@ -78,13 +78,13 @@ test('requests need cuid2 identities and a positive integer freeze revision', as
     await assertRejects({
       given: `an unjudged request ${JSON.stringify(invalid)}`,
       should: 'refuse it as invalid input',
-      actual: () => requireUnjudgedRequest(invalid),
+      actual: () => requirePanelRequest(invalid),
       code: 'VALIDATION',
     });
   assert({
     given: 'a well-formed request',
     should: 'admit it',
-    actual: requireUnjudgedRequest(request),
+    actual: requirePanelRequest(request),
     expected: undefined,
   });
 });
@@ -96,13 +96,13 @@ test('the command digest binds the Round and frozen revision only', () => {
     should:
       'produce the same digest, while another revision produces a different one',
     actual: [
-      unjudgedDigest({
+      panelDigest({
         ...request,
         instanceId: 'otherinsta1b2c3d4e5f6g7h8',
       }) === digest,
-      unjudgedDigest({ ...request, commandId: 'othercomm1b2c3d4e5f6g7h8' }) ===
+      panelDigest({ ...request, commandId: 'othercomm1b2c3d4e5f6g7h8' }) ===
         digest,
-      unjudgedDigest({ ...request, freezeRevision: 3 }) === digest,
+      panelDigest({ ...request, freezeRevision: 3 }) === digest,
       /^[0-9a-f]{64}$/.test(digest),
     ],
     expected: [true, true, false, true],
@@ -157,15 +157,15 @@ test('a replay stands only while the Round is completed with the receipt outcome
     await assertRejects({
       given: `a Round now ${state.status} with outcome ${state.outcome} against a receipt of ${recorded}`,
       should: 'refuse the replayed receipt',
-      actual: () => requireUnjudgedTerminal(state, recorded),
+      actual: () => requirePanelTerminal(state, recorded),
       code: 'CONFLICT',
     });
   assert({
     given: 'completed Rounds whose outcome matches the receipt',
     should: 'admit the replay',
     actual: [
-      requireUnjudgedTerminal({ status: 'completed', outcome: null }, null),
-      requireUnjudgedTerminal(
+      requirePanelTerminal({ status: 'completed', outcome: null }, null),
+      requirePanelTerminal(
         { status: 'completed', outcome: 'negative' },
         'negative',
       ),
@@ -182,15 +182,15 @@ test('only a fully played Round is eligible, on any ladder, judged or not', asyn
     await assertRejects({
       given: `${label}`,
       should: 'refuse deadline completion as ineligible',
-      actual: () => requireUnjudgedRound(candidate as Round),
+      actual: () => requirePanelRound(candidate as Round),
       code: 'CONFLICT',
     });
   assert({
     given: 'a played casual Round without judges, and one with a judge seat',
     should: 'admit both',
     actual: [
-      requireUnjudgedRound(round()),
-      requireUnjudgedRound(
+      requirePanelRound(round()),
+      requirePanelRound(
         round({ participants: [{ role: 'affirmative' }, { role: 'judge' }] }),
       ),
     ],
@@ -265,13 +265,13 @@ test('the Round view reads the ruling only from this service unjudged receipt (D
       'the service receipt, an actor completion, another service, a non-receipt result and no rows',
     should: 'return the receipt ruling only for this service receipt',
     actual: [
-      recordedUnjudgedRuling([commandRow({ result: incomplete })]),
-      recordedUnjudgedRuling([
+      recordedPanelRuling([commandRow({ result: incomplete })]),
+      recordedPanelRuling([
         commandRow({ actorId: 'actoraaaa1b2c3d4e5f6g7h8', serviceId: null }),
       ]),
-      recordedUnjudgedRuling([commandRow({ serviceId: 'attendance:x' })]),
-      recordedUnjudgedRuling([commandRow({ result: { status: 'completed' } })]),
-      recordedUnjudgedRuling([]),
+      recordedPanelRuling([commandRow({ serviceId: 'attendance:x' })]),
+      recordedPanelRuling([commandRow({ result: { status: 'completed' } })]),
+      recordedPanelRuling([]),
     ],
     expected: ['transcript-incomplete', null, null, null, null],
   });

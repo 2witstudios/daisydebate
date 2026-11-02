@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 /**
  * Read-only: what ADR 0095 would do to the named Rounds on deploy (ISSUE-906).
- * Metadata only, inside a READ ONLY transaction: no text, no writes.
+ * Metadata only, inside a READ ONLY transaction: no text, no writes. A one-off:
+ * delete it with ISSUE-906.
  *
  *   DATABASE_URL=<read-only target> bun apps/web/scripts/round-completion-dry-run.ts <roundId>...
  */
@@ -10,7 +11,7 @@ import { SQL } from 'bun';
 import {
   predictRoundCompletion,
   readDryRunFacts,
-} from '../src/features/round-finalization/completion-dry-run';
+} from './round-completion-dry-run-report';
 
 const roundIds = process.argv.slice(2);
 const url = process.env['DATABASE_URL'];

@@ -1,5 +1,5 @@
 import { createAppError, isAppError } from '@daisy/errors';
-import type { RoundUnjudgedReceipt } from '@daisy/protocol';
+import type { RoundPanelReceipt } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -24,15 +24,15 @@ import { ballots } from './schema/ballots';
 import { roundCommands } from './schema/round-commands';
 import {
   requireCompletionProjection,
-  requireUnjudgedFacts,
-  requireUnjudgedRequest,
-  requireUnjudgedRound,
-  requireUnjudgedTerminal,
-  unjudgedDigest,
-  unjudgedReceipt,
+  requirePanelFacts,
+  requirePanelRequest,
+  requirePanelRound,
+  requirePanelTerminal,
+  panelDigest,
+  panelReceipt,
   validateUnjudgedReceipt,
-  type UnjudgedDurableFacts,
-} from './round-unjudged-decisions';
+  type PanelDurableFacts,
+} from './round-panel-decisions';
 
 type CompletionFacts = Parameters<
   LockedRoundTickInput['buildProjection']
@@ -58,7 +58,7 @@ type Request = LockedRoundTickInput & {
   /** The engine decides; the caller supplies the ruling it decided with the projection. */
   readonly buildCompletion: (facts: CompletionFacts) => {
     readonly projection: ReturnType<LockedRoundTickInput['buildProjection']>;
-    readonly ruling: RoundUnjudgedReceipt['ruling'];
+    readonly ruling: RoundPanelReceipt['ruling'];
     readonly noRuling: readonly string[];
     readonly ballotIds: readonly string[];
   };
@@ -83,7 +83,7 @@ async function replay(
     .limit(1);
   if (!row) return null;
   const receipt = validateUnjudgedReceipt(row, input, digest);
-  requireUnjudgedTerminal(
+  requirePanelTerminal(
     await lockedRoundVersion(tx, input.roundId),
     receipt.outcome,
   );
@@ -128,11 +128,11 @@ async function readCompletionFacts(
     exists(select 1 from rating_changes where round_id=${input.roundId}) as ratings
     from rounds where id=${input.roundId}`);
   const now = await sampleRoundExecutionTime(tx);
-  requireUnjudgedRound(round);
-  const { freeze: frozen, ballotDeadlineAt } = requireUnjudgedFacts({
+  requirePanelRound(round);
+  const { freeze: frozen, ballotDeadlineAt } = requirePanelFacts({
     freezeRevision: input.freezeRevision,
     freeze,
-    durable: durable as UnjudgedDurableFacts | undefined,
+    durable: durable as PanelDurableFacts | undefined,
   });
   await assertRoundAttendanceSettled(tx, { roundId: input.roundId, now });
   const stored = await tx
@@ -160,7 +160,7 @@ async function readCompletionFacts(
 
 async function complete(tx: BoundedTransactionContext, input: Request) {
   await requireCurrentWeb(tx, input.instanceId);
-  const digest = unjudgedDigest(input);
+  const digest = panelDigest(input);
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtextextended(${input.commandId},59002))`,
   );
@@ -197,8 +197,8 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     projection,
     now,
   );
-  if (!changed) throw createAppError('CONFLICT', 'unjudged-projection');
-  const receipt = unjudgedReceipt({
+  if (!changed) throw createAppError('CONFLICT', 'panel-projection');
+  const receipt = panelReceipt({
     commandId: input.commandId,
     roundId: input.roundId,
     freezeRevision: freeze.revision,
@@ -241,10 +241,10 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
   return receipt;
 }
 
-export function roundUnjudgedCompletionOperations(run: BoundedTransaction) {
+export function roundPanelCompletionOperations(run: BoundedTransaction) {
   return {
-    completeUnjudgedRound(input: Request): Promise<RoundUnjudgedReceipt> {
-      requireUnjudgedRequest(input);
+    completePanelRound(input: Request): Promise<RoundPanelReceipt> {
+      requirePanelRequest(input);
       return run((tx) => complete(tx, input));
     },
   };

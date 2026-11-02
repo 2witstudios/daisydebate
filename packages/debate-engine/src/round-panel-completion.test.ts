@@ -58,7 +58,7 @@ const closedWith = (overrides: Parameters<typeof runtimeWorld>[0]) => {
 
 test('zero-judge completion projects an unjudged terminal result in the shared engine', () => {
   const world = played();
-  const result = world.completeUnjudged(facts(roundAt(total + 120_000)));
+  const result = world.completePanel(facts(roundAt(total + 120_000)));
   assert({
     given: 'the actual closed zero-judge schedule',
     should: 'complete with no competitive outcome or fabricated ballot',
@@ -100,9 +100,9 @@ test('unjudged completion refuses with its invariant and preserves state', async
     await assertRejects({
       given: 'a Round not played to its end, or with judges still able to rule',
       should: 'refuse an ineligible completion',
-      actual: () => world.completeUnjudged(facts(roundAt(total + 120_000))),
+      actual: () => world.completePanel(facts(roundAt(total + 120_000))),
       code: 'INVARIANT',
-      invariantId: 'round.complete.unjudged-played-round',
+      invariantId: 'round.complete.panel-played-round',
     });
     assert({
       given: 'that refusal',
@@ -120,9 +120,9 @@ test('unjudged completion does not accept a clock before the actual final end', 
     await assertRejects({
       given: now,
       should: 'refuse time preceding actual final closure',
-      actual: () => world.completeUnjudged(facts(now)),
+      actual: () => world.completePanel(facts(now)),
       code: 'INVARIANT',
-      invariantId: 'round.complete.unjudged-played-round',
+      invariantId: 'round.complete.panel-played-round',
     });
     assert({
       given: now,

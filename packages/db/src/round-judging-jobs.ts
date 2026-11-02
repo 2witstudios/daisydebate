@@ -131,6 +131,7 @@ export function createRoundJudgingJobs(input: {
           .select({
             roundId: roundJudgingJobs.roundId,
             judgeParticipantId: roundJudgingJobs.judgeParticipantId,
+            holdsBallot: sql<boolean>`${roundJudgingJobs.pendingBallot} is not null`,
           })
           .from(roundJudgingJobs)
           .innerJoin(rounds, eq(rounds.id, roundJudgingJobs.roundId))
@@ -149,7 +150,9 @@ export function createRoundJudgingJobs(input: {
               ),
             ),
           )
+          // Work against a budget first: a held ballot's retry buys nothing.
           .orderBy(
+            sql`${roundJudgingJobs.pendingBallot} is not null`,
             asc(roundJudgingJobs.createdAt),
             asc(roundJudgingJobs.roundId),
             asc(roundJudgingJobs.judgeParticipantId),

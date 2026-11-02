@@ -50,7 +50,10 @@ export const roundJudgingJobs = pgTable(
     pendingBallotEpoch: integer('pending_ballot_epoch'),
     pendingBallotReceivedAt: timestampColumn('pending_ballot_received_at'),
     /** The AI judging budget, persisted at the freeze (DEC-275). Bounds provider work only. */
-    generationDeadlineAt: timestampColumn('generation_deadline_at').notNull(),
+    generationDeadlineAt: timestampColumn('generation_deadline_at')
+      .notNull()
+      // Expand: a process from the previous release still inserts without it.
+      .default(sql`clock_timestamp() + interval '5 minutes'`),
     /** Pinned by the first claim, so a deploy cannot change a job's model between attempts. */
     model: text('model'),
     /** The job is not claimable before this; set by a retryable attempt failure. */

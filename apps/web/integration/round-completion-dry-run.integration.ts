@@ -7,7 +7,7 @@ import { createAttendanceFeature } from '../src/features/attendance/operations';
 import {
   predictRoundCompletion,
   readDryRunFacts,
-} from '../src/features/round-finalization/completion-dry-run';
+} from '../scripts/round-completion-dry-run-report';
 import { botAdmissionForTests } from './bot-admission.test-support';
 import { frozenBotJudgeRound } from './round-judging.test-support';
 import { finalizeByMaintenance } from './round-maintenance.test-support';
@@ -65,7 +65,7 @@ test('the dry run predicts what the real maintenance path then does, and cannot 
       expected: {
         unchanged: before,
         prediction: {
-          newPaidCalls: 0,
+          mostNewPaidCalls: 0,
           result: 'completed',
           ruling: 'judging-failed',
           outcome: null,
@@ -100,7 +100,7 @@ test('the dry run predicts what the real maintenance path then does, and cannot 
       actual: {
         status: done.status,
         outcome: done.outcome,
-        ruling: view.unjudgedRuling,
+        ruling: view.panelRuling,
       },
       expected: {
         status: 'completed',
