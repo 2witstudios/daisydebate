@@ -22,7 +22,6 @@ import {
 import { writeSpeakingProjection } from './round-speaking-writer';
 import { ballots } from './schema/ballots';
 import { roundCommands } from './schema/round-commands';
-import { roundJudgingJobs } from './schema/round-judging-jobs';
 import {
   requireCompletionProjection,
   requireUnjudgedFacts,

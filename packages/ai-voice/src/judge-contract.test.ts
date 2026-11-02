@@ -193,7 +193,9 @@ describe('judgeAnswer', () => {
       actual: failure(answer({ ...ballot, winner: 'draw' })).issues[0]?.field,
       expected: 'winner',
     });
-    const { thesis: _thesis, ...withoutThesis } = scores;
+    const withoutThesis = Object.fromEntries(
+      Object.entries(scores).filter(([category]) => category !== 'thesis'),
+    );
     assert({
       given: 'a ballot missing a category score',
       should: 'name the missing score',

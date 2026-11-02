@@ -127,6 +127,25 @@ export function createAvailabilitySampler(client: SQL) {
   };
 }
 
+export type PublicProbeProblem =
+  | 'round_missing'
+  | 'round_not_active'
+  | 'segment_missing'
+  | 'participant_missing';
+const publicProbeProblems = (facts: {
+  readonly status: string | null;
+  readonly segment: boolean;
+  readonly participant: boolean;
+}): readonly PublicProbeProblem[] => [
+  ...(facts.status === null
+    ? (['round_missing'] as const)
+    : facts.status === 'active'
+      ? []
+      : (['round_not_active'] as const)),
+  ...(facts.segment ? [] : (['segment_missing'] as const)),
+  ...(facts.participant ? [] : (['participant_missing'] as const)),
+];
+
 /**
  * The samples a decision about anything opened at or after `from` needs
  * (ISSUE-529): the latest recovery samples before `from`, which fix the
@@ -170,6 +189,22 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
         where service_instances.role=excluded.role`;
     },
     availabilitySampler: () => createAvailabilitySampler(dedicated),
+    /**
+     * Whether the configured probe's synthetic resources still exist and can
+     * take a receipt. A healthy answer says nothing about public ingress: only
+     * a real check-in proves that.
+     */
+    async publicProbeResourceProblems(probe: {
+      readonly roundId: string;
+      readonly segmentId: string;
+      readonly participantId: string;
+    }): Promise<readonly PublicProbeProblem[]> {
+      const [facts] = await client`select
+        (select status from rounds where id=${probe.roundId}) as status,
+        exists(select 1 from round_segments where id=${probe.segmentId} and round_id=${probe.roundId}) as segment,
+        exists(select 1 from round_participants where id=${probe.participantId} and round_id=${probe.roundId}) as participant`;
+      return publicProbeProblems(facts);
+    },
     async readAvailabilitySamples(
       from: string,
     ): Promise<readonly AvailabilityEvidence[]> {

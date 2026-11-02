@@ -45,7 +45,10 @@ export function createMediaWorkerDatabase(input: {
       connection: RUNTIME_SESSION,
     });
   return {
-    async discoverCaptureSessions(limit: number) {
+    async discoverCaptureSessions(
+      limit: number,
+      excluded: readonly string[] = [],
+    ) {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
         throw createAppError('VALIDATION');
       const rows: { round_id: string; session_id: string }[] = await client`
@@ -57,6 +60,7 @@ export function createMediaWorkerDatabase(input: {
           and s.deletion_requested_at is null
           and r.status in ('scheduled', 'active')
           and (l.session_id is null or l.expires_at <= clock_timestamp())
+          and s.id not in (select jsonb_array_elements_text(${JSON.stringify(excluded)}::jsonb))
         order by s.created_at, s.id
         limit ${limit}`;
       return rows.map((row) => ({

@@ -2,6 +2,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { withFixture } from './constraint-helpers';
 import {
   availabilityOperations,
   type AvailabilityEvidence,
@@ -336,4 +337,47 @@ test('ISSUE-893: the same sampler recovers election after its exact backend is l
     await dedicated.close({ timeout: 0 });
     await control.close({ timeout: 0 });
   }
+});
+
+test('ISSUE-886: the probe check names each missing synthetic resource, without touching health', async () => {
+  await withFixture(databaseUrl, async (f) => {
+    const ops = availabilityOperations(f.sql, f.sql);
+    const absent = createId();
+    const ended = await f.round({
+      status: 'abandoned',
+      completed_at: new Date('2026-10-22T00:00:00.000Z'),
+    });
+    try {
+      const [before] =
+        await f.sql`select count(*)::int as n from availability_samples`;
+      const problems = await ops.publicProbeResourceProblems({
+        roundId: absent,
+        segmentId: absent,
+        participantId: absent,
+      });
+      const notActive = await ops.publicProbeResourceProblems({
+        roundId: ended,
+        segmentId: absent,
+        participantId: absent,
+      });
+      const [after] =
+        await f.sql`select count(*)::int as n from availability_samples`;
+      assert({
+        given: 'references to nothing, and to a Round that has ended',
+        should: 'name every problem and write no sample',
+        actual: { problems, notActive, added: after.n - before.n },
+        expected: {
+          problems: ['round_missing', 'segment_missing', 'participant_missing'],
+          notActive: [
+            'round_not_active',
+            'segment_missing',
+            'participant_missing',
+          ],
+          added: 0,
+        },
+      });
+    } finally {
+      await f.sql`delete from rounds where id=${ended}`;
+    }
+  });
 });

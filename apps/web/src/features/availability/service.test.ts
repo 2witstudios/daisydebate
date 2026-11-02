@@ -90,3 +90,71 @@ test('pending elected sampling cannot suppress the same peer lease cadence', asy
     await service.stop();
   }
 });
+
+test('missing probe resources are named at start and hourly, and never decide health', async () => {
+  let tick = async () => {};
+  let clock = 0;
+  const invalid: string[] = [];
+  const samples: unknown[] = [];
+  let reads = 0;
+  const service = startAvailabilityService({
+    instanceId: 'a'.repeat(24),
+    store: {
+      reconcileRoundCheckInAttempts: async () => 0,
+      renewServiceInstance: async () => {},
+      availabilitySampler: () => ({
+        elect: async () => true,
+        sample: async (input) => {
+          samples.push(input);
+        },
+        close: async () => {},
+      }),
+    },
+    probe: async () => true,
+    probeResources: async () => {
+      reads += 1;
+      return ['round_missing', 'participant_missing'];
+    },
+    probeInvalid: (problem) => invalid.push(problem),
+    nowMs: () => clock,
+    timers: {
+      setInterval: (callback) => {
+        tick = callback;
+        return 1;
+      },
+      clearInterval: () => {},
+    },
+    failed: () => {},
+  });
+  const settle = async () => {
+    for (let n = 0; n < 12; n++) await Promise.resolve();
+  };
+  await settle();
+  assert({
+    given: 'a configured probe whose Round and participant are gone',
+    should: 'name each problem at start, leaving the sample to the real probe',
+    actual: { invalid, samples },
+    expected: {
+      invalid: ['round_missing', 'participant_missing'],
+      samples: [{ publicProbeHealthy: true }],
+    },
+  });
+  await tick();
+  await settle();
+  assert({
+    given: 'the next second',
+    should: 'not read them again',
+    actual: reads,
+    expected: 1,
+  });
+  clock = 60 * 60_000;
+  await tick();
+  await settle();
+  assert({
+    given: 'an hour later',
+    should: 'check again',
+    actual: reads,
+    expected: 2,
+  });
+  await service.stop();
+});

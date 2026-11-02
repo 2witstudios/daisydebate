@@ -7,6 +7,8 @@ type Sampler = {
   }) => Promise<unknown>;
   readonly close: () => Promise<void>;
 };
+/** How often the elected sampler rechecks that the probe's resources exist. */
+const PROBE_RESOURCE_CHECK_MS = 60 * 60_000;
 /** Every peer renews its lease; only the actual elected session probes public ingress. */
 export function startAvailabilityService(deps: {
   readonly instanceId: string;
@@ -19,15 +21,40 @@ export function startAvailabilityService(deps: {
     readonly availabilitySampler: () => Sampler;
   };
   readonly probe: () => Promise<boolean>;
+  /**
+   * Whether the configured probe's resources still exist, read at start and
+   * then hourly. Null without a configured probe. Never decides health.
+   */
+  readonly probeResources?: () => Promise<readonly string[]>;
+  readonly probeInvalid?: (problem: string) => void;
+  /** Monotonic milliseconds. */
+  readonly nowMs?: () => number;
   readonly timers: WorkerTimers;
   readonly failed: () => void;
 }) {
+  const nowMs = deps.nowMs ?? (() => performance.now());
+  let resourcesCheckedAt = Number.NEGATIVE_INFINITY;
+  const checkProbeResources = async () => {
+    if (
+      !deps.probeResources ||
+      nowMs() - resourcesCheckedAt < PROBE_RESOURCE_CHECK_MS
+    )
+      return;
+    resourcesCheckedAt = nowMs();
+    try {
+      for (const problem of await deps.probeResources())
+        deps.probeInvalid?.(problem);
+    } catch {
+      deps.failed();
+    }
+  };
   const sampler = deps.store.availabilitySampler();
   let stopped = false;
   let running: Promise<void> | null = null;
   let renewing: Promise<boolean> | null = null;
   const cycle = async () => {
     if (!(await sampler.elect())) return;
+    await checkProbeResources();
     const [probe, reconciliation] = await Promise.allSettled([
       deps.probe(),
       deps.store.reconcileRoundCheckInAttempts(100),

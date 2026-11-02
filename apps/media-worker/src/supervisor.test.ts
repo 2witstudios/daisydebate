@@ -6,7 +6,8 @@ type Scope = { roundId: string; sessionId: string; workerId: string };
 const harness = (maxSessions = 2) => {
   let now = 0,
     ids = 0,
-    offered: { roundId: string; sessionId: string }[] = [];
+    offered: { roundId: string; sessionId: string }[] = [],
+    seenExcluded: readonly string[] = [];
   const launched: Scope[] = [],
     stopped: string[] = [],
     limits: number[] = [],
@@ -16,9 +17,12 @@ const harness = (maxSessions = 2) => {
     retryMs: { initial: 1000, max: 4000 },
     nowMs: () => now,
     nextWorkerId: () => `worker${++ids}`,
-    discover: async (limit) => {
+    discover: async (limit, excluded) => {
       limits.push(limit);
-      return offered;
+      seenExcluded = excluded;
+      return offered
+        .filter((s) => !excluded.includes(s.sessionId))
+        .slice(0, limit);
     },
     launch: (scope) => {
       launched.push(scope);
@@ -39,6 +43,7 @@ const harness = (maxSessions = 2) => {
     launched,
     stopped,
     limits,
+    excluded: () => seenExcluded,
     offer: (...sessions: string[]) => {
       offered = sessions.map((s) => ({ roundId: `round${s}`, sessionId: s }));
     },
@@ -174,5 +179,24 @@ test("a terminal Round's capture process stops for good and is never relaunched"
       'never relaunch it and record no capture failure (ISSUE-494, ISSUE-495)',
     actual: { launches, failures },
     expected: { launches: 1, failures: [] },
+  });
+});
+
+test('ISSUE-818 ISSUE-830: finished sessions never consume the discovery limit', async () => {
+  const h = harness(1);
+  h.offer('a', 'b');
+  await h.supervisor.tick();
+  await h.exit(h.launched[0]!.workerId, CAPTURE_FINISHED_EXIT);
+  await h.supervisor.tick();
+  assert({
+    given:
+      'a finished session still matched by discovery, ahead of a newer one',
+    should: 'exclude it from the query, so one slot finds the newer session',
+    actual: {
+      excluded: h.excluded(),
+      launched: h.launched.map((scope) => scope.sessionId),
+      lastLimit: h.limits.at(-1),
+    },
+    expected: { excluded: ['a'], launched: ['a', 'b'], lastLimit: 1 },
   });
 });

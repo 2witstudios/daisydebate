@@ -44,6 +44,23 @@ type DeviceInstant = { readonly wallMs: number; readonly monotonicMs: number };
  * larger of the two elapsed readings is taken: the wall clock keeps running
  * while a device sleeps, and the monotonic clock never jumps backwards.
  */
+/**
+ * The device reading a count starts from: kept while the render instant is the
+ * same, so an effect restarting mid-count continues rather than restarts it and
+ * Submit is never held up too long (ISSUE-675). A new render instant starts over.
+ */
+export const countdownMount = (
+  previous: {
+    readonly renderedAtMs: number;
+    readonly mounted: DeviceInstant;
+  } | null,
+  renderedAtMs: number,
+  read: () => DeviceInstant,
+) =>
+  previous?.renderedAtMs === renderedAtMs
+    ? previous
+    : { renderedAtMs, mounted: read() };
+
 export const countdownNowMs = ({
   renderedAtMs,
   mounted,

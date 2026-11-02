@@ -70,6 +70,7 @@ export const eventRegistry = {
   'redis.command.failed': 'error',
   'server.start': 'info',
   'availability.sample_failed': 'error',
+  'availability.probe_invalid': 'error',
   'service.lease_failed': 'error',
   'server.ready': 'info',
   'server.shutdown': 'info',
