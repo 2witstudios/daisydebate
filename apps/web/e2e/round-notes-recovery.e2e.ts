@@ -26,19 +26,43 @@ const draftFor = async (page: Page, id: string) => {
 const edit = (page: Page, text: string) =>
   page.getByRole('textbox', { name: 'Flow', exact: true }).fill(text);
 /**
- * The exit save is lost on its way out. Neither a routed abort nor offline
- * emulation can stop a real unload keepalive, so the page's own request fails.
+ * A failure double for one case only: the exit save never reaches the server.
+ * A real unload keepalive gets past a routed abort and offline emulation, so the
+ * page's own request fails instead. This proves recovery after a lost save, not
+ * that browsers lose one. The real commit has its own journey with no double.
  */
 const reloadLosingExitSave = async (page: Page) => {
-  await page.evaluate((path) => {
+  await page.evaluate((save) => {
     const send = window.fetch;
-    Reflect.set(window, 'fetch', (...request: Parameters<typeof send>) =>
-      String(request[0]).endsWith(`${path}save`)
-        ? Promise.reject(new TypeError('Exit save lost'))
-        : send(...request),
-    );
-  }, documentsPath);
+    const mark = (outcome: string) =>
+      sessionStorage.setItem(
+        `exit-save-double:${outcome}`,
+        String(
+          Number(sessionStorage.getItem(`exit-save-double:${outcome}`)) + 1,
+        ),
+      );
+    Reflect.set(window, 'fetch', (...request: Parameters<typeof send>) => {
+      const [input, init] = request;
+      if (String(input) !== save) return send(...request);
+      if (init?.method !== 'POST' || init.keepalive !== true) {
+        mark('unexpected');
+        return send(...request);
+      }
+      mark('lost');
+      return Promise.reject(new TypeError('Failed to fetch'));
+    });
+  }, `${documentsPath}save`);
   await page.reload();
+  const outcome = await page.evaluate(() => {
+    const read = (name: string) =>
+      Number(sessionStorage.getItem(`exit-save-double:${name}`));
+    const seen = { lost: read('lost'), unexpected: read('unexpected') };
+    sessionStorage.removeItem('exit-save-double:lost');
+    sessionStorage.removeItem('exit-save-double:unexpected');
+    return seen;
+  });
+  expect(outcome.unexpected).toBe(0);
+  expect(outcome.lost).toBeGreaterThan(0);
 };
 /** Wait for the actual offer before sampling its independent durable identity. */
 const offeredAfterReload = async (
@@ -286,7 +310,7 @@ test('newer server copy stays intact until an informed Restore, with copy availa
   );
 });
 
-test('Discard of a recovery offer preserves newer editor typing', async ({
+test('after a lost exit save, Discard of a recovery offer preserves newer editor typing', async ({
   roundFiles,
 }) => {
   const { page, documentId, roundId } = roundFiles;
@@ -311,7 +335,7 @@ test('Discard of a recovery offer preserves newer editor typing', async ({
     .toContain('Newer typing survives discard');
 });
 
-test('Discard removes the recovered copy so neither page exit nor reload brings it back', async ({
+test('after a lost exit save, Discard removes the recovered copy so neither page exit nor reload brings it back', async ({
   roundFiles,
 }) => {
   const { page, documentId, roundId } = roundFiles;
@@ -344,6 +368,69 @@ test('Discard removes the recovered copy so neither page exit nor reload brings 
   expect(sends).toEqual([]);
   expect(await serverDocument(page, roundId, documentId)).toEqual(server);
 });
+
+test('a real exit save with no failure double commits once and leaves no false recovery offer', async ({
+  roundFiles,
+}) => {
+  const { page, roundId, documentId } = roundFiles;
+  const start = await serverDocument(page, roundId, documentId);
+  // A paused page clock holds the debounce, so only the exit can send this edit.
+  await page.clock.install({ time: '2026-11-01T18:00:00Z' });
+  await page.clock.pauseAt('2026-11-01T18:01:00Z');
+  await typePendingEdit(page, documentId, 'Committed by the real exit');
+  await page.reload();
+  await expect
+    .poll(
+      async () => (await serverDocument(page, roundId, documentId)).revision,
+    )
+    .toBe(start.revision + 1);
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toContainText('Committed by the real exit');
+  await expect(
+    page.getByRole('button', { name: 'Restore Flow', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText('An unsaved draft is available')).toHaveCount(0);
+  await expect.poll(() => rawDraftFor(page, documentId)).toBeNull();
+  expect((await serverDocument(page, roundId, documentId)).revision).toBe(
+    start.revision + 1,
+  );
+});
+
+// Temporary, removed once its output is recorded: which controls stop a real exit save.
+for (const control of ['Network.setBlockedURLs', 'stopped pagehide'] as const)
+  test(`exit save probe: ${control}`, async ({ roundFiles }) => {
+    const { page, roundId, documentId } = roundFiles;
+    const before = await serverDocument(page, roundId, documentId);
+    await page.clock.install({ time: '2026-11-01T18:00:00Z' });
+    await page.clock.pauseAt('2026-11-01T18:01:00Z');
+    await typePendingEdit(page, documentId, `Probe ${control}`);
+    if (control === 'Network.setBlockedURLs') {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Network.enable');
+      await cdp.send('Network.setBlockedURLs', {
+        urls: [`*${documentsPath}save`],
+      });
+    } else
+      await page.evaluate(() =>
+        window.addEventListener(
+          'pagehide',
+          (event) => event.stopImmediatePropagation(),
+          { capture: true },
+        ),
+      );
+    await page.reload();
+    await expect(
+      page.getByRole('textbox', { name: 'Flow', exact: true }),
+    ).toBeVisible();
+    const after = await serverDocument(page, roundId, documentId);
+    const offered = await page
+      .getByRole('button', { name: 'Restore Flow', exact: true })
+      .count();
+    process.stdout.write(
+      `EXIT_SAVE_PROBE ${JSON.stringify({ control, before: before.revision, after: after.revision, committed: after.html.includes('Probe'), offered })}\n`,
+    );
+  });
 
 test('lost acknowledgement keeps newer typed notes through reload and explicit reconciliation', async ({
   roundFiles,
@@ -485,7 +572,7 @@ test('account switch purges old-principal recovery across tabs without revealing
   ).toHaveCount(0);
 });
 
-test('multibyte multi-document exit keeps overflow recoverable and each choice targets its own file', async ({
+test('multibyte multi-document exit keeps overflow recoverable after a lost exit save and each choice targets its own file', async ({
   roundFiles,
 }) => {
   const { page, roundId, documentId } = roundFiles;
@@ -531,7 +618,7 @@ test('multibyte multi-document exit keeps overflow recoverable and each choice t
     .toContain('界');
   await page.unroute(`**${documentsPath}save`);
   await page.clock.resume();
-  await page.reload();
+  await reloadLosingExitSave(page);
   await expect(
     page.getByRole('button', { name: `Restore ${second.title}`, exact: true }),
   ).toBeVisible();
@@ -665,7 +752,7 @@ test('two real editor tabs preserve a stale conflict until explicit recovery', a
 });
 
 for (const reloadBeforeRestore of [false, true])
-  test(`recovery survives newer typing and acknowledgement${reloadBeforeRestore ? ' and another reload' : ''} before explicit Restore`, async ({
+  test(`after a lost exit save, recovery survives newer typing and acknowledgement${reloadBeforeRestore ? ' and another reload' : ''} before explicit Restore`, async ({
     roundFiles,
   }) => {
     const { page, documentId, roundId } = roundFiles;
@@ -704,7 +791,7 @@ for (const reloadBeforeRestore of [false, true])
     await expect.poll(() => draftFor(page, documentId)).toBeNull();
   });
 
-test('Restore over pending NEW keeps NEW as an independent durable offer after REC saves', async ({
+test('after a lost exit save, Restore over pending NEW keeps NEW as an independent durable offer after REC saves', async ({
   roundFiles,
 }) => {
   const { page, documentId, roundId } = roundFiles;
@@ -742,7 +829,7 @@ test('Restore over pending NEW keeps NEW as an independent durable offer after R
   );
 });
 
-test('denied clipboard permission exposes selectable recovered text without consuming the offer', async ({
+test('after a lost exit save, denied clipboard permission exposes selectable recovered text without consuming the offer', async ({
   roundFiles,
 }) => {
   const { page, documentId } = roundFiles;
@@ -803,7 +890,7 @@ test('denied clipboard permission exposes selectable recovered text without cons
 });
 
 for (const refusal of ['denied storage', 'combined overflow'] as const)
-  test(`${refusal} preserves the recovery offer and current editor while NEW still saves online`, async ({
+  test(`after a lost exit save, ${refusal} preserves the recovery offer and current editor while NEW still saves online`, async ({
     roundFiles,
   }) => {
     const { page, documentId, roundId } = roundFiles;
@@ -868,7 +955,7 @@ for (const refusal of ['denied storage', 'combined overflow'] as const)
     }
   });
 
-test('Server copy comparison keeps showing the server text while newer typing is unsaved', async ({
+test('after a lost exit save, Server copy comparison keeps showing the server text while newer typing is unsaved', async ({
   roundFiles,
 }) => {
   const { page, roundId, documentId } = roundFiles;
@@ -889,7 +976,7 @@ test('Server copy comparison keeps showing the server text while newer typing is
   );
 });
 
-test('original copy expiry withdraws only that offer while later swapped recovery survives reload', async ({
+test('after lost exit saves, original copy expiry withdraws only that offer while later swapped recovery survives reload', async ({
   roundFiles,
 }) => {
   const { page, roundId, documentId } = roundFiles;
@@ -954,7 +1041,7 @@ test('original copy expiry withdraws only that offer while later swapped recover
   ).not.toContainText('Original expiring REC');
 });
 
-test('controlled router-lifecycle proof, not end-user navigation: Round replacement flushes pending notes without purging either Round recovery', async ({
+test('controlled router-lifecycle proof, not end-user navigation: Round replacement flushes pending notes without purging either Round recovery, the other Round seeded by a lost exit save', async ({
   roundFiles,
 }) => {
   const { page, roundId, documentId } = roundFiles;
@@ -1024,7 +1111,7 @@ test('controlled router-lifecycle proof, not end-user navigation: Round replacem
   });
 });
 
-test('end-user navigation: leaving a Round through the account menu saves pending notes and browser Back returns through both Rounds', async ({
+test('end-user navigation: leaving a Round through the account menu saves pending notes and browser Back returns through both Rounds via the profile page, the other Round seeded by a lost exit save', async ({
   roundFiles,
 }) => {
   const { page, roundId, documentId } = roundFiles;
