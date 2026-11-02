@@ -105,7 +105,12 @@ test('unknown health forfeits nobody: an absent or late speaker postpones', () =
           rows: (await adjudications(input)).length,
           status: round.status,
         },
-        expected: { absent: null, late: null, rows: 0, status: 'active' },
+        expected: {
+          absent: { kind: 'undecided' },
+          late: { kind: 'undecided' },
+          rows: 0,
+          status: 'active',
+        },
       });
     } finally {
       await cleanUp(input);
@@ -221,7 +226,7 @@ test('a long-outage evaluation at the read cap stays inside its transaction budg
           undecided,
           inBudget: elapsedMs < attendanceTimingPolicy.transactionSliceMs,
         },
-        expected: { undecided: null, inBudget: true },
+        expected: { undecided: { kind: 'undecided' }, inBudget: true },
       });
       await passAttendanceCutoff(f.sql, roundId);
       const ended = await attendance.evaluate(roundId);

@@ -381,7 +381,7 @@ test('a held ballot outlives the cutoff until it has had its chance to submit', 
         }),
       code: 'INVARIANT',
     });
-    await fixture.sql\`delete from rounds where id=\${unended}\`;
+    await fixture.sql`delete from rounds where id=${unended}`;
     await playedOut(fixture, roundId);
     const before = (await facts()).held;
     const attemptId = createId();
