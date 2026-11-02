@@ -22,10 +22,28 @@ const view = (
   participants: [{ ...participant(role), ready }],
   readiness: { available: true, version: 4, readyActorIds: [] },
   version: 4,
+  contentWaiver: null,
   capabilities: { canReady: true },
 });
 
 describe('canonical room assembly controls', () => {
+  test('an unsigned content waiver holds Ready', () => {
+    assert({
+      given: 'a seated debater who has not signed the season waiver',
+      should: 'offer Ready disabled, saying why',
+      actual: readinessControl(
+        { ...view('affirmative'), contentWaiver: 'unsigned' as const },
+        'actor',
+        { devicesPassed: true, unreadyPending: false },
+      ),
+      expected: {
+        type: 'ready',
+        enabled: false,
+        reason: 'Sign the ranked content waiver before readying.',
+      },
+    });
+  });
+
   test('declared team seats do not assume symmetric sides or one judge', () => {
     assert({
       given: 'two affirmative seats, three negative seats and two judges',

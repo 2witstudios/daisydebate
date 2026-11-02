@@ -96,6 +96,8 @@ export const assemblySnapshot = {
   hostActorId: 'o'.repeat(24),
   hostLabel: 'Host member',
   aiJudgeSeating: null,
+  contentWaiver: null,
+  captureNotice: null,
   botAdmission: null,
   status: 'assembling',
   formatId: unequalTemplate.formatId,

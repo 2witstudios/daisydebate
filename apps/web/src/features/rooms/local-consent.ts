@@ -89,6 +89,9 @@ export function createLocalConsent({
       commandId: nextId(),
       expectedVersion: snapshot.view.version,
       expectedConsentVersion: participant.consentVersion,
+      ...(desired && snapshot.view.captureNotice
+        ? { noticeVersion: snapshot.view.captureNotice.version }
+        : {}),
     };
   };
   const recoverConflict = async (

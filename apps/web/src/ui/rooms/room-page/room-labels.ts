@@ -133,6 +133,8 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'bots-busy': 'a free bot: bots are busy, try again shortly',
   'ai-judge-premium':
     'a person to judge: AI judging on casual rounds is premium',
+  'content-waiver-required': 'the ranked content waiver to be signed',
+  'capture-notice-changed': 'the latest recording notice to be read',
 };
 
 /** Why Start round is refused, in words; never the raw refusal code. */

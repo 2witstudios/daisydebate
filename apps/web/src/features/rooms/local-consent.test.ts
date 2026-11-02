@@ -195,6 +195,22 @@ test('device invalidation fences Launch synchronously and withdraws current cons
   });
 });
 
+test('Ready states the capture notice the view showed', async () => {
+  const noticed = {
+    ...consentView(false),
+    captureNotice: { version: 'ranked-draft-1', text: 'Exact words.' },
+  };
+  const h = harness(noticed as unknown as ReturnType<typeof consentView>);
+  await h.controller.devices(true);
+  await h.controller.ready();
+  assert({
+    given: 'a view with a capture notice',
+    should: 'send its version with Ready',
+    actual: (h.sent[0] as { noticeVersion?: string }).noticeVersion,
+    expected: 'ranked-draft-1',
+  });
+});
+
 test('unacknowledged Unready stays blocked until authoritative recovery', async () => {
   const h = harness(consentView(true));
   h.fail();

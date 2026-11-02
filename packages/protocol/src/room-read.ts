@@ -68,6 +68,10 @@ export const roomRefusalSchema = z.enum([
   'bots-busy',
   /** A casual AI judge needs a host holding the entitlement (WATCH-16). */
   'ai-judge-premium',
+  /** Ready on a ranked Round needs this season's signed content waiver (WATCH-15). */
+  'content-waiver-required',
+  /** The capture notice changed after the form showed it: read it again. */
+  'capture-notice-changed',
 ]);
 /** Full authoritative projection grammar used at JSON delivery boundaries. */
 export const roomViewSchema = z.strictObject({
@@ -87,6 +91,19 @@ export const roomViewSchema = z.strictObject({
    * seat command rechecks it under the host's fence. Null for anyone else.
    */
   aiJudgeSeating: z.enum(['free', 'included', 'premium']).nullable(),
+  /**
+   * This viewer's standing on the season's content waiver (WATCH-15), for a
+   * seated human on an open ranked Room. Ready rechecks it under the Room's
+   * lock. Null for anyone else.
+   */
+  contentWaiver: z.enum(['signed', 'unsigned']).nullable(),
+  /** The exact notice shown before Ready, or null when nothing is captured. */
+  captureNotice: z
+    .strictObject({
+      version: z.string().min(1).max(64),
+      text: z.string().min(1),
+    })
+    .nullable(),
   /** Host-only display metadata; admission is rechecked atomically at freeze. */
   botAdmission: z
     .union([

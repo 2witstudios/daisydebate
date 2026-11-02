@@ -104,6 +104,8 @@ export function projectRoom(
     hostActorId: hostHidden ? null : room.hostActorId,
     hostLabel: hostHidden ? null : room.hostLabel,
     aiJudgeSeating: null,
+    contentWaiver: null,
+    captureNotice: null,
     botAdmission: null,
     status: room.status,
     formatId: room.formatId,

@@ -16,7 +16,7 @@ export type LocalReadiness = {
 };
 type ReadinessView = Pick<
   RoomView,
-  'participants' | 'readiness' | 'version'
+  'participants' | 'readiness' | 'version' | 'contentWaiver'
 > & {
   readonly capabilities: Pick<RoomView['capabilities'], 'canReady'>;
 };
@@ -30,6 +30,8 @@ function readyRefusal(
     return 'Readiness is unavailable. Refresh the room and try again.';
   if (!own.eligible || !view.capabilities.canReady)
     return 'This seat is not eligible to ready.';
+  if (view.contentWaiver === 'unsigned')
+    return 'Sign the ranked content waiver before readying.';
   if (own.role !== 'judge' && !local.devicesPassed)
     return 'Check your camera and microphone before readying.';
   return null;

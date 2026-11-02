@@ -35,6 +35,10 @@ const refusalWords: Partial<Record<RoomRefusal, string>> = {
     'There aren’t enough resolutions to draw from. Choose another source or add lines.',
   'bots-busy': 'Bots are busy right now. Try again shortly.',
   'ai-judge-premium': aiJudgePremiumText,
+  'content-waiver-required':
+    'Sign this season’s ranked content waiver before Ready.',
+  'capture-notice-changed':
+    'The recording notice changed. Read it again before Ready.',
 };
 
 /** Why a room command was refused, in the room's words; generic when unknown. */

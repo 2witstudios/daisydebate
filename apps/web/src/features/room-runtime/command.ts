@@ -11,6 +11,7 @@ import type {
 } from '@daisy/protocol';
 import { can, capabilityOf, digest } from './authority';
 import { hostHoldsCasualAiJudge } from './ai-judge-seating';
+import { captureNoticeRefusal } from './ready-agreements';
 export function roomCommandOperation({
   store,
   redis,
@@ -160,6 +161,10 @@ export function roomCommandOperation({
                 : null,
             },
           );
+          if (outcome.ok && command.type === 'ready') {
+            const refusal = captureNoticeRefusal(state, command.noticeVersion);
+            if (refusal) throw createAppError('CONFLICT', refusal);
+          }
           // Unready replaces the durable fence even during Redis loss; the old lease no longer matches.
           return outcome;
         };

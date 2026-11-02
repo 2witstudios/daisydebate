@@ -9,6 +9,7 @@ import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
 import { canReadRound } from '../round-runtime/reads';
+import { roomCaptureNotice } from './ready-agreements';
 import type { Database } from '@daisy/db';
 import {
   activeRoomMembers,
@@ -137,6 +138,7 @@ export function createRoomRuntimeOperations({
             betaGrantsPremium,
           ),
       ),
+      captureNotice: roomCaptureNotice(state),
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
       ),

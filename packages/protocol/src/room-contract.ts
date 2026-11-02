@@ -164,13 +164,18 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
     type: z.literal('remove-seat'),
     participantId: idSchema,
   }),
-  ...(['ready', 'unready'] as const).map((type) =>
-    z.strictObject({
-      ...envelope,
-      type: z.literal(type),
-      expectedConsentVersion: z.int().min(0),
-    }),
-  ),
+  z.strictObject({
+    ...envelope,
+    type: z.literal('ready'),
+    expectedConsentVersion: z.int().min(0),
+    /** The capture notice this form showed; absent when it showed none. */
+    noticeVersion: z.string().min(1).max(64).optional(),
+  }),
+  z.strictObject({
+    ...envelope,
+    type: z.literal('unready'),
+    expectedConsentVersion: z.int().min(0),
+  }),
   ...(['start-pre-round', 'finish-prep', 'start-round', 'close'] as const).map(
     (type) => z.strictObject({ ...envelope, type: z.literal(type) }),
   ),
