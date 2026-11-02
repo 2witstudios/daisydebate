@@ -31,7 +31,12 @@ const edit = (page: Page, text: string) =>
  * page's own request fails instead. This proves recovery after a lost save, not
  * that browsers lose one. The real commit has its own journey with no double.
  */
-const reloadLosingExitSave = async (page: Page) => {
+const reloadLosingExitSave = async (page: Page) =>
+  leaveLosingExitSave(page, () => page.reload());
+const leaveLosingExitSave = async (
+  page: Page,
+  leave: () => Promise<unknown>,
+) => {
   const roundId = new URL(page.url()).pathname.split('/')[2]!;
   const unsaved = await page.evaluate((round) => {
     const inRound = `:${round}:`;
@@ -70,7 +75,7 @@ const reloadLosingExitSave = async (page: Page) => {
       return Promise.reject(new TypeError('Failed to fetch'));
     });
   }, `${documentsPath}save`);
-  await page.reload();
+  await leave();
   const outcome = await page.evaluate(() => {
     const read = (name: string) =>
       Number(sessionStorage.getItem(`exit-save-double:${name}`));
@@ -764,15 +769,18 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
   );
 });
 
-test('the Round receipt visibly restores a private draft through the same sync owner', async ({
+test('after a lost exit save, the Round receipt visibly restores a private draft through the same sync owner', async ({
   roundFiles,
 }) => {
   const { page, roundId, documentId } = roundFiles;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
+  await roundFiles.finishRound();
+  await openFlow(page, roundId);
   await edit(page, 'Receipt recovery text');
   await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
-  await roundFiles.finishRound();
-  await page.goto(`${origin}/rounds/${roundId}`);
+  await leaveLosingExitSave(page, () =>
+    page.goto(`${origin}/rounds/${roundId}`),
+  );
   const files = page.getByRole('region', { name: 'Your Round files' });
   await expect(
     files.getByRole('button', { name: 'Restore Flow', exact: true }),

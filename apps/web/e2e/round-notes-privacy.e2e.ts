@@ -21,8 +21,9 @@ test('retained private copies coalesce focus checks and cancel stale identity an
             html: '<p>Retained private copy</p>',
             baseRevision: 1,
             generation: 'retained',
-            savedAt: 1,
-            expiresAt: 604800001,
+            // Unexpired, or the root mount's retention prune removes it first.
+            savedAt: Date.parse('2099-01-01T00:00:00Z'),
+            expiresAt: Date.parse('2099-01-08T00:00:00Z'),
           },
         }),
       ),
