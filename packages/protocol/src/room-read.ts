@@ -133,6 +133,8 @@ export const roomViewSchema = z.strictObject({
     .nullable(),
   resolutionDraw: resolutionDrawViewSchema.nullable(),
   rules: roundRulesSchema,
+  /** Free debater seats this viewer may not take: held for named members (ADR 0098). */
+  debaterSeatsHeldFromViewer: z.int().nonnegative(),
   participants: z
     .array(
       z.union([

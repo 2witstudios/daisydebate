@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { ChallengeFormat, ChallengeMode } from '@daisy/protocol';
+import type { RatingLadder, CompetitionType } from '@daisy/protocol';
 import {
   readOwnCollection,
   requireOwnScope,
@@ -12,7 +12,7 @@ import {
   type ContactInput,
 } from '../contacts/fence';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import { restrictionInForce } from '../reports/restriction';
+import { restrictionInForce } from '../moderation/in-force';
 import { roomIsOpen } from '../room-open';
 import { challengeFrame, type ChallengeFrame } from './frame';
 
@@ -41,16 +41,20 @@ export function createChallengeStore({
 
 type Scope = { readonly userId: string; readonly actorId: string };
 
-export type ChallengeListRow = {
+type ChallengeRowFacts = {
   readonly id: string;
   readonly direction: 'incoming' | 'outgoing';
+  /** The member on the other end. */
+  readonly actorId: string;
   readonly username: string;
-  readonly mode: ChallengeMode;
-  readonly format: ChallengeFormat;
-  readonly roomId: string | null;
+  readonly mode: CompetitionType;
+  readonly format: RatingLadder;
   readonly createdAt: string;
   readonly expiresAt: string;
 };
+/** An offer still waiting, or an accepted challenge with the room it opened. */
+export type ChallengeListRow = ChallengeRowFacts &
+  ({ readonly roomId: null } | { readonly roomId: string });
 
 /** The most challenges one read lists, newest first, in either direction. */
 const CHALLENGE_LIST_MAX = 40;
@@ -70,7 +74,7 @@ export function listChallenges(
     const rows = (await tx.execute(sql`
       select c.id,
         case when c.challenged_actor_id = ${scope.actorId} then 'incoming' else 'outgoing' end as direction,
-        u.username, c.mode, c.format_id as format, c.room_id as "roomId",
+        a.id as "actorId", u.username, c.mode, c.format_id as format, c.room_id as "roomId",
         c.created_at as "createdAt", c.expires_at as "expiresAt"
       from challenges c
       join actors a on a.id = case when c.challenged_actor_id = ${scope.actorId}
@@ -86,9 +90,13 @@ export function listChallenges(
           or (c.room_id is not null and c.follow_until > ${new Date(now)} and ${roomIsOpen()}))
       order by c.created_at desc, c.id
       limit ${CHALLENGE_LIST_MAX}`)) as unknown as (Omit<
-      ChallengeListRow,
+      ChallengeRowFacts,
       'createdAt' | 'expiresAt'
-    > & { createdAt: Date | string; expiresAt: Date | string })[];
+    > & {
+      roomId: string | null;
+      createdAt: Date | string;
+      expiresAt: Date | string;
+    })[];
     return rows.map((row) => ({
       ...row,
       createdAt: new Date(row.createdAt).toISOString(),

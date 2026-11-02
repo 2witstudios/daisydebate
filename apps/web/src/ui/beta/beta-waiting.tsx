@@ -3,57 +3,22 @@ import { destinationHref } from '../../features/coming-soon/launch';
 import { cn } from '../cn';
 import { OnboardingFrame } from '../onboarding/frame/frame';
 import {
-  SIGN_OUT_FAILED_NOTICE,
-  SignOutForm,
-} from '../components/sign-out-form/sign-out-form';
+  AccountExit,
+  accountExitLink as link,
+} from '../onboarding/account-exit/account-exit';
 
 export type BetaWaitingProps = {
   readonly username: string;
   /**
    * `pending` waits for approval; `revoked` access was paused;
-   * `age-required` has no durable age record yet (the beta is 16+);
-   * `restricted` is under a suspension or ban (ADR 0098).
+   * `age-required` has no durable age record yet (the beta is 16+).
    */
-  readonly reason: 'pending' | 'revoked' | 'age-required' | 'restricted';
-  /** When a suspension ends; absent for a ban. */
-  readonly restrictedUntil?: string | null;
+  readonly reason: 'pending' | 'revoked' | 'age-required';
   /** The age step, which returns here once answered. */
   readonly ageHref: string;
   /** Back from a sign-out that did not happen (ISSUE-691). */
   readonly signOutFailed?: boolean;
 };
-
-const link =
-  'inline-flex min-h-onboarding-touch items-center justify-center rounded-round border border-border px-6 text-md font-strong no-underline hover:no-underline';
-
-/**
- * The account's way out (ISSUE-691, plan BETA §5): a native form, so it
- * signs out without JavaScript, beside the page's links.
- */
-function Actions({
-  failed,
-  children,
-}: {
-  readonly failed: boolean;
-  readonly children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      {failed ? (
-        <p role="alert" className="text-md text-ink">
-          {SIGN_OUT_FAILED_NOTICE}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap gap-3">
-        {children}
-        <Link className={link} href="/settings">
-          Account settings
-        </Link>
-        <SignOutForm next="/beta" className={`${link} bg-transparent`} />
-      </div>
-    </div>
-  );
-}
 
 const marker =
   'flex size-8 shrink-0 items-center justify-center rounded-round text-sm font-strong';
@@ -133,30 +98,10 @@ function WaitingStatus() {
 export function BetaWaiting({
   username,
   reason,
-  restrictedUntil = null,
   ageHref,
   signOutFailed = false,
 }: BetaWaitingProps) {
   const paused = reason === 'revoked';
-  if (reason === 'restricted')
-    return (
-      <OnboardingFrame step={null} titleId="beta-waiting-title">
-        <div className="flex flex-col gap-4">
-          <h1
-            id="beta-waiting-title"
-            className="font-display text-3xl font-semibold text-ink"
-          >
-            Your account is restricted, @{username}
-          </h1>
-          <p className="text-md text-ink-muted">
-            A moderator restricted this account after a report
-            {restrictedUntil ? ` until ${restrictedUntil.slice(0, 10)}` : ''}.
-            You can sign out or manage your data in account settings.
-          </p>
-        </div>
-        <Actions failed={signOutFailed}>{null}</Actions>
-      </OnboardingFrame>
-    );
   if (reason === 'age-required')
     return (
       <OnboardingFrame step={null} titleId="beta-waiting-title">
@@ -172,11 +117,11 @@ export function BetaWaiting({
             month and year to continue.
           </p>
         </div>
-        <Actions failed={signOutFailed}>
+        <AccountExit failed={signOutFailed}>
           <Link className={link} href={ageHref}>
             Add your age
           </Link>
-        </Actions>
+        </AccountExit>
       </OnboardingFrame>
     );
   return (
@@ -204,7 +149,7 @@ export function BetaWaiting({
         <WaitingStatus />
       )}
       <div className="mt-auto border-t border-border pt-4">
-        <Actions failed={signOutFailed}>{null}</Actions>
+        <AccountExit failed={signOutFailed}>{null}</AccountExit>
       </div>
     </OnboardingFrame>
   );

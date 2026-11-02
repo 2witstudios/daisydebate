@@ -224,6 +224,7 @@ export function createRoomRuntimeOperations({
         kind: publication.kind,
       },
       selection: recheck,
+      ...(body.holdSeatsFor ? { holdSeatsFor: body.holdSeatsFor } : {}),
       cast: cast.length
         ? {
             seats: cast.map((seat) => ({

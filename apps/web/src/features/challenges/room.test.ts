@@ -17,7 +17,9 @@ const template = {
 const form = (mode: 'ranked' | 'casual') =>
   challengeRoomForm({
     host: 'bea',
+    hostActorId: 'h'.repeat(24),
     opponent: 'ada',
+    opponentActorId: 'a'.repeat(24),
     mode,
     template,
     commandId: 'c'.repeat(24),
@@ -25,6 +27,14 @@ const form = (mode: 'ranked' | 'casual') =>
   });
 
 describe('challengeRoomForm', () => {
+  test('both named debaters keep their seats', () => {
+    assert({
+      given: 'a ranked room, listed the moment it opens',
+      should: 'hold a debater seat for each of the two members',
+      actual: form('ranked').getAll('holdSeatFor'),
+      expected: ['h'.repeat(24), 'a'.repeat(24)],
+    });
+  });
   test('an unlisted room on the agreed format, named for both', () => {
     const made = form('casual');
     assert({

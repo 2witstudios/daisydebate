@@ -6,12 +6,8 @@ import {
   betaAccessStates,
 } from './beta-access';
 import { idSchema } from './primitives';
-import {
-  moderationKinds,
-  reportOutcomes,
-  reportReasons,
-  reportSurfaces,
-} from './reports';
+import { reportOutcomes, reportReasons, reportSurfaces } from './reports';
+import { moderationKinds } from './moderation';
 
 /**
  * The signed internal operator API, version 1 (ADR 0079): the portable
@@ -198,25 +194,23 @@ export const moderationLiftCommandAction = 'moderation.lift';
 /** A suspension runs at most a year: anything longer is a ban. */
 export const moderationSuspensionMaxDays = 365;
 
-export const reportResolveCommandSchema = z
-  .strictObject({
-    v: z.literal(1),
-    commandId: idSchema,
-    outcome: z.enum(reportOutcomes),
-    /** Required exactly when suspending. */
-    suspendDays: z
-      .number()
-      .int()
-      .min(1)
-      .max(moderationSuspensionMaxDays)
-      .nullable(),
-    adminAuditHead: z.string().regex(/^[0-9a-f]{64}$/),
-  })
-  .refine(
-    (command) =>
-      (command.outcome === 'suspended') === (command.suspendDays !== null),
-    { message: 'A suspension needs its length; nothing else has one' },
-  );
+const reportResolveCommand = {
+  v: z.literal(1),
+  commandId: idSchema,
+  adminAuditHead: z.string().regex(/^[0-9a-f]{64}$/),
+};
+export const reportResolveCommandSchema = z.discriminatedUnion('outcome', [
+  z.strictObject({
+    ...reportResolveCommand,
+    outcome: z.enum(['dismissed', 'warned', 'banned']),
+  }),
+  z.strictObject({
+    ...reportResolveCommand,
+    outcome: z.literal('suspended'),
+    suspendDays: z.number().int().min(1).max(moderationSuspensionMaxDays),
+  }),
+]);
+export type ReportResolveCommand = z.infer<typeof reportResolveCommandSchema>;
 export const reportResolveResultSchema = z.strictObject({
   commandId: idSchema,
   reportId: idSchema,

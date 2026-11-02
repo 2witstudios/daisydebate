@@ -1,20 +1,15 @@
 import { z } from 'zod';
-import { idSchema } from './primitives';
+import { idSchema, ratingLadders } from './primitives';
+import { competitionTypes } from './round';
 import { usernameSchema as username } from './username';
-
-/** A challenge is ranked or casual, like a game of chess (ADR 0098). */
-export const challengeModes = ['ranked', 'casual'] as const;
-export type ChallengeMode = (typeof challengeModes)[number];
-export const challengeFormats = ['freestyle', 'policy', 'value'] as const;
-export type ChallengeFormat = (typeof challengeFormats)[number];
 
 export const challengeCommandSchemas = {
   send: z.strictObject({
     version: z.literal(1),
     commandId: idSchema,
     username,
-    mode: z.enum(challengeModes),
-    format: z.enum(challengeFormats),
+    mode: z.enum(competitionTypes),
+    format: z.enum(ratingLadders),
   }),
   /** Records the room the acceptor just opened for this challenge. */
   accept: z.strictObject({
@@ -36,8 +31,8 @@ export type ChallengeResult = z.infer<typeof challengeResultSchema>;
 const challengeSummary = {
   id: idSchema,
   username: z.string(),
-  mode: z.enum(challengeModes),
-  format: z.enum(challengeFormats),
+  mode: z.enum(competitionTypes),
+  format: z.enum(ratingLadders),
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
 };
@@ -45,7 +40,10 @@ const challengeSummary = {
 /** What is waiting on this member, and what they are waiting on. */
 export const challengeListSchema = z.strictObject({
   version: z.literal(1),
-  incoming: z.array(z.strictObject(challengeSummary)).max(20),
+  /** `actorId` names the challenger, so the acceptor can hold their seat. */
+  incoming: z
+    .array(z.strictObject({ ...challengeSummary, actorId: idSchema }))
+    .max(20),
   outgoing: z.array(z.strictObject(challengeSummary)).max(20),
   /** Accepted, room still open: where the member should go now. */
   accepted: z

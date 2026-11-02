@@ -85,6 +85,9 @@ export async function createAssembly(
             },
     visibility: field(form, 'visibility'),
     selection,
+    ...(form.getAll('holdSeatFor').length
+      ? { holdSeatsFor: form.getAll('holdSeatFor') }
+      : {}),
   });
   if (!parsed.success) return { kind: 'invalid' };
   try {

@@ -23,7 +23,7 @@ const own =
     requireAuthorization({
       principal,
       capability,
-      resource: { kind: 'friend_collection', actorId: scope.actorId },
+      resource: { kind: 'rating_visibility', actorId: scope.actorId },
       context: { account },
     });
 

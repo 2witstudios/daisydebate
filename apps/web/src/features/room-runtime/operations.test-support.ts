@@ -48,6 +48,7 @@ export const state: RoomAssemblyState = {
   visibility: 'public',
   hostActorId: caller.actorId,
   hostLabel: 'Member',
+  seatHolds: [],
   status: 'assembling',
   formatId: 'one-on-one',
   formatVersion: 1,

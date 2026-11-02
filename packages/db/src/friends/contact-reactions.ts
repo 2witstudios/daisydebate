@@ -1,9 +1,8 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { friendships } from '../schema/friends';
 import type { ContactPairKey, ContactTransaction } from '../contacts/reactions';
-import { endPairChallenges } from '../challenges/frame';
 
-/** A block ends any friendship or request and its challenges; unblocking never restores one. */
+/** A block ends any friendship or request; unblocking never restores one. */
 async function endFriendshipOnBlock(
   tx: ContactTransaction,
   pair: ContactPairKey,
@@ -18,7 +17,6 @@ async function endFriendshipOnBlock(
         eq(friendships.highActorId, pair.highActorId),
       ),
     );
-  await endPairChallenges(tx, pair);
 }
 
 /** Whether the pair is an accepted friendship (DEC-251's relation). */

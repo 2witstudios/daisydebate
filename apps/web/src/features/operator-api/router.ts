@@ -410,13 +410,15 @@ async function resolveReport(
     reportId,
     serviceId: principal.serviceId,
     operatorRef: principal.operatorRef,
-    outcome: command.data.outcome,
-    suspendUntil:
-      command.data.suspendDays === null
-        ? null
-        : new Date(
-            now.getTime() + command.data.suspendDays * 86_400_000,
-          ).toISOString(),
+    resolution:
+      command.data.outcome === 'suspended'
+        ? {
+            outcome: 'suspended',
+            suspendUntil: new Date(
+              now.getTime() + command.data.suspendDays * 86_400_000,
+            ).toISOString(),
+          }
+        : { outcome: command.data.outcome },
     requestDigest: deps.crypto.sha3Hex(
       JSON.stringify([
         principal.serviceId,
@@ -424,7 +426,7 @@ async function resolveReport(
         'report.resolve',
         reportId,
         command.data.outcome,
-        command.data.suspendDays,
+        command.data.outcome === 'suspended' ? command.data.suspendDays : null,
       ]),
     ),
     adminAuditHead: command.data.adminAuditHead,

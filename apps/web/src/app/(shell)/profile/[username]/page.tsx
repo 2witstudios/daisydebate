@@ -14,11 +14,9 @@ import {
 import { ProfileFriendActions } from '../../../../ui/friends/profile-friend-actions';
 import { relationTo } from '../../../../ui/friends/friends';
 import { friendAction } from '../../friends/actions';
-import {
-  blockAction,
-  reportAction,
-  sendChallengeAction,
-} from '../../online/actions';
+import { blockAction } from '../../contacts/actions';
+import { reportAction } from '../../reports/actions';
+import { sendChallengeAction } from '../../challenges/actions';
 import { ProfilePersonActions } from '../../../../ui/online/profile-person-actions';
 import { readFriends } from '../../friends/read-friends';
 import { MessageUserButton } from '../../../../ui/messaging/message-user-button';

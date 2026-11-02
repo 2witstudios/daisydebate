@@ -378,7 +378,7 @@ describe('the report routes (ADR 0098)', () => {
           return {
             commandId: input.commandId,
             reportId: input.reportId,
-            outcome: input.outcome,
+            outcome: input.resolution.outcome,
           };
         },
       },
@@ -404,7 +404,11 @@ describe('the report routes (ADR 0098)', () => {
       actual: [
         response.status,
         input['operatorRef'],
-        Date.parse(String(input['suspendUntil'])) - now,
+        Date.parse(
+          String(
+            (input['resolution'] as { suspendUntil: string }).suspendUntil,
+          ),
+        ) - now,
         Date.parse(String(input['purgeAfter'])) - now,
         /^[0-9a-f]{64}$/.test(String(input['requestDigest'])),
       ],
@@ -413,7 +417,7 @@ describe('the report routes (ADR 0098)', () => {
   });
   test('a suspension needs a length, and nothing else has one', async () => {
     const { handle } = api();
-    const put = (outcome: string, suspendDays: number | null) =>
+    const put = (outcome: string, suspendDays?: number) =>
       handle(
         signed({
           method: 'PUT',
@@ -422,7 +426,7 @@ describe('the report routes (ADR 0098)', () => {
             v: 1,
             commandId: 'c'.repeat(24),
             outcome,
-            suspendDays,
+            ...(suspendDays === undefined ? {} : { suspendDays }),
             adminAuditHead: head,
           }),
         }),
@@ -431,7 +435,7 @@ describe('the report routes (ADR 0098)', () => {
       given: 'a suspension with no days, and a dismissal with days',
       should: 'refuse both',
       actual: [
-        (await put('suspended', null)).status,
+        (await put('suspended')).status,
         (await put('dismissed', 3)).status,
       ],
       expected: [400, 400],

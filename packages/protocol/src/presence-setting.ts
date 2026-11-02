@@ -2,11 +2,14 @@ import { z } from 'zod';
 import { ratingLadders } from './primitives';
 
 /**
- * The status a member chooses (ADR 0098). `offline` is appearing offline.
+ * The status a member chooses (ADR 0098). `appearing_offline` hides them.
  * Away and being in a room or a Round are never chosen: they follow what the
  * member is doing.
  */
-export const chosenStatuses = ['online', 'busy', 'offline'] as const;
+/** Where a member's active Room has them (ADR 0070). */
+export type MemberPlacement = 'room' | 'round' | null;
+
+export const chosenStatuses = ['online', 'busy', 'appearing_offline'] as const;
 export type ChosenStatus = (typeof chosenStatuses)[number];
 
 /** Everything anyone can show for a member, one vocabulary everywhere. */

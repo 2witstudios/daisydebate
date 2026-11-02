@@ -94,6 +94,13 @@ export function testWhoIsOnline() {
       await expect(challenger).toHaveURL(new RegExp(`${room}$`), {
         timeout: 45_000,
       });
+      // Both take a debater seat: the two are held for them, and nobody else's.
+      const takeDebater = (page: typeof challenger) =>
+        page.getByRole('button', { name: /^Take (Affirmative|Negative)/ });
+      await takeDebater(challenged).first().click();
+      await expect(takeDebater(challenger)).toHaveCount(1, { timeout: 30_000 });
+      await takeDebater(challenger).first().click();
+      await expect(takeDebater(challenger)).toHaveCount(0, { timeout: 30_000 });
     } finally {
       await Promise.all([first.close(), second.close()]);
     }
@@ -199,7 +206,7 @@ export function testWhoIsOnline() {
       await card.getByRole('button', { name: 'Decline' }).click();
       await expect(
         rail
-          .getByRole('region', { name: `@${b} did not take your challenge` })
+          .getByRole('region', { name: `Your challenge to @${b} ended` })
           .first(),
       ).toBeVisible({ timeout: 30_000 });
 

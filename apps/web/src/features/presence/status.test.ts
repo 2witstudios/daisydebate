@@ -7,7 +7,7 @@ describe('displayStatus', () => {
   const cases = [
     [
       'appearing offline, in a Round',
-      { chosen: 'offline', activity: 'active', placement: 'round' },
+      { chosen: 'appearing_offline', activity: 'active', placement: 'round' },
       'offline',
     ],
     [

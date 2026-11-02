@@ -6,7 +6,7 @@ import { statusLabels } from '../components/presence-dot/status-labels';
 import { Icon } from '../components/icon/icon';
 import { cn } from '../cn';
 import type { OnlineRailPreference } from '../layout/app-shell/rail-preference';
-import { ChallengeCards, FollowAccepted } from './challenge-cards';
+import { ChallengeCards, FollowAccepted } from '../challenges/challenge-cards';
 import { ratingsLabel } from './member-card';
 import { useOnline } from './online-provider';
 import { PersonList, usePersonOverlay } from './online-rows';
@@ -168,7 +168,7 @@ export function OnlineRail({
                 onClick={(event) =>
                   overlay.open(member.username, event.currentTarget)
                 }
-                aria-haspopup="menu"
+                aria-haspopup="dialog"
                 aria-label={`@${member.username}, ${statusLabels[member.status]}, ${ratingsLabel(member)}`}
                 className={cn(
                   'flex size-nav-target items-center justify-center rounded-md hover:bg-surface-overlay',

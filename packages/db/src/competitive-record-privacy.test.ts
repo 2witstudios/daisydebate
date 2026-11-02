@@ -30,6 +30,7 @@ test('the competitive-record step erases nothing and reads only the subject rows
         'ratings',
         'room_participants',
         'room_resolution_strikes',
+        'room_seat_holds',
         'rooms',
         'round_participants',
         'rounds',

@@ -2,10 +2,11 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
 import type { ChallengeListRow, ChallengeStore } from '@daisy/db/challenges';
 import { createAppError, isAppError } from '@daisy/errors';
+import { ROOM_SEAT_HOLD_MS } from '@daisy/protocol';
 import type {
-  ChallengeFormat,
+  RatingLadder,
   ChallengeList,
-  ChallengeMode,
+  CompetitionType,
   ChallengeResult,
   PresenceActivity,
 } from '@daisy/protocol';
@@ -38,6 +39,8 @@ export type ChallengeDependencies = {
   readonly limitSend: (actorId: string) => Promise<void>;
   /** Whether a season is active, which a ranked room needs. */
   readonly rankedOpen: () => Promise<boolean>;
+  /** Whether the catalog offers this format, which Accept's room needs. */
+  readonly formatOffered: (format: RatingLadder) => Promise<boolean>;
   /** The one username port: it spends discovery before each lookup. */
   readonly discover: DiscoverActor;
   readonly activity: (actorId: string) => Promise<PresenceActivity | null>;
@@ -71,8 +74,8 @@ export async function sendChallenge(
   input: {
     readonly commandId: string;
     readonly username: string;
-    readonly mode: ChallengeMode;
-    readonly format: ChallengeFormat;
+    readonly mode: CompetitionType;
+    readonly format: RatingLadder;
   },
   dependencies: ChallengeDependencies,
 ): Promise<Omit<ChallengeResult, 'version'>> {
@@ -82,6 +85,8 @@ export async function sendChallenge(
   // Refused here, not at Accept: a default offer must be able to open its room.
   if (input.mode === 'ranked' && !(await dependencies.rankedOpen()))
     throw createAppError('INVARIANT', 'ranked-unavailable');
+  if (!(await dependencies.formatOffered(input.format)))
+    throw createAppError('VALIDATION');
   const otherActorId = await dependencies.discover(actorId, input.username);
   if (!otherActorId || otherActorId === actorId)
     throw createAppError('NOT_FOUND');
@@ -130,7 +135,7 @@ export async function acceptChallenge(
             roomId: input.roomId,
             now,
             followUntil: new Date(
-              Date.parse(now) + CHALLENGE_TTL_MS,
+              Date.parse(now) + ROOM_SEAT_HOLD_MS,
             ).toISOString(),
           }),
       ),
@@ -191,15 +196,18 @@ export function challengeListOf(
     incoming: open
       .filter((row) => row.direction === 'incoming')
       .slice(0, 20)
-      .map(summary),
+      .map((row) => ({ ...summary(row), actorId: row.actorId })),
     outgoing: open
       .filter((row) => row.direction === 'outgoing')
       .slice(0, 20)
       .map(summary),
     // The acceptor already holds the room; only the challenger still has to go.
     accepted: rows
-      .filter((row) => row.roomId !== null && row.direction === 'outgoing')
-      .slice(0, 20)
-      .map((row) => ({ ...summary(row), roomId: row.roomId! })),
+      .flatMap((row) =>
+        row.roomId !== null && row.direction === 'outgoing'
+          ? [{ ...summary(row), roomId: row.roomId }]
+          : [],
+      )
+      .slice(0, 20),
   };
 }

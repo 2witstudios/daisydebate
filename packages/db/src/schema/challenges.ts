@@ -1,4 +1,4 @@
-import { challengeModes, challengeFormats } from '@daisy/protocol';
+import { competitionTypes, ratingLadders } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
@@ -7,9 +7,9 @@ import { rooms } from './rooms';
 
 /**
  * One member's offer to debate another (ADR 0098). Pending while `room_id`
- * is null and `expires_at` is ahead; accepting sets `room_id` to the room the
- * acceptor just opened. Declining or cancelling deletes the row, and it goes
- * with its room.
+ * is null and `expires_at` is ahead; accepting sets `room_id` and `follow_until`
+ * together, for the room the acceptor just opened. Declining or cancelling
+ * deletes the row, and it goes with its room.
  */
 export const challenges = pgTable(
   'challenges',
@@ -40,7 +40,11 @@ export const challenges = pgTable(
       'challenges_distinct',
       sql`${table.challengerActorId} <> ${table.challengedActorId}`,
     ),
-    check('challenges_mode_check', oneOf(table.mode, challengeModes)),
-    check('challenges_format_check', oneOf(table.formatId, challengeFormats)),
+    check(
+      'challenges_accepted_check',
+      sql`(${table.roomId} is null) = (${table.followUntil} is null)`,
+    ),
+    check('challenges_mode_check', oneOf(table.mode, competitionTypes)),
+    check('challenges_format_check', oneOf(table.formatId, ratingLadders)),
   ],
 );

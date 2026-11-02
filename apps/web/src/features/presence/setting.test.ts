@@ -80,8 +80,10 @@ describe('readChosen', () => {
     assert({
       given: 'a stored choice',
       should: 'answer it',
-      actual: await readChosen(member, { read: async () => 'offline' }),
-      expected: { status: 'offline' },
+      actual: await readChosen(member, {
+        read: async () => 'appearing_offline',
+      }),
+      expected: { status: 'appearing_offline' },
     });
   });
 });

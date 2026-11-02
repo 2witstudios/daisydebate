@@ -18,6 +18,9 @@ import { loadAuthorizationAccount } from '../src/authorization';
 import { memberCardOperations } from '../src/member-cards';
 import { ratingVisibilityOperations } from '../src/ratings-visibility';
 import { reportsPrivacyAdopter } from '../src/reports/privacy';
+import { moderationPrivacyAdopter } from '../src/moderation/privacy';
+import { moderationOperations } from '../src/moderation/store';
+import { moderationReactions } from '../src/moderation-composition';
 import { createMessagingTestFixture } from '../src/testing';
 import { withFixture } from './constraint-helpers';
 import {
@@ -71,7 +74,7 @@ test('the roster leaves out the reader, anyone appearing offline and a blocked p
     await writeChosenStatus(
       ctx.database,
       ctx.them,
-      { status: 'offline', now: ctx.now },
+      { status: 'appearing_offline', now: ctx.now },
       unfenced,
     );
     const offline = await seen();
@@ -387,7 +390,7 @@ test('a challenge is refused while its target is Busy or appearing offline, and 
     );
   try {
     const statuses: unknown[] = [];
-    for (const status of ['busy', 'offline'] as const) {
+    for (const status of ['busy', 'appearing_offline'] as const) {
       await writeChosenStatus(
         ctx.database,
         ctx.them,
@@ -428,7 +431,10 @@ test('a challenge is refused while its target is Busy or appearing offline, and 
 
 test('a chosen status reads back, and a report closes once with its action', async () => {
   const ctx = await open();
-  const ops = reportOperations({ database: ctx.database });
+  const ops = {
+    ...reportOperations({ database: ctx.database, moderationReactions }),
+    ...moderationOperations({ database: ctx.database }),
+  };
   try {
     await writeChosenStatus(
       ctx.database,
@@ -465,8 +471,10 @@ test('a chosen status reads back, and a report closes once with its action', asy
         reportId,
         serviceId: 'daisy-admin',
         operatorRef: 'o'.repeat(24),
-        outcome: 'suspended',
-        suspendUntil: new Date(Date.now() + 86_400_000).toISOString(),
+        resolution: {
+          outcome: 'suspended',
+          suspendUntil: new Date(Date.now() + 86_400_000).toISOString(),
+        },
         requestDigest: 'd'.repeat(64),
         adminAuditHead: 'e'.repeat(64),
         now: new Date().toISOString(),
@@ -537,7 +545,10 @@ test('a chosen status reads back, and a report closes once with its action', asy
 
 test('a suspension ends the member’s offers, and closing an account keeps the record', async () => {
   const ctx = await open();
-  const ops = reportOperations({ database: ctx.database });
+  const ops = {
+    ...reportOperations({ database: ctx.database, moderationReactions }),
+    ...moderationOperations({ database: ctx.database }),
+  };
   const challengesStore = createChallengeStore({
     database: ctx.database,
     authorize: unfenced,
@@ -588,8 +599,10 @@ test('a suspension ends the member’s offers, and closing an account keeps the 
       reportId: about,
       serviceId: 'daisy-admin',
       operatorRef: 'o'.repeat(24),
-      outcome: 'suspended',
-      suspendUntil: new Date(Date.now() + 86_400_000).toISOString(),
+      resolution: {
+        outcome: 'suspended',
+        suspendUntil: new Date(Date.now() + 86_400_000).toISOString(),
+      },
       requestDigest: 'c'.repeat(64),
       adminAuditHead: 'e'.repeat(64),
       now: live,
@@ -602,13 +615,18 @@ test('a suspension ends the member’s offers, and closing an account keeps the 
       userId: ctx.them.userId,
       now: live,
     });
-    await ctx.database.transaction((tx) =>
-      reportsPrivacyAdopter.erase(
+    await ctx.database.transaction(async (tx) => {
+      await reportsPrivacyAdopter.erase(
         tx,
         ctx.them as never,
         { now: live } as never,
-      ),
-    );
+      );
+      await moderationPrivacyAdopter.erase(
+        tx,
+        ctx.them as never,
+        { now: live } as never,
+      );
+    });
     const [stillFiled] = (await ctx.client.unsafe(
       'select reporter_actor_id as reporter from reports where id = $1',
       [filed],
@@ -646,7 +664,81 @@ test('a suspension ends the member’s offers, and closing an account keeps the 
   }
 });
 
-const migration = '20261102222410_who_is_online';
+test('moderation: a ban has no end, the sweep counts from erasure, and impossible rows are refused', async () => {
+  const ctx = await open();
+  const ops = moderationOperations({ database: ctx.database });
+  const { userId } = ctx.them;
+  try {
+    const sanction = (kind: string, endsAt: string | null) =>
+      ctx.client.unsafe(
+        `insert into moderation_actions (id, user_id, kind, starts_at, ends_at, operator_ref)
+         values ($1, $2, $3, now() - interval '13 months', $4, 'op')`,
+        [createId(), userId, kind, endsAt],
+      );
+    const now = new Date().toISOString();
+    await sanction(
+      'suspension',
+      new Date(Date.now() + 86_400_000).toISOString(),
+    );
+    const suspended = await ops.readRestrictionEnd({ userId, now });
+    await sanction('ban', null);
+    const banned = await ops.readRestrictionEnd({ userId, now });
+    const refused = (kind: string, column: string) =>
+      ctx.client
+        .unsafe(
+          `insert into moderation_actions (id, user_id, kind, starts_at, ${column}, operator_ref)
+           values ($1, $2, $3, now(), now(), 'op')`,
+          [createId(), userId, kind],
+        )
+        .then(
+          () => false,
+          () => true,
+        );
+    const liftWarning = await refused('warning', 'lifted_at');
+    const acknowledgeBan = await refused('ban', 'acknowledged_at');
+    const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
+    const notErased = await ops.purgeErasedModeration({
+      before: dayAgo,
+      limit: 100,
+    });
+    await ctx.client.unsafe(
+      `update users set deleted_at = now() - interval '2 days', email = null, image = null, name = '' where id = $1`,
+      [userId],
+    );
+    const stillKept = await ops.purgeErasedModeration({
+      before: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+      limit: 100,
+    });
+    const swept = await ops.purgeErasedModeration({
+      before: dayAgo,
+      limit: 100,
+    });
+    assert({
+      given: 'a suspension, then a ban, on a member erased later',
+      should:
+        'name an end only without a ban, refuse a lifted warning and an acknowledged ban, and sweep only past the erasure date',
+      actual: [
+        typeof suspended,
+        banned,
+        liftWarning,
+        acknowledgeBan,
+        notErased,
+        stillKept,
+        swept,
+      ],
+      expected: ['string', null, true, true, 0, 0, 2],
+    });
+  } finally {
+    await ctx.client.unsafe(
+      'delete from moderation_actions where user_id = $1',
+      [userId],
+    );
+    await ctx.cleanup();
+    await ctx.client.close();
+  }
+});
+
+const migration = '20261102231211_who_is_online';
 const scratch = scratchDatabase(databaseUrl, 'whoonline');
 afterAll(() => scratch.drop());
 
@@ -665,7 +757,7 @@ test(
       );
       await scratch.migrate((folder) => folder <= migration);
       const rows = (await client.unsafe(
-        'select actor_id as id, status from presence_settings',
+        'select actor_id as id, chosen_status as status from presence_settings',
       )) as { id: string; status: string }[];
       const statusOf = (id: string) =>
         rows.find((row) => row.id === id)?.status;
@@ -673,7 +765,7 @@ test(
         given: 'one member hiding and one not',
         should: 'keep each choice in the new column',
         actual: [statusOf(hiddenId), statusOf(shownId)],
-        expected: ['offline', 'online'],
+        expected: ['appearing_offline', 'online'],
       });
       await client.unsafe(
         'delete from presence_settings where actor_id = any($1)',

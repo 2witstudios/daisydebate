@@ -177,6 +177,7 @@ export {
 export type { PresenceActivity } from './realtime';
 
 export {
+  ROOM_SEAT_HOLD_MS,
   roomCreateSchema,
   roomCommandSchema,
   roomStatuses,
@@ -219,6 +220,7 @@ export type {
 } from './messaging/social';
 export type {
   RoomAssemblyState,
+  RoomSeatHold,
   RoomConsent,
   RoomMutationOutcome,
   RoomCastChoice,
@@ -367,6 +369,7 @@ export {
 } from './presence-setting';
 export type {
   ChosenStatus,
+  MemberPlacement,
   MemberStatus,
   OnlineFilter,
   OnlineMember,
@@ -375,21 +378,17 @@ export type {
 } from './presence-setting';
 export {
   challengeCommandSchemas,
-  challengeFormats,
   challengeListSchema,
-  challengeModes,
   challengeResultSchema,
 } from './challenges';
-export type {
-  ChallengeFormat,
-  ChallengeList,
-  ChallengeMode,
-  ChallengeResult,
-} from './challenges';
+export type { ChallengeList, ChallengeResult } from './challenges';
 export {
   moderationAcknowledgeSchema,
   moderationKinds,
   moderationNoticesSchema,
+} from './moderation';
+export type { ModerationNotice } from './moderation';
+export {
   reportCommandSchema,
   reportOutcomes,
   reportReasonLabels,
@@ -397,12 +396,7 @@ export {
   reportResultSchema,
   reportSurfaces,
 } from './reports';
-export type {
-  ModerationNotice,
-  ReportOutcome,
-  ReportReason,
-  ReportSurface,
-} from './reports';
+export type { ReportOutcome, ReportReason, ReportSurface } from './reports';
 export {
   contactBlockResultSchema,
   contactBlockSchema,

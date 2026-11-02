@@ -43,8 +43,18 @@ export function operatorDecision(
     !principal.capabilities.includes(capability)
   )
     return { allow: false, reason: 'missing-capability' };
-  if (capability !== 'account.beta_access.update') return { allow: true };
-  return context.account !== null && context.account.beta !== null
-    ? { allow: true }
-    : { allow: false, reason: 'denied' };
+  switch (capability) {
+    case 'account.beta_access.update':
+      return context.account !== null && context.account.beta !== null
+        ? { allow: true }
+        : { allow: false, reason: 'denied' };
+    case 'account.collection.read':
+    case 'report.collection.read':
+    case 'report.resolve':
+    case 'moderation.collection.read':
+    case 'moderation.lift':
+      return { allow: true };
+    default:
+      return { allow: false, reason: 'missing-capability' };
+  }
 }

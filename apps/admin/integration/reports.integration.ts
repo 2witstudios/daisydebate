@@ -12,8 +12,7 @@ const { db } = suiteDatabase();
 const decision = {
   reportId: 'r'.repeat(24),
   subjectUserId: userId,
-  outcome: 'warned',
-  suspendDays: null,
+  resolution: { outcome: 'warned' },
 } as const;
 
 test('a report decision is audited before and after it is sent', async () => {

@@ -1,4 +1,3 @@
-import { requestRestrictionEnd } from '../../../lib/request-session';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { readOnboardingEntry } from '../../../lib/auth-entry';
@@ -30,15 +29,16 @@ export default async function BetaPage({
   );
   if (identity.state === 'provisional') redirect(onboardingHref(destination));
   if (identity.state === 'member') redirect(destination);
+  if (identity.reason === 'restricted')
+    redirect(
+      (await searchParams).signOut === 'failed'
+        ? '/restricted?signOut=failed'
+        : '/restricted',
+    );
   return (
     <BetaWaiting
       username={identity.username}
       reason={identity.reason}
-      restrictedUntil={
-        identity.reason === 'restricted'
-          ? await requestRestrictionEnd(identity.principal.userId)
-          : null
-      }
       ageHref={onboardingHref('/beta')}
       signOutFailed={(await searchParams).signOut === 'failed'}
     />

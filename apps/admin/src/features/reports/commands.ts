@@ -12,7 +12,11 @@ export type ReportNotice =
   'resolved' | 'lifted' | 'denied' | 'refused' | 'unknown';
 
 /** Whether the operator row read now may act; a denial is audited. */
-async function mayAct(deps: CommandDeps, operatorId: string): Promise<boolean> {
+async function mayAct(
+  deps: CommandDeps,
+  operatorId: string,
+  action: 'report.resolve' | 'moderation.lift',
+): Promise<boolean> {
   const row = await findOperator(deps.db, operatorId);
   const decision = row
     ? authorizeOperator({
@@ -22,7 +26,7 @@ async function mayAct(deps: CommandDeps, operatorId: string): Promise<boolean> {
           disabled: row.disabledAt !== null,
           revision: row.revision,
         },
-        action: 'report.resolve',
+        action,
         policy: currentApprovalPolicy,
       })
     : ({ allowed: false, reason: 'disabled' } as const);
@@ -53,6 +57,7 @@ async function audited<T>(
   deps: CommandDeps,
   input: {
     readonly operatorId: string;
+    readonly action: 'report.resolve' | 'moderation.lift';
     readonly decision: string;
     readonly targetUserId: string;
   },
@@ -66,7 +71,7 @@ async function audited<T>(
   >,
   done: ReportNotice,
 ): Promise<ReportNotice> {
-  if (!(await mayAct(deps, input.operatorId))) return 'denied';
+  if (!(await mayAct(deps, input.operatorId, input.action))) return 'denied';
   const commandId = deps.ids.next();
   const { hash: anchor } = await deps.db.transaction((tx) =>
     appendAudit(tx, {
@@ -103,23 +108,24 @@ export const resolveReport = (
     readonly operatorId: string;
     readonly reportId: string;
     readonly subjectUserId: string;
-    readonly outcome: ReportOutcome;
-    readonly suspendDays: number | null;
+    readonly resolution:
+      | { readonly outcome: Exclude<ReportOutcome, 'suspended'> }
+      | { readonly outcome: 'suspended'; readonly suspendDays: number };
   },
 ) =>
   audited(
     deps,
     {
       operatorId: input.operatorId,
-      decision: `report.resolve:${input.outcome}`,
+      action: 'report.resolve',
+      decision: `report.resolve:${input.resolution.outcome}`,
       targetUserId: input.subjectUserId,
     },
     (commandId, adminAuditHead) =>
       deps.client.resolveReport(input.operatorId, input.reportId, {
         v: 1,
         commandId,
-        outcome: input.outcome,
-        suspendDays: input.suspendDays,
+        ...input.resolution,
         adminAuditHead,
       }),
     'resolved',
@@ -137,6 +143,7 @@ export const liftRestriction = (
     deps,
     {
       operatorId: input.operatorId,
+      action: 'moderation.lift',
       decision: 'moderation.lift',
       targetUserId: input.userId,
     },

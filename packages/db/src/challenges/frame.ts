@@ -4,8 +4,8 @@ import { createAppError } from '@daisy/errors';
 import {
   buildUserInboxTopic,
   idSchema,
-  type ChallengeFormat,
-  type ChallengeMode,
+  type RatingLadder,
+  type CompetitionType,
 } from '@daisy/protocol';
 import type { AuthorizationTransaction } from '../authorization';
 import type { ContactPairKey } from '../contacts/reactions';
@@ -27,8 +27,8 @@ export type ChallengeFrame = {
   /** Records a new offer; a repeat of the open one answers it unchanged. */
   readonly send: (input: {
     readonly id: string;
-    readonly mode: ChallengeMode;
-    readonly format: ChallengeFormat;
+    readonly mode: CompetitionType;
+    readonly format: RatingLadder;
     readonly now: string;
     readonly expiresAt: string;
   }) => Promise<{ readonly challengeId: string }>;
@@ -87,7 +87,7 @@ export async function endMemberOffers(
 }
 
 /** Ends every challenge between a pair, either way: a block leaves none. */
-export async function endPairChallenges(
+async function endPairChallenges(
   tx: Pick<BunSQLDatabase, 'delete'>,
   pair: ContactPairKey,
 ) {
@@ -105,6 +105,17 @@ export async function endPairChallenges(
       ),
     );
 }
+
+/** What Challenges registers with Contacts: a block leaves no challenge. */
+export const challengeContactReactions = {
+  onBlock: async (
+    tx: Pick<BunSQLDatabase, 'delete'>,
+    pair: ContactPairKey,
+    blocked: boolean,
+  ) => {
+    if (blocked) await endPairChallenges(tx, pair);
+  },
+};
 
 /**
  * Challenge writes inside the contact frame: accounts and the pair are locked,

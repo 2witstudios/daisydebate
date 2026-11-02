@@ -53,6 +53,7 @@ const harness = (overrides: Partial<ChallengeDependencies> = {}) => {
     limit: async () => {},
     limitSend: async () => {},
     rankedOpen: async () => true,
+    formatOffered: async () => true,
     discover: async () => them,
     activity: async () => 'active',
     store: (capability) => {
@@ -249,6 +250,7 @@ describe('challengeListOf', () => {
   const row = (over: object) => ({
     id,
     direction: 'incoming' as const,
+    actorId: them,
     username: 'ada',
     mode: 'casual' as const,
     format: 'value' as const,

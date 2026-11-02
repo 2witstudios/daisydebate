@@ -3,6 +3,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   idSchema,
   type ChosenStatus,
+  type MemberPlacement,
   type OnlineFilter,
 } from '@daisy/protocol';
 import {
@@ -15,9 +16,6 @@ import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { roomIsOpen } from '../room-open';
 
 type RosterScope = { readonly userId: string; readonly actorId: string };
-
-/** Where a member's one active Room has them (ADR 0070). */
-export type MemberPlacement = 'room' | 'round' | null;
 
 /** Rooms' and Rounds' published fact, for the membership row `m` joined to `rooms`. */
 const placementSql = sql<MemberPlacement>`case
@@ -88,7 +86,7 @@ const visibleFrom = (viewerId: string, ids: readonly string[]) => sql`
   left join friendships f on f.low_actor_id = least(a.id, ${viewerId})
     and f.high_actor_id = greatest(a.id, ${viewerId})
   where a.id <> ${viewerId}
-    and coalesce(ps.status, 'online') <> 'offline'
+    and coalesce(ps.chosen_status, 'online') <> 'appearing_offline'
     and not coalesce(p.low_blocks_high or p.high_blocks_low, false)`;
 
 const isFriend = sql`coalesce(f.state = 'accepted', false)`;
@@ -121,7 +119,7 @@ export function readRosterPage(
       input.filter === 'friends' ? sql`and ${isFriend}` : sql``;
     const rows = (await tx.execute(sql`
       select a.id as "actorId", u.username,
-        coalesce(ps.status, 'online') as chosen,
+        coalesce(ps.chosen_status, 'online') as chosen,
         ${placementOf(sql`a.id`)} as placement,
         ${isFriend} as friend,
         f.requester_actor_id as "requesterActorId",
@@ -139,7 +137,7 @@ export function readRosterPage(
 
 const readSelf = async (tx: AuthorizationTransaction, actorId: string) => {
   const [row] = (await tx.execute(sql`
-    select coalesce((select status from presence_settings where actor_id = ${actorId}), 'online') as chosen,
+    select coalesce((select chosen_status from presence_settings where actor_id = ${actorId}), 'online') as chosen,
       ${placementOf(sql`${actorId}`)} as placement`)) as unknown as {
     chosen: ChosenStatus;
     placement: MemberPlacement;

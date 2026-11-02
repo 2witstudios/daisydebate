@@ -1,8 +1,8 @@
 'use client';
 
 import {
-  challengeFormats,
-  challengeModes,
+  ratingLadders,
+  competitionTypes,
   reportReasonLabels,
   reportReasons,
 } from '@daisy/protocol';
@@ -60,7 +60,7 @@ export function ProfilePersonActions({
           <label>
             <span className="sr-only">Mode</span>
             <select name="mode" defaultValue="ranked" className={controlClass}>
-              {challengeModes.map((mode) => (
+              {competitionTypes.map((mode) => (
                 <option key={mode} value={mode}>
                   {labels[mode]}
                 </option>
@@ -74,7 +74,7 @@ export function ProfilePersonActions({
               defaultValue="freestyle"
               className={controlClass}
             >
-              {challengeFormats.map((format) => (
+              {ratingLadders.map((format) => (
                 <option key={format} value={format}>
                   {labels[format]}
                 </option>

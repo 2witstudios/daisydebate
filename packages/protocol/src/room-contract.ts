@@ -95,6 +95,14 @@ export const roomCreateSchema = z
         { message: 'A cast seats an actor at most once', path: ['cast'] },
       )
       .optional(),
+    /** Named members whose debater seats nobody else may take for a short while. */
+    holdSeatsFor: z
+      .array(idSchema)
+      .max(2)
+      .refine((ids) => new Set(ids).size === ids.length, {
+        message: 'A hold names an actor at most once',
+      })
+      .optional(),
   })
   .refine(
     (create) =>
@@ -206,6 +214,15 @@ export type RoomCommandResponse = {
   readonly receipt: RoomCommandReceipt;
   readonly view: RoomView;
 };
+/** How long a seat stays held for a named member who has not arrived (ADR 0098). */
+export const ROOM_SEAT_HOLD_MS = 120_000;
+
+/** A debater seat kept for a named member until `until` (ADR 0098). */
+export type RoomSeatHold = {
+  readonly actorId: string;
+  readonly until: string;
+};
+
 /** Portable assembly facts supplied by the durable adapter to pure operations. */
 export type RoomAssemblyState = {
   readonly id: string;
@@ -242,6 +259,7 @@ export type RoomAssemblyState = {
     /** The basis preset's format settings, not a Room config (ISSUE-775). */
     readonly config: FormatSettings;
   } | null;
+  readonly seatHolds: readonly RoomSeatHold[];
   readonly competitionType: CompetitionType;
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;

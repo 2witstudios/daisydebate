@@ -6,8 +6,8 @@ import { challengeFormUnavailable } from '../../features/challenges/forms';
 import { cn } from '../cn';
 import { useFormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
-import { useOnline } from './online-provider';
-import type { PersonActions } from './person-actions';
+import type { PersonActions } from '../online/person-actions';
+import { useChallenges } from './challenge-provider';
 
 const labels = {
   freestyle: 'Freestyle',
@@ -34,7 +34,7 @@ function IncomingCard({
   readonly actions: PersonActions;
   readonly className?: string;
 }) {
-  const { refresh } = useOnline();
+  const { refresh } = useChallenges();
   const [accepted, accept, accepting] = useFormAction(
     actions.acceptChallenge,
     {},
@@ -104,7 +104,7 @@ function OutgoingCard({
   readonly action: PersonActions['endChallenge'];
   readonly className?: string;
 }) {
-  const { refresh, noteCancelled } = useOnline();
+  const { refresh, noteCancelled, forgetCancelled } = useChallenges();
   const [answer, post, pending] = useFormAction(
     action,
     {},
@@ -112,8 +112,10 @@ function OutgoingCard({
   );
   const initial = useRef(answer);
   useEffect(() => {
-    if (answer !== initial.current) refresh();
-  }, [answer, refresh]);
+    if (answer === initial.current) return;
+    if (answer.notice) forgetCancelled(offer.id);
+    refresh();
+  }, [answer, forgetCancelled, offer.id, refresh]);
   return (
     <section
       aria-label={`Challenge sent to @${offer.username}`}
@@ -147,17 +149,17 @@ function EndedCard({
   readonly username: string;
   readonly className?: string;
 }) {
-  const { dismissEnded } = useOnline();
+  const { dismissEnded } = useChallenges();
   return (
     <section
-      aria-label={`@${username} did not take your challenge`}
+      aria-label={`Your challenge to @${username} ended`}
       className={cn(
         'flex items-center justify-between gap-2 rounded-lg border border-border bg-surface-raised px-4 py-2 text-ink',
         className,
       )}
     >
       <p role="status" className="text-sm">
-        @{username} did not take your challenge.
+        Your challenge to @{username} ended.
       </p>
       <button
         type="button"
@@ -254,7 +256,7 @@ export function FollowAccepted({
 }: {
   readonly activeRoomId: string | null;
 }) {
-  const { challenges } = useOnline();
+  const { challenges } = useChallenges();
   useFollowAccepted(challenges.accepted, activeRoomId);
   return null;
 }
@@ -274,7 +276,7 @@ export function ChallengeCards({
   readonly className?: string;
   readonly cardClassName?: string;
 }) {
-  const { challenges, endedOffers } = useOnline();
+  const { challenges, endedOffers } = useChallenges();
   const accepted = challenges.accepted.filter(
     (offer) => offer.roomId !== activeRoomId,
   );

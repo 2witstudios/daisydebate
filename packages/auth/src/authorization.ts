@@ -259,6 +259,10 @@ function resolveMemberResource(
       );
     case 'messaging_collection':
     case 'friend_collection':
+    case 'challenge_collection':
+    case 'online_roster':
+    case 'rating_visibility':
+    case 'moderation_notice':
     case 'presence_setting':
       return decision(resource.actorId === actorId);
     case 'room_collection':

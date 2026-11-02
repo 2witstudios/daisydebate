@@ -2,10 +2,8 @@ import type {
   ChosenStatus,
   MemberStatus,
   PresenceActivity,
+  MemberPlacement,
 } from '@daisy/protocol';
-
-/** Where a member's active Room has them (ADR 0070). */
-export type Placement = 'room' | 'round' | null;
 
 /**
  * What anyone sees of a member, the one rule (ADR 0098). Appearing offline or
@@ -15,9 +13,10 @@ export type Placement = 'room' | 'round' | null;
 export function displayStatus(input: {
   readonly chosen: ChosenStatus;
   readonly activity: PresenceActivity | null;
-  readonly placement: Placement;
+  readonly placement: MemberPlacement;
 }): MemberStatus {
-  if (input.chosen === 'offline' || input.activity === null) return 'offline';
+  if (input.chosen === 'appearing_offline' || input.activity === null)
+    return 'offline';
   if (input.placement) return input.placement;
   if (input.chosen === 'busy') return 'busy';
   return input.activity === 'active' ? 'online' : 'away';

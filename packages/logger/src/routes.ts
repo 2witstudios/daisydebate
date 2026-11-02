@@ -127,7 +127,7 @@ const appRoutes = [
   '/api/presence',
   '/api/ratings/visibility',
   '/api/reports',
-  '/api/reports/notices',
+  '/api/moderation/notices',
   '/api/privacy/erase',
   '/api/analytics/consent',
   '/api/privacy/export',

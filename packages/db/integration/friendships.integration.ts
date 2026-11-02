@@ -175,7 +175,10 @@ test('a friend’s hidden choice reaches the other member’s list as one stored
     writeChosenStatus(
       database,
       { userId: otherUserId!, actorId: otherActorId! },
-      { status: hidden ? ('offline' as const) : ('online' as const), now },
+      {
+        status: hidden ? ('appearing_offline' as const) : ('online' as const),
+        now,
+      },
       unfenced,
     );
   try {

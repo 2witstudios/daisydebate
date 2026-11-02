@@ -36,16 +36,40 @@ test('a member who is not admitted keeps exactly the withdrawals (ADR 0075)', ()
     should:
       'allow only own-footprint withdrawals: exits, own cleanup and own replay reads',
     actual: [
-      { beta: { state: 'pending' as const }, ageBand: 'adult' as const },
-      { beta: { state: 'revoked' as const }, ageBand: 'adult' as const },
+      {
+        beta: { state: 'pending' as const },
+        ageBand: 'adult' as const,
+        restricted: false,
+      },
+      {
+        beta: { state: 'revoked' as const },
+        ageBand: 'adult' as const,
+        restricted: false,
+      },
       {
         beta: { state: 'approved' as const },
         ageBand: null,
         restricted: false,
       },
-      { beta: null, ageBand: 'adult' as const },
+      { beta: null, ageBand: 'adult' as const, restricted: false },
     ].map((account) => sorted(admitted(account))),
     expected: Array.from({ length: 4 }, () => sorted(withdrawals)),
+  });
+});
+
+test('a restriction withdraws participant access like a revoked beta', () => {
+  assert({
+    given: 'an approved adult under a suspension or ban',
+    should: 'refuse participant capabilities and keep the exits',
+    actual: (['room.create', 'social.challenge.decline'] as const).map(
+      (capability) =>
+        admitsCapability(capability, {
+          beta: { state: 'approved' },
+          ageBand: 'adult',
+          restricted: true,
+        }),
+    ),
+    expected: [false, true],
   });
 });
 

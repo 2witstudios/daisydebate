@@ -15,7 +15,7 @@ import { useOptionalOnline } from './online-provider';
 const labels: Readonly<Record<ChosenStatus, string>> = {
   online: 'Online',
   busy: 'Busy',
-  offline: 'Appear offline',
+  appearing_offline: 'Appear offline',
 };
 
 /** The avatar at the foot of the left rail, showing the member's real status. */

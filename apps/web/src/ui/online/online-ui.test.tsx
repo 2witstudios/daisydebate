@@ -4,6 +4,7 @@ import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { OnlineMember, OnlineRoster } from '@daisy/protocol';
 import { ratingsLabel, ratingText } from './member-card';
+import { ChallengeProvider } from '../challenges/challenge-provider';
 import { OnlineProvider } from './online-provider';
 import { OnlineRail } from './online-rail';
 import { rowDetail } from './online-rows';
@@ -62,24 +63,28 @@ const inProvider = (children: unknown, members: readonly OnlineMember[]) =>
       { value: router },
       h(OnlineProvider, {
         initialRoster: roster(members),
-        initialChallenges: {
-          version: 1,
-          incoming: [
-            {
-              id: 'c'.repeat(24),
-              username: 'mara',
-              mode: 'ranked',
-              format: 'freestyle',
-              createdAt: '2026-11-02T00:00:00.000Z',
-              expiresAt: '2026-11-02T00:02:00.000Z',
-            },
-          ],
-          outgoing: [],
-          accepted: [],
-        },
-        actorId: null,
         socketUrl: null,
-        children: children as never,
+        children: h(ChallengeProvider, {
+          initialChallenges: {
+            version: 1,
+            incoming: [
+              {
+                id: 'c'.repeat(24),
+                actorId: 'm'.repeat(24),
+                username: 'mara',
+                mode: 'ranked',
+                format: 'freestyle',
+                createdAt: '2026-11-02T00:00:00.000Z',
+                expiresAt: '2026-11-02T00:02:00.000Z',
+              },
+            ],
+            outgoing: [],
+            accepted: [],
+          },
+          actorId: null,
+          socketUrl: null,
+          children: children as never,
+        }),
       }),
     ),
   );
@@ -214,7 +219,7 @@ describe('StatusForm', () => {
       should: 'post each status as a button value, with Busy pressed',
       actual: [
         html.includes('value="online"'),
-        html.includes('value="offline"'),
+        html.includes('value="appearing_offline"'),
         /value="busy"[^>]*aria-pressed="true"/.test(html),
         html.includes('Appear offline'),
       ],

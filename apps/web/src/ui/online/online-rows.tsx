@@ -9,6 +9,7 @@ import { Icon } from '../components/icon/icon';
 import { cn } from '../cn';
 import { anchorAt, MemberCardBody, ratingsLabel } from './member-card';
 import { outgoingTo, PersonMenu } from './person-menu';
+import { useChallenges } from '../challenges/challenge-provider';
 import { useOnline } from './online-provider';
 import type { PersonActions } from './person-actions';
 
@@ -139,7 +140,7 @@ function PersonRow({
   readonly overlay: ReturnType<typeof usePersonOverlay>;
   readonly active: boolean;
 }) {
-  const { challenges } = useOnline();
+  const { challenges } = useChallenges();
   const detail = rowDetail(
     member,
     Boolean(outgoingTo(challenges, member.username)),
@@ -179,7 +180,7 @@ function PersonRow({
       <Link
         href={href}
         aria-label={`Actions for @${member.username}`}
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         title="More"
         onClick={(event) => {
           event.preventDefault();

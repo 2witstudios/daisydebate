@@ -6,12 +6,12 @@ import { exportRows } from '../privacy/export-rows';
 const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
 
 /**
- * Reports' and moderation's subject rights (ADR 0098). Closing an account never
- * wipes its record: reports about the subject and their sanctions stay through
- * their proposed retention (DEC-298), and a report they filed stays with its
- * reporter removed, so one member's erasure cannot empty another's report from
- * the queue. Export gives a subject reports they filed, without another
- * member's sanction, and those about them without who filed them.
+ * Reports' subject rights (ADR 0098). Closing an account never wipes its
+ * record: reports about the subject stay through their proposed retention
+ * (DEC-298), and a report they filed stays with its reporter removed, so one
+ * member's erasure cannot empty another's report from the queue. Export gives a
+ * subject reports they filed, without another member's sanction, and those
+ * about them without who filed them.
  */
 export const reportsPrivacyAdopter: PrivacyAdopter = {
   id: 'reports',
@@ -24,7 +24,6 @@ export const reportsPrivacyAdopter: PrivacyAdopter = {
   },
   async export(tx, subject): Promise<PrivacyExport> {
     const actorId = idSchema.parse(subject.actorId);
-    const userId = idSchema.parse(subject.userId);
     return {
       reports_filed: exportRows(
         rowsOf(
@@ -37,13 +36,6 @@ export const reportsPrivacyAdopter: PrivacyAdopter = {
         rowsOf(
           await tx.execute(
             sql`select id, reason, surface, created_at, closed_at, outcome from reports where subject_actor_id=${actorId} order by created_at,id`,
-          ),
-        ),
-      ),
-      moderation_actions: exportRows(
-        rowsOf(
-          await tx.execute(
-            sql`select id, kind, starts_at, ends_at, lifted_at, acknowledged_at from moderation_actions where user_id=${userId} order by starts_at,id`,
           ),
         ),
       ),

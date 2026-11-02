@@ -60,7 +60,7 @@ test('the presence route reads only the caller’s own choice', async () => {
     read: async (principal) => ({
       status:
         principal.kind === 'user' && principal.actorId === 'a'.repeat(24)
-          ? 'offline'
+          ? 'appearing_offline'
           : 'online',
     }),
   });
@@ -71,6 +71,6 @@ test('the presence route reads only the caller’s own choice', async () => {
     given: 'a same-origin read by a member appearing offline',
     should: 'answer their own setting in the published contract',
     actual: [read.status, await read.json()],
-    expected: [200, { version: 1, status: 'offline' }],
+    expected: [200, { version: 1, status: 'appearing_offline' }],
   });
 });

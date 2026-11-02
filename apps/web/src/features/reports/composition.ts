@@ -1,10 +1,4 @@
-import { requireAuthorization } from '@daisy/auth/request-authorization';
-import {
-  moderationAcknowledgeSchema,
-  reportCommandSchema,
-  reportResultSchema,
-} from '@daisy/protocol';
-import { requireMemberActor } from '../access/actor';
+import { reportCommandSchema, reportResultSchema } from '@daisy/protocol';
 import { appDiscoverActor } from '../account/username-discovery';
 import { contactPairFence } from '../contacts/authorization';
 import type { App } from '../../server/app';
@@ -18,7 +12,7 @@ import { fileReport, REPORT_RULE } from './operations';
 
 const MAX_BODY_BYTES = 1024;
 
-/** Reports and the member's own moderation notices (ADR 0098). */
+/** Reports (ADR 0098). */
 export function composeReportRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   return {
@@ -57,53 +51,6 @@ export function composeReportRoutes(app: App) {
               },
             )),
           });
-        },
-      }),
-    notices: (request: Request) =>
-      runMemberHandler(boundary, request, {
-        name: 'reports.notices',
-        readOnly: true,
-        readInput: async () => null,
-        operation: async (_input, principal) => {
-          const { actorId, userId } = requireMemberActor(principal);
-          return {
-            notices: await app.database.listModerationNotices(
-              { userId, actorId },
-              async ({ scope, account }) =>
-                requireAuthorization({
-                  principal,
-                  capability: 'social.moderation_notice.read',
-                  resource: {
-                    kind: 'friend_collection',
-                    actorId: scope.actorId,
-                  },
-                  context: { account },
-                }),
-            ),
-          };
-        },
-        headers: { 'cache-control': 'no-store' },
-      }),
-    acknowledge: (request: Request) =>
-      runMemberHandler(boundary, request, {
-        name: 'reports.acknowledge',
-        readOnly: false,
-        readInput: () => readJson(request, MAX_BODY_BYTES),
-        operation: async (input, principal) => {
-          const { actorId, userId } = requireMemberActor(principal);
-          const { id } = parseValidated(moderationAcknowledgeSchema, input);
-          await app.database.acknowledgeModerationNotice(
-            { userId, actorId },
-            { id, now: app.clock.now() },
-            async ({ scope, account }) =>
-              requireAuthorization({
-                principal,
-                capability: 'social.moderation_notice.acknowledge',
-                resource: { kind: 'friend_collection', actorId: scope.actorId },
-                context: { account },
-              }),
-          );
-          return { version: 1, id };
         },
       }),
   };

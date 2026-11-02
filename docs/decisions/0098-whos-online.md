@@ -49,7 +49,10 @@ be able to see who is online."
    casual and public when ranked, so a human judge can find it and the result
    counts on both records, then names it on the offer, which accepts
    only a room matching its format and mode, and only while the challenger is
-   unplaced. The challenger is sent there for two more minutes, once. The inbox
+   unplaced. A debater seat stays held for each of the two for two minutes
+   (`room_seat_holds`): the Room's own fact, so a listed room's seats are theirs
+   while they arrive, and it never seats anyone or touches the judge seat. The
+   challenger is sent there for those two minutes, once. The inbox
    doorbell `challenge.changed` reaches both members on any page, and the
    challenger follows to the room. No such member, a block, no lease, Busy,
    appearing offline or the other member being placed are one answer, so a status code never
@@ -65,9 +68,14 @@ be able to see who is online."
    reason and the surface, never a copy of any conversation, one open per
    reporter and subject. Review is in `apps/admin` through new signed operator
    routes, as ADR 0043 and ADR 0079 require. The operator API authorizes through
-   four new capabilities. A reviewer dismisses, warns, suspends for a set time or
+   four new capabilities, and `moderation.lift` is an operator action apart from
+   `report.resolve`. A reviewer dismisses, warns, suspends for a set time or
    bans; `moderation_actions` records it apart from the report, and lifting keeps
-   the row. A suspension or ban in force sets `restricted` on the one account
+   the row. Moderation has its own home (`db/moderation`, `features/moderation`,
+   `/api/moderation/notices`, the `/restricted` page): Reports resolves through
+   its one named write, a restriction ends offers through a reaction Challenges
+   registers, and `daisy_restriction_in_force` is the one SQL rule. A suspension
+   or ban in force sets `restricted` on the one account
    producer, so `participantAccess` stops web and realtime at the same check.
    Closing an account never wipes this: reports about it and its sanctions stay
    through retention, and a report it filed stays with the reporter removed.
@@ -85,6 +93,9 @@ be able to see who is online."
   the old columns ignores it.
 - An admin decision keeps no pending-command row: a report closes once, so a
   resend after an unknown outcome answers a refusal rather than repeating it.
+- Closing an account clears its email, so a banned member can sign up again with
+  the same address and nothing links to the ban. Stopping that means keeping an
+  email digest, a new data class; it goes to the point guard and counsel (DEC-298).
 - The list stops at `ROSTER_ACTORS_MAX`, 10,000 online. Past that, a new ADR.
 
 ## Privacy

@@ -9,6 +9,7 @@ CREATE TABLE "challenges" (
 	"expires_at" timestamp with time zone NOT NULL,
 	"follow_until" timestamp with time zone,
 	CONSTRAINT "challenges_distinct" CHECK ("challenger_actor_id" <> "challenged_actor_id"),
+	CONSTRAINT "challenges_accepted_check" CHECK (("room_id" is null) = ("follow_until" is null)),
 	CONSTRAINT "challenges_mode_check" CHECK ("mode" in ('ranked', 'casual')),
 	CONSTRAINT "challenges_format_check" CHECK ("format_id" in ('freestyle', 'policy', 'value'))
 );
@@ -23,7 +24,9 @@ CREATE TABLE "moderation_actions" (
 	"acknowledged_at" timestamp with time zone,
 	"operator_ref" text NOT NULL,
 	CONSTRAINT "moderation_actions_kind_check" CHECK ("kind" in ('warning', 'suspension', 'ban')),
-	CONSTRAINT "moderation_actions_ends_check" CHECK (("kind" = 'suspension') = ("ends_at" is not null))
+	CONSTRAINT "moderation_actions_ends_check" CHECK (("kind" = 'suspension') = ("ends_at" is not null)),
+	CONSTRAINT "moderation_actions_lifted_check" CHECK ("lifted_at" is null or "kind" in ('suspension', 'ban')),
+	CONSTRAINT "moderation_actions_acknowledged_check" CHECK ("acknowledged_at" is null or "kind" = 'warning')
 );
 --> statement-breakpoint
 CREATE TABLE "rating_visibility" (
@@ -53,12 +56,19 @@ CREATE TABLE "reports" (
         and ("closed_at" is null) = ("purge_after" is null))
 );
 --> statement-breakpoint
+CREATE TABLE "room_seat_holds" (
+	"room_id" text,
+	"actor_id" text,
+	"until" timestamp with time zone NOT NULL,
+	CONSTRAINT "room_seat_holds_pkey" PRIMARY KEY("room_id","actor_id")
+);
+--> statement-breakpoint
 DROP TABLE "friend_challenges";--> statement-breakpoint
-ALTER TABLE "presence_settings" ADD COLUMN "status" text;--> statement-breakpoint
+ALTER TABLE "presence_settings" ADD COLUMN "chosen_status" text;--> statement-breakpoint
 -- Hiding was the only choice; it becomes appearing offline (ADR 0098).
-UPDATE "presence_settings" SET "status" = CASE WHEN "hidden" THEN 'offline' ELSE 'online' END;--> statement-breakpoint
+UPDATE "presence_settings" SET "chosen_status" = CASE WHEN "hidden" THEN 'appearing_offline' ELSE 'online' END;--> statement-breakpoint
 SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
-ALTER TABLE "presence_settings" ALTER COLUMN "status" SET NOT NULL;--> statement-breakpoint
+ALTER TABLE "presence_settings" ALTER COLUMN "chosen_status" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "presence_settings" DROP COLUMN "hidden";--> statement-breakpoint
 CREATE INDEX "challenges_challenged_idx" ON "challenges" ("challenged_actor_id");--> statement-breakpoint
 CREATE INDEX "challenges_challenger_idx" ON "challenges" ("challenger_actor_id");--> statement-breakpoint
@@ -70,6 +80,7 @@ CREATE INDEX "reports_reporter_idx" ON "reports" ("reporter_actor_id");--> state
 CREATE INDEX "reports_subject_idx" ON "reports" ("subject_actor_id");--> statement-breakpoint
 CREATE INDEX "reports_purge_idx" ON "reports" ("purge_after") WHERE "purge_after" is not null;--> statement-breakpoint
 CREATE UNIQUE INDEX "reports_one_open_per_pair" ON "reports" ("reporter_actor_id","subject_actor_id") WHERE "closed_at" is null;--> statement-breakpoint
+CREATE INDEX "room_seat_holds_actor_idx" ON "room_seat_holds" ("actor_id");--> statement-breakpoint
 ALTER TABLE "challenges" ADD CONSTRAINT "challenges_challenger_actor_id_actors_id_fkey" FOREIGN KEY ("challenger_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "challenges" ADD CONSTRAINT "challenges_challenged_actor_id_actors_id_fkey" FOREIGN KEY ("challenged_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "challenges" ADD CONSTRAINT "challenges_room_id_rooms_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -77,7 +88,32 @@ ALTER TABLE "moderation_actions" ADD CONSTRAINT "moderation_actions_user_id_user
 ALTER TABLE "rating_visibility" ADD CONSTRAINT "rating_visibility_actor_id_actors_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "actors"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reports" ADD CONSTRAINT "reports_reporter_actor_id_actors_id_fkey" FOREIGN KEY ("reporter_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "reports" ADD CONSTRAINT "reports_subject_actor_id_actors_id_fkey" FOREIGN KEY ("subject_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "presence_settings" ADD CONSTRAINT "presence_settings_status_check" CHECK ("status" in ('online', 'busy', 'offline'));--> statement-breakpoint
+ALTER TABLE "room_seat_holds" ADD CONSTRAINT "room_seat_holds_room_id_rooms_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "room_seat_holds" ADD CONSTRAINT "room_seat_holds_actor_id_actors_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "actors"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "presence_settings" ADD CONSTRAINT "presence_settings_chosen_status_check" CHECK ("chosen_status" in ('online', 'busy', 'appearing_offline'));--> statement-breakpoint
+-- ADR 0098: the one rule for a sanction in force, and for a restricted account.
+CREATE FUNCTION public.daisy_moderation_action_in_force(
+  kind text, starts_at timestamptz, ends_at timestamptz, lifted_at timestamptz, at_instant timestamptz
+) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE
+SET search_path = pg_catalog, pg_temp
+AS $action_in_force$
+  SELECT kind IN ('suspension', 'ban') AND lifted_at IS NULL
+    AND starts_at <= at_instant AND (ends_at IS NULL OR ends_at > at_instant)
+$action_in_force$;--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_moderation_action_in_force(text, timestamptz, timestamptz, timestamptz, timestamptz) FROM PUBLIC;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_moderation_action_in_force(text, timestamptz, timestamptz, timestamptz, timestamptz) TO daisy_web;--> statement-breakpoint
+CREATE FUNCTION public.daisy_restriction_in_force(account_user_id text, at_instant timestamptz)
+RETURNS boolean
+LANGUAGE sql STABLE PARALLEL SAFE
+SET search_path = pg_catalog, pg_temp
+AS $restriction_in_force$
+  SELECT EXISTS (SELECT 1 FROM public.moderation_actions AS m
+    WHERE m.user_id = account_user_id
+      AND public.daisy_moderation_action_in_force(m.kind, m.starts_at, m.ends_at, m.lifted_at, at_instant))
+$restriction_in_force$;--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_restriction_in_force(text, timestamptz) FROM PUBLIC;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_restriction_in_force(text, timestamptz) TO daisy_web;--> statement-breakpoint
 -- ADR 0098: a suspension or ban in force withdraws participant access through
 -- the one account producer, so web and realtime stop at the same check. The
 -- added column is ignored by a release that still selects the old ones.
@@ -131,9 +167,7 @@ BEGIN
     CASE WHEN u.deleted_at IS NOT NULL THEN NULL::text
       ELSE public.daisy_age_band(ag.birth_month, ag.version, ag.recorded_at, checked) END,
     -- ADR 0098: a suspension or ban in force at that same instant.
-    EXISTS (SELECT 1 FROM public.moderation_actions AS m
-      WHERE m.user_id = u.id AND m.kind IN ('suspension', 'ban') AND m.lifted_at IS NULL
-        AND m.starts_at <= checked AND (m.ends_at IS NULL OR m.ends_at > checked))
+    public.daisy_restriction_in_force(u.id, checked)
     FROM public.users AS u LEFT JOIN public.actors AS a ON a.user_id = u.id
     LEFT JOIN public.account_beta_access AS b ON b.user_id = u.id
     LEFT JOIN public.account_age AS ag ON ag.user_id = u.id

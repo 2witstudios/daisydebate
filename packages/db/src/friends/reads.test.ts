@@ -19,7 +19,7 @@ test('listFriendships authorizes the locked reader first', async () => {
       [
         them,
         'ada',
-        'offline',
+        'appearing_offline',
         null,
         'accepted',
         me,
@@ -46,7 +46,7 @@ test('listFriendships authorizes the locked reader first', async () => {
         state: 'accepted',
         requesterActorId: me,
         requestedAt: '2026-10-26T18:00:00.000Z',
-        otherChosen: 'offline',
+        otherChosen: 'appearing_offline',
         otherPlacement: null,
       },
     ],

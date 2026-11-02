@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { OnlineRailPreference } from '../../../ui/layout/app-shell/rail-preference';
+import { ChallengeProvider } from '../../../ui/challenges/challenge-provider';
 import { OnlineProvider } from '../../../ui/online/online-provider';
 import {
   OnlineRail,
@@ -8,14 +9,15 @@ import {
 import { friendAction } from '../friends/actions';
 import {
   acceptChallengeAction,
-  blockAction,
   endChallengeAction,
-  messagePersonAction,
-  reportAction,
   sendChallengeAction,
-  setOnlineRail,
-} from './actions';
-import { readChallenges, readOnline } from './read-online';
+} from '../challenges/actions';
+import { readChallenges } from '../challenges/read-challenges';
+import { blockAction } from '../contacts/actions';
+import { messagePersonAction } from '../messages/new/actions';
+import { reportAction } from '../reports/actions';
+import { setOnlineRail } from './actions';
+import { readOnline } from './read-online';
 
 /** Every action the list's menu posts; `ui/` never imports from `app/`. */
 export const personActions = {
@@ -77,11 +79,15 @@ export async function OnlineShell({
     wrap: (shell: ReactNode) => (
       <OnlineProvider
         initialRoster={roster ?? empty}
-        initialChallenges={challenges?.list ?? noChallenges}
-        actorId={challenges?.actorId ?? null}
         socketUrl={challenges?.socketUrl ?? null}
       >
-        {shell}
+        <ChallengeProvider
+          initialChallenges={challenges?.list ?? noChallenges}
+          actorId={challenges?.actorId ?? null}
+          socketUrl={challenges?.socketUrl ?? null}
+        >
+          {shell}
+        </ChallengeProvider>
       </OnlineProvider>
     ),
   };

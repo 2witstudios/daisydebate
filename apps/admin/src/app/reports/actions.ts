@@ -45,14 +45,16 @@ export async function resolveReportAction(form: FormData): Promise<never> {
   const { reportId, subjectUserId, outcome } = fields.data;
   // Only a suspension has a length: the field means nothing otherwise.
   const days = suspensionDays.safeParse(fields.data.suspendDays);
-  if (outcome === 'suspended' && !days.success)
-    redirect('/reports?notice=days');
   const notice = await resolveReport(commands, {
     operatorId: operator.id,
     reportId,
     subjectUserId,
-    outcome,
-    suspendDays: outcome === 'suspended' && days.success ? days.data : null,
+    resolution:
+      outcome === 'suspended' && days.success
+        ? { outcome, suspendDays: days.data }
+        : outcome === 'suspended'
+          ? redirect('/reports?notice=days')
+          : { outcome },
   });
   redirect(`/reports?notice=${notice}`);
 }

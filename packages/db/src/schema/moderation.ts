@@ -6,9 +6,10 @@ import { users } from './users';
 
 /**
  * What a reviewer did to an account (ADR 0098): a warning the member reads,
- * a timed suspension or a ban. It outlives the report that caused it, names
- * no report and is deleted with the account. A suspension or ban in force
- * withdraws participant access; lifting it keeps the row for the record.
+ * a timed suspension or a ban. It outlives the report that caused it and names
+ * no report. Erasing the account keeps it through the proposed retention
+ * (DEC-298). A suspension or ban in force withdraws participant access; lifting
+ * it keeps the row for the record.
  */
 export const moderationActions = pgTable(
   'moderation_actions',
@@ -30,6 +31,14 @@ export const moderationActions = pgTable(
     check(
       'moderation_actions_ends_check',
       sql`(${table.kind} = 'suspension') = (${table.endsAt} is not null)`,
+    ),
+    check(
+      'moderation_actions_lifted_check',
+      sql`${table.liftedAt} is null or ${table.kind} in ('suspension', 'ban')`,
+    ),
+    check(
+      'moderation_actions_acknowledged_check',
+      sql`${table.acknowledgedAt} is null or ${table.kind} = 'warning'`,
     ),
   ],
 );

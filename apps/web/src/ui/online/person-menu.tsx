@@ -1,13 +1,13 @@
 'use client';
 
 import {
-  challengeFormats,
-  challengeModes,
+  ratingLadders,
+  competitionTypes,
   reportReasonLabels,
   reportReasons,
-  type ChallengeFormat,
+  type RatingLadder,
   type ChallengeList,
-  type ChallengeMode,
+  type CompetitionType,
   type OnlineMember,
   type ReportReason,
 } from '@daisy/protocol';
@@ -23,6 +23,7 @@ import { buttonClass } from '../components/button/button-class';
 import { useFormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { anchorAt, MemberCardBody } from './member-card';
+import { useChallenges } from '../challenges/challenge-provider';
 import { useOnline } from './online-provider';
 import type { PersonActions } from './person-actions';
 
@@ -31,11 +32,11 @@ const item =
 const chip =
   'min-h-nav-target flex-1 rounded-sm border border-border-strong px-1 text-sm font-semibold text-ink aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink';
 
-const modeLabels: Readonly<Record<ChallengeMode, string>> = {
+const modeLabels: Readonly<Record<CompetitionType, string>> = {
   ranked: 'Ranked',
   casual: 'Casual',
 };
-const formatLabels: Readonly<Record<ChallengeFormat, string>> = {
+const formatLabels: Readonly<Record<RatingLadder, string>> = {
   freestyle: 'Freestyle',
   policy: 'Policy',
   value: 'Value',
@@ -103,9 +104,13 @@ function CancelChallengeItem({
     {},
     challengeFormUnavailable,
   );
-  useAnswered(answer, onDone);
+  const { noteCancelled, forgetCancelled } = useChallenges();
+  useAnswered(answer, () => {
+    if (answer.notice) forgetCancelled(challengeId);
+    onDone();
+  });
   return (
-    <form action={post}>
+    <form action={post} onSubmit={() => noteCancelled(challengeId)}>
       <input type="hidden" name="command" value="cancel" />
       <input type="hidden" name="challengeId" value={challengeId} />
       <button type="submit" disabled={pending} className={item}>
@@ -190,8 +195,8 @@ function ChallengeView({
   readonly onBack: () => void;
   readonly onDone: () => void;
 }) {
-  const [mode, setMode] = useState<ChallengeMode>('ranked');
-  const [format, setFormat] = useState<ChallengeFormat>('freestyle');
+  const [mode, setMode] = useState<CompetitionType>('ranked');
+  const [format, setFormat] = useState<RatingLadder>('freestyle');
   const [answer, post, pending] = useFormAction(
     action,
     {},
@@ -206,7 +211,7 @@ function ChallengeView({
       <input type="hidden" name="mode" value={mode} />
       <input type="hidden" name="format" value={format} />
       <div role="group" aria-label="Mode" className="flex gap-1">
-        {challengeModes.map((value) => (
+        {competitionTypes.map((value) => (
           <button
             key={value}
             type="button"
@@ -219,7 +224,7 @@ function ChallengeView({
         ))}
       </div>
       <div role="group" aria-label="Format" className="flex gap-1">
-        {challengeFormats.map((value) => (
+        {ratingLadders.map((value) => (
           <button
             key={value}
             type="button"
@@ -332,7 +337,16 @@ export function PersonMenu({
   readonly top: number;
   readonly onClose: () => void;
 }) {
-  const { challenges, refresh } = useOnline();
+  const { refresh: refreshOnline } = useOnline();
+  const {
+    challenges,
+    refresh: refreshChallenges,
+    noteCancelled,
+  } = useChallenges();
+  const refresh = () => {
+    refreshOnline();
+    refreshChallenges();
+  };
   const [view, setView] = useState<'menu' | 'challenge' | 'report'>('menu');
   const finish = () => {
     refresh();
@@ -343,8 +357,11 @@ export function PersonMenu({
   // Into the dialog on open, and Escape closes it from anywhere; whoever opened
   // it hands focus back to the row.
   const dialog = useRef<HTMLElement | null>(null);
+  // Each view replaces the focused control, so focus moves in with every view.
   useEffect(() => {
-    dialog.current?.querySelector<HTMLElement>('button, a')?.focus();
+    dialog.current?.querySelector<HTMLElement>('button, a, select')?.focus();
+  }, [view]);
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
@@ -435,7 +452,10 @@ export function PersonMenu({
             <BlockItem
               action={actions.block}
               username={username}
-              onDone={finish}
+              onDone={() => {
+                if (outgoing) noteCancelled(outgoing.id);
+                finish();
+              }}
             />
           </div>
         ) : null}

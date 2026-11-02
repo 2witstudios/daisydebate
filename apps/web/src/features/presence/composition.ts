@@ -38,7 +38,7 @@ const ownList =
     requireAuthorization({
       principal,
       capability: 'social.online.list',
-      resource: { kind: 'friend_collection', actorId: scope.actorId },
+      resource: { kind: 'online_roster', actorId: scope.actorId },
       context: { account },
     });
 

@@ -22,17 +22,17 @@ type PresenceScope = {
  * by `actorId` (a column or value) chose. No row means online.
  */
 export const chosenStatusOf = (actorId: SQL) =>
-  sql<ChosenStatus>`coalesce((select ${presenceSettings.status} from ${presenceSettings} where ${presenceSettings.actorId} = ${actorId}), 'online')`;
+  sql<ChosenStatus>`coalesce((select ${presenceSettings.chosenStatus} from ${presenceSettings} where ${presenceSettings.actorId} = ${actorId}), 'online')`;
 
 const chosen = async (
   tx: Pick<BunSQLDatabase, 'select'>,
   actorId: string,
 ): Promise<ChosenStatus> => {
   const [row] = await tx
-    .select({ status: presenceSettings.status })
+    .select({ chosenStatus: presenceSettings.chosenStatus })
     .from(presenceSettings)
     .where(eq(presenceSettings.actorId, actorId));
-  return (row?.status as ChosenStatus | undefined) ?? 'online';
+  return (row?.chosenStatus as ChosenStatus | undefined) ?? 'online';
 };
 
 /** The status the member chose; no row means online. */
@@ -60,7 +60,10 @@ export function writeChosenStatus(
 ): Promise<ChosenStatus> {
   requireOwnScope(scope);
   return readOwnCollection(database, scope, authorize, async (tx) => {
-    const values = { status: input.status, updatedAt: new Date(input.now) };
+    const values = {
+      chosenStatus: input.status,
+      updatedAt: new Date(input.now),
+    };
     await tx
       .insert(presenceSettings)
       .values({ actorId: scope.actorId, ...values })

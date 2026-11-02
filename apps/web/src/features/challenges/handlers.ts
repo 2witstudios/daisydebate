@@ -3,9 +3,9 @@ import {
   challengeCommandSchemas,
   challengeListSchema,
   challengeResultSchema,
-  type ChallengeFormat,
+  type RatingLadder,
   type ChallengeList,
-  type ChallengeMode,
+  type CompetitionType,
   type ChallengeResult,
 } from '@daisy/protocol';
 import { parseValidated, readJson } from '../../server/http';
@@ -29,8 +29,8 @@ export function createChallengeHandlers(dependencies: {
     input: {
       readonly commandId: string;
       readonly username: string;
-      readonly mode: ChallengeMode;
-      readonly format: ChallengeFormat;
+      readonly mode: CompetitionType;
+      readonly format: RatingLadder;
     },
   ) => Answer;
   readonly accept: (

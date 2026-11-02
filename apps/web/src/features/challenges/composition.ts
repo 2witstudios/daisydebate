@@ -26,7 +26,7 @@ const ownList =
     requireAuthorization({
       principal,
       capability: 'social.challenge.list',
-      resource: { kind: 'friend_collection', actorId: scope.actorId },
+      resource: { kind: 'challenge_collection', actorId: scope.actorId },
       context: { account },
     });
 
@@ -51,6 +51,7 @@ const ports = (
     (await app.database.listLadderSeasons()).some(
       (season) => season.status === 'active',
     ),
+  formatOffered: (format) => app.database.formatInCatalog(format),
   discover: appDiscoverActor(app),
   activity: async (actorId) =>
     (await app.redis.readActorsPresence([actorId])).get(actorId) ?? null,

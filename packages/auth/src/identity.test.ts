@@ -28,7 +28,11 @@ const resolveWith = (
     cookie,
     readSession: async () => found,
     readActor: async (userId) => ({ id: 'actor1', userId }),
-    readParticipation: async () => ({ betaState: beta, ageBand }),
+    readParticipation: async () => ({
+      betaState: beta,
+      ageBand,
+      restricted: false,
+    }),
     now,
   });
 

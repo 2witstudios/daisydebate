@@ -2,6 +2,7 @@ import type { Clock } from '@daisy/clock';
 import type { WorkerTimers } from '../lib/worker-timers';
 import type { Logger } from '@daisy/logger';
 import type { ProvisionalLinkPurposes } from '@daisy/db';
+import { MODERATION_RECORD_RETENTION_MS } from '../features/moderation/retention';
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
@@ -232,11 +233,6 @@ export function retentionTargets({
           limit,
         }),
     },
-    /**
-     * ADR 0033: the online set's lapsed members, which reads filter but
-     * never delete. Redis is expendable, so a failure here only leaves
-     * stale members for the next run. 1000 is the adapter's per-call cap.
-     */
     /** Offers past their time; the list already ignores them (ADR 0098). */
     {
       name: 'retention.challenges',
@@ -253,17 +249,22 @@ export function retentionTargets({
       purge: ({ now, limit }) =>
         database.purgeClosedReports({ now: cutoff(now, 0), limit }),
     },
-    /** An erased account's sanctions, after the same proposed retention. */
+    /** An erased account's sanctions past their proposed retention. */
     {
       name: 'retention.moderation',
       batchSize: 1000,
       maxBatches: 50,
       purge: ({ now, limit }) =>
         database.purgeErasedModeration({
-          before: cutoff(now, 365 * DAY_MS),
+          before: cutoff(now, MODERATION_RECORD_RETENTION_MS),
           limit,
         }),
     },
+    /**
+     * ADR 0033: the online set's lapsed members, which reads filter but
+     * never delete. Redis is expendable, so a failure here only leaves
+     * stale members for the next run. 1000 is the adapter's per-call cap.
+     */
     {
       name: 'retention.presence_online',
       batchSize: 1000,

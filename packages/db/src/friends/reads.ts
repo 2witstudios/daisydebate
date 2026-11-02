@@ -6,7 +6,8 @@ import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
 import type { ChosenStatus } from '@daisy/protocol';
 import { chosenStatusOf } from '../presence/settings';
-import { placementOf, type MemberPlacement } from '../presence/roster';
+import type { MemberPlacement } from '@daisy/protocol';
+import { placementOf } from '../presence/roster';
 import {
   readOwnCollection,
   requireOwnScope,

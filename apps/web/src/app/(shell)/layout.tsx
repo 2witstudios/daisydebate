@@ -12,9 +12,10 @@ import { UiStoreProvider } from '../../ui/store/store';
 import { OnlineShell } from './online/online-shell';
 import { setStatusAction } from './online/actions';
 import { StatusForm } from '../../ui/online/status-form';
-import { acknowledgeNoticeAction } from './online/actions';
-import { readChosenStatus, readModerationNotices } from './online/read-online';
-import { ModerationNotices } from '../../ui/online/moderation-notices';
+import { acknowledgeNoticeAction } from './moderation/actions';
+import { readModerationNotices } from './moderation/read-notices';
+import { readChosenStatus } from './online/read-online';
+import { ModerationNotices } from '../../ui/moderation/moderation-notices';
 import { shellAccount } from '../../lib/shell-account';
 import {
   requestIdentity,
