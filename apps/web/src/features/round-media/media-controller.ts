@@ -137,7 +137,6 @@ export function createMediaController(input: {
     intent = decideMediaRead(intent, { kind: 'dispose' }).intent;
     epoch++;
     abort.abort();
-    connection?.read?.abort.abort();
     const previous = connection;
     connection = null;
     release(previous?.transport ?? null);
@@ -202,40 +201,34 @@ export function createMediaController(input: {
     input.received?.(snapshot);
     if (current(owner, ticket) && state !== 'live') change('live');
   };
-  const read = (owner: Connection): Promise<void> => {
+  const drain = async (owner: Connection) => {
+    // Yield first so `owner.loop` is reserved before effects can emit an intent.
+    await Promise.resolve();
+    while (owner.queued && active(owner) && owner.connected) {
+      owner.queued = false;
+      const ticket: ReadTicket = {
+        generation: intent.generation,
+        abort: new AbortController(),
+      };
+      owner.read = ticket;
+      const cancel = () => ticket.abort.abort();
+      owner.signal.addEventListener('abort', cancel, { once: true });
+      try {
+        await synchronize(owner, ticket);
+      } catch (error) {
+        if (current(owner, ticket)) fail(owner.generation, error);
+      } finally {
+        owner.signal.removeEventListener('abort', cancel);
+        owner.read = null;
+      }
+    }
+    owner.loop = null;
+  };
+  /** One drain per connection, so a ticket's cleanup can never touch a successor. */
+  const read = (owner: Connection) => {
     owner.queued = true;
-    if (owner.loop) return owner.loop;
-    // Reserve the loop before effects can synchronously emit another intent.
-    const loop = Promise.resolve()
-      .then(async () => {
-        while (owner.queued && active(owner) && owner.connected) {
-          owner.queued = false;
-          const ticket: ReadTicket = {
-            generation: intent.generation,
-            abort: new AbortController(),
-          };
-          owner.read = ticket;
-          const cancel = () => ticket.abort.abort();
-          owner.signal.addEventListener('abort', cancel, { once: true });
-          try {
-            await synchronize(owner, ticket);
-          } catch (error) {
-            if (current(owner, ticket)) fail(owner.generation, error);
-          } finally {
-            owner.signal.removeEventListener('abort', cancel);
-            if (owner.read === ticket) owner.read = null;
-          }
-        }
-      })
-      .finally(() => {
-        if (owner.loop !== loop) return;
-        owner.loop = null;
-        // A wake can arrive after the loop exits but before this finally runs.
-        if (owner.queued && active(owner) && owner.connected)
-          return read(owner);
-      });
-    owner.loop = loop;
-    return loop;
+    owner.loop ??= drain(owner);
+    return owner.loop;
   };
   const open = async (
     generation: number,
