@@ -14,6 +14,7 @@ import {
   launchImageContractChecks,
   validateLaunchPreparation,
 } from '../e2e/support/launch-browser-image-validation';
+import { launchBaseMetadata } from './launch-browser-image-archive.fixture';
 setupRitewayBun();
 const inputs = {
   version: '1.63.0',
@@ -253,17 +254,10 @@ describe('prepared Launch browser identity', () => {
   });
   test('base validation checks published native layers and safe base config', () => {
     const image = launchImageIdentity(inputs);
-    const valid = {
-      Id: image.labels['io.daisy.launch.upstream'],
-      Os: 'linux',
-      Architecture: 'arm64',
-      RootFS: { Layers: image.native.layers },
-      Config: {
-        Env: image.environment.slice(0, 4),
-        Cmd: ['/bin/bash'],
-        Labels: image.baseLabels,
-      },
-    };
+    const valid = launchBaseMetadata(
+      image,
+      image.labels['io.daisy.launch.upstream'],
+    );
     assert({
       given:
         'the exact native base and a same-label base with injected environment',

@@ -1,8 +1,5 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { afterAll } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   launchArchiveProjection,
@@ -23,23 +20,14 @@ import {
 import {
   blob,
   classicExport,
+  createScratch,
   sha,
   tarEntry,
   tarOf,
 } from './launch-browser-image-archive.fixture';
 
 setupRitewayBun();
-const directories: string[] = [];
-const scratch = async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'daisy-archive-test-'));
-  directories.push(directory);
-  return directory;
-};
-afterAll(() =>
-  Promise.all(
-    directories.map((path) => rm(path, { recursive: true, force: true })),
-  ),
-);
+const scratch = createScratch();
 const unbounded = () => undefined;
 
 const read = async (entries: Record<string, string | Uint8Array>) => {
@@ -58,11 +46,16 @@ const reasonOf = (
   return graph.ok ? 'ok' : graph.reason;
 };
 
-test('a classic config-ID export projects to the closed format with bytes preserved', async () => {
-  const fixture = classicExport();
+const exportGraph = async (fixture: ReturnType<typeof classicExport>) => {
   const raw = await read({ ...fixture.closed, ...fixture.legacy });
   const graph = readLaunchArchiveGraph(raw.inventory, fixture.image);
   if (!graph.ok) throw new Error(graph.reason);
+  return { raw, graph };
+};
+
+test('a classic config-ID export projects to the closed format with bytes preserved', async () => {
+  const fixture = classicExport();
+  const { raw, graph } = await exportGraph(fixture);
   const projection = launchArchiveProjection(
     graph,
     fixture.image,
@@ -178,9 +171,7 @@ test('recognition is exact: a substituted, injected or missing V1 object is refu
 
 test('auxiliaries are never a reason to accept anything at restore or on containerd', async () => {
   const fixture = classicExport();
-  const raw = await read({ ...fixture.closed, ...fixture.legacy });
-  const graph = readLaunchArchiveGraph(raw.inventory, fixture.image);
-  if (!graph.ok) throw new Error(graph.reason);
+  const { graph } = await exportGraph(fixture);
   const containerd = {
     ...fixture.image,
     store: 'containerd-overlayfs',

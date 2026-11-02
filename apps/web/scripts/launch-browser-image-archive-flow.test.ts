@@ -1,6 +1,4 @@
-import { afterAll } from 'bun:test';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { acquireLaunchBase } from '../e2e/support/launch-browser-image-build';
@@ -14,22 +12,14 @@ import { readLaunchArchiveInventory } from '../e2e/support/launch-browser-image-
 import {
   blob,
   classicExport,
+  createScratch,
+  launchBaseMetadata,
   sha,
   tarOf,
 } from './launch-browser-image-archive.fixture';
 
 setupRitewayBun();
-const directories: string[] = [];
-const scratch = async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'daisy-archive-flow-'));
-  directories.push(directory);
-  return directory;
-};
-afterAll(() =>
-  Promise.all(
-    directories.map((path) => rm(path, { recursive: true, force: true })),
-  ),
-);
+const scratch = createScratch();
 
 /** Real producer and restore, with only the Docker CLI boundary replaced. */
 function fakeDocker(saved: Buffer) {
@@ -190,17 +180,7 @@ test('a refused cache keeps the valid image, but the deadline still stops prepar
 
 test('a cache hit with no base acquires it through one verified step', async () => {
   const { image } = classicExport();
-  const baseMetadata = {
-    Id: image.native.config,
-    Os: 'linux',
-    Architecture: 'arm64',
-    RootFS: { Layers: image.native.layers },
-    Config: {
-      Env: image.environment.slice(0, 4),
-      Cmd: ['/bin/bash'],
-      Labels: image.baseLabels,
-    },
-  };
+  const baseMetadata = launchBaseMetadata(image, image.native.config);
   const daemon = (pullCode: number, pulled: unknown) => {
     const calls: string[] = [];
     let present = false;
