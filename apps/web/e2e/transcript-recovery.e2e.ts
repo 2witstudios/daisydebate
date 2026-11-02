@@ -50,6 +50,10 @@ test('committed transcript survives reads failing and returning, and clears on r
     );
     await lookAgain(page);
     await expect(transcript.getByText('Reconnecting')).toBeVisible();
+    // Connection never hides evidence: the stream's own state stays beside it.
+    await expect(
+      transcript.getByRole('status').getByText('Capturing', { exact: true }),
+    ).toBeVisible();
     await expect(first).toBeVisible();
 
     await seed(round.id, 120, 1);
