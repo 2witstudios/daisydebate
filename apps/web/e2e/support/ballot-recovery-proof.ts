@@ -63,10 +63,12 @@ export async function proveBallotRecovery(
   expect(JSON.stringify(privateView)).not.toContain(
     fixtures.members[2]!.username,
   );
-  // The last judge's ballot is what ends a debated Round; a debater can no longer forfeit it.
+  // The last judge's ballot ends a debated Round; a debater can no longer
+  // forfeit it. The split decides a draw, so a retry that overwrote the outcome
+  // with its own negative vote fails the outcome check below.
   await submitJudgeBallot(fixtures.members[3]!, roundId, {
-    winner: fixtures.negative,
-    reason: 'The negative carried the decisive clash.',
+    winner: fixtures.affirmative,
+    reason: 'The affirmative carried the decisive clash.',
   });
   await page.getByRole('link', { name: 'Refresh Round', exact: true }).click();
   await expect(
@@ -86,7 +88,7 @@ export async function proveBallotRecovery(
     page.getByText('Ballot submitted.', { exact: false }),
   ).toBeVisible();
   await expect(
-    page.getByText('Round outcome: negative', { exact: true }),
+    page.getByText('Round outcome: draw', { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Submit ballot', exact: true }),
