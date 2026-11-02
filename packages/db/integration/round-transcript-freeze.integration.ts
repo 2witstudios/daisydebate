@@ -26,12 +26,12 @@ test('one immutable transcript revision fences the durable judging intent', asyn
       );
       const wrongRevision = await rejectedBy(() =>
         fixture.sql.unsafe(
-          "insert into round_judging_jobs (round_id, freeze_revision, judge_participant_id, status, attempts) values ($1,2,$2,'queued',0)",
+          "insert into round_judging_jobs (round_id, freeze_revision, judge_participant_id, status, attempts, generation_deadline_at) values ($1,2,$2,'queued',0,clock_timestamp()+interval '5 minutes')",
           [roundId, judge.id],
         ),
       );
       await fixture.sql.unsafe(
-        "insert into round_judging_jobs (round_id, freeze_revision, judge_participant_id, status, attempts) values ($1,1,$2,'queued',0)",
+        "insert into round_judging_jobs (round_id, freeze_revision, judge_participant_id, status, attempts, generation_deadline_at) values ($1,1,$2,'queued',0,clock_timestamp()+interval '5 minutes')",
         [roundId, judge.id],
       );
       assert({

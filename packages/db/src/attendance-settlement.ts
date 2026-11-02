@@ -31,7 +31,10 @@ export const unresolvedAttendance = (roundId: SQL, now: SQL) => sql`exists(
    and s.rules_segment_key is distinct from (
     select value->>'key' from jsonb_array_elements(attendance_round.rules_snapshot->'segments') with ordinality as rule(value,ordinal)
     where value->>'type'='speech' order by ordinal desc limit 1)
-   and (a.segment_id is null or a.effective_deadline < s.started_at+${attendanceTimingPolicy.graceMs}*interval '1 millisecond' or a.settled_horizon < a.effective_deadline+${attendanceTimingPolicy.finalizationBufferMs}*interval '1 millisecond'
-    or a.effective_deadline > ${now}::timestamptz-${attendanceTimingPolicy.finalizationBufferMs}*interval '1 millisecond'
-    or a.decision in ('forfeit','abandoned'))
+   and (a.segment_id is null or a.decision in ('forfeit','abandoned')
+    or (a.evidence='settled_availability' and (a.effective_deadline < s.started_at+${attendanceTimingPolicy.graceMs}*interval '1 millisecond' or a.settled_horizon < a.effective_deadline+${attendanceTimingPolicy.finalizationBufferMs}*interval '1 millisecond'
+     or a.effective_deadline > ${now}::timestamptz-${attendanceTimingPolicy.finalizationBufferMs}*interval '1 millisecond'))
+    or (a.evidence='on_time_receipt' and not exists(select 1 from round_check_ins c
+     where c.round_id=a.round_id and c.segment_id=a.segment_id and c.participant_id=a.receipt_participant_id
+      and c.received_at between s.started_at-${attendanceTimingPolicy.leadMs}*interval '1 millisecond' and s.started_at+${attendanceTimingPolicy.graceMs}*interval '1 millisecond')))
  ) or exists(select 1 from round_check_in_attempts where round_id=${roundId} and state='pending')`;

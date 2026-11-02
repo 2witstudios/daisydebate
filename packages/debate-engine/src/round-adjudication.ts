@@ -19,7 +19,9 @@ export type RoundAdjudication = {
         readonly winner: DebateSide;
         readonly effectiveDeadlineMs: number;
       }
-    | { readonly decision: 'abandoned'; readonly effectiveDeadlineMs: number };
+    | { readonly decision: 'abandoned'; readonly effectiveDeadlineMs: number }
+    /** Settled evidence never came and the persisted cutoff passed (DEC-276). */
+    | { readonly decision: 'unresolved'; readonly cutoffAtMs: number };
   readonly now: string;
 };
 /** Only the durable evaluator supplies a verified decision; this guards its actual runtime target. */
@@ -30,7 +32,18 @@ export function applyRoundAdjudication(
   participants: readonly RoundParticipantSeat[],
 ): void {
   const { row, target } = requireActualSpeech(c, input, segments);
-  requireSettledTime(c, input, row);
+  if (input.decision.decision === 'unresolved') {
+    if (
+      !Number.isFinite(input.decision.cutoffAtMs) ||
+      !Number.isFinite(c.now) ||
+      c.now < input.decision.cutoffAtMs
+    )
+      throw createAppError('INVARIANT');
+    closePlayedRound(c);
+    c.on.setLifecycle({ status: 'abandoned', completedAtMs: c.now });
+    return;
+  }
+  requireSettledTime(c, input.decision.effectiveDeadlineMs, row);
   const speaker = participants.find(
     (p) => p.role === target.side && p.slot === target.slot,
   );
@@ -70,10 +83,9 @@ function requireActualSpeech(
 }
 function requireSettledTime(
   c: CommandContext,
-  input: RoundAdjudication,
+  deadline: number,
   row: HydratedSegment,
 ): void {
-  const deadline = input.decision.effectiveDeadlineMs;
   if (
     !Number.isFinite(deadline) ||
     !Number.isFinite(c.now) ||

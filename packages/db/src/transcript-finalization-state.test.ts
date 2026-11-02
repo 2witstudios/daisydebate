@@ -12,7 +12,8 @@ const stream = (key: typeof a, state: string) => ({ ...key, state });
 
 test('before the cutoff an unclosed expected stream keeps capture open', () => {
   assert({
-    given: 'an open, a missing, and no expected stream before the cutoff',
+    given:
+      'an open, a missing, no expected stream, and an open stream nobody expected, before the cutoff',
     should: 'keep capturing in each case',
     actual: [
       finalizationState(
@@ -29,8 +30,16 @@ test('before the cutoff an unclosed expected stream keeps capture open', () => {
         cutoff,
       ),
       finalizationState({ expected: [], streams: [] }, before, cutoff),
+      finalizationState(
+        {
+          expected: [a],
+          streams: [stream(a, 'complete'), stream(b, 'open')],
+        },
+        before,
+        cutoff,
+      ),
     ],
-    expected: ['capture', 'capture', 'capture'],
+    expected: ['capture', 'capture', 'capture', 'capture'],
   });
 });
 

@@ -208,6 +208,7 @@ export function createApp({
     tightenMessagingPolicy(messagingPolicy, config.MESSAGING_POLICY),
   );
   const drainState = createDrainState([database, redis]);
+  let startupChecked = true;
   return {
     config,
     websocketEndpoint: readRealtimePublicUrl({
@@ -313,6 +314,14 @@ export function createApp({
         : null,
     analyticsDelivery,
     isDraining: drainState.isDraining,
+    startupChecked: () => startupChecked,
+    /** Readiness stays closed, so no traffic arrives, until this settles. */
+    holdReadinessUntil(check: Promise<unknown>) {
+      startupChecked = false;
+      void check.finally(() => {
+        startupChecked = true;
+      });
+    },
     /** The client network the ingress runs each request in; the lanes' fairness key. */
     requestNetwork,
     drain: drainState.drain,

@@ -6,19 +6,22 @@ import { handleOperation } from './http';
 type Probe = { readonly health: () => Promise<boolean> };
 
 /**
- * `/api/health/ready`: ready only while not draining and while PostgreSQL
- * and Redis each answer within two seconds.
+ * `/api/health/ready`: ready only once start-up checks have settled, while not
+ * draining, and while PostgreSQL and Redis each answer within two seconds.
  */
 export function createReadinessHandler({
   database,
   redis,
   isDraining,
+  startupChecked = () => true,
   logger,
   reporter,
 }: {
   readonly database: Probe;
   readonly redis: Probe;
   readonly isDraining: () => boolean;
+  /** False until start-up checks that must precede traffic have settled. */
+  readonly startupChecked?: () => boolean;
   readonly logger: Logger;
   /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
   readonly reporter: ErrorReporter;
@@ -35,6 +38,7 @@ export function createReadinessHandler({
         ]);
         const ready =
           !isDraining() &&
+          startupChecked() &&
           results.every(
             (result) => result.status === 'fulfilled' && result.value,
           );

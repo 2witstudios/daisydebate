@@ -9,6 +9,7 @@ import {
 import {
   ballotOpensInMs,
   attendanceSettlesAtMs,
+  countdownMount,
   countdownNowMs,
 } from './settling';
 
@@ -81,5 +82,27 @@ test('the countdown runs on the server render time, never on the device clock', 
       renderedAtMs + 30_000,
       renderedAtMs + 2_000,
     ],
+  });
+});
+
+test('ISSUE-675: a restarted effect continues its count for the same render instant', () => {
+  let reads = 0;
+  const read = () => {
+    reads += 1;
+    return { wallMs: reads * 1000, monotonicMs: reads * 1000 };
+  };
+  const first = countdownMount(null, 5_000, read);
+  const restarted = countdownMount(first, 5_000, read);
+  assert({
+    given: 'the effect restarting while the render instant is unchanged',
+    should: 'keep its mount reading',
+    actual: { same: restarted === first, reads },
+    expected: { same: true, reads: 1 },
+  });
+  assert({
+    given: 'a new render instant',
+    should: 'start the count over',
+    actual: countdownMount(first, 6_000, read).mounted,
+    expected: { wallMs: 2000, monotonicMs: 2000 },
   });
 });

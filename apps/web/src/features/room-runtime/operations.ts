@@ -1,3 +1,4 @@
+import { roundWaitingOn } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
@@ -296,8 +297,11 @@ export function createRoomRuntimeOperations({
       return facts && projectActiveRoom(facts, caller.actorId);
     },
     roundView: (caller: Caller, roundId: string) =>
-      store.readLaunchedRound(roundId, caller, (view, account) =>
-        canReadRound(caller, view, account),
+      store.readLaunchedRound(
+        roundId,
+        caller,
+        (view, account) => canReadRound(caller, view, account),
+        roundWaitingOn,
       ),
     catalog,
     async castChoices(caller: Caller): Promise<readonly RoomCastChoice[]> {

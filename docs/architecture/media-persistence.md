@@ -126,7 +126,14 @@ contain no audio/text and follow Round erasure. The separate judging window ends
 
 Expected streams use the stable `(segment_id, round_participant_id)` key from
 nonempty actual historical speaking intervals. They must be discovered from
-history, never merely from seal rows that happen to exist. `transcript_segments`
+history, never merely from seal rows that happen to exist. A bot owes no stream
+for a grant it did not use: not its scheduled turn, and no credited publication
+window. Its worker seals that stream complete with zero chunks when it has no
+evidence of speech, and the finalizer does not expect it (ISSUE-965). A bot
+heard with no credit has at most one refused batch of frames, and any
+observation or chunk still seals partial. A bot's scheduled turn stays owed, and
+a human owes every grant, so a failed speech or a dead microphone still freezes
+incomplete. `transcript_segments`
 stores `open`, `complete` or `partial`, with received and declared chunk counts.
 A finalizer can insert a missing stream directly as partial with zero chunks.
 Closed complete/partial records are immutable. Matching counts is necessary for
@@ -317,7 +324,8 @@ complete into partial (ISSUE-807). A human's grants have no terminal zone. Both 
 (`coverageTolerance`, which web composition sets to
 `CAPTURE_COVERAGE_TOLERANCE`, 4 s to join and 1 s for relay, from
 `@daisy/protocol` `capture-timing`). Missing expected streams are still discovered from historical grants by
-the finalizer, never inferred absent from the seal table.
+the finalizer, less a bot's unused grants, never inferred absent from the seal
+table.
 
 Real bounded PostgreSQL component proof covers duplicate/conflicting clips,
 coverage gaps and count mismatch, epoch expiry/takeover, cutoff/freeze refusal
@@ -352,10 +360,10 @@ at once, judged Rounds once their ballot deadline passes. The freeze persists
 that deadline (`rounds.ballot_deadline_at`, default 30 minutes after the freeze,
 DEC-201 and DEC-207); it is immutable, the ballot path refuses a ballot at or
 after it, and the deferred `rounds_unjudged_participants_check` triggers refuse
-a null-outcome completion of a judged Round before it. `completeUnjudgedRound` holds the global command fence,
+a null-outcome completion of a judged Round before it. `completePanelRound` holds the global command fence,
 canonical account and Round fences, reads the stored ballots and freeze time, and
-consumes the shared engine's `completeUnjudged` projection, whose
-`decideUnjudgedCompletion` decides eligibility and outcome. It refuses
+consumes the shared engine's `completePanel` projection, whose
+`decidePanelCompletion` decides eligibility and outcome. It refuses
 incomplete play, pending check-in attempts, inconsistent cast facts, ranked or
 practice inputs, existing ratings and judged Rounds inside their deadline. The
 existing command ledger stores one internal service receipt bound to the exact

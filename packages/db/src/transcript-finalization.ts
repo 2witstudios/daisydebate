@@ -1,3 +1,7 @@
+import {
+  appendRoundPhaseChanged,
+  lockedRoundVersion,
+} from './round-projection-writer';
 import { appendTranscriptChanged } from './transcript-signal';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
@@ -38,8 +42,11 @@ export type FreezeRequest = LockedRoundTickInput & {
     readonly completeness: 'complete' | 'incomplete';
     readonly humanJudges: boolean;
   }) => {
-    readonly ballotDeadlineMs: number;
+    /** Null when no human judge sits: no human window exists. */
+    readonly ballotDeadlineMs: number | null;
     readonly dispatchAiJudges: boolean;
+    /** How long an AI judging job may buy provider work after the freeze (DEC-275). */
+    readonly aiJudgingBudgetMs: number;
   };
 };
 /**
@@ -60,15 +67,25 @@ async function planFrozenJudging(
     completeness,
     humanJudges: judges!.humanJudges,
   });
-  if (!Number.isSafeInteger(plan.ballotDeadlineMs) || plan.ballotDeadlineMs < 0)
-    throw createAppError('VALIDATION');
-  await tx.execute(
-    sql`update rounds set ballot_deadline_at=(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.ballotDeadlineMs}*interval '1 millisecond' where id=${request.roundId}`,
-  );
+  if (plan.ballotDeadlineMs !== null) {
+    if (
+      !Number.isSafeInteger(plan.ballotDeadlineMs) ||
+      plan.ballotDeadlineMs < 0
+    )
+      throw createAppError('VALIDATION');
+    await tx.execute(
+      sql`update rounds set ballot_deadline_at=(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.ballotDeadlineMs}*interval '1 millisecond' where id=${request.roundId}`,
+    );
+  }
   if (!plan.dispatchAiJudges) return;
+  if (
+    !Number.isSafeInteger(plan.aiJudgingBudgetMs) ||
+    plan.aiJudgingBudgetMs < 1
+  )
+    throw createAppError('VALIDATION');
   // The AI judge is eligible by its own profile (ISSUE-750); kind alone is insufficient.
-  await tx.execute(sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts)
-    select ${request.roundId},1,p.id,'queued',0 from round_participants p join actors a on a.id=p.actor_id join ai_judge_profiles j on j.actor_id=a.id
+  await tx.execute(sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts,generation_deadline_at)
+    select ${request.roundId},1,p.id,'queued',0,(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.aiJudgingBudgetMs}*interval '1 millisecond' from round_participants p join actors a on a.id=p.actor_id join ai_judge_profiles j on j.actor_id=a.id
     where p.round_id=${request.roundId} and p.role='judge' and a.kind='bot'
     on conflict (round_id,judge_participant_id) do nothing`);
 }
@@ -116,6 +133,14 @@ export async function finalizeLockedRoundTranscript(
     .returning();
   await planFrozenJudging(tx, request, state);
   await appendTranscriptChanged(tx, request.roundId, revision + 1);
+  // What the Round waits on changes here, so the room must read it: a new version
+  // and a ring, as with any other change the server records.
+  const { version } = await lockedRoundVersion(tx, request.roundId);
+  await tx
+    .update(rounds)
+    .set({ version: version + 1 })
+    .where(eq(rounds.id, request.roundId));
+  await appendRoundPhaseChanged(tx, request.roundId, version + 1);
   return {
     status: 'frozen' as const,
     freeze: { ...freeze!, frozenAt: freeze!.frozenAt.toISOString() },

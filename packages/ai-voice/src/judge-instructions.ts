@@ -1,5 +1,6 @@
 import {
   ballotCategories,
+  ballotLimits,
   ballotRubric,
   ballotRubricVersion,
 } from '@daisy/protocol';
@@ -26,4 +27,5 @@ export const ballotInstructions = [
   'Return only a JSON object of this shape:',
   `{"rubricVersion": "${ballotRubricVersion}", "winner": "affirmative" | "negative", "scores": {"affirmative": {${ballotCategories.map((category) => `"${category}": 1`).join(', ')}}, "negative": {${ballotCategories.map((category) => `"${category}": 1`).join(', ')}}}, "reason": "two or three sentences explaining the decision", "feedback": {"affirmative": "two sentences for the affirmative", "negative": "two sentences for the negative"}}`,
   'Every category score is 1 to 5 against the anchors. Both sides get feedback on what to do differently next time.',
+  `The reason is at most ${ballotLimits.reason} characters. Each side's feedback is at most ${ballotLimits.feedback} characters. An answer over either limit is rejected.`,
 ].join('\n\n');

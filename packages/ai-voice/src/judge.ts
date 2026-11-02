@@ -1,21 +1,96 @@
-import { createAppError } from '@daisy/errors';
-import { ballotSchema, type Ballot } from '@daisy/protocol';
+import {
+  ballotSchema,
+  judgingBallotFields,
+  judgingRecordedIssueLimit,
+  type Ballot,
+  type JudgingAttemptDiagnostic,
+  type JudgingFinish,
+  type JudgingIssueCode,
+} from '@daisy/protocol';
+import type { z } from 'zod';
 import { modelJson } from './model-json';
 
+export type JudgedAnswer =
+  | { readonly ok: true; readonly ballot: Ballot }
+  | { readonly ok: false; readonly diagnostic: JudgingAttemptDiagnostic };
+
+type IssueRecord = JudgingAttemptDiagnostic['issues'][number];
+const knownFields: ReadonlySet<string> = new Set(judgingBallotFields);
+const knownCodes: ReadonlySet<string> = new Set<JudgingIssueCode>([
+  'invalid_type',
+  'invalid_value',
+  'too_big',
+  'too_small',
+  'unrecognized_keys',
+]);
+
+const fieldOf = (issue: z.core.$ZodIssue): IssueRecord['field'] => {
+  if (issue.code === 'unrecognized_keys') return 'unknown_field';
+  const path = issue.path.join('.');
+  if (path.startsWith('citations')) return 'citations';
+  return knownFields.has(path)
+    ? (path as IssueRecord['field'])
+    : 'unknown_field';
+};
+const limitOf = (issue: z.core.$ZodIssue): number | undefined => {
+  const limit =
+    issue.code === 'too_big'
+      ? issue.maximum
+      : issue.code === 'too_small'
+        ? issue.minimum
+        : undefined;
+  return typeof limit === 'number' ? limit : undefined;
+};
+/** Built field by field: a Zod message or received value can never pass through. */
+const issueRecord = (issue: z.core.$ZodIssue): IssueRecord => {
+  const limit = limitOf(issue);
+  return {
+    field: fieldOf(issue),
+    code: knownCodes.has(issue.code)
+      ? (issue.code as JudgingIssueCode)
+      : 'other',
+    ...(limit === undefined ? {} : { limit }),
+  };
+};
+
+const rejected = (
+  category: JudgingAttemptDiagnostic['category'],
+  finish: JudgingFinish,
+  issues: readonly z.core.$ZodIssue[] = [],
+): JudgedAnswer => ({
+  ok: false,
+  diagnostic: {
+    category,
+    finish,
+    issueCount: issues.length,
+    issues: issues.slice(0, judgingRecordedIssueLimit).map(issueRecord),
+  },
+});
+
 /**
- * The judge model's answer as a validated ballot — the one ballot contract
- * the human judging UI produces (ADR 0058 §6). Models sometimes wrap JSON
- * in a code fence; anything that still is not a valid ballot is an
- * infrastructure failure (the judge could not rule), never user input.
+ * A judge model's answer as the one ballot contract the human judging UI
+ * produces (ADR 0058 §6), or the safe reason it is not. Validation is exact:
+ * nothing is trimmed, defaulted or repaired to make a ballot pass.
  */
-export function parseBallot(answer: string): Ballot {
-  const value = modelJson(answer, 'The judge answered malformed JSON');
+export function judgeAnswer(answer: {
+  readonly text: string;
+  readonly finish: JudgingFinish;
+  readonly refused: boolean;
+}): JudgedAnswer {
+  const { finish } = answer;
+  if (answer.refused || finish === 'content_filter')
+    return rejected('refused', finish);
+  let value: unknown;
+  try {
+    value = modelJson(answer.text, 'The judge answered malformed JSON');
+  } catch {
+    return rejected(finish === 'length' ? 'truncated' : 'invalid_json', finish);
+  }
   const result = ballotSchema.safeParse(value);
-  if (!result.success)
-    throw createAppError(
-      'INFRASTRUCTURE',
-      'The judge answered an invalid ballot',
-      result.error,
-    );
-  return result.data;
+  if (result.success) return { ok: true, ballot: result.data };
+  return rejected(
+    finish === 'length' ? 'truncated' : 'schema_rejected',
+    finish,
+    result.error.issues,
+  );
 }

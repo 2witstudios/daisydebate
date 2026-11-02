@@ -219,7 +219,10 @@ const phases: Readonly<
   },
   judging: {
     liveIndex: 7,
-    clock: judgingClockOf(0, 350_000),
+    clock: judgingClockOf(
+      { state: 'human_window', deadlineAt: new Date(1_800_000).toISOString() },
+      350_000,
+    ),
     micLive: true,
     prepMs: 0,
   },
@@ -244,6 +247,7 @@ export function sampleRound(
     ],
     judge: 'human',
     ballots: { judge: 'human', ai: 'ready' },
+    judgingState: null,
     stakes: competition === 'ranked' ? { win: 14, loss: 12 } : null,
     recording: true,
     transcribing: true,
