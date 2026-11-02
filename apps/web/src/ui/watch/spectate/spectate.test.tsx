@@ -122,7 +122,7 @@ describe('Spectate: report dialog', () => {
         /href="\/watch\/top-of-the-ladder"[^>]*>Cancel/.test(html),
         html.includes('href="?did=Send+report"'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true, true, true],
     });
   });
 
