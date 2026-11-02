@@ -14,6 +14,7 @@ CREATE TABLE "round_judging_attempts" (
 --> statement-breakpoint
 ALTER TABLE "round_judging_jobs" ADD COLUMN "generation_deadline_at" timestamp with time zone;--> statement-breakpoint
 UPDATE "round_judging_jobs" j SET "generation_deadline_at" = f."frozen_at" + interval '5 minutes' FROM "round_transcript_freezes" f WHERE f."round_id" = j."round_id" AND f."revision" = j."freeze_revision";--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "round_judging_jobs" ALTER COLUMN "generation_deadline_at" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "round_judging_jobs" ADD COLUMN "model" text;--> statement-breakpoint
 ALTER TABLE "round_judging_jobs" ADD COLUMN "retry_at" timestamp with time zone;--> statement-breakpoint

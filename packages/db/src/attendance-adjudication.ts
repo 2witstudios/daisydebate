@@ -2,13 +2,27 @@ import { CryptoHasher } from 'bun';
 import { createAppError } from '@daisy/errors';
 import type { RoundProjection } from '@daisy/protocol';
 
+/** One durable decision, in the shape its evidence allows. */
 export type AttendanceResolution = {
   readonly segmentId: string;
-  readonly decision: 'attended' | 'none' | 'forfeit' | 'abandoned';
-  readonly effectiveDeadline: string;
-  readonly settledHorizon: string;
   readonly projection: RoundProjection | null;
-};
+} & (
+  | {
+      readonly evidence: 'settled_availability';
+      readonly decision: 'attended' | 'none' | 'forfeit' | 'abandoned';
+      readonly effectiveDeadline: string;
+      readonly settledHorizon: string;
+    }
+  | {
+      readonly evidence: 'on_time_receipt';
+      readonly decision: 'attended';
+      readonly receiptParticipantId: string;
+    }
+  | {
+      readonly evidence: 'infrastructure_unresolved';
+      readonly decision: 'abandoned';
+    }
+);
 
 /**
  * Windows resolve in actual speech order: the earliest unadjudicated speech
@@ -82,7 +96,23 @@ export const adjudicationCommand = (
   result: {
     segmentId,
     decision: resolution.decision,
-    effectiveDeadline: resolution.effectiveDeadline,
-    settledHorizon: resolution.settledHorizon,
+    evidence: resolution.evidence,
+    ...adjudicationColumns(resolution),
   },
+});
+
+/** What the adjudication row stores beyond its decision; the database constraint repeats this shape. */
+export const adjudicationColumns = (resolution: AttendanceResolution) => ({
+  effectiveDeadline:
+    resolution.evidence === 'settled_availability'
+      ? resolution.effectiveDeadline
+      : null,
+  settledHorizon:
+    resolution.evidence === 'settled_availability'
+      ? resolution.settledHorizon
+      : null,
+  receiptParticipantId:
+    resolution.evidence === 'on_time_receipt'
+      ? resolution.receiptParticipantId
+      : null,
 });

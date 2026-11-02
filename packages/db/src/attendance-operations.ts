@@ -15,8 +15,9 @@ import { insertCommandRow } from './round-projection-writer';
 import { roundCommands } from './schema/round-commands';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import {
-  attendanceEvidence,
+  attendanceSamples,
   fenceAttendance,
+  finalizedAttendanceSegments,
   principalColumns,
   type AttendanceTransactionContext,
   type AttendanceTransaction,
@@ -126,7 +127,20 @@ export function createAttendanceOperations(deps: {
           deps.verifyWorker,
           input.admits,
         );
-        const evidence = await attendanceEvidence(tx, fenced.round);
+        const finalizedSegmentIds = await finalizedAttendanceSegments(
+          tx,
+          input.roundId,
+        );
+        // Only an undecided window can still take a receipt.
+        const undecided = fenced.round.segments.find(
+          (segment) =>
+            segment.type === 'speech' &&
+            !finalizedSegmentIds.includes(segment.id),
+        );
+        const evidence = {
+          finalizedSegmentIds,
+          samples: await attendanceSamples(tx, undecided?.startedAt ?? null),
+        };
         const recorded = await tx.execute(
           sql`select segment_id,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${input.roundId} and participant_id=${seat.id} order by received_at,segment_id`,
         );
@@ -164,12 +178,19 @@ export function createAttendanceOperations(deps: {
             deps.verifyWorker,
             input.admits,
           );
-          const evidence = await attendanceEvidence(tx, round);
+          const finalizedSegmentIds = await finalizedAttendanceSegments(
+            tx,
+            round.id,
+          );
           const segment = requireCheckInSegment(
             round.segments,
             input.envelope.segmentId,
-            evidence.finalizedSegmentIds,
+            finalizedSegmentIds,
           );
+          const evidence = {
+            finalizedSegmentIds,
+            samples: await attendanceSamples(tx, segment.startedAt),
+          };
           const facts = {
             round,
             ...evidence,

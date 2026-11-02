@@ -4,8 +4,12 @@ import { createAppError } from '@daisy/errors';
 setupRitewayBun();
 
 type Ports = Parameters<typeof startRoundMaintenance>[0];
+const page = (roundIds: readonly string[]) => ({
+  roundIds,
+  cycleComplete: true,
+});
 const ports = (): Ports => ({
-  discover: async () => [],
+  discover: async () => page([]),
   tick: async () => {},
   evaluate: async () => null,
   finalize: async () => {},
@@ -27,7 +31,7 @@ test('maintenance immediately discovers all casts and keeps rating recovery sepa
   const calls: string[] = [];
   let interval: number | undefined;
   const service = startRoundMaintenance({
-    discover: async () => ['human-only', 'missing-session'],
+    discover: async () => page(['human-only', 'missing-session']),
     tick: async (id: string) => {
       calls.push(`tick:${id}`);
     },
@@ -87,7 +91,7 @@ test('a held Round does not stop discovery or rating recovery and shutdown drain
     discover: async () => {
       scans += 1;
       if (scans === 2) rediscovered.resolve();
-      return ['contended'];
+      return page(['contended']);
     },
     tick: async () => {
       order.push('tick');
@@ -139,7 +143,7 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
     failed = gate();
   const service = startRoundMaintenance({
     ...ports(),
-    discover: async () => ['terminal', 'forfeit', 'pending', 'fault'],
+    discover: async () => page(['terminal', 'forfeit', 'pending', 'fault']),
     evaluate: async (id) => {
       if (id === 'terminal')
         throw createAppError('CONFLICT', 'attendance-terminal');
@@ -162,10 +166,11 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
     given:
       'a concurrent terminal result, a committed forfeit, pending attendance and an unrelated error',
     should:
-      'finalize only the remaining active candidate and report only the unexpected failure with its stage',
+      'finalize every Round still active and report only the unexpected failure with its stage',
     actual: { frozen, failures },
     expected: {
-      frozen: ['pending'],
+      // A failed evaluation no longer starves the freeze; completion stays gated.
+      frozen: ['pending', 'fault'],
       failures: [['actual maintenance failure', 'evaluate']],
     },
   });
@@ -179,7 +184,7 @@ test('a five-Round fleet leaves capacity for public work and advances queued Rou
     pulse = () => {};
   const service = startRoundMaintenance({
     ...ports(),
-    discover: async () => ['a', 'b', 'c', 'd', 'e'],
+    discover: async () => page(['a', 'b', 'c', 'd', 'e']),
     tick: async (id) => {
       running += 1;
       maximum = Math.max(maximum, running);
@@ -226,7 +231,7 @@ test('one held Round cannot monopolize the bounded fleet queue', async () => {
     maximum = 0;
   const service = startRoundMaintenance({
     ...ports(),
-    discover: async () => ['held', 'b', 'c', 'd', 'e'],
+    discover: async () => page(['held', 'b', 'c', 'd', 'e']),
     tick: async (id) => {
       running += 1;
       maximum = Math.max(maximum, running);
@@ -250,4 +255,215 @@ test('one held Round cannot monopolize the bounded fleet queue', async () => {
     held.resolve();
     await service.stop();
   }
+});
+
+const flush = async () => {
+  for (let turn = 0; turn < 8; turn++) await Promise.resolve();
+};
+/** A service whose pulse and clock the test drives. */
+function driven(overrides: Partial<Ports>) {
+  let pulse: () => Promise<void> = async () => {};
+  let clock = 0;
+  const service = startRoundMaintenance({
+    ...ports(),
+    timers: {
+      setInterval: (run: () => Promise<void>) => {
+        pulse = run;
+        return 1;
+      },
+      clearInterval: () => {},
+    },
+    now: () => clock,
+    ...overrides,
+  });
+  return {
+    service,
+    pulse: () => pulse(),
+    advance: (ms: number) => {
+      clock += ms;
+    },
+  };
+}
+
+test('a failed evaluation never starves the freeze, and backs off instead of flooding', async () => {
+  const frozen: string[] = [];
+  const stages: string[] = [];
+  let evaluations = 0;
+  const { service, pulse, advance } = driven({
+    discover: async () => page(['stuck']),
+    evaluate: async () => {
+      evaluations++;
+      throw new Error('evaluator fault');
+    },
+    finalize: async (id) => {
+      frozen.push(id);
+    },
+    failed: (_error, stage) => stages.push(stage),
+  });
+  await service.ready;
+  await flush();
+  for (let n = 0; n < 5; n++) {
+    await pulse();
+    await flush();
+  }
+  assert({
+    given: 'an evaluator failing on every pulse',
+    should: 'report it once, keep finalizing every pulse, and not re-evaluate',
+    actual: { evaluations, stages, frozen: frozen.length >= 5 },
+    expected: { evaluations: 1, stages: ['evaluate'], frozen: true },
+  });
+  advance(5_000);
+  await pulse();
+  await flush();
+  advance(5_000);
+  await pulse();
+  await flush();
+  assert({
+    given: 'a second failure',
+    should: 'wait longer than the first backoff',
+    actual: evaluations,
+    expected: 2,
+  });
+  advance(5_000);
+  await pulse();
+  await flush();
+  assert({
+    given: 'the doubled wait having passed',
+    should: 'try again',
+    actual: evaluations,
+    expected: 3,
+  });
+  await service.stop();
+});
+
+test('an undecided window is read again only after its wait; a decision moves straight on', async () => {
+  const reads: number[] = [];
+  let answer: { decision: string } | null = null;
+  const { service, pulse, advance } = driven({
+    discover: async () => page(['round']),
+    evaluate: async () => {
+      reads.push(reads.length);
+      return answer;
+    },
+  });
+  await service.ready;
+  await flush();
+  await pulse();
+  await flush();
+  assert({
+    given: 'a null evaluation',
+    should: 'not read evidence again on the next pulse',
+    actual: reads.length,
+    expected: 1,
+  });
+  advance(5_000);
+  answer = { decision: 'attended' };
+  await pulse();
+  await flush();
+  await pulse();
+  await flush();
+  assert({
+    given: 'a resolved window',
+    should: 'evaluate the next window on the next pulse',
+    actual: reads.length,
+    expected: 3,
+  });
+  await service.stop();
+});
+
+test('rounds an uncertain writer holds are measured, not silent', async () => {
+  const measures: { rounds: number; oldestMs: number }[] = [];
+  const { service, pulse, advance } = driven({
+    discover: async () => page(['held']),
+    evaluate: async () => ({ decision: 'held' }),
+    held: (measure) => measures.push(measure),
+  });
+  await service.ready;
+  await flush();
+  advance(60_000);
+  await pulse();
+  await flush();
+  assert({
+    given: 'a Round held for a minute',
+    should: 'publish how many and how long, and no more often than the period',
+    actual: measures,
+    expected: [
+      { rounds: 1, oldestMs: 0 },
+      { rounds: 1, oldestMs: 60_000 },
+    ],
+  });
+  await service.stop();
+});
+
+test('ISSUE-819 ISSUE-831: five Rounds across repeated pulses are all served before any runs a third time', async () => {
+  const runs: string[] = [];
+  const lanes: (() => void)[] = [];
+  const { service, pulse } = driven({
+    // Discovery order never changes: a queue rebuilt from it would restart at 'a'.
+    discover: async () => page(['a', 'b', 'c', 'd', 'e']),
+    tick: async (id) => {
+      runs.push(id);
+      await new Promise<void>((done) => lanes.push(done));
+    },
+  });
+  await service.ready;
+  for (let completed = 0; completed < 11; completed++) {
+    await flush();
+    await pulse();
+    await flush();
+    lanes.shift()?.();
+    await flush();
+  }
+  const thirdRun = runs.findIndex(
+    (id, index) =>
+      runs.slice(0, index + 1).filter((r) => r === id).length === 3,
+  );
+  const beforeThird = new Set(runs.slice(0, thirdRun));
+  assert({
+    given: 'lanes completing one at a time with discovery on every pulse',
+    should: 'serve all five before any Round runs a third time',
+    actual: { reachedThird: thirdRun > 0, served: beforeThird.size },
+    expected: { reachedThird: true, served: 5 },
+  });
+  for (const lane of lanes) lane();
+  const stopped = service.stop();
+  for (let n = 0; n < 8; n++) {
+    for (const lane of lanes.splice(0)) lane();
+    await flush();
+  }
+  await stopped;
+});
+
+test('a long list is discovered a page at a time and a finished Round leaves the queue', async () => {
+  const pages = [
+    { roundIds: ['a', 'b', 'c'], cycleComplete: false },
+    { roundIds: ['d'], cycleComplete: true },
+    { roundIds: ['b', 'c', 'd'], cycleComplete: true },
+  ];
+  const ran: string[] = [];
+  const gates: (() => void)[] = [];
+  let scans = 0;
+  const { service, pulse } = driven({
+    discover: async () => pages[Math.min(scans++, pages.length - 1)]!,
+    tick: async (id) => {
+      ran.push(id);
+      await new Promise<void>((done) => gates.push(done));
+    },
+  });
+  await service.ready;
+  await flush();
+  await pulse();
+  await flush();
+  assert({
+    given: 'two discovery pages',
+    should: 'take one page per pulse',
+    actual: scans,
+    expected: 2,
+  });
+  const stopped = service.stop();
+  for (let n = 0; n < 8; n++) {
+    for (const lane of gates.splice(0)) lane();
+    await flush();
+  }
+  await stopped;
 });

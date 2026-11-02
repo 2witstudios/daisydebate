@@ -89,31 +89,36 @@ export async function fenceAttendance(
   );
   return { current, round, seats, accounts };
 }
-export async function attendanceEvidence(
+/** The speeches already decided: an immutable fact, cheap to read under the Round lock. */
+export async function finalizedAttendanceSegments(
   tx: AttendanceTransactionContext,
-  round: RoundHydration,
-): Promise<Pick<AttendanceFacts, 'samples' | 'finalizedSegmentIds'>> {
-  const from = round.segments[0]?.startedAt ?? round.startedAt;
-  const samples = from
-    ? await tx.execute(availabilitySamplesFrom(sql, from))
-    : [];
+  roundId: string,
+): Promise<readonly string[]> {
   const resolved = await tx.execute(
-    sql`select segment_id from round_attendance_adjudications where round_id=${round.id}`,
+    sql`select segment_id from round_attendance_adjudications where round_id=${roundId}`,
   );
-  return {
-    samples: (
-      samples as unknown as {
-        at: string;
-        healthy: boolean;
-        cause: AvailabilityEvidence['cause'];
-      }[]
-    ).map((row) => ({
-      at: row.at,
-      healthy: row.healthy,
-      cause: row.cause,
-    })),
-    finalizedSegmentIds: (resolved as unknown as { segment_id: string }[]).map(
-      (row) => row.segment_id,
-    ),
-  };
+  return (resolved as unknown as { segment_id: string }[]).map(
+    (row) => row.segment_id,
+  );
+}
+
+/**
+ * The samples a decision about a window opened at `from` needs. Reading from
+ * the window in question, never the Round's first speech, keeps this bounded:
+ * an on-time speaker settles without it and the cutoff caps how old a window
+ * can get (DEC-276).
+ */
+export async function attendanceSamples(
+  tx: AttendanceTransactionContext,
+  from: string | null,
+): Promise<readonly AvailabilityEvidence[]> {
+  if (!from) return [];
+  const samples = await tx.execute(availabilitySamplesFrom(sql, from));
+  return (
+    samples as unknown as {
+      at: string;
+      healthy: boolean;
+      cause: AvailabilityEvidence['cause'];
+    }[]
+  ).map((row) => ({ at: row.at, healthy: row.healthy, cause: row.cause }));
 }

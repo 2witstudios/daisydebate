@@ -25,6 +25,7 @@ const input = {
   botSeatIds: [] as readonly string[],
 };
 const forfeit = {
+  evidence: 'settled_availability' as const,
   decision: 'forfeit' as const,
   winner: 'negative' as const,
   effectiveDeadlineMs: 40000,
@@ -34,6 +35,7 @@ test('attendance application guards reject unsettled timestamps finalized window
     [
       {
         ...input,
+        checkIns: [],
         availability: { ...input.availability, settledHorizonMs: 44999 },
       },
       'debate.adjudication.failure-postpones-only',
@@ -67,4 +69,30 @@ test('attendance application guards reject unsettled timestamps finalized window
       code: 'INVARIANT',
       invariantId: id,
     });
+});
+
+test('an on-time receipt decision needs the exact receipt and no settled history', async () => {
+  const facts = {
+    ...input,
+    availability: {
+      historyStartsAtMs: null,
+      settledHorizonMs: null,
+      intervals: [],
+    },
+  };
+  const credited = {
+    evidence: 'on_time_receipt' as const,
+    decision: 'attended' as const,
+    participantId: 'a',
+    receivedAtMs: 40000,
+  };
+  requireAttendanceDecision(facts, credited);
+  await assertRejects({
+    given: 'a decision naming a different receipt time',
+    should: 'refuse it',
+    actual: async () =>
+      requireAttendanceDecision(facts, { ...credited, receivedAtMs: 39999 }),
+    code: 'INVARIANT',
+    invariantId: 'debate.adjudication.timestamp-decides',
+  });
 });

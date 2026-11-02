@@ -3,6 +3,7 @@ import {
   createRoundRuntime,
   deriveOutageIntervals,
   adjudicateAttendance,
+  onTimeSpeakerReceipt,
   requireAttendanceDecision,
   effectiveAttendanceDeadline,
 } from '@daisy/debate-engine';
@@ -10,6 +11,7 @@ import type {
   AttendanceStore,
   AttendanceEvaluator,
   AttendanceEvaluationFacts,
+  AttendanceReceiptFacts,
   AttendanceResolution,
   AttendancePrincipal,
   LockedAttendanceCheckIn,
@@ -30,11 +32,7 @@ const availabilityFor = (facts: Pick<LockedAttendanceCheckIn, 'samples'>) =>
       healthy: sample.healthy,
     })),
   );
-/** Actual ordered openings, current eligible seats, durable stamps and settled evidence are the only inputs. */
-function resolveAttendanceWindow(
-  facts: AttendanceEvaluationFacts,
-  nextSegmentId: () => string,
-): AttendanceResolution | null {
+const windowOf = (facts: AttendanceReceiptFacts) => {
   const lastSpeech = facts.round.rules.segments
     .filter((segment) => segment.type === 'speech')
     .at(-1)?.key;
@@ -45,27 +43,88 @@ function resolveAttendanceWindow(
       !facts.finalizedSegmentIds.includes(segment.id),
   );
   if (!target) return null;
-  const window = attendanceWindowFor(
-    facts.round,
-    target.id,
-    facts.eligibleParticipantIds,
-  );
-  const availability = availabilityFor(facts);
-  const evidence = {
-    window,
-    availability,
+  return {
+    target,
+    window: attendanceWindowFor(
+      facts.round,
+      target.id,
+      facts.eligibleParticipantIds,
+    ),
     checkIns: facts.checkIns
       .filter((stamp) => stamp.segmentId === target.id)
       .map((stamp) => ({
         participantId: stamp.participantId,
         receivedAtMs: attendanceReceiptTime(stamp.receivedAt),
       })),
+  };
+};
+/** An on-time speaker settles the window with no availability history at all. */
+function resolveOnTimeReceipt(
+  facts: AttendanceReceiptFacts,
+): AttendanceResolution | null {
+  const next = windowOf(facts);
+  const credited = next && onTimeSpeakerReceipt(next);
+  return credited
+    ? {
+        segmentId: next.target.id,
+        evidence: 'on_time_receipt',
+        decision: 'attended',
+        receiptParticipantId: credited.participantId,
+        projection: null,
+      }
+    : null;
+}
+/**
+ * Actual ordered openings, current eligible seats, durable stamps and settled
+ * evidence are the only inputs. Unknown health postpones and forfeits nobody;
+ * past the persisted cutoff it ends the Round with no winner (DEC-276).
+ */
+function resolveAttendanceWindow(
+  facts: AttendanceEvaluationFacts,
+  nextSegmentId: () => string,
+): AttendanceResolution | null {
+  const next = windowOf(facts);
+  if (!next) return null;
+  const { target, window, checkIns } = next;
+  const availability = availabilityFor(facts);
+  const evidence = {
+    window,
+    availability,
+    checkIns,
     botSeatIds: facts.botSeatIds,
     finalized: false,
     segmentType: target.type,
   };
+  const runtime = () =>
+    createRoundRuntime({
+      round: facts.round,
+      rules: facts.round.rules,
+      participants: facts.round.participants,
+      checkpoint: facts.round.checkpoint,
+      segments: facts.round.segments,
+      nextSegmentId,
+    });
   const decision = adjudicateAttendance(evidence);
-  if (!decision || availability.settledHorizonMs === null) return null;
+  if (
+    !decision ||
+    decision.evidence !== 'settled_availability' ||
+    availability.settledHorizonMs === null
+  ) {
+    const cutoffAtMs = facts.resolutionCutoffAt
+      ? attendanceReceiptTime(facts.resolutionCutoffAt)
+      : null;
+    if (cutoffAtMs === null || Date.parse(facts.now) < cutoffAtMs) return null;
+    return {
+      segmentId: target.id,
+      evidence: 'infrastructure_unresolved',
+      decision: 'abandoned',
+      projection: runtime().adjudicate({
+        segmentId: target.id,
+        decision: { decision: 'unresolved', cutoffAtMs },
+        now: facts.now,
+      }),
+    };
+  }
   requireAttendanceDecision(evidence, decision);
   const terminalDecision =
     decision.decision === 'forfeit'
@@ -76,26 +135,19 @@ function resolveAttendanceWindow(
             effectiveDeadlineMs: decision.effectiveDeadlineMs,
           }
         : null;
-  const projection = terminalDecision
-    ? createRoundRuntime({
-        round: facts.round,
-        rules: facts.round.rules,
-        participants: facts.round.participants,
-        checkpoint: facts.round.checkpoint,
-        segments: facts.round.segments,
-        nextSegmentId,
-      }).adjudicate({
-        segmentId: target.id,
-        decision: terminalDecision,
-        now: facts.now,
-      })
-    : null;
   return {
     segmentId: target.id,
+    evidence: 'settled_availability',
     decision: decision.decision,
     effectiveDeadline: attendanceTimestamp(decision.effectiveDeadlineMs),
     settledHorizon: attendanceTimestamp(availability.settledHorizonMs),
-    projection,
+    projection: terminalDecision
+      ? runtime().adjudicate({
+          segmentId: target.id,
+          decision: terminalDecision,
+          now: facts.now,
+        })
+      : null,
   };
 }
 
@@ -185,6 +237,7 @@ export function createAttendanceFeature(deps: {
         roundId,
         commandId: deps.nextId(),
         instanceId: deps.instanceId,
+        resolveOnReceipts: resolveOnTimeReceipt,
         resolve: (facts) => resolveAttendanceWindow(facts, deps.nextId),
       }),
   };

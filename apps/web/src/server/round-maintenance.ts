@@ -41,6 +41,12 @@ export function startRoundCompetitiveMaintenance(input: {
         null,
     }),
     timers: input.timers,
+    held: ({ rounds, oldestMs }) =>
+      app.logger.log(
+        'round.attendance.held',
+        { pending: rounds, oldestAgeMs: oldestMs },
+        'Rounds held by an uncertain check-in writer',
+      ),
     failed: workerFailures(app, input.reporter)(
       'round.maintenance.failed',
       'round.maintenance',

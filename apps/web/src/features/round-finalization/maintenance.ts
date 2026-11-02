@@ -1,5 +1,8 @@
 import type { IdGenerator } from '@daisy/clock';
-import type { AttendanceResolution } from '@daisy/db/attendance';
+import type {
+  AttendanceHold,
+  AttendanceResolution,
+} from '@daisy/db/attendance';
 import type { Database } from '@daisy/db';
 import {
   createRoundRuntime,
@@ -91,7 +94,9 @@ export function createRoundMaintenanceOperations(input: {
   readonly instanceId: string;
   readonly ratingFailed: (roundId: string, error: unknown) => void;
   readonly ids: IdGenerator;
-  readonly evaluate: (roundId: string) => Promise<AttendanceResolution | null>;
+  readonly evaluate: (
+    roundId: string,
+  ) => Promise<AttendanceResolution | AttendanceHold | null>;
   /** Injected policy: how long after the freeze judges may rule (DEC-201). */
   readonly ballotDeadlineMs?: number;
   /** Injected policy, never defaulted: how long a launched Round may stay unstarted (DEC-214). */
@@ -117,26 +122,31 @@ export function createRoundMaintenanceOperations(input: {
     onFailure: input.ratingFailed,
   });
   let ratingAfterId: string | undefined;
+  let discoveryAfterId: string | undefined;
   return {
+    /** One bounded page per pulse; the cursor carries a long list across pulses. */
     async discover() {
-      const ids: string[] = [];
-      let afterId: string | undefined;
-      for (;;) {
-        const page = await input.store.readRoundMaintenanceCandidates({
-          instanceId: input.instanceId,
-          limit: 64,
-          startHorizonMs: input.startHorizonMs,
-          ...(afterId ? { afterId } : {}),
-        });
-        ids.push(...page.roundIds.filter((id) => id !== input.probeRoundId));
-        if (page.exhausted) return ids;
-        if (!page.afterId || page.afterId === afterId)
-          throw createAppError(
-            'INVARIANT',
-            'Maintenance discovery did not advance',
-          );
-        afterId = page.afterId;
-      }
+      const page = await input.store.readRoundMaintenanceCandidates({
+        instanceId: input.instanceId,
+        limit: 64,
+        startHorizonMs: input.startHorizonMs,
+        ...(discoveryAfterId ? { afterId: discoveryAfterId } : {}),
+      });
+      if (
+        !page.exhausted &&
+        (!page.afterId || page.afterId === discoveryAfterId)
+      )
+        throw createAppError(
+          'INVARIANT',
+          'Maintenance discovery did not advance',
+        );
+      discoveryAfterId = page.exhausted
+        ? undefined
+        : (page.afterId ?? undefined);
+      return {
+        roundIds: page.roundIds.filter((id) => id !== input.probeRoundId),
+        cycleComplete: page.exhausted,
+      };
     },
     tick: (roundId: string) =>
       input.store.tickDueRound({

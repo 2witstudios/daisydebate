@@ -32,8 +32,9 @@ export {
   attendancePolicy,
   requireAttendanceWindow,
   adjudicateAttendance,
+  onTimeSpeakerReceipt,
 } from './attendance';
-export type { AttendanceWindow } from './attendance';
+export type { AttendanceDecision, AttendanceWindow } from './attendance';
 export {
   deriveOutageIntervals,
   effectiveAttendanceDeadline,

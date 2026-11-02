@@ -31,6 +31,12 @@ export const attendanceTimingPolicy = {
    */
   transactionSliceMs: 900,
   finalizationBufferMs: 5000,
+  /**
+   * How long after the actual final speech end a window settled evidence still
+   * cannot resolve keeps waiting (DEC-276). Well inside the 24-hour sample
+   * retention, so it cannot race the evidence it waits for.
+   */
+  resolutionCutoffMs: 60 * 60_000,
 } as const;
 
 /**

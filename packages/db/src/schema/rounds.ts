@@ -117,6 +117,10 @@ export const rounds = pgTable(
     transcriptAdmissionCutoff: timestampColumn('transcript_admission_cutoff'),
     /** Set once at the transcript freeze from the injected policy; judges rule before it (DEC-201, DEC-207). */
     ballotDeadlineAt: timestampColumn('ballot_deadline_at'),
+    /** Past this, a window settled evidence cannot resolve stops waiting (DEC-276). */
+    attendanceResolutionCutoffAt: timestampColumn(
+      'attendance_resolution_cutoff_at',
+    ),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
