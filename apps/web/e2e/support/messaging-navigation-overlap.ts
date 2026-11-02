@@ -8,6 +8,7 @@ import {
 import { test } from './fixtures';
 import {
   acceptMessagingJourney,
+  closingJourney,
   openMessagingJourney,
 } from './messaging-journey';
 import {
@@ -178,21 +179,22 @@ export async function withHeldConversation(
   verify: (fixture: HeldConversation) => Promise<void>,
 ) {
   const journey = await openMessagingJourney(browser);
-  let held: ReturnType<typeof holdConversationResponses> | undefined;
-  try {
-    const { page, observed } = await openObservedConversation(journey);
-    held = holdConversationResponses(
-      page,
-      journey.channelId,
-      'editor',
-      sendResult,
-    );
-    await page.route('**/messages/**', held.intercept);
-    await verify({ page, observed, held, channelId: journey.channelId });
-  } finally {
-    held?.releaseAll();
-    await journey.close();
-  }
+  await closingJourney(journey, async () => {
+    let held: ReturnType<typeof holdConversationResponses> | undefined;
+    try {
+      const { page, observed } = await openObservedConversation(journey);
+      held = holdConversationResponses(
+        page,
+        journey.channelId,
+        'editor',
+        sendResult,
+      );
+      await page.route('**/messages/**', held.intercept);
+      await verify({ page, observed, held, channelId: journey.channelId });
+    } finally {
+      held?.releaseAll();
+    }
+  });
 }
 
 export function testMessagingNavigationOverlap() {
