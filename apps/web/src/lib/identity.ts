@@ -1,3 +1,4 @@
+import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { resolveIdentity, type Identity } from '@daisy/auth';
 import { hasSessionCookie } from '../features/auth/sessions/session-cookie';
 import type { AuthServer } from '../features/auth/server';
@@ -51,6 +52,7 @@ export async function resolveSession(
     readParticipation: auth.getParticipationByUserId,
     cookie: hasSessionCookie(requestHeaders) ? cookie : null,
     now: () => clock.now(),
+    isTemporary: isTemporaryRefusal,
     readSession: async (header) => {
       // A server Principal read: the rate-limit gate does not budget it
       // (features/auth/abuse/rate-limit.ts, isServerPrincipalRead).

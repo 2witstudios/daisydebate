@@ -42,8 +42,8 @@ export type Identity =
   | {
       readonly state: 'unavailable';
       readonly principal: AnonymousPrincipal;
-      /** The store's failure, for a caller to classify; never rendered or logged. */
-      readonly cause?: unknown;
+      /** Asking again can clear this: the store refused work that never ran. */
+      readonly temporary?: true;
     }
   | { readonly state: 'provisional'; readonly principal: UserPrincipal }
   | {
@@ -73,7 +73,7 @@ export const claimedUsername = (identity: Identity): string | null =>
 
 const ANONYMOUS: Identity = { state: 'anonymous', principal: anonymous };
 const UNAVAILABLE: Identity = { state: 'unavailable', principal: anonymous };
-const failedRead = (cause: unknown): Identity => ({ ...UNAVAILABLE, cause });
+const TEMPORARILY_UNAVAILABLE: Identity = { ...UNAVAILABLE, temporary: true };
 
 /**
  * Principal resolution from request cookies (ADR 0020, gate 2). Only the
@@ -89,6 +89,7 @@ export async function resolveIdentity({
   readActor,
   readParticipation,
   now,
+  isTemporary = () => false,
 }: {
   readonly cookie: string | null;
   readonly readSession: SessionReader;
@@ -98,7 +99,11 @@ export async function resolveIdentity({
   /** The account's beta access state and age band from the canonical account fact (ADR 0075). */
   readonly readParticipation: (userId: string) => Promise<Participation>;
   readonly now: () => string;
+  /** Whether a store failure can clear by asking again; the adapter knows. */
+  readonly isTemporary?: (error: unknown) => boolean;
 }): Promise<Identity> {
+  const failedRead = (error: unknown) =>
+    isTemporary(error) ? TEMPORARILY_UNAVAILABLE : UNAVAILABLE;
   if (!cookie) return ANONYMOUS;
   let found: VerifiedSession | null;
   try {
@@ -111,13 +116,14 @@ export async function resolveIdentity({
   if (!Number.isFinite(instant)) return UNAVAILABLE;
   const expires = Date.parse(found.expiresAt);
   if (Number.isNaN(expires) || expires <= instant) return ANONYMOUS;
-  return identityFromSession(found, readActor, readParticipation);
+  return identityFromSession(found, readActor, readParticipation, failedRead);
 }
 
 async function identityFromSession(
   found: VerifiedSession,
   readActor: Parameters<typeof resolveIdentity>[0]['readActor'],
   readParticipation: Parameters<typeof resolveIdentity>[0]['readParticipation'],
+  failedRead: (error: unknown) => Identity,
 ): Promise<Identity> {
   // The reader is an adapter boundary: only a non-empty string username
   // makes a member, whatever else the lookup returned.

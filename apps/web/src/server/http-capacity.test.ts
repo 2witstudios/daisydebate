@@ -46,7 +46,7 @@ test('a route read behind a refused identity says when to retry', async () => {
   const refused = await answer({
     state: 'unavailable',
     principal,
-    cause: refuseCapacity(),
+    temporary: true,
   });
   const failed = await answer({ state: 'unavailable', principal });
   assert({

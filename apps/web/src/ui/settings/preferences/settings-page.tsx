@@ -69,6 +69,7 @@ export type SettingsPageProps = {
   readonly analytics: {
     readonly consent: Consent;
     readonly available: AnalyticsAvailability;
+    readonly consentUnreadable?: boolean;
   };
   /** The member's data-rights notices, parsed from the handlers' fixed keys. */
   readonly dataRightsNotices: DataRightsNotices;

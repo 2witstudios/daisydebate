@@ -4,6 +4,7 @@ import {
   capacityRefusalDetail,
   isReportedCapacityRefusal,
   isCapacityRefusal,
+  isTemporaryRefusal,
   markCapacityRefusalReported,
   refuseCapacity,
 } from './capacity-refusal';
@@ -112,5 +113,23 @@ test('a refusal is recognised by every bundled copy of this module', async () =>
       copy.isReportedCapacityRefusal(theirs),
     ],
     expected: [true, true, true, 'control', true],
+  });
+});
+
+test('only a refusal asking again can clear is temporary', () => {
+  assert({
+    given: 'saturated, expired and unconfigured refusals, and a plain failure',
+    should: 'call the first two temporary, through a wrapper too',
+    actual: [
+      ...(['saturated', 'expired', 'unconfigured'] as const).map((reason) =>
+        isTemporaryRefusal(
+          new Error('driver', {
+            cause: refuseCapacity({ lane: 'control', reason }),
+          }),
+        ),
+      ),
+      isTemporaryRefusal(createAppError('INFRASTRUCTURE')),
+    ],
+    expected: [true, true, false, false],
   });
 });

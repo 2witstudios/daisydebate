@@ -25,6 +25,10 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
     guardCalls.push({ path, searchParams });
     return { state: 'anonymous' };
   },
+  accessOrTemporary: async (path: string, searchParams: unknown) => {
+    guardCalls.push({ path, searchParams });
+    return { kind: 'allowed', identity: { state: 'anonymous' } };
+  },
 }));
 // Public pages that only read who is asking (the watch pages, the
 // leaderboard, which pins the viewer's line, and the Tournaments index) get

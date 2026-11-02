@@ -30,8 +30,8 @@ const host = globalThis as typeof globalThis & {
 /**
  * One registry per process, not per module copy: Next can bundle a page apart
  * from the process app, so the copy that reads a refusal may not be the one
- * that minted it (ISSUE-927). A symbol-keyed slot keeps the identity check; a
- * message or a property on the error itself would be forgeable by any wrapper.
+ * that minted it (ISSUE-927). A table keeps each refusal's frozen detail and
+ * reported mark off the error, which wrappers and reporters see.
  */
 const { refusals, reportedRefusals } = (host[REGISTRY] ??= {
   refusals: new WeakMap(),
@@ -68,6 +68,14 @@ const refusalIn = (error: unknown) =>
 /** Refused-unrun admission identity, through bounded native cause wrappers. */
 export const isCapacityRefusal = (error: unknown): boolean =>
   refusalIn(error) !== undefined;
+/**
+ * A refusal asking again can clear. `unconfigured` cannot: a lane missing from
+ * the profile, or work heavier than the lane, is the same on every request.
+ */
+export const isTemporaryRefusal = (error: unknown): boolean => {
+  const reason = capacityRefusalDetail(error)?.reason;
+  return reason !== undefined && reason !== 'unconfigured';
+};
 /** The lane and reason of the refusal `error` carries, if it carries one. */
 export function capacityRefusalDetail(
   error: unknown,

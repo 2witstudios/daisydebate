@@ -3,7 +3,6 @@ import type { BetaAccessState } from '@daisy/protocol';
 import {
   claimedUsername,
   resolveIdentity,
-  type Identity,
   type VerifiedSession,
 } from './identity';
 
@@ -19,8 +18,6 @@ const session = (
   expiresAt: '2026-01-02T00:00:00.000Z',
   ...overrides,
 });
-/** The fail-closed shape; why a read failed has its own test below. */
-const withoutCause = ({ state, principal }: Identity) => ({ state, principal });
 const resolveWith = (
   found: VerifiedSession | null,
   cookie = 'c=1',
@@ -92,17 +89,15 @@ describe('resolveIdentity', () => {
     assert({
       given: 'a beta access store that throws',
       should: 'resolve unavailable, never a member',
-      actual: withoutCause(
-        await resolveIdentity({
-          cookie: 'c=1',
-          readSession: async () => session(),
-          readActor: async (userId) => ({ id: 'actor1', userId }),
-          readParticipation: async () => {
-            throw new Error('database down');
-          },
-          now,
-        }),
-      ),
+      actual: await resolveIdentity({
+        cookie: 'c=1',
+        readSession: async () => session(),
+        readActor: async (userId) => ({ id: 'actor1', userId }),
+        readParticipation: async () => {
+          throw new Error('database down');
+        },
+        now,
+      }),
       expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
     });
   });
@@ -123,18 +118,16 @@ describe('resolveIdentity', () => {
     assert({
       given: 'a verified username with a missing or foreign actor row',
       should: 'resolve unavailable instead of inventing an actor',
-      actual: withoutCause(
-        await resolveIdentity({
-          cookie: 'c=1',
-          readSession: async () => session(),
-          readActor: async () => ({ id: 'actor1', userId: 'foreign' }),
-          readParticipation: async () => ({
-            betaState: 'approved',
-            ageBand: 'adult',
-          }),
-          now,
+      actual: await resolveIdentity({
+        cookie: 'c=1',
+        readSession: async () => session(),
+        readActor: async () => ({ id: 'actor1', userId: 'foreign' }),
+        readParticipation: async () => ({
+          betaState: 'approved',
+          ageBand: 'adult',
         }),
-      ),
+        now,
+      }),
       expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
     });
   });
@@ -192,7 +185,7 @@ describe('resolveIdentity', () => {
     assert({
       given: 'a session store that throws',
       should: 'fail closed as unavailable, holding no principal permissions',
-      actual: { state: result.state, principal: result.principal },
+      actual: result,
       expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
     });
   });
@@ -216,20 +209,18 @@ describe('resolveIdentity', () => {
       given: 'a valid session followed by an unavailable durable actor mapping',
       should:
         'fail closed without exposing the store exception or guessing identity',
-      actual: withoutCause(
-        await resolveIdentity({
-          cookie: 'c=1',
-          readSession: async () => session(),
-          readActor: async () => {
-            throw new Error('private store failure');
-          },
-          readParticipation: async () => ({
-            betaState: 'approved',
-            ageBand: 'adult',
-          }),
-          now,
+      actual: await resolveIdentity({
+        cookie: 'c=1',
+        readSession: async () => session(),
+        readActor: async () => {
+          throw new Error('private store failure');
+        },
+        readParticipation: async () => ({
+          betaState: 'approved',
+          ageBand: 'adult',
         }),
-      ),
+        now,
+      }),
       expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
     });
   });
@@ -262,39 +253,45 @@ test('the claimed username, approved or waiting (ISSUE-690)', () => {
   });
 });
 
-describe('resolveIdentity failure cause', () => {
-  test('a failing store read keeps why, and a missing actor has none', async () => {
-    const failure = new Error('store');
+describe('resolveIdentity temporary failures', () => {
+  test('only a failure the adapter calls temporary is marked', async () => {
+    const refusal = new Error('refused');
+    const fail = (error: Error) => async () => {
+      throw error;
+    };
     const resolve = (over: object) =>
       resolveIdentity({
         cookie: 'c',
         now,
         readSession: async () => session(),
-        readActor: async () => null,
-        readParticipation: async () => ({ betaState: null, ageBand: null }),
+        readActor: async (userId) => ({ id: 'actor1', userId }),
+        readParticipation: async () => ({
+          betaState: 'approved',
+          ageBand: 'adult',
+        }),
+        isTemporary: (error) => error === refusal,
         ...over,
       });
-    const causeOf = async (over: object) => {
-      const identity = await resolve(over);
-      return identity.state === 'unavailable' ? identity.cause : 'other';
+    const unavailable = {
+      state: 'unavailable',
+      principal: { kind: 'anonymous' },
     };
     assert({
-      given: 'a throwing session read, a throwing actor read and no actor row',
-      should: 'carry the two failures and no cause for the missing row',
+      given:
+        'a refused session read, a refused actor read, a failed read and no actor row',
+      should: 'mark only the two refusals temporary, holding no exception',
       actual: [
-        await causeOf({
-          readSession: async () => {
-            throw failure;
-          },
-        }),
-        await causeOf({
-          readActor: async () => {
-            throw failure;
-          },
-        }),
-        await causeOf({}),
+        await resolve({ readSession: fail(refusal) }),
+        await resolve({ readActor: fail(refusal) }),
+        await resolve({ readActor: fail(new Error('bug')) }),
+        await resolve({ readActor: async () => null }),
       ],
-      expected: [failure, failure, undefined],
+      expected: [
+        { ...unavailable, temporary: true },
+        { ...unavailable, temporary: true },
+        unavailable,
+        unavailable,
+      ],
     });
   });
 });

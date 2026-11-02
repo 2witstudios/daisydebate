@@ -1,5 +1,5 @@
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
-import { isCapacityRefusal } from '@daisy/db/capacity';
+import { isCapacityRefusal, isTemporaryRefusal } from '@daisy/db/capacity';
 import {
   currentTraceId,
   extractTraceContext,
@@ -26,9 +26,15 @@ export type SignedInIdentity = Extract<
  * that requires a full member (not merely signed in) narrows the result
  * itself.
  */
+/** Outages minted here from an identity a refusal made unavailable. */
+const temporaryOutages = new WeakSet<Error>();
+
 export function requireSignedIn(identity: Identity): SignedInIdentity {
-  if (identity.state === 'unavailable')
-    throw createAppError('INFRASTRUCTURE', undefined, identity.cause);
+  if (identity.state === 'unavailable') {
+    const outage = createAppError('INFRASTRUCTURE');
+    if (identity.temporary) temporaryOutages.add(outage);
+    throw outage;
+  }
   if (identity.state === 'anonymous') throw createAppError('AUTHENTICATION');
   return identity;
 }
@@ -154,9 +160,13 @@ export async function handleOperation(
     extractTraceContext(request.headers),
   );
 }
-/** Only a refusal's 503 is known to pass: the work never ran (ADR 0088). */
+/** Only a temporary refusal's 503 is known to pass: the work never ran (ADR 0088). */
 const retryAdvice = (status: number, error: unknown) =>
-  status === 503 && isCapacityRefusal(error) ? { 'Retry-After': '1' } : {};
+  status === 503 &&
+  (isTemporaryRefusal(error) ||
+    (error instanceof Error && temporaryOutages.has(error)))
+    ? { 'Retry-After': '1' }
+    : {};
 
 /**
  * A bounded transaction's recovery state and inner error code, as a log

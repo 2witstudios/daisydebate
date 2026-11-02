@@ -1,8 +1,5 @@
 import { roundDocumentPrincipal } from '../../../../../features/debate-room/documents/document-principal';
-import {
-  requestIdentity,
-  requestRoundRatings,
-} from '../../../../../lib/request-session';
+import { requestRoundRatings } from '../../../../../lib/request-session';
 import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
 import { LiveTranscript } from '../../../../../ui/round-result/live-transcript';
@@ -16,14 +13,14 @@ import {
 import { RoundNativeAttendance } from '../../../../../features/attendance/native-state';
 import { roundCommandIds } from '../../../../../features/round-runtime/command-ids';
 import { systemClock, systemId } from '@daisy/clock';
-import { isCapacityRefusal } from '@daisy/db/capacity';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
-import { retrySeconds } from '../../../../../server/temporary-read';
+import { ratingsUnlessRefused } from '../../../../../features/ratings/ratings-unless-refused';
+import { reconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
-import { requireAccess } from '../../../../../lib/access';
+import { accessOrTemporary } from '../../../../../lib/access';
 import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
 import { RoundRoomReconnecting } from '../../../../../ui/debate-room/round-room-reconnecting';
@@ -38,17 +35,24 @@ import { LiveSpectatorRoom } from '../../../../../ui/spectating/live-spectator-r
 
 export const metadata: Metadata = { title: 'Round' };
 
+const transcriptOf = (
+  id: string,
+  text: Awaited<ReturnType<typeof readPersistedTranscript>>,
+  socketUrl: string | null,
+) =>
+  text.kind === 'found' ? (
+    <LiveTranscript key={id} seed={text.value} socketUrl={socketUrl} />
+  ) : text.kind === 'unavailable' ? (
+    // Refusals read as missing; only an outage, never a denial, says this.
+    <p role="status">Transcript unavailable. Reload to try again.</p>
+  ) : null;
+
 const reconnecting = () => {
   const [entropy] = crypto.getRandomValues(new Uint8Array(1));
-  return <RoundRoomReconnecting retrySeconds={retrySeconds(entropy!)} />;
+  return (
+    <RoundRoomReconnecting retrySeconds={reconnectDelaySeconds(entropy!)} />
+  );
 };
-
-/** Stakes beside the room never outrank its controls: a refusal only omits them. */
-const ratingsUnlessRefused = (round: RoundView) =>
-  requestRoundRatings(round).catch((error: unknown) => {
-    if (isCapacityRefusal(error)) return null;
-    throw error;
-  });
 
 /**
  * A member without a seat: the assigned judge's live view, a seatless
@@ -110,10 +114,9 @@ export default async function RoundRoomPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { id } = await params;
-  const asking = await requestIdentity();
-  if (asking.state === 'unavailable' && isCapacityRefusal(asking.cause))
-    return reconnecting();
-  const identity = await requireAccess(`/rounds/${id}/room`, searchParams);
+  const access = await accessOrTemporary(`/rounds/${id}/room`, searchParams);
+  if (access.kind === 'temporary') return reconnecting();
+  const { identity } = access;
   if (!idSchema.safeParse(id).success) notFound();
   const principal = roundDocumentPrincipal(identity);
   if (principal === null) redirect(`/rounds/${id}`);
@@ -126,13 +129,7 @@ export default async function RoundRoomPage({
   if (result.kind === 'missing') notFound();
   if (result.kind === 'unavailable' && result.temporary) return reconnecting();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
-  const transcript =
-    text.kind === 'found' ? (
-      <LiveTranscript key={id} seed={text.value} socketUrl={result.socketUrl} />
-    ) : text.kind === 'unavailable' ? (
-      // Refusals read as missing; only an outage, never a denial, says this.
-      <p role="status">Transcript unavailable. Reload to try again.</p>
-    ) : null;
+  const transcript = transcriptOf(id, text, result.socketUrl);
   if (!isLiveDebater(result.round, actorId))
     return watchingRoom(
       id,
@@ -148,7 +145,11 @@ export default async function RoundRoomPage({
       <LiveRoundRoom
         attendanceSlot={
           <>
-            <RoundRatings view={await ratingsUnlessRefused(result.round)} />
+            <RoundRatings
+              view={await ratingsUnlessRefused(() =>
+                requestRoundRatings(result.round),
+              )}
+            />
             <RoundNativeAttendance
               view={result.round}
               state={await readPersistedAttendance(id)}

@@ -1,10 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { BetterAuthOptions } from 'better-auth';
 import { memoryAdapter } from '@better-auth/memory-adapter';
-import { isCapacityRefusal } from '@daisy/db/capacity';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createAppError } from '@daisy/errors';
 import { resolveSession } from '../../../lib/identity';
+import { keepingSessionRefusal, noteSessionRefusal } from './session-refusal';
 import {
   authTestEnv,
   composeAuthServer,
@@ -54,18 +54,36 @@ test('a session read keeps a refusal Better Auth would drop', async () => {
   const failed = await resolveWithStoreFailing(
     createAppError('INFRASTRUCTURE'),
   );
-  const causeOf = (identity: typeof refused.identity) =>
-    identity.state === 'unavailable' ? identity.cause : 'not unavailable';
   assert({
     given: 'a session store that refuses, and one that really fails',
-    should:
-      'resolve both unavailable, and only the refusal be recognised as one',
-    actual: [
-      refused.identity.state,
-      isCapacityRefusal(causeOf(refused.identity)),
-      failed.identity.state,
-      isCapacityRefusal(causeOf(failed.identity)),
+    should: 'mark only the refused identity temporary',
+    actual: [refused.identity, failed.identity],
+    expected: [
+      {
+        state: 'unavailable',
+        principal: { kind: 'anonymous' },
+        temporary: true,
+      },
+      { state: 'unavailable', principal: { kind: 'anonymous' } },
     ],
-    expected: ['unavailable', true, 'unavailable', false],
+  });
+});
+
+test('a logged refusal never replaces a different failure', async () => {
+  const refusal = new Error('refused');
+  const other = new Error('plugin bug');
+  const failing = (error: unknown) => () =>
+    keepingSessionRefusal(async () => {
+      noteSessionRefusal(refusal);
+      throw error;
+    }).catch((caught: unknown) => caught);
+  assert({
+    given: "a refusal logged, then Better Auth's bare failure or another error",
+    should: 'swap in the refusal only for the bare failure',
+    actual: [
+      await failing({ body: { code: 'FAILED_TO_GET_SESSION' } })(),
+      await failing(other)(),
+    ],
+    expected: [refusal, other],
   });
 });
