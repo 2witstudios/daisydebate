@@ -1,5 +1,4 @@
-import { loadRoundDraw } from './room-draw-persistence';
-import type { RoundOpening } from '@daisy/protocol/resolution-draw';
+import { loadRoundOpening, type StoredOpening } from './round-opening-read';
 import type {
   CompetitionType,
   DebateRole,
@@ -25,10 +24,7 @@ export type RoundHydration = {
   /** Null until a draw's reveal; never null on an active Round. */
   readonly resolution: string | null;
   /** The opening and its secret seed, only while the Round is in it. */
-  readonly opening: {
-    readonly state: RoundOpening;
-    readonly seed: string | null;
-  } | null;
+  readonly opening: StoredOpening | null;
   readonly status: 'opening' | 'active' | 'completed' | 'abandoned';
   readonly currentStage: 'countdown' | 'prep' | 'live' | null;
   /** When the Round was launched (its row's creation), on the database clock. */
@@ -104,19 +100,8 @@ export async function hydrateRoundRows(
     .from(roundParticipants)
     .where(eq(roundParticipants.roundId, id));
   const segments = await segmentRows(tx, id);
-  const draw = row.status === 'opening' ? await loadRoundDraw(tx, id) : null;
   return {
-    opening:
-      row.status === 'opening'
-        ? {
-            state: {
-              startedAt: row.createdAt.toISOString(),
-              draw: draw?.state ?? null,
-              prepMs: row.preRoundPrepMs,
-            },
-            seed: draw?.seed ?? null,
-          }
-        : null,
+    opening: await loadRoundOpening(tx, row),
     id: row.id,
     competitionType: row.competitionType,
     formatId: row.formatId,

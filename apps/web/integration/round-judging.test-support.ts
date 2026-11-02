@@ -1,3 +1,4 @@
+import { readRoundOpening } from '@daisy/debate-engine';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
 import {
   canReadRound,
@@ -152,6 +153,7 @@ export const readBallotAs = (
   roundId: string,
 ) =>
   f.store.readRoundBallot({
+    readOpening: readRoundOpening,
     caller,
     roundId,
     authorize: (r, a) => canReadRound(caller, r, a),

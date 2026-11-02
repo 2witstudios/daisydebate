@@ -76,7 +76,6 @@ export const state: RoomAssemblyState = {
 
 /** The stored Round its host reads; `round` is what a viewer receives. */
 export const launched: LaunchedRound = {
-  opening: null,
   id: 'd4n6p8r2t4v6x8z1k3b5c7d9',
   roomId: state.id,
   version: 1,

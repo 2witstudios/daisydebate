@@ -4,7 +4,6 @@ import {
   roundBallotReadSchema,
   roundBallotReceiptSchema,
   roundJudgeAssignmentsSchema,
-  roundViewSchema,
   type Ballot,
 } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';

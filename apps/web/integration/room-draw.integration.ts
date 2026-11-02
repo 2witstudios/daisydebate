@@ -1,3 +1,4 @@
+import { readRoundOpening } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -74,6 +75,23 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
         false,
         false,
       ],
+    });
+    const ballotRead = await f.store.readRoundBallot({
+      caller: f.outsider,
+      roundId,
+      authorize: () => true,
+      authorizeTranscript: () => false,
+      readOpening: readRoundOpening,
+    });
+    assert({
+      given:
+        'a viewer reaching the Round through its ballot read, as a judge does',
+      should: 'carry strike progress and no drawn line',
+      actual: [
+        ballotRead.round.opening?.draw?.visibility,
+        JSON.stringify(ballotRead).includes(SENTINEL),
+      ],
+      expected: ['progress', false],
     });
     const lobby = await f.operations.list(f.outsider, {
       q: view.title,

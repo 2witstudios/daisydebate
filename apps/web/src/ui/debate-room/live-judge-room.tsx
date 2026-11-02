@@ -1,8 +1,8 @@
 'use client';
+import './zod-jitless';
 import { useSecond } from './use-second';
 import { OpeningStatus } from './opening-strike';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
-import './zod-jitless';
 import Link from 'next/link';
 import { useCallback, useMemo, type ReactNode } from 'react';
 import { useRoundTime } from './use-round-time';
@@ -29,7 +29,6 @@ export function LiveJudgeRoom({
 }: {
   readonly transcript?: ReactNode;
   readonly view: RoundView;
-  readonly renderedAtMs: number;
   readonly read: () => Promise<RoundRead>;
   readonly socketUrl: string | null;
   readonly renderedAtMs: number;
@@ -50,7 +49,7 @@ export function LiveJudgeRoom({
     [refresh, roundTime],
   );
   const view = synced.value;
-  const now = useSecond(props.renderedAtMs);
+  const now = useSecond(renderedAtMs, roundTime);
   const ended = useRoundEndedRoute(view);
   if (ended) return <RoundEndedNotice roundId={view.id} />;
   return (

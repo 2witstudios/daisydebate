@@ -97,7 +97,7 @@ describe('canonical authorization', () => {
             },
           }).allow,
       ),
-      expected: [true, true, true, false],
+      expected: [true, true, false],
     });
   });
 });

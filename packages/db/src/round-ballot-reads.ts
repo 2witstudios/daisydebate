@@ -1,3 +1,4 @@
+import { withOpening, type ReadOpening } from './round-opening-read';
 import { closedStreamGaps, streamKey } from './capture-gaps';
 import { createAppError } from '@daisy/errors';
 import {
@@ -90,6 +91,7 @@ export const roundBallotReads = ({
       round: LaunchedRound,
       account: Account,
     ) => boolean;
+    readonly readOpening: ReadOpening;
   }): Promise<RoundBallotRead> {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
@@ -121,7 +123,13 @@ export const roundBallotReads = ({
           .map((p) => p.id),
       );
       return roundBallotReadSchema.parse({
-        round: roundViewFor(round, input.caller.actorId),
+        round: await withOpening(
+          tx,
+          round,
+          roundViewFor(round, input.caller.actorId),
+          input.caller.actorId,
+          input.readOpening,
+        ),
         ...ballotReadView({
           status: round.status,
           ownSeatId: ownSeat?.id,

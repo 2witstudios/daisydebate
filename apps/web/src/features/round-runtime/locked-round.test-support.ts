@@ -23,6 +23,7 @@ export const judgeActorId = others[1]!.actorId;
 export const lockedRound: LockedRoundCommandContext = {
   round: {
     ...launched,
+    opening: null,
     competitionType: 'casual',
     formatId: 'one-on-one',
     formatVersion: 1,

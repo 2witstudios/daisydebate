@@ -134,3 +134,39 @@ test('the segment a control acts on is form state, never part of the command (IS
     expected: roundCommandFields(entries as [string, unknown][]),
   });
 });
+
+test('a strike posts its turn and position, and a lost race says so', async () => {
+  const form = new FormData();
+  for (const [name, value] of Object.entries({
+    version: '1',
+    commandId: 'c'.repeat(24),
+    expectedVersion: '4',
+    type: 'strike_resolution',
+    participantId: 'p'.repeat(24),
+    ordinal: '1',
+    position: '3',
+  }))
+    form.set(name, value);
+  assert({
+    given: 'a native strike form',
+    should: 'carry its ordinal and position as numbers',
+    actual: roundCommandFields(form)?.command,
+    expected: {
+      type: 'strike_resolution',
+      participantId: 'p'.repeat(24),
+      ordinal: 1,
+      position: 3,
+    },
+  });
+  const answer = await submitRoundForm(
+    async () => new Response(null, { status: 409 }),
+    'r'.repeat(24),
+    form,
+  );
+  assert({
+    given: 'a strike that lost to a time-out or the other side',
+    should: 'say why, in words',
+    actual: answer.error,
+    expected: 'Someone struck first, or time ran out. Here is the draw now.',
+  });
+});

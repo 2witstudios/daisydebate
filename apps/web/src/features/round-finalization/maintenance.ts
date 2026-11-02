@@ -86,7 +86,6 @@ export function createRoundMaintenanceOperations(input: {
   readonly evaluate: (roundId: string) => Promise<AttendanceResolution | null>;
   /** Injected policy: how long after the freeze judges may rule (DEC-201). */
   readonly ballotDeadlineMs?: number;
-  /** Injected policy, never defaulted: how long a launched Round may stay unstarted (DEC-214). */
   /**
    * The public check-in probe's Round (ATTENDANCE_PUBLIC_PROBE), or null. It
    * is synthetic and must stay active for its receipt to stay valid, so

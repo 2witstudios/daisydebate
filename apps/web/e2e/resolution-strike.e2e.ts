@@ -169,7 +169,7 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     await stale.getByRole('button', { name: 'Strike this resolution' }).click();
     await expect(
       stale.getByText(
-        'The round changed or that action is no longer legal. Review the current round and try again.',
+        'Someone struck first, or time ran out. Here is the draw now.',
       ),
     ).toBeVisible();
 

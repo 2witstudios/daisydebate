@@ -10,9 +10,17 @@ export function roundCommandFields(
 ) {
   const fields = collectRoundFormFields(
     entries,
-    ['version', 'commandId', 'expectedVersion', 'type', 'participantId'],
+    [
+      'version',
+      'commandId',
+      'expectedVersion',
+      'type',
+      'participantId',
+      'ordinal',
+      'position',
+    ],
     true,
-    ['confirmed', 'segment', 'ordinal', 'position'],
+    ['confirmed', 'segment'],
   );
   if (!fields) return null;
   const parsed = roundCommandEnvelopeSchema.safeParse({

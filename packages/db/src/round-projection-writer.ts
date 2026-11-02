@@ -7,11 +7,7 @@ import type { RoundProjection } from '@daisy/protocol';
 import { runtimeCheckpointSchema, buildRoundTopic } from '@daisy/protocol';
 import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
-import {
-  appendRoundStrikes,
-  revealEvidence,
-  storedStrikeCount,
-} from './room-draw-persistence';
+import { appendRoundStrikes, revealEvidence } from './room-draw-persistence';
 import { refundUnservedPracticeLocked } from './round-bot-admission';
 import { releaseRoundRoomMembers } from './room-membership-persistence';
 import { jsonObjectSchema } from './schema/columns';
@@ -87,8 +83,7 @@ export async function writeProjectionWithPhaseSignal(
   now: string,
 ): Promise<boolean> {
   const draw = projection.openingDraw;
-  const stored = draw ? await storedStrikeCount(tx, draw.id) : 0;
-  const addedStrikes = draw ? await appendRoundStrikes(tx, draw, stored) : 0;
+  const addedStrikes = draw ? await appendRoundStrikes(tx, draw) : 0;
   if (
     addedStrikes > 0 &&
     draw &&

@@ -29,7 +29,6 @@ import { RoomSyncContext } from './room-sync-context';
 type Props = {
   /** Seats and the round setup summary: the right-hand column below Start. */
   readonly side: ReactNode;
-  /** Prep before the round, inside the Start card; null when the format has none. */
   readonly view: RoomView;
   readonly actorId: string;
   readonly action: FormAction<RoomFormState>;

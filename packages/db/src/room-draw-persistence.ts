@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   roundDrawPrivateInputs,
@@ -124,16 +124,16 @@ export const insertRoundDraw = async (
     );
 };
 
-/** Appends a settled draw's new strikes; drawn rows are never updated. */
+/** Appends a settled draw's new strikes and counts them; a stored one stays. */
 export const appendRoundStrikes = async (
   tx: Pick<Tx, 'insert'>,
   draw: ResolutionDrawState,
-  stored: number,
 ) => {
-  const added = draw.strikes.slice(stored);
-  if (added.length)
-    await tx.insert(roundResolutionStrikes).values(
-      added.map((s) => ({
+  if (!draw.strikes.length) return 0;
+  const added = await tx
+    .insert(roundResolutionStrikes)
+    .values(
+      draw.strikes.map((s) => ({
         drawId: draw.id,
         ordinal: s.ordinal,
         position: s.position,
@@ -144,20 +144,10 @@ export const appendRoundStrikes = async (
         commandId: s.commandId,
         struckAt: new Date(s.at),
       })),
-    );
+    )
+    .onConflictDoNothing()
+    .returning({ ordinal: roundResolutionStrikes.ordinal });
   return added.length;
-};
-
-/** The strikes a draw has stored, without loading it. */
-export const storedStrikeCount = async (
-  tx: Pick<Tx, 'select'>,
-  drawId: string,
-) => {
-  const [row] = await tx
-    .select({ count: sql<number>`count(*)::int` })
-    .from(roundResolutionStrikes)
-    .where(eq(roundResolutionStrikes.drawId, drawId));
-  return row?.count ?? 0;
 };
 
 /** The revealed draw's proof metadata, written to the Round at the reveal. */

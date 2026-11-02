@@ -1,4 +1,5 @@
-import { isNamedSeat, type RoundView } from '@daisy/protocol';
+import { isNamedSeat, type DebateSide, type RoundView } from '@daisy/protocol';
+import { sideName } from '../../features/round-runtime/round-reading';
 import { countdownClock } from '../../features/rooms/duration-input';
 import {
   resolutionCategoryLabel,
@@ -9,22 +10,15 @@ import { StrikeSubmit } from './strike-submit';
 
 type Opening = NonNullable<RoundView['opening']>;
 type Draw = NonNullable<Opening['draw']>;
-type Side = 'affirmative' | 'negative';
-
-const sideWord: Readonly<Record<Side, string>> = {
-  affirmative: 'Affirmative',
-  negative: 'Negative',
-};
-
 /** The debater on a side, by name, or the side's own word. */
-const nameOf = (view: RoundView, side: Side) =>
+const nameOf = (view: RoundView, side: DebateSide) =>
   view.participants
     .filter(isNamedSeat)
     .filter((seat) => seat.role === side)
     .map((seat) => seat.label)
-    .join(' and ') || sideWord[side];
+    .join(' and ') || sideName[side];
 
-const viewerSideOf = (view: RoundView, actorId: string): Side | null => {
+const viewerSideOf = (view: RoundView, actorId: string): DebateSide | null => {
   const seat = view.participants
     .filter(isNamedSeat)
     .find((p) => p.actorId === actorId);
@@ -66,19 +60,13 @@ export function OpeningProgress({
   readonly draw: Draw;
   readonly view: RoundView;
 }) {
-  const config = view.config.resolutionDraw;
-  const first: Side = config.enabled ? config.firstStriker : 'negative';
-  const sideOf = (ordinal: number): Side =>
-    ordinal % 2 === 0
-      ? first
-      : first === 'negative'
-        ? 'affirmative'
-        : 'negative';
   return (
     <ol aria-label="Strike progress" className="flex flex-wrap gap-2">
       {Array.from({ length: draw.drawSize - 1 }, (_, ordinal) => {
-        const done = draw.strikes.some((s) => s.ordinal === ordinal);
+        const struck = draw.strikes.find((s) => s.ordinal === ordinal);
+        const done = struck !== undefined;
         const current = draw.turn?.ordinal === ordinal;
+        const side = struck?.side ?? (current ? draw.turn?.side : undefined);
         const state = done ? 'done' : current ? 'now' : 'to come';
         return (
           <li
@@ -86,7 +74,8 @@ export function OpeningProgress({
             className={`rounded-lg px-3 py-2 text-sm ${done ? 'bg-hue-teal-soft' : current ? 'bg-hue-clay-soft' : 'bg-surface-sunken'}`}
           >
             <span className="block font-semibold">Strike {ordinal + 1}</span>
-            {nameOf(view, sideOf(ordinal))} · {state}
+            {side ? `${nameOf(view, side)} · ` : ''}
+            {state}
           </li>
         );
       })}
@@ -107,7 +96,7 @@ function StrikeForm({
   readonly draw: Extract<Draw, { visibility: 'debater' }>;
   readonly view: RoundView;
   readonly opening: Opening;
-  readonly viewerSide: Side | null;
+  readonly viewerSide: DebateSide | null;
   readonly participantId: string;
   readonly commandId: string;
   readonly post: (form: FormData) => void;

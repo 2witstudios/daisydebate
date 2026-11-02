@@ -47,7 +47,7 @@ export function roundViewFor(
   round: LaunchedRound,
   viewerActorId: string | null,
 ): RoundView {
-  const { hostActorId, opening: _opening, ...view } = round;
+  const { hostActorId, ...view } = round;
   const knowsJudges = viewerActorId !== null && viewerActorId === hostActorId;
   const ownPeople =
     knowsJudges ||

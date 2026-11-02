@@ -71,9 +71,12 @@ export async function submitRoundForm(
       return {
         values: {},
         error:
-          response.status === 409
-            ? 'The round changed or that action is no longer legal. Review the current round and try again.'
-            : 'The server refused this round command. Review the current round and try again.',
+          response.status === 409 &&
+          envelope.command.type === 'strike_resolution'
+            ? 'Someone struck first, or time ran out. Here is the draw now.'
+            : response.status === 409
+              ? 'The round changed or that action is no longer legal. Review the current round and try again.'
+              : 'The server refused this round command. Review the current round and try again.',
       };
     const view = acceptedView(
       await response.json(),

@@ -104,13 +104,30 @@ test('a tick starts a Round at the instant its prep ended, however late it runs'
         buildProjection: roundTickProjection(createId),
       });
     await tick();
+    const instanceId = createId();
+    await f.store.renewServiceInstance({ instanceId, role: 'web' });
+    const discovered = async () => {
+      const page = await f.store.readRoundMaintenanceCandidates({
+        instanceId,
+        limit: 1000,
+      });
+      return page.roundIds.includes(roundId);
+    };
+    const before = await discovered();
     const [during] =
       await f.sql`select status, started_at from rounds where id = ${roundId}`;
     // Prep ran long ago: created_at is the Start round anchor.
     await f.sql`update rounds set created_at = created_at - interval '90 seconds' where id = ${roundId}`;
+    const due = await discovered();
     await tick();
     const [after] = await f.sql`select status, started_at, current_stage,
       created_at + interval '60 seconds' as prep_end from rounds where id = ${roundId}`;
+    assert({
+      given: 'maintenance discovery during prep, then after it ended',
+      should: 'pulse an opening Round only once something in it is due',
+      actual: [before, due],
+      expected: [false, true],
+    });
     assert({
       given: 'a tick during a 60 s prep, then one 30 s after it ended',
       should:

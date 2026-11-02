@@ -24,7 +24,6 @@ test('an assigned judge watches debaters without competitive controls or attenda
         socketUrl: null,
       })}
       socketUrl={null}
-      renderedAtMs={0}
     />,
   );
   assert({

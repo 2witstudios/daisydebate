@@ -8,7 +8,6 @@ import { formatStandingSchema } from './format-standing';
 import { roomStatuses } from './room-contract';
 const version = z.int().positive();
 const visibility = z.enum(['public', 'unlisted', 'private']);
-const nullableTimestamp = z.iso.datetime({ offset: true }).nullable();
 const participant = z.strictObject({
   id: idSchema,
   actorId: idSchema,

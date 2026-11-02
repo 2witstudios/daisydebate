@@ -37,7 +37,6 @@ test('a live room whose Round completed points to its result', () => {
         socketUrl: null,
       })}
       socketUrl={null}
-      renderedAtMs={0}
     />,
   );
   assert({

@@ -1,5 +1,4 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assemblySnapshot } from './assembly.test-support';
 import { createLocalCommandAction } from './local-command-action';
 
 setupRitewayBun();

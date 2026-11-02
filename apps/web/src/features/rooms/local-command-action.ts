@@ -1,4 +1,3 @@
-import type { RoomView } from '@daisy/protocol';
 import { refused, type FormState } from '../forms/form-state';
 
 type CommandAction = (state: FormState, form: FormData) => Promise<FormState>;

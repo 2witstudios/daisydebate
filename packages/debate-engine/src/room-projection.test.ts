@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { hostIdentityHidden, projectRoom } from './room-projection';
 import { roomViewSchema } from '@daisy/protocol';
 import { plainFormatSettings } from '@daisy/protocol/testing';
-import { edges, state } from './room-assembly.test-support';
+import { state } from './room-assembly.test-support';
 
 setupRitewayBun();
 

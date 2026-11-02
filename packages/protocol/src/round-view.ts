@@ -4,7 +4,6 @@ import { frozenRoomConfigSchema } from './room';
 import {
   resolutionAuditSchema,
   resolutionDrawViewSchema,
-  type RoundOpening,
 } from './resolution-draw';
 import { roundRulesSchema, segmentTypes } from './format';
 import {
@@ -122,11 +121,6 @@ export type LaunchedRound = Omit<
 > & {
   readonly hostActorId: string | null;
   readonly participants: readonly RoundSeat[];
-  /** The stored opening with its secret seed: read, never delivered. */
-  readonly opening: {
-    readonly state: RoundOpening;
-    readonly seed: string | null;
-  } | null;
 };
 
 /** A seat that names its occupant; an anonymous judge seat does not. */

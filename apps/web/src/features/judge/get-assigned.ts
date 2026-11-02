@@ -1,3 +1,4 @@
+import { drawnTopicLabel } from '../debate-room/vocabulary';
 import type { RoundJudgeAssignment } from '@daisy/protocol';
 export type AssignedDebate = {
   readonly id: string;
@@ -13,7 +14,7 @@ export const getAssignedDebates = (
 ): readonly AssignedDebate[] =>
   assignments.map((assignment) => ({
     id: assignment.roundId,
-    title: assignment.resolution,
+    title: assignment.resolution ?? drawnTopicLabel,
     status: assignmentStatus(assignment),
     ballotHref: `/judge/ballot/${assignment.roundId}`,
     ballotLabel: assignment.ballotStatus ? 'View ballot' : 'Open ballot',

@@ -3,7 +3,6 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
-  launchRuntimeRound,
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';

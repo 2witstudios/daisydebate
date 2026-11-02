@@ -1,7 +1,7 @@
 'use client';
+import '../debate-room/zod-jitless';
 import { OpeningStatus } from '../debate-room/opening-strike';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
-import '../debate-room/zod-jitless';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { RoundView } from '@daisy/protocol';

@@ -49,7 +49,7 @@ test('internal shared tick persists actual final end and immutable admission cut
         )[0].transcript_admission_cutoff.getTime(),
       },
       expected: {
-        version: 3,
+        version: 2,
         rows: 2,
         cutoff: row.transcript_admission_cutoff.getTime(),
       },
