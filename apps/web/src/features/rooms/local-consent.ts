@@ -31,6 +31,8 @@ export function createLocalConsent({
   };
   let desired: boolean | null = null;
   let running: Promise<void> | null = null;
+  // A Ready whose answer was lost may have committed; the view cannot say yet.
+  let readyUnconfirmed = false;
   let disposed = false;
   const listeners = new Set<() => void>();
   const own = () =>
@@ -69,7 +71,9 @@ export function createLocalConsent({
   };
   const reread = async () => {
     const result = await read();
-    return result.kind === 'found' && adopt(result.view);
+    if (result.kind !== 'found' || !adopt(result.view)) return false;
+    readyUnconfirmed = false;
+    return true;
   };
   const command = (): ConsentCommand | null => {
     const participant = own();
@@ -108,13 +112,23 @@ export function createLocalConsent({
     if (result.kind !== 'accepted' || !adopt(result.view)) return false;
     return !hasIntent() || (own()?.consentVersion ?? revision) > revision;
   };
+  const submit = async (intent: ConsentCommand) => {
+    if (intent.type === 'ready') readyUnconfirmed = true;
+    const result = await send(intent);
+    if (result.kind !== 'unavailable') readyUnconfirmed = false;
+    return result;
+  };
   const execute = async () => {
     let conflicts = 0;
     try {
+      if (desired === false && readyUnconfirmed && !(await reread())) {
+        reportProblem();
+        return;
+      }
       while (hasIntent()) {
         const intent = command();
         if (!intent) break;
-        const result = await send(intent);
+        const result = await submit(intent);
         if (!snapshot.view.capabilities.canReady) break;
         if (acknowledge(result, intent.expectedConsentVersion)) continue;
         if (await recoverConflict(result, conflicts++)) continue;
@@ -152,12 +166,20 @@ export function createLocalConsent({
     },
     updateView(next: RoomView) {
       if (disposed || !adopt(next)) return;
-      if (!snapshot.devicesPassed && effective()) void intent(false);
+      if (effective()) readyUnconfirmed = false;
+      // Any unacknowledged withdrawal retries. A Ready this tab owes no
+      // withdrawal for, made in another tab, is not its to take back.
+      if (desired === false && !snapshot.devicesPassed && effective())
+        void intent(false);
     },
     devices(passed: boolean) {
       if (disposed) return Promise.resolve();
+      // Only a pass this tab held can be lost. A tab that never passed (a new
+      // tab, a reload) knows nothing against a standing Ready: it fences its own
+      // Start and leaves the consent alone.
+      const lost = snapshot.devicesPassed && !passed;
       publish({ devicesPassed: passed });
-      return !passed && (effective() || desired === true || snapshot.pending)
+      return lost && (effective() || desired === true || snapshot.pending)
         ? intent(false)
         : Promise.resolve();
     },
