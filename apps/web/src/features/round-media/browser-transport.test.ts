@@ -10,6 +10,17 @@ import {
 } from './browser-transport.test-support';
 setupRitewayBun();
 
+/** A transport whose shared track list records each length it is sent. */
+const countingTrackList = () => {
+  const stub = stubSdk();
+  const emitted: number[] = [];
+  const { transport } = createBrowserMediaTransport(
+    { ...events, tracks: (tracks) => emitted.push(tracks.length) },
+    stub.sdk,
+  );
+  return { stub, emitted, transport };
+};
+
 test('a terminal stop ends a camera captured while its publish is in flight', async () => {
   const stub = stubSdk();
   const { transport } = createBrowserMediaTransport(events, stub.sdk);
@@ -255,5 +266,140 @@ test('a failed local microphone change stops capture before offering device reco
       'fail and stop every captured track instead of leaving unknown audio live',
     actual: [failed, stub.captured.every((track) => track.ended)],
     expected: [true, true],
+  });
+});
+
+test('a failed publish rejects its own apply and the next apply still publishes', async () => {
+  const stub = stubSdk({ settles: true, failFirstPublish: true });
+  const { transport } = createBrowserMediaTransport(events, stub.sdk);
+  const failure = await transport
+    .apply(publish(['camera']))
+    .catch((error: Error) => error.message);
+  await transport.apply(publish(['camera']));
+  assert({
+    given: 'an apply whose publish fails, then a later apply',
+    should: 'report the failure once and publish on the later apply',
+    actual: [failure, sources(stub.published)],
+    expected: ['Publish refused', ['camera']],
+  });
+});
+
+test('only the first stop empties the shared track list', () => {
+  const { emitted, transport } = countingTrackList();
+  transport.stopTracks();
+  transport.stopTracks();
+  assert({
+    given: 'a released transport stopped again after a successor owns the list',
+    should: 'emit the empty list once',
+    actual: emitted,
+    expected: [0],
+  });
+});
+
+/** A live transport whose next unpublish will be refused. */
+const liveWithFailingUnpublish = async () => {
+  const stub = stubSdk({ settles: true, failFirstUnpublish: true });
+  const { transport } = createBrowserMediaTransport(events, stub.sdk);
+  await transport.apply(publish(['camera', 'microphone']));
+  await settle();
+  return { stub, transport };
+};
+
+test('a failed unpublish of a kept microphone stops it instead of orphaning it', async () => {
+  const { stub, transport } = await liveWithFailingUnpublish();
+  const failure = await transport
+    .apply(publish(['camera']))
+    .catch((error: Error) => error.message);
+  const microphones = stub.captured.filter(
+    (track) => track.source === 'microphone',
+  );
+  assert({
+    given: 'the floor closing and the unpublish of the kept microphone failing',
+    should: 'report it and leave no microphone capturing',
+    actual: [failure, microphones.some((track) => !track.ended)],
+    expected: ['Unpublish refused', false],
+  });
+});
+
+test('a failed unpublish in a permission pass still reaches the next apply', async () => {
+  const { stub, transport } = await liveWithFailingUnpublish();
+  stub.permit([Track.Source.Camera]);
+  await settle();
+  const failure = await transport
+    .apply(publish(['camera']))
+    .catch((error: Error) => error.message);
+  assert({
+    given: 'an unpublish that failed in a pass nobody was waiting on',
+    should: 'report it from the next apply, so the connection can rebuild',
+    actual: failure,
+    expected: 'Unpublish refused',
+  });
+});
+
+test('a known failed unpublish rejects before any device work', async () => {
+  const { stub, transport } = await liveWithFailingUnpublish();
+  await transport.apply(publish(['camera'])).catch(() => undefined);
+  const captures = stub.captured.length;
+  const failure = await transport
+    .apply(publish(['camera', 'microphone']))
+    .catch((error: Error) => error.message);
+  stub.permit([Track.Source.Camera, Track.Source.Microphone]);
+  await settle();
+  assert({
+    given: 'an unpublish already failed, then a grant and a permission change',
+    should: 'reject at once and capture nothing further',
+    actual: [failure, stub.captured.length - captures],
+    expected: ['Unpublish refused', 0],
+  });
+});
+
+test('an apply queued behind a failing permission pass rejects', async () => {
+  const gate = Promise.withResolvers<void>();
+  const stub = stubSdk({
+    settles: true,
+    failFirstUnpublish: true,
+    unpublishGate: gate.promise,
+  });
+  const { transport } = createBrowserMediaTransport(events, stub.sdk);
+  await transport.apply(publish(['camera', 'microphone']));
+  await settle();
+  stub.permit([Track.Source.Camera]);
+  await settle();
+  const queued = transport
+    .apply(publish(['camera', 'microphone']))
+    .catch((error: Error) => error.message);
+  gate.resolve();
+  assert({
+    given:
+      'an unpublish still in flight when the next apply queues, then failing',
+    should: 'reject that apply rather than report a pass that did nothing',
+    actual: await queued,
+    expected: 'Unpublish refused',
+  });
+});
+
+test('a released room cannot overwrite the shared track list', async () => {
+  const { stub, emitted, transport } = countingTrackList();
+  transport.stopTracks();
+  await transport.disconnect();
+  stub.fire(RoomEvent.LocalTrackPublished);
+  stub.fire(RoomEvent.TrackUnsubscribed);
+  assert({
+    given: 'late SDK events from a released transport',
+    should: 'emit nothing after the final empty list',
+    actual: emitted,
+    expected: [0],
+  });
+});
+
+test('tracks stopped by a local failure still follow the connected room', () => {
+  const { stub, emitted, transport } = countingTrackList();
+  transport.stopTracks();
+  stub.fire(RoomEvent.TrackSubscribed);
+  assert({
+    given: 'local tracks stopped while the room stays connected',
+    should: 'keep reporting the room, so remote media can return',
+    actual: emitted,
+    expected: [0, 0],
   });
 });
