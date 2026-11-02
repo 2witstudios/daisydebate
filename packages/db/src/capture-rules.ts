@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { captureDigest } from './capture-input';
-import type { CaptureInterval } from './capture-rule';
+import type { CaptureInterval } from './capture-decisions-port';
 
 type SegmentTiming = {
   readonly startedAt: Date;

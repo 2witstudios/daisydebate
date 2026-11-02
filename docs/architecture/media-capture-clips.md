@@ -34,7 +34,9 @@ no audio, so it cannot reach speech-to-text, and it still counts as observed
 coverage. Speech-to-text models can invent words from silence and noise. Every
 other clip is `audible` and carries its WAV. The line measures energy, not speech,
 so noise above it is still sent. Silence before speech beyond a 500 ms pre-roll is
-cut as its own clip, so it never travels with the words after it.
+cut as its own clip, so it never travels with the words after it. A clip that
+continues speech cut only by the sixty-second bound is audible if it holds any
+voice, so the last words of long speech are never recorded as silence.
 
 A pause is 500 ms (`CLIP_PAUSE_MS`) of consecutive low-energy frames after at
 least one frame of speech; the clip ends after the pause. Low-energy frames alone

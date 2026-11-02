@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "5b14c1c9-b928-4c0f-85d5-dcd3f7688ae3",
+  "id": "c117c4e1-14e1-4d32-8e03-b21bc0fc75fb",
   "prevIds": [
     "a8930bd8-b8d5-4c27-949b-b29601dfafc6"
   ],
@@ -21293,6 +21293,13 @@
     {
       "value": "(\"state\" = 'partial') = (cardinality(\"partial_reasons\") > 0)",
       "name": "transcript_segments_partial_reasons_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "value": "\"partial_reasons\" <@ array['session-interrupted', 'frames-lost', 'other-worker-evidence', 'chunks-uncounted', 'invalid-history', 'no-authority-window', 'coverage-gap', 'never-sealed']::text[]",
+      "name": "transcript_segments_partial_reasons_known_check",
       "entityType": "checks",
       "schema": "public",
       "table": "transcript_segments"

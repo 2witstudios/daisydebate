@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { grantWindows } from './capture-history';
-import type { CaptureRule } from './capture-rule';
+import type { CaptureRule } from './capture-decisions-port';
 import { actors } from './schema/actors';
 import { roundBotPublicationWindows } from './schema/round-bot-publications';
 import { roundParticipants } from './schema/round-participants';

@@ -13,7 +13,7 @@ import { readOrderedRoundUtterances } from './round-utterance-projection';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { transcriptRevision } from './capture-history';
 import { closedStreamGaps, streamKey } from './capture-gaps';
-import type { CaptureRule } from './capture-rule';
+import type { CaptureRule } from './capture-decisions-port';
 import { transcriptSegments } from './schema/transcript-segments';
 import { roundViewFor } from './round-view-projection';
 

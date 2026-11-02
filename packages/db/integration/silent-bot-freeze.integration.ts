@@ -56,6 +56,7 @@ const sealed = (
       segment_id: segmentId,
       round_participant_id: roundParticipantId,
       state,
+      ...(state === 'partial' ? { partial_reasons: '{frames-lost}' } : {}),
       chunk_count: 0,
       sealed_chunk_count: 0,
       sealed_at: end,

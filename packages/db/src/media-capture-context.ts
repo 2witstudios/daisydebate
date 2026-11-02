@@ -1,4 +1,4 @@
-import type { CaptureRule } from './capture-rule';
+import type { CaptureRule } from './capture-decisions-port';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { and, eq } from 'drizzle-orm';

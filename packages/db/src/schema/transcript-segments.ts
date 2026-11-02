@@ -1,4 +1,7 @@
-import type { CapturePartialReason } from '@daisy/protocol';
+import {
+  capturePartialReasons,
+  type CapturePartialReason,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -84,6 +87,10 @@ export const transcriptSegments = pgTable(
     check(
       'transcript_segments_partial_reasons_check',
       sql`(${table.state} = 'partial') = (cardinality(${table.partialReasons}) > 0)`,
+    ),
+    check(
+      'transcript_segments_partial_reasons_known_check',
+      sql`${table.partialReasons} <@ array[${sql.raw(capturePartialReasons.map((reason) => `'${reason}'`).join(', '))}]::text[]`,
     ),
     check(
       'transcript_segments_counts_check',

@@ -1,0 +1,3 @@
+ALTER TABLE "transcript_segments" ADD COLUMN "partial_reasons" text[] DEFAULT '{}'::text[] NOT NULL;--> statement-breakpoint
+ALTER TABLE "transcript_segments" ADD CONSTRAINT "transcript_segments_partial_reasons_check" CHECK (("state" = 'partial') = (cardinality("partial_reasons") > 0));--> statement-breakpoint
+ALTER TABLE "transcript_segments" ADD CONSTRAINT "transcript_segments_partial_reasons_known_check" CHECK ("partial_reasons" <@ array['session-interrupted', 'frames-lost', 'other-worker-evidence', 'chunks-uncounted', 'invalid-history', 'no-authority-window', 'coverage-gap', 'never-sealed']::text[]);

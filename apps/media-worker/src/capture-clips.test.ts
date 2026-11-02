@@ -347,3 +347,45 @@ test('long silence before speech is not sent with the speech', () => {
     expected: [['audible', 10, 1300, 41644]],
   });
 });
+
+test('the tail of long speech cut at the bound is never recorded as silence', () => {
+  const dip = 5991;
+  const count = 6100;
+  const inPieces = (size: number) => {
+    const out: ReturnType<typeof cutCaptureClips>['clips'] = [];
+    let carry: ReturnType<typeof cutCaptureClips>['carry'] = null;
+    for (let at = 0; at < count; at += size) {
+      const result = cutCaptureClips({
+        ...scope,
+        segments: [segment],
+        intervals: [grant],
+        frames: Array.from({ length: Math.min(size, count - at) }, (_, i) =>
+          frame(10 + (at + i) * 10, at + i === dip || at + i >= 6010),
+        ),
+        carry,
+        final: at + size >= count,
+      });
+      carry = result.carry;
+      out.push(...result.clips);
+    }
+    return out.map((c) => [c.kind, c.startOffsetMs, c.durationMs]);
+  };
+  const expected = [
+    ['audible', 10, 59920],
+    ['audible', 59930, 680],
+    ['silent', 60610, 400],
+  ];
+  assert({
+    given:
+      'a minute of speech, a dip 90 ms before the bound, then under 200 ms more voice and a pause',
+    should: 'keep the words after the bound audible',
+    actual: inPieces(6100),
+    expected,
+  });
+  assert({
+    given: 'the same audio in 250 ms batches',
+    should: 'decide the same, carrying that this clip continues speech',
+    actual: inPieces(25),
+    expected,
+  });
+});

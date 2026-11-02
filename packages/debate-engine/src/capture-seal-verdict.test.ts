@@ -58,7 +58,7 @@ test('a partial stream always says why, even with no gaps', () => {
     given: 'nothing required of the stream and no unused grant',
     should: 'say so rather than be partial with no reason',
     actual: decideStreamCapture({ ...whole, authority: [] }),
-    expected: { state: 'partial', reasons: ['nothing-required'], gaps: [] },
+    expected: { state: 'partial', reasons: ['no-authority-window'], gaps: [] },
   });
   assert({
     given: 'an uncaptured stretch',

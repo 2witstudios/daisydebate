@@ -137,7 +137,7 @@ function traverseCoverage({
   const problem = invalid
     ? 'invalid-history'
     : !windows.length
-      ? 'nothing-required'
+      ? 'no-authority-window'
       : gaps.length
         ? 'coverage-gap'
         : null;
