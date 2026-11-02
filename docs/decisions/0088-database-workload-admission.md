@@ -71,7 +71,7 @@ needs.
    while about `n × transaction ms` stays under 1.6s, up to the queue's 100.
    Past that, throughput falls and the lane is spent on subscribes that then
    fail. In a model of 100 at once, the old 250 ms wait accepted 36, 12, 6 and 5
-   at 4, 20, 40 and 60 ms a transaction; this wait accepts 100, 24, 0 and 0.
+   at 4, 20, 40 and 60 ms a transaction; this wait accepts 100, 23, 0 and 0.
    Stopping a check once its budget is spent does not change that. Transaction
    time under load is not measured; locally it is about 4 ms. ISSUE-932 owns
    capacity and blocked reads on this lane.
