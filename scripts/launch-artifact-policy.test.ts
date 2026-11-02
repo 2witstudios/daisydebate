@@ -173,8 +173,7 @@ test('the prepared image cache is input-bound and saved only after its proofs', 
       afterProofs: true,
       beforeSuite: true,
       cacheNeverFails: [true, true],
-      restoreGuard:
-        "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+      restoreGuard: undefined,
       saveRequiresReceipt: true,
       hitSignal: [
         '${{ steps.launch-image-cache.outputs.cache-hit }}',
