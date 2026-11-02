@@ -20,6 +20,7 @@ test('a historical Round badge uses its posting rather than later established st
         },
       ],
       readRatingBlindings: async () => [],
+      readRoundAwaitsRating: async () => false,
       readStandings: async () => ({
         ratings: [aff, neg].map((p) => ({
           seasonId,
