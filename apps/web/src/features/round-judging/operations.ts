@@ -95,7 +95,6 @@ export function createRoundJudgingOperations(input: {
               model: claim.model,
               messages,
               maxTokens: 6000,
-              temperature: 0.2,
               outputSchema: { name: 'ballot', schema: ballotWireSchema },
               reasoning: 'medium',
               signal,

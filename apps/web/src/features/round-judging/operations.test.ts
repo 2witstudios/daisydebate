@@ -45,7 +45,7 @@ test('a judging job that may buy no more calls never reaches the provider', asyn
 });
 
 const claim = { scope: {}, token: 't', model: 'm', round, frozen } as never;
-function harness(complete: () => Promise<unknown>) {
+function harness(complete: (request: unknown) => Promise<unknown>) {
   const log = {
     provider: 0,
     saved: 0,
@@ -92,9 +92,9 @@ function harness(complete: () => Promise<unknown>) {
     nextId: () => 'x'.repeat(24),
     voice: () =>
       ({
-        complete: async () => {
+        complete: async (request: unknown) => {
           log.provider++;
-          return complete();
+          return complete(request);
         },
       }) as never,
     withProvider: (_signal, work) => work(),
@@ -108,6 +108,25 @@ const reply = (text: string, finish = 'stop') => ({
   refused: false,
   promptTokens: 5,
   completionTokens: 5,
+});
+
+test('the judging request asks only for what its route can serve (ISSUE-884)', async () => {
+  let sent: Record<string, unknown> = {};
+  const { operations } = harness(async (request) => {
+    sent = request as Record<string, unknown>;
+    return reply('{"a":1}');
+  });
+  await operations.executeClaim(claim, new AbortController().signal);
+  assert({
+    given:
+      'a schema-constrained request, where routing requires every parameter and no zero-retention endpoint of the judging model accepts temperature',
+    should: 'send no temperature, so a route can serve it',
+    actual: {
+      constrained: sent.outputSchema !== undefined,
+      temperature: 'temperature' in sent,
+    },
+    expected: { constrained: true, temperature: false },
+  });
 });
 
 test('a rejected answer is durable at once, with usage kept and nothing submitted', async () => {
