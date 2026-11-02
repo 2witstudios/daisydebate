@@ -22,6 +22,12 @@ export function composeMediaCaptureRoutes(app: App) {
       sttLagMs: CAPTURE_STT_LAG_MS,
       coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
       botGrantUnused,
+      sealed: ({ state, cause, ...fact }) =>
+        app.logger.log(
+          'media.capture.sealed',
+          { ...fact, cause: cause ?? state },
+          'Capture stream sealed',
+        ),
       nextId: () => app.ids.next(),
       buildProjection: ({ round, now }) =>
         createRoundRuntime({

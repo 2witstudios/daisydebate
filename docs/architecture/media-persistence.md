@@ -214,8 +214,8 @@ freeze alone cannot erase submitted ballots. Judge-seat references use deferred
 NO ACTION rather than immediate RESTRICT semantics so the owning Round's
 `ballots_round_fk ON DELETE CASCADE` can finish all child cascades. Direct seat
 deletion is refused at commit and rolls back. Direct freeze deletion is refused
-immediately, including when no ballot references it. These constraints preserve
-ballot voiding and replacement policy. Real PostgreSQL proof checks both refusals
+immediately, including when no ballot references it. These constraints keep a seat with a ballot from being deleted.
+Real PostgreSQL proof checks both refusals
 and zero remaining ballots, jobs, freezes,
 participants and utterances after owning Round erasure.
 

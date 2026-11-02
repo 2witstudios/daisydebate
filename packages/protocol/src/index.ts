@@ -420,3 +420,4 @@ export type {
   RoundEnding,
 } from './round-panel-completion';
 export type { AttendanceLedgerFacts } from './attendance';
+export { attendanceRoundReadSchema } from './attendance';

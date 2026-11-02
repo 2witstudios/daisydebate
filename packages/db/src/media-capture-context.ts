@@ -39,6 +39,15 @@ export type CaptureDependencies = {
   /** Injected policy: how far required coverage may move to captured frames (DEC-218, DEC-220). */
   readonly coverageTolerance: CoverageTolerance;
   readonly botGrantUnused: BotGrantRule;
+  /** Told each seal's facts, for the log. */
+  readonly sealed?: (fact: {
+    readonly roundId: string;
+    readonly sessionId: string;
+    readonly state: 'complete' | 'partial';
+    readonly cause: string | null;
+    readonly windows: number;
+    readonly captureStartMs: number | null;
+  }) => void;
   readonly nextId: () => string;
   readonly buildProjection: LockedRoundTickInput['buildProjection'];
 };

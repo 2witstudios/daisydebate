@@ -19,6 +19,19 @@ export const attendanceReceiptSchema = z.strictObject({
 });
 export type AttendanceReceipt = z.infer<typeof attendanceReceiptSchema>;
 
+/**
+ * Only what the check-in client reads of a Round. A tab open across a deploy
+ * keeps checking in through any change elsewhere in the Round view, so a present
+ * speaker is never forfeited by a skewed build (ISSUE-941).
+ */
+export const attendanceRoundReadSchema = z.looseObject({
+  id: idSchema,
+  status: z.string(),
+  segments: z
+    .array(z.looseObject({ id: idSchema, type: z.string() }))
+    .readonly(),
+});
+
 export const attendanceTimingPolicy = {
   heartbeatMs: 15000,
   reconnectBudgetMs: 10000,

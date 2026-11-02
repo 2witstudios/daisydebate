@@ -4,7 +4,6 @@ import type { RoundBallotEnvelope } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   judgeActorId,
-  judgeSeatId,
   lockedRound,
 } from '../round-runtime/locked-round.test-support';
 import { ballotFormFixture } from './ballot-form.test-support';

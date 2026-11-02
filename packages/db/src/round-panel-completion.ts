@@ -97,7 +97,6 @@ async function replay(
 async function readCompletionFacts(
   tx: BoundedTransactionContext,
   input: Request,
-  facts: Awaited<ReturnType<typeof fenceAttendance>>,
 ) {
   await requireCurrentWeb(tx, input.instanceId, true);
   await executeLockedRoundTick(tx, input);
@@ -109,7 +108,7 @@ async function readCompletionFacts(
     from rounds where id=${input.roundId}`);
   const now = await sampleRoundExecutionTime(tx);
   requirePanelRound(round);
-  const { freeze: frozen, ballotDeadlineAt } = requirePanelFacts({
+  const { freeze: frozen } = requirePanelFacts({
     freezeRevision: input.freezeRevision,
     freeze,
     durable: durable as PanelDurableFacts | undefined,
@@ -146,9 +145,8 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
   );
   const prior = await replay(tx, input, digest, true);
   if (prior) return { receipt: prior, ended: [] };
-  let facts: Awaited<ReturnType<typeof fenceAttendance>>;
   try {
-    facts = await fenceAttendance(tx, input.roundId, input.commandId, null);
+    await fenceAttendance(tx, input.roundId, input.commandId, null);
   } catch (error) {
     if (
       isAppError(error) &&
@@ -163,7 +161,6 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
   const { round, freeze, now, panel, ballotIds } = await readCompletionFacts(
     tx,
     input,
-    facts,
   );
   const completion = input.buildCompletion({ round, now, panel, ballotIds });
   requireCompletionProjection(completion);

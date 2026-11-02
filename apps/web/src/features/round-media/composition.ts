@@ -78,6 +78,12 @@ export function createRoundMediaRuntime(
             mediaRuntime(context, resources.nextId).tick(context.now),
         }),
         media: resources.media,
+        deferred: (cause, sessionId) =>
+          app.logger.log(
+            'media.capture.token_deferred',
+            { cause, sessionId },
+            'Capture token deferred',
+          ),
         workerUrl: resources.workerUrl,
         nextId: resources.nextId,
         deadline: resources.deadline,

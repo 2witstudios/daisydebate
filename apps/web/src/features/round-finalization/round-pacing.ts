@@ -25,8 +25,9 @@ const without = (
   stages: RoundPacing['stages'],
   stage: MaintenanceStage,
 ): RoundPacing['stages'] => {
-  const { [stage]: _removed, ...rest } = stages;
-  return rest;
+  return Object.fromEntries(
+    Object.entries(stages).filter(([name]) => name !== stage),
+  );
 };
 
 /** The pure transition: one Round's pacing after one event at one instant. */

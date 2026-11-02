@@ -180,23 +180,7 @@ export function sealState(input: {
   /** A bot's grant it did not use: with no evidence of speech, nothing was owed. */
   readonly grantUnused?: boolean;
 }): 'complete' | 'partial' {
-  const observed = input.observations.map((row) => ({
-    start: row.start.getTime(),
-    end: row.end.getTime(),
-  }));
-  const complete =
-    !input.interrupted &&
-    !input.framesLost &&
-    input.chunks?.otherEpochChunks === 0 &&
-    input.observations.every((row) => row.epoch === input.epoch) &&
-    input.storedChunks === input.chunks.count &&
-    hasCompleteCaptureCoverage({
-      authority: input.authority,
-      observed,
-      tolerance: input.tolerance,
-      storedChunks: input.storedChunks,
-      expectedChunks: input.expectedChunks,
-    });
+  const complete = partialSealCause(input) === null;
   const nothingOwed =
     input.grantUnused === true &&
     !input.interrupted &&
@@ -207,6 +191,38 @@ export function sealState(input: {
     input.storedChunks === 0 &&
     input.expectedChunks === 0;
   return complete || nothingOwed ? 'complete' : 'partial';
+}
+
+/** Why a seal is not complete, for the log: facts only, never text. Null when it is. */
+export function partialSealCause(
+  input: Parameters<typeof sealState>[0],
+):
+  | 'interrupted'
+  | 'frames_lost'
+  | 'other_epoch'
+  | 'stored_chunks'
+  | 'coverage'
+  | null {
+  if (input.interrupted) return 'interrupted';
+  if (input.framesLost) return 'frames_lost';
+  if (
+    input.chunks?.otherEpochChunks !== 0 ||
+    input.observations.some((row) => row.epoch !== input.epoch)
+  )
+    return 'other_epoch';
+  if (input.storedChunks !== input.chunks.count) return 'stored_chunks';
+  return hasCompleteCaptureCoverage({
+    authority: input.authority,
+    observed: input.observations.map((row) => ({
+      start: row.start.getTime(),
+      end: row.end.getTime(),
+    })),
+    tolerance: input.tolerance,
+    storedChunks: input.storedChunks,
+    expectedChunks: input.expectedChunks,
+  })
+    ? null
+    : 'coverage';
 }
 
 /** Capture closes at freeze, at the admission cutoff, or at a terminal Round without one. */

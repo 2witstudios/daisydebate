@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { sealState } from './capture-rules';
+import { partialSealCause, sealState } from './capture-rules';
 setupRitewayBun();
 
 test('room deletion remains an interruption even when the new epoch covers join tolerance', () => {
@@ -22,4 +22,46 @@ test('room deletion remains an interruption even when the new epoch covers join 
     ],
     expected: ['partial', 'complete'],
   });
+});
+
+test('a partial seal says why, as a fact (ISSUE-952)', () => {
+  const observed = new Date(1_000);
+  const seal = {
+    interrupted: false,
+    framesLost: false,
+    epoch: 1,
+    observations: [{ start: observed, end: new Date(2_000), epoch: 1 }],
+    chunks: { count: 1, otherEpochChunks: 0 },
+    storedChunks: 1,
+    expectedChunks: 1,
+    authority: [{ start: 1_000, end: 2_000 }],
+    tolerance: { openMs: 0, closeMs: 0 },
+  };
+  const cases = [
+    ['nothing wrong', seal, null],
+    ['an interrupted session', { ...seal, interrupted: true }, 'interrupted'],
+    ['lost frames', { ...seal, framesLost: true }, 'frames_lost'],
+    [
+      'another worker’s chunks',
+      { ...seal, chunks: { count: 1, otherEpochChunks: 1 } },
+      'other_epoch',
+    ],
+    [
+      'a stored count that disagrees',
+      { ...seal, storedChunks: 2 },
+      'stored_chunks',
+    ],
+    [
+      'a hole in the capture',
+      { ...seal, authority: [{ start: 1_000, end: 9_000 }] },
+      'coverage',
+    ],
+  ] as const;
+  for (const [given, evidence, expected] of cases)
+    assert({
+      given,
+      should: `say ${expected}`,
+      actual: partialSealCause(evidence),
+      expected,
+    });
 });

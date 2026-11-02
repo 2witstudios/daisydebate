@@ -22,7 +22,7 @@ const playedOut = (
     await tx`update rounds set final_segment_ended_at=ended.at,
       transcript_admission_cutoff=ended.at+interval '120 seconds',
       attendance_resolution_cutoff_at=ended.at+interval '60 minutes'
-      from (select date_trunc('milliseconds',clock_timestamp())-interval '61 minutes' as at) ended where id=\${roundId}`;
+      from (select date_trunc('milliseconds',clock_timestamp())-interval '61 minutes' as at) ended where id=${roundId}`;
   });
 
 const expire = (

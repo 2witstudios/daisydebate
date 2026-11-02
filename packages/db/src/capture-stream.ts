@@ -24,6 +24,7 @@ import { utterances } from './schema/utterances';
 import {
   requireObservationWindow,
   sealAction,
+  partialSealCause,
   sealState,
 } from './capture-rules';
 
@@ -139,7 +140,13 @@ export async function sealCapturedStream(
       ),
     );
   const [seatGrant] = await readSeatGrants(tx, input);
-  const state = sealState({
+  const coverage = await coverageAuthority(
+    tx,
+    input,
+    required,
+    dependencies.coverageTolerance,
+  );
+  const evidence = {
     grantUnused:
       seatGrant !== undefined && dependencies.botGrantUnused(seatGrant.grant),
     interrupted: await captureSessionInterrupted(tx, input.sessionId, segment),
@@ -149,12 +156,22 @@ export async function sealCapturedStream(
     chunks,
     storedChunks: stream.chunkCount,
     expectedChunks: input.expectedChunkCount,
-    ...(await coverageAuthority(
-      tx,
-      input,
-      required,
-      dependencies.coverageTolerance,
-    )),
+    ...coverage,
+  };
+  const state = sealState(evidence);
+  const captureStart = Math.min(
+    ...observations.map((row) => row.start.getTime()),
+  );
+  // Facts only, never text (DEC-294): enough to say why a stream sealed partial.
+  dependencies.sealed?.({
+    roundId: input.roundId,
+    sessionId: input.sessionId,
+    state,
+    cause: state === 'partial' ? partialSealCause(evidence) : null,
+    windows: coverage.authority.length,
+    captureStartMs: Number.isFinite(captureStart)
+      ? Math.max(0, captureStart - segment.startedAt.getTime())
+      : null,
   });
   const mutationNow = await freshCaptureMutation(tx, input.roundId, context);
   await updateCaptureStream(tx, input, {
