@@ -57,15 +57,18 @@ export function createRealtimeDelivery({
     allowedOrigins: [],
   };
   // Codes only; the raw error never reaches a log line (ADR 0037).
-  const reportUnavailable = (error: unknown) =>
+  const reportUnavailable = (
+    error: unknown,
+    operation = 'realtime.subscription',
+  ) =>
     resources.logger.log(
       'realtime.subscription.unavailable',
       {
-        operation: 'realtime.subscription',
+        operation,
         errorCode: isAppError(error) ? error.code : 'INTERNAL',
         ...authorityFailureFields(error),
       },
-      'Subscription authority unavailable',
+      'Realtime authority unavailable',
     );
   const registry = createSubscriptionRegistry({
     now,

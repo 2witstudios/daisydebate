@@ -44,13 +44,13 @@ async function closeAfter(
       clearTimeout: () => {},
     },
     now: () => 0,
-    failed: (error) => reported.push(error),
+    failed: (_error, operation) => reported.push(operation),
     ...checks,
   });
   handlers.open(ws);
   await handlers.message(ws, hello);
   if (closes.length === 0) await handlers.message(ws, ping);
-  return { closes, reported: reported.length };
+  return { closes, reported };
 }
 const failure = () => Promise.reject(new Error('private adapter failure'));
 
@@ -71,10 +71,10 @@ test('a hello or frame check that cannot answer closes retryably; a definite ans
       }),
     },
     expected: {
-      helloFailed: { closes: [4007], reported: 1 },
-      helloDenied: { closes: [4001], reported: 0 },
-      frameFailed: { closes: [4007], reported: 1 },
-      frameDenied: { closes: [4002], reported: 0 },
+      helloFailed: { closes: [4007], reported: ['realtime.hello'] },
+      helloDenied: { closes: [4001], reported: [] },
+      frameFailed: { closes: [4007], reported: ['realtime.frame'] },
+      frameDenied: { closes: [4002], reported: [] },
     },
   });
 });

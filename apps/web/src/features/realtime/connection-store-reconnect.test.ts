@@ -169,6 +169,28 @@ describe('connection store: close-code reactions and backoff (ADR 0031 §8)', ()
     });
   });
 
+  test('closing the store forgets earlier 4007s', async () => {
+    const h = harness({ random: () => 1 });
+    for (let close = 0; close < 3; close += 1) {
+      await openAndReady(h);
+      h.latestSocket().remoteClose(4007);
+      h.scheduler.advance(60_000);
+      await flush();
+    }
+    h.store.close();
+    await openAndReady(h);
+    h.latestSocket().remoteClose(4007);
+    const closedAt = h.scheduler.now();
+    h.scheduler.advance(60_000);
+    await flush();
+    assert({
+      given: 'three 4007s, then the store closed and connected again',
+      should: 'start the next ceiling from the first step',
+      actual: h.ticketCalls.at(-1)! - closedAt,
+      expected: 1_000,
+    });
+  });
+
   test('1006 abnormal closes reconnect with standard jittered backoff, no lifetime ceiling', async () => {
     const h = harness();
     h.store.connect();

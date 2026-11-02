@@ -1,4 +1,5 @@
-import { capacityRefusalDetail, databaseFailure } from '@daisy/db/capacity';
+import { capacityRefusalDetail } from '@daisy/db/capacity';
+import { databaseFailure } from '@daisy/db/database-failure';
 import { createAppError } from '@daisy/errors';
 import type { IntervalTimers } from './outbox-drain';
 
@@ -6,7 +7,7 @@ const BUDGET_SPENT = Symbol('authority check budget spent');
 /**
  * Which part of an authority check gave out, as loggable fields with no raw
  * error: a lane's refusal with its pressure, the budget, what the database
- * said, or `internal` for a failure that never reached it.
+ * said, or `internal` for anything else (a code bug, or Redis during a hello).
  */
 export function authorityFailureFields(error: unknown) {
   const refusal = capacityRefusalDetail(error);

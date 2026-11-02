@@ -30,8 +30,8 @@ test(
       assert({
         given: 'a hello blocked past the session lock bound',
         should: 'close 4007, log a lock timeout, then accept a fresh ticket',
-        actual: [code, await reconnects(world)],
-        expected: [4007, true],
+        actual: [code, await reconnects(world), world.causes],
+        expected: [4007, true, ['lock_timeout']],
       });
     }),
   30_000,
@@ -52,8 +52,8 @@ test(
       assert({
         given: 'a frame check blocked past the session lock bound',
         should: 'close 4007, log a lock timeout, then accept a fresh ticket',
-        actual: [code, await reconnects(world)],
-        expected: [4007, true],
+        actual: [code, await reconnects(world), world.causes],
+        expected: [4007, true, ['lock_timeout']],
       });
     }),
   30_000,
@@ -77,9 +77,10 @@ test(
       assert({
         given:
           'a periodic check blocked past the lock bound, then a deleted session',
-        should: 'close 4007 for the first and 4002 for the real revocation',
-        actual: [code, await again.closed],
-        expected: [4007, 4002],
+        should:
+          'close 4007 and log a lock timeout for the first, and 4002 for the real revocation',
+        actual: [code, await again.closed, world.causes],
+        expected: [4007, 4002, ['lock_timeout']],
       });
     }),
   30_000,

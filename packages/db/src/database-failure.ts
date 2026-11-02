@@ -16,7 +16,7 @@ const fromDriver = (error: Error) => {
 
 /**
  * What the database said about a failed read, as a fixed loggable word, or
- * null for a failure that never reached it (a code bug). Never the raw error.
+ * null for a failure from anywhere else. Never the raw error.
  */
 export function databaseFailure(error: unknown): string | null {
   const failure = causeChainMember(fromDriver, error);

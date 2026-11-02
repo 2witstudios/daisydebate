@@ -280,3 +280,90 @@ test('a subscribe whose budget is spent stops before taking the lane again', asy
     expected: { factsReads: 0, codes: ['INFRASTRUCTURE'] },
   });
 });
+
+test('a subscribe whose budget is spent during the facts read stops before the last read', async () => {
+  let fire!: () => void;
+  let finishFacts!: (value: unknown) => void;
+  let sessionReads = 0;
+  const principal = {
+    actorId: 'a'.repeat(24),
+    userId: 'b'.repeat(24),
+    sessionId: 'c'.repeat(24),
+  };
+  const account = {
+    ...principal,
+    member: true,
+    erased: false,
+    revision: 1,
+    beta: { state: 'approved', revision: 1 },
+    ageBand: 'adult',
+  };
+  const roundId = 'd'.repeat(24);
+  const resources = {
+    database: bothLanes({
+      readAuthorizationSession: async () => {
+        sessionReads += 1;
+        return {
+          ...principal,
+          expiresAt: '2026-10-09T01:00:00.000Z',
+          account,
+        };
+      },
+      readRoundAuthorizationFacts: () =>
+        new Promise((resolve) => {
+          finishFacts = resolve;
+        }),
+    }),
+    clock: { now: () => '2026-10-09T00:00:00.000Z' },
+    logger: { log: () => {} },
+  } as unknown as RealtimeApp;
+  const { registry } = createRealtimeDelivery({
+    readingPolicy: refuseAllReading,
+    resources,
+    now: () => 0,
+    publish: () => {},
+    timers: {
+      setInterval: (callback) => {
+        fire = callback;
+        return {} as ReturnType<typeof setInterval>;
+      },
+      clearInterval: () => {},
+    },
+  });
+  const connection = registry.add(
+    {
+      bufferedAmount: () => 0,
+      send: () => {},
+      subscribe: () => {},
+      unsubscribe: () => {},
+      close: () => {},
+    },
+    principal,
+  );
+  const subscribing = registry.subscribe(connection, {
+    id: 'first',
+    topic: `round:${roundId}`,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  fire();
+  await subscribing;
+  finishFacts({
+    account,
+    resource: {
+      kind: 'round',
+      roundId,
+      createdByActorId: principal.actorId,
+      visibility: 'public',
+      status: 'scheduled',
+      revision: 1,
+      participants: [],
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert({
+    given: 'a budget spent during the facts read, which then allows',
+    should: 'never start the final session read',
+    actual: sessionReads,
+    expected: 1,
+  });
+});

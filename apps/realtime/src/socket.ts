@@ -93,7 +93,7 @@ export function createWebSocketHandlers({
   readonly registry?: SubscriptionRegistry;
   readonly validatePrincipal?: (principal: SocketPrincipal) => Promise<boolean>;
   /** Reports a hello or frame check that failed rather than answered. */
-  readonly failed?: (error: unknown) => void;
+  readonly failed?: (error: unknown, operation: string) => void;
   readonly presence?: PresenceTracker;
   readonly observation?: ObservationNode;
 }) {
@@ -146,7 +146,7 @@ export function createWebSocketHandlers({
     settleHello(
       ws,
       await authenticate(outcome.ticket, ws.data.origin).catch((error) => {
-        failed?.(error);
+        failed?.(error, 'realtime.hello');
         return 'unavailable' as const;
       }),
     );
@@ -160,7 +160,8 @@ export function createWebSocketHandlers({
     if (!principal) reject(ws, 'auth_failed');
     else if (principal === 'unavailable')
       reject(ws, 'authority_unavailable', 'check_unanswered');
-    else if (helloExpired(ws)) reject(ws, 'authority_unavailable');
+    else if (helloExpired(ws))
+      reject(ws, 'authority_unavailable', 'hello_timeout');
     else acceptHello(ws, principal);
   }
   function helloExpired(ws: ServerWebSocket<SocketData>) {
@@ -297,7 +298,7 @@ export function createWebSocketHandlers({
     try {
       valid = await validatePrincipal(ws.data.principal);
     } catch (error) {
-      failed?.(error);
+      failed?.(error, 'realtime.frame');
       valid = 'unavailable';
     }
     if (ws.data.phase !== 'authenticated') return false;

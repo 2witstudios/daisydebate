@@ -4,7 +4,6 @@
  * parsing through `apps/web/src/server/http.ts`) may classify a refusal
  * without loading the driver or schema.
  */
-export { databaseFailure } from './database-failure';
 export {
   capacityRefusalDetail,
   isReportedCapacityRefusal,
