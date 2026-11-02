@@ -18,7 +18,6 @@ import {
   type DebateDocumentOperations,
   type DocumentPrincipal,
 } from './document-operations';
-import { documentTemplates, type TemplateId } from './documents';
 import { DOCUMENT_MAX_BYTES } from '../../documents/normalize-html';
 
 /** Document routes bind their authenticated principal at the HTTP boundary. */
@@ -35,18 +34,9 @@ type Dependencies = {
   readonly operations: () => DebateDocumentOperations;
 };
 
-const templateIds = documentTemplates.map((template) => template.id) as [
-  TemplateId,
-  ...TemplateId[],
-];
-
 const schemas = {
   list: z.object({ roundId: idSchema }),
-  create: z.object({
-    roundId: idSchema,
-    folder: z.enum(['round', 'library']),
-    templateId: z.enum(templateIds),
-  }),
+  create: z.object({ roundId: idSchema }),
   save: z.object({
     id: idSchema,
     // The operation enforces the stored size; this only bounds the parse.

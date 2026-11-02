@@ -15,7 +15,6 @@ const debaterOf = (seat: Seat): Debater => ({
   initials: seat.initials,
   side: seat.side,
   rating: seat.rating,
-  bot: null,
 });
 
 /** The phase, the motion and the speech clock under the stage. */

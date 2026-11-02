@@ -1,44 +1,13 @@
-import type { CompetitionType } from '@daisy/protocol';
-import type { FolderId, WorkspaceDocument } from './documents/documents';
-
-export type RoundKind = 'rated' | 'unrated';
-
-type Folder = {
-  readonly id: FolderId;
-  readonly title: string;
-  readonly shared: boolean;
-};
-
-/** The club folder's title is the club's name, filled in by buildTree. */
-const folders: readonly Folder[] = [
-  { id: 'round', title: 'This round', shared: false },
-  { id: 'library', title: 'My library', shared: false },
-  { id: 'club', title: '', shared: true },
-];
-
-export type TreeNode = {
-  readonly folder: Folder;
-  readonly documents: readonly WorkspaceDocument[];
-};
+import type { WorkspaceDocument } from './documents/documents';
 
 const byCreated = (a: WorkspaceDocument, b: WorkspaceDocument) =>
   Date.parse(a.createdAt) - Date.parse(b.createdAt) ||
   (a.title < b.title ? -1 : a.title > b.title ? 1 : 0);
 
-export function buildTree(
+/** The viewer's own drive, oldest first. Club drives arrive with prep-documents. */
+export const driveDocuments = (
   documents: readonly WorkspaceDocument[],
-  clubName: string | null,
-): readonly TreeNode[] {
-  return folders
-    .filter((folder) => folder.id !== 'club' || clubName !== null)
-    .map((folder) => ({
-      folder:
-        folder.id === 'club' ? { ...folder, title: clubName ?? '' } : folder,
-      documents: documents
-        .filter((d) => d.folder === folder.id)
-        .sort(byCreated),
-    }));
-}
+): readonly WorkspaceDocument[] => [...documents].sort(byCreated);
 
 export type TabsState = {
   readonly open: readonly string[];
@@ -64,54 +33,45 @@ export function activateTab(tabs: TabsState, id: string): TabsState {
   return tabs.open.includes(id) ? { ...tabs, active: id } : tabs;
 }
 
-/** A ranked round is rated; a casual round is not. */
-export const roundKindOf = (competition: CompetitionType): RoundKind =>
-  competition === 'ranked' ? 'rated' : 'unrated';
+/** The right sidebar's tabs, the same in every Round. */
+export type SidebarTab = 'transcript' | 'channels' | 'ai';
+export const sidebarTabs: readonly SidebarTab[] = [
+  'transcript',
+  'channels',
+  'ai',
+];
 
-export type DrawerTab = 'files' | 'chat' | 'ai' | 'room';
+/** A phone shows one panel at a time; the sidebar's tabs are among them. */
+export type PhonePanel = 'doc' | SidebarTab | 'files' | 'room';
 
-/** A rated round has no AI: outside help would make the result unfair. */
-export function drawerTabs(kind: RoundKind): readonly DrawerTab[] {
-  return kind === 'rated'
-    ? ['files', 'chat', 'room']
-    : ['files', 'chat', 'ai', 'room'];
-}
+/** Which region a phone shows; the sidebar's own tab says which of its panels. */
+export type PhoneView = 'doc' | 'sidebar' | 'files' | 'room';
+export const phonePanels: readonly PhonePanel[] = [
+  'doc',
+  ...sidebarTabs,
+  'files',
+  'room',
+];
 
 export type Channel = {
   readonly id: string;
   readonly title: string;
-  readonly scope: 'round' | 'club';
 };
-
-export function visibleChannels(
-  channels: readonly Channel[],
-  kind: RoundKind,
-): readonly Channel[] {
-  return kind === 'rated'
-    ? channels.filter((c) => c.scope === 'round')
-    : channels;
-}
-
-/** A rated round shows no club folder: the club's files are outside help (DEC-175). */
-export const visibleClub = (
-  clubName: string | null,
-  kind: RoundKind,
-): string | null => (kind === 'rated' ? null : clubName);
 
 export type Agent = {
   readonly id: string;
   readonly title: string;
-  readonly scope: 'round' | 'club';
 };
 
-export function visibleAgents(
-  agents: readonly Agent[],
-  kind: RoundKind,
-): readonly Agent[] {
-  return kind === 'rated' ? [] : agents;
-}
+const lastEdited = (documents: readonly WorkspaceDocument[]) =>
+  [...documents].sort(
+    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+  )[0]?.id;
 
-/** Reconcile stored documents without replacing a still-open valid tab. */
+/**
+ * Reconcile stored documents without replacing a still-open valid tab. With
+ * nothing open, the document edited last opens, so a reload lands on the work.
+ */
 export function loadWorkspaceDocuments<
   T extends {
     readonly tabs: TabsState;
@@ -122,8 +82,8 @@ export function loadWorkspaceDocuments<
   const open = state.tabs.open.filter(
     (id) => ids.has(id) || !state.documents.some((d) => d.id === id),
   );
-  const round = documents.filter((d) => d.folder === 'round').map((d) => d.id);
-  const kept = open.length > 0 ? open : round;
+  const latest = lastEdited(documents);
+  const kept = open.length > 0 || !latest ? open : [latest];
   const active =
     state.tabs.active !== null && kept.includes(state.tabs.active)
       ? state.tabs.active

@@ -16,14 +16,14 @@ import { currentRoundForfeit, readBallotRound } from './human-ballot-round';
 export { expect };
 
 export const documentsPath = '/api/debate-room/documents/';
-/** Create a real authenticated Round Flow through its canonical document API. */
+/** Create a real authenticated document through its canonical document API. */
 export const createRoundFile = async (
   request: APIRequestContext,
   roundId: string,
 ) => {
   const response = await request.post(`${documentsPath}create`, {
     headers: { origin },
-    data: { roundId, folder: 'round', templateId: 'flow' },
+    data: { roundId },
   });
   expect(response.status()).toBe(201);
   const { document } = await response.json();
@@ -41,7 +41,11 @@ export const createFinishedRoundFile = async (page: Page) => {
   const roundId = await startRoundInBrowser(page);
   try {
     const document = await createRoundFile(page.request, roundId);
-    return { roundId, documentId: document.id as string };
+    return {
+      roundId,
+      documentId: document.id as string,
+      title: document.title as string,
+    };
   } finally {
     await forfeitAsHost(page.request, roundId);
   }
@@ -54,7 +58,7 @@ type RoundFiles = {
   readonly finishRound: () => Promise<void>;
   readonly violations: Awaited<ReturnType<typeof watchCspViolations>>;
 };
-/** A launched round with one server-saved Flow, opened by its first debater. */
+/** A launched round with one server-saved document, opened by its first debater. */
 export const test = base.extend<{
   roundFiles: RoundFiles;
   roundCommands: boolean;
@@ -108,11 +112,11 @@ export const test = base.extend<{
       const roundId = await startRoundInBrowser(page);
       launched = roundId;
       const document = await createRoundFile(page.request, roundId);
-      expect(document.title).toBe('Flow');
+      expect(document.title).toBe('Untitled');
       const violations = await watchCspViolations(page);
       await page.reload();
       await expect(
-        page.getByRole('textbox', { name: 'Flow', exact: true }),
+        page.getByRole('textbox', { name: 'Untitled', exact: true }),
       ).toBeVisible();
       await provide({
         page,

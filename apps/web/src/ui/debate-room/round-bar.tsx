@@ -1,10 +1,9 @@
 'use client';
 
 import type { CompetitionType } from '@daisy/protocol';
-import type { Side } from '../../features/debate-room/documents/documents';
+import type { Side } from '../../features/debate-room/speeches';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
-import { DRAWER_ID, DRAWER_TOGGLE_ID } from './drawer';
 import { LeaveRoom, type LeaveLinks } from './leave-room';
 import type { RoundSnapshot } from './round';
 
@@ -33,11 +32,6 @@ function speechState(index: number, live: number) {
   if (index === live) return 'Now';
   if (live >= 0 && index < live) return 'Done';
   return null;
-}
-
-function drawerLabel(open: boolean, unread: number) {
-  if (open) return 'Hide drawer';
-  return unread > 0 ? `Show drawer, ${unread} unread in Chat` : 'Show drawer';
 }
 
 /**
@@ -104,7 +98,7 @@ function RoundDetails({ round }: { readonly round: RoundSnapshot }) {
 }
 
 /**
- * The round bar: drawer toggle, the labelled resolution, the speech the
+ * The round bar: the labelled resolution, the speech the
  * round is on by its full name, the viewer's side, judge, recording, and
  * Leave round alone in the far corner. No app navigation in a round. A
  * room number (ISSUE-582) shows only once rounds carry one.
@@ -112,40 +106,15 @@ function RoundDetails({ round }: { readonly round: RoundSnapshot }) {
 export function RoundBar({
   round,
   roomNumber,
-  drawerOpen,
-  unread,
-  onToggleDrawer,
   leave,
 }: {
   readonly round: RoundSnapshot;
   readonly roomNumber?: number;
-  readonly drawerOpen: boolean;
-  readonly unread: number;
-  readonly onToggleDrawer: () => void;
   readonly leave: LeaveLinks;
 }) {
   const side = sideChip[round.self.side];
   return (
     <header className="relative flex min-h-round-bar shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-1 max-narrow:gap-x-2">
-      <button
-        id={DRAWER_TOGGLE_ID}
-        type="button"
-        aria-label={drawerLabel(drawerOpen, unread)}
-        aria-expanded={drawerOpen}
-        aria-controls={DRAWER_ID}
-        onClick={onToggleDrawer}
-        className={cn(
-          'relative flex size-room-target shrink-0 cursor-pointer items-center justify-center rounded-sm border border-border max-narrow:hidden',
-          drawerOpen && 'bg-surface-raised',
-        )}
-      >
-        <Icon name="drawer" size={18} />
-        {!drawerOpen && unread > 0 ? (
-          <span className="absolute -top-1 -right-1 min-w-4 rounded-round bg-live px-1 text-center text-xs font-bold text-background tabular-nums">
-            {unread}
-          </span>
-        ) : null}
-      </button>
       <div className="flex min-w-0 grow basis-round-title flex-col">
         <p className="truncate text-xs text-ink-muted max-narrow:hidden">
           {roomNumber === undefined ? null : `Room ${roomNumber} · `}
