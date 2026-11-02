@@ -57,8 +57,11 @@ test('native no-JavaScript rated entry preserves canonical ladder setup for all 
         ).toBeVisible();
         await page.goto(`/leaderboard/seasons?ladder=${ladder}`);
         await expect(
-          page.getByRole('heading', { level: 2 }).first(),
-        ).toContainText(ladder[0]!.toUpperCase() + ladder.slice(1));
+          page.getByRole('heading', {
+            level: 2,
+            name: `${ladder[0]!.toUpperCase()}${ladder.slice(1)} · `,
+          }),
+        ).toBeVisible();
       } finally {
         await closeRoom(page.request, room.id);
       }

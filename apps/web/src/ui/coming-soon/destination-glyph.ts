@@ -9,11 +9,11 @@ export const destinationGlyph: Readonly<
     { readonly glyph: IconName; readonly tint: ActionTileTint }
   >
 > = {
-  ranked: { glyph: 'swords', tint: 'accent' },
-  lobby: { glyph: 'users', tint: 'neutral' },
+  lobby: { glyph: 'swords', tint: 'accent' },
   watch: { glyph: 'eye', tint: 'neutral' },
   judge: { glyph: 'gavel', tint: 'gold' },
   tournaments: { glyph: 'trophy', tint: 'gold' },
+  seasons: { glyph: 'calendar', tint: 'neutral' },
   leaderboard: { glyph: 'chart', tint: 'neutral' },
   train: { glyph: 'bolt', tint: 'neutral' },
   prep: { glyph: 'book', tint: 'neutral' },
