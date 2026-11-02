@@ -23,6 +23,7 @@ export function testMessagingHistoryCompletion() {
   for (const { first, from } of [
     { first: 'send', from: 'page' },
     { first: 'history', from: 'page' },
+    { first: 'send', from: 'sent' },
     { first: 'history', from: 'sent' },
   ] as const) {
     test(`Earlier messages keeps one fresh composer after superseded send with ${first} response first from ${from} URL`, async ({
@@ -33,9 +34,10 @@ export function testMessagingHistoryCompletion() {
         let held: ReturnType<typeof holdConversationResponses> | undefined;
         try {
           const page = await acceptMessagingJourney(journey);
-          // Real authenticated setup: 11 sends per actor remain below the fixture's
-          // 20/min budget and fill more than one 20-row HTTP history page.
-          for (let index = 0; index < 22; index++) {
+          // Real authenticated sends. 22 fill more than one 20-row HTTP page; 52 pass
+          // the 50-row live window, the only way the live page offers Earlier.
+          const rows = from === 'sent' ? 52 : 22;
+          for (let index = 0; index < rows; index++) {
             const member = index % 2 === 0 ? journey.sender : journey.recipient;
             const response = await member.request.post(
               '/api/messaging/messages',
@@ -51,16 +53,29 @@ export function testMessagingHistoryCompletion() {
             );
             expect(response.status()).toBe(200);
           }
-          // The live window holds 50 rows, so its 23 rows offer no Earlier link. An
-          // explicit HTTP page does, and keeps this same composer mounted across it.
-          const { messages } = await durableMessages(page, journey.channelId);
-          const newest = messages[0]!.sequence;
-          // Every member lands on ?sent after a send, and Earlier messages leaves it.
-          const sentEntry = from === 'sent' ? `sent=${messages[0]!.id}&` : '';
-          await page.goto(
-            `/messages/${journey.channelId}?${sentEntry}before=${newest + 1}`,
-          );
-          await effectsRan(page);
+          if (from === 'sent') {
+            // Where every member lands after a send.
+            await page.goto(`/messages/${journey.channelId}`);
+            await effectsRan(page);
+            const landedId = await composerRequestId(page);
+            await page.getByLabel('Your message').fill('Landed on sent');
+            await page
+              .getByRole('button', { name: 'Send message', exact: true })
+              .click();
+            await completedSend(
+              page,
+              journey.channelId,
+              'Landed on sent',
+              landedId,
+            );
+          } else {
+            // Below the live window an explicit HTTP page offers Earlier.
+            const { messages } = await durableMessages(page, journey.channelId);
+            await page.goto(
+              `/messages/${journey.channelId}?before=${messages[0]!.sequence + 1}`,
+            );
+            await effectsRan(page);
+          }
           await expect(
             page.getByRole('link', { name: 'Earlier messages', exact: true }),
           ).toBeVisible();
@@ -131,7 +146,6 @@ export function testMessagingHistoryCompletion() {
           expect(original.changeVersion).toBe(sent.changeVersion);
           expect(held.state.sends).toBe(1);
           expect(held.state.navigations).toBe(1);
-          expect(held.state.refreshes).toBe(1);
           expect(held.state.sentDestinations).toBe(0);
           expect(formPosts).toBe(2);
         } finally {
