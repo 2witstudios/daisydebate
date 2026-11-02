@@ -126,6 +126,7 @@ const native = new Set(
     'room-launch',
     'resolution-strike',
     'ballot',
+    'transcript-recovery',
     'round-journeys',
     'attendance',
     'round-media',
