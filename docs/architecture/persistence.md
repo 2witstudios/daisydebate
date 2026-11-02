@@ -49,9 +49,8 @@ Email diagnostics live in `email_delivery`, `email_delivery_event`, and `email_s
 
 The outbox is a transactionally written delivery log for realtime doorbells, not event sourcing. The realtime service reads its explicitly granted projection and keeps presence in expiring Redis keys. Redis keys are validated and namespaced per deployment, with expiry set atomically; tests delete only their own namespace. Rate limiting uses atomic server-side operations and an explicit outage policy. No global flush or Redis-derived competitive outcome is permitted.
 
-Round workspaces list the reader’s owned library documents and documents referenced
-by that Round. Owned scratch documents from other Rounds stay outside the workspace;
-removing a reference removes scratch from that workspace without deleting it.
+A Round workspace lists the reader’s own documents. A Round holds no document
+references, so ending or deleting a Round never changes a document.
 
 AI practice yield requests carry the intended segment sequence (`segmentIndex`).
 After clock hydration, the application checks that the same segment is open before

@@ -262,8 +262,8 @@ After the last speech the room is in its judging window (30 minutes,
 ADR 0053): the clock counts the window down, the controls offer Report a
 problem instead of Tech issue, a Ballots section lists each ballot with its
 status (the deciding ballot `Writing`, any AI ballot beside a human judge
-`Ready` or `Writing`), the Room tab lists the judge as `Judge · Writing
-ballot`, and the document opens on the completed transcript. The judge's
+`Ready` or `Writing`), Room lists the judge as `Judge · Writing
+ballot`, and the sidebar's Transcript tab shows the completed transcript. The judge's
 ballot completes the round (DEC-80), so round sync hands the
 debaters to the receipt at `/rounds/[id]`, which shows the result and keeps
 a human judge's seat unnamed.

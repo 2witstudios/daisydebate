@@ -5,16 +5,16 @@ setupRitewayBun();
 
 const style = (token: string) => ({
   getPropertyValue: (name: string) =>
-    name === '--breakpoint-narrow' ? token : '',
+    name === '--breakpoint-compact' ? token : '',
 });
 
 describe('phoneMediaQuery', () => {
   test('the globals.css token', () => {
     assert({
-      given: 'the computed --breakpoint-narrow token',
+      given: 'the computed --breakpoint-compact token',
       should: 'build the matching range query',
-      actual: phoneMediaQuery(style(' 901px ')),
-      expected: '(width < 901px)',
+      actual: phoneMediaQuery(style(' 840px ')),
+      expected: '(width < 840px)',
     });
   });
 
