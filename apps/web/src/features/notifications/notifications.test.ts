@@ -1,28 +1,36 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sampleNotifications } from '../../ui/mock/notifications';
-import { existsSync } from 'node:fs';
 import { getNotifications } from './get-notifications';
 import {
   notificationRows,
   notificationsHref,
   parseNotificationsQuery,
+  type NotificationItem,
 } from './notifications';
 
 setupRitewayBun();
 
+const item = (
+  id: string,
+  minutesAgo: number,
+  unread: boolean,
+): NotificationItem => ({ id, text: id, href: '/lobby', minutesAgo, unread });
+
+const items = [
+  item('a', 12, true),
+  item('b', 190, true),
+  item('c', 60 * 26, false),
+];
+
 describe('parseNotificationsQuery', () => {
-  test('defaults and flags', () => {
+  test('defaults and the unread filter', () => {
     assert({
-      given: 'no parameters, then both flags',
-      should: 'show everything, then unread only with all read',
+      given: 'no parameters, then the unread filter',
+      should: 'show everything, then unread only',
       actual: [
         parseNotificationsQuery({}),
-        parseNotificationsQuery({ show: 'unread', read: 'all' }),
+        parseNotificationsQuery({ show: 'unread' }),
       ],
-      expected: [
-        { unreadOnly: false, allRead: false },
-        { unreadOnly: true, allRead: true },
-      ],
+      expected: [{ unreadOnly: false }, { unreadOnly: true }],
     });
   });
 });
@@ -30,13 +38,13 @@ describe('parseNotificationsQuery', () => {
 describe('notificationsHref', () => {
   test('leaves defaults out', () => {
     assert({
-      given: 'the default query and a full one',
+      given: 'the default query and the unread filter',
       should: 'write only what differs',
       actual: [
-        notificationsHref({ unreadOnly: false, allRead: false }),
-        notificationsHref({ unreadOnly: true, allRead: true }),
+        notificationsHref({ unreadOnly: false }),
+        notificationsHref({ unreadOnly: true }),
       ],
-      expected: ['/notifications', '/notifications?show=unread&read=all'],
+      expected: ['/notifications', '/notifications?show=unread'],
     });
   });
 });
@@ -46,23 +54,10 @@ describe('notificationRows', () => {
     assert({
       given: 'the unread filter',
       should: 'drop the read ones',
-      actual: notificationRows(sampleNotifications, {
-        unreadOnly: true,
-        allRead: false,
-      }).every((row) => row.unread),
-      expected: true,
-    });
-  });
-
-  test('all read', () => {
-    assert({
-      given: 'everything marked read with the unread filter on',
-      should: 'leave nothing to show',
-      actual: notificationRows(sampleNotifications, {
-        unreadOnly: true,
-        allRead: true,
-      }),
-      expected: [],
+      actual: notificationRows(items, { unreadOnly: true }).map(
+        (row) => row.id,
+      ),
+      expected: ['a', 'b'],
     });
   });
 
@@ -70,52 +65,33 @@ describe('notificationRows', () => {
     assert({
       given: 'items 12 minutes, 190 minutes and 26 hours old',
       should: 'word them',
-      actual: notificationRows(sampleNotifications, {
-        unreadOnly: false,
-        allRead: false,
-      })
-        .map((row) => row.when)
-        .slice(0, 4),
-      expected: [
-        '12 minutes ago',
-        '45 minutes ago',
-        '3 hours ago',
-        '1 day ago',
-      ],
+      actual: notificationRows(items, { unreadOnly: false }).map(
+        (row) => row.when,
+      ),
+      expected: ['12 minutes ago', '3 hours ago', '1 day ago'],
     });
   });
 });
 
 describe('getNotifications', () => {
-  test('unread count follows the read flag', () => {
+  test('nothing is stored yet', () => {
     assert({
-      given: 'the default view and all read',
-      should: 'count three unread, then none',
-      actual: [
-        getNotifications({}).unread,
-        getNotifications({ read: 'all' }).unread,
-      ],
-      expected: [3, 0],
+      given: 'the page seam with no stored notifications',
+      should: 'list nothing rather than a sample',
+      actual: getNotifications({}),
+      expected: { query: { unreadOnly: false }, rows: [], unread: 0 },
     });
   });
-});
 
-describe('sample notification links', () => {
-  test('every link leads somewhere that exists', () => {
-    const broken = sampleNotifications
-      .map((item) => new URL(item.href, 'https://x').pathname)
-      .filter(
-        (path) =>
-          path.split('/').length !== 2 ||
-          !existsSync(
-            new URL(`../../app/(shell)${path}/page.tsx`, import.meta.url),
-          ),
-      );
+  test('stored items are counted', () => {
     assert({
-      given: 'the sample notifications',
-      should: 'point every link at an existing top-level page',
-      actual: broken,
-      expected: [],
+      given: 'stored items and the unread filter',
+      should: 'count every unread item and list only those',
+      actual: [
+        getNotifications({ show: 'unread' }, items).unread,
+        getNotifications({ show: 'unread' }, items).rows.length,
+      ],
+      expected: [2, 2],
     });
   });
 });

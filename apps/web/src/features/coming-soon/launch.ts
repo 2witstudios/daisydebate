@@ -26,9 +26,9 @@ export const launched: LaunchConfig = {
 export type PlaceLaunchConfig = Readonly<Record<'notifications', boolean>>;
 
 /**
- * Which of a member's own places are open. Notifications read sample data
- * until stored notifications ship (ISSUE-634); flip it then, and the rail
- * and the phone's More sheet list it again.
+ * Which of a member's own places are open. Nothing stores a notification
+ * until WATCH-12 (ISSUE-634); flip it then, and the rail and the phone's More
+ * sheet list it again.
  */
 export const launchedPlaces: PlaceLaunchConfig = { notifications: false };
 
