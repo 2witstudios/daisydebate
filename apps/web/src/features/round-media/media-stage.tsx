@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import type { RoundView, RoundMediaState } from '@daisy/protocol';
 import type { MediaTrack } from './browser-transport';
+import type { MediaConnectionState } from './media-controller';
 import { seatMicrophoneCaption } from './media-status';
 
 function TrackElement({ track }: { readonly track: MediaTrack }) {
@@ -33,11 +34,13 @@ function TrackElement({ track }: { readonly track: MediaTrack }) {
 /** Only named debaters become tiles; a hidden judge never enters the identity map. */
 export function MediaStage({
   view,
+  connection,
   media,
   microphoneConfirmed,
   tracks,
 }: {
   readonly view: RoundView;
+  readonly connection: MediaConnectionState;
   readonly media: RoundMediaState | null;
   /** False from a supersession until the next answer is applied. */
   readonly microphoneConfirmed: boolean;
@@ -80,6 +83,7 @@ export function MediaStage({
                 {seat.kind === 'bot' ? ' · AI' : ''}
                 <span className="block text-xs">
                   {seatMicrophoneCaption({
+                    connection,
                     peer,
                     confirmed: microphoneConfirmed,
                     speaking: mediaTracks.some((track) => track.speaking),

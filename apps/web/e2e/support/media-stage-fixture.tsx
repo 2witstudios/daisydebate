@@ -30,6 +30,7 @@ Object.assign(window, {
           <MediaStage
             view={view}
             media={media}
+            connection="live"
             microphoneConfirmed
             tracks={[
               {

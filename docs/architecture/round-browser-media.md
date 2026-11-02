@@ -78,15 +78,31 @@ serving a read, and the browser follows LiveKit's permission without waiting for
 the reply. So the bar a debater feels is commit to permission set, under 2 seconds
 including in bursts, whether or not abort reaches the server. A reply arrives
 later and cannot apply while newer versions keep arriving, so its wait lasts at
-least the burst; its bar is under 2 seconds after the last supersession. Aborting
+least the burst. Aborting
 never cancels a pass already started, and a read that follows always joins or
 starts one. A pass starts only from a browser read, so the grant moves once some
 page has seen the version and asked.
 
 While a reply is not current the Round does not claim a microphone state: from a
-supersession until the next answer applies, a seat says it is checking. Last-known
-grants stay for layout, so video does not disappear. The bar's "Connected" describes
-the connection, not a grant.
+supersession until the next answer applies, a seat says it is checking. That cannot
+stick: once reads stop being answered the connection is `out-of-date`, and the seat
+says so until an answer returns. Last-known grants stay for layout, so video does
+not disappear. The bar's "Connected" describes the connection, not a grant.
+
+Measured on the CI runner, one native three-browser journey per row:
+
+| Abort reaches the server | Burst pacing | Commit to permission                       | Reply after the last event          | Refusals |
+| ------------------------ | ------------ | ------------------------------------------ | ----------------------------------- | -------- |
+| no                       | on           | 1462 ms at most                            | 2518 ms at most, 8 of 27 over 2 s   | 0        |
+| yes                      | on           | 1047 ms at most                            | 2820 ms at most, 7 of 27 over 2 s   | 0        |
+| no                       | off          | 1252 ms at most, before the journey failed | 18.6 s at most, on that failing run | 7        |
+
+So the bars are: permission under 2 seconds, burst included; reply about 2.5 to 2.8
+seconds after the last event on that runner, where a read alone takes up to about 1.7 seconds.
+Inside a burst the wait is the burst's own length, not a stall. It reached 10 seconds
+on the runner because the scripted burst itself ran about 8.7 seconds, and the seat
+says it is checking throughout. The scripted journey clicks faster than a debate, but
+these bars do not rely on that.
 
 Whether a client disconnect reaches `request.signal` in production is unverified.
 Fly's documentation does not say whether its proxy closes the upstream connection,

@@ -5,7 +5,9 @@ import {
   transportStub,
   viewAt,
 } from './media-controller.test-support';
-import { mediaFailure } from './media-failure';
+import type { MediaConnectionState } from './media-controller';
+import { mediaFailure, transientMediaFailure } from './media-failure';
+import { seatMicrophoneCaption } from './media-status';
 import { settle } from './browser-transport.test-support';
 setupRitewayBun();
 
@@ -84,6 +86,57 @@ test('reads that keep being superseded still show out of date at the budget', as
     should: 'stop showing plain Connected once the stall passes the budget',
     actual: [states[7], states[8], states[9]],
     expected: ['live', 'out-of-date', 'out-of-date'],
+  });
+  controller.stop();
+});
+
+test('a seat checking its microphone cannot stick when no answer comes', async () => {
+  let nowMs = 0;
+  let reads = 0;
+  let answer = false;
+  let connection: MediaConnectionState = 'connecting';
+  let confirmed = true;
+  const caption = () =>
+    seatMicrophoneCaption({
+      connection,
+      peer: { microphone: false },
+      confirmed,
+      speaking: false,
+    });
+  const controller = readController({
+    readBudget: { now: () => nowMs, ms: 40_000 },
+    reconcile: async () => {
+      if (++reads === 1 || answer) return snapshot;
+      throw transientMediaFailure();
+    },
+    changed: (state) => {
+      connection = state;
+    },
+    superseded: () => {
+      confirmed = false;
+    },
+    received: () => {
+      confirmed = true;
+    },
+  });
+  await controller.join();
+  const answered = caption();
+  await controller.reconcile(viewAt(4));
+  const unanswered = caption();
+  nowMs += 40_000;
+  answer = true;
+  await controller.reconcile(viewAt(5));
+  const recovered = caption();
+  assert({
+    given: 'a read superseded with no answer, then an answer',
+    should:
+      'stop claiming a state, say out of date rather than checking for ever, and name the state again on the answer',
+    actual: [answered, unanswered, recovered],
+    expected: [
+      'Microphone closed',
+      'Microphone status out of date',
+      'Microphone closed',
+    ],
   });
   controller.stop();
 });

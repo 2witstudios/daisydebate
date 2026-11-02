@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { MediaConnectionState } from './media-controller';
 import {
   mediaStatus,
   mediaWhile,
@@ -146,11 +147,12 @@ test('a seat caption claims a microphone state only from a current answer', () =
     peer: { readonly microphone: boolean } | undefined,
     confirmed: boolean,
     speaking = false,
-  ) => seatMicrophoneCaption({ peer, confirmed, speaking });
+    connection: MediaConnectionState = 'live',
+  ) => seatMicrophoneCaption({ connection, peer, confirmed, speaking });
   assert({
     given: 'each answer state for a seat',
     should:
-      'name open, closed or speaking only while the last answer is current, and say it is checking otherwise',
+      'name open, closed or speaking only while the last answer is current, say it is checking otherwise, and say out of date once reads stop being answered',
     actual: [
       caption(undefined, true),
       caption(undefined, false),
@@ -159,6 +161,9 @@ test('a seat caption claims a microphone state only from a current answer', () =
       caption({ microphone: true }, true, true),
       caption({ microphone: false }, false),
       caption({ microphone: true }, false, true),
+      caption({ microphone: true }, false, false, 'out-of-date'),
+      caption({ microphone: false }, true, false, 'out-of-date'),
+      caption(undefined, false, false, 'out-of-date'),
     ],
     expected: [
       'Microphone unavailable',
@@ -168,6 +173,9 @@ test('a seat caption claims a microphone state only from a current answer', () =
       'Speaking',
       'Checking microphone…',
       'Checking microphone…',
+      'Microphone status out of date',
+      'Microphone status out of date',
+      'Microphone unavailable',
     ],
   });
 });

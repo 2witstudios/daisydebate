@@ -39,14 +39,19 @@ export const showConnection =
 
 /**
  * A grant can move at LiveKit before its reply is applied here, so a seat claims
- * a microphone state only while the last answer is still current.
+ * a microphone state only while the last answer is current. Checking cannot
+ * stick: once reads stop being answered the connection is out of date, and that
+ * is what the seat says until an answer returns.
  */
 export function seatMicrophoneCaption(input: {
+  readonly connection: MediaConnectionState;
   readonly peer: { readonly microphone: boolean } | undefined;
   readonly confirmed: boolean;
   readonly speaking: boolean;
 }) {
   if (!input.peer) return 'Microphone unavailable';
+  if (input.connection === 'out-of-date')
+    return 'Microphone status out of date';
   if (!input.confirmed) return 'Checking microphone…';
   if (!input.peer.microphone) return 'Microphone closed';
   return input.speaking ? 'Speaking' : 'Microphone open';

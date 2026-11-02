@@ -158,6 +158,7 @@ function RoundMediaSession({
   return (
     <section aria-label="Live camera and sound">
       <MediaStage
+        connection={connection}
         view={view}
         media={media}
         microphoneConfirmed={microphoneConfirmed}
