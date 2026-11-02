@@ -75,7 +75,7 @@ document when the current one lacks its policy, and every media page renders
 `media-entry.test.ts` fails on a `next/link` or router call that targets a media
 page, and `media-navigation.e2e.ts` reaches a working camera by lobby click and
 by Create Room. Local preview joins no LiveKit session and mints no
-token. A frozen scheduled Round receipt is not active media authority. Historical
+token. A receipt for a Round still in its opening is not active media authority. Historical
 segment-bound transcript capture, grants and workers are separate producers.
 
 `device-checks.e2e.ts` runs the real controller in an isolated browser harness
