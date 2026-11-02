@@ -171,7 +171,7 @@ function StrikeForm({
 }
 
 /**
- * The opening's strike (ADR 0098): the resolutions and nothing else. A native
+ * The opening's strike (ADR 0100): the resolutions and nothing else. A native
  * form, so it works without JavaScript; a strike can't be undone, so the
  * submit asks once more with it.
  */

@@ -60,7 +60,7 @@ Start round is one atomic operation. When every required seat is filled and
 every human is Ready, the host's click freezes the seats and rules into one
 Round, in its **opening** when it has a strike or prep to run, otherwise
 **active**. A Room has exactly one Round (ADR 0067). Everything after that runs
-on its own (ADR 0098).
+on its own (ADR 0100).
 
 ## One active Room
 
@@ -94,7 +94,7 @@ wording. Strike exposes no custom
 draw settings in creation. See [ADR 0092](../decisions/0092-room-creation-resolution-selection.md).
 
 A Room either names its resolution (its topic) or a Round draws one in its
-opening ([ADR 0098](../decisions/0098-round-owns-its-opening.md)). Start round
+opening ([ADR 0100](../decisions/0100-round-owns-its-opening.md)). Start round
 draws N resolutions from Daisy's curated bank, or from the host's own list in a
 casual Room. The debaters strike alternately, Negative first in Freestyle, each
 strike within its window; a missed turn strikes the first resolution still in

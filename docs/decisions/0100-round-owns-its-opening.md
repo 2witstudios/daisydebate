@@ -1,4 +1,4 @@
-# 0098: A Round owns its strike and pre-round prep
+# 0100: A Round owns its strike and pre-round prep
 
 Status: accepted (owner, 2026-11-01 and 2026-11-02). Supersedes
 [ADR 0058](0058-one-round-model.md) §3's "`preRoundPrep` is Room-executed",

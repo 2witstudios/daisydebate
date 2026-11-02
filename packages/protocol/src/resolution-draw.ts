@@ -284,7 +284,7 @@ export type ResolutionDrawState = {
 };
 
 /**
- * A Round's opening as stored (ADR 0098). Only the draw's strikes change;
+ * A Round's opening as stored (ADR 0100). Only the draw's strikes change;
  * every other fact derives from these three, so a command, a read and a sweep
  * cannot disagree about where it stands.
  */

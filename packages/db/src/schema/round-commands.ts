@@ -7,7 +7,7 @@ import { rounds } from './rounds';
 
 /** The legal operations on a running round (ADR 0058 §6). */
 export const roundCommandTypes = [
-  /** Issued only before ADR 0098: its rows stay as history. */
+  /** Issued only before ADR 0100: its rows stay as history. */
   'start',
   'strike_resolution',
   'start_prep',

@@ -1,4 +1,4 @@
--- ADR 0098: a Round owns its strike and pre-round prep, and Start round is the
+-- ADR 0100: a Round owns its strike and pre-round prep, and Start round is the
 -- one start. One forward move: no Round is mid-opening afterwards, so the Room
 -- draw tables go, and launched Rounds keep their copied seed, texts, inputs and
 -- evidence. The locks make a command on the serving release wait for this commit.
