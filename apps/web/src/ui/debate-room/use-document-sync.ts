@@ -31,9 +31,7 @@ export function useDocumentSync(
     const unsubscribe = sync.subscribe(() => {
       if (!live || sync.available()) return;
       dispatch({ type: 'doc/loaded', documents: [] });
-      setProblem(
-        closedFilesNotice(sync.closedBy() === 'purge' ? 'purge' : 'fence'),
-      );
+      setProblem(closedFilesNotice(sync.closedBy()));
     });
     const adopted = sync.subscribeServerText((id, html) => {
       if (live)

@@ -13,7 +13,9 @@ export function refusedNotice(status: number): string {
 }
 
 /** Why this Round's files left the screen. A purge must not promise them back. */
-export const closedFilesNotice = (reason: 'fence' | 'purge') =>
+export const closedFilesNotice = (
+  reason: 'released' | 'fence' | 'purge' | null,
+) =>
   reason === 'purge'
     ? 'This Round’s files are closed. Reopen the Round to load them.'
     : 'Your session ended. Sign in and reopen the Round to get your notes back.';

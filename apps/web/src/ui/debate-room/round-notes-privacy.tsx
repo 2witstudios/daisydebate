@@ -4,16 +4,11 @@ import { useEffect, useState } from 'react';
 import { systemClock } from '@daisy/clock';
 import { NOTES_ERASED_COOKIE } from '../../features/account/data-rights/notices-keys';
 import { pruneExpiredNoteDrafts } from './note-draft-storage';
+import { watchNotesIdentity } from './notes-identity-watch';
 import {
-  NOTES_FENCE_EVENT,
-  NOTES_IDENTITY_CHECK_EVENT,
-  NOTES_PRINCIPAL_KEY,
   NOTES_SIGN_OUT_INTENT_KEY,
   isSignOutPath,
-  needsSessionRead,
   publishNotesPrincipal,
-  readSessionPrincipal,
-  rootMountAction,
 } from './notes-principal';
 
 const browserStorage = (read: () => Storage) => {
@@ -90,91 +85,23 @@ export function RoundNotesPrivacy({
         capture: true,
       });
   }, []);
-  useEffect(() => {
-    // An unavailable server identity is not evidence of logout, so this mount
-    // publishes nothing, yet still listens for changes from other tabs.
-    let observed: string | null | undefined = principalId;
-    let live = true;
-    let pending: AbortController | null = null;
-    const syncPrincipal = (next: string | null) => {
-      if (next !== observed) {
-        pending?.abort();
-        pending = null;
-        observed = next;
-      }
-      setCleanupFailed(!publishNotesPrincipal(next));
-    };
-    const fence = () => window.dispatchEvent(new Event(NOTES_FENCE_EVENT));
-    // Consumed on every mount, so a refused sign-out can never purge later.
-    const signedOut = takeSignOutIntent();
-    if (
-      principalId !== undefined &&
-      rootMountAction(principalId, signedOut || takeAccountClosedProof()) ===
-        'publish'
-    )
-      syncPrincipal(principalId);
-    const read = async () => {
-      if (!live || pending !== null || observed === null) return;
-      const controller = new AbortController();
-      pending = controller;
-      try {
-        const response = await fetch('/api/auth/get-session', {
-          cache: 'no-store',
-          signal: AbortSignal.any([
-            controller.signal,
-            AbortSignal.timeout(15_000),
-          ]),
-        });
-        if (!response.ok) return;
-        const next = readSessionPrincipal(await response.json());
-        if (
-          live &&
-          pending === controller &&
-          !controller.signal.aborted &&
-          next !== undefined
-        ) {
-          if (next === null) {
-            // Expiry is not a sign-out, so this only fences. Nothing is left to
-            // observe, as on an anonymous mount.
-            fence();
-            if (observed === undefined) observed = null;
-          } else syncPrincipal(next);
-        }
-      } catch {
-        // Offline or cancelled transport never establishes identity loss.
-      } finally {
-        if (pending === controller) pending = null;
-      }
-    };
-    const check = async () => {
-      let needed = observed !== null;
-      try {
-        needed = needsSessionRead(window.localStorage, observed);
-      } catch {
-        // A denied storage getter cannot establish that no private copy exists.
-      }
-      if (needed) await read();
-    };
-    const visible = () => {
-      if (document.visibilityState === 'visible') void check();
-    };
-    const storage = (event: StorageEvent) => {
-      if (event.key === NOTES_PRINCIPAL_KEY)
-        syncPrincipal(event.newValue || null);
-    };
-    window.addEventListener('focus', check);
-    window.addEventListener(NOTES_IDENTITY_CHECK_EVENT, read);
-    window.addEventListener('storage', storage);
-    document.addEventListener('visibilitychange', visible);
-    return () => {
-      live = false;
-      pending?.abort();
-      window.removeEventListener('focus', check);
-      window.removeEventListener(NOTES_IDENTITY_CHECK_EVENT, read);
-      window.removeEventListener('storage', storage);
-      document.removeEventListener('visibilitychange', visible);
-    };
-  }, [principalId]);
+  useEffect(
+    () =>
+      watchNotesIdentity(principalId, {
+        events: window,
+        visibility: document,
+        storage: () => window.localStorage,
+        fetchSession: (signal) =>
+          fetch('/api/auth/get-session', {
+            cache: 'no-store',
+            signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
+          }),
+        takeSignOutIntent,
+        takeAccountClosedProof,
+        publish: (next) => setCleanupFailed(!publishNotesPrincipal(next)),
+      }),
+    [principalId],
+  );
   return cleanupFailed ? (
     <p role="alert" className="px-4 py-2 text-sm text-live">
       Private note cleanup could not finish. Clear this site&apos;s storage
