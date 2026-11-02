@@ -144,7 +144,7 @@ test('a device failure while out of date is not overwritten when reads recover',
 test('in a burst a young read finishes, is fenced, and the newest read applies', async () => {
   let nowMs = 0;
   const signals: AbortSignal[] = [];
-  const replies: PromiseWithResolvers<unknown>[] = [];
+  const replies: ReturnType<typeof Promise.withResolvers<unknown>>[] = [];
   const applied: string[] = [];
   const controller = readController({
     readBudget: { now: () => nowMs, ms: 40_000 },
@@ -270,7 +270,7 @@ test('a fenced read does not spend retries', async () => {
 
 test('an answered read ends the burst, so the next newer view aborts at once', async () => {
   const signals: AbortSignal[] = [];
-  const replies: PromiseWithResolvers<unknown>[] = [];
+  const replies: ReturnType<typeof Promise.withResolvers<unknown>>[] = [];
   const controller = readController({
     readBudget: { now: () => 0, ms: 40_000 },
     reconcile: (_id, signal) => {
