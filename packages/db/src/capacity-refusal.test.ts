@@ -94,7 +94,10 @@ test('a refusal carries the lane and reason that refused it', () => {
 test('a refusal is recognised by every bundled copy of this module', async () => {
   // Next bundles a page apart from the process app, so one process can hold
   // two instances of this module; the query string makes Bun load a second.
-  const copy = await import(`./capacity-refusal.ts?second-bundle`);
+  const secondCopy: string = './capacity-refusal.ts?second-bundle';
+  const copy = (await import(
+    secondCopy
+  )) as typeof import('./capacity-refusal');
   const refused = refuseCapacity({ lane: 'control', reason: 'expired' });
   const theirs = copy.refuseCapacity({ lane: 'social', reason: 'saturated' });
   markCapacityRefusalReported(theirs);
