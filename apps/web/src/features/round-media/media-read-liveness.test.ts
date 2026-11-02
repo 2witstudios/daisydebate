@@ -140,3 +140,165 @@ test('a device failure while out of date is not overwritten when reads recover',
   });
   controller.stop();
 });
+
+test('in a burst a young read finishes, is fenced, and the newest read applies', async () => {
+  let nowMs = 0;
+  const signals: AbortSignal[] = [];
+  const replies: PromiseWithResolvers<unknown>[] = [];
+  const applied: string[] = [];
+  const controller = readController({
+    readBudget: { now: () => nowMs, ms: 40_000 },
+    reconcile: (_id, signal) => {
+      signals.push(signal);
+      const reply = Promise.withResolvers<unknown>();
+      replies.push(reply);
+      return reply.promise;
+    },
+    transport: () =>
+      transportStub({
+        apply: async (state) => {
+          applied.push(state.grants.publish.join('+'));
+        },
+      }),
+  });
+  const joining = controller.join();
+  await settle();
+  replies[0]!.resolve(snapshot);
+  await joining;
+  applied.length = 0;
+  void controller.reconcile({ kind: 'wake' });
+  await settle();
+  void controller.reconcile(viewAt(4));
+  await settle();
+  const firstAborted = signals[1]!.aborted;
+  nowMs += 500;
+  void controller.reconcile(viewAt(5));
+  await settle();
+  const youngAborted = signals[2]!.aborted;
+  const readsWhileYoung = replies.length;
+  replies[2]!.resolve({
+    ...snapshot,
+    grants: { ...snapshot.grants, publish: ['microphone'] },
+  });
+  await settle();
+  const fenced = [...applied];
+  replies[3]!.resolve({
+    ...snapshot,
+    grants: { ...snapshot.grants, publish: ['camera'] },
+  });
+  await settle();
+  assert({
+    given: 'a second newer view while a young fresh read is in flight',
+    should:
+      'abort the first read, let the young one finish without applying it, then apply only the newest read',
+    actual: { firstAborted, youngAborted, readsWhileYoung, fenced, applied },
+    expected: {
+      firstAborted: true,
+      youngAborted: false,
+      readsWhileYoung: 3,
+      fenced: [],
+      applied: ['camera'],
+    },
+  });
+  controller.stop();
+});
+
+test('a read past the young limit is still aborted in a burst', async () => {
+  let nowMs = 0;
+  const signals: AbortSignal[] = [];
+  let reads = 0;
+  const controller = readController({
+    readBudget: { now: () => nowMs, ms: 40_000 },
+    reconcile: (_id, signal) => {
+      signals.push(signal);
+      return ++reads === 1
+        ? Promise.resolve(snapshot)
+        : new Promise(() => undefined);
+    },
+  });
+  await controller.join();
+  void controller.reconcile({ kind: 'wake' });
+  await settle();
+  void controller.reconcile(viewAt(4));
+  await settle();
+  nowMs += 2_000;
+  void controller.reconcile(viewAt(5));
+  await settle();
+  assert({
+    given: 'a read that has run the whole young limit when a newer view lands',
+    should: 'abort it and read fresh, so a stall cannot hold the burst',
+    actual: [signals[2]?.aborted, reads],
+    expected: [true, 4],
+  });
+  controller.stop();
+});
+
+test('a fenced read does not spend retries', async () => {
+  let nowMs = 0;
+  let reads = 0;
+  const first = Promise.withResolvers<unknown>();
+  const second = Promise.withResolvers<unknown>();
+  const controller = readController({
+    readBudget: { now: () => nowMs, ms: 40_000 },
+    retry: { delaysMs: [1, 1, 1], wait: async () => undefined },
+    reconcile: () => {
+      reads++;
+      if (reads === 1) return Promise.resolve(snapshot);
+      if (reads === 2) return first.promise;
+      if (reads === 3) return second.promise;
+      return Promise.resolve(snapshot);
+    },
+  });
+  await controller.join();
+  void controller.reconcile({ kind: 'wake' });
+  await settle();
+  void controller.reconcile(viewAt(4));
+  await settle();
+  nowMs += 100;
+  void controller.reconcile(viewAt(5));
+  await settle();
+  second.reject(mediaFailure(503));
+  await settle();
+  assert({
+    given: 'a let-finish read that fails transiently after being superseded',
+    should: 'not retry it, and read fresh for the newest view instead',
+    actual: [reads, controller.state()],
+    expected: [4, 'live'],
+  });
+  controller.stop();
+});
+
+test('an answered read ends the burst, so the next newer view aborts at once', async () => {
+  const signals: AbortSignal[] = [];
+  const replies: PromiseWithResolvers<unknown>[] = [];
+  const controller = readController({
+    readBudget: { now: () => 0, ms: 40_000 },
+    reconcile: (_id, signal) => {
+      signals.push(signal);
+      const reply = Promise.withResolvers<unknown>();
+      replies.push(reply);
+      return reply.promise;
+    },
+  });
+  const joining = controller.join();
+  await settle();
+  replies[0]!.resolve(snapshot);
+  await joining;
+  void controller.reconcile({ kind: 'wake' });
+  await settle();
+  void controller.reconcile(viewAt(4));
+  await settle();
+  replies[2]!.resolve(snapshot);
+  await settle();
+  void controller.reconcile({ kind: 'wake' });
+  await settle();
+  void controller.reconcile(viewAt(5));
+  await settle();
+  assert({
+    given: 'a superseded read, a fresh read that answered, then a newer view',
+    should: 'treat it as a new first supersession and abort at once',
+    actual: signals[3]?.aborted,
+    expected: true,
+  });
+  controller.stop();
+});

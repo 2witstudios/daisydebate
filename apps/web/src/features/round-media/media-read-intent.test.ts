@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { decideMediaRead, type MediaReadEvent } from './media-read-intent';
+import {
+  decideMediaRead,
+  decideSupersededRead,
+  MEDIA_READ_LET_FINISH_MS,
+  type MediaReadEvent,
+} from './media-read-intent';
 setupRitewayBun();
 
 const initial = {
@@ -78,5 +83,24 @@ test('wake keeps authority and dispose is terminal', () => {
       'supersede',
       { ...initial, disposed: true, generation: 1 },
     ],
+  });
+});
+
+test('only a young read in a burst is allowed to finish', () => {
+  const decide = (supersededSinceAnswer: number, readAgeMs: number) =>
+    decideSupersededRead({ supersededSinceAnswer, readAgeMs });
+  assert({
+    given: 'each combination of burst position and read age',
+    should:
+      'abort the first, abort an old read, and let only a young one finish',
+    actual: [
+      decide(0, 0),
+      decide(0, MEDIA_READ_LET_FINISH_MS),
+      decide(1, 0),
+      decide(1, MEDIA_READ_LET_FINISH_MS - 1),
+      decide(1, MEDIA_READ_LET_FINISH_MS),
+      decide(9, Number.MAX_SAFE_INTEGER),
+    ],
+    expected: ['abort', 'abort', 'let-finish', 'let-finish', 'abort', 'abort'],
   });
 });

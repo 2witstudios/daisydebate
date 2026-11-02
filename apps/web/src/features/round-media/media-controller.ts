@@ -9,6 +9,7 @@ import {
 } from './media-failure';
 import {
   decideMediaRead,
+  decideSupersededRead,
   type MediaReadEvent,
   type MediaReadIntent,
 } from './media-read-intent';
@@ -40,6 +41,7 @@ export type BrowserMediaTransport = {
 type ReadTicket = {
   readonly generation: number;
   readonly abort: AbortController;
+  readonly startedAtMs: number;
 };
 type Connection = {
   readonly generation: number;
@@ -50,6 +52,7 @@ type Connection = {
   /** A local device failure the Round already shows; reads must not overwrite it. */
   deviceFailed: boolean;
   unansweredSinceMs: number | null;
+  supersededSinceAnswer: number;
   queued: boolean;
   read: ReadTicket | null;
   loop: Promise<void> | null;
@@ -136,12 +139,14 @@ export function createMediaController(input: {
     signal: AbortSignal,
     request: () => Promise<unknown>,
     pausing: () => void,
+    wanted: () => boolean = () => true,
   ) => {
     for (const pauseMs of input.retry?.delaysMs ?? []) {
       try {
         return await cancelMediaWork(signal, request);
       } catch (error) {
-        if (signal.aborted || !isTransientMediaFailure(error)) throw error;
+        if (signal.aborted || !wanted() || !isTransientMediaFailure(error))
+          throw error;
         pausing();
         await cancelMediaWork(signal, () => input.retry!.wait(pauseMs, signal));
       }
@@ -160,6 +165,7 @@ export function createMediaController(input: {
             if (current(owner, ticket) && !owner.wentLive)
               change('reconnecting');
           },
+          () => current(owner, ticket),
         ),
       );
       if (current(owner, ticket) && snapshot.roundId !== input.roundId)
@@ -199,6 +205,7 @@ export function createMediaController(input: {
     if (!current(owner, ticket)) return;
     owner.wentLive = true;
     owner.unansweredSinceMs = null;
+    owner.supersededSinceAnswer = 0;
     if (state !== 'live' && !owner.deviceFailed) change('live');
   };
   const showOutOfDate = (owner: Connection) => {
@@ -233,6 +240,7 @@ export function createMediaController(input: {
       const ticket: ReadTicket = {
         generation: intent.generation,
         abort: new AbortController(),
+        startedAtMs: input.readBudget?.now() ?? 0,
       };
       owner.read = ticket;
       noteReadStarting(owner);
@@ -268,6 +276,7 @@ export function createMediaController(input: {
       wentLive: false,
       deviceFailed: false,
       unansweredSinceMs: null,
+      supersededSinceAnswer: 0,
       queued: false,
       read: null,
       loop: null,
@@ -324,12 +333,26 @@ export function createMediaController(input: {
       fail(generation, error);
     }
   };
+  /** The ticket is already stale here, so its reply cannot apply either way. */
+  const supersedeRead = (owner: Connection) => {
+    const inFlight = owner.read;
+    if (!inFlight) return;
+    const budget = input.readBudget;
+    const pacing = budget
+      ? decideSupersededRead({
+          supersededSinceAnswer: owner.supersededSinceAnswer,
+          readAgeMs: budget.now() - inFlight.startedAtMs,
+        })
+      : 'abort';
+    owner.supersededSinceAnswer++;
+    if (pacing === 'abort') inFlight.abort.abort();
+  };
   const reconcile = (event: MediaReadEvent) => {
     const decision = decideMediaRead(intent, event);
     if (decision.action === 'ignore') return Promise.resolve();
     intent = decision.intent;
     const owner = connection;
-    if (decision.action === 'supersede') owner?.read?.abort.abort();
+    if (decision.action === 'supersede' && owner) supersedeRead(owner);
     if (!owner || !active(owner)) return Promise.resolve();
     if (!owner.connected) return Promise.resolve();
     return read(owner);

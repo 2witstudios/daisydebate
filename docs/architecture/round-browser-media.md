@@ -66,6 +66,19 @@ followup. Each accepted projection also sends one, so a refresh at the same
 version corrects a boundary read that reached the server too early. These inputs
 only request a read; the server's reply still decides every grant.
 
+In a burst, the first supersession since the last answered read aborts at once. A
+later one lets a read under 2 seconds old finish rather than abort it, so reads
+stop overlapping and one can finish between versions. Its reply is still fenced,
+so a reply older than the current intent never applies, and a fenced read does
+not retry. An older read is aborted as usual; a read let finish that then stalls
+is bounded by its own deadline.
+
+Whether a client disconnect reaches `request.signal` in production is unverified.
+Fly's documentation does not say whether its proxy closes the upstream connection,
+though Next aborts the signal when that connection closes. Assume it may not:
+abandoned reads may run to completion there, and the shared polling loop is what
+limits their load.
+
 An obsolete reply or rejection cannot apply, announce, fail the connection or
 clear its successor. Aborting releases the client's wait; it does not prove the
 server or the SDK stopped working. An SDK apply already started may finish, so

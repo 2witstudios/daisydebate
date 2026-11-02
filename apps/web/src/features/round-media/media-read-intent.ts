@@ -59,3 +59,22 @@ export function decideMediaRead(
   if (event.kind === 'dispose') return supersede({ ...intent, disposed: true });
   return decideRoundEvent(intent, event);
 }
+
+/** A read younger than this may finish when it is not the first to be superseded. */
+export const MEDIA_READ_LET_FINISH_MS = 2_000;
+
+/**
+ * What a superseding event does to the read in flight. The first since the last
+ * answer aborts at once. In a burst, a young read finishes and its reply is fenced
+ * like any other, so reads stop overlapping and one can finish between versions.
+ * This decides pacing only: a reply older than the current intent never applies.
+ */
+export function decideSupersededRead(input: {
+  readonly supersededSinceAnswer: number;
+  readonly readAgeMs: number;
+}): 'abort' | 'let-finish' {
+  return input.supersededSinceAnswer > 0 &&
+    input.readAgeMs < MEDIA_READ_LET_FINISH_MS
+    ? 'let-finish'
+    : 'abort';
+}
