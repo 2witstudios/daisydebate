@@ -5,6 +5,7 @@ import type {
   SpeechSlot,
   WorkspaceDocument,
 } from '../../features/debate-room/documents/documents';
+import type { RoundWaitingOn } from '@daisy/protocol';
 import type { JudgingBallots } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { TranscriptSegment } from '../../features/debate-room/transcript';
@@ -54,6 +55,8 @@ export type RoundSnapshot = {
   readonly judge: 'human' | 'ai' | null;
   /** The ballots the judging window waits on; null without a judge. */
   readonly ballots: JudgingBallots | null;
+  /** What the server says the Round is waiting on. */
+  readonly judgingState: RoundWaitingOn['state'] | null;
   /** Rating won and lost on this result, in a ranked round. */
   readonly stakes: { readonly win: number; readonly loss: number } | null;
   /** The round is recorded; once the speeches end, the recording is saved. */

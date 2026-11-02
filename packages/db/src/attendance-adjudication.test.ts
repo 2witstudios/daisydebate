@@ -2,6 +2,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import type { RoundProjection } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  adjudicationColumns,
   adjudicationCommand,
   requireAttendanceTarget,
   requireResolutionProjection,
@@ -23,9 +24,12 @@ const segments = [
   { id: 'ar', type: 'speech', rulesSegmentKey: 'AR' },
 ];
 const resolution = (
-  overrides: Partial<AttendanceResolution> = {},
+  overrides: Partial<
+    Extract<AttendanceResolution, { evidence: 'settled_availability' }>
+  > = {},
 ): AttendanceResolution => ({
   segmentId: 'ac',
+  evidence: 'settled_availability',
   decision: 'attended',
   effectiveDeadline: '2026-10-22T12:00:00.000Z',
   settledHorizon: '2026-10-22T12:00:05.000Z',
@@ -123,6 +127,8 @@ test('the adjudication command binds Round, segment and decision', () => {
       result: {
         segmentId: 'ac',
         decision: 'attended',
+        evidence: 'settled_availability',
+        receiptParticipantId: null,
         effectiveDeadline: '2026-10-22T12:00:00.000Z',
         settledHorizon: '2026-10-22T12:00:05.000Z',
       },
@@ -130,6 +136,40 @@ test('the adjudication command binds Round, segment and decision', () => {
       sameDecision: true,
       otherDecision: false,
       otherSegment: false,
+    },
+  });
+});
+
+test('each evidence stores only its own shape', () => {
+  assert({
+    given: 'an on-time receipt',
+    should: 'store the speaker and no invented deadline or horizon',
+    actual: adjudicationColumns({
+      segmentId: 'ac',
+      evidence: 'on_time_receipt',
+      decision: 'attended',
+      receiptParticipantId: 'speaker',
+      projection: null,
+    }),
+    expected: {
+      effectiveDeadline: null,
+      settledHorizon: null,
+      receiptParticipantId: 'speaker',
+    },
+  });
+  assert({
+    given: 'an unresolved window at the cutoff',
+    should: 'store no deadline, horizon or receipt',
+    actual: adjudicationColumns({
+      segmentId: 'ac',
+      evidence: 'infrastructure_unresolved',
+      decision: 'abandoned',
+      projection,
+    }),
+    expected: {
+      effectiveDeadline: null,
+      settledHorizon: null,
+      receiptParticipantId: null,
     },
   });
 });

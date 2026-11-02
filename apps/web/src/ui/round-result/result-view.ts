@@ -231,7 +231,7 @@ function emptySection(
   };
 }
 /**
- * Finalization closes a stream for every actual speaking interval, so a
+ * Finalization closes a stream for every speaking interval a seat owes, so a
  * frozen speech with no stream owed no text: it is complete whatever the
  * Round's completeness (another speech's partial stream says which one fell
  * short). Before the freeze it is pending.

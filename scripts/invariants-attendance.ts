@@ -42,11 +42,18 @@ export function attendanceInvariantFixtures(
         botSeatIds: [],
         ...overrides,
       },
-      { decision: 'forfeit', winner: 'negative', effectiveDeadlineMs: 40000 },
+      {
+        evidence: 'settled_availability',
+        decision: 'forfeit',
+        winner: 'negative',
+        effectiveDeadlineMs: 40000,
+      },
     );
   return {
     'attendance-failure-postpones-only': () =>
       attendanceApplication({
+        // An on-time speaker settles alone, so only absence can be postponed.
+        checkIns: [],
         availability: { ...attendanceAvailability, settledHorizonMs: 44999 },
       }),
     'attendance-timestamp-decides': () => attendanceApplication({}),

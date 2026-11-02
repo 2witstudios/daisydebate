@@ -30,7 +30,8 @@ The timestamp key supports the 24-hour prune and the bounded read: a
 Round's attendance evidence starts at the third-latest sample before its
 first speech (`availabilityRecoveryPolicy.recoverySamples`), which fixes the
 outage state that speech opens into, then reads every later sample
-(`availabilitySamplesFrom`, ISSUE-529). It never reads the whole retained day,
+(`availabilitySamplesFrom`, ISSUE-529), starting from the undecided window in
+question, never the Round's first speech. It never reads the whole retained day,
 which at one sample a second outgrew the check-in and evaluation transaction
 budgets on staging. Pending check-ins override current
 peer health and gate the owning Round evaluator conservatively.
@@ -60,12 +61,19 @@ reads its session through the public `get-session` route once an hour
 
 ## Receipts, facts and uncertain attempts
 
+An adjudication records why it holds (ADR 0095). `settled_availability` carries
+the effective deadline and settled horizon. `on_time_receipt` names the
+scheduled speaker's receipt inside the base window and carries neither, so no
+horizon is ever invented. `infrastructure_unresolved` ends a Round with no
+winner once `rounds.attendance_resolution_cutoff_at` passes. The table check
+keeps the three shapes exclusive and `unresolvedAttendance` reads all of them.
+
 `round_check_ins` retains one first stamp per Round/segment/participant, with a
 command ID scoped to the existing global `round_commands` receipt. Principal
 XOR, digest and receipt outcome remain in that ledger. `check_in` does not by
 itself advance competitive runtime version. `round_attendance_adjudications`
 retains one immutable decision per segment, including `none`, with scoped ledger
-receipt, effective deadline and settled horizon. `adjudicate` requires the
+receipt and the evidence that decides it. `adjudicate` requires the
 service principal `round-attendance:<instance cuid2>`; an actor cannot submit it.
 All fact updates and direct deletions are refused. Owning Round erasure cascades
 through an independent Round FK; scoped child/receipt references use deferred

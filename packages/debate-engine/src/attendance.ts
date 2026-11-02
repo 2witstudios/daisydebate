@@ -52,18 +52,62 @@ export function requireAttendanceWindow(
     );
 }
 
+/** Why a decision holds. Positive evidence needs no health history; absence always does. */
 export type AttendanceDecision =
   | {
+      readonly evidence: 'on_time_receipt';
+      readonly decision: 'attended';
+      readonly participantId: string;
+      readonly receivedAtMs: number;
+    }
+  | {
+      readonly evidence: 'settled_availability';
       readonly decision: 'attended' | 'none' | 'abandoned';
       readonly effectiveDeadlineMs: number;
     }
   | {
+      readonly evidence: 'settled_availability';
       readonly decision: 'forfeit';
       readonly winner: DebateSide;
       readonly effectiveDeadlineMs: number;
     };
+type SettledDecision = Extract<
+  AttendanceDecision,
+  { evidence: 'settled_availability' }
+>;
 
-/** The settled evidence, not evaluator wall time or lock arrival, decides absence. */
+/**
+ * The eligible scheduled speaker's receipt inside the base window, fixed by the
+ * actual opening alone. An outage can extend the window, but only settled
+ * evidence can prove that, so a later receipt never qualifies here (DEC-278).
+ */
+export function onTimeSpeakerReceipt(input: {
+  readonly window: AttendanceWindow;
+  readonly checkIns: readonly AttendanceStamp[];
+}): Extract<AttendanceDecision, { evidence: 'on_time_receipt' }> | null {
+  const { window, checkIns } = input;
+  if (
+    window.lastSpeech ||
+    !window.eligibleSeats.some((seat) => seat.id === window.speakerId)
+  )
+    return null;
+  const stamp = checkIns.find(
+    ({ participantId, receivedAtMs }) =>
+      participantId === window.speakerId &&
+      receivedAtMs >= window.openedAtMs - attendancePolicy.leadMs &&
+      receivedAtMs <= window.openedAtMs + attendancePolicy.graceMs,
+  );
+  return stamp
+    ? {
+        evidence: 'on_time_receipt',
+        decision: 'attended',
+        participantId: stamp.participantId,
+        receivedAtMs: stamp.receivedAtMs,
+      }
+    : null;
+}
+
+/** Durable evidence, not evaluator wall time or lock arrival, decides. */
 export function adjudicateAttendance(
   input: WindowEvidence & {
     readonly checkIns: readonly AttendanceStamp[];
@@ -79,6 +123,8 @@ export function adjudicateAttendance(
     );
   const { window, availability } = input;
   if (window.lastSpeech) return null;
+  const onTime = onTimeSpeakerReceipt(input);
+  if (onTime) return onTime;
   const effectiveDeadlineMs = effectiveAttendanceDeadline({
     openedAtMs: window.openedAtMs,
     graceMs: attendancePolicy.graceMs,
@@ -106,9 +152,9 @@ function controlledDecision(
     readonly checkIns: readonly AttendanceStamp[];
     readonly botSeatIds: readonly string[];
   },
-  decision: AttendanceDecision,
+  decision: SettledDecision,
   effectiveDeadlineMs: number,
-): AttendanceDecision {
+): SettledDecision {
   const present = presentSeats(
     input.window,
     input.checkIns,
@@ -134,7 +180,11 @@ function controlledDecision(
     (ifPresent.decision !== 'forfeit' ||
       (decision.decision === 'forfeit' && ifPresent.winner === decision.winner))
     ? decision
-    : { decision: 'abandoned', effectiveDeadlineMs };
+    : {
+        evidence: 'settled_availability',
+        decision: 'abandoned',
+        effectiveDeadlineMs,
+      };
 }
 
 function presentSeats(
@@ -157,21 +207,25 @@ function decisionForStamps(
   window: AttendanceWindow,
   checkIns: readonly AttendanceStamp[],
   effectiveDeadlineMs: number,
-): AttendanceDecision {
+): SettledDecision {
+  const settled = {
+    evidence: 'settled_availability',
+    effectiveDeadlineMs,
+  } as const;
   if (!window.eligibleSeats.some((seat) => seat.id === window.speakerId))
-    return { decision: 'none', effectiveDeadlineMs };
+    return { ...settled, decision: 'none' };
   const present = presentSeats(window, checkIns, effectiveDeadlineMs);
   if (present.has(window.speakerId))
-    return { decision: 'attended', effectiveDeadlineMs };
+    return { ...settled, decision: 'attended' };
   const opponentPresent = window.eligibleSeats.some(
     (seat) => seat.side !== window.speakerSide && present.has(seat.id),
   );
   if (opponentPresent)
     return {
+      ...settled,
       decision: 'forfeit',
       winner: window.speakerSide === 'affirmative' ? 'negative' : 'affirmative',
-      effectiveDeadlineMs,
     };
   const anyPresent = window.eligibleSeats.some((seat) => present.has(seat.id));
-  return { decision: anyPresent ? 'none' : 'abandoned', effectiveDeadlineMs };
+  return { ...settled, decision: anyPresent ? 'none' : 'abandoned' };
 }

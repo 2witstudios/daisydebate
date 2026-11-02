@@ -1,7 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import type { RoundProjection } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { requireCompletionProjection } from './round-unjudged-decisions';
+import { requireCompletionProjection } from './round-panel-decisions';
 
 setupRitewayBun();
 
