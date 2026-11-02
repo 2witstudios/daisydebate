@@ -130,6 +130,10 @@ test('native Start affirmative constructive and enhanced round controls retain c
     await expect(
       page.getByRole('status').filter({ hasText: 'Done.' }),
     ).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Attendance' })).toHaveCount(
+      0,
+    );
+    await expect(page.getByText(/^Attendance /)).toHaveCount(0);
     const yielded = await read();
     expect(yielded.version).toBeGreaterThan(interrupted.version);
     expect(yielded.checkpoint?.floor).toBeNull();
