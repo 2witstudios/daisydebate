@@ -14,11 +14,11 @@ describe('destinations', () => {
       should: 'list the eight destinations in landing order',
       actual: destinationSlugs,
       expected: [
-        'ranked',
         'lobby',
         'watch',
         'judge',
         'tournaments',
+        'seasons',
         'leaderboard',
         'train',
         'prep',
@@ -74,10 +74,15 @@ describe('findDestination', () => {
     assert({
       given: 'unknown, inherited and oddly cased segments',
       should: 'return null',
-      actual: ['unknown', 'Ranked', '', 'constructor', '__proto__'].map(
-        findDestination,
-      ),
-      expected: [null, null, null, null, null],
+      actual: [
+        'unknown',
+        'ranked',
+        'Lobby',
+        '',
+        'constructor',
+        '__proto__',
+      ].map(findDestination),
+      expected: [null, null, null, null, null, null],
     });
   });
 });
