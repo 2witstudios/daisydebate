@@ -12,6 +12,7 @@ export const emptySnapshot = (
   deliveryConsecutiveFailures: 0,
   authRequests: { total: 0, serverErrors: 0, windowMinutes: 10 },
   retentionLastSuccessIso: null,
+  workers: [],
   mailShed: { count: 0, windowMinutes: 10 },
   networkDenied: { count: 0, windowMinutes: 10 },
 });

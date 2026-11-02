@@ -5,6 +5,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { runPrivacyErasure } from '../src/privacy/operations';
 import type { PrivacyAdopter } from '../src/privacy/contracts';
 import { deliverPrivacyJob } from '../src/privacy';
+import { owedPrivacyJobs } from '../src/privacy/vendor-jobs';
 import { bindings, now, withPrivacySubject } from './privacy.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -38,6 +39,7 @@ test('configured vendor outage cannot reverse committed local erasure', async ()
           },
         },
       );
+      const owedInBackoff = await owedPrivacyJobs(database);
       const pending = await client.unsafe(
         'select subject_ref,vendor,status,attempts from privacy_jobs where id=$1',
         [jobId],
@@ -63,6 +65,7 @@ test('configured vendor outage cannot reverse committed local erasure', async ()
         actual: [
           result.jobs.length,
           observedCommit,
+          owedInBackoff >= 1,
           retry,
           pending[0],
           success,
@@ -70,6 +73,7 @@ test('configured vendor outage cannot reverse committed local erasure', async ()
         ],
         expected: [
           1,
+          true,
           true,
           'retry',
           {

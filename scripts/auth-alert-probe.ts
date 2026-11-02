@@ -16,7 +16,7 @@
  *      security-header contract `next.config.ts` sets on every response;
  *   2. reads the already-evaluated conditions from the bearer-token gated
  *      `/api/ops/alerts` (`evaluateAlerts` in
- *      `apps/web/src/server/alert-state.ts` runs server-side, so this
+ *      `apps/web/src/features/ops/alert-state.ts` runs server-side, so this
  *      script never reimplements a threshold — there is exactly one place
  *      each one lives);
  *   3. posts whatever fired to the drive's Incidents channel via the
@@ -31,7 +31,7 @@
  *   OPS_PROBE_TOKEN=<token> bun --no-install scripts/auth-alert-probe.ts \
  *     --origin https://daisy.example.com [--run-url <workflow run URL>]
  */
-import type { AlertCondition } from '../apps/web/src/server/alert-state';
+import type { AlertCondition } from '../apps/web/src/features/ops/alert-state';
 
 /** `auth-alerts.yml`'s `timeout-minutes: 5`: GitHub kills the job after this. */
 export const PROBE_JOB_LIMIT_MS = 5 * 60_000;
@@ -168,6 +168,9 @@ const ALERT_CONDITION_IDS = [
   'delivery_failures',
   'auth_5xx_rate',
   'cleanup_missed',
+  'observation_purges_missed',
+  'privacy_jobs_missed',
+  'file_maintenance_missed',
   'mail_shed',
   'network_limited',
 ] as const satisfies readonly AlertCondition['id'][];
@@ -227,6 +230,9 @@ const UNEVALUATED_WITHOUT_ALERT_STATE = [
   'delivery_failures',
   'auth_5xx_rate',
   'cleanup_missed',
+  'observation_purges_missed',
+  'privacy_jobs_missed',
+  'file_maintenance_missed',
   'mail_shed',
   'network_limited',
 ] as const;

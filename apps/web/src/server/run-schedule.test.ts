@@ -1,9 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { startRetentionSweep } from './retention-sweep';
+import { startRunSchedule } from './run-schedule';
 
 setupRitewayBun();
 
-describe('retention sweep schedule', () => {
+describe('run schedule', () => {
   const fakeTimers = () => {
     const state: { tick?: () => unknown; cleared: unknown[]; ms?: number } = {
       cleared: [],
@@ -24,7 +24,7 @@ describe('retention sweep schedule', () => {
     const state = { started: 0, stopped: false, release: () => {} };
     return {
       state,
-      sweep: {
+      work: {
         run: () => {
           state.started += 1;
           return new Promise<[]>((resolve) => {
@@ -41,8 +41,8 @@ describe('retention sweep schedule', () => {
   test('runs on start, reschedules hourly, skips a tick that overlaps a run, and runs again after it', async () => {
     const { state, timers } = fakeTimers();
     const gated = gatedSweep();
-    const schedule = startRetentionSweep({
-      sweep: gated.sweep,
+    const schedule = startRunSchedule({
+      work: gated.work,
       timers,
       runOnStart: true,
     });
@@ -78,8 +78,8 @@ describe('retention sweep schedule', () => {
     const ready = new Promise<void>((resolve) => {
       releaseReady = resolve;
     });
-    const schedule = startRetentionSweep({
-      sweep: gated.sweep,
+    const schedule = startRunSchedule({
+      work: gated.work,
       timers,
       runOnStart: true,
       waitUntilReady: () => ready.then(() => true),
@@ -111,8 +111,8 @@ describe('retention sweep schedule', () => {
       ].map(async (waitUntilReady) => {
         const { state, timers } = fakeTimers();
         const gated = gatedSweep();
-        const schedule = startRetentionSweep({
-          sweep: gated.sweep,
+        const schedule = startRunSchedule({
+          work: gated.work,
           timers,
           runOnStart: true,
           waitUntilReady,
@@ -141,7 +141,7 @@ describe('retention sweep schedule', () => {
   test('stop clears the timer, stops the sweep, waits for the run in progress and starts no new run', async () => {
     const { state, timers } = fakeTimers();
     const gated = gatedSweep();
-    const schedule = startRetentionSweep({ sweep: gated.sweep, timers });
+    const schedule = startRunSchedule({ work: gated.work, timers });
     void state.tick?.();
     let settled = false;
     const stopping = schedule.stop().then(() => {

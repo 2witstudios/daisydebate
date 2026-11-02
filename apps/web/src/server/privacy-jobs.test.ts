@@ -74,6 +74,7 @@ test('a failed due-read reports failure and an empty batch reports completion', 
       throw new Error('database outage');
     },
     deliver: async () => 'retry',
+    owed: async () => 0,
     clock: fixedClock(now),
     logger,
     intervalMs: 60_000,
@@ -86,6 +87,7 @@ test('a failed due-read reports failure and an empty batch reports completion', 
   const empty = startPrivacyJobs({
     due: async () => [],
     deliver: async () => 'retry',
+    owed: async () => 0,
     clock: fixedClock(now),
     logger,
     intervalMs: 60_000,
@@ -102,12 +104,41 @@ test('a failed due-read reports failure and an empty batch reports completion', 
     actual: {
       runs,
       failedReported: events.filter(
-        (event) => event.event === 'retention.sweep.failed',
+        (event) => event.event === 'worker.run.failed',
       ).length,
       completedReported: events.filter(
-        (event) => event.event === 'retention.sweep.completed',
+        (event) => event.event === 'worker.run.completed',
       ).length,
     },
     expected: { runs: 1, failedReported: 1, completedReported: 1 },
+  });
+});
+
+test('a vendor failure never reports completion, on its retry or the idle runs after it', async () => {
+  const { logger, logged: events } = createEventRecorder();
+  const timers = { setInterval: () => 1, clearInterval: () => {} };
+  const retried = startPrivacyJobs({
+    due: async () => [{ id: 'job', vendor: 'messaging-typing', attempts: 0 }],
+    deliver: async () => 'retry',
+    owed: async () => 1,
+    clock: fixedClock(now),
+    logger,
+    timers,
+  });
+  await retried.stop();
+  const idle = startPrivacyJobs({
+    due: async () => [],
+    deliver: async () => 'retry',
+    owed: async () => 1,
+    clock: fixedClock(now),
+    logger,
+    timers,
+  });
+  await idle.stop();
+  assert({
+    given: 'a job the vendor refused, then an idle run while it backs off',
+    should: 'log the failure once and completion never',
+    actual: events.map(({ event }) => event),
+    expected: ['worker.run.failed'],
   });
 });

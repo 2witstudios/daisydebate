@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { noopErrorReporter } from '@daisy/observability';
-import { createMetricsStore } from '../../server/metrics-store';
+import { createMetricsStore } from './metrics-store';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createMetricsHandler } from './metrics';
 

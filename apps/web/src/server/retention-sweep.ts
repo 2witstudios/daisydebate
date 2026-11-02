@@ -1,10 +1,8 @@
 import type { Clock } from '@daisy/clock';
-import type { WorkerTimers } from '../lib/worker-timers';
 import type { Logger } from '@daisy/logger';
 import type { ProvisionalLinkPurposes } from '@daisy/db';
 
-const HOUR_MS = 3_600_000;
-const DAY_MS = 24 * HOUR_MS;
+const DAY_MS = 86_400_000;
 
 /**
  * One store the sweep prunes: `purge` deletes at most `limit` rows that are
@@ -28,6 +26,15 @@ export type RetentionResult = {
   readonly deleted: number;
   readonly batches: number;
 };
+
+/** True only when every target of the run was swept and succeeded. */
+export const retentionRunSucceeded = (
+  targets: readonly string[],
+  results: readonly RetentionResult[],
+): boolean =>
+  targets.every((name) =>
+    results.some(({ operation, ok }) => operation === name && ok),
+  );
 
 type Batch = { readonly before: string; readonly limit: number };
 
@@ -244,6 +251,10 @@ export function retentionTargets({
  * and the sweep moves to the next, so one broken store never stops the
  * others. Only counts and a stable error code are logged, never row
  * content or the error.
+ *
+ * `retention.run.completed` is the run's own outcome and the only event the
+ * `cleanup_missed` marker reads (ISSUE-1007): logged once, and only when
+ * every target succeeded and shutdown cut nothing short.
  */
 export function createRetentionSweep({
   targets,
@@ -296,82 +307,19 @@ export function createRetentionSweep({
         if (stopped) break;
         results.push(await sweepTarget(target, now));
       }
+      if (
+        !stopped &&
+        retentionRunSucceeded(
+          targets.map(({ name }) => name),
+          results,
+        )
+      )
+        logger.log(
+          'retention.run.completed',
+          { deleted: results.reduce((sum, { deleted }) => sum + deleted, 0) },
+          'Retention run completed',
+        );
       return results;
-    },
-  };
-}
-
-/**
- * Hourly schedule inside the existing server process (no new service).
- * Every instance runs it; that is safe because every batch is race-free
- * (`SKIP LOCKED`, one atomic Lua op). A tick that arrives while this
- * process is still sweeping is skipped.
- */
-export function startRetentionSweep({
-  sweep,
-  timers,
-  intervalMs = HOUR_MS,
-  runOnStart = false,
-  waitUntilReady,
-}: {
-  readonly sweep: {
-    readonly run: () => Promise<readonly RetentionResult[]>;
-    readonly stop: () => void;
-  };
-  readonly timers: WorkerTimers;
-  readonly intervalMs?: number;
-  /** Also sweep once now: processes restarted more often than hourly still prune. */
-  readonly runOnStart?: boolean;
-  /**
-   * Resolves true once the start-up run's dependencies are reachable
-   * (ISSUE-146): a freshly started Fly machine's Redis connection is not
-   * necessarily ready the instant this process starts listening, so
-   * `runOnStart`'s one run waits here instead of logging a spurious
-   * `retention.sweep.failed` on every cold boot. Resolving false or
-   * rejecting means the dependencies never became reachable: the start-up
-   * run is skipped and the next hourly tick sweeps instead. Omitted, the
-   * start-up run fires synchronously. Ignored when `runOnStart` is false;
-   * the hourly schedule never waits on it. Reserves `current` for the whole wait, so a timer
-   * tick that arrives during it is skipped rather than racing the start-up
-   * run.
-   */
-  readonly waitUntilReady?: () => Promise<boolean>;
-}) {
-  let stopped = false;
-  let current: Promise<unknown> | undefined;
-  const tick = async () => {
-    if (stopped || current) return;
-    const run = sweep.run().finally(() => {
-      current = undefined;
-    });
-    current = run;
-    await run;
-  };
-  const handle = timers.setInterval(tick, intervalMs);
-  let initial: Promise<unknown> | undefined;
-  if (runOnStart) {
-    if (waitUntilReady) {
-      const started = waitUntilReady()
-        .catch(() => false)
-        .then((ready) => {
-          current = undefined;
-          return ready ? tick() : undefined;
-        });
-      current = started;
-      initial = started;
-    } else {
-      initial = tick();
-    }
-  }
-  return {
-    /** The start-up run, when `runOnStart` is set. */
-    initial,
-    /** Stops scheduling and resolves once any run in progress has ended. */
-    stop: async () => {
-      stopped = true;
-      timers.clearInterval(handle);
-      sweep.stop();
-      await current;
     },
   };
 }

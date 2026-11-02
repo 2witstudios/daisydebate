@@ -33,6 +33,7 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
         deliveryConsecutiveFailures: 0,
         authRequests: { total: 0, serverErrors: 0, windowMinutes: 10 },
         retentionLastSuccessIso: null,
+        workers: [],
         mailShed: { count: 500, windowMinutes: 10 },
         networkDenied: { count: 50_000, windowMinutes: 10 },
       }).map((c) => c.id),
@@ -55,6 +56,7 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
         await readAlertSnapshot({
           redis: redisWith(redisSince),
           clock,
+          workers: [],
           local: localWith(localSince),
         })
       ).limiterUnavailableSinceIso;
@@ -86,6 +88,7 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
       actual: await readAlertSnapshot({
         redis,
         clock,
+        workers: [],
         local: { limiterUnavailableSince: () => since },
       }),
       expected: {
@@ -102,6 +105,7 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
     const snapshot = await readAlertSnapshot({
       redis: stalled,
       clock,
+      workers: [],
       local: { limiterUnavailableSince: () => since },
       readTimeoutMs: 50,
     });

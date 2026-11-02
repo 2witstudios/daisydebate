@@ -1,12 +1,14 @@
 import type { Clock } from '@daisy/clock';
 import type { LogFields, Logger } from '@daisy/logger';
+import { workerSuccessKey } from './alert-state';
+import { isScheduledWorker } from './scheduled-worker';
 
 const MINUTE_MS = 60_000;
 /** Bridges the 2-minute unavailability threshold across gaps between failures without pinning the incident's start to the most recent one. Re-armed on every occurrence (markOccurrenceSince), so a continuous outage never lets the since-time lapse. */
 const UNAVAILABLE_MARK_TTL_SECONDS = 180;
 /** A quiet hour resets the consecutive-failure count; no legitimate retry cadence needs longer. */
 const DELIVERY_FAILURE_WINDOW_SECONDS = 60 * 60;
-/** Long-lived on purpose: cleared only by an actual successful sweep, so a multi-hour outage stays visible (ADR: see docs/decisions). */
+/** Long-lived on purpose: refreshed only by an actual successful run, so a multi-hour outage stays visible (ADR: see docs/decisions). */
 const RETENTION_SUCCESS_TTL_SECONDS = 30 * 24 * 60 * 60;
 /** Outlives the 10-minute read windows `alert-state.ts` sums over. */
 const HTTP_BUCKET_TTL_SECONDS = 11 * 60;
@@ -160,7 +162,9 @@ export function createAlertRecorder({
         case 'mail.sent':
           swallow(redis.delete('alert-mail-consecutive-failures'));
           return;
-        case 'retention.sweep.completed':
+        // ISSUE-1007: the run, never a target: one target's success says
+        // nothing about the others.
+        case 'retention.run.completed':
           swallow(
             redis.setEphemeral(
               'alert-retention-last-success',
@@ -168,6 +172,16 @@ export function createAlertRecorder({
               RETENTION_SUCCESS_TTL_SECONDS,
             ),
           );
+          return;
+        case 'worker.run.completed':
+          if (isScheduledWorker(fields.operation))
+            swallow(
+              redis.setEphemeral(
+                workerSuccessKey(fields.operation),
+                clock.now(),
+                RETENTION_SUCCESS_TTL_SECONDS,
+              ),
+            );
           return;
         case 'http.request.completed':
         case 'http.request.failed':

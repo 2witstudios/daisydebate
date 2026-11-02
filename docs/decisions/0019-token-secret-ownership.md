@@ -69,6 +69,8 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `port`                   | count |
 | `deleted`                | count |
 | `batches`                | count |
+| `delivered`              | count |
+| `retried`                | count |
 | `closeCode`              | count |
 | `deliverySeqLagEstimate` | count |
 | `retained`               | count |

@@ -1,3 +1,4 @@
+import type { OperationName } from '../ops/operation-names';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { contactBlockResultSchema } from '@daisy/protocol';
 import { readJson } from '../../server/http';
@@ -19,17 +20,18 @@ export function createContactHandlers(dependencies: {
   readonly block: BlockOperation;
   readonly blockByUsername: BlockOperation;
 }) {
-  const run = (name: string, operation: BlockOperation) => (request: Request) =>
-    runMemberHandler(dependencies.boundary, request, {
-      name,
-      readOnly: false,
-      readInput: () => readJson(request, MAX_BODY_BYTES),
-      operation: async (input, principal) =>
-        contactBlockResultSchema.parse({
-          version: 1,
-          ...(await operation(input, principal)),
-        }),
-    });
+  const run =
+    (name: OperationName, operation: BlockOperation) => (request: Request) =>
+      runMemberHandler(dependencies.boundary, request, {
+        name,
+        readOnly: false,
+        readInput: () => readJson(request, MAX_BODY_BYTES),
+        operation: async (input, principal) =>
+          contactBlockResultSchema.parse({
+            version: 1,
+            ...(await operation(input, principal)),
+          }),
+      });
   return {
     block: run('contacts.block', dependencies.block),
     blockByUsername: run(

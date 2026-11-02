@@ -143,7 +143,7 @@ exactly one place.
   outage: the 503s it causes are never counted. `limiter_unavailable`
   covers that outage, since every auth route passes the limiter, and the
   probe's readiness check answers 503 throughout (ISSUE-191).
-- **Cleanup missed.** `retention.sweep.completed` sets a durable
+- **Cleanup missed** (superseded: [ADR 0100](0100-operational-signals-report-what-happened.md), the marker reads `retention.run.completed`). `retention.sweep.completed` sets a durable
   `alert-retention-last-success` marker (30-day TTL, effectively
   "durable" relative to the 2-hour threshold); `retention.sweep.failed`
   touches nothing, so a persistently failing or never-running sweep goes
@@ -219,7 +219,7 @@ auth HTTP responses by status class (`2xx`/`3xx`/`4xx`/`5xx` — 4 values),
 rate-limit denied/unavailable totals, mail delivery failure total, and
 retention sweep failures by target name (`retentionTargets`' own fixed set
 of ~6 names), plus the `auth_http_request_duration_ms` latency histogram
-by operation (`KNOWN_OPERATIONS` plus `other`). No field is ever an email,
+by operation (now `http_request_duration_ms` over the closed `OperationName` type, [ADR 0100](0100-operational-signals-report-what-happened.md)). No field is ever an email,
 token, IP, or other unbounded value. Each counter, the histogram and each
 alert marker is proven through the
 composed app, from real requests, outages and sweeps, by

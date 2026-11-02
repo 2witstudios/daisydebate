@@ -86,3 +86,18 @@ export async function deliverObservationPurges(
         and created_at = ${row.createdAt.toISOString()}::timestamptz`);
   return { succeeded: rows.length, retried: 0 };
 }
+
+/**
+ * Jobs a failed delivery left in backoff: an obligation still unpaid, which
+ * an idle run between retries must not report as healthy (ISSUE-1007).
+ */
+export async function owedObservationPurges(
+  database: Execute,
+): Promise<number> {
+  const rows = (await database.execute(sql`select count(*)::int as owed
+    from observation_purge_jobs
+    where status = 'pending' and attempts > 0`)) as unknown as {
+    owed: number;
+  }[];
+  return rows[0]?.owed ?? 0;
+}

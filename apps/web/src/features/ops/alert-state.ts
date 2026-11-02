@@ -1,4 +1,5 @@
 import { withTimeout } from '@daisy/observability';
+import type { ScheduledWorkerName } from './scheduled-worker';
 
 const MINUTE_MS = 60_000;
 
@@ -62,6 +63,12 @@ export type AlertSnapshot = {
     readonly windowMinutes: number;
   };
   readonly retentionLastSuccessIso: string | null;
+  /** The workers this process runs, each with its last healthy run. */
+  readonly workers: readonly {
+    readonly name: ScheduledWorkerName;
+    readonly missedAfterMs: number;
+    readonly lastSuccessIso: string | null;
+  }[];
   /** `mail.shed` events over the trailing window (ISSUE-220). */
   readonly mailShed: {
     readonly count: number;
@@ -74,12 +81,20 @@ export type AlertSnapshot = {
   };
 };
 
+const WORKER_ALERT_IDS = {
+  observation_purges: 'observation_purges_missed',
+  privacy_jobs: 'privacy_jobs_missed',
+  messaging_file_maintenance: 'file_maintenance_missed',
+} as const satisfies Record<ScheduledWorkerName, string>;
+type WorkerAlertId = (typeof WORKER_ALERT_IDS)[ScheduledWorkerName];
+
 type AlertConditionId =
   | 'storage_unavailable'
   | 'limiter_unavailable'
   | 'delivery_failures'
   | 'auth_5xx_rate'
   | 'cleanup_missed'
+  | WorkerAlertId
   | 'mail_shed'
   | 'network_limited';
 
@@ -95,6 +110,9 @@ const RUNBOOK_ANCHOR = {
   delivery_failures: '#delivery-provider-failing-repeatedly',
   auth_5xx_rate: '#auth-5xx-error-rate-elevated',
   cleanup_missed: '#retention-cleanup-missed',
+  observation_purges_missed: '#scheduled-worker-missed',
+  privacy_jobs_missed: '#scheduled-worker-missed',
+  file_maintenance_missed: '#scheduled-worker-missed',
   mail_shed: '#auth-mail-shed-past-the-bound',
   network_limited: '#magic-link-requests-limited-per-network',
 } as const satisfies Record<AlertConditionId, string>;
@@ -169,11 +187,28 @@ const checkCleanupMissed = (
         id: 'cleanup_missed',
         summary:
           snapshot.retentionLastSuccessIso === null
-            ? 'Retention sweep has not completed successfully since boot'
-            : `Retention sweep last succeeded ${snapshot.retentionLastSuccessIso}`,
+            ? 'No retention run has succeeded on every target'
+            : `Last retention run to succeed on every target: ${snapshot.retentionLastSuccessIso}`,
         runbook: runbook('cleanup_missed'),
       }
     : undefined;
+
+/** ISSUE-1007: each running worker against its own marker and threshold. */
+const missedWorkers = (snapshot: AlertSnapshot): readonly AlertCondition[] =>
+  snapshot.workers
+    .filter(
+      ({ lastSuccessIso, missedAfterMs }) =>
+        lastSuccessIso === null ||
+        elapsedMs(lastSuccessIso, snapshot.nowIso) >= missedAfterMs,
+    )
+    .map(({ name, lastSuccessIso }) => ({
+      id: WORKER_ALERT_IDS[name],
+      summary:
+        lastSuccessIso === null
+          ? `Worker ${name} has not had a healthy run`
+          : `Worker ${name} last healthy ${lastSuccessIso}`,
+      runbook: runbook(WORKER_ALERT_IDS[name]),
+    }));
 
 const checkMailShed = (snapshot: AlertSnapshot): AlertCondition | undefined =>
   snapshot.mailShed.count >= ALERT_THRESHOLDS.mailShedCount
@@ -210,6 +245,33 @@ const ALERT_CHECKS: readonly AlertCheck[] = [
 /** The one check whose state this process keeps without Redis (ISSUE-191). */
 const IN_PROCESS_CHECKS: readonly AlertCheck[] = [checkLimiterUnavailable];
 
+const OBSERVATION_PURGES_MISSED_MS = 15 * MINUTE_MS;
+const WORKER_MISSED_FLOOR_MS = 2 * 60 * MINUTE_MS;
+
+/**
+ * The workers a process runs, each given longer than its backoff ceiling
+ * (observation purges 5 minutes, privacy jobs an hour) so one retry never
+ * fires. File maintenance runs only when configured, and at any interval, so
+ * it also gets three of its own intervals.
+ */
+export const runningWorkers = (input: {
+  readonly fileMaintenanceIntervalMs: number | null;
+}): readonly RunningWorker[] => [
+  { name: 'observation_purges', missedAfterMs: OBSERVATION_PURGES_MISSED_MS },
+  { name: 'privacy_jobs', missedAfterMs: WORKER_MISSED_FLOOR_MS },
+  ...(input.fileMaintenanceIntervalMs === null
+    ? []
+    : [
+        {
+          name: 'messaging_file_maintenance' as const,
+          missedAfterMs: Math.max(
+            WORKER_MISSED_FLOOR_MS,
+            3 * input.fileMaintenanceIntervalMs,
+          ),
+        },
+      ]),
+];
+
 /**
  * AUTH-7.7's four alert conditions, evaluated from a snapshot the caller
  * already read (`readAlertSnapshot`). Pure: every threshold and duration
@@ -221,11 +283,15 @@ export function evaluateAlerts(
 ): readonly AlertCondition[] {
   const checks =
     snapshot.redisState === 'read' ? ALERT_CHECKS : IN_PROCESS_CHECKS;
-  return checks
-    .map((check) => check(snapshot))
-    .filter(
-      (condition): condition is AlertCondition => condition !== undefined,
-    );
+  return [
+    ...checks
+      .map((check) => check(snapshot))
+      .filter(
+        (condition): condition is AlertCondition => condition !== undefined,
+      ),
+    // An unread Redis leaves `workers` empty, so this adds nothing then.
+    ...missedWorkers(snapshot),
+  ];
 }
 
 export type AlertStateRedis = {
@@ -246,6 +312,15 @@ const HTTP_TOTAL_KEY = (bucket: number) => `alert-http-total-${bucket}`;
 const HTTP_5XX_KEY = (bucket: number) => `alert-http-5xx-${bucket}`;
 const MAIL_SHED_KEY = (bucket: number) => `alert-mail-shed-${bucket}`;
 const NETWORK_DENIED_KEY = (bucket: number) => `alert-network-denied-${bucket}`;
+/** One worker's last healthy run, written by `alert-recorder.ts`. */
+export const workerSuccessKey = (name: ScheduledWorkerName) =>
+  `alert-worker-last-success-${name}`;
+
+/** A worker this process runs, and how long it may go without a healthy run. */
+export type RunningWorker = {
+  readonly name: ScheduledWorkerName;
+  readonly missedAfterMs: number;
+};
 
 /**
  * Reads the durable, bounded-cardinality Redis state `alert-recorder.ts`
@@ -258,12 +333,14 @@ export async function readAlertSnapshot({
   redis,
   local,
   clock,
+  workers,
   windowMinutes = ALERT_THRESHOLDS.auth5xxWindowMinutes,
   readTimeoutMs = ALERT_STATE_READ_TIMEOUT_MS,
 }: {
   readonly redis: AlertStateRedis;
   readonly local: LocalAlertState;
   readonly clock: AlertClock;
+  readonly workers: readonly RunningWorker[];
   readonly windowMinutes?: number;
   readonly readTimeoutMs?: number;
 }): Promise<AlertSnapshot> {
@@ -274,6 +351,7 @@ export async function readAlertSnapshot({
       { get: (key) => withTimeout(redis.get(key), readTimeoutMs) },
       nowIso,
       windowMinutes,
+      workers,
     );
     return {
       ...read,
@@ -293,6 +371,7 @@ export async function readAlertSnapshot({
       deliveryConsecutiveFailures: 0,
       authRequests: { total: 0, serverErrors: 0, windowMinutes },
       retentionLastSuccessIso: null,
+      workers: [],
       mailShed: {
         count: 0,
         windowMinutes: ALERT_THRESHOLDS.mailShedWindowMinutes,
@@ -312,6 +391,7 @@ async function readRedisMarkers(
   redis: AlertStateRedis,
   nowIso: string,
   windowMinutes: number,
+  workers: readonly RunningWorker[],
 ): Promise<AlertSnapshot> {
   const currentBucket = Math.floor(Date.parse(nowIso) / MINUTE_MS);
   const trailing = (minutes: number) =>
@@ -324,6 +404,7 @@ async function readRedisMarkers(
     limiterSince,
     mailFailures,
     retentionLastSuccess,
+    workerValues,
     shedValues,
     networkValues,
     ...bucketValues
@@ -332,6 +413,7 @@ async function readRedisMarkers(
     redis.get('alert-unavailable-limiter'),
     redis.get('alert-mail-consecutive-failures'),
     redis.get('alert-retention-last-success'),
+    Promise.all(workers.map(({ name }) => redis.get(workerSuccessKey(name)))),
     Promise.all(shedBuckets.map((bucket) => redis.get(MAIL_SHED_KEY(bucket)))),
     Promise.all(
       networkBuckets.map((bucket) => redis.get(NETWORK_DENIED_KEY(bucket))),
@@ -355,6 +437,10 @@ async function readRedisMarkers(
     deliveryConsecutiveFailures: Number(mailFailures ?? 0),
     authRequests: { total, serverErrors, windowMinutes },
     retentionLastSuccessIso: retentionLastSuccess,
+    workers: workers.map((worker, index) => ({
+      ...worker,
+      lastSuccessIso: workerValues[index] ?? null,
+    })),
     mailShed: {
       count: sumOf(shedValues),
       windowMinutes: ALERT_THRESHOLDS.mailShedWindowMinutes,

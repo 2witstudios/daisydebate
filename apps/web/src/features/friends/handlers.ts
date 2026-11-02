@@ -55,7 +55,7 @@ export function createFriendHandlers(dependencies: {
 }) {
   const write = (
     request: Request,
-    name: string,
+    name: 'request' | 'respond' | 'remove',
     command: (input: unknown) => {
       readonly command: FriendshipCommand;
       readonly username: string;
@@ -100,7 +100,7 @@ export function createFriendHandlers(dependencies: {
     });
   const read = <T>(
     request: Request,
-    name: string,
+    name: 'list' | 'counts',
     operation: (principal: AuthorizationPrincipal) => Promise<T>,
     headers: Readonly<Record<string, string>> = {},
   ) =>

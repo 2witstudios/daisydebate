@@ -89,15 +89,13 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
     });
   });
 
-  test('records the last successful sweep on retention.sweep.completed', () => {
-    const { redis, calls } = fakeAlertRedis();
+  test('records the last successful run only on retention.run.completed (ISSUE-1007)', () => {
+    const { calls, redis } = fakeAlertRedis();
     const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
-    recorder.observe('retention.sweep.completed', {
-      operation: 'retention.session',
-    });
+    recorder.observe('retention.run.completed', { deleted: 3 });
     assert({
-      given: 'a completed retention sweep',
-      should: 'record the durable last-success marker',
+      given: 'a retention run that succeeded on every target',
+      should: 'set the durable marker with a long TTL',
       actual: calls,
       expected: [
         {
@@ -108,17 +106,44 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
     });
   });
 
-  test('never records anything for retention.sweep.failed (lets it go stale)', () => {
-    const { redis, calls } = fakeAlertRedis();
+  test('one target completing or failing leaves the retention marker alone', () => {
+    const { calls, redis } = fakeAlertRedis();
     const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
+    recorder.observe('retention.sweep.completed', {
+      operation: 'retention.session',
+      deleted: 3,
+      batches: 1,
+    });
     recorder.observe('retention.sweep.failed', {
       operation: 'retention.session',
     });
     assert({
-      given: 'a failed retention sweep',
-      should: 'touch nothing, so cleanup_missed can fire once stale enough',
+      given: 'per-target events, which say nothing about the whole run',
+      should: 'record nothing',
       actual: calls,
       expected: [],
+    });
+  });
+
+  test('a healthy worker refreshes only its own marker', () => {
+    const { calls, redis } = fakeAlertRedis();
+    const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
+    recorder.observe('worker.run.completed', {
+      operation: 'privacy_jobs',
+      delivered: 1,
+    });
+    recorder.observe('worker.run.failed', { operation: 'privacy_jobs' });
+    recorder.observe('worker.run.completed', { operation: 'not_a_worker' });
+    assert({
+      given: 'a healthy run, a failed run and an unknown name',
+      should: 'write one marker, keyed by the worker',
+      actual: calls,
+      expected: [
+        {
+          op: 'setEphemeral',
+          args: ['alert-worker-last-success-privacy_jobs', NOW, 2_592_000],
+        },
+      ],
     });
   });
 
@@ -233,11 +258,7 @@ describe('withAlertRecording (AUTH-7.7)', () => {
     });
     wrapped.log('mail.failed', {}, 'msg');
     const child = wrapped.child({ requestId: 'r1' });
-    child.log(
-      'retention.sweep.completed',
-      { operation: 'retention.session' },
-      'msg',
-    );
+    child.log('retention.run.completed', { deleted: 1 }, 'msg');
     assert({
       given: 'a top-level log and a child log',
       should: 'observe both and still forward both to the wrapped logger',
@@ -246,8 +267,8 @@ describe('withAlertRecording (AUTH-7.7)', () => {
         loggedEvents: logged.map((entry) => entry.event),
       },
       expected: {
-        observedEvents: ['mail.failed', 'retention.sweep.completed'],
-        loggedEvents: ['mail.failed', 'retention.sweep.completed'],
+        observedEvents: ['mail.failed', 'retention.run.completed'],
+        loggedEvents: ['mail.failed', 'retention.run.completed'],
       },
     });
   });

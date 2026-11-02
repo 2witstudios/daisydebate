@@ -2,7 +2,8 @@ import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { createAppError } from '@daisy/errors';
 import type { DuePrivacyJob, PrivacyVendor } from '@daisy/db/privacy';
-import { createRetentionSweep, startRetentionSweep } from './retention-sweep';
+import { createScheduledWorker } from '../features/ops/scheduled-worker';
+import { startRunSchedule } from './run-schedule';
 import type { App } from './app';
 import type { WorkerTimers } from '../lib/worker-timers';
 
@@ -70,7 +71,7 @@ const privacyJobRetryAt = (now: string, attempts: number): string =>
  * reads one bounded batch of due `privacy_jobs`, oldest first, and delivers
  * each through its vendor's port — `deliver` owns claiming, the vendor call
  * and recording success. A vendor failure leaves the job pending with
- * backoff; the next run retries it. The sweep logs counts only, never
+ * backoff; the next run retries it. The run logs counts only, never
  * subjects or vendor errors.
  */
 export function startPrivacyJobs(input: {
@@ -83,37 +84,34 @@ export function startPrivacyJobs(input: {
     now: string,
     retryAt: string,
   ) => Promise<'idle' | 'retry' | 'succeeded'>;
+  /** Jobs that failed and wait in backoff: this worker's unpaid obligations. */
+  readonly owed: () => Promise<number>;
   readonly clock: Clock;
   readonly logger: Logger;
   readonly timers: WorkerTimers;
   readonly intervalMs?: number;
 }) {
-  const sweep = createRetentionSweep({
-    clock: input.clock,
-    logger: input.logger,
-    targets: [
-      {
-        name: 'retention.privacy_jobs',
-        batchSize: PRIVACY_JOBS_BATCH,
-        maxBatches: 1,
-        purge: async ({ now, limit }) => {
-          const jobs = await input.due({ now, limit });
-          let delivered = 0;
-          for (const job of jobs) {
-            const outcome = await input.deliver(
-              job,
-              now,
-              privacyJobRetryAt(now, job.attempts),
-            );
-            if (outcome === 'succeeded') delivered += 1;
-          }
-          return delivered;
-        },
+  return startRunSchedule({
+    work: createScheduledWorker({
+      name: 'privacy_jobs',
+      clock: input.clock,
+      logger: input.logger,
+      pass: async (now) => {
+        const jobs = await input.due({ now, limit: PRIVACY_JOBS_BATCH });
+        let delivered = 0;
+        let retried = 0;
+        for (const job of jobs) {
+          const outcome = await input.deliver(
+            job,
+            now,
+            privacyJobRetryAt(now, job.attempts),
+          );
+          if (outcome === 'succeeded') delivered += 1;
+          if (outcome === 'retry') retried += 1;
+        }
+        return { delivered, retried, owed: await input.owed() };
       },
-    ],
-  });
-  return startRetentionSweep({
-    sweep,
+    }),
     timers: input.timers,
     intervalMs: input.intervalMs ?? PRIVACY_JOBS_INTERVAL_MS,
     runOnStart: true,

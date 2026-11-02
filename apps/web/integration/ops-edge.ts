@@ -141,7 +141,7 @@ export const sampleOf = (text: string, series: string) => {
 };
 
 /**
- * `auth_http_request_duration_ms` for one operation label: every bucket by
+ * `http_request_duration_ms` for one operation label: every bucket by
  * its `le`, the sum and the count; undefined when the label has no series.
  */
 export const latencyHistogramOf = (text: string, operation: string) => {
@@ -150,8 +150,7 @@ export const latencyHistogramOf = (text: string, operation: string) => {
     .split('\n')
     .filter(
       (line) =>
-        line.startsWith('auth_http_request_duration_ms_') &&
-        line.includes(label),
+        line.startsWith('http_request_duration_ms_') && line.includes(label),
     );
   if (lines.length === 0) return undefined;
   const buckets: Record<string, number> = {};
@@ -161,7 +160,7 @@ export const latencyHistogramOf = (text: string, operation: string) => {
   }
   return {
     buckets,
-    sum: sampleOf(text, `auth_http_request_duration_ms_sum${label}}`),
-    count: sampleOf(text, `auth_http_request_duration_ms_count${label}}`),
+    sum: sampleOf(text, `http_request_duration_ms_sum${label}}`),
+    count: sampleOf(text, `http_request_duration_ms_count${label}}`),
   };
 };

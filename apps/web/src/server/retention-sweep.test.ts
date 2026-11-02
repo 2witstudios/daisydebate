@@ -53,7 +53,7 @@ describe('retention sweep run', () => {
       given:
         'a first target with a backlog of 7 and a second with 2, batch size 3',
       should:
-        'call each target with the run’s clock and its batch size until a short batch, and log one completed event per target',
+        'call each target with the run’s clock and its batch size until a short batch, log one completed event per target, then one for the whole run',
       actual: {
         results,
         firstCalls: first.calls,
@@ -76,6 +76,7 @@ describe('retention sweep run', () => {
             'retention.sweep.completed',
             { operation: 'retention.second', deleted: 2, batches: 1 },
           ],
+          ['retention.run.completed', { deleted: 9 }],
         ],
       },
     });
