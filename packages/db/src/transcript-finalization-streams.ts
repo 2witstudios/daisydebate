@@ -24,11 +24,15 @@ export async function lockFinalizationStreams(
     )
     .for('update');
   // Discovery from actual history, never from seal rows or a predicted timetable.
+  // A human owes a stream for every grant. A bot owes one only where it published:
+  // each frame is credited before it is sent, so no credit means it never spoke.
   const expected =
     (await tx.execute(sql`select distinct i.segment_id as "segmentId", i.round_participant_id as "roundParticipantId"
     from round_speaking_intervals i join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
     join actors a on a.id=p.actor_id
     where i.round_id=${roundId} and p.role<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)
+      and (a.kind<>'bot' or exists(select 1 from round_bot_publication_windows w
+        where w.round_id=i.round_id and w.segment_id=i.segment_id and w.round_participant_id=i.round_participant_id))
     order by i.segment_id, i.round_participant_id`)) as unknown as ExpectedTranscriptStream[];
   return { streams, expected };
 }
