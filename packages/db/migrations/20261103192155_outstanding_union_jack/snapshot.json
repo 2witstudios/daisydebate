@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "897a5e92-93b4-414b-a185-00d522fbc083",
+  "id": "ed2d9ced-e134-49de-a998-4efb0ed66098",
   "prevIds": [
-    "76f39dc1-2cc6-49bc-9eb4-3dc57d9abc0a"
+    "27c0ba7f-486d-4bab-ab09-08a7161ed9c1"
   ],
   "ddl": [
     {
@@ -15061,6 +15061,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "recording_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"ended_at\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "recording_captures_open_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "recording_captures"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "due_at",
           "isExpression": false,
           "asc": true,
@@ -23386,7 +23407,7 @@
       "table": "broadcasts"
     },
     {
-      "value": "\"release_policy\"->>'kind' in ('delay','round_end','at')",
+      "value": "\"release_policy\"->>'kind' = 'delay'",
       "name": "broadcasts_release_policy_check",
       "entityType": "checks",
       "schema": "public",
@@ -25500,5 +25521,7 @@
       "table": "utterances"
     }
   ],
-  "renames": []
+  "renames": [
+    "public.rounds.rounds_rated_ladder_check->public.rounds.rounds_ranked_ladder_check"
+  ]
 }

@@ -37,6 +37,7 @@ CREATE TABLE "broadcasts" (
 	"revocation_failures" integer DEFAULT 0 NOT NULL,
 	"next_segment" integer DEFAULT 0 NOT NULL,
 	"egress_generation" integer DEFAULT 0 NOT NULL,
+	"release_skips" jsonb DEFAULT '{"clips":[]}' NOT NULL,
 	"released_generation" integer DEFAULT 1 NOT NULL,
 	"hold_cursor" integer DEFAULT 0 NOT NULL,
 	"stream_ended_at" timestamp with time zone,
@@ -57,7 +58,8 @@ CREATE TABLE "broadcasts" (
 	"feed_key" text NOT NULL,
 	CONSTRAINT "broadcasts_delivery_path_check" CHECK ("delivery_path" in ('owned_hls')),
 	CONSTRAINT "broadcasts_release_policy_is_object" CHECK (jsonb_typeof("release_policy") = 'object'),
-	CONSTRAINT "broadcasts_release_policy_check" CHECK ("release_policy"->>'kind' in ('delay','round_end','at')),
+	CONSTRAINT "broadcasts_release_skips_is_object" CHECK (jsonb_typeof("release_skips") = 'object'),
+	CONSTRAINT "broadcasts_release_policy_check" CHECK ("release_policy"->>'kind' = 'delay'),
 	CONSTRAINT "broadcasts_cursor_check" CHECK ("next_segment" >= 0 and "hold_cursor" >= 0 and "egress_generation" >= 0 and "released_generation" >= 1 and "revocation_failures" >= 0 and "lease_epoch" >= 0 and "chat_slow_mode_seconds" between 0 and 3600),
 	CONSTRAINT "broadcasts_lease_check" CHECK (("lease_owner" is null) = ("lease_until" is null)),
 	CONSTRAINT "broadcasts_stop_check" CHECK (("stopped_at" is null) = ("stop_reason" is null)),
@@ -160,7 +162,7 @@ CREATE TABLE "recording_processing_jobs" (
 	"lease_epoch" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "recording_jobs_status_check" CHECK ("status" in ('waiting', 'queued', 'built', 'failed', 'discarding', 'settled')),
+	CONSTRAINT "recording_jobs_status_check" CHECK ("status" in ('waiting', 'queued', 'built', 'failed', 'discarding', 'stripping', 'stripped', 'settled')),
 	CONSTRAINT "recording_processing_jobs_state_is_object" CHECK (jsonb_typeof("state") = 'object'),
 	CONSTRAINT "recording_jobs_state_status_check" CHECK ("state"->>'status' = "status"),
 	CONSTRAINT "recording_jobs_counters_check" CHECK ("runs_started" >= 0 and "lease_epoch" >= 0),
@@ -255,7 +257,8 @@ CREATE INDEX "notifications_read_idx" ON "notifications" ("read_at") WHERE "read
 CREATE INDEX "notifications_round_idx" ON "notifications" ("round_id");--> statement-breakpoint
 CREATE INDEX "notifications_debater_idx" ON "notifications" ("debater_actor_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "recording_captures_round_unique" ON "recording_captures" ("round_id");--> statement-breakpoint
-CREATE INDEX "recording_jobs_claimable_idx" ON "recording_processing_jobs" ("due_at") WHERE "status" in ('queued', 'discarding');--> statement-breakpoint
+CREATE INDEX "recording_captures_open_idx" ON "recording_captures" ("recording_id") WHERE "ended_at" is null;--> statement-breakpoint
+CREATE INDEX "recording_jobs_claimable_idx" ON "recording_processing_jobs" ("due_at") WHERE "status" in ('queued', 'discarding', 'stripping');--> statement-breakpoint
 CREATE INDEX "recording_jobs_answerable_idx" ON "recording_processing_jobs" ("updated_at") WHERE "status" <> 'settled';--> statement-breakpoint
 CREATE UNIQUE INDEX "recordings_round_unique" ON "recordings" ("round_id");--> statement-breakpoint
 CREATE INDEX "recordings_status_idx" ON "recordings" ("status","updated_at");--> statement-breakpoint
@@ -413,3 +416,11 @@ CREATE VIEW "broadcast_private_history" AS
   JOIN round_private_spans p ON p.round_id = b.round_id;--> statement-breakpoint
 GRANT SELECT ON "broadcast_public_history" TO daisy_broadcast_worker;--> statement-breakpoint
 GRANT SELECT ON "broadcast_private_history" TO daisy_broadcast_worker;
+--> statement-breakpoint
+-- Whether a Recording will clear a Broadcast's hold, for the worker that would otherwise
+-- clear it. The view runs as its owner, so this grants no Recording table (ADR 0099).
+CREATE VIEW "broadcast_recording_claims" AS
+  SELECT b.id AS broadcast_id
+  FROM broadcasts b
+  JOIN recordings r ON r.round_id = b.round_id;--> statement-breakpoint
+GRANT SELECT ON "broadcast_recording_claims" TO daisy_broadcast_worker;
