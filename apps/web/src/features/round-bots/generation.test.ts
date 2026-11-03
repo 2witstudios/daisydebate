@@ -69,7 +69,7 @@ test('a synthesized phrase carries its segment end to the publisher', async () =
       model: 'model',
       profile: { voice: 'voice' },
       round: {
-        segments: [{ id: scope.segmentId, startedAt, durationMs: 60_000 }],
+        segments: [{ id: scope.segmentId, startedAt, returnedMs: 0, durationMs: 60_000 }],
       },
     })) as never,
     finishRoundBotGeneration: async () => undefined,
