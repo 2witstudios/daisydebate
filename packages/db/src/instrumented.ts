@@ -1,6 +1,6 @@
 import { isAppError, type ErrorCode } from '@daisy/errors';
 import {
-  capacityRefusalDetail,
+  capacityRefusalFields,
   markCapacityRefusalReported,
 } from './capacity-refusal';
 
@@ -30,17 +30,11 @@ export async function instrumented<T>(
     return await fn();
   } catch (error) {
     if (isDomainRefusal(error)) throw error;
-    const refused = capacityRefusalDetail(error);
+    const refused = capacityRefusalFields(error);
     if (refused && eventSink) markCapacityRefusalReported(error);
     eventSink?.(
       refused ? 'db.capacity.refused' : 'db.query.failed',
-      refused
-        ? {
-            operation,
-            cause: `${refused.lane}.${refused.reason}`,
-            ...refused.pressure,
-          }
-        : { operation },
+      { operation, ...refused },
       refused
         ? 'Database admission refused unrun work'
         : 'Database query failed',
