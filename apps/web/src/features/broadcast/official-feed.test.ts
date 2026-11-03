@@ -6,7 +6,7 @@ setupRitewayBun();
 const origin = 'https://public-bucket.t3.tigrisfiles.io';
 const open = {
   broadcastId: 'b1',
-  roomVisibility: 'public',
+  visibility: 'public',
   stoppedAt: null,
   completedAt: null,
 } as const;
@@ -42,7 +42,7 @@ describe('The official feed', () => {
     const refused = [
       offeredFeedUrl(undefined, open),
       offeredFeedUrl(origin, null),
-      offeredFeedUrl(origin, { ...open, roomVisibility: 'private' }),
+      offeredFeedUrl(origin, { ...open, visibility: 'private' }),
       offeredFeedUrl(origin, { ...open, stoppedAt: at }),
       offeredFeedUrl(origin, { ...open, completedAt: at }),
     ];
@@ -59,7 +59,7 @@ describe('The official feed', () => {
     assert({
       given: 'an unlisted Room, whose keys have no unguessable prefix yet',
       should: 'offer none rather than a URL anyone could work out',
-      actual: offeredFeedUrl(origin, { ...open, roomVisibility: 'unlisted' }),
+      actual: offeredFeedUrl(origin, { ...open, visibility: 'unlisted' }),
       expected: null,
     });
   });

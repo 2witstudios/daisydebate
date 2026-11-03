@@ -814,6 +814,10 @@ config in the `EGRESS_CONFIG_BODY` secret and writes to the private Tigris bucke
 `daisy-debate-staging-broadcast`, created with `fly storage create`. Stop the
 machine when idle: it has no proxy to auto-stop it.
 
+**Official feed.** The web app reads `BROADCAST_PUBLIC_ORIGIN`, the public bucket's
+read origin (`https://<bucket>.t3.tigrisfiles.io`), from `fly.toml`. It is not a
+secret. Unset, no Round offers Stream this Round.
+
 **LiveKit on Fly.** Browsers signal over `wss://daisy-debate-staging-livekit.fly.dev`
 (fly-proxy terminates TLS on 443 and forwards to 7880). Media is UDP 7882,
 with ICE over raw TCP 7881 as the fallback; both need the app's dedicated

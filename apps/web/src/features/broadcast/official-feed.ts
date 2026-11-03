@@ -2,7 +2,7 @@ import { officialFeedPath } from '@daisy/protocol';
 
 export type OfficialFeedFacts = {
   readonly broadcastId: string;
-  readonly roomVisibility: 'public' | 'unlisted' | 'private';
+  readonly visibility: string | null;
   readonly stoppedAt: Date | null;
   readonly completedAt: Date | null;
 };
@@ -22,7 +22,7 @@ export const offeredFeedUrl = (
 ): string | null =>
   origin !== undefined &&
   facts !== null &&
-  facts.roomVisibility === 'public' &&
+  facts.visibility === 'public' &&
   facts.stoppedAt === null &&
   facts.completedAt === null
     ? officialFeedUrl(origin, facts.broadcastId)

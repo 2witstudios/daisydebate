@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
 import { buttonClass } from '../../components/button/button-class';
-
-const subscribeNever = () => () => undefined;
+import { useClipboardCopy } from './use-clipboard-copy';
 
 export type CopyLinkProps = {
   /** The path to share; the browser adds its own origin. */
@@ -16,18 +14,7 @@ export type CopyLinkProps = {
  * it to the clipboard.
  */
 export function CopyLink({ path }: CopyLinkProps) {
-  const ready = useSyncExternalStore(
-    subscribeNever,
-    () => true,
-    () => false,
-  );
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard
-      .writeText(`${window.location.origin}${path}`)
-      .then(() => setCopied(true))
-      .catch(() => setCopied(false));
-  };
+  const { ready, copied, copy } = useClipboardCopy();
   return (
     <details className="relative">
       <summary className={`${buttonClass('secondary')} list-none`}>
@@ -43,7 +30,7 @@ export function CopyLink({ path }: CopyLinkProps) {
         {ready ? (
           <button
             type="button"
-            onClick={copy}
+            onClick={() => copy(`${window.location.origin}${path}`)}
             className={buttonClass('primary')}
           >
             Copy

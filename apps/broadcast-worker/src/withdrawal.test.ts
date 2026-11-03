@@ -1,13 +1,19 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { withdrawalKeys, withdrawStopped } from './withdrawal';
+import { withdrawalKeys, withdrawFeed } from './withdrawal';
 
 setupRitewayBun();
 
-const run = async (finalMediaEndAt: Date | null) => {
+const run = async (
+  finalMediaEndAt: Date | null,
+  completedAt: Date | null = null,
+) => {
   const log: string[] = [];
-  await withdrawStopped(
-    { id: 'b', nextSegment: 1, finalMediaEndAt },
+  await withdrawFeed(
+    { id: 'b', nextSegment: 1, finalMediaEndAt, completedAt },
     {
+      recordWithdrawn: async () => {
+        log.push('withdrawn');
+      },
       deletePublic: async (key) => {
         log.push(key);
       },
@@ -19,7 +25,7 @@ const run = async (finalMediaEndAt: Date | null) => {
   return log;
 };
 
-describe('Withdrawing a stopped Broadcast', () => {
+describe('Withdrawing a finished Broadcast', () => {
   test('manifests go first, then every segment including the cursor’s', () => {
     const keys = withdrawalKeys('b', 1);
     assert({
@@ -53,6 +59,16 @@ describe('Withdrawing a stopped Broadcast', () => {
       should: 'withdraw both times and complete only the second, last',
       actual: [waiting.includes('complete'), done.at(-1), waiting.length > 0],
       expected: [false, 'complete', true],
+    });
+  });
+
+  test('a completed Broadcast records the withdrawal and completes no more', async () => {
+    const log = await run(new Date(1), new Date(2));
+    assert({
+      given: 'a Broadcast already complete past its grace',
+      should: 'delete every key before recording it, and not complete it again',
+      actual: [log[0], log.at(-1), log.includes('complete')],
+      expected: ['live/b/master.m3u8', 'withdrawn', false],
     });
   });
 });

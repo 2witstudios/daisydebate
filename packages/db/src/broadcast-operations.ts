@@ -33,13 +33,18 @@ export const openBroadcast = async (
   return row!;
 };
 
-/** Takes the oldest open Broadcast whose lease is free; the epoch fences the last owner. */
+/**
+ * Takes the oldest Broadcast with work left whose lease is free: an open one, or
+ * a finished one whose public objects are still up once `withdrawFinishedBefore`
+ * has passed its completion. The epoch fences the last owner.
+ */
 export const claimBroadcast = async (
   tx: Tx,
   input: {
     readonly owner: string;
     readonly now: Date;
     readonly leaseUntil: Date;
+    readonly withdrawFinishedBefore: Date;
   },
 ) => {
   const [free] = await tx
@@ -47,7 +52,13 @@ export const claimBroadcast = async (
     .from(broadcasts)
     .where(
       and(
-        isNull(broadcasts.completedAt),
+        or(
+          isNull(broadcasts.completedAt),
+          and(
+            isNull(broadcasts.feedWithdrawnAt),
+            lte(broadcasts.completedAt, input.withdrawFinishedBefore),
+          ),
+        ),
         or(
           isNull(broadcasts.leaseUntil),
           lte(broadcasts.leaseUntil, input.now),
@@ -215,6 +226,37 @@ export const completeBroadcast = (
     .update(broadcasts)
     .set({ completedAt: input.at, leaseOwner: null, leaseUntil: null })
     .where(and(eq(broadcasts.id, input.id), isNull(broadcasts.completedAt)));
+
+/** Every public object is gone; a finished Broadcast is not claimed again. */
+export const recordFeedWithdrawn = (
+  tx: Tx,
+  input: { readonly id: string; readonly at: Date },
+) =>
+  tx
+    .update(broadcasts)
+    .set({ feedWithdrawnAt: input.at })
+    .where(eq(broadcasts.id, input.id));
+
+/**
+ * What Stream this Round needs to decide whether a Round has an official feed,
+ * from the visibility frozen on the Round. A Round with no Broadcast has none.
+ */
+export const readOfficialFeedFacts = async (
+  tx: Tx,
+  input: { readonly roundId: string },
+) => {
+  const [row] = await tx
+    .select({
+      broadcastId: broadcasts.id,
+      visibility: rounds.visibility,
+      stoppedAt: broadcasts.stoppedAt,
+      completedAt: broadcasts.completedAt,
+    })
+    .from(broadcasts)
+    .innerJoin(rounds, eq(rounds.id, broadcasts.roundId))
+    .where(eq(broadcasts.roundId, input.roundId));
+  return row ?? null;
+};
 
 /** Every open Broadcast's reconcile facts, oldest first. */
 export const listOpenBroadcasts = (tx: Tx, limit: number) =>

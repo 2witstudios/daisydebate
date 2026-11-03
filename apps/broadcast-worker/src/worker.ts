@@ -1,9 +1,10 @@
 import type { createBroadcastWorkerStore } from '@daisy/db/broadcast-worker';
+import { broadcastLivePrefix } from '@daisy/protocol';
 import { encoderArgs } from './encoder';
 import { masterPlaylist, RENDITIONS } from './hold-manifest';
 import type { createObjects } from './objects';
 import { releaseStep } from './release-step';
-import { withdrawStopped } from './withdrawal';
+import { FEED_END_GRACE_MS, withdrawFeed } from './withdrawal';
 
 const LEASE_MS = 30_000;
 const RENEW_MS = 5_000;
@@ -32,6 +33,7 @@ export const runWorker = async (deps: {
         owner: deps.owner,
         now: new Date(deps.now()),
         leaseUntil: new Date(deps.now() + LEASE_MS),
+        withdrawFinishedBefore: new Date(deps.now() - FEED_END_GRACE_MS),
       })
       .catch(() => {
         deps.report('broadcast.release_failed');
@@ -42,19 +44,25 @@ export const runWorker = async (deps: {
       continue;
     }
     const withdraw = (facts: typeof job) =>
-      withdrawStopped(facts, {
+      withdrawFeed(facts, {
         deletePublic: (key) => objects.deletePublic(key),
+        recordWithdrawn: async () => {
+          await store.recordFeedWithdrawn({
+            id: job.id,
+            at: new Date(deps.now()),
+          });
+        },
         complete: async () => {
           await store.complete({ id: job.id, at: new Date(deps.now()) });
         },
       });
-    if (job.stoppedAt !== null) {
+    if (job.stoppedAt !== null || job.completedAt !== null) {
       await withdraw(job).catch(() => deps.report('broadcast.release_failed'));
       await deps.sleep(IDLE_MS);
       continue;
     }
     const hold = `hold/${job.id}/`;
-    const live = `live/${job.id}/`;
+    const live = broadcastLivePrefix(job.id);
     try {
       await objects.putManifest(`${live}master.m3u8`, masterPlaylist());
       let next = job.nextSegment;

@@ -5,7 +5,9 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   readConversationHeld,
+  readOfficialFeedFacts,
   recordEgressStarted,
+  recordFeedWithdrawn,
   claimBroadcast,
   claimBroadcastReconcile,
   completeBroadcast,
@@ -97,7 +99,12 @@ test('workers cannot both hold a Broadcast, and an expired lease fences the last
     });
     const claim = (owner: string, at: Date, until: Date) =>
       db.transaction((tx) =>
-        claimBroadcast(tx, { owner, now: at, leaseUntil: until }),
+        claimBroadcast(tx, {
+          owner,
+          now: at,
+          leaseUntil: until,
+          withdrawFinishedBefore: at,
+        }),
       );
     const claims = await Promise.all(
       ['a', 'b', 'c', 'd'].map((o) => claim(o, now, later)),
@@ -141,7 +148,12 @@ test('the cursor only moves forward and the watermark never recedes', async () =
       releasePolicy: policy,
     });
     const job = (await db.transaction((tx) =>
-      claimBroadcast(tx, { owner: 'w', now, leaseUntil: later }),
+      claimBroadcast(tx, {
+        owner: 'w',
+        now,
+        leaseUntil: later,
+        withdrawFinishedBefore: now,
+      }),
     ))!;
     const record = (segment: number, mediaEnd: Date) =>
       recordSegmentReleased(db, {
@@ -215,7 +227,12 @@ test('a held lease renews with fresh facts, and refuses a fenced owner', async (
       releasePolicy: policy,
     });
     const job = (await db.transaction((tx) =>
-      claimBroadcast(tx, { owner: 'w', now, leaseUntil: later }),
+      claimBroadcast(tx, {
+        owner: 'w',
+        now,
+        leaseUntil: later,
+        withdrawFinishedBefore: now,
+      }),
     ))!;
     await recordFinalMediaEnd(db, { id: open.id, at: now });
     const much = new Date(later.getTime() + 60_000);
@@ -394,4 +411,75 @@ test('discovery finds ranked Rounds and casual Rounds whose host chose a Broadca
       await client.close();
     }
   });
+});
+
+test('a finished Broadcast is claimed once more to withdraw its feed, after its grace', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      releasePolicy: policy,
+    });
+    const claim = (withdrawFinishedBefore: Date) =>
+      db.transaction((tx) =>
+        claimBroadcast(tx, {
+          owner: 'w',
+          now,
+          leaseUntil: now,
+          withdrawFinishedBefore,
+        }),
+      );
+    await completeBroadcast(db, { id: open.id, at: now });
+    const inGrace = await claim(new Date(now.getTime() - 1));
+    const past = await claim(now);
+    await recordFeedWithdrawn(db, { id: open.id, at: later });
+    const after = await claim(later);
+    assert({
+      given:
+        'a completed Broadcast inside its grace, past it, and once withdrawn',
+      should: 'leave it, claim it, then never claim it again',
+      actual: [
+        inGrace?.id === open.id,
+        past?.id === open.id,
+        after?.id === open.id,
+      ],
+      expected: [false, true, false],
+    });
+  });
+});
+
+test('the official feed facts come from the Broadcast and its Round', async () => {
+  const client = new SQL(databaseUrl, { max: 2 });
+  const db = drizzle({ client });
+  try {
+    await withFixture(databaseUrl, async (f) => {
+      const roundId = await f.round();
+      try {
+        const none = await readOfficialFeedFacts(db, { roundId });
+        const open = await openBroadcast(db, {
+          id: createId(),
+          roundId,
+          releasePolicy: policy,
+        });
+        assert({
+          given: 'a Round with no Broadcast, then with one',
+          should: 'answer null, then its facts',
+          actual: [none, await readOfficialFeedFacts(db, { roundId })],
+          expected: [
+            null,
+            {
+              broadcastId: open.id,
+              visibility: null,
+              stoppedAt: null,
+              completedAt: null,
+            },
+          ],
+        });
+      } finally {
+        await client`delete from broadcasts where round_id=${roundId}`;
+      }
+    });
+  } finally {
+    await client.close();
+  }
 });
