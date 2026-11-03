@@ -25,9 +25,24 @@ test('resume takes the signed live href only for a member who has not left it th
     should:
       "resume only the fresh member's live Round; never a departed, signed-out or terminal case",
     actual: [
-      resumeRoundHrefOf({ actorId: 'me', room: liveRoom, departed: false }),
-      resumeRoundHrefOf({ actorId: 'me', room: liveRoom, departed: true }),
-      resumeRoundHrefOf({ actorId: null, room: liveRoom, departed: false }),
+      resumeRoundHrefOf({
+        actorId: 'me',
+        room: liveRoom,
+        departed: false,
+        attempted: false,
+      }),
+      resumeRoundHrefOf({
+        actorId: 'me',
+        room: liveRoom,
+        departed: true,
+        attempted: false,
+      }),
+      resumeRoundHrefOf({
+        actorId: null,
+        room: liveRoom,
+        departed: false,
+        attempted: false,
+      }),
     ],
     expected: [liveRoom.href, null, null],
   });
@@ -41,6 +56,7 @@ test('a seatless host watches a live Round; only a seat resumes it', () => {
       actorId: 'me',
       room: { ...liveRoom, seated: false },
       departed: false,
+      attempted: false,
     }),
     expected: null,
   });
@@ -51,8 +67,18 @@ test('no Round, an assembling or ready Room, and no live phase never resume', ()
     given: 'a created Room still assembling, one ready, and no Room at all',
     should: 'keep the viewer where they are: only a launched Round resumes',
     actual: [
-      resumeRoundHrefOf({ actorId: 'me', room: null, departed: false }),
-      resumeRoundHrefOf({ actorId: 'me', room: readyRoom, departed: false }),
+      resumeRoundHrefOf({
+        actorId: 'me',
+        room: null,
+        departed: false,
+        attempted: false,
+      }),
+      resumeRoundHrefOf({
+        actorId: 'me',
+        room: readyRoom,
+        departed: false,
+        attempted: false,
+      }),
     ],
     expected: [null, null],
   });
@@ -87,5 +113,19 @@ test('tab ownership yields to a fresh claim from another tab and takes over a st
       ),
     ],
     expected: ['resume', 'defer', 'take-over', 'take-over'],
+  });
+});
+
+test('a resume that never rendered does not fire again in this tab (ISSUE-1035)', () => {
+  assert({
+    given: 'a seated member whose last resume in this tab never rendered',
+    should: 'stay where they are',
+    actual: resumeRoundHrefOf({
+      actorId: 'me',
+      room: liveRoom,
+      departed: false,
+      attempted: true,
+    }),
+    expected: null,
   });
 });
