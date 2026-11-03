@@ -27,6 +27,7 @@ test('reconcileFacts maps stored state to the decision input', () => {
       prep: { side: 'affirmative' },
       stage: null,
     },
+    lastSequence: 6,
     egress: { kind: 'active', id: 'EG' },
   });
   assert({

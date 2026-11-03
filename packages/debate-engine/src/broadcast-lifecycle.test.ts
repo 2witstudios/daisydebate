@@ -109,6 +109,32 @@ describe('private phases fail closed', () => {
       ],
     });
   });
+  test('a stage that joins as it is revoked is revoked again', () => {
+    assert({
+      given: 'a private phase, the observer already revoked, the Egress live',
+      should: 'say the revocation again on every pass',
+      actual: decideBroadcast(
+        facts({
+          egress: active,
+          phase: { kind: 'private' },
+          observerSubscribed: false,
+        }),
+      ),
+      expected: [{ type: 'reassert-revocation' }],
+    });
+    assert({
+      given: 'the phase public again, or no Egress at all',
+      should: 'not say it',
+      actual: [
+        decideBroadcast(facts({ egress: active, observerSubscribed: false })),
+        decideBroadcast(
+          facts({ phase: { kind: 'private' }, observerSubscribed: false }),
+        ),
+      ].map((actions) => actions.some((a) => a.type === 'reassert-revocation')),
+      expected: [false, false],
+    });
+  });
+
   test('no Egress starts subscribed into a private phase', () => {
     assert({
       given: 'a private phase open and the Egress gone',
@@ -154,6 +180,20 @@ describe('private phases fail closed', () => {
       expected: [{ type: 'start-egress' }],
     });
   });
+  test('prep before the last speech gives the observer back for that speech', () => {
+    assert({
+      given: 'a revoked observer and a last speech minutes from its end',
+      should: 'restore it: the private phase is not near',
+      actual: decideBroadcast(
+        facts({
+          egress: active,
+          observerSubscribed: false,
+          phase: { kind: 'private-at', atMs: 100_000 + 60_000 },
+        }),
+      ),
+      expected: [{ type: 'restore-observer' }],
+    });
+  });
   test('the observer returns only when the phase is public again', () => {
     assert({
       given: 'a revoked observer, in a private phase and then a public one',
@@ -168,7 +208,10 @@ describe('private phases fail closed', () => {
         ),
         decideBroadcast(facts({ egress: active, observerSubscribed: false })),
       ],
-      expected: [[], [{ type: 'restore-observer' }]],
+      expected: [
+        [{ type: 'reassert-revocation' }],
+        [{ type: 'restore-observer' }],
+      ],
     });
   });
 });

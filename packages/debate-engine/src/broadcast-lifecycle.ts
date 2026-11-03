@@ -39,6 +39,8 @@ export type BroadcastAction =
   /** A stopped Broadcast's Egress is gone: no more media will come. */
   | { readonly type: 'record-media-ended' }
   | { readonly type: 'revoke-observer' }
+  /** Said again each pass: a stage joining just as it was revoked would miss it. */
+  | { readonly type: 'reassert-revocation' }
   | { readonly type: 'restore-observer' }
   | { readonly type: 'complete' };
 
@@ -56,10 +58,9 @@ const privacyActions = (facts: BroadcastFacts): readonly BroadcastAction[] => {
     (facts.phase.kind === 'private-at' &&
       facts.phase.atMs - facts.nowMs <= REVOCATION_LEAD_MS);
   if (!privateSoon)
-    return facts.observerSubscribed || facts.phase.kind !== 'public'
-      ? []
-      : [{ type: 'restore-observer' }];
-  if (!facts.observerSubscribed) return [];
+    return facts.observerSubscribed ? [] : [{ type: 'restore-observer' }];
+  if (!facts.observerSubscribed)
+    return live ? [{ type: 'reassert-revocation' }] : [];
   if (!live) return [{ type: 'revoke-observer' }];
   // A private phase can open with no warning (a debater takes prep). Its mic
   // closes by grant and conversation stays held until the revocation lands, so
