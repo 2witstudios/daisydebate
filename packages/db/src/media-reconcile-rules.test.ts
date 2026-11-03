@@ -294,7 +294,7 @@ test('a completion records whether the pass finished its work', () => {
   const outcome = {
     terminal: false,
     unresolved: false,
-    decision: { kind: 'keep' },
+    decision: { kind: 'keep' } as const,
   };
   assert({
     given: 'a pass that did not finish, then one that did',
