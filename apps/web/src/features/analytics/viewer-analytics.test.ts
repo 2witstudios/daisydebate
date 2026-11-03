@@ -178,24 +178,35 @@ test('stored consent is read only for a signed-in viewer on a keyed deployment',
       cookie,
       readConsent,
     }),
+    await readViewerAnalytics({
+      config,
+      identity: member,
+      cookie,
+      readConsent: refused,
+    }),
   ];
+  const knownCookie = { kind: 'known', consent: cookie };
   assert({
-    given: 'a member, a signed-out viewer, a refused identity and no key',
-    should: 'read once, for the member, and answer each with its own view',
-    actual: {
-      reads,
-      kinds: views.map(({ choice, capture: running }) => [
-        choice.kind,
-        running !== null,
-      ]),
-    },
+    given:
+      'a member, a signed-out viewer, a refused identity, no key, and a member whose read is refused',
+    should: 'read for the member alone, and answer each with its own whole view',
+    actual: { reads, views },
     expected: {
       reads: ['user1'],
-      kinds: [
-        ['known', true],
-        ['known', true],
-        ['unreadable', false],
-        ['known', false],
+      views: [
+        {
+          available,
+          choice: knownCookie,
+          capture: capture({ needsAdoption: true }),
+        },
+        {
+          available,
+          choice: knownCookie,
+          capture: capture({ userId: null }),
+        },
+        unreadable,
+        { available, choice: knownCookie, capture: null },
+        unreadable,
       ],
     },
   });

@@ -20,9 +20,10 @@ export type AnalyticsViewer =
 type Capture = {
   readonly keyValue: string;
   readonly host: string | null;
-  readonly userId: string | null;
-  readonly needsAdoption: boolean;
-};
+} & (
+  | { readonly userId: null; readonly needsAdoption: false }
+  | { readonly userId: string; readonly needsAdoption: boolean }
+);
 
 /**
  * What a render may do with analytics. Unreadable carries no consent, so no
