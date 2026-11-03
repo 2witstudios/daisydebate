@@ -3,7 +3,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../lib/testing/mock-router';
 setupRitewayBun();
 mockNextRouter();
-const { CommandForm, shownError } = await import('./round-command-actions');
+const { answerFocusTarget, CommandForm, shownError } =
+  await import('./round-command-actions');
 const { roundCommandUnavailable, submitRoundForm } =
   await import('../../features/round-runtime/command-form');
 
@@ -74,10 +75,11 @@ test('a refused strike says so only while the strike is open; a lost answer alwa
     return posted;
   };
   const strike = form('strike_resolution', { ordinal: '0', position: '1' });
-  const refusedBy = async (type: FormData) =>
-    submitRoundForm(async () => new Response('{}', { status: 409 }), id, type);
+  const refusedBy = async (posted: FormData, status = 409) =>
+    submitRoundForm(async () => new Response('{}', { status }), id, posted);
   const refused = await refusedBy(strike);
   const yielded = await refusedBy(form('yield', { confirmed: 'true' }));
+  const forbidden = await refusedBy(strike, 403);
   const lost = roundCommandUnavailable(strike);
   const opening = (step: 'strike' | 'prep') =>
     ({ opening: { step: { step } } }) as Parameters<typeof shownError>[1];
@@ -92,8 +94,18 @@ test('a refused strike says so only while the strike is open; a lost answer alwa
       shownError(refused, { opening: null }),
       shownError(yielded, { opening: null }) === yielded.error,
       shownError(lost, opening('prep')) === lost.error,
+      shownError(forbidden, opening('prep')),
     ],
-    expected: [refused.error, undefined, undefined, true, true],
+    expected: [refused.error, undefined, undefined, true, true, undefined],
+  });
+  assert({
+    given: 'a refusal on the strike step, and the same refusal once prep runs',
+    should: 'focus the feedback only while it is shown',
+    actual: [
+      answerFocusTarget(refused, opening('strike'), 'feedback', 'control'),
+      answerFocusTarget(refused, opening('prep'), 'feedback', 'control'),
+    ],
+    expected: ['feedback', 'control-strike_resolution'],
   });
 });
 

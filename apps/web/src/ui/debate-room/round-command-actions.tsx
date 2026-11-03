@@ -89,12 +89,22 @@ export function CommandForm({
 }
 /** A refused strike means nothing once the strike is over; other answers stay. */
 export const shownError = (
-  answer: Pick<RoundFormState, 'strikeRefused' | 'error'>,
+  answer: Pick<RoundFormState, 'values' | 'unacknowledged' | 'error'>,
   view: Pick<RoundView, 'opening'>,
 ) =>
-  answer.strikeRefused && view.opening?.step.step !== 'strike'
+  answer.values.type === 'strike_resolution' &&
+  !answer.unacknowledged &&
+  view.opening?.step.step !== 'strike'
     ? undefined
     : answer.error;
+
+/** Where focus goes after an answer: what the answer shows, else its control. */
+export const answerFocusTarget = (
+  answer: Pick<RoundFormState, 'values' | 'unacknowledged' | 'error'>,
+  view: Pick<RoundView, 'opening'>,
+  feedback: string,
+  control: string,
+) => (shownError(answer, view) ? feedback : `${control}-${answer.values.type}`);
 
 /** Feedback survives a canonical revision that removes the submitted action. */
 export function RoundCommandActions({
@@ -144,7 +154,7 @@ export function RoundCommandActions({
   const answered = useMemo(() => ({ answer, live }), [answer, live]);
   useFocusAfterAnswer(
     answered,
-    shownError(answer, view) ? feedback : `${control}-${answer.values.type}`,
+    answerFocusTarget(answer, view, feedback, control),
     !pending,
   );
   const actions = !answer.unacknowledged ? (

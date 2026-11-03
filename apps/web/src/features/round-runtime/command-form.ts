@@ -10,8 +10,6 @@ export type RoundFormState = {
   readonly confirmation?: boolean;
   readonly acknowledged?: boolean;
   readonly unacknowledged?: boolean;
-  /** A strike the server refused: its explanation ends with the strike step. */
-  readonly strikeRefused?: boolean;
 };
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 const responseSchema = z.strictObject({
@@ -71,10 +69,11 @@ export async function submitRoundForm(
     if (response.status >= 500) return roundCommandUnavailable(form);
     if (!response.ok)
       return {
-        values: {},
-        ...(envelope.command.type === 'strike_resolution'
-          ? { strikeRefused: true }
-          : {}),
+        // A refused strike keeps its type: its explanation ends with the strike step.
+        values:
+          envelope.command.type === 'strike_resolution'
+            ? { type: envelope.command.type }
+            : {},
         error:
           response.status === 409 &&
           envelope.command.type === 'strike_resolution'

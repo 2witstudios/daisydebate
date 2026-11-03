@@ -84,7 +84,7 @@ test('a tick projects the locked Round through the shared engine clock', async (
   };
   assert({
     given: 'a tick of a Round that has not started',
-    should: 'keep it scheduled with no speaking change',
+    should: 'keep it in its opening with no speaking change',
     actual: [projection.round.status, projection.speakingChanges],
     expected: ['opening', []],
   });

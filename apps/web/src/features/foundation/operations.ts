@@ -78,7 +78,7 @@ export type ProofRound = {
 
 /**
  * Resolves the proof round through the one compiler and freezes it as a
- * scheduled casual round — the canonical foundation rules, unmodified
+ * casual round — the canonical foundation rules, unmodified
  * (ADR 0030), resolved exactly as a room would resolve them.
  */
 export async function createProofDebate(

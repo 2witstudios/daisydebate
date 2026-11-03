@@ -20,7 +20,7 @@ const view = (status: NonNullable<RoomView['roundRef']>['status']) => ({
   participants: [seat],
   roundRef: { id: 'round', status },
 });
-test('only scheduled or active Rounds automatically admit seated members', () => {
+test('only opening or active Rounds automatically admit seated members', () => {
   for (const status of ['opening', 'active', 'completed', 'abandoned'] as const)
     assert({
       given: `a seated member and ${status} shared Round`,
@@ -54,7 +54,7 @@ test('observed terminal Rounds cannot be reopened by delayed nonmonotonic snapsh
   for (const terminal of ['completed', 'abandoned'] as const) {
     const held = roundEntry(view(terminal), 'member', null);
     assert({
-      given: `${terminal} observed before stale scheduled or active snapshots`,
+      given: `${terminal} observed before stale opening or active snapshots`,
       should: 'never redirect back into that Round after terminal observation',
       actual: ['opening', 'active'].map(
         (status) =>
