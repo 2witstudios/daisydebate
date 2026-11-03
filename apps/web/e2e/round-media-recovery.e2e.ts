@@ -285,7 +285,7 @@ test('network loss during a live speech restores peer sound and video without Re
   }
 });
 
-test('a short network blip keeps the same connection and tracks, with no new admission', async ({
+test('a signal blip resumes the same connection with its tracks, says so, and needs no admission', async ({
   browser,
 }) => {
   test.setTimeout(180_000);
@@ -296,6 +296,20 @@ test('a short network blip keeps the same connection and tracks, with no new adm
     );
     const source = await openPage(speaker.context, 'blipping speaker');
     const peer = await openPage(listener.context, 'watching opponent');
+    // setOffline leaves live sockets up for a long while, so the blip is made directly.
+    await source.addInitScript(() => {
+      const Native = window.WebSocket;
+      const held = ((
+        window as never as { daisySignal: WebSocket[] }
+      ).daisySignal = []);
+      window.WebSocket = new Proxy(Native, {
+        construct(target, args: [string, string?]) {
+          const socket = new target(...args);
+          if (String(args[0]).includes('/rtc')) held.push(socket);
+          return socket;
+        },
+      });
+    });
     await Promise.all([
       source.goto(`/rounds/${round.id}/room`),
       peer.goto(`/rounds/${round.id}/room`),
@@ -314,13 +328,33 @@ test('a short network blip keeps the same connection and tracks, with no new adm
           ).getVideoTracks()[0]!,
       );
     const admissions = countMediaAdmissions(source);
-    await speaker.context.setOffline(true);
-    await expect(
-      source
-        .getByRole('status')
-        .filter({ hasText: 'Reconnecting camera and sound' }),
-    ).toBeVisible({ timeout: 4_000 });
-    await speaker.context.setOffline(false);
+    // A resume can finish in milliseconds, so the page records what its status said.
+    const said = await source.evaluateHandle(() => {
+      const seen = new Set<string>();
+      const look = () => {
+        for (const node of document.querySelectorAll('[role="status"]'))
+          seen.add(node.textContent ?? '');
+      };
+      new MutationObserver(look).observe(document.body, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      });
+      return seen;
+    });
+    await source.evaluate(() => {
+      const { daisySignal } = window as never as { daisySignal: WebSocket[] };
+      daisySignal.at(-1)!.close();
+    });
+    await expect
+      .poll(
+        () =>
+          said.evaluate((seen) =>
+            [...seen].some((text) => text.includes('Reconnecting camera')),
+          ),
+        { timeout: 5_000 },
+      )
+      .toBe(true);
     await expectConnected(source);
     await expectPeerCamera(peer);
     expect(await camera.evaluate((track) => track.readyState)).toBe('live');
