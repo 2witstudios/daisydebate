@@ -2,7 +2,7 @@ import { foundationDefinition } from '@daisy/db/reference-formats';
 import { foundationProofConfig } from '../../integration/foundation-selection.test-support';
 import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
 
-type ProofChoice = {
+export type ProofChoice = {
   readonly definition: FormatDefinition;
   readonly preset: { readonly config: RoomConfig };
 };

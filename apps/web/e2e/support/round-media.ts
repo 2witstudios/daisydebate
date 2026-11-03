@@ -8,7 +8,7 @@ import {
   startAdmittedRound,
 } from './human-ballot-round';
 import { humanRoundSelection } from './human-round-selection';
-import type { foundationChoice } from './human-round-selection';
+import type { ProofChoice } from './human-round-selection';
 import { origin } from './accounts';
 import type { createRoomLaunchAccounts } from './room-launch-accounts';
 
@@ -92,7 +92,7 @@ export async function openGrantedRound(
 /** A two-seat Round whose debaters may capture; the journey opens its own pages. */
 export async function grantedDebaters(
   members: Awaited<ReturnType<typeof createRoomLaunchAccounts>>['members'],
-  choice?: typeof foundationChoice,
+  choice?: ProofChoice,
 ) {
   const round = await createHumanBallotRound(members, 0, 0, choice);
   const [speaker, listener] = members;

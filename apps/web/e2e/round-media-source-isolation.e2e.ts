@@ -418,7 +418,11 @@ test('a renegotiation refused as the floor moves keeps reception, and the next g
       .toBe(true);
     await expectConnected(source);
     await expectPeerCamera(source);
-    // The negative's speech follows at once; ending it opens the rebuttal here.
+    // The negative's speech follows at once; the speaker's microphone has left.
+    await expect(
+      peer.getByLabel('Participant audio', { exact: true }),
+    ).toHaveCount(0, MEDIA_POLL);
+    // Ending that speech opens the rebuttal here, so only a new track can pass.
     await peer.getByRole('button', { name: 'End speech', exact: true }).click();
     await peer
       .getByRole('button', { name: 'Confirm end speech', exact: true })
