@@ -96,7 +96,8 @@ test('season closure waits for an in-flight posting, then later postings refuse 
       posting = rate(round.roundId);
       const ratingPid = await blockedBehind(fixture.sql, blocker.pid);
       // Direct, and started now: the operation refuses pending DEC-111.
-      closing = fixture.sql`update seasons set status='closed', ends_at=${new Date('2026-12-01T00:00:00.000Z')} where id=${round.seasonId}`.execute();
+      closing =
+        fixture.sql`update seasons set status='closed', ends_at=${new Date('2026-12-01T00:00:00.000Z')} where id=${round.seasonId}`.execute();
       await blockedBehind(fixture.sql, ratingPid);
       blocker.release();
       const result = await posting;
