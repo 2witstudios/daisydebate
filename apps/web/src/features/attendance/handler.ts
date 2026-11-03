@@ -1,4 +1,3 @@
-import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
@@ -8,27 +7,24 @@ import {
   type AttendanceEnvelope,
   type AttendanceReceipt,
 } from '@daisy/protocol';
-import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
   handleOperation,
   parseValidated,
   requireSameOrigin,
-  requireSignedIn,
   refusalResponse,
 } from '../../server/http';
+import {
+  requireMember,
+  type MemberGateDependencies,
+} from '../../server/member-gate';
 import { readAttendanceCommand } from './body';
 import { nativeAttendanceResponse } from './native-response';
-type HandlerDeps = {
+type HandlerDeps = MemberGateDependencies & {
   readonly logger: Logger;
   /** ADR 0037: where this handler's 5xx raw errors go, scrubbed. */
   readonly reporter: ErrorReporter;
   readonly origin: () => string;
   readonly active: () => boolean;
-  readonly identify: (request: Request) => Promise<Identity>;
-  readonly getActorByUserId: (
-    userId: string,
-  ) => Promise<{ readonly id: string } | null>;
-  readonly limiter: () => RateLimiter;
   readonly checkIn: (
     principal: { readonly kind: 'human'; readonly actorId: string },
     roundId: string,
@@ -46,22 +42,17 @@ export function createAttendanceHandler(deps: HandlerDeps) {
       async (requestId) => {
         if (!deps.active()) throw createAppError('NOT_FOUND');
         requireSameOrigin(request, deps.origin());
-        const member = requireSignedIn(await deps.identify(request));
-        if (member.state !== 'member') throw createAppError('AUTHORIZATION');
-        const roundId = parseValidated(idSchema, rawRoundId);
-        await consumeOrThrow(
-          deps.limiter(),
-          `attendance:${member.principal.userId}`,
-          attendanceRate,
-        );
-        const actor = await deps.getActorByUserId(member.principal.userId);
-        if (actor?.id !== member.principal.actorId)
-          throw createAppError('AUTHORIZATION');
+        const roundId = () => parseValidated(idSchema, rawRoundId);
+        const caller = await requireMember(deps, request, {
+          bucket: 'attendance',
+          rule: attendanceRate,
+          beforeBudget: roundId,
+        });
         const { envelope } = await readAttendanceCommand(request);
         try {
           const receipt = await deps.checkIn(
-            { kind: 'human', actorId: actor.id },
-            roundId,
+            { kind: 'human', actorId: caller.actorId },
+            roundId(),
             envelope,
           );
           return Response.json(receipt);

@@ -37,7 +37,6 @@ export function composeRoomRoutes(app: App) {
     handlers ??= createRoomHandlers({
       logger: app.logger,
       reporter: app.reporter,
-      clock: app.clock,
       origin: () => app.auth().config.PUBLIC_APP_URL,
       identify: (request) => identify(app.auth(), request.headers),
       getActorByUserId: (userId) => app.database.getActorByUserId(userId),
@@ -51,7 +50,7 @@ export function composeRoomRoutes(app: App) {
         redis: app.redis,
         ids: app.ids,
         consentTtlMs: () => policy.consentTtlMs,
-        botsAvailable: () => Boolean(app.config.OPENROUTER_API_KEY),
+        aiSeats: () => app.aiSeats,
         entropy: drawEntropy,
       }),
     });
@@ -83,8 +82,6 @@ export function composeRoomRoutes(app: App) {
       run(request, (h) => h.read(request, roomId)),
     commands: (request: Request, roomId: string) =>
       run(request, (h) => h.commands(request, roomId)),
-    roundRead: (request: Request, roundId: string) =>
-      run(request, (h) => h.roundRead(request, roundId)),
   };
   return {
     ...routes,
@@ -93,7 +90,8 @@ export function composeRoomRoutes(app: App) {
       reporter: app.reporter,
       origin: () => app.auth().config.PUBLIC_APP_URL,
       identify: (request) => identify(app.auth(), request.headers),
-      limiter: app.limiter,
+      limiter: () => app.limiter,
+      getActorByUserId: (userId) => app.database.getActorByUserId(userId),
       store: app.redis,
       catalog: routes.catalog,
       create: routes.create,

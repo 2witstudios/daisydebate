@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ballotSchema } from './ballot';
-import { idSchema } from './primitives';
+import { idSchema, roundOutcomeSchema } from './primitives';
 import type { RoundCommandAuthority } from './round-command';
 
 /** Human and bot judges submit the same rubric against one immutable input revision. */
@@ -21,7 +21,7 @@ export const roundBallotReceiptSchema = z.strictObject({
   judgeParticipantId: idSchema,
   freezeRevision: z.int().positive(),
   resultingVersion: z.int().positive(),
-  outcome: z.enum(['affirmative', 'negative', 'draw']).nullable(),
+  outcome: roundOutcomeSchema.nullable(),
 });
 export type RoundBallotReceipt = z.infer<typeof roundBallotReceiptSchema>;
 /** Locked canonical authority; a judging run cannot borrow another run's seat or purpose. */

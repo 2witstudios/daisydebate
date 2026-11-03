@@ -3,6 +3,7 @@ import type {
   RoundPosition,
   RoundRules,
 } from '@daisy/protocol';
+import { mediaWindowClosed } from './media-window';
 import { speakingParticipants } from './round-speaking';
 
 export type RoundMediaGrants = {
@@ -30,12 +31,17 @@ type MediaGrantInput = {
   /** Pre-round prep is private: nobody publishes, and media reopens at the countdown. */
   readonly inPreRoundPrep: boolean;
 };
-const withinJudgingWindow = (input: MediaGrantInput) => {
+const withinMediaWindow = (input: MediaGrantInput) => {
   if (input.position.stage !== 'awaiting_ballot') return true;
   const finalEnd = Date.parse(input.finalSegmentEndedAt ?? '');
-  const now = Date.parse(input.now);
   return (
-    Number.isFinite(finalEnd) && now >= finalEnd && now < finalEnd + 30 * 60_000
+    Number.isFinite(finalEnd) &&
+    Date.parse(input.now) >= finalEnd &&
+    !mediaWindowClosed(
+      input.position.status,
+      input.now,
+      input.finalSegmentEndedAt,
+    )
   );
 };
 const speakingNow = (input: MediaGrantInput) => {
@@ -75,7 +81,7 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
     !seat?.eligible ||
     !Number.isFinite(Date.parse(input.now)) ||
     !['opening', 'active'].includes(position.status) ||
-    !withinJudgingWindow(input)
+    !withinMediaWindow(input)
   )
     return denied(seat?.role === 'judge');
   if (seat.role === 'judge')

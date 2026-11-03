@@ -1,8 +1,7 @@
-import { captureRule, readRoundOpening } from '@daisy/debate-engine';
-import { roundWaitingOn } from '@daisy/debate-engine';
+import { captureRule } from '@daisy/debate-engine';
 import { composeRoundMemberDependencies } from './member-composition';
 import type { App } from '../../server/app';
-import { canReadRound, canReadTranscript } from './reads';
+import { canReadTranscript, roundViewReader } from './reads';
 import { createRoundHandlers } from './handlers';
 import { createRoundRuntimeOperations } from './operations';
 
@@ -13,14 +12,9 @@ export function composeRoundRoutes(app: App) {
       store: app.database,
       nextSegmentId: () => app.ids.next(),
     }),
-    view: (caller, roundId) =>
-      app.database.readLaunchedRound(
-        roundId,
-        caller,
-        (round, account) => canReadRound(caller, round, account),
-        readRoundOpening,
-        roundWaitingOn,
-      ),
+    clock: app.clock,
+    websocketEndpoint: app.websocketEndpoint,
+    view: roundViewReader(app.database),
     transcript: (caller, roundId) =>
       app.database.readRoundTranscript({
         caller,

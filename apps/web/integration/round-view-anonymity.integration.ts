@@ -143,7 +143,7 @@ test('a launched Round names its human judge only to that judge and the host', a
       roundJudgeSeat!.id,
       f.host.actorId === judge.actorId ? '' : 'hostActorId',
     ];
-    const read = (who: Caller) => f.operations.roundView(who, roundId);
+    const read = (who: Caller) => f.roundView(who, roundId);
     const asJudge = await read(judge);
     assert({
       given:
@@ -248,8 +248,7 @@ test('a host who sits as the human judge stays anonymous with their seat (DEC-17
     });
 
     view = await readyAllThenStart(f, view);
-    const read = (who: Caller) =>
-      f.operations.roundView(who, view.roundRef!.id);
+    const read = (who: Caller) => f.roundView(who, view.roundRef!.id);
     assert({
       given: 'a launched Round whose judge is its host, read by a debater',
       should: 'carry no judge actor and no host actor at all',
