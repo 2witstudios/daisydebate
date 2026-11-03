@@ -11,6 +11,7 @@ import {
   state,
 } from './operations.test-support';
 import { valueFacts } from './catalog-sources.test-support';
+import { aiSeatOf } from './ai-seat';
 
 setupRitewayBun();
 
@@ -363,5 +364,30 @@ test('Room creation asks the create transaction to recheck its catalog selection
       superseded: false,
       gone: false,
     },
+  });
+});
+
+test('each AI seat answers its own availability', async () => {
+  const eligibleCast = async (seats: { debater: boolean; judge: boolean }) =>
+    (await makeOperations({}, seats).operations.castChoices(caller)).map(
+      (choice) => choice.eligible,
+    );
+  assert({
+    given: 'a roster bot debater where only the judge seat can run',
+    should: 'leave it unoffered',
+    actual: await eligibleCast({ debater: false, judge: true }),
+    expected: [false],
+  });
+  assert({
+    given: 'a roster bot debater where only the debater seat can run',
+    should: 'offer it',
+    actual: await eligibleCast({ debater: true, judge: false }),
+    expected: [true],
+  });
+  assert({
+    given: 'a Room role',
+    should: 'name the AI seat that fills it',
+    actual: [aiSeatOf('judge'), aiSeatOf('affirmative'), aiSeatOf('negative')],
+    expected: ['judge', 'debater', 'debater'],
   });
 });

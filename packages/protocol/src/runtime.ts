@@ -1,6 +1,5 @@
 import type { ResolutionDrawState } from './resolution-draw';
-import type { DebateRole, DebateSide } from './primitives';
-import type { RoundOutcome } from './primitives';
+import type { DebateRole, DebateSide, RoundOutcome } from './primitives';
 import type { SegmentType } from './format';
 import type { RoundStage, RoundStatus, RuntimeCheckpoint } from './round';
 

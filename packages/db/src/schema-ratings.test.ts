@@ -11,9 +11,9 @@ import {
 setupRitewayBun();
 
 describe('ratings schema rules', () => {
-  test('ratings and role grants keep their ladder and scope rules', () => {
+  test('ratings keep their ladder rules', () => {
     assert({
-      given: 'the ratings tables and role grants',
+      given: 'the ratings tables',
       should: 'declare the single-active season, and the ledger bounds',
       actual: {
         seasons: rules(seasons).checks,

@@ -86,6 +86,23 @@ export function botAdmissionOptions(config: {
   };
 }
 
+/** The room a bot debater publishes into; absent, a worker has no way to speak. */
+export const mediaConfigured = (
+  config: Pick<
+    ServerConfig,
+    | 'LIVEKIT_URL'
+    | 'LIVEKIT_PUBLIC_URL'
+    | 'LIVEKIT_API_KEY'
+    | 'LIVEKIT_API_SECRET'
+  >,
+) =>
+  [
+    config.LIVEKIT_URL,
+    config.LIVEKIT_PUBLIC_URL,
+    config.LIVEKIT_API_KEY,
+    config.LIVEKIT_API_SECRET,
+  ].every(Boolean);
+
 /** The AI seats a deployment can actually serve; a Room offers no other. */
 export type AiSeatAvailability = {
   readonly debater: boolean;
@@ -95,7 +112,7 @@ export type AiSeatAvailability = {
 /**
  * Each seat from its own key, policy and capacity (ISSUE-1017). A key alone
  * serves neither: without a policy no worker runs the seat, and a bot debater
- * also needs the busy cap its Launch is admitted under.
+ * also needs the busy cap its Launch is admitted under and a room to speak in.
  */
 export function aiSeatAvailability(
   config: Pick<
@@ -105,6 +122,10 @@ export function aiSeatAvailability(
     | 'ROUND_BOT_WORKER_POLICY'
     | 'ROUND_JUDGING_POLICY'
     | 'AI_ROUND_BUSY_CAP'
+    | 'LIVEKIT_URL'
+    | 'LIVEKIT_PUBLIC_URL'
+    | 'LIVEKIT_API_KEY'
+    | 'LIVEKIT_API_SECRET'
   >,
 ): AiSeatAvailability {
   const provider =
@@ -114,7 +135,8 @@ export function aiSeatAvailability(
     debater:
       provider &&
       config.ROUND_BOT_WORKER_POLICY !== undefined &&
-      config.AI_ROUND_BUSY_CAP !== undefined,
+      config.AI_ROUND_BUSY_CAP !== undefined &&
+      mediaConfigured(config),
     judge: provider && config.ROUND_JUDGING_POLICY !== undefined,
   };
 }

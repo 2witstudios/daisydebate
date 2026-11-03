@@ -187,6 +187,10 @@ test('aiSeatAvailability()', () => {
     ROUND_BOT_WORKER_POLICY: bots,
     ROUND_JUDGING_POLICY: judging,
     AI_ROUND_BUSY_CAP: 4,
+    LIVEKIT_URL: 'http://livekit.invalid',
+    LIVEKIT_PUBLIC_URL: 'ws://livekit.invalid',
+    LIVEKIT_API_KEY: 'key',
+    LIVEKIT_API_SECRET: 'secret',
   };
   assert({
     given: 'an OpenRouter key with no policy',
@@ -212,6 +216,15 @@ test('aiSeatAvailability()', () => {
     actual: aiSeatAvailability({
       ...provider,
       ROUND_JUDGING_POLICY: judging,
+    } as never),
+    expected: { debater: false, judge: true },
+  });
+  assert({
+    given: 'everything but the media service',
+    should: 'offer the judge, and not a debater that could not speak',
+    actual: aiSeatAvailability({
+      ...full,
+      LIVEKIT_API_SECRET: undefined,
     } as never),
     expected: { debater: false, judge: true },
   });

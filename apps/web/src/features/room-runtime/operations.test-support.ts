@@ -1,3 +1,4 @@
+import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
@@ -116,7 +117,7 @@ export const round: RoundView = (({ hostActorId, ...viewed }) => {
 
 export function makeOperations(
   overrides: Partial<Store> = {},
-  botsAvailable = false,
+  aiSeats: boolean | AiSeatAvailability = false,
 ) {
   let createInput: Parameters<Store['createRoomCommand']>[0] | null = null;
   const base = {
@@ -268,7 +269,10 @@ export function makeOperations(
       'f5n6p8r2t4v6x8z1k3b5c7d9',
     ]),
     consentTtlMs: () => 60_000,
-    aiSeats: () => ({ debater: botsAvailable, judge: botsAvailable }),
+    aiSeats: () =>
+      typeof aiSeats === 'boolean'
+        ? { debater: aiSeats, judge: aiSeats }
+        : aiSeats,
     entropy: () => '01'.repeat(32),
   });
   return {

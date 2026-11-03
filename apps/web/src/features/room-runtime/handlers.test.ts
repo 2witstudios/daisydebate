@@ -1,7 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRefusal } from '@daisy/errors';
 import { noopErrorReporter } from '@daisy/observability';
-import { fixedClock } from '@daisy/clock';
 import type { Identity } from '@daisy/auth';
 import { createRoomHandlers } from './handlers';
 import type { RoomRuntimeOperations } from './operations';
@@ -21,7 +20,6 @@ const dependencies = (
 ) => ({
   logger: silentLogger,
   reporter: noopErrorReporter,
-  clock: fixedClock('2026-11-01T00:00:00.000Z'),
   origin: () => origin,
   identify: async () => identity,
   getActorByUserId: async () => ({ id }),

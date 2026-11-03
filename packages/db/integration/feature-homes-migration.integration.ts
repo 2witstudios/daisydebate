@@ -32,18 +32,20 @@ test(
       await f.insert('seasons', scheduled);
       await f.insert('seasons', active);
       await scratch.migrate((folder) => folder <= migration);
-      const statuses = (await f.sql.unsafe(
-        'select id, status from seasons where id = any($1)',
-        [[scheduled.id, active.id]],
-      )) as readonly { id: string; status: string }[];
+      const stateOf = async (id: string) => {
+        const [row] =
+          await f.sql`select status, ends_at is not null as ended from seasons where id = ${id}`;
+        return [row.status, row.ended];
+      };
       assert({
         given: 'a scheduled and an active season before the migration',
-        should: 'close the scheduled one and leave the active one',
-        actual: [
-          statuses.find((row) => row.id === scheduled.id)?.status,
-          statuses.find((row) => row.id === active.id)?.status,
+        should:
+          'close the scheduled one with an end, which ratings reads require, and leave the active one',
+        actual: [await stateOf(scheduled.id), await stateOf(active.id)],
+        expected: [
+          ['closed', true],
+          ['active', false],
         ],
-        expected: ['closed', 'active'],
       });
     });
   },

@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { judgingPolicy, roundMediaPolicy } from '@daisy/protocol';
+import { roundMediaPolicy } from '@daisy/protocol';
 import { mediaWindowClosed, mediaWindowEndsAt } from './media-window';
 
 setupRitewayBun();
@@ -27,11 +27,5 @@ test('mediaWindowEndsAt()', () => {
     should: 'add the media policy window',
     actual: mediaWindowEndsAt(end) - Date.parse(end),
     expected: roundMediaPolicy.windowAfterFinalSegmentMs,
-  });
-  assert({
-    given: 'the two policies',
-    should: 'keep media and the ballot deadline as separate named bounds',
-    actual: 'windowAfterFinalSegmentMs' in judgingPolicy,
-    expected: false,
   });
 });

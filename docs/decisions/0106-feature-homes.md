@@ -30,7 +30,7 @@ writer. Each stayed correct only while its copies agreed.
    from the freeze, even though both are 30 minutes today.
 5. **A seat is offered only if it can run.** `aiSeatAvailability` derives the bot
    debater and the AI judge separately from key, policy, budget and, for a bot
-   debater, the busy cap. A key with no policy offers neither and still boots,
+   debater, the busy cap and the media service. A key with no policy offers neither and still boots,
    since a key alone is not a misconfiguration.
 6. **Ranked play takes no bot-debater path.** `castGate` refuses a ranked bot
    debater before any mutation, so the capacity-only admission was unreachable

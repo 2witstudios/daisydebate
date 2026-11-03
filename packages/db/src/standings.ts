@@ -5,7 +5,7 @@ import {
   type RatingLadder,
   type RoundOutcome,
 } from '@daisy/protocol';
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
@@ -13,9 +13,9 @@ import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { formatPresets } from './schema/format-presets';
 import { formats } from './schema/formats';
-import { ratingChanges, ratings, seasons } from './schema/ratings';
+import { ratingChanges, ratings } from './schema/ratings';
 import { users } from './schema/users';
-import { toSeasonRecord, type SeasonRecord } from './season-record';
+import { listSeasonRecords, type SeasonRecord } from './season-record';
 
 /**
  * The leaderboard's reads (ADR 0055): the seasons a ladder can show, the
@@ -97,10 +97,8 @@ export const standingsOperations = ({
 
   /** The seasons a ladder can show, newest start first. */
   listLadderSeasons(): Promise<readonly SeasonRecord[]> {
-    return instrumented(eventSink, 'listLadderSeasons', async () =>
-      (
-        await database.select().from(seasons).orderBy(desc(seasons.startsAt))
-      ).map(toSeasonRecord),
+    return instrumented(eventSink, 'listLadderSeasons', () =>
+      listSeasonRecords(database),
     );
   },
 
