@@ -5,6 +5,7 @@ import { rounds } from './rounds';
 
 export const spectatorFactKinds = [
   'stage',
+  'resolution',
   'result',
   'ballot',
   'rating',
@@ -37,7 +38,7 @@ export const spectatorFactReleases = pgTable(
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
     kind: text('kind').$type<(typeof spectatorFactKinds)[number]>().notNull(),
-    /** The fact's own row: the Round for a result, else the segment, ballot, posting or line. */
+    /** The fact's own row: the Round for a result or resolution, else the segment, ballot, posting or line. */
     factId: text('fact_id').notNull(),
     capturedAt: timestampColumn('captured_at').notNull(),
     releasedAt: timestampColumn('released_at').notNull(),

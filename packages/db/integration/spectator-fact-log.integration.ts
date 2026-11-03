@@ -6,6 +6,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   readRoundsAwaitingFactLog,
   recordFactReleases,
+  spectatorFactLogOperations,
 } from '../src/spectator-fact-log';
 import { withFixture } from './constraint-helpers';
 
@@ -25,28 +26,37 @@ const withEndedRound = async (
     readonly db: ReturnType<typeof drizzle>;
     readonly sql: SQL;
     readonly roundId: string;
+    /** Another Round of the same shape, gone with the fixture. */
+    readonly anotherRound: () => Promise<string>;
   }) => Promise<void>,
 ) => {
   const client = new SQL(databaseUrl, { max: 2 });
   try {
     await withFixture(databaseUrl, async (f) => {
       const host = await f.actor(await f.user());
-      const room = await f.room(host, await f.format());
-      const roundId = await f.round({
-        room_id: room,
-        visibility: 'public',
-        room_config_snapshot: {},
-        status: 'completed',
-        competition_type: 'ranked',
-        format_id: 'freestyle',
-        preset_version: 1,
-        ladder_id: 'freestyle',
-        outcome: 'affirmative',
-        started_at: started,
-        completed_at: ended,
-      });
+      const endedRound = async () =>
+        f.round({
+          room_id: await f.room(host, await f.format()),
+          visibility: 'public',
+          room_config_snapshot: {},
+          resolution: null,
+          status: 'completed',
+          competition_type: 'ranked',
+          format_id: 'freestyle',
+          preset_version: 1,
+          ladder_id: 'freestyle',
+          outcome: 'affirmative',
+          started_at: started,
+          completed_at: ended,
+        });
+      const roundId = await endedRound();
       try {
-        await run({ db: drizzle({ client }), sql: client, roundId });
+        await run({
+          db: drizzle({ client }),
+          sql: client,
+          roundId,
+          anotherRound: endedRound,
+        });
       } finally {
         await client`delete from broadcasts where round_id=${roundId}`;
       }
@@ -154,22 +164,75 @@ test('the log refuses a change, and goes only with its Round', async () => {
   });
 });
 
-test('the sweep finds Rounds with an audience, ended inside its window', async () => {
-  await withEndedRound(async ({ db, roundId }) => {
-    const found = (hours: number, at: Date) =>
-      readRoundsAwaitingFactLog(db, {
-        clock: clockAt(at),
-        endedWithinHours: hours,
-        limit: 1000,
-      });
+test('the sweep finds a Round only while a fact has left and no row records it', async () => {
+  await withEndedRound(async ({ db, sql, roundId }) => {
+    await sql`insert into broadcasts (id, round_id, feed_key, release_policy, released_through_at, completed_at)
+      values (${'b' + roundId.slice(1)}, ${roundId}, ${'k' + roundId.slice(1)}, ${{ kind: 'at', atMs: ended.getTime() + 90 * 86_400_000 }}, ${started}, ${ended})`;
+    const found = async (at: Date) =>
+      (
+        await readRoundsAwaitingFactLog(db, {
+          clock: clockAt(at),
+          limit: 1000,
+        })
+      ).includes(roundId);
+    const monthLater = after(ended, 30 * 86_400_000);
+    const released = after(ended, 90 * 86_400_000);
     assert({
-      given: 'a Round inside and then outside the window',
-      should: 'find it, then not',
-      actual: [
-        (await found(1, after(ended, 1000))).includes(roundId),
-        (await found(1, after(ended, 3_700_000))).includes(roundId),
-      ],
-      expected: [true, false],
+      given: 'a scheduled hold nothing has passed, a month after the Round',
+      should: 'not take a place in the pass',
+      actual: await found(monthLater),
+      expected: false,
+    });
+    assert({
+      given: 'the hold ending three months after the Round',
+      should: 'find it however long the hold ran',
+      actual: await found(released),
+      expected: true,
+    });
+    await recordFactReleases(db, { roundId, clock: clockAt(released) });
+    assert({
+      given: 'every released fact recorded',
+      should: 'not find it again',
+      actual: await found(after(released, 1000)),
+      expected: false,
+    });
+  });
+});
+
+test('a full batch of waiting Rounds starves nothing', async () => {
+  await withEndedRound(async ({ db, sql, roundId, anotherRound }) => {
+    const ids = [roundId, await anotherRound(), await anotherRound()];
+    const clock = clockAt(after(ended, 1000 * delay));
+    const { sweepSpectatorFactLog } = spectatorFactLogOperations({
+      database: db,
+    });
+    for (const _pass of ids) await sweepSpectatorFactLog({ clock, limit: 1 });
+    const logged = await Promise.all(
+      ids.map(async (id) => (await rows(sql, id)).length > 0),
+    );
+    assert({
+      given: 'more Rounds waiting than one pass takes',
+      should: 'reach every one of them within as many passes',
+      actual: logged,
+      expected: ids.map(() => true),
+    });
+  });
+});
+
+test('a released resolution is logged at the Round start', async () => {
+  await withEndedRound(async ({ db, sql, roundId }) => {
+    await sql`update rounds set resolution='Resolved, a line' where id=${roundId}`;
+    await recordFactReleases(db, {
+      roundId,
+      clock: clockAt(after(ended, 1000 * delay)),
+    });
+    assert({
+      given: 'a Round with a resolution, its start long released',
+      should: 'log the resolution, captured when the Round started',
+      actual: (await rows(sql, roundId))
+        .filter((r) => r.kind === 'resolution')
+        .map((r) => [r.fact_id, r.captured_at.toISOString()]),
+      expected: [[roundId, started.toISOString()]],
     });
   });
 });
