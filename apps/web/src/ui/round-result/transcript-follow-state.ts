@@ -18,7 +18,10 @@ export type FollowEvent =
   | { readonly type: 'latest' };
 
 const NEAR_END_PX = 24;
-/** Zoom and fractional pixels move a position by less than this with no reader. */
+/**
+ * Zoom and fractional pixels move a position by less than this with no reader.
+ * Moves are measured from the last position past it, so a slow scroll adds up.
+ */
 const SUBPIXEL_PX = 1;
 
 const remaining = ({ scrollHeight, scrollTop, clientHeight }: ScrollPosition) =>
@@ -40,14 +43,17 @@ type FollowStep = {
 };
 
 function afterScroll(state: FollowState, position: ScrollPosition): FollowStep {
-  if (position.clientHeight === 0) return { state, pinToEnd: false };
+  if (
+    position.clientHeight === 0 ||
+    Math.abs(position.scrollTop - state.lastTop) <= SUBPIXEL_PX
+  )
+    return { state, pinToEnd: false };
   return {
     state: {
       following:
         !movedUp(state, position) &&
         (state.following ||
-          (position.scrollTop > state.lastTop + SUBPIXEL_PX &&
-            isNearEnd(position))),
+          (position.scrollTop > state.lastTop && isNearEnd(position))),
       lastTop: position.scrollTop,
     },
     pinToEnd: false,
