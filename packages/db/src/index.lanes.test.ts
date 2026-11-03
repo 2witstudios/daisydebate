@@ -12,7 +12,11 @@ const database = createDatabase({
   nextActorId: () => 'a'.repeat(24),
   profile: {
     ...WORKLOAD_PROFILES.web,
-    lanes: { ...WORKLOAD_PROFILES.web.lanes, audience: undefined },
+    lanes: Object.fromEntries(
+      Object.entries(WORKLOAD_PROFILES.web.lanes).filter(
+        ([name]) => name !== 'audience',
+      ),
+    ),
   },
 });
 const clock = { now: '2026-11-03T00:00:00.000Z', rankedDelaySeconds: 60 };
