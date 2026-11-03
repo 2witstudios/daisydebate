@@ -29,3 +29,24 @@ test('encoderArgs writes all three renditions, timed by capture', () => {
     ],
   });
 });
+
+test('encoderArgs cuts only when asked, and to the millisecond', () => {
+  const output = (rendition: string) => `/o/${rendition}.ts`;
+  const whole = encoderArgs('/i.ts', output, 1000);
+  const cut = encoderArgs('/i.ts', output, 1000, {
+    offsetMs: 1500,
+    durationMs: 2250,
+  });
+  assert({
+    given: 'a whole segment, then a cut, three renditions',
+    should: 'seek in none, then in each, after the input',
+    actual: [
+      whole.includes('-ss'),
+      cut.filter((arg) => arg === '-ss').length,
+      cut.indexOf('-i') < cut.indexOf('-ss'),
+      cut.includes('1.500'),
+      cut.includes('2.250'),
+    ],
+    expected: [false, 3, true, true, true],
+  });
+});

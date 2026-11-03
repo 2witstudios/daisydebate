@@ -70,3 +70,20 @@ export const outcomeReleasedSql = (
   clock: SpectatorClock,
 ) =>
   sql`(${round.status}<>'completed' or ${factReleasedSql(round.completedAt, round, clock)})`;
+
+/**
+ * A caption is known public: its segment has closed, or the control plane has been
+ * heard from since it was said. It belongs to a committed segment by its foreign key,
+ * so this is the one case left: a line on a segment still open past the last
+ * heartbeat waits, like the media beside it.
+ */
+export const captionKnownPublicSql = (utterance: {
+  readonly segmentId: SQL | unknown;
+  readonly createdAt: SQL | unknown;
+}) => sql`exists (
+  select 1 from round_segments known_s
+  left join broadcasts known_b on known_b.round_id = known_s.round_id
+  where known_s.id = ${utterance.segmentId}
+    and (known_s.ended_at is not null
+      or known_b.id is null
+      or known_b.control_heartbeat_at >= ${utterance.createdAt}))`;

@@ -1,11 +1,12 @@
 import { releasedThrough, segmentDue } from '@daisy/debate-engine';
 import {
-  coveredByHeartbeat,
-  outsideControlLapses,
   parseHoldPlaylist,
+  publicClips,
+  settledByHeartbeat,
   type BroadcastReleasePolicy,
-  type ControlLapse,
   type HoldEntry,
+  type PublicClip,
+  type PublicInterval,
 } from '@daisy/protocol';
 import {
   mediaPlaylist,
@@ -25,7 +26,9 @@ export type EncodedRendition = {
 
 export type ReleasePorts = {
   readonly readHoldPlaylist: () => Promise<string>;
-  readonly encode: (entry: HoldEntry) => Promise<readonly EncodedRendition[]>;
+  readonly encode: (
+    clip: PublicClip<HoldEntry>,
+  ) => Promise<readonly EncodedRendition[]>;
   readonly publishSegment: (
     seq: number,
     rendition: string,
@@ -38,6 +41,8 @@ export type ReleasePorts = {
     seq: number,
     mediaEndMs: number,
   ) => Promise<boolean>;
+  /** Settled time with nothing public in it has come due: no media, only the timeline. */
+  readonly recordPassed: (throughMs: number) => Promise<boolean>;
   /** Every held segment is out, so the timeline reaches the end of the media. */
   readonly recordEnded: (mediaEndMs: number) => Promise<boolean>;
   /** This attempt's hold is empty and a later attempt exists: move to it. */
@@ -59,56 +64,65 @@ export type ReleaseInput = {
   readonly roundEndedAtMs: number | null;
   /** Known once the Egress stopped; a cursor past the hold then ends the stream. */
   readonly finalMediaEndMs: number | null;
-  /** The last control-plane heartbeat: no media after it leaves (ADR 0099). */
+  /** The last heartbeat: past it, what history says is not yet settled (ADR 0099). */
   readonly heartbeatMs: number | null;
-  /** Stretches with no control plane: media in them is never released. */
-  readonly controlLapses: readonly ControlLapse[];
+  /** What committed history proves public: nothing outside this is ever released. */
+  readonly publicIntervals: readonly PublicInterval[];
+  /** The durable watermark as last read, so a pass with nothing new writes nothing. */
+  readonly releasedThroughMs: number | null;
 };
 
 export type ReleaseResult =
   | { readonly kind: 'waiting' }
-  /** Due, but captured past the last heartbeat. */
+  /** Due, but no committed history reaches it yet. */
   | { readonly kind: 'lapsed' }
   | { readonly kind: 'fenced' }
   | { readonly kind: 'ended' }
   | { readonly kind: 'advanced' }
   | { readonly kind: 'released'; readonly released: ReleasedSegment };
 
-/** The newest segments of this attempt's hold, up to `cursor`, under public sequences. */
+/** Clips further apart than this have something missing between them. */
+const JOINED_WITHIN_MS = 250;
+
+type Clips = readonly PublicClip<HoldEntry>[];
+
+/** The newest clips of this attempt's hold, up to `cursor`, under public sequences. */
 const windowEndingAt = (
-  held: readonly HoldEntry[],
+  clips: Clips,
   cursor: number,
   seq: number,
-  lapses: readonly ControlLapse[],
+  intervals: readonly PublicInterval[],
 ): ReleasedWindow => {
   const start = Math.max(0, cursor - WINDOW + 1);
-  const segments = held.slice(start, cursor + 1).map((e, i, all) => ({
+  const segments = clips.slice(start, cursor + 1).map((clip, i, all) => ({
     seq: seq - all.length + 1 + i,
-    capturedAtMs: e.capturedAtMs,
-    durationMs: e.durationMs,
+    capturedAtMs: clip.capturedAtMs,
+    durationMs: clip.durationMs,
   }));
-  const lapseBefore = (index: number) =>
-    index > 0 &&
-    lapses.some(
-      ({ fromMs, toMs }) =>
-        fromMs < held[index]!.capturedAtMs &&
-        toMs > held[index - 1]!.capturedAtMs,
+  const gapBefore = (index: number) => {
+    const previous = clips[index - 1];
+    return (
+      previous !== undefined &&
+      clips[index]!.capturedAtMs -
+        (previous.capturedAtMs + previous.durationMs) >
+        JOINED_WITHIN_MS
     );
-  // Grows only, across attempts too: an earlier stretch can only have scrolled out.
-  const passedBy = held[Math.max(0, start - 1)]?.capturedAtMs ?? 0;
+  };
+  // Grows only, across attempts too: an earlier gap can only have scrolled out.
+  const passedBy = clips[Math.max(0, start - 1)]?.capturedAtMs ?? 0;
   return {
     segments,
-    afterLapse: segments
-      .filter((_, i) => lapseBefore(start + i))
+    afterGap: segments
+      .filter((_, i) => gapBefore(start + i))
       .map((segment) => segment.seq),
-    lapsesPassed: lapses.filter(({ toMs }) => toMs <= passedBy).length,
+    gapsPassed: intervals.filter(({ toMs }) => toMs <= passedBy).length,
   };
 };
 
 type ReleasedWindow = {
   readonly segments: readonly ReleasedSegment[];
-  readonly afterLapse: readonly number[];
-  readonly lapsesPassed: number;
+  readonly afterGap: readonly number[];
+  readonly gapsPassed: number;
 };
 
 const publishManifests = async (
@@ -123,8 +137,8 @@ const publishManifests = async (
       mediaPlaylist(window.segments, {
         ended,
         attempt,
-        afterLapse: window.afterLapse,
-        lapsesPassed: window.lapsesPassed,
+        afterGap: window.afterGap,
+        gapsPassed: window.gapsPassed,
       }),
     );
 };
@@ -137,7 +151,7 @@ const publishManifests = async (
 const endStream = async (
   input: ReleaseInput,
   finalMediaEndMs: number,
-  held: readonly HoldEntry[],
+  held: Clips,
   ports: ReleasePorts,
 ): Promise<ReleaseResult> => {
   if (held.length > 0)
@@ -147,7 +161,7 @@ const endStream = async (
         held,
         held.length - 1,
         input.nextSegment - 1,
-        input.controlLapses,
+        input.publicIntervals,
       ),
       true,
       {
@@ -169,13 +183,37 @@ export const releaseStep = async (
   input: ReleaseInput,
   ports: ReleasePorts,
 ): Promise<ReleaseResult> => {
-  // Removed before anything counts, so a lapse is never released, even once the
-  // heartbeat has moved past it, and leaves no hole in the public sequence.
-  const held = outsideControlLapses(
-    parseHoldPlaylist(await ports.readHoldPlaylist()),
-    input.controlLapses,
+  // Only what is settled counts, and only its public clips: nothing else is ever
+  // released, positions never shift, and what is left out leaves no hole in the
+  // public sequence.
+  const entries = parseHoldPlaylist(await ports.readHoldPlaylist());
+  const settled = entries.filter((one) =>
+    settledByHeartbeat(one, input.heartbeatMs),
   );
+  const held = publicClips(settled, input.publicIntervals);
   const entry = held[input.holdCursor];
+  const unsettled = entries[settled.length];
+  // Due settled time before the next clip holds nothing to release, or the watermark
+  // would sit still through a long prep and read as a stalled Broadcast.
+  const due = (one: HoldEntry) =>
+    segmentDue(input.policy, one, {
+      nowMs: input.nowMs,
+      roundEndedAtMs: input.roundEndedAtMs,
+    });
+  const lastDue = settled.filter(due).at(-1);
+  if (lastDue && !(entry && due({ ...entry.source, ...entry }))) {
+    const through = Math.min(
+      lastDue.capturedAtMs + lastDue.durationMs,
+      entry?.capturedAtMs ?? Number.POSITIVE_INFINITY,
+    );
+    if (
+      through > (input.releasedThroughMs ?? 0) &&
+      !(await ports.recordPassed(through))
+    )
+      return { kind: 'fenced' };
+  }
+  if (!entry && unsettled)
+    return due(unsettled) ? { kind: 'lapsed' } : { kind: 'waiting' };
   if (!entry) {
     if (input.laterAttemptStartedMs !== null)
       return input.nowMs >= input.laterAttemptStartedMs + HOLD_SETTLE_MS
@@ -197,7 +235,6 @@ export const releaseStep = async (
     })
   )
     return { kind: 'waiting' };
-  if (!coveredByHeartbeat(entry, input.heartbeatMs)) return { kind: 'lapsed' };
   const seq = input.nextSegment;
   for (const { rendition, file } of await ports.encode(entry))
     await ports.publishSegment(seq, rendition, file);
@@ -205,7 +242,7 @@ export const releaseStep = async (
     held,
     input.holdCursor,
     seq,
-    input.controlLapses,
+    input.publicIntervals,
   );
   await publishManifests(ports, window, false, {
     index: input.attemptIndex,

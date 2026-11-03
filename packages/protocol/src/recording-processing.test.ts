@@ -72,7 +72,7 @@ describe('recordingPreparationOf', () => {
   const queued = {
     status: 'queued' as const,
     attemptCount: 1,
-    controlLapses: [],
+    publicIntervals: [],
     progress,
   };
   test('says what is really happening, from the job', () => {
@@ -84,7 +84,7 @@ describe('recordingPreparationOf', () => {
         recordingPreparationOf({ status: 'requested' }, null, endedAtMs),
         recordingPreparationOf(
           processing,
-          { status: 'queued', attemptCount: 1, controlLapses: [] },
+          { status: 'queued', attemptCount: 1, publicIntervals: [] },
           endedAtMs,
         ),
         recordingPreparationOf(processing, queued, endedAtMs),

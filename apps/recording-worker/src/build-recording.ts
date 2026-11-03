@@ -4,12 +4,11 @@ import {
   type BuiltRecordingMedia,
   type RecordingBuildProgress,
   type RecordingJobState,
-  outsideControlLapses,
-  type ControlLapse,
+  publicClips,
+  type PublicInterval,
 } from '@daisy/protocol';
 import {
   attemptSource,
-  runsOutsideLapses,
   HOLD_PLAYLIST,
   segmentsSource,
   WHOLE_FILE,
@@ -18,6 +17,7 @@ import {
 import { coverageOf, type CapturedPiece, type Coverage } from './coverage';
 import {
   concatList,
+  cutArgs,
   hlsArgs,
   joinSegmentsArgs,
   joinTimelineArgs,
@@ -126,7 +126,6 @@ const joinedSegments = async (
 /** One attempt's media as a local file, or null when it left nothing readable. */
 const readAttempt = async (
   ports: BuildPorts,
-  lapses: readonly ControlLapse[],
   holdPrefix: string,
   attempt: number,
 ): Promise<readonly CapturedPiece[]> => {
@@ -137,30 +136,6 @@ const readAttempt = async (
   const names = new Set(await ports.hold.listNames(prefix));
   const dir = `${ports.workDir}/attempt-${attempt}`;
   await ports.files.makeDir(dir);
-  if (outsideControlLapses(entries, lapses).length < entries.length) {
-    const pieces: CapturedPiece[] = [];
-    let run = 0;
-    for (const part of runsOutsideLapses(entries, names, lapses)) {
-      if (part.kind !== 'segments') continue;
-      const runDir = `${dir}/run-${(run += 1)}`;
-      await ports.files.makeDir(runDir);
-      const { output, found } = await joinedSegments(
-        ports,
-        prefix,
-        runDir,
-        part,
-      );
-      if (found)
-        pieces.push({
-          attempt,
-          path: output,
-          startedAtMs: part.startedAtMs,
-          durationMs: found.durationMs,
-          hasAudio: found.hasAudio,
-        });
-    }
-    return pieces;
-  }
   const source = attemptSource(entries, names);
   if (source.kind === 'absent') return [];
   if (source.kind === 'whole_file') {
@@ -195,6 +170,45 @@ const readAttempt = async (
         },
       ]
     : [];
+};
+
+/**
+ * One attempt cut to what is public, to the frame. A piece wholly inside an interval
+ * stays as it is, with no second encode; otherwise only the public parts survive.
+ */
+const publicPieces = async (
+  ports: BuildPorts,
+  attempt: readonly CapturedPiece[],
+  intervals: readonly PublicInterval[],
+): Promise<readonly CapturedPiece[]> => {
+  const kept: CapturedPiece[] = [];
+  for (const piece of attempt) {
+    const clips = publicClips(
+      [{ capturedAtMs: piece.startedAtMs, durationMs: piece.durationMs }],
+      intervals,
+    );
+    if (clips.length === 1 && clips[0]!.durationMs === piece.durationMs) {
+      kept.push(piece);
+      continue;
+    }
+    let part = 0;
+    for (const clip of clips) {
+      const path = `${piece.path}.public-${(part += 1)}.mp4`;
+      await ports.run(
+        cutArgs(piece.path, clip.offsetMs, clip.durationMs, path),
+      );
+      const found = await probe(ports, path);
+      if (found)
+        kept.push({
+          attempt: piece.attempt,
+          path,
+          startedAtMs: clip.capturedAtMs,
+          durationMs: found.durationMs,
+          hasAudio: found.hasAudio,
+        });
+    }
+  }
+  return kept;
 };
 
 /** ffmpeg's own count of what it has written, held to the length it is writing. */
@@ -251,7 +265,7 @@ export const buildRecording = async (
     readonly recordingId: string;
     readonly holdPrefix: string;
     readonly attemptCount: number;
-    readonly controlLapses: readonly ControlLapse[];
+    readonly publicIntervals: readonly PublicInterval[];
   },
 ): Promise<RecordingJobState> => {
   const pieces: CapturedPiece[] = [];
@@ -262,10 +276,14 @@ export const buildRecording = async (
       total: job.attemptCount,
     });
     pieces.push(
-      ...(await readAttempt(ports, job.controlLapses, job.holdPrefix, attempt)),
+      ...(await publicPieces(
+        ports,
+        await readAttempt(ports, job.holdPrefix, attempt),
+        job.publicIntervals,
+      )),
     );
   }
-  const coverage = coverageOf(pieces, job.controlLapses);
+  const coverage = coverageOf(pieces, job.publicIntervals);
   if (coverage === null)
     return { status: 'failed', reason: 'no_media', failedAt: ports.now() };
 

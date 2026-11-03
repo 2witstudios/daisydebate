@@ -6,6 +6,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   readBroadcastObserverHeld,
+  readBroadcastPublicHistory,
   readConversationHeld,
   recordEgressStarted,
   recordFeedWithdrawn,
@@ -651,7 +652,50 @@ test('paging reaches every open Broadcast, past any page', async () => {
   });
 });
 
-test('a heartbeat back after 10 s or more records the lapse by itself, once', async () => {
+test('the worker reads committed times through the view, and no Round', async () => {
+  await withOps(async (db, roundId, client) => {
+    const { id } = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const segmentId = createId();
+    await client`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,ended_at,duration_ms)
+      values (${segmentId},${roundId},0,'speech','k',${now},${later},60000)`;
+    const history = await readBroadcastPublicHistory(db, id);
+    await client`delete from round_segments where id=${segmentId}`;
+    const grant = async (table: string) =>
+      (
+        await client`select has_table_privilege('daisy_broadcast_worker',${table},'select') as yes`
+      )[0]?.yes;
+    assert({
+      given: 'a committed segment, and the worker role',
+      should:
+        'read its times through the view, with no grant on any Round table',
+      actual: [
+        history,
+        await grant('broadcast_public_history'),
+        await grant('round_segments'),
+        await grant('rounds'),
+      ],
+      expected: [
+        [
+          {
+            startedAtMs: now.getTime(),
+            endedAtMs: later.getTime(),
+            durationMs: 60_000,
+          },
+        ],
+        true,
+        false,
+        false,
+      ],
+    });
+  });
+});
+
+test('a claim is the heartbeat', async () => {
   await withOps(async (db, roundId) => {
     const { id } = await openBroadcast(db, {
       id: createId(),
@@ -659,62 +703,21 @@ test('a heartbeat back after 10 s or more records the lapse by itself, once', as
       feedKey: createId(),
       releasePolicy: policy,
     });
-    const row = async () =>
-      (await db.select().from(broadcasts).where(eq(broadcasts.id, id)))[0]!;
-    const beat = () =>
-      claimBroadcastReconcile(db, { id, now: later, until: past });
-    const age = (seconds: number) =>
-      db
-        .update(broadcasts)
-        .set({
-          controlHeartbeatAt: new Date(Date.now() - seconds * 1000),
-          reconcileLeaseUntil: null,
-        })
-        .where(eq(broadcasts.id, id));
-    await beat();
-    const first = (await row()).controlLapses.lapses;
-    await age(9);
-    await beat();
-    const short = (await row()).controlLapses.lapses;
-    await age(30);
-    const lastBeat = (await row()).controlHeartbeatAt!.getTime();
-    const started = await recordEgressStarted(db, {
-      id,
-      egressId: 'EG',
-      generation: 1,
-      stageCredentialHash: 'h',
-      now: past,
-    });
-    const { lapses } = (await row()).controlLapses;
-    await beat();
+    const beat = async () =>
+      (await db.select().from(broadcasts).where(eq(broadcasts.id, id)))[0]
+        ?.controlHeartbeatAt;
+    const before = await beat();
+    await claimBroadcastReconcile(db, { id, now: later, until: later });
     assert({
-      given:
-        'a first heartbeat; one after 9 s; one after 30 s, through a recorded start; and another at once',
-      should:
-        'record nothing, nothing, then one lapse from the last heartbeat to now, and keep it',
-      actual: {
-        first,
-        short,
-        started,
-        count: lapses.length,
-        from: lapses[0]?.fromMs,
-        spansTheGap: (lapses[0]?.toMs ?? 0) - lastBeat >= 30_000,
-        kept: (await row()).controlLapses.lapses.length,
-      },
-      expected: {
-        first: [],
-        short: [],
-        started: true,
-        count: 1,
-        from: lastBeat,
-        spansTheGap: true,
-        kept: 1,
-      },
+      given: 'no heartbeat, then a claim',
+      should: 'stamp it',
+      actual: [before, (await beat()) instanceof Date],
+      expected: [null, true],
     });
   });
 });
 
-test('a Broadcast observer holds cameras; a heartbeat lapse shows as stale', async () => {
+test('a Broadcast observer holds cameras', async () => {
   await withOps(async (db, roundId) => {
     const { id } = await openBroadcast(db, {
       id: createId(),

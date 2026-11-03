@@ -16,8 +16,12 @@ const world = (over: Partial<ReleasePorts> = {}) => {
   const log: string[] = [];
   const ports: ReleasePorts = {
     readHoldPlaylist: async () => playlist(3),
-    encode: async ({ name }) => {
-      log.push(`encode ${name}`);
+    encode: async ({ source, offsetMs, durationMs }) => {
+      log.push(
+        offsetMs === 0 && durationMs === source.durationMs
+          ? `encode ${source.name}`
+          : `encode ${source.name} ${offsetMs} ${durationMs}`,
+      );
       return ['720', '480', '240'].map((rendition) => ({
         rendition,
         file: `/tmp/${rendition}`,
@@ -35,6 +39,10 @@ const world = (over: Partial<ReleasePorts> = {}) => {
     },
     recordAdvanced: async () => {
       log.push('advanced');
+      return true;
+    },
+    recordPassed: async (through) => {
+      log.push(`passed ${through - start}`);
       return true;
     },
     recordEnded: async (end) => {
@@ -58,15 +66,16 @@ const input = (
   roundEndedAtMs: null,
   finalMediaEndMs: null,
   heartbeatMs: start + 1_000_000,
-  controlLapses: [],
+  publicIntervals: [{ fromMs: start - 1000, toMs: start + 1_000_000 }],
+  releasedThroughMs: null,
   ...over,
 });
 
-describe('a dead control plane', () => {
-  test('media past the last heartbeat is not released, however due', async () => {
+describe('only what history proves public', () => {
+  test('past the heartbeat nothing is settled, however due', async () => {
     const { ports, log } = world();
     const answer = await releaseStep(
-      input({ heartbeatMs: start + 4_999 }),
+      input({ heartbeatMs: start + 4_499 }),
       ports,
     );
     assert({
@@ -76,23 +85,77 @@ describe('a dead control plane', () => {
       expected: ['lapsed', []],
     });
   });
-  test('media in a lapse never leaves, and leaves no hole in the sequence', async () => {
+  test('settled time with nothing public moves the timeline, and publishes nothing', async () => {
+    const { ports, log } = world();
+    const answer = await releaseStep(
+      input({ publicIntervals: [], nowMs: start + 200_000 }),
+      ports,
+    );
+    const { ports: later, log: laterLog } = world();
+    await releaseStep(
+      input({
+        publicIntervals: [],
+        nowMs: start + 200_000,
+        releasedThroughMs: start + 12_000,
+      }),
+      later,
+    );
+    assert({
+      given: 'three due segments with no public interval, then already passed',
+      should: 'move the watermark past them once, with no media at all',
+      actual: [answer.kind, log, laterLog],
+      expected: ['waiting', ['passed 12000'], []],
+    });
+  });
+  test('the watermark stops at the next clip, and waits for it', async () => {
+    const { ports, log } = world();
+    await releaseStep(
+      input({
+        publicIntervals: [{ fromMs: start + 6_000, toMs: start + 8_000 }],
+        nowMs: start + 4_000 + 60_000,
+      }),
+      ports,
+    );
+    assert({
+      given: 'a due segment outside, then a clip in the next one not yet due',
+      should: 'pass only what is due, and publish nothing',
+      actual: log,
+      expected: ['passed 4000'],
+    });
+  });
+  test('a segment no interval touches leaves no hole in the sequence', async () => {
     const { ports, log } = world();
     const answer = await releaseStep(
       input({
-        controlLapses: [{ fromMs: start - 10, toMs: start + 3_000 }],
+        publicIntervals: [{ fromMs: start + 4_000, toMs: start + 100_000 }],
         nowMs: start + 200_000,
       }),
       ports,
     );
     assert({
-      given: 'a resumed heartbeat with a lapse covering the first held segment',
-      should: 'release the next one under the same public sequence',
+      given: 'the first held segment wholly outside any interval',
+      should: 'release the next under the same public sequence',
       actual: [answer.kind, log[0], log.at(-1)],
       expected: ['released', 'encode s_1.ts', 'record 0 8000'],
     });
   });
-  test('the playlist marks where the gap was, as long as it shows', async () => {
+  test('a boundary inside a segment keeps the public side, and the watermark stops there', async () => {
+    const { ports, log } = world();
+    const answer = await releaseStep(
+      input({
+        publicIntervals: [{ fromMs: start + 1_500, toMs: start + 3_000 }],
+        nowMs: start + 200_000,
+      }),
+      ports,
+    );
+    assert({
+      given: 'an interval starting and ending inside the first segment',
+      should: 'encode exactly that part, and record its end',
+      actual: [answer.kind, log[0], log.at(-1)],
+      expected: ['released', 'encode s_0.ts 1500 1500', 'record 0 3000'],
+    });
+  });
+  test('the playlist marks where something was left out, as long as it shows', async () => {
     const manifests: string[] = [];
     const { ports } = world({
       publishManifest: async (_key: string, text: string) => {
@@ -104,13 +167,16 @@ describe('a dead control plane', () => {
         holdCursor: 1,
         nextSegment: 1,
         attemptIndex: 0,
-        controlLapses: [{ fromMs: start + 5_500, toMs: start + 7_000 }],
+        publicIntervals: [
+          { fromMs: start, toMs: start + 4_000 },
+          { fromMs: start + 8_000, toMs: start + 12_000 },
+        ],
         nowMs: start + 200_000,
       }),
       ports,
     );
     assert({
-      given: 'a segment released after a lapse in the middle of an attempt',
+      given: 'a clip released after a stretch not public, in one attempt',
       should: 'start it with a discontinuity',
       actual: manifests[0]?.includes('#EXT-X-DISCONTINUITY\n'),
       expected: true,
@@ -303,6 +369,7 @@ describe('releaseStep', () => {
       nextSegment: 3,
       holdCursor: 3,
       laterAttemptStartedMs: later,
+      releasedThroughMs: start + 12_000,
     };
     const settling = await releaseStep(
       input({ ...drained, nowMs: later + 9_999 }),

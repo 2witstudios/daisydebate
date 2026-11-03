@@ -1,4 +1,4 @@
-import { controlLapsesSchema } from './control-lapse';
+import { publicIntervalsSchema } from './public-interval';
 import { z } from 'zod';
 import {
   recordingFailureReasons,
@@ -87,8 +87,8 @@ export const recordingJobStateSchema = z.discriminatedUnion('status', [
   z.strictObject({
     status: z.literal('queued'),
     attemptCount: z.int().positive(),
-    /** Stretches with no control plane: media captured in one is never built. */
-    controlLapses: controlLapsesSchema,
+    /** What committed history proves public: only this is built. */
+    publicIntervals: publicIntervalsSchema,
     /** How long one run may go on, sized by the web from the capture's length. */
     ceilingMs: z.int().positive().optional(),
     /** Absent until a worker holds it, and again after a run that failed. */

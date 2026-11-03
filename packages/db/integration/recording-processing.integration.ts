@@ -11,7 +11,6 @@ import {
 import { createRecordingCaptureStore } from '../src/recording-capture-store';
 import { recordingOperations } from '../src/recording-operations';
 import { createRecordingWorkerStore } from '../src/recording-worker-store';
-import { recordingCaptures } from '../src/schema/recording-captures';
 import { recordingProcessingJobs } from '../src/schema/recording-processing-jobs';
 import { withFixture } from './constraint-helpers';
 
@@ -142,6 +141,7 @@ test('a job is claimable once capture ended, by one worker at a time', async () 
     await store.queueJob({
       recordingId: id,
       attemptCount: 2,
+      publicIntervals: [],
       ceilingMs: 60_000,
     });
     const claims = await Promise.all(
@@ -164,7 +164,7 @@ test('a job is claimable once capture ended, by one worker at a time', async () 
           status: 'queued',
           attemptCount: 2,
           ceilingMs: 60_000,
-          controlLapses: [],
+          publicIntervals: [],
         },
         1,
       ],
@@ -179,6 +179,7 @@ test('a slower former owner can write nothing', async () => {
     await store.queueJob({
       recordingId: id,
       attemptCount: 1,
+      publicIntervals: [],
       ceilingMs: 60_000,
     });
     const first = await claimAt(worker, 'old', FUTURE);
@@ -250,6 +251,7 @@ test('a failed run comes due later and counts, and shutdown does not count', asy
     await store.queueJob({
       recordingId: id,
       attemptCount: 1,
+      publicIntervals: [],
       ceilingMs: 60_000,
     });
     await claimAt(worker, 'w', FUTURE);
@@ -295,6 +297,7 @@ test('a build reports how far it is, and only its current owner can say so', asy
     await store.queueJob({
       recordingId: id,
       attemptCount: 1,
+      publicIntervals: [],
       ceilingMs: 60_000,
     });
     const job = await claimAt(worker, 'w', FUTURE);
@@ -319,7 +322,7 @@ test('a build reports how far it is, and only its current owner can say so', asy
         status: 'queued',
         attemptCount: 1,
         ceilingMs: 60_000,
-        controlLapses: [],
+        publicIntervals: [],
         progress,
       },
     });
@@ -338,7 +341,7 @@ test('a build reports how far it is, and only its current owner can say so', asy
         status: 'queued',
         attemptCount: 1,
         ceilingMs: 60_000,
-        controlLapses: [],
+        publicIntervals: [],
       },
     });
   });
@@ -402,6 +405,7 @@ test('discarding fences a running build and is claimable itself', async () => {
     await store.queueJob({
       recordingId: id,
       attemptCount: 1,
+      publicIntervals: [],
       ceilingMs: 60_000,
     });
     await claimAt(worker, 'builder', FUTURE);
@@ -514,6 +518,7 @@ test('the web sees only jobs it can answer, and what still uses their sources', 
     await store.queueJob({
       recordingId: id,
       attemptCount: 1,
+      publicIntervals: [],
       ceilingMs: 60_000,
     });
     assert({
@@ -525,39 +530,30 @@ test('the web sees only jobs it can answer, and what still uses their sources', 
   });
 });
 
-test('a queued build carries the lapses of its capture, and an own heartbeat writes them', async () => {
+test('a queued build carries the intervals it is given', async () => {
   await withStores(async ({ store, db, newRecording }) => {
-    const { id, roundId } = await newRecording();
-    await store.openOwn({ recordingId: id, roundId });
-    await store.claimOwn({ recordingId: id, now: NOW, until: NOW });
-    const firstBeat = await db
-      .select({ at: recordingCaptures.controlHeartbeatAt })
-      .from(recordingCaptures)
-      .where(eq(recordingCaptures.recordingId, id));
-    await db
-      .update(recordingCaptures)
-      .set({
-        controlHeartbeatAt: new Date(Date.now() - 30_000),
-        reconcileLeaseUntil: null,
-      })
-      .where(eq(recordingCaptures.recordingId, id));
-    await store.claimOwn({ recordingId: id, now: NOW, until: NOW });
+    const { id } = await newRecording();
     await store.openJob({ recordingId: id, holdPrefix: `h/${id}/` });
+    const intervals = [{ fromMs: 1000, toMs: 2000 }];
     await store.queueJob({
       recordingId: id,
       attemptCount: 1,
+      publicIntervals: intervals,
       ceilingMs: 60_000,
     });
     const [job] = await db
       .select({ state: recordingProcessingJobs.state })
       .from(recordingProcessingJobs)
       .where(eq(recordingProcessingJobs.recordingId, id));
-    const state = job?.state as { controlLapses?: readonly unknown[] };
+    const history = await store.readPublicHistory(id);
     assert({
-      given: 'an own capture whose heartbeat came back after 30 s, then queued',
-      should: 'hand that lapse to the worker through the job',
-      actual: [firstBeat[0]?.at instanceof Date, state.controlLapses?.length],
-      expected: [true, 1],
+      given: 'intervals from committed history, for a Round with no segments',
+      should: 'hand them to the worker through the job',
+      actual: [
+        (job?.state as { publicIntervals?: unknown }).publicIntervals,
+        history,
+      ],
+      expected: [intervals, { segments: [], knownThroughMs: null }],
     });
   });
 });
