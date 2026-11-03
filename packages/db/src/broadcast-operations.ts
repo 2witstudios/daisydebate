@@ -59,6 +59,7 @@ const watermarkAt = (mediaEnd: Date) =>
   sql`least(greatest(${broadcasts.releasedThroughAt}, ${mediaEnd.toISOString()}::timestamptz), clock_timestamp())`;
 
 /** All the hold worker's role may read: its grant leaves the stage credential out. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- taken out, never read
 const { stageCredentialHash: _stageCredentialHash, ...workerRow } =
   getTableColumns(broadcasts);
 
