@@ -154,7 +154,8 @@ export type RecordingJobAnswer =
         { status: 'failed' }
       >['reason'];
     }
-  | { readonly type: 'discard-sources' };
+  | { readonly type: 'discard-sources' }
+  | { readonly type: 'strip-sources' };
 
 /**
  * What the worker's report means for the Recording. Only `verify` can lead to
@@ -184,6 +185,13 @@ export const answerRecordingJob = (input: {
       return state.status === 'failed'
         ? { type: 'fail', reason: state.reason }
         : null;
+    // Kept for a rebuild, without its private seconds, once nothing else reads it.
+    case 'failed':
+      return sourcesInUse ||
+        state.status === 'stripping' ||
+        state.status === 'stripped'
+        ? null
+        : { type: 'strip-sources' };
     case 'ready':
     case 'removing':
     case 'removed':

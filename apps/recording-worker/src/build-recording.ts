@@ -9,6 +9,7 @@ import {
 } from '@daisy/protocol';
 import {
   attemptSource,
+  continuousRuns,
   HOLD_PLAYLIST,
   segmentsSource,
   WHOLE_FILE,
@@ -156,20 +157,29 @@ const readAttempt = async (
         },
       ];
   }
-  const segments = segmentsSource(entries, names);
-  if (segments.kind !== 'segments') return [];
-  const { output, found } = await joinedSegments(ports, prefix, dir, segments);
-  return found
-    ? [
-        {
-          attempt,
-          path: output,
-          startedAtMs: segments.startedAtMs,
-          durationMs: found.durationMs,
-          hasAudio: found.hasAudio,
-        },
-      ]
-    : [];
+  const pieces: CapturedPiece[] = [];
+  const runs = continuousRuns(entries);
+  for (const [at, run] of runs.entries()) {
+    const segments = segmentsSource(run, names);
+    if (segments.kind !== 'segments') continue;
+    const runDir = runs.length === 1 ? dir : `${dir}/run-${at + 1}`;
+    await ports.files.makeDir(runDir);
+    const { output, found } = await joinedSegments(
+      ports,
+      prefix,
+      runDir,
+      segments,
+    );
+    if (found)
+      pieces.push({
+        attempt,
+        path: output,
+        startedAtMs: segments.startedAtMs,
+        durationMs: found.durationMs,
+        hasAudio: found.hasAudio,
+      });
+  }
+  return pieces;
 };
 
 /**

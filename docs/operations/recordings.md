@@ -101,9 +101,11 @@ worker's capacity and queue.
 
 `recording.processing_gave_up` means five runs failed and the Recording is `failed`. A casual
 failure's partial objects are removed after seven days. A ranked one is never removed by a
-sweep: it stays `failed` with its sources in the hold bucket. Rebuild it from the admin app:
+sweep: it stays `failed`, with its hold cut down to whole segments committed history proved
+public. Rebuild it from the admin app:
 Content, then Failed ranked recordings, or the report's page. A rebuild goes back to
-`processing` with its attempts counted afresh, and is refused if its sources are gone.
+`processing` with its attempts counted afresh, and is refused if its sources are gone. A rebuild uses what stripping left: anything that was
+unknown when it failed is gone even if history later proves it public, and shows as `not_public`.
 
 `recording.build_ceiling_exceeded` means one run went past three times the bound. It was
 stopped and counted as a failed attempt, and it retries. Nothing is discarded.

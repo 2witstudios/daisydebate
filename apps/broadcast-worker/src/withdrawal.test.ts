@@ -9,11 +9,15 @@ import {
 
 setupRitewayBun();
 
+const NOW = Date.parse('2026-11-03T12:00:00.000Z');
+const LONG_AGO = new Date(NOW - 3_600_000);
 const run = async (
   finalMediaEndAt: Date | null,
   completedAt: Date | null = null,
+  hold: { readonly recording?: boolean; readonly pages?: number } = {},
 ) => {
   const log: string[] = [];
+  let pages = hold.pages ?? 2;
   await withdrawFeed(
     { feedKey: 'b', nextSegment: 1, finalMediaEndAt, completedAt },
     {
@@ -26,6 +30,13 @@ const run = async (
       complete: async () => {
         log.push('complete');
       },
+      recordingKeepsHold: async () => hold.recording ?? true,
+      discardHoldPage: async () => {
+        pages -= 1;
+        log.push('discard');
+        return Math.max(0, pages);
+      },
+      nowMs: () => NOW,
     },
   );
   return log;
@@ -246,6 +257,29 @@ describe('The withdrawal loop', () => {
       should: 'report it and keep polling',
       actual: [polls, reports],
       expected: [2, ['broadcast.withdrawal_failed']],
+    });
+  });
+
+  test('a hold no Recording will read goes with the feed, and one it will read stays', async () => {
+    const tail = async (recording: boolean) =>
+      (await run(LONG_AGO, LONG_AGO, { recording })).slice(-3);
+    assert({
+      given: 'a finished Broadcast with no Recording, then one with',
+      should: 'empty the hold before recording it withdrawn, or leave it',
+      actual: [await tail(false), await tail(true)],
+      expected: [
+        ['discard', 'discard', 'withdrawn'],
+        ['live/b/480/seg-1.ts', 'live/b/240/seg-1.ts', 'withdrawn'],
+      ],
+    });
+  });
+  test('a stop too recent leaves the hold, and does not complete yet', async () => {
+    const log = await run(new Date(NOW - 1000), null, { recording: false });
+    assert({
+      given: 'a stop whose Egress may still be writing',
+      should: 'withdraw the feed, and neither discard nor complete',
+      actual: [log.includes('discard'), log.includes('complete'), log.at(-1)],
+      expected: [false, false, 'withdrawn'],
     });
   });
 });

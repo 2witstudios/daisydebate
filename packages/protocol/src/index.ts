@@ -5,6 +5,7 @@ export {
   publicIntervalsSchema,
   settledByHeartbeat,
   stageTimeline,
+  wholeSegmentsInside,
   type PublicClip,
   type PublicInterval,
   type StageInterval,

@@ -127,3 +127,22 @@ test('a line on a segment still open past the last heartbeat waits, like its med
     });
   });
 });
+
+test('after a takedown the text is hidden from the audience', async () => {
+  await withLiveRound('ranked', async (read, { client, roundId }) => {
+    const id = createId();
+    const at = spoken.toISOString();
+    await client`insert into recordings (id,round_id,class,status,eligibility,lifecycle)
+      values (${id},${roundId},'ranked','taken_down',
+        jsonb_build_object('kind','ranked'),
+        ${JSON.stringify({ status: 'taken_down', takenDownAt: at, held: null })}::text::jsonb)`;
+    const hidden = captions(await read(margin(spoken)));
+    await client`delete from recordings where id=${id}`;
+    assert({
+      given: 'a released line on a Round whose Recording is taken down',
+      should: 'caption nothing, whatever the horizon',
+      actual: [hidden, captions(await read(margin(spoken)))],
+      expected: [[], ['An early line']],
+    });
+  });
+});

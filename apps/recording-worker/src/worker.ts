@@ -86,6 +86,11 @@ export const runWorker = async (deps: {
   ) => Promise<RecordingJobState>;
   /** One bounded page of deletes; zero means the prefix lists empty. */
   readonly discardPage: (prefix: string) => Promise<number>;
+  /** A failed Recording's hold cut to what history proves public. */
+  readonly strip: (
+    holdPrefix: string,
+    intervals: readonly PublicInterval[],
+  ) => Promise<void>;
   readonly workDirOf: (recordingId: string, owner: string) => string;
   readonly removeWorkDir: (path: string) => Promise<void>;
   readonly now: () => number;
@@ -228,6 +233,22 @@ export const runWorker = async (deps: {
     }
   };
 
+  const runStrip = async (
+    job: Claimed,
+    intervals: readonly PublicInterval[],
+  ) => {
+    const lease = holdLease(job);
+    try {
+      await deps.strip(job.holdPrefix, intervals);
+      await finish(job, { status: 'stripped', strippedAt: iso() });
+    } catch {
+      deps.report('recording.source_discard_failed');
+      await defer(job, true);
+    } finally {
+      lease.release();
+    }
+  };
+
   const runDiscard = async (job: Claimed) => {
     const lease = holdLease(job);
     try {
@@ -267,7 +288,9 @@ export const runWorker = async (deps: {
             state.publicIntervals,
             state.ceilingMs,
           )
-        : runDiscard(job)
+        : state.status === 'stripping'
+          ? runStrip(job, state.publicIntervals)
+          : runDiscard(job)
     ).catch(() => deps.report('recording.processing_failed'));
   }
 };

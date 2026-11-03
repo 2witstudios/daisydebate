@@ -494,6 +494,17 @@ export const readBroadcastStageHistory = async (
   };
 };
 
+/** Whether this Broadcast's Round has a Recording, which reads its hold, then clears it. */
+export const readRecordingKeepsHold = async (
+  tx: Pick<BoundedTransactionContext, 'execute'>,
+  broadcastId: string,
+) => {
+  const rows = (await tx.execute(sql`
+    select 1 from broadcast_recording_claims
+    where broadcast_id = ${broadcastId}`)) as unknown as unknown[];
+  return rows.length > 0;
+};
+
 /** Keeps the claim across a call that outlasts it; null `until` gives it back. */
 export const holdBroadcastReconcile = (
   tx: Tx,

@@ -40,6 +40,7 @@ type Store = Pick<
   | 'queueJob'
   | 'readPublicHistory'
   | 'discardSources'
+  | 'stripSources'
   | 'listJobs'
   | 'listProcessingUnalerted'
   | 'markDelayAlerted'
@@ -376,6 +377,17 @@ export const createRecordingCaptureSweep = (deps: {
           at: iso(deps.now()),
         });
         return;
+      case 'strip-sources': {
+        const history = await store.readPublicHistory(job.recordingId);
+        await store.stripSources({
+          recordingId: job.recordingId,
+          publicIntervals: publicIntervals(
+            history.segments,
+            history.knownThroughMs,
+          ),
+        });
+        return;
+      }
       case 'discard-sources':
         await store.discardSources(job.recordingId);
     }

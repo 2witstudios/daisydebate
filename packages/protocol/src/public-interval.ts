@@ -241,3 +241,20 @@ export const privateSpanChanges = (
       : []),
   ];
 };
+
+/**
+ * What a failed Recording's retained source may keep: only segments wholly inside
+ * something committed history proved public. A straddler goes whole, since cutting it
+ * would rewrite a source for a rebuild that may never come, and unknown means gone.
+ */
+export const wholeSegmentsInside = <T extends Captured>(
+  entries: readonly T[],
+  intervals: readonly PublicInterval[],
+): readonly T[] =>
+  entries.filter((entry) =>
+    intervals.some(
+      ({ fromMs, toMs }) =>
+        fromMs <= entry.capturedAtMs &&
+        entry.capturedAtMs + entry.durationMs <= toMs,
+    ),
+  );

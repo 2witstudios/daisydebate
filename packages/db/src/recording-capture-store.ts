@@ -16,6 +16,7 @@ import { controlHeartbeat, heartbeatStale } from './control-heartbeat';
 import { readEntitlementGrants } from './entitlement-grants';
 import {
   discardRecordingSources,
+  stripRecordingSources,
   readRecordingPublicHistory,
   listProcessingRecordingsUnalerted,
   markRecordingDelayAlerted,
@@ -303,6 +304,8 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
     readRecordingPublicHistory(database, recordingId),
   queueJob: (input: Parameters<typeof queueRecordingJob>[1]) =>
     queueRecordingJob(database, input),
+  stripSources: (input: Parameters<typeof stripRecordingSources>[1]) =>
+    stripRecordingSources(database, input),
   discardSources: (recordingId: string) =>
     discardRecordingSources(database, recordingId),
   sourcesRemain: (recordingId: string) =>

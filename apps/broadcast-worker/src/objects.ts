@@ -2,6 +2,8 @@ import { SEGMENT_CACHE_CONTROL } from './hold-manifest';
 import { S3Client } from 'bun';
 import { mkdir } from 'node:fs/promises';
 
+const DISCARD_PAGE = 1000;
+
 /** The hold key reads the private bucket; only the release key writes public (ADR 0099). */
 export const createObjects = (config: {
   readonly endpoint: string;
@@ -46,6 +48,13 @@ export const createObjects = (config: {
     /** A private clip reads nothing from the hold, so nothing else has made its folder. */
     ensureDir: async (path: string) => {
       await mkdir(path, { recursive: true });
+    },
+    /** One page of a discard: repeat until the prefix lists empty. */
+    discardHoldPage: async (prefix: string) => {
+      const page = await hold.list({ prefix, maxKeys: DISCARD_PAGE });
+      const keys = (page.contents ?? []).map((entry) => entry.key);
+      await Promise.all(keys.map((key) => hold.delete(key)));
+      return keys.length;
     },
     copyHoldToFile: async (key: string, path: string) => {
       await Bun.write(path, hold.file(key));

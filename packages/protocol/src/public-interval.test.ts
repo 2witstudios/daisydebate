@@ -5,6 +5,7 @@ import {
   publicIntervals,
   settledByHeartbeat,
   stageTimeline,
+  wholeSegmentsInside,
 } from './public-interval';
 
 setupRitewayBun();
@@ -285,6 +286,24 @@ describe('privateSpanChanges', () => {
       should: 'commit nothing',
       actual: privateSpanChanges(idle, { ...idle, consumedNowMs: 0 }, 1, null),
       expected: [],
+    });
+  });
+});
+
+describe('wholeSegmentsInside', () => {
+  test('a retained source keeps only what is wholly known public', () => {
+    const entry = (capturedAtMs: number) => ({
+      capturedAtMs,
+      durationMs: 4000,
+    });
+    assert({
+      given: 'segments outside, straddling, inside and straddling out',
+      should: 'keep only the one wholly inside; a straddler goes whole',
+      actual: wholeSegmentsInside(
+        [entry(0), entry(4000), entry(8000), entry(12_000)],
+        [{ fromMs: 6000, toMs: 13_000 }],
+      ),
+      expected: [entry(8000)],
     });
   });
 });
