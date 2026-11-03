@@ -4,9 +4,7 @@ import {
   claimBroadcast,
   claimFeedWithdrawal,
   completeBroadcast,
-  listHeartbeatLapsedBroadcasts,
   recordFeedWithdrawn,
-  recordHeartbeatStop,
   recordHoldAdvanced,
   recordMediaEndReleased,
   recordSegmentReleased,
@@ -37,11 +35,6 @@ export const createBroadcastWorkerStore = (url: string) => {
       completeBroadcast(database, input),
     recordFeedWithdrawn: (input: Parameters<typeof recordFeedWithdrawn>[1]) =>
       recordFeedWithdrawn(database, input),
-    listHeartbeatLapsed: (
-      input: Parameters<typeof listHeartbeatLapsedBroadcasts>[1],
-    ) => listHeartbeatLapsedBroadcasts(database, input),
-    recordHeartbeatStop: (input: Parameters<typeof recordHeartbeatStop>[1]) =>
-      recordHeartbeatStop(database, input),
     close: () => client.close(),
   };
 };

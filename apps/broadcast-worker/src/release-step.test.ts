@@ -57,7 +57,65 @@ const input = (
   nowMs: start + 64_000,
   roundEndedAtMs: null,
   finalMediaEndMs: null,
+  heartbeatMs: start + 1_000_000,
+  controlLapses: [],
   ...over,
+});
+
+describe('a dead control plane', () => {
+  test('media past the last heartbeat is not released, however due', async () => {
+    const { ports, log } = world();
+    const answer = await releaseStep(
+      input({ heartbeatMs: start + 4_999 }),
+      ports,
+    );
+    assert({
+      given: 'a due segment the heartbeat has not passed by its margin',
+      should: 'say lapsed and publish nothing',
+      actual: [answer.kind, log],
+      expected: ['lapsed', []],
+    });
+  });
+  test('media in a lapse never leaves, and leaves no hole in the sequence', async () => {
+    const { ports, log } = world();
+    const answer = await releaseStep(
+      input({
+        controlLapses: [{ fromMs: start - 10, toMs: start + 3_000 }],
+        nowMs: start + 200_000,
+      }),
+      ports,
+    );
+    assert({
+      given: 'a resumed heartbeat with a lapse covering the first held segment',
+      should: 'release the next one under the same public sequence',
+      actual: [answer.kind, log[0], log.at(-1)],
+      expected: ['released', 'encode s_1.ts', 'record 0 8000'],
+    });
+  });
+  test('the playlist marks where the gap was, as long as it shows', async () => {
+    const manifests: string[] = [];
+    const { ports } = world({
+      publishManifest: async (_key: string, text: string) => {
+        manifests.push(text);
+      },
+    });
+    await releaseStep(
+      input({
+        holdCursor: 1,
+        nextSegment: 1,
+        attemptIndex: 0,
+        controlLapses: [{ fromMs: start + 5_500, toMs: start + 7_000 }],
+        nowMs: start + 200_000,
+      }),
+      ports,
+    );
+    assert({
+      given: 'a segment released after a lapse in the middle of an attempt',
+      should: 'start it with a discontinuity',
+      actual: manifests[0]?.includes('#EXT-X-DISCONTINUITY\n'),
+      expected: true,
+    });
+  });
 });
 
 describe('releaseStep', () => {

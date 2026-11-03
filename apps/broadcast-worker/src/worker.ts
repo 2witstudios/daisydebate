@@ -28,7 +28,9 @@ export const runWorker = async (deps: {
   readonly now: () => number;
   readonly sleep: (ms: number) => Promise<void>;
   readonly stopped: () => boolean;
-  readonly report: (event: 'broadcast.release_failed') => void;
+  readonly report: (
+    event: 'broadcast.release_failed' | 'broadcast.release_lapsed',
+  ) => void;
   /** Where one Broadcast's segments sit while encoding; emptied after each step. */
   readonly scratch: {
     readonly dir: (broadcastId: string) => string;
@@ -63,6 +65,7 @@ export const runWorker = async (deps: {
       let generation = job.releasedGeneration;
       let facts = job;
       let renewedAt = deps.now();
+      let lapsedSaid = false;
       while (!deps.stopped() && facts.completedAt === null) {
         let encoded = false;
         // A failed step keeps the job: dropping it waits out this worker's own lease.
@@ -100,6 +103,8 @@ export const runWorker = async (deps: {
               nowMs: deps.now(),
               roundEndedAtMs: facts.finalMediaEndAt?.getTime() ?? null,
               finalMediaEndMs: facts.finalMediaEndAt?.getTime() ?? null,
+              heartbeatMs: facts.controlHeartbeatAt?.getTime() ?? null,
+              controlLapses: facts.controlLapses.lapses,
             },
             {
               readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
@@ -149,6 +154,10 @@ export const runWorker = async (deps: {
             },
           );
           if (result.kind === 'fenced') break;
+          if (result.kind === 'lapsed') {
+            if (!lapsedSaid) deps.report('broadcast.release_lapsed');
+            lapsedSaid = true;
+          } else lapsedSaid = false;
           if (result.kind === 'released') {
             next += 1;
             cursor += 1;

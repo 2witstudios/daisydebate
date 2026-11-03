@@ -159,6 +159,35 @@ const greenAt = async (path: string, seconds: number) => {
   return green / (bytes.length / 3);
 };
 
+test('a control lapse is cut from a whole attempt and stated, never built', async () => {
+  const { hold, recordings, ports } = await setup('lapse');
+  // One clean attempt of 24 s, whole file included, with a lapse in the middle.
+  await holdSegments(join(hold, 'hold/b/1'), T0, 24);
+  await source(24, join(hold, 'hold/b/1/full.mp4'));
+  const state = await buildRecording(ports, {
+    recordingId: 'rec',
+    holdPrefix: 'hold/b/',
+    attemptCount: 1,
+    controlLapses: [{ fromMs: T0 + 10_000, toMs: T0 + 14_000 }],
+  });
+  if (state.status !== 'built') throw new Error(`state ${state.status}`);
+  const { media } = state;
+  const [gap] = media.gaps;
+  const video = join(recordings, 'recordings/rec/video.mp4');
+  assert({
+    given: 'a lapse of 4 s inside an attempt that left a whole file',
+    should:
+      'state a control_lapse gap covering it, and show no picture from it',
+    actual: [
+      media.gaps.map((one) => one.reason),
+      gap!.startMs <= 9000,
+      gap!.endMs >= 15_000,
+      (await greenAt(video, 12)) < 60,
+    ],
+    expected: [['control_lapse'], true, true, true],
+  });
+});
+
 test('a crashed attempt, a gap and a clean attempt become one honest video', async () => {
   const { hold, recordings, ports } = await setup('restart');
   // Attempt 1 crashed: segments only, no whole file. 8 s of media.
@@ -171,6 +200,7 @@ test('a crashed attempt, a gap and a clean attempt become one honest video', asy
     recordingId: 'rec',
     holdPrefix: 'hold/b/',
     attemptCount: 2,
+    controlLapses: [],
   });
   if (state.status !== 'built') throw new Error(`state ${state.status}`);
   const { media } = state;
@@ -239,6 +269,7 @@ test('a crashed attempt, a gap and a clean attempt become one honest video', asy
     recordingId: 'rec',
     holdPrefix: 'hold/b/',
     attemptCount: 2,
+    controlLapses: [],
   });
   assert({
     given: 'the build repeated after a crash',
@@ -259,6 +290,7 @@ test('one clean attempt is that file, not encoded again', async () => {
     recordingId: 'rec',
     holdPrefix: 'hold/b/',
     attemptCount: 1,
+    controlLapses: [],
   });
   assert({
     given: 'one attempt',
@@ -288,6 +320,7 @@ test('a corrupt whole file falls back to its segments', async () => {
     recordingId: 'rec',
     holdPrefix: 'hold/b/',
     attemptCount: 1,
+    controlLapses: [],
   });
   assert({
     given: 'a whole file ffprobe cannot read and intact segments',
@@ -319,6 +352,7 @@ test('an attempt with no audio joins with silence, so the video stays whole', as
     recordingId: 'rec',
     holdPrefix: 'hold/b/',
     attemptCount: 2,
+    controlLapses: [],
   });
   const streams = await runCommand(new AbortController().signal)([
     'ffprobe',
@@ -353,6 +387,7 @@ test('capture that left nothing reports no media', async () => {
       recordingId: 'rec',
       holdPrefix: 'hold/b/',
       attemptCount: 2,
+      controlLapses: [],
     }),
     expected: {
       status: 'failed',

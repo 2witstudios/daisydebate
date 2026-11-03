@@ -33,10 +33,12 @@ type MediaGrantInput = {
   readonly finalSegmentEndedAt: string | null;
   /**
    * Read-only input from the Broadcast: its observer has not yet been revoked,
-   * so a private phase's microphones and cameras wait. Speech is unaffected
-   * (ADR 0099).
+   * so private conversation must wait. Speech is unaffected (ADR 0099).
+   * Covers a Recording's own observer as well as a Broadcast's.
    */
   readonly conversationHeld?: boolean;
+  /** A Broadcast's observer alone: a private phase's cameras wait for that one. */
+  readonly cameraHeld?: boolean;
   /** Pre-round prep is private: nobody publishes, and media reopens at the countdown. */
   readonly inPreRoundPrep: boolean;
 };
@@ -69,14 +71,10 @@ const speakingNow = (input: MediaGrantInput) => {
     ).includes(input.participantId)
   );
 };
-/**
- * Prep has no cameras. Any other private phase has them once nothing can carry
- * them to the audience. A public phase always has them, held or not.
- */
+/** Closed only while a private phase's video could still reach a Broadcast. */
 const cameraOpen = (input: MediaGrantInput) =>
-  input.position.prep === null &&
   !(
-    input.conversationHeld === true &&
+    input.cameraHeld === true &&
     phasePrivateAt(
       broadcastPhase(input.position, input.rules.segments.length - 1),
       Date.parse(input.now),

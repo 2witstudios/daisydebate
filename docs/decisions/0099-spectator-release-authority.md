@@ -89,29 +89,49 @@ confirmed, the Egress stops. The criterion is zero leak measured at the producti
 sweep's timing (point guard, 2026-11-03), not a lead on a rig. The sweep revokes at
 the speech end, so every word of the last speech is kept: one value in
 `stage-capture.ts` restores a lead if the measurement ever needs one. That is safe
-because a private phase's microphones and cameras close by grant and stay closed
-until the revocation lands, whether the phase was scheduled or opened with no warning
-(prep, an early yield). Prep has no cameras at all. A public phase keeps its
-cameras, and they return when one follows.
+because a private phase's microphones stay closed until the revocation lands, and on
+a Round with a Broadcast its cameras do too, whether the phase was scheduled or opened
+with no warning (prep, an early yield). They reopen once the observer is revoked, and
+a public phase keeps its cameras. A Recording's own observer holds conversation, not
+cameras.
 
-**When the sweep dies.** While the observer may be subscribed, the hold keeps a
-private phase's microphones and cameras closed, however long that lasts, and the
-media reconciler raises `broadcast.conversation_held_long` past 30 s. The stage also
-lets go of every track when it reads a private phase, as a second layer that needs
-the stage route alive.
+**When the sweep dies.** While the observer may be subscribed, the hold stays, however
+long that lasts, and the media reconciler raises `broadcast.conversation_held_long`
+past 30 s. The stage also lets go of every track when it reads a private phase, as a
+second layer that needs the stage route alive.
 
-**When the web tier dies.** Grants stop changing, so what was open stays open, and
-nothing revokes. The broadcast worker is the dead-man switch, apart from the release
-slots: past 10 s with no heartbeat on a Broadcast's row, read by the database's clock,
-it stops that Egress and clears `egress_id`. A control plane that returns finds no
-Egress and starts the next attempt the normal way. It acts only on a read following
-a good read, so its own outage stops nothing. Its bound is about 14 s from the last
-heartbeat to the stop call (10 s stale, up to 4 s for two checks), and what was
-captured in that time is in the hold. A deploy that keeps the web tier down past 10 s
-therefore costs a running Broadcast a gap. It holds a token with only `roomRecord`,
-not the key pair: LiveKit keys cannot be scoped, and that grant, the narrowest for
-the call, also lets it start and list Egress. A Recording running its own Egress is
-not covered, because this worker's database role reaches `broadcasts` alone.
+**When the control plane is gone: the guarantee.** Media captured after the last
+heartbeat is never published, even if the web tier returns. Each reconcile claim
+writes `control_heartbeat_at` by the database's clock, in the same update that appends
+to `control_lapses` when the last heartbeat is 10 s old or more. So a returning web
+instance records the lapse itself, no watcher has to be alive, and no restart can
+forget one. The release step holds anything the heartbeat has not passed, and removes
+anything touching a lapse before it counts, so what is removed leaves no hole in the
+public sequence and is not released after the heartbeat resumes. A segment straddling
+either boundary goes whole, so the precision is one segment (about 4 s) on each side,
+plus 1 s for Egress's clock and the database's to disagree, always toward leaving
+media out. A gap under 10 s is not a lapse: media waits and then goes out.
+
+The public playlist marks a discontinuity at the gap. The Daisy player covers the
+video with a slate after 5 s stalled, which is the whole of a gap on a delay policy,
+and for 4 s when hls.js sees capture time jump, as on a hold released in one burst.
+A native (Safari) player gets only the stall slate. A streaming tool carrying the
+official feed gets no slate: it holds the last frame and then resumes.
+
+A Recording reads the same record. The web copies `control_lapses` from the Broadcast
+or the own capture into the job when it queues the build, because the Recording
+worker's role reaches its jobs alone, and by then capture has ended and a returning
+control plane has already written any lapse. The build skips the whole file of an
+attempt that a lapse touches, joins the runs of segments outside it, and states the
+stretch as a `control_lapse` gap. An own capture keeps its own heartbeat and lapses
+in the same way, with no worker role involved.
+
+**Ending the Egress.** That rule is the guarantee; ending the Egress only limits the
+window. The stage page logs `END_RECORDING`, which Egress stops on, when the stage
+route refuses on a stale heartbeat (410) or has failed for about 10 s. No process holds
+a LiveKit credential for this. A control plane that returns finds the Egress complete
+and starts the next attempt the normal way. A web restart of 10 s or more therefore
+costs a running Broadcast a gap (see the deployment hold in `deploy-staging.md`).
 
 **Stray Egress.** The first start recorded for a generation wins. A loser's
 credential is never stored, so the stage refuses it, it never signals Egress to

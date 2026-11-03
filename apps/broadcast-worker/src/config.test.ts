@@ -12,8 +12,6 @@ const env = {
   BROADCAST_PUBLIC_BUCKET: 'pub',
   BROADCAST_PUBLIC_KEY: 'k2',
   BROADCAST_PUBLIC_SECRET: 's2',
-  LIVEKIT_URL: 'https://livekit.test',
-  BROADCAST_EGRESS_STOP_TOKEN: 'token',
 };
 
 test('the worker refuses to start half configured', () => {

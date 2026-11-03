@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  readBroadcastObserverHeld,
   readConversationHeld,
   recordEgressStarted,
   recordFeedWithdrawn,
@@ -13,12 +14,10 @@ import {
   claimBroadcastReconcile,
   completeBroadcast,
   discoverUnopenedBroadcastRounds,
-  listHeartbeatLapsedBroadcasts,
   listOpenBroadcasts,
   openBroadcast,
   readReleasedThrough,
   recordFinalMediaEnd,
-  recordHeartbeatStop,
   recordObserverRestored,
   recordObserverRevoked,
   recordRevocationFailed,
@@ -652,7 +651,7 @@ test('paging reaches every open Broadcast, past any page', async () => {
   });
 });
 
-test('a lapsed heartbeat lists its Egress, by the database clock, until it is stopped', async () => {
+test('a heartbeat back after 10 s or more records the lapse by itself, once', async () => {
   await withOps(async (db, roundId) => {
     const { id } = await openBroadcast(db, {
       id: createId(),
@@ -660,66 +659,85 @@ test('a lapsed heartbeat lists its Egress, by the database clock, until it is st
       feedKey: createId(),
       releasePolicy: policy,
     });
-    const lapsed = async () =>
-      (await listHeartbeatLapsedBroadcasts(db, { staleMs: 10_000 })).filter(
-        (row) => row.id === id,
-      );
+    const row = async () =>
+      (await db.select().from(broadcasts).where(eq(broadcasts.id, id)))[0]!;
+    const beat = () =>
+      claimBroadcastReconcile(db, { id, now: later, until: past });
     const age = (seconds: number) =>
       db
         .update(broadcasts)
-        .set({ controlHeartbeatAt: new Date(Date.now() - seconds * 1000) })
+        .set({
+          controlHeartbeatAt: new Date(Date.now() - seconds * 1000),
+          reconcileLeaseUntil: null,
+        })
         .where(eq(broadcasts.id, id));
-    const noEgress = await lapsed();
-    await recordEgressStarted(db, {
+    await beat();
+    const first = (await row()).controlLapses.lapses;
+    await age(9);
+    await beat();
+    const short = (await row()).controlLapses.lapses;
+    await age(30);
+    const lastBeat = (await row()).controlHeartbeatAt!.getTime();
+    const started = await recordEgressStarted(db, {
       id,
       egressId: 'EG',
       generation: 1,
       stageCredentialHash: 'h',
       now: past,
     });
-    const justStarted = await lapsed();
-    await age(9);
-    const within = await lapsed();
-    await age(11);
-    const past10 = await lapsed();
-    await claimBroadcastReconcile(db, { id, now: later, until: later });
-    const beatAgain = await lapsed();
-    await age(11);
-    await recordHeartbeatStop(db, { id, egressId: 'OTHER' });
-    const newerKept = await lapsed();
-    await recordHeartbeatStop(db, { id, egressId: 'EG' });
-    const stopped = await lapsed();
-    const [row] = await db
-      .select()
-      .from(broadcasts)
-      .where(eq(broadcasts.id, id));
+    const { lapses } = (await row()).controlLapses;
+    await beat();
     assert({
       given:
-        'no Egress; a start stamped long ago; 9 s; 11 s; a claim; a stale stop; the real stop',
+        'a first heartbeat; one after 9 s; one after 30 s, through a recorded start; and another at once',
       should:
-        'list only past 10 s with an Egress, and let a stop clear only its own',
+        'record nothing, nothing, then one lapse from the last heartbeat to now, and keep it',
       actual: {
-        noEgress,
-        justStarted,
-        within,
-        past10,
-        beatAgain,
-        newerKept,
-        stopped,
-        egressId: row?.egressId,
-        generation: row?.egressGeneration,
+        first,
+        short,
+        started,
+        count: lapses.length,
+        from: lapses[0]?.fromMs,
+        spansTheGap: (lapses[0]?.toMs ?? 0) - lastBeat >= 30_000,
+        kept: (await row()).controlLapses.lapses.length,
       },
       expected: {
-        noEgress: [],
-        justStarted: [],
-        within: [],
-        past10: [{ id, egressId: 'EG' }],
-        beatAgain: [],
-        newerKept: [{ id, egressId: 'EG' }],
-        stopped: [],
-        egressId: null,
-        generation: 1,
+        first: [],
+        short: [],
+        started: true,
+        count: 1,
+        from: lastBeat,
+        spansTheGap: true,
+        kept: 1,
       },
+    });
+  });
+});
+
+test('a Broadcast observer holds cameras; a heartbeat lapse shows as stale', async () => {
+  await withOps(async (db, roundId) => {
+    const { id } = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const held = () => readBroadcastObserverHeld(db, { roundId });
+    const before = await held();
+    await recordEgressStarted(db, {
+      id,
+      egressId: 'EG',
+      generation: 1,
+      stageCredentialHash: 'h',
+      now,
+    });
+    const observing = await held();
+    await recordObserverRevoked(db, { id, now });
+    assert({
+      given: 'no Egress, a subscribed observer, then a revoked one',
+      should: 'hold only the middle',
+      actual: [before, observing, await held()],
+      expected: [false, true, false],
     });
   });
 });

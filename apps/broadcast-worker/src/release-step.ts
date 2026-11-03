@@ -1,7 +1,10 @@
 import { releasedThrough, segmentDue } from '@daisy/debate-engine';
 import {
+  coveredByHeartbeat,
+  outsideControlLapses,
   parseHoldPlaylist,
   type BroadcastReleasePolicy,
+  type ControlLapse,
   type HoldEntry,
 } from '@daisy/protocol';
 import {
@@ -56,10 +59,16 @@ export type ReleaseInput = {
   readonly roundEndedAtMs: number | null;
   /** Known once the Egress stopped; a cursor past the hold then ends the stream. */
   readonly finalMediaEndMs: number | null;
+  /** The last control-plane heartbeat: no media after it leaves (ADR 0099). */
+  readonly heartbeatMs: number | null;
+  /** Stretches with no control plane: media in them is never released. */
+  readonly controlLapses: readonly ControlLapse[];
 };
 
 export type ReleaseResult =
   | { readonly kind: 'waiting' }
+  /** Due, but captured past the last heartbeat. */
+  | { readonly kind: 'lapsed' }
   | { readonly kind: 'fenced' }
   | { readonly kind: 'ended' }
   | { readonly kind: 'advanced' }
@@ -67,26 +76,56 @@ export type ReleaseResult =
 
 /** The newest segments of this attempt's hold, up to `cursor`, under public sequences. */
 const windowEndingAt = (
-  held: ReturnType<typeof parseHoldPlaylist>,
+  held: readonly HoldEntry[],
   cursor: number,
   seq: number,
-): readonly ReleasedSegment[] =>
-  held.slice(Math.max(0, cursor - WINDOW + 1), cursor + 1).map((e, i, all) => ({
+  lapses: readonly ControlLapse[],
+): ReleasedWindow => {
+  const start = Math.max(0, cursor - WINDOW + 1);
+  const segments = held.slice(start, cursor + 1).map((e, i, all) => ({
     seq: seq - all.length + 1 + i,
     capturedAtMs: e.capturedAtMs,
     durationMs: e.durationMs,
   }));
+  const lapseBefore = (index: number) =>
+    index > 0 &&
+    lapses.some(
+      ({ fromMs, toMs }) =>
+        fromMs < held[index]!.capturedAtMs &&
+        toMs > held[index - 1]!.capturedAtMs,
+    );
+  // Grows only, across attempts too: an earlier stretch can only have scrolled out.
+  const passedBy = held[Math.max(0, start - 1)]?.capturedAtMs ?? 0;
+  return {
+    segments,
+    afterLapse: segments
+      .filter((_, i) => lapseBefore(start + i))
+      .map((segment) => segment.seq),
+    lapsesPassed: lapses.filter(({ toMs }) => toMs <= passedBy).length,
+  };
+};
+
+type ReleasedWindow = {
+  readonly segments: readonly ReleasedSegment[];
+  readonly afterLapse: readonly number[];
+  readonly lapsesPassed: number;
+};
 
 const publishManifests = async (
   ports: Pick<ReleasePorts, 'publishManifest'>,
-  segments: readonly ReleasedSegment[],
+  window: ReleasedWindow,
   ended: boolean,
   attempt: { readonly index: number; readonly firstSeq: number },
 ) => {
   for (const { name } of RENDITIONS)
     await ports.publishManifest(
       `${name}/index.m3u8`,
-      mediaPlaylist(segments, { ended, attempt }),
+      mediaPlaylist(window.segments, {
+        ended,
+        attempt,
+        afterLapse: window.afterLapse,
+        lapsesPassed: window.lapsesPassed,
+      }),
     );
 };
 
@@ -98,13 +137,18 @@ const publishManifests = async (
 const endStream = async (
   input: ReleaseInput,
   finalMediaEndMs: number,
-  held: ReturnType<typeof parseHoldPlaylist>,
+  held: readonly HoldEntry[],
   ports: ReleasePorts,
 ): Promise<ReleaseResult> => {
   if (held.length > 0)
     await publishManifests(
       ports,
-      windowEndingAt(held, held.length - 1, input.nextSegment - 1),
+      windowEndingAt(
+        held,
+        held.length - 1,
+        input.nextSegment - 1,
+        input.controlLapses,
+      ),
       true,
       {
         index: input.attemptIndex,
@@ -125,7 +169,12 @@ export const releaseStep = async (
   input: ReleaseInput,
   ports: ReleasePorts,
 ): Promise<ReleaseResult> => {
-  const held = parseHoldPlaylist(await ports.readHoldPlaylist());
+  // Removed before anything counts, so a lapse is never released, even once the
+  // heartbeat has moved past it, and leaves no hole in the public sequence.
+  const held = outsideControlLapses(
+    parseHoldPlaylist(await ports.readHoldPlaylist()),
+    input.controlLapses,
+  );
   const entry = held[input.holdCursor];
   if (!entry) {
     if (input.laterAttemptStartedMs !== null)
@@ -148,10 +197,16 @@ export const releaseStep = async (
     })
   )
     return { kind: 'waiting' };
+  if (!coveredByHeartbeat(entry, input.heartbeatMs)) return { kind: 'lapsed' };
   const seq = input.nextSegment;
   for (const { rendition, file } of await ports.encode(entry))
     await ports.publishSegment(seq, rendition, file);
-  const window = windowEndingAt(held, input.holdCursor, seq);
+  const window = windowEndingAt(
+    held,
+    input.holdCursor,
+    seq,
+    input.controlLapses,
+  );
   await publishManifests(ports, window, false, {
     index: input.attemptIndex,
     firstSeq: seq - input.holdCursor,
@@ -161,6 +216,6 @@ export const releaseStep = async (
     releasedThrough(null, entry),
   );
   return recorded
-    ? { kind: 'released', released: window.at(-1)! }
+    ? { kind: 'released', released: window.segments.at(-1)! }
     : { kind: 'fenced' };
 };

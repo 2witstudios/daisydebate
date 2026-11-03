@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { chooseStreamEngine } from './stream-source';
+import { chooseStreamEngine, capturedJumped } from './stream-source';
 
 setupRitewayBun();
 
@@ -39,5 +39,18 @@ describe('chooseStreamEngine', () => {
       }),
       expected: null,
     });
+  });
+});
+
+test('capture time jumping marks a stretch that was never published', () => {
+  assert({
+    given: 'nothing before, the next segment, and 30 s on',
+    should: 'mark only the last',
+    actual: [
+      capturedJumped(null, 1000),
+      capturedJumped(1000, 5000),
+      capturedJumped(5000, 35_000),
+    ],
+    expected: [false, false, true],
   });
 });

@@ -104,7 +104,7 @@ test('terminal and ineligible participants have no grants', () => {
   });
 });
 
-test('prep closes cameras too, and a closed floor keeps them without speech rights', () => {
+test('prep and closed between-segment floor keep cameras without speech rights', () => {
   const world = runtimeWorld();
   world.activate({ at: roundAt(0), now: roundAt(0) });
   world.tick(roundAt(10_000));
@@ -128,19 +128,11 @@ test('prep closes cameras too, and a closed floor keeps them without speech righ
   });
   assert({
     given: 'actual prep',
-    should: 'keep every microphone and camera closed',
+    should: 'keep every microphone closed',
     actual: seats
       .slice(0, 2)
       .map((seat) => grants(prep, seat.id, roundAt(1)).publish),
-    expected: [[], []],
-  });
-  const prepEnd = roundAt(450_000);
-  prep.tick(prepEnd);
-  assert({
-    given: 'prep having ended',
-    should: 'give cameras back',
-    actual: grants(prep, seats[1]!.id, prepEnd).publish.includes('camera'),
-    expected: true,
+    expected: [['camera'], ['camera']],
   });
 });
 
@@ -278,7 +270,7 @@ test('competitive bot rights remain publish-only through reconciliation', () => 
   });
 });
 
-test('conversation microphones and cameras wait for the audience observer to be revoked', () => {
+test('conversation microphones wait for the audience observer to be revoked', () => {
   const world = runtimeWorld();
   const position = {
     ...world.position(roundAt(0)),
@@ -301,9 +293,9 @@ test('conversation microphones and cameras wait for the audience observer to be 
     given:
       'the final speech just ended early and the observer is still subscribed',
     should:
-      'hold the microphone and the camera, so nothing private reaches the audience',
+      'hold the microphone and leave the camera, so nothing private reaches the audience',
     actual: derive(true),
-    expected: [],
+    expected: ['camera'],
   });
   assert({
     given: 'the observer revoked, and a Round with no Broadcast',
@@ -337,11 +329,11 @@ describe('pre-round prep', () => {
   });
 });
 
-describe('the hold closes cameras with microphones', () => {
+describe('a Broadcast observer holds cameras', () => {
   const heldGrants = (
     world: ReturnType<typeof runtimeWorld>,
     now: string,
-    conversationHeld: boolean,
+    held: { conversationHeld?: boolean; cameraHeld?: boolean },
   ) =>
     mediaGrants({
       participants: seats,
@@ -351,29 +343,46 @@ describe('the hold closes cameras with microphones', () => {
       now,
       finalSegmentEndedAt: now,
       inPreRoundPrep: false,
-      conversationHeld,
+      ...held,
     }).publish;
+  const both = { conversationHeld: true, cameraHeld: true };
   test('a public speech keeps its camera while the observer watches', () => {
     const world = runtimeWorld();
     world.activate({ at: roundAt(0), now: roundAt(0) });
     world.tick(roundAt(10_000));
     assert({
-      given: 'a speech with the observer subscribed',
+      given: 'a speech with a Broadcast observer subscribed',
       should: 'publish camera and microphone: this is what it is there to see',
-      actual: heldGrants(world, roundAt(10_000), true),
+      actual: heldGrants(world, roundAt(10_000), both),
       expected: ['camera', 'microphone'],
     });
   });
-  test('before the first speech, held closes both, and revoked restores both', () => {
+  test('prep closes cameras only while held, then reopens them', () => {
     const world = runtimeWorld();
+    world.activate({ at: roundAt(0), now: roundAt(0) });
+    world.execute({
+      command: { type: 'start_prep' },
+      actorId: seats[0]!.actorId,
+      now: roundAt(0),
+    });
     assert({
-      given: 'a private opening, held, then the observer revoked',
-      should: 'publish nothing, then camera and microphone',
+      given: 'prep with the Broadcast observer subscribed, then revoked',
+      should: 'publish nothing, then the camera again',
       actual: [
-        heldGrants(world, roundAt(0), true),
-        heldGrants(world, roundAt(0), false),
+        heldGrants(world, roundAt(1), both),
+        heldGrants(world, roundAt(1), { conversationHeld: false }),
       ],
-      expected: [[], ['camera', 'microphone']],
+      expected: [[], ['camera']],
+    });
+  });
+  test('a Recording’s own observer holds conversation, not cameras', () => {
+    assert({
+      given: 'a private opening held by an own-capture observer alone',
+      should: 'leave the camera and hold the microphone',
+      actual: heldGrants(runtimeWorld(), roundAt(0), {
+        conversationHeld: true,
+      }),
+      expected: ['camera'],
     });
   });
 });

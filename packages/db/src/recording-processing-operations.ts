@@ -46,6 +46,28 @@ export const openRecordingJob = async (
 };
 
 /** Capture ended: the worker may now read this many attempts. Only from `waiting`. */
+/**
+ * Every lapse over the sources of this Recording, from whichever capture wrote
+ * them. The Recording worker's database role reaches only its jobs, so the web
+ * copies them here: capture has ended by now, and a returning control plane has
+ * already recorded any lapse before it gets this far.
+ */
+const readRecordingLapses = async (tx: Tx, recordingId: string) => {
+  const [row] = await tx
+    .select({
+      broadcast: broadcasts.controlLapses,
+      own: recordingCaptures.controlLapses,
+    })
+    .from(recordings)
+    .leftJoin(broadcasts, eq(broadcasts.roundId, recordings.roundId))
+    .leftJoin(
+      recordingCaptures,
+      eq(recordingCaptures.recordingId, recordings.id),
+    )
+    .where(eq(recordings.id, recordingId));
+  return [...(row?.broadcast?.lapses ?? []), ...(row?.own?.lapses ?? [])];
+};
+
 export const queueRecordingJob = async (
   tx: Tx,
   input: { readonly recordingId: string; readonly attemptCount: number },
@@ -56,6 +78,7 @@ export const queueRecordingJob = async (
       ...stateColumns({
         status: 'queued',
         attemptCount: input.attemptCount,
+        controlLapses: await readRecordingLapses(tx, input.recordingId),
       }),
       dueAt: sql`clock_timestamp()`,
     })

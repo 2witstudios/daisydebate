@@ -40,7 +40,12 @@ const objectKey = z.string().min(1).max(512);
 const coverageGapSchema = z.strictObject({
   startMs: offsetMs,
   endMs: offsetMs,
-  reason: z.enum(['private_phase', 'room_rotation', 'capture_restart']),
+  reason: z.enum([
+    'private_phase',
+    'room_rotation',
+    'capture_restart',
+    'control_lapse',
+  ]),
 });
 
 /** One accepted turn at the floor, in video time. */

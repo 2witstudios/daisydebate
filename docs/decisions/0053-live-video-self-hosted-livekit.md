@@ -61,7 +61,7 @@ A `mediaSession` is a LiveKit room for one Round, never a Daisy Room. Proposed `
 
 A pure policy in `@daisy/debate-engine` receives authoritative participant seats, frozen `RoundRules`, hydrated runtime position, an injected instant and the judging-window end. It does not reconstruct the round from `started_at` plus a fixed schedule.
 
-- Human debaters may publish camera throughout a non-terminal session, except in prep and while a Broadcast's observer holds a private phase closed (ADR 0099). Human and bot microphones publish only when eligible under the current segment and interaction rules. Prep closes microphones and cameras.
+- Human debaters may publish camera throughout a non-terminal session. Human and bot microphones publish only when eligible under the current segment and interaction rules. Prep closes microphones.
 - Interaction segments follow `RoundRules.interaction` and the accepted floor; do not universally assume both debaters may speak in every cross-examination.
 - Before the first segment and while awaiting a ballot inside the judging window, debaters may publish camera and microphone, preserving the confirmed policy. These grants permit conversation, not competitive transcript capture; no durable segment means no capture eligibility.
 - Judge seats subscribe hidden and publish nothing. Data, own metadata updates, screen sharing and room administration are never granted.

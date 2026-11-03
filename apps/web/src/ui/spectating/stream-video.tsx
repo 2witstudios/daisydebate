@@ -31,6 +31,8 @@ export type StreamVideoProps = {
   readonly videoRef?: RefObject<HTMLVideoElement | null>;
   readonly onFinished?: () => void;
   readonly onFailed: () => void;
+  /** Playback crossed a stretch that was never published. */
+  readonly onCaptureJump?: () => void;
 };
 
 /**
@@ -49,12 +51,25 @@ export function StreamVideo({
   videoRef,
   onFinished,
   onFailed,
+  onCaptureJump,
 }: StreamVideoProps) {
   const own = useRef<HTMLVideoElement>(null);
   const video = videoRef ?? own;
-  const latest = useRef({ onFinished, onFailed, documentStale, surface });
+  const latest = useRef({
+    onFinished,
+    onFailed,
+    onCaptureJump,
+    documentStale,
+    surface,
+  });
   useEffect(() => {
-    latest.current = { onFinished, onFailed, documentStale, surface };
+    latest.current = {
+      onFinished,
+      onFailed,
+      onCaptureJump,
+      documentStale,
+      surface,
+    };
   });
   const { path, manifestUrl } = stream;
   useEffect(() => {
@@ -105,6 +120,7 @@ export function StreamVideo({
         if (autoPlay) void element.play().catch(() => undefined);
       },
       onFailed: () => latest.current.onFailed(),
+      onCaptureJump: () => latest.current.onCaptureJump?.(),
     });
     return () => {
       report();

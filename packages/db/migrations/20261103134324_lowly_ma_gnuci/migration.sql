@@ -1,1 +1,0 @@
-ALTER TABLE "broadcasts" ADD COLUMN "control_heartbeat_at" timestamp with time zone;

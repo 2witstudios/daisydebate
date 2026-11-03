@@ -5,8 +5,6 @@ import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readWorkerConfig } from './config';
-import { runDeadManSwitch } from './dead-man-switch';
-import { createEgressStopper } from './egress-stop';
 import { createObjects } from './objects';
 import { runFeedWithdrawals } from './withdrawal';
 import { runWorker } from './worker';
@@ -45,20 +43,11 @@ const edges = {
     event:
       | 'broadcast.release_failed'
       | 'broadcast.withdrawal_failed'
-      | 'broadcast.dead_man_stopped'
-      | 'broadcast.dead_man_failed',
+      | 'broadcast.release_lapsed',
   ) => logger.log(event, {}, 'Broadcast worker'),
 };
 await Promise.all([
   runFeedWithdrawals({ ...edges, owner: createId() }),
-  runDeadManSwitch({
-    ...edges,
-    stopEgress: createEgressStopper({
-      url: config.LIVEKIT_URL,
-      token: config.BROADCAST_EGRESS_STOP_TOKEN,
-      fetch,
-    }),
-  }),
   ...Array.from({ length: config.BROADCAST_WORKER_SLOTS }, () =>
     runWorker({
       ...edges,
