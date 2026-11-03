@@ -43,7 +43,10 @@ export function captureFromFields(
   const release = releasePolicy(fields.release, fields.releaseAt);
   return (
     release && {
-      broadcast: { release, debatersReadChat: fields.debatersReadChat === 'on' },
+      broadcast: {
+        release,
+        debatersReadChat: fields.debatersReadChat === 'on',
+      },
       recording,
     }
   );

@@ -1,4 +1,7 @@
-import { CONTENT_WAIVER_VERSION, roundCaptureNotice } from '../legal/agreements';
+import {
+  CONTENT_WAIVER_VERSION,
+  roundCaptureNotice,
+} from '../legal/agreements';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   captureNoticeRefusal,

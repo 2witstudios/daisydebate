@@ -121,7 +121,9 @@ export function ReadyControl({
           {view.captureNotice.text}
         </p>
       ) : null}
-      {ready.type === 'ready' ? <CaptureSummary capture={view.capture} /> : null}
+      {ready.type === 'ready' ? (
+        <CaptureSummary capture={view.capture} />
+      ) : null}
       {ready.reason ? (
         <p role="status" className="mr-auto text-sm text-ink-muted">
           {ready.reason}

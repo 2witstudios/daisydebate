@@ -9,6 +9,10 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import {
+  moderationActions,
+  moderationCommandResultSchema,
+} from '@daisy/protocol/moderation';
+import {
   operatorCommandStateSchema,
   type OperatorCommandState,
 } from '@daisy/protocol/operator';
@@ -30,7 +34,19 @@ const commandStateReaders = new Map<
     commandId: string,
     result: unknown,
   ) => Promise<Omit<OperatorCommandState, 'action'>>
->([[betaAccessCommandAction, readBetaAccessCommandState]]);
+>([
+  [betaAccessCommandAction, readBetaAccessCommandState],
+  // A moderation command's readback is its stored result and nothing else.
+  ...moderationActions.map(
+    (action) =>
+      [
+        action,
+        async (_database: unknown, _commandId: string, result: unknown) => ({
+          result: moderationCommandResultSchema.parse(result),
+        }),
+      ] as const,
+  ),
+]);
 
 const instant = z
   .union([z.date(), z.string()])

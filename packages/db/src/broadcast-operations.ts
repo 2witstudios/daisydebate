@@ -170,3 +170,35 @@ export const listOpenBroadcasts = (tx: Tx, limit: number) =>
     .where(isNull(broadcasts.completedAt))
     .orderBy(asc(broadcasts.createdAt))
     .limit(limit);
+
+/**
+ * An operator stops a Broadcast (WATCH-7). The reconciler then stops its
+ * Egress, and the stop stands: a repeat, or a Broadcast already complete, is
+ * `unchanged`. Null when there is no such Broadcast.
+ */
+export const stopBroadcast = async (
+  tx: Tx,
+  input: {
+    readonly id: string;
+    readonly reason: string;
+    readonly now: Date;
+  },
+): Promise<'applied' | 'unchanged' | null> => {
+  const stopped = await tx
+    .update(broadcasts)
+    .set({ stoppedAt: input.now, stopReason: input.reason })
+    .where(
+      and(
+        eq(broadcasts.id, input.id),
+        isNull(broadcasts.stoppedAt),
+        isNull(broadcasts.completedAt),
+      ),
+    )
+    .returning({ id: broadcasts.id });
+  if (stopped.length === 1) return 'applied';
+  const [found] = await tx
+    .select({ id: broadcasts.id })
+    .from(broadcasts)
+    .where(eq(broadcasts.id, input.id));
+  return found ? 'unchanged' : null;
+};

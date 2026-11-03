@@ -14,7 +14,8 @@ const no = async () => false;
 describe('What the host is offered', () => {
   test('the capture grant alone speaks for capture', () => {
     assert({
-      given: 'the capture grant, the AI judge grant, and a beta grant at launch',
+      given:
+        'the capture grant, the AI judge grant, and a beta grant at launch',
       should: 'hold only the first, with beta grants counting',
       actual: [
         hostHoldsCasualCapture(
