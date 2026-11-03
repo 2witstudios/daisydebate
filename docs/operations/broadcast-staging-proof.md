@@ -93,6 +93,35 @@ neither public nor private and not a leak. The speech after prep was still open 
 run was measured, so its start and end loss are not in the table. Three casual
 withdrawals were checked and each left no hold objects.
 
+## Audience polls beside a live debate
+
+One run on 2026-11-03: a live public Round on the rig (performance-4x, 4 GB, with its
+database, Redis and workers on the same machine), 5 minutes with no audience, then 5
+minutes of `scripts/audience-load.ts` asking for 1,000 requests a second from one other
+machine. Staging's web machine is smaller, shared-cpu-4x with 1 GB.
+
+**Viewers did hurt the debate's supporting work at this load.** It reached 670 requests
+a second and the web process saturated. All of it came from one address, so 186,513 of
+the 200,913 requests were refused by the rate limit, and even those cost the process
+enough to saturate it. Real viewers would each have their own address, and this run does
+not say how their answered polls would compare.
+
+| Measure                              | No audience | Under load |
+| ------------------------------------ | ----------- | ---------- |
+| Event loop delay, p50 of each second | 1 ms        | 272 ms     |
+| Debate reads refused (competitive)   | 0           | 219        |
+| Floor passes failed                  | 0 of 0      | 28 of 29   |
+| Round maintenance passes failed      | 0           | 36         |
+| Judging passes failed                | 0           | 14         |
+| Broadcast reconcile passes failed    | 0           | 106        |
+| Answered polls, p50                  | Not sent    | 5.9 s      |
+
+The speech clock held: the one speech boundary inside the load window fell exactly on
+schedule, 280 s after the last. No failure was logged in the 81 s after the load stopped. The Broadcast read
+generation 2 after the run and the stage's own read had failed during it; this run does
+not establish that the load caused the restart. It did not measure seats' audio or a
+seat rejoining under load, and it was not rerun, so the rate where harm begins is unknown.
+
 ## Takedown with no free slot
 
 With the worker's only release slot held by a live Round, a stopped feed's public
