@@ -255,6 +255,15 @@ const namedRoutes = ['/api/rounds/:id/media/reconcile'];
 
 export const logRoutes: ReadonlySet<string> = new Set([
   '/api/rounds/[roundId]/timeline',
+  '/api/rounds/[roundId]/audience',
+  '/api/rounds/[roundId]/chat',
+  '/api/rounds/[roundId]/reactions',
+  '/api/rounds/[roundId]/viewers',
+  '/api/debater-follows',
+  '/api/watch-history',
+  '/api/notifications/read',
+  '/api/notifications/preferences',
+  '/audience/[roundId]',
   '/api/recordings/[recordingId]/download',
   '/api/recordings/[recordingId]/removal',
   '/api/recordings/[recordingId]/playback/[...path]',

@@ -82,6 +82,8 @@ export function retentionTargets({
     readonly purgeExpiredRoundAnalyses: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSocialDeclines: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSocialRequests: (batch: Batch) => Promise<number>;
+    readonly purgeReadNotifications: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredWatchHistory: (batch: Batch) => Promise<number>;
   };
   readonly redis: {
     readonly sweepOnlinePresence: (limit: number) => Promise<number>;
@@ -230,6 +232,28 @@ export function retentionTargets({
       purge: ({ now, limit }) =>
         database.purgeExpiredSocialRequests({
           before: cutoff(now, DAY_MS),
+          limit,
+        }),
+    },
+    /** WATCH-12: a notification goes 90 days after it is read. */
+    {
+      name: 'retention.notifications',
+      batchSize: 1000,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeReadNotifications({
+          before: cutoff(now, 90 * DAY_MS),
+          limit,
+        }),
+    },
+    /** SPECT-1.4: a Round leaves watch history a year after the last visit. */
+    {
+      name: 'retention.watch_history',
+      batchSize: 1000,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredWatchHistory({
+          before: cutoff(now, 365 * DAY_MS),
           limit,
         }),
     },

@@ -69,6 +69,15 @@ import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { betaAccessOperations } from './beta-access';
 import { contentModerationOperations } from './content-moderation-operations';
+import { audienceReactionOperations } from './audience-reactions';
+import { audienceSnapshotReads } from './audience-snapshot-reads';
+import { debaterFollowOperations } from './debater-follows';
+import {
+  spectatorChatModeration,
+  spectatorChatOperations,
+} from './messaging/spectator-chat';
+import { notificationOperations } from './notifications';
+import { watchHistoryOperations } from './watch-history';
 import { operatorAccountOperations } from './operator-accounts';
 import { provisionalRetentionOperations } from './provisional-retention';
 import { authOperations } from './auth-operations';
@@ -289,7 +298,11 @@ export function createDatabase({
     ...mailIntentOperations({ database: control, eventSink }),
     ...betaAccessOperations({ database: control, eventSink }),
     ...operatorAccountOperations({ database: control, eventSink }),
-    ...contentModerationOperations({ database: control, eventSink }),
+    ...contentModerationOperations({
+      database: control,
+      eventSink,
+      chat: spectatorChatModeration,
+    }),
     ...actorOperations({ database: control, eventSink }),
     ...messagingOperations(social, contactReactions),
     ...friendshipReadOperations({ database: social, eventSink }),
@@ -367,6 +380,12 @@ export function createDatabase({
     ...standingsOperations({ database: audience, eventSink }),
     ...memberProfileReadOperations({ database: audience, eventSink }),
     ...spectatorTimelineReads({ database: audience, eventSink }),
+    ...audienceSnapshotReads({ database: audience, eventSink }),
+    ...spectatorChatOperations({ database: social, eventSink }),
+    ...audienceReactionOperations({ database: social, eventSink }),
+    ...debaterFollowOperations({ database: social, eventSink }),
+    ...watchHistoryOperations({ database: social, eventSink }),
+    ...notificationOperations({ database: social, eventSink }),
     ...recordingRoundReadOperations({ database: audience }),
     ...recordingArchiveReadOperations({ database: audience }),
     ...spectatorFactLogOperations({ database: control }),

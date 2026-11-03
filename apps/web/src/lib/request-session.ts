@@ -1,3 +1,5 @@
+import { readAudienceForViewer } from '../features/spectating/audience-snapshot';
+import { readNotificationItems } from '../features/notifications/read-notifications';
 import { browserCaptureAttributes } from '../features/telemetry/browser-capture';
 import { cookies } from 'next/headers';
 import { analyticsConfiguration } from '../features/analytics/config';
@@ -182,6 +184,43 @@ export const requestSpectatorTimeline = (roundId: string) =>
     roundId,
     now: processApp().clock.now(),
   });
+
+const WATCH_HISTORY_ROWS = 50;
+
+/** This account's stored notifications, as its list reads them. */
+export const requestNotifications = (userId: string, unreadOnly: boolean) =>
+  readNotificationItems(processApp().database, {
+    userId,
+    unreadOnly,
+    now: processApp().clock.now(),
+  });
+
+/** What this account keeps of its notification choices and watching. */
+export const requestAudienceSettings = async (userId: string) => {
+  const { database, clock } = processApp();
+  const [preferences, history] = await Promise.all([
+    database.readNotificationPreferences({ userId }),
+    database.listWatchHistory({
+      userId,
+      clock: spectatorClockAt(clock.now()),
+      limit: WATCH_HISTORY_ROWS,
+    }),
+  ]);
+  return { preferences, history };
+};
+
+/** Whether this account follows that debater; null when it cannot. */
+export const requestDebaterFollow = (
+  followerUserId: string,
+  username: string,
+) => processApp().database.readDebaterFollow({ followerUserId, username });
+
+/** A Round's audience for this viewer, by the same released reads as the snapshot. */
+export const requestAudience = (roundId: string, actorId: string | null) =>
+  readAudienceForViewer(
+    { store: processApp().database, counts: processApp().redis },
+    { roundId, actorId, now: processApp().clock.now() },
+  );
 
 /** Process binding for the public ladder and its signed-in blinding context. */
 export async function requestLadder(input: {

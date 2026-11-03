@@ -6,18 +6,49 @@ import { parseDataRightsQuery } from '../../../features/account/data-rights/noti
 import {
   requestIdentity,
   requestAnalytics,
+  requestAudienceSettings,
   requestOnboardingAnswers,
   requestOptionalAnswersAdmitted,
 } from '../../../lib/request-session';
 import { answerEditHrefs } from '../../../ui/onboarding/answer-summary/answer-summary';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
 import { saveRatingVisibilityAction } from './actions';
+import {
+  clearWatchHistoryAction,
+  forgetWatchedAction,
+  saveNotificationPreferencesAction,
+} from '../audience/actions';
+import { NotificationPreferencesForm } from '../../../ui/notifications/notification-preferences-form';
+import { WatchHistoryList } from '../../../ui/watch-history/watch-history-list';
 import { ratingVisibilitySchema } from '@daisy/protocol';
 import { GET as readRatingVisibility } from '../../api/ratings/visibility/route';
 import { readOwnRoute } from '../friends/read-route';
 import { RatingVisibilityForm } from '../../../ui/settings/preferences/rating-visibility-form';
 
 export const metadata: Metadata = { title: 'Settings' };
+
+/** The member's stored notification choices and their watch history. */
+async function audienceSections(userId: string, saved: boolean) {
+  const { preferences, history } = await requestAudienceSettings(userId);
+  return {
+    notifications: (
+      <NotificationPreferencesForm
+        action={saveNotificationPreferencesAction}
+        preferences={preferences}
+        saved={saved}
+      />
+    ),
+    watchHistory: (
+      <WatchHistoryList
+        clear={clearWatchHistoryAction}
+        entries={history.map((entry) => ({
+          ...entry,
+          forget: forgetWatchedAction.bind(null, entry.roundId),
+        }))}
+      />
+    ),
+  };
+}
 
 export default async function SettingsRoute({
   searchParams,
@@ -40,6 +71,12 @@ export default async function SettingsRoute({
   );
   return (
     <SettingsPage
+      {...('principal' in identity && identity.principal.kind === 'user'
+        ? await audienceSections(
+            identity.principal.userId,
+            query['notifications'] === 'saved',
+          )
+        : {})}
       username={claimedUsername(identity)}
       dataRightsNotices={parseDataRightsQuery(query)}
       analytics={await requestAnalytics()}

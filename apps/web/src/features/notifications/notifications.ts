@@ -51,6 +51,3 @@ export const notificationRows = (
   items
     .map((item) => ({ ...item, when: ago(item.minutesAgo) }))
     .filter((row) => !query.unreadOnly || row.unread);
-
-export const unreadCount = (items: readonly NotificationItem[]): number =>
-  items.filter((item) => item.unread).length;

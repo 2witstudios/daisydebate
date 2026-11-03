@@ -53,6 +53,8 @@ describe('retention targets', () => {
         purgeExpiredRoundAnalyses: record('round_analyses'),
         purgeExpiredSocialDeclines: record('social_declines'),
         purgeExpiredSocialRequests: record('social_requests'),
+        purgeReadNotifications: record('notifications'),
+        purgeExpiredWatchHistory: record('watch_history'),
       },
       redis: {
         sweepOnlinePresence: async (limit: number) => {
@@ -124,6 +126,8 @@ describe('retention targets', () => {
           { name: 'retention.round_analyses', batchSize: 500, maxBatches: 20 },
           { name: 'retention.social_declines', batchSize: 500, maxBatches: 20 },
           { name: 'retention.social_requests', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.notifications', batchSize: 1000, maxBatches: 20 },
+          { name: 'retention.watch_history', batchSize: 1000, maxBatches: 20 },
           { name: 'retention.challenges', batchSize: 1000, maxBatches: 50 },
           { name: 'retention.reports', batchSize: 1000, maxBatches: 50 },
           { name: 'retention.moderation', batchSize: 1000, maxBatches: 50 },
@@ -162,6 +166,8 @@ describe('retention targets', () => {
           round_analyses: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
           social_declines: [{ before: now, limit: 500 }],
           social_requests: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
+          notifications: [{ before: '2026-06-22T12:00:00.000Z', limit: 1000 }],
+          watch_history: [{ before: '2025-09-20T12:00:00.000Z', limit: 1000 }],
         },
         sweeps: [1000],
       },
@@ -210,6 +216,8 @@ describe('retention targets', () => {
           ['retention.round_analyses', false],
           ['retention.social_declines', false],
           ['retention.social_requests', false],
+          ['retention.notifications', false],
+          ['retention.watch_history', false],
           ['retention.challenges', false],
           ['retention.reports', false],
           ['retention.moderation', false],
@@ -217,7 +225,7 @@ describe('retention targets', () => {
         ],
         calls: {},
         sweeps: [1000],
-        failed: 20,
+        failed: 22,
       },
     });
   });

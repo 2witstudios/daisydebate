@@ -1,5 +1,4 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createId } from '@paralleldrive/cuid2';
 import {
   audienceSnapshotSchema,
   notificationKinds,
@@ -10,10 +9,13 @@ import {
 
 setupRitewayBun();
 
+const id = 'abcdefghijklmnopqrstuvwx';
+const other = 'mnopqrstuvwxabcdefghijkl';
+
 const post = (text: string) =>
   spectatorChatPostSchema.safeParse({
     version: 1,
-    requestId: createId(),
+    requestId: id,
     text,
   }).success;
 
@@ -39,8 +41,8 @@ describe('viewer pulse', () => {
       should: 'refuse it, so no identity can enter a count',
       actual: viewerPulseSchema.safeParse({
         version: 1,
-        token: createId(),
-        userId: createId(),
+        token: id,
+        userId: other,
       }).success,
       expected: false,
     });
@@ -54,7 +56,7 @@ describe('audience snapshot', () => {
       should: 'refuse it',
       actual: audienceSnapshotSchema.safeParse({
         version: 1,
-        roundId: createId(),
+        roundId: id,
         interaction: 'open',
         messages: [],
         reactions: [],
