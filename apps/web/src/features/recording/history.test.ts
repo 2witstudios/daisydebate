@@ -21,6 +21,7 @@ const round: HistoryRound = {
   id: 'round',
   competitionType: 'ranked',
   visibility: 'public',
+  audienceLinkHash: null,
   hostActorId: 'host',
   completedAtMs: nowMs,
   seatedActorIds: ['aff', 'neg'],
@@ -102,6 +103,7 @@ const open = (
           }),
   };
   return openRecordingHistory(inputs, {
+    presentedLinkHash: null,
     roundId: 'round',
     viewer: over.viewer ?? visitor,
     q: over.q ?? '',

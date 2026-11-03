@@ -43,6 +43,7 @@ import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
 import { composeAudienceRoutes } from '../features/spectating/audience-composition';
+import { createAudienceLinkHandlers } from '../features/audience-link/handlers';
 import { createSpectatorTimelineHandlers } from '../features/spectating/handlers';
 import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { identify } from '../lib/identity';
@@ -92,6 +93,14 @@ export function createRoutes(app: App) {
     ratingVisibility: composeRatingVisibilityRoutes(app),
     presence: composePresenceRoutes(app),
     contacts: composeContactRoutes(app),
+    audienceLink: createAudienceLinkHandlers({
+      logger,
+      reporter: app.reporter,
+      origin,
+      identify: (request) => identify(app.auth(), request.headers),
+      limiter: () => app.limiter,
+      store: database,
+    }),
     spectatorTimeline: createSpectatorTimelineHandlers({
       logger,
       reporter: app.reporter,

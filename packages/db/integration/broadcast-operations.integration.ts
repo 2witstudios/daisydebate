@@ -57,11 +57,13 @@ test('one Broadcast per Round, and its policy is kept', async () => {
     const first = await openBroadcast(db, {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: policy,
     });
     const again = await openBroadcast(db, {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: { kind: 'round_end' },
     });
     assert({
@@ -76,7 +78,7 @@ test('one Broadcast per Round, and its policy is kept', async () => {
 test('the database refuses a release policy it does not know', async () => {
   await withOps(async (_db, roundId, sql) => {
     const refusal =
-      await sql`insert into broadcasts(id,round_id,release_policy) values (${createId()},${roundId},${{ kind: 'live' }}::jsonb)`.then(
+      await sql`insert into broadcasts(id,round_id,feed_key,release_policy) values (${createId()},${roundId},${createId()},${{ kind: 'live' }}::jsonb)`.then(
         () => 'accepted',
         (e: { constraint?: string }) => e.constraint,
       );
@@ -94,6 +96,7 @@ test('workers cannot both hold a Broadcast, and an expired lease fences the last
     const open = await openBroadcast(db, {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: policy,
     });
     const claim = (owner: string, at: Date, until: Date) =>
@@ -144,6 +147,7 @@ test('the cursor only moves forward and the watermark never recedes', async () =
     await openBroadcast(db, {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: policy,
     });
     const job = (await db.transaction((tx) =>
@@ -187,6 +191,7 @@ test('reconcile records are idempotent and a revocation resets its failures', as
     const open = await openBroadcast(db, {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: policy,
     });
     const read = async () =>
@@ -223,6 +228,7 @@ test('a held lease renews with fresh facts, and refuses a fenced owner', async (
     const open = await openBroadcast(db, {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: policy,
     });
     const job = (await db.transaction((tx) =>
@@ -266,6 +272,7 @@ test('one web instance reconciles a Broadcast at a time', async () => {
     const open = await openBroadcast(db, {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: policy,
     });
     const claim = (at: Date) =>
@@ -292,6 +299,7 @@ test('conversation stays held until the observer is revoked, however long that t
     const open = await openBroadcast(db, {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: policy,
     });
     const noEgress = await held();
@@ -321,6 +329,7 @@ test('an operator stop stands once, and a missing Broadcast says so', async () =
     const open = await openBroadcast(db, {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: policy,
     });
     const first = await stopBroadcast(db, {
@@ -362,6 +371,7 @@ test('a completed Broadcast cannot be stopped', async () => {
     const open = await openBroadcast(db, {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: policy,
     });
     await completeBroadcast(db, { id: open.id, at: now });
@@ -418,6 +428,7 @@ test('a finished Broadcast is claimed once more to withdraw its feed, after its 
     const open = await openBroadcast(db, {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: policy,
     });
     const claim = (withdrawFinishedBefore: Date) =>

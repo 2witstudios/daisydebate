@@ -50,6 +50,7 @@ CREATE TABLE "broadcasts" (
 	"lease_owner" text,
 	"lease_until" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"feed_key" text NOT NULL,
 	CONSTRAINT "broadcasts_delivery_path_check" CHECK ("delivery_path" in ('owned_hls')),
 	CONSTRAINT "broadcasts_release_policy_is_object" CHECK (jsonb_typeof("release_policy") = 'object'),
 	CONSTRAINT "broadcasts_release_policy_check" CHECK ("release_policy"->>'kind' in ('delay','round_end','at')),
@@ -169,6 +170,7 @@ ALTER TABLE "rounds" RENAME CONSTRAINT "rounds_rated_ladder_check" TO "rounds_ra
 ALTER TABLE "messaging_channels" ADD COLUMN "round_id" text;--> statement-breakpoint
 ALTER TABLE "rooms" ADD COLUMN "capture" jsonb;--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "capture" jsonb;--> statement-breakpoint
+ALTER TABLE "rounds" ADD COLUMN "audience_link_hash" text;--> statement-breakpoint
 ALTER TABLE "operator_command_receipts" ALTER COLUMN "target_user_id" DROP NOT NULL;--> statement-breakpoint
 CREATE INDEX "agreement_signatures_season_idx" ON "agreement_signatures" ("season_id");--> statement-breakpoint
 CREATE INDEX "agreement_signatures_room_idx" ON "agreement_signatures" ("room_id");--> statement-breakpoint

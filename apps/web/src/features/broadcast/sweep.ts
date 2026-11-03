@@ -33,6 +33,8 @@ export const createBroadcastSweep = (deps: {
   readonly egress: Egress;
   readonly now: () => number;
   readonly nextId: () => string;
+  /** CSPRNG name of the public object tree: public media is found by no other way. */
+  readonly newFeedKey: () => string;
   /** CSPRNG secret; only its SHA3-256 hash is stored. */
   readonly newCredential: () => { secret: string; hash: string };
   readonly stageUrl: (broadcastId: string, credential: string) => string;
@@ -109,6 +111,7 @@ export const createBroadcastSweep = (deps: {
         await deps.store.open({
           id: deps.nextId(),
           roundId: round.roundId,
+          feedKey: deps.newFeedKey(),
           ...plan,
         });
     }

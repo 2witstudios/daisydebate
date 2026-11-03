@@ -205,6 +205,7 @@ const appRoutes = [
   '/rooms/[id]',
   '/rooms/[id]/rematch',
   '/rounds/[id]',
+  '/rounds/[id]/audience-link',
   '/rounds/[id]/room',
   '/security',
   '/restricted',
@@ -226,6 +227,7 @@ const appRoutes = [
   '/train/welcome',
   '/watch',
   '/watch/[roundId]',
+  '/watch/[roundId]/link',
 ];
 
 /** Patterns a call site names literally. */

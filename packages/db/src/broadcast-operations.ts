@@ -18,6 +18,7 @@ export const openBroadcast = async (
   input: {
     readonly id: string;
     readonly roundId: string;
+    readonly feedKey: string;
     readonly releasePolicy: BroadcastReleasePolicy;
     readonly debatersReadChat?: boolean;
   },

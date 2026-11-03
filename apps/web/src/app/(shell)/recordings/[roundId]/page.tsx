@@ -5,6 +5,7 @@ import { recordingViewerOf } from '../../../../features/recording/viewer';
 import {
   readRecordingHistory,
   requestIdentity,
+  requestPresentedLink,
 } from '../../../../lib/request-session';
 import {
   RecordingHistory,
@@ -36,6 +37,7 @@ export default async function RecordingPage({
   const screen = await readRecordingHistory({
     roundId,
     viewer: recordingViewerOf(await requestIdentity()),
+    presentedLinkHash: await requestPresentedLink(roundId),
     q: firstOf(search['q']).trim().slice(0, MAX_SEARCH_LENGTH),
   });
   const notice = firstOf(search['removal']);

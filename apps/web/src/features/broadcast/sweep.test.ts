@@ -21,8 +21,14 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
   const log: string[] = [];
   const store = {
     discoverUnopened: async () => [],
-    open: async (input: { roundId: string; releasePolicy: unknown }) => {
-      log.push(`open ${input.roundId} ${JSON.stringify(input.releasePolicy)}`);
+    open: async (input: {
+      roundId: string;
+      feedKey: string;
+      releasePolicy: unknown;
+    }) => {
+      log.push(
+        `open ${input.roundId} ${input.feedKey} ${JSON.stringify(input.releasePolicy)}`,
+      );
     },
     listOpen: async () => [] as unknown[],
     readRound: async () => null as unknown,
@@ -37,6 +43,7 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
   };
   const deps = {
     store,
+    newFeedKey: () => 'random-key',
     egress: {
       start: async (input: { stageUrl: string; holdPrefix: string }) => {
         log.push(`start ${input.stageUrl} ${input.holdPrefix}`);
@@ -64,7 +71,7 @@ describe('createBroadcastSweep', () => {
       given: 'a ranked Round with no Broadcast',
       should: 'open one at the ranked policy',
       actual: log,
-      expected: ['open r9 {"kind":"delay","seconds":60}'],
+      expected: ['open r9 random-key {"kind":"delay","seconds":60}'],
     });
   });
   test('opens a casual Round at its host’s release, and nothing without a choice', async () => {
@@ -93,7 +100,7 @@ describe('createBroadcastSweep', () => {
       given: 'a casual Broadcast choice and a recording alone',
       should: 'open only the first, at the host’s release',
       actual: log,
-      expected: ['open chosen {"kind":"round_end"}'],
+      expected: ['open chosen random-key {"kind":"round_end"}'],
     });
   });
   test('one failing Broadcast does not stop the others', async () => {

@@ -131,6 +131,8 @@ export const rounds = pgTable(
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
+    /** SHA3-256 of an unlisted Round's current link; the token is never stored. */
+    audienceLinkHash: text('audience_link_hash'),
   },
   (table) => {
     const opening = sql`${table.status} = 'opening' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;

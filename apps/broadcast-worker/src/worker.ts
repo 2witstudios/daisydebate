@@ -61,7 +61,7 @@ export const runWorker = async (deps: {
       await deps.sleep(IDLE_MS);
       continue;
     }
-    const live = broadcastLivePrefix(job.id);
+    const live = broadcastLivePrefix(job.feedKey);
     try {
       await objects.putManifest(`${live}master.m3u8`, masterPlaylist());
       let next = job.nextSegment;

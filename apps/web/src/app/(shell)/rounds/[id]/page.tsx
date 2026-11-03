@@ -1,8 +1,12 @@
 import { roundDocumentPrincipal } from '../../../../features/debate-room/documents/document-principal';
-import { requestRoundRatings } from '../../../../lib/request-session';
+import {
+  requestHostedAudienceLink,
+  requestRoundRatings,
+} from '../../../../lib/request-session';
 import { RoundRatings } from '../../../../ui/ranked/round-ratings';
 import { readPersistedBallot } from '../../judge/ballot/[roundId]/actions';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
@@ -19,6 +23,7 @@ import {
   resultRetryOf,
 } from '../../../../ui/round-result/result-part';
 import { drawReconnectDelaySeconds } from '../../../../ui/debate-room/reconnect-delay';
+import { audienceLinkPageHref } from '../../../../features/audience-link/audience-link';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { temporarilyRefused } from '../../../../server/temporary-read';
@@ -113,6 +118,7 @@ export default async function RoundPage({
   );
   if (ratings === 'refused') return reconnectingRoundPage();
   const retry = resultRetryOf([ballots, analysis, transcript]);
+  const hostedLink = await requestHostedAudienceLink(id, identity);
   return (
     <>
       <MediaDocument />
@@ -133,6 +139,11 @@ export default async function RoundPage({
             view={analysis.value.view}
             lines={analysis.value.lines}
           />
+        ) : null}
+        {hostedLink ? (
+          <Link href={audienceLinkPageHref(id)} className="text-sm underline">
+            Share this Round by link
+          </Link>
         ) : null}
         {identity.state === 'member' ? (
           <>

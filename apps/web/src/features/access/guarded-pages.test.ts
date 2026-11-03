@@ -39,6 +39,8 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestLadder: async () => null,
   requestRoundRatings: async () => null,
   requestWatchRound: async () => null,
+  requestPresentedLink: async () => null,
+  requestHostedAudienceLink: async () => null,
   requestHubCounts: async () => ({ live: 0, recordings: 0 }),
   requestLeadingLive: async () => [],
   requestLiveRoundsOf: async () => new Map(),
@@ -111,6 +113,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
   {
     '(shell)/rounds/[id]/page.tsx': () =>
       import('../../app/(shell)/rounds/[id]/page'),
+    '(shell)/rounds/[id]/audience-link/page.tsx': () =>
+      import('../../app/(shell)/rounds/[id]/audience-link/page'),
     '(bare)/rounds/[id]/room/page.tsx': () =>
       import('../../app/(bare)/rounds/[id]/room/page'),
     '(shell)/rooms/[id]/page.tsx': () =>

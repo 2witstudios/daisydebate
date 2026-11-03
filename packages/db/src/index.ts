@@ -107,6 +107,7 @@ import { recordingArchiveReadOperations } from './recording-archive-reads';
 import { spectatorFactLogOperations } from './spectator-fact-log';
 import { recordingOperations } from './recording-operations';
 import { recordingRoundReadOperations } from './recording-round-reads';
+import { roundAudienceLinkOperations } from './round-audience-link';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
@@ -399,6 +400,7 @@ export function createDatabase({
     ...watchHistoryOperations({ database: social, eventSink }),
     ...notificationOperations({ database: social, eventSink }),
     ...recordingRoundReadOperations({ database: audience }),
+    ...roundAudienceLinkOperations({ database: audience }),
     ...recordingArchiveReadOperations({ database: audience }),
     ...spectatorFactLogOperations({ database: control }),
     ...recordingOperations({ database: control }),

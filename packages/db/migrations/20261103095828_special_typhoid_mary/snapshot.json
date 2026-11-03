@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "dcfdbe97-92e2-451b-80fe-772b563a0dad",
+  "id": "37d9c15c-d0fe-467e-8c78-a07afef685eb",
   "prevIds": [
     "363787d1-3897-4357-9649-a181b35a6c61"
   ],
@@ -2467,6 +2467,19 @@
       "generated": null,
       "identity": null,
       "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "feed_key",
       "entityType": "columns",
       "schema": "public",
       "table": "broadcasts"
@@ -10605,6 +10618,19 @@
       "generated": null,
       "identity": null,
       "name": "version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "audience_link_hash",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"

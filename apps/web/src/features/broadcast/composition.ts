@@ -4,6 +4,7 @@ import {
   type WorkerTimers,
 } from '../../lib/worker-timers';
 import type { App } from '../../server/app';
+import { newFeedKey } from './official-feed';
 import { newStageCredential } from './stage-access';
 import { createStageRoute } from './stage-route';
 import { createFactLogSweep } from '../spectating/fact-log-sweep';
@@ -34,6 +35,7 @@ export const startBroadcastSweep = (app: App, timers: WorkerTimers) => {
     egress,
     now: () => Date.parse(app.clock.now()),
     nextId: () => app.ids.next(),
+    newFeedKey: () => newFeedKey(),
     newCredential: () => newStageCredential(),
     stageUrl: (id, credential) =>
       `${app.config.PUBLIC_APP_URL}/stage/${id}?c=${encodeURIComponent(credential)}`,

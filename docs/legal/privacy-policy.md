@@ -124,6 +124,8 @@ Age-refusal cookie: set only when sign-up is refused for age, as described above
 
 Theme cookie: remembers whether you chose the light, dark or system theme. Lasts one year.
 
+Unlisted Round link cookie: set when you open a link to an unlisted Round, so that you and its video can return to it. Strictly necessary, httpOnly, lasts 7 days, and holds that link alone.
+
 Navigation rail cookies: remember whether you collapsed the navigation rail and whether you opened or closed the list of who is online. Each lasts one year and is read only by our servers.
 
 Note-erasing cookie: set when you confirm closing your account, so the next page can erase the note copies kept in this browser. Lasts 60 seconds and holds no name, email or identifier.

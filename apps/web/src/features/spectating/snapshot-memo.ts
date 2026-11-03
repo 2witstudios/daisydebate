@@ -1,7 +1,8 @@
 /**
  * One origin read per Round per interval, whoever asks, so a viewer count
  * reaches the database as one reader even with no CDN in front. Failures are
- * not kept. Nothing here is per viewer, so sharing it is safe.
+ * not kept. Nothing here is per viewer, and no caller answers from it before
+ * deciding who is asking, so sharing it is safe.
  */
 export const createSnapshotMemo = <T>(options: {
   readonly nowMs: () => number;

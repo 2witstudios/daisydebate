@@ -141,6 +141,7 @@ test('a stop replays by its receipt, and a reused id with another digest conflic
     const broadcast = await openBroadcast(drizzle({ client }), {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: { kind: 'delay', seconds: 60 },
     });
     const stop = command({
@@ -180,6 +181,7 @@ test('a command past its deadline writes nothing', async () => {
     const broadcast = await openBroadcast(drizzle({ client }), {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: { kind: 'delay', seconds: 60 },
     });
     const late = await ops
@@ -213,6 +215,7 @@ test('slow mode and bans are what chat reads', async () => {
     const broadcast = await openBroadcast(drizzle({ client }), {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: { kind: 'delay', seconds: 60 },
     });
     const userId = await f.user();
@@ -309,11 +312,11 @@ test('only the debater who received feedback can report it, and the operator rea
     const revision = await f.freeze(roundId);
     const ballotId = createId();
     await client`insert into ballots (id, judge_participant_id, round_id, freeze_revision,
-        rubric_version, winner, scores, reason, feedback, status, submitted_at)
+        rubric_version, winner, scores, reason, feedback, submitted_at)
       values (${ballotId}, ${judge.id}, ${roundId}, ${revision}, 'speaker-10@1',
         'affirmative', ${JSON.stringify({})}::text::jsonb, 'Reason',
         ${JSON.stringify({ affirmative: 'For aff', negative: 'For neg' })}::text::jsonb,
-        'submitted', now())`;
+        now())`;
     try {
       const facts = (actorId: string) =>
         ops.readReportTargetFacts({

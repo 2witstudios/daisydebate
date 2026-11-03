@@ -360,6 +360,7 @@ test('the archive pages, filters and holds back what is not released', async () 
       await openBroadcast(db, {
         id: createId(),
         roundId: held,
+        feedKey: createId(),
         releasePolicy: { kind: 'delay', seconds: 60 },
       });
       const list = (

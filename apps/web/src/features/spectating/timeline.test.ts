@@ -19,6 +19,7 @@ const broadcast = (
   over: Partial<NonNullable<Read['broadcast']>> = {},
 ): NonNullable<Read['broadcast']> => ({
   id: 'b1',
+  feedKey: 'k1',
   deliveryPath: 'owned_hls',
   policy: delay60,
   releasedThroughAt: null,
@@ -232,13 +233,36 @@ describe('projectSpectatorTimeline', () => {
 
     test('an unlisted Round', () => {
       assert({
-        given: 'an unlisted Round whose Round id is not a secret',
-        should: 'offer no stream until its link token exists',
+        given: 'an unlisted Round, already admitted past its link',
+        should: 'offer the same stream under its feed key',
         actual: standing(
           { releasedThroughAt: onTime },
           { visibility: 'unlisted' },
         ),
-        expected: { state: 'none' },
+        expected: {
+          state: 'on_air',
+          stream: { path: 'owned_hls', manifestUrl: MANIFEST },
+        },
+      });
+    });
+
+    test('the address comes from the feed key, never the Broadcast id', () => {
+      assert({
+        given: 'a Broadcast with a random feed key',
+        should: 'ask for the feed under that key',
+        actual: project(
+          read({
+            broadcast: broadcast({
+              releasedThroughAt: onTime,
+              feedKey: 'random-key',
+            }),
+          }),
+          { nowMs: NOW, feedUrlOf: (key) => key },
+        ).broadcast,
+        expected: {
+          state: 'on_air',
+          stream: { path: 'owned_hls', manifestUrl: 'random-key' },
+        },
       });
     });
 

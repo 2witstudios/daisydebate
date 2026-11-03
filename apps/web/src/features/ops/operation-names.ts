@@ -16,6 +16,8 @@ const OPERATION_NAMES = [
   'watch-history.update',
   'notifications.read',
   'notifications.preferences',
+  'audience-link.issue',
+  'audience-link.open',
   'recording.playback',
   'recording.download',
   'recording.removal',

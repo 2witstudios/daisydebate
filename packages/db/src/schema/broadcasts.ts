@@ -66,6 +66,11 @@ export const broadcasts = pgTable(
     leaseOwner: text('lease_owner'),
     leaseUntil: timestampColumn('lease_until'),
     createdAt: createdAtColumn(),
+    /**
+     * The random name of its public object tree, set at open. The bucket is
+     * public, so this, not the link, is what keeps an unlisted Broadcast unfound.
+     */
+    feedKey: text('feed_key').notNull(),
   },
   (table) => [
     uniqueIndex('broadcasts_round_unique').on(table.roundId),

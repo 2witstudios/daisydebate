@@ -19,7 +19,14 @@ describe('openPlayback', () => {
     d: ReturnType<typeof deps>,
     path: string[],
     viewer: RecordingViewer = visitor,
-  ) => openPlayback(d, { recordingId: 'rec', path, viewer });
+    link: string | null = null,
+  ) =>
+    openPlayback(d, {
+      recordingId: 'rec',
+      path,
+      viewer,
+      presentedLinkHashOf: () => link,
+    });
 
   test('authorizes every read and signs only briefly', async () => {
     assert({

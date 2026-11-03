@@ -44,6 +44,7 @@ export const openPlayback = async (
     readonly recordingId: string;
     readonly path: readonly string[];
     readonly viewer: RecordingViewer;
+    readonly presentedLinkHashOf: (roundId: string) => string | null;
   },
 ): Promise<PlaybackAnswer> => {
   const refused = createAppError('NOT_FOUND');
@@ -56,6 +57,7 @@ export const openPlayback = async (
     round,
     await deps.inputs.readBroadcastRelease(round.id),
     input.viewer,
+    input.presentedLinkHashOf(round.id),
   );
   if (!permissions.media) throw refused;
   const { playlistKey } = record.lifecycle.media;

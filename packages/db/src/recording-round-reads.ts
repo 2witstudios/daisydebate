@@ -36,6 +36,7 @@ export const recordingRoundReadOperations = ({
           competitionType: rounds.competitionType,
           roomVisibility: rooms.visibility,
           roundVisibility: rounds.visibility,
+          audienceLinkHash: rounds.audienceLinkHash,
           hostActorId: rounds.createdByActorId,
           status: rounds.status,
           completedAt: rounds.completedAt,
@@ -79,6 +80,7 @@ export const recordingRoundReadOperations = ({
         competitionType: round.competitionType,
         visibility:
           round.roomVisibility ?? round.roundVisibility ?? ('private' as const),
+        audienceLinkHash: round.audienceLinkHash,
         hostActorId: round.hostActorId,
         status: round.status,
         completedAtMs: round.completedAt?.getTime() ?? null,
