@@ -908,42 +908,51 @@ test('typing straight through the Round closing: every word the editor showed is
 }) => {
   const { page, documentId } = roundFiles;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
-  const editor = page.getByRole('textbox', { name: untitled });
-  await editor.focus();
-  // What a person last saw in the editor, sampled on every change until it goes.
+  await page.getByRole('textbox', { name: untitled }).focus();
+  // What a person last saw in the Room's editor. The observer stops when that
+  // editor goes, since the result page's own textboxes must not count.
   await page.evaluate(() => {
-    new MutationObserver(() => {
-      const shown = document.querySelector('[role="textbox"].room-doc');
+    const observer = new MutationObserver(() => {
+      const shown = document.querySelector('[contenteditable="true"].room-doc');
       if (shown) Reflect.set(window, '__lastShown', shown.textContent);
-    }).observe(document.body, {
+      else observer.disconnect();
+    });
+    observer.observe(document.body, {
       subtree: true,
       childList: true,
       characterData: true,
     });
   });
-  const typing = (async () => {
-    for (let word = 0; (await editor.count()) > 0; word += 1)
+  const typeUntilTheRoomLeaves = async () => {
+    for (let word = 0; page.url().endsWith('/room') && word < 200; word += 1)
       await page.keyboard.insertText(`word${word} `);
-  })();
-  await roundFiles.forfeitRound();
-  // Coming back to the tab reads at once, so the Room's own move has no wait on
-  // a doorbell, which carries no delivery guarantee.
-  await page.evaluate(() =>
-    document.dispatchEvent(new Event('visibilitychange')),
-  );
-  await typing;
+  };
+  const closeTheRound = async () => {
+    await roundFiles.forfeitRound();
+    // Coming back to the tab reads at once, so the Room's own move has no wait
+    // on a doorbell, which carries no delivery guarantee.
+    await page.evaluate(() =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+  };
+  await Promise.all([typeUntilTheRoomLeaves(), closeTheRound()]);
+  await expect(page).toHaveURL(`${origin}/rounds/${roundFiles.roundId}`);
+  const files = page.getByRole('region', { name: 'Your files' });
   await expect(
-    page
-      .getByRole('region', { name: 'Your files' })
-      .getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
+    files.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
   ).toBeVisible();
-  const shown = (await page.evaluate(() =>
-    Reflect.get(window, '__lastShown'),
-  )) as string;
+  const shown = String(
+    await page.evaluate(() => Reflect.get(window, '__lastShown')),
+  );
   const words = shown.match(/word\d+ /g) ?? [];
   expect(words.length).toBeGreaterThan(0);
-  const { recovery } = await draftFor(page, documentId);
-  for (const word of words) expect(recovery.html).toContain(word);
+  const draft = await draftFor(page, documentId);
+  expect(draft).not.toBeNull();
+  for (const word of words) expect(draft.recovery.html).toContain(word);
+  await files.getByText('Compare recovered and server copies').click();
+  await expect(page.getByLabel('Recovered copy of Untitled')).toContainText(
+    words.at(-1)!.trim(),
+  );
 });
 
 test('after a lost exit save, the Round receipt visibly restores a private draft through the same sync owner', async ({
