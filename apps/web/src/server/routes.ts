@@ -34,6 +34,7 @@ import { createProofHandlers } from '../features/foundation/handlers';
 import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
+import { createSpectatorTimelineHandlers } from '../features/spectating/handlers';
 import { identify } from '../lib/identity';
 import type { App } from './app';
 import { handleOperation } from './http';
@@ -84,6 +85,12 @@ export function createRoutes(app: App) {
     friends: composeFriendRoutes(app),
     presence: composePresenceRoutes(app),
     contacts: composeContactRoutes(app),
+    spectatorTimeline: createSpectatorTimelineHandlers({
+      logger,
+      reporter: app.reporter,
+      store: database,
+      clock: app.clock,
+    }),
     rounds: {
       read: rooms.roundRead,
       ...composeRoundRoutes(app),

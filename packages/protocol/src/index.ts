@@ -412,3 +412,7 @@ export {
   SPECTATOR_MARGIN_MS,
   type BroadcastReleasePolicy,
 } from './broadcast';
+export {
+  spectatorTimelineSchema,
+  type SpectatorTimeline,
+} from './spectator-timeline';

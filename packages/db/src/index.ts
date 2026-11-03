@@ -64,6 +64,7 @@ import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
 import { agreementSignatureOperations } from './agreement-signatures';
 export type { ContentWaiverStanding } from './agreement-signatures';
+export type { SpectatorTimelineRead } from './spectator-timeline-reads';
 import { roomCommandOperations } from './room-command-operations';
 import { roomCommandTransaction } from './room-command-transaction';
 import { roundCommandOperations } from './round-command-operations';
@@ -76,6 +77,7 @@ import { ageStepOperations } from './age-step';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
+import { spectatorTimelineReads } from './spectator-timeline-reads';
 import { memberProfileReadOperations } from './member-profile-reads';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
@@ -330,6 +332,7 @@ export function createDatabase({
     ...ageStepOperations({ database: control, eventSink }),
     ...standingsOperations({ database: audience, eventSink }),
     ...memberProfileReadOperations({ database: audience, eventSink }),
+    ...spectatorTimelineReads({ database: audience, eventSink }),
     /**
      * Rates a completed round with the caller's domain decision (ADR 0055,
      * ADR 0058); see `rateCompletedRound`. Its consumer is the ratings
