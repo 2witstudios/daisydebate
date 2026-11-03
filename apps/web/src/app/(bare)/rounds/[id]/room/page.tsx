@@ -171,9 +171,7 @@ export default async function RoundRoomPage({
                   ? await readPersistedAttendance(id)
                   : null
               }
-              retrySeconds={reconnectDelaySeconds(
-                crypto.getRandomValues(new Uint8Array(1))[0]!,
-              )}
+              retrySeconds={drawReconnectDelaySeconds()}
             />
           </>
         }
