@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "bd453aef-c609-4111-9a12-39024b4e348a",
+  "id": "363787d1-3897-4357-9649-a181b35a6c61",
   "prevIds": [
-    "8a5b9e7d-b849-4862-a8e2-cb00bf934fe7"
+    "1e368188-b6a7-4174-b68f-a0f6a798b13a"
   ],
   "ddl": [
     {
@@ -7171,6 +7171,19 @@
       "table": "rooms"
     },
     {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "host_inherited",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -9064,6 +9077,19 @@
       "generated": null,
       "identity": null,
       "name": "created_by_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "host_inherited",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
