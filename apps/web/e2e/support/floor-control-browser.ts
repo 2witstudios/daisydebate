@@ -65,7 +65,7 @@ const opened = await Promise.all(
     };
     await page
       .getByRole('status')
-      .filter({ hasText: /^Connected$/ })
+      .filter({ hasText: /^Connected/ })
       .waitFor({ timeout: 60_000 })
       .catch(async (error: unknown) => {
         const statuses = await page.getByRole('status').allTextContents();

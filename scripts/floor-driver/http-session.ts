@@ -5,6 +5,8 @@ const tlsFor = (origin: string) =>
   ['localhost', '127.0.0.1'].includes(new URL(origin).hostname)
     ? { tls: { rejectUnauthorized: false } }
     : {};
+/** Near the browser's own backoff. Every command carries a stable id, so a resend is safe. */
+const RETRY_DELAYS_MS = [250, 500, 1_000, 2_000, 4_000];
 export type DriverResponse = {
   readonly status: number;
   readonly body: unknown;
@@ -15,16 +17,20 @@ export type DriverResponse = {
 export function createHttpSession(input: {
   readonly origin: string;
   readonly refused: (operation: string, status: number) => void;
+  readonly retryDelaysMs?: readonly number[];
 }) {
+  const retryDelaysMs = input.retryDelaysMs ?? RETRY_DELAYS_MS;
   const cookies = new Map<string, string>();
+  type Init = {
+    readonly method?: string;
+    readonly json?: unknown;
+    readonly form?: Readonly<Record<string, string>>;
+  };
   const request = async (
     operation: string,
     path: string,
-    init: {
-      readonly method?: string;
-      readonly json?: unknown;
-      readonly form?: Readonly<Record<string, string>>;
-    } = {},
+    init: Init = {},
+    attempt = 0,
   ): Promise<DriverResponse> => {
     const response = await fetch(`${input.origin}${path}`, {
       method: init.method ?? (init.json || init.form ? 'POST' : 'GET'),
@@ -46,8 +52,14 @@ export function createHttpSession(input: {
       const at = pair!.indexOf('=');
       cookies.set(pair!.slice(0, at), pair!.slice(at + 1));
     }
-    if (response.status === 429 || response.status >= 500)
+    if (response.status === 429 || response.status >= 500) {
       input.refused(operation, response.status);
+      const delayMs = retryDelaysMs[attempt];
+      if (delayMs !== undefined) {
+        await Bun.sleep(delayMs);
+        return request(operation, path, init, attempt + 1);
+      }
+    }
     const stamp = Number(response.headers.get('x-server-now-ms'));
     return {
       status: response.status,
