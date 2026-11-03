@@ -156,12 +156,16 @@ test('a host who inherits a Room names no human judge, in the Room or after', ()
     projectRoom(viewer, actorId, judgeReady, now).participants.find(
       (p) => p.role === 'judge',
     );
+  const anonymousTo = (viewer: RoomAssemblyState, actorId: string) => {
+    const seat = seatFor(viewer, actorId);
+    return seat !== undefined && 'anonymous' in seat;
+  };
   const inherited = releaseRestrictedMember(withJudge, 'host');
   assert({
     given: 'the original host, before any restriction',
     should: 'name the judge they seated',
-    actual: seatFor(withJudge, 'host')?.anonymous,
-    expected: undefined,
+    actual: anonymousTo(withJudge, 'host'),
+    expected: false,
   });
   assert({
     given: 'a debater who inherits the Room',
@@ -195,7 +199,7 @@ test('a host who inherits a Room names no human judge, in the Room or after', ()
   assert({
     given: 'a judge who claims a seat after the hand-off',
     should: 'stay hidden from the inherited host too',
-    actual: seatFor(
+    actual: anonymousTo(
       {
         ...inherited,
         participants: [
@@ -204,13 +208,13 @@ test('a host who inherits a Room names no human judge, in the Room or after', ()
         ],
       },
       'other',
-    )?.anonymous,
+    ),
     expected: true,
   });
   assert({
     given: 'the judge reading their own seat under the inherited host',
     should: 'name them to themselves',
-    actual: seatFor(inherited, 'judge')?.anonymous,
-    expected: undefined,
+    actual: anonymousTo(inherited, 'judge'),
+    expected: false,
   });
 });
