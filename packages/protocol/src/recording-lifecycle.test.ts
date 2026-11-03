@@ -1,6 +1,9 @@
-import type { RecordingLifecycle, RecordingMedia } from '@daisy/protocol';
+import type { RecordingLifecycle, RecordingMedia } from './recording';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { transitionRecording, type RecordingEvent } from './lifecycle';
+import {
+  transitionRecording,
+  type RecordingEvent,
+} from './recording-lifecycle';
 
 setupRitewayBun();
 
@@ -318,6 +321,111 @@ describe('removal', () => {
       should: 'refuse',
       actual: apply(ready, { type: 'objects_gone', at: later }),
       expected: { kind: 'refused', reason: 'out_of_order' },
+    });
+  });
+});
+
+describe('an evidence hold on a taken-down casual Recording', () => {
+  const down: RecordingLifecycle = {
+    status: 'taken_down',
+    takenDownAt: at,
+    held: ready,
+  };
+  const heldUntil = '2027-02-01T00:00:00.000Z';
+  const asked = {
+    type: 'removal_requested',
+    cause: 'participant_request',
+    at: later,
+    evidenceHeldUntil: heldUntil,
+  } as const;
+  const owed: RecordingLifecycle = {
+    ...down,
+    removalOwed: { requestedAt: later, heldUntil },
+  };
+  const going = {
+    kind: 'moved',
+    next: {
+      status: 'removing',
+      cause: 'participant_request',
+      requestedAt: later,
+    },
+  };
+
+  test('erasure under an open report owes the removal and keeps the media', () => {
+    assert({
+      given: 'a request while an open report holds the Recording',
+      should: 'stay taken down, recording what is owed',
+      actual: apply(down, asked),
+      expected: { kind: 'moved', next: owed },
+    });
+    assert({
+      given: 'a second seat asking while one is owed',
+      should: 'keep the first, so a hold is never extended',
+      actual: apply(owed, { ...asked, at: heldUntil }),
+      expected: { kind: 'unchanged' },
+    });
+  });
+
+  test('erasure with no open report removes it now', () => {
+    assert({
+      given: 'a request with no hold',
+      should: 'go at once',
+      actual: apply(down, {
+        type: 'removal_requested',
+        cause: 'participant_request',
+        at: later,
+      }),
+      expected: going,
+    });
+  });
+
+  test('the owed removal is paid when the hold ends, and only then', () => {
+    assert({
+      given: 'the report closed or the period passed',
+      should: 'move to removing, dated by the request',
+      actual: apply(owed, { type: 'evidence_hold_ended' }),
+      expected: going,
+    });
+    assert({
+      given: 'a takedown that owes nothing',
+      should: 'refuse: a takedown alone is never deleted by time',
+      actual: apply(down, { type: 'evidence_hold_ended' }),
+      expected: { kind: 'refused', reason: 'out_of_order' },
+    });
+    assert({
+      given: 'a removal already under way',
+      should: 'change nothing',
+      actual: apply(removing, { type: 'evidence_hold_ended' }),
+      expected: { kind: 'unchanged' },
+    });
+  });
+
+  test('a restore never brings back what a subject asked to remove', () => {
+    assert({
+      given: 'a restore of a Recording with a removal owed',
+      should: 'refuse: it stays hidden until the hold ends',
+      actual: apply(owed, { type: 'restored' }),
+      expected: { kind: 'refused', reason: 'not_restorable' },
+    });
+  });
+
+  test('moderation removal does not wait for the hold', () => {
+    assert({
+      given: 'a moderation removal of a held Recording',
+      should: 'go at once, as moderation',
+      actual: apply(owed, {
+        type: 'removal_requested',
+        cause: 'moderation',
+        at: heldUntil,
+      }),
+      expected: {
+        kind: 'moved',
+        next: {
+          status: 'removing',
+          cause: 'moderation',
+          requestedAt: heldUntil,
+        },
+      },
     });
   });
 });

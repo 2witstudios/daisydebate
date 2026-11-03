@@ -12,6 +12,7 @@ export const fakeRecordingStore = (
   options: {
     readonly failedBefore?: readonly string[];
     readonly sourcesRemain?: readonly string[];
+    readonly endedHolds?: readonly string[];
   } = {},
 ) => {
   const rows = new Map(seed.map((record) => [record.id, record]));
@@ -60,6 +61,8 @@ export const fakeRecordingStore = (
       deferred.push({ id, retryAt });
     },
     sourcesRemain: async (id) => (options.sourcesRemain ?? []).includes(id),
+    listEndedEvidenceHolds: async ({ limit }) =>
+      (options.endedHolds ?? []).slice(0, limit),
     listFailedBefore: async ({ limit }) =>
       (options.failedBefore ?? []).slice(0, limit),
   };

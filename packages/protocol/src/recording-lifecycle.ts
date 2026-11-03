@@ -4,7 +4,7 @@ import type {
   RecordingMedia,
   RecordingRemovalCause,
   RecordingSource,
-} from '@daisy/protocol';
+} from './recording';
 
 /** Every object of a Recording sits here, so the whole of it can be deleted. */
 export const recordingObjectPrefix = (recordingId: string): string =>
@@ -34,7 +34,13 @@ export type RecordingEvent =
       readonly type: 'removal_requested';
       readonly cause: RecordingRemovalCause;
       readonly at: string;
+      /**
+       * Set when an open report holds a taken-down casual Recording as evidence:
+       * the removal is owed, and waits until then at the latest.
+       */
+      readonly evidenceHeldUntil?: string;
     }
+  | { readonly type: 'evidence_hold_ended' }
   | { readonly type: 'objects_gone'; readonly at: string };
 
 export type RecordingRefusal =
@@ -164,10 +170,25 @@ const takenDown = (
   });
 };
 
+/** A subject asked for this to go while it was held, so it never comes back. */
 const restored = ({ lifecycle }: Subject): RecordingTransition => {
   if (lifecycle.status === 'ready') return unchanged;
   if (lifecycle.status !== 'taken_down') return refused('out_of_order');
-  return lifecycle.held ? moved(lifecycle.held) : refused('not_restorable');
+  return lifecycle.held && !lifecycle.removalOwed
+    ? moved(lifecycle.held)
+    : refused('not_restorable');
+};
+
+const evidenceHoldEnded = ({ lifecycle }: Subject): RecordingTransition => {
+  if (lifecycle.status === 'removing' || lifecycle.status === 'removed')
+    return unchanged;
+  return lifecycle.status === 'taken_down' && lifecycle.removalOwed
+    ? moved({
+        status: 'removing',
+        cause: 'participant_request',
+        requestedAt: lifecycle.removalOwed.requestedAt,
+      })
+    : refused('out_of_order');
 };
 
 const removalRequested = (
@@ -179,6 +200,20 @@ const removalRequested = (
     return refused('ranked_is_kept');
   if (lifecycle.status === 'removing' || lifecycle.status === 'removed')
     return unchanged;
+  if (
+    lifecycle.status === 'taken_down' &&
+    event.cause === 'participant_request' &&
+    event.evidenceHeldUntil !== undefined
+  )
+    return lifecycle.removalOwed
+      ? unchanged
+      : moved({
+          ...lifecycle,
+          removalOwed: {
+            requestedAt: event.at,
+            heldUntil: event.evidenceHeldUntil,
+          },
+        });
   return moved({
     status: 'removing',
     cause: event.cause,
@@ -221,6 +256,8 @@ export const transitionRecording = (
       return restored(subject);
     case 'removal_requested':
       return removalRequested(subject, event);
+    case 'evidence_hold_ended':
+      return evidenceHoldEnded(subject);
     case 'objects_gone':
       return objectsGone(subject, event);
   }

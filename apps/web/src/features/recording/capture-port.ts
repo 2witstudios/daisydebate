@@ -4,9 +4,10 @@ import type {
   CompetitionType,
   RecordingLifecycle,
   RecordingSource,
+  RecordingEvent,
 } from '@daisy/protocol';
+import { transitionRecording } from '@daisy/protocol';
 import { captureEligibility } from './eligibility';
-import { transitionRecording, type RecordingEvent } from './lifecycle';
 import type { RecordingInputs, RecordingRecord, RecordingStore } from './ports';
 import { speechTimeline } from './speech-timeline';
 

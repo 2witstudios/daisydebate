@@ -2,9 +2,9 @@ import type {
   RecordingClass,
   RecordingEligibility,
   RecordingLifecycle,
+  RecordingTransition,
 } from '@daisy/protocol';
 import type { BroadcastRelease, RecordingRound } from './audience';
-import type { RecordingTransition } from './lifecycle';
 import type { FloorInterval } from './speech-timeline';
 
 export type RecordingRecord = {
@@ -71,6 +71,11 @@ export type RecordingStore = {
   ) => Promise<void>;
   /** Whether anything of this Recording may still wait in the hold bucket. */
   readonly sourcesRemain: (recordingId: string) => Promise<boolean>;
+  /** Held Recordings whose removal is now due: report closed or period passed. */
+  readonly listEndedEvidenceHolds: (input: {
+    readonly now: string;
+    readonly limit: number;
+  }) => Promise<readonly string[]>;
   /** Failed Recordings older than `before`, whose partial objects can go. */
   readonly listFailedBefore: (input: {
     readonly before: string;

@@ -1,52 +1,20 @@
-import {
-  recordingLifecycleSchema,
-  type RecordingClass,
-  type RecordingEligibility,
-  type RecordingLifecycle,
-  type RecordingStatus,
-} from '@daisy/protocol';
+import type { RecordingClass, RecordingEligibility } from '@daisy/protocol';
 import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import {
+  moveRecording,
+  type RecordingDecision,
+  type StoredRecording,
+} from './recording-move';
 import { recordings } from './schema/recordings';
 
-type Row = typeof recordings.$inferSelect;
-
-export type StoredRecording = {
-  readonly id: string;
-  readonly roundId: string;
-  readonly class: RecordingClass;
-  readonly eligibility: RecordingEligibility;
-  readonly lifecycle: RecordingLifecycle;
-  readonly version: number;
-};
-
-/** The decision the feature runs under the lock; the store knows no rules. */
-type RecordingDecision =
-  | { readonly kind: 'moved'; readonly next: RecordingLifecycle }
-  | { readonly kind: 'unchanged' }
-  | { readonly kind: 'refused'; readonly reason: string };
-
-const stored = (row: Row): StoredRecording => ({
+const stored = (row: typeof recordings.$inferSelect): StoredRecording => ({
   id: row.id,
   roundId: row.roundId,
   class: row.recordingClass,
   eligibility: row.eligibility,
   lifecycle: row.lifecycle,
   version: row.version,
-});
-
-/** A row's lifecycle written with its tag, and a new deletion intent due at once. */
-const lifecycleColumns = (next: RecordingLifecycle) => ({
-  lifecycle: recordingLifecycleSchema.parse(next),
-  status: next.status as RecordingStatus,
-  version: sql`${recordings.version} + 1`,
-  updatedAt: sql`clock_timestamp()`,
-  ...(next.status === 'removing'
-    ? { deletionDueAt: new Date(next.requestedAt), deletionAttempts: 0 }
-    : {}),
-  ...(next.status === 'removed'
-    ? { deletionDueAt: null, leaseOwner: null, leaseUntil: null }
-    : {}),
 });
 
 /** The Recording's durable writes (ADR 0107): PostgreSQL is the one writer. */
@@ -96,39 +64,15 @@ export const recordingOperations = ({
     return row ? stored(row) : null;
   },
 
-  /**
-   * Runs the caller's pure decision under the row lock, so racing operations
-   * serialize and each sees the last one's result. Only a move writes.
-   */
+  /** Runs the caller's pure decision under the row lock, in its own transaction. */
   applyRecording<Decision extends RecordingDecision>(
     id: string,
     decide: (record: StoredRecording) => Decision,
     expectedVersion?: number,
   ) {
-    return database.transaction(async (tx) => {
-      const [row] = await tx
-        .select()
-        .from(recordings)
-        .where(eq(recordings.id, id))
-        .for('update');
-      if (!row) return { kind: 'missing' } as const;
-      const record = stored(row);
-      if (expectedVersion !== undefined && row.version !== expectedVersion)
-        return { kind: 'stale', record } as const;
-      const transition = decide(record);
-      if (transition.kind !== 'moved')
-        return { kind: 'decided', record, transition } as const;
-      const [updated] = await tx
-        .update(recordings)
-        .set(lifecycleColumns(transition.next))
-        .where(eq(recordings.id, id))
-        .returning();
-      return {
-        kind: 'decided',
-        record: stored(updated!),
-        transition,
-      } as const;
-    });
+    return database.transaction((tx) =>
+      moveRecording(tx, id, decide, expectedVersion),
+    );
   },
 
   /** Due deletions, leased with SKIP LOCKED so two workers never share one. */
@@ -187,6 +131,32 @@ export const recordingOperations = ({
         leaseUntil: null,
       })
       .where(and(eq(recordings.id, id), eq(recordings.status, 'removing')));
+  },
+
+  /**
+   * Held casual Recordings whose removal is now due: the report behind the hold
+   * closed, or its period passed (ADR 0107).
+   */
+  async listEndedRecordingEvidenceHolds(input: {
+    readonly now: string;
+    readonly limit: number;
+  }): Promise<readonly string[]> {
+    const rows = await database
+      .select({ id: recordings.id })
+      .from(recordings)
+      .where(
+        and(
+          eq(recordings.status, 'taken_down'),
+          sql`${recordings.lifecycle} ? 'removalOwed'`,
+          sql`((${recordings.lifecycle}->'removalOwed'->>'heldUntil')::timestamptz <= ${input.now}::timestamptz
+            or not exists (select 1 from content_reports c where c.status = 'open' and (
+              (c.target_kind = 'recording' and c.target_id = ${recordings.id})
+              or (c.target_kind = 'round' and c.target_id = ${recordings.roundId}))))`,
+        ),
+      )
+      .orderBy(asc(recordings.updatedAt))
+      .limit(input.limit);
+    return rows.map((row) => row.id);
   },
 
   async listFailedRecordingsBefore(input: {

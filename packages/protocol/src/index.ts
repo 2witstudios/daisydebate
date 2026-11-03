@@ -514,6 +514,7 @@ export {
   type SpectatorChatMessage,
 } from './audience';
 export {
+  RECORDING_EVIDENCE_HOLD_MS,
   recordingClasses,
   recordingEligibilitySchema,
   recordingFailureReasons,
@@ -533,6 +534,12 @@ export {
   type RecordingSpeech,
   type RecordingStatus,
 } from './recording';
+export {
+  recordingObjectPrefix,
+  transitionRecording,
+  type RecordingEvent,
+  type RecordingTransition,
+} from './recording-lifecycle';
 export {
   builtRecordingMediaSchema,
   recordingJobStateSchema,

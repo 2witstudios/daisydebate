@@ -135,6 +135,12 @@ export const recordingLifecycleSchema = z.discriminatedUnion('status', [
     status: z.literal('taken_down'),
     takenDownAt: at,
     held: readySchema.nullable(),
+    /**
+     * A subject's erasure that an open report is holding back (ADR 0107). It is
+     * paid when the report closes, at `heldUntil` at the latest, and rules out a
+     * restore.
+     */
+    removalOwed: z.strictObject({ requestedAt: at, heldUntil: at }).optional(),
   }),
   /** The durable deletion intent: it outlives the process that asked. */
   z.strictObject({
@@ -150,6 +156,9 @@ export const recordingLifecycleSchema = z.discriminatedUnion('status', [
   }),
 ]);
 export type RecordingLifecycle = z.infer<typeof recordingLifecycleSchema>;
+
+/** How long an open report can hold a taken-down casual Recording past erasure. */
+export const RECORDING_EVIDENCE_HOLD_MS = 90 * 24 * 60 * 60 * 1000;
 
 /** Every held object of an attempt sits here, whichever Egress wrote it. */
 export const recordingHoldPrefix = (
