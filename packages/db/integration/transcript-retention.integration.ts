@@ -168,7 +168,7 @@ test('subject erasure removes their transcript lines and every pending judgment 
 test("erasure keeps a ranked Round's transcript lines and its pending judgment", () =>
   withSpokenRound(
     new Date().toISOString(),
-    async ({ fixture, subject, lines, state, roundId }) => {
+    async ({ fixture, subject, state, roundId }) => {
       const now = new Date().toISOString();
       const database = drizzle({ client: fixture.sql });
       // A real seeded ladder format, so the ranked constraints hold.
