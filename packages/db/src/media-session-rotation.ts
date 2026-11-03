@@ -11,27 +11,30 @@ import { mediaWorkerLeases } from './schema/transcript-segments';
  * LiveKit room. Called only after the locked owner/epoch and settled absence
  * proof pass.
  */
-export async function rotateRevokedMediaSession(
+export async function rotateMediaRoom(
   tx: BoundedTransactionContext,
   sessionId: string,
   participants: RoundCommandAuthority['participants'],
   now: Date,
   nextId: () => string,
+  /** The room's state is unknown, so it is left behind even with every seat eligible. */
+  uncertain: boolean,
 ) {
   const revoked = participants
     .filter((seat) => seat.kind === 'human' && !seat.eligible)
     .map((seat) => seat.id);
-  if (!revoked.length) return undefined;
-  const removed = await tx
-    .delete(mediaParticipants)
-    .where(
-      and(
-        eq(mediaParticipants.sessionId, sessionId),
-        inArray(mediaParticipants.roundParticipantId, revoked),
-      ),
-    )
-    .returning({ id: mediaParticipants.id });
-  if (!removed.length) return undefined;
+  const removed = revoked.length
+    ? await tx
+        .delete(mediaParticipants)
+        .where(
+          and(
+            eq(mediaParticipants.sessionId, sessionId),
+            inArray(mediaParticipants.roundParticipantId, revoked),
+          ),
+        )
+        .returning({ id: mediaParticipants.id })
+    : [];
+  if (!removed.length && !uncertain) return undefined;
   await tx
     .update(mediaWorkerLeases)
     .set({

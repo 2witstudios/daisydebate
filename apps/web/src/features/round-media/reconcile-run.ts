@@ -80,7 +80,7 @@ export function createMediaReconcileRun(
         () => undefined,
       );
     }
-    // A pending mutation could apply after an absence read. It must settle BEFORE that read.
+    // A late write after this read can only reach the name this proof retires (ADR 0108).
     const proof = await input.store.prepareMediaAbsenceProof(claim.fence);
     if (!proof || (await input.deadline(input.media.exists(claim.roomName))))
       return null;
@@ -312,12 +312,18 @@ export function createMediaReconcileRun(
         clean = false;
         failure ??= { error };
       }
-      await input.store.finishMediaReconcile({
+      const finished = await input.store.finishMediaReconcile({
         mediaWindowClosed,
         ...claim.fence,
         absenceProof,
         clean,
       });
+      if (finished.retired)
+        input.logger.log(
+          'round.media.room_retired',
+          { roundId: claim.roundId, reason: finished.retired },
+          'An uncertain room was left for a fresh one',
+        );
     }
     if (failure) {
       deferred(failure.error);

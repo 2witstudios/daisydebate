@@ -2,11 +2,13 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   MEDIA_RECONCILE_LEASE_MS,
+  MEDIA_ROOM_RETIRE_AFTER_MS,
   reconcileClaim,
   reconcileCompletion,
   reconcileLive,
   requireMutationAdmissible,
   requireReconcileLease,
+  roomRetirement,
 } from './media-reconcile-rules';
 
 setupRitewayBun();
@@ -294,5 +296,38 @@ test('a completion records whether the pass finished its work', () => {
           .reconcileLastPassClean,
     ),
     expected: [false, true],
+  });
+});
+
+test('a room is retired on observed absence, or once uncertainty outlasts the bound', () => {
+  const quiet = {
+    now,
+    absenceProven: false,
+    unsafeAt: null,
+    oldestPendingAt: null,
+  };
+  assert({
+    given:
+      'nothing uncertain; proven absence; uncertainty under the bound; a pending call at the bound; an older unsafe mark',
+    should:
+      'keep a sound room, retire an absent one at once, wait out a blip, and retire a silent one',
+    actual: [
+      roomRetirement(quiet),
+      roomRetirement({ ...quiet, absenceProven: true }),
+      roomRetirement({
+        ...quiet,
+        oldestPendingAt: at(1 - MEDIA_ROOM_RETIRE_AFTER_MS),
+      }),
+      roomRetirement({
+        ...quiet,
+        oldestPendingAt: at(-MEDIA_ROOM_RETIRE_AFTER_MS),
+      }),
+      roomRetirement({
+        ...quiet,
+        unsafeAt: at(-MEDIA_ROOM_RETIRE_AFTER_MS),
+        oldestPendingAt: at(-1),
+      }),
+    ],
+    expected: [null, 'absent', null, 'unreachable', 'unreachable'],
   });
 });

@@ -1,4 +1,4 @@
-import { rotateRevokedMediaSession } from './media-session-rotation';
+import { rotateMediaRoom } from './media-session-rotation';
 import {
   readMediaBotLeases,
   mediaHearingSeats,
@@ -42,6 +42,7 @@ import {
   reconcileCompletion,
   requireMutationAdmissible,
   requireReconcileLease,
+  roomRetirement,
 } from './media-reconcile-rules';
 
 /** Durable serialization only; every provider call happens after these bounded transactions commit. */
@@ -52,7 +53,10 @@ export function createMediaReconcileStore(input: {
 }) {
   const pending = (tx: BoundedTransactionContext, sessionId: string) =>
     tx
-      .select({ id: mediaVendorMutations.id })
+      .select({
+        id: mediaVendorMutations.id,
+        dispatchedAt: mediaVendorMutations.dispatchedAt,
+      })
       .from(mediaVendorMutations)
       .where(
         and(
@@ -244,7 +248,6 @@ export function createMediaReconcileStore(input: {
       request: MediaReconcileFence,
     ): Promise<MediaAbsenceProof | null> {
       return withFence(request, async (tx, session) => {
-        if ((await pending(tx, session.id)).length) return null;
         return {
           ...request,
           settledMutationCount: await mutationCount(tx, session.id),
@@ -272,27 +275,46 @@ export function createMediaReconcileStore(input: {
           now.toISOString(),
           round.finalSegmentEndedAt?.toISOString() ?? null,
         );
-        const unresolved = (await pending(tx, session.id)).length > 0;
-        const cleaned =
-          !unresolved &&
-          proofMatches(
+        const outstanding = await pending(tx, session.id);
+        const retired = roomRetirement({
+          now,
+          absenceProven: proofMatches(
             request.absenceProof,
             request,
             await mutationCount(tx, session.id),
-          );
+          ),
+          unsafeAt: session.unsafeAt,
+          oldestPendingAt:
+            outstanding
+              .map((row) => row.dispatchedAt)
+              .sort((a, b) => a.getTime() - b.getTime())[0] ?? null,
+        });
+        const cleaned = retired !== null;
+        if (cleaned && outstanding.length)
+          await tx
+            .update(mediaVendorMutations)
+            .set({ settledAt: now, outcome: 'superseded' })
+            .where(
+              and(
+                eq(mediaVendorMutations.sessionId, session.id),
+                isNull(mediaVendorMutations.settledAt),
+              ),
+            );
+        const uncertain = session.unsafeAt !== null || outstanding.length > 0;
         const roomName =
           cleaned && !terminal && !session.endedAt
-            ? await rotateRevokedMediaSession(
+            ? await rotateMediaRoom(
                 tx,
                 session.id,
                 session.seats,
                 now,
                 input.nextId,
+                uncertain,
               )
             : undefined;
         const { fields, result } = reconcileCompletion(session, now, {
           terminal,
-          unresolved,
+          unresolved: outstanding.length > 0 && !cleaned,
           cleaned,
           clean: request.clean,
         });
@@ -300,7 +322,10 @@ export function createMediaReconcileStore(input: {
           .update(mediaSessions)
           .set({ ...fields, ...(roomName ? { roomName } : {}) })
           .where(eq(mediaSessions.id, session.id));
-        return result;
+        return {
+          ...result,
+          retired: roomName && uncertain ? retired : null,
+        };
       });
     },
   };

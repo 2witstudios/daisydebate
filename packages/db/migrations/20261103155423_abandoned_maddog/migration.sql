@@ -1,0 +1,1 @@
+ALTER TABLE "media_vendor_mutations" DROP CONSTRAINT "media_vendor_mutations_settlement_check", ADD CONSTRAINT "media_vendor_mutations_settlement_check" CHECK (("settled_at" is null) = ("outcome" is null) and ("outcome" is null or "outcome" in ('succeeded','failed','superseded')) and ("settled_at" is null or "settled_at" >= "dispatched_at"));

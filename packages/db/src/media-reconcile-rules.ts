@@ -97,6 +97,34 @@ export function requireMutationAdmissible(
 }
 
 /**
+ * How long an unknown vendor outcome holds a room: past the 5 s the adapter waits
+ * on one call, so the request itself is over, and a live node's blip has answered.
+ */
+export const MEDIA_ROOM_RETIRE_AFTER_MS = 6_000;
+
+/**
+ * Why a session stops naming its vendor room, or null while it keeps it. Observed
+ * absence is enough at once. Otherwise uncertainty older than the bound retires
+ * the room with the node still silent, because a late outcome can only reach a
+ * name that no token uses any more (ADR 0108).
+ */
+export function roomRetirement(input: {
+  readonly now: Date;
+  readonly absenceProven: boolean;
+  readonly unsafeAt: Date | null;
+  readonly oldestPendingAt: Date | null;
+}): 'absent' | 'unreachable' | null {
+  const since = [input.unsafeAt, input.oldestPendingAt].flatMap((at) =>
+    at ? [at.getTime()] : [],
+  );
+  if (input.absenceProven) return 'absent';
+  if (since.length === 0) return null;
+  return input.now.getTime() - Math.min(...since) >= MEDIA_ROOM_RETIRE_AFTER_MS
+    ? 'unreachable'
+    : null;
+}
+
+/**
  * Release the lease and serve the running version. A terminal session
  * requests deletion; only a matching absence proof clears unsafe and ends it.
  * A proven-clean recovery of an open Round also clears the room deletion
