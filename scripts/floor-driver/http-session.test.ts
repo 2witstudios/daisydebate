@@ -6,6 +6,7 @@ setupRitewayBun();
 const serving = (statuses: number[]) => {
   const seen: unknown[] = [];
   const server = Bun.serve({
+    hostname: '127.0.0.1',
     port: 0,
     async fetch(request) {
       seen.push(await request.text());

@@ -1,3 +1,4 @@
+import { openPage } from './fixtures';
 import { readFileSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 
@@ -39,7 +40,7 @@ const opened = await Promise.all(
         url: input.origin,
       })),
     );
-    const page = await context.newPage();
+    const page = await openPage(context, 'floor control seat');
     const problems: string[] = [];
     page.on('console', (message) => {
       if (message.type() === 'error')

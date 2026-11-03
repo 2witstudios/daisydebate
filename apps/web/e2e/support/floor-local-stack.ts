@@ -12,18 +12,19 @@ const checkout = resolve(import.meta.dir, '../../../..');
 const web = resolve(import.meta.dir, '../..');
 const slot = requireLaunchSlot(checkout, process.env);
 const certificates = createLaunchCertificates();
-Object.assign(process.env, {
+const stackEnv = {
+  ...process.env,
   NODE_EXTRA_CA_CERTS: certificates.ca,
   E2E_LOCAL_TLS_CERT: certificates.cert,
   E2E_LOCAL_TLS_KEY: certificates.key,
   PW_WS_ENDPOINT: 'ws://unused.invalid',
-});
+};
 const { default: config } = await import('./room-launch-config');
 const server = [config.webServer].flat()[0];
 if (!server) throw new Error('Launch server missing');
 const stack = Bun.spawn(['sh', '-c', server.command], {
   cwd: server.cwd ?? web,
-  env: { ...process.env, ...server.env },
+  env: { ...stackEnv, ...server.env },
   stdout: 'inherit',
   stderr: 'inherit',
 });
@@ -43,7 +44,7 @@ try {
   const command = Bun.spawn(Bun.argv.slice(2), {
     cwd: checkout,
     env: {
-      ...process.env,
+      ...stackEnv,
       FLOOR_ORIGIN: origin,
       FLOOR_MAIL_CAPTURE_URL: `http://127.0.0.1:${slot.port + 2}`,
       FLOOR_DATABASE_URL: process.env.E2E_DATABASE_URL,

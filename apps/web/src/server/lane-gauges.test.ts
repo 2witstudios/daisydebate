@@ -6,7 +6,7 @@ setupRitewayBun();
 const harness = () => {
   const lines: { event: string; fields: Record<string, unknown> }[] = [];
   let tick = () => {};
-  let readings = [0, 2, 4];
+  const readings = [0, 2, 4];
   const gauges = startLaneGauges({
     gauges: () => [
       {
