@@ -29,6 +29,7 @@ import {
   PEOPLE_READ_CEILING_MS,
   peopleReadFloorMs,
 } from '../../features/presence/refresh-schedule';
+import { mergePages } from './merge-pages';
 
 type PeopleView = {
   readonly list: PeopleList;
@@ -146,9 +147,7 @@ export function PeopleProvider({
         complete = false;
         break;
       }
-      const next: PeopleList = merged
-        ? { ...value, people: [...merged.people, ...value.people] }
-        : value;
+      const next: PeopleList = merged ? mergePages(merged, value) : value;
       merged = next;
       if (!next.nextCursor) break;
     }
@@ -236,16 +235,7 @@ export function PeopleProvider({
         loadingMore.current = false;
         if (!value || seq !== readSeq.current) return;
         pagesLoaded.current += 1;
-        setList((current) => {
-          const seen = new Set(current.people.map((m) => m.username));
-          return {
-            ...value,
-            people: [
-              ...current.people,
-              ...value.people.filter((m) => !seen.has(m.username)),
-            ],
-          };
-        });
+        setList((current) => mergePages(current, value));
       },
     );
   }, [filter, query, list.nextCursor]);

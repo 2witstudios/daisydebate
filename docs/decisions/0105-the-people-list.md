@@ -14,7 +14,7 @@ and messaged.
 
 ## Decision
 
-1. **The list shows every admitted member.** `GET /api/online` lists every named,
+1. **The list shows every admitted member.** `GET /api/people` lists every named,
    current human who could sign in now, except the reader and anyone in a blocked
    pair either way. A lease says who counts as online and no longer who is
    listed. Admission is ADR 0075's rule, age included: approval alone does not
@@ -39,6 +39,13 @@ and messaged.
    what a profile or a ladder already shows. The read keeps its 240 per minute,
    and messages, friend requests and challenges keep their own budgets.
 
+7. **The name is the people list.** A list that holds offline members is not an
+   online list, so it reads `Person`, `PeopleList`, `readPeopleList`,
+   `/api/people`, `social.people.list` and `ui/people/`. A report made from it
+   names the `people` surface. "Online" stays only for real presence: leases,
+   `counts.online`, `isOnline`, `ONLINE_TOPIC` and `online_changed`. ADR 0103 and
+   earlier records keep the names they were written with.
+
 ## Consequences
 
 - A member can page through every username far faster than DEC-251's lookup
@@ -48,8 +55,8 @@ and messaged.
   draft now says. Publishing it remains counsel's and the owner's sign-off
   (WHO-2, COMP-4).
 - Each read counts and sorts all members, not only those online. That is fine at
-  pre-ship size and needs measuring before real scale. `ROSTER_ACTORS_MAX` now
-  bounds only the lease scan.
+  pre-ship size and needs measuring before real scale. `ONLINE_LEASES_MAX` bounds
+  only the lease scan.
 
 ## Privacy
 

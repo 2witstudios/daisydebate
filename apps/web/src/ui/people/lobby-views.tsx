@@ -47,7 +47,7 @@ export function LobbyViews({
           aria-current={view === 'people' ? 'page' : undefined}
           className={seg}
         >
-          Online {onlineCount}
+          People · {onlineCount} online
         </Link>
       </nav>
       <div className={cn(view === 'people' && 'max-narrow:hidden')}>

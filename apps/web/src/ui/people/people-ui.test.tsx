@@ -268,10 +268,10 @@ describe('canBeChallenged', () => {
     assert({
       given: 'each status a row can show',
       should: 'allow online and away only',
-      actual: (['online', 'away', 'busy', 'room', 'round'] as const).map(
-        (status) => canBeChallenged(person({ status })),
-      ),
-      expected: [true, true, false, false, false],
+      actual: (
+        ['online', 'away', 'busy', 'room', 'round', 'offline'] as const
+      ).map((status) => canBeChallenged(person({ status }))),
+      expected: [true, true, false, false, false, false],
     });
   });
 });
@@ -294,6 +294,23 @@ describe('StatusForm', () => {
 });
 
 describe('LobbyViews', () => {
+  test('the phone’s switch names everyone and counts who is online', () => {
+    const html = renderToString(
+      h(LobbyViews, {
+        view: 'people',
+        rooms: h('p', null, 'rooms'),
+        people: h('p', null, 'people'),
+        onlineCount: 3,
+      }),
+    );
+    assert({
+      given: 'three people online',
+      should: 'label the switch People, stating the count as online',
+      actual: /People · (<!-- -->)?3(<!-- -->)? online/.test(html),
+      expected: true,
+    });
+  });
+
   test('the phone’s People view still names the page', () => {
     const html = renderToString(
       h(LobbyViews, {

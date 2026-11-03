@@ -245,7 +245,7 @@ type ChallengeCollectionAuthorizationFact = {
   readonly kind: 'challenge_collection';
   readonly actorId: string;
 };
-/** The online list as this member may read it (ADR 0103). */
+/** The people list as this member may read it (ADR 0105). */
 type PeopleListAuthorizationFact = {
   readonly kind: 'people_list';
   readonly actorId: string;

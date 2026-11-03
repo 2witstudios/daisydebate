@@ -78,6 +78,9 @@ test('the people list shows everyone, online or not, except the reader and a blo
       (await page(ctx)).rows.map((row) => [row.actorId, row.online]);
     const reader = await page(ctx, { query: ctx.me.userId });
     const open_ = await seen();
+    // Counts span the shared database, but only these ids hold a lease here.
+    const onlineCount = async () => (await page(ctx)).counts.online;
+    const leased = await onlineCount();
     const unleased = await page(ctx, { onlineActorIds: [] });
     await writeChosenStatus(
       ctx.database,
@@ -86,6 +89,7 @@ test('the people list shows everyone, online or not, except the reader and a blo
       unfenced,
     );
     const offline = await seen();
+    const appearingOffline = await onlineCount();
     await writeChosenStatus(
       ctx.database,
       ctx.them,
@@ -115,7 +119,7 @@ test('the people list shows everyone, online or not, except the reader and a blo
       given:
         'the other member online, with no lease, appearing offline, Busy, then blocking the reader',
       should:
-        'never list the reader; list them online, offline, offline, Busy, then hide them both ways',
+        'never list the reader; list them online, offline, offline, Busy, then hide them both ways, counting them online only while they show as online',
       actual: [
         reader.rows,
         open_,
@@ -123,6 +127,14 @@ test('the people list shows everyone, online or not, except the reader and a blo
         offline,
         busy.rows.map((row) => [row.chosen, row.online]),
         blocked.rows,
+        [
+          leased,
+          unleased.counts.online,
+          appearingOffline,
+          busy.counts.online,
+          blocked.counts.online,
+          blocked.counts.friends,
+        ],
       ],
       expected: [
         [],
@@ -131,6 +143,7 @@ test('the people list shows everyone, online or not, except the reader and a blo
         [[ctx.them.actorId, false]],
         [['busy', true]],
         [],
+        [1, 0, 0, 1, 0, 0],
       ],
     });
   } finally {
@@ -185,19 +198,14 @@ test('the people list counts, and orders friends, then online, then by name, acr
     assert({
       given: 'two named members, the later name online and the earlier not',
       should:
-        'list the online one first, page without repeating, and count one more online',
+        'list the online one first, page without repeating, and count exactly that one online',
       actual: [
         before.rows.map((row) => row.actorId).slice(0, 2),
         two.rows.map((row) => row.actorId),
-        before.counts.online >= 1,
+        before.counts.online,
         before.counts.everyone >= 2,
       ],
-      expected: [
-        [second!.actorId, first!.actorId],
-        [first!.actorId],
-        true,
-        true,
-      ],
+      expected: [[second!.actorId, first!.actorId], [first!.actorId], 1, true],
     });
   } finally {
     for (const other of others) {
