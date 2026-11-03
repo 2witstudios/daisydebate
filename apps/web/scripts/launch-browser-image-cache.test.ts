@@ -175,10 +175,12 @@ test('the owner returns stderr apart from stdout', async () => {
       stdout: 'pipe',
     },
   );
+  const output = await new Response(child.stdout).text();
+  await child.exited;
   assert({
     given: 'a docker command writing to both streams and exiting non-zero',
     should: 'return its exit code and each stream separately',
-    actual: JSON.parse(await new Response(child.stdout).text()),
+    actual: JSON.parse(output),
     expected: { code: 7, stdout: 'out\n', stderr: 'refused\n' },
   });
 });
@@ -207,6 +209,30 @@ test('a real cache hit does not run the archive proof', async () => {
       code: 0,
     },
   });
+});
+
+test('anything but a real cache hit runs the archive proof', async () => {
+  for (const hit of ['false', '']) {
+    const child = Bun.spawn(
+      [process.execPath, resolve(support, 'launch-browser-archive-proof.ts')],
+      {
+        // No docker on PATH, so a proof that really runs fails at its first call.
+        env: { LAUNCH_IMAGE_CACHE_HIT: hit, PATH: await scratch() },
+        stdout: 'pipe',
+        stderr: 'ignore',
+      },
+    );
+    const output = await new Response(child.stdout).text();
+    assert({
+      given: `the cache step signalling '${hit}'`,
+      should: 'run the proof rather than skip it',
+      actual: {
+        skipped: output.includes('not-run-cache-hit'),
+        passed: (await child.exited) === 0,
+      },
+      expected: { skipped: false, passed: false },
+    });
+  }
 });
 
 test('a docker failure summary keeps only its fixed vocabulary', () => {
