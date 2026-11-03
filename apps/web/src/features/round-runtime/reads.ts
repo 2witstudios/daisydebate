@@ -9,7 +9,8 @@ const canRead = (
   caller: { readonly userId: string; readonly actorId: string },
   round: LaunchedRound,
   account: AccountAuthorizationFact | null,
-  capability: 'round.read' | 'round.transcript.read',
+  capability:
+    'round.read' | 'round.transcript.read' | 'round.observe.undelayed',
 ) =>
   authorize({
     principal: { kind: 'user', ...caller },
@@ -39,17 +40,38 @@ export const canReadRound = (
   account: AccountAuthorizationFact | null,
 ) => canRead(caller, round, account, 'round.read');
 
+/** A seatless host's live room (WATCH-6); a seated host reads through the seat. */
+export const canObserveUndelayed = (
+  caller: { readonly userId: string; readonly actorId: string },
+  round: LaunchedRound,
+  account: AccountAuthorizationFact | null,
+) => canRead(caller, round, account, 'round.observe.undelayed');
+
 /** The Round as this caller may see it: every read of it, one composition. */
 export const roundViewReader =
-  (store: Pick<Database, 'readLaunchedRound'>) =>
   (
+    store: Pick<Database, 'readLaunchedRound'> & {
+      readonly broadcasts: Pick<Database['broadcasts'], 'conversationHeld'>;
+    },
+  ) =>
+  async (
     caller: { readonly userId: string; readonly actorId: string },
     roundId: string,
-  ) =>
-    store.readLaunchedRound(
+  ) => {
+    let viewerIsUndelayedObserver = false;
+    const view = await store.readLaunchedRound(
       roundId,
       caller,
-      (round, account) => canReadRound(caller, round, account),
+      (round, account) => {
+        viewerIsUndelayedObserver = canObserveUndelayed(caller, round, account);
+        return canReadRound(caller, round, account);
+      },
       readRoundOpening,
       roundWaitingOn,
     );
+    return {
+      ...view,
+      viewerIsUndelayedObserver,
+      conversationHeld: await store.broadcasts.conversationHeld(roundId),
+    };
+  };

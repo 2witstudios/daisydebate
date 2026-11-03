@@ -13,6 +13,10 @@ import {
   type RoomFormState,
 } from '../../../../features/rooms/command-answer';
 import { processRoute } from '../../../../server/process-app';
+import {
+  contentWaiverAnswer,
+  submitContentWaiver,
+} from '../../../../features/agreements/submit-content-waiver';
 
 const read = processRoute(
   (routes) => (request) =>
@@ -20,6 +24,9 @@ const read = processRoute(
       request,
       new URL(request.url).pathname.split('/')[3] ?? '',
     ),
+);
+const signWaiver = processRoute(
+  (routes) => routes.agreements.contentWaiver.POST,
 );
 const commands = processRoute(
   (routes) => (request) =>
@@ -64,6 +71,27 @@ export async function roomCommandAction(
   const { incoming, result } = await submitRoomCommand(id, form);
   return commandAnswer(result, id, form, {
     hydrated: hydratedPost(incoming),
+    move: (destination) => moveOn(incoming, destination),
+  });
+}
+
+/** Signs the season's waiver, then answers with the room it unblocks. */
+export async function signContentWaiverAction(
+  id: string,
+  _state: FormState,
+  form: FormData,
+): Promise<RoomFormState> {
+  const incoming = new Headers(await headers());
+  const result = await submitContentWaiver(
+    inProcessFetch(signWaiver, incoming),
+    form,
+  );
+  const hydrated = hydratedPost(incoming);
+  const current =
+    hydrated && result === 'signed' ? await roomAssembly(id) : null;
+  return contentWaiverAnswer(result, id, form, {
+    hydrated,
+    view: current?.kind === 'found' ? current.view : null,
     move: (destination) => moveOn(incoming, destination),
   });
 }

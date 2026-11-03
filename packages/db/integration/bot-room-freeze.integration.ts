@@ -95,6 +95,7 @@ const withBotRoom = (
       authorizeRead: (state, account) =>
         account?.member === true && state.hostActorId === caller.actorId,
       // The DB adapter receives an accepted pure mutation; no vendor or database is mocked.
+      readyAgreements: () => null,
       prepare: async () => (state) => ({
         ok: true,
         mutation: {

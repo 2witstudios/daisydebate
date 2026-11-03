@@ -10,7 +10,7 @@ describe('ScopeToggle', () => {
     const html = renderToString(h(ScopeToggle, { value: 'mine' }));
     assert({
       given: 'the my-debates scope',
-      should: 'render radios named scope with My debates checked',
+      should: 'render radios named scope with My Rounds checked',
       actual: [
         (html.match(/name="scope"/g) ?? []).length,
         /value="mine"[^>]*checked=""|checked=""[^>]*value="mine"/.test(html),

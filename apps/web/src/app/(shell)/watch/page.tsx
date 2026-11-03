@@ -1,13 +1,18 @@
 import type { Metadata } from 'next';
+import { redirectUnlessLaunched } from '../../../features/coming-soon/launch-gate';
 import type { SearchParams } from '../../../features/access/decision';
+import { accountOf } from '../../../features/access/account-of';
 import { signInHref } from '../../../features/access/decision';
-import { followingOf } from '../../../features/watch/debate-source';
-import { countHub, listLive } from '../../../features/watch/list-live';
 import { hubHref, parseLiveQuery } from '../../../features/watch/live-query';
-import { viewerOf } from '../../../features/watch/viewer';
-import { requestIdentity } from '../../../lib/request-session';
+import {
+  requestFollowing,
+  requestHubCounts,
+  requestIdentity,
+  requestLiveListing,
+} from '../../../lib/request-session';
 import { FollowingTab } from '../../../ui/watch/following-tab/following-tab';
 import { LiveTab } from '../../../ui/watch/live-tab/live-tab';
+import { WatchBusy } from '../../../ui/watch/watch-busy/watch-busy';
 import { WatchHub } from '../../../ui/watch/watch-hub/watch-hub';
 
 export const metadata: Metadata = { title: 'Watch' };
@@ -18,18 +23,23 @@ export default async function WatchPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  redirectUnlessLaunched('watch');
   const query = parseLiveQuery(await searchParams);
-  const viewer = viewerOf(await requestIdentity());
+  const account = accountOf(await requestIdentity());
+  const listing =
+    query.tab === 'following' ? null : await requestLiveListing(query);
   return (
-    <WatchHub active={query.tab} counts={countHub()}>
+    <WatchHub active={query.tab} counts={await requestHubCounts()}>
       {query.tab === 'following' ? (
         <FollowingTab
-          following={viewer.signedIn ? followingOf(viewer) : null}
+          following={account ? await requestFollowing(account.userId) : null}
           signInHref={signInHref(hubHref(query))}
         />
-      ) : (
-        <LiveTab query={query} listing={listLive(query)} />
-      )}
+      ) : listing === 'refused' ? (
+        <WatchBusy retryHref={hubHref(query)} />
+      ) : listing ? (
+        <LiveTab query={query} listing={listing} />
+      ) : null}
     </WatchHub>
   );
 }

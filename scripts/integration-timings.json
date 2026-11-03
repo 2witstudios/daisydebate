@@ -116,7 +116,7 @@
     "apps/web/integration/messaging-typing.integration.ts": 1024,
     "apps/web/integration/onboarding-age-gate.integration.ts": 481,
     "apps/web/integration/profile-read-budget.integration.ts": 62,
-    "apps/web/integration/rated-format-selection.integration.ts": 330,
+    "apps/web/integration/ranked-format-selection.integration.ts": 330,
     "apps/web/integration/rating-pools.integration.ts": 621,
     "apps/web/integration/rating-recovery.integration.ts": 1504,
     "apps/web/integration/ratings-ordering.integration.ts": 2813,

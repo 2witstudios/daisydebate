@@ -80,7 +80,13 @@ export const runsVisualProject = (env: Env, platform: string): boolean =>
 // journey (RT-2.7) has it available without another harness change.
 export const resolveE2EPorts = (env: Env) => {
   const app = resolveE2EPort(env);
-  return { app, edge: app + 1, mail: app + 2, realtime: app + 3 };
+  return {
+    app,
+    edge: app + 1,
+    mail: app + 2,
+    realtime: app + 3,
+    feed: app + 4,
+  };
 };
 /** The public origin the server is configured with and the browser uses. */
 export const resolveE2EOrigin = (env: Env): string =>
@@ -244,6 +250,15 @@ export default defineConfig({
         PORT: String(ports.app),
         E2E_EDGE_PORT: String(ports.edge),
         E2E_MAIL_PORT: String(ports.mail),
+        E2E_FEED_PORT: String(ports.feed),
+        BROADCAST_PUBLIC_ORIGIN: `https://localhost:${ports.feed}`,
+        // The Recording bucket's stand-in is the same local server. Only this
+        // suite's server talks to it, over its self-signed certificate.
+        RECORDING_BUCKET_ENDPOINT: `https://localhost:${ports.feed}`,
+        RECORDING_BUCKET_NAME: 'recordings-e2e',
+        RECORDING_BUCKET_ACCESS_KEY_ID: 'e2e',
+        RECORDING_BUCKET_SECRET_ACCESS_KEY: 'e2e',
+        NODE_TLS_REJECT_UNAUTHORIZED: '0',
         NODE_ENV: 'production',
         // The production configuration refinements must hold: HTTPS public URL,
         // deployment identity, no development credentials, proof route closed.

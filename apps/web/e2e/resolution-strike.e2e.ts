@@ -1,3 +1,4 @@
+import { request } from '@playwright/test';
 import { aiCast } from './support/ai-cast';
 import { drawCapableBounds } from '@daisy/protocol/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -5,6 +6,7 @@ import {
   roomCatalogChoiceSchema,
   roomViewSchema,
   roundViewSchema,
+  spectatorTimelineSchema,
   type RoomView,
 } from '@daisy/protocol';
 import { expect, openPage, test } from './support/fixtures';
@@ -141,6 +143,8 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     const spectated = await watcher.context.request.get(
       `/api/rounds/${started.id}`,
     );
+    // Nobody outside the Round has a Round read, only the timeline (ADR 0099).
+    expect(spectated.status()).toBe(404);
     expect(await spectated.text()).not.toContain(SENTINEL);
 
     // The Negative strikes first; a second tab still holds the same turn's form.
@@ -177,7 +181,7 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     const revealed = async () =>
       roundViewSchema.parse(
         await (
-          await watcher.context.request.get(`/api/rounds/${started.id}`)
+          await guest.context.request.get(`/api/rounds/${started.id}`)
         ).json(),
       );
     await expect(async () => {
@@ -191,13 +195,9 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     ).toBeVisible();
     await expect(negative.page).not.toHaveURL(/notice=/);
 
+    // A started Room reads closed from outside, with no drawn line, the survivor included.
     await spectator.reload();
-    await expect(
-      spectator.getByText(survivor).locator('visible=true').first(),
-    ).toBeVisible();
-    const html = await spectator.content();
-    for (const line of lines.filter((line) => line !== survivor))
-      expect(html).not.toContain(line);
+    expect(await spectator.content()).not.toContain(SENTINEL);
 
     // With no prep to follow, the last strike started the Round.
     expect((await revealed()).status).toBe('active');
@@ -307,6 +307,24 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     await expect(
       page.getByRole('button', { name: 'End prep', exact: true }),
     ).toHaveCount(0);
+    // A visitor's request carries no session, and reads only what is released.
+    const visitor = await request.newContext({ baseURL: origin });
+    const snapshot = await visitor.get(`/api/rounds/${roundId}/timeline`);
+    const released = spectatorTimelineSchema.parse(await snapshot.json());
+    expect({
+      status: snapshot.status(),
+      cookie: snapshot.headers()['set-cookie'],
+      cache: snapshot.headers()['cache-control'],
+      resolution: released.resolution,
+      result: released.result,
+    }).toEqual({
+      status: 200,
+      cookie: undefined,
+      cache: 'public, max-age=1, s-maxage=1, stale-while-revalidate=1',
+      resolution: null,
+      result: null,
+    });
+    await visitor.dispose();
     expect((await read()).topic).toBe(survivor);
   } finally {
     await accounts.closeContexts();

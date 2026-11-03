@@ -376,6 +376,10 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         token: response.token,
         url: response.url,
         expiresAt: response.expiresAt,
+        // Never a reason to refuse: without an answer the seat captures as usual.
+        camera:
+          (await input.cameraProfile?.(roundId).catch(() => undefined)) ??
+          'standard',
       });
     },
     botToken: (scope: Scope, token: string) =>

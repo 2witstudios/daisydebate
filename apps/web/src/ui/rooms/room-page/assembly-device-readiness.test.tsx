@@ -10,6 +10,7 @@ const nativeProps = {
   prep: null,
   actorId,
   action: async () => ({ values: {} }),
+  waiverAction: async () => ({ values: {} }),
   read: async () => ({ kind: 'found' as const, view: assemblySnapshot }),
   send: async () => ({ kind: 'unavailable' as const }),
   commandIds: {

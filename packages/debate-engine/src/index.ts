@@ -1,4 +1,30 @@
 export { formatStanding } from './format-standing';
+export { broadcastPhase } from './broadcast-phase';
+export type { PhasePosition } from './broadcast-phase';
+export { decideBroadcast } from './broadcast-lifecycle';
+export { runningEgress, stagePrivacyActions } from './stage-capture';
+export type {
+  StageEgressFact,
+  StagePhaseFact,
+  StagePrivacyAction,
+} from './stage-capture';
+export type { BroadcastAction, BroadcastFacts } from './broadcast-lifecycle';
+export {
+  RANKED_DELAY_SECONDS,
+  debatersReadChat,
+  delayAlert,
+  factReleased,
+  releasedThrough,
+  resolveReleasePolicy,
+  segmentDue,
+} from './broadcast-release';
+export type { HeldSegment } from './broadcast-release';
+export {
+  spectatorHorizon,
+  spectatorTimelineHorizon,
+} from './spectator-horizon';
+export type { SpectatorHorizonFacts } from './spectator-horizon';
+export { plannedBroadcast, plannedRecording } from './room-capture';
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
 export { mediaGrants, changedMediaGrants } from './media-grants';
@@ -24,6 +50,7 @@ export {
   executeRoomCommand,
   hostIdentityHidden,
   projectRoom,
+  startHiddenFrom,
   releaseRestrictedMember,
 } from './room-assembly';
 export { castSeatsBotDebater } from './ai-round-cast';

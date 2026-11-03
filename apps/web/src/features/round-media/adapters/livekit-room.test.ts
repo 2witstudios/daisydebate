@@ -416,7 +416,11 @@ test('a capture failure settling after stop belongs to the retired source only',
   const failures: string[] = [];
   const browser = createBrowserMediaTransport(
     { ...events, sourceFailed: (source) => failures.push(source) },
-    { room: stub.sdk.room, capture: () => capture.promise },
+    {
+      room: stub.sdk.room,
+      cores: stub.sdk.cores,
+      capture: () => capture.promise,
+    },
   );
   const applying = browser.transport.apply(publish(['camera'])).then(
     () => 'resolved',

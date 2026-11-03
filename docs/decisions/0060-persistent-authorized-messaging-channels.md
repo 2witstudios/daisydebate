@@ -78,7 +78,7 @@ metadata. RT owns the precise bound and proof, not this messaging decision.
 The existing commit-ordered outbox cursor, ring/catch-up and resync contract stands.
 
 DM and team/coach communication remain technically available during play. ADR
-0054's rated-round social-channel hiding requirement is superseded only for
+0054's ranked-round social-channel hiding requirement is superseded only for
 messaging availability. This does not approve assistance: Round/tournament
 producers own assistance rules, projections and adjudication. No change to AI
 agent availability is implied. Contextual room/floor/spectator readership and

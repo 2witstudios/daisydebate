@@ -124,3 +124,48 @@ test('media configuration refuses invalid schemes and credential-bearing URLs sa
     });
   }
 });
+
+test('the public Broadcast origin is optional, public and never a credential', () => {
+  const origin = 'https://public-bucket.t3.tigrisfiles.io';
+  assert({
+    given: 'the origin set, unset, carrying credentials, and not a web address',
+    should: 'keep the first, leave the second off, and refuse the other two',
+    actual: [
+      readServerConfig({ ...baseline, BROADCAST_PUBLIC_ORIGIN: origin })
+        .BROADCAST_PUBLIC_ORIGIN,
+      readServerConfig(baseline).BROADCAST_PUBLIC_ORIGIN,
+      ...['https://k:s@bucket.example', 'ftp://bucket.example'].map((bad) => {
+        try {
+          readServerConfig({ ...baseline, BROADCAST_PUBLIC_ORIGIN: bad });
+          return 'accepted';
+        } catch {
+          return 'refused';
+        }
+      }),
+    ],
+    expected: [origin, undefined, 'refused', 'refused'],
+  });
+});
+
+test('search indexing is closed unless a deployment opens it', () => {
+  assert({
+    given: 'the setting unset, open, closed and misspelt',
+    should: 'read closed, open, closed, and refuse the last',
+    actual: [
+      readServerConfig(baseline).SEARCH_INDEXING,
+      readServerConfig({ ...baseline, SEARCH_INDEXING: 'open' })
+        .SEARCH_INDEXING,
+      readServerConfig({ ...baseline, SEARCH_INDEXING: 'closed' })
+        .SEARCH_INDEXING,
+      (() => {
+        try {
+          readServerConfig({ ...baseline, SEARCH_INDEXING: 'yes' });
+          return 'accepted';
+        } catch {
+          return 'refused';
+        }
+      })(),
+    ],
+    expected: ['closed', 'open', 'closed', 'refused'],
+  });
+});

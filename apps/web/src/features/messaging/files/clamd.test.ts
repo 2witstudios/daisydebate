@@ -9,10 +9,13 @@ test('scanner transport rejects malformed, incomplete and daemon error replies',
     'stream: OK',
     'INSTREAM size limit exceeded. ERROR\0',
   ]) {
+    // Once: the client's chunks may arrive apart, and a second end throws.
     const server = createServer((socket) =>
-      socket.on('data', () => {
-        socket.end(reply);
-      }),
+      socket
+        .once('data', () => {
+          socket.end(reply);
+        })
+        .on('error', () => undefined),
     );
     await new Promise<void>((resolve) =>
       server.listen(0, '127.0.0.1', resolve),

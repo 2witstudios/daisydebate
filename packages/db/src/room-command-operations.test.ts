@@ -143,6 +143,7 @@ const startInput: Parameters<
   targetActorId: null,
   formatTuple: null,
   roundId,
+  readyAgreements: () => null,
   prepare: async () => (state) => ({
     ok: true,
     mutation: {
@@ -177,6 +178,7 @@ const startRows = (changeVersion = 1) => [
       visibility: readyRoom.visibility,
       formatId: readyRoom.formatId,
       config: readyRoom.config,
+      capture: null,
       executionPlan: readyRoom.executionPlan,
       rulesSnapshot: readyRoom.rules,
       status: 'ready',
@@ -210,6 +212,7 @@ const startRows = (changeVersion = 1) => [
   [],
   [],
   [{ now: new Date('2026-10-09T00:00:00.000Z') }],
+  [], // the caller's entitlement grants, read under the account fence
   [],
   [], // a started Room's friend challenges are deleted (ISSUE-699)
   [],

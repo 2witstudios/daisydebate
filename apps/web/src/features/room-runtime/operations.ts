@@ -1,6 +1,8 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
+import { hostHoldsCasualAiJudge, roomAiJudgeSeating } from './ai-judge-seating';
+import { hostHoldsCasualCapture, roomCaptureOffer } from './capture-offer';
 import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
 import { aiSeatOf } from './ai-seat';
@@ -8,6 +10,11 @@ import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
+import {
+  createNoticeOf,
+  requiredContentWaiver,
+  roomCaptureNotice,
+} from './ready-agreements';
 import type { Database } from '@daisy/db';
 import {
   readRoundOpeningTopic,
@@ -16,9 +23,11 @@ import {
   hostIdentityHidden,
   projectActiveRoom,
   projectRoom,
+  startHiddenFrom,
   decideRoomResolution,
 } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
+import { spectatorClockAt } from '../spectating/spectator-clock';
 import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
@@ -35,6 +44,7 @@ export type Caller = { readonly userId: string; readonly actorId: string };
 export type Store = Pick<
   Database,
   | 'readRoundBotAdmissionStatus'
+  | 'readOwnEntitlementGrants'
   | 'databaseNow'
   | 'listRoomCatalogSources'
   | 'listRoomBots'
@@ -49,6 +59,8 @@ export type Store = Pick<
   | 'listRoomPage'
   | 'executeRoomCommand'
   | 'readActiveRoomFacts'
+  | 'readContentWaiverStanding'
+  | 'readWatchableRoundOfRoom'
 >;
 type Redis = Pick<
   ReturnType<typeof createRedis>,
@@ -58,15 +70,21 @@ export function createRoomRuntimeOperations({
   store,
   redis,
   ids,
+  now,
   consentTtlMs,
   aiSeats,
+  betaGrantsPremium,
   entropy,
 }: {
   readonly store: Store;
   readonly redis: Redis;
   readonly ids: IdGenerator;
+  /** A listed host's rating waits for the spectator timeline. */
+  readonly now: () => string;
   readonly consentTtlMs: () => number;
   readonly aiSeats: () => AiSeatAvailability;
+  /** Whether a beta-sourced premium grant counts (`PREMIUM_BETA_GRANT`). */
+  readonly betaGrantsPremium: boolean;
   /** 32 CSPRNG bytes as hex, for a draw's seed and salt; fixed in tests. */
   readonly entropy: () => string;
 }) {
@@ -107,6 +125,27 @@ export function createRoomRuntimeOperations({
       return { available: false, readyActorIds: [], validUntil: null };
     }
   };
+  /** Only a seated human on an open ranked Room stands on the waiver. */
+  const viewerContentWaiver = async (
+    state: RoomAssemblyState,
+    caller: Caller,
+  ) => {
+    const version = requiredContentWaiver(state);
+    if (
+      !version ||
+      state.status === 'started' ||
+      state.status === 'closed' ||
+      !state.participants.some(
+        (p) => p.actorId === caller.actorId && p.kind === 'human',
+      )
+    )
+      return null;
+    const standing = await store.readContentWaiverStanding(
+      caller.userId,
+      version,
+    );
+    return standing === 'no-active-season' ? null : standing;
+  };
   const view = async (caller: Caller, roomId: string) => {
     const facts = await store.readRoomAssemblyFacts(
       roomId,
@@ -124,9 +163,29 @@ export function createRoomRuntimeOperations({
         currentRoomConsent(consent, now),
         now,
       ),
+      aiJudgeSeating: await roomAiJudgeSeating(
+        state,
+        caller.actorId,
+        async () =>
+          hostHoldsCasualAiJudge(
+            await store.readOwnEntitlementGrants(caller),
+            betaGrantsPremium,
+          ),
+      ),
+      contentWaiver: await viewerContentWaiver(state, caller),
+      captureOffer: await roomCaptureOffer(state, caller.actorId, async () =>
+        hostHoldsCasualCapture(
+          await store.readOwnEntitlementGrants(caller),
+          betaGrantsPremium,
+        ),
+      ),
+      captureNotice: roomCaptureNotice(state),
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
       ),
+      watchRoundId: startHiddenFrom(state, caller.actorId)
+        ? await store.readWatchableRoundOfRoom(state.id, spectatorClockAt(now))
+        : null,
     };
   };
   /** The picker's catalog: role-bearing formats at their canonical presets (FMT-1). */
@@ -135,6 +194,8 @@ export function createRoomRuntimeOperations({
   ): Promise<{
     readonly choices: readonly RoomCatalogChoice[];
     readonly resolutions: readonly PublishedResolution[];
+    /** The caller may seat an AI judge on a casual Round (WATCH-16). */
+    readonly casualAiJudge: boolean;
   }> => {
     const sources = await store.listRoomCatalogSources(caller, (account) =>
       can(caller, 'room.list', account),
@@ -157,7 +218,14 @@ export function createRoomRuntimeOperations({
         rankedEligible: source.preset.rankedEligible,
       },
     }));
-    return { choices, resolutions: await store.listPublishedResolutions() };
+    return {
+      choices,
+      resolutions: await store.listPublishedResolutions(),
+      casualAiJudge: hostHoldsCasualAiJudge(
+        await store.readOwnEntitlementGrants(caller),
+        betaGrantsPremium,
+      ),
+    };
   };
   const create = async (
     caller: Caller,
@@ -183,6 +251,14 @@ export function createRoomRuntimeOperations({
       resolved,
       recheck,
     } = await resolveRoomSelection(body, store, ids);
+    const createNotice = createNoticeOf(
+      competitionType,
+      body.noticeVersion,
+      (body.holdSeatsFor ?? []).includes(caller.actorId) ||
+        (body.cast ?? []).some((seat) => seat.actorId === caller.actorId),
+    );
+    if (createNotice.kind === 'refused')
+      throw createRefusal('CONFLICT', 'capture-notice-changed');
     const resolutionSelection = body.resolution;
     const publication =
       resolutionSelection.kind === 'policy' ||
@@ -226,6 +302,14 @@ export function createRoomRuntimeOperations({
       },
       selection: recheck,
       ...(body.holdSeatsFor ? { holdSeatsFor: body.holdSeatsFor } : {}),
+      notice:
+        createNotice.kind === 'shown'
+          ? {
+              id: ids.next(),
+              version: createNotice.notice.version,
+              words: createNotice.notice.text,
+            }
+          : null,
       cast: cast.length
         ? {
             seats: cast.map((seat) => ({
@@ -233,7 +317,7 @@ export function createRoomRuntimeOperations({
               commandId: ids.next(),
               participantId: ids.next(),
             })),
-            apply: (state, seat, target, now) =>
+            apply: (state, seat, target, now, grants) =>
               executeRoomCommand(
                 state,
                 caller.actorId,
@@ -251,6 +335,12 @@ export function createRoomRuntimeOperations({
                   now,
                   participantId: seat.participantId,
                   formatId: '',
+                  hostHoldsCasualAiJudge: hostHoldsCasualAiJudge(
+                    grants,
+                    betaGrantsPremium,
+                  ),
+                  // Seating never reads this; only set-capture and Launch do.
+                  hostHoldsCasualCapture: false,
                   target: target
                     ? {
                         ...target,
@@ -335,6 +425,7 @@ export function createRoomRuntimeOperations({
             }).allow),
         (account) => can(caller, 'room.list', account),
         (fact) => hostIdentityHidden(fact, caller.actorId),
+        spectatorClockAt(now()),
         readRoundOpeningTopic,
       );
     },
@@ -357,6 +448,7 @@ export function createRoomRuntimeOperations({
       redis,
       ids,
       aiSeats,
+      betaGrantsPremium,
       consentTtlMs,
       eligible,
       consentOf,

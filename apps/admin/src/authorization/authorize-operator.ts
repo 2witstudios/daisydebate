@@ -6,6 +6,8 @@
 export const operatorActions = [
   'accounts.read',
   'account.beta_access.update',
+  'content_moderation.read',
+  'content_moderation.update',
   'audit.read',
   'security.read',
   'reports.read',
@@ -51,6 +53,7 @@ const roleActions: Readonly<
 
 const mutatingActions: ReadonlySet<OperatorAction> = new Set([
   'account.beta_access.update',
+  'content_moderation.update',
   'report.resolve',
   'moderation.lift',
 ]);

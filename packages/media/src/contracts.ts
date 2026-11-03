@@ -39,6 +39,12 @@ export const configSchema = z.strictObject({
 });
 export type MediaConfig = z.infer<typeof configSchema>;
 
+/**
+ * The Broadcast observer's one identity: hidden, subscribe-only, in no roster
+ * (ADR 0099). It is no debater's participant, so a Room's roster leaves it out.
+ */
+export const OBSERVER_IDENTITY = 'stage-observer';
+
 export const participantSchema = z.object({
   identity: idSchema,
   permission: z.object({

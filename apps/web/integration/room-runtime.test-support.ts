@@ -117,21 +117,25 @@ async function fixture(
     },
   };
   const operations = createRoomRuntimeOperations({
+    now: () => new Date().toISOString(),
     store,
     redis: controlled,
     ids: systemId,
     entropy: drawEntropy,
     consentTtlMs: () => 60_000,
     aiSeats: () => ({ debater: true, judge: true }),
+    betaGrantsPremium: true,
   });
   const operationsWithBotAvailability = (available: boolean) =>
     createRoomRuntimeOperations({
+      now: () => new Date().toISOString(),
       store,
       redis: controlled,
       ids: systemId,
       entropy: drawEntropy,
       consentTtlMs: () => 60_000,
       aiSeats: () => ({ debater: available, judge: available }),
+      betaGrantsPremium: true,
     });
   /** The proof format every Room suite builds on; off the picker (FMT-1), so custom. */
   const foundation = async () => ({
@@ -195,6 +199,9 @@ async function fixture(
       expectedConsentVersion: view.participants
         .filter(isNamedSeat)
         .find((p) => p.actorId === who.actorId)!.consentVersion,
+      ...(type === 'ready' && view.captureNotice
+        ? { noticeVersion: view.captureNotice.version }
+        : {}),
     });
   const seatBotOpponent = async (view: RoomView, actorId: string) => {
     view = (

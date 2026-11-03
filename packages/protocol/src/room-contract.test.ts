@@ -230,6 +230,26 @@ describe('Room command boundary', () => {
       expected: [true, false, false, false],
     });
   });
+  test('only Ready states the capture notice its form showed', () => {
+    const consent = {
+      commandId,
+      expectedVersion: 3,
+      expectedConsentVersion: 0,
+    };
+    assert({
+      given: 'a stated notice on Ready and on Unready',
+      should: 'accept it on Ready alone',
+      actual: ['ready', 'unready'].map(
+        (type) =>
+          roomCommandSchema.safeParse({
+            ...consent,
+            type,
+            noticeVersion: 'ranked-draft-2',
+          }).success,
+      ),
+      expected: [true, false],
+    });
+  });
   test('requires an explicit actor and legal seat for host casting', () => {
     const base = {
       commandId,
@@ -246,9 +266,46 @@ describe('Room command boundary', () => {
         base,
         { ...base, actorId: 'fake' },
         { ...base, slot: -1 },
-        { ...base, role: 'spectator' },
+        { ...base, role: 'not-a-role' },
       ].map((value) => roomCommandSchema.safeParse(value).success),
       expected: [true, false, false, false],
     });
+  });
+});
+
+test('roomCreateSchema holds a ranked Room to public', () => {
+  const create = (visibility: string, kind: 'ranked' | 'catalog') => ({
+    commandId,
+    title: 'A Room',
+    resolution: { kind: 'strike' },
+    visibility,
+    selection:
+      kind === 'ranked'
+        ? {
+            kind,
+            formatId: 'lincoln-douglas',
+            formatVersion: 1,
+            presetVersion: 1,
+          }
+        : {
+            kind,
+            formatId: 'lincoln-douglas',
+            formatVersion: 1,
+            presetVersion: 1,
+            competitionType: 'casual',
+          },
+  });
+  const parsed = (visibility: string, kind: 'ranked' | 'catalog') =>
+    roomCreateSchema.safeParse(create(visibility, kind)).success;
+  assert({
+    given: 'ranked creation at each visibility, and casual creation unlisted',
+    should: 'accept only public for ranked, and leave casual free',
+    actual: [
+      parsed('public', 'ranked'),
+      parsed('unlisted', 'ranked'),
+      parsed('private', 'ranked'),
+      parsed('unlisted', 'catalog'),
+    ],
+    expected: [true, false, false, true],
   });
 });

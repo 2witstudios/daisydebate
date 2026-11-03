@@ -6,7 +6,8 @@ Status: accepted; owner-approved create-room design, 2026-10-29 (FMT-8).
 
 Room creation presents Freestyle, Policy, Value and Custom. League templates
 are Custom starting points. Every format-rule edit preserves the draft,
-selects Custom and clears Ranked; room name and visibility are independent.
+selects Custom and clears Ranked; room name and visibility are independent, except that a ranked Room is always
+public (ADR 0048).
 
 Resolution selection is Policy res, Value res, Strike or Custom. Published
 Policy and Value resolutions are immutable records with a kind, text,

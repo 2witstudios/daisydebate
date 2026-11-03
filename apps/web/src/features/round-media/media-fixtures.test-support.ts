@@ -7,6 +7,7 @@ import {
 
 export const roundId = 'r'.repeat(24);
 export const admission: RoundMediaAdmission = {
+  camera: 'standard',
   version: 1,
   roundId,
   state: 'ready',

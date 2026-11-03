@@ -1,10 +1,6 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  followingOf,
-  watchViewer,
-} from '../../../features/watch/debate-source';
 import { FollowingTab } from './following-tab';
 
 setupRitewayBun();
@@ -13,20 +9,56 @@ describe('FollowingTab', () => {
   test('a signed-in viewer', () => {
     const html = renderToString(
       h(FollowingTab, {
-        following: followingOf(watchViewer(true)),
+        following: {
+          people: [
+            {
+              handle: 'ana',
+              live: {
+                id: 'quarterfinal-practice',
+                title: 'Quarterfinal practice',
+              },
+            },
+            { handle: 'lin', live: null },
+          ],
+          history: [
+            {
+              id: 'semifinal-rehearsal',
+              title: 'Semifinal rehearsal',
+              watchedOn: '2026-11-02',
+            },
+          ],
+        },
         signInHref: '/sign-in',
       }),
     );
     assert({
       given: 'a member with follows and history',
-      should: 'link a live follow to its debate and history to replays',
+      should:
+        'link a live follow to its Round, say who is not live, and open what was watched on the page that serves it in any state',
       actual: [
         html.includes('Live now in Quarterfinal practice'),
         html.includes('href="/watch/quarterfinal-practice"'),
-        html.includes('href="/recordings/semifinal-rehearsal"'),
-        html.includes('href="?did=Clear+history"'),
+        html.includes('Not live now'),
+        html.includes('href="/watch/semifinal-rehearsal"'),
+        html.includes('Watched 2026-11-02'),
+        html.includes('Clear history'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true, true, true, false],
+    });
+  });
+
+  test('nothing followed or watched', () => {
+    const html = renderToString(
+      h(FollowingTab, {
+        following: { people: [], history: [] },
+        signInHref: '/sign-in',
+      }),
+    );
+    assert({
+      given: 'a member with no follows or history',
+      should: 'say so in each section',
+      actual: [html.includes('Nobody yet.'), html.includes('Nothing yet.')],
+      expected: [true, true],
     });
   });
 

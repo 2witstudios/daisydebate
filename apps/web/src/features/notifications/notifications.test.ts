@@ -74,24 +74,24 @@ describe('notificationRows', () => {
 });
 
 describe('getNotifications', () => {
-  test('nothing is stored yet', () => {
+  test('an empty store lists nothing', () => {
     assert({
       given: 'the page seam with no stored notifications',
       should: 'list nothing rather than a sample',
-      actual: getNotifications({}),
+      actual: getNotifications({}, [], 0),
       expected: { query: { unreadOnly: false }, rows: [], unread: 0 },
     });
   });
 
-  test('stored items are counted', () => {
+  test('the unread count is the store’s, not the page’s', () => {
     assert({
-      given: 'stored items and the unread filter',
-      should: 'count every unread item and list only those',
+      given: 'stored items, the unread filter and a count past this page',
+      should: 'carry the store’s count and list only the unread items',
       actual: [
-        getNotifications({ show: 'unread' }, items).unread,
-        getNotifications({ show: 'unread' }, items).rows.length,
+        getNotifications({ show: 'unread' }, items, 60).unread,
+        getNotifications({ show: 'unread' }, items, 60).rows.length,
       ],
-      expected: [2, 2],
+      expected: [60, 2],
     });
   });
 });

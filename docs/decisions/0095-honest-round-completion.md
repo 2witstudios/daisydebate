@@ -13,7 +13,7 @@ Two staging Rounds stayed active past their deadlines on 2026-10-31. Both
 debaters had on-time receipts, but ADR 0067 required settled availability
 evidence for every attendance decision, and a broken synthetic probe produced
 none. An AI judge's failed job also never reached completion, so an AI-only
-Round waited out a human judging window nobody could use, and a rated Round with
+Round waited out a human judging window nobody could use, and a ranked Round with
 no ballot had no ending at all.
 
 ## Decision

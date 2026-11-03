@@ -1,5 +1,6 @@
-# Staging LiveKit SFU (ISSUE-528, DEC-228): self-hosted, single node, no
-# Redis. It joins the org's default 6PN (DEC-230, revising DEC-229): native
+# Staging LiveKit SFU (ISSUE-528): self-hosted, single node. Fly secrets
+# REDIS_HOST and REDIS_PASSWORD join it to daisy-debate-staging-media-redis,
+# the bus Egress needs (BCAST-2, superseding DEC-228). It joins the org's default 6PN (DEC-230, revising DEC-229): native
 # clients inside Fly reach its media over 6PN, browsers over the public IPv4.
 # The web app and capture worker call its server API at its public URL.
 # Signalling and the server API are HTTPS on 443 through fly-proxy; media

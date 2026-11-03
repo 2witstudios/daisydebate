@@ -71,8 +71,11 @@ export function FriendsPage({
   list,
   friendAction,
   message,
+  liveHrefs = new Map(),
 }: {
   readonly list: FriendList | null;
+  /** Where to watch each friend who is live in a public Round. */
+  readonly liveHrefs?: ReadonlyMap<string, string>;
   readonly friendAction: Action;
   /** The Message control for one friend; each carries its own request. */
   readonly message: (username: string) => ReactNode;
@@ -121,6 +124,15 @@ export function FriendsPage({
                 presence={presence}
                 detail={statusLabels[presence]}
               >
+                {liveHrefs.get(username) ? (
+                  <Link
+                    href={liveHrefs.get(username) ?? ''}
+                    aria-label={`Watch @${username} live`}
+                    className="text-sm font-strong"
+                  >
+                    Watch live
+                  </Link>
+                ) : null}
                 {message(username)}
                 <FriendButtonForm
                   action={friendAction}

@@ -2,7 +2,11 @@ import { debaterSeatsHeldFrom } from './room-edit-transitions';
 import { formatStanding } from './format-standing';
 import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
 import { freezeRoomConfig, freezeRoomExecutionPlan } from '@daisy/protocol';
-import { assemblyOpen, startBlocker } from './room-assembly-facts';
+import {
+  assemblyOpen,
+  hostNamesJudges,
+  startBlocker,
+} from './room-assembly-facts';
 const participantReady = (
   p: Pick<
     RoomAssemblyState['participants'][number],
@@ -17,12 +21,13 @@ const participantReady = (
 };
 /**
  * The human judges this viewer may not name (DEC-98, DEC-174): every one,
- * unless the viewer is that judge or the host who seats them. A host who
+ * unless the viewer is that judge or a seatless host who seats them. A host
+ * who holds a seat gains nothing from hosting (WATCH-6), and a host who
  * inherited the Room names none (DEC-331).
  */
 const hiddenJudges = (room: RoomAssemblyState, actorId: string) =>
   new Set(
-    room.hostActorId === actorId && !room.hostInherited
+    room.hostActorId === actorId && hostNamesJudges(room)
       ? []
       : room.participants
           .filter(
@@ -42,17 +47,48 @@ export const hostIdentityHidden = (
   viewerActorId: string,
 ) => room.hostIsHumanJudge && room.hostActorId !== viewerActorId;
 
+/** Whether this viewer is outside a Room that has started, and so reads it closed. */
+export const startHiddenFrom = (
+  room: Pick<RoomAssemblyState, 'status' | 'hostActorId' | 'participants'>,
+  actorId: string,
+): boolean =>
+  room.status === 'started' &&
+  room.hostActorId !== actorId &&
+  !room.participants.some((p) => p.actorId === actorId);
+
+/**
+ * A started Room as someone outside it may know it: closed, as an expired or
+ * cancelled Room reads, so the read does not say it started (WATCH-6). When it turned
+ * closed is known undelayed, and that is accepted: this read holds no horizon, and
+ * keeping it `ready` would offer seats and commands that are refused (ADR 0099). A
+ * drawn resolution was never public before the Round; the spectator timeline releases
+ * it. Commands they send are refused alike, `room-closed` either way.
+ */
+const roomKnownTo = (
+  room: RoomAssemblyState,
+  actorId: string,
+): RoomAssemblyState =>
+  !startHiddenFrom(room, actorId)
+    ? room
+    : {
+        ...room,
+        status: 'closed',
+        roundRef: null,
+        topic: room.config.resolutionDraw.enabled ? null : room.topic,
+      };
+
 /**
  * Server projection: consumers never infer startability or consent from
  * local device state. Every field is built explicitly — nothing internal is
  * spread — so a host list cannot ride along.
  */
 export function projectRoom(
-  room: RoomAssemblyState,
+  stored: RoomAssemblyState,
   actorId: string,
   consent: RoomConsent,
   now: string,
 ): RoomView {
+  const room = roomKnownTo(stored, actorId);
   const blocker = startBlocker(room, consent);
   const hidden = hiddenJudges(room, actorId);
   const hostHidden = hostIdentityHidden(
@@ -79,7 +115,13 @@ export function projectRoom(
     visibility: room.visibility,
     hostActorId: hostHidden ? null : room.hostActorId,
     hostLabel: hostHidden ? null : room.hostLabel,
+    aiJudgeSeating: null,
+    contentWaiver: null,
+    captureOffer: null,
+    capture: room.capture,
+    captureNotice: null,
     botAdmission: null,
+    watchRoundId: null,
     status: room.status,
     formatId: room.formatId,
     formatVersion: room.formatVersion,
@@ -150,7 +192,12 @@ export function projectRoom(
         : 0,
     capabilities: roomCapabilities(room, actorId, blocker),
     startRefusal: blocker,
-    roundRef: room.roundRef,
+    // A non-participant learns of a live Round only from the spectator timeline.
+    roundRef:
+      room.hostActorId === actorId ||
+      room.participants.some((p) => p.actorId === actorId)
+        ? room.roundRef
+        : null,
   };
 }
 

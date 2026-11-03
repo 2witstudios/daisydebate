@@ -54,8 +54,6 @@ export type RoundSnapshot = {
   readonly judgingState: RoundWaitingOn['state'] | null;
   /** Rating won and lost on this result, in a ranked round. */
   readonly stakes: { readonly win: number; readonly loss: number } | null;
-  /** The round is recorded; once the speeches end, the recording is saved. */
-  readonly recording: boolean;
   readonly speeches: readonly SpeechSlot[];
   readonly liveIndex: number;
   /** The main clock; null when the room cannot read the running round. */

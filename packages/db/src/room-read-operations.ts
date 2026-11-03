@@ -5,7 +5,9 @@ import {
   type ReadOpeningTopic,
 } from './round-opening-read';
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
+import type { SpectatorClock } from './spectator-release-sql';
 import type { roomCommandTransaction } from './room-command-transaction';
+import { readEntitlementGrants } from './entitlement-grants';
 import {
   roomListQuerySchema,
   type RoomListQuery,
@@ -279,6 +281,7 @@ export const roomReadOperations = ({
     authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
     authorizeCollection: (account: Account) => boolean,
     hostHidden: (fact: RoomDiscoveryFact) => boolean,
+    clock: SpectatorClock,
     readTopic: ReadOpeningTopic,
   ): Promise<RoomListPage> {
     if (!roomListQuerySchema.safeParse(query).success)
@@ -292,6 +295,7 @@ export const roomReadOperations = ({
           authorize,
           authorizeCollection,
           hostHidden,
+          clock,
           readTopic,
         ),
       ),
@@ -340,6 +344,12 @@ export const roomReadOperations = ({
         );
         return bots.filter((bot): bot is Actor => bot !== null);
       }),
+    );
+  },
+  /** The caller's own grants, for display; every seat command rereads them under its fence. */
+  async readOwnEntitlementGrants(caller: Caller) {
+    return instrumented(eventSink, 'readOwnEntitlementGrants', () =>
+      readEntitlementGrants(database, caller.userId),
     );
   },
   async readRoomCreateReceipt(input: {

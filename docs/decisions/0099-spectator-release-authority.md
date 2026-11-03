@@ -1,0 +1,209 @@
+# 0099: Spectator release authority and owned delivery
+
+Status: accepted, owner decisions and point guard rulings on the Watch plan,
+2026-11-02. Supersedes the "Live timing and separate access boundaries" section
+of [ADR 0067](0067-playable-round-policy-and-acceptance.md) for spectators, and
+amends [ADR 0048](0048-authorization-core.md).
+
+## Context
+
+ADR 0067 made `GET /api/rounds/:id` live, undelayed timing for anyone entitled
+to `round.read`, and public and unlisted visibility granted that read. Ranked
+Rounds must now be broadcast on a 60 second delay as a competitive integrity
+requirement, so an open live read would defeat the delay.
+
+## Decision
+
+**Live reads.** `round.read` needs a seat or the host. Public and unlisted decide
+who may watch the Broadcast, never who reads undelayed clock, phase, floor or
+outcome. A non-participant has no Round read at all, only the spectator timeline, and a
+Room view carries no Round reference for them.
+
+**Spectator timeline.** One named read serves the audience:
+`GET /api/rounds/:id/timeline`, anonymous, the same for every viewer, cached for
+one second by any CDN and never holding a socket. It reads no session and sets no
+cookie. A private Round, or one with no Room, is one not-found answer. An unlisted
+Round is served to anyone holding its link (DEC-302) and never indexed; the link
+is the Round's id, the same way an unlisted Room is reached today.
+
+**How far the timeline has reached.** `spectatorHorizon` in the domain states it,
+and `spectatorHorizonSql` states it for list reads that filter in the database; an
+integration suite holds the two equal. A fact leaves once the horizon has passed
+its capture time by the margin:
+
+- An open Broadcast: its watermark alone, never the clock.
+- A completed Broadcast: no more media will come, so what it held leaves behind
+  the Broadcast's own release policy.
+- A stopped Broadcast: the spectator timeline has ended. It shows as ended, stays
+  at the watermark the stop left, and no fact appears after the stop. The
+  competitive record does not end with the video, so standings, a listed rating
+  and a public profile treat a stop as they treat completion.
+- No Broadcast, Round still live: nothing is released, on any Round.
+- No Broadcast, Round ended: a casual Round has nothing holding it. A ranked Round
+  is always meant to have a Broadcast, so this is a capture failure or capture not
+  yet active; its record must not hang on the video, so it leaves behind the fixed
+  ranked delay.
+
+**What each fact's capture time is.** A result and its ballots, the Round's
+completion. A rating, the later of its posting and the completion. A caption, when
+its line was stored. The resolution, the Round's start. Captions, winner, scores,
+reason and ratings are public on ranked Rounds only (plan section 5, DEC-301); a
+tie has a null winner. Judges are never named and side feedback never appears.
+
+**Reads outside the timeline.** Standings, the leaderboard and a listed host's
+rating rebuild a rating from the ledger: it stands where the earliest unreleased
+posting found it, and a debater with no released posting is not listed yet. A
+public profile lists neither the Round nor its tally until release. A person with
+an authorized Round read still reads that Round's own rating at once.
+
+**Undelayed observer.** `round.observe.undelayed` is held by a seatless host on
+any Round, because a seatless host acts as an event host. A competitor who hosts
+gains nothing from hosting. Event moderation authority joins it when Daisy's
+tournament portal exists. Operators use the admin app (ADR 0043).
+
+**Delay is a floor.** Media and facts are never early. The hold publishes a
+durable released-through watermark, and the server releases a fact only once the
+watermark has passed its capture time, plus a margin for viewer latency. The
+spectator timeline follows media actually released, not the clock. Ranked Rounds
+never skip media; real delay above 90 seconds raises an alert (DEC-303), logged as
+`broadcast.release_delayed` from the web, because a dead worker is the likely cause.
+
+**Media path.** A Web Egress renders Daisy's stage page under a server-minted,
+subscribe-only observer token held by no other browser, and writes HLS segments
+and a file. Room Composite is rejected: deleting its room ends it, or leaves it
+active and writing silence. Daisy stops the Egress, and the reconciler stops any
+whose Round is terminal.
+
+**Stage quality.** Stage tiles are 360p for now. The owner has decided on a 540p top
+layer on Rounds with a Broadcast, and the adapter can capture it when an admission
+says `broadcast` on a browser reporting at least 4 cores, but nothing says so yet: it
+needs the throttle proof first, and the operation's `cameraProfile` input is the switch.
+
+**Privacy boundary.** Revoking the observer's subscribe permission on the server
+is the boundary; the page slate is appearance only. If revocation cannot be
+confirmed, the Egress stops. The criterion is zero leak measured at the production
+sweep's timing (point guard, 2026-11-03), not a lead on a rig. The sweep revokes at
+the speech end, so every word of the last speech is kept: one value in
+`stage-capture.ts` restores a lead if the measurement ever needs one. That is safe
+because a private phase's microphones stay closed until the revocation lands, and on
+a Round with a Broadcast its cameras do too, whether the phase was scheduled or opened
+with no warning (prep, an early yield). They reopen once the observer is revoked, and
+a public phase keeps its cameras. A Recording's own observer holds conversation, not
+cameras.
+
+**When the sweep dies.** While the observer may be subscribed, the hold stays, however
+long that lasts, and the media reconciler raises `broadcast.conversation_held_long`
+past 30 s. The stage also lets go of every track when it reads a private phase, as a
+second layer that needs the stage route alive.
+
+**Release: the guarantee (owner, 2026-11-03).** Nothing leaves that committed Round
+history does not prove public. `publicIntervals` in `@daisy/protocol` turns
+`round_segments` into intervals, each speech or cross-examination from past its start,
+by Egress's stamp lag, to its end; a segment still open is known only as far as the last heartbeat and
+never past its schedule. Nothing else is public, and an outage is a gap until a commit says otherwise. No clock opens anything: a late commit is the only thing that can make an
+unknown stretch public, and time alone never does. The worker reads the times through
+the views `broadcast_public_history` and `broadcast_private_history`, its only read of a
+Round: a view has no second
+writer, cannot drift from the record, and puts nothing inside a competitive
+transaction, and it runs as its owner, so its role is granted no Round table.
+
+The encoder cuts at the boundary (it re-encodes anyway), so a speech edge loses only
+its measured stamp lag, and whole segments go only
+where no interval touches them. Media past the last heartbeat waits, logged once as
+`broadcast.release_lapsed`, and resumes under the same rule when the web tier returns.
+Recording builds use the same intervals, copied by the web into the job since the
+Recording worker's role reaches only its jobs, and state `not_public` gaps. A caption
+belongs to a committed segment by its foreign key, and one on a segment still open
+past the last heartbeat waits, like the media beside it. Results, ballots and ratings
+are not captured from any interval and keep following the watermark.
+
+Settled time with nothing public in it moves the watermark as it comes due, publishing
+nothing, so a long prep or judging does not read as a stalled release. Only time past
+the last heartbeat stands still, and that is what `release_delayed` and the audience's
+interrupted state are for.
+
+Slates publish, so a stall means a real gap. `stageTimeline` gives the feed three kinds
+from `round_segments` and `round_private_spans` (prep and judging, committed with the
+transition). `speech` goes out as held. The stretch between two committed spans is
+`between`, since a private phase would have committed its own: the stage's slate from
+the hold, with its audio replaced by generated silence, so no byte of the hold's sound
+is in it. `private` reads nothing from the hold: a generated frame in the stage's
+background colour, and silence, because a phase's first moments can still hold a camera
+frame until the page's next read and the revocation arrive. Going into something more
+private a boundary uses the end-edge stamp lag, which is none, and coming out the
+start-edge one, 1300 ms plus 6 ms per minute of the capture's age, from staging's
+measurement including one 80 minute attempt. Age counts from when the capture was
+opened, which is before any attempt, so it can only be overstated and fails closed.
+
+The public playlist marks a discontinuity at each gap. The Daisy player covers the
+video with a slate after 5 s stalled, and for 4 s when hls.js sees capture time jump
+over 12 s. A native (Safari) player gets only the stall slate. A streaming tool
+carrying the official feed gets no slate this release.
+
+Revocation stays: it keeps private audio out of storage. It no longer has to protect
+what is published.
+
+**The worker's reach.** Its role holds named columns only, so a new column is denied
+until granted, and it can never read a stage credential's hash. It believes a held
+playlist only as far as plain segment names, rising times and times already past, and
+the watermark never passes now, so a false stamp cannot release a fact early. A clip
+it cannot read or encode gets five tries, then is recorded as a stated gap with
+`broadcast.clip_skipped`. Nothing due for over 30 s gives its slot back until it is.
+Each stage and segment type declares its publicity in one place; anything undeclared
+is private. A private Round's Broadcast is refused at Launch, and never opened.
+
+**Ending the Egress.** Ending the Egress only limits what reaches the hold. The stage page logs `END_RECORDING`, which Egress stops on, when the stage
+route refuses on a stale heartbeat (410) or has failed for about 10 s. No process holds
+a LiveKit credential for this. A control plane that returns finds the Egress complete
+and starts the next attempt the normal way. A web restart of 10 s or more therefore
+costs a running Broadcast a gap (see the deployment hold in `deploy-staging.md`).
+
+**Stray Egress.** The first start recorded for a generation wins. A loser's
+credential is never stored, so the stage refuses it, it never signals Egress to
+record, and it writes nothing. The loser stops its own Egress; a crash before the
+record leaves one that a sweep every 15 s finds in LiveKit's active list by its
+stage URL and stops, under the capture's claim, which a start holds for 15 s.
+
+**Delivery.** Daisy owns it, with no video vendor. Segments enter a private
+Tigris bucket. The release step alone holds a credential for a separate public
+bucket; it encodes 720p, 480p and 240p and writes the manifests, so timing stays
+Daisy's. Per-object public access is not used for the hold, because one wrong
+flag would publish held media early. A CDN is added only if Tigris misses the
+DEC-303 targets.
+
+**Official feed.** The public master playlist is the official feed, for players
+and for streamers (Stream this Round). It ends with the Broadcast: a stop withdraws
+every public object at once, and a completed Broadcast's are withdrawn 60 s after
+completion, which viewers need to reach the end (real viewers finish about 13 s
+after completion). OBS reopens an ended address on a loop and would otherwise put
+the last 24 s back on air for as long as the source stays up, and a later takedown
+would leave a public copy behind. Afterwards the Recording is the only copy.
+
+**One-click push, later.** Pushing to Twitch or YouTube stays out of this release
+(WATCH-17). The later path is LiveKit Egress's external stream URLs, which need no
+new vendor. One constraint comes with it: the Egress works ahead of the hold, so a
+stream output from it would carry undelayed media. A push must take released media,
+never the Egress's own live output, on any Round with a delay.
+
+## Evidence
+
+Staging, BCAST-1: revoking 500 ms before a private marker left no marker audio in
+10 ms windows and no marker frames, in 6 of 6 windows; revoking about 310 ms after
+it was detected in 3 of 3. Web Egress kept one egress across room rotation locally
+with a gap of about 100 ms.
+
+Not recorded here yet: Web Egress when its room is deleted (the finding above that
+mentions deletion is about Room Composite), an attempt to reach undelayed media on
+the real pipeline, Egress and encoder CPU on Fly, startup, and end-to-end delay.
+
+## Consequences
+
+- Live reads and listings stay closed to non-participants; the spectator timeline
+  is the one read they get.
+- Staging LiveKit and Egress share a Redis, superseding DEC-228 for this purpose.
+- A Room that started reads as closed to someone outside it, so when it turned closed is known
+  undelayed, though not that it started. This is accepted: the read holds no horizon, and keeping
+  it `ready` would offer seats and commands that are refused.
+- Lobby discovery lists a live Round only to its seats and host, before search and paging, so a
+  search answers an outsider exactly as a miss does. A cursor at a Round outside a list's scope
+  reads as a missing one.

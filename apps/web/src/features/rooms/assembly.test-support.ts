@@ -95,7 +95,13 @@ export const assemblySnapshot = {
   visibility: 'unlisted',
   hostActorId: 'o'.repeat(24),
   hostLabel: 'Host member',
+  aiJudgeSeating: null,
+  contentWaiver: null,
+  captureOffer: null,
+  capture: null,
+  captureNotice: null,
   botAdmission: null,
+  watchRoundId: null,
   status: 'assembling',
   formatId: unequalTemplate.formatId,
   formatVersion: unequalTemplate.formatVersion,
@@ -138,7 +144,7 @@ export const assemblySnapshot = {
 } satisfies RoomView;
 
 /** A native create submission naming a stored ranked preset. */
-export const rankedCreateForm = (visibility = 'unlisted') => {
+export const rankedCreateForm = (visibility = 'public') => {
   const fields = new FormData();
   fields.set('commandId', 'h'.repeat(24));
   fields.set('title', 'My room');

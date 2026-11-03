@@ -90,17 +90,17 @@ test('a reveal no tick has stored reads the same from the Round, the Room and th
       .view.roundRef!.id;
     const lobbyTopic = async () =>
       (
-        await f.operations.list(f.outsider, { q: room.title, pageSize: 20 })
+        await f.operations.list(f.host, { q: room.title, pageSize: 20 })
       ).rooms.find((entry) => entry.id === room.id)?.topic;
     const before = [
-      (await f.operations.view(f.outsider, room.id)).topic,
+      (await f.operations.view(f.host, room.id)).topic,
       await lobbyTopic(),
     ];
     // Draw rows are immutable, so the one automatic strike falls due by the clock.
     await new Promise((resolve) =>
       setTimeout(resolve, AUTOMATIC_STRIKE_DELAY_MS + 250),
     );
-    const survivor = (await f.roundView(f.outsider, roundId)).topic;
+    const survivor = (await f.roundView(f.host, roundId)).topic;
     const [stored] = await f.sql`
       select resolution from rounds where id = ${roundId}`;
     assert({
@@ -111,7 +111,7 @@ test('a reveal no tick has stored reads the same from the Round, the Room and th
         before,
         stored: stored.resolution,
         drawn: lines.includes(survivor ?? ''),
-        room: (await f.operations.view(f.outsider, room.id)).topic,
+        room: (await f.operations.view(f.host, room.id)).topic,
         lobby: await lobbyTopic(),
       },
       expected: {

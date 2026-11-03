@@ -22,6 +22,7 @@ const store = (seen: LaunchedRound) =>
       if (!authorize(seen, account)) throw createAppError('NOT_FOUND');
       return round;
     },
+    broadcasts: { conversationHeld: async () => false },
   }) as never;
 
 test('roundViewReader()', async () => {

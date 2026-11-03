@@ -33,6 +33,24 @@ browsing surface of open Rooms. A LiveKit room is a media session
 
 No shared "Topic" entity spans them.
 
+Three words about watching each keep one meaning (WATCH-10):
+
+- **Viewer** is whoever a read is for, the requester: `viewerActorId`,
+  `viewerIsHost`, `WatchViewer`. A viewer may be a debater, a judge, a spectator
+  or a visitor with no account.
+- **Spectator** is one person watching a Round without a seat in it. Spectators
+  are never `round_participants`. A count of people watching counts spectators;
+  `SpectatorKind` says why a viewer is one.
+- **Audience** is the group something is released to, such as the audience of a
+  Broadcast or a transcript's audience policy. It is never one person.
+
+An operator signature's `audience` is the HTTP signing term for the service it
+is bound to, unrelated to watching.
+
+"Ranked" is the competition type; "rated" says only that a rating was written,
+as in `kind: 'rated'`, `lastRatedAt` or a Highest rated sort, and "Unrated" only
+that a member or a tournament has no rating.
+
 ## Formats
 
 A casual Room runs one of Daisy's standards (Policy, Value and Freestyle,
@@ -80,11 +98,14 @@ membership. Every terminal state frees its members:
   then judges, who gets the whole idle time to act. A host-written resolution
   list is that member's own text and does not pass: the draw reads the bank. With
   none left the Room closes. No human judge is named to an heir, in the Room
-  or the Round they start (`host_inherited`, frozen on the Round), and a seated
-  judge answers an heir's `assign-seat` as a member not in the Room does. So an
-  heir can't remove or replace a human judge; closing the Room is their answer to
-  a stuck judge seat. A closed Room's
-  status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone.
+  or the Round they start (`host_inherited`, frozen on the Round), nor to a host
+  who holds a seat, because a seat gains nothing from hosting (WATCH-6). A seated
+  judge answers `assign-seat` from either as a member not in the Room does. So
+  neither can remove or replace a human judge; closing the Room is their answer
+  to a stuck judge seat. A closed Room's
+  status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone. A started
+  Room also reads `closed` to anyone outside it, with no drawn resolution, so the
+  Room read never says a Round began before the spectator timeline does (WATCH-6).
 - **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, the Room maintenance
   sweep (its own worker, apart from Round maintenance) closes an open Room
   with no accepted command for that long, by database time.
@@ -134,9 +155,11 @@ through the Round command route.
 The Round's room page sends each member to their own view: a debater to the
 live room, the assigned judge to the judge view, and a seatless host to the
 spectator view, a read-only projection of the Round (who holds the floor, the
-clock and the speech order) with no controls and no media. The spectator
-view is the seed of spectating: `SpectatorAudience` names why a viewer
-watches, today only `host`, and later audiences join that union without a
+clock and the speech order) with no controls and no media. That read is undelayed:
+a seatless host acts as an event host (`round.observe.undelayed`, ADR 0099), on
+any Round, ranked included. A seated host gains nothing from hosting. The spectator
+view is the seed of spectating: `SpectatorKind` names why a viewer
+watches, today only `host`, and later kinds join that union without a
 second view. Everyone else gets the Round's public page.
 
 Unranked Custom rules can use points of information (POI): both sides have
@@ -179,6 +202,37 @@ judges, never placeholders or random rulings. When the transcript freezes,
 round maintenance queues one durable judging job per eligible AI judge. A
 leased server worker then calls the model and commits through the same
 ballot operation.
+
+Seating an AI judge is free on a ranked Round and premium on a casual one
+(WATCH-16). On casual, the assign-seat and create commands refuse the seat with
+`ai-judge-premium` unless the host holds their own `casual_ai_judge` grant, read
+under the host's account fence, and Launch rechecks it. Beta approval writes
+the grant until billing exists, and `PREMIUM_BETA_GRANT` says whether a
+beta-sourced grant counts. A host without it is offered a person, Train's
+practice Rounds included. The gate is on seating only: a ballot that exists is
+read the same with or without premium.
+
+A casual host can opt a Room into a Broadcast, with its release choice, and a
+Recording, as two separate choices (WATCH-8). The `set-capture` command refuses
+with `capture-premium` unless the host holds their own `casual_capture` grant,
+read under the host's account fence, and Launch rechecks it, so a host who lost
+the grant captures nothing. Beta approval writes the grant until billing exists.
+It is separate from `casual_ai_judge`. A private Room can record but not
+broadcast. A change asks every seat to Ready again, and each seat is told the
+opted-in notice and the exact choice before Ready. Launch freezes the choice on
+the Round. Ranked needs no grant and holds no choice: it is always captured. The
+create form shows a ranked host the same notice and records it with the Room,
+because a host may never take a seat and so may never reach a Ready. A ranked create
+that states no notice is refused, unless the host holds a seat (a cast seat or a held
+one, as a challenge has), whose Ready records it. A signature
+keeps the exact words, so a superseded notice stays readable.
+
+A seated human judge reads their own ballot, and once the Round has completed,
+every ballot of it. Only the Round's seats and its seatless host read a Round at
+all (ADR 0099). Anyone else reads no ballot here: signing in opens nothing. The
+audience of a ranked Round gets the winner, scores and reason on the spectator
+timeline, once the Broadcast's watermark has passed them, and never a side's
+feedback; a casual Round's audience gets no ballot.
 
 An AI judge never rules on a transcript frozen incomplete (DEC-208). No AI
 job is queued for such a freeze. With no human judge, the Round completes at

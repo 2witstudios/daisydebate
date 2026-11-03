@@ -116,6 +116,12 @@ export function prepareRoomDraft(
       kind: 'preview',
       values: { ...values, ...draftFormValues(draft), intent: '' },
     };
+  // A form with no script ticks Ranked with the notice still unseen: show it first.
+  if (draft.ranked && !values.noticeVersion)
+    return {
+      kind: 'preview',
+      values: { ...values, ...draftFormValues(draft), intent: '' },
+    };
   const selection = selectionOf(draft);
   const compiled = resolveRoomConfiguration(
     selection.kind === 'custom' ? selection.definition : draft.definition,
@@ -142,6 +148,7 @@ export function prepareRoomDraft(
   for (const [key, value] of form) submitted.append(key, value);
   submitted.set('selection', JSON.stringify(selection));
   submitted.set('competition', draft.ranked ? 'ranked' : 'casual');
+  if (draft.ranked) submitted.set('visibility', 'public');
   submitted.set('resolutionMethod', method);
   submitted.set('customResolution', draft.customResolution);
   if (publication) {

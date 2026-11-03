@@ -1,3 +1,5 @@
+import {} from '../features/broadcast/composition';
+import { composeStage } from '../features/stage-capture/composition';
 import { createConsentHandler } from '../features/analytics/handlers';
 import { composeAttendanceRoutes } from '../features/attendance/composition';
 import { composeMediaCaptureRoutes } from '../features/media-capture/composition';
@@ -14,6 +16,9 @@ import { composeReportRoutes } from '../features/reports/composition';
 import { composeRatingVisibilityRoutes } from '../features/ratings/visibility-routes';
 import { composePresenceRoutes } from '../features/presence/composition';
 import { composeContactRoutes } from '../features/contacts/composition';
+import { composeAgreementRoutes } from '../features/agreements/composition';
+import { composeRecordingRoutes } from '../features/recording/composition';
+import { composeContentModerationRoutes } from '../features/content-moderation/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
   createListSessionsHandler,
@@ -38,6 +43,11 @@ import { runningWorkers } from '../features/ops/alert-state';
 import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
+import { composeAudienceRoutes } from '../features/spectating/audience-composition';
+import { createAudienceLinkHandlers } from '../features/audience-link/handlers';
+import { limitAnonymousReads } from '../features/spectating/anonymous-read-limit';
+import { createSpectatorTimelineHandlers } from '../features/spectating/handlers';
+import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { identify } from '../lib/identity';
 import { memberHttpBoundary } from './member-boundary';
 import type { App } from './app';
@@ -70,6 +80,7 @@ export function createRoutes(app: App) {
   return {
     analyticsConsent: { POST: createConsentHandler(app) },
     mediaCapture: composeMediaCaptureRoutes(app),
+    stage: composeStage(app),
     roundMedia: createRoundMediaHandlers({
       ...memberBoundary,
       operations: createRoundMediaRuntime(app).operations,
@@ -84,6 +95,22 @@ export function createRoutes(app: App) {
     ratingVisibility: composeRatingVisibilityRoutes(app),
     presence: composePresenceRoutes(app),
     contacts: composeContactRoutes(app),
+    audienceLink: createAudienceLinkHandlers({
+      logger,
+      reporter: app.reporter,
+      origin,
+      identify: (request) => identify(app.auth(), request.headers),
+      limiter: () => app.limiter,
+      store: database,
+    }),
+    spectatorTimeline: createSpectatorTimelineHandlers({
+      logger,
+      reporter: app.reporter,
+      store: database,
+      clock: app.clock,
+      feedUrlOf: broadcastFeedUrls(app.config.BROADCAST_PUBLIC_ORIGIN),
+      limitRead: limitAnonymousReads(() => app.limiter),
+    }),
     rounds: {
       ...composeRoundRoutes(app),
       ...composeRoundBallotRoutes(app),
@@ -94,6 +121,10 @@ export function createRoutes(app: App) {
       POST: createSignOutFormHandler({ logger, origin, signOut: auth.POST }),
     },
     privacy: composeDataRightsRoutes(app),
+    agreements: composeAgreementRoutes(app),
+    recordings: composeRecordingRoutes(app),
+    contentModeration: composeContentModerationRoutes(app),
+    audience: composeAudienceRoutes(app),
     confirm: createConfirmHandlers({
       auth: confirmAuth,
       logger,

@@ -5,6 +5,11 @@ import {
   betaAccessCommandStateSchema,
   betaAccessStates,
 } from './beta-access';
+import {
+  contentModerationCommandResultSchema,
+  contentModerationCommandStateSchema,
+  contentModerationOperatorRoutes,
+} from './content-moderation';
 import { idSchema } from './primitives';
 import { reportOutcomes, reportReasons, reportSurfaces } from './reports';
 import { moderationKinds } from './moderation';
@@ -83,6 +88,7 @@ export const operatorRoutes = {
     path: /^\/operator\/v1\/commands\/([a-z0-9]{24})$/,
     query: [],
   },
+  ...contentModerationOperatorRoutes,
 } as const;
 export type OperatorRoute = keyof typeof operatorRoutes;
 
@@ -229,6 +235,7 @@ export type ModerationLiftResult = z.infer<typeof moderationLiftResultSchema>;
  */
 export const operatorCommandStateSchema = z.discriminatedUnion('action', [
   betaAccessCommandStateSchema,
+  contentModerationCommandStateSchema,
   z.strictObject({
     action: z.literal(reportResolveCommandAction),
     result: reportResolveResultSchema,
@@ -242,6 +249,7 @@ export const operatorCommandStateSchema = z.discriminatedUnion('action', [
 /** What a receipt stores: the result of whichever action it records. */
 export const operatorCommandResultSchema = z.union([
   betaAccessCommandResultSchema,
+  contentModerationCommandResultSchema,
   reportResolveResultSchema,
   moderationLiftResultSchema,
 ]);
@@ -255,6 +263,7 @@ export const operatorCommandReceiptSchema = z.discriminatedUnion('action', [
     action: z.literal(betaAccessCommandAction),
     result: betaAccessCommandResultSchema,
   }),
+  contentModerationCommandStateSchema,
   z.strictObject({
     action: z.literal(reportResolveCommandAction),
     result: reportResolveResultSchema,

@@ -22,6 +22,8 @@ const heading = 'font-display text-xl font-bold text-ink';
 const nav = [
   ['profile', 'Profile'],
   ['ratings', 'Your card'],
+  ['notifications', 'Notifications'],
+  ['watch-history', 'Watch history'],
   ['privacy', 'Privacy and data'],
   ['appearance', 'Appearance'],
   ['security', 'Security'],
@@ -49,6 +51,10 @@ function Section({
 export type SettingsPageProps = {
   /** Which ratings the member's card shows, when it could be read. */
   readonly ratingCard?: ReactNode;
+  /** What is stored for the member, when it could be read (ISSUE-1045). */
+  readonly notifications?: ReactNode;
+  /** What the member has watched, which they alone see and can clear. */
+  readonly watchHistory?: ReactNode;
   readonly username: string | null;
   readonly analytics: {
     readonly choice: ConsentChoice;
@@ -77,6 +83,8 @@ export function SettingsPage({
   dataRightsNotices,
   onboarding,
   ratingCard,
+  notifications,
+  watchHistory,
 }: SettingsPageProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
@@ -139,6 +147,16 @@ export function SettingsPage({
           {ratingCard ? (
             <Section id="ratings" title="Your card">
               {ratingCard}
+            </Section>
+          ) : null}
+          {notifications ? (
+            <Section id="notifications" title="Notifications">
+              {notifications}
+            </Section>
+          ) : null}
+          {watchHistory ? (
+            <Section id="watch-history" title="Watch history">
+              {watchHistory}
             </Section>
           ) : null}
           <Section id="appearance" title="Appearance">

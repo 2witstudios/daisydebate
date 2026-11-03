@@ -3,6 +3,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import { fixedClock } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import { reportCommandSchema, reportReasons } from '@daisy/protocol';
 import { fileReport } from './operations';
 
 setupRitewayBun();
@@ -77,5 +78,26 @@ describe('fileReport', () => {
         code: 'NOT_FOUND',
         actual: () => fileReport(member, input, deps(overrides).dependencies),
       });
+  });
+});
+
+describe('POST /api/reports names no Round', () => {
+  test('it cannot be asked about one, so it cannot answer about an unlisted one', () => {
+    const report = {
+      version: 1,
+      username: 'someone',
+      reason: reportReasons[0],
+      surface: 'watch',
+    };
+    assert({
+      given: 'a report on a member, then one that also names a Round',
+      should: 'take the first and refuse the second before anything is read',
+      actual: [
+        reportCommandSchema.safeParse(report).success,
+        reportCommandSchema.safeParse({ ...report, roundId: 'a'.repeat(24) })
+          .success,
+      ],
+      expected: [true, false],
+    });
   });
 });

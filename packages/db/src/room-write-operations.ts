@@ -1,9 +1,17 @@
+import { admitCasualCapture } from './casual-capture-admission';
 import type { RoundBotAdmission } from './round-bot-admission';
 import { persistRoomMutation } from './room-mutation-persistence';
 
 import { eq } from 'drizzle-orm';
 import type { roomCommandTransaction } from './room-command-transaction';
+import {
+  readContentWaiverStanding,
+  recordCaptureNotice,
+  type ContentWaiverStanding,
+} from './agreement-signatures';
+import { readEntitlementGrants } from './entitlement-grants';
 import type {
+  EntitlementGrant,
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
@@ -60,6 +68,18 @@ type CommandInput = {
   readonly roundId: string;
   /** The engine's cast rule: only a launch that seats a bot debater takes the bot-admission lock. */
   readonly seatsBotDebater: (state: RoomAssemblyState) => boolean;
+  /**
+   * What a Ready on this Room stands on (WATCH-15, WATCH-9): the waiver version
+   * it needs and the notice it records. Null when it needs neither.
+   */
+  readonly readyAgreements: (state: RoomAssemblyState) => {
+    readonly contentWaiverVersion: string | null;
+    readonly notice: {
+      readonly id: string;
+      readonly version: string;
+      readonly words: string;
+    } | null;
+  } | null;
   readonly prepare: (
     state: RoomAssemblyState,
     now: string,
@@ -73,6 +93,10 @@ type CommandInput = {
       draw: RoomDrawFacts,
       formatFacts: FormatSelectionFactsRecord | null,
       resolutionPublication: PublishedResolution | null,
+      /** The caller's own grants, read under the account fence this holds. */
+      grants: readonly EntitlementGrant[],
+      /** This member's standing on the waiver a Ready needs, under this lock. */
+      contentWaiver: ContentWaiverStanding | null,
     ) => RoomMutationOutcome
   >;
 };
@@ -167,6 +191,8 @@ async function executeOnce(
   const publication = current
     ? await readPublishedResolution(tx, current.id, current.kind)
     : null;
+  const agreements =
+    input.type === 'ready' ? input.readyAgreements(state) : null;
   const outcome = execute(
     state,
     now,
@@ -175,6 +201,14 @@ async function executeOnce(
     await drawFacts(tx, input.type, state),
     formatFacts,
     publication,
+    await readEntitlementGrants(tx, input.caller.userId),
+    agreements?.contentWaiverVersion
+      ? await readContentWaiverStanding(
+          tx,
+          input.caller.userId,
+          agreements.contentWaiverVersion,
+        )
+      : null,
   );
   if (!outcome.ok)
     throw createRefusal(refusalCode(outcome.refusal), outcome.refusal);
@@ -193,6 +227,22 @@ async function executeOnce(
     botAdmission,
     botLocked,
   );
+  if (
+    outcome.mutation.freeze &&
+    outcome.mutation.state.competitionType !== 'ranked' &&
+    outcome.mutation.state.capture !== null
+  )
+    await admitCasualCapture(tx, {
+      hostActorId: outcome.mutation.state.hostActorId,
+      roundId: input.roundId,
+    });
+  if (agreements?.notice && outcome.mutation.consent?.type === 'ready')
+    await recordCaptureNotice(tx, {
+      ...agreements.notice,
+      userId: input.caller.userId,
+      roomId: next.id,
+      now,
+    });
   const receipt: RoomCommandReceipt = {
     commandId: input.commandId,
     roomId: next.id,

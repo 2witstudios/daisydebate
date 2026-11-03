@@ -17,16 +17,19 @@ export function roomAllowed(
     );
   return capability === 'room.manage' ? host : seated;
 }
-function roundReadable(
-  actorId: string,
-  resource: RoundAuthorizationFact,
-): boolean {
-  return (
-    ['public', 'unlisted'].includes(resource.visibility) ||
-    resource.createdByActorId === actorId ||
-    resource.participants.some((p) => p.actorId === actorId)
-  );
-}
+const seatedOn = (actorId: string, resource: RoundAuthorizationFact) =>
+  resource.participants.some((p) => p.actorId === actorId);
+
+/**
+ * The live Round belongs to its seats and its host. Public and unlisted decide
+ * who may watch the Broadcast, never who reads undelayed timing or outcome.
+ */
+const roundReadable = (actorId: string, resource: RoundAuthorizationFact) =>
+  resource.createdByActorId === actorId || seatedOn(actorId, resource);
+
+/** A seatless host acts as an event host; a seated host gains nothing from hosting. */
+const undelayedObserver = (actorId: string, resource: RoundAuthorizationFact) =>
+  resource.createdByActorId === actorId && !seatedOn(actorId, resource);
 
 /** The round analysis entitlement supplements participant admission and an own debating seat. */
 export function roundAllowed(
@@ -36,7 +39,9 @@ export function roundAllowed(
   context: AuthorizationInput['context'],
 ): boolean {
   if (capability === 'round.transcript.read')
-    return resource.participants.some((p) => p.actorId === actorId);
+    return seatedOn(actorId, resource);
+  if (capability === 'round.observe.undelayed')
+    return undelayedObserver(actorId, resource);
   if (!capability.startsWith('round.analysis.'))
     return roundReadable(actorId, resource);
   return (

@@ -1,52 +1,79 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from '../../../features/watch/debate-source';
-import { listRecordings } from '../../../features/watch/list-recordings';
-import { defaultRecordingsQuery } from '../../../features/watch/recordings-query';
+import type { ArchiveEntry } from '../../../features/recording/archive';
 import { RecordingRow } from './recording-row';
 
 setupRitewayBun();
 
-const row = (scope: 'all' | 'mine', index: number) => {
-  const found = listRecordings(
-    { ...defaultRecordingsQuery, scope },
-    watchViewer(true),
-  ).rows[index];
-  if (!found) throw new Error('sample missing');
-  return renderToString(h(RecordingRow, { row: found }));
+const row: ArchiveEntry = {
+  roundId: 'round',
+  href: '/recordings/round',
+  title: 'Semifinal',
+  ranked: true,
+  date: '2026-11-02',
+  length: '30 min',
+  aff: '@ada',
+  neg: '@lin',
+  result: 'Negative wins',
+  media: 'watch',
+  transcript: true,
+  ownVisibility: null,
 };
+const render = (over: Partial<ArchiveEntry> = {}) =>
+  renderToString(h(RecordingRow, { row: { ...row, ...over } }));
 
 describe('RecordingRow', () => {
-  test('a public recording', () => {
-    const html = row('all', 0);
+  test('a playable Recording', () => {
+    const html = render();
     assert({
-      given: 'the newest public recording',
-      should: 'show title, facts, both players, the result and one Replay link',
+      given: 'a ready Recording',
+      should: 'show its facts, result and one Replay link',
       actual: [
-        html.includes('Semifinal rehearsal'),
-        html.includes('Standard rules · 30 min · Sep 29'),
-        html.includes('@debater-g'),
-        html.includes('Neg wins 2–1'),
-        /<a [^>]*href="\/recordings\/semifinal-rehearsal"/.test(html),
-        html.split('<a ').length - 1,
-        html.includes('Private'),
-      ],
-      expected: [true, true, true, true, true, 1, false],
+        'Semifinal',
+        '@ada',
+        '@lin',
+        'Negative wins',
+        'Replay Semifinal',
+      ].map((text) => html.includes(text)),
+      expected: [true, true, true, true, true],
     });
   });
 
-  test('my own recording carries visibility and retention', () => {
-    const html = row('mine', 0);
+  test('other states offer nothing fabricated', () => {
+    const text = render({ media: 'not_recorded', length: null });
     assert({
-      given: 'my private practice',
-      should: 'say You, Private and the keep line',
+      given: 'a transcript with no video',
+      should: 'offer reading, not replay',
       actual: [
-        html.includes('>You<'),
-        html.includes('Private'),
-        html.includes('Kept until [date]'),
+        text.includes('Not recorded'),
+        text.includes('Read Semifinal'),
+        text.includes('Replay'),
       ],
-      expected: [true, true, true],
+      expected: [true, true, false],
+    });
+    const held = render({ media: 'withheld', length: null });
+    assert({
+      given: 'video held back from this viewer, with a transcript',
+      should: 'say so and offer reading, not replay',
+      actual: [
+        held.includes('Video being held back'),
+        held.includes('Read Semifinal'),
+        held.includes('Replay'),
+      ],
+      expected: [true, true, false],
+    });
+    assert({
+      given: 'a permission that hides the result',
+      should: 'show none',
+      actual: render({ result: null }).includes('wins'),
+      expected: false,
+    });
+    assert({
+      given: 'the viewer own private Round',
+      should: 'show its visibility',
+      actual: render({ ownVisibility: 'private' }).includes('private'),
+      expected: true,
     });
   });
 });

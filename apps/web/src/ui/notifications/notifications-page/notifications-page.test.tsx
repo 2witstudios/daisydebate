@@ -1,3 +1,4 @@
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -19,7 +20,22 @@ const stored = [
 const render = (
   params: Record<string, string>,
   items: Parameters<typeof getNotifications>[1] = [],
-) => renderToString(h(NotificationsPage, getNotifications(params, items)));
+) =>
+  renderToString(
+    h(
+      AppRouterContext,
+      { value: {} as never },
+      h(NotificationsPage, {
+        ...getNotifications(
+          params,
+          items,
+          items.filter((item) => item.unread).length,
+        ),
+        markRead: () => async () => ({ values: {} }),
+        markAllRead: async () => ({ values: {} }),
+      }),
+    ),
+  );
 
 describe('NotificationsPage', () => {
   test('nothing stored', () => {

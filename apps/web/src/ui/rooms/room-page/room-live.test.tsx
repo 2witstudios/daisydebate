@@ -29,6 +29,7 @@ const render = (
         socketUrl: null,
         refusal,
         commandAction: async () => ({ values: {} }),
+        waiverAction: async () => ({ values: {} }),
         detailsAction: async () => ({ values: {} }),
         settingsAction: async () => ({ values: {} }),
         read: async () => ({ kind: 'unavailable' }) as const,

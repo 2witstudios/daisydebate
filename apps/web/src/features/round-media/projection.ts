@@ -5,7 +5,7 @@ import {
   mediaWindowClosed,
 } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
-import type { RoundMediaState } from '@daisy/protocol';
+import { conversational, type RoundMediaState } from '@daisy/protocol';
 
 type Store = Database['mediaSessions'];
 export type MediaSnapshot = NonNullable<
@@ -60,7 +60,13 @@ export const admissionRevoked = (
 export const seatGrants = (
   snapshot: Pick<
     MediaSnapshot,
-    'round' | 'now' | 'finalSegmentEndedAt' | 'participants' | 'withdrawn'
+    | 'round'
+    | 'now'
+    | 'finalSegmentEndedAt'
+    | 'participants'
+    | 'withdrawn'
+    | 'conversationHeld'
+    | 'cameraHeld'
   >,
   participantId: string,
   nextId: () => string,
@@ -83,7 +89,26 @@ export const seatGrants = (
         now: snapshot.now,
       }),
     finalSegmentEndedAt: snapshot.finalSegmentEndedAt,
+    conversationHeld: snapshot.conversationHeld,
+    cameraHeld: snapshot.cameraHeld,
   });
+
+const HELD_ALERT_MS = 30_000;
+
+/** Conversation that should be open has waited too long for the observer (ADR 0099). */
+export const conversationHeldOverdue = (
+  snapshot: Pick<
+    MediaSnapshot,
+    'round' | 'now' | 'finalSegmentEndedAt' | 'conversationHeld'
+  >,
+  nextId: () => string,
+): boolean => {
+  if (!snapshot.conversationHeld || mediaEnded(snapshot)) return false;
+  if (!conversational(mediaRuntime(snapshot, nextId).position(snapshot.now)))
+    return false;
+  const since = snapshot.finalSegmentEndedAt ?? snapshot.round.launchedAt;
+  return Date.parse(snapshot.now) - Date.parse(since) > HELD_ALERT_MS;
+};
 
 export function projectMedia(
   snapshot: MediaSnapshot,

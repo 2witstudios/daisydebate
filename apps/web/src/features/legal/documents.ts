@@ -1,3 +1,4 @@
+import { PRIVACY_CONTACT } from './contact';
 import { PRIVACY_VERSION, TERMS_VERSION } from './versions';
 
 type LegalSection = {
@@ -24,7 +25,7 @@ export const termsDocument: LegalDocument = {
       id: 'who-can-join',
       heading: 'Who can join',
       paragraphs: [
-        'You must be 13 or older to make an account. Members under 18 debate in a youth band and can be paired with adults in unrated and casual rooms only where a parent or guardian has agreed to these terms for them.',
+        'You must be 16 or older to make an account.',
         'One person holds one account. You sign in with an email link or a passkey, and you keep the sign-in methods you use private.',
       ],
     },
@@ -48,8 +49,9 @@ export const termsDocument: LegalDocument = {
       id: 'your-content',
       heading: 'What you post',
       paragraphs: [
-        'You own what you write and say. You give Daisy Debate permission to store it, show it to the people in the round and to spectators where the room allows, and keep a recording of a debate when the room says it is being recorded.',
-        'Prep material you save is private to you until you share it with a person or a team you choose.',
+        'In a ranked round, Daisy owns what is said and shown, under the ranked content waiver you sign once per season. Ranked rounds are always public, and they are broadcast and recorded. If every capture machine is busy, a round can run without a broadcast or recording; the debate and its result are not affected. Their video and transcript stay after you close your account. Anyone may stream and post them under the ranked content policy.',
+        'In any other round, your content stays with you and the other participants. You give Daisy Debate permission to store it, show it to the people in the round and to the audience where the room allows, and keep a recording when the host opted in and the room says so.',
+        'Prep material and drives stay yours on every kind of round, and are private to you until you share them with a person or a team you choose.',
       ],
     },
     {
@@ -64,7 +66,7 @@ export const termsDocument: LegalDocument = {
       id: 'ending-an-account',
       heading: 'Leaving, and being removed',
       paragraphs: [
-        'You can close your account at any time. Your username stays on the results you took part in, marked closed, so other people’s results remain accurate, and nobody else can take it.',
+        'You can close your account at any time. Your username stays on the results you took part in, marked closed, so other people’s results remain accurate, and nobody else can take it. Ranked video and transcripts stay too, because Daisy owns them.',
         'We may suspend or remove an account that breaks these terms. We tell you why, and you can answer.',
       ],
     },
@@ -79,7 +81,7 @@ export const termsDocument: LegalDocument = {
       id: 'changes',
       heading: 'Changes to these terms',
       paragraphs: [
-        'When a change is material we show the new version and ask you to accept it before you debate again. The version number at the top of this page changes with it.',
+        'When these terms change, the version number at the top of this page changes with them.',
       ],
     },
   ],
@@ -96,8 +98,8 @@ export const privacyDocument: LegalDocument = {
       heading: 'What we keep',
       paragraphs: [
         'Your email address and username, your sign-in methods, the sessions and devices you are signed in on, and your age band (we keep the month and year you gave, not a date of birth we do not need).',
-        'Your debate record: the rooms you joined, the results and ballots, your ratings, and recordings of rounds that were recorded.',
-        'Your prep library and anything you chose to share, and your settings.',
+        'Your debate record: the rooms you joined, the results and ballots, your ratings, and recordings of rounds that were recorded. Ranked rounds also keep a transcript.',
+        'Your prep library and anything you chose to share, and your settings. If you take part in an audience: your chat messages and reactions, who you follow, and what you have watched.',
       ],
     },
     {
@@ -113,23 +115,31 @@ export const privacyDocument: LegalDocument = {
       heading: 'Who sees it',
       paragraphs: [
         'Your username and ratings are public on the ladder unless you hide them. Your email is never shown to other members.',
-        'Other people in a round see what they need to take part: your username, your side, and what you say in it. Spectators see only what the room allows.',
-        'We use a small number of service providers to send email, to run the newsletter, and to find and fix errors. They process data for us and may not use it for their own purposes.',
+        'Other people in a round see what they need to take part: your username, your side, and what you say in it. The audience of a public or unlisted round sees and hears its debaters, on a delay, and reads its chat. Nobody needs an account to watch.',
+        'We use a small number of service providers: to run the service and hold its data (Fly.io), to store video (Tigris), to send email, to run the newsletter, to turn speech into text and run AI judging, and to find and fix errors. They process data for us and may not use it for their own purposes.',
+      ],
+    },
+    {
+      id: 'watching',
+      heading: 'Watching, and cookies',
+      paragraphs: [
+        'You can watch with no account. We then keep no profile of you: a random token in your browser counts viewers, your network address is only used briefly to limit abuse, and opening an unlisted link sets one cookie for that round.',
+        'Signed in, necessary cookies keep your session. Optional analytics and replay stay off unless you say yes.',
       ],
     },
     {
       id: 'how-long',
       heading: 'How long we keep it',
       paragraphs: [
-        'Account data is kept while the account is open. Sign-in sessions and verification links expire on their own. Recordings and prep material follow the visibility you chose, and you can delete them.',
-        'When you close your account we delete your email, sign-in, private profile, messages and what you said in rounds. Your username, results and the rounds you played stay on the public record, marked closed, so other people’s standings do not change. You can object to this by writing to us.',
+        'Account data is kept while the account is open. Sign-in sessions and verification links expire on their own. Prep material follows the visibility you chose, and you can delete it. A casual recording is kept until any participant removes it, and then the whole recording goes. Transcripts of casual rounds are deleted after 180 days. Ranked video and transcripts are kept for as long as Daisy runs ranked seasons. Your watch history is kept for a year, and audience chat and reactions for 180 days.',
+        'When you close your account we delete your email, sign-in, private profile, messages, audience chat and reactions, follows, watch history and what you said in casual rounds, and any casual recording you took part in goes whole. Your username, results and the rounds you played stay on the public record, marked closed, so other people’s standings do not change. Ranked video and transcripts, and your signed ranked content waiver, stay too: Daisy owns ranked content. One exception: a recording taken down under an open report is kept hidden until the report closes or 90 days pass, then deleted.',
       ],
     },
     {
       id: 'your-rights',
       heading: 'Your choices and rights',
       paragraphs: [
-        'You can see, correct, export and delete your data from settings. If something is missing there, write to us and we will do it.',
+        `From Settings you can export your data records and close your account. An export holds your data records, not video: downloading a recording is a paid feature, for those who can watch it. To correct something, object to how we use your data, or make any other request, write to ${PRIVACY_CONTACT}.`,
         'You can decline optional analytics and replay, and you can unsubscribe from the newsletter from any issue.',
       ],
     },
@@ -137,14 +147,14 @@ export const privacyDocument: LegalDocument = {
       id: 'young-members',
       heading: 'Members under 18',
       paragraphs: [
-        'Members aged 13 to 15 are not offered the newsletter or the optional interests step. We do not target schools, and we do not sell personal data.',
+        'You must be 16 or older to have an account. We do not target schools, and we do not sell personal data.',
       ],
     },
     {
       id: 'contact',
       heading: 'Contact',
       paragraphs: [
-        'Questions about privacy, or a request to see or delete your data, can be sent from Settings, under Privacy.',
+        `Questions about privacy, or any request about your data: ${PRIVACY_CONTACT}.`,
       ],
     },
   ],

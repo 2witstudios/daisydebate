@@ -7,5 +7,5 @@ export default async function HostRankedRoomPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/ranked/host', searchParams);
-  redirect('/play/room?rated=1');
+  redirect('/play/room?ranked=1');
 }

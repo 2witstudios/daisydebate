@@ -43,8 +43,10 @@ export function composeRoomRoutes(app: App) {
         store: app.database,
         redis: app.redis,
         ids: app.ids,
+        now: () => app.clock.now(),
         consentTtlMs: () => policy.consentTtlMs,
         aiSeats: () => app.aiSeats,
+        betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
         entropy: drawEntropy,
       }),
     });

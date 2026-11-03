@@ -107,7 +107,7 @@ const profileFor = (
   const { store, reads } = storeFor(true, account);
   return readProfile(
     { store, limiter },
-    { identity, username: 'debater-a', query },
+    { identity, username: 'debater-a', query, now: '2026-11-02T00:00:00.000Z' },
   ).then((profile) => ({ profile, reads }));
 };
 
@@ -187,6 +187,7 @@ describe('readProfile', () => {
         readProfile(
           { store, limiter },
           {
+            now: '2026-11-02T00:00:00.000Z',
             identity: {
               state: 'unavailable',
               principal: { kind: 'anonymous' },
@@ -206,6 +207,7 @@ describe('readProfile', () => {
         await readProfile(
           { store: missing.store, limiter },
           {
+            now: '2026-11-02T00:00:00.000Z',
             identity: visitor,
             username: 'nobody',
             query: {},
@@ -250,7 +252,12 @@ test('profile budget refusals precede every durable profile read', async () => {
             store,
             limiter: { consume: async () => decision! },
           },
-          { identity: visitor, username: 'debater-a', query: {} },
+          {
+            identity: visitor,
+            username: 'debater-a',
+            query: {},
+            now: '2026-11-02T00:00:00.000Z',
+          },
         ),
       code,
     });
@@ -279,6 +286,7 @@ test('profile read budgets cannot be split by username or history cursor', async
     await readProfile(
       { store, limiter: budget },
       {
+        now: '2026-11-02T00:00:00.000Z',
         identity: visitor,
         username,
         query: { before: roundId },

@@ -8,7 +8,7 @@ import {
 } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
 import { withSeasons } from '@daisy/db/seasons';
-import { recoverRatedResults } from './rated-room.test-support';
+import { recoverRankedResults } from './ranked-room.test-support';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { buildRoundTopic, type Ballot } from '@daisy/protocol';
@@ -297,7 +297,7 @@ test('an AI judging job no provider ever served by its budget is a known failure
 });
 
 for (const captured of [true, false])
-  test(`on a rated Round with a ${captured ? 'complete' : 'incomplete'} freeze, a decisive ballot beside a silent judge posts both ratings (DEC-277, DEC-329)`, async () => {
+  test(`on a ranked Round with a ${captured ? 'complete' : 'incomplete'} freeze, a decisive ballot beside a silent judge posts both ratings (DEC-277, DEC-329)`, async () => {
     await withRoomRuntime(async (f) => {
       const seasonId = createId();
       const { room, judges } = await readyTwoHumanJudgeRoom(f);
@@ -321,8 +321,8 @@ for (const captured of [true, false])
         const done = (await f.store.getRound(roundId))!;
         const [receipt] = await completions(f, roundId);
         const awaited = await awaitsRating(f, roundId);
-        await recoverRatedResults(f);
-        await recoverRatedResults(f);
+        await recoverRankedResults(f);
+        await recoverRankedResults(f);
         const ledger =
           await f.sql`select actor_id from rating_changes where round_id=${roundId}`;
         const roundReceipt = await readRoundRatings(f.store, {

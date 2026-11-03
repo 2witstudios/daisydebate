@@ -172,9 +172,14 @@ test('premium spectators, host-only members and judges cannot read or generate a
     assert({
       given: `an approved premium ${scenario.given}`,
       should:
-        'preserve the official read while refusing both round analysis capabilities',
+        'read the Round only with a seat or as host, and refuse both round analysis capabilities',
       actual,
-      expected: [true, false, false],
+      expected: [
+        scenario.createdByActorId === actorId ||
+          scenario.participants.some((p) => p.actorId === actorId),
+        false,
+        false,
+      ],
     });
   }
 });

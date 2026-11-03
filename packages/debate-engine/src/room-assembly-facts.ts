@@ -29,6 +29,13 @@ export type Edges = {
   readonly participantId: string;
   readonly formatId: string;
   readonly target: Target | null;
+  /**
+   * The host's casual AI judge entitlement (WATCH-16), read under the host's
+   * account fence. It says nothing on a ranked Room, where the seat is free.
+   */
+  readonly hostHoldsCasualAiJudge: boolean;
+  /** The host's casual capture entitlement (WATCH-8), read the same way. */
+  readonly hostHoldsCasualCapture: boolean;
   /** What the adapter loaded, under lock, for a select-format tuple (FMT-1). */
   readonly formatFacts?: FormatSelectionFacts | null;
   readonly resolutionPublication?: PublishedResolution | null;
@@ -107,3 +114,17 @@ export const acceptedRoomMutation = (
     ...overrides,
   },
 });
+
+/**
+ * Whether the host may name the Room's human judges: only a seatless host who
+ * did not inherit the Room. A seat gains nothing from hosting (WATCH-6), and an
+ * heir did not seat them (DEC-331).
+ */
+export const hostNamesJudges = (
+  room: Pick<
+    RoomAssemblyState,
+    'hostActorId' | 'hostInherited' | 'participants'
+  >,
+): boolean =>
+  !room.hostInherited &&
+  !room.participants.some((p) => p.actorId === room.hostActorId);

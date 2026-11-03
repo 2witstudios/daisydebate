@@ -127,12 +127,15 @@ describe('operator beta access commands (ADR 0079)', () => {
       assert({
         given: 'a pending account approved, then revoked, by operator commands',
         should:
-          'hold no grant while pending, both beta grants once approved, and none once revoked',
+          'hold no grant while pending, every beta grant once approved, and none once revoked',
         actual: { pending, approved, revoked: await grants() },
         expected: {
           pending: [],
           approved: [
             ['ai_rounds', 'beta'],
+            ['casual_ai_judge', 'beta'],
+            ['casual_capture', 'beta'],
+            ['recording_download', 'beta'],
             ['round_analysis', 'beta'],
           ],
           revoked: [],

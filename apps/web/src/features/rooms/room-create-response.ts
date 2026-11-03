@@ -14,7 +14,9 @@ export type RoomCreateRefusal =
   | 'replayed'
   | 'ranked-unavailable'
   | 'actor-ineligible'
-  | 'seat-unavailable';
+  | 'seat-unavailable'
+  | 'ai-judge-premium'
+  | 'notice-changed';
 export type RoomCreateAnswer =
   | { readonly kind: 'created'; readonly roomId: string }
   /** The caller already holds a Room (ADR 0070): return them to it. */
@@ -35,6 +37,7 @@ const conflictAnswer = (
     case 'ranked-unavailable':
     case 'actor-ineligible':
     case 'seat-unavailable':
+    case 'ai-judge-premium':
       return { kind: 'refused', reason: body.refusal };
     case 'command-conflict':
       return { kind: 'refused', reason: 'replayed' };
@@ -52,7 +55,15 @@ const conflictAnswer = (
     case 'consent-conflict':
     case 'draw-unavailable':
     case 'bots-busy':
+    case 'capture-premium':
+    case 'capture-host-limit':
+    case 'capture-capacity':
+    case 'broadcast-private':
+    case 'content-waiver-required':
+    case 'content-waiver-changed':
       return { kind: 'refused', reason: 'settings' };
+    case 'capture-notice-changed':
+      return { kind: 'refused', reason: 'notice-changed' };
   }
 };
 async function refusalOf(response: Response): Promise<RoomCreateAnswer> {

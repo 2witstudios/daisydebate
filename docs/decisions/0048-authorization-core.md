@@ -41,17 +41,20 @@ named as future work only.
 
 ### 1. The model
 
-| Concept         | What it is                                                                                       | Where it lives       |
-| --------------- | ------------------------------------------------------------------------------------------------ | -------------------- |
-| Ranked debate   | `mode = 'ranked'`: a ranked-eligible format under its canonical rules, counted on Daisy's ladder | `debates.mode`       |
-| Unranked debate | `mode = 'casual'`, any format, public, unlisted or private                                       | `debates.mode`       |
-| Season, rating  | Global: one active season, ratings per `(actor, format, season)` (ADR 0029)                      | `seasons`, `ratings` |
-| League          | Future tenant for tournaments. None exists at launch (section 6)                                 | LEAGUE-OPS           |
-| Capability      | A closed vocabulary of things that can be asked                                                  | `@daisy/protocol`    |
-| Decision        | `authorize(principal, capability, resource, context)` returns allow, or deny with a reason       | `@daisy/auth`, pure  |
+| Concept        | What it is                                                                                                   | Where it lives            |
+| -------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------- |
+| Ranked Round   | `competition_type = 'ranked'`: a ranked-eligible format under its canonical rules, counted on Daisy's ladder | `rounds.competition_type` |
+| Casual Round   | `competition_type = 'casual'`, any format, public, unlisted or private; a ranked Round is only ever public   | `rounds.competition_type` |
+| Season, rating | Global: one active season, ratings per `(actor, format, season)` (ADR 0029)                                  | `seasons`, `ratings`      |
+| League         | Future tenant for tournaments. None exists at launch (section 6)                                             | LEAGUE-OPS                |
+| Capability     | A closed vocabulary of things that can be asked                                                              | `@daisy/protocol`         |
+| Decision       | `authorize(principal, capability, resource, context)` returns allow, or deny with a reason                   | `@daisy/auth`, pure       |
 
 The rules of the model:
 
+- **Ranked is public.** A ranked Room is always public, refused otherwise at
+  creation, on edit and by the `rooms_ranked_public_check` constraint (owner
+  decision 2026-11-02, WATCH-5). Anyone unwilling to be public plays casual.
 - **Ranked is Daisy's.** Only ranked debates produce ratings, and ranked
   debates belong to no league and no tenant. Formats, their canonical rules
   and ranked eligibility are Daisy's rows (ADR 0030). No club, league or
@@ -125,7 +128,7 @@ authorizeInbox({ principal, inboxActorId, denyFacts }) →
 
 A principal carries no permissions. A service holds a fixed capability list.
 
-**Resources:** `debate { debateId, visibility, createdByActorId, ranked }`,
+**Resources:** `round { roundId, visibility, createdByActorId, ranked }`,
 and `ranked {}`.
 
 **Context** (loaded, section 5):
@@ -204,8 +207,8 @@ The evaluator is delivered by AZC-1.3. `@daisy/auth` gains the edge to
 
 ### 4. Schema
 
-**No migration.** Ranked and unranked debates, seasons and ratings already
-exist (ADR 0029): `debates.mode` names the competitive semantics, `seasons`
+**No migration.** Ranked and casual Rounds, seasons and ratings already
+exist (ADR 0029): `rounds.competition_type` names the competitive semantics, `seasons`
 keeps its one active season, and `ratings` stays keyed by
 `(actor, format, season)`. This epic adds no table and no column. Ranked
 rules (canonical rules on a ranked-eligible format, ADR 0030) stay the
@@ -222,12 +225,12 @@ composition has three parts:
   in `@daisy/db` (`packages/db/src/authorization/`). It returns a plain,
   structurally typed projection of rows and facts, with no `@daisy/auth`
   types. It reads the debate by id (visibility, creator, whether it is ranked),
-  then the principal's facts: seating (`debate_participants` for the actor)
+  then the principal's facts: seating (`round_participants` for the actor)
   and `users.deleted_at` for the `account-erased` fact. It keeps no
   cross-request cache and selects only columns that both `daisy_web` and
   `daisy_realtime` may read; `daisy_realtime` gains SELECT on
-  `users(id, deleted_at)`, and already has `debates` and
-  `debate_participants`.
+  `users(id, deleted_at)`, and already has `rounds` and
+  `round_participants`.
 - **`toAuthorizationInput(projection, principal)`** is a pure mapper in
   `@daisy/auth` that builds the resource and context `authorize` takes.
 - Each app composes the two: `apps/web` in `authorizeRequest`, `apps/realtime`

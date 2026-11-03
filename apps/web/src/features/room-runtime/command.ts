@@ -3,7 +3,7 @@ import { aiSeatOf } from './ai-seat';
 import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { castSeatsBotDebater, executeRoomCommand } from '@daisy/debate-engine';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
 import type {
@@ -12,11 +12,20 @@ import type {
   RoomCommandResponse,
 } from '@daisy/protocol';
 import { can, capabilityOf, digest } from './authority';
+import { hostHoldsCasualAiJudge } from './ai-judge-seating';
+import { hostHoldsCasualCapture } from './capture-offer';
+import {
+  captureNoticeRefusal,
+  contentWaiverRefusal,
+  requiredContentWaiver,
+  roomCaptureNotice,
+} from './ready-agreements';
 export function roomCommandOperation({
   store,
   redis,
   ids,
   aiSeats,
+  betaGrantsPremium,
   consentTtlMs,
   eligible,
   consentOf,
@@ -27,6 +36,7 @@ export function roomCommandOperation({
   redis: Pick<ReturnType<typeof createRedis>, 'setRoomConsent'>;
   ids: IdGenerator;
   aiSeats: () => AiSeatAvailability;
+  betaGrantsPremium: boolean;
   consentTtlMs: () => number;
   eligible: (state: RoomAssemblyState) => RoomAssemblyState;
   consentOf: (
@@ -67,6 +77,20 @@ export function roomCommandOperation({
           : null,
       roundId: ids.next(),
       seatsBotDebater: castSeatsBotDebater,
+      readyAgreements: (state) => {
+        const notice = roomCaptureNotice(state);
+        const contentWaiverVersion = requiredContentWaiver(state);
+        return notice || contentWaiverVersion
+          ? {
+              contentWaiverVersion,
+              notice: notice && {
+                id: ids.next(),
+                version: notice.version,
+                words: notice.text,
+              },
+            }
+          : null;
+      },
       authorizeRead: (state, account) =>
         can(caller, 'room.read', account, state),
       prepare: async (raw, preparedAt, account) => {
@@ -84,6 +108,9 @@ export function roomCommandOperation({
               now: preparedAt,
               participantId: ids.next(),
               formatId: ids.next(),
+              // Ready seats nobody; only seating and Launch read this.
+              hostHoldsCasualAiJudge: false,
+              hostHoldsCasualCapture: false,
               target: null,
               drawStart: null,
             },
@@ -111,6 +138,8 @@ export function roomCommandOperation({
           draw,
           formatFacts,
           resolutionPublication,
+          grants,
+          contentWaiver,
         ) => {
           if (!can(caller, capabilityOf(command), account, raw))
             throw createAppError('AUTHORIZATION');
@@ -128,6 +157,13 @@ export function roomCommandOperation({
               now,
               participantId: ids.next(),
               formatId: ids.next(),
+              // Only the host's own grants speak for the host.
+              hostHoldsCasualAiJudge:
+                state.hostActorId === caller.actorId &&
+                hostHoldsCasualAiJudge(grants, betaGrantsPremium),
+              hostHoldsCasualCapture:
+                state.hostActorId === caller.actorId &&
+                hostHoldsCasualCapture(grants, betaGrantsPremium),
               formatFacts,
               resolutionPublication,
               target: target
@@ -151,6 +187,12 @@ export function roomCommandOperation({
                 : null,
             },
           );
+          if (outcome.ok && command.type === 'ready') {
+            const refusal =
+              contentWaiverRefusal(contentWaiver) ??
+              captureNoticeRefusal(state, command.noticeVersion);
+            if (refusal) throw createRefusal('CONFLICT', refusal);
+          }
           // Unready replaces the durable fence even during Redis loss; the old lease no longer matches.
           return outcome;
         };

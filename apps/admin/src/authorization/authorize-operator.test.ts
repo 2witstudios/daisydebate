@@ -66,11 +66,11 @@ test('requiresSecondApproval', () => {
   });
   assert({
     given: 'two-person approval switched on',
-    should: 'require it only for the mutating action',
+    should: 'require it only for the mutating actions',
     actual: operatorActions.map((action) =>
       requiresSecondApproval(twoPerson, action),
     ),
-    expected: [false, true, false, false, false, true, true],
+    expected: [false, true, false, true, false, false, false, true, true],
   });
 });
 

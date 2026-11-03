@@ -98,6 +98,7 @@ test('discovery work is independent of historical Room and Round volume', async 
             () => true,
             () => true,
             () => false,
+            { now: new Date().toISOString(), rankedDelaySeconds: 0 },
             () => null,
           ),
         );

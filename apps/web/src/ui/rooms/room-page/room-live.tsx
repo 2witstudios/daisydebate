@@ -1,6 +1,8 @@
 'use client';
+import { roomWatchHref } from '../../../features/coming-soon/launch';
 import { roundEntry } from '../../../features/rooms/round-entry';
 import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
+import { roundLinkOf } from '../../../features/room-runtime/round-link';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -49,6 +51,7 @@ type Props = {
   /** A native post was refused and returned here with the notice and its reason. */
   readonly refusal: { readonly reason: RoomRefusal | null } | null;
   readonly commandAction: FormAction<RoomFormState>;
+  readonly waiverAction: FormAction<RoomFormState>;
   readonly detailsAction: FormAction<RoomFormState>;
   readonly settingsAction: FormAction<RoomFormState>;
   readonly read: () => Promise<RoomRead>;
@@ -81,11 +84,14 @@ export function RoomLive(props: Props) {
     [driver],
   );
   const syncedView = sync.value.view;
+  // Synced in place: the page redirects on a fresh load, this covers an open tab.
+  const watchHref = roomWatchHref(syncedView.watchRoundId);
   const [terminalRound, setTerminalRound] = useState<Pick<
     RoomView,
     'id' | 'roundRef'
   > | null>(() => roundEntry(seedView, props.actorId, null).terminal);
   const entry = roundEntry(syncedView, props.actorId, terminalRound);
+  const roundLink = roundLinkOf(syncedView, props.actorId);
   if (entry.terminal !== terminalRound) setTerminalRound(entry.terminal);
   const view = useMemo(
     () => ({ ...syncedView, roundRef: entry.roundRef }),
@@ -108,7 +114,11 @@ export function RoomLive(props: Props) {
         <RoomSetup
           view={view}
           choices={props.choices}
-          commandIds={{ details: ids.header.details, settings: ids.settings }}
+          commandIds={{
+            details: ids.header.details,
+            settings: ids.settings,
+            capture: ids.capture,
+          }}
           formatIds={ids.format}
           detailsAction={props.detailsAction}
           settingsAction={props.settingsAction}
@@ -136,6 +146,7 @@ export function RoomLive(props: Props) {
         view={view}
         actorId={props.actorId}
         read={read}
+        waiverAction={props.waiverAction}
         send={props.send}
         action={props.commandAction}
         commandIds={ids.readiness}
@@ -145,11 +156,13 @@ export function RoomLive(props: Props) {
           Create a new room
         </Link>
       ) : null}
-      {view.roundRef ? (
-        <MediaPageLink
-          href={`/rounds/${view.roundRef.id}`}
-          className="self-start"
-        >
+      {watchHref ? (
+        <Link href={watchHref} className="self-start">
+          Watch this Round
+        </Link>
+      ) : null}
+      {roundLink ? (
+        <MediaPageLink href={roundLink} className="self-start">
           View the round
         </MediaPageLink>
       ) : null}

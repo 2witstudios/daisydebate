@@ -3,6 +3,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createHash } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { sequentialId } from '@daisy/clock';
+import { launched } from '../features/coming-soon/launch';
 import { handleProxy, type ProxySettings } from './proxy-handler';
 
 setupRitewayBun();
@@ -275,6 +276,59 @@ describe('proxy early sign-in hint', () => {
     });
   });
 
+  /** Watch is the only destination with API routes, so it proves the closed answers. */
+  const watchClosed = { launchConfig: { ...launched, watch: false } };
+  const closedAt = (path: string) =>
+    proxy(new NextRequest(`https://internal.invalid${path}`), watchClosed);
+
+  test('a closed destination answers an API call as if it did not exist', async () => {
+    const closed = closedAt('/api/rounds/round/timeline');
+    assert({
+      given: 'an API route of a closed destination, with no cookie',
+      should: 'answer 404 with the public error body and no explainer redirect',
+      actual: {
+        status: closed.status,
+        location: closed.headers.get('location'),
+        cache: closed.headers.get('Cache-Control'),
+        code: ((await closed.json()) as { error: { code: string } }).error.code,
+      },
+      expected: {
+        status: 404,
+        location: null,
+        cache: 'no-store',
+        code: 'NOT_FOUND',
+      },
+    });
+    assert({
+      given: 'a page of the same closed destination',
+      should: 'still go to its explainer',
+      actual: [
+        closedAt('/audience/round').status,
+        closedAt('/audience/round').headers.get('location'),
+      ],
+      expected: [307, 'https://daisy.invalid/coming-soon/watch'],
+    });
+  });
+
+  test('a Room link is an ordinary guarded page while Watch is closed', () => {
+    assert({
+      given: 'a cookie-less Room link with Watch closed',
+      should: 'send the sign-in hint, since no Watch page lies behind it',
+      actual: closedAt('/rooms/abc').headers.get('location'),
+      expected: 'https://daisy.invalid/sign-in?next=%2Frooms%2Fabc',
+    });
+  });
+
+  test('the proxy lets a Recording removal through with Watch closed', () => {
+    const response = closedAt('/api/recordings/rec/removal');
+    assert({
+      given: 'the removal route with Watch closed',
+      should: 'reach its handler, which applies sign-in and its own rules',
+      actual: [response.status, response.headers.get('location')],
+      expected: [200, null],
+    });
+  });
+
   test('sends a closed destination to its explainer before any sign-in', () => {
     const locations = [
       '/tournaments',
@@ -282,8 +336,6 @@ describe('proxy early sign-in hint', () => {
       '/tournaments/mine/abc/certificate',
       '/prep/cards/abc',
       '//prep',
-      '/watch/abc',
-      '/recordings',
     ].map((path) => [at(path).status, at(path).headers.get('location')]);
     const explainer = (slug: string) => [
       307,
@@ -299,10 +351,71 @@ describe('proxy early sign-in hint', () => {
         explainer('tournaments'),
         explainer('prep'),
         explainer('prep'),
-        explainer('watch'),
-        explainer('watch'),
       ],
     });
+  });
+});
+
+test('only the replay page may read the private Recording bucket', () => {
+  const BUCKET = 'https://fly.storage.tigris.dev';
+  const policy = (path: string) =>
+    proxy(new NextRequest(`https://daisy.invalid${path}`), {
+      recordingBucketOrigin: BUCKET,
+    }).headers.get('Content-Security-Policy') ?? '';
+  const replay = policy('/recordings/abc');
+  assert({
+    given: 'the replay page with a configured bucket',
+    should: 'allow media and reads from it, for redirected signed reads',
+    actual: [
+      replay.includes(`media-src 'self' blob: ${BUCKET}`),
+      /connect-src [^;]*https:\/\/fly\.storage\.tigris\.dev/.test(replay),
+      /worker-src 'self'(;|$)/.test(replay),
+    ],
+    expected: [true, true, true],
+  });
+  assert({
+    given: 'any other page',
+    should: 'name no bucket',
+    actual: ['/recordings', '/watch/abc', '/lobby'].map((path) =>
+      policy(path).includes(BUCKET),
+    ),
+    expected: [false, false, false],
+  });
+});
+
+test('only the Round page may play the public feed', () => {
+  const FEED = 'https://bucket.t3.tigrisfiles.io';
+  const policy = (path: string) =>
+    proxy(new NextRequest(`https://daisy.invalid${path}`), {
+      broadcastPublicOrigin: FEED,
+    }).headers.get('Content-Security-Policy') ?? '';
+  const round = policy('/watch/abc');
+  assert({
+    given: 'the Round page with a configured feed origin',
+    should: 'allow media and reads from it, and only a same-origin worker',
+    actual: [
+      round.includes(`media-src 'self' blob: ${FEED}`),
+      /connect-src [^;]*https:\/\/bucket\.t3\.tigrisfiles\.io/.test(round),
+      /worker-src 'self'(;|$)/.test(round),
+    ],
+    expected: [true, true, true],
+  });
+  assert({
+    given: 'the hub, the archive and the Lobby',
+    should: 'keep the strict policy, naming no feed',
+    actual: ['/watch', '/recordings', '/lobby'].map((path) => {
+      const other = policy(path);
+      return [
+        other.includes(FEED),
+        other.includes('media-src'),
+        other.includes('worker-src'),
+      ];
+    }),
+    expected: [
+      [false, false, false],
+      [false, false, false],
+      [false, false, false],
+    ],
   });
 });
 
@@ -389,5 +502,42 @@ test('PostHog CSP admits only a configured regional origin', () => {
       policy('https://attacker.invalid').includes('attacker'),
     ],
     expected: [false, false],
+  });
+});
+
+describe('proxy search indexing', () => {
+  const request = (path: string, headers: Record<string, string> = {}) =>
+    new NextRequest(`https://daisy.invalid${path}`, { headers });
+  const robots = (path: string, overrides: Partial<ProxySettings>) =>
+    proxy(request(path), overrides).headers.get('x-robots-tag');
+
+  test('a closed deployment refuses indexing on every answer the proxy gives', () => {
+    const closed = { searchIndexing: 'closed' } as const;
+    assert({
+      given: 'a public page, a sign-in redirect and a foundation 404',
+      should: 'carry noindex on each',
+      actual: ['/', '/settings', '/foundation'].map((path) =>
+        robots(path, closed),
+      ),
+      expected: Array(3).fill('noindex, nofollow'),
+    });
+  });
+
+  test('an open deployment adds nothing', () => {
+    assert({
+      given: 'a deployment configured open',
+      should: 'leave the header off',
+      actual: robots('/', { searchIndexing: 'open' }),
+      expected: null,
+    });
+  });
+
+  test('settings that say nothing are closed', () => {
+    assert({
+      given: 'no indexing setting',
+      should: 'refuse indexing',
+      actual: robots('/', {}),
+      expected: 'noindex, nofollow',
+    });
   });
 });

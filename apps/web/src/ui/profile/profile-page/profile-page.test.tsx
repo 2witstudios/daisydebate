@@ -32,9 +32,27 @@ const profile = (overrides: Partial<MemberProfile> = {}): MemberProfile => ({
 });
 
 const render = (value: MemberProfile, paged = false) =>
-  renderToString(h(ProfilePage, { profile: value, paged }));
+  renderToString(h(ProfilePage, { profile: value, paged, watchOpen: true }));
 
 describe('ProfilePage', () => {
+  test('a history row opens only a page its reader may open', () => {
+    const roundId = 'r'.repeat(24);
+    const own = render(profile({ me: true }));
+    const closed = renderToString(
+      h(ProfilePage, { profile: profile(), paged: false, watchOpen: false }),
+    );
+    assert({
+      given: 'their own row, and a stranger\u2019s row before Watch opens',
+      should: 'link the seat to the Round, and give the stranger a title alone',
+      actual: [
+        own.includes(`href="/rounds/${roundId}"`),
+        closed.includes(`href="/rounds/${roundId}"`),
+        closed.includes(`href="/watch/${roundId}"`),
+      ],
+      expected: [true, false, false],
+    });
+  });
+
   test('someone else’s profile', () => {
     const html = render(profile());
     assert({
@@ -47,7 +65,7 @@ describe('ProfilePage', () => {
         html.includes('Member since September 2026'),
         html.includes('aria-label="Record"'),
         html.includes('No ruling'),
-        html.includes(`href="/rounds/${'r'.repeat(24)}"`),
+        html.includes(`href="/watch/${'r'.repeat(24)}"`),
         html.includes('href="/profile/debater-b"'),
         html.includes('>Won<'),
         html.includes('AI judge'),
@@ -142,7 +160,7 @@ describe('ProfilePage', () => {
         html.includes('This account is closed'),
         html.includes('Member since'),
         html.includes('aria-label="Record"'),
-        html.includes(`href="/rounds/${'r'.repeat(24)}"`),
+        html.includes(`href="/watch/${'r'.repeat(24)}"`),
       ],
       expected: [true, true, true, false, true, true],
     });
@@ -177,6 +195,22 @@ describe('ProfilePage', () => {
         ),
       ],
       expected: [true, true],
+    });
+  });
+
+  test('someone live in a public Round', () => {
+    const live = renderToString(
+      h(ProfilePage, {
+        profile: profile(),
+        paged: false,
+        liveRound: { href: '/watch/their-round', title: 'Friday night' },
+      }),
+    );
+    assert({
+      given: 'a member live in a public Round',
+      should: 'lead to it',
+      actual: live.includes('href="/watch/their-round"'),
+      expected: true,
     });
   });
 });

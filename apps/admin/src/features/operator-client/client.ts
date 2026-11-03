@@ -15,6 +15,14 @@ import {
   type moderationLiftCommandSchema,
   type reportResolveCommandSchema,
 } from '@daisy/protocol/operator';
+import {
+  contentModerationCommandResultSchema,
+  contentReportDetailSchema,
+  contentReportsPageSchema,
+  rebuildableRecordingsSchema,
+  type ContentModerationQueue,
+  type ContentReport,
+} from '@daisy/protocol/content-moderation';
 import { z } from 'zod';
 import { toBase64Url, type RandomBytes } from '../../auth/secrets';
 
@@ -251,6 +259,58 @@ export function createOperatorClient(deps: {
           signedAt,
         },
         betaAccessCommandResultSchema,
+      ),
+    listContentReports: (
+      operatorRef: string,
+      page: {
+        readonly queue: ContentModerationQueue;
+        readonly status: ContentReport['status'];
+        readonly limit: number;
+        readonly cursor?: string;
+      },
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: '/operator/v1/content-reports',
+          query: [
+            ['queue', page.queue],
+            ['status', page.status],
+            ['limit', String(page.limit)],
+            ...(page.cursor === undefined
+              ? []
+              : [['cursor', page.cursor] as const]),
+          ],
+        },
+        contentReportsPageSchema,
+      ),
+    readContentReport: (operatorRef: string, reportId: string) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: `/operator/v1/content-reports/${reportId}`,
+          query: [],
+        },
+        contentReportDetailSchema,
+      ),
+    listRebuildableRecordings: (operatorRef: string) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: '/operator/v1/recordings/rebuildable',
+          query: [],
+        },
+        rebuildableRecordingsSchema,
+      ),
+    /** One content moderation command at its own path; the body is already closed. */
+    moderate: (operatorRef: string, path: string, body: object) =>
+      call(
+        operatorRef,
+        { method: 'PUT', path, query: [], body: JSON.stringify(body) },
+        contentModerationCommandResultSchema,
       ),
     readCommand: (operatorRef: string, commandId: string) =>
       call(

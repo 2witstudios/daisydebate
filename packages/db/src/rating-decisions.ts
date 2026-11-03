@@ -3,13 +3,13 @@ import type { RatingPlan } from '@daisy/protocol';
 import type { RateDebateResult } from './rating-facts';
 
 /**
- * Rated-round integrity (ADR 0058 §8): corruption protection on frozen
+ * Ranked-round integrity (ADR 0058 §8): corruption protection on frozen
  * columns, never a decision. A ranked round carries a preset version whose
  * provenance the composite FK proves structurally; if any of that fails
  * here the round was corrupted after creation, and the failure is an
  * invariant, not an `{ kind: 'unrated', reason: … }`.
  */
-export function assertRatedRoundIntegrity(round: {
+export function assertRankedRoundIntegrity(round: {
   readonly competitionType: string;
   readonly presetVersion: unknown;
   readonly ladderId: string | null;

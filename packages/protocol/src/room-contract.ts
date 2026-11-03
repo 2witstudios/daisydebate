@@ -14,6 +14,7 @@ import {
   type RoomExecutionPlan,
 } from './room';
 import type { DrawPrivateInputs, ResolutionDrawState } from './resolution-draw';
+import { roomCaptureSchema, type RoomCapture } from './room-capture';
 import { roomResolutionSelectionSchema } from './room-resolution';
 import {
   competitionTypes,
@@ -103,6 +104,8 @@ export const roomCreateSchema = z
         message: 'A hold names an actor at most once',
       })
       .optional(),
+    /** The capture notice the create form showed its host, to be recorded; a ranked host with no seat must state it. */
+    noticeVersion: z.string().min(1).max(64).optional(),
   })
   .refine(
     (create) =>
@@ -113,6 +116,11 @@ export const roomCreateSchema = z
       message: 'A draw room has no topic; any other room needs one',
       path: ['resolution'],
     },
+  )
+  .refine(
+    (create) =>
+      create.selection.kind !== 'ranked' || create.visibility === 'public',
+    { message: 'A ranked Room is always public', path: ['visibility'] },
   );
 
 const envelope = { commandId: idSchema, expectedVersion: versionSchema };
@@ -154,6 +162,12 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
     presetVersion: versionSchema,
     topic: textSchema.optional(),
   }),
+  /** The host's capture choice; nothing chosen clears it (WATCH-8). */
+  z.strictObject({
+    ...envelope,
+    type: z.literal('set-capture'),
+    capture: roomCaptureSchema,
+  }),
   z.strictObject({ ...envelope, type: z.literal('claim-seat'), ...seat }),
   z.strictObject({
     ...envelope,
@@ -167,13 +181,18 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
     type: z.literal('remove-seat'),
     participantId: idSchema,
   }),
-  ...(['ready', 'unready'] as const).map((type) =>
-    z.strictObject({
-      ...envelope,
-      type: z.literal(type),
-      expectedConsentVersion: z.int().min(0),
-    }),
-  ),
+  z.strictObject({
+    ...envelope,
+    type: z.literal('ready'),
+    expectedConsentVersion: z.int().min(0),
+    /** The capture notice this form showed; absent when it showed none. */
+    noticeVersion: z.string().min(1).max(64).optional(),
+  }),
+  z.strictObject({
+    ...envelope,
+    type: z.literal('unready'),
+    expectedConsentVersion: z.int().min(0),
+  }),
   ...(['start-round', 'close'] as const).map((type) =>
     z.strictObject({ ...envelope, type: z.literal(type) }),
   ),
@@ -258,6 +277,8 @@ export type RoomAssemblyState = {
   readonly competitionType: CompetitionType;
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;
+  /** The casual host's capture choice; null when nothing is chosen, and always on ranked. */
+  readonly capture: RoomCapture | null;
   readonly executionPlan: RoomExecutionPlan;
   readonly rules: RoundRules;
   readonly roundRef: RoomRoundRef | null;

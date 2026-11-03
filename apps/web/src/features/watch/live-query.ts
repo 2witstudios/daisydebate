@@ -1,3 +1,4 @@
+import { idSchema } from '@daisy/protocol';
 import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
 import { watchRoutes } from './routes';
@@ -5,24 +6,23 @@ import { watchRoutes } from './routes';
 /** The hub's public tabs: Recordings is its own guarded route. */
 const hubTabs = ['live', 'following'] as const;
 const modes = ['any', 'ranked', 'casual'] as const;
-const sorts = ['watched', 'rated'] as const;
 
 type HubTab = (typeof hubTabs)[number];
 type LiveMode = (typeof modes)[number];
-type LiveSort = (typeof sorts)[number];
 
 export type LiveQuery = {
   readonly tab: HubTab;
   readonly mode: LiveMode;
   readonly q: string;
-  readonly sort: LiveSort;
+  /** The Round id this page starts after; empty on the first page. */
+  readonly before: string;
 };
 
 export const defaultLiveQuery: LiveQuery = {
   tab: 'live',
   mode: 'any',
   q: '',
-  sort: 'watched',
+  before: '',
 };
 
 export const MAX_SEARCH_LENGTH = 80;
@@ -36,7 +36,7 @@ const schema = z.object({
     .string()
     .transform((value) => value.trim().slice(0, MAX_SEARCH_LENGTH).trim())
     .catch(defaultLiveQuery.q),
-  sort: z.enum(sorts).catch(defaultLiveQuery.sort),
+  before: idSchema.catch(defaultLiveQuery.before),
 });
 
 const first = (value: string | readonly string[] | undefined) =>
@@ -48,7 +48,7 @@ export const parseLiveQuery = (params: SearchParams): LiveQuery =>
     tab: first(params['tab']),
     mode: first(params['mode']),
     q: first(params['q']),
-    sort: first(params['sort']),
+    before: first(params['before']),
   });
 
 /** The hub URL for a query, carrying only the non-default values. */
@@ -64,11 +64,12 @@ const withoutFilters = (query: LiveQuery): LiveQuery => ({
   ...query,
   mode: defaultLiveQuery.mode,
   q: defaultLiveQuery.q,
+  before: defaultLiveQuery.before,
 });
 
 export const clearFiltersHref = (query: LiveQuery): string =>
   hubHref(withoutFilters(query));
 
-/** True when a filter (not the tab or sort) differs from its default. */
+/** True when a filter (not the tab) differs from its default. */
 export const isFiltered = (query: LiveQuery): boolean =>
   hubHref(withoutFilters(query)) !== hubHref(query);

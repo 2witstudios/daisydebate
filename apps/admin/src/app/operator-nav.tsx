@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { signOutAction } from './actions';
 
-export type Section = 'accounts' | 'reports' | 'audit' | 'security';
+export type Section =
+  'accounts' | 'content-moderation' | 'reports' | 'audit' | 'security';
 
 const petals = [0, 60, 120, 180, 240, 300];
 
@@ -48,6 +49,7 @@ export function OperatorNav({
       <nav aria-label="Admin" className="site-sections">
         {link('accounts', '/accounts', 'Accounts')}
         {link('reports', '/reports', 'Reports')}
+        {link('content-moderation', '/content-moderation', 'Content')}
         {link('audit', '/audit', 'Audit')}
         {link('security', '/security', 'Security')}
       </nav>

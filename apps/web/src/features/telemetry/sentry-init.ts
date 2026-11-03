@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
-import { scrubEvent } from '@daisy/observability';
+import { scrubEvent, scrubTransaction } from '@daisy/observability';
 
 /**
  * ADR 0037: one scrubbed initialization shared by this app's runtime
@@ -7,7 +7,7 @@ import { scrubEvent } from '@daisy/observability';
  * `dataCollection`): no cookies, headers, query parameters, bodies, user
  * info, database payloads or stack-frame variables are gathered at all —
  * and every delivered event still runs the pure `scrubEvent` as
- * `beforeSend`. There is no session replay: replay is PostHog's, gated
+ * `beforeSend`, and every transaction the pure `scrubTransaction`. There is no session replay: replay is PostHog's, gated
  * separately (ADR 0036 §5). Returns whether the SDK initialized, so each
  * config file stays a pure gate on its own variable.
  */
@@ -30,6 +30,7 @@ export const initSentry = (input: {
     },
     tracesSampleRate: 1,
     beforeSend: (event) => scrubEvent(event),
+    beforeSendTransaction: (event) => scrubTransaction(event),
   });
   return true;
 };

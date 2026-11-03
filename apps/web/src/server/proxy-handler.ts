@@ -1,14 +1,24 @@
 import { roundMediaOrigins } from '../features/round-media/browser-policy';
+import { recordingPlaybackOrigin } from '../features/recording/browser-policy';
+import { broadcastPlaybackOrigin } from '../features/spectating/browser-policy';
 import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { IdGenerator } from '@daisy/clock';
+import { createAppError, toPublicError } from '@daisy/errors';
 import { isValidTraceparent } from '@daisy/observability';
 import { isGuardedPath, signInHref } from '../features/access/decision';
 import {
   closedDestinationOf,
   explainerHref,
+  isApiPath,
+  roomLinkReachesWatch,
+  type LaunchConfig,
 } from '../features/coming-soon/launch';
 import { returnableDestination } from '../features/auth/redirect';
+import {
+  robotsHeaderOf,
+  type SearchIndexing,
+} from '../features/search-indexing/search-indexing';
 import { hasSessionCookie } from '../features/auth/sessions/session-cookie'; // A nonce never authorizes a `style="…"` attribute, and `next/image` always
 // server-renders one. Hash the exact strings it emits (`fill`, and the default)
 // so every other inline style attribute stays refused. The CSP e2e fails if a
@@ -32,6 +42,10 @@ export type ProxySettings = {
   readonly websocketEndpoint?: string | null;
   /** Every LiveKit node's public URL. */
   readonly mediaPublicUrls?: readonly string[];
+  /** `BROADCAST_PUBLIC_ORIGIN`: where a Broadcast's public feed is read. */
+  readonly broadcastPublicOrigin?: string | null;
+  /** `RECORDING_BUCKET_ENDPOINT`: where a signed Recording read points. */
+  readonly recordingBucketOrigin?: string | null;
   /**
    * The configured Sentry ingest origin (ADR 0037): the browser capture may
    * connect only there, and only when `NEXT_PUBLIC_SENTRY_DSN` is set, so
@@ -42,6 +56,10 @@ export type ProxySettings = {
   readonly development: boolean;
   readonly ids: IdGenerator;
   readonly analyticsHost?: string | null;
+  /** `SEARCH_INDEXING`: unset is closed. */
+  readonly searchIndexing?: SearchIndexing;
+  /** Which destinations are open: the launch config unless a caller injects one. */
+  readonly launchConfig?: LaunchConfig;
 };
 
 /**
@@ -84,6 +102,19 @@ function edgeRedirect(
   return response;
 }
 
+/** A closed destination's API answers as a route that does not exist. */
+function closedApi(policy: string, requestId: string): NextResponse {
+  const { status, body } = toPublicError(
+    createAppError('NOT_FOUND'),
+    requestId,
+  );
+  const response = NextResponse.json(body, { status });
+  response.headers.set('Content-Security-Policy', policy);
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('x-request-id', requestId);
+  return response;
+}
+
 /**
  * Early hint only: a guarded request with no session cookie at all can never
  * pass, so skip the render. Whether a cookie is a live session is decided
@@ -94,9 +125,14 @@ function signInHint(
   policy: string,
   requestId: string,
   publicAppUrl: string,
+  launchConfig: LaunchConfig | undefined,
 ): NextResponse | null {
   const { pathname, search } = request.nextUrl;
-  if (!isGuardedPath(pathname) || hasSessionCookie(request.headers))
+  if (
+    !isGuardedPath(pathname) ||
+    hasSessionCookie(request.headers) ||
+    roomLinkReachesWatch(pathname, launchConfig)
+  )
     return null;
   const next = returnableDestination(`${pathname}${search}`);
   return edgeRedirect(signInHref(next), policy, requestId, publicAppUrl);
@@ -124,6 +160,9 @@ function contentSecurityPolicy(
     development,
   );
   const posthog = posthogSources(settings.analyticsHost);
+  const feed =
+    broadcastPlaybackOrigin(pathname, settings.broadcastPublicOrigin) ??
+    recordingPlaybackOrigin(pathname, settings.recordingBucketOrigin);
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
@@ -137,7 +176,11 @@ function contentSecurityPolicy(
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    `connect-src 'self'${posthog.apiHost ? ` ${posthog.apiHost}` : ''}${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${settings.sentryEndpoint ? ` ${settings.sentryEndpoint}` : ''}${development ? ' ws:' : ''}`,
+    // Only the Round page and the replay page play a stream: hls.js reads it, hands
+    // the video a blob of Media Source, and transmuxes in its own same-origin worker
+    // file. Native HLS on iOS Safari follows the replay's redirect as media.
+    ...(feed ? [`media-src 'self' blob: ${feed}`, "worker-src 'self'"] : []),
+    `connect-src 'self'${feed ? ` ${feed}` : ''}${posthog.apiHost ? ` ${posthog.apiHost}` : ''}${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${settings.sentryEndpoint ? ` ${settings.sentryEndpoint}` : ''}${development ? ' ws:' : ''}`,
     ...(development ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
 }
@@ -145,9 +188,17 @@ function contentSecurityPolicy(
 /**
  * Every request's first stop (bound in `proxy.ts`): the foundation gate,
  * the CSP nonce and policy, the closed destination's explainer, the early
- * sign-in hint, and trusted correlation headers.
+ * sign-in hint, and trusted correlation headers. Whatever it answers, a closed
+ * deployment stays out of search indexes.
  */
 export function handleProxy(request: NextRequest, settings: ProxySettings) {
+  const response = routeRequest(request, settings);
+  const robots = robotsHeaderOf(settings.searchIndexing ?? 'closed');
+  if (robots) response.headers.set('X-Robots-Tag', robots);
+  return response;
+}
+
+function routeRequest(request: NextRequest, settings: ProxySettings) {
   const requestId = settings.ids.next();
   const { pathname } = request.nextUrl;
   const closed = closedFoundation(
@@ -162,7 +213,12 @@ export function handleProxy(request: NextRequest, settings: ProxySettings) {
     crypto.getRandomValues(new Uint8Array(16)),
   ).toString('base64');
   const policy = contentSecurityPolicy(pathname, settings, nonce);
-  const closedDestination = closedDestinationOf(pathname);
+  const closedDestination = closedDestinationOf(
+    pathname,
+    settings.launchConfig,
+  );
+  if (closedDestination && isApiPath(pathname))
+    return closedApi(policy, requestId);
   if (closedDestination)
     return edgeRedirect(
       explainerHref(closedDestination),
@@ -170,7 +226,13 @@ export function handleProxy(request: NextRequest, settings: ProxySettings) {
       requestId,
       settings.publicAppUrl,
     );
-  const hint = signInHint(request, policy, requestId, settings.publicAppUrl);
+  const hint = signInHint(
+    request,
+    policy,
+    requestId,
+    settings.publicAppUrl,
+    settings.launchConfig,
+  );
   if (hint) return hint;
   const headers = new Headers(request.headers);
   // Never trust caller-supplied identifiers; proxy ingress establishes correlation.

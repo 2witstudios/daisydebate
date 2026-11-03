@@ -162,3 +162,10 @@ export type RoundPosition = {
   /** Remaining budget per side; null when the format has no in-round prep. */
   readonly prepBudgetRemainingMs: Readonly<Record<DebateSide, number>> | null;
 };
+
+/** Conversation microphones may open: before the first segment or awaiting a ballot. */
+export const conversational = (
+  position: Pick<RoundPosition, 'stage' | 'openSegment' | 'nextSegment'>,
+) =>
+  position.stage === 'awaiting_ballot' ||
+  (position.openSegment === null && position.nextSegment?.sequence === 0);

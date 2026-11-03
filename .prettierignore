@@ -17,3 +17,5 @@ apps/web/src/features/auth/mail/__fixtures__
 scripts/fixtures/playwright-report-planted.html
 
 .claude/ralph-loop.*.md
+# The Watch Status canvas's authored input: one table per line, rendered as is.
+scripts/watch-status-source.html

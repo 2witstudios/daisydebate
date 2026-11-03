@@ -1,3 +1,4 @@
+import { PRIVACY_CONTACT } from './contact';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { privacyDocument, termsDocument } from './documents';
 import { PRIVACY_VERSION, TERMS_VERSION } from './versions';
@@ -27,6 +28,48 @@ describe('legal documents', () => {
           section.paragraphs.every((paragraph) => paragraph.length > 0),
       ),
       expected: true,
+    });
+  });
+
+  test('the terms no longer say a member owns ranked content', () => {
+    const terms = termsDocument.sections
+      .flatMap((section) => section.paragraphs)
+      .join(' ');
+    assert({
+      given: 'the served terms',
+      should: 'separate ranked content, other rounds and prep',
+      actual: [
+        terms.includes('You own what you write and say'),
+        terms.includes('ranked content waiver'),
+        terms.includes('your content stays with you'),
+        terms.includes('Prep material and drives stay yours'),
+      ],
+      expected: [false, true, true, true],
+    });
+  });
+
+  test('the served text matches what the product does', () => {
+    const text = (document: typeof termsDocument) =>
+      document.sections.flatMap((section) => section.paragraphs).join(' ');
+    const terms = text(termsDocument);
+    const privacy = text(privacyDocument);
+    assert({
+      given: 'the served terms and privacy policy',
+      should:
+        'state 16+, promise no parental agreement or re-acceptance, and name what Watch keeps',
+      actual: [
+        terms.includes('16 or older'),
+        /13 or older|parent|guardian/.test(terms),
+        terms.includes('ask you to accept'),
+        [
+          'Tigris',
+          'watch history',
+          'audience chat',
+          'not video',
+          PRIVACY_CONTACT,
+        ].filter((word) => !privacy.includes(word)),
+      ],
+      expected: [true, false, false, []],
     });
   });
 

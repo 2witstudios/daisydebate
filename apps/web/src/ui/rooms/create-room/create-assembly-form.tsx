@@ -28,7 +28,7 @@ type FieldsProps = {
   readonly resolutions?: readonly PublishedResolution[];
   readonly state: CreateState;
   readonly pending: boolean;
-  readonly initialRated?: boolean;
+  readonly initialRanked?: boolean;
 };
 
 export function CreateAssemblyFields({
@@ -37,7 +37,7 @@ export function CreateAssemblyFields({
   resolutions = [],
   state,
   pending,
-  initialRated = false,
+  initialRanked = false,
 }: FieldsProps) {
   const first = defaultChoice(choices);
   if (!first)
@@ -65,7 +65,7 @@ export function CreateAssemblyFields({
       initialChoice={first}
       values={state.values}
       commandId={commandId}
-      initialRated={initialRated}
+      initialRanked={initialRanked}
       pending={pending}
       error={state.error}
     />
@@ -79,14 +79,14 @@ export function CreateAssemblyForm({
   commandId,
   choices,
   resolutions = [],
-  initialRated = false,
+  initialRanked = false,
 }: {
   readonly initialState?: FormState;
   readonly sourceRoomId?: string;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
   readonly resolutions?: readonly PublishedResolution[];
-  readonly initialRated?: boolean;
+  readonly initialRanked?: boolean;
 }) {
   const [state, setState] = useState<RoomDraftAnswer>(initialState);
   const [pending, startTransition] = useTransition();
@@ -128,7 +128,7 @@ export function CreateAssemblyForm({
         resolutions={state.resolutions ?? resolutions}
         state={state}
         pending={pending}
-        initialRated={initialRated}
+        initialRanked={initialRanked}
       />
     </form>
   );

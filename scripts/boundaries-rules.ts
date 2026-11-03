@@ -30,6 +30,10 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   'ai-voice': ['debate-engine', 'errors', 'protocol'],
   // VIDEO-1.4: isolated LiveKit vendor adapter; no competitive authority.
   media: ['errors', 'protocol'],
+  // ADR 0099: the hold worker's only credential is its broadcasts role.
+  'broadcast-worker': ['db', 'debate-engine', 'logger', 'protocol'],
+  // ADR 0107: builds from the hold; its role reaches only its jobs.
+  'recording-worker': ['db', 'logger', 'protocol'],
   // ADR 0053: capture deployment discovers sessions read-only under
   // daisy_media_worker and writes only through signed web ingress.
   'media-worker': [

@@ -33,6 +33,7 @@ test('discovery bounds SQL before Room locks and reads no aggregate', async () =
     () => true,
     () => true,
     () => false,
+    { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     () => null,
   );
   assert({
@@ -71,6 +72,7 @@ test('adapter refuses malformed page before any SQL', async () => {
         () => true,
         () => true,
         () => false,
+        { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
         () => null,
       ),
     code: 'VALIDATION',
@@ -92,6 +94,7 @@ test('lock-wait privacy changes never disclose an inaccessible cursor', async ()
       () => true,
       () => true,
       () => false,
+      { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
       () => null,
     );
     assert({
@@ -123,6 +126,7 @@ test('Lobby filters narrow the candidates and live facts read as ISO instants', 
     () => true,
     () => true,
     () => true,
+    { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     () => null,
   );
   assert({
@@ -167,6 +171,7 @@ test('discovery keys oldest and newest pages on immutable creation time and Room
       () => true,
       () => true,
       () => false,
+      { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
       () => null,
     );
     assert({

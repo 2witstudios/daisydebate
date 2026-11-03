@@ -211,7 +211,6 @@ export function liveRoundOf(
     ballots: judgingBallotsOf(judgeKindOf(view)),
     judgingState: view.waitingOn?.state ?? null,
     stakes: null,
-    recording: false,
     speeches: speechesOf(view),
     ...clocks,
     micLive: phase === 'own-speech' || phase === 'cross-ex',

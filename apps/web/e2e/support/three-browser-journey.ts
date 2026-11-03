@@ -92,20 +92,22 @@ export async function expectAutomaticRoundEntry(
         : seat === 'Affirmative 1'
           ? 'affirmative'
           : 'negative';
-    const expected = room.participants
-      .filter(isNamedSeat)
-      .find((p) => p.role === role && p.slot === 0)!;
+    // A judge's name is hidden from the Room, so a judge's own read is the only source.
     const actual = await readRound(page, roundId);
     const own = actual.participants
       .filter(isNamedSeat)
-      .find((p) => p.actorId === expected.actorId);
-    expect([
-      actual.id,
-      actual.roomId,
-      own?.actorId,
-      own?.role,
-      own?.slot,
-    ]).toEqual([roundId, room.id, expected.actorId, role, 0]);
+      .find((p) => p.role === role && p.slot === 0);
+    const named = room.participants
+      .filter(isNamedSeat)
+      .find((p) => p.role === role && p.slot === 0);
+    expect(own).toBeDefined();
+    expect([actual.id, actual.roomId, own?.role, own?.slot]).toEqual([
+      roundId,
+      room.id,
+      role,
+      0,
+    ]);
+    if (named) expect(own?.actorId).toBe(named.actorId);
     expect((await reread(page.request, room.id)).roundRef?.id).toBe(roundId);
   }
 }
@@ -363,9 +365,7 @@ export async function proveThreeBrowserRound(browser: Browser) {
     expect(roundViewSchema.parse(await readRound(host, first.roundId))).toEqual(
       finished,
     );
-    const seats = (await readRound(host, second.roundId)).participants.filter(
-      isNamedSeat,
-    );
+    const seats = (await readRound(host, second.roundId)).participants;
     expect(seats.map((seat) => seat.role).sort()).toEqual([
       'affirmative',
       'judge',

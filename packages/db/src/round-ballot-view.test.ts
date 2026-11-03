@@ -103,8 +103,8 @@ test('judges see their own ballot and the frozen input, others’ only after com
         own: null,
         freeze: null,
         ballots: [
-          { judge: 'human', ballot: body },
-          { judge: 'ai', ballot: body },
+          { judge: 'human', ballot: body, reportableFeedbackId: null },
+          { judge: 'ai', ballot: body, reportableFeedbackId: null },
         ],
       },
     },

@@ -16,7 +16,11 @@ const html = renderToStaticMarkup(
     <RoomSetup
       view={assemblySnapshot}
       choices={[unequalTemplate]}
-      commandIds={{ details: 'details-id', settings: 'settings-id' }}
+      commandIds={{
+        details: 'details-id',
+        settings: 'settings-id',
+        capture: 'capture-id',
+      }}
       formatIds={{
         choose: 'choose-id',
         reset: 'reset-id',

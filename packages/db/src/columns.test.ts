@@ -60,12 +60,18 @@ describe('jsonb columns (ISSUE-24)', () => {
         'ballots.citations',
         'ballots.feedback',
         'ballots.scores',
+        'broadcasts.release_policy',
+        'broadcasts.release_skips',
         'format_presets.config',
         'format_revisions.definition',
         'media_vendor_mutations.payload',
         'operator_command_receipts.result',
         'outbox.payload',
+        'recording_processing_jobs.state',
+        'recordings.eligibility',
+        'recordings.lifecycle',
         'room_commands.result',
+        'rooms.capture',
         'rooms.config',
         'rooms.execution_plan',
         'rooms.rules_snapshot',
@@ -75,6 +81,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'round_judging_attempts.diagnostic',
         'round_judging_jobs.pending_ballot',
         'round_resolution_draws.manifest',
+        'rounds.capture',
         'rounds.resolution_evidence',
         'rounds.room_config_snapshot',
         'rounds.rules_snapshot',
@@ -95,6 +102,8 @@ describe('jsonb columns (ISSUE-24)', () => {
           name === 'ballots.feedback' ||
           name === 'ballots.citations' ||
           name === 'round_judging_attempts.diagnostic' ||
+          name === 'rooms.capture' ||
+          name === 'rounds.capture' ||
           name === 'round_analyses.report' ||
           name === 'round_judging_jobs.pending_ballot'
             ? ['VALIDATION', 'VALIDATION', 'VALIDATION', 'accepted']

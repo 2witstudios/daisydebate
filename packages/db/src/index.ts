@@ -1,3 +1,4 @@
+import { createBroadcastStore } from './broadcast-store';
 import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
@@ -68,11 +69,25 @@ import {
 import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { betaAccessOperations } from './beta-access';
+import { contentModerationOperations } from './content-moderation-operations';
+import { audienceReactionOperations } from './audience-reactions';
+import { audienceSnapshotReads } from './audience-snapshot-reads';
+import { debaterFollowOperations } from './debater-follows';
+import {
+  spectatorChatModeration,
+  spectatorChatOperations,
+} from './messaging/spectator-chat';
+import { notificationOperations } from './notifications';
+import { watchHistoryOperations } from './watch-history';
 import { operatorAccountOperations } from './operator-accounts';
 import { provisionalRetentionOperations } from './provisional-retention';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
+import { agreementSignatureOperations } from './agreement-signatures';
+export type { ContentWaiverStanding } from './agreement-signatures';
+export type { SpectatorTimelineRead } from './spectator-timeline-reads';
+export type { LiveBroadcastPage } from './live-broadcast-reads';
 import { roomCommandOperations } from './room-command-operations';
 import { roomCommandTransaction } from './room-command-transaction';
 import { roundCommandOperations } from './round-command-operations';
@@ -85,7 +100,19 @@ import { ageStepOperations } from './age-step';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
+import { spectatorTimelineReads } from './spectator-timeline-reads';
+import {
+  liveBroadcastReads,
+  watchableRoundOfRoomRead,
+} from './live-broadcast-reads';
 import { memberProfileReadOperations } from './member-profile-reads';
+import { recordingArchiveReadOperations } from './recording-archive-reads';
+import { recordingModeration } from './recording-moderation';
+import { spectatorFactLogOperations } from './spectator-fact-log';
+import { createRecordingCaptureStore } from './recording-capture-store';
+import { recordingOperations } from './recording-operations';
+import { recordingRoundReadOperations } from './recording-round-reads';
+import { roundAudienceLinkOperations } from './round-audience-link';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
@@ -121,7 +148,9 @@ export type { ChannelObservationReads } from './messaging/observation-reads';
  * receives the opaque Drizzle handle of the lane its work belongs to and
  * the event sink, never a raw client, and returns records, not rows.
  * Competitive work (Rounds, Rooms, media, judging, bots) has its own lane;
- * social, audience and control traffic cannot take its connections. The
+ * social, audience, browse and control traffic cannot take its connections, and
+ * nothing competitive reads on the audience lane, so a full one refuses viewers
+ * alone. The
  * competitive kernel persists what the caller's domain decisions resolve —
  * the composition root (the app) injects the engine.
  */
@@ -163,6 +192,7 @@ export function createDatabase({
   const { database } = competitive;
   const social = workload.lane('social').database;
   const audience = workload.lane('audience').database;
+  const browse = workload.lane('browse').database;
   const controlLane = workload.lane('control');
   const control = controlLane.database;
   const dedicated =
@@ -189,6 +219,8 @@ export function createDatabase({
     }),
     ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
     ...roundAnalysisReads({ database }),
+    broadcasts: createBroadcastStore(database),
+    recordingCaptures: createRecordingCaptureStore(database),
     mediaSessions: namedLaneOperations(
       createMediaSessionStore({
         database,
@@ -282,6 +314,12 @@ export function createDatabase({
     ...mailIntentOperations({ database: control, eventSink }),
     ...betaAccessOperations({ database: control, eventSink }),
     ...operatorAccountOperations({ database: control, eventSink }),
+    ...contentModerationOperations({
+      database: control,
+      eventSink,
+      chat: spectatorChatModeration,
+      recordings: recordingModeration,
+    }),
     ...actorOperations({ database: control, eventSink }),
     ...messagingOperations(social, contactReactions),
     ...friendshipReadOperations({ database: social, eventSink }),
@@ -327,7 +365,8 @@ export function createDatabase({
       instrumented(eventSink, 'readOutboxCatchup', () =>
         readOutboxCatchup(control, topic, since, through, limit),
       ),
-    ...formatOperations({ database: audience, eventSink }),
+    ...formatOperations({ database, eventSink }),
+    ...agreementSignatureOperations({ database: control, eventSink }),
     ...roomCommandOperations({
       database,
       botAdmission: admission,
@@ -360,12 +399,26 @@ export function createDatabase({
     ...analyticsConsentOperations(control),
     ...onboardingOperations({ database: control, eventSink }),
     ...ageStepOperations({ database: control, eventSink }),
-    ...standingsOperations({ database: audience, eventSink }),
-    ...memberProfileReadOperations({ database: audience, eventSink }),
+    ...standingsOperations({ database: browse, eventSink }),
+    ...memberProfileReadOperations({ database: browse, eventSink }),
+    ...spectatorTimelineReads({ database: audience, eventSink }),
+    ...liveBroadcastReads({ database: audience }),
+    ...watchableRoundOfRoomRead({ database }),
+    ...audienceSnapshotReads({ database: audience, eventSink }),
+    ...spectatorChatOperations({ database: social, eventSink }),
+    ...audienceReactionOperations({ database: social, eventSink }),
+    ...debaterFollowOperations({ database: social, eventSink }),
+    ...watchHistoryOperations({ database: social, eventSink }),
+    ...notificationOperations({ database: social, eventSink }),
+    ...recordingRoundReadOperations({ database: browse }),
+    ...roundAudienceLinkOperations({ viewers: audience, host: database }),
+    ...recordingArchiveReadOperations({ database: browse }),
+    ...spectatorFactLogOperations({ database: control }),
+    ...recordingOperations({ database: control }),
     /**
      * Rates a completed round with the caller's domain decision (ADR 0055,
      * ADR 0058); see `rateCompletedRound`. Its consumer is the ratings
-     * feature; no production path calls that feature yet (RATE-2).
+     * feature's maintenance sweep.
      */
     rateRound: (input: RateDebateInput) =>
       instrumented(eventSink, 'rateRound', () =>

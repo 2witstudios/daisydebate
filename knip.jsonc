@@ -42,7 +42,7 @@
         "e2e/support/server.ts",
         // Bundled by the media-stage browser proof via the Bun CLI.
         "e2e/support/media-stage-fixture.tsx",
-        // Explicit Bun workers for isolated rated setup/rendering evidence.
+        // Explicit Bun workers for isolated ranked setup/rendering evidence.
         "e2e/support/rating-season-worker.ts",
         "e2e/support/rating-display-worker.ts",
         "integration/rating-recovery-worker.test-support.ts",
@@ -51,6 +51,7 @@
         "e2e/support/messaging-realtime-config.ts",
         "e2e/support/messaging-data-worker.ts",
         "e2e/support/transcript-seed-process.ts",
+        "e2e/support/broadcast-seed-process.ts",
         // Launch config/server are process entries selected by runner/command replacement;
         // evidence/release are Bun subprocess CLI entries, never browser imports.
         "e2e/support/room-launch-config.ts",
@@ -106,6 +107,9 @@
     },
     "packages/media": { "entry": ["integration/**/*.integration.ts"] },
     "apps/log-shipper": {
+      "entry": ["src/start.ts", "integration/**/*.integration.ts"],
+    },
+    "apps/recording-worker": {
       "entry": ["src/start.ts", "integration/**/*.integration.ts"],
     },
     "apps/media-worker": {

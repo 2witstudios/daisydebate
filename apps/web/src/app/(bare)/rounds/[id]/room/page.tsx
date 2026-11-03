@@ -1,5 +1,10 @@
 import { roundDocumentPrincipal } from '../../../../../features/debate-room/documents/document-principal';
-import { requestRoundRatings } from '../../../../../lib/request-session';
+import { shareLinkHref } from '../../../../../features/audience-link/audience-link';
+import { launched } from '../../../../../features/coming-soon/launch';
+import {
+  requestHostedAudienceLink,
+  requestRoundRatings,
+} from '../../../../../lib/request-session';
 import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
 import {
@@ -7,7 +12,7 @@ import {
   type TranscriptPlacement,
 } from '../../../../../ui/round-result/live-transcript';
 import { TranscriptSeedRecovery } from '../../../../../ui/round-result/transcript-seed-recovery';
-import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[debateId]/actions';
+import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[roundId]/actions';
 import { LiveJudgeRoom } from '../../../../../ui/debate-room/live-judge-room';
 import {
   leaveRoundAction,
@@ -29,11 +34,12 @@ import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
 import { temporarilyRefused } from '../../../../../server/temporary-read';
 import { reconnectingRoundPage } from '../../../../../ui/debate-room/round-reconnecting';
+import { SeatedSpectatorChat } from '../../../../(shell)/audience/seated-spectator-chat';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
 import { readPersistedTranscript } from '../../../../(shell)/rounds/[id]/read-persisted-transcript';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
 import {
-  spectatorAudienceOf,
+  spectatorKindOf,
   watchingRoomOf,
 } from '../../../../../features/spectating/spectator-view';
 import { LiveSpectatorRoom } from '../../../../../ui/spectating/live-spectator-room';
@@ -81,14 +87,14 @@ async function watchingRoom(
   }
   const room = watchingRoomOf({
     judgeRound: assigned.kind === 'found' ? assigned.round : null,
-    audience: spectatorAudienceOf(round, actorId),
+    spectatorKind: spectatorKindOf(round),
   });
   if (room.kind === 'receipt') redirect(`/rounds/${id}`);
   if (room.kind === 'spectator')
     return (
       <LiveSpectatorRoom
         view={round}
-        audience={room.audience}
+        spectatorKind={room.spectatorKind}
         transcript={transcript}
         renderedAtMs={Date.parse(systemClock.now())}
         read={readPersistedRound.bind(null, id)}
@@ -150,12 +156,27 @@ export default async function RoundRoomPage({
       transcriptIn('card'),
     );
   const here = `/rounds/${id}/room`;
+  const shareHref = shareLinkHref(
+    await requestHostedAudienceLink(id, identity),
+    id,
+    launched.watch,
+  );
   return (
     <>
       <MediaDocument />
       <LiveRoundRoom
         attendanceSlot={
           <>
+            {shareHref ? (
+              <a
+                href={shareHref}
+                target="_blank"
+                rel="noopener"
+                className="text-sm underline"
+              >
+                Share this Round by link
+              </a>
+            ) : null}
             <RoundRatings
               view={await ratingsUnlessRefused(() =>
                 requestRoundRatings(result.round),
@@ -172,6 +193,7 @@ export default async function RoundRoomPage({
             />
           </>
         }
+        audienceSlot={<SeatedSpectatorChat roundId={id} actorId={actorId} />}
         transcript={transcriptIn('sidebar')}
         commandAction={roundCommandAction.bind(null, id)}
         commandIds={roundCommandIds(() => systemId.next())}

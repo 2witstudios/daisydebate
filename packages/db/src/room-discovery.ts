@@ -13,6 +13,7 @@ import {
   type Tx,
 } from './room-command-facts';
 import { loadAuthorizationAccount } from './authorization';
+import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
 type Seat = {
   readonly actorId: string;
@@ -42,8 +43,13 @@ const joins = sql`left join actors h on h.id=r.host_actor_id left join users u o
 const hostIsHumanJudge = sql`(h.kind='human' and exists(select 1 from room_participants j where j.room_id=r.id and j.actor_id=r.host_actor_id and j.role='judge'))`;
 const visible = (caller: Caller) =>
   sql`(r.visibility='public' or r.host_actor_id=${caller.actorId} or exists(select 1 from room_participants p where p.room_id=r.id and p.actor_id=${caller.actorId} limit 1 offset 0))`;
-const roundVisible = (caller: Caller) =>
-  sql`(d.visibility in ('public','unlisted') or d.created_by_actor_id=${caller.actorId} or exists(select 1 from round_participants p where p.round_id=d.id and p.actor_id=${caller.actorId} limit 1 offset 0))`;
+/**
+ * A live Round is only ever listed to who is in it, and scoped here, before search
+ * and paging, so a search for its resolution or host answers an outsider exactly as a
+ * miss does (WATCH-6). The audience reaches a live Round through the Live listing.
+ */
+const inLaunchedRound = (caller: Caller) =>
+  sql`(r.host_actor_id=${caller.actorId} or d.created_by_actor_id=${caller.actorId} or exists(select 1 from round_participants p where p.round_id=d.id and p.actor_id=${caller.actorId} limit 1 offset 0))`;
 /** The open-Room states a status filter selects; live Rooms come from their Round. */
 const assemblyStatuses = (status: RoomListQuery['status']) =>
   status === 'open'
@@ -61,7 +67,17 @@ const modeMatches = (mode: RoomListQuery['mode']) =>
 /** Seat totals and the format label, read with the page; never a lock target. */
 const seatCount = sql`((r.rules_snapshot->'seats'->>'affirmative')::int+(r.rules_snapshot->'seats'->>'negative')::int+(r.rules_snapshot->'seats'->>'judge')::int)`;
 const seatsTaken = sql`case when r.status='started' then (select count(*)::int from round_participants s where s.round_id=d.id) else (select count(*)::int from room_participants s where s.room_id=r.id) end`;
-const hostRating = sql`case when r.competition_type='ranked' then (select round(rt.rating)::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id limit 1) end`;
+/** The host's rating where the audience may know it: before any posting still held by the timeline. */
+const hostRating = (clock: SpectatorClock) => {
+  const held = {
+    id: sql`c_r.id`,
+    status: sql`c_r.status`,
+    competitionType: sql`c_r.competition_type`,
+    completedAt: sql`c_r.completed_at`,
+  };
+  const earliestHeld = sql`(select c.rating_before from rating_changes c join rounds c_r on c_r.id=c.round_id where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.season_id=rt.season_id and not ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)} order by c.occurred_at asc limit 1)`;
+  return sql`case when r.competition_type='ranked' then (select round(coalesce(${earliestHeld},rt.rating))::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id limit 1) end`;
+};
 const search = (q: string, topic: SQL) =>
   sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(${topic}),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;
 /** A launched Room's row shows its Round's resolution, so search reads the same text. */
@@ -94,6 +110,7 @@ export async function discoverRooms(
   authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
   authorizeCollection: (account: Account) => boolean,
   hostHidden: (fact: RoomDiscoveryFact) => boolean,
+  clock: SpectatorClock,
   readTopic: ReadOpeningTopic,
 ): Promise<RoomListPage> {
   const parsed = roomListQuerySchema.safeParse(input);
@@ -111,7 +128,7 @@ export async function discoverRooms(
     union all
     (select r.id,r.created_at from rounds d join rooms r on r.id=d.room_id ${joins}
       where ${launched} and ${modeMatches(mode)} and d.status in ('opening','active') and d.room_id is not null and r.status='started'
-        and ${order.after} and ${visible(caller)} and ${roundVisible(caller)} and ${search(q, launchedTopic)}
+        and ${order.after} and ${visible(caller)} and ${inLaunchedRound(caller)} and ${search(q, launchedTopic)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
   ) candidates order by created_at ${order.direction},id collate "C" ${order.direction} limit ${pageSize + 1}
  `)) as unknown as { id: string }[];
@@ -140,7 +157,7 @@ export async function discoverRooms(
    f.name as "formatLabel",${seatsTaken} as "seatsTaken",${seatCount} as "seatCount",
    case when r.status in ('assembling','ready') then r.created_at end as "waitingSince",
    case when r.status='started' then json_build_object('stage',d.current_stage,'startedAt',d.started_at) else null end as "live",
-   ${hostRating} as "hostRating"
+   ${hostRating(clock)} as "hostRating"
   from rooms r ${joins}
   join formats f on f.id=r.format_id
   left join room_participants p on p.room_id=r.id and p.actor_id=${caller.actorId}
@@ -148,7 +165,7 @@ export async function discoverRooms(
   left join round_participants rp on rp.round_id=d.id and rp.actor_id=${caller.actorId}
   where r.id=any(${idSet}) and ${visible(caller)} and ${search(q, launchedTopic)}
    and ${modeMatches(mode)}
-   and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${roundVisible(caller)}))
+   and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${inLaunchedRound(caller)}))
   order by r.created_at ${order.direction},r.id collate "C" ${order.direction}
  `)) as unknown as (Omit<RoomListEntry, 'waitingSince' | 'live'> & {
     waitingSince: Date | string | null;

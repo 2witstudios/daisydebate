@@ -113,9 +113,11 @@ a:hover {
 }
 .site-sections {
   display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   gap: 4px;
   height: 100%;
+  max-width: 100%;
 }
 .site-sections a {
   display: flex;

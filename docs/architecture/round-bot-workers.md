@@ -18,7 +18,8 @@ budget ([round analysis](round-analysis.md)). Configured application composition
 injected OS-CSPRNG token producer. Only the process edge supplies that producer;
 the database uses the existing bounded transaction and connection pool. The
 busy cap on live bot-debater Rounds and the host AI-round allowance remain
-separate economic controls; the free AI judge uses neither (DEC-186).
+separate economic controls; the AI judge uses neither (DEC-186). Seating one on
+a casual Round has its own entitlement ([rooms](../domains/rooms.md#judging)).
 
 A worker claims a scoped job/run/epoch with a memory-only bearer. Stored lease
 secrets are SHA3-256 digests. Renewal runs independently of provider calls and
