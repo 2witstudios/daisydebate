@@ -54,7 +54,7 @@ When a round uses live audio, short clips of your speech are sent to our AI prov
 
 To judge a round, give feedback, or let an AI opponent reply, the AI provider receives the resolution and the transcript, labelled by side and seat only, never with your name, username or email.
 
-Transcripts and AI feedback are deleted 180 days after they are created, and an AI ballot still awaiting a result is discarded 180 days after it arrives. [COUNSEL: confirm the disclosure of AI processing and whether the provider’s zero-retention terms need to be named here.]
+Transcripts of casual rounds and AI feedback are deleted 180 days after they are created; ranked transcripts are kept with ranked video, and an AI ballot still awaiting a result is discarded 180 days after it arrives. [COUNSEL: confirm the disclosure of AI processing and whether the provider’s zero-retention terms need to be named here.]
 
 ## Who can see it
 
@@ -100,13 +100,13 @@ Email delivery records are deleted after 30 days. A record that an address bounc
 
 Our application’s logs are kept no longer than 30 days. The hosting platform’s and the live audio and video relay’s technical logs follow their own retention, as stated under “Why we use it”.
 
-Transcripts and AI feedback are deleted after 180 days, and an AI ballot still awaiting a result is discarded 180 days after it arrives.
+Transcripts of casual rounds and AI feedback are deleted after 180 days; ranked transcripts are kept with ranked video, and an AI ballot still awaiting a result is discarded 180 days after it arrives.
 
 [OWNER: decide and state how long an account that never finishes sign-up is kept; today it is not deleted automatically.]
 
 ## Age requirements and children
 
-You must be 16 or older to use Daisy during the beta. After the beta the minimum age will be 13. [OWNER: confirm the post-beta minimum age.] Optional onboarding questions are only ever asked of members 16 or older.
+You must be 16 or older to use Daisy. Optional onboarding questions are only ever asked of members 16 or older.
 
 When you sign up we ask your birth month and year. If you are under 13, or under the beta minimum age, we tell you so in neutral words and keep nothing you entered: the account that started to be created is deleted immediately, with its sign-in links and sessions.
 
@@ -140,9 +140,9 @@ We use no advertising or analytics cookies and no other tracking technologies, a
 
 You can ask to access, correct, export or delete your personal data, to restrict or object to how we use it, and to withdraw consent where we rely on it. You can also complain to your data protection authority.
 
-Today you can end sessions and manage passkeys and your sign-in email in Settings. For anything else, including deleting your account or getting a copy of your data, write to [OWNER: privacy contact email]. We will answer within [COUNSEL: response period, for example one month].
+In Settings you can end sessions, manage passkeys and your sign-in email, export your data records and close your account. An export holds data records, not video: downloading a recording is a paid feature. For anything else, write to [OWNER: privacy contact email]. We will answer within [COUNSEL: response period, for example one month].
 
-When an account is closed we delete your email address, name and image, sessions, passkeys, birth month, onboarding answers, terms acceptance, beta access record, friends, messages and the transcripts of what you said. Your username stays on the results, rounds, ballots and ratings you took part in, marked closed, and is never given to anyone else; room titles, topics and resolutions stay with the rounds they were debated in. Ranked rounds also keep their video, and your signed waiver and notice records stay as the evidence of what you agreed to. We keep them because other members’ records and tournament qualification depend on them (legitimate interest). You can object, and we will review your objection. [COUNSEL: confirm the legitimate-interest basis and the objection procedure (COMP-4, docs/operations/compliance.md).] Documents you created in debate rooms are not yet removed with the account; you can ask us to remove them.
+When an account is closed we delete your email address, name and image, sessions, passkeys, birth month, onboarding answers, terms acceptance, beta access record, friends, messages, audience chat and reactions, follows, watch history and the transcripts of what you said in casual rounds. Your username stays on the results, rounds, ballots and ratings you took part in, marked closed, and is never given to anyone else; room titles, topics and resolutions stay with the rounds they were debated in. Ranked rounds also keep their video, and your signed waiver and notice records stay as the evidence of what you agreed to. We keep them because other members’ records and tournament qualification depend on them (legitimate interest). You can object, and we will review your objection. [COUNSEL: confirm the legitimate-interest basis and the objection procedure (COMP-4, docs/operations/compliance.md).] Documents you created in debate rooms are not yet removed with the account; you can ask us to remove them.
 
 While your beta access is pending or withdrawn you can still reduce your own footprint, as the terms of service describe under “The beta and the waiting list”.
 
