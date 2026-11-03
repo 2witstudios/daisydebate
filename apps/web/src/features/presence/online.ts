@@ -9,7 +9,7 @@ import type {
   RatingLadder,
   RatingState,
   RoundStatus,
-  RatedOutcome,
+  RoundOutcome,
   DebateRole,
 } from '@daisy/protocol';
 import type { RosterCursor, RosterRow } from '@daisy/db/presence-roster';
@@ -168,7 +168,7 @@ export async function readOnlineRoster(
         .filter((group) => group.actorId === row.actorId)
         .map((group) => ({
           status: group.status as RoundStatus,
-          outcome: group.outcome as RatedOutcome | null,
+          outcome: group.outcome as RoundOutcome | null,
           role: group.role as DebateRole,
           rounds: group.rounds,
         })),

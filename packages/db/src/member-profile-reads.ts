@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import type { DebateRole, RatedOutcome, RoundStatus } from '@daisy/protocol';
+import type { DebateRole, RoundOutcome, RoundStatus } from '@daisy/protocol';
 import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -34,7 +34,7 @@ type MemberRow = {
 /** The member's debating Rounds, counted per state, outcome and side. */
 type RecordGroup = {
   readonly status: RoundStatus;
-  readonly outcome: RatedOutcome | null;
+  readonly outcome: RoundOutcome | null;
   readonly role: DebateRole;
   readonly rounds: number;
 };

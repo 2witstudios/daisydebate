@@ -1,15 +1,11 @@
 import { createAppError } from '@daisy/errors';
-import type { DebateSide } from '@daisy/protocol';
+import type { DebateSide, JudgeRuling } from '@daisy/protocol';
 
 type Seat = { readonly id: string; readonly role: string };
-type Ruling = {
-  readonly judgeParticipantId: string;
-  readonly winner: DebateSide;
-};
 /** Every required seat must supply exactly one valid ruling. A tie has no winner: there are no draws (DEC-277). */
 export function deriveRoundOutcome(
   seats: readonly Seat[],
-  ballots: readonly Ruling[],
+  ballots: readonly JudgeRuling[],
 ): DebateSide | null {
   const required = seats
     .filter((seat) => seat.role === 'judge')
@@ -40,7 +36,7 @@ export function deriveRoundOutcome(
 
 /** The exact rulings admitted by the partial finalizer; preserves caller-owned IDs. */
 export const participatingRulings = <
-  T extends Pick<Ruling, 'judgeParticipantId'>,
+  T extends Pick<JudgeRuling, 'judgeParticipantId'>,
 >(
   judgeSeatIds: readonly string[],
   ballots: readonly T[],

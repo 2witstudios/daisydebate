@@ -5,7 +5,10 @@ import {
   type MediaSessionSnapshot,
   type MediaSessionRead,
 } from './media-session-snapshot';
-import { requireMediaWindow } from './media-session-authority';
+import {
+  requireMediaWindow,
+  type MediaWindowRule,
+} from './media-session-authority';
 import type { ParticipantAdmission } from './participant-admission';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { LockedRoundTickInput } from './round-clock-transaction';
@@ -39,6 +42,7 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
     /** ADR 0075: participant access, for the human caller and every human seat. */
     readonly admits: ParticipantAdmission;
     readonly buildProjection: LockedRoundTickInput['buildProjection'];
+    readonly mediaWindowClosed: MediaWindowRule;
     /**
      * The reconcile lease owner the caller holds, if any. A live lease
      * refuses the token unless it is the caller's own (ISSUE-534).
@@ -75,6 +79,7 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
       );
       if (!binding) throw createAppError('AUTHORIZATION');
       requireMediaWindow(
+        input.mediaWindowClosed,
         snapshot.round.status,
         snapshot.now,
         snapshot.finalSegmentEndedAt,

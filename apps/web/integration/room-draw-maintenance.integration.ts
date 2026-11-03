@@ -141,7 +141,7 @@ test('a tick persisting a bot strike does not refuse the debater whose turn it o
       setTimeout(resolve, AUTOMATIC_STRIKE_DELAY_MS + 250),
     );
     // The form the debater sees: settled on read, before any tick persists it.
-    const seen = await f.operations.roundView(f.host, roundId);
+    const seen = await f.roundView(f.host, roundId);
     const draw = seen.opening!.draw!;
     if (draw.visibility !== 'debater') throw new Error('A debater view');
     const struck = new Set(draw.strikes.map((s) => s.position));
@@ -173,8 +173,8 @@ test('a tick persisting a bot strike does not refuse the debater whose turn it o
     assert({
       given: 'a strike form rendered before the tick persisted the bot strike',
       should: 'take the strike, because its ordinal names the turn',
-      actual: (await f.operations.roundView(f.host, roundId)).opening!.draw!
-        .strikes.length,
+      actual: (await f.roundView(f.host, roundId)).opening!.draw!.strikes
+        .length,
       expected: 2,
     });
     await assertRejects({

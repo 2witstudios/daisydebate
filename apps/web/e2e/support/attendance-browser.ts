@@ -1,4 +1,5 @@
 import type {
+  Frame,
   APIRequestContext,
   BrowserContext,
   Page,
@@ -112,18 +113,14 @@ export async function enterSpeech(
   await page.goto(`/rounds/${roundId}/room`);
   return { page, connections, receipt: await receiptFrom(await response) };
 }
-/**
- * The first receipt the page requests once `action` starts, never one the
- * previous document asked for. Its body is read as it arrives: a reload
- * navigates away from a response, and Chromium then drops its body.
- */
-export async function nextReceipt(
+/** The first receipt requested once `watch` starts counting. Its body is read as it arrives. */
+async function firstReceipt(
   page: Page,
   roundId: string,
   action: () => Promise<unknown>,
+  watch: (track: (request: Request) => void) => () => void,
 ) {
   const requested = new Set<Request>();
-  const track = (request: Request) => requested.add(request);
   let body: unknown;
   const pending = page.waitForResponse(async (response) => {
     if (
@@ -136,12 +133,45 @@ export async function nextReceipt(
   });
   // A failed action leaves this wait unawaited; report only that failure.
   pending.catch(() => undefined);
-  page.on('request', track);
+  const stop = watch((request) => requested.add(request));
   try {
     await action();
     await pending;
   } finally {
-    page.off('request', track);
+    stop();
   }
   return attendanceReceiptSchema.parse(body);
 }
+/** The first receipt this page requests once `action` starts; it must not navigate. */
+export const nextReceipt = (
+  page: Page,
+  roundId: string,
+  action: () => Promise<unknown>,
+) =>
+  firstReceipt(page, roundId, action, (track) => {
+    page.on('request', track);
+    return () => page.off('request', track);
+  });
+/**
+ * The new document's first receipt after a reload. Counting starts when the
+ * main frame commits: the old document can still send one, whose body is either
+ * discarded by the navigation or a replay that proves nothing about this page.
+ */
+export const receiptAfterReload = (page: Page, roundId: string) =>
+  firstReceipt(
+    page,
+    roundId,
+    () => page.reload(),
+    (track) => {
+      const committed = (frame: Frame) => {
+        if (frame !== page.mainFrame()) return;
+        page.off('framenavigated', committed);
+        page.on('request', track);
+      };
+      page.on('framenavigated', committed);
+      return () => {
+        page.off('framenavigated', committed);
+        page.off('request', track);
+      };
+    },
+  );

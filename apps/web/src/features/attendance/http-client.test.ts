@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { round } from '../room-runtime/operations.test-support';
+import { round } from '../round-runtime/round.test-support';
 import { createAttendanceHttpClient } from './http-client';
 setupRitewayBun();
 const command = { commandId: 'c'.repeat(24), segmentId: 's'.repeat(24) };

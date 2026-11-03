@@ -1,3 +1,4 @@
+import { mediaWindowEndsAt } from '@daisy/debate-engine/media-window';
 import type { RoundView } from '@daisy/protocol';
 
 const gapRefreshAt = (view: RoundView): number | null => {
@@ -10,10 +11,10 @@ const gapRefreshAt = (view: RoundView): number | null => {
     view.segments.length === 0 ? view.startedAt : view.segments.at(-1)?.endedAt;
   return anchor ? Date.parse(anchor) + view.rules.countdownMs : null;
 };
-const judgingRefreshAt = (view: RoundView): number[] => {
+const mediaCloseRefreshAt = (view: RoundView): number[] => {
   const last = view.segments.at(-1);
   return last?.endedAt && view.segments.length === view.rules.segments.length
-    ? [Date.parse(last.endedAt) + 30 * 60_000]
+    ? [mediaWindowEndsAt(last.endedAt)]
     : [];
 };
 /** These deadlines request a server read; they never open a browser microphone. */
@@ -30,7 +31,7 @@ export function nextMediaRefreshAt(view: RoundView): number | null {
         view.rules.inRoundPrep.budgetMsPerSide -
         view.checkpoint!.prep_consumed_ms[prep.side],
     );
-  deadlines.push(...judgingRefreshAt(view));
+  deadlines.push(...mediaCloseRefreshAt(view));
   const finite = deadlines.filter(Number.isFinite);
   return finite.length ? Math.min(...finite) : null;
 }

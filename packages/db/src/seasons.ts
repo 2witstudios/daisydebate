@@ -1,10 +1,14 @@
 import { SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
-import { desc, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { seasons } from './schema/ratings';
-import { toSeasonRecord, type SeasonRecord } from './season-record';
+import {
+  listSeasonRecords,
+  toSeasonRecord,
+  type SeasonRecord,
+} from './season-record';
 
 /**
  * Season operations for the `bun season` CLI (ADR 0055): a season is opened
@@ -47,13 +51,7 @@ async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
 
 const seasonOperations = (database: BunSQLDatabase) => ({
   /** Every season, newest start first. */
-  async listSeasons(): Promise<readonly SeasonRecord[]> {
-    const rows = await database
-      .select()
-      .from(seasons)
-      .orderBy(desc(seasons.startsAt));
-    return rows.map(toSeasonRecord);
-  },
+  listSeasons: () => listSeasonRecords(database),
 
   /** Explicit activation only. Retries preserve the first actual activation. */
   activateBetaSeason(input: { readonly id: string }): Promise<SeasonRecord> {
