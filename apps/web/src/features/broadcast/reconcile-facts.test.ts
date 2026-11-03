@@ -11,7 +11,7 @@ const broadcast = {
   stoppedAt: null,
   completedAt: null,
   finalMediaEndAt: new Date(7000),
-  releasedThroughAt: new Date(6000),
+  streamEndedAt: new Date(6000),
 };
 
 test('reconcileFacts maps stored state to the decision input', () => {
@@ -37,7 +37,7 @@ test('reconcileFacts maps stored state to the decision input', () => {
       facts.observerSubscribed,
       facts.revocationFailures,
       facts.finalMediaEndMs,
-      facts.releasedThroughMs,
+      facts.streamEndedMs,
       facts.stoppedAtMs,
     ],
     expected: [{ kind: 'private' }, false, 2, 7000, 6000, null],

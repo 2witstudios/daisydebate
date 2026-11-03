@@ -61,14 +61,14 @@ export const runWorker = async (deps: {
       await deps.sleep(IDLE_MS);
       continue;
     }
-    const hold = `hold/${job.id}/`;
     const live = broadcastLivePrefix(job.id);
     try {
       await objects.putManifest(`${live}master.m3u8`, masterPlaylist());
       let next = job.nextSegment;
+      let cursor = job.holdCursor;
+      let generation = job.releasedGeneration;
       let facts = job;
       let renewedAt = deps.now();
-      let streamEnded = false;
       while (!deps.stopped() && facts.completedAt === null) {
         if (deps.now() - renewedAt >= RENEW_MS) {
           const row = await store.renew({
@@ -85,14 +85,21 @@ export const runWorker = async (deps: {
             break;
           }
         }
+        const hold = `hold/${job.id}/${generation}/`;
         const result = await releaseStep(
           {
             policy: facts.releasePolicy,
             nextSegment: next,
+            holdCursor: cursor,
+            attemptIndex: generation - 1,
+            laterAttemptStartedMs:
+              facts.egressGeneration > generation
+                ? (facts.egressStartedAt?.getTime() ?? 0)
+                : null,
+            streamEnded: facts.streamEndedAt !== null,
             nowMs: deps.now(),
             roundEndedAtMs: facts.finalMediaEndAt?.getTime() ?? null,
             finalMediaEndMs: facts.finalMediaEndAt?.getTime() ?? null,
-            streamEnded,
           },
           {
             readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
@@ -127,19 +134,25 @@ export const runWorker = async (deps: {
                 owner: deps.owner,
                 epoch: job.leaseEpoch,
                 mediaEnd: new Date(mediaEndMs),
+                now: new Date(deps.now()),
+              }),
+            recordAdvanced: () =>
+              store.recordAdvanced({
+                id: job.id,
+                owner: deps.owner,
+                epoch: job.leaseEpoch,
               }),
           },
         );
         if (result.kind === 'fenced') break;
         if (result.kind === 'released') {
           next += 1;
-          facts = {
-            ...facts,
-            releasedThroughAt: new Date(
-              result.released.capturedAtMs + result.released.durationMs,
-            ),
-          };
-        } else if (result.kind === 'ended') streamEnded = true;
+          cursor += 1;
+        } else if (result.kind === 'advanced') {
+          generation += 1;
+          cursor = 0;
+        } else if (result.kind === 'ended')
+          facts = { ...facts, streamEndedAt: new Date(deps.now()) };
         else await deps.sleep(IDLE_MS);
       }
     } catch {

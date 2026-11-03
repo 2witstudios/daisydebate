@@ -33,6 +33,10 @@ const world = (over: Partial<ReleasePorts> = {}) => {
       log.push(`record ${seq} ${end - start}`);
       return true;
     },
+    recordAdvanced: async () => {
+      log.push('advanced');
+      return true;
+    },
     recordEnded: async (end) => {
       log.push(`ended ${end - start}`);
       return true;
@@ -41,13 +45,18 @@ const world = (over: Partial<ReleasePorts> = {}) => {
   };
   return { ports, log };
 };
-const input = (over = {}) => ({
+const input = (
+  over: { nextSegment?: number } & Record<string, unknown> = {},
+) => ({
+  holdCursor: over.nextSegment ?? 0,
   policy: { kind: 'delay', seconds: 60 } as const,
   nextSegment: 0,
+  attemptIndex: 0,
+  laterAttemptStartedMs: null,
+  streamEnded: false,
   nowMs: start + 64_000,
   roundEndedAtMs: null,
   finalMediaEndMs: null,
-  streamEnded: false,
   ...over,
 });
 
@@ -151,6 +160,7 @@ describe('releaseStep', () => {
       releaseStep(
         input({
           nextSegment: 3,
+          holdCursor: 3,
           finalMediaEndMs,
           nowMs: finalMediaEndMs + 10_000,
           ...over,
@@ -183,30 +193,6 @@ describe('releaseStep', () => {
       expected: ['waiting', before],
     });
   });
-  test('a last segment running past the recorded end still ends the stream', async () => {
-    const seen: string[] = [];
-    const { ports, log } = world({
-      publishManifest: async (_key, text) => {
-        seen.push(text);
-      },
-    });
-    const finalMediaEndMs = start + 11_500;
-    const result = await releaseStep(
-      input({
-        nextSegment: 3,
-        finalMediaEndMs,
-        nowMs: finalMediaEndMs + 60_000,
-      }),
-      ports,
-    );
-    assert({
-      given:
-        'the cursor past the hold, with the last released segment ending after the final media end',
-      should: 'still publish ENDLIST, so no player waits on a frozen frame',
-      actual: [result.kind, seen.at(-1)!.includes('ENDLIST'), log.at(-1)],
-      expected: ['ended', true, 'ended 11500'],
-    });
-  });
   test('a Round whose Egress held nothing still ends', async () => {
     const { ports, log } = world({ readHoldPlaylist: async () => '#EXTM3U\n' });
     assert({
@@ -234,6 +220,7 @@ describe('releaseStep', () => {
     await releaseStep(
       input({
         nextSegment: 2,
+        holdCursor: 2,
         finalMediaEndMs: start,
         nowMs: start + 900_000,
       }),
@@ -246,6 +233,54 @@ describe('releaseStep', () => {
       expected: false,
     });
   });
+  test('an Egress restart drains the old hold, then continues the sequence', async () => {
+    const seen: string[] = [];
+    const { ports, log } = world({
+      publishManifest: async (_key, text) => {
+        seen.push(text);
+      },
+    });
+    const later = start + 900_000;
+    const drained = {
+      nextSegment: 3,
+      holdCursor: 3,
+      laterAttemptStartedMs: later,
+    };
+    const settling = await releaseStep(
+      input({ ...drained, nowMs: later + 9_999 }),
+      ports,
+    );
+    const moved = await releaseStep(
+      input({ ...drained, nowMs: later + 10_000 }),
+      ports,
+    );
+    assert({
+      given: 'an emptied hold and a later attempt, before and after it settles',
+      should: 'wait, then advance, and never end the stream',
+      actual: [settling.kind, moved.kind, log, seen],
+      expected: ['waiting', 'advanced', ['advanced'], []],
+    });
+    await releaseStep(
+      input({
+        nextSegment: 3,
+        holdCursor: 0,
+        attemptIndex: 1,
+        nowMs: start + 900_000,
+      }),
+      ports,
+    );
+    const text = seen.at(-1)!;
+    assert({
+      given: 'the first segment of the second attempt',
+      should: 'keep the public sequence and mark the discontinuity',
+      actual: [
+        text.includes('#EXT-X-MEDIA-SEQUENCE:3'),
+        text.includes('#EXT-X-DISCONTINUITY\n'),
+        text.includes('seg-3.ts'),
+      ],
+      expected: [true, true, true],
+    });
+  });
   test('the manifest window comes from the durable hold, so a crash keeps it', async () => {
     const seen: string[] = [];
     const { ports } = world({
@@ -254,7 +289,10 @@ describe('releaseStep', () => {
         seen.push(text);
       },
     });
-    await releaseStep(input({ nextSegment: 7, nowMs: start + 900_000 }), ports);
+    await releaseStep(
+      input({ nextSegment: 7, holdCursor: 7, nowMs: start + 900_000 }),
+      ports,
+    );
     assert({
       given:
         'a worker restarted with cursor 7 and no memory of earlier segments',

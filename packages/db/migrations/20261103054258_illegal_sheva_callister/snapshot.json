@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "68d0d8d8-01ca-4213-a352-97a38292d8ca",
+  "id": "5d6e8ce0-44d0-4aaf-86f1-43101f96b5ad",
   "prevIds": [
-    "2ab218fa-7d67-4508-8c85-430956301942"
+    "89605b3f-e3d9-4bf1-a8ca-cfa2aab00e05"
   ],
   "ddl": [
     {
@@ -2176,6 +2176,58 @@
       "table": "broadcasts"
     },
     {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "egress_generation",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "released_generation",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "hold_cursor",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "stream_ended_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": false,
@@ -2236,6 +2288,19 @@
       "generated": null,
       "identity": null,
       "name": "completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "feed_withdrawn_at",
       "entityType": "columns",
       "schema": "public",
       "table": "broadcasts"
@@ -11728,6 +11793,27 @@
       "method": "btree",
       "concurrently": false,
       "name": "broadcasts_open_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"feed_withdrawn_at\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "broadcasts_feed_up_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "broadcasts"
@@ -21403,7 +21489,7 @@
       "table": "broadcasts"
     },
     {
-      "value": "\"next_segment\" >= 0 and \"revocation_failures\" >= 0 and \"lease_epoch\" >= 0 and \"chat_slow_mode_seconds\" between 0 and 3600",
+      "value": "\"next_segment\" >= 0 and \"hold_cursor\" >= 0 and \"egress_generation\" >= 0 and \"released_generation\" >= 1 and \"revocation_failures\" >= 0 and \"lease_epoch\" >= 0 and \"chat_slow_mode_seconds\" between 0 and 3600",
       "name": "broadcasts_cursor_check",
       "entityType": "checks",
       "schema": "public",
@@ -23419,7 +23505,5 @@
       "table": "utterances"
     }
   ],
-  "renames": [
-    "public.rounds.rounds_rated_ladder_check->public.rounds.rounds_ranked_ladder_check"
-  ]
+  "renames": []
 }

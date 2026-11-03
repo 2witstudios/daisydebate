@@ -25,7 +25,7 @@ export type BroadcastFacts = {
   readonly observerSubscribed: boolean;
   readonly revocationFailures: number;
   readonly finalMediaEndMs: number | null;
-  readonly releasedThroughMs: number | null;
+  readonly streamEndedMs: number | null;
   readonly policy: BroadcastReleasePolicy;
 };
 
@@ -85,8 +85,7 @@ export const decideBroadcast = (
     if (live)
       return [{ type: 'stop-egress', id: live.id, reason: 'round-ended' }];
     return facts.finalMediaEndMs !== null &&
-      facts.releasedThroughMs !== null &&
-      facts.releasedThroughMs >= facts.finalMediaEndMs &&
+      facts.streamEndedMs !== null &&
       facts.nowMs >= facts.finalMediaEndMs + delayMs(facts.policy)
       ? [{ type: 'complete' }]
       : [];

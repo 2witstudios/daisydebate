@@ -17,4 +17,4 @@ export type BroadcastReleasePolicy = z.infer<
  * How far released media must have passed a fact before the fact leaves: three
  * 4 second segments, the live edge an HLS player sits behind.
  */
-export const SPECTATOR_MARGIN_MS = 12_000;
+export const SPECTATOR_MARGIN_MS = 15_000;

@@ -25,7 +25,11 @@ export const createObjects = (config: {
   const hold = client(config.hold);
   const pub = client(config.public);
   return {
-    readHoldText: (key: string) => hold.file(key).text(),
+    /** Empty until Egress writes its first playlist: nothing is due yet. */
+    readHoldText: async (key: string) => {
+      const file = hold.file(key);
+      return (await file.exists()) ? file.text() : '';
+    },
     copyHoldToFile: async (key: string, path: string) => {
       await Bun.write(path, hold.file(key));
     },
