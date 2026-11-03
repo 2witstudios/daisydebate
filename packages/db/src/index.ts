@@ -101,6 +101,7 @@ export {
   type WorkloadProfile,
 } from './workload-admission';
 export type { DatabaseEventSink } from './instrumented';
+export type { RestrictionRules } from './moderation-composition';
 export type { SocialRequestLimits } from './contacts/request-budget';
 export type {
   ProvisionalLinkPurposes,

@@ -20,7 +20,10 @@ import { ratingVisibilityOperations } from '../src/ratings-visibility';
 import { reportsPrivacyAdopter } from '../src/reports/privacy';
 import { moderationPrivacyAdopter } from '../src/moderation/privacy';
 import { moderationOperations } from '../src/moderation/store';
-import { moderationReactions } from '../src/moderation-composition';
+import {
+  moderationReactions,
+  type RestrictionRules,
+} from '../src/moderation-composition';
 import { createMessagingTestFixture } from '../src/testing';
 import { withFixture } from './constraint-helpers';
 import {
@@ -29,6 +32,12 @@ import {
 } from './scratch-migrations.test-support';
 
 setupRitewayBun();
+/** These suites have no Round or Room: the engine's rules are never reached. */
+const restrictionRules: RestrictionRules = {
+  releaseMember: (room) => room,
+  activeRoomMembers: () => [],
+  forfeitRound: () => null,
+};
 const { databaseUrl } = requireTestServices(process.env);
 const unfenced = async () => {};
 
@@ -480,6 +489,7 @@ test('a chosen status reads back, and a report closes once with its action', asy
         now: new Date().toISOString(),
         purgeAfter: new Date(Date.now() + 86_400_000).toISOString(),
         nextId: createId,
+        restrictionRules,
         live: () => true,
       });
     const first = await resolve(commandId);
@@ -608,6 +618,7 @@ test('a suspension ends the member’s offers, and closing an account keeps the 
       now: live,
       purgeAfter: new Date(Date.now() + 86_400_000).toISOString(),
       nextId: createId,
+      restrictionRules,
       live: () => true,
     });
     const after = await listChallenges(ctx.database, ctx.me, live, unfenced);

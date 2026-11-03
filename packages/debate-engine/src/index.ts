@@ -23,6 +23,7 @@ export {
   executeRoomCommand,
   hostIdentityHidden,
   projectRoom,
+  releaseRestrictedMember,
 } from './room-assembly';
 export { castSeatsBotDebater } from './ai-round-cast';
 export { activeRoomMembers, projectActiveRoom } from './room-membership';

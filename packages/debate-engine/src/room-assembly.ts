@@ -18,7 +18,12 @@ import {
   claimSeat,
   leaveSeat,
 } from './room-edit-transitions';
-import { ready, startRound, close } from './room-consent-transitions';
+import {
+  ready,
+  startRound,
+  close,
+  closeRoom,
+} from './room-consent-transitions';
 import { topicInvariantHolds } from './resolution-draw';
 type RoomCommandType = RoomCommand['type'];
 /** Who may run a Room command, whether it asks every seat to ready again, and what it does. */
@@ -151,4 +156,22 @@ export const eraseSeats = (
       .reduce((held, seat) => removeSeat(held, seat.id), room),
   );
   return assemblyOpen(next) ? { ...next, status: assembledStatus(next) } : next;
+};
+
+/**
+ * A restriction on a member before Start round (DEC-331): their seats go and
+ * the Room stays open for the others. Only a host can start a Room, so a
+ * restricted host passes it to the first human still seated; with no human
+ * left there is nobody to keep it open for, and it closes.
+ */
+export const releaseRestrictedMember = (
+  room: RoomAssemblyState,
+  actorId: string,
+): RoomAssemblyState => {
+  const freed = eraseSeats(room, actorId);
+  if (freed.hostActorId !== actorId) return freed;
+  const heir = freed.participants.find((p) => p.kind === 'human');
+  return heir
+    ? { ...freed, hostActorId: heir.actorId, hostLabel: heir.label }
+    : closeRoom(freed);
 };
