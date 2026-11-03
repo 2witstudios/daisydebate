@@ -12,6 +12,7 @@ import {
 } from '../../../lib/request-session';
 import { FollowingTab } from '../../../ui/watch/following-tab/following-tab';
 import { LiveTab } from '../../../ui/watch/live-tab/live-tab';
+import { WatchBusy } from '../../../ui/watch/watch-busy/watch-busy';
 import { WatchHub } from '../../../ui/watch/watch-hub/watch-hub';
 
 export const metadata: Metadata = { title: 'Watch' };
@@ -25,6 +26,8 @@ export default async function WatchPage({
   redirectUnlessLaunched('watch');
   const query = parseLiveQuery(await searchParams);
   const account = accountOf(await requestIdentity());
+  const listing =
+    query.tab === 'following' ? null : await requestLiveListing(query);
   return (
     <WatchHub active={query.tab} counts={await requestHubCounts()}>
       {query.tab === 'following' ? (
@@ -32,9 +35,11 @@ export default async function WatchPage({
           following={account ? await requestFollowing(account.userId) : null}
           signInHref={signInHref(hubHref(query))}
         />
-      ) : (
-        <LiveTab query={query} listing={await requestLiveListing(query)} />
-      )}
+      ) : listing === 'refused' ? (
+        <WatchBusy retryHref={hubHref(query)} />
+      ) : listing ? (
+        <LiveTab query={query} listing={listing} />
+      ) : null}
     </WatchHub>
   );
 }

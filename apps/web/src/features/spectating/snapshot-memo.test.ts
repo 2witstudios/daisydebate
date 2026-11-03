@@ -71,3 +71,46 @@ describe('createSnapshotMemo', () => {
     });
   });
 });
+
+describe('createSnapshotMemo keeping a refusal', () => {
+  test('a refusal holds for the interval, and only a refusal', async () => {
+    let nowMs = 0;
+    let reads = 0;
+    const refused = new Error('full');
+    const memo = createSnapshotMemo<number>({
+      nowMs: () => nowMs,
+      ttlMs: 1000,
+      maxEntries: 10,
+      keepsFailure: (error) => error === refused,
+    });
+    const ask = (key: string, failure: Error) =>
+      memo(key, async () => {
+        reads += 1;
+        throw failure;
+      }).catch((error: unknown) => error);
+    const first = await ask('a', refused);
+    const second = await ask('a', refused);
+    assert({
+      given: 'a read refused, then asked again inside the interval',
+      should: 'answer the same refusal without trying again',
+      actual: [first, second, reads],
+      expected: [refused, refused, 1],
+    });
+    nowMs = 1000;
+    await ask('a', refused);
+    assert({
+      given: 'the interval over',
+      should: 'try again',
+      actual: reads,
+      expected: 2,
+    });
+    await ask('b', new Error('down'));
+    await ask('b', new Error('down'));
+    assert({
+      given: 'any other failure',
+      should: 'not keep it',
+      actual: reads,
+      expected: 4,
+    });
+  });
+});

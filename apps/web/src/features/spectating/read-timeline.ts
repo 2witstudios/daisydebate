@@ -1,13 +1,19 @@
+import type { Clock } from '@daisy/clock';
 import { spectatorTimelineHorizon } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
+import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { idSchema, type SpectatorTimeline } from '@daisy/protocol';
 import { audienceAdmits } from '../audience-link/audience-link';
+import { createSnapshotMemo } from './snapshot-memo';
 import {
   projectSpectatorTimeline,
   type SpectatorTimelineContext,
 } from './timeline';
 
 type Store = Pick<Database, 'readSpectatorTimeline' | 'readRoundAudienceLink'>;
+
+const SNAPSHOT_TTL_MS = 1000;
+const SNAPSHOT_ROUNDS = 5000;
 
 /** A Round's released timeline, not yet admitted to anyone. */
 export type AudienceSnapshot = {
@@ -63,15 +69,34 @@ export const admitAudience = async (
   return link !== null && audienceAdmits(link, input.presentedHash);
 };
 
-/** What one request may read of a Round, or null: refused reads as missing. */
-export async function readSpectatorTimeline(
-  store: Store,
-  input: Parameters<typeof readAudienceSnapshot>[1] & {
-    readonly presentedHash: string | null;
-  },
-): Promise<SpectatorTimeline | null> {
-  const snapshot = await readAudienceSnapshot(store, input);
-  return snapshot && (await admitAudience(store, snapshot, input))
-    ? snapshot.timeline
-    : null;
-}
+/**
+ * A Round's snapshot held for a second, with its one serialization, so a crowd
+ * costs one read and one stringify per Round per second. Keyed by Round alone and
+ * holding no link: admission happens after it. A full lane's refusal holds for the
+ * same second, so a crowd asks it once.
+ */
+export const createWatchRoundSnapshots = (deps: {
+  readonly store: Pick<Store, 'readSpectatorTimeline'>;
+  readonly clock: Pick<Clock, 'now'>;
+  readonly feedUrlOf: SpectatorTimelineContext['feedUrlOf'];
+}) => {
+  const memo = createSnapshotMemo<
+    (AudienceSnapshot & { readonly body: string }) | null
+  >({
+    nowMs: () => Date.parse(deps.clock.now()),
+    ttlMs: SNAPSHOT_TTL_MS,
+    maxEntries: SNAPSHOT_ROUNDS,
+    keepsFailure: isTemporaryRefusal,
+  });
+  return (roundId: string) =>
+    memo(roundId, async () => {
+      const snapshot = await readAudienceSnapshot(deps.store, {
+        roundId,
+        now: deps.clock.now(),
+        feedUrlOf: deps.feedUrlOf,
+      });
+      return (
+        snapshot && { ...snapshot, body: JSON.stringify(snapshot.timeline) }
+      );
+    });
+};

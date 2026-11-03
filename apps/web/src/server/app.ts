@@ -22,6 +22,9 @@ import {
 } from '@daisy/config';
 import { createOpenRouter, type OpenRouter } from '@daisy/ai-voice';
 import { createDatabase } from '@daisy/db';
+import { broadcastFeedUrls } from '../features/spectating/feed-url';
+import { createWatchRoundSnapshots } from '../features/spectating/read-timeline';
+import { createCachedLiveReads } from '../features/watch/cached-live-reads';
 import { createAppError } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
@@ -250,6 +253,14 @@ export function createApp({
      */
     reporter: createSentryErrorReporter(),
     database,
+    /** What Watch pages render from: one read per Round per second, whoever asks. */
+    watchRounds: createWatchRoundSnapshots({
+      store: database,
+      clock,
+      feedUrlOf: broadcastFeedUrls(config.BROADCAST_PUBLIC_ORIGIN),
+    }),
+    /** The Live listing, likewise. */
+    liveReads: createCachedLiveReads({ store: database, clock }),
     redis,
     /** AUTH-7.7's bounded-cardinality in-process counters (`/api/ops/metrics`). */
     metrics,

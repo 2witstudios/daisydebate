@@ -82,19 +82,16 @@ const afterCursor = (before: string): SQL | undefined =>
     : sql`(${rounds.startedAt}, ${rounds.id}) < (select c.started_at, c.id from rounds c where c.id = ${before})`;
 
 /**
- * The Live listing, paged and filtered in SQL under the one release rule. Rows
- * only: the feature projects them through the same stage rule as the player.
+ * The Round of a Room anyone may be sent to Watch for: public, with its start
+ * released. An unlisted Round is reached by its own link and a private one not at
+ * all, so a Room link alone grants neither. A Room's own view reads this, so it
+ * runs on the Room's lane and never on the audience's.
  */
-export const liveBroadcastReads = ({
+export const watchableRoundOfRoomRead = ({
   database,
 }: {
   readonly database: BunSQLDatabase;
 }) => ({
-  /**
-   * The Round of a Room anyone may be sent to Watch for: public, with its start
-   * released. An unlisted Round is reached by its own link and a private one not at
-   * all, so a Room link alone grants neither.
-   */
   async readWatchableRoundOfRoom(
     roomId: string,
     clock: SpectatorClock,
@@ -111,6 +108,17 @@ export const liveBroadcastReads = ({
       );
     return round?.id ?? null;
   },
+});
+
+/**
+ * The Live listing, paged and filtered in SQL under the one release rule. Rows
+ * only: the feature projects them through the same stage rule as the player.
+ */
+export const liveBroadcastReads = ({
+  database,
+}: {
+  readonly database: BunSQLDatabase;
+}) => ({
   listLiveBroadcasts(input: {
     readonly filter: LiveBroadcastFilter;
     readonly before: string;

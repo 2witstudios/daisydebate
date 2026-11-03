@@ -15,6 +15,7 @@ import { reportFromPageAction } from '../../audience/actions';
 import { RoundAudience } from '../../audience/round-audience';
 import { BroadcastViewer } from '../../../../ui/spectating/broadcast-viewer';
 import { SpectateRefusal } from '../../../../ui/watch/spectate-refusal/spectate-refusal';
+import { WatchBusy } from '../../../../ui/watch/watch-busy/watch-busy';
 
 export const metadata: Metadata = { title: 'Live debate' };
 
@@ -35,6 +36,12 @@ export default async function WatchRoundPage({
   const timeline = await requestWatchRound(roundId);
   const reported = reportNotice((await searchParams)['report']);
   const returnTo = `/watch/${encodeURIComponent(roundId)}`;
+  if (timeline === 'refused')
+    return (
+      <div className="px-6 pt-8 pb-8 max-compact:px-4">
+        <WatchBusy retryHref={returnTo} />
+      </div>
+    );
   const account = accountOf(await requestIdentity());
   return timeline ? (
     <BroadcastViewer initial={timeline}>

@@ -101,7 +101,10 @@ import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
 import { spectatorTimelineReads } from './spectator-timeline-reads';
-import { liveBroadcastReads } from './live-broadcast-reads';
+import {
+  liveBroadcastReads,
+  watchableRoundOfRoomRead,
+} from './live-broadcast-reads';
 import { memberProfileReadOperations } from './member-profile-reads';
 import { recordingArchiveReadOperations } from './recording-archive-reads';
 import { recordingModeration } from './recording-moderation';
@@ -145,7 +148,9 @@ export type { ChannelObservationReads } from './messaging/observation-reads';
  * receives the opaque Drizzle handle of the lane its work belongs to and
  * the event sink, never a raw client, and returns records, not rows.
  * Competitive work (Rounds, Rooms, media, judging, bots) has its own lane;
- * social, audience and control traffic cannot take its connections. The
+ * social, audience, browse and control traffic cannot take its connections, and
+ * nothing competitive reads on the audience lane, so a full one refuses viewers
+ * alone. The
  * competitive kernel persists what the caller's domain decisions resolve —
  * the composition root (the app) injects the engine.
  */
@@ -187,6 +192,7 @@ export function createDatabase({
   const { database } = competitive;
   const social = workload.lane('social').database;
   const audience = workload.lane('audience').database;
+  const browse = workload.lane('browse').database;
   const controlLane = workload.lane('control');
   const control = controlLane.database;
   const dedicated =
@@ -359,7 +365,7 @@ export function createDatabase({
       instrumented(eventSink, 'readOutboxCatchup', () =>
         readOutboxCatchup(control, topic, since, through, limit),
       ),
-    ...formatOperations({ database: audience, eventSink }),
+    ...formatOperations({ database, eventSink }),
     ...agreementSignatureOperations({ database: control, eventSink }),
     ...roomCommandOperations({
       database,
@@ -393,19 +399,20 @@ export function createDatabase({
     ...analyticsConsentOperations(control),
     ...onboardingOperations({ database: control, eventSink }),
     ...ageStepOperations({ database: control, eventSink }),
-    ...standingsOperations({ database: audience, eventSink }),
-    ...memberProfileReadOperations({ database: audience, eventSink }),
+    ...standingsOperations({ database: browse, eventSink }),
+    ...memberProfileReadOperations({ database: browse, eventSink }),
     ...spectatorTimelineReads({ database: audience, eventSink }),
     ...liveBroadcastReads({ database: audience }),
+    ...watchableRoundOfRoomRead({ database }),
     ...audienceSnapshotReads({ database: audience, eventSink }),
     ...spectatorChatOperations({ database: social, eventSink }),
     ...audienceReactionOperations({ database: social, eventSink }),
     ...debaterFollowOperations({ database: social, eventSink }),
     ...watchHistoryOperations({ database: social, eventSink }),
     ...notificationOperations({ database: social, eventSink }),
-    ...recordingRoundReadOperations({ database: audience }),
-    ...roundAudienceLinkOperations({ database: audience }),
-    ...recordingArchiveReadOperations({ database: audience }),
+    ...recordingRoundReadOperations({ database: browse }),
+    ...roundAudienceLinkOperations({ viewers: audience, host: database }),
+    ...recordingArchiveReadOperations({ database: browse }),
     ...spectatorFactLogOperations({ database: control }),
     ...recordingOperations({ database: control }),
     /**

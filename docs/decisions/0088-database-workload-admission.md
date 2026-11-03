@@ -17,7 +17,7 @@ needs.
 ## Decision
 
 1. **Lanes.** PostgreSQL work in a process runs on one of these lanes:
-   `competitive`, `social`, `audience`, `control` (web), and `admission`,
+   `competitive`, `social`, `audience`, `browse`, `control` (web), and `admission`,
    `renewal`, `control`, then `headers`, `projection`, `relay` (realtime;
    the last three only on observation-eligible processes, ADR 0089).
    The composition root assigns each operation area its lane. The client
@@ -53,9 +53,17 @@ needs.
 6. **Profiles.** web = competitive 10 (1s wait, the ISSUE-508 wait-out; Room
    preparation, which can wait on external consent inside its transaction,
    takes at most half and refuses excess at once) /
-   social 4 / audience 2 / control 10 (queue 4,096, 30s, a backstop only; AUTH-3.10's flood throughput was proven on
+   social 4 / audience 2 / browse 2 / control 10 (queue 4,096, 30s, a backstop only; AUTH-3.10's flood throughput was proven on
    10 connections, so auth bursts
-   reach the sign-up ceiling that decides what is shed), plus 1 dedicated (27). realtime =
+   reach the sign-up ceiling that decides what is shed), plus 1 dedicated (29).
+   `audience` holds what a Watch viewer reads: the timeline, chat, reactions, the
+   on-air and Live reads, and the link check. It has no queue: a viewer on a full
+   lane is refused at once, comes back when told and keeps what it shows, because
+   each read is a per-Round cached answer and a queue only delays someone who
+   already has one. Nothing a Room, a Round or a host needs reads here, so a crowd
+   refuses only itself; those reads run on `competitive`. `browse` holds public
+   pages that are not a live audience: standings, profiles and recordings.
+   realtime =
    admission 1 / renewal 2 / control 1, plus 3 dedicated (7).
    An `admission` waiter waits 3s, a mitigation for ISSUE-914, whose trigger is
    not established: lane waiter expiry is well supported, but whether a blocked
