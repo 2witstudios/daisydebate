@@ -56,11 +56,11 @@ test('attendance text appears only without JavaScript', () => {
 
 test('a Round that is not active offers no attendance at all', () => {
   assert({
-    given: 'a scheduled Round, whose attendance read refuses',
+    given: 'an opening Round, whose attendance read refuses',
     should: 'render no attendance text, form or refresh',
     actual: renderToStaticMarkup(
       <RoundNativeAttendance
-        view={{ ...view, status: 'scheduled' }}
+        view={{ ...view, status: 'opening' }}
         state={null}
       />,
     ),
