@@ -167,7 +167,7 @@ for (const ladder of ratingLadders)
                     (r: { version: number }) => r.version,
                   ),
                   entries: leaderboard?.data.entries.length,
-                  pending: display?.pending,
+                  posting: display?.posting,
                   deltas: display?.rows.every((r) => r.delta !== null),
                   resolution:
                     roundView.topic !== null &&
@@ -180,7 +180,7 @@ for (const ladder of ratingLadders)
                   seasons: [season.id],
                   versions: [1, 1],
                   entries: 2,
-                  pending: false,
+                  posting: 'rated',
                   deltas: true,
                   resolution: true,
                 },

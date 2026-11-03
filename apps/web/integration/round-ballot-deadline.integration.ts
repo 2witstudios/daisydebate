@@ -333,7 +333,7 @@ for (const captured of [true, false])
             readRoundOpening,
             roundWaitingOn,
           ),
-          now: new Date().toISOString(),
+          now: done.completedAt!,
           viewerActorId: f.host.actorId,
         });
         assert({
@@ -346,7 +346,7 @@ for (const captured of [true, false])
             awaited,
             postings: ledger.length,
             awaitsAfter: await awaitsRating(f, roundId),
-            rated: roundReceipt?.rated,
+            posting: roundReceipt?.posting,
           },
           expected: {
             done: ['completed', 'negative'],
@@ -354,7 +354,7 @@ for (const captured of [true, false])
             awaited: true,
             postings: 2,
             awaitsAfter: false,
-            rated: true,
+            posting: 'rated',
           },
         });
       } finally {

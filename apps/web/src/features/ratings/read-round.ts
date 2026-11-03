@@ -17,9 +17,8 @@ export type RoundRatingsView = {
   readonly ladder: string;
   readonly season: string;
   readonly rows: readonly RoundRating[];
-  /** The ladder posted this Round's result. */
-  readonly rated: boolean;
-  readonly pending: boolean;
+  /** What this viewer may see of the posting: a blinded debater's is not read. */
+  readonly posting: 'rated' | 'pending' | 'none';
 };
 
 const roundAwaitsRating = async (
@@ -47,32 +46,24 @@ export async function readRoundRatings(
 ): Promise<RoundRatingsView | null> {
   const { round, now } = input;
   if (round.ladderId === null) return null;
+  const noSeason: RoundRatingsView = {
+    ladder: round.ladderId,
+    season: 'No active season',
+    rows: [],
+    posting: 'none',
+  };
   const published = await readRatingStandings(store, {
     ladder: round.ladderId,
     seasonId: null,
     now,
     ...(input.viewerActorId ? { viewerActorId: input.viewerActorId } : {}),
   });
-  if (!published)
-    return {
-      ladder: round.ladderId,
-      season: 'No active season',
-      rows: [],
-      rated: false,
-      pending: false,
-    };
+  if (!published) return noSeason;
   const postings = published.postings.filter((c) => c.roundId === round.id);
   const season =
     published.seasons.find((s) => s.id === postings[0]?.seasonId) ??
     published.seasons.find((s) => s.status === 'active');
-  if (!season)
-    return {
-      ladder: round.ladderId,
-      season: 'No active season',
-      rows: [],
-      rated: false,
-      pending: false,
-    };
+  if (!season) return noSeason;
   const summaries = published.summaries.filter((s) => s.seasonId === season.id);
   const seats = round.participants.filter(
     (p) => p.role !== 'judge' && !('anonymous' in p),
@@ -96,27 +87,21 @@ export async function readRoundRatings(
           outcome,
         })
       : null;
-  const winA =
-    postings.length ||
-    round.status === 'completed' ||
-    round.status === 'abandoned'
-      ? null
-      : calculate('affirmative');
-  const winN =
-    postings.length ||
-    round.status === 'completed' ||
-    round.status === 'abandoned'
-      ? null
-      : calculate('negative');
+  const rated = postings.length > 0;
+  const staked =
+    !rated && round.status !== 'completed' && round.status !== 'abandoned';
+  const winA = staked ? calculate('affirmative') : null;
+  const winN = staked ? calculate('negative') : null;
   return {
     ladder: round.ladderId,
     season: season.name,
-    rated: postings.length > 0,
-    pending:
-      round.status === 'completed' &&
-      round.outcome !== null &&
-      postings.length === 0 &&
-      (await roundAwaitsRating(store, round.id)),
+    posting: rated
+      ? 'rated'
+      : round.status === 'completed' &&
+          round.outcome !== null &&
+          (await roundAwaitsRating(store, round.id))
+        ? 'pending'
+        : 'none',
     rows: seats.flatMap((seat) => {
       if (!('actorId' in seat)) return [];
       if (published.blindedActorIds.includes(seat.actorId))

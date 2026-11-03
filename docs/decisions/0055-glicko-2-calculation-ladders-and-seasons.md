@@ -161,9 +161,9 @@ DDL. No relabel, reset or compatibility pool is supplied.
 
 Who gets rated is the engine's `ratingEligibility`, over the Round's recorded
 ending and attendance ledger. The adapter selects candidates and loads facts,
-with one derived statement of how a Round ended, and holds no rule. The answer
-is unchanged: a forfeit rates on any capture. A null outcome is unrated with a
-reason (DEC-277). Until DEC-111 resolves there is one season: opening a
+with one derived statement of how a Round ended, and holds no rule. A forfeit
+rates on any capture, and a ballot rated only on a complete capture (DEC-285,
+overruled below). A null outcome is unrated with a reason (DEC-277). Until DEC-111 resolves there is one season: opening a
 season is refused while any season exists, closing one is refused, and the
 rollover command is removed. The close refusal comes out when rollover lands.
 
@@ -173,5 +173,6 @@ Owner ruling, DEC-329, overruling DEC-285: a decisive human ballot on a ranked
 Round rates normally on an incomplete capture. The judge ruled, and a capture
 failure does not cost a ranked result. How much was captured is no longer a
 rating fact; the receipt says Rated once the ladder posts. An AI judge still
-never rules on an incomplete transcript (DEC-208), so such a Round's decision is
-always a human's.
+never rules on an incomplete transcript (DEC-208): no job is queued for one, and
+the ballot write refuses an agent's, so such a Round's decision is always a
+human's.

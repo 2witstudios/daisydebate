@@ -4,6 +4,7 @@ import {
   ballotReceipt,
   requireBallotAdmission,
   requireFrozenRevision,
+  requireAgentBallotCapture,
   requireJudgingRun,
 } from './round-ballot-decisions';
 
@@ -170,5 +171,31 @@ test('the receipt version advances only when the projection changed the Round', 
       { resultingVersion: 4, outcome: null },
       { resultingVersion: 5, outcome: 'affirmative' },
     ],
+  });
+});
+
+test('an AI judge is refused an incomplete transcript and a human is not (DEC-208)', async () => {
+  const agent = {
+    kind: 'agent',
+    agentRunId: 'run',
+    participantId: 'seat',
+    serviceId: 'service',
+    roundId,
+  } as const;
+  const human = { kind: 'human', actorId: 'actor' } as const;
+  await assertRejects({
+    given: 'an agent ballot on an incomplete freeze',
+    should: 'refuse it as an invariant',
+    actual: async () => requireAgentBallotCapture(agent, 'incomplete'),
+    code: 'INVARIANT',
+  });
+  assert({
+    given: 'an agent on a complete freeze, and a human on an incomplete one',
+    should: 'admit both',
+    actual: [
+      requireAgentBallotCapture(agent, 'complete'),
+      requireAgentBallotCapture(human, 'incomplete'),
+    ],
+    expected: [undefined, undefined],
   });
 });

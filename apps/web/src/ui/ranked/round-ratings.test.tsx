@@ -4,18 +4,12 @@ import { RoundRatings } from './round-ratings';
 
 setupRitewayBun();
 
-const view = {
-  ladder: 'freestyle',
-  season: 'Season 1',
-  rows: [],
-  rated: false,
-  pending: false,
-};
-
 test('the receipt says whether the ladder rated the Round', () => {
-  const says = (overrides: Partial<typeof view>) => {
+  const says = (posting: 'rated' | 'pending' | 'none') => {
     const html = renderToString(
-      <RoundRatings view={{ ...view, ...overrides }} />,
+      <RoundRatings
+        view={{ ladder: 'freestyle', season: 'Season 1', rows: [], posting }}
+      />,
     );
     return {
       rated: html.includes('<p>Rated</p>'),
@@ -25,7 +19,7 @@ test('the receipt says whether the ladder rated the Round', () => {
   assert({
     given: 'a posted Round, one still owed a rating and an unrated one',
     should: 'say Rated, then pending, then neither',
-    actual: [says({ rated: true }), says({ pending: true }), says({})],
+    actual: [says('rated'), says('pending'), says('none')],
     expected: [
       { rated: true, pending: false },
       { rated: false, pending: true },
