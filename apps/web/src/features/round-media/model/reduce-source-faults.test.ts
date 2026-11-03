@@ -518,3 +518,30 @@ test('a wake behind a superseded hung apply reads, and stays owed', () => {
     ],
   });
 });
+
+test('a budget ending behind a superseded hung apply owes a wake', () => {
+  const d = driver();
+  d.join();
+  d.send({
+    type: 'read-requested',
+    read: { kind: 'view', roundViewVersion: 2 },
+  });
+  d.timer('read-budget');
+  d.flushDeferred();
+  d.timer('recovery');
+  const spent = armedOf(d.state());
+  d.answer(['camera']);
+  d.room({ type: 'captured', source: 'camera' });
+  d.room({ type: 'captured', source: 'microphone' });
+  d.send({
+    type: 'read-requested',
+    read: { kind: 'view', roundViewVersion: 3 },
+  });
+  d.timer('read-budget');
+  assert({
+    given: 'a spent wake, its answer hanging, and a newer view over that apply',
+    should: 'owe another wake when the budget ends',
+    actual: [spent, armedOf(d.state())],
+    expected: [null, 'wake'],
+  });
+});
