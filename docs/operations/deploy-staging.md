@@ -869,11 +869,11 @@ drops every Round on it. No instance kill has been run for any app in this table
 live Round: a gate in the workflow is a deploy-rail change and needs human sign-off.
 The hold is this procedure.
 
-| Deploy                                         | Effect on a live Round                                                                                                    | When it happens                                                                       |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| LiveKit                                        | Ends every live call. A running Broadcast loses its source, and viewers see the slate                                     | A main merge that changes `infra/livekit` or `fly.livekit.toml`; **every manual run** |
-| Web, realtime, capture worker                  | Machines restart, with one machine each (`--ha=false`). The effect on a Broadcast has not been measured                   | Every deploy                                                                          |
-| Egress, encoder, Recording worker, media Redis | Not in the workflow. Stopping an Egress leaves a gap; an encoder resumes from its durable cursor; LiveKit needs the Redis | Only by hand                                                                          |
+| Deploy                                         | Effect on a live Round                                                                                                                                    | When it happens                                                                       |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| LiveKit                                        | Ends every live call. A running Broadcast loses its source, and viewers see the slate                                                                     | A main merge that changes `infra/livekit` or `fly.livekit.toml`; **every manual run** |
+| Web, realtime, capture worker                  | Machines restart, with one machine each (`--ha=false`). A web restart of 10 s or more ends a running Broadcast's Egress and costs it a stated gap (below) | Every deploy                                                                          |
+| Egress, encoder, Recording worker, media Redis | Not in the workflow. Stopping an Egress leaves a gap; an encoder resumes from its durable cursor; LiveKit needs the Redis                                 | Only by hand                                                                          |
 
 Before a manual run, a merge that changes LiveKit, or a by-hand deploy of any row:
 
