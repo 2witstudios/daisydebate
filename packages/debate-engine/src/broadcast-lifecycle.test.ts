@@ -85,10 +85,24 @@ describe('private phases fail closed', () => {
       ],
     });
     assert({
-      given: 'a private phase already open with the observer still subscribed',
-      should: 'stop the Egress',
+      given:
+        'a private phase opened with no warning, such as prep, observer subscribed',
+      should:
+        'revoke, not stop: the mic closes by grant, and a stop loses media',
       actual: decideBroadcast(
         facts({ egress: active, phase: { kind: 'private' } }),
+      ),
+      expected: [{ type: 'revoke-observer' }],
+    });
+    assert({
+      given: 'that revocation having failed',
+      should: 'stop the Egress',
+      actual: decideBroadcast(
+        facts({
+          egress: active,
+          phase: { kind: 'private' },
+          revocationFailures: 1,
+        }),
       ),
       expected: [
         { type: 'stop-egress', id: 'EG_1', reason: 'revocation-unconfirmed' },

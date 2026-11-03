@@ -3,6 +3,7 @@ import type { BroadcastReleasePolicy } from '@daisy/protocol';
 import {
   mediaPlaylist,
   parseHoldPlaylist,
+  type HoldEntry,
   RENDITIONS,
   type ReleasedSegment,
 } from './hold-manifest';
@@ -19,7 +20,7 @@ export type EncodedRendition = {
 
 export type ReleasePorts = {
   readonly readHoldPlaylist: () => Promise<string>;
-  readonly encode: (holdName: string) => Promise<readonly EncodedRendition[]>;
+  readonly encode: (entry: HoldEntry) => Promise<readonly EncodedRendition[]>;
   readonly publishSegment: (
     seq: number,
     rendition: string,
@@ -146,7 +147,7 @@ export const releaseStep = async (
   )
     return { kind: 'waiting' };
   const seq = input.nextSegment;
-  for (const { rendition, file } of await ports.encode(entry.name))
+  for (const { rendition, file } of await ports.encode(entry))
     await ports.publishSegment(seq, rendition, file);
   const window = windowEndingAt(held, input.holdCursor, seq);
   await publishManifests(ports, window, false, {

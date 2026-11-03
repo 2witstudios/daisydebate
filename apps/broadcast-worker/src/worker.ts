@@ -103,13 +103,16 @@ export const runWorker = async (deps: {
           },
           {
             readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
-            encode: async (name) => {
+            encode: async ({ name, capturedAtMs }) => {
               const input = `/tmp/${job.id}-${name}`;
               const output = (r: string) => `/tmp/${job.id}-${r}.ts`;
               await objects.copyHoldToFile(`${hold}${name}`, input);
-              const code = await Bun.spawn([...encoderArgs(input, output)], {
-                stderr: 'ignore',
-              }).exited;
+              const code = await Bun.spawn(
+                [...encoderArgs(input, output, capturedAtMs)],
+                {
+                  stderr: 'ignore',
+                },
+              ).exited;
               if (code !== 0) throw new Error(`encoder exited ${code}`);
               return RENDITIONS.map((r) => ({
                 rendition: r.name,

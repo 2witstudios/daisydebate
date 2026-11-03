@@ -61,7 +61,10 @@ const privacyActions = (facts: BroadcastFacts): readonly BroadcastAction[] => {
       : [{ type: 'restore-observer' }];
   if (!facts.observerSubscribed) return [];
   if (!live) return [{ type: 'revoke-observer' }];
-  return facts.phase.kind === 'private' || facts.revocationFailures > 0
+  // A private phase can open with no warning (a debater takes prep). Its mic
+  // closes by grant and conversation stays held until the revocation lands, so
+  // revoking is safe; only a revocation that failed stops the Egress.
+  return facts.revocationFailures > 0
     ? [{ type: 'stop-egress', id: live.id, reason: 'revocation-unconfirmed' }]
     : [{ type: 'revoke-observer' }];
 };

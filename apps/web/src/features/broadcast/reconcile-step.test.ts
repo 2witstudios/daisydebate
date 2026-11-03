@@ -115,11 +115,12 @@ describe('reconcileStep', () => {
       facts({
         egress: { kind: 'active', id: 'EG' },
         phase: { kind: 'private' },
+        revocationFailures: 1,
       }),
       ports,
     );
     assert({
-      given: 'a private phase with the observer still subscribed',
+      given: 'a private phase after a failed revocation',
       should: 'stop the Egress and report why',
       actual: log,
       expected: ['stop EG', 'report broadcast.egress.stopped_unconfirmed'],

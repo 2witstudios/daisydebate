@@ -1,9 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol';
 import {
   masterPlaylist,
   mediaPlaylist,
   parseHoldPlaylist,
   RENDITIONS,
+  SEGMENT_CACHE_CONTROL,
 } from './hold-manifest';
 
 setupRitewayBun();
@@ -79,5 +81,15 @@ test('masterPlaylist offers the three qualities', () => {
       masterPlaylist().includes('RESOLUTION=426x240\n240/index.m3u8'),
     ],
     expected: [['720', '480', '240'], true, true],
+  });
+});
+
+test('a released segment cannot outlive a takedown at the edge', () => {
+  const seconds = Number(/max-age=(\d+)/.exec(SEGMENT_CACHE_CONTROL)?.[1]);
+  assert({
+    given: "the segments' cache lifetime and the 60 s takedown bound",
+    should: 'leave at least half the bound for the delete itself',
+    actual: seconds * 1000 <= CONTENT_MODERATION_DELIVERY_BOUND_MS / 2,
+    expected: true,
   });
 });
