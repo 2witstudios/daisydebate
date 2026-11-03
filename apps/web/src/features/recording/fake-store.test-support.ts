@@ -18,6 +18,26 @@ export const fakeRecordingStore = (
   const rows = new Map(seed.map((record) => [record.id, record]));
   const due = new Map<string, number>();
   const deferred: { readonly id: string; readonly retryAt: string }[] = [];
+  const apply: RecordingStore['apply'] = async (
+    id,
+    decide,
+    expectedVersion,
+  ): Promise<RecordingApplied> => {
+    const record = rows.get(id);
+    if (!record) return { kind: 'missing' };
+    if (expectedVersion !== undefined && record.version !== expectedVersion)
+      return { kind: 'stale', record };
+    const transition = decide(record);
+    if (transition.kind !== 'moved')
+      return { kind: 'decided', record, transition };
+    const next = {
+      ...record,
+      lifecycle: transition.next,
+      version: record.version + 1,
+    };
+    rows.set(id, next);
+    return { kind: 'decided', record: next, transition };
+  };
   const store: RecordingStore = {
     request: async (input) => {
       const existing = [...rows.values()].find(
@@ -35,22 +55,9 @@ export const fakeRecordingStore = (
     find: async (id) => rows.get(id) ?? null,
     findByRound: async (roundId) =>
       [...rows.values()].find((row) => row.roundId === roundId) ?? null,
-    apply: async (id, decide, expectedVersion): Promise<RecordingApplied> => {
-      const record = rows.get(id);
-      if (!record) return { kind: 'missing' };
-      if (expectedVersion !== undefined && record.version !== expectedVersion)
-        return { kind: 'stale', record };
-      const transition = decide(record);
-      if (transition.kind !== 'moved')
-        return { kind: 'decided', record, transition };
-      const next = {
-        ...record,
-        lifecycle: transition.next,
-        version: record.version + 1,
-      };
-      rows.set(id, next);
-      return { kind: 'decided', record: next, transition };
-    },
+    apply,
+    applyParticipantRemoval: (id, decide, { expectedVersion }) =>
+      apply(id, decide, expectedVersion),
     claimDeletions: async ({ limit }): Promise<RecordingDeletionClaim[]> =>
       [...rows.values()]
         .filter((row) => row.lifecycle.status === 'removing')

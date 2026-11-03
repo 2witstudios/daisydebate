@@ -390,6 +390,59 @@ test('a Recording of an abandoned Round can be found, and a participant can remo
   );
 });
 
+test('a participant removing a casual Recording ends the feed of its open Broadcast', async () => {
+  await withReadyRecording(
+    async ({ store, inputs, id, roundId, sql, seat, stranger }) => {
+      const broadcastId = createId();
+      await sql`insert into broadcasts (id, round_id, feed_key, release_policy)
+        values (${broadcastId}, ${roundId}, ${createId()}, ${{ kind: 'delay', seconds: 60 }})`;
+      const feed = async () => {
+        const [row] =
+          (await sql`select stop_reason, media_withheld from broadcasts
+          where id=${broadcastId}`) as {
+            stop_reason: string | null;
+            media_withheld: boolean;
+          }[];
+        return [row?.stop_reason, row?.media_withheld];
+      };
+      const remove = (viewer: RecordingViewer, expectedVersion: number) =>
+        requestParticipantRemoval(
+          { store, inputs },
+          { recordingId: id, expectedVersion, viewer, now: at },
+        );
+      try {
+        await assertRejects({
+          given: 'a stranger asking to remove it',
+          should: 'refuse',
+          code: 'AUTHORIZATION',
+          actual: () => remove(stranger, 4),
+        });
+        await assertRejects({
+          given: 'a participant whose form showed an old version',
+          should: 'ask again',
+          code: 'CONFLICT',
+          actual: () => remove(seat, 3),
+        });
+        assert({
+          given: 'those refusals',
+          should: 'leave the feed playing',
+          actual: await feed(),
+          expected: [null, false],
+        });
+        const removed = await remove(seat, 4);
+        assert({
+          given: 'the participant confirming the current version',
+          should: 'write the removal and end the feed under its own reason',
+          actual: [removed.lifecycle.status, ...(await feed())],
+          expected: ['removing', 'recording_removed_by_participant', false],
+        });
+      } finally {
+        await sql`delete from broadcasts where id=${broadcastId}`;
+      }
+    },
+  );
+});
+
 test('capture reports are idempotent against the real store', async () => {
   await withReadyRecording(async ({ store, id }) => {
     const record = await store.find(id);

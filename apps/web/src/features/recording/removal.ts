@@ -6,11 +6,12 @@ import type { RecordingInputs, RecordingRecord, RecordingStore } from './ports';
 /**
  * A participant has a casual Recording removed, whole. The version is the one
  * their form showed, so a changed Recording is confirmed again rather than acted
- * on blind. Ranked is refused by the transition as well as by this check.
+ * on blind. Ranked is refused by the transition as well as by this check. The store
+ * ends the Round's open feed with it.
  */
 export const requestParticipantRemoval = async (
   deps: {
-    readonly store: Pick<RecordingStore, 'find' | 'apply'>;
+    readonly store: Pick<RecordingStore, 'find' | 'applyParticipantRemoval'>;
     readonly inputs: Pick<RecordingInputs, 'readRound'>;
   },
   input: {
@@ -31,7 +32,7 @@ export const requestParticipantRemoval = async (
     status: record.lifecycle.status,
   });
   if (!allowed) throw createAppError('AUTHORIZATION');
-  const applied = await deps.store.apply(
+  const applied = await deps.store.applyParticipantRemoval(
     input.recordingId,
     (current) =>
       transitionRecording(current, {
@@ -39,7 +40,7 @@ export const requestParticipantRemoval = async (
         cause: 'participant_request',
         at: input.now,
       }),
-    input.expectedVersion,
+    { expectedVersion: input.expectedVersion, now: input.now },
   );
   if (applied.kind === 'missing') throw createAppError('NOT_FOUND');
   if (applied.kind === 'stale') throw createAppError('CONFLICT');
