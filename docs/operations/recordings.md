@@ -162,6 +162,12 @@ the prefix lists empty, its sources are gone from the hold bucket, and at least 
 has passed since the request, so a build still uploading cannot leave an object behind. Ranked Recordings cannot be
 removed by a participant or by erasure.
 
+Each of those removals, and a legal removal, also ends the feed of the
+Round's open Broadcast in its own transaction, and asks a just-completed Broadcast's feed to go
+at once. `stop_reason` says which: `recording_removed`, `recording_legally_removed`,
+`recording_removed_by_participant` or `recording_removed_by_erasure`. None withholds the video,
+and the Round itself carries on.
+
 ## When deletion is stuck
 
 Look for rows that stay in `removing`:

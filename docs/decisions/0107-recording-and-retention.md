@@ -47,6 +47,7 @@ cannot remove it, with one exception: `recording.legal_remove`, an operator's re
 a required closed legal ground, written to the admin audit chain, because some content must
 be removable whatever a hold says (point guard, 2026-11-03). `removing` is a durable intent held on the row, carried out
 by a bounded, idempotent sweep that ends only when the prefix lists empty.
+A participant's removal or an erasure also ends the Round's open feed, in its own transaction.
 
 **Takedown is not deletion.** It hides at once and keeps the objects, because ranked
 video is the evidence behind disputes and integrity review. Moderation removes them as

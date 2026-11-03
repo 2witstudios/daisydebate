@@ -10,6 +10,7 @@ export const recordingPersistence = ({
   find: database.findRecording,
   findByRound: database.findRecordingByRound,
   apply: database.applyRecording,
+  applyParticipantRemoval: database.applyParticipantRemoval,
   claimDeletions: database.claimRecordingDeletions,
   deferDeletion: database.deferRecordingDeletion,
   listFailedBefore: database.listFailedRecordingsBefore,

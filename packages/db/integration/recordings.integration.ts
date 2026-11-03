@@ -320,6 +320,73 @@ test('erasure removes casual Recordings whole and keeps ranked ones', async () =
   });
 });
 
+test('erasure of a seat ends the open feed of a casual Recording it removes, and no other', async () => {
+  await withPrivacySubject(async ({ client, actorId, userId, database }) => {
+    await withFixture(databaseUrl, async (fixture) => {
+      const ops = recordingOperations({ database });
+      const make = async (recordingClass: 'casual' | 'ranked') => {
+        const roundId = await fixture.round();
+        await fixture.seat(roundId, 'affirmative', 0, actorId);
+        const id = createId();
+        await ops.requestRecording({
+          id,
+          roundId,
+          class: recordingClass,
+          eligibility:
+            recordingClass === 'casual' ? hostOptIn : { kind: 'ranked' },
+        });
+        await ops.applyRecording(id, () => ({
+          kind: 'moved',
+          next: ready(id),
+        }));
+        await openBroadcast(database, {
+          id: createId(),
+          roundId,
+          feedKey: createId(),
+          releasePolicy: { kind: 'delay', seconds: 60 },
+        });
+        return { id, roundId };
+      };
+      const casual = await make('casual');
+      const ranked = await make('ranked');
+      const feed = async (roundId: string) => {
+        const [row] =
+          (await client`select stop_reason, media_withheld from broadcasts
+          where round_id=${roundId}`) as {
+            stop_reason: string | null;
+            media_withheld: boolean;
+          }[];
+        return [row?.stop_reason, row?.media_withheld];
+      };
+      try {
+        await exportThenErase(database, { userId, actorId }, [
+          recordingPrivacyAdopter,
+        ]);
+        assert({
+          given: 'erasure of a member seated in both',
+          should:
+            'end the casual feed under its own reason and leave the ranked one',
+          actual: [
+            (await ops.findRecording(casual.id))?.lifecycle.status,
+            await feed(casual.roundId),
+            (await ops.findRecording(ranked.id))?.lifecycle.status,
+            await feed(ranked.roundId),
+          ],
+          expected: [
+            'removing',
+            ['recording_removed_by_erasure', false],
+            'ready',
+            [null, false],
+          ],
+        });
+      } finally {
+        await client`delete from broadcasts where round_id in (${casual.roundId}, ${ranked.roundId})`;
+        await client`delete from recordings where id in (${casual.id}, ${ranked.id})`;
+      }
+    });
+  });
+});
+
 test('erasure under an open report keeps a taken-down casual Recording hidden, then the hold ends', async () => {
   await withPrivacySubject(async ({ client, actorId, userId, database }) => {
     await withFixture(databaseUrl, async (fixture) => {

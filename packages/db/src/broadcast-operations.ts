@@ -565,43 +565,52 @@ export const readConversationHeld = async (
  * there is no such Broadcast.
  */
 export const endBroadcastFeed = async (
-  tx: Tx,
+  tx: Pick<Tx, 'execute'>,
   input: {
     readonly id: string;
     readonly reason: string;
     readonly now: Date;
   },
 ): Promise<'applied' | 'unchanged' | null> => {
-  const stopped = await tx
-    .update(broadcasts)
-    .set({ stoppedAt: input.now, stopReason: input.reason })
-    .where(
-      and(
-        eq(broadcasts.id, input.id),
-        isNull(broadcasts.stoppedAt),
-        isNull(broadcasts.completedAt),
-      ),
-    )
-    .returning({ id: broadcasts.id });
+  const at = input.now.toISOString();
+  const stopped = (await tx.execute(sql`update broadcasts
+    set stopped_at=${at}::timestamptz, stop_reason=${input.reason}
+    where id=${input.id} and stopped_at is null and completed_at is null
+    returning id`)) as unknown as readonly unknown[];
   if (stopped.length === 1) return 'applied';
   // Already complete, its feed would wait out the grace: past the delivery bound
   // for a stop that lands just after. The withdrawal loop takes it on its next poll.
-  await tx
-    .update(broadcasts)
-    .set({ feedWithdrawalRequestedAt: input.now })
-    .where(
-      and(
-        eq(broadcasts.id, input.id),
-        isNotNull(broadcasts.completedAt),
-        isNull(broadcasts.feedWithdrawnAt),
-        isNull(broadcasts.feedWithdrawalRequestedAt),
-      ),
-    );
-  const [found] = await tx
-    .select({ id: broadcasts.id })
-    .from(broadcasts)
-    .where(eq(broadcasts.id, input.id));
-  return found ? 'unchanged' : null;
+  await tx.execute(sql`update broadcasts
+    set feed_withdrawal_requested_at=${at}::timestamptz
+    where id=${input.id} and completed_at is not null
+      and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`);
+  const found = (await tx.execute(
+    sql`select id from broadcasts where id=${input.id}`,
+  )) as unknown as readonly unknown[];
+  return found.length === 1 ? 'unchanged' : null;
+};
+
+/**
+ * A Recording's removal ends its Round's feed, in the removal's own transaction:
+ * what is going must not keep playing. A Round with no Broadcast has nothing to end.
+ */
+export const endRoundFeed = async (
+  tx: Pick<Tx, 'execute'>,
+  input: {
+    readonly roundId: string;
+    readonly reason: string;
+    readonly now: Date;
+  },
+): Promise<void> => {
+  const [broadcast] = (await tx.execute(
+    sql`select id from broadcasts where round_id=${input.roundId}`,
+  )) as unknown as readonly { readonly id: string }[];
+  if (broadcast)
+    await endBroadcastFeed(tx, {
+      id: broadcast.id,
+      reason: input.reason,
+      now: input.now,
+    });
 };
 
 /**

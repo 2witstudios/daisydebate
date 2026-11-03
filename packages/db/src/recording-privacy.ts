@@ -4,6 +4,7 @@ import {
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
+import { endRoundFeed } from './broadcast-operations';
 import { moveRecording } from './recording-move';
 
 const seatedRounds = (actorId: string) =>
@@ -14,7 +15,8 @@ const seatedRounds = (actorId: string) =>
  * sits in to go, whole, so this records that intent in the erasure's transaction
  * and the deletion sweep carries it out. A taken-down one under an open report
  * stays hidden as evidence, with the removal owed: it goes when the report closes
- * or the hold's 90 days pass. Ranked Recordings are kept: they are their own
+ * or the hold's 90 days pass. Whatever moves also ends the Round's open feed, and one
+ * taken down has had its feed ended already. Ranked Recordings are kept: they are their own
  * declared class, proposed until counsel reviews it (compliance.md). Export names
  * the Recordings the subject appears in, never another's data.
  */
@@ -37,8 +39,8 @@ export const recordingPrivacyAdopter: PrivacyAdopter = {
     const heldUntil = new Date(
       Date.parse(now) + RECORDING_EVIDENCE_HOLD_MS,
     ).toISOString();
-    for (const { id, reported } of rows)
-      await moveRecording(tx, id, (record) =>
+    for (const { id, reported } of rows) {
+      const applied = await moveRecording(tx, id, (record) =>
         transitionRecording(record, {
           type: 'removal_requested',
           cause: 'participant_request',
@@ -46,6 +48,13 @@ export const recordingPrivacyAdopter: PrivacyAdopter = {
           ...(reported ? { evidenceHeldUntil: heldUntil } : {}),
         }),
       );
+      if (applied.kind === 'decided' && applied.transition.kind === 'moved')
+        await endRoundFeed(tx, {
+          roundId: applied.record.roundId,
+          reason: 'recording_removed_by_erasure',
+          now: new Date(now),
+        });
+    }
   },
   export: async (tx, subject) => {
     const rows =
