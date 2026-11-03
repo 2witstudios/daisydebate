@@ -73,6 +73,27 @@ describe('followNext', () => {
     });
   });
 
+  test('only a move down to the end resumes following', () => {
+    const noticed = followNext(pinnedAtEnd, changed(880));
+    const seen = followNext(noticed.state, scrolled(880));
+    assert({
+      given: 'a gentle move up seen by a render, then its own scroll event',
+      should: 'stay reading, so the next line does not pull the reader down',
+      actual: [seen.state, followNext(seen.state, changed(880)).pinToEnd],
+      expected: [reading(880), false],
+    });
+    assert({
+      given:
+        'a sub-pixel move up near the end, and a panel growing so the position clamps up',
+      should: 'not resume',
+      actual: [
+        followNext(reading(880), scrolled(879.5)).state.following,
+        followNext(reading(890), scrolled(880)).state.following,
+      ],
+      expected: [false, false],
+    });
+  });
+
   test('following survives what a browser does with no reader', () => {
     assert({
       given:
