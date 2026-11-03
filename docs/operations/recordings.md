@@ -93,21 +93,41 @@ built.
 
 ## Coverage
 
-`media.gaps` states what the video does not hold, and the player lists it. Today only
-capture restarts are recorded (`capture_restart`). A private phase shows as the stage's
-slate in the video and is not listed as a gap.
+`media.gaps` states what the video shows as something other than the debate, and the
+player lists it: a capture restart (`capture_restart`), a private phase, which is the
+stage's slate (`private_phase`), and a room rotation (`room_rotation`), stated at an
+estimated 5 seconds. `media.unrecorded` states debate the video never reached: a late
+start, an early end, or the rest of a Round whose Broadcast was stopped.
 
 ## Takedown
 
 A takedown hides the Recording from everyone at once. Every new playback or download
 request is refused, and a signed read already issued lasts at most 60 seconds. The
 objects stay, as evidence for disputes and integrity review, until moderation
-removes them. A Recording taken down while ready can be restored as it was.
+removes them. A Recording taken down while ready can be restored as it was. A takedown
+also ends the feed of the Round's open Broadcast, and a restore does not start it again.
+A ranked Round leaves the archive with its Recording, though its transcript remains.
+
+Take down, restore and delete are forms on a report's page in the admin app. Each names
+the version the page read, so a Recording that changed since refuses the command and the
+page must be read again.
+
+## Evidence hold
+
+Erasure of a seat does not remove a casual Recording that is already taken down while a
+report on it or its Round is open. It stays hidden with its removal owed, cannot be
+restored, and the deletion sweep moves it to `removing` when the report closes or 90 days
+after the request, whichever is first. Moderation may still delete it sooner.
+
+```sql
+select id, lifecycle->'removalOwed' from recordings
+where status = 'taken_down' and lifecycle ? 'removalOwed';
+```
 
 ## Removal and erasure
 
-A participant's removal of a casual Recording, an account's erasure and a moderator's
-removal all write `removing`, a durable intent. The sweep runs every minute. It
+A participant's removal of a casual Recording, an account's erasure outside an evidence
+hold and a moderator's removal all write `removing`, a durable intent. The sweep runs every minute. It
 lists the Recording's prefix, deletes a bounded batch, and marks it `removed` only when
 the prefix lists empty, its sources are gone from the hold bucket, and at least an hour
 has passed since the request, so a build still uploading cannot leave an object behind. Ranked Recordings cannot be
