@@ -12,7 +12,7 @@ export type ComingSoonCardProps = {
 
 /**
  * A dashboard card for a destination that is not open yet, standing where its
- * live version (featured tournament, live debates) goes once it launches.
+ * live version (live debates) goes once it launches.
  */
 export function ComingSoonCard({ title, href }: ComingSoonCardProps) {
   return (

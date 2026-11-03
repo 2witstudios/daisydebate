@@ -145,9 +145,8 @@ const declaredPairs: readonly Pair[] = [
     })),
   ),
   { fg: '--gold', bg: '--gold-soft', base: '--surface', min: TEXT },
-  // Tinted cards on the page: the prep hero (accent), the featured
-  // tournament (clay) and the champion card (gold), with page ink and, on
-  // the clay card, the primary button.
+  // Tinted cards on the page (accent, clay and the champion card's gold), with
+  // page ink and, on clay, the primary button.
   ...on(
     ['--text', '--text-muted'],
     ['--accent-soft', '--hue-clay-soft', '--gold-soft'],

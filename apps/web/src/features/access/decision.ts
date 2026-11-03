@@ -34,9 +34,8 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   '/prep': 'participant',
   '/train': 'participant',
   '/settings': 'account',
-  // A public root (Tournaments) holds guarded areas: the organizer console
-  // (any organizer, never an admin surface, ADR 0043), a participant's own
-  // events and the registration flow.
+  // Tournaments' root stays public; these areas under it stay guarded for when
+  // its screens exist (ADR 0043).
   '/tournaments/organize': 'participant',
   '/tournaments/mine': 'participant',
   '/tournaments/enter': 'participant',
