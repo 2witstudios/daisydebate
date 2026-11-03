@@ -79,6 +79,17 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
       }),
     };
   },
+  /** What says whether a Round expects a Broadcast, before its row exists. */
+  async readCapturePlan(roundId: string) {
+    const [row] = await database
+      .select({
+        competitionType: rounds.competitionType,
+        capture: rounds.capture,
+      })
+      .from(rounds)
+      .where(eq(rounds.id, roundId));
+    return row ?? null;
+  },
   async readRound(roundId: string) {
     const round = await hydrateRoundRows(database, roundId);
     if (!round) return null;

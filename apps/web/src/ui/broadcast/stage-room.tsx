@@ -19,6 +19,7 @@ type StageAnswer = StageSnapshot & {
   readonly room: { readonly url: string; readonly token: string } | null;
 };
 
+/** Fills its seat, so the 540p top layer reaches the frame close to one to one. */
 function StageTile({ track }: { readonly track: RemoteTrack | undefined }) {
   const video = useRef<HTMLVideoElement>(null);
   useEffect(() => {

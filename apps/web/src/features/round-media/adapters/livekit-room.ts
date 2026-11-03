@@ -17,11 +17,14 @@ import type { CheckedDeviceRead } from '../../video/device-selection';
 import type { RoomEvent as MediaRoomEvent } from '../model/media-events';
 import type { ObservedTrack, Source } from '../model/media-state';
 import { preferenceFailureOf, sourceFailureOf } from '../source-failure';
+import { cameraResolution } from './camera-resolution';
 
 /** The SDK surface used: livekit-client in the browser, a stub in tests. */
 export type MediaSdk = {
   readonly room: () => Room;
   readonly capture: typeof createLocalTracks;
+  /** How many cores this browser reports, if it says. */
+  readonly cores: () => number | undefined;
 };
 const livekit: MediaSdk = {
   room: () =>
@@ -29,6 +32,9 @@ const livekit: MediaSdk = {
       adaptiveStream: true,
       dynacast: true,
       videoCaptureDefaults: { resolution: VideoPresets.h360.resolution },
+      // The capture is the top layer. These are the ones beneath it: 180 alone under
+      // 360p capture, 180 and 360 under 540p, the top going first when a sender is
+      // short of bandwidth or CPU. Dynacast sends it only while someone asks for it.
       publishDefaults: {
         simulcast: true,
         videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
@@ -38,6 +44,7 @@ const livekit: MediaSdk = {
       disconnectOnPageLeave: false,
     }),
   capture: createLocalTracks,
+  cores: () => globalThis.navigator?.hardwareConcurrency,
 };
 
 /** A track to attach to an element: what it says about itself is the model's to read. */
@@ -71,6 +78,7 @@ export function createLiveKitRoom(
   setLogLevel(LogLevel.silent);
   const room = sdk.room();
   let released = false;
+  let camera: RoundMediaAdmission['camera'] = 'standard';
   // The SDK also fires Disconnected for a connect that fails, just before rejecting.
   let connected = false;
   const held = new Map<Source, HeldTrack>();
@@ -227,6 +235,7 @@ export function createLiveKitRoom(
   };
   return {
     connect: async (admission: RoundMediaAdmission) => {
+      ({ camera } = admission);
       try {
         await room.connect(admission.url, admission.token, { maxRetries: 0 });
       } catch (error) {
@@ -293,7 +302,7 @@ export function createLiveKitRoom(
           video:
             source === 'camera'
               ? {
-                  resolution: VideoPresets.h360.resolution,
+                  resolution: cameraResolution(camera, sdk.cores()),
                   ...(choices.camera
                     ? { deviceId: { exact: choices.camera } }
                     : {}),

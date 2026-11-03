@@ -74,6 +74,15 @@ and a file. Room Composite is rejected: deleting its room ends it, or leaves it
 active and writing silence. Daisy stops the Egress, and the reconciler stops any
 whose Round is terminal.
 
+**Stage quality (owner, 2026-11-03).** On a Round expecting a Broadcast, a browser
+reporting at least 4 cores captures 540p, which adds a top simulcast layer over 180p
+and 360p. Every other seat keeps its 360p baseline. The layer is there for the stage:
+dynacast sends it only while a subscriber asks for it, and congestion control and
+Chrome's CPU adaptation drop the highest layer first, so audio and the lower layers
+keep their place. Under 960 wide (a 4:3 camera) the SDK keeps only 180p below the
+capture, so 360p is not available there. The admission's `camera` value is a hint about
+quality and decides no authority. If it cannot be read, the seat captures the baseline.
+
 **Privacy boundary.** Revoking the observer's subscribe permission on the server
 is the boundary; the page slate is appearance only. If revocation cannot be
 confirmed, the Egress stops. The criterion is zero leak measured at the production
