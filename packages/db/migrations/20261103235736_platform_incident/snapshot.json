@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "a5821f2d-04cb-4469-98be-51ce24288ed1",
+  "id": "0c4c1779-a966-482e-b60a-c09b669eb598",
   "prevIds": [
     "cfbdc3ef-f492-454f-96ed-78471979d127"
   ],
@@ -24231,6 +24231,13 @@
       "table": "mail_intents"
     },
     {
+      "value": "\"cause\" in ('absent', 'unreachable', 'seat-revoked', 'lost')",
+      "name": "media_room_rotations_cause_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_room_rotations"
+    },
+    {
       "value": "\"reconcile_epoch\" >= 0 and \"reconcile_served_version\" >= 0 and \"reconcile_running_version\" >= \"reconcile_served_version\" and \"reconcile_request_version\" >= \"reconcile_running_version\"",
       "name": "media_sessions_reconcile_versions_check",
       "entityType": "checks",
@@ -25659,7 +25666,7 @@
       "table": "rounds"
     },
     {
-      "value": "\"platform_ending\" is null or (\"platform_ending\" = 'recovery_bound' and \"status\" = 'abandoned') or (\"platform_ending\" = 'capture_shortfall' and \"status\" in ('active', 'completed'))",
+      "value": "\"platform_ending\" is null or (\"platform_ending\" = 'recovery_bound' and \"status\" = 'abandoned') or (\"platform_ending\" = 'capture_shortfall' and \"status\" <> 'opening')",
       "name": "rounds_platform_ending_check",
       "entityType": "checks",
       "schema": "public",

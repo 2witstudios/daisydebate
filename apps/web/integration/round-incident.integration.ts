@@ -510,7 +510,7 @@ test('a reservation never counted needs no refund when the platform ends the Rou
   });
 });
 
-test('a rotation after the decision read is not lost', async () => {
+test('a later retirement waits for its own decision', async () => {
   await withMediaRound(async (f) => {
     const { observe } = await liveSpeech(f);
     await retireRoom(f);
@@ -520,14 +520,12 @@ test('a rotation after the decision read is not lost', async () => {
     const watch = await f.store.roundIncidents.readRoundIncidentWatch(
       f.roundId,
     );
-    const lostRoom =
-      await f.sql`select count(*)::int as n from media_sessions where round_id=${f.roundId}`;
     assert({
       given: 'a room retired again after an earlier retirement was taken up',
       should:
         'still be waiting for a decision, on media rows nobody else wrote',
-      actual: [watch.roomRetired, lostRoom[0]!.n],
-      expected: [true, 1],
+      actual: watch.roomRetired,
+      expected: true,
     });
   });
 });

@@ -325,12 +325,7 @@ test('a capture takeover with no gap is judged', async () => {
       dispatch: freezeJudgingPlan({
         completeness: 'incomplete',
         humanJudges: false,
-        capture: {
-          unheardMs: shortfall.unheardMs,
-          platformLostMs: shortfall.captureGapMs,
-          expectedMs: shortfall.expectedSpeechMs,
-          platformLostUnmeasured: shortfall.platformLostUnmeasured,
-        },
+        capture: shortfall.capture,
         ballotDeadlineMs: 60_000,
         aiJudgingBudgetMs: 60_000,
       }).dispatchAiJudges,

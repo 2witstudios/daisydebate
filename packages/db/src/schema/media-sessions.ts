@@ -1,3 +1,7 @@
+import {
+  mediaRoomRotationCauses,
+  type MediaRoomRotationCause,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -10,6 +14,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { createdAtColumn, timestampColumn } from './columns';
+import { oneOf } from './columns';
 import { rounds } from './rounds';
 import { roundParticipants } from './round-participants';
 
@@ -82,11 +87,15 @@ export const mediaRoomRotations = pgTable(
       .references(() => rounds.id, { onDelete: 'cascade' }),
     rotatedAt: timestampColumn('rotated_at').notNull(),
     /** Why the session moved, as its room's fate said. Read by the incident feature. */
-    cause: text('cause')
-      .$type<'absent' | 'unreachable' | 'seat-revoked' | 'lost'>()
-      .notNull(),
+    cause: text('cause').$type<MediaRoomRotationCause>().notNull(),
   },
-  (table) => [index('media_room_rotations_round_idx').on(table.roundId)],
+  (table) => [
+    index('media_room_rotations_round_idx').on(table.roundId),
+    check(
+      'media_room_rotations_cause_check',
+      oneOf(table.cause, mediaRoomRotationCauses),
+    ),
+  ],
 );
 
 export const mediaParticipants = pgTable(

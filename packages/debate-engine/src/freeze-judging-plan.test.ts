@@ -9,18 +9,46 @@ const plan = (
   completeness: 'complete' | 'incomplete',
   unheardMs: number | null,
   humanJudges = false,
-  platformLostMs: number | null = unheardMs,
-  platformLostUnmeasured = unheardMs === null,
+  platformLostMs: number = unheardMs ?? 0,
 ) => {
   const { dispatchAiJudges, endsAsPlatformIncident } = freezeJudgingPlan({
     completeness,
-    capture: { unheardMs, platformLostMs, expectedMs, platformLostUnmeasured },
+    capture:
+      unheardMs === null
+        ? { kind: 'platform-unmeasured', expectedMs }
+        : { kind: 'measured', unheardMs, platformLostMs, expectedMs },
     humanJudges,
     ballotDeadlineMs: 1,
     aiJudgingBudgetMs: 1,
   });
   return { dispatchAiJudges, endsAsPlatformIncident };
 };
+
+test('a stream with no measure that is no fault of the platform', () => {
+  const unmeasuredElsewhere = (platformLostMs: number) =>
+    freezeJudgingPlan({
+      completeness: 'incomplete',
+      capture: { kind: 'unheard-unmeasured', platformLostMs, expectedMs },
+      humanJudges: false,
+      ballotDeadlineMs: 1,
+      aiJudgingBudgetMs: 1,
+    });
+  assert({
+    given: 'no platform loss, then platform loss past the limit',
+    should:
+      'withhold the judge both times, and end on the platform only for the second',
+    actual: [unmeasuredElsewhere(0), unmeasuredElsewhere(expectedMs)].map(
+      ({ dispatchAiJudges, endsAsPlatformIncident }) => [
+        dispatchAiJudges,
+        endsAsPlatformIncident,
+      ],
+    ),
+    expected: [
+      [false, false],
+      [false, true],
+    ],
+  });
+});
 
 test('the dispatch rule follows the capture limit', () => {
   const judged = { dispatchAiJudges: true, endsAsPlatformIncident: false };
@@ -50,8 +78,8 @@ test('the dispatch rule follows the capture limit', () => {
       { dispatchAiJudges: false, endsAsPlatformIncident: false },
     ],
     [
-      'history with no measure and no platform loss',
-      plan('incomplete', null, false, null, false),
+      'platform loss under the limit tipped over by silence, stated in ADR 0110',
+      plan('incomplete', expectedMs * limit + 1, false, expectedMs * limit - 1),
       { dispatchAiJudges: false, endsAsPlatformIncident: false },
     ],
     [

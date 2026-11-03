@@ -251,6 +251,29 @@ test('a long-outage evaluation at the read cap stays inside its transaction budg
     }
   }));
 
+test('a shortfall Round can still be abandoned at the cutoff', () =>
+  withAttendanceRound(async (input) => {
+    const { f, roundId } = input;
+    const { opponent } = await seatsOf(input);
+    try {
+      await passAttendanceCutoff(f.sql, roundId);
+      await stamp(input, opponent, 1000);
+      await f.sql`update rounds set platform_ending='capture_shortfall' where id=${roundId}`;
+      const ended = await input.attendance.evaluate(roundId);
+      const round = (await f.store.getRound(roundId))!;
+      const [row] =
+        await f.sql`select platform_ending from rounds where id=${roundId}`;
+      assert({
+        given: 'a freeze that ended on capture, then the attendance cutoff',
+        should: 'abandon the Round and keep its stated ending',
+        actual: [decisionOf(ended), round.status, row!.platform_ending],
+        expected: ['abandoned', 'abandoned', 'capture_shortfall'],
+      });
+    } finally {
+      await cleanUp(input);
+    }
+  }));
+
 test('past the cutoff a provable absence is still decided, not abandoned', () =>
   withAttendanceRound(async (input) => {
     const { f, attendance, roundId, segmentId } = input;

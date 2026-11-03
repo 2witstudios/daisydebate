@@ -1,4 +1,8 @@
 import { readCaptureShortfall } from './capture-shortfall';
+
+type FrozenCaptureFacts = Awaited<
+  ReturnType<typeof readCaptureShortfall>
+>['capture'];
 import { refundPlatformEndedLocked } from './round-bot-admission';
 import type { CaptureRule } from '@daisy/protocol';
 import {
@@ -47,12 +51,7 @@ export type FreezeRequest = LockedRoundTickInput & {
   readonly planJudging: (facts: {
     readonly completeness: 'complete' | 'incomplete';
     readonly humanJudges: boolean;
-    readonly capture: {
-      readonly unheardMs: number | null;
-      readonly platformLostMs: number | null;
-      readonly expectedMs: number;
-      readonly platformLostUnmeasured: boolean;
-    };
+    readonly capture: FrozenCaptureFacts;
   }) => {
     /** An AI-only Round lost more speech than can be judged (ADR 0110). */
     readonly endsAsPlatformIncident: boolean;
@@ -71,12 +70,7 @@ async function planFrozenJudging(
   tx: BoundedTransactionContext,
   request: FreezeRequest,
   completeness: 'complete' | 'incomplete',
-  capture: {
-    readonly unheardMs: number | null;
-    readonly platformLostMs: number | null;
-    readonly expectedMs: number;
-    readonly platformLostUnmeasured: boolean;
-  },
+  capture: FrozenCaptureFacts,
 ) {
   const [judges] =
     (await tx.execute(sql`select exists(select 1 from round_participants p join actors a on a.id=p.actor_id
@@ -177,12 +171,12 @@ export async function finalizeLockedRoundTranscript(
       captureGaps: shortfall.captureGaps,
     })
     .returning();
-  const platformEnded = await planFrozenJudging(tx, request, state, {
-    unheardMs: shortfall.unheardMs,
-    platformLostMs: shortfall.captureGapMs,
-    expectedMs: shortfall.expectedSpeechMs,
-    platformLostUnmeasured: shortfall.platformLostUnmeasured,
-  });
+  const platformEnded = await planFrozenJudging(
+    tx,
+    request,
+    state,
+    shortfall.capture,
+  );
   await appendTranscriptChanged(tx, request.roundId, revision + 1);
   // What the Round waits on changes here, so the room must read it: a new version
   // and a ring, as with any other change the server records.

@@ -614,4 +614,6 @@ export type {
   MediaRoomFacts,
   MediaRoomFate,
   MediaRoomRead,
+  MediaRoomRotationCause,
 } from './media-room-fate';
+export { mediaRoomRotationCauses } from './media-room-fate';

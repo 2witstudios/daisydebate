@@ -60,7 +60,7 @@ test('the operator alert', async () => {
   });
 });
 
-test('what costs no transaction', async () => {
+test('what takes no Round lock', async () => {
   const healthy = world(async () => ({ kind: 'unchanged' }), {
     roomRetired: false,
     unreachableSince: null,

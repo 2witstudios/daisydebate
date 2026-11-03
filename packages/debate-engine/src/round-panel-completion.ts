@@ -31,15 +31,19 @@ export type PanelDecision =
 
 type Completeness = { readonly completeness: 'complete' | 'incomplete' };
 /** What a freeze measured of its capture; a null gap was never measured. */
-type FrozenCapture = {
-  /** All speech nobody heard, a silent seat's too: whether an AI judge may rule. */
-  readonly unheardMs: number | null;
-  /** The speech the platform lost: whether the platform ended the Round. */
-  readonly platformLostMs: number | null;
-  readonly expectedMs: number;
-  /** A stream lost audio by an amount never measured, which cannot be proven small. */
-  readonly platformLostUnmeasured: boolean;
-};
+type FrozenCapture = { readonly expectedMs: number } & (
+  | {
+      readonly kind: 'measured';
+      /** All speech nobody heard, a silent seat's too: whether an AI judge may rule. */
+      readonly unheardMs: number;
+      /** The speech the platform lost: whether the platform ended the Round. */
+      readonly platformLostMs: number;
+    }
+  /** A stream that is no fault of the platform has no measure, so nothing is proven small. */
+  | { readonly kind: 'unheard-unmeasured'; readonly platformLostMs: number }
+  /** A stream the platform lost has no measure, so its loss cannot be proven small. */
+  | { readonly kind: 'platform-unmeasured' }
+);
 /**
  * Who may rule on a frozen transcript (DEC-208, ADR 0110). An AI judge rules
  * unless capture fell below the limit, and then an AI-only Round ends as a
@@ -59,19 +63,21 @@ export function freezeJudgingPlan(
   const { capture } = input;
   const judgeable =
     input.completeness !== 'incomplete' ||
-    captureWithinLimit({
-      gapMs: capture.unheardMs,
-      expectedMs: capture.expectedMs,
-    });
+    (capture.kind === 'measured' &&
+      captureWithinLimit({
+        gapMs: capture.unheardMs,
+        expectedMs: capture.expectedMs,
+      }));
   // Silence past the limit takes the transcript-incomplete path: only the platform's own
-  // loss, past that same limit, is an ending blamed on it.
+  // loss, past that same limit, is an ending blamed on it. A mix under it, with silence
+  // tipping the total over, is no platform ending either (ADR 0110).
   const platformFailed =
-    capture.platformLostMs === null
-      ? capture.platformLostUnmeasured
-      : !captureWithinLimit({
-          gapMs: capture.platformLostMs,
-          expectedMs: capture.expectedMs,
-        });
+    capture.kind === 'platform-unmeasured' ||
+    (capture.platformLostMs > 0 &&
+      !captureWithinLimit({
+        gapMs: capture.platformLostMs,
+        expectedMs: capture.expectedMs,
+      }));
   return {
     dispatchAiJudges: judgeable,
     endsAsPlatformIncident: !judgeable && !input.humanJudges && platformFailed,

@@ -52,24 +52,38 @@ export async function readCaptureShortfall(
       })),
     );
   // Zero gaps over valid windows measures zero. Only history with no windows has no measure.
-  const unmeasured = partial.some((stream) =>
+  const unmeasured = (stream: (typeof partial)[number]) =>
     stream.partialReasons.some(
       (reason) =>
         reason === 'invalid-history' || reason === 'no-authority-window',
-    ),
-  );
+    );
   const sum = (of: typeof partial) =>
     gapsOf(of).reduce(
       (total, gap) => total + gap.untilOffsetMs - gap.fromOffsetMs,
       0,
     );
+  const platformUnmeasured = lost.some(unmeasured);
+  const unheardUnmeasured = partial.some(unmeasured);
   return {
     expectedSpeechMs,
     // What is stated as the platform's fault, and the amount that sums it.
     captureGaps: { gaps: gapsOf(lost) },
-    captureGapMs: unmeasured ? null : sum(lost),
+    captureGapMs: platformUnmeasured ? null : sum(lost),
     // All speech nobody heard, a silent seat's too.
-    unheardMs: unmeasured ? null : sum(partial),
-    platformLostUnmeasured: unmeasured && lost.length > 0,
+    unheardMs: unheardUnmeasured ? null : sum(partial),
+    capture: platformUnmeasured
+      ? { kind: 'platform-unmeasured' as const, expectedMs: expectedSpeechMs }
+      : unheardUnmeasured
+        ? {
+            kind: 'unheard-unmeasured' as const,
+            platformLostMs: sum(lost),
+            expectedMs: expectedSpeechMs,
+          }
+        : {
+            kind: 'measured' as const,
+            unheardMs: sum(partial),
+            platformLostMs: sum(lost),
+            expectedMs: expectedSpeechMs,
+          },
   };
 }

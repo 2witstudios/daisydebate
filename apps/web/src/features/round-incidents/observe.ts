@@ -35,7 +35,7 @@ const runtimeOf = (round: RoundHydration, nextId: () => string) =>
 /**
  * The hook a recovery pass calls with what it saw. It never throws into the pass: a
  * failure here is reported and the next pass observes again, with a retirement still
- * waiting on the session.
+ * waiting in `media_room_rotations`.
  */
 export function createRoundIncidentObserver(input: {
   readonly store: Store;
