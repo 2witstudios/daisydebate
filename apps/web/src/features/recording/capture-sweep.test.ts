@@ -353,7 +353,7 @@ describe('answers to the worker', () => {
           {
             recordingId: 'rec',
             attemptCount: 2,
-            publicIntervals: [{ fromMs: 1500, toMs: 60_500 }],
+            publicIntervals: [{ fromMs: 1450, toMs: 61_000 }],
             ceilingMs: recordingBuildCeilingMs(
               capturedMediaMs(processing.capture),
             ),

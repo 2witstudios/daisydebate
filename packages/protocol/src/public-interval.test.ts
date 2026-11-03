@@ -7,7 +7,7 @@ import {
 
 setupRitewayBun();
 
-const MARGIN = 500;
+const LAG = 450;
 const closed = (startedAtMs: number, endedAtMs: number) => ({
   startedAtMs,
   endedAtMs,
@@ -20,14 +20,14 @@ const open = (startedAtMs: number) => ({
 });
 
 describe('publicIntervals', () => {
-  test('a committed segment is public start to end, margin inside; nothing else is', () => {
+  test('a committed segment is public past the stamp lag to its end; nothing else is', () => {
     assert({
       given: 'two closed segments with a stretch between them, out of order',
       should: 'give each, sorted, and not the stretch between',
       actual: publicIntervals([closed(50_000, 70_000), closed(0, 40_000)], 0),
       expected: [
-        { fromMs: MARGIN, toMs: 40_000 - MARGIN },
-        { fromMs: 50_000 + MARGIN, toMs: 70_000 - MARGIN },
+        { fromMs: LAG, toMs: 40_000 },
+        { fromMs: 50_000 + LAG, toMs: 70_000 },
       ],
     });
     assert({
@@ -48,8 +48,8 @@ describe('publicIntervals', () => {
         publicIntervals([open(0)], null),
       ],
       expected: [
-        [{ fromMs: MARGIN, toMs: 10_000 - MARGIN }],
-        [{ fromMs: MARGIN, toMs: 60_000 - MARGIN }],
+        [{ fromMs: LAG, toMs: 10_000 }],
+        [{ fromMs: LAG, toMs: 60_000 }],
         [],
       ],
     });
@@ -63,14 +63,14 @@ describe('publicIntervals', () => {
         'an outage, then the segment closing; then the same with no commit',
       should: 'publish the stretch only once history says so',
       actual: [outage[0]?.toMs, afterCommit[0]?.toMs, noCommit[0]?.toMs],
-      expected: [10_000 - MARGIN, 60_000 - MARGIN, 10_000 - MARGIN],
+      expected: [10_000, 60_000, 10_000],
     });
   });
-  test('a segment too short for its margins proves nothing', () => {
+  test('a segment no longer than the lag proves nothing', () => {
     assert({
-      given: 'a segment shorter than both margins',
+      given: 'a segment as short as the lag',
       should: 'give no interval',
-      actual: publicIntervals([closed(0, MARGIN)], 0),
+      actual: publicIntervals([closed(0, LAG)], 0),
       expected: [],
     });
   });
@@ -139,8 +139,8 @@ describe('settledByHeartbeat', () => {
       should: 'settle only the last',
       actual: [
         settledByHeartbeat(segment, null),
-        settledByHeartbeat(segment, 4000 + MARGIN - 1),
-        settledByHeartbeat(segment, 4000 + MARGIN),
+        settledByHeartbeat(segment, 4000 + LAG - 1),
+        settledByHeartbeat(segment, 4000 + LAG),
       ],
       expected: [false, false, true],
     });

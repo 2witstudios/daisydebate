@@ -75,7 +75,7 @@ describe('only what history proves public', () => {
   test('past the heartbeat nothing is settled, however due', async () => {
     const { ports, log } = world();
     const answer = await releaseStep(
-      input({ heartbeatMs: start + 4_499 }),
+      input({ heartbeatMs: start + 4_449 }),
       ports,
     );
     assert({

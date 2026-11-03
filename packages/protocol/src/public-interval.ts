@@ -9,11 +9,15 @@ export const publicIntervalsSchema = z.array(publicIntervalSchema).max(10_000);
 export type PublicInterval = z.infer<typeof publicIntervalSchema>;
 
 /**
- * How far inside a committed boundary media must lie: Egress's capture stamps
- * against the web clock that wrote the boundary, plus pipeline latency. PLACEHOLDER
- * until staging measures that drift: every boundary loses this much public speech.
+ * How much later Egress stamps media than it was made, at most: mic to LiveKit to
+ * stage to encoder. Measured on staging over 12 minutes: audio +52 to +157 ms, rising
+ * about 4 ms a minute, and video about +75. Set for an 80 minute Round on that slope;
+ * a 64 minute run will replace the estimate. The stamp is never measured early, so
+ * private speech after an end is stamped later than that end and an end is cut exactly
+ * on it, and private media before a start can be stamped this late, so a start waits
+ * this long. A clock difference between web and Egress adds to this.
  */
-const PUBLIC_EDGE_MARGIN_MS = 500;
+const EGRESS_STAMP_LAG_MS = 450;
 
 /** Shorter than this holds no usable word, and players trip on it. */
 const SHORTEST_CLIP_MS = 200;
@@ -26,7 +30,7 @@ type CommittedSegment = {
 
 /**
  * What committed Round history proves public: each speech or cross-examination,
- * start to end, margin inside. Nothing else is, so anything with no row, prep and
+ * its start past the stamp lag, to its end. Nothing else is, so anything with no row, prep and
  * every private phase included, is not. A segment still open is known only as far
  * as the control plane has been heard from, and never past its scheduled end. If
  * history later closes it, that proves the stretch (the point guard's rule): a late
@@ -38,13 +42,13 @@ export const publicIntervals = (
 ): readonly PublicInterval[] =>
   segments
     .map((segment) => ({
-      fromMs: segment.startedAtMs + PUBLIC_EDGE_MARGIN_MS,
+      fromMs: segment.startedAtMs + EGRESS_STAMP_LAG_MS,
       toMs:
-        (segment.endedAtMs ??
-          Math.min(
-            segment.startedAtMs + segment.durationMs,
-            knownThroughMs ?? segment.startedAtMs,
-          )) - PUBLIC_EDGE_MARGIN_MS,
+        segment.endedAtMs ??
+        Math.min(
+          segment.startedAtMs + segment.durationMs,
+          knownThroughMs ?? segment.startedAtMs,
+        ),
     }))
     .filter(({ fromMs, toMs }) => toMs > fromMs)
     .sort((a, b) => a.fromMs - b.fromMs);
@@ -56,7 +60,7 @@ type Captured = {
 
 /**
  * Whether history is settled for all of this media. Until the control plane has
- * been heard from past it, a commit could still say anything about it, so it waits.
+ * been heard from past it, by the stamp lag, a commit could still say anything about it, so it waits.
  * What is settled stays settled, so positions in the clips below never shift.
  */
 export const settledByHeartbeat = (
@@ -64,8 +68,7 @@ export const settledByHeartbeat = (
   knownThroughMs: number | null,
 ): boolean =>
   knownThroughMs !== null &&
-  entry.capturedAtMs + entry.durationMs + PUBLIC_EDGE_MARGIN_MS <=
-    knownThroughMs;
+  entry.capturedAtMs + entry.durationMs + EGRESS_STAMP_LAG_MS <= knownThroughMs;
 
 /** A part of one held segment to publish; `offsetMs` is where it starts inside it. */
 export type PublicClip<T extends Captured> = {

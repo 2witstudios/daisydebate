@@ -74,14 +74,10 @@ and a file. Room Composite is rejected: deleting its room ends it, or leaves it
 active and writing silence. Daisy stops the Egress, and the reconciler stops any
 whose Round is terminal.
 
-**Stage quality (owner, 2026-11-03).** On a Round expecting a Broadcast, a browser
-reporting at least 4 cores captures 540p, which adds a top simulcast layer over 180p
-and 360p. Every other seat keeps its 360p baseline. The layer is there for the stage:
-dynacast sends it only while a subscriber asks for it, and congestion control and
-Chrome's CPU adaptation drop the highest layer first, so audio and the lower layers
-keep their place. Under 960 wide (a 4:3 camera) the SDK keeps only 180p below the
-capture, so 360p is not available there. The admission's `camera` value is a hint about
-quality and decides no authority. If it cannot be read, the seat captures the baseline.
+**Stage quality.** Stage tiles are 360p for now. The owner has decided on a 540p top
+layer on Rounds with a Broadcast, and the adapter can capture it when an admission
+says `broadcast` on a browser reporting at least 4 cores, but nothing says so yet: it
+needs the throttle proof first, and the operation's `cameraProfile` input is the switch.
 
 **Privacy boundary.** Revoking the observer's subscribe permission on the server
 is the boundary; the page slate is appearance only. If revocation cannot be
@@ -102,8 +98,8 @@ second layer that needs the stage route alive.
 
 **Release: the guarantee (owner, 2026-11-03).** Nothing leaves that committed Round
 history does not prove public. `publicIntervals` in `@daisy/protocol` turns
-`round_segments` into intervals, each speech or cross-examination from start to end,
-margin inside; a segment still open is known only as far as the last heartbeat and
+`round_segments` into intervals, each speech or cross-examination from past its start,
+by Egress's stamp lag, to its end; a segment still open is known only as far as the last heartbeat and
 never past its schedule. Nothing else is public, so prep, the stretch between
 speeches and every private phase are gaps, and so is an outage until a commit says
 otherwise. No clock opens anything: a late commit is the only thing that can make an
@@ -113,7 +109,7 @@ writer, cannot drift from the record, and puts nothing inside a competitive
 transaction, and it runs as its owner, so its role is granted no Round table.
 
 The encoder cuts at the boundary (it re-encodes anyway), so a speech edge loses only
-the margin, one named value set by Egress's measured drift, and whole segments go only
+its measured stamp lag, one named value, and whole segments go only
 where no interval touches them. Media past the last heartbeat waits, logged once as
 `broadcast.release_lapsed`, and resumes under the same rule when the web tier returns.
 Recording builds use the same intervals, copied by the web into the job since the
