@@ -20,12 +20,7 @@ export type RatingState = {
  * How a Round's finalization record says it ended: the one derived statement
  * rating and history read. A forfeit outranks any ballot on record.
  */
-export type RecordedEnding =
-  | 'unrecorded'
-  | 'forfeit'
-  | 'unjudged'
-  | 'judged-on-complete-capture'
-  | 'judged-on-incomplete-capture';
+export type RecordedEnding = 'unrecorded' | 'forfeit' | 'unjudged' | 'judged';
 
 /** What eligibility is decided from, as the adapter loads it. */
 export type RatingEligibilityFacts = {
@@ -49,8 +44,7 @@ export type RatingUnrated = {
     | 'no-result'
     | 'ending-unrecorded'
     | 'check-in-pending'
-    | 'unjudged'
-    | 'incomplete-capture';
+    | 'unjudged';
 };
 
 export type RatingEligibility =

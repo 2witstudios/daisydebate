@@ -1,3 +1,4 @@
+import { namedLaneOperations } from './lane-operation';
 import type { JudgingPanelFacts } from '@daisy/protocol';
 import { readJudgingPanelFacts } from './judging-panel-read';
 import { roundBallotReads } from './round-ballot-reads';
@@ -49,6 +50,7 @@ import {
   requireBallotAdmission,
   requireFrozenRevision,
   requireJudgingRun,
+  requireAgentBallotCapture,
 } from './round-ballot-decisions';
 
 type RoundBallotLeaseContext = {
@@ -127,6 +129,7 @@ async function lockedBallotContext(
     await readLockedFrozenRoundTranscript(tx, input.roundId),
     input.envelope.freezeRevision,
   );
+  requireAgentBallotCapture(input.principal, frozen.completeness);
   const context = { ...fresh, frozen };
   input.authorize(context);
   requireJudgingRun(
@@ -263,7 +266,6 @@ async function insertFrozenBallot(
       reason: body.reason,
       feedback: body.feedback,
       citations: body.citations ?? null,
-      status: 'submitted',
       submittedAt: new Date(context.now),
     })
     .returning();
@@ -277,7 +279,7 @@ export const roundBallotOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  ...roundBallotReads({ database }),
+  ...namedLaneOperations(roundBallotReads({ database })),
   executeRoundBallot: (input: LockedRoundBallotInput) =>
     instrumented(eventSink, 'executeRoundBallot', () =>
       database.transaction((tx) => executeLockedRoundBallot(tx, input)),

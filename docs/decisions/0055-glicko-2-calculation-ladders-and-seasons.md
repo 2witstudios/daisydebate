@@ -46,7 +46,7 @@ so history is never rewritten.
 ### 2. One debate is one period for each side
 
 Each side is rated against the other's state from before the debate, never
-against the other's new state. A win scores 1, a draw 0.5, a loss 0. An
+against the other's new state. A win scores 1, a loss 0; a tie has no outcome and rates nothing (DEC-277). An
 abandoned debate never rates. A forfeit has a side outcome (ADR 0033) and
 rates exactly like a judged result, so rating reads `outcome` and ignores
 `outcome_reason`.
@@ -161,9 +161,18 @@ DDL. No relabel, reset or compatibility pool is supplied.
 
 Who gets rated is the engine's `ratingEligibility`, over the Round's recorded
 ending and attendance ledger. The adapter selects candidates and loads facts,
-with one derived statement of how a Round ended, and holds no rule. The answer
-is unchanged: a forfeit rates on any capture, and a ballot rates only on a
-complete capture while ISSUE-911 is open (DEC-285). A null outcome is unrated
-with a reason (DEC-277). Until DEC-111 resolves there is one season: opening a
+with one derived statement of how a Round ended, and holds no rule. A forfeit
+rates on any capture, and a ballot rated only on a complete capture (DEC-285,
+overruled below). A null outcome is unrated with a reason (DEC-277). Until DEC-111 resolves there is one season: opening a
 season is refused while any season exists, closing one is refused, and the
 rollover command is removed. The close refusal comes out when rollover lands.
+
+## Amendment (2026-11-03, ISSUE-911)
+
+Owner ruling, DEC-329, overruling DEC-285: a decisive human ballot on a ranked
+Round rates normally on an incomplete capture. The judge ruled, and a capture
+failure does not cost a ranked result. How much was captured is no longer a
+rating fact; the receipt says Rated once the ladder posts. An AI judge still
+never rules on an incomplete transcript (DEC-208): no job is queued for one, and
+the ballot write refuses an agent's, so such a Round's decision is always a
+human's.

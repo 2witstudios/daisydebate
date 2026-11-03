@@ -37,7 +37,6 @@ const results: Readonly<
 > = {
   win: { label: 'Won', tone: 'accent' },
   loss: { label: 'Lost', tone: 'clay' },
-  draw: { label: 'Draw', tone: 'sky' },
   'no-ruling': { label: 'No ruling', tone: 'neutral' },
 };
 
@@ -114,11 +113,10 @@ function HistoryRow({
 }
 
 function RecordSummary({ profile }: { readonly profile: MemberProfile }) {
-  const { wins, losses, draws } = profile.record;
+  const { wins, losses } = profile.record;
   const figures = [
     { label: 'Wins', value: wins },
     { label: 'Losses', value: losses },
-    ...(draws > 0 ? [{ label: 'Draws', value: draws }] : []),
   ];
   return (
     <section aria-label="Record" className={card}>

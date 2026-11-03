@@ -15,7 +15,7 @@ type RecordedRound = {
 /**
  * The one rule for what a Round means to one seat's record (ISSUE-600).
  * Only a completed Round counts, and only for a debating seat. The outcome
- * names the side that won or a draw; a forfeit completes with the other
+ * names the side that won; a forfeit completes with the other
  * side's outcome, so it is a win for the side that stayed and a loss for
  * the forfeiter. A completed Round with no outcome is `no-ruling`, never a
  * loss: a loss needs the other side named. Abandoned, scheduled and live
@@ -27,7 +27,6 @@ export function recordResult(
 ): RecordResult | null {
   if (round.status !== 'completed' || role === 'judge') return null;
   if (round.outcome === null) return 'no-ruling';
-  if (round.outcome === 'draw') return 'draw';
   return round.outcome === role ? 'win' : 'loss';
 }
 
@@ -45,10 +44,8 @@ export function tallyRecord(
         return { ...record, wins: record.wins + group.rounds };
       if (result === 'loss')
         return { ...record, losses: record.losses + group.rounds };
-      if (result === 'draw')
-        return { ...record, draws: record.draws + group.rounds };
       return record;
     },
-    { wins: 0, losses: 0, draws: 0 },
+    { wins: 0, losses: 0 },
   );
 }

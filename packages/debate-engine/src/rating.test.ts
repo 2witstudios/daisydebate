@@ -60,17 +60,11 @@ describe('rateDebate', () => {
     });
   });
 
-  test('mirrors a negative win and holds a draw between equals', () => {
+  test('mirrors a negative win', () => {
     const negativeWin = rateDebate({
       affirmative: newcomer,
       negative: newcomer,
       outcome: 'negative',
-      occurredAt: at,
-    });
-    const draw = rateDebate({
-      affirmative: newcomer,
-      negative: newcomer,
-      outcome: 'draw',
       occurredAt: at,
     });
     assert({
@@ -79,15 +73,6 @@ describe('rateDebate', () => {
       actual: [
         negativeWin.negative.after.rating > 1500,
         negativeWin.affirmative.after.rating < 1500,
-      ],
-      expected: [true, true],
-    });
-    assert({
-      given: 'a draw between equal newcomers',
-      should: 'leave both ratings unchanged',
-      actual: [
-        Math.abs(draw.affirmative.after.rating - 1500) < 1e-9,
-        Math.abs(draw.negative.after.rating - 1500) < 1e-9,
       ],
       expected: [true, true],
     });
@@ -148,7 +133,7 @@ describe('rateDebate', () => {
     const steady = rateDebate({
       affirmative: settled(1500, 30, 0.001),
       negative: settled(1500, 30, 0.001),
-      outcome: 'draw',
+      outcome: 'affirmative',
       occurredAt: at,
     });
     assert({
@@ -158,7 +143,7 @@ describe('rateDebate', () => {
       expected: 4000,
     });
     assert({
-      given: 'a draw between steady debaters at the deviation floor',
+      given: 'a game between steady debaters at the deviation floor',
       should: 'keep the deviation at the floor of 30',
       actual: steady.affirmative.after.deviation,
       expected: 30,
@@ -191,7 +176,7 @@ describe('rateDebate', () => {
           rateDebate({
             affirmative: { state, lastRatedAt: null },
             negative: newcomer,
-            outcome: 'draw',
+            outcome: 'affirmative',
             occurredAt: at,
           }),
         code: 'INVARIANT',
@@ -211,7 +196,7 @@ describe('rateDebate', () => {
           rateDebate({
             affirmative,
             negative: newcomer,
-            outcome: 'draw',
+            outcome: 'affirmative',
             occurredAt: 'yesterday',
           }),
         code: 'VALIDATION',

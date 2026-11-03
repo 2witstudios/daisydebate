@@ -8,7 +8,6 @@ import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
 } from './round-clock-transaction';
-import { writeSpeakingProjection } from './round-speaking-writer';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   roundCommandEnvelopeSchema,
@@ -22,11 +21,8 @@ import {
 import { eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RoundHydration } from './round-hydration';
-import {
-  lockedRoundVersion,
-  writeProjectionWithPhaseSignal,
-  insertCommandRow,
-} from './round-projection-writer';
+import { commitRoundCommand } from './round-command-commit';
+import { lockedRoundVersion } from './round-projection-writer';
 import { roundCommands } from './schema/round-commands';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
@@ -124,41 +120,19 @@ export const roundCommandOperations = ({
         )
           throw createRefusal('CONFLICT', 'stale-version');
         const projection = input.buildProjection(context);
-        const changed = await writeProjectionWithPhaseSignal(
-          tx,
-          input.roundId,
+        return commitRoundCommand(tx, {
+          roundId: input.roundId,
           current,
           projection,
-          context.now,
-        );
-        const resultingVersion = current.version + (changed ? 1 : 0);
-        const receipt = {
-          commandId: input.envelope.commandId,
-          roundId: input.roundId,
-          resultingVersion,
-          replayed: false,
-        };
-        await insertCommandRow(
-          tx,
-          input.roundId,
-          {
+          now: context.now,
+          command: {
             commandId: input.envelope.commandId,
             actorId,
             serviceId,
             type: input.envelope.command.type,
             payloadDigest: input.payloadDigest,
-            result: { ...receipt },
           },
-          resultingVersion,
-          { before: current.status, projection },
-        );
-        await writeSpeakingProjection(tx, {
-          roundId: input.roundId,
-          projection,
-          resultingVersion,
-          commandId: input.envelope.commandId,
         });
-        return receipt;
       }),
     );
   },

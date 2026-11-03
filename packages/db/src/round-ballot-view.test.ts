@@ -26,7 +26,6 @@ const row = (
     reason: 'Clearer weighing.',
     feedback,
     citations,
-    status: 'submitted',
   }) as unknown as Row;
 const body = {
   rubricVersion: 'speaker-10@1',
@@ -66,6 +65,7 @@ test('judges see their own ballot and the frozen input, others’ only after com
     status: 'active',
     ownSeatId: 'judge-h',
     viewerSide: undefined,
+    audienceMayRead: true,
     aiJudgeSeatIds: new Set(['judge-b']),
     rows,
     frozen,
@@ -74,6 +74,7 @@ test('judges see their own ballot and the frozen input, others’ only after com
     status: 'completed',
     ownSeatId: undefined,
     viewerSide: undefined,
+    audienceMayRead: true,
     aiJudgeSeatIds: new Set(['judge-b']),
     rows,
     frozen: null,
@@ -88,7 +89,6 @@ test('judges see their own ballot and the frozen input, others’ only after com
       open: {
         own: {
           participantId: 'judge-h',
-          status: 'submitted',
           ballot: body,
           freezeRevision: 1,
         },
@@ -105,29 +105,68 @@ test('judges see their own ballot and the frozen input, others’ only after com
         own: null,
         freeze: null,
         ballots: [
-          { status: 'submitted', judge: 'human', ballot: body },
-          { status: 'submitted', judge: 'ai', ballot: body },
+          { judge: 'human', ballot: body },
+          { judge: 'ai', ballot: body },
         ],
       },
     },
   });
 });
 
+test('a seated judge reads others’ ballots only once the audience may', () => {
+  const judgesOf = (input: {
+    readonly ownSeatId: string | undefined;
+    readonly audienceMayRead: boolean;
+  }) =>
+    ballotReadView({
+      status: 'completed',
+      viewerSide: undefined,
+      aiJudgeSeatIds: new Set(['judge-b']),
+      rows: [row('judge-h'), row('judge-b')],
+      frozen,
+      ...input,
+    }).ballots.map((entry) => entry.judge);
+  assert({
+    given: 'a completed Round no audience may read',
+    should: 'give its seated judge only their own ballot',
+    actual: judgesOf({ ownSeatId: 'judge-h', audienceMayRead: false }),
+    expected: ['human'],
+  });
+  assert({
+    given: 'a seated judge who submitted nothing, with no audience',
+    should: 'give them no ballot',
+    actual: judgesOf({ ownSeatId: 'judge-x', audienceMayRead: false }),
+    expected: [],
+  });
+  assert({
+    given: 'a completed Round its audience may read',
+    should: 'give its seated judge every ballot, as any member reads them',
+    actual: judgesOf({ ownSeatId: 'judge-h', audienceMayRead: true }),
+    expected: ['human', 'ai'],
+  });
+  assert({
+    given: 'a debater or host of a Round no audience may read',
+    should: 'still give them every ballot',
+    actual: judgesOf({ ownSeatId: undefined, audienceMayRead: false }),
+    expected: ['human', 'ai'],
+  });
+});
+
 test('a judge who has not submitted sees an empty own ballot', () => {
   assert({
     given: 'a seated judge with no stored ballot',
-    should: 'report the seat with no status, ballot or revision',
+    should: 'report the seat with no ballot or revision',
     actual: ballotReadView({
       status: 'active',
       ownSeatId: 'judge-h',
       viewerSide: undefined,
+      audienceMayRead: true,
       aiJudgeSeatIds: new Set(),
       rows: [row('judge-b')],
       frozen,
     }).own,
     expected: {
       participantId: 'judge-h',
-      status: null,
       ballot: null,
       freezeRevision: null,
     },
@@ -144,6 +183,7 @@ test('a released ballot carries feedback only for the reader’s own side', () =
       status: 'completed',
       ownSeatId: undefined,
       viewerSide,
+      audienceMayRead: true,
       aiJudgeSeatIds: new Set(),
       rows: [row('judge-h', null, feedback)],
       frozen: null,

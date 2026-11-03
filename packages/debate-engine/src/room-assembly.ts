@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { resolutionCategories } from '@daisy/protocol/resolution-draw';
 import type {
   RoomAssemblyState,
   RoomCommand,
@@ -18,7 +19,12 @@ import {
   claimSeat,
   leaveSeat,
 } from './room-edit-transitions';
-import { ready, startRound, close } from './room-consent-transitions';
+import {
+  ready,
+  startRound,
+  close,
+  closeRoom,
+} from './room-consent-transitions';
 import { topicInvariantHolds } from './resolution-draw';
 type RoomCommandType = RoomCommand['type'];
 /** Who may run a Room command, whether it asks every seat to ready again, and what it does. */
@@ -151,4 +157,58 @@ export const eraseSeats = (
       .reduce((held, seat) => removeSeat(held, seat.id), room),
   );
   return assemblyOpen(next) ? { ...next, status: assembledStatus(next) } : next;
+};
+
+/**
+ * A host-written list is that member's own text, so it does not pass with the
+ * Room: the draw reads the bank, and any list is the new host's own.
+ */
+const withoutHostList = (room: RoomAssemblyState): RoomAssemblyState => {
+  const draw = room.config.resolutionDraw;
+  const plan = room.executionPlan.resolutionDraw;
+  if (!draw.enabled || draw.source.kind !== 'host' || !plan.enabled)
+    return room;
+  const source = {
+    kind: 'bank' as const,
+    categories: [...resolutionCategories],
+  };
+  return {
+    ...room,
+    config: { ...room.config, resolutionDraw: { ...draw, source } },
+    executionPlan: {
+      ...room.executionPlan,
+      resolutionDraw: { ...plan, source },
+    },
+  };
+};
+
+const heirRank = { affirmative: 0, negative: 1, judge: 2 } as const;
+const heirOrder = (
+  a: RoomAssemblyState['participants'][number],
+  b: RoomAssemblyState['participants'][number],
+) => heirRank[a.role] - heirRank[b.role] || a.slot - b.slot;
+
+/**
+ * A restriction on a member before Start round (DEC-331): their seats go and
+ * the Room stays open for the others. Only a host can start a Room, so a
+ * restricted host passes it to the first eligible human still seated, debaters
+ * by side and slot and then judges; with none left there is nobody to keep it
+ * open for, and it closes. Their own resolution list does not pass.
+ */
+export const releaseRestrictedMember = (
+  room: RoomAssemblyState,
+  actorId: string,
+): RoomAssemblyState => {
+  const freed = eraseSeats(room, actorId);
+  if (freed.hostActorId !== actorId) return freed;
+  const [heir] = freed.participants
+    .filter((p) => p.kind === 'human' && p.eligible)
+    .sort(heirOrder);
+  return heir
+    ? {
+        ...withoutHostList(freed),
+        hostActorId: heir.actorId,
+        hostLabel: heir.label,
+      }
+    : closeRoom(freed);
 };

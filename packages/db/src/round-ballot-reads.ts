@@ -10,7 +10,7 @@ import {
   type LaunchedRound,
   type RoundBallotRead,
 } from '@daisy/protocol';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
@@ -72,7 +72,7 @@ export const roundBallotReads = ({
           resolution: rounds.resolution,
           status: rounds.status,
           outcome: rounds.outcome,
-          ballotStatus: ballots.status,
+          ballotSubmitted: sql<boolean>`${ballots.id} is not null`,
           freezeRevision: roundTranscriptFreezes.revision,
         })
         .from(roundParticipants)
@@ -149,6 +149,7 @@ export const roundBallotReads = ({
           status: round.status,
           ownSeatId: ownSeat?.id,
           viewerSide,
+          audienceMayRead: round.visibility !== 'private',
           aiJudgeSeatIds,
           rows,
           frozen,

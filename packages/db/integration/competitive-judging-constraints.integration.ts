@@ -28,13 +28,12 @@ const ballot = (
   winner: 'affirmative',
   scores: { affirmative: allAt(3), negative: allAt(2) },
   reason: 'Stronger evidence',
-  status: 'submitted',
   submitted_at: at,
   ...overrides,
 });
 
 describe('ballots (DATA-3.1)', () => {
-  test('one ballot per judge seat, and no status but submitted', async () => {
+  test('one ballot per judge seat', async () => {
     await withFixture(url, async (fixture) => {
       const roundId = await fixture.round();
       await fixture.freeze(roundId);
@@ -52,20 +51,14 @@ describe('ballots (DATA-3.1)', () => {
         'ballots',
         ballot(otherJudge.id, roundId, { winner: 'abstain' }),
       );
-      const voided = await fixture.rejects(
-        'ballots',
-        ballot(otherJudge.id, roundId, { status: 'voided' }),
-      );
       assert({
         given: 'ballots for two judge seats',
-        should:
-          'accept one submitted; reject a second per seat, a bad winner and a voided status',
-        actual: { submitted, secondForSeat, badWinner, voided },
+        should: 'accept one; reject a second per seat and a bad winner',
+        actual: { submitted, secondForSeat, badWinner },
         expected: {
           submitted: true,
           secondForSeat: true,
           badWinner: true,
-          voided: true,
         },
       });
     });
