@@ -11,8 +11,6 @@ type RoundCompletionRefusal = 'panel-ineligible';
 /** Expected media backpressure: a retryable 503 that needs no one to look. */
 type RoundMediaRefusal = 'media-deferred';
 
-/** The waiver's words moved on after the form showed them (WATCH-15). */
-type ContentWaiverRefusal = 'content-waiver-changed';
 /** A report its reporter may not make (WATCH-7). */
 type ReportRefusal = 'report-not-eligible';
 
@@ -23,7 +21,6 @@ type ReportRefusal = 'report-not-eligible';
 export type RefusalReason =
   | AttendanceRefusal
   | CaptureRefusal
-  | ContentWaiverRefusal
   | ReportRefusal
   | RoomRefusal
   | RoundCompletionRefusal

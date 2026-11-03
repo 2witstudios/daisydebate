@@ -137,6 +137,7 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
     'the host to turn off broadcast and recording: they need a subscription',
   'broadcast-private': 'a Room that is not private, to broadcast it',
   'content-waiver-required': 'the ranked content waiver to be signed',
+  'content-waiver-changed': 'the latest ranked content waiver to be signed',
   'capture-notice-changed': 'the latest recording notice to be read',
 };
 
