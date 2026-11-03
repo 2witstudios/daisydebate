@@ -306,3 +306,35 @@ test('a stalled turn closes the socket so the client reconnects', async () => {
     },
   });
 });
+
+test('a turn that finishes clears its budget', async () => {
+  const { ws, closes } = orderedSocket();
+  const scheduled: Array<{ handle: number; ms: number }> = [];
+  const cleared: unknown[] = [];
+  const handlers = orderedHandlers(
+    async () => true,
+    undefined,
+    fixture().registry,
+    {
+      setTimeout: (_, ms) => {
+        scheduled.push({ handle: scheduled.length + 1, ms });
+        return scheduled.length as unknown as ReturnType<typeof setTimeout>;
+      },
+      clearTimeout: (handle) => cleared.push(handle),
+    },
+  );
+  handlers.open(ws);
+  await handlers.message(ws, hello);
+  await handlers.message(ws, frameOf('subscribe', 'd'));
+  const budget = scheduled.at(-1)!;
+  assert({
+    given: 'a frame that takes effect within its budget',
+    should: 'clear that budget, so an idle socket is never closed by it',
+    actual: {
+      budget: budget.ms,
+      cleared: cleared.includes(budget.handle),
+      closes,
+    },
+    expected: { budget: 15_000, cleared: true, closes: [] },
+  });
+});

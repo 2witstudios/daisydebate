@@ -327,8 +327,10 @@ const sharedFixtureRestrictions = [
  * behaviour reads. The literal rule also catches a mint from a branch cut
  * before this, which would otherwise quietly lose its refusal. A vendor's own
  * error text (`error.message.includes('NOSCRIPT')`) is out of its reach.
- * Integration suites carry both. Scripts carry the mint rules only: a script's
- * plain `Error` text is its CLI output, which its tests rightly compare.
+ * Integration suites carry both. The process-edge override carries the mint
+ * rules only: a script's plain `Error` text is its CLI output, which its tests
+ * rightly compare, and `packages/clock` and `packages/observability` read no
+ * refusal.
  */
 const refusalMintRestrictions = [
   {
@@ -351,6 +353,21 @@ const refusalMintRestrictions = [
   },
 ];
 const refusalReadRestrictions = [
+  {
+    selector:
+      "SwitchStatement > ChainExpression.discriminant > MemberExpression[property.name='message'][object.name=/^(error|err|e|cause|failure)$/]",
+    message: 'Branch on error.reason (createRefusal), never on error.message.',
+  },
+  {
+    selector:
+      "MemberExpression[computed=true] > ChainExpression.property > MemberExpression[property.name='message'][object.name=/^(error|err|e|cause|failure)$/]",
+    message: 'Branch on error.reason (createRefusal), never on error.message.',
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name=/^(includes|has|hasOwn|get)$/] > ChainExpression.arguments > MemberExpression[property.name='message'][object.name=/^(error|err|e|cause|failure)$/]",
+    message: 'Branch on error.reason (createRefusal), never on error.message.',
+  },
   {
     selector:
       "BinaryExpression[operator=/^[!=]==$/] > ChainExpression > MemberExpression[property.name='message'][object.name=/^(error|err|e|cause|failure)$/]",

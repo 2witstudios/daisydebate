@@ -83,8 +83,17 @@ describe('refusal reasons, never messages (ISSUE-1010)', () => {
         await problems(
           "export const a = (error: Error) => { switch (error.message) { case 'x': return 1; default: return 2; } };",
         ),
+        await problems(
+          "export const a = (error?: Error) => { switch (error?.message) { case 'x': return 1; default: return 2; } };",
+        ),
+        await problems(
+          'export const a = (error: Error | undefined, map: Record<string, number>) => map[error?.message ?? ""];',
+        ),
+        await problems(
+          'export const a = (error: Error | undefined, known: string[]) => known.includes(error?.message);',
+        ),
       ],
-      expected: [1, 1, 1, 1, 2, 1, 1, 1, 1],
+      expected: [1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 0, 1],
     });
   });
   test('holds in integration suites, and for mints in scripts', async () => {

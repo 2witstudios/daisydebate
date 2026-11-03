@@ -31,8 +31,9 @@ map covered them all.
   message of `createAppError`. That also catches most mints from a branch cut
   before this decision, which would otherwise quietly lose their refusal. It
   cannot see a word held in any other variable, or a message read through
-  another name. Scripts carry only the mint rules: their plain `Error` text is
-  CLI output, and their tests compare it.
+  another name, or behind `??`. The process-edge override carries only the mint
+  rules: a script's plain `Error` text is CLI output its tests compare, and
+  `packages/clock` and `packages/observability` read no refusal.
 
 Capacity refusals stay separate (ADR 0088): an admission fact with a lane and a
 reason, read through `isCapacityRefusal`, never by text. A vendor's own error

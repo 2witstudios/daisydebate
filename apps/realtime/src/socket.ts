@@ -64,7 +64,8 @@ const clearHelloTimer = (
 
 const logRejection = (
   logger: Logger,
-  cause: 'hello_timeout' | 'message_rejected' | 'check_unanswered',
+  cause:
+    'hello_timeout' | 'message_rejected' | 'check_unanswered' | 'turn_stalled',
   code: number,
   reason: string,
 ) =>
@@ -243,7 +244,7 @@ export function createWebSocketHandlers({
     ws.data.queuedFrames = (ws.data.queuedFrames ?? 0) + 1;
     const turn = (ws.data.frameTurn ?? Promise.resolve()).then(async () => {
       const stalled = timers.setTimeout(
-        () => reject(ws, 'authority_unavailable', 'check_unanswered'),
+        () => reject(ws, 'authority_unavailable', 'turn_stalled'),
         FRAME_TURN_BUDGET_MS,
       );
       try {
