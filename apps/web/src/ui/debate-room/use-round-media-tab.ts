@@ -36,6 +36,8 @@ export function useRoundMediaTab(
   const ownership = useResumeLifetime(
     actorId,
     roundIsLive(view) ? view.id : null,
+    // The member left: this waiting room captures nothing and checks in nothing.
+    () => window.location.replace('/lobby'),
     stepDown.fire,
   );
   return useMemo(

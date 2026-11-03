@@ -23,6 +23,7 @@ export {
   executeRoomCommand,
   hostIdentityHidden,
   projectRoom,
+  releaseRestrictedMember,
 } from './room-assembly';
 export { castSeatsBotDebater } from './ai-round-cast';
 export { activeRoomMembers, projectActiveRoom } from './room-membership';
@@ -32,6 +33,7 @@ export { maintainRoom } from './room-expiry';
 export {
   advanceOpening,
   forfeitInOpening,
+  forfeitOfRestriction,
   inPreRoundPrep,
   readRoundOpening,
   readRoundOpeningTopic,
@@ -50,6 +52,7 @@ export {
   requireAttendanceWindow,
   adjudicateAttendance,
   onTimeSpeakerReceipt,
+  resolutionCutoffOf,
 } from './attendance';
 export type { AttendanceDecision, AttendanceWindow } from './attendance';
 export {
@@ -74,6 +77,6 @@ export {
   finalSpeechKey,
   nextAttendanceSegment,
 } from './attendance-order';
-export type { RoundAdjudication } from './round-adjudication';
+export type { RoundEndingDecision } from './attendance';
 export { captureRule } from './capture-verdict';
 export { botGrantUnused } from './bot-grant';

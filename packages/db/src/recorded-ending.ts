@@ -14,9 +14,9 @@ export const forfeitRecorded = sql`(
     where k.round_id=z.round_id and k.command_id=z.command_id and k.type='forfeit'))`;
 
 /**
- * The ending over the Round alias `r`, its finalization `z` and that
- * finalization's freeze `f`, all left joined by `recordedEndingJoins`. The
- * command foreign key on `z` proves the command committed the record.
+ * The ending over the Round alias `r` and its finalization `z`, left joined by
+ * `recordedEndingJoins`. The command foreign key on `z` proves the command
+ * committed the record.
  */
 export const recordedEnding = sql`case
   when z.round_id is null or z.resulting_version > r.version then 'unrecorded'
@@ -24,10 +24,8 @@ export const recordedEnding = sql`case
   when not exists(select 1 from round_finalization_ballots m
     join ballots b on b.id=m.ballot_id and b.round_id=z.round_id and b.freeze_revision=z.freeze_revision
     where m.round_id=z.round_id) then 'unjudged'
-  when f.completeness='complete' then 'judged-on-complete-capture'
-  else 'judged-on-incomplete-capture'
+  else 'judged'
 end`;
 
 export const recordedEndingJoins = sql`
-  left join round_finalizations z on z.round_id=r.id
-  left join round_transcript_freezes f on f.round_id=z.round_id and f.revision=z.freeze_revision`;
+  left join round_finalizations z on z.round_id=r.id`;

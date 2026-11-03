@@ -13,6 +13,7 @@ import {
   type ContactInput,
 } from '../contacts/fence';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
+import type { RestrictionRules } from '../moderation-composition';
 import {
   applySanction,
   type ModerationReactions,
@@ -114,6 +115,8 @@ export type ReportResolveInput = {
   readonly now: string;
   readonly purgeAfter: string;
   readonly nextId: () => string;
+  /** The engine's rules for a suspension or ban, applied in this transaction. */
+  readonly restrictionRules: RestrictionRules;
   /** True while the signed request may still commit (ADR 0079, checked last). */
   readonly live: () => boolean;
 };
@@ -165,6 +168,7 @@ async function resolveReport(
         sanction,
         operatorRef: input.operatorRef,
         now: input.now,
+        nextId: input.nextId,
       },
       dependencies,
     );
@@ -189,7 +193,9 @@ export const reportOperations = ({
 }: {
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
-  readonly moderationReactions: ModerationReactions;
+  readonly moderationReactions: (
+    rules: RestrictionRules,
+  ) => ModerationReactions;
 }) => ({
   /** The oldest of the open queue. */
   listOperatorReports: (input: {
@@ -218,7 +224,7 @@ export const reportOperations = ({
       database.transaction((tx) =>
         resolveReport(tx, input, {
           eventSink,
-          reactions: moderationReactions,
+          reactions: moderationReactions(input.restrictionRules),
         }),
       ),
     ),

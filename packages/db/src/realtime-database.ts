@@ -17,6 +17,7 @@ import {
   subscribeRealtimeHints,
   type RealtimeHintHandlers,
 } from './realtime-hints';
+import { namedLaneOperations } from './lane-operation';
 import { roomAuthorizationRead } from './room-authorization-read';
 import { createWorkload, dialDedicated, dialLanes } from './workload';
 import {
@@ -30,13 +31,14 @@ import {
  * lane: subscribes (`admission`) and renewals (`renewal`) are composed
  * separately, so an admission wave cannot consume renewal capacity.
  */
-const authorityReads = (database: BunSQLDatabase) => ({
-  ...authorizationSessionOperations({ database }),
-  ...roomAuthorizationRead({ database }),
-  messagingChannelAuthority: createMessagingChannelAuthority(database),
-  messagingChannelCohortAuthority:
-    createMessagingChannelCohortAuthority(database),
-});
+const authorityReads = (database: BunSQLDatabase) =>
+  namedLaneOperations({
+    ...authorizationSessionOperations({ database }),
+    ...roomAuthorizationRead({ database }),
+    messagingChannelAuthority: createMessagingChannelAuthority(database),
+    messagingChannelCohortAuthority:
+      createMessagingChannelCohortAuthority(database),
+  });
 export type RealtimeAuthorityReads = ReturnType<typeof authorityReads>;
 
 /**

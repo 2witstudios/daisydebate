@@ -49,7 +49,7 @@ test('judge assignments parse strictly and fail closed', async () => {
     resolution: 'Cities should make transit free',
     status: 'active' as const,
     outcome: null,
-    ballotStatus: null,
+    ballotSubmitted: false,
     freezeRevision: null,
   };
   assert({

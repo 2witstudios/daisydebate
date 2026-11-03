@@ -1,5 +1,10 @@
 import { resumeAttemptPrefix } from './resume-attempt';
-import { resumeHeirPrefix, resumeOwnershipPrefix } from './resume-ownership';
+import { documentTabId } from './document-tab';
+import {
+  markClaimLeft,
+  resumeHeirPrefix,
+  resumeOwnershipPrefix,
+} from './resume-ownership';
 import { resumeTabFlag } from './resume-tab-flag';
 
 /**
@@ -11,6 +16,22 @@ const departure = resumeTabFlag(departurePrefix);
 
 export const markDeparture = departure.mark;
 export const departedInSession = departure.isSet;
+
+/** Leaving, as a member's press: recorded here, and told to any tab waiting on this one. */
+export function leaveRound(actorId: string | null, roundId: string): void {
+  markDeparture(actorId, roundId);
+  if (actorId === null) return;
+  try {
+    markClaimLeft({
+      storage: window.localStorage,
+      actorId,
+      roundId,
+      tabId: documentTabId(),
+    });
+  } catch {
+    // Storage blocked: no tab can be waiting on this one.
+  }
+}
 
 const removeWithPrefix = (storage: Storage, prefix: string) => {
   const doomed: string[] = [];

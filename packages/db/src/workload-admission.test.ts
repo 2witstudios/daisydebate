@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { capacityRefusalDetail } from './capacity-refusal';
+import { withLaneOperation } from './lane-operation';
 import {
   createLaneGate,
   profileConnections,
@@ -68,6 +69,56 @@ test('a lane refuses beyond its counted queue and reports why', async () => {
     ],
   });
   void queued;
+});
+
+test('a refusal names what holds the lane, by the operation that asked (ISSUE-1110)', async () => {
+  const { timer } = manualTimer();
+  const gate = createLaneGate(
+    'competitive',
+    { connections: 3, queue: 1, maxWaitMs: 100 },
+    timer,
+  );
+  const leaveTick = await withLaneOperation('executeRoundTick', () =>
+    gate.admit(2),
+  );
+  await withLaneOperation('readLaunchedRound', () => gate.admit());
+  // Granted when the tick leaves, from the tick's own call: it still counts as a read.
+  const queued = withLaneOperation('getRound', () => gate.admit(2));
+  const refused = await settled(gate.admit());
+  leaveTick();
+  await queued;
+  void settled(gate.admit()); // Fills the one waiter's place.
+  const later = await settled(gate.admit());
+  const holders = (outcome: Awaited<ReturnType<typeof settled>>) =>
+    outcome.ok ? undefined : capacityRefusalDetail(outcome.error)?.holders;
+  assert({
+    given: 'holds taken under named operations, and work with no operation',
+    should: 'count connections per operation, each under the one that asked',
+    actual: [holders(refused), holders(later)],
+    expected: [
+      { executeRoundTick: 2, readLaunchedRound: 1 },
+      { getRound: 2, readLaunchedRound: 1 },
+    ],
+  });
+});
+
+test('work under no operation is named as such, not dropped', async () => {
+  const { timer } = manualTimer();
+  const gate = createLaneGate(
+    'competitive',
+    { connections: 1, queue: 0, maxWaitMs: 100 },
+    timer,
+  );
+  await gate.admit();
+  const refused = await settled(gate.admit());
+  assert({
+    given: 'a hold no operation wrapped',
+    should: 'count it as unlabelled, so the gap in coverage shows',
+    actual: refused.ok
+      ? undefined
+      : capacityRefusalDetail(refused.error)?.holders,
+    expected: { unlabelled: 1 },
+  });
 });
 
 test('a waiter older than the lane age is refused and leaves the queue', async () => {
@@ -225,6 +276,7 @@ test('a refusal says what the lane was waiting on', async () => {
       lane: 'admission',
       reason: 'expired',
       pressure: { pending: 1, running: 1, oldestAgeMs: 400 },
+      holders: { unlabelled: 1 },
     },
   });
   void queued;

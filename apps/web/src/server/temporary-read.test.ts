@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createAppError } from '@daisy/errors';
 import { handleOperation } from './http';
-import { unavailableRead } from './temporary-read';
+import { temporarilyRefused, unavailableRead } from './temporary-read';
 import { silentLogger } from './test-loggers.test-support';
 
 setupRitewayBun();
@@ -44,5 +44,19 @@ test('a read answer is temporary only when the route says asking again can help'
       { kind: 'unavailable' },
       { kind: 'unavailable' },
     ],
+  });
+});
+
+test('only a refusal asking again can help counts as temporarily refused', () => {
+  assert({
+    given: 'a found read, a missing one, a plain failure and a refusal',
+    should: 'recognize only the refusal',
+    actual: [
+      { kind: 'found' },
+      { kind: 'missing' },
+      { kind: 'unavailable' },
+      { kind: 'unavailable', temporary: true as const },
+    ].map(temporarilyRefused),
+    expected: [false, false, false, true],
   });
 });

@@ -41,25 +41,30 @@ const feedbackFor = (
 /**
  * The caller's own ballot, the frozen transcript for their judging seat, and
  * every ballot only once the Round has completed: no judge reads another's
- * ballot while judging is still open. Released ballots say whether a human
- * or the AI judged, never who, and carry only the reader's own side's
- * feedback (ADR 0071).
+ * ballot while judging is still open, nor afterwards until the Round's audience
+ * may read it (ISSUE-1090). Released ballots say whether a human or the AI
+ * judged, never who, and carry only the reader's own side's feedback (ADR 0071).
  */
 export function ballotReadView(input: {
   readonly status: string;
   readonly ownSeatId: string | undefined;
   readonly viewerSide: DebateSide | undefined;
+  /** Whether a member with no seat in this Round may read its ballots. */
+  readonly audienceMayRead: boolean;
   readonly aiJudgeSeatIds: ReadonlySet<string>;
   readonly rows: readonly StoredBallot[];
   readonly frozen: FrozenRoundTranscript | null;
 }) {
   const own = input.rows.find((b) => b.judgeParticipantId === input.ownSeatId);
   const { frozen } = input;
+  const released =
+    input.ownSeatId !== undefined && !input.audienceMayRead
+      ? input.rows.filter((row) => row === own)
+      : input.rows;
   return {
     own: input.ownSeatId
       ? {
           participantId: input.ownSeatId,
-          status: own?.status ?? null,
           ballot: own ? ballotBody(own) : null,
           freezeRevision: own?.freezeRevision ?? null,
         }
@@ -75,10 +80,9 @@ export function ballotReadView(input: {
       : null,
     ballots:
       input.status === 'completed'
-        ? input.rows.map((row) => {
+        ? released.map((row) => {
             const ballot = ballotBody(row);
             return {
-              status: row.status,
               judge: input.aiJudgeSeatIds.has(row.judgeParticipantId)
                 ? ('ai' as const)
                 : ('human' as const),

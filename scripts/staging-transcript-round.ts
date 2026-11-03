@@ -121,8 +121,6 @@ export async function runStagingTranscriptRound(cookie: string) {
     decisive:
       round.status === 'completed' &&
       (round.outcome === 'affirmative' || round.outcome === 'negative'),
-    aiBallot: ballot.ballots.some(
-      (value) => value.judge === 'ai' && value.status === 'submitted',
-    ),
+    aiBallot: ballot.ballots.some((value) => value.judge === 'ai'),
   };
 }

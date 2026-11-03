@@ -6,6 +6,7 @@ import {
   LiveTranscript,
   type TranscriptPlacement,
 } from '../../../../../ui/round-result/live-transcript';
+import { TranscriptSeedRecovery } from '../../../../../ui/round-result/transcript-seed-recovery';
 import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[debateId]/actions';
 import { LiveJudgeRoom } from '../../../../../ui/debate-room/live-judge-room';
 import {
@@ -19,14 +20,15 @@ import { systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
 import { ratingsUnlessRefused } from '../../../../../features/ratings/ratings-unless-refused';
-import { reconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
+import { drawReconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { accessOrTemporary } from '../../../../../lib/access';
 import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
-import { RoundRoomReconnecting } from '../../../../../ui/debate-room/round-room-reconnecting';
+import { temporarilyRefused } from '../../../../../server/temporary-read';
+import { reconnectingRoundPage } from '../../../../../ui/debate-room/round-reconnecting';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
 import { readPersistedTranscript } from '../../../../(shell)/rounds/[id]/read-persisted-transcript';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
@@ -53,17 +55,13 @@ const transcriptOf = (
     />
   ) : text.kind === 'unavailable' ? (
     // Refusals read as missing; only an outage, never a denial, says this.
-    <p role="status" className="p-4 text-sm">
-      Transcript unavailable. Reload to try again.
-    </p>
+    <TranscriptSeedRecovery
+      key={id}
+      roundId={id}
+      socketUrl={socketUrl}
+      placement={placement}
+    />
   ) : null;
-
-const reconnecting = () => {
-  const [entropy] = crypto.getRandomValues(new Uint8Array(1));
-  return (
-    <RoundRoomReconnecting retrySeconds={reconnectDelaySeconds(entropy!)} />
-  );
-};
 
 /**
  * A member without a seat: the assigned judge's live view, a seatless
@@ -77,8 +75,8 @@ async function watchingRoom(
   transcript: ReactNode,
 ) {
   const assigned = await readPersistedJudgeRound(id);
+  if (temporarilyRefused(assigned)) return reconnectingRoundPage();
   if (assigned.kind === 'unavailable') {
-    if (assigned.temporary) return reconnecting();
     throw createAppError('INFRASTRUCTURE');
   }
   const room = watchingRoomOf({
@@ -127,7 +125,7 @@ export default async function RoundRoomPage({
 }) {
   const { id } = await params;
   const access = await accessOrTemporary(`/rounds/${id}/room`, searchParams);
-  if (access.kind === 'temporary') return reconnecting();
+  if (access.kind === 'temporary') return reconnectingRoundPage();
   const { identity } = access;
   if (!idSchema.safeParse(id).success) notFound();
   const principal = roundDocumentPrincipal(identity);
@@ -139,7 +137,7 @@ export default async function RoundRoomPage({
     readPersistedTranscript(id),
   ]);
   if (result.kind === 'missing') notFound();
-  if (result.kind === 'unavailable' && result.temporary) return reconnecting();
+  if (temporarilyRefused(result)) return reconnectingRoundPage();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const transcriptIn = (placement: TranscriptPlacement) =>
     transcriptOf(id, text, result.socketUrl, placement);
@@ -165,7 +163,12 @@ export default async function RoundRoomPage({
             />
             <RoundNativeAttendance
               view={result.round}
-              state={await readPersistedAttendance(id)}
+              read={
+                result.round.status === 'active'
+                  ? await readPersistedAttendance(id)
+                  : null
+              }
+              retrySeconds={drawReconnectDelaySeconds()}
             />
           </>
         }

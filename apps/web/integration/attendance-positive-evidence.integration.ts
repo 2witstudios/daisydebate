@@ -117,15 +117,15 @@ test('unknown health forfeits nobody: an absent or late speaker postpones', () =
     }
   }));
 
-test('the persisted cutoff ends an unprovable window with no winner, and a pending writer holds it', () =>
+test('the cutoff ends an unprovable window with no winner, and a pending writer holds it', () =>
   withAttendanceRound(async (input) => {
     const { f, roundId } = input;
     const { opponent } = await seatsOf(input);
-    await ageOpening(input);
-    await stamp(input, opponent, 1000);
     const attemptId = createId();
     try {
+      // Played first: it moves the opening, which the stamp follows.
       await passAttendanceCutoff(f.sql, roundId);
+      await stamp(input, opponent, 1000);
       await f.sql`insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,received_at,backend_pid,backend_started_at,state)
         values(${attemptId},${createId()},${roundId},${'b'.repeat(64)},${opponent.actorId},statement_timestamp(),1,'2026-10-22 00:00:00+00','pending')`;
       const held = await input.attendance.evaluate(roundId);
@@ -228,8 +228,17 @@ test('a long-outage evaluation at the read cap stays inside its transaction budg
         },
         expected: { undecided: { kind: 'undecided' }, inBudget: true },
       });
-      await passAttendanceCutoff(f.sql, roundId);
+      // The opening stays behind every sample, so this read is at the cap too.
+      await passAttendanceCutoff(f.sql, roundId, samples + 400 - 3600);
+      const [{ reread }] =
+        await f.sql`select count(*)::int as reread from availability_samples a, round_segments s where s.id=${segmentId} and a.at>=s.started_at`;
       const ended = await attendance.evaluate(roundId);
+      assert({
+        given: 'the history the evaluation past the cutoff reads',
+        should: 'still hold more samples than the read cap',
+        actual: reread >= samples,
+        expected: true,
+      });
       assert({
         given: 'that history past the cutoff',
         should: 'end the Round with no winner',
@@ -246,8 +255,8 @@ test('past the cutoff a provable absence is still decided, not abandoned', () =>
   withAttendanceRound(async (input) => {
     const { f, attendance, roundId, segmentId } = input;
     const { opponent } = await seatsOf(input);
-    await f.sql`update rounds set started_at=started_at-interval '50 seconds' where id=${roundId}`;
-    await f.sql`update round_segments set started_at=started_at-interval '50 seconds' where id=${segmentId}`;
+    // Played first: it moves the opening, which the stamp and the samples follow.
+    await passAttendanceCutoff(f.sql, roundId);
     await stamp(input, opponent, 1000);
     await f.sql.begin(async (tx) => {
       await tx`select pg_advisory_xact_lock(59003)`;
@@ -255,7 +264,6 @@ test('past the cutoff a provable absence is still decided, not abandoned', () =>
         select s.started_at+n*interval '1 second',true,null
         from round_segments s, generate_series(-3,47) n where s.id=${segmentId}`;
     });
-    await passAttendanceCutoff(f.sql, roundId);
     try {
       const resolved = await attendance.evaluate(roundId);
       assert({

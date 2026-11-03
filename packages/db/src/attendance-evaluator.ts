@@ -27,16 +27,6 @@ import {
   type NextAttendanceWindow,
 } from './attendance-adjudication';
 
-async function readResolutionCutoff(
-  tx: AttendanceTransactionContext,
-  roundId: string,
-) {
-  const [row] = await tx.execute(
-    sql`select to_char(attendance_resolution_cutoff_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cutoff from rounds where id=${roundId}`,
-  );
-  return (row as { cutoff: string | null } | undefined)?.cutoff ?? null;
-}
-
 /**
  * The read is capped, so an old window can still be decided on what it proves.
  * A read at the cap fits the transaction slice on local PostgreSQL; staging is
@@ -50,7 +40,6 @@ async function withEvidence(
 ): Promise<AttendanceEvaluationFacts> {
   return {
     ...facts,
-    resolutionCutoffAt: await readResolutionCutoff(tx, facts.round.id),
     samples: await attendanceSamples(
       tx,
       nextWindow({
@@ -74,8 +63,6 @@ export type AttendanceReceiptFacts = Omit<AttendanceFacts, 'samples'> & {
 };
 export type AttendanceEvaluationFacts = AttendanceReceiptFacts & {
   readonly samples: AttendanceFacts['samples'];
-  /** Null until the actual final speech has ended (DEC-276). */
-  readonly resolutionCutoffAt: string | null;
 };
 /** What one attendance pass found. */
 export type AttendanceEvaluation =

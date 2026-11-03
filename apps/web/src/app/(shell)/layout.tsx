@@ -69,11 +69,14 @@ export default async function ShellLayout({
       : null;
   return (
     <UiStoreProvider>
-      <MediaAccount
-        actorId={
-          identity.state === 'member' ? identity.principal.actorId : null
-        }
-      />
+      {/* An unread identity says nothing about who this is: a refusal is no sign-out. */}
+      {identity.state === 'unavailable' ? null : (
+        <MediaAccount
+          actorId={
+            identity.state === 'member' ? identity.principal.actorId : null
+          }
+        />
+      )}
       <AppShell
         account={shellAccount(identity)}
         activeRoom={activeRoom}

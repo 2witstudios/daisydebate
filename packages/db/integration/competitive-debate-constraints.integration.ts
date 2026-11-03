@@ -90,7 +90,7 @@ describe('rounds (DATA-2.1)', () => {
           status: 'active',
           current_stage: 'countdown',
           started_at: at,
-          outcome: 'draw',
+          outcome: 'affirmative',
         }),
         activeWithCompletion: await attempt({
           status: 'active',

@@ -1,3 +1,4 @@
+import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
 import {
@@ -101,6 +102,7 @@ export {
   type WorkloadProfile,
 } from './workload-admission';
 export type { DatabaseEventSink } from './instrumented';
+export type { RestrictionRules } from './moderation-composition';
 export type { SocialRequestLimits } from './contacts/request-budget';
 export type {
   ProvisionalLinkPurposes,
@@ -186,7 +188,7 @@ export function createDatabase({
       botPublication,
     }),
     ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
-    ...roundAnalysisReads({ database }),
+    ...namedLaneOperations(roundAnalysisReads({ database })),
     mediaSessions: createMediaSessionStore({
       database,
       run: transcriptTransaction,
