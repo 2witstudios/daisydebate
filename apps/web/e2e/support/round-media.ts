@@ -111,6 +111,24 @@ export async function readMediaState(
   return roundMediaStateSchema.parse(await response.json());
 }
 
+/**
+ * Media sessions this page asked for, less those the server refused: a refused
+ * ask admitted nobody, and retrying it is designed (ADR 0088). An ask still in
+ * flight counts, so a second admission cannot hide behind its slow answer.
+ */
+export const countMediaAdmissions = (page: Page) => {
+  const isSession = (url: string) =>
+    new URL(url).pathname.endsWith('/media/session');
+  let admissions = 0;
+  page.on('request', (request) => {
+    if (isSession(request.url())) admissions++;
+  });
+  page.on('response', (response) => {
+    if (isSession(response.url()) && response.status() === 503) admissions--;
+  });
+  return () => admissions;
+};
+
 /** Healthy only: a degraded bar names its problem and fails this. */
 export const expectConnected = (page: Page) =>
   expect(

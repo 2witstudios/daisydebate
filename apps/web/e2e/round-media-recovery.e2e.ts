@@ -10,6 +10,7 @@ import {
 } from './support/human-ballot-round';
 import {
   MEDIA_POLL,
+  countMediaAdmissions,
   grantedDebaters,
   readMediaState,
   grantMedia,
@@ -359,21 +360,14 @@ test('hung live reads keep media up, say so, and recover on the same connection 
       accounts.members,
     );
     const source = await openPage(speaker.context, 'hung reads speaker');
-    let admissions = 0;
-    source.on('request', (request) => {
-      if (
-        new URL(request.url()).pathname ===
-        `/api/rounds/${round.id}/media/session`
-      )
-        admissions++;
-    });
+    const admissions = countMediaAdmissions(source);
     await source.goto(`/rounds/${round.id}/room`);
     await expectConnected(source);
     const peer = await openPage(listener.context, 'hung reads peer');
     await peer.goto(`/rounds/${round.id}/room`);
     await expectConnected(peer);
     await expectPeerCamera(source);
-    const admitted = admissions;
+    const admitted = admissions();
     let hung = 0;
     await source.route(`**/api/rounds/${round.id}/media/reconcile`, () => {
       // Never answered: only the client's own deadlines can end these reads.
@@ -389,10 +383,10 @@ test('hung live reads keep media up, say so, and recover on the same connection 
       MEDIA_POLL,
     );
     await expectPeerCamera(source);
-    expect(admissions).toBe(admitted);
+    expect(admissions()).toBe(admitted);
     await source.unrouteAll({ behavior: 'ignoreErrors' });
     await expectConnected(source);
-    expect(admissions).toBe(admitted);
+    expect(admissions()).toBe(admitted);
     await expectPeerCamera(peer);
     const state = await readMediaState(speaker, round.id);
     expect(state.grants.publish).toEqual(['camera', 'microphone']);
