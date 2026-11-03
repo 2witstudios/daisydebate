@@ -66,6 +66,8 @@ test('committed transcript survives reads failing and returning, and clears on r
     await page.getByRole('tab', { name: 'Transcript', exact: true }).click();
     await expect(lastLine).toBeInViewport();
     await first.scrollIntoViewIfNeeded();
+    // Reading back has registered before anything can move the list.
+    await expect(latest).toBeVisible();
 
     await page.route(routeOf(round.id), (route) =>
       route.fulfill({ status: 503, body: 'unavailable' }),
