@@ -7,7 +7,6 @@ import {
   assertKeySegment,
   assertLimit,
   assertTtlSeconds,
-  countOnlinePresenceScript,
   createScriptRunner,
   deletePresenceLeaseScript,
   PRESENCE_ACTORS_MAX,
@@ -270,20 +269,6 @@ export function createPresenceOperations({
         return value === null ? 0 : Number(value);
       } catch (error) {
         reportFailure('readRosterRevision');
-        throw error;
-      }
-    },
-    /** How many actors hold a live lease now, by the Redis clock. */
-    async countOnlinePresence(): Promise<number> {
-      try {
-        await client.connect();
-        return Number(
-          await runScript(countOnlinePresenceScript, 1, [
-            redisKey(namespace, 'presence', 'online'),
-          ]),
-        );
-      } catch (error) {
-        reportFailure('countOnlinePresence');
         throw error;
       }
     },

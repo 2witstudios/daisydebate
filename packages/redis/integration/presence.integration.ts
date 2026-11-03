@@ -222,25 +222,19 @@ test('several actors’ presence and the online count come from live leases', ()
     await redis.upsertPresenceLease(lease('connP4', mixed, 'active'), 60);
     assert({
       given: 'an active, an idle, a mixed and an offline actor',
-      should: 'report active, idle, active and null, and count three online',
+      should: 'report active, idle, active and null',
       actual: [
-        [
-          ...(
-            await redis.readActorsPresence([active, idle, mixed, offline])
-          ).values(),
-        ],
-        await redis.countOnlinePresence(),
+        ...(
+          await redis.readActorsPresence([active, idle, mixed, offline])
+        ).values(),
       ],
-      expected: [['active', 'idle', 'active', null], 3],
+      expected: ['active', 'idle', 'active', null],
     });
     await redis.deletePresenceLease({ connId: 'connP1', actorId: active });
     assert({
       given: 'the active actor’s clean disconnect',
-      should: 'show them offline and count two online',
-      actual: [
-        (await redis.readActorsPresence([active])).get(active),
-        await redis.countOnlinePresence(),
-      ],
-      expected: [null, 2],
+      should: 'show them offline',
+      actual: (await redis.readActorsPresence([active])).get(active),
+      expected: null,
     });
   }));

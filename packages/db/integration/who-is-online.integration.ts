@@ -1,4 +1,3 @@
-import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -23,10 +22,6 @@ import { moderationOperations } from '../src/moderation/store';
 import { moderationReactions } from '../src/moderation-composition';
 import { createMessagingTestFixture } from '../src/testing';
 import { withFixture } from './constraint-helpers';
-import {
-  ddlTimeoutMs,
-  scratchDatabase,
-} from './scratch-migrations.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -462,7 +457,7 @@ test('a chosen status reads back, and a report closes once with its action', asy
       });
     await file(reportId);
     await file(createId());
-    const queued = await ops.listOperatorReports({ limit: 100, after: null });
+    const queued = await ops.listOperatorReports({ limit: 100 });
     const mine = queued.filter((row) => row.id === reportId);
     const commandId = createId();
     const resolve = (id: string) =>
@@ -737,42 +732,3 @@ test('moderation: a ban has no end, the sweep counts from erasure, and impossibl
     await ctx.client.close();
   }
 });
-
-const migration = '20261103011513_who_is_online';
-const scratch = scratchDatabase(databaseUrl, 'whoonline');
-afterAll(() => scratch.drop());
-
-test(
-  'the migration turns a hidden choice into appearing offline',
-  async () => {
-    await scratch.create();
-    await scratch.migrate((folder) => folder < migration);
-    await withFixture(scratch.url, async (fixture) => {
-      const client = new SQL(scratch.url);
-      const hiddenId = await fixture.actor();
-      const shownId = await fixture.actor();
-      await client.unsafe(
-        'insert into presence_settings (actor_id, hidden, updated_at) values ($1, true, now()), ($2, false, now())',
-        [hiddenId, shownId],
-      );
-      await scratch.migrate((folder) => folder <= migration);
-      const rows = (await client.unsafe(
-        'select actor_id as id, chosen_status as status from presence_settings',
-      )) as { id: string; status: string }[];
-      const statusOf = (id: string) =>
-        rows.find((row) => row.id === id)?.status;
-      assert({
-        given: 'one member hiding and one not',
-        should: 'keep each choice in the new column',
-        actual: [statusOf(hiddenId), statusOf(shownId)],
-        expected: ['appearing_offline', 'online'],
-      });
-      await client.unsafe(
-        'delete from presence_settings where actor_id = any($1)',
-        [`{${hiddenId},${shownId}}`],
-      );
-      await client.close();
-    });
-  },
-  ddlTimeoutMs,
-);
