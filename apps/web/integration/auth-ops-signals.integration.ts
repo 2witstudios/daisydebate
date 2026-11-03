@@ -259,6 +259,8 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.round_analyses',
             'retention.social_declines',
             'retention.social_requests',
+            'retention.notifications',
+            'retention.watch_history',
             'retention.challenges',
             'retention.reports',
             'retention.moderation',
