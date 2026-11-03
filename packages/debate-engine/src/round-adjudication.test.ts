@@ -66,6 +66,7 @@ test('both absent abandons without inventing a winner', () => {
   const projection = world.adjudicate({
     segmentId: 'actual-speech',
     decision: {
+      evidence: 'settled_availability',
       decision: 'abandoned',
       effectiveDeadlineMs: decision.effectiveDeadlineMs,
     },
@@ -263,12 +264,7 @@ describe('a decision past the resolution cutoff', () => {
     const before = world.position(roundAt(finalEndAt));
     for (const [given, atMs, nowMs] of [
       ['a cutoff earlier than the true one', 0, cutoffAtMs],
-      [
-        'a cutoff later than the true one',
-        played,
-        cutoffAtMs + 1,
-        cutoffAtMs + 1,
-      ],
+      ['a cutoff later than the true one', cutoffAtMs + 1, cutoffAtMs + 1],
       ['a true cutoff not yet passed', cutoffAtMs, cutoffAtMs - 1],
     ] as const)
       await assertRejects({
