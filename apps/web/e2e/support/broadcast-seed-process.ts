@@ -119,7 +119,7 @@ const advance = async (sql: SQL, input: Advance) => {
       await sql`update broadcasts set released_through_at=now()-interval '10 minutes' where round_id=${roundId}`;
       return;
     case 'stop':
-      await sql`update broadcasts set stopped_at=now(),stop_reason='moderation' where round_id=${roundId}`;
+      await sql`update broadcasts set stopped_at=now(),stop_reason='moderation',media_withheld=true where round_id=${roundId}`;
       return;
     case 'end':
       await sql`update rounds set status='completed',current_stage=null,outcome='affirmative',completed_at=now()-interval '3 minutes' where id=${roundId}`;

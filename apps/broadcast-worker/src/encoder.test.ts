@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { encoderArgs } from './encoder';
+import { encoderArgs, silentEncoderArgs, slateEncoderArgs } from './encoder';
 
 setupRitewayBun();
 
@@ -48,5 +48,44 @@ test('encoderArgs cuts only when asked, and to the millisecond', () => {
       cut.includes('2.250'),
     ],
     expected: [false, 3, true, true, true],
+  });
+});
+
+const probeArgs = (args: readonly string[]) => ({
+  inputs: args.filter((arg, at) => args[at - 1] === '-i'),
+  copies: args.includes('copy'),
+  mapped: args.filter((arg, at) => args[at - 1] === '-map'),
+});
+const named = (rendition: string) => `/o/${rendition}.ts`;
+
+test("a between clip carries the hold's picture, and no byte of its sound", () => {
+  const args = probeArgs(
+    silentEncoderArgs('/hold.ts', named, 1000, {
+      offsetMs: 500,
+      durationMs: 1000,
+    }),
+  );
+  assert({
+    given: 'the stretch between two speeches',
+    should: 'map audio only from generated silence, never copying',
+    actual: [
+      args.inputs.includes('/hold.ts'),
+      args.copies,
+      args.mapped.filter((map) => map.endsWith(':a')),
+    ],
+    expected: [true, false, ['1:a', '1:a', '1:a']],
+  });
+});
+
+test('a private clip reads nothing from the hold', () => {
+  const { inputs, copies } = probeArgs(slateEncoderArgs(named, 1000, 2000));
+  assert({
+    given: 'a known private span',
+    should: 'have only generated inputs',
+    actual: [
+      inputs.filter((input) => !/^(color|anullsrc)=/.test(input)),
+      copies,
+    ],
+    expected: [[], false],
   });
 });

@@ -186,6 +186,7 @@ test('a Broadcast with a crash becomes one Recording spanning both attempts', as
         owner: 'w',
         now: new Date(Date.now() + 86_400_000),
         leaseUntil: new Date(Date.now() + 2 * 86_400_000),
+        retryAtOf: () => new Date(Date.now() + 2 * 86_400_000),
       });
       assert({
         given: 'the worker asking for work',

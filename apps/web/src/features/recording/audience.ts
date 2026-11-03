@@ -16,12 +16,14 @@ export type RecordingViewer =
 
 /**
  * The audience's timeline for this Round as a named, read-only input: how far it
- * has reached, by the one server rule, and whether its Broadcast was stopped. A
- * stop is final and withholds the media; what follows the delay still leaves.
+ * has reached, by the one server rule, and how its Broadcast was stopped. The feed
+ * ending is final. Only an operator's stop also withholds the media (`media_withheld`);
+ * a feed a Recording's takedown ended (`feed_ended`) leaves that to the Recording's own
+ * state, so a restore brings the video back. What follows the delay still leaves.
  */
 export type BroadcastRelease = {
   readonly releasedThroughMs: number | null;
-  readonly stopped: boolean;
+  readonly stop: 'none' | 'feed_ended' | 'media_withheld';
 };
 
 /** The Round as a named, read-only input. */
@@ -90,7 +92,7 @@ export const roundEvidencePermissions = (
   const ranked = round.competitionType === 'ranked';
   return {
     open: true,
-    media: !release.stopped,
+    media: release.stop !== 'media_withheld',
     transcript: ranked,
     result: ranked,
   };

@@ -3,6 +3,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   deletionRetryAt,
   FAILED_CAPTURE_RETENTION_MS,
+  REMOVAL_OVERDUE_MS,
   REMOVAL_SETTLE_MS,
   runDeletionSweep,
 } from './deletion-sweep';
@@ -39,6 +40,7 @@ describe('runDeletionSweep', () => {
       objects: fakeObjectStore().store,
       owner: 'w',
       nowMs,
+      report: () => {},
     });
     assert({
       given: 'one hold ended and one still running',
@@ -84,6 +86,7 @@ describe('runDeletionSweep', () => {
       objects: fakeObjectStore().store,
       owner: 'w',
       nowMs,
+      report: () => {},
     });
     assert({
       given: 'an empty prefix with sources still held',
@@ -104,6 +107,7 @@ describe('runDeletionSweep', () => {
         objects: objects.store,
         owner: 'w',
         nowMs,
+        report: () => {},
       });
     const first = await run();
     assert({
@@ -142,6 +146,7 @@ describe('runDeletionSweep', () => {
       objects: objects.store,
       owner: 'w',
       nowMs,
+      report: () => {},
     });
     assert({
       given: 'object storage failing',
@@ -155,6 +160,47 @@ describe('runDeletionSweep', () => {
     });
   });
 
+  test('says out loud that a deletion failed, and that one is overdue', async () => {
+    const run = async (requestedAt: string, failRemoval: boolean) => {
+      const reported: string[] = [];
+      await runDeletionSweep({
+        store: fakeRecordingStore([
+          record({ lifecycle: removing(requestedAt) }),
+        ]).store,
+        objects: fakeObjectStore(keys, { failRemoval }).store,
+        owner: 'w',
+        nowMs,
+        report: (event) => reported.push(event),
+      });
+      return reported;
+    };
+    const aged = new Date(nowMs - REMOVAL_OVERDUE_MS).toISOString();
+    assert({
+      given: 'an attempt that fails on a young removal',
+      should: 'report the failure alone',
+      actual: await run(settledAt, true),
+      expected: ['recording.deletion_failed'],
+    });
+    assert({
+      given: 'a removal requested a day ago and still here, failing',
+      should: 'report it overdue as well',
+      actual: await run(aged, true),
+      expected: ['recording.deletion_overdue', 'recording.deletion_failed'],
+    });
+    assert({
+      given: 'a removal that is overdue with nothing failing',
+      should: 'still report it overdue',
+      actual: await run(aged, false),
+      expected: ['recording.deletion_overdue'],
+    });
+    assert({
+      given: 'a young removal going well',
+      should: 'report nothing',
+      actual: await run(settledAt, false),
+      expected: [],
+    });
+  });
+
   test('waits for a capture that may still be writing', async () => {
     const { store, rows } = fakeRecordingStore([
       record({ lifecycle: removing(at) }),
@@ -164,6 +210,7 @@ describe('runDeletionSweep', () => {
       objects: fakeObjectStore().store,
       owner: 'w',
       nowMs,
+      report: () => {},
     });
     assert({
       given: 'an empty prefix moments after removal was asked',
@@ -185,6 +232,7 @@ describe('runDeletionSweep', () => {
       objects: fakeObjectStore().store,
       owner: 'w',
       nowMs: nowMs + FAILED_CAPTURE_RETENTION_MS,
+      report: () => {},
     });
     assert({
       given: 'a failure past its retention',

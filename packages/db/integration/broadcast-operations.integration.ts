@@ -6,7 +6,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   readBroadcastObserverHeld,
-  readBroadcastPublicHistory,
+  readBroadcastStageHistory,
   readConversationHeld,
   recordEgressStarted,
   recordFeedWithdrawn,
@@ -663,7 +663,10 @@ test('the worker reads committed times through the view, and no Round', async ()
     const segmentId = createId();
     await client`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,ended_at,duration_ms)
       values (${segmentId},${roundId},0,'speech','k',${now},${later},60000)`;
-    const history = await readBroadcastPublicHistory(db, id);
+    await client`insert into round_private_spans (round_id,kind,started_at,ended_at)
+      values (${roundId},'prep',${later},null)`;
+    const history = await readBroadcastStageHistory(db, id);
+    await client`delete from round_private_spans where round_id=${roundId}`;
     await client`delete from round_segments where id=${segmentId}`;
     const grant = async (table: string) =>
       (
@@ -676,18 +679,27 @@ test('the worker reads committed times through the view, and no Round', async ()
       actual: [
         history,
         await grant('broadcast_public_history'),
+        await grant('broadcast_private_history'),
+        await grant('round_private_spans'),
         await grant('round_segments'),
         await grant('rounds'),
       ],
       expected: [
-        [
-          {
-            startedAtMs: now.getTime(),
-            endedAtMs: later.getTime(),
-            durationMs: 60_000,
-          },
-        ],
+        {
+          segments: [
+            {
+              startedAtMs: now.getTime(),
+              endedAtMs: later.getTime(),
+              durationMs: 60_000,
+            },
+          ],
+          privateSpans: [
+            { kind: 'prep', startedAtMs: later.getTime(), endedAtMs: null },
+          ],
+        },
         true,
+        true,
+        false,
         false,
         false,
       ],

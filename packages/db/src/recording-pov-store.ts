@@ -59,6 +59,18 @@ export const createRecordingPovStore = (database: BunSQLDatabase) => ({
       .orderBy(asc(recordings.id))
       .limit(limit),
 
+  /** What says whether a Round is recorded, for the seat's camera at admission. */
+  async readCapturePlan(roundId: string) {
+    const [row] = await database
+      .select({
+        competitionType: rounds.competitionType,
+        capture: rounds.capture,
+      })
+      .from(rounds)
+      .where(eq(rounds.id, roundId));
+    return row ?? null;
+  },
+
   /** The Round's position and room. */
   async readRound(roundId: string) {
     const round = await hydrateRoundRows(database, roundId);

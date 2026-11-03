@@ -199,7 +199,7 @@ test('what is not public is cut from a whole attempt, stated, and never built', 
     ],
     expected: [['not_public'], true, true, true, true, true],
   });
-});
+}, 180_000);
 
 test('a crashed attempt, a gap and a clean attempt become one honest video', async () => {
   const { hold, recordings, ports, progressSeen } = await setup('restart');

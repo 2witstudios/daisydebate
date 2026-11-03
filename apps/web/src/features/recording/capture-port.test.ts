@@ -42,7 +42,7 @@ const setup = (
       readCoverageFacts: async () => facts,
       readBroadcastRelease: async () => ({
         releasedThroughMs: null,
-        stopped: false,
+        stop: 'none',
       }),
       readFloorIntervals: async () => [
         {

@@ -64,7 +64,7 @@ export function createRoundMediaRuntime(
           app.config.RECORDING_POV_CAPTURE !== 'on'
         )
           return 'standard';
-        const plan = await app.database.broadcasts.readCapturePlan(roundId);
+        const plan = await app.database.recordingPovs.readCapturePlan(roundId);
         return plan && plannedRecording(plan) ? 'captured' : 'standard';
       },
       reporter,

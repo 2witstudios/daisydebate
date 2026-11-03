@@ -63,6 +63,8 @@ export const eventRegistry = {
   'recording.build_ceiling_exceeded': 'error',
   'recording.processing_gave_up': 'error',
   'recording.source_discard_failed': 'error',
+  'recording.deletion_failed': 'error',
+  'recording.deletion_overdue': 'error',
   'recording.capture_failed': 'error',
   'recording.egress.start_failed': 'error',
   'recording.pov_capture_failed': 'error',

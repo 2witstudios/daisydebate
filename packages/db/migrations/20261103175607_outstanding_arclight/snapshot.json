@@ -1,10 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "6fd7a88a-6047-4aaf-98b2-7c2db3d70fd4",
+  "id": "76f39dc1-2cc6-49bc-9eb4-3dc57d9abc0a",
   "prevIds": [
-    "33001d62-886c-46e5-a80c-cf0f8f1e8e11",
-    "aac0910e-0c95-4008-bbe7-57e859bca3ce"
+    "27c0ba7f-486d-4bab-ab09-08a7161ed9c1"
   ],
   "ddl": [
     {
@@ -610,6 +609,12 @@
     {
       "isRlsEnabled": false,
       "name": "round_participants",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_private_spans",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2414,6 +2419,19 @@
       "generated": null,
       "identity": null,
       "name": "stop_reason",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "media_withheld",
       "entityType": "columns",
       "schema": "public",
       "table": "broadcasts"
@@ -7522,7 +7540,7 @@
       "default": "0",
       "generated": null,
       "identity": null,
-      "name": "failures",
+      "name": "runs_started",
       "entityType": "columns",
       "schema": "public",
       "table": "recording_processing_jobs"
@@ -10347,6 +10365,58 @@
       "entityType": "columns",
       "schema": "public",
       "table": "round_participants"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_private_spans"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_private_spans"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "started_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_private_spans"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ended_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_private_spans"
     },
     {
       "type": "text",
@@ -16952,6 +17022,34 @@
           "opclass": null
         },
         {
+          "value": "kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"ended_at\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_private_spans_single_open",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_private_spans"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
           "value": "sequence",
           "isExpression": false,
           "asc": true,
@@ -21190,6 +21288,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "name": "round_private_spans_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_private_spans"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "round_segments_round_id_rounds_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -21963,6 +22078,18 @@
       "entityType": "pks",
       "schema": "public",
       "table": "round_judging_jobs"
+    },
+    {
+      "columns": [
+        "round_id",
+        "kind",
+        "started_at"
+      ],
+      "nameExplicit": false,
+      "name": "round_private_spans_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "round_private_spans"
     },
     {
       "columns": [
@@ -23267,6 +23394,13 @@
       "table": "broadcasts"
     },
     {
+      "value": "not \"media_withheld\" or \"stopped_at\" is not null",
+      "name": "broadcasts_withheld_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
       "value": "\"challenger_actor_id\" <> \"challenged_actor_id\"",
       "name": "challenges_distinct",
       "entityType": "checks",
@@ -24310,7 +24444,7 @@
       "table": "recording_processing_jobs"
     },
     {
-      "value": "\"failures\" >= 0 and \"lease_epoch\" >= 0",
+      "value": "\"runs_started\" >= 0 and \"lease_epoch\" >= 0",
       "name": "recording_jobs_counters_check",
       "entityType": "checks",
       "schema": "public",
@@ -24954,6 +25088,13 @@
       "table": "round_participants"
     },
     {
+      "value": "\"kind\" in ('prep', 'judging')",
+      "name": "round_private_spans_kind_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_private_spans"
+    },
+    {
       "value": "\"type\" in ('speech', 'cross_ex')",
       "name": "round_segments_type_check",
       "entityType": "checks",
@@ -25339,5 +25480,7 @@
       "table": "utterances"
     }
   ],
-  "renames": []
+  "renames": [
+    "public.rounds.rounds_rated_ladder_check->public.rounds.rounds_ranked_ladder_check"
+  ]
 }

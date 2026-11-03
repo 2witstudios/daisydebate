@@ -39,6 +39,8 @@ export function startRecordingDeletions(input: {
             objects: input.objects,
             owner: input.owner,
             nowMs: Date.parse(now),
+            report: (event) =>
+              input.logger.log(event, {}, 'Recording deletion'),
           });
           return result.removedRecordings;
         },

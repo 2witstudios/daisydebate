@@ -394,6 +394,131 @@ test('a Recording takedown ends the feed of its open Broadcast, and a stale one 
   });
 });
 
+test('an operator or legal removal ends the feed, and only an operator stop withholds the video', async () => {
+  await withOps(async (_ops, f, client, roundId) => {
+    const database = drizzle({ client });
+    const ops = contentModerationOperations({
+      database: database as never,
+      recordings: recordingModeration,
+    });
+    const store = recordingOperations({ database });
+    const broadcastId = createId();
+    await openBroadcast(database, {
+      id: broadcastId,
+      roundId,
+      feedKey: createId(),
+      releasePolicy: { kind: 'delay', seconds: 60 },
+    });
+    const id = createId();
+    await store.requestRecording({
+      id,
+      roundId,
+      class: 'ranked',
+      eligibility: { kind: 'ranked' },
+    });
+    const feed = async () => {
+      const [row] =
+        (await client`select stop_reason, media_withheld from broadcasts
+        where id=${broadcastId}`) as {
+          stop_reason: string | null;
+          media_withheld: boolean;
+        }[];
+      return [row?.stop_reason, row?.media_withheld];
+    };
+    const legal = {
+      action: 'recording.legal_remove',
+      recordingId: id,
+      expectedVersion: 1,
+      reason: 'court_order',
+    };
+    try {
+      assert({
+        given: 'a legal removal with the feed open',
+        should: 'apply, end the feed and withhold nothing',
+        actual: [
+          (await ops.runModerationCommand(command(legal as never))).outcome,
+          ...(await feed()),
+        ],
+        expected: ['applied', 'recording_legally_removed', false],
+      });
+      assert({
+        given: 'an operator stopping that Broadcast afterwards',
+        should: 'hold the video back, the stop reason standing',
+        actual: [
+          (
+            await ops.runModerationCommand(
+              command({
+                action: 'broadcast.stop',
+                broadcastId,
+                reason: 'technical',
+              } as never),
+            )
+          ).outcome,
+          ...(await feed()),
+        ],
+        expected: ['applied', 'recording_legally_removed', true],
+      });
+      assert({
+        given: 'the same stop again',
+        should: 'change nothing',
+        actual: (
+          await ops.runModerationCommand(
+            command({
+              action: 'broadcast.stop',
+              broadcastId,
+              reason: 'technical',
+            } as never),
+          )
+        ).outcome,
+        expected: 'unchanged',
+      });
+    } finally {
+      await client`delete from recordings where id=${id}`;
+    }
+    const round = await f.round();
+    const second = createId();
+    await openBroadcast(database, {
+      id: second,
+      roundId: round,
+      feedKey: createId(),
+      releasePolicy: { kind: 'delay', seconds: 60 },
+    });
+    await client`update broadcasts set completed_at=now() where id=${second}`;
+    const removed = createId();
+    await store.requestRecording({
+      id: removed,
+      roundId: round,
+      class: 'casual',
+      eligibility: { kind: 'host_opt_in', hostActorId: 'a'.repeat(24) },
+    });
+    try {
+      assert({
+        given: 'a moderation removal just after the Broadcast completed',
+        should: 'ask for its feed to be withdrawn at once',
+        actual: [
+          (
+            await ops.runModerationCommand(
+              command({
+                action: 'recording.remove',
+                recordingId: removed,
+                expectedVersion: 1,
+              } as never),
+            )
+          ).outcome,
+          (
+            (await client`select feed_withdrawal_requested_at is not null as asked
+              from broadcasts where id=${second}`) as { asked: boolean }[]
+          )[0]?.asked,
+        ],
+        expected: ['applied', true],
+      });
+    } finally {
+      await client`delete from recordings where id=${removed}`;
+      await client`delete from broadcasts where id=${second}`;
+    }
+  });
+});
+
 test('a takedown just after a Broadcast completed withdraws its feed now, not after the grace', async () => {
   await withOps(async (_ops, _f, client, roundId) => {
     const database = drizzle({ client });
@@ -515,7 +640,7 @@ test('a failed ranked Recording rebuilds, and an evidence hold yields only to a 
     const held = await make(await f.round(), 'casual');
     try {
       await client`insert into recording_processing_jobs
-          (recording_id, hold_prefix, status, state, failures)
+          (recording_id, hold_prefix, status, state, runs_started)
         values (${ranked}, 'hold/r/', 'failed',
           ${JSON.stringify({ status: 'failed', reason: 'processing_failed', failedAt: at })}::text::jsonb, 5)`;
       await store.applyRecording(ranked, () => ({
@@ -559,10 +684,10 @@ test('a failed ranked Recording rebuilds, and an evidence hold yields only to a 
           ).outcome,
           (await store.findRecording(ranked))?.lifecycle.status,
           (
-            (await client`select status, failures, state from recording_processing_jobs
+            (await client`select status, runs_started, state from recording_processing_jobs
               where recording_id=${ranked}`) as {
               status: string;
-              failures: number;
+              runs_started: number;
               state: unknown;
             }[]
           )[0],
@@ -572,7 +697,7 @@ test('a failed ranked Recording rebuilds, and an evidence hold yields only to a 
           'processing',
           {
             status: 'queued',
-            failures: 0,
+            runs_started: 0,
             // 80 minutes: a 45 minute bound, so a 135 minute ceiling.
             state: {
               status: 'queued',

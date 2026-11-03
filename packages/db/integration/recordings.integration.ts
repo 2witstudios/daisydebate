@@ -671,7 +671,7 @@ test('the archive pages, filters and holds back what is not released', async () 
         given: 'a held Round read as a named input',
         should: 'report its Broadcast watermark, not a clock',
         actual: await reads.readRecordingBroadcastRelease(held, clock),
-        expected: { releasedThroughMs: null, stopped: false },
+        expected: { releasedThroughMs: null, stop: 'none' },
       });
     },
   );
@@ -688,7 +688,7 @@ test('the Round inputs read only public ballot fields', async () => {
         await reads.readRecordingTranscript(roundId, captureRule),
         await reads.readRecordingBroadcastRelease(roundId, clock),
       ],
-      expected: [[], null, { releasedThroughMs: null, stopped: false }],
+      expected: [[], null, { releasedThroughMs: null, stop: 'none' }],
     });
     assert({
       given: 'a Round that does not exist',

@@ -84,7 +84,7 @@ const open = (
     readBroadcastRelease: async () =>
       over.release ?? {
         releasedThroughMs: Number.MAX_SAFE_INTEGER,
-        stopped: false,
+        stop: 'none',
       },
     readTranscript:
       over.transcript ??
@@ -173,7 +173,10 @@ describe('a Broadcast stopped before the Round ended', () => {
     const { media, downloadHref } = await history({
       subscribed: true,
       viewer: { kind: 'account', userId: 'u', actorId: 'stranger' },
-      release: { releasedThroughMs: Number.MAX_SAFE_INTEGER, stopped: true },
+      release: {
+        releasedThroughMs: Number.MAX_SAFE_INTEGER,
+        stop: 'media_withheld',
+      },
     });
     assert({
       given: 'a ready Recording of a stopped Broadcast',
@@ -262,7 +265,7 @@ describe('permissions', () => {
       expected: [true, 'Negative wins', true],
     });
     const { screen } = await open({
-      release: { releasedThroughMs: null, stopped: false },
+      release: { releasedThroughMs: null, stop: 'none' },
     });
     assert({
       given: 'a ranked Round the watermark has not passed',

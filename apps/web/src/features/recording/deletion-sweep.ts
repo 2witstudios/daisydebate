@@ -1,12 +1,21 @@
-import { recordingObjectPrefix, transitionRecording } from '@daisy/protocol';
+import {
+  recordingObjectPrefix,
+  transitionRecording,
+  type RecordingLifecycle,
+} from '@daisy/protocol';
 import type { RecordingObjectStore, RecordingStore } from './ports';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
+export type RecordingDeletionEvent =
+  'recording.deletion_failed' | 'recording.deletion_overdue';
+
 /** A capture still writing when removal was asked gets this long to stop. */
 export const REMOVAL_SETTLE_MS = HOUR_MS;
+/** Past this a removal is stuck, not slow: sources wait hours at most, not days. */
+export const REMOVAL_OVERDUE_MS = DAY_MS;
 /** Partial objects of a failed capture go after this; no video survives a failure. */
 export const FAILED_CAPTURE_RETENTION_MS = 7 * DAY_MS;
 
@@ -68,17 +77,24 @@ const payEndedEvidenceHolds = async (store: RecordingStore, nowMs: number) => {
 const settled = (requestedAt: string, nowMs: number): boolean =>
   nowMs - Date.parse(requestedAt) >= REMOVAL_SETTLE_MS;
 
+const overdue = (lifecycle: RecordingLifecycle, nowMs: number): boolean =>
+  lifecycle.status === 'removing' &&
+  nowMs - Date.parse(lifecycle.requestedAt) >= REMOVAL_OVERDUE_MS;
+
 /**
  * One bounded run. The intent is durable, so a vendor outage or a dead process
- * only delays deletion. A Recording ends as removed only after listing its prefix
- * finds nothing left, once capture has had time to stop writing and the worker
- * has cleared its sources from the hold bucket. Safe to repeat.
+ * only delays deletion, and each delay is said out loud: a failed attempt, and
+ * again on every attempt once a removal is overdue. A Recording ends as removed
+ * only after listing its prefix finds nothing left, once capture has had time to
+ * stop writing and the worker has cleared its sources from the hold bucket. Safe
+ * to repeat.
  */
 export const runDeletionSweep = async (deps: {
   readonly store: RecordingStore;
   readonly objects: RecordingObjectStore;
   readonly owner: string;
   readonly nowMs: number;
+  readonly report: (event: RecordingDeletionEvent) => void;
 }): Promise<DeletionSweepResult> => {
   const { store, objects, nowMs } = deps;
   const failedCleanups = await queueFailedCleanups(store, nowMs);
@@ -93,6 +109,8 @@ export const runDeletionSweep = async (deps: {
   let removedKeys = 0;
   let deferred = 0;
   for (const { record, attempts } of claims) {
+    if (overdue(record.lifecycle, nowMs))
+      deps.report('recording.deletion_overdue');
     try {
       const keys = await objects.listKeys(
         recordingObjectPrefix(record.id),
@@ -129,6 +147,7 @@ export const runDeletionSweep = async (deps: {
         });
       }
     } catch {
+      deps.report('recording.deletion_failed');
       await store.deferDeletion(record.id, {
         retryAt: deletionRetryAt(nowMs, attempts),
         failed: true,

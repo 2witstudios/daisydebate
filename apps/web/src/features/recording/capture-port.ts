@@ -113,8 +113,8 @@ export const createRecordingCapturePort = ({
       const { gaps, unrecorded } = coverageStatement({
         facts: await inputs.readCoverageFacts(record.roundId),
         capture: { ...capture, restartGaps: media.gaps },
-        broadcastStopped: (await inputs.readBroadcastRelease(record.roundId))
-          .stopped,
+        broadcastStopped:
+          (await inputs.readBroadcastRelease(record.roundId)).stop !== 'none',
       });
       const speeches = speechTimeline(
         await inputs.readFloorIntervals(record.roundId),
