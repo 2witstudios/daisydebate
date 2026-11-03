@@ -97,7 +97,10 @@ export async function proveHumanBotJourney(browser: Browser) {
     await expect(async () => {
       const round = await readBallotRound(host.context.request, view.id);
       expect(round.status).toBe('completed');
-      expect(['affirmative', 'negative']).toContain(round.outcome);
+      expect(
+        ['affirmative', 'negative'],
+        `panel ruling ${round.panelRuling}`,
+      ).toContain(round.outcome);
     }).toPass({ timeout: BOT_SPEECH_MS + 240_000 });
     const runs = await botSpeechEvidence(view.id);
     const received = (role: string, kind: string) =>
