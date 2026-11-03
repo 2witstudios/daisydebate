@@ -96,6 +96,7 @@ const claimAt = (
     owner,
     now: later(nowMs),
     leaseUntil: later(nowMs + 60_000),
+    retryAtOf: () => later(nowMs),
   });
 
 test('the worker login reaches its job table and nothing else', async () => {
@@ -234,17 +235,69 @@ test('a slower former owner can write nothing', async () => {
       expected: true,
     });
     const [row] =
-      await client`select status, lease_owner, failures from recording_processing_jobs where recording_id=${id}`;
+      await client`select status, lease_owner, runs_started from recording_processing_jobs where recording_id=${id}`;
     assert({
       given: 'that job',
-      should: 'hold the report, unleased and with no failure counted',
-      actual: [row.status, row.lease_owner, row.failures],
-      expected: ['built', null, 0],
+      should: 'hold the report, unleased, with its two runs counted',
+      actual: [row.status, row.lease_owner, row.runs_started],
+      expected: ['built', null, 2],
     });
   });
 });
 
-test('a failed run comes due later and counts, and shutdown does not count', async () => {
+test('a run counts at its claim and backs off, so a process that dies still spends an attempt', async () => {
+  await withStores(async ({ store, worker, newRecording, client }) => {
+    const { id } = await newRecording();
+    await store.openJob({ recordingId: id, holdPrefix: 'hold/d/' });
+    await store.queueJob({
+      recordingId: id,
+      attemptCount: 1,
+      publicIntervals: [],
+      ceilingMs: 60_000,
+    });
+    const runs: number[] = [];
+    const claim = (nowMs: number) =>
+      worker.claim({
+        owner: 'w',
+        now: later(nowMs),
+        leaseUntil: later(nowMs + 1000),
+        retryAtOf: (count) => {
+          runs.push(count);
+          return later(nowMs + 60_000 * count);
+        },
+      });
+    const first = await claim(FUTURE);
+    assert({
+      given: 'a claim, its process then dying without a word',
+      should: 'have counted the run and told it when to come due',
+      actual: [first?.runsStarted, runs],
+      expected: [1, [1]],
+    });
+    assert({
+      given: 'the lease run out, before the backoff has',
+      should: 'not take it again yet',
+      actual: await claim(FUTURE + 2000),
+      expected: null,
+    });
+    const second = await claim(FUTURE + 60_000);
+    assert({
+      given: 'the backoff passed',
+      should: 'take it again and count a second run',
+      actual: second?.runsStarted,
+      expected: 2,
+    });
+    const [row] =
+      await client`select status, runs_started from recording_processing_jobs where recording_id=${id}`;
+    assert({
+      given: 'a build that has died twice',
+      should: 'keep its job and its sources: nothing is discarded',
+      actual: [row.status, row.runs_started],
+      expected: ['queued', 2],
+    });
+  });
+});
+
+test('a failed run comes due later and counts, and shutdown gives its run back', async () => {
   await withStores(async ({ store, worker, newRecording, client }) => {
     const { id } = await newRecording();
     await store.openJob({ recordingId: id, holdPrefix: 'hold/b/' });
@@ -255,7 +308,7 @@ test('a failed run comes due later and counts, and shutdown does not count', asy
       ceilingMs: 60_000,
     });
     await claimAt(worker, 'w', FUTURE);
-    const failures = await worker.defer({
+    const runs = await worker.defer({
       recordingId: id,
       owner: 'w',
       epoch: 1,
@@ -265,10 +318,7 @@ test('a failed run comes due later and counts, and shutdown does not count', asy
     assert({
       given: 'a failed run',
       should: 'count it and refuse a claim until it is due',
-      actual: [
-        failures,
-        (await claimAt(worker, 'w2', FUTURE))?.recordingId === id,
-      ],
+      actual: [runs, (await claimAt(worker, 'w2', FUTURE))?.recordingId === id],
       expected: [1, false],
     });
     const claimed = await claimAt(worker, 'w2', FUTURE + 60_000);
@@ -280,11 +330,11 @@ test('a failed run comes due later and counts, and shutdown does not count', asy
       failed: false,
     });
     const [row] =
-      await client`select failures from recording_processing_jobs where recording_id=${id}`;
+      await client`select runs_started from recording_processing_jobs where recording_id=${id}`;
     assert({
       given: 'a run given back at shutdown',
-      should: 'not count as a failure',
-      actual: row.failures,
+      should: 'leave only the failed run counted',
+      actual: row.runs_started,
       expected: 1,
     });
   });

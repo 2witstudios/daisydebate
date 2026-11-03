@@ -69,7 +69,7 @@ export const deps = (
       readBroadcastRelease: async () =>
         ({
           releasedThroughMs: Number.MAX_SAFE_INTEGER,
-          stopped: false,
+          stop: 'none',
         }) as const,
       holdsRecordingDownload: async () => over.subscribed ?? true,
     },

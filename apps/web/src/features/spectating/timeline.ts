@@ -117,13 +117,13 @@ const standingOf = (
 };
 
 /**
- * A Recording is news only once the Round's end is released, and a stop
- * withholds it from the audience (ADR 0105's one release rule).
+ * A Recording is news only once the Round's end is released, and an operator's
+ * stop withholds it from the audience (ADR 0105's one release rule).
  */
 const recordingOf = (
   read: SpectatorTimelineRead,
 ): SpectatorTimeline['recording'] => {
-  if (!read.outcomeReleased || read.broadcast?.stoppedAt) return 'none';
+  if (!read.outcomeReleased || read.broadcast?.mediaWithheld) return 'none';
   switch (read.recordingStatus) {
     case 'ready':
       return 'ready';

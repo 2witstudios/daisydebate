@@ -11,7 +11,7 @@ const RENEW_MS = 15_000;
 const IDLE_MS = 2000;
 const FIRST_RETRY_MS = 60_000;
 const LONGEST_RETRY_MS = 60 * 60_000;
-/** After this many failed runs a build is reported failed; a discard never gives up. */
+/** After this many runs a build is reported failed; a discard never gives up. */
 const BUILD_ATTEMPTS = 5;
 const PROGRESS_EVERY_MS = 5000;
 
@@ -39,16 +39,16 @@ const rejectedOnAbort = (signal: AbortSignal) =>
     });
   });
 
-export const retryDelayMs = (failures: number): number =>
-  Math.min(LONGEST_RETRY_MS, FIRST_RETRY_MS * 2 ** Math.max(0, failures - 1));
+export const retryDelayMs = (runs: number): number =>
+  Math.min(LONGEST_RETRY_MS, FIRST_RETRY_MS * 2 ** Math.max(0, runs - 1));
 
 /** What a build that threw means now: try again later, or say it could not be done. */
 export const afterBuildFailure = (
-  failures: number,
+  runs: number,
   error: unknown,
   at: string,
 ): Extract<RecordingJobState, { status: 'failed' }> | null =>
-  failures < BUILD_ATTEMPTS
+  runs < BUILD_ATTEMPTS
     ? null
     : {
         status: 'failed',
@@ -62,8 +62,10 @@ export const afterBuildFailure = (
 /**
  * One slot: claims a job, keeps its lease while it runs, and writes the result
  * only if it still owns the job in the state it read. A crash loses nothing: the
- * lease runs out, another slot takes the job and repeats it to the same keys. A
- * job the web moved to discarding stops the build it is running at the next renewal.
+ * lease runs out, another slot takes the job and repeats it to the same keys. The
+ * claim counts the run and sets when it comes due if it dies, so a build that kills
+ * its process runs out of attempts as one that throws does. A job the web moved to
+ * discarding stops the build it is running at the next renewal.
  */
 export const runWorker = async (deps: {
   readonly owner: string;
@@ -157,7 +159,7 @@ export const runWorker = async (deps: {
       owner,
       epoch: job.leaseEpoch,
       retryAt: new Date(
-        deps.now() + (failed ? retryDelayMs(job.failures + 1) : 0),
+        deps.now() + (failed ? retryDelayMs(job.runsStarted) : 0),
       ),
       failed,
     });
@@ -192,6 +194,16 @@ export const runWorker = async (deps: {
     intervals: readonly PublicInterval[],
     ceilingMs?: number,
   ) => {
+    // Every attempt started and none answered: the last one died with its process.
+    if (job.runsStarted > BUILD_ATTEMPTS) {
+      deps.report('recording.processing_gave_up');
+      await finish(job, {
+        status: 'failed',
+        reason: 'processing_failed',
+        failedAt: iso(),
+      });
+      return;
+    }
     const workDir = deps.workDirOf(job.recordingId, owner);
     const lease = holdLease(job, ceilingMs);
     try {
@@ -211,13 +223,13 @@ export const runWorker = async (deps: {
       await finish(job, state);
     } catch (error) {
       if (lease.overran()) deps.report('recording.build_ceiling_exceeded');
-      // A job taken away or a shutdown is nobody's failure: no backoff, no report.
+      // A job taken away or a shutdown is nobody's failure: its run is given back.
       else if (lease.signal.aborted || deps.stopped()) {
         await defer(job, false);
         return;
       }
       deps.report('recording.processing_failed');
-      const gaveUp = afterBuildFailure(job.failures + 1, error, iso());
+      const gaveUp = afterBuildFailure(job.runsStarted, error, iso());
       if (gaveUp) {
         deps.report('recording.processing_gave_up');
         await finish(job, gaveUp);
@@ -249,6 +261,7 @@ export const runWorker = async (deps: {
         owner,
         now: new Date(deps.now()),
         leaseUntil: new Date(deps.now() + LEASE_MS),
+        retryAtOf: (runs) => new Date(deps.now() + retryDelayMs(runs)),
       })
       .catch(() => {
         deps.report('recording.processing_failed');

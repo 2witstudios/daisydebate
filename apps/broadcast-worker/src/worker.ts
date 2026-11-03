@@ -3,9 +3,9 @@ import {
   broadcastHoldPrefix,
   broadcastLivePrefix,
   holdAttemptPrefix,
-  publicIntervals,
+  stageTimeline,
 } from '@daisy/protocol';
-import { encoderArgs } from './encoder';
+import { encoderArgs, silentEncoderArgs, slateEncoderArgs } from './encoder';
 import { masterPlaylist, RENDITIONS } from './hold-manifest';
 import type { createObjects } from './objects';
 import { releaseStep } from './release-step';
@@ -109,39 +109,41 @@ export const runWorker = async (deps: {
                 facts.releasedThroughAt?.getTime() ?? 0,
                 passedThroughMs,
               ),
-              publicIntervals: publicIntervals(
-                await store.readPublicHistory(job.id),
-                facts.controlHeartbeatAt?.getTime() ?? null,
-              ),
+              stage: stageTimeline({
+                ...(await store.readStageHistory(job.id)),
+                knownThroughMs: facts.controlHeartbeatAt?.getTime() ?? null,
+              }),
             },
             {
               readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
-              encode: async ({
-                source,
-                offsetMs,
-                capturedAtMs,
-                durationMs,
-              }) => {
+              encode: async (clip) => {
                 encoded = true;
+                const { source, interval, capturedAtMs, offsetMs, durationMs } =
+                  clip;
                 const { name } = source;
                 const input = `${dir}/${name}`;
-                const output = (r: string) => `${dir}/${r}.ts`;
-                await objects.copyHoldToFile(`${hold}${name}`, input);
-                const code = await Bun.spawn(
-                  [
-                    ...encoderArgs(
-                      input,
-                      output,
-                      capturedAtMs,
-                      durationMs === source.durationMs
-                        ? undefined
-                        : { offsetMs, durationMs },
-                    ),
-                  ],
-                  {
-                    stderr: 'ignore',
-                  },
-                ).exited;
+                const output = (r: string) => `${dir}/${capturedAtMs}-${r}.ts`;
+                await objects.ensureDir(dir);
+                if (interval.kind !== 'private')
+                  await objects.copyHoldToFile(`${hold}${name}`, input);
+                const whole = durationMs === source.durationMs;
+                const args =
+                  interval.kind === 'private'
+                    ? slateEncoderArgs(output, capturedAtMs, durationMs)
+                    : interval.kind === 'between'
+                      ? silentEncoderArgs(input, output, capturedAtMs, {
+                          offsetMs,
+                          durationMs,
+                        })
+                      : encoderArgs(
+                          input,
+                          output,
+                          capturedAtMs,
+                          whole ? undefined : { offsetMs, durationMs },
+                        );
+                const code = await Bun.spawn([...args], {
+                  stderr: 'ignore',
+                }).exited;
                 if (code !== 0) throw new Error(`encoder exited ${code}`);
                 return RENDITIONS.map((r) => ({
                   rendition: r.name,

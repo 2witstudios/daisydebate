@@ -18,9 +18,10 @@ test('a database failure does not end the slot', async () => {
     objects: {} as never,
     store: {
       recordPassed: async () => true,
-      readPublicHistory: async () => [
-        { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
-      ],
+      readStageHistory: async () => ({
+        segments: [{ startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 }],
+        privateSpans: [],
+      }),
       claim: async () => {
         claims += 1;
         if (claims < 3) throw new Error('database down');
@@ -52,6 +53,7 @@ test('a failed release step keeps the job instead of waiting out its own lease',
     scratch: noScratch,
     objects: {
       putManifest: async () => {},
+      ensureDir: async () => {},
       readHoldText: async () => {
         reads += 1;
         if (reads === 1) throw new Error('transient');
@@ -60,9 +62,10 @@ test('a failed release step keeps the job instead of waiting out its own lease',
     } as never,
     store: {
       recordPassed: async () => true,
-      readPublicHistory: async () => [
-        { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
-      ],
+      readStageHistory: async () => ({
+        segments: [{ startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 }],
+        privateSpans: [],
+      }),
       claim: async () => {
         claims += 1;
         return {
@@ -115,6 +118,7 @@ test('what a step put on disk goes with the step, whatever became of it', async 
     },
     objects: {
       putManifest: async () => {},
+      ensureDir: async () => {},
       readHoldText: async () =>
         '#EXTM3U\n#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:00:00.000Z\n#EXTINF:4.0,\ns_0.ts\n',
       copyHoldToFile: async (_key: string, path: string) => {
@@ -124,9 +128,10 @@ test('what a step put on disk goes with the step, whatever became of it', async 
     } as never,
     store: {
       recordPassed: async () => true,
-      readPublicHistory: async () => [
-        { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
-      ],
+      readStageHistory: async () => ({
+        segments: [{ startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 }],
+        privateSpans: [],
+      }),
       claim: async () => ({
         id: 'b',
         nextSegment: 0,
@@ -167,6 +172,7 @@ test('media past the last heartbeat is said once, and the slot stays with the jo
     scratch: noScratch,
     objects: {
       putManifest: async () => {},
+      ensureDir: async () => {},
       readHoldText: async () => {
         reads += 1;
         return '#EXTM3U\n#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:00:00.000Z\n#EXTINF:4.0,\ns_0.ts\n';
@@ -174,9 +180,10 @@ test('media past the last heartbeat is said once, and the slot stays with the jo
     } as never,
     store: {
       recordPassed: async () => true,
-      readPublicHistory: async () => [
-        { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
-      ],
+      readStageHistory: async () => ({
+        segments: [{ startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 }],
+        privateSpans: [],
+      }),
       claim: async () => ({
         id: 'b',
         nextSegment: 0,

@@ -57,6 +57,12 @@ export const broadcasts = pgTable(
     finalMediaEndAt: timestampColumn('final_media_end_at'),
     stoppedAt: timestampColumn('stopped_at'),
     stopReason: text('stop_reason'),
+    /**
+     * An operator's stop also holds the video back from the audience. Removing or
+     * taking down the Recording ends the feed alone: the Recording's own state hides
+     * it, and a restore brings it back.
+     */
+    mediaWithheld: boolean('media_withheld').notNull().default(false),
     completedAt: timestampColumn('completed_at'),
     /** A stop reached this after it completed: its feed goes now, not after the grace. */
     feedWithdrawalRequestedAt: timestampColumn('feed_withdrawal_requested_at'),
@@ -104,6 +110,10 @@ export const broadcasts = pgTable(
     check(
       'broadcasts_stop_check',
       sql`(${table.stoppedAt} is null) = (${table.stopReason} is null)`,
+    ),
+    check(
+      'broadcasts_withheld_check',
+      sql`not ${table.mediaWithheld} or ${table.stoppedAt} is not null`,
     ),
   ],
 );

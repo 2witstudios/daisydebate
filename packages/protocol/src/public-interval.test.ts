@@ -1,13 +1,15 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  privateSpanChanges,
   publicClips,
   publicIntervals,
   settledByHeartbeat,
+  stageTimeline,
 } from './public-interval';
 
 setupRitewayBun();
 
-const MARGIN = 500;
+const LAG = 1200;
 const closed = (startedAtMs: number, endedAtMs: number) => ({
   startedAtMs,
   endedAtMs,
@@ -20,14 +22,14 @@ const open = (startedAtMs: number) => ({
 });
 
 describe('publicIntervals', () => {
-  test('a committed segment is public start to end, margin inside; nothing else is', () => {
+  test('a committed segment is public past the stamp lag to its end; nothing else is', () => {
     assert({
       given: 'two closed segments with a stretch between them, out of order',
       should: 'give each, sorted, and not the stretch between',
       actual: publicIntervals([closed(50_000, 70_000), closed(0, 40_000)], 0),
       expected: [
-        { fromMs: MARGIN, toMs: 40_000 - MARGIN },
-        { fromMs: 50_000 + MARGIN, toMs: 70_000 - MARGIN },
+        { fromMs: LAG, toMs: 40_000 },
+        { fromMs: 50_000 + LAG, toMs: 70_000 },
       ],
     });
     assert({
@@ -48,8 +50,8 @@ describe('publicIntervals', () => {
         publicIntervals([open(0)], null),
       ],
       expected: [
-        [{ fromMs: MARGIN, toMs: 10_000 - MARGIN }],
-        [{ fromMs: MARGIN, toMs: 60_000 - MARGIN }],
+        [{ fromMs: LAG, toMs: 10_000 }],
+        [{ fromMs: LAG, toMs: 60_000 }],
         [],
       ],
     });
@@ -63,14 +65,14 @@ describe('publicIntervals', () => {
         'an outage, then the segment closing; then the same with no commit',
       should: 'publish the stretch only once history says so',
       actual: [outage[0]?.toMs, afterCommit[0]?.toMs, noCommit[0]?.toMs],
-      expected: [10_000 - MARGIN, 60_000 - MARGIN, 10_000 - MARGIN],
+      expected: [10_000, 60_000, 10_000],
     });
   });
-  test('a segment too short for its margins proves nothing', () => {
+  test('a segment no longer than the lag proves nothing', () => {
     assert({
-      given: 'a segment shorter than both margins',
+      given: 'a segment as short as the lag',
       should: 'give no interval',
-      actual: publicIntervals([closed(0, MARGIN)], 0),
+      actual: publicIntervals([closed(0, LAG)], 0),
       expected: [],
     });
   });
@@ -83,9 +85,10 @@ describe('publicClips', () => {
     durationMs: 4000,
   });
   const cuts = (
-    ...args: Parameters<typeof publicClips<ReturnType<typeof entry>>>
+    entries: readonly ReturnType<typeof entry>[],
+    intervals: readonly { fromMs: number; toMs: number }[],
   ) =>
-    publicClips(...args).map((clip) => [
+    publicClips(entries, intervals).map((clip) => [
       clip.source.name,
       clip.offsetMs,
       clip.capturedAtMs,
@@ -139,10 +142,149 @@ describe('settledByHeartbeat', () => {
       should: 'settle only the last',
       actual: [
         settledByHeartbeat(segment, null),
-        settledByHeartbeat(segment, 4000 + MARGIN - 1),
-        settledByHeartbeat(segment, 4000 + MARGIN),
+        settledByHeartbeat(segment, 4000 + LAG - 1),
+        settledByHeartbeat(segment, 4000 + LAG),
       ],
       expected: [false, false, true],
+    });
+  });
+});
+
+describe('stageTimeline', () => {
+  const prep = (startedAtMs: number, endedAtMs: number | null) => ({
+    kind: 'prep' as const,
+    startedAtMs,
+    endedAtMs,
+  });
+  test('speech, the countdown between, and a private span each say what they are', () => {
+    assert({
+      given: 'a speech, a countdown, a speech, prep, then a speech',
+      should:
+        'fill the stretch with no span as between, and name prep private, widened out of it',
+      actual: stageTimeline({
+        segments: [
+          closed(0, 10_000),
+          closed(20_000, 30_000),
+          closed(50_000, 60_000),
+        ],
+        privateSpans: [prep(35_000, 45_000)],
+        knownThroughMs: 90_000,
+      }),
+      expected: [
+        { kind: 'speech', fromMs: LAG, toMs: 10_000 },
+        { kind: 'between', fromMs: 10_000, toMs: 20_000 + LAG },
+        { kind: 'speech', fromMs: 20_000 + LAG, toMs: 30_000 },
+        { kind: 'between', fromMs: 30_000, toMs: 35_000 },
+        { kind: 'private', fromMs: 35_000, toMs: 45_000 + LAG },
+        { kind: 'between', fromMs: 45_000 + LAG, toMs: 50_000 + LAG },
+        { kind: 'speech', fromMs: 50_000 + LAG, toMs: 60_000 },
+      ],
+    });
+  });
+  test('what nothing bounds yet has no interval, so it waits', () => {
+    assert({
+      given: 'a closed speech and no next row: the countdown or anything else',
+      should: 'say nothing past the speech',
+      actual: stageTimeline({
+        segments: [closed(0, 10_000)],
+        privateSpans: [],
+        knownThroughMs: 15_000,
+      }),
+      expected: [{ kind: 'speech', fromMs: LAG, toMs: 10_000 }],
+    });
+  });
+  test('an open private span is known only as far as the heartbeat', () => {
+    assert({
+      given: 'prep still open, heard from at 40 s',
+      should: 'end there',
+      actual: stageTimeline({
+        segments: [],
+        privateSpans: [prep(30_000, null)],
+        knownThroughMs: 40_000,
+      }),
+      expected: [{ kind: 'private', fromMs: 30_000, toMs: 40_000 }],
+    });
+  });
+  test('a boundary never gives a private moment a more public kind', () => {
+    const timeline = stageTimeline({
+      segments: [closed(0, 10_000), closed(20_000, 30_000)],
+      privateSpans: [prep(10_000, 20_000)],
+      knownThroughMs: 40_000,
+    });
+    assert({
+      given: 'prep exactly between two speeches',
+      should:
+        'cover every instant of prep, by the lag each way, with no between',
+      actual: timeline.map(({ kind }) => kind),
+      expected: ['speech', 'private', 'speech'],
+    });
+  });
+});
+
+describe('privateSpanChanges', () => {
+  const idle = { stage: 'live', activePrep: null };
+  const active = (startedAtMs: number) => ({
+    stage: 'live',
+    activePrep: { startedAtMs, consumedMs: 5000 },
+  });
+  test('prep opens at its start, and closes at the time it used', () => {
+    assert({
+      given: 'prep starting; ending on time; ending where a late tick found it',
+      should: 'open at the start, close at the time used, never past now',
+      actual: [
+        privateSpanChanges(
+          idle,
+          { ...active(100), consumedNowMs: 5000 },
+          200,
+          null,
+        ),
+        privateSpanChanges(
+          active(100),
+          { ...idle, consumedNowMs: 5050 },
+          200,
+          null,
+        ),
+        privateSpanChanges(
+          active(100),
+          { ...idle, consumedNowMs: 95_000 },
+          70_000,
+          null,
+        ),
+      ],
+      expected: [
+        [{ type: 'open', kind: 'prep', atMs: 100 }],
+        [{ type: 'close', kind: 'prep', atMs: 150 }],
+        [{ type: 'close', kind: 'prep', atMs: 70_000 }],
+      ],
+    });
+  });
+  test('judging opens when the final segment ended, and closes with its stage', () => {
+    const judging = { stage: 'awaiting_ballot', activePrep: null };
+    assert({
+      given:
+        'the final segment ended at 500 and committed at 900, then the ballot',
+      should: 'open at 500, and close at the commit',
+      actual: [
+        privateSpanChanges(idle, { ...judging, consumedNowMs: 0 }, 900, 500),
+        privateSpanChanges(
+          judging,
+          { ...idle, stage: null, consumedNowMs: 0 },
+          2000,
+          null,
+        ),
+      ],
+      expected: [
+        [{ type: 'open', kind: 'judging', atMs: 500 }],
+        [{ type: 'close', kind: 'judging', atMs: 2000 }],
+      ],
+    });
+  });
+  test('nothing else commits', () => {
+    assert({
+      given: 'a tick with no change of prep or stage',
+      should: 'commit nothing',
+      actual: privateSpanChanges(idle, { ...idle, consumedNowMs: 0 }, 1, null),
+      expected: [],
     });
   });
 });

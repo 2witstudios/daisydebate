@@ -138,7 +138,7 @@ export const requeueRecordingJob = async (
         ],
         ceilingMs: input.ceilingMs,
       }),
-      failures: 0,
+      runsStarted: 0,
       dueAt: sql`clock_timestamp()`,
     })
     .where(
@@ -151,17 +151,22 @@ export const requeueRecordingJob = async (
   return rows.length === 1;
 };
 
-/** The next job with work: the oldest due whose lease is free. The epoch fences the last owner. */
+/**
+ * The next job with work: the oldest due whose lease is free. The epoch fences the
+ * last owner. The run counts here and comes due again at `retryAtOf`, so one whose
+ * process dies before it can say so still spends an attempt and still backs off.
+ */
 export const claimRecordingJob = async (
   tx: Tx,
   input: {
     readonly owner: string;
     readonly now: Date;
     readonly leaseUntil: Date;
+    readonly retryAtOf: (runsStarted: number) => Date;
   },
 ) => {
   const [free] = await tx
-    .select({ id: jobs.recordingId })
+    .select({ id: jobs.recordingId, runsStarted: jobs.runsStarted })
     .from(jobs)
     .where(
       and(
@@ -180,6 +185,8 @@ export const claimRecordingJob = async (
       leaseOwner: input.owner,
       leaseUntil: input.leaseUntil,
       leaseEpoch: sql`${jobs.leaseEpoch} + 1`,
+      runsStarted: free.runsStarted + 1,
+      dueAt: input.retryAtOf(free.runsStarted + 1),
     })
     .where(eq(jobs.recordingId, free.id))
     .returning();
@@ -256,7 +263,10 @@ export const finishRecordingRun = async (
   return rows.length === 1;
 };
 
-/** A run that failed to finish: the state stays, and it comes due again later. */
+/**
+ * A run that did not finish: the state stays, and it comes due again later. The
+ * claim already counted it; one that did not fail, a shutdown, gives its run back.
+ */
 export const deferRecordingRun = async (
   tx: Tx,
   input: Held & { readonly retryAt: Date; readonly failed: boolean },
@@ -269,11 +279,13 @@ export const deferRecordingRun = async (
       leaseOwner: null,
       leaseUntil: null,
       dueAt: input.retryAt,
-      ...(input.failed ? { failures: sql`${jobs.failures} + 1` } : {}),
+      ...(input.failed
+        ? {}
+        : { runsStarted: sql`greatest(${jobs.runsStarted} - 1, 0)` }),
     })
     .where(held(input))
-    .returning({ failures: jobs.failures });
-  return rows[0]?.failures ?? null;
+    .returning({ runsStarted: jobs.runsStarted });
+  return rows[0]?.runsStarted ?? null;
 };
 
 /**

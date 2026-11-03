@@ -4,7 +4,7 @@ import {
   claimBroadcast,
   claimFeedWithdrawal,
   completeBroadcast,
-  readBroadcastPublicHistory,
+  readBroadcastStageHistory,
   recordFeedWithdrawn,
   recordHoldAdvanced,
   recordMediaEndReleased,
@@ -39,8 +39,8 @@ export const createBroadcastWorkerStore = (url: string) => {
       completeBroadcast(database, input),
     recordFeedWithdrawn: (input: Parameters<typeof recordFeedWithdrawn>[1]) =>
       recordFeedWithdrawn(database, input),
-    readPublicHistory: (broadcastId: string) =>
-      readBroadcastPublicHistory(database, broadcastId),
+    readStageHistory: (broadcastId: string) =>
+      readBroadcastStageHistory(database, broadcastId),
     close: () => client.close(),
   };
 };

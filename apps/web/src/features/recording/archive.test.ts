@@ -13,7 +13,7 @@ const row: ArchiveRound = {
   hostActorId: 'host',
   completedAtMs: nowMs,
   seatedActorIds: ['aff', 'neg'],
-  release: { releasedThroughMs: Number.MAX_SAFE_INTEGER, stopped: false },
+  release: { releasedThroughMs: Number.MAX_SAFE_INTEGER, stop: 'none' },
   status: 'ready',
   durationMs: 1_800_000,
   hasTranscript: true,
@@ -61,7 +61,7 @@ describe('archiveEntries', () => {
     assert({
       given: 'a ranked Round behind the watermark',
       should: 'drop the row',
-      actual: entries({ release: { releasedThroughMs: null, stopped: false } }),
+      actual: entries({ release: { releasedThroughMs: null, stop: 'none' } }),
       expected: [],
     });
     const [casual] = entries({ competitionType: 'casual' });
@@ -81,7 +81,10 @@ describe('archiveEntries', () => {
 
   test('video the page holds back is not offered here', () => {
     const [held] = entries({
-      release: { releasedThroughMs: Number.MAX_SAFE_INTEGER, stopped: true },
+      release: {
+        releasedThroughMs: Number.MAX_SAFE_INTEGER,
+        stop: 'media_withheld',
+      },
     });
     assert({
       given: 'a ranked Recording whose Broadcast was stopped, for the audience',
@@ -90,7 +93,7 @@ describe('archiveEntries', () => {
       expected: ['withheld', null, true, 'Affirmative wins'],
     });
     const [own] = entries(
-      { release: { releasedThroughMs: null, stopped: true } },
+      { release: { releasedThroughMs: null, stop: 'media_withheld' } },
       account('neg'),
     );
     assert({

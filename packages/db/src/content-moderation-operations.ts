@@ -22,7 +22,7 @@ import type { ContentReportCreate } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
-import { stopBroadcast } from './broadcast-operations';
+import { endBroadcastFeed, stopBroadcast } from './broadcast-operations';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import {
@@ -243,35 +243,35 @@ const setAudienceBan = async (
 };
 
 /**
- * A takedown also ends the Round's feed, in the same transaction: what is taken
- * down must not keep playing to whoever is watching live. A restore does not start
- * it again. The feed stops once, whichever command got there first.
+ * Taking a Recording down or removing it also ends the Round's feed, in the same
+ * transaction: what is hidden must not keep playing to whoever is watching live. A
+ * restore does not start it again, and the video comes back with the Recording,
+ * since only an operator's stop holds it back. The feed stops once, whichever
+ * command got there first.
  */
-const takeDownRecording = async (
+const endingFeed = async (
   tx: Tx,
-  change: Extract<ContentModerationChange, { action: 'recording.takedown' }>,
-  now: Date,
-  ports: Ports,
+  input: {
+    readonly recordingId: string;
+    readonly reason: string;
+    readonly now: Date;
+    readonly ports: Ports;
+  },
+  moved: ContentModerationOutcome,
 ): Promise<ContentModerationOutcome> => {
-  const outcome = await ports.recordings.takeDown(tx, {
-    recordingId: change.recordingId,
-    expectedVersion: change.expectedVersion,
-    reason: change.reason,
-    now,
-  });
-  if (outcome === null) return null;
-  const broadcastId = await ports.recordings.readBroadcastId(
+  if (moved === null) return null;
+  const broadcastId = await input.ports.recordings.readBroadcastId(
     tx,
-    change.recordingId,
+    input.recordingId,
   );
   const feed = broadcastId
-    ? await stopBroadcast(tx, {
+    ? await endBroadcastFeed(tx, {
         id: broadcastId,
-        reason: change.reason,
-        now,
+        reason: input.reason,
+        now: input.now,
       })
     : null;
-  return feed === 'applied' ? 'applied' : outcome;
+  return feed === 'applied' ? 'applied' : moved;
 };
 
 const applyChange = (
@@ -293,13 +293,55 @@ const applyChange = (
     case 'broadcast.chat_slow_mode.update':
       return setSlowMode(tx, change);
     case 'recording.takedown':
-      return takeDownRecording(tx, change, now, ports);
+      return ports.recordings
+        .takeDown(tx, {
+          recordingId: change.recordingId,
+          expectedVersion: change.expectedVersion,
+          reason: change.reason,
+          now,
+        })
+        .then((moved) =>
+          endingFeed(
+            tx,
+            {
+              recordingId: change.recordingId,
+              reason: change.reason,
+              now,
+              ports,
+            },
+            moved,
+          ),
+        );
     case 'recording.restore':
       return ports.recordings.restore(tx, change);
     case 'recording.remove':
-      return ports.recordings.remove(tx, { ...change, now });
+      return ports.recordings.remove(tx, { ...change, now }).then((moved) =>
+        endingFeed(
+          tx,
+          {
+            recordingId: change.recordingId,
+            reason: 'recording_removed',
+            now,
+            ports,
+          },
+          moved,
+        ),
+      );
     case 'recording.legal_remove':
-      return ports.recordings.legallyRemove(tx, { ...change, now });
+      return ports.recordings
+        .legallyRemove(tx, { ...change, now })
+        .then((moved) =>
+          endingFeed(
+            tx,
+            {
+              recordingId: change.recordingId,
+              reason: 'recording_legally_removed',
+              now,
+              ports,
+            },
+            moved,
+          ),
+        );
     case 'recording.rebuild':
       return ports.recordings.rebuild(tx, change);
     case 'chat_message.remove':

@@ -1,6 +1,7 @@
 import type { CompetitionType, RecordingStatus } from '@daisy/protocol';
-import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { broadcastStopOf } from './broadcast-operations';
 import { historyRows } from './member-history-rows';
 import { broadcasts } from './schema/broadcasts';
 import { recordings } from './schema/recordings';
@@ -40,6 +41,15 @@ const roundColumns = {
   completedAt: rounds.completedAt,
 };
 
+/**
+ * A Round that finished, or one abandoned that left a Recording to find. An abandoned
+ * Round with nothing recorded has nothing to archive.
+ */
+const finishedWithSomethingToFind = or(
+  eq(rounds.status, 'completed'),
+  and(eq(rounds.status, 'abandoned'), isNotNull(recordings.id)),
+);
+
 /** Moderation hid the footage: its Round leaves the archive, whatever else remains. */
 const moderationHid = sql<boolean>`coalesce(${recordings.status} = 'taken_down' or ${recordings.lifecycle}->>'cause' in ('moderation', 'legal_removal'), false)`;
 
@@ -52,7 +62,7 @@ const publicScope = (clock: SpectatorClock) =>
   and(
     sql`${visibility} = 'public'`,
     factReleasedSql(rounds.completedAt, roundColumns, clock),
-    sql`((${recordings.status} = 'ready' and ${broadcasts.stoppedAt} is null) or (${rounds.competitionType} = 'ranked' and ${hasTranscript} and not ${moderationHid}))`,
+    sql`((${recordings.status} = 'ready' and ${broadcasts.mediaWithheld} is not true) or (${rounds.competitionType} = 'ranked' and ${hasTranscript} and not ${moderationHid}))`,
   );
 
 const seatedScope = (actorId: string | null) =>
@@ -122,6 +132,7 @@ export const recordingArchiveReadOperations = ({
             Date | string | null
           >`${spectatorHorizonSql(roundColumns, input.clock)}`,
           stopped: sql<boolean>`${broadcasts.stoppedAt} is not null`,
+          mediaWithheld: broadcasts.mediaWithheld,
         })
         .from(rounds)
         .leftJoin(rooms, eq(rooms.id, rounds.roomId))
@@ -129,7 +140,7 @@ export const recordingArchiveReadOperations = ({
         .leftJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
         .where(
           and(
-            eq(rounds.status, 'completed'),
+            finishedWithSomethingToFind,
             query.scope === 'mine'
               ? seatedScope(input.viewerActorId)
               : publicScope(input.clock),
@@ -184,7 +195,7 @@ export const recordingArchiveReadOperations = ({
           release: {
             releasedThroughMs:
               row.horizon === null ? null : new Date(row.horizon).getTime(),
-            stopped: row.stopped === true,
+            stop: broadcastStopOf(row.stopped === true, row.mediaWithheld),
           },
         })),
       };
@@ -198,7 +209,7 @@ export const recordingArchiveReadOperations = ({
       .leftJoin(rooms, eq(rooms.id, rounds.roomId))
       .leftJoin(recordings, eq(recordings.roundId, rounds.id))
       .leftJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
-      .where(and(eq(rounds.status, 'completed'), publicScope(input.clock)));
+      .where(and(finishedWithSomethingToFind, publicScope(input.clock)));
     return row?.count ?? 0;
   },
 });
