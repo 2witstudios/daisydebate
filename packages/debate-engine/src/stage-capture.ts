@@ -4,8 +4,14 @@
  * the page's slate is only appearance.
  */
 
-/** Revocation must land at least this far ahead of a private phase (BCAST-1). */
-export const REVOCATION_LEAD_MS = 500;
+/**
+ * How far ahead of a scheduled private phase the sweep revokes. A sweep runs every
+ * 1000 ms and can be late, so this is the sweep's period, a late pass and the call
+ * itself: the last speech loses up to this much of its end to the audience, and a
+ * pass at any moment still revokes before the speech ends. A private phase with no
+ * schedule (prep, an early yield) has no lead: the conversation hold covers it.
+ */
+const REVOCATION_AHEAD_MS = 2000;
 
 export type StageEgressFact =
   | { readonly kind: 'none' }
@@ -44,7 +50,7 @@ export const stagePrivacyActions = (facts: {
   const privateSoon =
     facts.phase.kind === 'private' ||
     (facts.phase.kind === 'private-at' &&
-      facts.phase.atMs - facts.nowMs <= REVOCATION_LEAD_MS);
+      facts.phase.atMs - facts.nowMs <= REVOCATION_AHEAD_MS);
   if (!privateSoon)
     return facts.observerSubscribed ? [] : [{ type: 'restore-observer' }];
   if (!facts.observerSubscribed)

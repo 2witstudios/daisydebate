@@ -3,6 +3,7 @@ import {
   and,
   asc,
   eq,
+  gt,
   inArray,
   isNotNull,
   isNull,
@@ -82,11 +83,20 @@ const claimOldestFree = async (tx: Tx, work: SQL, input: ClaimLease) => {
   return claimed!;
 };
 
-/** Takes the oldest Broadcast still releasing whose lease is free. */
+/**
+ * Takes the oldest Broadcast still releasing whose lease is free, once something
+ * in it can be due. A hold for the Round's end or a set time has nothing to do
+ * until then, so it occupies no release slot.
+ */
 export const claimBroadcast = (tx: Tx, input: ClaimLease) =>
   claimOldestFree(
     tx,
-    and(isNull(broadcasts.completedAt), isNull(broadcasts.stoppedAt))!,
+    and(
+      isNull(broadcasts.completedAt),
+      isNull(broadcasts.stoppedAt),
+      sql`not (${broadcasts.releasePolicy} ->> 'kind' = 'round_end' and ${broadcasts.finalMediaEndAt} is null)`,
+      sql`not (${broadcasts.releasePolicy} ->> 'kind' = 'at' and (${broadcasts.releasePolicy} ->> 'atMs')::bigint > ${input.now.getTime()}::bigint)`,
+    )!,
     input,
   );
 
@@ -231,7 +241,12 @@ export const recordMediaEndReleased = async (
   return rows.length > 0;
 };
 
-export const recordEgressStarted = (
+/**
+ * One Egress per generation: the first report wins, and false tells any other to
+ * stop what it started. A loser's credential is never stored, so its stage page
+ * is refused, never signals Egress to record and writes nothing.
+ */
+export const recordEgressStarted = async (
   tx: Tx,
   input: {
     readonly id: string;
@@ -240,8 +255,8 @@ export const recordEgressStarted = (
     readonly stageCredentialHash: string;
     readonly now: Date;
   },
-) =>
-  tx
+): Promise<boolean> => {
+  const rows = await tx
     .update(broadcasts)
     .set({
       egressId: input.egressId,
@@ -250,7 +265,15 @@ export const recordEgressStarted = (
       stageCredentialHash: input.stageCredentialHash,
       egressStartedAt: input.now,
     })
-    .where(eq(broadcasts.id, input.id));
+    .where(
+      and(
+        eq(broadcasts.id, input.id),
+        eq(broadcasts.egressGeneration, input.generation - 1),
+      ),
+    )
+    .returning({ id: broadcasts.id });
+  return rows.length === 1;
+};
 
 export const recordObserverRevoked = (
   tx: Tx,
@@ -304,13 +327,22 @@ export const recordFeedWithdrawn = (
     .set({ feedWithdrawnAt: input.at })
     .where(eq(broadcasts.id, input.id));
 
-/** Every open Broadcast's reconcile facts, oldest first. */
-export const listOpenBroadcasts = (tx: Tx, limit: number) =>
+/** One page of open Broadcasts' reconcile facts; `after` reaches every one in a pass. */
+export const listOpenBroadcasts = (
+  tx: Tx,
+  limit: number,
+  after: string | null = null,
+) =>
   tx
     .select()
     .from(broadcasts)
-    .where(isNull(broadcasts.completedAt))
-    .orderBy(asc(broadcasts.createdAt))
+    .where(
+      and(
+        isNull(broadcasts.completedAt),
+        after === null ? undefined : gt(broadcasts.id, after),
+      ),
+    )
+    .orderBy(asc(broadcasts.id))
     .limit(limit);
 
 /**
@@ -389,6 +421,25 @@ export const claimBroadcastReconcile = async (
     )
     .returning({ id: broadcasts.id });
   return rows.length === 1;
+};
+
+/** Keeps the claim across a call that outlasts it; null `until` gives it back. */
+export const holdBroadcastReconcile = (
+  tx: Tx,
+  input: { readonly id: string; readonly until: Date | null },
+) =>
+  tx
+    .update(broadcasts)
+    .set({ reconcileLeaseUntil: input.until })
+    .where(eq(broadcasts.id, input.id));
+
+/** The Egress this Broadcast recorded as its own; null when no such Broadcast. */
+export const readBroadcastEgress = async (tx: Tx, id: string) => {
+  const [row] = await tx
+    .select({ egressId: broadcasts.egressId })
+    .from(broadcasts)
+    .where(eq(broadcasts.id, id));
+  return row ?? null;
 };
 
 /**

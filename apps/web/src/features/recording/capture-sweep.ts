@@ -18,6 +18,7 @@ import {
   type RecordingCaptureAction,
   type RecordingCaptureFacts,
 } from './capture-decision';
+import { createSweepPass } from '../../lib/sweep-pass';
 import type { RecordingCapturePort } from './capture-port';
 
 type Store = Pick<
@@ -27,6 +28,7 @@ type Store = Pick<
   | 'readRound'
   | 'openOwn'
   | 'claimOwn'
+  | 'holdOwn'
   | 'recordOwnEgressStarted'
   | 'recordOwnRevoked'
   | 'recordOwnRevocationFailed'
@@ -42,6 +44,8 @@ type Open = Awaited<ReturnType<Store['listOpen']>>[number];
 export type RecordingCaptureEvent =
   | 'recording.capture_failed'
   | 'recording.egress.start_failed'
+  | 'recording.egress.start_lost'
+  | 'recording.verification_refused'
   | 'recording.egress.stop_failed'
   | 'recording.observer.restore_failed'
   | 'recording.observer.revoke_retry_failed';
@@ -61,6 +65,8 @@ type Egress = {
 const SEGMENT_SECONDS = 4;
 const BATCH = 64;
 const RECONCILE_LEASE_MS = 800;
+/** Long enough for any start; a crash inside one delays the next by this much. */
+const START_LEASE_MS = 15_000;
 const OWN_SOURCE: RecordingSource = { kind: 'own_capture' };
 
 const attemptOf = (
@@ -105,6 +111,8 @@ export const createRecordingCaptureSweep = (deps: {
   };
   readonly stageUrl: (recordingId: string, credential: string) => string;
   readonly report: (event: RecordingCaptureEvent) => void;
+  /** Resolves when a pass has waited long enough for its slowest Recording. */
+  readonly passBudget?: () => Promise<void>;
 }) => {
   const { store, port, egress } = deps;
   const iso = (ms: number) => new Date(ms).toISOString();
@@ -220,23 +228,33 @@ export const createRecordingCaptureSweep = (deps: {
         const credential = deps.newCredential();
         const generation = own.attempt + 1;
         return attempt(
-          async () =>
-            store.recordOwnEgressStarted({
+          async () => {
+            // The claim outlasts the call, so no other instance starts another.
+            await store.holdOwn({
               recordingId,
-              egressId: await egress.start({
-                stageUrl: deps.stageUrl(recordingId, credential.secret),
-                holdPrefix: holdAttemptPrefix(
-                  recordingHoldPrefix(recordingId, OWN_SOURCE),
-                  generation,
-                ),
-                segmentSeconds: SEGMENT_SECONDS,
-              }),
+              until: new Date(nowMs + START_LEASE_MS),
+            });
+            const egressId = await egress.start({
+              stageUrl: deps.stageUrl(recordingId, credential.secret),
+              holdPrefix: holdAttemptPrefix(
+                recordingHoldPrefix(recordingId, OWN_SOURCE),
+                generation,
+              ),
+              segmentSeconds: SEGMENT_SECONDS,
+            });
+            const won = await store.recordOwnEgressStarted({
+              recordingId,
+              egressId,
               generation,
               stageCredentialHash: credential.hash,
               now: new Date(nowMs),
-            }),
+            });
+            if (won) return;
+            deps.report('recording.egress.start_lost');
+            await egress.stop(egressId);
+          },
           () => deps.report('recording.egress.start_failed'),
-        );
+        ).finally(() => store.holdOwn({ recordingId, until: null }));
       }
       case 'stop-egress':
         return attempt(
@@ -319,11 +337,20 @@ export const createRecordingCaptureSweep = (deps: {
         });
         return;
       case 'verify':
-        if (job.state.status === 'built')
-          await port.mediaVerified(
+        if (job.state.status !== 'built') return;
+        // A refusal repeats on every pass, so it ends here, said out loud.
+        if (
+          (await port.mediaVerified(
             job.recordingId,
             job.state.media satisfies BuiltRecordingMedia,
-          );
+          )) === 'refused'
+        ) {
+          deps.report('recording.verification_refused');
+          await port.failed(job.recordingId, {
+            reason: 'verification_failed',
+            at: iso(deps.now()),
+          });
+        }
         return;
       case 'fail':
         await port.failed(job.recordingId, {
@@ -336,26 +363,34 @@ export const createRecordingCaptureSweep = (deps: {
     }
   };
 
-  const eachSafely = async <T>(
-    items: readonly T[],
-    work: (item: T) => Promise<unknown>,
-  ) => {
-    for (const item of items)
-      await work(item).catch(() => deps.report('recording.capture_failed'));
+  const failed = () => deps.report('recording.capture_failed');
+  const pass = createSweepPass(deps.passBudget);
+  const sweep = async () => {
+    for (const round of await store.discoverUnrecorded(BATCH))
+      await (async () => {
+        if (!plannedRecording(round)) return;
+        await port.request({
+          roundId: round.roundId,
+          competitionType: round.competitionType,
+          hostActorId: round.hostActorId,
+          hostOptedIn: round.capture?.recording === true,
+          hostHoldsRecording: deps.holdsCapture(round.hostGrants),
+        });
+      })().catch(failed);
+    await pass.overPages(
+      BATCH,
+      (after) => store.listOpen(BATCH, after),
+      (open) => open.id,
+      reconcile,
+      failed,
+    );
+    await pass.overPages(
+      BATCH,
+      (after) => store.listJobs(BATCH, after),
+      (job) => `job:${job.recordingId}`,
+      answerJob,
+      failed,
+    );
   };
-
-  return async () => {
-    await eachSafely(await store.discoverUnrecorded(BATCH), async (round) => {
-      if (!plannedRecording(round)) return;
-      await port.request({
-        roundId: round.roundId,
-        competitionType: round.competitionType,
-        hostActorId: round.hostActorId,
-        hostOptedIn: round.capture?.recording === true,
-        hostHoldsRecording: deps.holdsCapture(round.hostGrants),
-      });
-    });
-    await eachSafely(await store.listOpen(BATCH), reconcile);
-    await eachSafely(await store.listJobs(BATCH), answerJob);
-  };
+  return Object.assign(sweep, { settled: pass.settled });
 };

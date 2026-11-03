@@ -3,7 +3,6 @@ export { broadcastPhase } from './broadcast-phase';
 export type { PhasePosition } from './broadcast-phase';
 export { decideBroadcast } from './broadcast-lifecycle';
 export {
-  REVOCATION_LEAD_MS,
   runningEgress,
   stagePrivacyActions,
 } from './stage-capture';

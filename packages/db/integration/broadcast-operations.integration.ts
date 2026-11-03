@@ -540,3 +540,112 @@ test('withdrawal waits out a lease still held', async () => {
     });
   });
 });
+
+test('one start is recorded per generation, and a racing one loses', async () => {
+  await withOps(async (db, roundId) => {
+    const { id } = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const started = (egressId: string, generation: number) =>
+      recordEgressStarted(db, {
+        id,
+        egressId,
+        generation,
+        stageCredentialHash: `hash-${egressId}`,
+        now,
+      });
+    const raced = await Promise.all([started('EG_A', 1), started('EG_B', 1)]);
+    const [row] = await db
+      .select()
+      .from(broadcasts)
+      .where(eq(broadcasts.id, id));
+    const winner = raced[0] ? 'EG_A' : 'EG_B';
+    const next = await started('EG_C', 2);
+    assert({
+      given: 'two reports racing for generation 1, then a report for 2',
+      should:
+        'let one win, keeping its id and credential alone, then accept the next',
+      actual: [
+        raced.filter(Boolean).length,
+        row?.egressId,
+        row?.stageCredentialHash,
+        next,
+      ],
+      expected: [1, winner, `hash-${winner}`, true],
+    });
+  });
+});
+
+test('a hold with nothing due occupies no release slot', async () => {
+  await withOps(async (db, roundId) => {
+    const { id } = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: { kind: 'round_end' },
+    });
+    const claim = async (at: Date) => {
+      const claimed = await db.transaction((tx) =>
+        claimBroadcast(tx, {
+          owner: 'w',
+          now: at,
+          leaseUntil: new Date(at.getTime() + 1),
+        }),
+      );
+      return claimed?.id === id;
+    };
+    const claimedRunning = await claim(now);
+    await recordFinalMediaEnd(db, { id, at: now });
+    const claimedEnded = await claim(later);
+    await db
+      .update(broadcasts)
+      .set({
+        releasePolicy: { kind: 'at', atMs: later.getTime() },
+        leaseOwner: null,
+        leaseUntil: null,
+      })
+      .where(eq(broadcasts.id, id));
+    const claimedEarly = await claim(now);
+    const claimedAtTime = await claim(later);
+    assert({
+      given: 'a Round-end hold before and after media ends, then a set time',
+      should: 'claim each only once something can be due',
+      actual: [claimedRunning, claimedEnded, claimedEarly, claimedAtTime],
+      expected: [false, true, false, true],
+    });
+  });
+});
+
+test('paging reaches every open Broadcast, past any page', async () => {
+  await withOps(async (db, roundId) => {
+    const { id } = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const seen = async () => {
+      let after: string | null = null;
+      const ids: string[] = [];
+      for (;;) {
+        const page: { id: string }[] = await listOpenBroadcasts(db, 1, after);
+        if (page.length === 0) return ids;
+        ids.push(page[0]!.id);
+        after = page[0]!.id;
+      }
+    };
+    const ids = await seen();
+    assert({
+      given: 'pages of one row',
+      should: 'reach this Broadcast once, in id order',
+      actual: [
+        ids.filter((found) => found === id).length,
+        ids.every((found, at) => at === 0 || ids[at - 1]! < found),
+      ],
+      expected: [1, true],
+    });
+  });
+});

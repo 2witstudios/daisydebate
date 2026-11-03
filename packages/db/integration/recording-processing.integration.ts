@@ -385,6 +385,32 @@ test('the web sees only jobs it can answer, and what still uses their sources', 
   });
 });
 
+test('one own start is recorded per attempt, and a racing one loses', async () => {
+  await withStores(async ({ store, newRecording }) => {
+    const { id, roundId } = await newRecording();
+    await store.openOwn({ recordingId: id, roundId });
+    const started = (egressId: string) =>
+      store.recordOwnEgressStarted({
+        recordingId: id,
+        egressId,
+        generation: 1,
+        stageCredentialHash: `hash-${egressId}`,
+        now: NOW,
+      });
+    const raced = await Promise.all([started('EG_A'), started('EG_B')]);
+    const winner = raced[0] ? 'EG_A' : 'EG_B';
+    assert({
+      given: 'two reports racing for attempt 1',
+      should: 'let one win and keep its id',
+      actual: [
+        raced.filter(Boolean).length,
+        (await store.readOwnEgress(id))?.egressId,
+      ],
+      expected: [1, winner],
+    });
+  });
+});
+
 test('a Recording running its own Egress holds conversation the same way', async () => {
   await withStores(async ({ store, db, newRecording }) => {
     const { id, roundId } = await newRecording();
