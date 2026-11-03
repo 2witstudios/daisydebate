@@ -1,3 +1,4 @@
+import { launched } from '../../../features/coming-soon/launch';
 import { requestAudience } from '../../../lib/request-session';
 import { SeatedChatReader } from '../../../ui/audience/seated-chat-reader';
 
@@ -13,6 +14,7 @@ export async function SeatedSpectatorChat({
   readonly roundId: string;
   readonly actorId: string;
 }) {
+  if (!launched.watch) return null;
   const audience = await requestAudience(roundId, actorId);
   if (!audience?.seated || !audience.shown.chat) return null;
   return (

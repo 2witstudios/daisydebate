@@ -27,20 +27,42 @@ type StageFacts = Pick<
   SpectatorTimelineRead,
   'outcomeReleased' | 'segments' | 'horizonMs'
 > & {
-  readonly round: Pick<SpectatorTimelineRead['round'], 'status' | 'rules'>;
+  readonly round: Pick<
+    SpectatorTimelineRead['round'],
+    'status' | 'rules' | 'startedAt'
+  >;
   readonly stopped: boolean;
 };
+
+/** Whether the released stage is past the format's last speech. */
+const pastLastSpeech = (read: StageFacts, key: string) =>
+  read.round.rules.segments.at(-1)?.key === key;
+
+/** A slate says only what the horizon has passed, so it is never ahead of the feed. */
+const slateBefore = (read: StageFacts): SpectatorTimeline['stage'] => ({
+  kind: 'slate',
+  phase:
+    read.horizonMs !== null &&
+    read.round.startedAt !== null &&
+    read.round.startedAt.getTime() + SPECTATOR_MARGIN_MS <= read.horizonMs
+      ? 'starting'
+      : 'unreleased',
+});
 
 /** The stage as the released video shows it: one rule for the player and the Live listing. */
 export const releasedStage = (read: StageFacts): SpectatorTimeline['stage'] => {
   if (read.round.status === 'opening') return { kind: 'upcoming' };
   if (read.outcomeReleased || read.stopped) return { kind: 'ended' };
   const segment = read.segments[0];
-  if (!segment || read.horizonMs === null) return { kind: 'slate' };
+  if (!segment || read.horizonMs === null) return slateBefore(read);
   const shownAt = read.horizonMs - SPECTATOR_MARGIN_MS;
   const rule = read.round.rules.segments.find((s) => s.key === segment.key);
-  if (!rule || (segment.endedAt && segment.endedAt.getTime() <= shownAt))
-    return { kind: 'slate' };
+  if (!rule) return slateBefore(read);
+  if (segment.endedAt && segment.endedAt.getTime() <= shownAt)
+    return {
+      kind: 'slate',
+      phase: pastLastSpeech(read, segment.key) ? 'judging' : 'between',
+    };
   return {
     kind: 'floor',
     segment: segment.type,

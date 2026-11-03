@@ -29,11 +29,12 @@ export type PlaceLaunchConfig = Readonly<Record<'notifications', boolean>>;
 /** Which of a member's own places are open (WATCH-12, ISSUE-634). */
 export const launchedPlaces: PlaceLaunchConfig = { notifications: true };
 
-/** The first path segment each destination owns. Recordings belong to Watch. */
+/** The first path segment each destination owns. Recordings and the audience belong to Watch. */
 const destinationAreas: ReadonlyMap<string, DestinationSlug> = new Map([
   ['lobby', 'lobby'],
   ['watch', 'watch'],
   ['recordings', 'watch'],
+  ['audience', 'watch'],
   ['judge', 'judge'],
   ['tournaments', 'tournaments'],
   ['leaderboard', 'leaderboard'],
@@ -49,18 +50,56 @@ const decodedSegment = (segment: string): string => {
   }
 };
 
+/** Watch's routes under a Round, beside the debaters' own. */
+const watchRoundApis: ReadonlySet<string> = new Set([
+  'audience',
+  'timeline',
+  'chat',
+  'reactions',
+  'viewers',
+]);
+const watchApis: ReadonlySet<string> = new Set([
+  'recordings',
+  'watch-history',
+  'debater-follows',
+]);
+
+const destinationOfPath = (
+  segments: readonly string[],
+): DestinationSlug | undefined => {
+  const [first = '', second = '', , fourth = ''] = segments;
+  if (first === 'api') {
+    if (watchApis.has(second)) return 'watch';
+    return second === 'rounds' && watchRoundApis.has(fourth)
+      ? 'watch'
+      : undefined;
+  }
+  if (first === 'rounds' && segments[2] === 'audience-link') return 'watch';
+  return destinationAreas.get(first);
+};
+
+/** Whether a path is an API route: a closed one answers as absent, not with a page. */
+export const isApiPath = (pathname: string): boolean =>
+  decodedSegment(pathname.split('/').find((part) => part !== '') ?? '') ===
+  'api';
+
 /**
  * The closed destination a path falls under, or null. The proxy answers such a
- * request with the explainer, before any page renders. Empty segments are
- * dropped, so a doubled slash cannot step out of an area, and the segment is
- * read decoded, as the router matches it, so `/%70rep` is still Prep.
+ * request with the explainer, before any page renders, and an API call with a
+ * 404. Empty segments are dropped, so a doubled slash cannot step out of an
+ * area, and each segment is read decoded, as the router matches it, so `/%70rep`
+ * is still Prep.
  */
 export const closedDestinationOf = (
   pathname: string,
   config: LaunchConfig = launched,
 ): DestinationSlug | null => {
-  const [first = ''] = pathname.split('/').filter((part) => part !== '');
-  const slug = destinationAreas.get(decodedSegment(first));
+  const slug = destinationOfPath(
+    pathname
+      .split('/')
+      .filter((part) => part !== '')
+      .map(decodedSegment),
+  );
   return slug !== undefined && !config[slug] ? slug : null;
 };
 

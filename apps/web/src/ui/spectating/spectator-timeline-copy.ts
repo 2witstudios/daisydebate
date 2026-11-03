@@ -5,6 +5,13 @@ export const sideLabel: Readonly<Record<DebateSide, string>> = {
   negative: 'Negative',
 };
 
+const slateSentences = {
+  unreleased: 'Nothing is on stage right now.',
+  starting: 'The first speech is coming up.',
+  between: 'Next speech soon.',
+  judging: 'Judges are deciding.',
+} as const;
+
 /**
  * The fact burned into the video at this point, in words a screen reader can
  * say. It holds no clock: it is announced whenever it changes, and a running
@@ -15,7 +22,7 @@ export const stageSentence = (stage: SpectatorTimeline['stage']): string => {
     case 'upcoming':
       return 'This Round hasn’t started.';
     case 'slate':
-      return 'Nothing is on stage right now.';
+      return slateSentences[stage.phase];
     case 'ended':
       return 'This Round has ended.';
     case 'floor':

@@ -15,7 +15,7 @@ const timeline = (over: Partial<SpectatorTimeline>): SpectatorTimeline => ({
   recording: 'none',
   resolution: null,
   seats: [],
-  stage: { kind: 'slate' },
+  stage: { kind: 'slate', phase: 'unreleased' },
   result: null,
   captions: [],
   releasedThrough: null,

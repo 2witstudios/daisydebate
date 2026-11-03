@@ -108,6 +108,7 @@ export const liveBroadcastReads = ({
             competitionType: rounds.competitionType,
             resolution: rounds.resolution,
             rules: rounds.rulesSnapshot,
+            startedAt: rounds.startedAt,
             horizon: sql<
               Date | string | null
             >`${spectatorHorizonSql(roundColumns, input.clock)}`,

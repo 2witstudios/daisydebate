@@ -1,7 +1,6 @@
 import { spectatorClockAt } from './spectator-clock';
 
-/** Rounds ended this recently can still have a fact to log: the longest policy hold. */
-const ENDED_WITHIN_HOURS = 48;
+/** Rounds one pass takes. A recorded Round leaves the query, so the next pass reaches the rest. */
 const BATCH = 256;
 
 /**
@@ -14,7 +13,6 @@ export const createFactLogSweep =
     readonly store: {
       readonly sweepSpectatorFactLog: (input: {
         readonly clock: ReturnType<typeof spectatorClockAt>;
-        readonly endedWithinHours: number;
         readonly limit: number;
       }) => Promise<number>;
     };
@@ -23,6 +21,5 @@ export const createFactLogSweep =
   () =>
     deps.store.sweepSpectatorFactLog({
       clock: spectatorClockAt(deps.now()),
-      endedWithinHours: ENDED_WITHIN_HOURS,
       limit: BATCH,
     });

@@ -3,6 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { SpectatorFacts } from './spectator-timeline';
 
+import { stageSentence } from './spectator-timeline-copy';
+
 setupRitewayBun();
 
 const timeline: SpectatorTimeline = {
@@ -16,7 +18,7 @@ const timeline: SpectatorTimeline = {
     { side: 'affirmative', kind: 'human', label: 'ana' },
     { side: 'negative', kind: 'bot', label: null },
   ],
-  stage: { kind: 'slate' },
+  stage: { kind: 'slate', phase: 'unreleased' },
   result: null,
   captions: [],
   releasedThrough: null,
@@ -74,6 +76,24 @@ describe('SpectatorFacts', () => {
         'Affirmative: A line',
       ].filter((text) => !page.includes(text)),
       expected: [],
+    });
+  });
+
+  test('what a slate on the video says', () => {
+    const said = (phase: 'unreleased' | 'starting' | 'between' | 'judging') =>
+      stageSentence({ kind: 'slate', phase });
+    assert({
+      given: 'each slate the released video can show',
+      should: 'say it in words, as the burned-in slate does',
+      actual: (['unreleased', 'starting', 'between', 'judging'] as const).map(
+        said,
+      ),
+      expected: [
+        'Nothing is on stage right now.',
+        'The first speech is coming up.',
+        'Next speech soon.',
+        'Judges are deciding.',
+      ],
     });
   });
 

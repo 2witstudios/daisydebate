@@ -10,6 +10,7 @@ import {
 } from '../../../features/forms/form-state';
 import { submitReport } from '../../../features/content-moderation/submit-report';
 import { returnableDestination } from '../../../features/auth/redirect';
+import { redirectUnlessLaunched } from '../../../features/coming-soon/launch-gate';
 import {
   CHAT_POST_FAILED,
   chatRefusalText,
@@ -49,6 +50,7 @@ export async function postSpectatorChatAction(
   _previous: FormState,
   form: FormData,
 ): Promise<FormState> {
+  redirectUnlessLaunched('watch');
   const incoming = new Headers(await headers());
   try {
     const response = await post(
@@ -102,6 +104,7 @@ export async function reactToRoundAction(
   _previous: FormState,
   form: FormData,
 ): Promise<FormState> {
+  redirectUnlessLaunched('watch');
   return mutate(
     routes.reaction,
     roundPath(target.roundId, 'reactions'),
@@ -121,6 +124,7 @@ export async function setDebaterFollowAction(
   _previous: FormState,
   form: FormData,
 ): Promise<FormState> {
+  redirectUnlessLaunched('watch');
   return mutate(
     routes.follow,
     '/api/debater-follows',
@@ -212,6 +216,7 @@ export async function reportChatMessageAction(
   returnTo: string,
   form: FormData,
 ): Promise<never> {
+  redirectUnlessLaunched('watch');
   const result = await submitReport(
     inProcessFetch(routes.report, new Headers(await headers())),
     form,

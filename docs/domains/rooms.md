@@ -98,11 +98,14 @@ membership. Every terminal state frees its members:
   then judges, who gets the whole idle time to act. A host-written resolution
   list is that member's own text and does not pass: the draw reads the bank. With
   none left the Room closes. No human judge is named to an heir, in the Room
-  or the Round they start (`host_inherited`, frozen on the Round), and a seated
-  judge answers an heir's `assign-seat` as a member not in the Room does. So an
-  heir can't remove or replace a human judge; closing the Room is their answer to
-  a stuck judge seat. A closed Room's
-  status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone.
+  or the Round they start (`host_inherited`, frozen on the Round), nor to a host
+  who holds a seat, because a seat gains nothing from hosting (WATCH-6). A seated
+  judge answers `assign-seat` from either as a member not in the Room does. So
+  neither can remove or replace a human judge; closing the Room is their answer
+  to a stuck judge seat. A closed Room's
+  status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone. A started
+  Room also reads `closed` to anyone outside it, with no drawn resolution, so the
+  Room read never says a Round began before the spectator timeline does (WATCH-6).
 - **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, the Room maintenance
   sweep (its own worker, apart from Round maintenance) closes an open Room
   with no accepted command for that long, by database time.

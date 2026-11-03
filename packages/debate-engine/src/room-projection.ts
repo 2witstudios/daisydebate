@@ -2,7 +2,11 @@ import { debaterSeatsHeldFrom } from './room-edit-transitions';
 import { formatStanding } from './format-standing';
 import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
 import { freezeRoomConfig, freezeRoomExecutionPlan } from '@daisy/protocol';
-import { assemblyOpen, startBlocker } from './room-assembly-facts';
+import {
+  assemblyOpen,
+  hostNamesJudges,
+  startBlocker,
+} from './room-assembly-facts';
 const participantReady = (
   p: Pick<
     RoomAssemblyState['participants'][number],
@@ -17,12 +21,13 @@ const participantReady = (
 };
 /**
  * The human judges this viewer may not name (DEC-98, DEC-174): every one,
- * unless the viewer is that judge or the host who seats them. A host who
+ * unless the viewer is that judge or a seatless host who seats them. A host
+ * who holds a seat gains nothing from hosting (WATCH-6), and a host who
  * inherited the Room names none (DEC-331).
  */
 const hiddenJudges = (room: RoomAssemblyState, actorId: string) =>
   new Set(
-    room.hostActorId === actorId && !room.hostInherited
+    room.hostActorId === actorId && hostNamesJudges(room)
       ? []
       : room.participants
           .filter(
@@ -43,16 +48,38 @@ export const hostIdentityHidden = (
 ) => room.hostIsHumanJudge && room.hostActorId !== viewerActorId;
 
 /**
+ * A started Room as someone outside it may know it: closed, as an expired or
+ * cancelled Room reads, so the read says nothing of a start (WATCH-6). A drawn
+ * resolution was never public before the Round; the spectator timeline releases
+ * it. Commands they send are refused alike, `room-closed` either way.
+ */
+const roomKnownTo = (
+  room: RoomAssemblyState,
+  actorId: string,
+): RoomAssemblyState =>
+  room.status !== 'started' ||
+  room.hostActorId === actorId ||
+  room.participants.some((p) => p.actorId === actorId)
+    ? room
+    : {
+        ...room,
+        status: 'closed',
+        roundRef: null,
+        topic: room.config.resolutionDraw.enabled ? null : room.topic,
+      };
+
+/**
  * Server projection: consumers never infer startability or consent from
  * local device state. Every field is built explicitly — nothing internal is
  * spread — so a host list cannot ride along.
  */
 export function projectRoom(
-  room: RoomAssemblyState,
+  stored: RoomAssemblyState,
   actorId: string,
   consent: RoomConsent,
   now: string,
 ): RoomView {
+  const room = roomKnownTo(stored, actorId);
   const blocker = startBlocker(room, consent);
   const hidden = hiddenJudges(room, actorId);
   const hostHidden = hostIdentityHidden(

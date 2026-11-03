@@ -6,8 +6,15 @@ import {
   RANKED_DELAY_SECONDS,
   readRoundOpening,
   roundWaitingOn,
+  tallyRecord,
 } from '@daisy/debate-engine';
-import { SPECTATOR_MARGIN_MS, spectatorTimelineSchema } from '@daisy/protocol';
+import {
+  SPECTATOR_MARGIN_MS,
+  spectatorTimelineSchema,
+  type DebateRole,
+  type RoundOutcome,
+  type RoundStatus,
+} from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readLadder } from '../src/features/leaderboard/read-leaderboard';
@@ -135,6 +142,33 @@ test('every public and member read holds a ranked outcome until release', async 
           rating_before: number;
           rating_after: number;
         }[];
+      const personCard = async () => {
+        const cards = await f.store.readMemberCards(
+          [f.host.actorId],
+          spectatorClockAt(now),
+        );
+        const { wins, losses } = tallyRecord(
+          cards.records.map(({ status, outcome, role, rounds }) => ({
+            status: status as RoundStatus,
+            outcome: outcome as RoundOutcome | null,
+            role: role as DebateRole,
+            rounds,
+          })),
+        );
+        return {
+          rating: cards.ratings.find((r) => r.ladder === 'freestyle')?.rating,
+          lastRatedAt: cards.ratings.find((r) => r.ladder === 'freestyle')
+            ?.lastRatedAt,
+          wins,
+          losses,
+        };
+      };
+      const [{ role: ledgerRole }] =
+        (await f.sql`select role from round_participants
+        where round_id=${roundId} and actor_id=${f.host.actorId}`) as [
+          { role: DebateRole },
+        ];
+      const emptyRecord = tallyRecord([]);
       const reads = async () => {
         const response = await timelineResponse();
         const body = await response.text();
@@ -163,6 +197,8 @@ test('every public and member read holds a ranked outcome until release', async 
           ).length,
           memberRating: member.find((m) => m.ladder === 'freestyle')?.rating,
           historyRows: profile?.history.length,
+          profileRecord: profile?.record,
+          card: await personCard(),
         };
       };
 
@@ -175,7 +211,11 @@ test('every public and member read holds a ranked outcome until release', async 
           result: held.timeline.result,
           captions: held.timeline.captions,
         },
-        expected: { stage: { kind: 'slate' }, result: null, captions: [] },
+        expected: {
+          stage: { kind: 'slate', phase: 'unreleased' },
+          result: null,
+          captions: [],
+        },
       });
       assert({
         given: 'the snapshot body before release',
@@ -199,9 +239,20 @@ test('every public and member read holds a ranked outcome until release', async 
       });
       assert({
         given: 'a public profile before release',
-        should: 'list no Round',
-        actual: held.historyRows,
-        expected: 0,
+        should: 'list no Round and tally none',
+        actual: [held.historyRows, held.profileRecord],
+        expected: [0, emptyRecord],
+      });
+      assert({
+        given: 'the people rail and /api/people before release',
+        should: 'show the debater unrated, with no win or loss from the Round',
+        actual: held.card,
+        expected: {
+          rating: undefined,
+          lastRatedAt: undefined,
+          wins: 0,
+          losses: 0,
+        },
       });
       assert({
         given: 'a follower of a seated debater, after a sweep, before release',
@@ -347,6 +398,31 @@ test('every public and member read holds a ranked outcome until release', async 
         should: 'show the rated Round',
         actual: [out.ladderEntries, out.memberRating !== null, out.historyRows],
         expected: [1, true, 1],
+      });
+      assert({
+        given: 'the profile tally after release',
+        should: 'count the Round',
+        actual: out.profileRecord,
+        expected: tallyRecord([
+          {
+            status: 'completed',
+            outcome: 'affirmative',
+            role: ledgerRole,
+            rounds: 1,
+          },
+        ]),
+      });
+      assert({
+        given: 'the people rail and /api/people after release',
+        should: 'show the rating and the result the Round left',
+        actual: {
+          rating: out.card.rating,
+          record: [out.card.wins, out.card.losses],
+        },
+        expected: {
+          rating: ledger[0]!.rating_after,
+          record: ledgerRole === 'affirmative' ? [1, 0] : [0, 1],
+        },
       });
       await f.sql`delete from rooms where id=${openRoomId}`;
     } finally {

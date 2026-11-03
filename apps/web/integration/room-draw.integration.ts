@@ -157,6 +157,24 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
       ],
       expected: [1, null],
     });
+    const outsiderRoom = await f.operations.view(f.outsider, view.id);
+    assert({
+      given: 'the same Room read by a non-participant',
+      should:
+        'read closed, with no drawn line and no Round reference (WATCH-6)',
+      actual: {
+        status: outsiderRoom.status,
+        topic: outsiderRoom.topic,
+        roundRef: outsiderRoom.roundRef,
+        carriesDraw: JSON.stringify(outsiderRoom).includes(SENTINEL),
+      },
+      expected: {
+        status: 'closed',
+        topic: null,
+        roundRef: null,
+        carriesDraw: false,
+      },
+    });
     await assertRejects({
       given: 'the active public Round read by a non-participant',
       should: 'give them no live read at all (ISSUE-728, WATCH-6)',
