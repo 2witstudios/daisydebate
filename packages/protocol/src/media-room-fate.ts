@@ -20,6 +20,11 @@ export type MediaRoomFacts = {
     /** LiveKit's id for the room now, or null when it is absent. */
     readonly sid: string | null;
     readonly empty: boolean;
+    /**
+     * The room's node answered a call only it can serve; null when not asked. A dead
+     * node's room still reads as occupied, under the same id, through a surviving node.
+     */
+    readonly answered: boolean | null;
   } | null;
 };
 

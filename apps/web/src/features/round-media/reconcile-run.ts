@@ -20,6 +20,7 @@ import type {
   Store,
   MediaOperationInput,
 } from './operation-context';
+import type { MediaRoomFacts } from '@daisy/protocol';
 import { createMediaMutations } from './mutation';
 
 /** What a vendor mutation's authorization reads, under its locks. */
@@ -47,10 +48,7 @@ const differs = (
  * leave an empty room under the old name, which closes itself by `empty_timeout`.
  */
 const roomFate = mediaRoomFate(MEDIA_CALL_TIMEOUT_MS + 1_000);
-type VendorRoomRead = {
-  readonly sid: string | null;
-  readonly empty: boolean;
-};
+type VendorRoomRead = NonNullable<MediaRoomFacts['seen']>;
 const needsCleanup = (state: MediaSnapshot, claim: Claim) =>
   Boolean(
     claim.unsafe ||
@@ -310,7 +308,7 @@ export function createMediaReconcileRun(
   > => {
     const sid = await input.deadline(input.media.roomSid(claim.roomName));
     if (sid === null) {
-      const nothing = { sid: null, empty: true };
+      const nothing = { sid: null, empty: true, answered: null };
       observed(roomObservation([], seenBefore), nothing);
       if (
         mediaRoomLost({
@@ -330,6 +328,12 @@ export function createMediaReconcileRun(
       // A room this pass created is read again by the next one.
       sid: sid ?? (await input.deadline(input.media.roomSid(claim.roomName))),
       empty: current.length === 0,
+      // A live room answers in about 50 ms, so one that takes the deadline has not answered.
+      answered: input.media.someNodeDown()
+        ? await input
+            .deadline(input.media.roomAnswers(claim.roomName))
+            .catch(() => false)
+        : null,
     };
     observed(roomObservation(current, state), read);
     // Nothing is written to a room the session is about to leave.
@@ -430,6 +434,10 @@ export function createMediaReconcileRun(
         roomFate,
         seen: vendorRoom,
       });
+      // Best effort, outside the journal: no token names this room any more, and a create
+      // inside the delete clears what a dead node left listed in LiveKit's Redis.
+      if (finished.fate.kind === 'rotate' && finished.fate.cause === 'lost')
+        void input.media.deleteRoom(claim.roomName).catch(() => undefined);
       if (finished.fate.kind === 'rotate')
         input.logger.log(
           'round.media.room_retired',

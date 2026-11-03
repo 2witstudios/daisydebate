@@ -96,3 +96,37 @@ for (const [status, code] of [
       expected: ['delete', 'create', 'delete'],
     });
   });
+
+test('a room whose node is gone says so; another fault stays a fault', async () => {
+  const answers = (failure: Error | null) =>
+    createMediaService({
+      config: {
+        url: 'http://127.0.0.1:7880',
+        apiKey: 'key',
+        apiSecret: 'secret',
+      },
+      rooms: {
+        updateRoomMetadata: async () => {
+          if (failure) throw failure;
+        },
+      } as never,
+    }).roomAnswers('r4nd0mr00mnam3r4nd0mr00m');
+  const dead = new ServerError(
+    'no response',
+    'no response',
+    503,
+    'unavailable',
+  );
+  assert({
+    given: 'a live room, and one LiveKit cannot reach',
+    should: 'answer true, then false',
+    actual: [await answers(null), await answers(dead)],
+    expected: [true, false],
+  });
+  assert({
+    given: 'a network failure',
+    should: 'stay a fault, since it says nothing about the room',
+    actual: await answers(new Error('reset')).catch((error) => error.code),
+    expected: 'INFRASTRUCTURE',
+  });
+});
