@@ -53,6 +53,7 @@ export {
   executeRoomCommand,
   hostIdentityHidden,
   projectRoom,
+  startHiddenFrom,
   releaseRestrictedMember,
 } from './room-assembly';
 export { castSeatsBotDebater } from './ai-round-cast';

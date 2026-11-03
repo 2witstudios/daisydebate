@@ -198,6 +198,13 @@ export const requestWatchRound = async (roundId: string) =>
     presentedHash: await requestPresentedLink(roundId),
   });
 
+/** The public Round a Room's link may send anyone to, once its start is released. */
+export const requestWatchableRoundOfRoom = (roomId: string) =>
+  processApp().database.readWatchableRoundOfRoom(
+    roomId,
+    spectatorClockAt(processApp().clock.now()),
+  );
+
 /** A Round's link standing, for the member who hosts it; null for anyone else. */
 export const requestHostedAudienceLink = async (
   roundId: string,

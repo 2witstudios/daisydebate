@@ -11,6 +11,7 @@ import {
   closedDestinationOf,
   explainerHref,
   isApiPath,
+  roomLinkReachesWatch,
 } from '../features/coming-soon/launch';
 import { returnableDestination } from '../features/auth/redirect';
 import { hasSessionCookie } from '../features/auth/sessions/session-cookie'; // A nonce never authorizes a `style="…"` attribute, and `next/image` always
@@ -116,7 +117,11 @@ function signInHint(
   publicAppUrl: string,
 ): NextResponse | null {
   const { pathname, search } = request.nextUrl;
-  if (!isGuardedPath(pathname) || hasSessionCookie(request.headers))
+  if (
+    !isGuardedPath(pathname) ||
+    hasSessionCookie(request.headers) ||
+    roomLinkReachesWatch(pathname)
+  )
     return null;
   const next = returnableDestination(`${pathname}${search}`);
   return edgeRedirect(signInHref(next), policy, requestId, publicAppUrl);

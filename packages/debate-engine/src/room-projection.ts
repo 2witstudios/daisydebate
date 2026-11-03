@@ -47,6 +47,15 @@ export const hostIdentityHidden = (
   viewerActorId: string,
 ) => room.hostIsHumanJudge && room.hostActorId !== viewerActorId;
 
+/** Whether this viewer is outside a Room that has started, and so reads it closed. */
+export const startHiddenFrom = (
+  room: Pick<RoomAssemblyState, 'status' | 'hostActorId' | 'participants'>,
+  actorId: string,
+): boolean =>
+  room.status === 'started' &&
+  room.hostActorId !== actorId &&
+  !room.participants.some((p) => p.actorId === actorId);
+
 /**
  * A started Room as someone outside it may know it: closed, as an expired or
  * cancelled Room reads, so the read says nothing of a start (WATCH-6). A drawn
@@ -57,9 +66,7 @@ const roomKnownTo = (
   room: RoomAssemblyState,
   actorId: string,
 ): RoomAssemblyState =>
-  room.status !== 'started' ||
-  room.hostActorId === actorId ||
-  room.participants.some((p) => p.actorId === actorId)
+  !startHiddenFrom(room, actorId)
     ? room
     : {
         ...room,
@@ -112,6 +119,7 @@ export function projectRoom(
     capture: room.capture,
     captureNotice: null,
     botAdmission: null,
+    watchRoundId: null,
     status: room.status,
     formatId: room.formatId,
     formatVersion: room.formatVersion,

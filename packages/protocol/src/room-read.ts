@@ -108,6 +108,11 @@ export const roomViewSchema = z.strictObject({
       text: z.string().min(1),
     })
     .nullable(),
+  /**
+   * For someone outside a started public Room: the Round to watch, once the
+   * spectator timeline has released its start. Null for everyone else.
+   */
+  watchRoundId: idSchema.nullable(),
   /** Host-only display metadata; admission is rechecked atomically at freeze. */
   botAdmission: z
     .union([

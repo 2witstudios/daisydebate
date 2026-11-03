@@ -19,6 +19,7 @@ import {
   hostIdentityHidden,
   projectActiveRoom,
   projectRoom,
+  startHiddenFrom,
   decideRoomResolution,
 } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
@@ -55,6 +56,7 @@ export type Store = Pick<
   | 'executeRoomCommand'
   | 'readActiveRoomFacts'
   | 'readContentWaiverStanding'
+  | 'readWatchableRoundOfRoom'
 >;
 type Redis = Pick<
   ReturnType<typeof createRedis>,
@@ -177,6 +179,9 @@ export function createRoomRuntimeOperations({
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
       ),
+      watchRoundId: startHiddenFrom(state, caller.actorId)
+        ? await store.readWatchableRoundOfRoom(state.id, spectatorClockAt(now))
+        : null,
     };
   };
   /** The picker's catalog: role-bearing formats at their canonical presets (FMT-1). */
