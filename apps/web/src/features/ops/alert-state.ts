@@ -282,7 +282,7 @@ export const runningWorkers = (input: {
 ];
 
 /**
- * AUTH-7.7's four alert conditions, evaluated from a snapshot the caller
+ * The alert conditions, evaluated from a snapshot the caller
  * already read (`readAlertSnapshot`). Pure: every threshold and duration
  * decision is a function of the inputs, so this is fully testable without
  * Redis, a clock, or the network.

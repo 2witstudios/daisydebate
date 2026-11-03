@@ -223,7 +223,6 @@ export function createDatabase({
       instrumented(eventSink, 'deliverObservationPurges', () =>
         deliverObservationPurges(control, input, port),
       ),
-    /** ISSUE-833: due vendor deletion jobs, read for the scheduled worker. */
     owedObservationPurges: () =>
       instrumented(eventSink, 'owedObservationPurges', () =>
         owedObservationPurges(control),
@@ -232,6 +231,7 @@ export function createDatabase({
       instrumented(eventSink, 'owedPrivacyJobs', () =>
         owedPrivacyJobs(control),
       ),
+    /** ISSUE-833: due vendor deletion jobs, read for the scheduled worker. */
     duePrivacyJobs: (input: Parameters<typeof duePrivacyJobs>[1]) =>
       instrumented(eventSink, 'duePrivacyJobs', () =>
         duePrivacyJobs(control, input),
