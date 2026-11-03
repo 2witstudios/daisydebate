@@ -340,8 +340,8 @@ describe('the committed Watch Status source', () => {
       should: 'compute the overall and the furthest three',
       actual: [
         'average of 12 areas',
-        'width:49%',
-        'Furthest from done: Recording, Interaction, Moderation.',
+        'width:50%',
+        'Furthest from done: Media infrastructure, Privacy and legal, Interaction.',
         '27 changes needed outside Watch itself.',
       ].every((part) => html.includes(part)),
       expected: true,
