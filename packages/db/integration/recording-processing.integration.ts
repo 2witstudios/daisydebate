@@ -14,6 +14,9 @@ import { createRecordingWorkerStore } from '../src/recording-worker-store';
 import { recordingProcessingJobs } from '../src/schema/recording-processing-jobs';
 import { withFixture } from './constraint-helpers';
 
+import { readCameraHeld } from '../src/broadcast-operations';
+import { createRecordingPovStore } from '../src/recording-pov-store';
+
 setupRitewayBun();
 
 const { databaseUrl } = requireTestServices(process.env);
@@ -40,6 +43,7 @@ const withStores = async (
     ops: ReturnType<typeof recordingOperations>;
     db: ReturnType<typeof drizzle>;
     client: SQL;
+    seatIn: (roundId: string) => Promise<{ id: string }>;
     newRecording: () => Promise<{
       id: string;
       roundId: string;
@@ -60,6 +64,7 @@ const withStores = async (
           ops,
           db,
           client,
+          seatIn: (roundId: string) => fixture.seat(roundId, 'affirmative'),
           newRecording: async () => {
             const roundId = await fixture.round();
             rounds.push(roundId);
@@ -76,6 +81,7 @@ const withStores = async (
         for (const roundId of rounds) {
           await client`delete from recording_processing_jobs where recording_id in (select id from recordings where round_id=${roundId})`;
           await client`delete from recording_captures where round_id=${roundId}`;
+          await client`delete from recording_pov_captures where round_id=${roundId}`;
           await client`delete from recordings where round_id=${roundId}`;
           await client`delete from broadcasts where round_id=${roundId}`;
         }
@@ -654,6 +660,135 @@ test('the reconcile lease lets one instance act', async () => {
         }),
       ],
       expected: [1, true],
+    });
+  });
+});
+
+test('a POV holds the build and private media until it is closed, and travels on the job', async () => {
+  await withStores(async ({ store, worker, db, seatIn, newRecording }) => {
+    const povs = createRecordingPovStore(db);
+    const { id, roundId } = await newRecording();
+    const seat = await seatIn(roundId);
+    const pov = { recordingId: id, roundParticipantId: seat.id };
+    await store.openJob({
+      recordingId: id,
+      holdPrefix: `recording-hold/${id}/`,
+    });
+    await povs.open({ ...pov, roundId, camera: true });
+    await povs.open({ ...pov, roundId, camera: false });
+    const held = () => readCameraHeld(db, { roundId });
+    const heldBefore = await held();
+    const won = await povs.recordStarted({
+      ...pov,
+      egressId: 'EG_1',
+      room: 'room-1',
+      generation: 1,
+      now: later(0),
+    });
+    const lost = await povs.recordStarted({
+      ...pov,
+      egressId: 'EG_LOSER',
+      room: 'room-1',
+      generation: 1,
+      now: later(0),
+    });
+    const heldLive = await held();
+    await povs.recordCameraHeight({ ...pov, height: 540 });
+    await povs.recordCameraHeight({ ...pov, height: 360 });
+    await povs.recordRevoked({ ...pov, now: later(0) });
+    const heldRevoked = await held();
+    await povs.recordRestored(pov);
+    const heldRestored = await held();
+    const egressOpen = await povs.readEgress(pov);
+    await povs.close({ ...pov, now: later(0) });
+    const heldClosed = await held();
+    assert({
+      given: 'a POV through its start, revocation, restore and close',
+      should:
+        'let one start win, hold only while subscribed, and run no Egress once closed',
+      actual: [
+        heldBefore,
+        won,
+        lost,
+        heldLive,
+        heldRevoked,
+        heldRestored,
+        egressOpen,
+        heldClosed,
+        await povs.readEgress(pov),
+        await povs.readEgress({ ...pov, roundParticipantId: 'nobody' }),
+      ],
+      expected: [
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        { egressId: 'EG_1' },
+        false,
+        { egressId: null },
+        null,
+      ],
+    });
+    await store.queueJob({
+      recordingId: id,
+      attemptCount: 1,
+      publicIntervals: [],
+      ceilingMs: 60_000,
+    });
+    const claimed = await claimAt(worker, 'pov-worker', FUTURE);
+    assert({
+      given: 'a queued build of a Recording with a POV',
+      should:
+        'carry the POV, labelled by the tallest camera seen, to the worker',
+      actual:
+        claimed?.state.status === 'queued' ? claimed.state.povs : undefined,
+      expected: [
+        { roundParticipantId: seat.id, attemptCount: 1, picture: '540p' },
+      ],
+    });
+  });
+});
+
+test('an open POV keeps sources in use and is reported to the sweep', async () => {
+  await withStores(async ({ store, db, client, seatIn, newRecording }) => {
+    const povs = createRecordingPovStore(db);
+    const { id, roundId } = await newRecording();
+    const seat = await seatIn(roundId);
+    const pov = { recordingId: id, roundParticipantId: seat.id };
+    await store.openJob({
+      recordingId: id,
+      holdPrefix: `recording-hold/${id}/`,
+    });
+    await povs.open({ ...pov, roundId, camera: true });
+    const row = async () => {
+      const lifecycle = JSON.stringify({
+        status: 'processing',
+        capture: {
+          source: { kind: 'own_capture' },
+          startedAt: later(0).toISOString(),
+          endedAt: later(0).toISOString(),
+          attempts: [
+            { attempt: 1, egressId: 'EG', startedAt: later(0).toISOString() },
+          ],
+        },
+      });
+      await client`update recordings set status='processing', lifecycle=${lifecycle}::jsonb where id=${id}`;
+      const jobs = await store.listJobs(1000);
+      const found = jobs.find((job) => job.recordingId === id);
+      return [found?.povsOpen, found?.sourcesInUse];
+    };
+    const open = await row();
+    await povs.close({ ...pov, now: later(0) });
+    assert({
+      given: 'a POV open, then closed',
+      should: 'say so both ways',
+      actual: [open, await row()],
+      expected: [
+        [true, true],
+        [false, false],
+      ],
     });
   });
 });

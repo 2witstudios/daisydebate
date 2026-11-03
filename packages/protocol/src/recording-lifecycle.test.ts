@@ -228,6 +228,36 @@ describe('readiness', () => {
   });
 });
 
+describe('takedown of a Recording with POVs', () => {
+  test('hides them with it, and a restore brings them back as they were', () => {
+    const withPovs: RecordingLifecycle = {
+      ...ready,
+      media: {
+        ...media,
+        povs: [
+          {
+            status: 'missing',
+            roundParticipantId: 'seatseatseatseatseatseat',
+            reason: 'never_captured',
+          },
+        ],
+      },
+    } as RecordingLifecycle;
+    const down = apply(withPovs, {
+      type: 'taken_down',
+      at: '2026-11-03T12:00:00.000Z',
+      reason: 'legal_request',
+    });
+    assert({
+      given: 'a takedown and then a restore',
+      should: 'keep the same media, POVs included, in the held state',
+      actual:
+        down.kind === 'moved' ? apply(down.next, { type: 'restored' }) : down,
+      expected: { kind: 'moved', next: withPovs },
+    });
+  });
+});
+
 describe('takedown', () => {
   const down = {
     type: 'taken_down',

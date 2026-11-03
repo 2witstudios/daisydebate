@@ -51,6 +51,29 @@ describe('runDeletionSweep', () => {
     });
   });
 
+  test('a POV goes with its Recording, under the one prefix', async () => {
+    const { store } = fakeRecordingStore([
+      record({ lifecycle: removing(settledAt) }),
+    ]);
+    const objects = fakeObjectStore([
+      `${prefix}video.mp4`,
+      `${prefix}pov/seat/video.mp4`,
+      `${prefix}pov/seat/audio.m4a`,
+    ]);
+    await runDeletionSweep({
+      store,
+      objects: objects.store,
+      owner: 'w',
+      nowMs,
+    });
+    assert({
+      given: 'a removed Recording with POV files',
+      should: 'remove them with everything else',
+      actual: [...objects.objects],
+      expected: [],
+    });
+  });
+
   test('stays removing while its sources wait in the hold bucket', async () => {
     const { store, rows } = fakeRecordingStore(
       [record({ lifecycle: removing(settledAt) })],
