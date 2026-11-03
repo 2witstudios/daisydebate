@@ -2,6 +2,7 @@ import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
 import {
+  captionKnownPublicSql,
   factReleasedSql,
   roundAliasR as round,
   type SpectatorClock,
@@ -31,6 +32,7 @@ const factsOfRound = sql`(
   union all
   select 'caption', u.id, u.created_at from utterances u
     where u.round_id=r.id and r.competition_type='ranked' and u.complete
+      and ${captionKnownPublicSql({ segmentId: sql`u.segment_id`, createdAt: sql`u.created_at` })}
 ) f`;
 
 /**

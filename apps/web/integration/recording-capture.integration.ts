@@ -199,7 +199,7 @@ test('a Broadcast with a crash becomes one Recording spanning both attempts', as
             status: 'queued',
             attemptCount: 2,
             ceilingMs: 990_000,
-            controlLapses: [],
+            publicIntervals: [],
           },
         ],
       });

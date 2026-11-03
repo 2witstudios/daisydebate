@@ -222,6 +222,30 @@ export const recordHoldAdvanced = async (
   return rows.length > 0;
 };
 
+/**
+ * Time history has settled as not public has passed with nothing to release: the
+ * timeline moves on, so a long prep or judging reads as what it is, not as a stalled
+ * release. It publishes nothing, and it never recedes.
+ */
+export const recordNotPublicPassed = async (
+  tx: Tx,
+  input: {
+    readonly id: string;
+    readonly owner: string;
+    readonly epoch: number;
+    readonly through: Date;
+  },
+): Promise<boolean> => {
+  const rows = await tx
+    .update(broadcasts)
+    .set({
+      releasedThroughAt: sql`greatest(${broadcasts.releasedThroughAt}, ${input.through.toISOString()}::timestamptz)`,
+    })
+    .where(held(input.id, input.owner, input.epoch))
+    .returning({ id: broadcasts.id });
+  return rows.length > 0;
+};
+
 /** Every held segment is out: the timeline reaches the end of the media. */
 export const recordMediaEndReleased = async (
   tx: Tx,
@@ -267,7 +291,7 @@ export const recordEgressStarted = async (
       revocationFailures: 0,
       stageCredentialHash: input.stageCredentialHash,
       egressStartedAt: input.now,
-      ...controlHeartbeat(broadcasts),
+      ...controlHeartbeat(),
     })
     .where(
       and(
@@ -418,7 +442,7 @@ export const claimBroadcastReconcile = async (
     .update(broadcasts)
     .set({
       reconcileLeaseUntil: input.until,
-      ...controlHeartbeat(broadcasts),
+      ...controlHeartbeat(),
     })
     .where(
       and(
@@ -431,6 +455,28 @@ export const claimBroadcastReconcile = async (
     )
     .returning({ id: broadcasts.id });
   return rows.length === 1;
+};
+
+/**
+ * The worker's one read of a Round: the committed times of its public intervals,
+ * through a view that holds nothing else, because its role reaches no Round table.
+ */
+export const readBroadcastPublicHistory = async (
+  tx: Pick<BoundedTransactionContext, 'execute'>,
+  broadcastId: string,
+) => {
+  const rows = (await tx.execute(sql`
+    select started_at, ended_at, duration_ms from broadcast_public_history
+    where broadcast_id = ${broadcastId} order by sequence`)) as unknown as {
+    readonly started_at: Date | string;
+    readonly ended_at: Date | string | null;
+    readonly duration_ms: number;
+  }[];
+  return rows.map((row) => ({
+    startedAtMs: new Date(row.started_at).getTime(),
+    endedAtMs: row.ended_at === null ? null : new Date(row.ended_at).getTime(),
+    durationMs: row.duration_ms,
+  }));
 };
 
 /** Keeps the claim across a call that outlasts it; null `until` gives it back. */

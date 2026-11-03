@@ -18,9 +18,9 @@ export const mediaPlaylist = (
     /** Later Egress attempts: each starts a discontinuity at its first sequence. */
     readonly attempt?: { readonly index: number; readonly firstSeq: number };
     /** Sequences that follow a stretch never published. */
-    readonly afterLapse?: readonly number[];
+    readonly afterGap?: readonly number[];
     /** How many such stretches have already scrolled out. */
-    readonly lapsesPassed?: number;
+    readonly gapsPassed?: number;
   },
 ): string => {
   const target = Math.ceil(
@@ -28,14 +28,14 @@ export const mediaPlaylist = (
   );
   const attempt = options.attempt ?? { index: 0, firstSeq: -1 };
   const shown = segments.some((s) => s.seq === attempt.firstSeq);
-  const afterLapse = options.afterLapse ?? [];
+  const afterGap = options.afterGap ?? [];
   const passed =
-    Math.max(0, attempt.index - (shown ? 1 : 0)) + (options.lapsesPassed ?? 0);
+    Math.max(0, attempt.index - (shown ? 1 : 0)) + (options.gapsPassed ?? 0);
   const body = segments
     .map(
       (s) =>
         ((s.seq === attempt.firstSeq && attempt.index > 0) ||
-        afterLapse.includes(s.seq)
+        afterGap.includes(s.seq)
           ? '#EXT-X-DISCONTINUITY\n'
           : '') +
         `#EXT-X-PROGRAM-DATE-TIME:${new Date(s.capturedAtMs).toISOString()}\n` +

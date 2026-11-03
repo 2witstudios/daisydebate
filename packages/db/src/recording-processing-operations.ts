@@ -1,5 +1,7 @@
 import {
+  publicIntervals,
   recordingJobStateSchema,
+  type PublicInterval,
   type RecordingBuildProgress,
   type RecordingJobState,
 } from '@daisy/protocol';
@@ -19,6 +21,7 @@ import {
 } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
+import { roundSegments } from './schema/round-segments';
 import { recordingCaptures } from './schema/recording-captures';
 import { recordingProcessingJobs as jobs } from './schema/recording-processing-jobs';
 import { recordings } from './schema/recordings';
@@ -47,17 +50,16 @@ export const openRecordingJob = async (
 };
 
 /** Capture ended: the worker may now read this many attempts. Only from `waiting`. */
-/**
- * Every lapse over the sources of this Recording, from whichever capture wrote
- * them. The Recording worker's database role reaches only its jobs, so the web
- * copies them here: capture has ended by now, and a returning control plane has
- * already recorded any lapse before it gets this far.
- */
-const readRecordingLapses = async (tx: Tx, recordingId: string) => {
-  const [row] = await tx
+/** Committed Round history and how far the control plane was heard from, for a build. */
+export const readRecordingPublicHistory = async (
+  tx: Tx,
+  recordingId: string,
+) => {
+  const [capture] = await tx
     .select({
-      broadcast: broadcasts.controlLapses,
-      own: recordingCaptures.controlLapses,
+      roundId: recordings.roundId,
+      broadcast: broadcasts.controlHeartbeatAt,
+      own: recordingCaptures.controlHeartbeatAt,
     })
     .from(recordings)
     .leftJoin(broadcasts, eq(broadcasts.roundId, recordings.roundId))
@@ -66,7 +68,24 @@ const readRecordingLapses = async (tx: Tx, recordingId: string) => {
       eq(recordingCaptures.recordingId, recordings.id),
     )
     .where(eq(recordings.id, recordingId));
-  return [...(row?.broadcast?.lapses ?? []), ...(row?.own?.lapses ?? [])];
+  if (!capture) return { segments: [], knownThroughMs: null };
+  const segments = await tx
+    .select({
+      startedAt: roundSegments.startedAt,
+      endedAt: roundSegments.endedAt,
+      durationMs: roundSegments.durationMs,
+    })
+    .from(roundSegments)
+    .where(eq(roundSegments.roundId, capture.roundId))
+    .orderBy(asc(roundSegments.sequence));
+  return {
+    segments: segments.map((segment) => ({
+      startedAtMs: segment.startedAt.getTime(),
+      endedAtMs: segment.endedAt?.getTime() ?? null,
+      durationMs: segment.durationMs,
+    })),
+    knownThroughMs: (capture.broadcast ?? capture.own)?.getTime() ?? null,
+  };
 };
 
 export const queueRecordingJob = async (
@@ -74,6 +93,7 @@ export const queueRecordingJob = async (
   input: {
     readonly recordingId: string;
     readonly attemptCount: number;
+    readonly publicIntervals: readonly PublicInterval[];
     readonly ceilingMs: number;
   },
 ) => {
@@ -83,8 +103,8 @@ export const queueRecordingJob = async (
       ...stateColumns({
         status: 'queued',
         attemptCount: input.attemptCount,
+        publicIntervals: [...input.publicIntervals],
         ceilingMs: input.ceilingMs,
-        controlLapses: await readRecordingLapses(tx, input.recordingId),
       }),
       dueAt: sql`clock_timestamp()`,
     })
@@ -105,14 +125,18 @@ export const requeueRecordingJob = async (
     readonly ceilingMs: number;
   },
 ): Promise<boolean> => {
+  // History may have grown since the first build, so a rebuild asks it again.
+  const history = await readRecordingPublicHistory(tx, input.recordingId);
   const rows = await tx
     .update(jobs)
     .set({
       ...stateColumns({
         status: 'queued',
         attemptCount: input.attemptCount,
+        publicIntervals: [
+          ...publicIntervals(history.segments, history.knownThroughMs),
+        ],
         ceilingMs: input.ceilingMs,
-        controlLapses: await readRecordingLapses(tx, input.recordingId),
       }),
       failures: 0,
       dueAt: sql`clock_timestamp()`,

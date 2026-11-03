@@ -1,3 +1,4 @@
+import { captionKnownPublicSql } from './spectator-release-sql';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -229,6 +230,10 @@ export const spectatorTimelineReads = ({
                     eq(utterances.complete, true),
                     inArray(roundParticipants.role, [...debateRoles]),
                     released(utterances.createdAt),
+                    captionKnownPublicSql({
+                      segmentId: utterances.segmentId,
+                      createdAt: utterances.createdAt,
+                    }),
                   ),
                 )
                 .orderBy(desc(utterances.createdAt), desc(utterances.id))

@@ -12,6 +12,8 @@ export const encoderArgs = (
   input: string,
   output: (rendition: string) => string,
   capturedAtMs: number,
+  /** The part of the segment to keep; absent keeps it whole, with no seek at all. */
+  cut?: { readonly offsetMs: number; readonly durationMs: number },
 ): readonly string[] => [
   'ffmpeg',
   '-y',
@@ -34,6 +36,16 @@ export const encoderArgs = (
     r.videoBitrate,
     '-c:a',
     'copy',
+    // After the input, so it decodes to the frame: exact, and at most this one
+    // segment's decode on top of an encode that is shorter than the whole.
+    ...(cut
+      ? [
+          '-ss',
+          (cut.offsetMs / 1000).toFixed(3),
+          '-t',
+          (cut.durationMs / 1000).toFixed(3),
+        ]
+      : []),
     '-muxdelay',
     '0',
     '-output_ts_offset',

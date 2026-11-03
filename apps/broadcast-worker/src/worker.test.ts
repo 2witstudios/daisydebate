@@ -17,6 +17,10 @@ test('a database failure does not end the slot', async () => {
     scratch: noScratch,
     objects: {} as never,
     store: {
+      recordPassed: async () => true,
+      readPublicHistory: async () => [
+        { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
+      ],
       claim: async () => {
         claims += 1;
         if (claims < 3) throw new Error('database down');
@@ -55,6 +59,10 @@ test('a failed release step keeps the job instead of waiting out its own lease',
       },
     } as never,
     store: {
+      recordPassed: async () => true,
+      readPublicHistory: async () => [
+        { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
+      ],
       claim: async () => {
         claims += 1;
         return {
@@ -69,7 +77,6 @@ test('a failed release step keeps the job instead of waiting out its own lease',
           completedAt: null,
           streamEndedAt: null,
           controlHeartbeatAt: new Date(800_000),
-          controlLapses: { lapses: [] },
           finalMediaEndAt: new Date(0),
           releasePolicy: { kind: 'delay', seconds: 60 },
         };
@@ -116,6 +123,10 @@ test('what a step put on disk goes with the step, whatever became of it', async 
       },
     } as never,
     store: {
+      recordPassed: async () => true,
+      readPublicHistory: async () => [
+        { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
+      ],
       claim: async () => ({
         id: 'b',
         nextSegment: 0,
@@ -126,7 +137,6 @@ test('what a step put on disk goes with the step, whatever became of it', async 
         leaseEpoch: 1,
         feedKey: 'k',
         controlHeartbeatAt: new Date(800_000),
-        controlLapses: { lapses: [] },
         stoppedAt: null,
         completedAt: null,
         streamEndedAt: null,
@@ -163,6 +173,10 @@ test('media past the last heartbeat is said once, and the slot stays with the jo
       },
     } as never,
     store: {
+      recordPassed: async () => true,
+      readPublicHistory: async () => [
+        { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
+      ],
       claim: async () => ({
         id: 'b',
         nextSegment: 0,
@@ -173,7 +187,6 @@ test('media past the last heartbeat is said once, and the slot stays with the jo
         leaseEpoch: 1,
         feedKey: 'k',
         controlHeartbeatAt: new Date(1000),
-        controlLapses: { lapses: [] },
         stoppedAt: null,
         completedAt: null,
         streamEndedAt: null,

@@ -1,6 +1,6 @@
 import type { createRecordingWorkerStore } from '@daisy/db/recording-worker';
 import type {
-  ControlLapse,
+  PublicInterval,
   RecordingBuildProgress,
   RecordingJobState,
 } from '@daisy/protocol';
@@ -76,7 +76,7 @@ export const runWorker = async (deps: {
       readonly recordingId: string;
       readonly holdPrefix: string;
       readonly attemptCount: number;
-      readonly controlLapses: readonly ControlLapse[];
+      readonly publicIntervals: readonly PublicInterval[];
     },
     run: {
       readonly workDir: string;
@@ -189,7 +189,7 @@ export const runWorker = async (deps: {
   const runBuild = async (
     job: Claimed,
     attemptCount: number,
-    controlLapses: readonly ControlLapse[],
+    intervals: readonly PublicInterval[],
     ceilingMs?: number,
   ) => {
     const workDir = deps.workDirOf(job.recordingId, owner);
@@ -201,7 +201,7 @@ export const runWorker = async (deps: {
             recordingId: job.recordingId,
             holdPrefix: job.holdPrefix,
             attemptCount,
-            controlLapses,
+            publicIntervals: intervals,
           },
           { workDir, signal: lease.signal, progress: progressWriter(job) },
         ),
@@ -264,7 +264,7 @@ export const runWorker = async (deps: {
         ? runBuild(
             job,
             state.attemptCount,
-            state.controlLapses,
+            state.publicIntervals,
             state.ceilingMs,
           )
         : runDiscard(job)

@@ -45,7 +45,7 @@ const coverageGapSchema = z.strictObject({
     'private_phase',
     'room_rotation',
     'capture_restart',
-    'control_lapse',
+    'not_public',
   ]),
 });
 

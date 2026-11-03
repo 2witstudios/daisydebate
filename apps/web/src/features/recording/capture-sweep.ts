@@ -6,6 +6,7 @@ import {
 } from '@daisy/debate-engine';
 import {
   holdAttemptPrefix,
+  publicIntervals,
   recordingBuildDelayed,
   recordingHoldPrefix,
   type BuiltRecordingMedia,
@@ -37,6 +38,7 @@ type Store = Pick<
   | 'closeOwn'
   | 'openJob'
   | 'queueJob'
+  | 'readPublicHistory'
   | 'discardSources'
   | 'listJobs'
   | 'listProcessingUnalerted'
@@ -339,13 +341,19 @@ export const createRecordingCaptureSweep = (deps: {
     const answer = answerRecordingJob(job);
     if (answer === null) return;
     switch (answer.type) {
-      case 'queue':
+      case 'queue': {
+        const history = await store.readPublicHistory(job.recordingId);
         await store.queueJob({
           recordingId: job.recordingId,
           attemptCount: answer.attemptCount,
+          publicIntervals: publicIntervals(
+            history.segments,
+            history.knownThroughMs,
+          ),
           ceilingMs: answer.ceilingMs,
         });
         return;
+      }
       case 'verify':
         if (job.state.status !== 'built') return;
         // A refusal repeats on every pass, so it ends here, said out loud.

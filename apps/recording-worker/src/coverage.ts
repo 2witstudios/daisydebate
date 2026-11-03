@@ -1,4 +1,4 @@
-import type { ControlLapse } from '@daisy/protocol';
+import type { PublicInterval } from '@daisy/protocol';
 
 /** One Egress attempt whose media could be read, with its place in real time. */
 export type CapturedPiece = {
@@ -20,12 +20,14 @@ export type Coverage = {
   readonly gaps: readonly {
     readonly startMs: number;
     readonly endMs: number;
-    readonly reason: 'capture_restart' | 'control_lapse';
+    readonly reason: 'capture_restart' | 'not_public';
   }[];
 };
 
 /** Below this a restart cannot be seen, and a slate would only be a flash. */
 const SHORTEST_GAP_MS = 250;
+/** A piece's probed length is not exact to the millisecond. */
+const PIECE_TOLERANCE_MS = 100;
 
 /**
  * The whole video from the attempts that left media, in attempt order. Video time
@@ -36,7 +38,7 @@ const SHORTEST_GAP_MS = 250;
  */
 export const coverageOf = (
   pieces: readonly CapturedPiece[],
-  lapses: readonly ControlLapse[] = [],
+  intervals: readonly PublicInterval[],
 ): Coverage | null => {
   const ordered = [...pieces].sort((x, y) => x.attempt - y.attempt);
   const [first] = ordered;
@@ -50,13 +52,14 @@ export const coverageOf = (
       gaps.push({
         startMs: cursorMs,
         endMs: realMs,
-        // Touching a lapse is reason enough: it is why this stretch is not here.
-        reason: lapses.some(
+        // Inside one public interval only a restart can explain it.
+        reason: intervals.some(
           ({ fromMs, toMs }) =>
-            fromMs < piece.startedAtMs && toMs > first.startedAtMs + cursorMs,
+            fromMs <= first.startedAtMs + cursorMs + PIECE_TOLERANCE_MS &&
+            toMs + PIECE_TOLERANCE_MS >= piece.startedAtMs,
         )
-          ? 'control_lapse'
-          : 'capture_restart',
+          ? 'capture_restart'
+          : 'not_public',
       });
       parts.push({ kind: 'gap', durationMs: realMs - cursorMs });
       cursorMs = realMs;

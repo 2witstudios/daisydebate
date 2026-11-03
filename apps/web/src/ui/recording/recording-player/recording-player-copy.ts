@@ -19,8 +19,7 @@ export const clockTime = (ms: number): string => {
 
 const WHY: Readonly<Record<Gap['reason'], string>> = {
   capture_restart: 'recording stopped and restarted',
-  control_lapse:
-    'Daisy lost contact with the debate, so this part was left out',
+  not_public: 'between speeches, or not known to be public, so left out',
   private_phase: 'a private part of the debate',
   room_rotation: 'the room changed over',
 };

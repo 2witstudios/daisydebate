@@ -62,6 +62,32 @@ export const remuxArgs = (input: string, output: string): readonly string[] => [
   output,
 ];
 
+/** The public part of a piece, to the frame; a seek by copy would land on a keyframe. */
+export const cutArgs = (
+  input: string,
+  offsetMs: number,
+  durationMs: number,
+  output: string,
+): readonly string[] => [
+  'ffmpeg',
+  '-y',
+  '-loglevel',
+  'error',
+  '-i',
+  input,
+  '-ss',
+  seconds(offsetMs),
+  '-t',
+  seconds(durationMs),
+  '-c:v',
+  'libx264',
+  '-preset',
+  'veryfast',
+  '-c:a',
+  'aac',
+  output,
+];
+
 const master = RECORDING_RENDITIONS[0];
 const fit = `scale=${master.width}:${master.height}:force_original_aspect_ratio=decrease,pad=${master.width}:${master.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS},format=yuv420p`;
 const SILENCE = 'anullsrc=channel_layout=stereo:sample_rate=48000';

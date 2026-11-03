@@ -100,34 +100,42 @@ long that lasts, and the media reconciler raises `broadcast.conversation_held_lo
 past 30 s. The stage also lets go of every track when it reads a private phase, as a
 second layer that needs the stage route alive.
 
-**When the control plane is gone: the guarantee.** Media captured after the last
-heartbeat is never published, even if the web tier returns. Each reconcile claim
-writes `control_heartbeat_at` by the database's clock, in the same update that appends
-to `control_lapses` when the last heartbeat is 10 s old or more. So a returning web
-instance records the lapse itself, no watcher has to be alive, and no restart can
-forget one. The release step holds anything the heartbeat has not passed, and removes
-anything touching a lapse before it counts, so what is removed leaves no hole in the
-public sequence and is not released after the heartbeat resumes. A segment straddling
-either boundary goes whole, so the precision is one segment (about 4 s) on each side,
-plus 1 s for Egress's clock and the database's to disagree, always toward leaving
-media out. A gap under 10 s is not a lapse: media waits and then goes out.
+**Release: the guarantee (owner, 2026-11-03).** Nothing leaves that committed Round
+history does not prove public. `publicIntervals` in `@daisy/protocol` turns
+`round_segments` into intervals, each speech or cross-examination from start to end,
+margin inside; a segment still open is known only as far as the last heartbeat and
+never past its schedule. Nothing else is public, so prep, the stretch between
+speeches and every private phase are gaps, and so is an outage until a commit says
+otherwise. No clock opens anything: a late commit is the only thing that can make an
+unknown stretch public, and time alone never does. The worker reads the times through
+the view `broadcast_public_history`, its only read of a Round: a view has no second
+writer, cannot drift from the record, and puts nothing inside a competitive
+transaction, and it runs as its owner, so its role is granted no Round table.
 
-The public playlist marks a discontinuity at the gap. The Daisy player covers the
-video with a slate after 5 s stalled, which is the whole of a gap on a delay policy,
-and for 4 s when hls.js sees capture time jump, as on a hold released in one burst.
-A native (Safari) player gets only the stall slate. A streaming tool carrying the
-official feed gets no slate: it holds the last frame and then resumes.
+The encoder cuts at the boundary (it re-encodes anyway), so a speech edge loses only
+the margin, one named value set by Egress's measured drift, and whole segments go only
+where no interval touches them. Media past the last heartbeat waits, logged once as
+`broadcast.release_lapsed`, and resumes under the same rule when the web tier returns.
+Recording builds use the same intervals, copied by the web into the job since the
+Recording worker's role reaches only its jobs, and state `not_public` gaps. A caption
+belongs to a committed segment by its foreign key, and one on a segment still open
+past the last heartbeat waits, like the media beside it. Results, ballots and ratings
+are not captured from any interval and keep following the watermark.
 
-A Recording reads the same record. The web copies `control_lapses` from the Broadcast
-or the own capture into the job when it queues the build, because the Recording
-worker's role reaches its jobs alone, and by then capture has ended and a returning
-control plane has already written any lapse. The build skips the whole file of an
-attempt that a lapse touches, joins the runs of segments outside it, and states the
-stretch as a `control_lapse` gap. An own capture keeps its own heartbeat and lapses
-in the same way, with no worker role involved.
+Settled time with nothing public in it moves the watermark as it comes due, publishing
+nothing, so a long prep or judging does not read as a stalled release. Only time past
+the last heartbeat stands still, and that is what `release_delayed` and the audience's
+interrupted state are for.
 
-**Ending the Egress.** That rule is the guarantee; ending the Egress only limits the
-window. The stage page logs `END_RECORDING`, which Egress stops on, when the stage
+The public playlist marks a discontinuity at each gap. The Daisy player covers the
+video with a slate after 5 s stalled, and for 4 s when hls.js sees capture time jump
+over 12 s. A native (Safari) player gets only the stall slate. A streaming tool
+carrying the official feed gets no slate this release.
+
+Revocation stays: it keeps private audio out of storage. It no longer has to protect
+what is published.
+
+**Ending the Egress.** Ending the Egress only limits what reaches the hold. The stage page logs `END_RECORDING`, which Egress stops on, when the stage
 route refuses on a stale heartbeat (410) or has failed for about 10 s. No process holds
 a LiveKit credential for this. A control plane that returns finds the Egress complete
 and starts the next attempt the normal way. A web restart of 10 s or more therefore

@@ -111,8 +111,8 @@ stopped and counted as a failed attempt, and it retries. Nothing is discarded.
 ## Coverage
 
 `media.gaps` states what the video shows as something other than the debate, and the
-player lists it: a capture restart (`capture_restart`), media left out because the control
-plane was gone (`control_lapse`, ADR 0099), a private phase, which is the stage's slate
+player lists it: a capture restart (`capture_restart`), anything committed Round
+history does not prove public (`not_public`, ADR 0099), a private phase, which is the stage's slate
 (`private_phase`), and a room rotation (`room_rotation`), stated at an estimated 5 seconds.
 `media.unrecorded` states debate the video never reached: a late start, an early end, or the
 rest of a Round whose Broadcast was stopped.

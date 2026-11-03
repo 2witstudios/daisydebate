@@ -16,6 +16,7 @@ import { controlHeartbeat, heartbeatStale } from './control-heartbeat';
 import { readEntitlementGrants } from './entitlement-grants';
 import {
   discardRecordingSources,
+  readRecordingPublicHistory,
   listProcessingRecordingsUnalerted,
   markRecordingDelayAlerted,
   listUnsettledRecordingJobs,
@@ -149,7 +150,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
   }) {
     const rows = await database
       .update(captures)
-      .set({ reconcileLeaseUntil: input.until, ...controlHeartbeat(captures) })
+      .set({ reconcileLeaseUntil: input.until, ...controlHeartbeat() })
       .where(
         and(
           eq(captures.recordingId, input.recordingId),
@@ -203,7 +204,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         revocationFailures: 0,
         stageCredentialHash: input.stageCredentialHash,
         egressStartedAt: input.now,
-        ...controlHeartbeat(captures),
+        ...controlHeartbeat(),
       })
       .where(
         and(
@@ -298,6 +299,8 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
 
   openJob: (input: Parameters<typeof openRecordingJob>[1]) =>
     openRecordingJob(database, input),
+  readPublicHistory: (recordingId: string) =>
+    readRecordingPublicHistory(database, recordingId),
   queueJob: (input: Parameters<typeof queueRecordingJob>[1]) =>
     queueRecordingJob(database, input),
   discardSources: (recordingId: string) =>
