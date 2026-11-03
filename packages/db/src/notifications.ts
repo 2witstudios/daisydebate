@@ -185,7 +185,8 @@ export const notificationOperations = ({
   }) {
     return instrumented(eventSink, 'readNotifications', async () => {
       const standing = sql`(
-        (n.kind='followed_debater_live' and r.visibility='public' and u.username is not null)
+        (n.kind='followed_debater_live' and r.visibility='public' and u.username is not null
+          and exists(select 1 from broadcasts b where b.round_id=n.round_id and b.completed_at is null and b.stopped_at is null))
         or (n.kind='recording_ready' and rc.status='ready'))`;
       const from = sql`from notifications n
         join rounds r on r.id=n.round_id

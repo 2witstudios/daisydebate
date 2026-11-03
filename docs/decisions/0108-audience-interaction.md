@@ -28,10 +28,11 @@ appears in an inbox. Its contract is the Round's:
   (`refuseRestricted`, point guard, 2026-11-03); reading stays open.
   Posting ends when the Broadcast completes or is stopped, which waits for its delay
   to pass. A Round with no Broadcast has no chat.
-- **The live room does not post.** Chat is not held, so what keeps outcomes out of it
-  is who may write: anyone ahead of the feed, meaning every seat, judges included, and
+- **The live room does not post or react.** Chat is not held, so what keeps outcomes out
+  of it is who may write: anyone ahead of the feed, meaning every seat, judges included, and
   a host with no seat (`round.observe.undelayed`), gets the typed refusal
-  `chat-live-room`, for the whole life of the chat. An event moderator or operator has
+  `chat-live-room`, for the whole life of the chat. Reactions take the same set and refuse
+  with `reactions-live-room` (point guard, 2026-11-03). An event moderator or operator has
   no account in this app. Someone with a second account is a matter for moderation.
 - **An unlisted Round** answers chat, reactions, counts, watch history and a report on
   it or on its messages by `audienceAdmits`, as every other read of it does: with no

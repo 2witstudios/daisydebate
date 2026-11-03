@@ -1,5 +1,6 @@
 import {
   recordingHiddenByModeration,
+  recordingLifecycleSchema,
   type RecordingLifecycle,
   type RecordingMedia,
 } from './recording';
@@ -193,6 +194,15 @@ describe('readiness', () => {
         media: { ...media, downloadKey: 'public/video.mp4' },
       }),
       expected: { kind: 'refused', reason: 'foreign_object' },
+    });
+    assert({
+      given: 'a key that climbs out of the prefix with a dot-dot segment',
+      should: 'refuse it at the schema',
+      actual: recordingLifecycleSchema.safeParse({
+        ...ready,
+        media: { ...media, downloadKey: `${prefix}../other/video.mp4` },
+      }).success,
+      expected: false,
     });
     assert({
       given: 'a late failure from an ambiguous vendor once ready',
@@ -449,6 +459,36 @@ describe('an evidence hold on a taken-down casual Recording', () => {
           requestedAt: heldUntil,
         },
       },
+    });
+    assert({
+      given: 'a moderation removal of a Recording not taken down, either class',
+      should: 'refuse: it is taken down first',
+      actual: [
+        apply(ready, {
+          type: 'removal_requested',
+          cause: 'moderation',
+          at: heldUntil,
+        }),
+        apply(
+          ready,
+          { type: 'removal_requested', cause: 'moderation', at: heldUntil },
+          'ranked',
+        ),
+      ],
+      expected: [
+        { kind: 'refused', reason: 'take_down_first' },
+        { kind: 'refused', reason: 'take_down_first' },
+      ],
+    });
+    assert({
+      given: 'a legal removal of a ranked Recording still up',
+      should: 'go at once on its legal ground',
+      actual: apply(
+        ready,
+        { type: 'removal_requested', cause: 'legal_removal', at: heldUntil },
+        'ranked',
+      ).kind,
+      expected: 'moved',
     });
     assert({
       given: 'an ordinary moderation removal with no hold',

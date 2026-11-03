@@ -192,3 +192,9 @@ the real pipeline, Egress and encoder CPU on Fly, startup, and end-to-end delay.
 - Live reads and listings stay closed to non-participants; the spectator timeline
   is the one read they get.
 - Staging LiveKit and Egress share a Redis, superseding DEC-228 for this purpose.
+- A Room that started reads as closed to someone outside it, so when it turned closed is known
+  undelayed, though not that it started. This is accepted: the read holds no horizon, and keeping
+  it `ready` would offer seats and commands that are refused.
+- Lobby discovery lists a live Round only to its seats and host, before search and paging, so a
+  search answers an outsider exactly as a miss does. A cursor at a Round outside a list's scope
+  reads as a missing one.

@@ -19,6 +19,7 @@ const audienceReactionRefusals = [
   'reactions-unavailable',
   'reactions-closed',
   'reactions-banned',
+  'reactions-live-room',
 ] as const;
 
 /** The start of the window a press falls in. */
@@ -27,10 +28,14 @@ export const reactionWindowOf = (at: string) =>
     Math.floor(Date.parse(at) / REACTION_WINDOW_MS) * REACTION_WINDOW_MS,
   ).toISOString();
 
-/** A ban covers all audience interaction; a Broadcast must be on to react to. */
+/**
+ * A ban covers all audience interaction; a Broadcast must be on to react to; and
+ * anyone in the live room is ahead of the feed, so takes no part while it runs.
+ */
 export const refuseAudienceReaction = (facts: {
   readonly broadcastOpen: boolean | null;
   readonly banned: boolean;
+  readonly inLiveRoom: boolean;
 }) => {
   const verdict = decideChatPost({
     banned: facts.banned,
@@ -43,6 +48,7 @@ export const refuseAudienceReaction = (facts: {
   if (facts.broadcastOpen === null)
     throw createRefusal('CONFLICT', 'reactions-unavailable');
   if (!facts.broadcastOpen) throw createRefusal('CONFLICT', 'reactions-closed');
+  if (facts.inLiveRoom) throw createRefusal('CONFLICT', 'reactions-live-room');
 };
 
 /** POST /api/rounds/:id/reactions: an account reacts to the Round. */

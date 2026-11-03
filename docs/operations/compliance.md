@@ -113,8 +113,10 @@ Erasure asks for every casual Recording the member sits in to go, whole
 (`recordingPrivacyAdopter`): the row records the deletion intent in the erasure's
 own transaction and the deletion sweep (`apps/web/src/server/recording-deletions.ts`)
 removes the objects, retrying until storage confirms. The row then stays as a
-tombstone holding only its Round, class and why it went. Moderation may take any
-Recording down, and may then remove it.
+tombstone holding its Round, class, why it went, its eligibility (for a casual one, the
+opting-in host's actor id) and its capture row's timings and Egress ids, with no media and no
+keys. Moderation may take any Recording down, and may then remove it; only a legal ground
+removes one still up.
 
 **Evidence retention.** A casual Recording already taken down, with an open report on it
 or its Round, survives erasure, hidden from everyone and not restorable, until the report

@@ -18,10 +18,10 @@ describe('refuseAudienceReaction', () => {
       given: 'an open Broadcast, a ban, none at all, and a closed one',
       should: 'allow only the first',
       actual: [
-        refusal({ broadcastOpen: true, banned: false }),
-        refusal({ broadcastOpen: true, banned: true }),
-        refusal({ broadcastOpen: null, banned: false }),
-        refusal({ broadcastOpen: false, banned: false }),
+        refusal({ broadcastOpen: true, banned: false, inLiveRoom: false }),
+        refusal({ broadcastOpen: true, banned: true, inLiveRoom: false }),
+        refusal({ broadcastOpen: null, banned: false, inLiveRoom: false }),
+        refusal({ broadcastOpen: false, banned: false, inLiveRoom: false }),
       ],
       expected: [
         null,
@@ -29,6 +29,17 @@ describe('refuseAudienceReaction', () => {
         'reactions-unavailable',
         'reactions-closed',
       ],
+    });
+  });
+});
+
+describe('refuseAudienceReaction, in the live room', () => {
+  test('anyone ahead of the feed takes no part while it is open', () => {
+    assert({
+      given: 'a place in the live room on an open Broadcast',
+      should: 'refuse with its own fixed word',
+      actual: refusal({ broadcastOpen: true, banned: false, inLiveRoom: true }),
+      expected: 'reactions-live-room',
     });
   });
 });

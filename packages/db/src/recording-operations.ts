@@ -1,6 +1,8 @@
 import type { RecordingClass, RecordingEligibility } from '@daisy/protocol';
 import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { endRoundFeed } from './broadcast-operations';
+import { openRecordingJobIfEgressRecorded } from './recording-processing-operations';
 import {
   moveRecording,
   type RecordingDecision,
@@ -41,6 +43,8 @@ export const recordingOperations = ({
         lifecycle: { status: 'requested' },
       })
       .onConflictDoNothing({ target: recordings.roundId });
+    // A Recording asked for after its Broadcast's Egress began knows its sources too.
+    await openRecordingJobIfEgressRecorded(database, input.roundId);
     const [row] = await database
       .select()
       .from(recordings)
@@ -73,6 +77,32 @@ export const recordingOperations = ({
     return database.transaction((tx) =>
       moveRecording(tx, id, decide, expectedVersion),
     );
+  },
+
+  /**
+   * A participant's removal: the caller's decision under the row lock, and when it
+   * moves, the end of the Round's open feed in the same transaction.
+   */
+  applyParticipantRemoval<Decision extends RecordingDecision>(
+    id: string,
+    decide: (record: StoredRecording) => Decision,
+    input: { readonly expectedVersion: number; readonly now: string },
+  ) {
+    return database.transaction(async (tx) => {
+      const applied = await moveRecording(
+        tx,
+        id,
+        decide,
+        input.expectedVersion,
+      );
+      if (applied.kind === 'decided' && applied.transition.kind === 'moved')
+        await endRoundFeed(tx, {
+          roundId: applied.record.roundId,
+          reason: 'recording_removed_by_participant',
+          now: new Date(input.now),
+        });
+      return applied;
+    });
   },
 
   /** Due deletions, leased with SKIP LOCKED so two workers never share one. */

@@ -16,6 +16,18 @@ const visitor: Identity = {
   principal: { kind: 'anonymous' },
 };
 
+test('a provisional identity with no username is offered no Follow', () => {
+  assert({
+    given: 'a signed-in account that has not claimed a username',
+    should: 'not offer what the route would refuse',
+    actual: followOfferedTo(
+      { state: 'member', username: null, principal } as never,
+      true,
+    ),
+    expected: false,
+  });
+});
+
 test('a profile offers Follow only where the route would take it', () => {
   assert({
     given: 'a member, a restricted account and a visitor, with Watch open',

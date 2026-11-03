@@ -24,7 +24,7 @@ export type DebaterFollowOutcome =
 
 /**
  * Following a debater (SPECT-1.4). `unavailable` is one answer for a name that
- * does not exist, for yourself and for a block, so a refusal reveals nothing.
+ * does not exist, for yourself, for a block and for a ban, so a refusal reveals nothing.
  */
 export const debaterFollowOperations = ({
   database,
@@ -51,11 +51,13 @@ export const debaterFollowOperations = ({
             where follower_user_id=${input.followerUserId} and debater_actor_id=${debater.id}`);
           return 'not_following' as const;
         }
-        const [blocked] = await rowsOf(
+        // A ban covers all audience interaction; letting a follow go stays open.
+        const [refused] = await rowsOf(
           tx,
-          sql`select 1 where ${blockedBetween(input.followerUserId, debater.id)}`,
+          sql`select 1 where ${blockedBetween(input.followerUserId, debater.id)}
+            or exists(select 1 from audience_bans x where x.user_id=${input.followerUserId})`,
         );
-        if (blocked) return 'unavailable' as const;
+        if (refused) return 'unavailable' as const;
         await tx.execute(sql`insert into debater_follows(follower_user_id,debater_actor_id)
           select u.id,${debater.id} from users u
           where u.id=${input.followerUserId} and u.deleted_at is null

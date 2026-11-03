@@ -48,6 +48,26 @@ describe('The capture choice', () => {
     });
   });
 
+  test('a host who lost the entitlement can still turn capture off', () => {
+    const html = render('premium', {
+      broadcast: null,
+      recording: true,
+    });
+    assert({
+      given: 'capture set and no entitlement any more',
+      should:
+        'post a native set-capture form with no choices in it, to clear it',
+      actual: [
+        html.includes('<form'),
+        html.includes('value="set-capture"'),
+        html.includes('Turn off'),
+        html.includes('name="broadcast"'),
+        html.includes('name="recording"'),
+      ],
+      expected: [true, true, true, false, false],
+    });
+  });
+
   test('an entitled host gets two separate choices in a native form', () => {
     const html = render('included');
     assert({

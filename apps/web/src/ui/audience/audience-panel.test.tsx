@@ -101,25 +101,37 @@ describe('AudiencePanel', () => {
     });
   });
 
+  test('new messages reach a screen reader politely', () => {
+    const html = render({ viewer: account });
+    assert({
+      given: 'the polled chat list',
+      should: 'sit in a polite log region',
+      actual: [
+        html.includes('role="log"'),
+        html.includes('aria-live="polite"'),
+      ],
+      expected: [true, true],
+    });
+  });
+
   test('someone in the live room is told why they cannot post', () => {
     const html = render({
       viewer: {
         kind: 'live-room',
-        react: account.react,
         reportMessage: account.reportMessage,
       },
     });
     assert({
       given: 'a debater, judge or seatless host on an open Round',
       should:
-        'offer no composer, say why plainly, and keep reacting and reporting',
+        'offer no composer and no reaction, say why plainly, and keep reporting',
       actual: {
         composer: html.includes('name="text"'),
         why: html.includes('you cannot post in its chat'),
         react: html.includes('name="kind"'),
         report: html.includes('value="chat_message"'),
       },
-      expected: { composer: false, why: true, react: true, report: true },
+      expected: { composer: false, why: true, react: false, report: true },
     });
   });
 

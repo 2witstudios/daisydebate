@@ -30,9 +30,8 @@ export type AudienceViewer =
       readonly reportMessage: (form: FormData) => void | Promise<void>;
     }
   | {
-      /** In the Round's live room: everything an account does, except post. */
+      /** In the Round's live room: reads and reports, and neither posts nor reacts. */
       readonly kind: 'live-room';
-      readonly react: FormStateAction;
       readonly reportMessage: (form: FormData) => void | Promise<void>;
     };
 
@@ -98,10 +97,7 @@ function ReactionBar({
 }) {
   const count = (kind: (typeof audienceReactionKinds)[number]) =>
     snapshot.reactions.find((row) => row.kind === kind)?.count ?? 0;
-  if (
-    (viewer.kind === 'account' || viewer.kind === 'live-room') &&
-    snapshot.interaction === 'open'
-  )
+  if (viewer.kind === 'account' && snapshot.interaction === 'open')
     return (
       <ActionForm
         action={viewer.react}

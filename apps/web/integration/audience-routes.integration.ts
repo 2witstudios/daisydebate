@@ -397,6 +397,53 @@ test('the reaction route’s rate limit runs on real Redis before any work', asy
   });
 });
 
+test('nobody in the live room can react: a seat or a seatless host', async () => {
+  await withRoomRuntime(async (f) => {
+    const roundId = await onAirRound(f);
+    const pressAs = (who: Parameters<typeof routes>[1]) =>
+      routes(f, who, () => NOW).reaction(
+        postTo(`/api/rounds/${roundId}/reactions`, {
+          version: 1,
+          kind: 'sharp_point',
+        }),
+      );
+    const outsider = await unadmitted(f);
+    const reasonOf = async (response: Response) => [
+      response.status,
+      response.status === 409
+        ? ((await response.json()) as { refusal?: string }).refusal
+        : null,
+    ];
+    const pressed = async () =>
+      (
+        (await f.sql`select count(*)::int as c from audience_reactions where round_id=${roundId}`) as {
+          c: number;
+        }[]
+      )[0]!.c;
+    try {
+      assert({
+        given:
+          'a debater who is also its host, a seated guest, and an outsider',
+        should: 'refuse both in the room by name and take the outsider press',
+        actual: {
+          host: await reasonOf(await pressAs(() => f.host as never)),
+          guest: await reasonOf(await pressAs(() => f.guest as never)),
+          outsider: (await pressAs(() => outsider)).ok,
+          pressed: await pressed(),
+        },
+        expected: {
+          host: [409, 'reactions-live-room'],
+          guest: [409, 'reactions-live-room'],
+          outsider: true,
+          pressed: 1,
+        },
+      });
+    } finally {
+      await cleanup(f, roundId, [outsider.userId]);
+    }
+  });
+});
+
 test('a seat reads what the rule gives it, from the real store', async () => {
   await withRoomRuntime(async (f) => {
     const roundId = await onAirRound(f, true);

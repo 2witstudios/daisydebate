@@ -43,8 +43,13 @@ const joins = sql`left join actors h on h.id=r.host_actor_id left join users u o
 const hostIsHumanJudge = sql`(h.kind='human' and exists(select 1 from room_participants j where j.room_id=r.id and j.actor_id=r.host_actor_id and j.role='judge'))`;
 const visible = (caller: Caller) =>
   sql`(r.visibility='public' or r.host_actor_id=${caller.actorId} or exists(select 1 from room_participants p where p.room_id=r.id and p.actor_id=${caller.actorId} limit 1 offset 0))`;
-const roundVisible = (caller: Caller) =>
-  sql`(d.visibility in ('public','unlisted') or d.created_by_actor_id=${caller.actorId} or exists(select 1 from round_participants p where p.round_id=d.id and p.actor_id=${caller.actorId} limit 1 offset 0))`;
+/**
+ * A live Round is only ever listed to who is in it, and scoped here, before search
+ * and paging, so a search for its resolution or host answers an outsider exactly as a
+ * miss does (WATCH-6). The audience reaches a live Round through the Live listing.
+ */
+const inLaunchedRound = (caller: Caller) =>
+  sql`(r.host_actor_id=${caller.actorId} or d.created_by_actor_id=${caller.actorId} or exists(select 1 from round_participants p where p.round_id=d.id and p.actor_id=${caller.actorId} limit 1 offset 0))`;
 /** The open-Room states a status filter selects; live Rooms come from their Round. */
 const assemblyStatuses = (status: RoomListQuery['status']) =>
   status === 'open'
@@ -123,7 +128,7 @@ export async function discoverRooms(
     union all
     (select r.id,r.created_at from rounds d join rooms r on r.id=d.room_id ${joins}
       where ${launched} and ${modeMatches(mode)} and d.status in ('opening','active') and d.room_id is not null and r.status='started'
-        and ${order.after} and ${visible(caller)} and ${roundVisible(caller)} and ${search(q, launchedTopic)}
+        and ${order.after} and ${visible(caller)} and ${inLaunchedRound(caller)} and ${search(q, launchedTopic)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
   ) candidates order by created_at ${order.direction},id collate "C" ${order.direction} limit ${pageSize + 1}
  `)) as unknown as { id: string }[];
@@ -160,7 +165,7 @@ export async function discoverRooms(
   left join round_participants rp on rp.round_id=d.id and rp.actor_id=${caller.actorId}
   where r.id=any(${idSet}) and ${visible(caller)} and ${search(q, launchedTopic)}
    and ${modeMatches(mode)}
-   and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${roundVisible(caller)}))
+   and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${inLaunchedRound(caller)}))
   order by r.created_at ${order.direction},r.id collate "C" ${order.direction}
  `)) as unknown as (Omit<RoomListEntry, 'waitingSince' | 'live'> & {
     waitingSince: Date | string | null;

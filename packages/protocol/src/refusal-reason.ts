@@ -24,6 +24,7 @@ type AudienceRefusal =
   | 'reactions-unavailable'
   | 'reactions-closed'
   | 'reactions-banned'
+  | 'reactions-live-room'
   | 'follow-unavailable'
   | 'account-restricted';
 

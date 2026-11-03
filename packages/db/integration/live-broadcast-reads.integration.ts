@@ -108,6 +108,37 @@ const withLive = async (
   }
 };
 
+test('a cursor at a Round whose start is held tells nothing of it', async () => {
+  await withLive(async ({ add, raw, mine }) => {
+    const listed = await add({ startedAt: ago(900) });
+    const onLive = await add({ startedAt: ago(300) });
+    const held = await add({ startedAt: ago(5) });
+    const pageBefore = async (before: string) =>
+      (
+        await raw.listLiveBroadcasts({
+          filter: NEVER,
+          before,
+          clock,
+          limit: 100,
+        })
+      ).rows
+        .map((row) => row.id)
+        .filter((id) => mine.has(id));
+    assert({
+      given: 'a cursor at a public Round the audience has not yet seen start',
+      should: 'answer nothing, however old the rest of the page',
+      actual: await pageBefore(held.roundId),
+      expected: [],
+    });
+    assert({
+      given: 'a cursor at one on Live',
+      should: 'page past it',
+      actual: await pageBefore(onLive.roundId),
+      expected: [listed.roundId],
+    });
+  });
+});
+
 test('only a public Round whose start the audience has reached is on Live', async () => {
   await withLive(async ({ add, list }) => {
     const live = await add({});

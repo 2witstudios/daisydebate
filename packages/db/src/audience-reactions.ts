@@ -51,6 +51,7 @@ export const audienceReactionOperations = ({
     allow: (facts: {
       readonly broadcastOpen: boolean | null;
       readonly banned: boolean;
+      readonly inLiveRoom: boolean;
     }) => void,
   ) {
     return instrumented(eventSink, 'recordAudienceReaction', () =>
@@ -84,6 +85,7 @@ export const audienceReactionOperations = ({
         allow({
           broadcastOpen: round.has_broadcast ? round.open : null,
           banned: round.banned,
+          inLiveRoom: round.in_live_room,
         });
         // A closed account writes nothing, even if it was closed a moment ago.
         await tx.execute(sql`insert into audience_reactions(id,round_id,user_id,kind,spaced_at,created_at)

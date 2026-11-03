@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   check,
+  index,
   integer,
   pgTable,
   text,
@@ -43,6 +44,9 @@ export const recordingCaptures = pgTable(
   },
   (table) => [
     uniqueIndex('recording_captures_round_unique').on(table.roundId),
+    index('recording_captures_open_idx')
+      .on(table.recordingId)
+      .where(sql`${table.endedAt} is null`),
     check(
       'recording_captures_counters_check',
       sql`${table.egressGeneration} >= 0 and ${table.revocationFailures} >= 0`,

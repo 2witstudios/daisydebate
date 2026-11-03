@@ -1,4 +1,5 @@
 import {
+  broadcastHoldPrefix,
   publicIntervals,
   recordingJobStateSchema,
   type PublicInterval,
@@ -47,6 +48,29 @@ export const openRecordingJob = async (
       state: { status: 'waiting' },
     })
     .onConflictDoNothing({ target: jobs.recordingId });
+};
+
+/**
+ * A Broadcast's Egress is writing: the Round's Recording, whatever its lifecycle, knows
+ * where. A removal between the Egress and the next capture pass still reaches what it
+ * left. Nothing happens with no Recording or no Egress yet.
+ */
+export const openRecordingJobIfEgressRecorded = async (
+  tx: Pick<Tx, 'execute'>,
+  roundId: string,
+) => {
+  const found =
+    (await tx.execute(sql`select rec.id as "recordingId", b.id as "broadcastId"
+    from recordings rec join broadcasts b on b.round_id=rec.round_id
+    where rec.round_id=${roundId} and b.egress_id is not null`)) as unknown as readonly {
+      readonly recordingId: string;
+      readonly broadcastId: string;
+    }[];
+  for (const { recordingId, broadcastId } of found)
+    await tx.execute(sql`insert into recording_processing_jobs
+        (recording_id, hold_prefix, status, state)
+      values (${recordingId}, ${broadcastHoldPrefix(broadcastId)}, 'waiting', ${JSON.stringify(recordingJobStateSchema.parse({ status: 'waiting' }))}::text::jsonb)
+      on conflict (recording_id) do nothing`);
 };
 
 /** Capture ended: the worker may now read this many attempts. Only from `waiting`. */
