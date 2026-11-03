@@ -52,8 +52,8 @@ export const fakeRecordingStore = (
         .filter((row) => row.lifecycle.status === 'removing')
         .slice(0, limit)
         .map((record) => ({ record, attempts: due.get(record.id) ?? 0 })),
-    deferDeletion: async (id, retryAt) => {
-      due.set(id, (due.get(id) ?? 0) + 1);
+    deferDeletion: async (id, { retryAt, failed }) => {
+      if (failed) due.set(id, (due.get(id) ?? 0) + 1);
       deferred.push({ id, retryAt });
     },
     listFailedBefore: async ({ limit }) =>

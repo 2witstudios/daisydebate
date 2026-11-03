@@ -99,12 +99,21 @@ export const runDeletionSweep = async (deps: {
         );
         removedRecordings += 1;
       } else if (keys.length === 0) {
-        await store.deferDeletion(record.id, deletionRetryAt(nowMs, 5));
+        await store.deferDeletion(record.id, {
+          retryAt: deletionRetryAt(nowMs, 5),
+          failed: false,
+        });
       } else {
-        await store.deferDeletion(record.id, new Date(nowMs).toISOString());
+        await store.deferDeletion(record.id, {
+          retryAt: new Date(nowMs).toISOString(),
+          failed: false,
+        });
       }
     } catch {
-      await store.deferDeletion(record.id, deletionRetryAt(nowMs, attempts));
+      await store.deferDeletion(record.id, {
+        retryAt: deletionRetryAt(nowMs, attempts),
+        failed: true,
+      });
       deferred += 1;
     }
   }

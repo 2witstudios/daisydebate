@@ -60,10 +60,14 @@ export type RecordingStore = {
     readonly leaseUntil: string;
     readonly limit: number;
   }) => Promise<readonly RecordingDeletionClaim[]>;
-  /** A failed attempt: the intent stays, and comes due again at `retryAt`. */
+  /**
+   * Releases the lease; the intent stays and comes due again at `retryAt`. Only
+   * a failure counts towards backoff, so a large Recording is not slowed by the
+   * batches it needs.
+   */
   readonly deferDeletion: (
     recordingId: string,
-    retryAt: string,
+    input: { readonly retryAt: string; readonly failed: boolean },
   ) => Promise<void>;
   /** Failed Recordings older than `before`, whose partial objects can go. */
   readonly listFailedBefore: (input: {
