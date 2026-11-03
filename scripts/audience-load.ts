@@ -6,13 +6,13 @@
  *   bun scripts/audience-load.ts --origin <url> --round <id> --viewers 1000 --seconds 120
  *   bun scripts/audience-load.ts floor <log file>
  *
- * Each viewer polls the timeline and the audience snapshot (chat, reactions and
- * count) every 2 s, so N viewers are N requests a second. It sends no cookie, as a
- * viewer of a public Round does, and it is open loop: a slow server does not slow
+ * A viewer's polls read the public bucket and reach no process of ours. This sends
+ * what still reaches web: the Round's public page, once per viewer per
+ * `--every-seconds`. It sends no cookie, as a viewer of a public Round does, and it
+ * is open loop: a slow server does not slow
  * it, which is what a real crowd does.
  */
-const VIEWER_POLL_SECONDS = 2;
-const ROUTES_PER_VIEWER = 2;
+const VIEWER_EVERY_SECONDS = 2;
 const TICK_MS = 10;
 /** Past this many unanswered it counts a request as skipped rather than exhaust itself. */
 const MAX_IN_FLIGHT = 4096;
@@ -41,6 +41,7 @@ export const parseLoadPlan = (args: readonly string[]): LoadPlan => {
   const roundId = optionOf(args, 'round') ?? '';
   const viewers = Number(optionOf(args, 'viewers') ?? 1000);
   const seconds = Number(optionOf(args, 'seconds') ?? 120);
+  const every = Number(optionOf(args, 'every-seconds') ?? VIEWER_EVERY_SECONDS);
   if (!URL.canParse(origin) || !LOADABLE_HOSTS.has(new URL(origin).hostname))
     throw new Error(`Refusing to load ${origin}: only local and staging`);
   if (roundId === '') throw new Error('--round is required');
@@ -49,7 +50,7 @@ export const parseLoadPlan = (args: readonly string[]): LoadPlan => {
   return {
     origin,
     roundId,
-    requestsPerSecond: (viewers * ROUTES_PER_VIEWER) / VIEWER_POLL_SECONDS,
+    requestsPerSecond: viewers / every,
     seconds,
   };
 };
@@ -137,10 +138,7 @@ export const summarizeFloorLog = (lines: readonly string[]) => {
 };
 
 const runLoad = async (plan: LoadPlan) => {
-  const urls = ['timeline', 'audience'].map(
-    (route) =>
-      `${plan.origin}/api/rounds/${encodeURIComponent(plan.roundId)}/${route}`,
-  );
+  const urls = [`${plan.origin}/watch/${encodeURIComponent(plan.roundId)}`];
   const samples: Sample[] = [];
   let sent = 0;
   let skipped = 0;

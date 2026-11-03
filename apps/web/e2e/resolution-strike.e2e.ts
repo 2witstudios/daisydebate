@@ -1,4 +1,3 @@
-import { request } from '@playwright/test';
 import { aiCast } from './support/ai-cast';
 import { drawCapableBounds } from '@daisy/protocol/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -6,7 +5,6 @@ import {
   roomCatalogChoiceSchema,
   roomViewSchema,
   roundViewSchema,
-  spectatorTimelineSchema,
   type RoomView,
 } from '@daisy/protocol';
 import { expect, openPage, test } from './support/fixtures';
@@ -307,24 +305,6 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     await expect(
       page.getByRole('button', { name: 'End prep', exact: true }),
     ).toHaveCount(0);
-    // A visitor's request carries no session, and reads only what is released.
-    const visitor = await request.newContext({ baseURL: origin });
-    const snapshot = await visitor.get(`/api/rounds/${roundId}/timeline`);
-    const released = spectatorTimelineSchema.parse(await snapshot.json());
-    expect({
-      status: snapshot.status(),
-      cookie: snapshot.headers()['set-cookie'],
-      cache: snapshot.headers()['cache-control'],
-      resolution: released.resolution,
-      result: released.result,
-    }).toEqual({
-      status: 200,
-      cookie: undefined,
-      cache: 'public, max-age=1, s-maxage=1, stale-while-revalidate=1',
-      resolution: null,
-      result: null,
-    });
-    await visitor.dispose();
     expect((await read()).topic).toBe(survivor);
   } finally {
     await accounts.closeContexts();
