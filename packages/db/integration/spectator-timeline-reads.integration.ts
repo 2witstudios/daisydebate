@@ -132,7 +132,7 @@ test('after a takedown the text is hidden from the audience', async () => {
   await withLiveRound('ranked', async (read, { client, roundId }) => {
     const id = createId();
     const at = spoken.toISOString();
-    await client`insert into recordings (id,round_id,class,status,eligibility,lifecycle)
+    await client`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle)
       values (${id},${roundId},'ranked','taken_down',
         jsonb_build_object('kind','ranked'),
         ${JSON.stringify({ status: 'taken_down', takenDownAt: at, held: null })}::text::jsonb)`;

@@ -768,8 +768,8 @@ test('the worker can tell whether a Recording will clear a hold, and no more', a
     });
     const none = await readRecordingKeepsHold(db, id);
     const recordingId = createId();
-    await client`insert into recordings (id,round_id,class,status,eligibility,lifecycle)
-      values (${recordingId},${roundId},'casual','requested',
+    await client`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle)
+      values (${recordingId},${roundId},'ranked','requested',
         jsonb_build_object('kind','ranked'),
         jsonb_build_object('status','requested','eligibility',jsonb_build_object('kind','ranked')))`;
     const one = await readRecordingKeepsHold(db, id);
