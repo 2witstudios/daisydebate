@@ -37,6 +37,8 @@ test(
         format_version: 1,
       });
       await f.participant(roundId, 'affirmative', 0, actor);
+      // A human judge with no ballot: the completion guard would refuse this row.
+      await f.participant(roundId, 'judge', 0, await f.actor());
       const seasonId = createId();
       await f.insert('seasons', {
         id: seasonId,
@@ -66,10 +68,10 @@ test(
         {
           command_id: commandId,
           round_id: roundId,
-          service_id: `round-finalization:${createId()}`,
-          type: 'complete',
+          actor_id: actor,
+          type: 'submit_ballot',
           payload_digest: 'a'.repeat(64),
-          result: { outcome: 'draw', ruling: 'judges-split' },
+          result: { outcome: 'draw', ballotId: 'b'.repeat(24) },
           resulting_version: 2,
           applied_at: at,
         },
@@ -81,17 +83,20 @@ test(
         (select result from round_commands where command_id=${commandId}) as result,
         (select count(*)::int from rating_changes where round_id=${roundId}) as postings,
         (select count(*)::int from information_schema.columns
-          where table_name='ballots' and column_name='status') as "statusColumn"`;
+          where table_name='ballots' and column_name='status') as "statusColumn",
+        (select tgenabled from pg_trigger
+          where tgname='rounds_winnerless_completion_check') as guard`;
       assert({
-        given: 'a rated draw and its completion receipt',
+        given: 'a rated draw and its ballot receipt',
         should:
-          'read as a tie does now: no outcome, no posting, and the ruling kept',
+          'hold no outcome and no posting, its receipt still parsing, the guard enabled again',
         actual: row,
         expected: {
           outcome: null,
-          result: { outcome: null, ruling: 'judges-split' },
+          result: { outcome: null, ballotId: 'b'.repeat(24) },
           postings: 0,
           statusColumn: 0,
+          guard: 'O',
         },
       });
       const refused =

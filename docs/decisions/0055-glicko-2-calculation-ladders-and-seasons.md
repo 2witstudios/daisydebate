@@ -46,7 +46,7 @@ so history is never rewritten.
 ### 2. One debate is one period for each side
 
 Each side is rated against the other's state from before the debate, never
-against the other's new state. A win scores 1, a draw 0.5, a loss 0. An
+against the other's new state. A win scores 1, a loss 0; a tie has no outcome and rates nothing (DEC-277). An
 abandoned debate never rates. A forfeit has a side outcome (ADR 0033) and
 rates exactly like a judged result, so rating reads `outcome` and ignores
 `outcome_reason`.

@@ -159,7 +159,7 @@ test('authenticated ballot JSON/native POST and protected GET share actual froze
           same: JSON.stringify(receipt) === JSON.stringify(replay),
           location: native.headers.get('location'),
           outcome: receipt.outcome,
-          own: after.own?.ballot !== null,
+          own: Boolean(after.own?.ballot),
           ballots: after.ballots.length,
           assigned: assigned
             .filter((a) => a.roundId === roundId)

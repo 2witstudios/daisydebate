@@ -60,7 +60,7 @@ describe('rateDebate', () => {
     });
   });
 
-  test('mirrors a negative win and holds a draw between equals', () => {
+  test('mirrors a negative win', () => {
     const negativeWin = rateDebate({
       affirmative: newcomer,
       negative: newcomer,

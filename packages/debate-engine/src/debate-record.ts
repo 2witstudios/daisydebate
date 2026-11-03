@@ -15,7 +15,7 @@ type RecordedRound = {
 /**
  * The one rule for what a Round means to one seat's record (ISSUE-600).
  * Only a completed Round counts, and only for a debating seat. The outcome
- * names the side that won or a draw; a forfeit completes with the other
+ * names the side that won; a forfeit completes with the other
  * side's outcome, so it is a win for the side that stayed and a loss for
  * the forfeiter. A completed Round with no outcome is `no-ruling`, never a
  * loss: a loss needs the other side named. Abandoned, scheduled and live
