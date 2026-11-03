@@ -17,7 +17,7 @@ test('an expected missing stream can close partial and its closure cannot be rew
     );
     try {
       await fixture.sql.unsafe(
-        "insert into transcript_segments (round_id, segment_id, round_participant_id, state, chunk_count, sealed_chunk_count, sealed_at) values ($1,$2,$3,'partial',0,0,clock_timestamp())",
+        "insert into transcript_segments (round_id, segment_id, round_participant_id, state, partial_reasons, chunk_count, sealed_chunk_count, sealed_at) values ($1,$2,$3,'partial','{never-sealed}',0,0,clock_timestamp())",
         [roundId, segmentId, seat.id],
       );
       assert({

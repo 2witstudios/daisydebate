@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { cutCaptureClips } from '@daisy/media/clips';
+import { cutCaptureClips } from './capture-clips';
 import type { ClipCarries } from './capture-batch';
 import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
 import { closeCaptureSession } from './capture-drain';
@@ -105,7 +105,10 @@ async function close(
     roundId,
     enqueue: (clip) => {
       inFlight++;
-      queue.push({ ...clip, bytes: clip.wav.byteLength });
+      queue.push({
+        ...clip,
+        bytes: clip.kind === 'audible' ? clip.wav.byteLength : 0,
+      });
     },
     inFlight: () => inFlight,
     halt: () => halt.abort(),

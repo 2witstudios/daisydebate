@@ -16,6 +16,7 @@ export const frozen = {
       segmentId: 'segment',
       roundParticipantId: 'seat',
       state: 'partial' as const,
+      partialReasons: ['frames-lost' as const],
       chunkCount: 1,
       sealedChunkCount: null,
       sealedAt: null,

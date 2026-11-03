@@ -4,7 +4,7 @@ import {
   captureMutationReply,
   sealReply,
   tokenReply,
-} from './worker-replies';
+} from '@daisy/protocol';
 import { unavailable } from './worker-response';
 import {
   createSignedWorkerCall,

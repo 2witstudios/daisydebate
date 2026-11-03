@@ -1,5 +1,5 @@
+import { captureRule } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
-import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol';
 import type { BoundedTransaction } from '../src/bounded-transaction';
 import { mediaCaptureOperations } from '../src/media-capture';
 import type { Fixture } from './constraint-helpers';
@@ -50,7 +50,7 @@ export async function historicalCapture(
   const store = mediaCaptureOperations({
     transaction,
     sttLagMs,
-    coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
+    captureRule,
     nextId: createId,
     buildProjection: () => {
       throw new Error(
