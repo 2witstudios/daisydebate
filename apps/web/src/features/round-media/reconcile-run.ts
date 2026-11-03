@@ -304,9 +304,12 @@ export function createMediaReconcileRun(
     } finally {
       try {
         const state = await snapshot(claim.roundId);
-        if (!cleanupAttempted && uncertain(state))
+        if (!cleanupAttempted && uncertain(state)) {
           absenceProof = await removeRoom(claim);
+          clean &&= absenceProof !== null;
+        }
       } catch (error) {
+        clean = false;
         failure ??= { error };
       }
       await input.store.finishMediaReconcile({

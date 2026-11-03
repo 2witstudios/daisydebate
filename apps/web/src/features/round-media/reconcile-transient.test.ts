@@ -77,3 +77,42 @@ test('a vendor-mutation write that loses its connection defers the pass, and the
     },
   });
 });
+
+test('a pass whose closing read fails is not recorded as finished', async () => {
+  const { world } = await live();
+  const store = world.input.store;
+  const recorded: boolean[] = [];
+  let reads = 0;
+  let readsAtFinish = 0;
+  let failAt = Infinity;
+  const watched = createRoundMediaOperations({
+    ...world.input,
+    store: {
+      ...store,
+      readMediaSession: (async (
+        ...args: Parameters<typeof store.readMediaSession>
+      ) => {
+        if (++reads === failAt) throw Error('dropped');
+        return store.readMediaSession(...args);
+      }) as typeof store.readMediaSession,
+      finishMediaReconcile: (async (
+        ...args: Parameters<typeof store.finishMediaReconcile>
+      ) => {
+        readsAtFinish = reads;
+        recorded.push(args[0].clean);
+        return store.finishMediaReconcile(...args);
+      }) as typeof store.finishMediaReconcile,
+    },
+  });
+  const start = reads;
+  await watched.recoverActiveSessions();
+  // The closing read is the last one before finish; repeat the pass and fail it.
+  failAt = reads + (readsAtFinish - start);
+  await watched.recoverActiveSessions();
+  assert({
+    given: 'a clean pass, then the same pass with its closing read failing',
+    should: 'record the first as finished and the second as not',
+    actual: recorded,
+    expected: [true, false],
+  });
+});
