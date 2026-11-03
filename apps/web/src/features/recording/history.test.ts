@@ -125,6 +125,16 @@ describe('the report target', () => {
       actual: [recorded.reportTarget.targetKind, recorded.reportTarget.label],
       expected: ['recording', 'Report this recording'],
     });
+    assert({
+      given: 'a Round that was never recorded',
+      should: 'report the Round',
+      actual: (await history({ lifecycle: null })).reportTarget,
+      expected: {
+        targetKind: 'round',
+        targetId: round.id,
+        label: 'Report this round',
+      },
+    });
   });
 });
 

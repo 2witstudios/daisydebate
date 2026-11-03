@@ -175,7 +175,11 @@ test('every public and member read holds a ranked outcome until release', async 
           result: held.timeline.result,
           captions: held.timeline.captions,
         },
-        expected: { stage: { kind: 'slate' }, result: null, captions: [] },
+        expected: {
+          stage: { kind: 'slate', moment: 'before_first_speech' },
+          result: null,
+          captions: [],
+        },
       });
       assert({
         given: 'the snapshot body before release',
