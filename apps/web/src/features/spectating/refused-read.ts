@@ -29,10 +29,10 @@ export const answerUnlessRefused = async (
  * What a page shows beside the audience never outranks the page: a refused read
  * only leaves `fallback` for this render. Any other failure still throws.
  */
-export const readUnlessRefused = async <T>(
+export const readUnlessRefused = async <T, Fallback>(
   read: () => Promise<T>,
-  fallback: T,
-): Promise<T> => {
+  fallback: Fallback,
+): Promise<T | Fallback> => {
   try {
     return await read();
   } catch (error) {
