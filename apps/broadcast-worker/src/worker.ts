@@ -3,6 +3,7 @@ import {
   broadcastHoldPrefix,
   broadcastLivePrefix,
   holdAttemptPrefix,
+  publicIntervals,
 } from '@daisy/protocol';
 import { encoderArgs } from './encoder';
 import { masterPlaylist, RENDITIONS } from './hold-manifest';
@@ -104,17 +105,35 @@ export const runWorker = async (deps: {
               roundEndedAtMs: facts.finalMediaEndAt?.getTime() ?? null,
               finalMediaEndMs: facts.finalMediaEndAt?.getTime() ?? null,
               heartbeatMs: facts.controlHeartbeatAt?.getTime() ?? null,
-              controlLapses: facts.controlLapses.lapses,
+              publicIntervals: publicIntervals(
+                await store.readPublicHistory(job.id),
+                facts.controlHeartbeatAt?.getTime() ?? null,
+              ),
             },
             {
               readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
-              encode: async ({ name, capturedAtMs }) => {
+              encode: async ({
+                source,
+                offsetMs,
+                capturedAtMs,
+                durationMs,
+              }) => {
                 encoded = true;
+                const { name } = source;
                 const input = `${dir}/${name}`;
                 const output = (r: string) => `${dir}/${r}.ts`;
                 await objects.copyHoldToFile(`${hold}${name}`, input);
                 const code = await Bun.spawn(
-                  [...encoderArgs(input, output, capturedAtMs)],
+                  [
+                    ...encoderArgs(
+                      input,
+                      output,
+                      capturedAtMs,
+                      durationMs === source.durationMs
+                        ? undefined
+                        : { offsetMs, durationMs },
+                    ),
+                  ],
                   {
                     stderr: 'ignore',
                   },

@@ -15,7 +15,10 @@ const later = new Date('2026-11-02T00:01:00.000Z');
 
 const withLiveRound = async (
   competitionType: 'ranked' | 'casual',
-  run: (read: (horizonMs: number | null) => Promise<unknown>) => Promise<void>,
+  run: (
+    read: (horizonMs: number | null) => Promise<unknown>,
+    round: { readonly client: SQL; readonly roundId: string },
+  ) => Promise<void>,
 ) => {
   const client = new SQL(databaseUrl, { max: 2 });
   try {
@@ -53,8 +56,10 @@ const withLiveRound = async (
         database: drizzle({ client }),
       });
       try {
-        await run((horizonMs) =>
-          readSpectatorTimeline({ roundId, horizonOf: () => horizonMs }),
+        await run(
+          (horizonMs) =>
+            readSpectatorTimeline({ roundId, horizonOf: () => horizonMs }),
+          { client, roundId },
         );
       } finally {
         await client`delete from utterances where round_id=${roundId}`;
@@ -97,6 +102,28 @@ test('a non-ranked Round has no captions (DEC-301)', async () => {
       should: 'caption nothing',
       actual: captions(await read(margin(later))),
       expected: [],
+    });
+  });
+});
+
+test('a line on a segment still open past the last heartbeat waits, like its media', async () => {
+  await withLiveRound('ranked', async (read, { client, roundId }) => {
+    const id = createId();
+    await client`insert into broadcasts (id,round_id,feed_key,release_policy,egress_id,control_heartbeat_at)
+      values (${id},${roundId},${createId()},${JSON.stringify({ kind: 'delay', seconds: 60 })}::jsonb,'EG',${new Date(spoken.getTime() - 1000)})`;
+    const unheard = captions(await read(margin(spoken)));
+    await client`update broadcasts set control_heartbeat_at=${spoken} where id=${id}`;
+    const heard = captions(await read(margin(spoken)));
+    await client`update broadcasts set control_heartbeat_at=${new Date(spoken.getTime() - 1000)} where id=${id}`;
+    await client`update round_segments set ended_at=${later} where round_id=${roundId}`;
+    const closed = captions(await read(margin(spoken)));
+    await client`delete from broadcasts where id=${id}`;
+    assert({
+      given:
+        'the line past the last heartbeat, then heard, then unheard on a closed segment',
+      should: 'hold it, then caption it, and a commit proves it too',
+      actual: [unheard, heard, closed],
+      expected: [[], ['An early line'], ['An early line']],
     });
   });
 });

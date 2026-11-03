@@ -364,7 +364,7 @@ describe('answerRecordingJob', () => {
       given: 'a queued job while processing',
       should: 'wait for the worker',
       actual: answer(
-        { status: 'queued', attemptCount: 1, controlLapses: [] },
+        { status: 'queued', attemptCount: 1, publicIntervals: [] },
         processing,
       ),
       expected: null,
@@ -394,7 +394,7 @@ describe('answerRecordingJob', () => {
       given: 'a running build when removal is asked',
       should: 'discard, which fences that build',
       actual: answer(
-        { status: 'queued', attemptCount: 1, controlLapses: [] },
+        { status: 'queued', attemptCount: 1, publicIntervals: [] },
         removing,
       ),
       expected: { type: 'discard-sources' },

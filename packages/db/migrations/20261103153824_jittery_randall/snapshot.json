@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "3023df18-5f1e-4e91-a20c-e081f5002aee",
+  "id": "c94edfdc-8501-488a-b90a-a0702c8f83b4",
   "prevIds": [
     "aac0910e-0c95-4008-bbe7-57e859bca3ce"
   ],
@@ -2459,19 +2459,6 @@
       "generated": null,
       "identity": null,
       "name": "control_heartbeat_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "broadcasts"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'{\"lapses\":[]}'",
-      "generated": null,
-      "identity": null,
-      "name": "control_lapses",
       "entityType": "columns",
       "schema": "public",
       "table": "broadcasts"
@@ -7386,19 +7373,6 @@
       "generated": null,
       "identity": null,
       "name": "control_heartbeat_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "recording_captures"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'{\"lapses\":[]}'",
-      "generated": null,
-      "identity": null,
-      "name": "control_lapses",
       "entityType": "columns",
       "schema": "public",
       "table": "recording_captures"
@@ -23145,13 +23119,6 @@
       "table": "broadcasts"
     },
     {
-      "value": "jsonb_typeof(\"control_lapses\") = 'object'",
-      "name": "broadcasts_control_lapses_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "broadcasts"
-    },
-    {
       "value": "\"release_policy\"->>'kind' in ('delay','round_end','at')",
       "name": "broadcasts_release_policy_check",
       "entityType": "checks",
@@ -24193,13 +24160,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "seasons"
-    },
-    {
-      "value": "jsonb_typeof(\"control_lapses\") = 'object'",
-      "name": "recording_captures_control_lapses_is_object",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "recording_captures"
     },
     {
       "value": "\"egress_generation\" >= 0 and \"revocation_failures\" >= 0",

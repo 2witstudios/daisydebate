@@ -121,6 +121,9 @@ const holdSegments = async (
   );
 };
 
+/** Tests of the build itself: nothing in these Rounds is private. */
+const ALL_PUBLIC = [{ fromMs: 0, toMs: 2 ** 52 }];
+
 const durationOf = async (path: string) => {
   const text = await runCommand(new AbortController().signal)([
     'ffprobe',
@@ -159,7 +162,7 @@ const greenAt = async (path: string, seconds: number) => {
   return green / (bytes.length / 3);
 };
 
-test('a control lapse is cut from a whole attempt and stated, never built', async () => {
+test('what is not public is cut from a whole attempt, stated, and never built', async () => {
   const { hold, recordings, ports } = await setup('lapse');
   // One clean attempt of 24 s, whole file included, with a lapse in the middle.
   await holdSegments(join(hold, 'hold/b/1'), T0, 24);
@@ -168,23 +171,27 @@ test('a control lapse is cut from a whole attempt and stated, never built', asyn
     recordingId: 'rec',
     holdPrefix: 'hold/b/',
     attemptCount: 1,
-    controlLapses: [{ fromMs: T0 + 10_000, toMs: T0 + 14_000 }],
+    publicIntervals: [
+      { fromMs: T0, toMs: T0 + 10_000 },
+      { fromMs: T0 + 14_000, toMs: T0 + 24_000 },
+    ],
   });
   if (state.status !== 'built') throw new Error(`state ${state.status}`);
   const { media } = state;
   const [gap] = media.gaps;
   const video = join(recordings, 'recordings/rec/video.mp4');
   assert({
-    given: 'a lapse of 4 s inside an attempt that left a whole file',
-    should:
-      'state a control_lapse gap covering it, and show no picture from it',
+    given: '4 s not public inside an attempt that left a whole file',
+    should: 'state exactly that gap, keeping the rest, with no picture from it',
     actual: [
       media.gaps.map((one) => one.reason),
-      gap!.startMs <= 9000,
-      gap!.endMs >= 15_000,
+      Math.abs(gap!.startMs - 10_000) < 200,
+      Math.abs(gap!.endMs - 14_000) < 200,
       (await greenAt(video, 12)) < 60,
+      (await greenAt(video, 9)) > 60,
+      (await greenAt(video, 15)) > 60,
     ],
-    expected: [['control_lapse'], true, true, true],
+    expected: [['not_public'], true, true, true, true, true],
   });
 });
 
@@ -200,7 +207,7 @@ test('a crashed attempt, a gap and a clean attempt become one honest video', asy
     recordingId: 'rec',
     holdPrefix: 'hold/b/',
     attemptCount: 2,
-    controlLapses: [],
+    publicIntervals: ALL_PUBLIC,
   });
   if (state.status !== 'built') throw new Error(`state ${state.status}`);
   const { media } = state;
@@ -269,7 +276,7 @@ test('a crashed attempt, a gap and a clean attempt become one honest video', asy
     recordingId: 'rec',
     holdPrefix: 'hold/b/',
     attemptCount: 2,
-    controlLapses: [],
+    publicIntervals: ALL_PUBLIC,
   });
   assert({
     given: 'the build repeated after a crash',
@@ -290,7 +297,7 @@ test('one clean attempt is that file, not encoded again', async () => {
     recordingId: 'rec',
     holdPrefix: 'hold/b/',
     attemptCount: 1,
-    controlLapses: [],
+    publicIntervals: ALL_PUBLIC,
   });
   assert({
     given: 'one attempt',
@@ -320,7 +327,7 @@ test('a corrupt whole file falls back to its segments', async () => {
     recordingId: 'rec',
     holdPrefix: 'hold/b/',
     attemptCount: 1,
-    controlLapses: [],
+    publicIntervals: ALL_PUBLIC,
   });
   assert({
     given: 'a whole file ffprobe cannot read and intact segments',
@@ -352,7 +359,7 @@ test('an attempt with no audio joins with silence, so the video stays whole', as
     recordingId: 'rec',
     holdPrefix: 'hold/b/',
     attemptCount: 2,
-    controlLapses: [],
+    publicIntervals: ALL_PUBLIC,
   });
   const streams = await runCommand(new AbortController().signal)([
     'ffprobe',
@@ -387,7 +394,7 @@ test('capture that left nothing reports no media', async () => {
       recordingId: 'rec',
       holdPrefix: 'hold/b/',
       attemptCount: 2,
-      controlLapses: [],
+      publicIntervals: ALL_PUBLIC,
     }),
     expected: {
       status: 'failed',

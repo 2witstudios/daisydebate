@@ -1,8 +1,4 @@
-import {
-  outsideControlLapses,
-  type ControlLapse,
-  type HoldEntry,
-} from '@daisy/protocol';
+import type { HoldEntry } from '@daisy/protocol';
 
 /**
  * Which held media of one attempt to build from. The whole file is written only
@@ -31,31 +27,6 @@ export const segmentsSource = (
   return first
     ? { kind: 'segments', startedAtMs: first.capturedAtMs, entries: present }
     : { kind: 'absent' };
-};
-
-/**
- * What of one attempt may be built when lapses touch it: each unbroken run of what
- * lies outside them. The whole file is never used then, since it holds the lapse.
- */
-export const runsOutsideLapses = (
-  entries: readonly HoldEntry[],
-  heldNames: ReadonlySet<string>,
-  lapses: readonly ControlLapse[],
-): readonly AttemptSource[] => {
-  const kept = new Set(outsideControlLapses(entries, lapses));
-  const runs: HoldEntry[][] = [];
-  let open = false;
-  for (const entry of entries) {
-    if (!kept.has(entry)) open = false;
-    else if (open) runs.at(-1)!.push(entry);
-    else {
-      runs.push([entry]);
-      open = true;
-    }
-  }
-  return runs
-    .map((run) => segmentsSource(run, heldNames))
-    .filter((source) => source.kind !== 'absent');
 };
 
 /** Media with no capture time has no honest place in the timeline, so it is left out. */
