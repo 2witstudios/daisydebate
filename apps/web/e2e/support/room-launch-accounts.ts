@@ -1,6 +1,7 @@
 import type { Browser } from '@playwright/test';
 import { origin, signUpMember } from './accounts';
 import { createLaunchContexts } from './room-launch-contexts';
+import { rideRefusals } from './ride-refusals';
 import { settleLeftRounds } from './settle-left-round';
 
 /** Use only in a dedicated suite-owned Launch slot, retained until proof release. */
@@ -10,7 +11,14 @@ export async function createRoomLaunchAccounts(
 ) {
   const accounts = await createLaunchContexts(
     count,
-    () => browser.newContext({ baseURL: origin, ignoreHTTPSErrors: false }),
+    async () => {
+      const context = await browser.newContext({
+        baseURL: origin,
+        ignoreHTTPSErrors: false,
+      });
+      rideRefusals(context);
+      return context;
+    },
     (context) => signUpMember(context.request),
   );
   let closing: Promise<void> | undefined;

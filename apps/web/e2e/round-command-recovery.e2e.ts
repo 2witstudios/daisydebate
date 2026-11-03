@@ -1,7 +1,12 @@
 import type { Locator } from '@playwright/test';
 import { openPage } from './support/fixtures';
 import { test, expect } from './support/round-files';
-import { controlLaunch } from './support/room-launch-settled';
+import { createHumanBallotRound } from './support/human-ballot-round';
+import { createRoomLaunchAccounts } from './support/room-launch-accounts';
+import {
+  closeSettledLaunchContexts,
+  controlLaunch,
+} from './support/room-launch-settled';
 import { roundViewSchema } from '@daisy/protocol';
 test.use({ roundCommands: true });
 
@@ -258,5 +263,29 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
     }).toPass({ timeout: 30_000 });
   } finally {
     await native.close();
+  }
+});
+
+test("a test's own read rides out a refusal, and still sees one that lasts", async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 2);
+  try {
+    const round = await createHumanBallotRound(accounts.members, 0);
+    const { request } = accounts.members[0]!.context;
+    await controlLaunch('refuse-round-reads');
+    try {
+      const lasting = await request.get(`/api/rounds/${round.id}`);
+      expect(lasting.status()).toBe(503);
+      const passing = request.get(`/api/rounds/${round.id}`);
+      // Refused at once, so this is between its first ask and the next, 1 s later.
+      await new Promise((done) => setTimeout(done, 300));
+      await controlLaunch('allow-round-reads');
+      expect((await passing).status()).toBe(200);
+    } finally {
+      await controlLaunch('allow-round-reads');
+    }
+  } finally {
+    await closeSettledLaunchContexts(accounts);
   }
 });
