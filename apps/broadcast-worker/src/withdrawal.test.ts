@@ -1,5 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { withdrawalKeys, withdrawFeed } from './withdrawal';
+import {
+  FEED_END_GRACE_MS,
+  runFeedWithdrawals,
+  withdrawalKeys,
+  withdrawFeed,
+} from './withdrawal';
 
 setupRitewayBun();
 
@@ -69,6 +74,131 @@ describe('Withdrawing a finished Broadcast', () => {
       should: 'delete every key before recording it, and not complete it again',
       actual: [log[0], log.at(-1), log.includes('complete')],
       expected: ['live/b/master.m3u8', 'withdrawn', false],
+    });
+  });
+});
+
+describe('Deleting a long feed', () => {
+  test('every manifest goes before any segment, a bounded batch at a time', async () => {
+    let inFlight = 0;
+    let most = 0;
+    const order: string[] = [];
+    await withdrawFeed(
+      {
+        feedKey: 'b',
+        nextSegment: 99,
+        finalMediaEndAt: null,
+        completedAt: null,
+      },
+      {
+        deletePublic: async (key) => {
+          order.push(key);
+          inFlight += 1;
+          most = Math.max(most, inFlight);
+          await Promise.resolve();
+          inFlight -= 1;
+        },
+        recordWithdrawn: async () => {},
+        complete: async () => {},
+      },
+    );
+    assert({
+      given: 'a hundred segments in three renditions',
+      should: 'delete manifests first and run batches, not one at a time',
+      actual: [
+        order.slice(0, 4).every((key) => key.endsWith('.m3u8')),
+        order.length,
+        most,
+      ],
+      expected: [true, 304, 32],
+    });
+  });
+});
+
+describe('The withdrawal loop', () => {
+  const edges = { now: () => 120_000, sleep: async () => {} };
+
+  test('takes down a claimed feed without a release slot', async () => {
+    const deleted: string[] = [];
+    const withdrawn: string[] = [];
+    const claims: Date[] = [];
+    let polls = 0;
+    await runFeedWithdrawals({
+      ...edges,
+      owner: 'w',
+      stopped: () => polls >= 2,
+      report: () => {},
+      objects: {
+        deletePublic: async (key: string) => {
+          deleted.push(key);
+        },
+      } as never,
+      store: {
+        claimWithdrawal: async (input: {
+          readonly withdrawFinishedBefore: Date;
+        }) => {
+          polls += 1;
+          claims.push(input.withdrawFinishedBefore);
+          return polls === 1
+            ? {
+                id: 'b',
+                feedKey: 'b',
+                nextSegment: 1,
+                finalMediaEndAt: new Date(1),
+                completedAt: new Date(2),
+              }
+            : null;
+        },
+        recordFeedWithdrawn: async ({ id }: { readonly id: string }) => {
+          withdrawn.push(id);
+        },
+      } as never,
+    });
+    assert({
+      given: 'a claim returning a finished Broadcast',
+      should: 'ask only for those past the grace, delete it and record it',
+      actual: [claims[0], deleted[0], withdrawn],
+      expected: [
+        new Date(120_000 - FEED_END_GRACE_MS),
+        'live/b/master.m3u8',
+        ['b'],
+      ],
+    });
+  });
+
+  test('a failed delete does not end the loop', async () => {
+    const reports: string[] = [];
+    let polls = 0;
+    await runFeedWithdrawals({
+      ...edges,
+      owner: 'w',
+      stopped: () => polls >= 2,
+      report: (event) => reports.push(event),
+      objects: {
+        deletePublic: async () => {
+          throw new Error('storage down');
+        },
+      } as never,
+      store: {
+        claimWithdrawal: async () => {
+          polls += 1;
+          return polls === 1
+            ? {
+                id: 'b',
+                feedKey: 'b',
+                nextSegment: 0,
+                finalMediaEndAt: null,
+                completedAt: null,
+              }
+            : null;
+        },
+      } as never,
+    });
+    assert({
+      given: 'a delete that fails, then another poll',
+      should: 'report it and keep polling',
+      actual: [polls, reports],
+      expected: [2, ['broadcast.withdrawal_failed']],
     });
   });
 });

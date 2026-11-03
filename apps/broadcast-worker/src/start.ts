@@ -3,6 +3,7 @@ import { createLogger } from '@daisy/logger';
 import { createId } from '@paralleldrive/cuid2';
 import { readWorkerConfig } from './config';
 import { createObjects } from './objects';
+import { runFeedWithdrawals } from './withdrawal';
 import { runWorker } from './worker';
 
 // The deployment edge: the real environment, clock and process signals.
@@ -27,17 +28,19 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const)
   process.on(signal, () => {
     stopping = true;
   });
-await Promise.all(
-  Array.from({ length: config.BROADCAST_WORKER_SLOTS }, () =>
-    runWorker({
-      owner: createId(),
-      store,
-      objects,
-      now: Date.now,
-      sleep: Bun.sleep,
-      stopped: () => stopping,
-      report: (event) => logger.log(event, {}, 'Broadcast worker failure'),
-    }),
+const edges = {
+  store,
+  objects,
+  now: Date.now,
+  sleep: Bun.sleep,
+  stopped: () => stopping,
+  report: (event: 'broadcast.release_failed' | 'broadcast.withdrawal_failed') =>
+    logger.log(event, {}, 'Broadcast worker failure'),
+};
+await Promise.all([
+  runFeedWithdrawals({ ...edges, owner: createId() }),
+  ...Array.from({ length: config.BROADCAST_WORKER_SLOTS }, () =>
+    runWorker({ ...edges, owner: createId() }),
   ),
-);
+]);
 await store.close();

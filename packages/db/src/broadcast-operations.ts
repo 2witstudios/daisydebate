@@ -8,6 +8,7 @@ import {
   isNull,
   lte,
   or,
+  type SQL,
   sql,
 } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -45,32 +46,20 @@ export const openBroadcast = async (
   return row!;
 };
 
-/**
- * Takes the oldest Broadcast with work left whose lease is free: an open one, or
- * a finished one whose public objects are still up once `withdrawFinishedBefore`
- * has passed its completion. The epoch fences the last owner.
- */
-export const claimBroadcast = async (
-  tx: Tx,
-  input: {
-    readonly owner: string;
-    readonly now: Date;
-    readonly leaseUntil: Date;
-    readonly withdrawFinishedBefore: Date;
-  },
-) => {
+type ClaimLease = {
+  readonly owner: string;
+  readonly now: Date;
+  readonly leaseUntil: Date;
+};
+
+/** Takes the oldest free row of `work`. The epoch fences the last owner. */
+const claimOldestFree = async (tx: Tx, work: SQL, input: ClaimLease) => {
   const [free] = await tx
     .select({ id: broadcasts.id })
     .from(broadcasts)
     .where(
       and(
-        or(
-          isNull(broadcasts.completedAt),
-          and(
-            isNull(broadcasts.feedWithdrawnAt),
-            lte(broadcasts.completedAt, input.withdrawFinishedBefore),
-          ),
-        ),
+        work,
         or(
           isNull(broadcasts.leaseUntil),
           lte(broadcasts.leaseUntil, input.now),
@@ -92,6 +81,46 @@ export const claimBroadcast = async (
     .returning();
   return claimed!;
 };
+
+/** Takes the oldest Broadcast still releasing whose lease is free. */
+export const claimBroadcast = (tx: Tx, input: ClaimLease) =>
+  claimOldestFree(
+    tx,
+    and(isNull(broadcasts.completedAt), isNull(broadcasts.stoppedAt))!,
+    input,
+  );
+
+/**
+ * Takes the oldest Broadcast whose public feed must go, apart from release
+ * claims so a takedown never waits for a Round to free a slot: a stopped one at
+ * once, a completed one once `withdrawFinishedBefore` has passed its completion,
+ * and a stopped one again once its Egress is known gone, so it can complete. A
+ * lease still held means a live holder, which sees the stop at its next renewal,
+ * or a dead one, which expires: taking it sooner could let that holder's last
+ * upload land after the delete.
+ */
+export const claimFeedWithdrawal = (
+  tx: Tx,
+  input: ClaimLease & { readonly withdrawFinishedBefore: Date },
+) =>
+  claimOldestFree(
+    tx,
+    or(
+      and(
+        isNull(broadcasts.feedWithdrawnAt),
+        or(
+          isNotNull(broadcasts.stoppedAt),
+          lte(broadcasts.completedAt, input.withdrawFinishedBefore),
+        ),
+      ),
+      and(
+        isNotNull(broadcasts.stoppedAt),
+        isNull(broadcasts.completedAt),
+        isNotNull(broadcasts.finalMediaEndAt),
+      ),
+    )!,
+    input,
+  );
 
 const held = (id: string, owner: string, epoch: number) =>
   and(

@@ -2,6 +2,7 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import {
   claimBroadcast,
+  claimFeedWithdrawal,
   completeBroadcast,
   recordFeedWithdrawn,
   recordHoldAdvanced,
@@ -20,6 +21,8 @@ export const createBroadcastWorkerStore = (url: string) => {
   return {
     claim: (input: Parameters<typeof claimBroadcast>[1]) =>
       database.transaction((tx) => claimBroadcast(tx, input)),
+    claimWithdrawal: (input: Parameters<typeof claimFeedWithdrawal>[1]) =>
+      database.transaction((tx) => claimFeedWithdrawal(tx, input)),
     recordReleased: (input: Parameters<typeof recordSegmentReleased>[1]) =>
       recordSegmentReleased(database, input),
     recordAdvanced: (input: Parameters<typeof recordHoldAdvanced>[1]) =>

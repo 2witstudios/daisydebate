@@ -1,5 +1,7 @@
+import type { createBroadcastWorkerStore } from '@daisy/db/broadcast-worker';
 import { broadcastLivePrefix, officialFeedPath } from '@daisy/protocol';
 import { RENDITIONS } from './hold-manifest';
+import type { createObjects } from './objects';
 
 /**
  * A finished Broadcast's public objects stay this long after completion, for its
@@ -10,6 +12,11 @@ import { RENDITIONS } from './hold-manifest';
  * source when the Round ends.
  */
 export const FEED_END_GRACE_MS = 60_000;
+
+/** Deletes at once: two hours of segments are gone in seconds, not minutes. */
+const DELETE_BATCH = 32;
+const WITHDRAWAL_LEASE_MS = 30_000;
+const IDLE_MS = 500;
 
 /**
  * Every public object a Broadcast can have, manifests first so no player is told
@@ -54,9 +61,62 @@ export const withdrawFeed = async (
     readonly complete: () => Promise<void>;
   },
 ): Promise<void> => {
-  for (const key of withdrawalKeys(job.feedKey, job.nextSegment))
-    await ports.deletePublic(key);
+  const keys = withdrawalKeys(job.feedKey, job.nextSegment);
+  const manifests = keys.filter((key) => key.endsWith('.m3u8'));
+  await Promise.all(manifests.map(ports.deletePublic));
+  const segments = keys.filter((key) => !key.endsWith('.m3u8'));
+  for (let at = 0; at < segments.length; at += DELETE_BATCH)
+    await Promise.all(
+      segments.slice(at, at + DELETE_BATCH).map(ports.deletePublic),
+    );
   await ports.recordWithdrawn();
   if (job.completedAt === null && job.finalMediaEndAt !== null)
     await ports.complete();
+};
+
+type WithdrawalDeps = {
+  readonly store: ReturnType<typeof createBroadcastWorkerStore>;
+  readonly objects: ReturnType<typeof createObjects>;
+  readonly now: () => number;
+};
+
+/** What withdrawing this Broadcast touches, for whichever loop holds it. */
+export const feedWithdrawalPorts = (id: string, deps: WithdrawalDeps) => ({
+  deletePublic: (key: string) => deps.objects.deletePublic(key),
+  recordWithdrawn: async () => {
+    await deps.store.recordFeedWithdrawn({ id, at: new Date(deps.now()) });
+  },
+  complete: async () => {
+    await deps.store.complete({ id, at: new Date(deps.now()) });
+  },
+});
+
+/**
+ * Takes feeds down, one per machine and apart from the release slots: a slot is
+ * held for a whole Round, and a takedown must not wait for one. It never encodes,
+ * so it is free unless it is already deleting another feed.
+ */
+export const runFeedWithdrawals = async (
+  deps: WithdrawalDeps & {
+    readonly owner: string;
+    readonly sleep: (ms: number) => Promise<void>;
+    readonly stopped: () => boolean;
+    readonly report: (event: 'broadcast.withdrawal_failed') => void;
+  },
+) => {
+  while (!deps.stopped()) {
+    try {
+      const job = await deps.store.claimWithdrawal({
+        owner: deps.owner,
+        now: new Date(deps.now()),
+        leaseUntil: new Date(deps.now() + WITHDRAWAL_LEASE_MS),
+        withdrawFinishedBefore: new Date(deps.now() - FEED_END_GRACE_MS),
+      });
+      if (job) await withdrawFeed(job, feedWithdrawalPorts(job.id, deps));
+      else await deps.sleep(IDLE_MS);
+    } catch {
+      deps.report('broadcast.withdrawal_failed');
+      await deps.sleep(IDLE_MS);
+    }
+  }
 };

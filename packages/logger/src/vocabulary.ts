@@ -54,6 +54,7 @@ export const eventRegistry = {
   'media.discovery.failed': 'error',
   'media.capture.failed': 'error',
   'broadcast.release_failed': 'error',
+  'broadcast.withdrawal_failed': 'error',
   'recording.processing_failed': 'error',
   'recording.processing_gave_up': 'error',
   'recording.source_discard_failed': 'error',

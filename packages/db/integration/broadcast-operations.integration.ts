@@ -1,6 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -8,6 +9,7 @@ import {
   recordEgressStarted,
   recordFeedWithdrawn,
   claimBroadcast,
+  claimFeedWithdrawal,
   claimBroadcastReconcile,
   completeBroadcast,
   discoverUnopenedBroadcastRounds,
@@ -22,6 +24,7 @@ import {
   renewBroadcastLease,
   stopBroadcast,
 } from '../src/broadcast-operations';
+import { broadcasts } from '../src/schema/broadcasts';
 import { withFixture } from './constraint-helpers';
 
 setupRitewayBun();
@@ -29,6 +32,7 @@ const { databaseUrl } = requireTestServices(process.env);
 const policy = { kind: 'delay', seconds: 60 } as const;
 const now = new Date('2026-11-02T00:00:00.000Z');
 const later = new Date('2026-11-02T00:01:00.000Z');
+const past = new Date('2026-11-01T00:00:00.000Z');
 
 const withOps = async (
   run: (
@@ -105,7 +109,6 @@ test('workers cannot both hold a Broadcast, and an expired lease fences the last
           owner,
           now: at,
           leaseUntil: until,
-          withdrawFinishedBefore: at,
         }),
       );
     const claims = await Promise.all(
@@ -155,7 +158,6 @@ test('the cursor only moves forward and the watermark never recedes', async () =
         owner: 'w',
         now,
         leaseUntil: later,
-        withdrawFinishedBefore: now,
       }),
     ))!;
     const record = (segment: number, mediaEnd: Date) =>
@@ -236,7 +238,6 @@ test('a held lease renews with fresh facts, and refuses a fenced owner', async (
         owner: 'w',
         now,
         leaseUntil: later,
-        withdrawFinishedBefore: now,
       }),
     ))!;
     await recordFinalMediaEnd(db, { id: open.id, at: now });
@@ -423,7 +424,7 @@ test('discovery finds ranked Rounds and casual Rounds whose host chose a Broadca
   });
 });
 
-test('a finished Broadcast is claimed once more to withdraw its feed, after its grace', async () => {
+test('a completed Broadcast is claimed to withdraw its feed once its grace passes', async () => {
   await withOps(async (db, roundId) => {
     const open = await openBroadcast(db, {
       id: createId(),
@@ -433,7 +434,7 @@ test('a finished Broadcast is claimed once more to withdraw its feed, after its 
     });
     const claim = (withdrawFinishedBefore: Date) =>
       db.transaction((tx) =>
-        claimBroadcast(tx, {
+        claimFeedWithdrawal(tx, {
           owner: 'w',
           now,
           leaseUntil: now,
@@ -455,6 +456,87 @@ test('a finished Broadcast is claimed once more to withdraw its feed, after its 
         after?.id === open.id,
       ],
       expected: [false, true, false],
+    });
+  });
+});
+
+test('a stopped Broadcast goes to withdrawal at once and to no release slot', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    await db
+      .update(broadcasts)
+      .set({ stoppedAt: now, stopReason: 'technical' })
+      .where(eq(broadcasts.id, open.id));
+    const lease = { owner: 'w', now, leaseUntil: now };
+    const toRelease = await db.transaction((tx) => claimBroadcast(tx, lease));
+    const toWithdraw = () =>
+      db.transaction((tx) =>
+        claimFeedWithdrawal(tx, { ...lease, withdrawFinishedBefore: past }),
+      );
+    const first = await toWithdraw();
+    await recordFeedWithdrawn(db, { id: open.id, at: now });
+    const waitingOnEgress = await toWithdraw();
+    await db
+      .update(broadcasts)
+      .set({ finalMediaEndAt: now })
+      .where(eq(broadcasts.id, open.id));
+    const toComplete = await toWithdraw();
+    await completeBroadcast(db, { id: open.id, at: now });
+    const finished = await toWithdraw();
+    assert({
+      given: 'a stop, a withdrawal, the Egress gone, then completion',
+      should:
+        'never release it, withdraw it at once, wait, finish it, then leave it',
+      actual: [
+        toRelease?.id === open.id,
+        first?.id === open.id,
+        waitingOnEgress?.id === open.id,
+        toComplete?.id === open.id,
+        finished?.id === open.id,
+      ],
+      expected: [false, true, false, true, false],
+    });
+  });
+});
+
+test('withdrawal waits out a lease still held', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    await db
+      .update(broadcasts)
+      .set({
+        stoppedAt: now,
+        stopReason: 'technical',
+        leaseOwner: 'holder',
+        leaseUntil: later,
+      })
+      .where(eq(broadcasts.id, open.id));
+    const at = (when: Date) =>
+      db.transaction((tx) =>
+        claimFeedWithdrawal(tx, {
+          owner: 'w',
+          now: when,
+          leaseUntil: when,
+          withdrawFinishedBefore: past,
+        }),
+      );
+    const held = await at(now);
+    const expired = await at(later);
+    assert({
+      given: 'a stopped Broadcast leased until later',
+      should: 'leave it to its holder until the lease expires',
+      actual: [held?.id === open.id, expired?.id === open.id],
+      expected: [false, true],
     });
   });
 });

@@ -8,15 +8,16 @@ import { encoderArgs } from './encoder';
 import { masterPlaylist, RENDITIONS } from './hold-manifest';
 import type { createObjects } from './objects';
 import { releaseStep } from './release-step';
-import { FEED_END_GRACE_MS, withdrawFeed } from './withdrawal';
+import { feedWithdrawalPorts, withdrawFeed } from './withdrawal';
 
 const LEASE_MS = 30_000;
 const RENEW_MS = 5_000;
 const IDLE_MS = 500;
 
 /**
- * One slot: claims a Broadcast and holds it until it completes, renewing the
- * lease and reading fresh facts as it goes. A crash loses nothing: the cursor is
+ * One slot: claims a releasing Broadcast and holds it until it completes, renewing
+ * the lease and reading fresh facts as it goes. A stop seen at renewal is withdrawn
+ * here; an unheld one goes to `runFeedWithdrawals`. A crash loses nothing: the cursor is
  * durable, another slot takes over after the lease, and the same segment is
  * simply released again. Run several slots per machine.
  */
@@ -37,31 +38,12 @@ export const runWorker = async (deps: {
         owner: deps.owner,
         now: new Date(deps.now()),
         leaseUntil: new Date(deps.now() + LEASE_MS),
-        withdrawFinishedBefore: new Date(deps.now() - FEED_END_GRACE_MS),
       })
       .catch(() => {
         deps.report('broadcast.release_failed');
         return null;
       });
     if (!job) {
-      await deps.sleep(IDLE_MS);
-      continue;
-    }
-    const withdraw = (facts: typeof job) =>
-      withdrawFeed(facts, {
-        deletePublic: (key) => objects.deletePublic(key),
-        recordWithdrawn: async () => {
-          await store.recordFeedWithdrawn({
-            id: job.id,
-            at: new Date(deps.now()),
-          });
-        },
-        complete: async () => {
-          await store.complete({ id: job.id, at: new Date(deps.now()) });
-        },
-      });
-    if (job.stoppedAt !== null || job.completedAt !== null) {
-      await withdraw(job).catch(() => deps.report('broadcast.release_failed'));
       await deps.sleep(IDLE_MS);
       continue;
     }
@@ -87,7 +69,7 @@ export const runWorker = async (deps: {
             facts = row;
             renewedAt = deps.now();
             if (facts.stoppedAt !== null) {
-              await withdraw(facts);
+              await withdrawFeed(facts, feedWithdrawalPorts(job.id, deps));
               break;
             }
           }
