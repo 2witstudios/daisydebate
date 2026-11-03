@@ -70,93 +70,99 @@ export const runWorker = async (deps: {
       let facts = job;
       let renewedAt = deps.now();
       while (!deps.stopped() && facts.completedAt === null) {
-        if (deps.now() - renewedAt >= RENEW_MS) {
-          const row = await store.renew({
-            id: job.id,
-            owner: deps.owner,
-            epoch: job.leaseEpoch,
-            leaseUntil: new Date(deps.now() + LEASE_MS),
-          });
-          if (!row) break;
-          facts = row;
-          renewedAt = deps.now();
-          if (facts.stoppedAt !== null) {
-            await withdraw(facts);
-            break;
+        // A failed step keeps the job: dropping it waits out this worker's own lease.
+        try {
+          if (deps.now() - renewedAt >= RENEW_MS) {
+            const row = await store.renew({
+              id: job.id,
+              owner: deps.owner,
+              epoch: job.leaseEpoch,
+              leaseUntil: new Date(deps.now() + LEASE_MS),
+            });
+            if (!row) break;
+            facts = row;
+            renewedAt = deps.now();
+            if (facts.stoppedAt !== null) {
+              await withdraw(facts);
+              break;
+            }
           }
-        }
-        const hold = `hold/${job.id}/${generation}/`;
-        const result = await releaseStep(
-          {
-            policy: facts.releasePolicy,
-            nextSegment: next,
-            holdCursor: cursor,
-            attemptIndex: generation - 1,
-            laterAttemptStartedMs:
-              facts.egressGeneration > generation
-                ? (facts.egressStartedAt?.getTime() ?? 0)
-                : null,
-            streamEnded: facts.streamEndedAt !== null,
-            nowMs: deps.now(),
-            roundEndedAtMs: facts.finalMediaEndAt?.getTime() ?? null,
-            finalMediaEndMs: facts.finalMediaEndAt?.getTime() ?? null,
-          },
-          {
-            readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
-            encode: async ({ name, capturedAtMs }) => {
-              const input = `/tmp/${job.id}-${name}`;
-              const output = (r: string) => `/tmp/${job.id}-${r}.ts`;
-              await objects.copyHoldToFile(`${hold}${name}`, input);
-              const code = await Bun.spawn(
-                [...encoderArgs(input, output, capturedAtMs)],
-                {
-                  stderr: 'ignore',
-                },
-              ).exited;
-              if (code !== 0) throw new Error(`encoder exited ${code}`);
-              return RENDITIONS.map((r) => ({
-                rendition: r.name,
-                file: output(r.name),
-              }));
+          const hold = `hold/${job.id}/${generation}/`;
+          const result = await releaseStep(
+            {
+              policy: facts.releasePolicy,
+              nextSegment: next,
+              holdCursor: cursor,
+              attemptIndex: generation - 1,
+              laterAttemptStartedMs:
+                facts.egressGeneration > generation
+                  ? (facts.egressStartedAt?.getTime() ?? 0)
+                  : null,
+              streamEnded: facts.streamEndedAt !== null,
+              nowMs: deps.now(),
+              roundEndedAtMs: facts.finalMediaEndAt?.getTime() ?? null,
+              finalMediaEndMs: facts.finalMediaEndAt?.getTime() ?? null,
             },
-            publishSegment: (seq, rendition, file) =>
-              objects.putSegment(`${live}${rendition}/seg-${seq}.ts`, file),
-            publishManifest: (key, text) =>
-              objects.putManifest(`${live}${key}`, text),
-            recordReleased: (segment, mediaEndMs) =>
-              store.recordReleased({
-                id: job.id,
-                owner: deps.owner,
-                epoch: job.leaseEpoch,
-                segment,
-                mediaEnd: new Date(mediaEndMs),
-              }),
-            recordEnded: (mediaEndMs) =>
-              store.recordEnded({
-                id: job.id,
-                owner: deps.owner,
-                epoch: job.leaseEpoch,
-                mediaEnd: new Date(mediaEndMs),
-                now: new Date(deps.now()),
-              }),
-            recordAdvanced: () =>
-              store.recordAdvanced({
-                id: job.id,
-                owner: deps.owner,
-                epoch: job.leaseEpoch,
-              }),
-          },
-        );
-        if (result.kind === 'fenced') break;
-        if (result.kind === 'released') {
-          next += 1;
-          cursor += 1;
-        } else if (result.kind === 'advanced') {
-          generation += 1;
-          cursor = 0;
-        } else if (result.kind === 'ended')
-          facts = { ...facts, streamEndedAt: new Date(deps.now()) };
-        else await deps.sleep(IDLE_MS);
+            {
+              readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
+              encode: async ({ name, capturedAtMs }) => {
+                const input = `/tmp/${job.id}-${name}`;
+                const output = (r: string) => `/tmp/${job.id}-${r}.ts`;
+                await objects.copyHoldToFile(`${hold}${name}`, input);
+                const code = await Bun.spawn(
+                  [...encoderArgs(input, output, capturedAtMs)],
+                  {
+                    stderr: 'ignore',
+                  },
+                ).exited;
+                if (code !== 0) throw new Error(`encoder exited ${code}`);
+                return RENDITIONS.map((r) => ({
+                  rendition: r.name,
+                  file: output(r.name),
+                }));
+              },
+              publishSegment: (seq, rendition, file) =>
+                objects.putSegment(`${live}${rendition}/seg-${seq}.ts`, file),
+              publishManifest: (key, text) =>
+                objects.putManifest(`${live}${key}`, text),
+              recordReleased: (segment, mediaEndMs) =>
+                store.recordReleased({
+                  id: job.id,
+                  owner: deps.owner,
+                  epoch: job.leaseEpoch,
+                  segment,
+                  mediaEnd: new Date(mediaEndMs),
+                }),
+              recordEnded: (mediaEndMs) =>
+                store.recordEnded({
+                  id: job.id,
+                  owner: deps.owner,
+                  epoch: job.leaseEpoch,
+                  mediaEnd: new Date(mediaEndMs),
+                  now: new Date(deps.now()),
+                }),
+              recordAdvanced: () =>
+                store.recordAdvanced({
+                  id: job.id,
+                  owner: deps.owner,
+                  epoch: job.leaseEpoch,
+                }),
+            },
+          );
+          if (result.kind === 'fenced') break;
+          if (result.kind === 'released') {
+            next += 1;
+            cursor += 1;
+          } else if (result.kind === 'advanced') {
+            generation += 1;
+            cursor = 0;
+          } else if (result.kind === 'ended')
+            facts = { ...facts, streamEndedAt: new Date(deps.now()) };
+          else await deps.sleep(IDLE_MS);
+        } catch {
+          deps.report('broadcast.release_failed');
+          await deps.sleep(IDLE_MS);
+        }
       }
     } catch {
       deps.report('broadcast.release_failed');
