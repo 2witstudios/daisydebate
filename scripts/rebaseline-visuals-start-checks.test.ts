@@ -10,13 +10,14 @@ setDefaultTimeout(30_000);
 
 /**
  * Runs the approval step against a stub `gh` answering `pulls` and `runs`.
- * `failOnce` fails the first call of that kind, as a transient API error does.
+ * `failOnce` fails the first call of that kind, as a transient API error does,
+ * and `stale head` answers the first lookup with an older pull request head.
  * Returns the exit status and each run the step asked GitHub to approve.
  */
 const approveRun = (
   pulls: unknown[],
   runs: unknown[],
-  failOnce?: 'pulls' | 'runs' | 'approve' | 'every approve',
+  failOnce?: 'pulls' | 'runs' | 'approve' | 'every approve' | 'stale head',
   pushed = true,
 ) => {
   const step = workflow.jobs['start-checks']!.steps.find(
@@ -31,12 +32,16 @@ const approveRun = (
           : failOnce === kind
             ? `[ -e '${dir}/failed' ] || { touch '${dir}/failed'; exit 1; }; `
             : '';
+      const staleHead =
+        failOnce === 'stale head'
+          ? `[ -e '${dir}/stale' ] || { touch '${dir}/stale'; echo '${JSON.stringify(openPull('b'.repeat(40)))}'; exit 0; }; `
+          : '';
       writeFileSync(join(dir, 'calls'), '');
       return {
         stubs: {
           gh: `echo "$*" >> '${dir}/calls'
 case "$*" in
-  *"/pulls?state=open&head=owner:pu/lobby") ${fail('pulls')}echo '${JSON.stringify(pulls)}' ;;
+  *"/pulls?state=open&head=owner:pu/lobby") ${fail('pulls')}${staleHead}echo '${JSON.stringify(pulls)}' ;;
   *"/actions/workflows/ci.yml/runs?per_page=100") ${fail('runs')}echo '${JSON.stringify({ workflow_runs: runs })}' ;;
   *"/approve") ${fail('approve')}: ;;
 esac`,
@@ -170,12 +175,32 @@ describe('Rebaseline visuals start-checks', () => {
     });
   });
 
-  test('every approval refused', () => {
+  test('a fresh push that reads as the old head for a moment', () => {
     assert({
-      given: 'GitHub refusing every approval of a held run',
-      should: 'fail rather than end green with CI held',
-      actual: runApprove(openPull(), [held(11)], 'every approve').ok,
+      given: 'a first lookup that reads an older head, then the pushed one',
+      should: 'look again and approve the held run',
+      actual: runApprove(openPull(), [held(11)], 'stale head'),
+      expected: { ok: true, approved: ['11'] },
+    });
+  });
+
+  test('a stale read followed by no CI run', () => {
+    assert({
+      given: 'a first lookup that reads an older head, and CI never appearing',
+      should: 'fail, because the branch did not move past the pushed head',
+      actual: runApprove(openPull(), [], 'stale head').ok,
       expected: false,
+    });
+  });
+
+  test('every approval refused', () => {
+    const refused = (pushed: boolean) =>
+      runApprove(openPull(), [held(11)], 'every approve', pushed).ok;
+    assert({
+      given: 'GitHub refusing every approval, after a push and without one',
+      should: 'fail both rather than end green with CI held',
+      actual: [refused(true), refused(false)],
+      expected: [false, false],
     });
   });
 
