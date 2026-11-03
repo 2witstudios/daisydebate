@@ -115,6 +115,8 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       userId: 'tz4a98xxat96iws9zmbrgj3a',
       actorId: 'actrtz4a98xxat96iws9zmbr',
       providerMessageId: '49a3999c-0ce1-4ea6-ab68-afcd6dc2e794',
+      roundId: 'r'.repeat(24),
+      sessionId: 's'.repeat(24),
       route: '/api/auth/[...all]',
       path: '/sign-in/magic-link',
       clientIdHash: 'a'.repeat(64),
@@ -130,6 +132,8 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       topics: 3,
       oldestAgeMs: 1500,
       pending: 68,
+      windows: 2,
+      captureStartMs: 115,
       scope: 'ipv6_48',
       purpose: 'beta-access',
     };

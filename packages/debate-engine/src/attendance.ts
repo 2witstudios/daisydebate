@@ -70,6 +70,12 @@ export type AttendanceDecision =
       readonly decision: 'forfeit';
       readonly winner: DebateSide;
       readonly effectiveDeadlineMs: number;
+    }
+  /** Settled evidence never came and the persisted cutoff passed (DEC-276). */
+  | {
+      readonly evidence: 'resolution_cutoff';
+      readonly decision: 'abandoned';
+      readonly cutoffAtMs: number;
     };
 type SettledDecision = Extract<
   AttendanceDecision,
@@ -107,13 +113,21 @@ export function onTimeSpeakerReceipt(input: {
     : null;
 }
 
-/** Durable evidence, not evaluator wall time or lock arrival, decides. */
+/**
+ * Durable evidence, not evaluator wall time or lock arrival, decides. Null means
+ * only keep waiting. Past the cutoff a window is still decided on what its
+ * history proves; only what evidence cannot decide ends the Round, with nobody
+ * forfeiting (DEC-276).
+ */
 export function adjudicateAttendance(
   input: WindowEvidence & {
     readonly checkIns: readonly AttendanceStamp[];
     /** Seats whose presence is bot infrastructure, never a competitive choice. */
     readonly botSeatIds: readonly string[];
     readonly finalized: boolean;
+    /** Null until the actual final speech has ended. */
+    readonly cutoffAtMs: number | null;
+    readonly nowMs: number;
   },
 ): AttendanceDecision | null {
   if (input.finalized)
@@ -136,7 +150,13 @@ export function adjudicateAttendance(
     availability.settledHorizonMs <
       effectiveDeadlineMs + attendancePolicy.finalizationBufferMs
   )
-    return null;
+    return input.cutoffAtMs !== null && input.nowMs >= input.cutoffAtMs
+      ? {
+          evidence: 'resolution_cutoff',
+          decision: 'abandoned',
+          cutoffAtMs: input.cutoffAtMs,
+        }
+      : null;
   const decision = decisionForStamps(
     window,
     input.checkIns,

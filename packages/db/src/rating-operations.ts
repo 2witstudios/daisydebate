@@ -138,7 +138,7 @@ async function writeProjection(
 
 async function rateOnce(
   tx: Tx,
-  { roundId, changeIds, decide }: RateDebateInput,
+  { roundId, changeIds, decide, attendanceSettled }: RateDebateInput,
 ): Promise<RateDebateResult> {
   const [round] = await tx
     .select()
@@ -164,7 +164,7 @@ async function rateOnce(
   const [finalized] = await tx.execute(sql`select r.id from rounds r
     where r.id=${roundId} and ${finalizedRatingInput}`);
   if (!finalized)
-    throw createAppError('CONFLICT', 'rating-input-not-finalized');
+    throw createAppError('CONFLICT', 'Rating input is not finalized');
   const [forfeit] =
     await tx.execute(sql`select r.id from rounds r where r.id=${roundId}
     and (exists(select 1 from round_attendance_adjudications a join round_finalizations z on z.round_id=a.round_id and z.command_id=a.command_id where a.round_id=r.id and a.decision='forfeit')
@@ -173,6 +173,7 @@ async function rateOnce(
     await assertRoundAttendanceSettled(tx, {
       roundId,
       now: round.completedAt!.toISOString(),
+      attendanceSettled,
     });
 
   const seats = await tx

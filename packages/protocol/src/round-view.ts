@@ -1,3 +1,5 @@
+import type { AttendanceLedgerFacts } from './attendance';
+import type { JudgingPanelFacts } from './round-panel-completion';
 import { z } from 'zod';
 import { idSchema, debateRoleSchema, ratingLadders } from './primitives';
 import { frozenRoomConfigSchema } from './room';
@@ -32,38 +34,30 @@ const anonymousJudgeSchema = z.strictObject({
   anonymous: z.literal(true),
 });
 
-/** What a played Round is waiting on, with the persisted deadline when one exists. */
-export const roundWaitingOnSchema = z.strictObject({
-  state: z.enum([
-    'closing_transcript',
-    'human_window',
-    'ai_processing',
-    'ai_failed',
-    'awaiting_attendance',
-    'held_by_writer',
-    'settling',
-  ]),
-  deadlineAt: instant.nullable(),
-});
+/** What a played Round is waiting on. Only a state with a persisted deadline carries one. */
+export const roundWaitingOnSchema = z.discriminatedUnion('state', [
+  z.strictObject({ state: z.literal('closing_transcript') }),
+  z.strictObject({ state: z.literal('human_window'), deadlineAt: instant }),
+  z.strictObject({ state: z.literal('ai_processing'), deadlineAt: instant }),
+  z.strictObject({ state: z.literal('ai_failed') }),
+  z.strictObject({
+    state: z.literal('awaiting_attendance'),
+    deadlineAt: instant,
+  }),
+  z.strictObject({ state: z.literal('held_by_writer') }),
+  z.strictObject({ state: z.literal('settling') }),
+]);
 export type RoundWaitingOn = z.infer<typeof roundWaitingOnSchema>;
 /** Facts the read supplies so the engine can decide what a Round is waiting on. */
-export type RoundWaitingFacts = {
-  readonly nowMs: number;
-  readonly finalSegmentEnded: boolean;
-  readonly frozen: boolean;
-  /** An uncertain check-in writer holds every attendance decision. */
-  readonly heldByWriter: boolean;
-  readonly attendanceUnresolved: boolean;
-  readonly ballotDeadlineAt: string | null;
-  readonly attendanceCutoffAt: string | null;
-  /** A human judge seat has not ruled. */
-  readonly humanJudgeUnruled: boolean;
-  readonly jobs: readonly {
-    readonly generationDeadlineAt: string;
-    readonly canRule: boolean;
-    readonly holdsBallot: boolean;
-  }[];
-};
+export type RoundWaitingFacts =
+  | { readonly speeches: 'running' }
+  | {
+      readonly speeches: 'ended';
+      readonly nowMs: number;
+      readonly attendance: AttendanceLedgerFacts;
+      /** Null until the transcript freezes. */
+      readonly frozen: JudgingPanelFacts | null;
+    };
 
 /**
  * One viewer's Round: the durable Launch read grammar plus the runtime
@@ -119,13 +113,22 @@ export const roundViewSchema = z.strictObject({
     .readonly(),
 });
 export type RoundView = z.infer<typeof roundViewSchema>;
+/**
+ * A Round as a transcript read carries it: the record, with no claim
+ * about what a played Round is waiting on. Only the Round read decides that.
+ */
+export const roundRecordSchema = roundViewSchema.omit({ waitingOn: true });
+export type RoundRecord = z.infer<typeof roundRecordSchema>;
 export type RoundSeat = z.infer<typeof seatSchema>;
 
 /**
  * The Round as stored, before projection for a viewer: every seat named
  * and the host's actor. Authorization reads it; it never leaves the server.
  */
-export type LaunchedRound = Omit<RoundView, 'participants' | 'viewerIsHost'> & {
+export type LaunchedRound = Omit<
+  RoundView,
+  'participants' | 'viewerIsHost' | 'waitingOn'
+> & {
   readonly hostActorId: string | null;
   readonly participants: readonly RoundSeat[];
 };

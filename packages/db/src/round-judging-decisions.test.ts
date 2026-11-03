@@ -44,7 +44,6 @@ const run = (overrides: Record<string, unknown> = {}, config = {}) =>
       judgeParticipantId: 'judge',
       freezeRevision: 2,
       jobEpoch: 3,
-      providerOutcome: 'not_started',
       ...config,
     },
     ...overrides,
@@ -151,17 +150,17 @@ test('each attempt dispatches the provider at most once', async () => {
   assert({
     given: 'an attempt that has not dispatched',
     should: 'admit the dispatch',
-    actual: requireUndispatched(job(), run()),
+    actual: requireUndispatched(job(), undefined),
     expected: undefined,
   });
   for (const [label, candidateJob, candidateRun] of [
     [
       'a held response',
       job({ pendingBallot: { winner: 'affirmative' } }),
-      run(),
+      undefined,
     ],
-    ['an unknown outcome', job(), run({}, { providerOutcome: 'unknown' })],
-    ['a received outcome', job(), run({}, { providerOutcome: 'received' })],
+    ['a recorded dispatch', job(), { outcome: 'dispatched' }],
+    ['a settled dispatch', job(), { outcome: 'failed' }],
   ] as const)
     await assertRejects({
       given: label,
@@ -173,7 +172,7 @@ test('each attempt dispatches the provider at most once', async () => {
 
 test('the first accounted response is kept and a different one refused', async () => {
   const ballot = { winner: 'affirmative', scores: { a: 1 } };
-  const received = run({}, { providerOutcome: 'received' });
+  const received = { answeredAt: new Date(0) };
   assert({
     given: 'an accounted response, then an identical retry',
     should: 'store the first and keep it for the retry',
@@ -193,7 +192,8 @@ test('the first accounted response is kept and a different one refused', async (
       job({ pendingBallot: { ...ballot, winner: 'negative' } }),
       received,
     ],
-    ['a response whose usage was not accounted', job(), run()],
+    ['a response whose usage was not accounted', job(), { answeredAt: null }],
+    ['a response with no dispatch', job(), undefined],
   ] as const)
     await assertRejects({
       given: label,

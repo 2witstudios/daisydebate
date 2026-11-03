@@ -1,6 +1,7 @@
 # 0095: Honest Round completion
 
-Status: accepted by the point guard on the owner's behalf, 2026-11-02. DEC-275,
+Status: accepted by the point guard on the owner's behalf, 2026-11-02. Its structure is
+refined by [ADR 0100](0100-round-completion-structure.md). DEC-275,
 DEC-276, DEC-277 and DEC-278 stay provisional until the owner confirms or
 overrules them. Amends the attendance and judging sections of
 [ADR 0067](0067-playable-round-policy-and-acceptance.md).
@@ -41,7 +42,7 @@ minutes from the freeze, on the job, and bounds provider work only. A validated
 pending ballot may still submit after it. That hold ends at the latest of the
 attendance cutoff and 10 minutes after the last attendance decision or uncertain
 writer resolving, so a ballot gets its chance once attendance settles, and one
-that can never submit stops holding the Round. Its job then ends `ballot_hold_ended`, which is reported; a forfeit cutting a job off is `round_ended`, which is normal and is not. The attendance cutoff is an
+that can never submit stops holding the Round. Its job then ends `ballot_hold_ended`, which is reported; a forfeit cutting a job off is `round_ended`, which is normal and is not. The abandoned path ending a job inside its budget with no ballot is also `round_ended`, and silent for the same reason. The attendance cutoff is an
 infrastructure bound. None of them borrows another's meaning.
 
 **Panel completion is total (DEC-277).** A Round waits only on a judge who can

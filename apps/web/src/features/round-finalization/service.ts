@@ -1,5 +1,14 @@
 import { isAppError } from '@daisy/errors';
+import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import type { WorkerTimers } from '../../lib/worker-timers';
+import {
+  nextPacing,
+  noPacing,
+  stageDue,
+  type MaintenanceStage,
+  type PacingEvent,
+  type RoundPacing,
+} from './round-pacing';
 
 // The default shared pool has five writer/watchdog pairs; reserve headroom for discovery and public/control work.
 const MAX_ACTIVE_ROUNDS = 2;
@@ -7,10 +16,6 @@ const MAX_ACTIVE_ROUNDS = 2;
 export const MAINTENANCE_PULSE_MS = 500;
 /** Queued Rounds retained at once; ids past this wait for a later discovery cycle. */
 const MAX_WAITING_ROUNDS = 256;
-/** How long an undecided window waits before its evidence is read again. */
-const EVALUATION_RETRY_MS = 5_000;
-/** The longest wait after repeated evaluation failures. */
-const EVALUATION_RETRY_MAX_MS = 60_000;
 /** How often the held-by-pending-writer measure is published. */
 const HELD_REPORT_MS = 60_000;
 
@@ -22,9 +27,7 @@ type DiscoveryPage = {
 type MaintenancePorts = {
   readonly discover: () => Promise<DiscoveryPage>;
   readonly tick: (roundId: string) => Promise<unknown>;
-  readonly evaluate: (
-    roundId: string,
-  ) => Promise<{ readonly decision: string } | null>;
+  readonly evaluate: (roundId: string) => Promise<AttendanceEvaluation>;
   readonly finalize: (roundId: string) => Promise<unknown>;
   readonly rateUnrated: () => Promise<unknown>;
   readonly timers: WorkerTimers;
@@ -40,88 +43,61 @@ type MaintenancePorts = {
 };
 
 const terminalRace = (error: unknown) =>
-  isAppError(error) &&
-  error.code === 'CONFLICT' &&
-  error.message === 'attendance-terminal';
+  isAppError(error) && error.reason === 'attendance-terminal';
 
 type Evaluation = 'ended' | 'continue';
-const evaluationOf = (
-  resolution: { readonly decision: string } | null,
-): Evaluation =>
-  resolution?.decision === 'forfeit' || resolution?.decision === 'abandoned'
+const evaluationOf = (found: AttendanceEvaluation): Evaluation =>
+  found.kind === 'decided' &&
+  (found.resolution.decision === 'forfeit' ||
+    found.resolution.decision === 'abandoned')
     ? 'ended'
     : 'continue';
-/** Backoff and hold state per Round, so a known-blocked Round costs little and says why. */
+
+/** The one per-Round pacing map, with the held measure read from it. */
 function createEvaluationPacing(input: MaintenancePorts) {
   const { now } = input;
-  const retryAt = new Map<string, number>();
-  const failures = new Map<string, number>();
-  const heldSince = new Map<string, number>();
+  const rounds = new Map<string, RoundPacing>();
   let lastHeldReport = Number.NEGATIVE_INFINITY;
   const reportHeld = () => {
     const at = now();
-    if (heldSince.size === 0 || at - lastHeldReport < HELD_REPORT_MS) return;
+    const held = [...rounds.values()].flatMap(({ heldSinceMs }) =>
+      heldSinceMs === null ? [] : [heldSinceMs],
+    );
+    if (held.length === 0 || at - lastHeldReport < HELD_REPORT_MS) return;
     lastHeldReport = at;
     input.held?.({
-      rounds: heldSince.size,
-      oldestMs: Math.round(at - Math.min(...heldSince.values())),
+      rounds: held.length,
+      oldestMs: Math.round(at - Math.min(...held)),
     });
   };
-  const noteHold = (
-    roundId: string,
-    resolution: { readonly decision: string } | null,
-  ) => {
-    if (resolution?.decision === 'held') {
-      if (!heldSince.has(roundId)) heldSince.set(roundId, now());
-      reportHeld();
-    } else heldSince.delete(roundId);
-    if (resolution === null || resolution.decision === 'held')
-      retryAt.set(roundId, now() + EVALUATION_RETRY_MS);
-    else retryAt.delete(roundId);
+  const apply = (roundId: string, event: PacingEvent) => {
+    const next = nextPacing(rounds.get(roundId) ?? noPacing, event, now());
+    if (next.heldSinceMs === null && Object.keys(next.stages).length === 0)
+      rounds.delete(roundId);
+    else rounds.set(roundId, next);
   };
-  const backOff = (roundId: string) => {
-    const failed = (failures.get(roundId) ?? 0) + 1;
-    failures.set(roundId, failed);
-    const waitMs = EVALUATION_RETRY_MS * 2 ** (failed - 1);
-    retryAt.set(roundId, now() + Math.min(waitMs, EVALUATION_RETRY_MAX_MS));
-  };
+  const due = (roundId: string, stage: MaintenanceStage) =>
+    stageDue(rounds.get(roundId) ?? noPacing, stage, now());
   return {
+    apply,
+    due,
     async evaluate(roundId: string): Promise<Evaluation> {
-      if (now() < (retryAt.get(roundId) ?? Number.NEGATIVE_INFINITY))
-        return 'continue';
+      if (!due(roundId, 'evaluate')) return 'continue';
       try {
-        const resolution = await input.evaluate(roundId);
-        failures.delete(roundId);
-        noteHold(roundId, resolution);
-        return evaluationOf(resolution);
+        const found = await input.evaluate(roundId);
+        apply(roundId, { on: 'evaluated', found: found.kind });
+        if (found.kind === 'held') reportHeld();
+        return evaluationOf(found);
       } catch (error) {
         if (terminalRace(error)) return 'ended';
-        backOff(roundId);
+        apply(roundId, { on: 'stage_failed', stage: 'evaluate' });
         input.failed(error, 'evaluate');
         return 'continue';
       }
     },
     /** Every Round holding pacing state, so a finished one can be forgotten. */
-    known: () =>
-      new Set(
-        [...retryAt.keys(), ...failures.keys(), ...heldSince.keys()].map(
-          (key) => key.replace(/^(?:tick|finalize):/, ''),
-        ),
-      ),
-    due: (key: string) =>
-      now() >= (retryAt.get(key) ?? Number.NEGATIVE_INFINITY),
-    recovered: (key: string) => {
-      retryAt.delete(key);
-      failures.delete(key);
-    },
-    backOff,
-    forget(roundId: string) {
-      for (const key of [roundId, `tick:${roundId}`, `finalize:${roundId}`]) {
-        retryAt.delete(key);
-        failures.delete(key);
-      }
-      heldSince.delete(roundId);
-    },
+    known: () => new Set(rounds.keys()),
+    forget: (roundId: string) => rounds.delete(roundId),
   };
 }
 
@@ -140,18 +116,17 @@ async function maintainRound(
     name: 'tick' | 'finalize',
     work: () => Promise<unknown>,
   ) => {
-    const key = `${name}:${roundId}`;
-    if (!pacing.due(key)) return true;
+    if (!pacing.due(roundId, name)) return true;
     try {
       await work();
-      pacing.recovered(key);
+      pacing.apply(roundId, { on: 'stage_ok', stage: name });
       return true;
     } catch (error) {
       if (terminalRace(error)) {
         pacing.forget(roundId);
         return false;
       }
-      pacing.backOff(key);
+      pacing.apply(roundId, { on: 'stage_failed', stage: name });
       input.failed(error, name);
       return true;
     }

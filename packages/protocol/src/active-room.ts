@@ -30,6 +30,8 @@ export const activeRoomSchema = z
     title: z.string().min(1),
     phase: z.enum(activeRoomPhases),
     role: z.enum(['host', 'debater', 'judge']),
+    /** Holds a seat in this Room; `host` outranks the seat in `role`. */
+    seated: z.boolean(),
     href: z.string(),
   })
   .refine((room) =>

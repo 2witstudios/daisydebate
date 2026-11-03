@@ -3,11 +3,14 @@ import {
   createRoundRuntime,
   deriveOutageIntervals,
   adjudicateAttendance,
+  nextAttendanceSegment,
+  type RoundAdjudication,
   onTimeSpeakerReceipt,
   requireAttendanceDecision,
   effectiveAttendanceDeadline,
+  judgingEndIsReported,
+  judgingJobEndReason,
 } from '@daisy/debate-engine';
-import { nextAttendanceSegment } from '@daisy/db/attendance';
 import type {
   AttendanceStore,
   AttendanceEvaluator,
@@ -21,6 +24,7 @@ import {
   attendanceEnvelopeSchema,
   attendanceTimingPolicy,
   type AttendanceEnvelope,
+  type JudgingTerminalReason,
 } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { acceptAttendanceReceipt } from './receipt-window';
@@ -73,8 +77,9 @@ function resolveOnTimeReceipt(
 }
 /**
  * Actual ordered openings, current eligible seats, durable stamps and settled
- * evidence are the only inputs. Unknown health postpones and forfeits nobody;
- * past the persisted cutoff it ends the Round with no winner (DEC-276).
+ * evidence are the only inputs. The engine decides, and the same evidence
+ * verifies it. Unknown health postpones and forfeits nobody; past the persisted
+ * cutoff it ends the Round with no winner (DEC-276).
  */
 function resolveAttendanceWindow(
   facts: AttendanceEvaluationFacts,
@@ -91,8 +96,15 @@ function resolveAttendanceWindow(
     botSeatIds: facts.botSeatIds,
     finalized: false,
     segmentType: target.type,
+    cutoffAtMs: facts.resolutionCutoffAt
+      ? attendanceReceiptTime(facts.resolutionCutoffAt)
+      : null,
+    nowMs: Date.parse(facts.now),
   };
-  const runtime = () =>
+  const decision = adjudicateAttendance(evidence);
+  if (!decision) return null;
+  requireAttendanceDecision(evidence, decision);
+  const projectionOf = (terminal: RoundAdjudication['decision']) =>
     createRoundRuntime({
       round: facts.round,
       rules: facts.round.rules,
@@ -100,51 +112,39 @@ function resolveAttendanceWindow(
       checkpoint: facts.round.checkpoint,
       segments: facts.round.segments,
       nextSegmentId,
-    });
-  const decision = adjudicateAttendance(evidence);
-  if (
-    !decision ||
-    decision.evidence !== 'settled_availability' ||
-    availability.settledHorizonMs === null
-  ) {
-    const cutoffAtMs = facts.resolutionCutoffAt
-      ? attendanceReceiptTime(facts.resolutionCutoffAt)
-      : null;
-    if (cutoffAtMs === null || Date.parse(facts.now) < cutoffAtMs) return null;
+    }).adjudicate({ segmentId: target.id, decision: terminal, now: facts.now });
+  if (decision.evidence === 'on_time_receipt')
     return {
       segmentId: target.id,
-      evidence: 'infrastructure_unresolved',
+      evidence: 'on_time_receipt',
+      decision: 'attended',
+      receiptParticipantId: decision.participantId,
+      projection: null,
+    };
+  if (decision.evidence === 'resolution_cutoff')
+    return {
+      segmentId: target.id,
+      evidence: 'resolution_cutoff',
       decision: 'abandoned',
-      projection: runtime().adjudicate({
-        segmentId: target.id,
-        decision: { decision: 'unresolved', cutoffAtMs },
-        now: facts.now,
+      projection: projectionOf({
+        decision: 'abandoned',
+        cutoffAtMs: decision.cutoffAtMs,
       }),
     };
-  }
-  requireAttendanceDecision(evidence, decision);
-  const terminalDecision =
-    decision.decision === 'forfeit'
-      ? decision
-      : decision.decision === 'abandoned'
-        ? {
-            decision: 'abandoned' as const,
-            effectiveDeadlineMs: decision.effectiveDeadlineMs,
-          }
-        : null;
+  const { effectiveDeadlineMs } = decision;
   return {
     segmentId: target.id,
     evidence: 'settled_availability',
     decision: decision.decision,
-    effectiveDeadline: attendanceTimestamp(decision.effectiveDeadlineMs),
-    settledHorizon: attendanceTimestamp(availability.settledHorizonMs),
-    projection: terminalDecision
-      ? runtime().adjudicate({
-          segmentId: target.id,
-          decision: terminalDecision,
-          now: facts.now,
-        })
-      : null,
+    effectiveDeadline: attendanceTimestamp(effectiveDeadlineMs),
+    // Non-null: the engine decided on settled evidence.
+    settledHorizon: attendanceTimestamp(availability.settledHorizonMs!),
+    projection:
+      decision.decision === 'forfeit'
+        ? projectionOf(decision)
+        : decision.decision === 'abandoned'
+          ? projectionOf({ decision: 'abandoned', effectiveDeadlineMs })
+          : null,
   };
 }
 
@@ -153,7 +153,7 @@ export function createAttendanceFeature(deps: {
   readonly evaluate: AttendanceEvaluator;
   readonly nextId: () => string;
   readonly instanceId: string;
-  readonly judgingEnded?: (reason: string) => void;
+  readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
 }) {
   const readState = async (principal: AttendancePrincipal, roundId: string) => {
     const facts = await deps.checkIns.readRoundAttendanceTargets({
@@ -235,7 +235,11 @@ export function createAttendanceFeature(deps: {
         roundId,
         commandId: deps.nextId(),
         instanceId: deps.instanceId,
-        ...(deps.judgingEnded ? { judgingEnded: deps.judgingEnded } : {}),
+        nextWindow: nextAttendanceSegment,
+        judgingEndReason: judgingJobEndReason,
+        judgingEnded: (reason) => {
+          if (judgingEndIsReported(reason)) deps.judgingEnded?.(reason);
+        },
         resolveOnReceipts: resolveOnTimeReceipt,
         resolve: (facts) => resolveAttendanceWindow(facts, deps.nextId),
       }),

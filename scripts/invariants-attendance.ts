@@ -99,6 +99,8 @@ export function attendanceInvariantFixtures(
         checkIns: [],
         botSeatIds: [],
         finalized: true,
+        cutoffAtMs: null,
+        nowMs: 0,
       });
     },
   };

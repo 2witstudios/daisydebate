@@ -41,6 +41,118 @@ describe('repository ESLint configuration', () => {
   });
 });
 
+describe('refusal reasons, never messages (ISSUE-1010)', () => {
+  const problems = async (code: string) => {
+    const [result] = await repositoryEslint().lintText(code, {
+      filePath: 'packages/db/src/refusal-probe.ts',
+    });
+    return result!.messages.filter(
+      ({ ruleId }) => ruleId === 'no-restricted-syntax',
+    ).length;
+  };
+  test('refuses behaviour read from a message and refusal words minted as one', async () => {
+    assert({
+      given:
+        "a comparison, a lookup, and a refusal word, ternary or decision's refusal as a message",
+      should: 'report each one',
+      actual: [
+        await problems(
+          "export const a = (error: Error) => error.message === 'x';",
+        ),
+        await problems(
+          'export const a = (error: Error, known: string[]) => known.includes(error.message);',
+        ),
+        await problems(
+          'export const a = (error: Error, map: object) => Object.hasOwn(map, error.message);',
+        ),
+        await problems(
+          "export const a = createAppError('CONFLICT', 'round-decided');",
+        ),
+        await problems(
+          "export const a = (b: boolean) => createAppError('CONFLICT', b ? 'too-early' : 'closed-window');",
+        ),
+        await problems(
+          "export const a = (decision: { refusal: string }) => createAppError('VALIDATION', decision.refusal);",
+        ),
+        await problems(
+          "export const a = (error?: Error) => error?.message === 'x';",
+        ),
+        await problems(
+          'export const a = (error: Error, map: Record<string, number>) => map[error.message];',
+        ),
+        await problems(
+          "export const a = (error: Error) => { switch (error.message) { case 'x': return 1; default: return 2; } };",
+        ),
+        await problems(
+          "export const a = (error?: Error) => { switch (error?.message) { case 'x': return 1; default: return 2; } };",
+        ),
+        await problems(
+          'export const a = (error: Error | undefined, map: Record<string, number>) => map[error?.message ?? ""];',
+        ),
+        await problems(
+          'export const a = (error: Error | undefined, known: string[]) => known.includes(error?.message);',
+        ),
+        await problems(
+          'export const a = (error: Error | undefined, map: Record<string, number>) => map[error?.message];',
+        ),
+      ],
+      expected: [1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 0, 1, 1],
+    });
+  });
+  test('holds in integration suites, and for mints in scripts', async () => {
+    const at = async (filePath: string, code: string) => {
+      const [result] = await repositoryEslint().lintText(code, { filePath });
+      return result!.messages.filter(({ message }) =>
+        /error\.(reason)|createRefusal/.test(message),
+      ).length;
+    };
+    const read = "export const a = (error: Error) => error.message === 'x';";
+    const mint =
+      "export const a = createAppError('CONFLICT', 'round-decided');";
+    assert({
+      given: 'a message read and a refusal word mint on overridden paths',
+      should:
+        'report both in integration suites, and only the mint in a script',
+      actual: [
+        await at('packages/db/integration/refusal-probe.integration.ts', read),
+        await at('apps/web/integration/refusal-probe.integration.ts', mint),
+        await at('apps/admin/integration/refusal-probe.integration.ts', read),
+        await at('scripts/refusal-probe.ts', mint),
+        await at('scripts/refusal-probe.ts', read),
+      ],
+      expected: [1, 1, 1, 1, 0],
+    });
+  });
+  test('leaves a reason, plain internal text and a vendor error alone', async () => {
+    assert({
+      given:
+        'a reason read, an English message, a vendor text check, a code ternary, a cause object and a lookup by refusal',
+      should: 'report nothing',
+      actual: [
+        await problems(
+          "export const a = (error: AppError) => error.reason === 'x';",
+        ),
+        await problems(
+          "export const a = createAppError('CONFLICT', 'The round moved on');",
+        ),
+        await problems(
+          "export const a = (error: Error) => error.message.includes('NOSCRIPT');",
+        ),
+        await problems(
+          "export const a = (b: string) => createAppError(b === 'too-large' ? 'PAYLOAD_TOO_LARGE' : 'VALIDATION');",
+        ),
+        await problems(
+          "export const a = createAppError('INFRASTRUCTURE', 'Transaction failed', { recovery: 'rolled-back' });",
+        ),
+        await problems(
+          "export const a = (refusal: 'CONFLICT', copy: Record<string, string>) => createAppError(refusal, copy[refusal]);",
+        ),
+      ],
+      expected: [0, 0, 0, 0, 0, 0],
+    });
+  });
+});
+
 describe('token-locked Tailwind lint rules (ADR 0028)', () => {
   const lintMarkup = async (classes: string) => {
     const eslint = repositoryEslint();

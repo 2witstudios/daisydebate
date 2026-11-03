@@ -3,6 +3,7 @@ import { createAppError } from '@daisy/errors';
 import {
   ballotSchema,
   judgingAttemptDiagnosticSchema,
+  judgingPolicy,
   type JudgingAttemptDiagnostic,
   type JudgingTerminalReason,
 } from '@daisy/protocol';
@@ -33,33 +34,64 @@ import {
   requireUndispatched,
 } from './round-judging-decisions';
 export type { JudgingScope } from './round-judging-context';
-/** Paid model calls one judging job may buy over all its leases (ISSUE-461). */
-const MAX_JUDGING_CALLS = 2;
-/** Wait before another attempt after a failure that may be transient. */
-const JUDGING_RETRY_MS = 5_000;
-/**
- * One paid answer per attempt, a bounded number of attempts (DEC-210's rule
- * for judges): a job that already bought its calls, or whose AI judging budget
- * has passed (DEC-275), buys nothing more. Calls that may have been served
- * count; a call the vendor certainly refused does not.
- */
-async function judgingDispatchEnded(
-  tx: BoundedTransactionContext,
-  scope: JudgingScope,
-): Promise<JudgingTerminalReason | null> {
-  const [facts] = (await tx.execute(sql`select
-    (select count(*)::int from agent_runs
-      where round_participant_id=${scope.judgeParticipantId} and kind='judging'
-        and configuration_snapshot->>'commandId'=${scope.commandId}
-        and configuration_snapshot->>'providerOutcome' in ('unknown','received')) as paid,
-    (select generation_deadline_at<=clock_timestamp() from round_judging_jobs
-      where round_id=${scope.roundId} and judge_participant_id=${scope.judgeParticipantId}) as late`)) as unknown as {
-    paid: number;
-    late: boolean;
-  }[];
-  if (facts!.paid >= MAX_JUDGING_CALLS) return 'attempts_exhausted';
-  return facts!.late ? 'generation_deadline' : null;
+/** Whether a dispatch may go ahead, or why the job ended instead. */
+export type ModelCallBegun =
+  | { readonly kind: 'dispatched' }
+  | { readonly kind: 'ended'; readonly reason: JudgingTerminalReason };
+/** A valid answer is held for submission, or its budget had passed and the job ended. */
+export type AnswerSaved =
+  | { readonly kind: 'held' }
+  | { readonly kind: 'ended'; readonly reason: JudgingTerminalReason };
+/** The engine's rules for a job, injected; the facts and the clock come from here. */
+export type JudgingJobRules = {
+  readonly budgetSpent: (
+    job: {
+      readonly generationDeadlineAt: string;
+      readonly holdsBallot: boolean;
+    },
+    nowMs: number,
+  ) => boolean;
+  readonly dispatchEnd: (
+    input: {
+      readonly paidCalls: number;
+      readonly generationDeadlineAt: string;
+    },
+    nowMs: number,
+  ) => JudgingTerminalReason | null;
+};
+/** Calls that may have been served count; a call the vendor certainly refused does not. */
+async function paidCalls(tx: BoundedTransactionContext, scope: JudgingScope) {
+  const [row] = await tx
+    .select({ paid: sql<number>`count(*)::int` })
+    .from(roundJudgingAttempts)
+    .where(
+      and(
+        judgingAttemptWhere(scope),
+        sql`${roundJudgingAttempts.category} is distinct from 'provider_refused'`,
+      ),
+    );
+  return row!.paid;
 }
+const judgingAttemptWhere = (scope: JudgingScope) =>
+  and(
+    eq(roundJudgingAttempts.roundId, scope.roundId),
+    eq(roundJudgingAttempts.judgeParticipantId, scope.judgeParticipantId),
+  );
+const attemptOfRun = async (tx: BoundedTransactionContext, runId: string) =>
+  (
+    await tx
+      .select()
+      .from(roundJudgingAttempts)
+      .where(eq(roundJudgingAttempts.agentRunId, runId))
+      .for('update')
+  )[0];
+/** What a late answer's attempt says: no text, only that its budget had passed. */
+const lateAnswer: JudgingAttemptDiagnostic = {
+  category: 'timeout',
+  finish: 'none',
+  issueCount: 0,
+  issues: [],
+};
 /** The terminal state: no lease, never rediscovered; panel completion reads it. */
 async function failLockedJudgingJob(
   tx: BoundedTransactionContext,
@@ -79,16 +111,6 @@ async function failLockedJudgingJob(
     })
     .where(judgingJobWhere(scope));
 }
-/** The budget bounds generation only: a held pending ballot is never expired by it. */
-const budgetSpent = (
-  job: {
-    readonly generationDeadlineAt: Date;
-    readonly pendingBallot: unknown;
-  },
-  now: Date,
-) =>
-  job.pendingBallot === null &&
-  job.generationDeadlineAt.getTime() <= now.getTime();
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
   readonly run: BoundedTransaction;
@@ -96,9 +118,39 @@ export function createRoundJudgingJobs(input: {
   readonly nextToken: () => string;
   readonly leaseMs: number;
   readonly model: string;
+  /** The ballot contract each dispatch is made under. */
+  readonly contractVersion: string;
+  readonly rules: JudgingJobRules;
 }) {
   requireLeaseMs(input.leaseMs);
   if (!input.model.trim()) throw createAppError('VALIDATION');
+  const dispatchEnded = async (
+    tx: BoundedTransactionContext,
+    scope: JudgingScope,
+    job: { readonly generationDeadlineAt: Date },
+    now: Date,
+  ) =>
+    input.rules.dispatchEnd(
+      {
+        paidCalls: await paidCalls(tx, scope),
+        generationDeadlineAt: job.generationDeadlineAt.toISOString(),
+      },
+      now.getTime(),
+    );
+  const budgetSpent = (
+    job: {
+      readonly generationDeadlineAt: Date;
+      readonly pendingBallot: unknown;
+    },
+    now: Date,
+  ) =>
+    input.rules.budgetSpent(
+      {
+        generationDeadlineAt: job.generationDeadlineAt.toISOString(),
+        holdsBallot: job.pendingBallot !== null,
+      },
+      now.getTime(),
+    );
   const withLease = <T>(
     scope: JudgingScope,
     token: string,
@@ -174,25 +226,32 @@ export function createRoundJudgingJobs(input: {
         pendingBallot: job.pendingBallot,
       })),
     /** The AI judge is free (DEC-186): no reservation, no bot-admission lock. */
-    beginModelCall: (scope: JudgingScope, token: string) =>
-      withLease(scope, token, async (tx, { run, job }) => {
-        requireUndispatched(job, run);
-        const ended = await judgingDispatchEnded(tx, scope);
+    beginModelCall: (
+      scope: JudgingScope,
+      token: string,
+    ): Promise<ModelCallBegun> =>
+      withLease(scope, token, async (tx, { run, job, now }) => {
+        requireUndispatched(job, await attemptOfRun(tx, run.id));
+        const ended = await dispatchEnded(tx, scope, job, now);
         if (ended) {
           await failLockedJudgingJob(tx, scope, run.id, ended);
-          return false;
+          return { kind: 'ended', reason: ended };
         }
         await tx
           .update(agentRuns)
-          .set({
-            requests: run.requests + 1,
-            configurationSnapshot: {
-              ...run.configurationSnapshot,
-              providerOutcome: 'unknown',
-            },
-          })
+          .set({ requests: run.requests + 1 })
           .where(eq(agentRuns.id, run.id));
-        return true;
+        // Durable before the call is sent, so a crash still counts as bought.
+        await tx.insert(roundJudgingAttempts).values({
+          agentRunId: run.id,
+          roundId: scope.roundId,
+          judgeParticipantId: scope.judgeParticipantId,
+          jobEpoch: scope.jobEpoch,
+          model: run.model ?? input.model,
+          contractVersion: input.contractVersion,
+          outcome: 'dispatched',
+        });
+        return { kind: 'dispatched' };
       }),
     recordUsage: (
       scope: JudgingScope,
@@ -208,24 +267,47 @@ export function createRoundJudgingJobs(input: {
       await recordJudgingUsage(input.run, scope, token, usage);
       const parsed = ballotSchema.safeParse(response);
       if (!parsed.success) throw createAppError('VALIDATION');
-      return withLease(scope, token, async (tx, { run, job, now }) => {
-        if (pendingBallotAction(job, run, parsed.data) === 'kept') return true;
-        // A late answer keeps its accounted usage above and gains no authority.
-        if (budgetSpent(job, now)) {
-          await failLockedJudgingJob(tx, scope, run.id, 'generation_deadline');
-          return false;
-        }
-        await tx
-          .update(roundJudgingJobs)
-          .set({
-            pendingBallot: parsed.data,
-            pendingBallotAgentRunId: run.id,
-            pendingBallotEpoch: scope.jobEpoch,
-            pendingBallotReceivedAt: now,
-          })
-          .where(judgingJobWhere(scope));
-        return true;
-      });
+      return withLease(
+        scope,
+        token,
+        async (tx, { run, job, now }): Promise<AnswerSaved> => {
+          const attempt = await attemptOfRun(tx, run.id);
+          if (pendingBallotAction(job, attempt, parsed.data) === 'kept')
+            return { kind: 'held' };
+          // A late answer keeps its accounted usage above and gains no authority.
+          if (budgetSpent(job, now)) {
+            await tx
+              .update(roundJudgingAttempts)
+              .set({
+                outcome: 'failed',
+                category: lateAnswer.category,
+                diagnostic: lateAnswer,
+              })
+              .where(eq(roundJudgingAttempts.agentRunId, run.id));
+            await failLockedJudgingJob(
+              tx,
+              scope,
+              run.id,
+              'generation_deadline',
+            );
+            return { kind: 'ended', reason: 'generation_deadline' };
+          }
+          await tx
+            .update(roundJudgingAttempts)
+            .set({ outcome: 'succeeded' })
+            .where(eq(roundJudgingAttempts.agentRunId, run.id));
+          await tx
+            .update(roundJudgingJobs)
+            .set({
+              pendingBallot: parsed.data,
+              pendingBallotAgentRunId: run.id,
+              pendingBallotEpoch: scope.jobEpoch,
+              pendingBallotReceivedAt: now,
+            })
+            .where(judgingJobWhere(scope));
+          return { kind: 'held' };
+        },
+      );
     },
     /**
      * Durable and immediate: the attempt's safe reason, then either a later
@@ -237,9 +319,6 @@ export function createRoundJudgingJobs(input: {
       token: string,
       input_: {
         readonly diagnostic: JudgingAttemptDiagnostic;
-        readonly contractVersion: string;
-        /** The vendor certainly did not serve this call, so it buys nothing. */
-        readonly definite: boolean;
         /** The refusal will not heal by retrying, such as no supporting endpoint. */
         readonly final: boolean;
       },
@@ -248,32 +327,20 @@ export function createRoundJudgingJobs(input: {
         input_.diagnostic,
       );
       return withLease(scope, token, async (tx, { run, job, now }) => {
-        await tx.insert(roundJudgingAttempts).values({
-          agentRunId: run.id,
-          roundId: scope.roundId,
-          judgeParticipantId: scope.judgeParticipantId,
-          jobEpoch: scope.jobEpoch,
-          model: run.model ?? input.model,
-          contractVersion: input_.contractVersion,
-          category: diagnostic.category,
-          diagnostic,
-        });
-        if (
-          input_.definite &&
-          run.configurationSnapshot.providerOutcome === 'unknown'
-        )
-          await tx
-            .update(agentRuns)
-            .set({
-              configurationSnapshot: {
-                ...run.configurationSnapshot,
-                providerOutcome: 'refused',
-              },
-            })
-            .where(eq(agentRuns.id, run.id));
+        if (!(await attemptOfRun(tx, run.id)))
+          throw createAppError('CONFLICT', 'Model call not dispatched');
+        // A provider_refused attempt was certainly not served, so it buys nothing.
+        await tx
+          .update(roundJudgingAttempts)
+          .set({
+            outcome: 'failed',
+            category: diagnostic.category,
+            diagnostic,
+          })
+          .where(eq(roundJudgingAttempts.agentRunId, run.id));
         const ended = input_.final
           ? 'provider_refused'
-          : await judgingDispatchEnded(tx, scope);
+          : await dispatchEnded(tx, scope, job, now);
         if (ended && !job.pendingBallot) {
           await failLockedJudgingJob(tx, scope, run.id, ended);
           return ended;
@@ -285,7 +352,7 @@ export function createRoundJudgingJobs(input: {
             status: 'queued',
             leaseTokenDigest: null,
             leaseExpiresAt: null,
-            retryAt: new Date(now.getTime() + JUDGING_RETRY_MS),
+            retryAt: new Date(now.getTime() + judgingPolicy.retryMs),
           })
           .where(judgingJobWhere(scope));
         return 'retry';

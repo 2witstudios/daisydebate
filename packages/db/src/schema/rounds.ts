@@ -168,6 +168,10 @@ export const rounds = pgTable(
         sql`(${table.finalSegmentEndedAt} is null and ${table.transcriptAdmissionCutoff} is null) or (${table.finalSegmentEndedAt} is not null and ${table.transcriptAdmissionCutoff} is not null and ${table.transcriptAdmissionCutoff} = ${table.finalSegmentEndedAt} + interval '120 seconds')`,
       ),
       check(
+        'rounds_attendance_cutoff_check',
+        sql`(${table.finalSegmentEndedAt} is null and ${table.attendanceResolutionCutoffAt} is null) or (${table.finalSegmentEndedAt} is not null and ${table.attendanceResolutionCutoffAt} is not null and ${table.attendanceResolutionCutoffAt} = ${table.finalSegmentEndedAt} + interval '60 minutes')`,
+      ),
+      check(
         'rounds_visibility_check',
         sql`${table.visibility} is null or ${oneOf(table.visibility, ['public', 'unlisted', 'private'])}`,
       ),

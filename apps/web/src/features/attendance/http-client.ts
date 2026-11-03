@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import {
   attendanceReceiptSchema,
+  attendanceRoundReadSchema,
   attendanceTimingPolicy,
-  roundViewSchema,
 } from '@daisy/protocol';
 
 const closedWindow = z.object({
@@ -30,7 +30,7 @@ export function createAttendanceHttpClient(input: {
         cache: 'no-store',
       });
       if (!response.ok) return null;
-      const parsed = roundViewSchema.safeParse(await response.json());
+      const parsed = attendanceRoundReadSchema.safeParse(await response.json());
       return parsed.success && parsed.data.id === input.roundId
         ? parsed.data
         : null;

@@ -1,10 +1,15 @@
 import { bindRoundBallotPrincipal } from '@daisy/auth';
-import { createRoundRuntime, deriveRoundOutcome } from '@daisy/debate-engine';
+import {
+  attendanceSettled,
+  createRoundRuntime,
+  decidePanelCompletion,
+  judgingPanelOf,
+} from '@daisy/debate-engine';
 import type {
   LockedRoundBallotInput,
   LockedRoundBallotContext,
 } from '@daisy/db/round-ballot';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import {
   roundBallotEnvelopeSchema,
   type RoundBallotEnvelope,
@@ -37,7 +42,7 @@ export function prepareRoundBallotSubmission(
           : null,
       },
     });
-    if (!result.ok) throw createAppError('AUTHORIZATION', result.refusal);
+    if (!result.ok) throw createRefusal('AUTHORIZATION', result.refusal);
   };
   return {
     roundId: input.roundId,
@@ -48,35 +53,30 @@ export function prepareRoundBallotSubmission(
       .update(JSON.stringify(envelope))
       .digest('hex'),
     authorize,
+    attendanceSettled,
+    /**
+     * The panel's one decision. Only every seat ruling for one side completes
+     * here; any other ending, a tie included, is panel completion's to record
+     * with its ruling, on maintenance's next pass.
+     */
     buildProjection: (context) => {
-      const judges = context.round.participants.filter(
-        (p) => p.role === 'judge',
-      );
-      if (context.ballots.length < judges.length) return null;
-      const outcome = deriveRoundOutcome(
-        context.round.participants,
-        context.ballots.map((b) => {
-          if (
-            (b.winner !== 'affirmative' && b.winner !== 'negative') ||
-            (b.status !== 'submitted' && b.status !== 'voided')
-          )
-            throw createAppError('INVARIANT');
-          return {
-            judgeParticipantId: b.judgeParticipantId,
-            winner: b.winner,
-            status: b.status,
-          };
-        }),
-      );
+      const nowMs = Date.parse(context.now);
+      const panel = judgingPanelOf(context.panel, nowMs);
+      if (panel === null) return null;
+      const { completeness, ballots } = context.panel;
+      const decision = decidePanelCompletion({
+        completeness,
+        panel,
+        ballots,
+        nowMs,
+      });
+      if (decision.kind !== 'complete' || decision.ruling !== 'ruled')
+        return null;
       const projection = createRoundRuntime({
         ...context.round,
         round: context.round,
         nextSegmentId: input.nextSegmentId,
-      }).execute({
-        command: { type: 'complete', outcome },
-        actorId: null,
-        now: context.now,
-      });
+      }).completePanel({ now: context.now, ballots, completeness, panel });
       return {
         ...projection,
         finalization: {

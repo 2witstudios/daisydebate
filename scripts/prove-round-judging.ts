@@ -51,11 +51,7 @@ await withRunDatabase({
           try {
             await operations.executeClaim(current, AbortSignal.timeout(55000));
           } catch (error) {
-            if (
-              isAppError(error) &&
-              error.code === 'CONFLICT' &&
-              error.message === 'attendance-unsettled'
-            )
+            if (isAppError(error) && error.reason === 'attendance-unsettled')
               return;
             throw error;
           }

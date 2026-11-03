@@ -29,6 +29,7 @@ export { recordResult, tallyRecord } from './debate-record';
 export {
   decidePanelCompletion,
   freezeJudgingPlan,
+  judgingPanelOf,
 } from './round-panel-completion';
 export { decideStartHorizon } from './round-start-horizon';
 export { roundWaitingOn } from './round-waiting-on';
@@ -50,4 +51,17 @@ export { requireAttendanceDecision } from './attendance-decision';
 export { decideFormatSelection } from './format-selection';
 export { decideRoomResolution } from './room-resolution';
 export { hasOpenQuestioning } from './round-speaking';
+export {
+  aiSeatStanding,
+  judgingEndIsReported,
+  judgingJobEndReason,
+  judgingJobRules,
+} from './judging-job-rules';
+export {
+  attendanceSettled,
+  finalSpeechKey,
+  nextAttendanceSegment,
+} from './attendance-order';
+export type { RoundAdjudication } from './round-adjudication';
 export { captureRule } from './capture-verdict';
+export { botGrantUnused } from './bot-grant';

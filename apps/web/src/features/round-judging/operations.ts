@@ -3,12 +3,12 @@ import {
   isDefiniteProviderFailure,
   isUnhealableProviderRefusal,
   judgeAnswer,
-  judgeContractVersion,
   type OpenRouter,
 } from '@daisy/ai-voice';
 import type {
   JudgingAttemptCategory,
   JudgingAttemptDiagnostic,
+  JudgingTerminalReason,
 } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
@@ -42,6 +42,8 @@ const providerFailure = (
       : 'provider_error';
   return { category, finish: 'none', issueCount: 0, issues: [] };
 };
+/** What one attempt left to do. */
+type AttemptOutcome = 'ballot_held' | 'concluded';
 /** Durable response caching precedes shared submission; attendance rollback never repeats a cached model call. */
 export function createRoundJudgingOperations(input: {
   readonly store: Store;
@@ -49,94 +51,78 @@ export function createRoundJudgingOperations(input: {
   readonly voice: () => Pick<OpenRouter, 'complete'>;
   readonly withProvider: ProviderCall;
   /** Once, when a job ends with no ballot. Holds only a closed reason. */
-  readonly jobEnded?: (
-    reason: JudgingAttemptCategory | 'out_of_budget',
-  ) => void;
+  readonly jobEnded?: (reason: JudgingTerminalReason) => void;
 }) {
   return {
     async executeClaim(claim: Claim, signal: AbortSignal) {
       const { scope, token } = claim;
       const verify = () => input.store.verifyRoundJudgingJob(scope, token);
-      /** Durable first; true means this attempt has nothing further to do. */
+      /** Durable first, then the reason the store returned. */
       const attemptFailed = async (
         diagnostic: JudgingAttemptDiagnostic,
-        definite: boolean,
         final: boolean,
-      ) => {
+      ): Promise<AttemptOutcome> => {
         const next = await input.store.recordRoundJudgingAttemptFailure(
           scope,
           token,
-          {
-            diagnostic,
-            contractVersion: judgeContractVersion,
-            definite,
-            final,
-          },
+          { diagnostic, final },
         );
-        if (next !== 'retry') input.jobEnded?.(diagnostic.category);
+        if (next !== 'retry') input.jobEnded?.(next);
+        return 'concluded';
       };
-      let concluded = false;
+      /** One provider attempt: a ballot is held for submission, or this attempt has nothing further to do. */
+      const attempt = async (): Promise<AttemptOutcome> => {
+        requireNotCancelled(signal);
+        if ((await verify()).pendingBallot) return 'ballot_held';
+        const messages = frozenJudgingMessages(claim);
+        const voice = input.voice();
+        const begun = await input.store.beginRoundJudgingModelCall(
+          scope,
+          token,
+        );
+        // The job may buy no more calls: it has ended failed (ISSUE-461).
+        if (begun.kind === 'ended') {
+          input.jobEnded?.(begun.reason);
+          return 'concluded';
+        }
+        let answer: Awaited<ReturnType<typeof voice.complete>>;
+        try {
+          answer = await voice.complete({
+            model: claim.model,
+            messages,
+            maxTokens: 6000,
+            outputSchema: { name: 'ballot', schema: ballotWireSchema },
+            reasoning: 'medium',
+            signal,
+          });
+        } catch (error) {
+          const diagnostic = providerFailure(error, signal);
+          // A release, not a failure: this worker no longer holds the lease.
+          if (signal.aborted && diagnostic.category !== 'timeout') throw error;
+          return attemptFailed(diagnostic, isUnhealableProviderRefusal(error));
+        }
+        const usage = {
+          inputTokens: answer.promptTokens,
+          outputTokens: answer.completionTokens,
+        };
+        await input.store.recordRoundJudgingUsage(scope, token, usage);
+        const judged = judgeAnswer(answer);
+        if (!judged.ok) return attemptFailed(judged.diagnostic, false);
+        const saved = await input.store.saveRoundJudgingResult(
+          scope,
+          token,
+          judged.ballot,
+          usage,
+        );
+        if (saved.kind === 'held') return 'ballot_held';
+        input.jobEnded?.(saved.reason);
+        return 'concluded';
+      };
       requireNotCancelled(signal);
-      if (!(await verify()).pendingBallot) {
-        await input.withProvider(signal, async () => {
-          requireNotCancelled(signal);
-          if ((await verify()).pendingBallot) return;
-          const messages = frozenJudgingMessages(claim);
-          const voice = input.voice();
-          // The job may buy no more calls: it has ended failed (ISSUE-461).
-          if (!(await input.store.beginRoundJudgingModelCall(scope, token))) {
-            input.jobEnded?.('out_of_budget');
-            concluded = true;
-            return;
-          }
-          let answer: Awaited<ReturnType<typeof voice.complete>>;
-          try {
-            answer = await voice.complete({
-              model: claim.model,
-              messages,
-              maxTokens: 6000,
-              outputSchema: { name: 'ballot', schema: ballotWireSchema },
-              reasoning: 'medium',
-              signal,
-            });
-          } catch (error) {
-            const diagnostic = providerFailure(error, signal);
-            // A release, not a failure: this worker no longer holds the lease.
-            if (signal.aborted && diagnostic.category !== 'timeout')
-              throw error;
-            const refused = diagnostic.category === 'provider_refused';
-            await attemptFailed(
-              diagnostic,
-              refused,
-              isUnhealableProviderRefusal(error),
-            );
-            concluded = true;
-            return;
-          }
-          const usage = {
-            inputTokens: answer.promptTokens,
-            outputTokens: answer.completionTokens,
-          };
-          await input.store.recordRoundJudgingUsage(scope, token, usage);
-          const judged = judgeAnswer(answer);
-          if (!judged.ok) {
-            await attemptFailed(judged.diagnostic, false, false);
-            concluded = true;
-            return;
-          }
-          const held = await input.store.saveRoundJudgingResult(
-            scope,
-            token,
-            judged.ballot,
-            usage,
-          );
-          if (!held) {
-            input.jobEnded?.('out_of_budget');
-            concluded = true;
-          }
-        });
-      }
-      if (concluded) return null;
+      const outcome = (await verify()).pendingBallot
+        ? 'ballot_held'
+        : await input.withProvider(signal, attempt);
+      if (outcome === 'concluded') return null;
       requireNotCancelled(signal);
       const fresh = await verify();
       if (!fresh.pendingBallot)

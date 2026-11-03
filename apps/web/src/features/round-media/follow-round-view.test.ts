@@ -1,14 +1,14 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaController } from './media-controller';
+import { createMediaHarness } from './media-harness.test-support';
 import {
   admission,
   roundId,
   snapshot,
   transportStub,
-} from './media-controller.test-support';
+} from './media-fixtures.test-support';
 import { createRoundViewFollower } from './follow-round-view';
 import { nextMediaRefreshAt } from './refresh-deadline';
-import { settle } from './browser-transport.test-support';
+import { settle } from './adapters/livekit-room.test-support';
 import { ran } from '../../ui/debate-room/live-round.test-support';
 setupRitewayBun();
 
@@ -18,7 +18,7 @@ const deadlineMs = nextMediaRefreshAt(view)!;
 const mounted = async () => {
   const state = { reads: 0, refreshes: 0, signals: [] as AbortSignal[] };
   const held = { reply: null as Promise<unknown> | null };
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: view.version,
     api: {

@@ -3,6 +3,7 @@ import {
   roundBallotReadSchema,
   roundJudgeAssignmentsSchema,
 } from '@daisy/protocol';
+import { unavailableRead } from '../../server/temporary-read';
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 /** Canonical protected input/result read; query parameters never choose a ballot state. */
 export async function readRoundBallot(fetch: FetchLike, roundId: string) {
@@ -12,7 +13,7 @@ export async function readRoundBallot(fetch: FetchLike, roundId: string) {
       method: 'GET',
     });
     if (response.status === 404) return { kind: 'missing' as const };
-    if (!response.ok) return { kind: 'unavailable' as const };
+    if (!response.ok) return unavailableRead(response);
     const parsed = roundBallotReadSchema.safeParse(await response.json());
     return parsed.success && parsed.data.round.id === roundId
       ? { kind: 'found' as const, view: parsed.data }

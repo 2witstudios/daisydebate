@@ -1,3 +1,5 @@
+import { decisionOf } from './attendance-evaluation.test-support';
+import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { requireTestServices } from '@daisy/config';
 import { attendanceTimingPolicy, buildRoundTopic } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
@@ -62,7 +64,7 @@ test('an on-time speaker is credited with no availability history, inventing no 
         given: 'an on-time speaker receipt and no availability samples at all',
         should: 'record attendance from the receipt alone, Round still active',
         actual: {
-          decision: resolved?.decision,
+          decision: decisionOf(resolved),
           evidence: row.evidence,
           deadline: row.effective_deadline,
           horizon: row.settled_horizon,
@@ -103,7 +105,12 @@ test('unknown health forfeits nobody: an absent or late speaker postpones', () =
           rows: (await adjudications(input)).length,
           status: round.status,
         },
-        expected: { absent: null, late: null, rows: 0, status: 'active' },
+        expected: {
+          absent: { kind: 'undecided' },
+          late: { kind: 'undecided' },
+          rows: 0,
+          status: 'active',
+        },
       });
     } finally {
       await cleanUp(input);
@@ -118,7 +125,7 @@ test('the persisted cutoff ends an unprovable window with no winner, and a pendi
     await stamp(input, opponent, 1000);
     const attemptId = createId();
     try {
-      await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+      await passAttendanceCutoff(f.sql, roundId);
       await f.sql`insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,received_at,backend_pid,backend_started_at,state)
         values(${attemptId},${createId()},${roundId},${'b'.repeat(64)},${opponent.actorId},statement_timestamp(),1,'2026-10-22 00:00:00+00','pending')`;
       const held = await input.attendance.evaluate(roundId);
@@ -135,9 +142,9 @@ test('the persisted cutoff ends an unprovable window with no winner, and a pendi
         should:
           'hold while a writer is uncertain, then abandon with no winner and no rating',
         actual: {
-          held: held?.decision,
+          held: decisionOf(held),
           whileHeld,
-          ended: ended?.decision,
+          ended: decisionOf(ended),
           evidence: row.evidence,
           horizon: row.settled_horizon,
           status: round.status,
@@ -148,7 +155,7 @@ test('the persisted cutoff ends an unprovable window with no winner, and a pendi
           held: 'held',
           whileHeld: 'active',
           ended: 'abandoned',
-          evidence: 'infrastructure_unresolved',
+          evidence: 'resolution_cutoff',
           horizon: null,
           status: 'abandoned',
           outcome: null,
@@ -219,14 +226,14 @@ test('a long-outage evaluation at the read cap stays inside its transaction budg
           undecided,
           inBudget: elapsedMs < attendanceTimingPolicy.transactionSliceMs,
         },
-        expected: { undecided: null, inBudget: true },
+        expected: { undecided: { kind: 'undecided' }, inBudget: true },
       });
-      await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+      await passAttendanceCutoff(f.sql, roundId);
       const ended = await attendance.evaluate(roundId);
       assert({
         given: 'that history past the cutoff',
         should: 'end the Round with no winner',
-        actual: ended?.decision,
+        actual: decisionOf(ended),
         expected: 'abandoned',
       });
     } finally {
@@ -248,13 +255,13 @@ test('past the cutoff a provable absence is still decided, not abandoned', () =>
         select s.started_at+n*interval '1 second',true,null
         from round_segments s, generate_series(-3,47) n where s.id=${segmentId}`;
     });
-    await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+    await passAttendanceCutoff(f.sql, roundId);
     try {
       const resolved = await attendance.evaluate(roundId);
       assert({
         given: 'healthy history proving the absence, read after the cutoff',
         should: 'forfeit on the evidence',
-        actual: resolved?.decision,
+        actual: decisionOf(resolved),
         expected: 'forfeit',
       });
     } finally {

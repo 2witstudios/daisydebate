@@ -11,6 +11,7 @@ const entry = {
   title: 'Tuesday night',
   phase: 'assembling',
   role: 'host',
+  seated: false,
   href: `/rooms/${roomId}`,
 } as const;
 
@@ -43,6 +44,7 @@ test('the active room read is a versioned, closed grammar', () => {
           ...entry,
           phase: 'live',
           role: 'debater',
+          seated: true,
           href: `/rounds/${roundId}/room`,
         },
       },

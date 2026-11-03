@@ -9,21 +9,15 @@ setupRitewayBun();
 describe('resultBallots()', () => {
   test('released ballots', () => {
     assert({
-      given: 'a completed Round with a human and a voided AI ballot',
-      should:
-        'title each by order and kind of judge, never by who judged, and mark the voided one',
-      actual: resultBallots(completed).map(({ title, author, voided }) => ({
+      given: 'a completed Round with a human and an AI ballot',
+      should: 'title each by order and kind of judge, never by who judged',
+      actual: resultBallots(completed).map(({ title, author }) => ({
         title,
         author,
-        voided,
       })),
       expected: [
-        {
-          title: 'Ballot 1 · Human judge',
-          author: 'Human judge',
-          voided: false,
-        },
-        { title: 'Ballot 2 · AI judge', author: 'AI judge', voided: true },
+        { title: 'Ballot 1 · Human judge', author: 'Human judge' },
+        { title: 'Ballot 2 · AI judge', author: 'AI judge' },
       ],
     });
   });

@@ -177,7 +177,7 @@ test('fresh canonical revocation and actual final-end expiry refuse repeated bin
         [seat.actorId],
       );
       await fixture.sql.unsafe(
-        "update rounds set final_segment_ended_at=statement_timestamp()-interval '30 minutes', transcript_admission_cutoff=statement_timestamp()-interval '28 minutes' where id=$1",
+        "update rounds set final_segment_ended_at=statement_timestamp()-interval '30 minutes', transcript_admission_cutoff=statement_timestamp()-interval '28 minutes', attendance_resolution_cutoff_at=statement_timestamp()+interval '30 minutes' where id=$1",
         [roundId],
       );
       await assertRejects({
