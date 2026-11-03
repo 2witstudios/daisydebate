@@ -1,6 +1,10 @@
+import type { SeatMedia } from './stage-subscriptions';
+
 type StageSeat = {
   readonly side: 'affirmative' | 'negative';
   readonly label: string;
+  readonly kind: 'human' | 'bot';
+  readonly identity: string | null;
   readonly floor: boolean;
 };
 export type StageSnapshot = {
@@ -8,12 +12,20 @@ export type StageSnapshot = {
   readonly clock: { readonly label: string; readonly endsAt: string } | null;
   readonly seats: readonly StageSeat[];
 };
+/** Whether the page holds the room; a rotation or a drop shows as a gap, not a freeze. */
+export type StageLink = 'connected' | 'reconnecting';
 
 const slateCopy: Record<Exclude<StageSnapshot['phase'], 'speech'>, string> = {
   prep: 'Preparation',
   judging: 'Judges are deciding',
   between: 'Next speech soon',
   slate: 'Starting soon',
+};
+
+const seatCopy: Record<Exclude<SeatMedia, 'video'>, string> = {
+  'camera-off': 'Camera off',
+  'voice-only': 'AI debater, voice only',
+  away: 'Not connected',
 };
 
 const remaining = (endsAt: string, nowMs: number) => {
@@ -23,17 +35,21 @@ const remaining = (endsAt: string, nowMs: number) => {
 
 /**
  * Everything the audience's video shows, burned in so it cannot drift from the
- * media. Tiles sit in `tiles`; the branding bar sits below them and never covers
- * a debater, because this video is also the official feed for streamers.
+ * media. Each seat owns one tile with its name beneath it, so a tile cannot sit
+ * above the wrong name. Names and the branding bar sit outside the tiles and
+ * never cover a debater, because this video is also the official feed for streamers.
  */
 export function StageView(props: {
   readonly snapshot: StageSnapshot;
   readonly nowMs: number;
   readonly siteLink: string;
-  readonly tiles: React.ReactNode;
+  readonly link: StageLink;
+  readonly mediaOf: (seat: StageSeat) => SeatMedia;
+  readonly tile: (seat: StageSeat) => React.ReactNode;
 }) {
   const { snapshot } = props;
   const live = snapshot.phase === 'speech';
+  const gap = live && props.link === 'reconnecting';
   return (
     <main className="broadcast-stage">
       <header className="broadcast-stage-clock">
@@ -42,23 +58,29 @@ export function StageView(props: {
             ? snapshot.clock?.label
             : slateCopy[snapshot.phase as keyof typeof slateCopy]}
         </span>
+        {gap ? <span>Reconnecting to the debate</span> : null}
         {snapshot.clock ? (
           <strong>{remaining(snapshot.clock.endsAt, props.nowMs)}</strong>
         ) : null}
       </header>
-      <section className="relative min-h-0">
-        <div className={`flex h-full ${live ? 'visible' : 'invisible'}`}>
-          {props.tiles}
-        </div>
-        <ul className="broadcast-stage-seats">
-          {snapshot.seats.map((seat) => (
-            <li key={seat.side} data-floor={seat.floor}>
-              {seat.label}
-              {seat.floor ? ' · speaking' : ''}
+      <ul className="broadcast-stage-seats">
+        {snapshot.seats.map((seat) => {
+          const media = props.mediaOf(seat);
+          return (
+            <li key={`${seat.side}-${seat.label}`} data-floor={seat.floor}>
+              <div
+                className={`broadcast-stage-tile ${live && !gap ? 'visible' : 'invisible'}`}
+              >
+                {media === 'video' ? props.tile(seat) : seatCopy[media]}
+              </div>
+              <p>
+                {seat.label}
+                {seat.floor ? ' · speaking' : ''}
+              </p>
             </li>
-          ))}
-        </ul>
-      </section>
+          );
+        })}
+      </ul>
       <footer className="broadcast-stage-brand">
         <span>Daisy Debate</span>
         <span>{props.siteLink}</span>
