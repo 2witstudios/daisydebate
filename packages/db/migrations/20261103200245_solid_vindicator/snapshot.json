@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ed2d9ced-e134-49de-a998-4efb0ed66098",
+  "id": "cfbdc3ef-f492-454f-96ed-78471979d127",
   "prevIds": [
-    "27c0ba7f-486d-4bab-ab09-08a7161ed9c1"
+    "54d594bf-7bb1-4678-a9b3-d2c783f81822"
   ],
   "ddl": [
     {
@@ -2510,6 +2510,19 @@
       "generated": null,
       "identity": null,
       "name": "control_heartbeat_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "release_not_before",
       "entityType": "columns",
       "schema": "public",
       "table": "broadcasts"
@@ -23862,7 +23875,7 @@
       "table": "media_vendor_mutations"
     },
     {
-      "value": "(\"settled_at\" is null) = (\"outcome\" is null) and (\"outcome\" is null or \"outcome\" in ('succeeded','failed')) and (\"settled_at\" is null or \"settled_at\" >= \"dispatched_at\")",
+      "value": "(\"settled_at\" is null) = (\"outcome\" is null) and (\"outcome\" is null or \"outcome\" in ('succeeded','failed','superseded')) and (\"settled_at\" is null or \"settled_at\" >= \"dispatched_at\")",
       "name": "media_vendor_mutations_settlement_check",
       "entityType": "checks",
       "schema": "public",
