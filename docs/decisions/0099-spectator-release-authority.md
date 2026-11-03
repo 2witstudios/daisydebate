@@ -74,14 +74,10 @@ and a file. Room Composite is rejected: deleting its room ends it, or leaves it
 active and writing silence. Daisy stops the Egress, and the reconciler stops any
 whose Round is terminal.
 
-**Stage quality (owner, 2026-11-03).** On a Round expecting a Broadcast, a browser
-reporting at least 4 cores captures 540p, which adds a top simulcast layer over 180p
-and 360p. Every other seat keeps its 360p baseline. The layer is there for the stage:
-dynacast sends it only while a subscriber asks for it, and congestion control and
-Chrome's CPU adaptation drop the highest layer first, so audio and the lower layers
-keep their place. Under 960 wide (a 4:3 camera) the SDK keeps only 180p below the
-capture, so 360p is not available there. The admission's `camera` value is a hint about
-quality and decides no authority. If it cannot be read, the seat captures the baseline.
+**Stage quality.** Stage tiles are 360p for now. The owner has decided on a 540p top
+layer on Rounds with a Broadcast, and the adapter can capture it when an admission
+says `broadcast` on a browser reporting at least 4 cores, but nothing says so yet: it
+needs the throttle proof first, and the operation's `cameraProfile` input is the switch.
 
 **Privacy boundary.** Revoking the observer's subscribe permission on the server
 is the boundary; the page slate is appearance only. If revocation cannot be
@@ -102,18 +98,17 @@ second layer that needs the stage route alive.
 
 **Release: the guarantee (owner, 2026-11-03).** Nothing leaves that committed Round
 history does not prove public. `publicIntervals` in `@daisy/protocol` turns
-`round_segments` into intervals, each speech or cross-examination from start to end,
-margin inside; a segment still open is known only as far as the last heartbeat and
-never past its schedule. Nothing else is public, so prep, the stretch between
-speeches and every private phase are gaps, and so is an outage until a commit says
-otherwise. No clock opens anything: a late commit is the only thing that can make an
+`round_segments` into intervals, each speech or cross-examination from past its start,
+by Egress's stamp lag, to its end; a segment still open is known only as far as the last heartbeat and
+never past its schedule. Nothing else is public, and an outage is a gap until a commit says otherwise. No clock opens anything: a late commit is the only thing that can make an
 unknown stretch public, and time alone never does. The worker reads the times through
-the view `broadcast_public_history`, its only read of a Round: a view has no second
+the views `broadcast_public_history` and `broadcast_private_history`, its only read of a
+Round: a view has no second
 writer, cannot drift from the record, and puts nothing inside a competitive
 transaction, and it runs as its owner, so its role is granted no Round table.
 
 The encoder cuts at the boundary (it re-encodes anyway), so a speech edge loses only
-the margin, one named value set by Egress's measured drift, and whole segments go only
+its measured stamp lag, and whole segments go only
 where no interval touches them. Media past the last heartbeat waits, logged once as
 `broadcast.release_lapsed`, and resumes under the same rule when the web tier returns.
 Recording builds use the same intervals, copied by the web into the job since the
@@ -126,6 +121,17 @@ Settled time with nothing public in it moves the watermark as it comes due, publ
 nothing, so a long prep or judging does not read as a stalled release. Only time past
 the last heartbeat stands still, and that is what `release_delayed` and the audience's
 interrupted state are for.
+
+Slates publish, so a stall means a real gap. `stageTimeline` gives the feed three kinds
+from `round_segments` and `round_private_spans` (prep and judging, committed with the
+transition). `speech` goes out as held. The stretch between two committed spans is
+`between`, since a private phase would have committed its own: the stage's slate from
+the hold, with its audio replaced by generated silence, so no byte of the hold's sound
+is in it. `private` reads nothing from the hold: a generated frame in the stage's
+background colour, and silence, because a phase's first moments can still hold a camera
+frame until the page's next read and the revocation arrive. Going into something more
+private a boundary uses the end-edge stamp lag and coming out the start-edge one, two
+named values from staging's measurement across attempts.
 
 The public playlist marks a discontinuity at each gap. The Daisy player covers the
 video with a slate after 5 s stalled, and for 4 s when hls.js sees capture time jump

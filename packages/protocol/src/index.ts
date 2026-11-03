@@ -1,10 +1,13 @@
 export {
+  privateSpanChanges,
   publicClips,
   publicIntervals,
   publicIntervalsSchema,
   settledByHeartbeat,
+  stageTimeline,
   type PublicClip,
   type PublicInterval,
+  type StageInterval,
 } from './public-interval';
 /**
  * Named re-exports, not `export *` (AGENTS.md: explicit exports, no
