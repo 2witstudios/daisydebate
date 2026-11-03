@@ -6,7 +6,8 @@ import type {
   RecordingStore,
 } from '../features/recording/ports';
 import type { WorkerTimers } from '../lib/worker-timers';
-import { createRetentionSweep, startRetentionSweep } from './retention-sweep';
+import { createRetentionSweep } from './retention-sweep';
+import { startRunSchedule } from './run-schedule';
 
 const RECORDING_DELETION_INTERVAL_MS = 60_000;
 
@@ -44,8 +45,8 @@ export function startRecordingDeletions(input: {
       },
     ],
   });
-  return startRetentionSweep({
-    sweep,
+  return startRunSchedule({
+    work: sweep,
     timers: input.timers,
     intervalMs: input.intervalMs ?? RECORDING_DELETION_INTERVAL_MS,
     runOnStart: false,

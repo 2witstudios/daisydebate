@@ -26,11 +26,17 @@ export const runWorker = async (deps: {
 }) => {
   const { store, objects } = deps;
   while (!deps.stopped()) {
-    const job = await store.claim({
-      owner: deps.owner,
-      now: new Date(deps.now()),
-      leaseUntil: new Date(deps.now() + LEASE_MS),
-    });
+    // A database blip must not end this slot: report it and try again.
+    const job = await store
+      .claim({
+        owner: deps.owner,
+        now: new Date(deps.now()),
+        leaseUntil: new Date(deps.now() + LEASE_MS),
+      })
+      .catch(() => {
+        deps.report('broadcast.release_failed');
+        return null;
+      });
     if (!job) {
       await deps.sleep(IDLE_MS);
       continue;
