@@ -68,6 +68,8 @@ export const startRound = (
     return refuse('ai-judge-premium');
   if (captureUnadmitted(room, edges.hostHoldsCasualCapture))
     return refuse('capture-premium');
+  if (room.visibility === 'private' && room.capture?.broadcast)
+    return refuse('broadcast-private');
   const draw = room.executionPlan.resolutionDraw.enabled
     ? startRoundDraw(room, edges)
     : null;

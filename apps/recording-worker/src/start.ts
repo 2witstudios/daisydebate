@@ -58,7 +58,7 @@ await Promise.all(
         ),
       discardPage: objects.discardPage,
       strip: (holdPrefix, intervals) =>
-        stripSources(objects.hold, holdPrefix, intervals),
+        stripSources(objects.hold, holdPrefix, intervals, realClock()),
       workDirOf: (recordingId, owner) =>
         `${config.RECORDING_WORK_DIR}/${recordingId}-${owner}`,
       removeWorkDir,

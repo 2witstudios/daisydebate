@@ -4,6 +4,7 @@ import {
   claimBroadcast,
   claimFeedWithdrawal,
   completeBroadcast,
+  parkBroadcast,
   readBroadcastStageHistory,
   readRecordingKeepsHold,
   recordFeedWithdrawn,
@@ -35,6 +36,8 @@ export const createBroadcastWorkerStore = (url: string) => {
       recordNotPublicPassed(database, input),
     recordSkipped: (input: Parameters<typeof recordClipSkipped>[1]) =>
       recordClipSkipped(database, input),
+    park: (input: Parameters<typeof parkBroadcast>[1]) =>
+      parkBroadcast(database, input),
     recordEnded: (input: Parameters<typeof recordMediaEndReleased>[1]) =>
       recordMediaEndReleased(database, input),
     renew: (input: Parameters<typeof renewBroadcastLease>[1]) =>

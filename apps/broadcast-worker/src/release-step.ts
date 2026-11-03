@@ -15,6 +15,8 @@ import {
 } from './hold-manifest';
 
 const WINDOW = 6;
+/** Media just captured may not be in the playlist yet: wake this much before its due time. */
+const NOT_LISTED_YET_MS = 10_000;
 
 /** Egress finishes writing its last segments this long after a stop (measured: 2 s). */
 const HOLD_SETTLE_MS = 10_000;
@@ -74,7 +76,8 @@ export type ReleaseInput = {
 };
 
 export type ReleaseResult =
-  | { readonly kind: 'waiting' }
+  /** `nextDueMs`: nothing can be due before then, as far as this pass knows. */
+  | { readonly kind: 'waiting'; readonly nextDueMs?: number }
   /** Due, but no committed history reaches it yet. */
   | { readonly kind: 'lapsed' }
   | { readonly kind: 'fenced' }
@@ -183,7 +186,10 @@ export const releaseStep = async (
   // Only what is settled counts, and only its public clips: nothing else is ever
   // released, positions never shift, and what is left out leaves no hole in the
   // public sequence.
-  const entries = parseHoldPlaylist(await ports.readHoldPlaylist());
+  const entries = parseHoldPlaylist(
+    await ports.readHoldPlaylist(),
+    input.nowMs,
+  );
   const settled = entries.filter((one) =>
     settledByHeartbeat(one, input.heartbeatMs),
   );
@@ -208,8 +214,12 @@ export const releaseStep = async (
     )
       return { kind: 'fenced' };
   }
+  const dueAtMs = (one: { capturedAtMs: number; durationMs: number }) =>
+    one.capturedAtMs + one.durationMs + input.policy.seconds * 1000;
   if (!entry && unsettled)
-    return due(unsettled) ? { kind: 'lapsed' } : { kind: 'waiting' };
+    return due(unsettled)
+      ? { kind: 'lapsed' }
+      : { kind: 'waiting', nextDueMs: dueAtMs(unsettled) };
   if (!entry) {
     if (input.laterAttemptStartedMs !== null)
       return input.nowMs >= input.laterAttemptStartedMs + HOLD_SETTLE_MS
@@ -224,9 +234,24 @@ export const releaseStep = async (
       input.nowMs >= end + HOLD_SETTLE_MS &&
       due({ capturedAtMs: end, durationMs: 0 })
       ? endStream(input, end, held, ports)
-      : { kind: 'waiting' };
+      : {
+          kind: 'waiting',
+          ...(input.streamEnded
+            ? {}
+            : {
+                nextDueMs:
+                  end === null
+                    ? input.nowMs +
+                      input.policy.seconds * 1000 -
+                      NOT_LISTED_YET_MS
+                    : Math.max(
+                        end + HOLD_SETTLE_MS,
+                        dueAtMs({ capturedAtMs: end, durationMs: 0 }),
+                      ),
+              }),
+        };
   }
-  if (!segmentDue(input.policy, entry, input.nowMs)) return { kind: 'waiting' };
+  if (!due(entry)) return { kind: 'waiting', nextDueMs: dueAtMs(entry) };
   const seq = input.nextSegment;
   for (const { rendition, file } of await ports.encode(entry))
     await ports.publishSegment(seq, rendition, file);

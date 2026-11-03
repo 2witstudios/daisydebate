@@ -43,7 +43,7 @@ describe('stripSources', () => {
     const { files, port } = bucket();
     await stripSources(port, 'hold/b/', [
       { fromMs: T0 + 3000, toMs: T0 + 8500 },
-    ]);
+    ], T0 + 900_000);
     assert({
       given:
         'an attempt with a whole file, a straddler each side and one inside, and one with no playlist',
@@ -62,9 +62,9 @@ describe('stripSources', () => {
   });
   test('nothing known public leaves nothing but an empty playlist, and a repeat is harmless', async () => {
     const { files, port } = bucket();
-    await stripSources(port, 'hold/b/', []);
+    await stripSources(port, 'hold/b/', [], T0 + 900_000);
     const once = [...files.keys()].sort();
-    await stripSources(port, 'hold/b/', []);
+    await stripSources(port, 'hold/b/', [], T0 + 900_000);
     assert({
       given: 'a failure before any public interval, run twice',
       should: 'leave only empty playlists, the same both times',

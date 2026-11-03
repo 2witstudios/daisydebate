@@ -133,6 +133,7 @@ const readAttempt = async (
   const prefix = holdAttemptPrefix(holdPrefix, attempt);
   const entries = parseHoldPlaylist(
     await ports.hold.readText(`${prefix}${HOLD_PLAYLIST}`),
+    Date.parse(ports.now()),
   );
   const names = new Set(await ports.hold.listNames(prefix));
   const dir = `${ports.workDir}/attempt-${attempt}`;

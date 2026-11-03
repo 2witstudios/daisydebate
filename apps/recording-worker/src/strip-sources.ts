@@ -45,11 +45,12 @@ export const stripSources = async (
   hold: HoldPort,
   holdPrefix: string,
   intervals: readonly PublicInterval[],
+  nowMs: number,
 ): Promise<void> => {
   const attempts = attemptsUnder(holdPrefix, await hold.listNames(holdPrefix));
   for (const prefix of attempts) {
     const kept = wholeSegmentsInside(
-      parseHoldPlaylist(await hold.readText(`${prefix}${HOLD_PLAYLIST}`)),
+      parseHoldPlaylist(await hold.readText(`${prefix}${HOLD_PLAYLIST}`), nowMs),
       intervals,
     );
     await hold.writeText(`${prefix}${HOLD_PLAYLIST}`, playlistOf(kept));

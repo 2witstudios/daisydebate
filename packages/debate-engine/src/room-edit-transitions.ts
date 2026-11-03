@@ -134,6 +134,8 @@ export const updateDetails = (
 ): RoomMutationOutcome => {
   if (room.competitionType === 'ranked' && command.visibility !== 'public')
     return refuse('illegal-config');
+  if (command.visibility === 'private' && room.capture?.broadcast)
+    return refuse('broadcast-private');
   const draw = room.executionPlan.resolutionDraw.enabled;
   if (draw === (command.topic !== undefined)) return refuse('illegal-config');
   const topicChanged =

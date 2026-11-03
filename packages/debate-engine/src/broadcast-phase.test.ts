@@ -8,7 +8,7 @@ const base: PhasePosition = {
   openSegment: null,
   nextSegment: null,
   prep: null,
-  stage: null,
+  stage: 'countdown',
 };
 const speechNext = { type: 'speech' } as const;
 
@@ -19,7 +19,7 @@ describe('broadcastPhase', () => {
       given: 'a speech with others after it, as the runtime reports it',
       should: 'stay public: its nextSegment is null only because it is open',
       actual: broadcastPhase(
-        { ...base, openSegment: { endsAt, sequence: 2 } },
+        { ...base, openSegment: { type: 'speech', endsAt, sequence: 2 } },
         6,
       ),
       expected: { kind: 'public' },
@@ -29,7 +29,7 @@ describe('broadcastPhase', () => {
       should:
         'report the private phase at that time, so revocation can lead it',
       actual: broadcastPhase(
-        { ...base, openSegment: { endsAt, sequence: 6 } },
+        { ...base, openSegment: { type: 'speech', endsAt, sequence: 6 } },
         6,
       ),
       expected: { kind: 'private-at', atMs: Date.parse(endsAt) },
@@ -59,6 +59,39 @@ describe('broadcastPhase', () => {
         broadcastPhase(base, 6),
       ],
       expected: [{ kind: 'public' }, { kind: 'private' }],
+    });
+  });
+  test('what is not declared public is private, a future incident pause included', () => {
+    const endsAt = '2026-11-02T00:01:00.000Z';
+    assert({
+      given:
+        'no stage, a stage nothing declares, a name off Object, and an undeclared segment type',
+      should: 'be private in each',
+      actual: [
+        broadcastPhase({ ...base, stage: null, nextSegment: speechNext }, 6),
+        broadcastPhase(
+          { ...base, stage: 'incident_pause', nextSegment: speechNext },
+          6,
+        ),
+        broadcastPhase(
+          { ...base, stage: 'constructor', nextSegment: speechNext },
+          6,
+        ),
+        broadcastPhase(
+          {
+            ...base,
+            stage: 'live',
+            openSegment: { type: 'incident_pause', endsAt, sequence: 1 },
+          },
+          6,
+        ),
+      ],
+      expected: [
+        { kind: 'private' },
+        { kind: 'private' },
+        { kind: 'private' },
+        { kind: 'private' },
+      ],
     });
   });
 });

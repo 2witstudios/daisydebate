@@ -13,7 +13,15 @@ export type HoldEntry = {
 /** A plain file name, so a hold's playlist can name nothing outside its own prefix. */
 const SEGMENT_NAME = /^[A-Za-z0-9_-][A-Za-z0-9._-]*\.ts$/;
 
-export const parseHoldPlaylist = (text: string): readonly HoldEntry[] => {
+/**
+ * A held playlist is Egress's word, not ours. It stops at the first entry that names
+ * anything but a plain segment, runs backward, or claims media from the future, since
+ * a release time rests on these stamps: nothing past that point is believed.
+ */
+export const parseHoldPlaylist = (
+  text: string,
+  nowMs: number,
+): readonly HoldEntry[] => {
   const entries: HoldEntry[] = [];
   let capturedAtMs = Number.NaN;
   let durationMs = Number.NaN;
@@ -26,7 +34,9 @@ export const parseHoldPlaylist = (text: string): readonly HoldEntry[] => {
       if (
         Number.isNaN(capturedAtMs) ||
         Number.isNaN(durationMs) ||
-        !SEGMENT_NAME.test(line.trim())
+        !SEGMENT_NAME.test(line.trim()) ||
+        capturedAtMs <= (entries.at(-1)?.capturedAtMs ?? Number.NEGATIVE_INFINITY) ||
+        capturedAtMs + durationMs > nowMs
       )
         return entries;
       entries.push({ name: line.trim(), capturedAtMs, durationMs });

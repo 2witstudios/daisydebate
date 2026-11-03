@@ -79,6 +79,8 @@ export const broadcasts = pgTable(
     reconcileLeaseUntil: timestampColumn('reconcile_lease_until'),
     /** When the control plane last reached this Broadcast, by the database's clock. */
     controlHeartbeatAt: timestampColumn('control_heartbeat_at'),
+    /** Nothing is due before this, so no release slot holds it until then. */
+    releaseNotBefore: timestampColumn('release_not_before'),
     leaseEpoch: integer('lease_epoch').notNull().default(0),
     leaseOwner: text('lease_owner'),
     leaseUntil: timestampColumn('lease_until'),

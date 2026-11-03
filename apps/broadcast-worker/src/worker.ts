@@ -14,6 +14,8 @@ import { feedWithdrawalPorts, withdrawFeed } from './withdrawal';
 const LEASE_MS = 30_000;
 const RENEW_MS = 5_000;
 const IDLE_MS = 500;
+/** Nothing due for longer than this gives the slot back: a long delay must not hold one. */
+const PARK_AFTER_MS = 30_000;
 /** A clip this many times unreadable is given up on, with a growing wait between. */
 const CLIP_ATTEMPTS = 5;
 const CLIP_RETRY_MS = 1000;
@@ -261,7 +263,19 @@ export const runWorker = async (deps: {
             cursor = 0;
           } else if (result.kind === 'ended')
             facts = { ...facts, streamEndedAt: new Date(deps.now()) };
-          else await deps.sleep(IDLE_MS);
+          else if (
+            result.kind === 'waiting' &&
+            result.nextDueMs !== undefined &&
+            result.nextDueMs - deps.now() > PARK_AFTER_MS
+          ) {
+            await store.park({
+              id: job.id,
+              owner: deps.owner,
+              epoch: job.leaseEpoch,
+              until: new Date(result.nextDueMs),
+            });
+            break;
+          } else await deps.sleep(IDLE_MS);
         } catch (error) {
           if (!(error instanceof LeaseEnded)) {
             deps.report('broadcast.release_failed');

@@ -3,11 +3,13 @@ import {
   and,
   asc,
   eq,
+  getTableColumns,
   gt,
   inArray,
   isNotNull,
   isNull,
   lte,
+  ne,
   or,
   type SQL,
   sql,
@@ -49,6 +51,17 @@ export const openBroadcast = async (
   return row!;
 };
 
+/**
+ * The watermark moves forward only, and never past now: it comes from stamps in a
+ * playlist, and a stamp from the future must not release a fact early.
+ */
+const watermarkAt = (mediaEnd: Date) =>
+  sql`least(greatest(${broadcasts.releasedThroughAt}, ${mediaEnd.toISOString()}::timestamptz), clock_timestamp())`;
+
+/** All the hold worker's role may read: its grant leaves the stage credential out. */
+const { stageCredentialHash: _stageCredentialHash, ...workerRow } =
+  getTableColumns(broadcasts);
+
 type ClaimLease = {
   readonly owner: string;
   readonly now: Date;
@@ -81,7 +94,7 @@ const claimOldestFree = async (tx: Tx, work: SQL, input: ClaimLease) => {
       leaseEpoch: sql`${broadcasts.leaseEpoch} + 1`,
     })
     .where(eq(broadcasts.id, free.id))
-    .returning();
+    .returning(workerRow);
   return claimed!;
 };
 
@@ -89,7 +102,14 @@ const claimOldestFree = async (tx: Tx, work: SQL, input: ClaimLease) => {
 export const claimBroadcast = (tx: Tx, input: ClaimLease) =>
   claimOldestFree(
     tx,
-    and(isNull(broadcasts.completedAt), isNull(broadcasts.stoppedAt))!,
+    and(
+      isNull(broadcasts.completedAt),
+      isNull(broadcasts.stoppedAt),
+      or(
+        isNull(broadcasts.releaseNotBefore),
+        lte(broadcasts.releaseNotBefore, input.now),
+      ),
+    )!,
     input,
   );
 
@@ -153,7 +173,7 @@ export const recordSegmentReleased = async (
     .set({
       nextSegment: input.segment + 1,
       holdCursor: sql`${broadcasts.holdCursor} + 1`,
-      releasedThroughAt: sql`greatest(${broadcasts.releasedThroughAt}, ${input.mediaEnd.toISOString()}::timestamptz)`,
+      releasedThroughAt: watermarkAt(input.mediaEnd),
     })
     .where(
       and(
@@ -179,7 +199,7 @@ export const renewBroadcastLease = async (
     .update(broadcasts)
     .set({ leaseUntil: input.leaseUntil })
     .where(held(input.id, input.owner, input.epoch))
-    .returning();
+    .returning(workerRow);
   return row ?? null;
 };
 
@@ -237,7 +257,7 @@ export const recordNotPublicPassed = async (
   const rows = await tx
     .update(broadcasts)
     .set({
-      releasedThroughAt: sql`greatest(${broadcasts.releasedThroughAt}, ${input.through.toISOString()}::timestamptz)`,
+      releasedThroughAt: watermarkAt(input.through),
     })
     .where(held(input.id, input.owner, input.epoch))
     .returning({ id: broadcasts.id });
@@ -264,6 +284,31 @@ export const recordClipSkipped = async (
   return rows.length > 0;
 };
 
+/**
+ * Nothing here is due for a while: the slot goes to another Broadcast, and this one
+ * is not claimed again before then. A long delay holds no release slot.
+ */
+export const parkBroadcast = async (
+  tx: Tx,
+  input: {
+    readonly id: string;
+    readonly owner: string;
+    readonly epoch: number;
+    readonly until: Date;
+  },
+): Promise<boolean> => {
+  const rows = await tx
+    .update(broadcasts)
+    .set({
+      releaseNotBefore: input.until,
+      leaseOwner: null,
+      leaseUntil: null,
+    })
+    .where(held(input.id, input.owner, input.epoch))
+    .returning({ id: broadcasts.id });
+  return rows.length > 0;
+};
+
 /** Every held segment is out: the timeline reaches the end of the media. */
 export const recordMediaEndReleased = async (
   tx: Tx,
@@ -279,7 +324,7 @@ export const recordMediaEndReleased = async (
     .update(broadcasts)
     .set({
       streamEndedAt: input.now,
-      releasedThroughAt: sql`greatest(${broadcasts.releasedThroughAt}, ${input.mediaEnd.toISOString()}::timestamptz)`,
+      releasedThroughAt: watermarkAt(input.mediaEnd),
     })
     .where(held(input.id, input.owner, input.epoch))
     .returning({ id: broadcasts.id });
@@ -452,6 +497,8 @@ export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
           sql`jsonb_typeof(${rounds.capture} -> 'broadcast') = 'object'`,
         ),
         inArray(rounds.status, ['opening', 'active']),
+        // A private Round's Broadcast was refused at its edit and its Launch: this holds it.
+        ne(rounds.visibility, 'private'),
         isNull(broadcasts.id),
       ),
     )
