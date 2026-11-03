@@ -1,6 +1,7 @@
 'use server';
 
 import { headers } from 'next/headers';
+import { z } from 'zod';
 import { systemId } from '@daisy/clock';
 import { challengeListSchema, challengeResultSchema } from '@daisy/protocol';
 import { acceptOffer } from '../../../features/challenges/accept-offer';
@@ -18,6 +19,9 @@ import { moveOn } from '../../../server/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 
+const roomIdOf = (request: Request) =>
+  new URL(request.url).pathname.split('/')[3] ?? '';
+
 const routes = {
   send: processRoute((all) => all.challenges.send),
   list: processRoute((all) => all.challenges.list),
@@ -26,7 +30,15 @@ const routes = {
   cancel: processRoute((all) => all.challenges.cancel),
   createRoom: processRoute((all) => all.rooms.create),
   catalog: processRoute((all) => all.rooms.catalog),
+  readRoom: processRoute(
+    (all) => (request) => all.rooms.read(request, roomIdOf(request)),
+  ),
+  roomCommands: processRoute(
+    (all) => (request) => all.rooms.commands(request, roomIdOf(request)),
+  ),
 };
+
+const roomVersion = z.object({ version: z.number() });
 
 /** Offers a debate: nothing exists until the other member accepts. */
 export async function sendChallengeAction(
@@ -92,6 +104,28 @@ export async function acceptChallengeAction(
             beforeMoveOn,
             moveOn,
           ),
+        closeRoom: async (roomId) => {
+          const viewed = await inProcessFetch(routes.readRoom, incoming)(
+            `/api/rooms/${roomId}`,
+            { method: 'GET' },
+          );
+          const room = roomVersion.safeParse(
+            viewed.ok ? await viewed.json() : null,
+          );
+          if (!room.success) return;
+          await inProcessFetch(routes.roomCommands, incoming)(
+            `/api/rooms/${roomId}/commands`,
+            {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                type: 'close',
+                commandId: systemId.next(),
+                expectedVersion: room.data.version,
+              }),
+            },
+          );
+        },
         nameRoom: (roomId) =>
           inProcessFetch(routes.accept, incoming)('/api/challenges/accept', {
             method: 'POST',

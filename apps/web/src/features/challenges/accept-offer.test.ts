@@ -36,10 +36,11 @@ const ports = (
     resolutions: [],
   }),
   openRoom: async (_form, beforeMoveOn) => {
-    const notice = await beforeMoveOn('r'.repeat(24));
+    const notice = await beforeMoveOn('r'.repeat(24), true);
     return notice ? { error: notice } : { next: '/rooms/room' };
   },
   nameRoom: async () => ({ ok: true, status: 200 }),
+  closeRoom: async () => {},
   ...overrides,
 });
 
@@ -52,7 +53,7 @@ describe('acceptOffer', () => {
       ports({
         openRoom: async (form, beforeMoveOn) => {
           forms.push(form);
-          await beforeMoveOn('r'.repeat(24));
+          await beforeMoveOn('r'.repeat(24), true);
           return { next: '/rooms/room' };
         },
         nameRoom: async (roomId) => {
@@ -103,15 +104,47 @@ describe('acceptOffer', () => {
       ],
     });
   });
-  test('a room that cannot be named still holds them', async () => {
+  test('a room just opened that cannot be named closes', async () => {
+    const closed: string[] = [];
+    const answer = await acceptOffer(
+      input,
+      ports({
+        nameRoom: async () => ({ ok: false, status: 404 }),
+        closeRoom: async (roomId) => {
+          closed.push(roomId);
+        },
+      }),
+    );
     assert({
       given: 'the offer ended while the room opened',
-      should: 'say so, and that the room is still open',
-      actual: await acceptOffer(
-        input,
-        ports({ nameRoom: async () => ({ ok: false, status: 404 }) }),
-      ),
-      expected: { notice: challengeRefusal('accept-lost', 404) },
+      should: 'close the listed room naming them both, and say the offer ended',
+      actual: [answer, closed],
+      expected: [
+        { notice: challengeRefusal('accept-lost', 404) },
+        ['r'.repeat(24)],
+      ],
+    });
+  });
+  test('a room the member already held stays theirs', async () => {
+    const closed: string[] = [];
+    await acceptOffer(
+      input,
+      ports({
+        nameRoom: async () => ({ ok: false, status: 404 }),
+        closeRoom: async (roomId) => {
+          closed.push(roomId);
+        },
+        openRoom: async (_form, beforeMoveOn) => {
+          const notice = await beforeMoveOn('h'.repeat(24), false);
+          return notice ? { error: notice } : {};
+        },
+      }),
+    );
+    assert({
+      given: 'a create answered with the room they already hold',
+      should: 'leave that room alone',
+      actual: closed,
+      expected: [],
     });
   });
 });

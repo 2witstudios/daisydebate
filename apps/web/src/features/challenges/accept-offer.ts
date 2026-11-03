@@ -21,7 +21,10 @@ export type AcceptOfferPorts = {
   /** Opens the room, running `beforeMoveOn` with it, then moves on. */
   readonly openRoom: (
     form: FormData,
-    beforeMoveOn: (roomId: string) => Promise<string | undefined>,
+    beforeMoveOn: (
+      roomId: string,
+      created: boolean,
+    ) => Promise<string | undefined>,
   ) => Promise<{
     readonly next?: string | undefined;
     readonly error?: string | undefined;
@@ -31,12 +34,15 @@ export type AcceptOfferPorts = {
     readonly ok: boolean;
     readonly status: number;
   }>;
+  /** Closes the room just opened for an offer that could not take it. */
+  readonly closeRoom: (roomId: string) => Promise<void>;
 };
 
 /**
  * Accepts an offer (ADR 0103): the acceptor opens the agreed room through the
  * one room-create route, then names it on the challenge, then both go there. A
- * room that opens but cannot be named still holds them.
+ * room just opened that cannot be named closes, so a public room never names a
+ * member who withdrew. One the acceptor already held stays theirs.
  */
 export async function acceptOffer(
   input: {
@@ -71,7 +77,7 @@ export async function acceptOffer(
       commandId: ports.nextId(),
       resolutions: catalog.resolutions,
     }),
-    async (roomId) => {
+    async (roomId, created) => {
       try {
         const named = await ports.nameRoom(roomId);
         if (named.ok) return undefined;
@@ -82,6 +88,7 @@ export async function acceptOffer(
       } catch {
         notNamed = challengeRefusal('accept-unnamed', 500);
       }
+      if (created) await ports.closeRoom(roomId).catch(() => {});
       return notNamed;
     },
   );
