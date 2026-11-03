@@ -118,13 +118,16 @@ recovery tick moves it, and pacing cannot slow or speed the tick.
 The tick is the last resort, the only mover when every browser read is held, so one
 Round never waits on another there, and it spends its passes where a floor must move
 (ISSUE-972). Each tick makes one read, one query for all active sessions, and
-`recoveryDue` decides from it: a commit since the Round's last pass or a clock boundary
-passed since then comes first, then repairs (never passed, unsafe, terminal), then a
-heartbeat for a Round with no pass in 2 s, which covers what that read cannot see, such
-as a revoked seat. A Round with none of these costs no pass, and neither does one a
+`recoveryDue` decides from it. A Round with no pass in 5 s comes first, so nothing can
+starve the heartbeat. Then a commit since its last pass or a clock boundary passed since
+then, then repairs (never passed, unsafe, terminal, or a last pass that did not finish),
+then a heartbeat for a Round with no pass in 2 s, which covers what that read cannot see,
+such as a revoked seat. A Round with none of these costs no pass, and neither does one a
 claim could not start for yet (a live lease, or under 500 ms since its last pass), which
-would only poll the lease. At most 4 run at once per
-process, and a tick does not wait for the one before it.
+would only poll the lease. At most 4 run at once per process, and a tick does not wait for
+the one before it. Above that cap a Round waits its turn; this limit is not yet measured
+against the concurrent-Round target (ISSUE-1079). An opening Round's strike and pre-round
+prep instants are not on the read, so they move on a commit or the heartbeat.
 
 The tick used to visit sessions one at a time and wait for the last. On the CI runner
 that took a median 337 ms with one active session, 1340 ms with four and 2684 ms with

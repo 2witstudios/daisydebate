@@ -189,9 +189,17 @@ The rest of this record describes BETA-2.
   - **The bound.** The revoked identity's room permissions go to nothing
     by the end of the first full media recovery pass of that Round that
     starts after the revoke commits. A revoke is not on the tick's one read,
-    so that pass may be the Round's heartbeat: up to 2 s
-    (`MEDIA_RECOVERY_HEARTBEAT_MS`) after its last pass, later when the tick's
-    4 slots per process are taken by floors that must move (ISSUE-972).
+    so that pass may be the Round's heartbeat, 2 s after its last pass
+    (`MEDIA_RECOVERY_HEARTBEAT_MS`). A heartbeat can wait behind floors, but
+    at 5 s with no pass (`MEDIA_RECOVERY_OVERDUE_MS`) it outranks them, so
+    floor work cannot starve it (ISSUE-972).
+  - **Worst case in plain terms.** With a slot free: about 5 s, plus up to
+    one 500 ms tick, plus the pass, which on the CI runner took about 1 s at
+    p99 and 2.3 s at most. More overdue Rounds than the 4 slots per process
+    wait their turn, longest first, so add about one pass for every 4 ahead.
+    A live lease holds it too: a crashed owner's lease lasts up to 15 s. These
+    are measured or derived from the constants, not a guarantee under an
+    outage of the media provider or the database.
   - **Old tokens.** A token minted before the revoke stays usable for its
     60 s join window, because self-hosted LiveKit does not invalidate it.
     A rejoin with one is demoted again by the next pass. No new token can

@@ -297,6 +297,7 @@ export function createMediaWorld(
               roundStatus: 'active',
               unsafe: false,
               claimable: true,
+              lastPassClean: true,
               clock: {
                 startedAt: null,
                 countdownMs: 0,

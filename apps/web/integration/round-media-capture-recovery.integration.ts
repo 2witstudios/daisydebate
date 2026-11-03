@@ -50,7 +50,11 @@ test('a capture token for a safe live session is issued while a foreign reconcil
       operations.holdForCapture,
     );
     const granted = await broker.captureToken(scope, principal);
-    await sessions.finishMediaReconcile({ ...fence, absenceProof: null });
+    await sessions.finishMediaReconcile({
+      ...fence,
+      absenceProof: null,
+      clean: true,
+    });
     assert({
       given:
         "a leased worker's token request while a foreign reconcile holds the live, safe session",

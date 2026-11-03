@@ -225,9 +225,11 @@ test('the tick passes a Round only when its read shows one is due', async () => 
       actual: [await requested(), (await served()) >= before + 1],
       expected: [before + 1, true],
     });
-    const round = (await f.store.mediaSessions.activeMediaSessions()).find(
-      (row) => row.roundId === f.roundId,
-    )!;
+    const read = async () =>
+      (await f.store.mediaSessions.activeMediaSessions()).find(
+        (row) => row.roundId === f.roundId,
+      )!;
+    const round = await read();
     assert({
       given: 'the one read of a real session',
       should: 'return the clock facts the decision reads',
@@ -236,8 +238,102 @@ test('the tick passes a Round only when its read shows one is due', async () => 
         Number.isInteger(round.clock.countdownMs),
         round.lastPassAt !== null,
         round.unsafe,
+        round.lastPassClean,
       ],
-      expected: [true, true, true, false],
+      expected: [true, true, true, false, true],
     });
+    await f.sql`update media_sessions set reconcile_owner='other', reconcile_lease_until=clock_timestamp() + interval '10 seconds', deletion_requested_at=clock_timestamp() where id=${sessionId}`;
+    const held = await read();
+    await f.sql`update media_sessions set reconcile_owner=null, reconcile_lease_until=null, deletion_requested_at=null, reconcile_started_at=clock_timestamp() - interval '1 second' where id=${sessionId}`;
+    assert({
+      given: 'a live lease and a deletion request',
+      should: 'read as not claimable and unsafe',
+      actual: [held.claimable, held.unsafe, (await read()).claimable],
+      expected: [false, true, true],
+    });
+    const preparing = '2026-01-01T00:00:00.000Z';
+    await f.sql`update rounds set rules_snapshot=jsonb_set(rules_snapshot, '{inRoundPrep}', '{"budgetMsPerSide": 60000}'::jsonb), runtime_state=jsonb_set(jsonb_set(runtime_state, '{active_prep}', jsonb_build_object('side', 'negative', 'started_at', ${preparing}::text)), '{prep_consumed_ms,negative}', '7000'::jsonb) where id=${f.roundId}`;
+    assert({
+      given: 'a side in in-round prep with time consumed',
+      should: "return its budget and that side's consumed time",
+      actual: [
+        (await read()).clock.prepBudgetMs,
+        (await read()).clock.activePrep,
+      ],
+      expected: [60_000, { startedAt: preparing, consumedMs: 7_000 }],
+    });
+  });
+});
+
+// ISSUE-972: claiming advances the last pass, so only this fact says it did not finish.
+test('a pass that fails leaves its Round due before the heartbeat', async () => {
+  await withMediaRound(async (f) => {
+    await f.mediaOperations.session(f.roundId, f.host.actorId);
+    const [session] =
+      await f.sql`select id,room_name from media_sessions where round_id=${f.roundId}`;
+    let failing = true;
+    const proxy = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      async fetch(request) {
+        const url = new URL(request.url);
+        const body = await request.arrayBuffer();
+        if (
+          failing &&
+          url.pathname.endsWith('/ListRooms') &&
+          JSON.parse(new TextDecoder().decode(body)).names?.includes(
+            session!.room_name,
+          )
+        )
+          return new Response('Unavailable', { status: 503 });
+        return fetch(`${f.mediaConfig.url}${url.pathname}`, {
+          method: request.method,
+          headers: request.headers,
+          body,
+        });
+      },
+    });
+    const operations = createRoundMediaOperations({
+      ...mediaDependencies(
+        f,
+        createMediaService({
+          config: { ...f.mediaConfig, url: `http://127.0.0.1:${proxy.port}` },
+        }),
+      ),
+      store: f.store.mediaSessions,
+      recoveryHeartbeatMs: 60_000,
+    });
+    const passes = async () =>
+      Number(
+        (
+          await f.sql`select reconcile_request_version as v from media_sessions where id=${session!.id}`
+        )[0]!.v,
+      );
+    const clean = async () =>
+      Boolean(
+        (
+          await f.sql`select reconcile_last_pass_clean as c from media_sessions where id=${session!.id}`
+        )[0]!.c,
+      );
+    const pastInterval = () =>
+      f.sql`update media_sessions set reconcile_started_at=clock_timestamp() - interval '1 second' where id=${session!.id}`;
+    try {
+      await pastInterval();
+      await f.sql`update rounds set updated_at=clock_timestamp() where id=${f.roundId}`;
+      await operations.recoverActiveSessions();
+      const afterFailure = [await clean(), await passes()];
+      await pastInterval();
+      await f.sql`update rounds set updated_at=clock_timestamp() - interval '1 minute' where id=${f.roundId}`;
+      failing = false;
+      await operations.recoverActiveSessions();
+      assert({
+        given: 'a floor pass whose provider read failed, with no commit since',
+        should: 'read as unfinished and pass again before the heartbeat',
+        actual: [afterFailure[0], await passes(), await clean()],
+        expected: [false, afterFailure[1]! + 1, true],
+      });
+    } finally {
+      proxy.stop(true);
+    }
   });
 });

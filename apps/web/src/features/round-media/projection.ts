@@ -4,7 +4,7 @@ import {
   mediaGrants,
 } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
-import type { RoundMediaState } from '@daisy/protocol';
+import type { RoundMediaState, RoundStatus } from '@daisy/protocol';
 
 type Store = Database['mediaSessions'];
 export type MediaSnapshot = NonNullable<
@@ -19,10 +19,13 @@ export const mediaRuntime = (
     round: context.round,
     nextSegmentId: nextId,
   });
+/** A Round that is over: nobody publishes again and its room is cleaned up. */
+export const roundTerminal = (status: RoundStatus) =>
+  status === 'completed' || status === 'abandoned';
 export const mediaEnded = (
   snapshot: Pick<MediaSnapshot, 'round' | 'now' | 'finalSegmentEndedAt'>,
 ) =>
-  ['completed', 'abandoned'].includes(snapshot.round.status) ||
+  roundTerminal(snapshot.round.status) ||
   (snapshot.finalSegmentEndedAt !== null &&
     Date.parse(snapshot.now) >=
       Date.parse(snapshot.finalSegmentEndedAt) + 30 * 60_000);

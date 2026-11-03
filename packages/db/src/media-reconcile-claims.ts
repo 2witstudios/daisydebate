@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import type { RuntimeCheckpoint } from '@daisy/protocol';
+import type { RoundStatus, RuntimeCheckpoint } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -21,9 +21,10 @@ type ActiveSessionRow = {
   readonly reconcile_lease_until: Date | null;
   readonly reconcile_epoch: number;
   readonly reconcile_request_version: number;
+  readonly reconcile_last_pass_clean: boolean;
   readonly unsafe_at: Date | null;
   readonly deletion_requested_at: Date | null;
-  readonly status: string;
+  readonly status: RoundStatus;
   readonly started_at: Date | null;
   readonly updated_at: Date;
   readonly runtime_state: RuntimeCheckpoint;
@@ -45,6 +46,7 @@ const activeSession = (row: ActiveSessionRow) => {
     roundChangedAt: row.updated_at.toISOString(),
     roundStatus: row.status,
     unsafe: row.unsafe_at !== null || row.deletion_requested_at !== null,
+    lastPassClean: row.reconcile_last_pass_clean,
     claimable:
       reconcileClaim(
         {
@@ -169,6 +171,7 @@ export function createMediaReconcileClaims(deps: {
      */
     async activeMediaSessions() {
       const rows = (await deps.database.execute(sql`
+        with clock as (select clock_timestamp() as now)
         select
           s.round_id,
           s.reconcile_started_at,
@@ -176,6 +179,7 @@ export function createMediaReconcileClaims(deps: {
           s.reconcile_lease_until,
           s.reconcile_epoch,
           s.reconcile_request_version,
+          s.reconcile_last_pass_clean,
           s.unsafe_at,
           s.deletion_requested_at,
           r.status,
@@ -189,8 +193,9 @@ export function createMediaReconcileClaims(deps: {
           last.started_at as last_started_at,
           last.ended_at as last_ended_at,
           last.duration_ms as last_duration_ms,
-          clock_timestamp() as now
+          clock.now
         from ${mediaSessions} s
+        cross join clock
         join ${rounds} r on r.id = s.round_id
         left join lateral (
           select sequence, started_at, ended_at, duration_ms

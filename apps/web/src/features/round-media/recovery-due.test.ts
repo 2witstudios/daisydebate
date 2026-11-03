@@ -18,6 +18,7 @@ const idle = (over: Partial<RecoverySession> = {}): RecoverySession => ({
   roundStatus: 'active',
   unsafe: false,
   claimable: true,
+  lastPassClean: true,
   clock: {
     startedAt: at(0),
     countdownMs: 1_000,
@@ -134,12 +135,82 @@ test('what a session cannot wait out is a repair', () => {
     });
 });
 
+test('a pass that did not finish leaves the Round due', () => {
+  assert({
+    given: 'a last pass that failed, no commit since, inside the heartbeat',
+    should: 'need a repair pass on the next claimable tick',
+    actual: recoveryNeed(idle({ lastPassClean: false }), HEARTBEAT_MS),
+    expected: 'repair',
+  });
+});
+
+test('an overdue heartbeat outranks floors and repairs for a slot', () => {
+  const floor = (roundId: string) => idle({ roundId, roundChangedAt: at(11) });
+  const overdue = idle({
+    roundId: 'overdue',
+    lastPassAt: at(5),
+    roundChangedAt: at(0),
+    now: at(11),
+  });
+  const fresh = idle({
+    roundId: 'fresh',
+    lastPassAt: at(8),
+    roundChangedAt: at(0),
+  });
+  const repair = (roundId: string) => idle({ roundId, unsafe: true });
+  assert({
+    given: 'a Round past the overdue limit with no other need',
+    should: 'read as overdue, not as a heartbeat',
+    actual: [
+      recoveryNeed(overdue, HEARTBEAT_MS),
+      recoveryNeed(fresh, HEARTBEAT_MS),
+    ],
+    expected: ['overdue', 'heartbeat'],
+  });
+  assert({
+    given: 'one overdue Round last in the list, and floors to fill every slot',
+    should: 'give it a slot and let floors fill the rest',
+    actual: rounds(
+      recoveryDue(
+        [floor('a'), floor('b'), floor('c'), floor('d'), overdue],
+        new Set(),
+        HEARTBEAT_MS,
+      ),
+    ),
+    expected: ['overdue', 'a', 'b', 'c'],
+  });
+  assert({
+    given: 'one overdue Round behind four stuck repairs',
+    should: 'give it a slot ahead of them',
+    actual: rounds(
+      recoveryDue(
+        [repair('a'), repair('b'), repair('c'), repair('d'), overdue],
+        new Set(),
+        HEARTBEAT_MS,
+      ),
+    ),
+    expected: ['overdue', 'a', 'b', 'c'],
+  });
+  assert({
+    given: 'a fresh heartbeat with floors to fill every slot',
+    should: 'still come last, and wait',
+    actual: rounds(
+      recoveryDue(
+        [fresh, floor('a'), floor('b'), floor('c'), floor('d')],
+        new Set(),
+        HEARTBEAT_MS,
+      ),
+    ),
+    expected: ['a', 'b', 'c', 'd'],
+  });
+});
+
 test('a tick spends its slots on floors first, then what is free', () => {
   const floor = idle({ roundId: 'floor', roundChangedAt: at(11) });
   const repair = idle({ roundId: 'repair', unsafe: true });
   const beat = idle({
     roundId: 'beat',
-    lastPassAt: at(1),
+    lastPassAt: at(8),
     roundChangedAt: at(0),
   });
   const sessions = [beat, idle(), repair, floor];

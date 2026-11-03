@@ -58,6 +58,7 @@ test('durable reconcile claims serve only the request horizon they actually star
       await store.finishMediaReconcile({
         ...claim.fence,
         absenceProof: await store.prepareMediaAbsenceProof(claim.fence),
+        clean: true,
       });
       const progress = await store.mediaReconcileProgress(binding.sessionId);
       assert({
@@ -145,6 +146,7 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
       const result = await restarted.finishMediaReconcile({
         ...recovery.fence,
         absenceProof: await restarted.prepareMediaAbsenceProof(recovery.fence),
+        clean: true,
       });
       assert({
         given:
@@ -198,6 +200,7 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       const result = await store.finishMediaReconcile({
         ...claim.fence,
         absenceProof: proof,
+        clean: true,
       });
       assert({
         given:
