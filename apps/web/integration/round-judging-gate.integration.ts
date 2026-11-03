@@ -4,7 +4,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { withSeasons } from '@daisy/db/seasons';
 import { buildRoundTopic } from '@daisy/protocol';
 import { recoverRatedResults } from './rated-room.test-support';
-import { readRoundOpening, roundWaitingOn, judgingJobRules } from '@daisy/debate-engine';
+import {
+  readRoundOpening,
+  roundWaitingOn,
+  judgingJobRules,
+} from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

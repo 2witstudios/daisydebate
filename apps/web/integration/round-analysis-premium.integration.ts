@@ -1,4 +1,8 @@
-import { captureRule, readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
+import {
+  captureRule,
+  readRoundOpening,
+  roundWaitingOn,
+} from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';

@@ -1,4 +1,8 @@
-import { judgingJobRules, readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
+import {
+  judgingJobRules,
+  readRoundOpening,
+  roundWaitingOn,
+} from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';

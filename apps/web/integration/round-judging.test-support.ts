@@ -1,4 +1,8 @@
-import { captureRule, readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
+import {
+  captureRule,
+  readRoundOpening,
+  roundWaitingOn,
+} from '@daisy/debate-engine';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
 import {
   canReadRound,
