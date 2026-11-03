@@ -69,3 +69,25 @@ test('judge assignments parse strictly and fail closed', async () => {
     ],
   });
 });
+
+test('an assigned judge read says which unavailable answers are temporary', async () => {
+  const read = (status: number, headers: HeadersInit = {}) =>
+    readRoundBallot(
+      async () => new Response(null, { status, headers }),
+      'a'.repeat(24),
+    );
+  assert({
+    given: 'a 503 saying when to retry, a bare 503 and a 500',
+    should: 'mark only the first temporary',
+    actual: [
+      await read(503, { 'retry-after': '1' }),
+      await read(503),
+      await read(500),
+    ],
+    expected: [
+      { kind: 'unavailable', temporary: true },
+      { kind: 'unavailable' },
+      { kind: 'unavailable' },
+    ],
+  });
+});
