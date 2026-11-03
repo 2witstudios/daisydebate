@@ -1,6 +1,6 @@
 import { isAppError, type ErrorCode } from '@daisy/errors';
 import {
-  isCapacityRefusal,
+  capacityRefusalFields,
   markCapacityRefusalReported,
 } from './capacity-refusal';
 
@@ -14,8 +14,8 @@ export type DatabaseEventSink = (
 /**
  * The one failure wrapper every area operation runs through (ISSUE-8 AC2):
  * runs `fn`, and on rejection reports `operation` to `eventSink` as
- * `db.capacity.refused` for refused-unrun work or `db.query.failed` for
- * failures, before rethrowing unchanged. A domain answer (a minted refusal
+ * `db.capacity.refused` for refused-unrun work, with its lane and pressure, or
+ * `db.query.failed` for failures, before rethrowing unchanged. A domain answer (a minted refusal
  * such as CONFLICT or NOT_FOUND) is not a database failure and reports
  * nothing (ISSUE-555). Replaces the
  * `try { … } catch { reportFailure(op); throw }` block that used to be
@@ -30,11 +30,11 @@ export async function instrumented<T>(
     return await fn();
   } catch (error) {
     if (isDomainRefusal(error)) throw error;
-    const refused = isCapacityRefusal(error);
+    const refused = capacityRefusalFields(error);
     if (refused && eventSink) markCapacityRefusalReported(error);
     eventSink?.(
       refused ? 'db.capacity.refused' : 'db.query.failed',
-      { operation },
+      { operation, ...refused },
       refused
         ? 'Database admission refused unrun work'
         : 'Database query failed',

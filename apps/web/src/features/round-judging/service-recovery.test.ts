@@ -1,14 +1,19 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
+import type { JudgingTerminalReason } from '@daisy/protocol';
 import { startRoundJudgingService } from './service';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
 /** One discoverable judging job with injected renewal, execution and verification. */
 function oneJob(input: {
-  readonly renew: () => Promise<unknown>;
+  readonly renew: () => Promise<
+    | { readonly kind: 'renewed' }
+    | { readonly kind: 'ended'; readonly reason: JudgingTerminalReason }
+  >;
   readonly execute: (signal: AbortSignal) => Promise<unknown>;
   readonly pendingBallot: unknown;
+  readonly jobEnded?: (reason: JudgingTerminalReason) => void;
 }) {
   const { failures, failed } = failureLog();
   const { tasks, timers } = manualTimers();
@@ -35,6 +40,7 @@ function oneJob(input: {
     limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers,
     failed,
+    ...(input.jobEnded ? { jobEnded: input.jobEnded } : {}),
   });
   const settle = async () => {
     for (let i = 0; i < 20; i++) await Promise.resolve();
@@ -53,6 +59,32 @@ function oneJob(input: {
     },
   };
 }
+
+test('a renewal that finds the job ended cancels the call and names the reason', async () => {
+  const ended: JudgingTerminalReason[] = [];
+  let aborted = false;
+  const job = oneJob({
+    renew: async () => ({ kind: 'ended', reason: 'generation_deadline' }),
+    execute: (signal) =>
+      new Promise((resolve) =>
+        signal.addEventListener('abort', () => {
+          aborted = true;
+          resolve(undefined);
+        }),
+      ),
+    pendingBallot: null,
+    jobEnded: (reason) => ended.push(reason),
+  });
+  await job.scan();
+  await job.renew();
+  assert({
+    given: 'a lease renewal answering that the budget ended the job',
+    should: 'abort the paid call and report the reason it was given',
+    actual: { aborted, ended },
+    expected: { aborted: true, ended: ['generation_deadline'] },
+  });
+  await job.service.stop();
+});
 
 test('a renewal that fails for a transient reason keeps the paid call running', async () => {
   const outage = createAppError('INFRASTRUCTURE', 'pool reset');
@@ -87,7 +119,7 @@ test('a saved ballot that keeps failing to submit is reported and its slot relea
   const refusal = createAppError('CONFLICT', 'Ballot refused');
   let executions = 0;
   const job = oneJob({
-    renew: async () => undefined,
+    renew: async () => ({ kind: 'renewed' }),
     execute: async () => {
       executions++;
       throw refusal;
@@ -136,6 +168,7 @@ test('a delayed old renewal cannot remove a replacement judging claim', async ()
       renewRoundJudgingJob: async (_scope, token) => {
         renewed.push(token);
         if (token === '1') await oldRenewal.promise;
+        return { kind: 'renewed' };
       },
       verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
     },

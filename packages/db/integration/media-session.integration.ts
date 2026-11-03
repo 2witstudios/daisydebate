@@ -1,3 +1,4 @@
+import { mediaWindowClosed } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
@@ -28,6 +29,7 @@ test('concurrent media admission reuses one opaque session and seat identity', a
       const bindings = await Promise.all(
         Array.from({ length: 5 }, () =>
           store.ensureBinding({
+            mediaWindowClosed,
             roundId,
             caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
             buildProjection,
@@ -105,6 +107,7 @@ test('terminal and wrong-seat admission cannot create a media session', async ()
         should: 'refuse before creating either media row',
         actual: () =>
           store.ensureBinding({
+            mediaWindowClosed,
             roundId: otherRoundId,
             caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
             buildProjection,
@@ -120,6 +123,7 @@ test('terminal and wrong-seat admission cannot create a media session', async ()
         should: 'deny media admission immediately',
         actual: () =>
           store.ensureBinding({
+            mediaWindowClosed,
             roundId,
             caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
             buildProjection,
@@ -161,7 +165,10 @@ test('fresh canonical revocation and actual final-end expiry refuse repeated bin
       buildProjection,
     };
     try {
-      const binding = await store.ensureBinding(input);
+      const binding = await store.ensureBinding({
+        ...input,
+        mediaWindowClosed,
+      });
       await fixture.sql.unsafe(
         'update users set email_verified=false where id=(select user_id from actors where id=$1)',
         [seat.actorId],
@@ -169,7 +176,7 @@ test('fresh canonical revocation and actual final-end expiry refuse repeated bin
       await assertRejects({
         given: 'revoked canonical membership after the first binding',
         should: 'deny even an existing opaque binding',
-        actual: () => store.ensureBinding(input),
+        actual: () => store.ensureBinding({ ...input, mediaWindowClosed }),
         code: 'AUTHORIZATION',
       });
       await fixture.sql.unsafe(
@@ -183,7 +190,7 @@ test('fresh canonical revocation and actual final-end expiry refuse repeated bin
       await assertRejects({
         given: 'actual final end more than thirty minutes ago',
         should: 'refuse before minting even though status is still active',
-        actual: () => store.ensureBinding(input),
+        actual: () => store.ensureBinding({ ...input, mediaWindowClosed }),
         code: 'CONFLICT',
       });
       assert({

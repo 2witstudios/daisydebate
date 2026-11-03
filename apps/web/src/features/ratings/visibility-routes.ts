@@ -7,8 +7,8 @@ import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
 import {
   memberHttpBoundary,
-  runMemberHandler,
-} from '../../server/member-handler';
+  runEvaluatedRoute,
+} from '../../server/member-boundary';
 import { consumeOrThrow } from '../../server/rate-limit';
 
 const RULE = { windowSeconds: 60, max: 30 } as const;
@@ -32,7 +32,7 @@ export function composeRatingVisibilityRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   return {
     read: (request: Request) =>
-      runMemberHandler(boundary, request, {
+      runEvaluatedRoute(boundary, request, {
         name: 'ratings.visibility.read',
         readOnly: true,
         readInput: async () => null,
@@ -49,7 +49,7 @@ export function composeRatingVisibilityRoutes(app: App) {
         headers: { 'cache-control': 'no-store' },
       }),
     write: (request: Request) =>
-      runMemberHandler(boundary, request, {
+      runEvaluatedRoute(boundary, request, {
         name: 'ratings.visibility.write',
         readOnly: false,
         readInput: () => readJson(request, 256),

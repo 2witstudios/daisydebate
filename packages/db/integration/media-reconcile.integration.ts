@@ -1,3 +1,4 @@
+import { mediaWindowClosed } from '@daisy/debate-engine';
 import type { MediaReconcileFence } from '../src/media-reconcile-contracts';
 import { mediaTestHuman } from './media-session.test-support';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
@@ -28,6 +29,7 @@ async function reconcileFixture(fixture: Parameters<typeof mediaTestHuman>[0]) {
   const store = mediaTestStore(fixture.sql);
   const caller = { actorId: seat.actorId, admits: admitsPrincipalAccess };
   const binding = await store.ensureBinding({
+    mediaWindowClosed,
     roundId,
     caller,
     buildProjection: mediaTestTick,
@@ -56,6 +58,7 @@ test('durable reconcile claims serve only the request horizon they actually star
         owner: createId(),
       });
       await store.finishMediaReconcile({
+        mediaWindowClosed,
         ...claim.fence,
         absenceProof: await store.prepareMediaAbsenceProof(claim.fence),
         clean: true,
@@ -129,6 +132,7 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
         should: 'refuse before signing a token',
         actual: () =>
           restarted.issueMediaToken({
+            mediaWindowClosed,
             roundId,
             principal: {
               kind: 'human',
@@ -144,6 +148,7 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
         code: 'INFRASTRUCTURE',
       });
       const result = await restarted.finishMediaReconcile({
+        mediaWindowClosed,
         ...recovery.fence,
         absenceProof: await restarted.prepareMediaAbsenceProof(recovery.fence),
         clean: true,
@@ -198,6 +203,7 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       });
       await store.settleMediaMutation(intent, 'succeeded');
       const result = await store.finishMediaReconcile({
+        mediaWindowClosed,
         ...claim.fence,
         absenceProof: proof,
         clean: true,
@@ -219,8 +225,10 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       const current = await store.prepareMediaAbsenceProof(next.fence);
       if (!current) throw new Error('Settled horizon missing');
       const refused = await store.finishMediaReconcile({
+        mediaWindowClosed,
         ...next.fence,
         absenceProof: { ...current, owner: claim.fence.owner },
+        clean: true,
       });
       assert({
         given: 'a settled horizon bearing a different owner fence',
@@ -239,6 +247,7 @@ test('an aborted reconcile past its lease never holds media admission', async ()
     const { roundId, seat, store, binding } = await reconcileFixture(fixture);
     const admit = () =>
       store.issueMediaToken({
+        mediaWindowClosed,
         roundId,
         principal: {
           kind: 'human',

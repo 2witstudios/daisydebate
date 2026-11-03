@@ -1,7 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRefusal } from '@daisy/errors';
 import { noopErrorReporter } from '@daisy/observability';
-import { fixedClock } from '@daisy/clock';
 import type { Identity } from '@daisy/auth';
 import { createRoomHandlers } from './handlers';
 import type { RoomRuntimeOperations } from './operations';
@@ -21,12 +20,9 @@ const dependencies = (
 ) => ({
   logger: silentLogger,
   reporter: noopErrorReporter,
-  clock: fixedClock('2026-11-01T00:00:00.000Z'),
   origin: () => origin,
   identify: async () => identity,
-  getActorByUserId: async () => ({ id }),
   operations: operations as unknown as RoomRuntimeOperations,
-  active: () => true,
   maxBodyBytes: 4096,
   limiter: () => ({
     consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
@@ -89,12 +85,11 @@ test('canonical Room handler refuses origin, identity and claimed principal befo
   });
 });
 
-test('room and round reads name the realtime endpoint their doorbells ring on', async () => {
+test('room reads name the realtime endpoint their doorbell rings on', async () => {
   const handlers = (websocketEndpoint: string | null) =>
     createRoomHandlers({
       ...dependencies(member, {
         view: async () => ({ id }),
-        roundView: async () => ({ id }),
         catalog: async () => [],
         castChoices: async () => [],
       }),
@@ -109,15 +104,14 @@ test('room and round reads name the realtime endpoint their doorbells ring on', 
     response.headers.get('x-realtime-socket-url');
   assert({
     given:
-      'room, round and catalog reads with realtime configured, and a room read without it',
-    should: 'name the endpoint on the room and round reads only',
+      'room and catalog reads with realtime configured, and a room read without it',
+    should: 'name the endpoint on the room read only',
     actual: [
       header(await configured.read(read(`/api/rooms/${id}`), id)),
-      header(await configured.roundRead(read(`/api/rounds/${id}`), id)),
       header(await configured.catalog(read('/api/rooms/catalog'))),
       header(await unconfigured.read(read(`/api/rooms/${id}`), id)),
     ],
-    expected: [endpoint, endpoint, null, null],
+    expected: [endpoint, null, null],
   });
 });
 
@@ -220,6 +214,65 @@ test('a waitlisted account reaches the evaluator only through Room commands (ADR
   });
 });
 
+test('a Room list naming a query parameter twice is a validation refusal', async () => {
+  const handlers = createRoomHandlers(dependencies(member, {}));
+  const response = await handlers.list(
+    new Request(`${origin}/api/rooms?a=1&a=2`, { headers: { origin } }),
+  );
+  assert({
+    given: 'a member listing Rooms with a repeated parameter',
+    should: 'answer 400 rather than a server fault',
+    actual: response.status,
+    expected: 400,
+  });
+});
+
+test('a restricted account keeps its Room exit (ADR 0103)', async () => {
+  let commands = 0;
+  const handlers = createRoomHandlers(
+    dependencies(
+      {
+        state: 'restricted',
+        username: 'Member',
+        principal: { kind: 'user', userId: id, actorId: id },
+      },
+      {
+        command: async () => {
+          commands++;
+          return {} as never;
+        },
+        view: async () => ({ id }),
+      },
+    ),
+  );
+  const command = await handlers.commands(
+    new Request(`${origin}/api/rooms/${id}/commands`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        commandId: id,
+        expectedVersion: 1,
+        type: 'leave-seat',
+      }),
+    }),
+    id,
+  );
+  const created = await handlers.create(
+    new Request(`${origin}/api/rooms`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: '{}',
+    }),
+  );
+  assert({
+    given: 'a restricted account leaving a Room and creating one',
+    should:
+      'hand the command to the operation, where the evaluator keeps only leaving, and refuse creation at the edge',
+    actual: [command.status, commands, created.status],
+    expected: [200, 1, 403],
+  });
+});
+
 test('a member over the create limit gets 429 and no Room (ISSUE-205)', async () => {
   const keys: string[] = [];
   const created: unknown[] = [];
@@ -250,28 +303,5 @@ test('a member over the create limit gets 429 and no Room (ISSUE-205)', async ()
       'answer 429 from the per-member create key, before any validation, and create nothing',
     actual: [response.status, keys, created.length],
     expected: [429, [`room:create:${id}`], 0],
-  });
-});
-
-test('authorized Round reads stamp the injected clock without changing the response body', async () => {
-  const deps = dependencies(member, { roundView: async () => ({ id }) });
-  const handlers = createRoomHandlers({
-    ...deps,
-    clock: fixedClock('2026-11-01T12:34:56.789Z'),
-  });
-  const response = await handlers.roundRead(
-    new Request(`${origin}/api/rounds/${id}`, { headers: { origin } }),
-    id,
-  );
-  assert({
-    given: 'a canonical authorized Round read',
-    should:
-      'return precise injected server timing beside the unchanged projection',
-    actual: [
-      response.status,
-      response.headers.get('x-server-now-ms'),
-      await response.json(),
-    ],
-    expected: [200, String(Date.parse('2026-11-01T12:34:56.789Z')), { id }],
   });
 });

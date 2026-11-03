@@ -101,6 +101,7 @@ const OPERATION_NAMES = [
   'round.media.reconcile',
   'round.media.session',
   'round.read',
+  'round.view',
 ] as const;
 
 export type OperationName = (typeof OPERATION_NAMES)[number];

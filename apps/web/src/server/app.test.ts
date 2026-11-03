@@ -208,6 +208,27 @@ describe('createApp', () => {
   });
 });
 
+test('Round routes answer from the Round policy, whatever the Room policy says (ISSUE-1132)', async () => {
+  const inert = build({ ...baseEnv, ...authTestEnv });
+  const routes = createRoutes(inert);
+  const anonymous = await routes.rounds.read(
+    new Request(`${authTestEnv.PUBLIC_APP_URL}/api/rounds/${'r'.repeat(24)}`, {
+      headers: { origin: authTestEnv.PUBLIC_APP_URL },
+    }),
+    'r'.repeat(24),
+  );
+  const rooms = await routes.rooms.list(
+    new Request(`${authTestEnv.PUBLIC_APP_URL}/api/rooms`),
+  );
+  await inert.close();
+  assert({
+    given: 'an app with no Room policy',
+    should: 'leave Room routes unavailable and run the Round route gates',
+    actual: [rooms.status, anonymous.status],
+    expected: [404, 401],
+  });
+});
+
 test('ordinary app configuration activates canonical Room authentication and origin gates', async () => {
   const policy = JSON.stringify({
     consentTtlMs: 34567,

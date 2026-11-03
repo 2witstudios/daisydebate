@@ -1,4 +1,7 @@
-import { attendanceTimingPolicy as policy } from '@daisy/protocol';
+import {
+  attendanceTimingPolicy as policy,
+  type AttendanceLedgerFacts,
+} from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   attendanceSettled,
@@ -60,17 +63,16 @@ const settled = {
   evidence: 'settled_availability',
   effectiveDeadline: at(deadline),
   settledHorizon: at(deadline + policy.finalizationBufferMs),
-  receiptParticipantId: null,
-};
+} as const;
 const onTime = {
   segmentId: 'a',
   decision: 'attended',
   evidence: 'on_time_receipt',
-  effectiveDeadline: null,
-  settledHorizon: null,
   receiptParticipantId: 'speaker',
-};
-const facts = (overrides = {}) => ({
+} as const;
+const facts = (
+  overrides: Partial<AttendanceLedgerFacts> = {},
+): AttendanceLedgerFacts => ({
   ruleSegments,
   speeches,
   adjudications: [settled],
@@ -126,7 +128,11 @@ test('one settlement rule (ISSUE-998)', () => {
       'an abandonment at the cutoff',
       facts({
         adjudications: [
-          { ...onTime, decision: 'abandoned', evidence: 'resolution_cutoff' },
+          {
+            segmentId: 'a',
+            decision: 'abandoned',
+            evidence: 'resolution_cutoff',
+          },
         ],
       }),
       nowMs,

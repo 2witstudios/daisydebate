@@ -41,8 +41,8 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
       .view;
     const roundId = started.roundRef!.id;
     const roundJson = async (viewer: typeof f.host) =>
-      JSON.stringify(await f.operations.roundView(viewer, roundId));
-    const drawn = await f.operations.roundView(f.guest, roundId);
+      JSON.stringify(await f.roundView(viewer, roundId));
+    const drawn = await f.roundView(f.guest, roundId);
     const [rows] = await f.sql`select
       (select count(*)::int from round_resolution_draw_items i join round_resolution_draws d on d.id = i.draw_id where d.round_id = ${roundId}) items,
       (select count(*)::int from round_resolution_draw_texts where round_id = ${roundId}) texts,
@@ -50,7 +50,7 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
       (select seed from round_draw_seeds where round_id = ${roundId}) seed,
       (select status from rounds where id = ${roundId}) status,
       (select resolution from rounds where id = ${roundId}) resolution`;
-    const spectated = await f.operations.roundView(f.outsider, roundId);
+    const spectated = await f.roundView(f.outsider, roundId);
     assert({
       given: 'the Round a Start round creates',
       should:
@@ -132,7 +132,7 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
           code: 'CONFLICT',
         });
     }
-    const revealed = await f.operations.roundView(f.outsider, roundId);
+    const revealed = await f.roundView(f.outsider, roundId);
     const survivor = revealed.topic!;
     const [round] = await f.sql`select resolution, status, started_at,
       room_config_snapshot, resolution_evidence
@@ -169,7 +169,7 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
       actual: [
         (await roundJson(f.host)).split(SENTINEL).length - 1,
         (await roundJson(f.outsider)).split(SENTINEL).length - 1,
-        (await f.operations.roundView(f.outsider, roundId)).resolutionAudit,
+        (await f.roundView(f.outsider, roundId)).resolutionAudit,
       ],
       expected: [1, 1, null],
     });
@@ -187,6 +187,36 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
       should: 'reject every one',
       actual: refused.map((r) => r.status),
       expected: Array.from({ length: 6 }, () => 'rejected'),
+    });
+  });
+});
+
+test('a seated debater who is no longer eligible is not offered the strike', async () => {
+  await withRoomRuntime(async (f) => {
+    const view = await f.assemble(
+      await drawRoomOverrides(f, { kind: 'host', resolutions: lines }),
+    );
+    const { roundRef } = (
+      await f.command(f.host, view, { type: 'start-round' })
+    ).view;
+    const roundId = roundRef!.id;
+    const canStrike = async () =>
+      (
+        await f.store.readLaunchedRound(
+          roundId,
+          f.guest,
+          () => true,
+          readRoundOpening,
+          roundWaitingOn,
+        )
+      ).opening?.canStrike;
+    const eligible = await canStrike();
+    await f.sql`update users set deleted_at = statement_timestamp() where id = ${f.guest.userId}`;
+    assert({
+      given: 'the debater on turn, before and after their account ends',
+      should: 'offer the strike only while the command would take it',
+      actual: [eligible, await canStrike()],
+      expected: [true, false],
     });
   });
 });

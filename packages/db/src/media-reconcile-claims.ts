@@ -25,6 +25,7 @@ type ActiveSessionRow = {
   readonly unsafe_at: Date | null;
   readonly deletion_requested_at: Date | null;
   readonly status: RoundStatus;
+  readonly final_segment_ended_at: Date | null;
   readonly started_at: Date | null;
   readonly updated_at: Date;
   readonly runtime_state: RuntimeCheckpoint;
@@ -45,6 +46,7 @@ const activeSession = (row: ActiveSessionRow) => {
     lastPassAt: row.reconcile_started_at?.toISOString() ?? null,
     roundChangedAt: row.updated_at.toISOString(),
     roundStatus: row.status,
+    finalSegmentEndedAt: row.final_segment_ended_at?.toISOString() ?? null,
     unsafe: row.unsafe_at !== null || row.deletion_requested_at !== null,
     lastPassClean: row.reconcile_last_pass_clean,
     claimable:
@@ -183,6 +185,7 @@ export function createMediaReconcileClaims(deps: {
           s.unsafe_at,
           s.deletion_requested_at,
           r.status,
+          r.final_segment_ended_at,
           r.started_at,
           r.updated_at,
           r.runtime_state,

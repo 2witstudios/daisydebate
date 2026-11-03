@@ -1,7 +1,4 @@
-import type { Identity } from '@daisy/auth';
 import { createAppError, isAppError } from '@daisy/errors';
-import type { Logger } from '@daisy/logger';
-import type { ErrorReporter } from '@daisy/observability';
 import {
   idSchema,
   roomCommandSchema,
@@ -9,89 +6,49 @@ import {
   roomListQuerySchema,
   roomRefusalSchema,
 } from '@daisy/protocol';
-import { serverClockHeaders } from '../round-runtime/server-clock-header';
-import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
-import type { Clock } from '@daisy/clock';
+import type { RateRule } from '../../server/rate-limit';
+import { refusalResponse, parseValidated, readJson } from '../../server/http';
 import {
-  refusalResponse,
-  handleOperation,
-  parseValidated,
-  readJson,
-  requireSameOrigin,
-  requireSameOriginRead,
-  requireSignedIn,
-} from '../../server/http';
+  runMemberRoute,
+  type BudgetedMemberBoundary,
+  type MemberCaller,
+} from '../../server/member-boundary';
 import type { RoomRuntimeOperations } from './operations';
 
-type Rule = { readonly max: number; readonly windowSeconds: number };
-type Dependencies = {
-  readonly logger: Logger;
-  /** ADR 0037: where a 5xx from these handlers' raw errors goes, scrubbed. */
-  readonly reporter: ErrorReporter;
-  /** The authorized server instant round reads stamp for client calibration. */
-  readonly clock: Clock;
-  readonly origin: () => string;
-  readonly identify: (request: Request) => Promise<Identity>;
-  readonly getActorByUserId: (
-    userId: string,
-  ) => Promise<{ readonly id: string } | null>;
+type Dependencies = BudgetedMemberBoundary & {
   readonly operations: RoomRuntimeOperations;
-  readonly active: () => boolean;
   readonly maxBodyBytes: number;
-  readonly limiter: () => RateLimiter;
   readonly limits: {
-    readonly create: Rule;
-    readonly read: Rule;
-    readonly command: Rule;
+    readonly create: RateRule;
+    readonly read: RateRule;
+    readonly command: RateRule;
   };
-  /** Named on room and round reads, where their doorbells ring. */
+  /** Named on room reads, where their doorbell rings. */
   readonly websocketEndpoint?: string | null;
 };
-const commandingIdentity = (
-  identity: Identity,
-  operation: 'create' | 'read' | 'command',
-): identity is Extract<Identity, { state: 'member' | 'waitlisted' }> =>
-  identity.state === 'member' ||
-  (identity.state === 'waitlisted' && operation === 'command');
 /** Canonical HTTP gates also execute for native form callers through inProcessFetch. */
 export function createRoomHandlers(dependencies: Dependencies) {
-  const callerOf = async (
-    request: Request,
-    operation: keyof Dependencies['limits'],
-  ) => {
-    const identity = requireSignedIn(await dependencies.identify(request));
-    // A waitlisted account may command, where the evaluator keeps only its
-    // withdrawals (leaving, ADR 0075); reads and creation stay member-only.
-    if (!commandingIdentity(identity, operation))
-      throw createAppError('AUTHORIZATION');
-    await consumeOrThrow(
-      dependencies.limiter(),
-      `room:${operation}:${identity.principal.userId}`,
-      dependencies.limits[operation],
-    );
-    const actor = await dependencies.getActorByUserId(
-      identity.principal.userId,
-    );
-    if (!actor || actor.id !== identity.principal.actorId)
-      throw createAppError('INFRASTRUCTURE');
-    return { userId: identity.principal.userId, actorId: actor.id };
-  };
   const run = (
     request: Request,
     operation: keyof Dependencies['limits'],
     mutate: boolean,
-    action: (caller: Awaited<ReturnType<typeof callerOf>>) => Promise<unknown>,
+    action: (caller: MemberCaller) => Promise<unknown>,
     headers: Readonly<Record<string, string>> = {},
   ) =>
-    handleOperation(
-      dependencies.logger,
+    runMemberRoute(
+      dependencies,
       request,
-      `room.${operation}`,
-      async (requestId) => {
-        if (!dependencies.active()) throw createAppError('NOT_FOUND');
-        if (mutate) requireSameOrigin(request, dependencies.origin());
-        else requireSameOriginRead(request, dependencies.origin());
-        const caller = await callerOf(request, operation);
+      {
+        name: `room.${operation}`,
+        readOnly: !mutate,
+        bucket: `room:${operation}`,
+        rule: dependencies.limits[operation],
+        // An account that is waitlisted or restricted may command, where the
+        // evaluator keeps only its withdrawals (leaving, ADR 0075); reads and
+        // creation stay member-only.
+        evaluatorDecides: operation === 'command',
+      },
+      async (caller, { requestId }) => {
         try {
           return Response.json(await action(caller), {
             status: operation === 'create' ? 201 : 200,
@@ -117,7 +74,6 @@ export function createRoomHandlers(dependencies: Dependencies) {
           return response;
         }
       },
-      dependencies.reporter,
     );
   const doorbell = dependencies.websocketEndpoint
     ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }
@@ -195,21 +151,6 @@ export function createRoomHandlers(dependencies: Dependencies) {
             await readJson(request, dependencies.maxBodyBytes),
           ),
         ),
-      ),
-    roundRead: (request: Request, roundId: string) =>
-      run(
-        request,
-        'read',
-        false,
-        (caller) =>
-          dependencies.operations.roundView(
-            caller,
-            parseValidated(idSchema, roundId),
-          ),
-        {
-          ...doorbell,
-          ...serverClockHeaders(dependencies.clock),
-        },
       ),
   };
 }

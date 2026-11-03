@@ -33,10 +33,13 @@ const anonymous = { kind: 'anonymous' } as const;
  * Who is asking, and how far through onboarding: anonymous visitors, verified
  * accounts still choosing a username (`provisional`, no actor), accounts
  * with a public identity still waiting for beta access (`waitlisted`,
- * pending or revoked, ADR 0075), and approved accounts (`member`).
+ * pending or revoked, ADR 0075), accounts under a suspension or ban
+ * (`restricted`, ADR 0103), and approved accounts (`member`).
  */
 type AnonymousPrincipal = Extract<Principal, { kind: 'anonymous' }>;
 type UserPrincipal = Extract<Principal, { kind: 'user' }>;
+/** A claimed username means an actor was read, so these principals always hold one. */
+type ClaimedPrincipal = UserPrincipal & { readonly actorId: string };
 
 export type Identity =
   | { readonly state: 'anonymous'; readonly principal: AnonymousPrincipal }
@@ -55,21 +58,35 @@ export type Identity =
        * Why it waits: `pending` approval, `revoked` access, or
        * `age-required` (no durable age record at the floor yet).
        */
-      readonly reason: 'pending' | 'revoked' | 'age-required' | 'restricted';
-      readonly principal: UserPrincipal;
+      readonly reason: 'pending' | 'revoked' | 'age-required';
+      readonly principal: ClaimedPrincipal;
+    }
+  /** A suspension or ban in force, which outranks every other fact. */
+  | {
+      readonly state: 'restricted';
+      readonly username: string;
+      readonly principal: ClaimedPrincipal;
     }
   | {
       readonly state: 'member';
       readonly username: string;
-      readonly principal: UserPrincipal;
+      readonly principal: ClaimedPrincipal;
     };
+
+/** An account with a claimed username and its actor, whatever it may do. */
+export type ClaimedIdentity = Extract<
+  Identity,
+  { state: 'member' | 'waitlisted' | 'restricted' }
+>;
 
 /**
  * The username an account has claimed, approved or still waiting (ISSUE-690),
  * or null for anyone who has not claimed one.
  */
 export const claimedUsername = (identity: Identity): string | null =>
-  identity.state === 'member' || identity.state === 'waitlisted'
+  identity.state === 'member' ||
+  identity.state === 'waitlisted' ||
+  identity.state === 'restricted'
     ? identity.username
     : null;
 
@@ -157,12 +174,12 @@ async function identityFromSession(
 
 /**
  * A claimed account's identity from its participation facts (ADR 0075):
- * a member with participant access, otherwise waitlisted with its reason.
- * No beta row or no admitted age record is never access.
+ * restricted under a sanction in force, a member with participant access,
+ * otherwise waitlisted with its reason. No beta row or no admitted age record is never access.
  */
 function participation(
   username: string,
-  principal: UserPrincipal,
+  principal: ClaimedPrincipal,
   facts: {
     readonly betaState: BetaAccessState | null;
     readonly ageBand: AgeBand | null;
@@ -178,9 +195,9 @@ function participation(
     })
   )
     return { state: 'member', username, principal };
-  const reason = restricted
-    ? 'restricted'
-    : betaState === 'revoked'
+  if (restricted) return { state: 'restricted', username, principal };
+  const reason =
+    betaState === 'revoked'
       ? 'revoked'
       : ageAdmitted(ageBand)
         ? 'pending'

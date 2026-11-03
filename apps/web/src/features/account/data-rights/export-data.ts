@@ -3,7 +3,7 @@ import { createAppError, isAppError } from '@daisy/errors';
 import type { PrivacyExport, PrivacySubject } from '@daisy/db/privacy';
 import type { Logger } from '@daisy/logger';
 import { requireSignedIn, requireSameOrigin } from '../../../server/http';
-import { evaluatedIdentity } from '../../../server/member-handler';
+import { evaluatedIdentity } from '../../../server/member-boundary';
 import {
   consumeWindowsOrThrow,
   type RateLimiter,
@@ -50,8 +50,6 @@ export function createExportDataHandler({
       requireSameOrigin(request, origin());
       const account = requireSignedIn(await identify(request));
       if (!evaluatedIdentity(account)) throw createAppError('AUTHORIZATION');
-      if (account.principal.actorId === null)
-        throw createAppError('AUTHORIZATION');
       await consumeWindowsOrThrow(
         limiter(),
         `privacy:export:${account.principal.userId}`,

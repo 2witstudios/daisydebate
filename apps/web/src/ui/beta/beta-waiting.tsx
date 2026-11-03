@@ -117,7 +117,7 @@ export function BetaWaiting({
             month and year to continue.
           </p>
         </div>
-        <AccountExit failed={signOutFailed}>
+        <AccountExit failed={signOutFailed} returnTo="/beta">
           <Link className={link} href={ageHref}>
             Add your age
           </Link>
@@ -149,7 +149,9 @@ export function BetaWaiting({
         <WaitingStatus />
       )}
       <div className="mt-auto border-t border-border pt-4">
-        <AccountExit failed={signOutFailed}>{null}</AccountExit>
+        <AccountExit failed={signOutFailed} returnTo="/beta">
+          {null}
+        </AccountExit>
       </div>
     </OnboardingFrame>
   );

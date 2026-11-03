@@ -2,6 +2,8 @@ import {
   authorize,
   type AccountAuthorizationFact,
 } from '@daisy/auth/authorization';
+import type { Database } from '@daisy/db';
+import { readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
 import type { LaunchedRound } from '@daisy/protocol';
 const canRead = (
   caller: { readonly userId: string; readonly actorId: string },
@@ -36,3 +38,18 @@ export const canReadRound = (
   round: LaunchedRound,
   account: AccountAuthorizationFact | null,
 ) => canRead(caller, round, account, 'round.read');
+
+/** The Round as this caller may see it: every read of it, one composition. */
+export const roundViewReader =
+  (store: Pick<Database, 'readLaunchedRound'>) =>
+  (
+    caller: { readonly userId: string; readonly actorId: string },
+    roundId: string,
+  ) =>
+    store.readLaunchedRound(
+      roundId,
+      caller,
+      (round, account) => canReadRound(caller, round, account),
+      readRoundOpening,
+      roundWaitingOn,
+    );

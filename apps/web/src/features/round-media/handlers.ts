@@ -1,16 +1,10 @@
 import { z } from 'zod';
-import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import { consumeOrThrow } from '../../server/rate-limit';
+import { parseValidated, readJson } from '../../server/http';
 import {
-  handleOperation,
-  parseValidated,
-  readJson,
-  requireSameOrigin,
-  requireSameOriginRead,
-  requireSignedIn,
-} from '../../server/http';
-import type { createRoundHandlers } from '../round-runtime/handlers';
+  runMemberRoute,
+  type BudgetedMemberBoundary,
+} from '../../server/member-boundary';
 import { isMediaDeferred, type createRoundMediaOperations } from './operations';
 
 type Operations = Pick<
@@ -19,9 +13,7 @@ type Operations = Pick<
 >;
 const emptyBody = z.strictObject({});
 /** Expected backpressure: retryable for the client, and no alert for anyone. */
-const deferred = (
-  logger: Pick<Parameters<typeof createRoundHandlers>[0]['logger'], 'log'>,
-) => {
+const deferred = (logger: Pick<BudgetedMemberBoundary['logger'], 'log'>) => {
   logger.log(
     'round.media.request_deferred',
     { errorCode: 'INFRASTRUCTURE' },
@@ -34,50 +26,35 @@ const deferred = (
 };
 /** Human session boundary only. Internal workers have a separate signed ingress. */
 export function createRoundMediaHandlers(
-  d: Pick<
-    Parameters<typeof createRoundHandlers>[0],
-    | 'logger'
-    | 'reporter'
-    | 'identify'
-    | 'origin'
-    | 'getActorByUserId'
-    | 'limiter'
-  > & {
-    readonly active: () => boolean;
+  d: BudgetedMemberBoundary & {
     readonly operations: () => Operations;
   },
 ) {
   const run =
     (operation: keyof Operations) => (request: Request, rawRoundId: string) =>
-      handleOperation(
-        d.logger,
+      runMemberRoute(
+        d,
         request,
-        `round.media.${operation}`,
-        async (_id, logger) => {
-          if (!d.active()) throw createAppError('NOT_FOUND');
-          if (operation === 'read') requireSameOriginRead(request, d.origin());
-          else requireSameOrigin(request, d.origin());
-          const identity = requireSignedIn(await d.identify(request));
-          if (identity.state !== 'member')
-            throw createAppError('AUTHORIZATION');
-          await consumeOrThrow(
-            d.limiter(),
-            `round:media:${operation}:${identity.principal.userId}`,
-            { max: operation === 'session' ? 30 : 240, windowSeconds: 60 },
-          );
-          const actor = await d.getActorByUserId(identity.principal.userId);
-          if (!actor || actor.id !== identity.principal.actorId)
-            throw createAppError('INFRASTRUCTURE');
+        {
+          name: `round.media.${operation}`,
+          readOnly: operation === 'read',
+          bucket: `round:media:${operation}`,
+          rule: {
+            max: operation === 'session' ? 30 : 240,
+            windowSeconds: 60,
+          },
+        },
+        async ({ actorId }, { logger }) => {
           const roundId = parseValidated(idSchema, rawRoundId);
           if (operation !== 'read')
             parseValidated(emptyBody, await readJson(request, 128));
           const operations = d.operations();
           const body =
             operation === 'read'
-              ? await operations.read(roundId, actor.id)
+              ? await operations.read(roundId, actorId)
               : await operations[operation](
                   roundId,
-                  actor.id,
+                  actorId,
                   request.signal,
                 ).catch((error: unknown) => {
                   if (!isMediaDeferred(error) || request.signal.aborted)
@@ -89,7 +66,6 @@ export function createRoundMediaHandlers(
             headers: { 'Cache-Control': 'no-store' },
           });
         },
-        d.reporter,
       );
   return {
     read: run('read'),

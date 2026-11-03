@@ -19,7 +19,6 @@ const abandoned = (before: string, signInPurpose: string) => sql`
   and not exists (select 1 from account_age where user_id = users.id)
   and not exists (select 1 from account_terms where user_id = users.id)
   and not exists (select 1 from actors where user_id = users.id)
-  and not exists (select 1 from role_grants where user_id = users.id or granted_by_user_id = users.id)
   and not exists (select 1 from privacy_jobs where subject_ref = users.id)
   and not exists (select 1 from session where user_id = users.id
     and (created_at >= ${before}::timestamptz or updated_at >= ${before}::timestamptz))

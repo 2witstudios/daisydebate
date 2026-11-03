@@ -28,9 +28,10 @@ export async function seedSettledAttendanceLedger(
 }
 
 /**
- * Puts a Round's attendance cutoff in the past. The cutoff is tied to the final
- * speech's end, which is write-once, so the fixture moves the end itself with
- * the once-only guard off; the CHECK still holds.
+ * Plays a Round to its end, long enough ago that its attendance cutoff has
+ * passed: every rule segment holds a closed row, a second each, the last ending
+ * at the Round's final end, so the cutoff is the true one. Timestamps are
+ * write-once, so this runs with the guards off; the CHECKs still hold.
  */
 export const passAttendanceCutoff = (
   sql: SQL,
@@ -39,9 +40,25 @@ export const passAttendanceCutoff = (
 ) =>
   sql.begin(async (tx) => {
     await tx`set local session_replication_role = replica`;
-    await tx`update rounds set final_segment_ended_at=ended.at,
-      transcript_admission_cutoff=ended.at+interval '120 seconds',
-      attendance_resolution_cutoff_at=ended.at+interval '60 minutes'
-      from (select date_trunc('milliseconds',clock_timestamp())-interval '60 minutes'-${agoSeconds}*interval '1 second' as at) ended
-      where id=${roundId}`;
+    await tx`insert into round_segments(id,round_id,sequence,type,rules_segment_key,started_at,ended_at,duration_ms)
+      select ${createId()}||rule.at::text,${roundId},(rule.at-1)::int,rule.segment->>'type',rule.segment->>'key',
+        ended.at-(rule.total-rule.at+1)*interval '1 second',
+        ended.at-(rule.total-rule.at)*interval '1 second',
+        (rule.segment->>'durationMs')::int
+      from (select date_trunc('milliseconds',clock_timestamp())-interval '60 minutes'-${agoSeconds}*interval '1 second' as at) ended,
+        (select segment,at,count(*) over () as total
+          from rounds r, jsonb_array_elements(r.rules_snapshot->'segments') with ordinality as s(segment,at)
+          where r.id=${roundId}) rule
+      on conflict (round_id,sequence) do update set started_at=excluded.started_at,ended_at=excluded.ended_at`;
+    await tx`update round_speaking_intervals i set started_at=s.started_at,ended_at=s.ended_at,
+        ended_version=coalesce(i.ended_version,i.started_version)
+      from round_segments s where s.id=i.segment_id and i.round_id=${roundId}`;
+    await tx`update rounds r set
+      started_at=least(r.started_at,first.at),
+      final_segment_ended_at=last.at,
+      transcript_admission_cutoff=last.at+interval '120 seconds',
+      attendance_resolution_cutoff_at=last.at+interval '60 minutes'
+      from (select min(started_at) as at from round_segments where round_id=${roundId}) first,
+        (select max(ended_at) as at from round_segments where round_id=${roundId}) last
+      where r.id=${roundId}`;
   });

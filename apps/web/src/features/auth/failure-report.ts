@@ -1,4 +1,5 @@
 import {
+  capacityRefusalFields,
   isReportedCapacityRefusal,
   isCapacityRefusal,
   markCapacityRefusalReported,
@@ -22,7 +23,7 @@ export function reportAuthFailure(
   else if (!isReportedCapacityRefusal(error)) {
     logger.log(
       'db.capacity.refused',
-      { operation: source },
+      { operation: source, ...capacityRefusalFields(error) },
       'Database admission refused unrun work',
     );
     markCapacityRefusalReported(error);

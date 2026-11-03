@@ -181,6 +181,7 @@ test('completion releases the lease and ends only a cleaned terminal session', (
     reconcileLeaseUntil: null,
     reconcileCompletedAt: now,
     reconcileServedVersion: 7,
+    reconcileLastPassClean: true,
   };
   assert({
     given:
@@ -192,26 +193,30 @@ test('completion releases the lease and ends only a cleaned terminal session', (
         terminal: false,
         unresolved: false,
         cleaned: false,
+        clean: true,
       }),
       reconcileCompletion(session, now, {
         terminal: true,
         unresolved: false,
         cleaned: false,
+        clean: true,
       }),
       reconcileCompletion(session, now, {
         terminal: true,
         unresolved: false,
         cleaned: true,
+        clean: true,
       }),
       reconcileCompletion(
         { ...session, endedAt: at(-2), deletionRequestedAt: at(-3) },
         now,
-        { terminal: true, unresolved: false, cleaned: true },
+        { terminal: true, unresolved: false, cleaned: true, clean: true },
       ),
       reconcileCompletion({ ...session, deletionRequestedAt: at(-5) }, now, {
         terminal: false,
         unresolved: false,
         cleaned: true,
+        clean: true,
       }),
     ],
     expected: [
@@ -262,11 +267,32 @@ test('a never-unsafe session is safe only without unresolved mutations', () => {
           terminal: false,
           unresolved,
           cleaned: false,
+          clean: true,
         }).result,
     ),
     expected: [
       { safe: true, ended: false },
       { safe: false, ended: false },
     ],
+  });
+});
+
+test('a completion records whether the pass finished its work', () => {
+  const session = {
+    reconcileRunningVersion: 1,
+    endedAt: null,
+    deletionRequestedAt: null,
+    unsafeAt: null,
+  };
+  const outcome = { terminal: false, unresolved: false, cleaned: false };
+  assert({
+    given: 'a pass that did not finish, then one that did',
+    should: 'record each on the session for the recovery tick to read',
+    actual: [false, true].map(
+      (clean) =>
+        reconcileCompletion(session, new Date(0), { ...outcome, clean }).fields
+          .reconcileLastPassClean,
+    ),
+    expected: [false, true],
   });
 });

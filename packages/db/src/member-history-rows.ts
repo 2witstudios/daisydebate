@@ -2,7 +2,7 @@ import { createAppError } from '@daisy/errors';
 import {
   debateSides,
   type DebateRole,
-  type RatedOutcome,
+  type RoundOutcome,
 } from '@daisy/protocol';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -32,7 +32,7 @@ export type HistoryRow = {
   /** Null when the Round ended before its reveal. */
   readonly resolution: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
-  readonly outcome: RatedOutcome | null;
+  readonly outcome: RoundOutcome | null;
   readonly role: 'affirmative' | 'negative';
   readonly forfeit: boolean;
   readonly seats: readonly HistorySeat[];
@@ -45,7 +45,7 @@ export type ListedRound = {
   /** Null when the Round ended before its reveal. */
   readonly resolution: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private' | null;
-  readonly outcome: RatedOutcome | null;
+  readonly outcome: RoundOutcome | null;
   readonly role: string;
 };
 

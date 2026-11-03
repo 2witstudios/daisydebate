@@ -1,5 +1,6 @@
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { createAppError, isAppError, createRefusal } from '@daisy/errors';
+import { mediaWindowClosed } from '@daisy/debate-engine';
 import {
   roundMediaAdmissionSchema,
   type RoundMediaState,
@@ -216,8 +217,13 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
             roundId,
             caller: callerOf(principal.actorId),
             buildProjection,
+            mediaWindowClosed,
           })
-        : await input.store.ensureBotBinding({ principal, buildProjection });
+        : await input.store.ensureBotBinding({
+            principal,
+            buildProjection,
+            mediaWindowClosed,
+          });
     const sign = async (context: AdmissionContext) => {
       // Post-lock PostgreSQL eligibility, not the earlier unlocked read.
       if (admissionRevoked(context))
@@ -281,6 +287,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       )
         throw createAppError('INFRASTRUCTURE');
       held.issued = await input.store.issueMediaToken({
+        mediaWindowClosed,
         roundId,
         principal,
         admits: admitsPrincipalAccess,

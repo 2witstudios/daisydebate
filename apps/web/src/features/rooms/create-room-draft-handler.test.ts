@@ -20,7 +20,9 @@ const dependencies = (identity: Identity = member) => ({
   reporter: noopErrorReporter,
   origin: () => origin,
   identify: async () => identity,
-  limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },
+  limiter: () => ({
+    consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
+  }),
   store: { setEphemeral: async () => {}, get: async () => null },
   catalog: async () =>
     Response.json({ choices: [unequalTemplate], resolutions: [], bots: [] }),

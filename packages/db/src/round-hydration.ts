@@ -2,6 +2,7 @@ import { loadRoundOpening, type StoredOpening } from './round-opening-read';
 import type {
   CompetitionType,
   DebateRole,
+  RoundOutcome,
   RoundRules,
   RoundStage,
   RuntimeCheckpoint,
@@ -32,7 +33,7 @@ export type RoundHydration = {
   readonly launchedAt: string;
   readonly startedAt: string | null;
   readonly completedAt: string | null;
-  readonly outcome: 'affirmative' | 'negative' | 'draw' | null;
+  readonly outcome: RoundOutcome | null;
   readonly rules: RoundRules;
   readonly checkpoint: RuntimeCheckpoint;
   readonly version: number;

@@ -17,7 +17,7 @@ test('RT rating discovery requires committed forfeit evidence and survives consu
     const db = drizzle({ client: fixture.sql });
     const read = async () =>
       (await readRatingCandidates(db, { limit: 100 }))
-        .filter(({ facts }) => ratingAwaited(facts))
+        .filter(({ facts }) => facts !== null && ratingAwaited(facts))
         .map(({ roundId }) => roundId);
     assert({
       given: 'completed ranked result without RT receipt',

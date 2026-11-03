@@ -2,9 +2,10 @@ import {
   createRoundRuntime,
   inPreRoundPrep,
   mediaGrants,
+  mediaWindowClosed,
 } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
-import type { RoundMediaState, RoundStatus } from '@daisy/protocol';
+import type { RoundMediaState } from '@daisy/protocol';
 
 type Store = Database['mediaSessions'];
 export type MediaSnapshot = NonNullable<
@@ -19,16 +20,14 @@ export const mediaRuntime = (
     round: context.round,
     nextSegmentId: nextId,
   });
-/** A Round that is over: nobody publishes again and its room is cleaned up. */
-export const roundTerminal = (status: RoundStatus) =>
-  status === 'completed' || status === 'abandoned';
 export const mediaEnded = (
   snapshot: Pick<MediaSnapshot, 'round' | 'now' | 'finalSegmentEndedAt'>,
 ) =>
-  roundTerminal(snapshot.round.status) ||
-  (snapshot.finalSegmentEndedAt !== null &&
-    Date.parse(snapshot.now) >=
-      Date.parse(snapshot.finalSegmentEndedAt) + 30 * 60_000);
+  mediaWindowClosed(
+    snapshot.round.status,
+    snapshot.now,
+    snapshot.finalSegmentEndedAt,
+  );
 /** Issued old-room tokens require rotation; departed unbound seats cannot veto it. */
 export const admissionRevoked = (
   snapshot: Pick<MediaSnapshot, 'participants'> & {

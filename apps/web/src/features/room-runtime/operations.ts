@@ -1,16 +1,16 @@
-import { roundWaitingOn } from '@daisy/debate-engine';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
 import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
+import { aiSeatOf } from './ai-seat';
+import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
-import { canReadRound } from '../round-runtime/reads';
 import type { Database } from '@daisy/db';
 import {
-  readRoundOpening,
+  readRoundOpeningTopic,
   activeRoomMembers,
   executeRoomCommand,
   hostIdentityHidden,
@@ -35,7 +35,6 @@ export type Caller = { readonly userId: string; readonly actorId: string };
 export type Store = Pick<
   Database,
   | 'readRoundBotAdmissionStatus'
-  | 'readLaunchedRound'
   | 'databaseNow'
   | 'listRoomCatalogSources'
   | 'listRoomBots'
@@ -60,14 +59,14 @@ export function createRoomRuntimeOperations({
   redis,
   ids,
   consentTtlMs,
-  botsAvailable,
+  aiSeats,
   entropy,
 }: {
   readonly store: Store;
   readonly redis: Redis;
   readonly ids: IdGenerator;
   readonly consentTtlMs: () => number;
-  readonly botsAvailable: () => boolean;
+  readonly aiSeats: () => AiSeatAvailability;
   /** 32 CSPRNG bytes as hex, for a draw's seed and salt; fixed in tests. */
   readonly entropy: () => string;
 }) {
@@ -75,7 +74,8 @@ export function createRoomRuntimeOperations({
     ...state,
     participants: state.participants.map((p) => ({
       ...p,
-      eligible: p.eligible && (p.kind === 'human' || botsAvailable()),
+      eligible:
+        p.eligible && (p.kind === 'human' || aiSeats()[aiSeatOf(p.role)]),
     })),
   });
   const consentOf = async (
@@ -112,6 +112,7 @@ export function createRoomRuntimeOperations({
       roomId,
       caller,
       (state, account) => can(caller, 'room.read', account, state),
+      readRoundOpeningTopic,
     );
     const state = eligible(facts.state);
     const consent = await consentOf(state, await store.databaseNow());
@@ -258,9 +259,10 @@ export function createRoomRuntimeOperations({
                         role: seat.role,
                         slot: seat.slot,
                         // Match the ordinary assign-seat command: profile
-                        // eligibility is not enough while the bot provider
-                        // is unavailable (including direct create requests).
-                        eligible: target.eligible && botsAvailable(),
+                        // eligibility is not enough while this seat cannot
+                        // run (including direct create requests).
+                        eligible:
+                          target.eligible && aiSeats()[aiSeatOf(seat.role)],
                       }
                     : null,
                   drawStart: null,
@@ -296,14 +298,6 @@ export function createRoomRuntimeOperations({
       );
       return facts && projectActiveRoom(facts, caller.actorId);
     },
-    roundView: (caller: Caller, roundId: string) =>
-      store.readLaunchedRound(
-        roundId,
-        caller,
-        (view, account) => canReadRound(caller, view, account),
-        readRoundOpening,
-        roundWaitingOn,
-      ),
     catalog,
     async castChoices(caller: Caller): Promise<readonly RoomCastChoice[]> {
       return (
@@ -318,7 +312,7 @@ export function createRoomRuntimeOperations({
                 kind: 'bot' as const,
                 label: p.label,
                 seatRole: p.seatRole,
-                eligible: p.eligible && botsAvailable(),
+                eligible: p.eligible && aiSeats()[p.seatRole],
                 ...(p.persona ? { persona: p.persona } : {}),
                 ...(p.difficulty ? { difficulty: p.difficulty } : {}),
               },
@@ -341,6 +335,7 @@ export function createRoomRuntimeOperations({
             }).allow),
         (account) => can(caller, 'room.list', account),
         (fact) => hostIdentityHidden(fact, caller.actorId),
+        readRoundOpeningTopic,
       );
     },
     create,
@@ -349,6 +344,7 @@ export function createRoomRuntimeOperations({
         sourceRoomId,
         caller,
         (state, account) => can(caller, 'room.read', account, state),
+        readRoundOpeningTopic,
       );
       if (source.hostActorId !== caller.actorId)
         throw createAppError('AUTHORIZATION');
@@ -360,7 +356,7 @@ export function createRoomRuntimeOperations({
       store,
       redis,
       ids,
-      botsAvailable,
+      aiSeats,
       consentTtlMs,
       eligible,
       consentOf,

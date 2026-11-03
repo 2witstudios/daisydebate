@@ -1,18 +1,10 @@
-import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { z } from 'zod';
-import type { Identity } from '@daisy/auth';
-import type { Logger } from '@daisy/logger';
-import type { ErrorReporter } from '@daisy/observability';
-import type { RateLimiter } from '../../../server/rate-limit';
-import { consumeOrThrow } from '../../../server/rate-limit';
+import { parseValidated, readJson } from '../../../server/http';
 import {
-  handleOperation,
-  parseValidated,
-  readJson,
-  requireSameOrigin,
-  requireSignedIn,
-} from '../../../server/http';
+  runMemberRoute,
+  type BudgetedMemberBoundary,
+} from '../../../server/member-boundary';
 import {
   conflictRevision,
   type DebateDocumentOperations,
@@ -21,16 +13,7 @@ import {
 import { DOCUMENT_MAX_BYTES } from '../../documents/normalize-html';
 
 /** Document routes bind their authenticated principal at the HTTP boundary. */
-type Dependencies = {
-  readonly logger: Logger;
-  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
-  readonly reporter: ErrorReporter;
-  readonly origin: () => string;
-  readonly identify: (request: Request) => Promise<Identity>;
-  readonly limiter: () => RateLimiter;
-  readonly getActorByUserId: (
-    userId: string,
-  ) => Promise<{ readonly id: string } | null>;
+type Dependencies = BudgetedMemberBoundary & {
   readonly operations: () => DebateDocumentOperations;
 };
 
@@ -65,22 +48,6 @@ const SAVE_BODY_BYTES = DOCUMENT_MAX_BYTES * 2 + 1_024;
  * are private user content: they never reach a log line.
  */
 export function createDebateRoomDocumentHandlers(dependencies: Dependencies) {
-  const principalOf = async (
-    request: Request,
-    rule: keyof typeof rules,
-  ): Promise<DocumentPrincipal> => {
-    const identity = requireSignedIn(await dependencies.identify(request));
-    if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
-    const { userId } = identity.principal;
-    await consumeOrThrow(
-      dependencies.limiter(),
-      `debate-room:${rule}:${userId}`,
-      rules[rule],
-    );
-    const actor = await dependencies.getActorByUserId(userId);
-    if (!actor) throw createAppError('INFRASTRUCTURE');
-    return { userId, actorId: actor.id };
-  };
   const post =
     <T>(
       name: keyof typeof rules,
@@ -89,20 +56,20 @@ export function createDebateRoomDocumentHandlers(dependencies: Dependencies) {
       run: (principal: DocumentPrincipal, body: T) => Promise<Response>,
     ) =>
     (request: Request) =>
-      handleOperation(
-        dependencies.logger,
+      runMemberRoute(
+        dependencies,
         request,
-        `debate_room.documents.${name}`,
-        async () => {
-          requireSameOrigin(request, dependencies.origin());
-          const principal = await principalOf(request, name);
-          const body = parseValidated(
-            schema,
-            await readJson(request, maxBytes),
-          );
-          return run(principal, body);
+        {
+          name: `debate_room.documents.${name}`,
+          readOnly: false,
+          bucket: `debate-room:${name}`,
+          rule: rules[name],
         },
-        dependencies.reporter,
+        async (principal) =>
+          run(
+            principal,
+            parseValidated(schema, await readJson(request, maxBytes)),
+          ),
       );
   const ops = () => dependencies.operations();
   return {

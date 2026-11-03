@@ -1,6 +1,6 @@
+import { mediaWindowClosed } from '@daisy/debate-engine/media-window';
 import type { RoundStatus } from '@daisy/protocol';
 import { floorBoundaries, type FloorClock } from './floor-clock';
-import { roundTerminal } from './projection';
 
 /**
  * How many Rounds one process recovers at once. A pass runs its transactions one
@@ -27,6 +27,7 @@ export type RecoverySession = {
   readonly lastPassAt: string | null;
   readonly roundChangedAt: string;
   readonly roundStatus: RoundStatus;
+  readonly finalSegmentEndedAt: string | null;
   readonly unsafe: boolean;
   /** The last pass finished its work; a failed one leaves the Round due. */
   readonly lastPassClean: boolean;
@@ -71,7 +72,11 @@ export const recoveryNeed = (
   if (
     session.unsafe ||
     !session.lastPassClean ||
-    roundTerminal(session.roundStatus)
+    mediaWindowClosed(
+      session.roundStatus,
+      session.now,
+      session.finalSegmentEndedAt,
+    )
   )
     return 'repair';
   return sinceLastPassMs >= heartbeatMs ? 'heartbeat' : null;

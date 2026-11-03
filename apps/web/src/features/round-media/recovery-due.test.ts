@@ -16,6 +16,7 @@ const idle = (over: Partial<RecoverySession> = {}): RecoverySession => ({
   lastPassAt: at(10),
   roundChangedAt: at(5),
   roundStatus: 'active',
+  finalSegmentEndedAt: null,
   unsafe: false,
   claimable: true,
   lastPassClean: true,
@@ -126,6 +127,10 @@ test('what a session cannot wait out is a repair', () => {
     ['a session never passed', { lastPassAt: null }],
     ['an unsafe session', { unsafe: true }],
     ['a terminal Round', { roundStatus: 'completed' }],
+    [
+      'a Round past its media window',
+      { finalSegmentEndedAt: '2025-12-31T00:00:00.000Z' },
+    ],
   ] as const)
     assert({
       given,

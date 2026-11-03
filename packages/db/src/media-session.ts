@@ -19,6 +19,7 @@ import {
   mediaId as parseId,
   requireMediaWindow,
   type MediaCaller,
+  type MediaWindowRule,
 } from './media-session-authority';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
@@ -49,6 +50,7 @@ export function createMediaSessionStore({
       readonly roundId: string;
       readonly caller: MediaCaller;
       readonly buildProjection: LockedRoundTickInput['buildProjection'];
+      readonly mediaWindowClosed: MediaWindowRule;
     }) {
       const roundId = parseId(input.roundId);
       return run(async (tx) => {
@@ -62,6 +64,7 @@ export function createMediaSessionStore({
           .from(rounds)
           .where(eq(rounds.id, roundId));
         requireMediaWindow(
+          input.mediaWindowClosed,
           current!.status,
           await sampleRoundExecutionTime(tx),
           current!.finalSegmentEndedAt?.toISOString() ?? null,
@@ -75,13 +78,19 @@ export function createMediaSessionStore({
           roundId,
           buildProjection: input.buildProjection,
         });
-        requireMediaWindow(current!.status, tick.now, tick.finalSegmentEndedAt);
+        requireMediaWindow(
+          input.mediaWindowClosed,
+          current!.status,
+          tick.now,
+          tick.finalSegmentEndedAt,
+        );
         return binding;
       });
     },
     async ensureBotBinding(input: {
       readonly principal: BotMediaPrincipal;
       readonly buildProjection: LockedRoundTickInput['buildProjection'];
+      readonly mediaWindowClosed: MediaWindowRule;
     }) {
       const { scope, token } = input.principal;
       return run(async (tx) => {
@@ -101,7 +110,12 @@ export function createMediaSessionStore({
         // with this transaction. The claim check before it only spares a
         // dead claim the tick.
         await verifyBotMediaPrincipal(tx, input.principal);
-        requireMediaWindow('active', tick.now, tick.finalSegmentEndedAt);
+        requireMediaWindow(
+          input.mediaWindowClosed,
+          'active',
+          tick.now,
+          tick.finalSegmentEndedAt,
+        );
         return binding;
       });
     },

@@ -39,6 +39,7 @@ import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
 import { identify } from '../lib/identity';
+import { memberHttpBoundary } from './member-boundary';
 import type { App } from './app';
 import { handleOperation } from './http';
 import { createReadinessHandler } from '../features/ops/readiness';
@@ -56,15 +57,7 @@ export function createRoutes(app: App) {
     ids: app.ids,
   });
   const origin = () => app.auth().config.PUBLIC_APP_URL;
-  /** Same origin, signed-in member, rate limit and actor: the member routes' gates. */
-  const memberGates = {
-    logger,
-    reporter: app.reporter,
-    origin,
-    identify: (request: Request) => identify(app.auth(), request.headers),
-    limiter: () => app.limiter,
-    getActorByUserId: (userId: string) => database.getActorByUserId(userId),
-  };
+  const memberBoundary = memberHttpBoundary(app);
   const confirmAuth = () => {
     const { instance, config } = app.auth();
     return { handler: instance.handler, config };
@@ -78,12 +71,11 @@ export function createRoutes(app: App) {
     analyticsConsent: { POST: createConsentHandler(app) },
     mediaCapture: composeMediaCaptureRoutes(app),
     roundMedia: createRoundMediaHandlers({
-      ...memberGates,
-      active: () => Boolean(app.roomPolicy),
+      ...memberBoundary,
       operations: createRoundMediaRuntime(app).operations,
     }),
     rooms,
-    attendance: composeAttendanceRoutes(app, memberGates),
+    attendance: composeAttendanceRoutes(app),
     messaging: composeMessagingRoutes(app),
     friends: composeFriendRoutes(app),
     challenges: composeChallengeRoutes(app),
@@ -93,7 +85,6 @@ export function createRoutes(app: App) {
     presence: composePresenceRoutes(app),
     contacts: composeContactRoutes(app),
     rounds: {
-      read: rooms.roundRead,
       ...composeRoundRoutes(app),
       ...composeRoundBallotRoutes(app),
       ...composeRoundAnalysisRoutes(app),
@@ -184,17 +175,12 @@ export function createRoutes(app: App) {
     },
     ticket: {
       POST: createTicketHandler({
-        logger,
-        reporter: app.reporter,
+        ...memberBoundary,
         websocketEndpoint: () => app.websocketEndpoint,
-        origin,
-        identify: (request) => identify(app.auth(), request.headers),
         sessionId: async (headers) => {
           const found = await app.auth().readSession(headers);
           return found?.session.id ?? null;
         },
-        limiter: () => app.limiter,
-        getActorByUserId: (userId) => database.getActorByUserId(userId),
         issueTicket: (input) =>
           app.redis.issueConnectTicket(
             input.ticketHash,
@@ -208,7 +194,7 @@ export function createRoutes(app: App) {
       }),
     },
     debateRoomDocuments: createDebateRoomDocumentHandlers({
-      ...memberGates,
+      ...memberBoundary,
       operations: () => documentOperations,
     }),
     /** Provider-signed, server-to-server: authenticity replaces the origin check. */

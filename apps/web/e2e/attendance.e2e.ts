@@ -12,6 +12,7 @@ import {
   actualSpeech,
   enterSpeech,
   nextReceipt,
+  receiptAfterReload,
   closeAttendedFixture,
 } from './support/attendance-browser';
 import { nativeAttendanceOutage } from './support/native-attendance-proof';
@@ -42,9 +43,7 @@ test('actual speech check-in survives refresh and a real browser network disconn
     expect(speaker!.receipt.participantId).not.toBe(
       opponent!.receipt.participantId,
     );
-    const refreshed = await nextReceipt(speaker!.page, round.id, () =>
-      speaker!.page.reload(),
-    );
+    const refreshed = await receiptAfterReload(speaker!.page, round.id);
     expect(refreshed.receivedAt).toBe(speaker!.receipt.receivedAt);
     expect(refreshed.replayed).toBe(true);
     await accounts.members[0]!.context.setOffline(true);

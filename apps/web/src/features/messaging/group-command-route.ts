@@ -8,8 +8,8 @@ import type { MessagingRuntimePolicy } from './composition';
 import type { MessagingSocialRuntimePolicy } from './social-composition';
 import {
   memberHttpBoundary,
-  runMemberHandler,
-} from '../../server/member-handler';
+  runEvaluatedRoute,
+} from '../../server/member-boundary';
 type Context = {
   readonly policy: MessagingRuntimePolicy;
   readonly social: MessagingSocialRuntimePolicy;
@@ -38,7 +38,7 @@ export function messagingGroupCommandRoute(
           social.abuse,
         ),
     };
-    return runMemberHandler(memberHttpBoundary(app), request, {
+    return runEvaluatedRoute(memberHttpBoundary(app), request, {
       name,
       readOnly: false,
       readInput: () => readJson(request, policy.maxBodyBytes),

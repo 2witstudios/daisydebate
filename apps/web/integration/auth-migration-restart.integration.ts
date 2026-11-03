@@ -27,6 +27,7 @@ const { signUp, identifyAs } = flows.account;
 const userIdOf = (identity: Identity): string =>
   identity.state === 'member' ||
   identity.state === 'waitlisted' ||
+  identity.state === 'restricted' ||
   identity.state === 'provisional'
     ? identity.principal.userId
     : (() => {

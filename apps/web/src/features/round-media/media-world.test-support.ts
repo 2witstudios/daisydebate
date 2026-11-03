@@ -295,6 +295,7 @@ export function createMediaWorld(
               lastPassAt: null,
               roundChangedAt: '2026-01-01T00:00:00.000Z',
               roundStatus: 'active',
+              finalSegmentEndedAt: null,
               unsafe: false,
               claimable: true,
               lastPassClean: true,

@@ -1,3 +1,5 @@
+import { mediaWindowEndsAt } from '@daisy/debate-engine/media-window';
+
 /** What a Round's clock boundaries are read from, in the browser's view or a server row. */
 export type FloorClock = {
   readonly startedAt: string | null;
@@ -21,13 +23,13 @@ const gapBoundaries = (clock: FloorClock): number[] => {
     clock.segmentCount === 0 ? clock.startedAt : clock.lastSegment?.endedAt;
   return anchor ? [Date.parse(anchor) + clock.countdownMs] : [];
 };
-const judgingBoundaries = ({
+const mediaCloseBoundaries = ({
   lastSegment,
   segmentCount,
   segmentTotal,
 }: FloorClock): number[] =>
   lastSegment?.endedAt && segmentCount === segmentTotal
-    ? [Date.parse(lastSegment.endedAt) + 30 * 60_000]
+    ? [mediaWindowEndsAt(lastSegment.endedAt)]
     : [];
 /** Every instant the committed clock next changes who may publish. */
 export function floorBoundaries(clock: FloorClock): number[] {
@@ -41,6 +43,6 @@ export function floorBoundaries(clock: FloorClock): number[] {
     ...(prep && clock.prepBudgetMs !== null
       ? [Date.parse(prep.startedAt) + clock.prepBudgetMs - prep.consumedMs]
       : []),
-    ...judgingBoundaries(clock),
+    ...mediaCloseBoundaries(clock),
   ].filter(Number.isFinite);
 }

@@ -47,6 +47,9 @@ adoptProcessApp(
     messagingPolicy: messagingBrowserPolicy,
     ...(files.runtime === null ? {} : { messagingFiles: files.runtime }),
     roomPolicy: launchProofPolicy,
+    // Bot-cast journeys reach the admission and eligibility gates; this
+    // server runs no AI worker, so it states the seats rather than deriving them.
+    aiSeats: { debater: true, judge: true },
     // OpenRouter (AI debates) is answered locally; everything else goes
     // through the mail capture.
     fetch: withOpenRouterStub(

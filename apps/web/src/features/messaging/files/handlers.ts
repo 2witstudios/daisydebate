@@ -16,7 +16,7 @@ import {
   readMessagingFile,
 } from './operations';
 import { requireMemberActor } from '../../access/actor';
-import { runMemberHandler } from '../../../server/member-handler';
+import { runEvaluatedRoute } from '../../../server/member-boundary';
 type JsonOperation = 'reserve' | 'finalize' | 'renew' | 'cancel';
 const operations = {
   reserve: reserveMessagingFile,
@@ -26,7 +26,7 @@ const operations = {
 };
 /** Native and direct clients consume the same origin/member and canonical file operations. */
 export function createMessagingFileHandlers(input: {
-  readonly boundary: Parameters<typeof runMemberHandler>[0];
+  readonly boundary: Parameters<typeof runEvaluatedRoute>[0];
   readonly maxJsonBytes: number;
   readonly bounds: {
     readonly maxFileBytes: number;
@@ -37,7 +37,7 @@ export function createMessagingFileHandlers(input: {
   ) => FileDependencies;
 }) {
   const json = (request: Request, kind: JsonOperation) =>
-    runMemberHandler(input.boundary, request, {
+    runEvaluatedRoute(input.boundary, request, {
       name: `messaging.file.${kind}`,
       readOnly: false,
       readInput: () => readJson(request, input.maxJsonBytes),
@@ -59,7 +59,7 @@ export function createMessagingFileHandlers(input: {
     renew: (request: Request) => json(request, 'renew'),
     cancel: (request: Request) => json(request, 'cancel'),
     cleanup: (request: Request) =>
-      runMemberHandler(input.boundary, request, {
+      runEvaluatedRoute(input.boundary, request, {
         name: 'messaging.file.cleanup',
         readOnly: false,
         readInput: () => readJson(request, input.maxJsonBytes),
@@ -79,7 +79,7 @@ export function createMessagingFileHandlers(input: {
         },
       }),
     list: (request: Request, channelId: string) =>
-      runMemberHandler(input.boundary, request, {
+      runEvaluatedRoute(input.boundary, request, {
         name: 'messaging.file.list',
         headers: fileBoundsHeaders(input.bounds),
         readOnly: true,
@@ -111,7 +111,7 @@ export function createMessagingFileHandlers(input: {
       }),
     upload: (request: Request, channelId: string, fileId: string) => {
       let bytes: Uint8Array | undefined;
-      return runMemberHandler(input.boundary, request, {
+      return runEvaluatedRoute(input.boundary, request, {
         name: 'messaging.file.upload',
         readOnly: false,
         readInput: async () => {
@@ -143,7 +143,7 @@ export function createMessagingFileHandlers(input: {
       });
     },
     download: (request: Request, channelId: string, fileId: string) =>
-      runMemberHandler(input.boundary, request, {
+      runEvaluatedRoute(input.boundary, request, {
         name: 'messaging.file.read',
         readOnly: true,
         readInput: async () =>

@@ -321,7 +321,8 @@ test('a pass that fails leaves its Round due before the heartbeat', async () => 
       await pastInterval();
       await f.sql`update rounds set updated_at=clock_timestamp() where id=${f.roundId}`;
       await operations.recoverActiveSessions();
-      const afterFailure = [await clean(), await passes()];
+      const cleanAfterFailure = await clean();
+      const passesAfterFailure = await passes();
       await pastInterval();
       await f.sql`update rounds set updated_at=clock_timestamp() - interval '1 minute' where id=${f.roundId}`;
       failing = false;
@@ -329,8 +330,8 @@ test('a pass that fails leaves its Round due before the heartbeat', async () => 
       assert({
         given: 'a floor pass whose provider read failed, with no commit since',
         should: 'read as unfinished and pass again before the heartbeat',
-        actual: [afterFailure[0], await passes(), await clean()],
-        expected: [false, afterFailure[1]! + 1, true],
+        actual: [cleanAfterFailure, await passes(), await clean()],
+        expected: [false, passesAfterFailure + 1, true],
       });
     } finally {
       proxy.stop(true);

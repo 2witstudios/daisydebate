@@ -42,6 +42,34 @@ test('a refusal the database boundary reported is logged once in all', async () 
   });
 });
 
+test('a refusal auth reports names its lane and pressure, as the database boundary does', () => {
+  const { logger, recorded } = createRecordingLogger();
+  reportAuthFailure(
+    logger,
+    refuseCapacity({
+      lane: 'control',
+      reason: 'saturated',
+      pressure: { pending: 4096, running: 10, oldestAgeMs: 900 },
+    }),
+    'better-auth',
+    'Authentication request failed',
+  );
+  assert({
+    given: 'a capacity refusal outside the database boundary',
+    should: 'log the same fields the boundary logs, with auth as the operation',
+    actual: recorded.map(({ fields }) => fields),
+    expected: [
+      {
+        operation: 'better-auth',
+        cause: 'control.saturated',
+        pending: 4096,
+        running: 10,
+        oldestAgeMs: 900,
+      },
+    ],
+  });
+});
+
 test('a refusal nobody reported is logged as a refusal, not a crash', () => {
   const { logger, recorded } = createRecordingLogger();
   reportAuthFailure(

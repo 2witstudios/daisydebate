@@ -129,3 +129,33 @@ test('rating recovery reports a Round whose facts cannot be decided and pages on
     },
   });
 });
+
+test('one Round with an unreadable ledger row fails alone and the page moves on', async () => {
+  const unreadable = createAppError('INVARIANT', 'corrupt');
+  const attempts: string[] = [];
+  const failures: unknown[] = [];
+  const page = await createRatingSweep({
+    ids: { next: () => 'ledger-id' },
+    database: {
+      readRatingCandidates: async () => [
+        { roundId: 'corrupt', facts: null, unreadable },
+        { roundId: 'ready', facts: rateable },
+      ],
+      rateRound: async ({ roundId }) => {
+        attempts.push(roundId);
+        return { kind: 'already-rated' };
+      },
+    },
+    onFailure: (roundId, error) => failures.push([roundId, error]),
+  })({ limit: 2 });
+  assert({
+    given: 'a corrupt row ahead of a rateable Round on a full page',
+    should: 'report that Round by id, rate the next and advance the cursor',
+    actual: { attempts, failures, page },
+    expected: {
+      attempts: ['ready'],
+      failures: [['corrupt', unreadable]],
+      page: { afterId: 'ready', exhausted: false },
+    },
+  });
+});

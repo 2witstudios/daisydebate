@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm';
 import type { LaunchedRound, RoundView } from '@daisy/protocol';
 import type { RoundOpening } from '@daisy/protocol/resolution-draw';
-import { transactionNow, type Tx } from './room-command-facts';
+import { transactionNow, type Account, type Tx } from './room-command-facts';
+import { humanSeatEligible } from './seat-eligibility';
 import { loadRoundDraw } from './room-draw-persistence';
 import { rounds } from './schema/rounds';
 
@@ -37,22 +38,15 @@ export const loadRoundOpening = async (
 export type ReadOpening = (
   opening: StoredOpening,
   seats: LaunchedRound['participants'],
-  viewerActorId: string,
+  viewer: { readonly actorId: string; readonly eligible: boolean },
   now: string,
 ) => {
   readonly view: NonNullable<RoundView['opening']>;
   readonly topic: string | null;
 };
 
-/** A viewer's Round with its opening read; only an opening Round costs a read. */
-export const withOpening = async (
-  tx: Tx,
-  round: LaunchedRound,
-  view: RoundView,
-  viewerActorId: string,
-  readOpening: ReadOpening,
-): Promise<RoundView> => {
-  if (view.status !== 'opening') return view;
+/** The stored opening of a Round still in it, at the database clock. */
+const openingNow = async (tx: Tx, roundId: string) => {
   const [row] = await tx
     .select({
       id: rounds.id,
@@ -61,14 +55,55 @@ export const withOpening = async (
       preRoundPrepMs: rounds.preRoundPrepMs,
     })
     .from(rounds)
-    .where(eq(rounds.id, round.id));
+    .where(eq(rounds.id, roundId));
   const opening = row && (await loadRoundOpening(tx, row));
-  if (!opening) return view;
+  return opening ? { opening, now: await transactionNow(tx) } : null;
+};
+
+/** The engine's settled resolution of an opening, for any viewer. */
+export type ReadOpeningTopic = (
+  opening: StoredOpening,
+  now: string,
+) => string | null;
+
+/**
+ * The one answer to a Room's resolution: what is stored, or, while its Round is
+ * opening, what that opening has settled to before a tick stores it
+ * (ISSUE-1127). Only a Round still undecided costs a read of its opening.
+ */
+export const currentRoomTopic = async (
+  tx: Tx,
+  room: {
+    readonly topic: string | null;
+    readonly roundRef: { readonly id: string; readonly status: string } | null;
+  },
+  readTopic: ReadOpeningTopic,
+): Promise<string | null> => {
+  if (room.topic !== null || room.roundRef?.status !== 'opening')
+    return room.topic;
+  const settled = await openingNow(tx, room.roundRef.id);
+  return settled && readTopic(settled.opening, settled.now);
+};
+
+/** A viewer's Round with its opening read; only an opening Round costs a read. */
+export const withOpening = async (
+  tx: Tx,
+  round: LaunchedRound,
+  view: RoundView,
+  viewer: { readonly actorId: string; readonly account: Account },
+  readOpening: ReadOpening,
+): Promise<RoundView> => {
+  if (view.status !== 'opening') return view;
+  const settled = await openingNow(tx, round.id);
+  if (!settled) return view;
   const read = readOpening(
-    opening,
+    settled.opening,
     round.participants,
-    viewerActorId,
-    await transactionNow(tx),
+    {
+      actorId: viewer.actorId,
+      eligible: humanSeatEligible([viewer.account], viewer.actorId),
+    },
+    settled.now,
   );
-  return { ...view, opening: read.view, topic: read.topic ?? view.topic };
+  return { ...view, opening: read.view, topic: view.topic ?? read.topic };
 };

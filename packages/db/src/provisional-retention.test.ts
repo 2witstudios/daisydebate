@@ -32,7 +32,6 @@ test('candidates come from one unlocked, bounded, oldest-first read of abandoned
         'account_age',
         'account_terms',
         'actors',
-        'role_grants',
         'privacy_jobs',
         'from session',
         'from verification',

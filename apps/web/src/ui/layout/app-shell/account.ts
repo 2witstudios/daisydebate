@@ -6,6 +6,8 @@ export type ShellAccount =
   | { readonly state: 'provisional' }
   /** Signed in with a username, waiting for beta access (ADR 0075). */
   | { readonly state: 'waitlisted' }
+  /** Signed in under a suspension or ban (ADR 0103). */
+  | { readonly state: 'restricted' }
   | { readonly state: 'member'; readonly username: string };
 
 /**
