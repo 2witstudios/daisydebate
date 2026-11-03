@@ -6,9 +6,7 @@ if (import.meta.main) {
   try {
     const roundId = idSchema.parse(Bun.argv[2]);
     const runs = await readLaunchDatabase(
-      (
-        tx,
-      ) => tx`select p.role,a.kind,
+      (tx) => tx`select p.role,a.kind,
         case when a.kind='judging'
           then (case when t.answered_at is not null then 'received' end)
           else a.configuration_snapshot->>'providerOutcome' end as outcome,
