@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { systemClock } from '@daisy/clock';
 import { promisify } from 'node:util';
 import {
   fillCommand,
@@ -6,6 +7,9 @@ import {
   type DrillTarget,
 } from '../../scripts/node-kill-drill/target';
 import { isNodeUp } from '../../scripts/node-kill-drill/measure';
+
+/** The drill's wall clock in milliseconds, to compare with server timestamps. */
+export const nowMs = () => Date.parse(systemClock.now());
 
 const COMMAND_LIMIT_MS = 60_000;
 const SERVE_LIMIT_MS = 60_000;
@@ -43,9 +47,9 @@ const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 export async function ensureNodesServing(target: DrillTarget) {
   for (const node of target.nodes) {
     if (!(await nodeIsUp(target, node))) await startNode(target, node);
-    const deadline = Date.now() + SERVE_LIMIT_MS;
+    const deadline = nowMs() + SERVE_LIMIT_MS;
     while (!(await serving(node))) {
-      if (Date.now() > deadline)
+      if (nowMs() > deadline)
         throw new Error(`${node.app} did not serve within 60 s`);
       await pause(1000);
     }
@@ -66,7 +70,7 @@ export function watchNodeReturn(
     while (!stopped && backMs === null) {
       const up = await nodeIsUp(target, node);
       if (!up) seenDown = true;
-      if (up && seenDown) backMs = Date.now() - killMs;
+      if (up && seenDown) backMs = nowMs() - killMs;
       await pause(1000);
     }
   })();

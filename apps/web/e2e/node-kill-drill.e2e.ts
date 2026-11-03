@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Page } from '@playwright/test';
+import { systemClock } from '@daisy/clock';
 import { roundTranscriptReadSchema } from '@daisy/protocol';
 import {
   captureBackAfter,
@@ -37,6 +38,7 @@ import {
 import {
   ensureNodesServing,
   killNode,
+  nowMs,
   watchNodeReturn,
 } from './support/node-kill-drill-nodes';
 import {
@@ -123,7 +125,7 @@ function watchSeat(seat: Seat, roundId: string) {
   })();
   const reader = (async () => {
     while (!stopped) {
-      const atMs = Date.now();
+      const atMs = nowMs();
       try {
         const read: SeatProbe = await bounded(probeSeat(seat.page));
         reads.push({ atMs, ready: seatIsHealthy(previous, read, owed) });
@@ -149,12 +151,12 @@ function watchSeat(seat: Seat, roundId: string) {
 async function untilHealthy(seat: Seat, roundId: string) {
   const watch = watchSeat(seat, roundId);
   try {
-    const deadline = Date.now() + 60_000;
+    const deadline = nowMs() + 60_000;
     while (
       watch.reads.length < 2 ||
       !watch.reads.slice(-2).every((read) => read.ready)
     ) {
-      if (Date.now() > deadline)
+      if (nowMs() > deadline)
         throw new Error(
           `${seat.name} never healthy before the kill: ${JSON.stringify(watch.latest())}`,
         );
@@ -214,12 +216,12 @@ async function endOpenSpeech(members: readonly Member[], roundId: string) {
 }
 
 const retrying = async <T>(limitMs: number, act: () => Promise<T>) => {
-  const deadline = Date.now() + limitMs;
+  const deadline = nowMs() + limitMs;
   for (;;) {
     try {
       return await act();
     } catch (error) {
-      if (Date.now() > deadline) throw error;
+      if (nowMs() > deadline) throw error;
       await pause(2000);
     }
   }
@@ -309,7 +311,7 @@ const emptySample = (index: number, moment: DrillMoment): DrillSample => ({
 const messageOf = (error: unknown) =>
   // A bounded first line: never a page dump, a token or a URL with a query.
   (error instanceof Error ? error.message : 'unknown failure')
-    .replace(/\u001b\[\d+m/g, '')
+    .replaceAll(new RegExp(`${String.fromCharCode(27)}\\[\\d+m`, 'g'), '')
     .split('\n')[0]!
     .replace(/\?\S*/g, '')
     .slice(0, 400);
@@ -363,7 +365,7 @@ async function drillOneKill(
         intervals: [2000],
       })
       .toBeGreaterThan(0);
-    const into = Date.now() - Date.parse(speech.startedAt!);
+    const into = nowMs() - Date.parse(speech.startedAt!);
     if (into < SPEECH_BEFORE_KILL_MS) await pause(SPEECH_BEFORE_KILL_MS - into);
     const transports: readonly IceTransport[] = before.flat();
     node = nodeCarrying(target.nodes, transports);
@@ -374,17 +376,18 @@ async function drillOneKill(
     // A first read has nothing to compare, so each seat reads before the kill.
     while (watches.some((watch) => watch.reads.length < 2))
       await pause(READ_EVERY_MS);
-    const killMs = Date.now();
+    const killSentAt = systemClock.now();
+    const killMs = Date.parse(killSentAt);
     const admissions = seats.map((seat) => countAdmissions(seat.page));
     await killNode(target, node);
-    const killCommandMs = Date.now() - killMs;
+    const killCommandMs = nowMs() - killMs;
     nodeWatch = watchNodeReturn(target, node, killMs);
     draft = {
       ...draft,
       killed: true,
       node: node.app,
       killCommandMs,
-      killSentAt: new Date(killMs).toISOString(),
+      killSentAt,
     };
     const floorMoved =
       sample.moment === 'floor-change'
@@ -393,7 +396,7 @@ async function drillOneKill(
 
     let unsafeSeen = false;
     let unsafeNow = false;
-    const elapsed = () => Date.now() - killMs;
+    const elapsed = () => nowMs() - killMs;
     const allBack = () =>
       watches.every(
         (watch) => seatRecovery(watch.reads, killMs).backMs !== null,
@@ -404,11 +407,11 @@ async function drillOneKill(
         await pause(1000);
       await nodeWatch.startIfDown();
     }
-    const watchFrom = Date.now();
+    const watchFrom = nowMs();
     while (
-      Date.now() - watchFrom < WATCH_MIN_MS ||
+      nowMs() - watchFrom < WATCH_MIN_MS ||
       (unsafeNow && elapsed() < UNSAFE_BAR_MS + 5000) ||
-      (Date.now() - watchFrom < WATCH_MAX_MS && !(allBack() && captureSeen))
+      (nowMs() - watchFrom < WATCH_MAX_MS && !(allBack() && captureSeen))
     ) {
       try {
         const evidence = await drillEvidence(round.id);
@@ -464,7 +467,7 @@ async function drillOneKill(
         };
       });
     let streams: DrillSample['streams'] = [];
-    const sealDeadline = Date.now() + SEAL_LIMIT_MS;
+    const sealDeadline = nowMs() + SEAL_LIMIT_MS;
     for (;;) {
       const response = await speaker.context.request.get(
         `/api/rounds/${round.id}/transcript`,
@@ -488,7 +491,7 @@ async function drillOneKill(
       }));
       if (
         (read.freeze !== null && streams.every((s) => s.state !== 'open')) ||
-        Date.now() > sealDeadline
+        nowMs() > sealDeadline
       ) {
         const first = evidence.segments[0];
         const last = evidence.segments.at(-1);
@@ -510,7 +513,7 @@ async function drillOneKill(
             evidence.sessions.some((session) => session.unsafeAt !== null),
           unsafeAfter60s:
             (unsafeNow && elapsed() >= UNSAFE_BAR_MS) ||
-            (Date.now() - killMs >= UNSAFE_BAR_MS &&
+            (nowMs() - killMs >= UNSAFE_BAR_MS &&
               evidence.sessions.some((session) => session.unsafeAt !== null)),
           nodeBackMs: nodeWatch.backMs(),
           nodeStartedBy:

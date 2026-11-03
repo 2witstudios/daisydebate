@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { systemClock } from '@daisy/clock';
 import { browserDriverOptions, finishBrowserDriver } from './browser-driver';
 import {
   drillKillPlan,
@@ -28,7 +29,7 @@ const commit = Bun.spawnSync(['git', 'rev-parse', '--short', 'HEAD'], {
 })
   .stdout.toString()
   .trim();
-const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+const stamp = systemClock.now().replace(/[:.]/g, '-');
 const queued = Bun.spawn(
   [
     'bun',
