@@ -11,6 +11,10 @@
  *   down       drop this worktree's databases and Redis keys (refused on main).
  *   prune      drop the databases and Redis keys of worktrees git no longer
  *              lists.
+ *   claim      record this repository as the stack's owner, after a move.
+ *
+ * Pruning and the main slot belong to the repository recorded as the stack's
+ * owner: a copy or a fresh `git init` cannot tell whose slots these are.
  *
  * The server comes from the checkout's .env URLs (host, port, credentials),
  * which is how the admin connection is injected. `--checkout <path>` and
@@ -37,6 +41,8 @@ import {
   e2eRedisUrl,
   findOrphans,
   liveWorktreeIds,
+  mainSlotRefusal,
+  mayPrune,
   parsePortBlockComment,
   parseWorktreeList,
   pickPortBlock,
@@ -45,7 +51,10 @@ import {
   readEnvValue,
   rewriteEnv,
   slotEnvValues,
+  stackOwnerMark,
+  stackStanding,
   type Slot,
+  type StackStanding,
 } from './slot-model';
 import { serviceRefusal } from './slot-services';
 import { testLogins } from './test-logins';
@@ -82,6 +91,11 @@ const realOrSame = (path: string) => realpath(path).catch(() => path);
 export type Checkout = {
   readonly path: string;
   readonly slot: Slot;
+  /** What identifies this checkout's repository to the stack (ISSUE-928). */
+  readonly repository: {
+    readonly ownerMark: string;
+    readonly hasOrigin: boolean;
+  };
 };
 
 const readWorktrees = async (path: string) => {
@@ -99,7 +113,18 @@ export async function resolveCheckout(start: string): Promise<Checkout> {
     (await run(['git', 'rev-parse', '--show-toplevel'], start)).trim(),
   );
   const { main } = await readWorktrees(path);
-  return { path, slot: deriveSlot({ checkout: path, mainCheckout: main }) };
+  // Asked quietly: a checkout with no origin is an answer, not a failure.
+  const hasOrigin =
+    (await Bun.spawn(['git', 'remote', 'get-url', 'origin'], {
+      cwd: path,
+      stdout: 'ignore',
+      stderr: 'ignore',
+    }).exited) === 0;
+  return {
+    path,
+    slot: deriveSlot({ checkout: path, mainCheckout: main }),
+    repository: { ownerMark: stackOwnerMark(main), hasOrigin },
+  };
 }
 
 /**
@@ -179,6 +204,39 @@ export async function inspectOrphans(
   ];
   return findOrphans({ liveIds, databases, namespaces });
 }
+
+/** The stack's owner is recorded on the one database every cluster has. */
+const OWNER_DATABASE = 'postgres';
+
+const readStanding = async (
+  admin: SQL,
+  checkout: Checkout,
+): Promise<StackStanding> => {
+  const [record] = (await listSlotDatabases(admin, OWNER_DATABASE)).filter(
+    ({ name }) => name === OWNER_DATABASE,
+  );
+  return stackStanding({
+    repository: checkout.repository,
+    recordedOwner: record?.comment ?? null,
+  });
+};
+
+/** The standing, recording this repository if the stack has no owner yet. */
+async function claimIfUnowned(
+  admin: SQL,
+  checkout: Checkout,
+): Promise<StackStanding> {
+  const standing = await readStanding(admin, checkout);
+  if (standing !== 'claimable') return standing;
+  await setSlotDatabaseComment(
+    admin,
+    OWNER_DATABASE,
+    checkout.repository.ownerMark,
+  );
+  return 'owner';
+}
+
+const nothingPruned = { ids: [], databases: [], namespaces: [] };
 
 async function prune(services: SlotServices, checkout: Checkout) {
   const orphans = await inspectOrphans(services, await liveSlotIds(checkout));
@@ -303,7 +361,12 @@ async function up(checkout: Checkout, envPath: string) {
     const { pruned, created, values } = await withSlotLock(
       services.admin,
       async () => {
-        const pruned = await prune(services, checkout);
+        const standing = await claimIfUnowned(services.admin, checkout);
+        const refusal = mainSlotRefusal(slot, standing);
+        if (refusal) throw new Error(refusal);
+        const pruned = mayPrune(standing)
+          ? await prune(services, checkout)
+          : nothingPruned;
         const created: string[] = [];
         for (const database of [
           ...slotDatabases(slot),
@@ -403,6 +466,11 @@ async function resetE2E(checkout: Checkout, envPath: string) {
   const database = services.connect(slot.e2eDatabase);
   try {
     const removed = await withSlotLock(services.admin, async () => {
+      const refusal = mainSlotRefusal(
+        slot,
+        await readStanding(services.admin, checkout),
+      );
+      if (refusal) throw new Error(refusal);
       await resetPublicSchema(database);
       await migrate(
         withDatabase(env.DATABASE_URL ?? '', slot.e2eDatabase),
@@ -426,12 +494,37 @@ async function resetE2E(checkout: Checkout, envPath: string) {
 async function pruneCommand(checkout: Checkout, envPath: string) {
   const services = openServices(envOf(await readEnvFile(envPath)));
   try {
-    const pruned = await withSlotLock(services.admin, () =>
-      prune(services, checkout),
-    );
+    const pruned = await withSlotLock(services.admin, async () => {
+      if (!mayPrune(await claimIfUnowned(services.admin, checkout)))
+        throw new Error(
+          'This checkout cannot be verified as the repository that owns this stack, so it will not prune its slots.',
+        );
+      return prune(services, checkout);
+    });
     process.stdout.write(
       `Pruned orphan slots: ${describeOrphans(pruned.ids)}\n`,
     );
+  } finally {
+    await services.close();
+  }
+}
+
+/** Records this repository as the owner; an origin is what shows it is a clone. */
+async function claimCommand(checkout: Checkout, envPath: string) {
+  if (!checkout.repository.hasOrigin)
+    throw new Error(
+      'This checkout has no origin, so it cannot claim the stack.',
+    );
+  const services = openServices(envOf(await readEnvFile(envPath)));
+  try {
+    await withSlotLock(services.admin, () =>
+      setSlotDatabaseComment(
+        services.admin,
+        OWNER_DATABASE,
+        checkout.repository.ownerMark,
+      ),
+    );
+    process.stdout.write(`This repository now owns the stack.\n`);
   } finally {
     await services.close();
   }
@@ -448,11 +541,12 @@ async function main(argv: readonly string[]) {
     up,
     down,
     prune: pruneCommand,
+    claim: claimCommand,
     'reset-e2e': resetE2E,
   } as const;
   if (!command || !Object.hasOwn(commands, command))
     throw new Error(
-      'Usage: bun scripts/slot.ts up|reset-e2e|down|prune [--checkout <path>] [--env <path>]',
+      'Usage: bun scripts/slot.ts up|reset-e2e|down|prune|claim [--checkout <path>] [--env <path>]',
     );
   const checkout = await resolveCheckout(values.checkout ?? root);
   await commands[command as keyof typeof commands](

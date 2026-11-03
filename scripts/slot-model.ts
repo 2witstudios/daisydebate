@@ -127,6 +127,46 @@ export function deriveSlot({
     : worktreeSlot(slotIdFromFolder(basename(checkout)));
 }
 
+/**
+ * Whether this checkout's repository owns the shared stack, whose owner is
+ * recorded on the cluster (ISSUE-928). A copy or a fresh `git init` lists only
+ * itself as a worktree, so every live slot looks orphaned and it looks like the
+ * main checkout. It can claim nothing, having no origin to show it is a clone.
+ */
+export type StackStanding = 'owner' | 'claimable' | 'foreign';
+
+export function stackStanding({
+  repository,
+  recordedOwner,
+}: {
+  readonly repository: {
+    readonly ownerMark: string;
+    readonly hasOrigin: boolean;
+  };
+  readonly recordedOwner: string | null;
+}): StackStanding {
+  if (recordedOwner !== null)
+    return recordedOwner === repository.ownerMark ? 'owner' : 'foreign';
+  return repository.hasOrigin ? 'claimable' : 'foreign';
+}
+
+/** The refusal for a foreign checkout that would act as the main slot; null when it may. */
+export const mainSlotRefusal = (
+  slot: Slot,
+  standing: StackStanding,
+): string | null =>
+  slot.kind === 'main' && standing === 'foreign'
+    ? 'This checkout cannot be verified as the repository that owns this stack, so it will not use the main slot. If this is that repository at a new path, run bun scripts/slot.ts claim.'
+    : null;
+
+/** Only the owner's own worktree list can say that a slot is orphaned. */
+export const mayPrune = (standing: StackStanding): boolean =>
+  standing === 'owner';
+
+/** The mark for a repository, by its main checkout's path. */
+export const stackOwnerMark = (mainCheckout: string): string =>
+  `stack-owner=${new Bun.CryptoHasher('sha3-256').update(mainCheckout).digest('hex')}`;
+
 /** Parses `git worktree list --porcelain`; prunable entries are gone. */
 export function parseWorktreeList(porcelain: string): {
   readonly main: string;
