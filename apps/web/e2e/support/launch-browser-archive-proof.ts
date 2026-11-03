@@ -14,6 +14,7 @@ import {
   readLaunchImageInputs,
 } from './launch-browser-image';
 import {
+  launchArchiveRefusalText,
   restoreLaunchImageArchive,
   saveLaunchImageArchive,
 } from './launch-browser-image-cache';
@@ -26,7 +27,8 @@ import { createLaunchPreparationProcess } from './launch-browser-image-process';
  *
  * A real CI cache hit does not run it: the key covers this proof and the Docker
  * engine, and the entry was saved only after it passed on these exact inputs.
- * The restore and full image validation already ran in the prepare step.
+ * The prepare step restored and fully validated it, or, if it rejected the
+ * entry, warned and rebuilt; the entry's pass still vouches for this code.
  */
 if (process.env.LAUNCH_IMAGE_CACHE_HIT === 'true') {
   process.stdout.write(
@@ -62,7 +64,7 @@ try {
   const save = await saveLaunchImageArchive(owner, image, id, saved);
   if (!save.saved)
     throw new Error(
-      `Launch archive save refused: ${save.reason} (${save.detail ?? 'no docker failure'}; ${freeBytes} bytes free before the save)`,
+      `Launch archive save refused: ${launchArchiveRefusalText(save)}; ${freeBytes} bytes free before the save`,
     );
   const saveMs = Math.round(performance.now() - saveStarted);
   const { size: bytes } = await stat(archive);

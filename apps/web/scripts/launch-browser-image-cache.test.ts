@@ -156,7 +156,7 @@ test('a refused or empty save publishes nothing, so it cannot poison the key', a
   });
 });
 
-test('the owner returns stderr apart from stdout, bounded', async () => {
+test('the owner returns stderr apart from stdout', async () => {
   const directory = await scratch();
   await Bun.write(
     join(directory, 'docker'),

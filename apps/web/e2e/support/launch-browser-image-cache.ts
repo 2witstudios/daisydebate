@@ -96,20 +96,26 @@ export async function restoreLaunchImageArchive(
   return restored ? { status: 'restored', id: restored } : rejected('identity');
 }
 
+type LaunchArchiveRefusal =
+  | {
+      readonly saved: false;
+      readonly reason: 'docker-save';
+      readonly detail: string;
+    }
+  | { readonly saved: false; readonly reason: 'empty-archive' };
+
+export const launchArchiveRefusalText = (refusal: LaunchArchiveRefusal) =>
+  refusal.reason === 'docker-save'
+    ? `${refusal.reason} (${refusal.detail})`
+    : refusal.reason;
+
 /** Publish the archive and its receipt together, or nothing at all. */
 export async function saveLaunchImageArchive(
   owner: Owner,
   image: LaunchImage,
   id: string,
   directory: string,
-): Promise<
-  | { readonly saved: true }
-  | {
-      readonly saved: false;
-      readonly reason: string;
-      readonly detail?: string;
-    }
-> {
+): Promise<{ readonly saved: true } | LaunchArchiveRefusal> {
   await mkdir(directory, { recursive: true });
   const temporary = join(directory, `image-${createId()}`);
   const paths = { archive: `${temporary}.tar`, receipt: `${temporary}.json` };
@@ -177,10 +183,6 @@ export async function cacheLaunchImage(
 ) {
   const save = await saveLaunchImageArchive(owner, image, id, directory);
   if (!save.saved)
-    warnLaunchCache(
-      'cache-refused',
-      image,
-      save.detail ? `${save.reason} (${save.detail})` : save.reason,
-    );
+    warnLaunchCache('cache-refused', image, launchArchiveRefusalText(save));
   return save;
 }

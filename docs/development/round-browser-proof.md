@@ -160,7 +160,9 @@ after the lifecycle, archive and trust proofs pass, and the key covers the first
 two and the Docker engine. So on a real hit, signalled by the cache step, the archive
 proof logs `not-run-cache-hit`, and the lifecycle proof does so where it would need
 the upstream base. The prepare step's restore and full image validation and the trust
-proof still run. Any changed input is a miss that runs them in full, where a refused
+proof still run. A rejected hit counts too: prepare warns and rebuilds a fully validated
+image, the proof stays skipped because the entry's pass vouches for its code, and a
+hit never saves. Any changed input is a miss that runs them in full, where a refused
 save in the archive proof is fatal and reports the free bytes measured before it. Outside CI
 an absent base is acquired. The eight-minute deadline control
 is manual: `bun apps/web/e2e/support/launch-browser-preparation-proof.ts
