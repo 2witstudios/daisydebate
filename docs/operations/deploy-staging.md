@@ -815,8 +815,10 @@ config in the `EGRESS_CONFIG_BODY` secret and writes to the private Tigris bucke
 machine when idle: it has no proxy to auto-stop it.
 
 **Official feed.** The web app reads `BROADCAST_PUBLIC_ORIGIN`, the public bucket's
-read origin (`https://<bucket>.t3.tigrisfiles.io`), from `fly.toml`. It is not a
-secret. Unset, no Round offers Stream this Round.
+read origin (`https://<bucket>.t3.tigrisfiles.io`). The value is not secret, but
+`fly.toml` does not name it and the workflow passes no `--env`, so it has to be set
+with `fly secrets set` on `daisy-debate-staging` to survive a deploy. Unset, no Round
+offers Stream this Round.
 
 The Recording worker (`fly.recording-worker.toml`, app
 `daisy-debate-staging-recorder`) writes to its own private bucket,
@@ -832,9 +834,51 @@ across origins.
 The public broadcast bucket needs a CORS rule, or every browser player fails
 with `manifestLoadError`: allow `GET` and `HEAD` from any origin, nothing else.
 Objects there are public by design, and only the release step writes them. A
-player on another origin is the only check that shows this; `curl` does not. An
-Egress machine fits one Round at 4 CPU; a start with no capacity retries and
-raises `broadcast.egress.start_failed`.
+player on another origin is the only check that shows this; `curl` does not.
+
+**Adding capacity (BCAST-2).** Each pressure has its own step. None of them changes
+a Round already running, except where noted.
+
+| Pressure                | Step                                                                                                                         | Limit and what shows it                                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| More Broadcasts at once | `fly scale count <n> -a daisy-debate-staging-egress`, with `fly machine start` first if stopped                              | One Round per machine at 4 CPU. A start with no capacity retries and raises `broadcast.egress.start_failed` |
+| More releases to encode | `fly scale count <n> -a daisy-debate-staging-encoder`, or raise `BROADCAST_WORKER_SLOTS` (default 4, at most 32) per machine | `broadcast.release_failed`, or viewers falling behind the Round's delay                                     |
+| More Recording builds   | `fly scale count <n> -a daisy-debate-staging-recorder`                                                                       | Builds queue durably, so the cost of too few is a later Ready                                               |
+| More people in Rounds   | `fly scale vm <size> -a daisy-debate-staging-livekit`, under the hold below                                                  | It restarts the machine, which ends every live call                                                         |
+
+Egress machines join through the shared media Redis and need nothing else. New
+machines hold the app's existing secrets, since Fly secrets are app-wide.
+
+A second LiveKit node is **not yet a procedure**, and it is not `fly scale count`.
+The Redis it needs is in place, but `LIVEKIT_NODE_IP` is one dedicated anycast IPv4
+that every machine would advertise, so media for a Room could reach a machine that
+does not host it. It needs an address per node, which has not been built or tried.
+Until it is, one LiveKit node is the limit on concurrent Rounds, and losing that node
+drops every Round on it. No instance kill has been run for any app in this table.
+
+**Deployment hold (BCAST-2).** Nothing mechanical stops a deploy from interrupting a
+live Round: a gate in the workflow is a deploy-rail change and needs human sign-off.
+The hold is this procedure.
+
+| Deploy                                         | Effect on a live Round                                                                                                    | When it happens                                                                       |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| LiveKit                                        | Ends every live call. A running Broadcast loses its source, and viewers see the slate                                     | A main merge that changes `infra/livekit` or `fly.livekit.toml`; **every manual run** |
+| Web, realtime, capture worker                  | Machines restart, with one machine each (`--ha=false`). The effect on a Broadcast has not been measured                   | Every deploy                                                                          |
+| Egress, encoder, Recording worker, media Redis | Not in the workflow. Stopping an Egress leaves a gap; an encoder resumes from its durable cursor; LiveKit needs the Redis | Only by hand                                                                          |
+
+Before a manual run, a merge that changes LiveKit, or a by-hand deploy of any row:
+
+1. Look for anything live, on the database (`fly ssh console -a daisy-debate-staging-db`,
+   then `psql`): `select count(*) from rounds where status in ('opening', 'active');`
+   and `select count(*) from broadcasts where completed_at is null and stopped_at is null;`.
+   A Broadcast's release can outlast its Round.
+2. If it is not zero, hold: wait for those Rounds and their Broadcasts to end. A
+   Round-long or scheduled release can hold a Broadcast for as long as its host chose.
+3. If it cannot wait, say so on the PageSpace Incidents channel first, naming the
+   Rounds, because their calls will end.
+
+Never dispatch the deploy workflow "just to redeploy" while anything is live: it
+redeploys LiveKit whatever changed. This hold is written, not yet rehearsed.
 
 **LiveKit on Fly.** Browsers signal over `wss://daisy-debate-staging-livekit.fly.dev`
 (fly-proxy terminates TLS on 443 and forwards to 7880). Media is UDP 7882,

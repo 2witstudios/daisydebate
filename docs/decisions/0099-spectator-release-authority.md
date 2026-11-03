@@ -92,12 +92,22 @@ after completion). OBS reopens an ended address on a loop and would otherwise pu
 the last 24 s back on air for as long as the source stays up, and a later takedown
 would leave a public copy behind. Afterwards the Recording is the only copy.
 
+**One-click push, later.** Pushing to Twitch or YouTube stays out of this release
+(WATCH-17). The later path is LiveKit Egress's external stream URLs, which need no
+new vendor. One constraint comes with it: the Egress works ahead of the hold, so a
+stream output from it would carry undelayed media. A push must take released media,
+never the Egress's own live output, on any Round with a delay.
+
 ## Evidence
 
 Staging, BCAST-1: revoking 500 ms before a private marker left no marker audio in
 10 ms windows and no marker frames, in 6 of 6 windows; revoking about 310 ms after
 it was detected in 3 of 3. Web Egress kept one egress across room rotation locally
-with a gap of about 100 ms. The remaining BCAST-1 measurements are on the plan.
+with a gap of about 100 ms.
+
+Not recorded here yet: Web Egress when its room is deleted (the finding above that
+mentions deletion is about Room Composite), an attempt to reach undelayed media on
+the real pipeline, Egress and encoder CPU on Fly, startup, and end-to-end delay.
 
 ## Consequences
 

@@ -152,7 +152,9 @@ through the Round command route.
 The Round's room page sends each member to their own view: a debater to the
 live room, the assigned judge to the judge view, and a seatless host to the
 spectator view, a read-only projection of the Round (who holds the floor, the
-clock and the speech order) with no controls and no media. The spectator
+clock and the speech order) with no controls and no media. That read is undelayed:
+a seatless host acts as an event host (`round.observe.undelayed`, ADR 0099), on
+any Round, ranked included. A seated host gains nothing from hosting. The spectator
 view is the seed of spectating: `SpectatorKind` names why a viewer
 watches, today only `host`, and later kinds join that union without a
 second view. Everyone else gets the Round's public page.
@@ -215,11 +217,17 @@ the grant captures nothing. Beta approval writes the grant until billing exists.
 It is separate from `casual_ai_judge`. A private Room can record but not
 broadcast. A change asks every seat to Ready again, and each seat is told the
 opted-in notice and the exact choice before Ready. Launch freezes the choice on
-the Round. Ranked needs no grant and holds no choice: it is always captured.
+the Round. Ranked needs no grant and holds no choice: it is always captured. The
+create form shows a ranked host the same notice and records it with the Room,
+because a host may never take a seat and so may never reach a Ready. A signature
+keeps the exact words, so a superseded notice stays readable.
 
-A seated human judge reads their own ballot. Once the Round has completed they
-read the others only if its audience may: every signed-in member on a public or
-unlisted Round, nobody without a seat on a private one.
+A seated human judge reads their own ballot, and once the Round has completed,
+every ballot of it. Only the Round's seats and its seatless host read a Round at
+all (ADR 0099). Anyone else reads no ballot here: signing in opens nothing. The
+audience of a ranked Round gets the winner, scores and reason on the spectator
+timeline, once the Broadcast's watermark has passed them, and never a side's
+feedback; a casual Round's audience gets no ballot.
 
 An AI judge never rules on a transcript frozen incomplete (DEC-208). No AI
 job is queued for such a freeze. With no human judge, the Round completes at
