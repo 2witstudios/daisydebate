@@ -16,7 +16,15 @@ import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
 import { spectatorClockAt } from '../features/spectating/spectator-clock';
+import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { readSpectatorTimeline } from '../features/spectating/read-timeline';
+import type { HubCounts } from '../features/watch/hub-counts';
+import {
+  leadingLive,
+  listLive,
+  liveRoundsOf,
+} from '../features/watch/list-live';
+import type { LiveQuery } from '../features/watch/live-query';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
@@ -174,12 +182,42 @@ export const requestMemberProfile = async (
     },
   );
 
-/** The released timeline a render shows: the same facts the anonymous snapshot serves. */
-export const requestSpectatorTimeline = (roundId: string) =>
+/**
+ * What the public Round route reads, its one way in: the same facts the
+ * anonymous snapshot serves. Null when this Round has no audience.
+ */
+export const requestWatchRound = (roundId: string) =>
   readSpectatorTimeline(processApp().database, {
     roundId,
     now: processApp().clock.now(),
+    feedUrlOf: broadcastFeedUrls(processApp().config.BROADCAST_PUBLIC_ORIGIN),
   });
+
+/** One page of the real Live listing. */
+export const requestLiveListing = (query: LiveQuery) =>
+  listLive(processApp().database, { query, now: processApp().clock.now() });
+
+/** The newest live Rounds, for the home page. */
+export const requestLeadingLive = () =>
+  leadingLive(processApp().database, processApp().clock.now());
+
+/** The live Round of each named debater, for a profile or the Friends list. */
+export const requestLiveRoundsOf = (usernames: readonly string[]) =>
+  liveRoundsOf(processApp().database, {
+    usernames,
+    now: processApp().clock.now(),
+  });
+
+/** The numbers on the Watch tabs. */
+export const requestHubCounts = async (): Promise<HubCounts> => {
+  const app = processApp();
+  const clock = spectatorClockAt(app.clock.now());
+  const [live, recordings] = await Promise.all([
+    app.database.countLiveBroadcasts({ clock }),
+    recordingReads(app).archive.countPublicArchive({ clock }),
+  ]);
+  return { live, recordings };
+};
 
 /** Process binding for the public ladder and its signed-in blinding context. */
 export async function requestLadder(input: {

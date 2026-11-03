@@ -1,4 +1,5 @@
 import { roundMediaOrigins } from '../features/round-media/browser-policy';
+import { broadcastPlaybackOrigin } from '../features/spectating/browser-policy';
 import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { IdGenerator } from '@daisy/clock';
@@ -31,6 +32,8 @@ export type ProxySettings = {
   readonly publicAppUrl: string;
   readonly websocketEndpoint?: string | null;
   readonly mediaPublicUrl?: string | null;
+  /** `BROADCAST_PUBLIC_ORIGIN`: where a Broadcast's public feed is read. */
+  readonly broadcastPublicOrigin?: string | null;
   /**
    * The configured Sentry ingest origin (ADR 0037): the browser capture may
    * connect only there, and only when `NEXT_PUBLIC_SENTRY_DSN` is set, so
@@ -123,6 +126,10 @@ function contentSecurityPolicy(
     development,
   );
   const posthog = posthogSources(settings.analyticsHost);
+  const feed = broadcastPlaybackOrigin(
+    pathname,
+    settings.broadcastPublicOrigin,
+  );
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
@@ -136,7 +143,10 @@ function contentSecurityPolicy(
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    `connect-src 'self'${posthog.apiHost ? ` ${posthog.apiHost}` : ''}${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${settings.sentryEndpoint ? ` ${settings.sentryEndpoint}` : ''}${development ? ' ws:' : ''}`,
+    // Only the Round page plays a feed: hls.js reads it, hands the video a blob of
+    // Media Source, and transmuxes in its own same-origin worker file.
+    ...(feed ? [`media-src 'self' blob: ${feed}`, "worker-src 'self'"] : []),
+    `connect-src 'self'${feed ? ` ${feed}` : ''}${posthog.apiHost ? ` ${posthog.apiHost}` : ''}${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${settings.sentryEndpoint ? ` ${settings.sentryEndpoint}` : ''}${development ? ' ws:' : ''}`,
     ...(development ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
 }

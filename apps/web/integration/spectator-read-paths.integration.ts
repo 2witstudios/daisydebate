@@ -81,6 +81,7 @@ test('every public and member read holds a ranked outcome until release', async 
 
       const timelineResponse = async () => {
         const fresh = createSpectatorTimelineHandlers({
+          feedUrlOf: () => null,
           logger: silentLogger,
           reporter: noopErrorReporter,
           store: f.store,

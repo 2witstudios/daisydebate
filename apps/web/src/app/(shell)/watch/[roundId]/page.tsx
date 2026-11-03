@@ -1,54 +1,29 @@
 import type { Metadata } from 'next';
 import { redirectUnlessLaunched } from '../../../../features/coming-soon/launch-gate';
-import type { SearchParams } from '../../../../features/access/decision';
-import { openSpectate } from '../../../../features/watch/open-spectate';
-import { parseSpectateQuery } from '../../../../features/watch/spectate-query';
-import { watchSource } from '../../../../features/watch/round-source';
-import { viewerOf } from '../../../../features/watch/viewer';
-import {
-  requestIdentity,
-  requestSpectatorTimeline,
-} from '../../../../lib/request-session';
-import { Spectate } from '../../../../ui/watch/spectate/spectate';
-import { SpectatorTimelineView } from '../../../../ui/spectating/spectator-timeline';
+import { requestWatchRound } from '../../../../lib/request-session';
+import { BroadcastViewer } from '../../../../ui/spectating/broadcast-viewer';
 import { SpectateRefusal } from '../../../../ui/watch/spectate-refusal/spectate-refusal';
 
 export const metadata: Metadata = { title: 'Live debate' };
 
 /**
- * The public live view. Watching needs no account; interacting does.
+ * The public Round page. Watching needs no account and no device: it reads the
+ * released snapshot and plays the Broadcast's public feed, and is never in the
+ * debate's room. An audience of everyone is the same read for everyone.
  */
-export default async function LiveRoundPage({
+export default async function WatchRoundPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ roundId: string }>;
-  searchParams: Promise<SearchParams>;
 }) {
   redirectUnlessLaunched('watch');
   const { roundId } = await params;
-  const viewer = viewerOf(await requestIdentity());
-  const screen = openSpectate(
-    roundId,
-    viewer,
-    parseSpectateQuery(await searchParams),
-    watchSource,
-  );
-  const timeline =
-    screen.kind === 'unavailable'
-      ? await requestSpectatorTimeline(roundId)
-      : null;
-  if (timeline)
-    return (
-      <div className="px-6 pt-8 pb-8 max-compact:px-4">
-        <SpectatorTimelineView initial={timeline} />
-      </div>
-    );
-  return screen.kind === 'watch' ? (
-    <Spectate view={screen.view} />
+  const timeline = await requestWatchRound(roundId);
+  return timeline ? (
+    <BroadcastViewer initial={timeline} />
   ) : (
     <div className="px-6 pt-8 pb-8 max-compact:px-4">
-      <SpectateRefusal screen={screen} />
+      <SpectateRefusal />
     </div>
   );
 }

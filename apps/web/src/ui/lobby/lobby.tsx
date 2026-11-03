@@ -6,6 +6,7 @@ import { openRoomHref, playOptions } from '../../features/play/options';
 import { YourRoom, type ActiveRoomSummary } from '../active-room/your-room';
 import { buttonClass } from '../components/button/button-class';
 import { PageHeader } from '../components/page-header/page-header';
+import { watchRoutes } from '../../features/watch/routes';
 import { PlayChoices } from '../play/play-choices/play-choices';
 import { PlayDialog } from '../play/play-dialog/play-dialog';
 import { LobbyFilters } from './lobby-filters/lobby-filters';
@@ -79,6 +80,9 @@ export function Lobby({
         title="Lobby"
         actions={
           <>
+            <Link href={watchRoutes.hub} className={buttonClass('ghost')}>
+              Watch live
+            </Link>
             <PlayDialog>
               <PlayChoices options={playOptions} />
             </PlayDialog>

@@ -1,7 +1,10 @@
 import { spectatorTimelineHorizon } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
 import { idSchema, type SpectatorTimeline } from '@daisy/protocol';
-import { projectSpectatorTimeline } from './timeline';
+import {
+  projectSpectatorTimeline,
+  type SpectatorTimelineContext,
+} from './timeline';
 
 type Store = Pick<Database, 'readSpectatorTimeline'>;
 
@@ -12,7 +15,11 @@ type Store = Pick<Database, 'readSpectatorTimeline'>;
  */
 export async function readSpectatorTimeline(
   store: Store,
-  input: { readonly roundId: string; readonly now: string },
+  input: {
+    readonly roundId: string;
+    readonly now: string;
+    readonly feedUrlOf: SpectatorTimelineContext['feedUrlOf'];
+  },
 ): Promise<SpectatorTimeline | null> {
   if (!idSchema.safeParse(input.roundId).success) return null;
   const nowMs = Date.parse(input.now);
@@ -20,5 +27,8 @@ export async function readSpectatorTimeline(
     roundId: input.roundId,
     horizonOf: (facts) => spectatorTimelineHorizon({ ...facts, nowMs }),
   });
-  return read && projectSpectatorTimeline(read);
+  return (
+    read &&
+    projectSpectatorTimeline(read, { nowMs, feedUrlOf: input.feedUrlOf })
+  );
 }

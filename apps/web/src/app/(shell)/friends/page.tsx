@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { systemId } from '@daisy/clock';
 import type { SearchParams } from '../../../features/access/decision';
 import { requireAccess } from '../../../lib/access';
+import { requestLiveRoundsOf } from '../../../lib/request-session';
 import { FriendsPage } from '../../../ui/friends/friends-page/friends-page';
 import { friendAction } from './actions';
 import { readFriends } from './read-friends';
@@ -17,9 +18,13 @@ export default async function Friends({
 }) {
   await requireAccess('/friends', searchParams);
   const list = await readFriends();
+  const live = await requestLiveRoundsOf(
+    list?.friends.map((friend) => friend.username) ?? [],
+  );
   return (
     <FriendsPage
       list={list}
+      liveHrefs={new Map([...live].map(([name, card]) => [name, card.href]))}
       friendAction={friendAction}
       message={(username) => (
         <MessageUserButton

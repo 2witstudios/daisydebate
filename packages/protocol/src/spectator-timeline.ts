@@ -18,6 +18,37 @@ const spectatorStageSchema = z.discriminatedUnion('kind', [
 ]);
 
 /**
+ * Where a player reads a Broadcast, by its recorded delivery path, so a faster
+ * path adds a variant here and a source in the player and reshapes nothing else.
+ */
+const broadcastStreamSchema = z.discriminatedUnion('path', [
+  z.strictObject({ path: z.literal('owned_hls'), manifestUrl: z.url() }),
+]);
+export type BroadcastStream = z.infer<typeof broadcastStreamSchema>;
+
+/** The audience's stream as they can use it now; each state says only what is true of it. */
+const broadcastStandingSchema = z.discriminatedUnion('state', [
+  /** The Round has no Broadcast this audience can play. */
+  z.strictObject({ state: z.literal('none') }),
+  z.strictObject({ state: z.literal('starting') }),
+  /** Held by its release policy: until a set time, or the Round's end when null. */
+  z.strictObject({
+    state: z.literal('held'),
+    releasesAt: z.iso.datetime().nullable(),
+  }),
+  z.strictObject({ state: z.literal('on_air'), stream: broadcastStreamSchema }),
+  /** Released media stopped arriving; null when none ever left to play. */
+  z.strictObject({
+    state: z.literal('interrupted'),
+    stream: broadcastStreamSchema.nullable(),
+  }),
+  z.strictObject({ state: z.literal('stopped') }),
+  z.strictObject({ state: z.literal('failed') }),
+  z.strictObject({ state: z.literal('ended') }),
+]);
+export type BroadcastStanding = z.infer<typeof broadcastStandingSchema>;
+
+/**
  * What an audience may know of a Round, and only once released (ADR 0099).
  * Judges are never named, and no side's feedback appears here: it stays
  * private to that side.
@@ -26,7 +57,9 @@ export const spectatorTimelineSchema = z.strictObject({
   version: z.literal(1),
   roundId: idSchema,
   mode: z.enum(['ranked', 'casual']),
-  hasBroadcast: z.boolean(),
+  broadcast: broadcastStandingSchema,
+  /** The Round's Recording once its end is released; `none` until then. */
+  recording: z.enum(['none', 'processing', 'ready']),
   resolution: z.string().nullable(),
   seats: z.array(
     z.strictObject({

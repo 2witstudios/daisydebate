@@ -14,6 +14,7 @@ const handlers = (readSpectatorTimeline: (input: never) => Promise<unknown>) =>
     logger: silentLogger,
     reporter: noopErrorReporter,
     clock: { now: () => '2026-11-02T00:00:00.000Z' },
+    feedUrlOf: () => null,
     store: { readSpectatorTimeline } as never,
   });
 
