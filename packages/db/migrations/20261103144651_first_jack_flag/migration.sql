@@ -1,1 +1,0 @@
-ALTER TABLE "recording_processing_jobs" ADD COLUMN "delay_alerted_at" timestamp with time zone;
