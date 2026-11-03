@@ -223,7 +223,6 @@ test('pending judging response survives takeover with immutable origin until ato
         winner: 'affirmative',
         scores: {},
         reason: 'Synthetic result',
-        status: 'submitted',
         submitted_at: new Date(2000),
       });
       await fixture.sql.unsafe(

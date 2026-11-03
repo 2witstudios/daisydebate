@@ -189,7 +189,6 @@ test('exporting a member includes their competitive record and nothing of anothe
       winner: 'affirmative',
       scores: {},
       reason: 'Mine',
-      status: 'submitted',
       submitted_at: at(3),
     });
     // The ladder name comes from the protocol's own catalog, so the fixture

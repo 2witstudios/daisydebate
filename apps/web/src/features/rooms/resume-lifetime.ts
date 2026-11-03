@@ -25,6 +25,8 @@ export function createResumeLifetime(input: {
     readonly write: (tabId: string) => void;
     readonly clear: () => void;
   };
+  /** Called once: the tab this one waited on left the Round. It never takes it. */
+  readonly holderLeft: () => void;
   /** False must synchronously release this tab's media before any later attempt. */
   readonly changed: (owns: boolean) => void;
 }) {
@@ -38,11 +40,13 @@ export function createResumeLifetime(input: {
   const claim = () => claimOwnership({ ...input, nowMs: input.now() });
   const check = () => {
     if (stopped) return;
-    const decision = mayResumeTab(
-      input.tabId,
-      readOwnership(input.storage, input.actorId, input.roundId),
-      input.now(),
-    );
+    const held = readOwnership(input.storage, input.actorId, input.roundId);
+    if (held.left && held.owner !== input.tabId) {
+      stopTicking();
+      input.holderLeft();
+      return;
+    }
+    const decision = mayResumeTab(input.tabId, held, input.now());
     if (decision === 'defer') {
       publish(false);
       return;

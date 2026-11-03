@@ -264,7 +264,6 @@ async function insertFrozenBallot(
       reason: body.reason,
       feedback: body.feedback,
       citations: body.citations ?? null,
-      status: 'submitted',
       submittedAt: new Date(context.now),
     })
     .returning();

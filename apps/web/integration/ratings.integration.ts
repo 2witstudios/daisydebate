@@ -8,7 +8,7 @@ import { withSql } from './fixtures';
 requireTestServices(process.env);
 setupRitewayBun();
 
-const newcomers = (outcome: 'affirmative' | 'negative' | 'draw') =>
+const newcomers = (outcome: 'affirmative' | 'negative') =>
   rateDebate({
     affirmative: { state: ratingPolicy.initial, lastRatedAt: null },
     negative: { state: ratingPolicy.initial, lastRatedAt: null },
@@ -65,34 +65,8 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
     });
   });
 
-  test('rates draws and forfeits on the one ranked ladder', async () => {
+  test('rates forfeits on the one ranked ladder', async () => {
     await inArena(async ({ actor, round, rate, ratings }) => {
-      const [first, second] = [await actor(), await actor()];
-      const drawn = await round({
-        affirmative: first,
-        negative: second,
-        outcome: 'draw',
-      });
-      const drawnResult = await rate(drawn);
-      const draw = newcomers('draw');
-      assert({
-        given: 'a drawn ranked round between newcomers',
-        should:
-          'rate it on the ranked ladder, the only one (DEC-238), as the engine rates a draw',
-        actual: [
-          drawnResult.kind === 'rated' && drawnResult.ladder,
-          (await ratings(first)).map(({ ladder }) => ladder),
-          stateOf((await ratings(first))[0]),
-        ],
-        expected: [
-          'freestyle',
-          ['freestyle'],
-          {
-            rating: draw.affirmative.after.rating,
-            deviation: draw.affirmative.after.deviation,
-          },
-        ],
-      });
       const [third, fourth] = [await actor(), await actor()];
       const forfeit = await round({
         affirmative: third,
