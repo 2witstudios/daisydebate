@@ -84,12 +84,7 @@ for (const [status, code] of [
         deleteRoom: async () => {
           calls.push('delete');
           if (stranded)
-            throw new ServerError(
-              'no response',
-              'no response',
-              503,
-              'unavailable',
-            );
+            throw new ServerError('no response', 'no response', status, code);
         },
       } as never,
     });
