@@ -103,6 +103,17 @@ kill_timeout = 35
   auto_start_machines = true
   min_machines_running = 1
 
+  # ISSUE-1306, DEC-350: the floor under one machine stalling debates. Unset, Fly
+  # counts connections and sets no hard limit. A request past the rate limit still
+  # costs this process: on the rig about 670 a second saturated it, near 1.5 ms each,
+  # so 64 in flight is about a tenth of a second's work. Fly's page says no new traffic
+  # reaches the Machine at the hard limit, and not whether the proxy queues or refuses,
+  # so whether this refuses a real seat is read from the load run, not assumed.
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 48
+    hard_limit = 64
+
   [[http_service.checks]]
     # Fly's liveness probe: process aliveness only, no dependency calls.
     # This is what schedules a restart, not what gates traffic. The port
