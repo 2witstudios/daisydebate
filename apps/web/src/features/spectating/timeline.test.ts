@@ -68,7 +68,7 @@ describe('projectSpectatorTimeline', () => {
       given: 'a live Round with no released media',
       should: 'show a slate, no resolution and no result',
       actual: [view.stage, view.resolution, view.result],
-      expected: [{ kind: 'slate' }, null, null],
+      expected: [{ kind: 'slate', moment: 'before_first_speech' }, null, null],
     });
   });
 
@@ -158,7 +158,37 @@ describe('projectSpectatorTimeline', () => {
           ],
         }),
       ).stage,
-      expected: { kind: 'slate' },
+      expected: { kind: 'slate', moment: 'speeches_over' },
+    });
+  });
+
+  test('a slate says where the released speeches have reached', () => {
+    const twoSpeeches = {
+      status: 'active',
+      rules: {
+        segments: [
+          { key: '1AC', label: 'First affirmative', side: 'affirmative' },
+          { key: '1NC', label: 'First negative', side: 'negative' },
+        ],
+      },
+    } as const;
+    const firstEnded = {
+      horizonMs: horizon(ended),
+      segments: [
+        {
+          type: 'speech',
+          key: '1AC',
+          startedAt: started,
+          endedAt: ended,
+          durationMs: 100_000,
+        },
+      ],
+    } as const;
+    assert({
+      given: 'the first of two speeches ended on the released video',
+      should: 'say the next speech is coming, whatever the Round does live',
+      actual: projectSpectatorTimeline(read(firstEnded, twoSpeeches)).stage,
+      expected: { kind: 'slate', moment: 'between_speeches' },
     });
   });
 

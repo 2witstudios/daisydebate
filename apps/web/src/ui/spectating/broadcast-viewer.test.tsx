@@ -15,7 +15,7 @@ const timeline = (over: Partial<SpectatorTimeline>): SpectatorTimeline => ({
   recording: 'none',
   resolution: null,
   seats: [],
-  stage: { kind: 'slate' },
+  stage: { kind: 'slate', moment: 'between_speeches' },
   result: null,
   captions: [],
   releasedThrough: null,
@@ -142,7 +142,7 @@ describe('BroadcastViewer', () => {
         html.includes('aria-label="Broadcast of this debate"'),
         html.includes('controls'),
         html.includes('The video needs JavaScript'),
-        html.includes('The stage returns when the next speech starts.'),
+        html.includes('The video is showing a slate. Nobody is speaking.'),
       ],
       expected: [true, true, true, true],
     });

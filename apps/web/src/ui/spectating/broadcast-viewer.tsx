@@ -147,7 +147,7 @@ function StateInsteadOfPlayer({
 }
 
 const playerNotices = {
-  slate: 'The stage returns when the next speech starts.',
+  slate: 'The video is showing a slate. Nobody is speaking.',
   interrupted: 'The broadcast is interrupted. It resumes here by itself.',
 } as const;
 

@@ -36,11 +36,18 @@ export const releasedStage = (read: StageFacts): SpectatorTimeline['stage'] => {
   if (read.round.status === 'opening') return { kind: 'upcoming' };
   if (read.outcomeReleased || read.stopped) return { kind: 'ended' };
   const segment = read.segments[0];
-  if (!segment || read.horizonMs === null) return { kind: 'slate' };
+  if (!segment || read.horizonMs === null)
+    return { kind: 'slate', moment: 'before_first_speech' };
   const shownAt = read.horizonMs - SPECTATOR_MARGIN_MS;
   const rule = read.round.rules.segments.find((s) => s.key === segment.key);
   if (!rule || (segment.endedAt && segment.endedAt.getTime() <= shownAt))
-    return { kind: 'slate' };
+    return {
+      kind: 'slate',
+      moment:
+        read.round.rules.segments.at(-1)?.key === segment.key
+          ? 'speeches_over'
+          : 'between_speeches',
+    };
   return {
     kind: 'floor',
     segment: segment.type,

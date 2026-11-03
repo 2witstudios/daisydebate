@@ -16,7 +16,7 @@ const timeline: SpectatorTimeline = {
     { side: 'affirmative', kind: 'human', label: 'ana' },
     { side: 'negative', kind: 'bot', label: null },
   ],
-  stage: { kind: 'slate' },
+  stage: { kind: 'slate', moment: 'before_first_speech' },
   result: null,
   captions: [],
   releasedThrough: null,
@@ -47,6 +47,27 @@ describe('SpectatorFacts', () => {
         page.includes('role="timer"'),
       ],
       expected: [true, false, true],
+    });
+  });
+
+  test('a slate says what the video says, not that nothing is happening', () => {
+    const says = (moment: 'before_first_speech' | 'between_speeches' | 'speeches_over') =>
+      /aria-live="polite"[^>]*>([^<]*)</.exec(
+        html({ stage: { kind: 'slate', moment } }),
+      )?.[1];
+    assert({
+      given: 'each moment a slate can stand for',
+      should: 'announce it in words',
+      actual: [
+        says('before_first_speech'),
+        says('between_speeches'),
+        says('speeches_over'),
+      ],
+      expected: [
+        'The first speech is still to come.',
+        'Preparation or a break: the next speech is coming.',
+        'The speeches are over. The result comes next.',
+      ],
     });
   });
 
