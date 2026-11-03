@@ -278,6 +278,15 @@ describe('projectSpectatorTimeline', () => {
         read(
           {
             broadcast: over === null ? null : broadcast(over),
+            segments: [
+              {
+                type: 'speech' as const,
+                key: '1AC',
+                startedAt: started,
+                endedAt: null,
+                durationMs: 100_000,
+              },
+            ],
             ...facts,
           },
           round,
@@ -322,6 +331,15 @@ describe('projectSpectatorTimeline', () => {
               releasedThroughAt: onTime,
               feedKey: 'random-key',
             }),
+            segments: [
+              {
+                type: 'speech' as const,
+                key: '1AC',
+                startedAt: started,
+                endedAt: null,
+                durationMs: 100_000,
+              },
+            ],
           }),
           { nowMs: NOW, feedUrlOf: (key) => key },
         ).broadcast,
@@ -349,6 +367,15 @@ describe('projectSpectatorTimeline', () => {
         given: 'an open Broadcast inside its delay with nothing released',
         should: 'be starting, with no stream to fail on',
         actual: standing({}, { startedAt: new Date(NOW - 60_000) }),
+        expected: { state: 'starting' },
+      });
+    });
+
+    test('no speech released yet', () => {
+      assert({
+        given: 'a watermark past the strike with no speech released',
+        should: 'keep saying it is starting, since the feed has no media',
+        actual: standing({ releasedThroughAt: onTime }, {}, { segments: [] }),
         expected: { state: 'starting' },
       });
     });

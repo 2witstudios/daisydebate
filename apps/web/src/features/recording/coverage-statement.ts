@@ -26,6 +26,13 @@ const SHORTEST_STATED_MS = 1000;
  */
 export const ROOM_ROTATION_DROPOUT_MS = 5000;
 
+/**
+ * The first public clip opens after the first speech by design (the public interval's
+ * start margin) and the encoder cuts near the last one's end, about a second each
+ * way as measured on staging. Debate lost at either end is stated only beyond this.
+ */
+const EDGE_OF_SPEECH_MS = 2500;
+
 const NEVER_MS = Number.MAX_SAFE_INTEGER;
 
 type Span = { readonly startMs: number; readonly endMs: number };
@@ -107,7 +114,7 @@ export const coverageStatement = ({
   return {
     gaps: [...gaps].sort((x, y) => x.startMs - y.startMs),
     unrecorded: [
-      ...(missedAtStart >= SHORTEST_STATED_MS
+      ...(missedAtStart >= EDGE_OF_SPEECH_MS
         ? [
             {
               part: 'start',
@@ -116,7 +123,7 @@ export const coverageStatement = ({
             } as const,
           ]
         : []),
-      ...(missedAtEnd >= SHORTEST_STATED_MS
+      ...(missedAtEnd >= EDGE_OF_SPEECH_MS
         ? [
             {
               part: 'end',

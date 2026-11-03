@@ -11,6 +11,8 @@ import { Badge } from '../../components/badge/badge';
 import type { BadgeTone } from '../../components/badge/badge-class';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
+import { launched } from '../../../features/coming-soon/launch';
+import { liveHref } from '../../../features/watch/routes';
 import { MediaPageLink } from '../../round-media/media-page-link';
 import { profileHref } from '../../layout/app-shell/components/destinations';
 import { ProfileActions } from '../profile-actions/profile-actions';
@@ -75,23 +77,32 @@ function Opponents({ entry }: { readonly entry: MatchHistoryEntry }) {
   );
 }
 
+/** A Round's own page belongs to its seats; anyone else goes to its public page. */
+const historyHref = (roundId: string, me: boolean, watchOpen: boolean) =>
+  me ? `/rounds/${roundId}` : watchOpen ? liveHref(roundId) : null;
+
 function HistoryRow({
   entry,
   me,
+  watchOpen,
 }: {
   readonly entry: MatchHistoryEntry;
   readonly me: boolean;
+  readonly watchOpen: boolean;
 }) {
   const result = results[entry.result];
+  const title = entry.resolution ?? 'Ended before a resolution was chosen';
+  const href = historyHref(entry.roundId, me, watchOpen);
   return (
     <li className="flex flex-col gap-1 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <MediaPageLink
-          href={`/rounds/${entry.roundId}`}
-          className="min-w-0 font-strong text-ink"
-        >
-          {entry.resolution ?? 'Ended before a resolution was chosen'}
-        </MediaPageLink>
+        {href ? (
+          <MediaPageLink href={href} className="min-w-0 font-strong text-ink">
+            {title}
+          </MediaPageLink>
+        ) : (
+          <span className="min-w-0 font-strong text-ink">{title}</span>
+        )}
         <span className="flex items-center gap-2">
           {me && entry.visibility !== 'public' ? (
             <Badge>{entry.visibility}</Badge>
@@ -182,8 +193,11 @@ export function ProfilePage({
   actions,
   ratings,
   liveRound = null,
+  watchOpen = launched.watch,
 }: {
   readonly profile: MemberProfile;
+  /** Whether a Round's public page exists for a history row to open. */
+  readonly watchOpen?: boolean;
   /** Whether this is an older page of the history. */
   readonly paged: boolean;
   /** The viewer's actions toward this member, if any. */
@@ -219,7 +233,12 @@ export function ProfilePage({
         ) : (
           <ul className="divide-y divide-border">
             {profile.history.map((entry) => (
-              <HistoryRow key={entry.roundId} entry={entry} me={profile.me} />
+              <HistoryRow
+                key={entry.roundId}
+                entry={entry}
+                me={profile.me}
+                watchOpen={watchOpen}
+              />
             ))}
           </ul>
         )}

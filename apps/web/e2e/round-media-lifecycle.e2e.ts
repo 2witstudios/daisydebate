@@ -37,8 +37,10 @@ test('closing an account leaves no live Round behind it', async ({
     const round = await createHumanBallotRound(accounts.members, 0);
     await accounts.closeContexts();
     const { request } = observer.members[0]!.context;
-    const settled = await readBallotRound(request, round.id);
-    expect(settled.completedAt).not.toBeNull();
+    // A stranger reads the audience's timeline; the Round itself belongs to its seats.
+    const timeline = await request.get(`/api/rounds/${round.id}/timeline`);
+    expect(timeline.status()).toBe(200);
+    expect((await timeline.json()).stage.kind).toBe('ended');
   } finally {
     await accounts.closeContexts();
     await observer.closeContexts();

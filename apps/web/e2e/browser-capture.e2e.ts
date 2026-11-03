@@ -45,7 +45,8 @@ test.describe('browser capture from runtime configuration', () => {
 
   test.beforeAll(async () => {
     test.setTimeout(90_000);
-    const [app, edge, mail] = await Promise.all([
+    const [app, edge, mail, feed] = await Promise.all([
+      freePort(),
       freePort(),
       freePort(),
       freePort(),
@@ -60,6 +61,7 @@ test.describe('browser capture from runtime configuration', () => {
         PORT: String(app),
         E2E_EDGE_PORT: String(edge),
         E2E_MAIL_PORT: String(mail),
+        E2E_FEED_PORT: String(feed),
         PUBLIC_APP_URL: origin,
         NEXT_PUBLIC_SENTRY_DSN: `https://publickey@${new URL(CAPTURE_ORIGIN).host}/1`,
         SENTRY_ENVIRONMENT: ENVIRONMENT,

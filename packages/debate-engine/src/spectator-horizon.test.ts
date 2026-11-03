@@ -70,15 +70,15 @@ describe('spectatorHorizon', () => {
     for (const finished of [{ completedAtMs: now }, { stoppedAtMs: now }]) {
       const broadcast = { ...open, ...finished, releasedThroughMs: null };
       assert({
-        given: 'a finished Broadcast and a fact younger than the delay',
-        should: 'withhold it',
-        actual: visible(now - delayMs + 1, { broadcast }),
+        given: 'a finished Broadcast and a fact as old as the delay',
+        should: 'withhold it until a viewer at the live edge has reached it',
+        actual: visible(now - delayMs, { broadcast }),
         expected: false,
       });
       assert({
-        given: 'a finished Broadcast and a fact as old as the delay',
+        given: 'a finished Broadcast and a fact past the delay and the margin',
         should: 'release it, since no more media will ever pass it',
-        actual: visible(now - delayMs, { broadcast }),
+        actual: visible(now - delayMs - SPECTATOR_MARGIN_MS, { broadcast }),
         expected: true,
       });
     }

@@ -112,6 +112,11 @@ const broadcast = async (
     values (${createId()},${roundId},${createId()},${{ kind: 'delay', seconds: 60 }},${columns.released ?? null},${columns.completed ?? null},${columns.stopped ?? null},${columns.stopped ? 'test' : null},${columns.slowMode ?? 0})`;
 };
 
+/** The first speech, long enough ago for any release in these tests to have passed it. */
+const firstSpeech = (client: SQL, roundId: string) =>
+  client`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,duration_ms)
+    values (${createId()},${roundId},0,'speech',${validRules.segments[0]!.key},${at(-60)},${60_000})`;
+
 const planner =
   (
     id: string,
@@ -734,6 +739,31 @@ test('a banned account cannot follow, and can still stop following', async () =>
   });
 });
 
+test('a follower is told only once a speech has been released', async () => {
+  await withEnv(async (env) => {
+    const debater = await member(env.f);
+    const fan = await member(env.f);
+    await env.follows.setDebaterFollow({
+      followerUserId: fan.userId,
+      username: `u-${debater.userId}`,
+      state: 'following',
+    });
+    const roundId = await env.audienceRound();
+    await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    await broadcast(env.client, roundId, { released: at(10) });
+    await sweep(env, 11);
+    const beforeSpeech = await rowsFor(env, fan.userId);
+    await firstSpeech(env.client, roundId);
+    await sweep(env, 12);
+    assert({
+      given: 'a watermark moving through the opening, then a released speech',
+      should: 'tell the follower nothing until the speech is out',
+      actual: [beforeSpeech.length, (await rowsFor(env, fan.userId)).length],
+      expected: [0, 1],
+    });
+  });
+});
+
 test('"on air" reads only while the Broadcast is open', async () => {
   await withEnv(async (env) => {
     const debater = await member(env.f);
@@ -745,6 +775,7 @@ test('"on air" reads only while the Broadcast is open', async () => {
     });
     const roundId = await env.audienceRound();
     await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    await firstSpeech(env.client, roundId);
     await broadcast(env.client, roundId, { released: at(10) });
     await sweep(env, 11);
     const onAir = await rowsFor(env, fan.userId);
@@ -934,9 +965,11 @@ test('a follower hears nothing before release, once after it, and only of a publ
     });
     const roundId = await env.audienceRound();
     await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    await firstSpeech(env.client, roundId);
     await broadcast(env.client, roundId);
     const unlisted = await env.audienceRound('unlisted');
     await env.f.participant(unlisted, 'affirmative', 0, debater.actorId);
+    await firstSpeech(env.client, unlisted);
     await broadcast(env.client, unlisted, { released: at(1) });
     await sweep(env, 5);
     const early = await rowsFor(env, fan.userId);
@@ -1037,6 +1070,7 @@ test('reading is per account, and a read notification leaves 90 days later', asy
     });
     const roundId = await env.audienceRound();
     await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    await firstSpeech(env.client, roundId);
     await broadcast(env.client, roundId, { released: at(1) });
     await sweep(env, 5);
     const read = () =>

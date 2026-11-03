@@ -101,7 +101,9 @@ const standingOf = (
     context.nowMs - broadcast.policy.seconds * 1000 - since >
     BROADCAST_INTERRUPTED_AFTER_MS;
   const stream = { path: 'owned_hls', manifestUrl } as const;
-  if (watermark === null) {
+  // The watermark passes the strike and the opening before any media exists: the
+  // feed has nothing to play until a speech has been released.
+  if (watermark === null || (read.segments.length === 0 && !late)) {
     if (!late) return { state: 'starting' };
     return read.outcomeReleased
       ? { state: 'failed' }

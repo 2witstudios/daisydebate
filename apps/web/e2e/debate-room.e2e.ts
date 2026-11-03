@@ -173,8 +173,7 @@ test('the round room: no app shell, Files closes, the sidebar switches, Leave as
   await expect(
     page
       .getByRole('complementary', { name: 'Your files' })
-      .getByText('Off', { exact: true })
-      .first(),
+      .getByRole('region', { name: 'Affirmative' }),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Leave round' }).click();
   const confirm = page.getByRole('dialog', { name: 'Leave the round?' });

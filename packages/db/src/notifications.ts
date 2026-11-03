@@ -1,4 +1,5 @@
 import {
+  SPECTATOR_MARGIN_MS,
   notificationKinds,
   type NotificationKind,
   type NotificationPreferences,
@@ -17,6 +18,10 @@ import {
 } from './spectator-release-sql';
 
 type Tx = Pick<BunSQLDatabase, 'execute'>;
+
+const spectatorMargin = sql.raw(
+  `interval '${SPECTATOR_MARGIN_MS} milliseconds'`,
+);
 
 const wants = (kind: NotificationKind, user: ReturnType<typeof sql>) =>
   sql`coalesce((select np.enabled from notification_preferences np
@@ -103,7 +108,7 @@ export const notificationOperations = ({
 }) => ({
   /**
    * One pass. `followed_debater_live` follows the Broadcast's first released
-   * media; `recording_ready` a ready Recording once any Broadcast is complete,
+   * speech, so it never sends a follower to a debate that has not begun; `recording_ready` a ready Recording once any Broadcast is complete,
    * and its outcome released. Each event claims itself in its own transaction, so
    * a repeat or a second instance tells no one twice. Returns rows written.
    */
@@ -123,6 +128,9 @@ export const notificationOperations = ({
         sql`select b.round_id,r.visibility,(b.completed_at is null and b.stopped_at is null) as on_air
           from broadcasts b join rounds r on r.id=b.round_id
           where b.released_through_at is not null
+            and (b.completed_at is not null or b.stopped_at is not null
+              or exists(select 1 from round_segments s where s.round_id=b.round_id
+                and s.started_at+${spectatorMargin}<=b.released_through_at))
             and not exists(select 1 from notification_fanouts f
               where f.kind='followed_debater_live' and f.round_id=b.round_id)
           order by b.created_at limit ${input.limit}`,

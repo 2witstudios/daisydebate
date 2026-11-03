@@ -139,6 +139,19 @@ describe('coverageStatement', () => {
     });
   });
 
+  test('the designed cut at a speech edge is not a missing part', () => {
+    assert({
+      given:
+        'a first clip opening 1.3 s into the speech and a tail cut 1.1 s short',
+      should: 'state no late start and no early end',
+      actual: statement({
+        ...none,
+        segments: [{ startedAtMs: real(-1300), endedAtMs: real(61_100) }],
+      }),
+      expected: { gaps: [], unrecorded: [] },
+    });
+  });
+
   test('clock disagreement is not a missing part', () => {
     assert({
       given: 'capture off by half a second at each end',

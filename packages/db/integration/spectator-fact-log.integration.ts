@@ -179,7 +179,7 @@ test('the sweep finds a Round only while a fact has left and no row records it',
         })
       ).includes(roundId);
     const monthLater = after(ended, 30 * 86_400_000);
-    const released = after(ended, 90 * 86_400_000);
+    const released = after(ended, 90 * 86_400_000 + SPECTATOR_MARGIN_MS);
     assert({
       given: 'a long delay nothing has passed, a month after the Round',
       should: 'not take a place in the pass',

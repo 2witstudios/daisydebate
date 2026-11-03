@@ -45,7 +45,7 @@ export const spectatorHorizonSql = (
     when b.id is null then case when ${terminal} then
       case when ${round.competitionType}='ranked' then ${at}-${rankedDelay}+${margin} else ${at}+${margin} end end
     when b.completed_at is null and b.stopped_at is null then b.released_through_at
-    else greatest(b.released_through_at, ${at}-make_interval(secs => (b.release_policy->>'seconds')::double precision)+${margin})
+    else greatest(b.released_through_at, ${at}-make_interval(secs => (b.release_policy->>'seconds')::double precision))
   end from (select 1) one left join broadcasts b on b.round_id=${round.id})`;
 };
 

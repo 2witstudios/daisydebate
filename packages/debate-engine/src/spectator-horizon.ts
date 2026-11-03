@@ -24,13 +24,13 @@ const floorOf = (nowMs: number, delayMs: number) =>
 const finishedFloor = (
   policy: BroadcastReleasePolicy,
   facts: SpectatorHorizonFacts,
-): number => floorOf(facts.nowMs, policy.seconds * 1000);
+): number => facts.nowMs - policy.seconds * 1000;
 
 /**
  * How far the audience's knowledge has reached: `factReleased` compares a fact's
  * capture time with this. An open Broadcast is its durable watermark alone. A
- * finished one will release no more media, so what it held leaves behind its
- * own delay. With no Broadcast live facts stay private; an ended casual Round
+ * finished one will release no more media, so what it held leaves its own delay
+ * and the player's margin behind, never ahead of a viewer reaching the end. With no Broadcast live facts stay private; an ended casual Round
  * has nothing holding it, and an ended ranked Round keeps the fixed floor.
  * Packages/db `spectatorHorizonSql` states this rule for list reads.
  */
