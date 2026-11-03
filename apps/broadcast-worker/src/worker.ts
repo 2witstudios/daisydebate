@@ -91,7 +91,10 @@ export const runWorker = async (deps: {
               break;
             }
           }
-          const hold = holdAttemptPrefix(broadcastHoldPrefix(job.id), generation);
+          const hold = holdAttemptPrefix(
+            broadcastHoldPrefix(job.id),
+            generation,
+          );
           const result = await releaseStep(
             {
               policy: facts.releasePolicy,
