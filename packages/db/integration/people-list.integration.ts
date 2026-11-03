@@ -1002,7 +1002,7 @@ test(
   ddlTimeoutMs,
 );
 
-const surfaceMigration = '20261103043326_report_surface_people';
+const surfaceMigration = '20261103050553_report_surface_people';
 const surfaceScratch = scratchDatabase(databaseUrl, 'reportsurface');
 afterAll(() => surfaceScratch.drop());
 
