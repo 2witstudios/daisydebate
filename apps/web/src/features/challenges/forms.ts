@@ -31,8 +31,7 @@ export function challengeRefusal(
     return 'Could not send that challenge. Try again.';
   }
   if (intent === 'accept-placed') return 'Leave your room first.';
-  if (intent === 'accept-lost')
-    return 'That challenge is no longer open.';
+  if (intent === 'accept-lost') return 'That challenge is no longer open.';
   if (intent === 'accept-unnamed')
     return 'Could not finish accepting. Try again.';
   if (intent === 'accept-ranked')
