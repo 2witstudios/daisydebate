@@ -1,6 +1,7 @@
 import {
   competitionTypes,
   debateRoles,
+  roomCaptureSchema,
   roomConfigSchema,
   roomStatuses,
   type RoomView,
@@ -22,6 +23,7 @@ import {
 import {
   createdAtColumn,
   jsonbColumn,
+  jsonbColumnNullable,
   jsonbIsObject,
   oneOf,
   timestampColumn,
@@ -80,6 +82,8 @@ export const rooms = pgTable(
       .notNull(),
     /** RoomConfig as chosen. */
     config: jsonbColumn('config', roomConfigSchema).notNull(),
+    /** The casual host's broadcast and recording choice (WATCH-8); null is none. */
+    capture: jsonbColumnNullable('capture', roomCaptureSchema),
     /** RoomExecutionPlan, resolved. */
     executionPlan: jsonbColumn(
       'execution_plan',

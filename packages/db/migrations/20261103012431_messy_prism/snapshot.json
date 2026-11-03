@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "3baa04db-dc4c-407d-9241-2d6f3a7c1c01",
+  "id": "6d28d93b-3bdb-4454-9506-ed14cdf277a8",
   "prevIds": [
-    "c117c4e1-14e1-4d32-8e03-b21bc0fc75fb"
+    "e4e2cf5e-6473-44cd-bff5-cf1ce35482a3"
   ],
   "ddl": [
     {
@@ -296,6 +296,18 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "audience_bans",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "moderation_reports",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "observation_purge_jobs",
       "entityType": "tables",
       "schema": "public"
@@ -375,6 +387,12 @@
     {
       "isRlsEnabled": false,
       "name": "seasons",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "recordings",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1713,32 +1731,6 @@
     {
       "type": "timestamp with time zone",
       "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "voided_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "voided_by_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "now()",
@@ -2075,6 +2067,19 @@
       "table": "broadcasts"
     },
     {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "chat_slow_mode_seconds",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": false,
@@ -2213,6 +2218,19 @@
       "generated": null,
       "identity": null,
       "name": "completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reconcile_lease_until",
       "entityType": "columns",
       "schema": "public",
       "table": "broadcasts"
@@ -5205,6 +5223,188 @@
       "name": "user_id",
       "entityType": "columns",
       "schema": "public",
+      "table": "audience_bans"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "banned_by_ref",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "audience_bans"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "audience_bans"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reporter_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "target_kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "target_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "feedback_side",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reason",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "queue",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'open'",
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "resolved_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "resolved_by_ref",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "observation_purge_jobs"
     },
     {
@@ -5509,7 +5709,7 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -6350,6 +6550,175 @@
       "entityType": "columns",
       "schema": "public",
       "table": "seasons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "recording_class",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "eligibility",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lifecycle",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "deletion_attempts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "deletion_due_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_owner",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_until",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recordings"
     },
     {
       "type": "text",
@@ -7485,6 +7854,19 @@
     {
       "type": "jsonb",
       "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "capture",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -7812,7 +8194,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "'settled_availability'",
+      "default": null,
       "generated": null,
       "identity": null,
       "name": "evidence",
@@ -8543,6 +8925,32 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "outcome",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "answered_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "category",
       "entityType": "columns",
       "schema": "public",
@@ -8551,7 +8959,7 @@
     {
       "type": "jsonb",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -8748,7 +9156,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "clock_timestamp() + interval '5 minutes'",
+      "default": null,
       "generated": null,
       "identity": null,
       "name": "generation_deadline_at",
@@ -9311,6 +9719,19 @@
       "generated": null,
       "identity": null,
       "name": "room_config_snapshot",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "capture",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -10880,27 +11301,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "voided_by_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "ballots_voided_by_actor_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "user_id",
           "isExpression": false,
           "asc": true,
@@ -12378,6 +12778,83 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "reporter_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "target_kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "target_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "moderation_reports_once_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "queue",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": false,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": false,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "moderation_reports_queue_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "target_user_id",
           "isExpression": false,
           "asc": true,
@@ -12751,6 +13228,76 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "seasons"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "recordings_round_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "updated_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "recordings_status_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "deletion_due_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"status\" = 'removing'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "recordings_deletion_due_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "recordings"
     },
     {
       "nameExplicit": true,
@@ -15794,23 +16341,6 @@
     {
       "nameExplicit": true,
       "columns": [
-        "voided_by_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "ballots_voided_by_actor_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
         "round_id"
       ],
       "schemaTo": "public",
@@ -16976,6 +17506,40 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "name": "audience_bans_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "audience_bans"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "reporter_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "moderation_reports_reporter_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "observation_purge_jobs_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -17239,6 +17803,23 @@
       "entityType": "fks",
       "schema": "public",
       "table": "ratings"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "recordings_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "recordings"
     },
     {
       "nameExplicit": false,
@@ -19360,6 +19941,26 @@
         "user_id"
       ],
       "nameExplicit": false,
+      "name": "audience_bans_pkey",
+      "schema": "public",
+      "table": "audience_bans",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "moderation_reports_pkey",
+      "schema": "public",
+      "table": "moderation_reports",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "user_id"
+      ],
+      "nameExplicit": false,
       "name": "observation_purge_jobs_pkey",
       "schema": "public",
       "table": "observation_purge_jobs",
@@ -19453,6 +20054,16 @@
       "name": "seasons_pkey",
       "schema": "public",
       "table": "seasons",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "recordings_pkey",
+      "schema": "public",
+      "table": "recordings",
       "entityType": "pks"
     },
     {
@@ -20063,7 +20674,7 @@
       "table": "ballots"
     },
     {
-      "value": "\"status\" in ('submitted', 'voided')",
+      "value": "\"status\" in ('submitted')",
       "name": "ballots_status_check",
       "entityType": "checks",
       "schema": "public",
@@ -20079,20 +20690,6 @@
     {
       "value": "\"rubric_version\" = 'speaker-10@1'",
       "name": "ballots_rubric_version_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "value": "(\"status\" = 'voided' and \"voided_at\" is not null and \"voided_by_actor_id\" is not null) or (\"status\" <> 'voided' and \"voided_at\" is null and \"voided_by_actor_id\" is null)",
-      "name": "ballots_voided_fields_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "value": "\"voided_at\" is null or \"voided_at\" >= \"submitted_at\"",
-      "name": "ballots_voided_after_submitted",
       "entityType": "checks",
       "schema": "public",
       "table": "ballots"
@@ -20196,7 +20793,7 @@
       "table": "broadcasts"
     },
     {
-      "value": "\"next_segment\" >= 0 and \"revocation_failures\" >= 0 and \"lease_epoch\" >= 0",
+      "value": "\"next_segment\" >= 0 and \"revocation_failures\" >= 0 and \"lease_epoch\" >= 0 and \"chat_slow_mode_seconds\" between 0 and 3600",
       "name": "broadcasts_cursor_check",
       "entityType": "checks",
       "schema": "public",
@@ -20336,7 +20933,7 @@
       "table": "email_suppression"
     },
     {
-      "value": "\"entitlement\" in ('round_analysis', 'ai_rounds', 'casual_ai_judge')",
+      "value": "\"entitlement\" in ('round_analysis', 'ai_rounds', 'casual_ai_judge', 'casual_capture')",
       "name": "account_entitlement_grants_entitlement_check",
       "entityType": "checks",
       "schema": "public",
@@ -20847,6 +21444,48 @@
       "table": "messaging_social_commands"
     },
     {
+      "value": "\"target_kind\" in ('round', 'recording', 'chat_message', 'ballot_feedback')",
+      "name": "moderation_reports_target_kind_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "value": "\"reason\" in ('harassment', 'hate', 'sexual_content', 'violence', 'self_harm', 'impersonation', 'spam', 'other', 'result_dispute', 'integrity_concern', 'abusive_feedback')",
+      "name": "moderation_reports_reason_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "value": "\"queue\" in ('safety', 'review')",
+      "name": "moderation_reports_queue_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "value": "\"status\" in ('open', 'upheld', 'dismissed')",
+      "name": "moderation_reports_status_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "value": "(\"target_kind\" = 'ballot_feedback') = (\"feedback_side\" is not null) and (\"feedback_side\" is null or \"feedback_side\" in ('affirmative', 'negative'))",
+      "name": "moderation_reports_feedback_side_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
+      "value": "(\"status\" = 'open') = (\"resolved_at\" is null) and (\"resolved_at\" is null) = (\"resolved_by_ref\" is null)",
+      "name": "moderation_reports_resolution_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "moderation_reports"
+    },
+    {
       "value": "\"status\" in ('pending', 'succeeded')",
       "name": "observation_purge_jobs_status_valid",
       "entityType": "checks",
@@ -21097,6 +21736,69 @@
       "entityType": "checks",
       "schema": "public",
       "table": "seasons"
+    },
+    {
+      "value": "\"recording_class\" in ('ranked', 'casual')",
+      "name": "recordings_class_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "value": "\"status\" in ('requested', 'capturing', 'processing', 'ready', 'failed', 'taken_down', 'removing', 'removed')",
+      "name": "recordings_status_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "value": "jsonb_typeof(\"eligibility\") = 'object'",
+      "name": "recordings_eligibility_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "value": "jsonb_typeof(\"lifecycle\") = 'object'",
+      "name": "recordings_lifecycle_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "value": "\"lifecycle\"->>'status' = \"status\"",
+      "name": "recordings_lifecycle_status_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "value": "(\"recording_class\" = 'ranked') = (\"eligibility\"->>'kind' = 'ranked')",
+      "name": "recordings_class_matches_eligibility_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "value": "\"deletion_attempts\" >= 0",
+      "name": "recordings_deletion_attempts_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "value": "(\"lease_owner\" is null) = (\"lease_until\" is null)",
+      "name": "recordings_lease_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "recordings"
+    },
+    {
+      "value": "\"version\" > 0",
+      "name": "recordings_version_positive",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "recordings"
     },
     {
       "value": "\"category\" in ('policy', 'value', 'fact')",
@@ -21449,7 +22151,7 @@
       "table": "round_analyses"
     },
     {
-      "value": "(\"evidence\" = 'settled_availability' and \"effective_deadline\" is not null and \"settled_horizon\" is not null and \"receipt_participant_id\" is null)\n        or (\"evidence\" = 'on_time_receipt' and \"decision\" = 'attended' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is not null)\n        or (\"evidence\" = 'infrastructure_unresolved' and \"decision\" = 'abandoned' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is null)",
+      "value": "(\"evidence\" = 'settled_availability' and \"effective_deadline\" is not null and \"settled_horizon\" is not null and \"receipt_participant_id\" is null)\n        or (\"evidence\" = 'on_time_receipt' and \"decision\" = 'attended' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is not null)\n        or (\"evidence\" = 'resolution_cutoff' and \"decision\" = 'abandoned' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is null)",
       "name": "round_attendance_adjudications_evidence_check",
       "entityType": "checks",
       "schema": "public",
@@ -21582,8 +22284,15 @@
       "table": "round_judging_attempts"
     },
     {
-      "value": "\"category\" in ('invalid_json', 'schema_rejected', 'truncated', 'refused', 'provider_refused', 'provider_error', 'timeout')",
+      "value": "\"category\" is null or \"category\" in ('invalid_json', 'schema_rejected', 'truncated', 'refused', 'provider_refused', 'provider_error', 'timeout')",
       "name": "round_judging_attempts_category_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "value": "\"outcome\" in ('dispatched', 'succeeded', 'failed') and (\"outcome\" = 'failed') = (\"category\" is not null) and (\"category\" is null) = (\"diagnostic\" is null)",
+      "name": "round_judging_attempts_outcome_check",
       "entityType": "checks",
       "schema": "public",
       "table": "round_judging_attempts"
@@ -21596,7 +22305,7 @@
       "table": "round_judging_jobs"
     },
     {
-      "value": "\"terminal_reason\" is null or (\"status\" = 'failed' and \"terminal_reason\" in ('attempts_exhausted', 'ballot_hold_ended', 'generation_deadline', 'provider_refused', 'round_ended'))",
+      "value": "(\"status\" = 'failed') = (\"terminal_reason\" is not null) and (\"terminal_reason\" is null or \"terminal_reason\" in ('attempts_exhausted', 'ballot_discarded', 'ballot_hold_ended', 'generation_deadline', 'provider_refused', 'round_ended'))",
       "name": "round_judging_jobs_terminal_reason_check",
       "entityType": "checks",
       "schema": "public",
@@ -21731,6 +22440,13 @@
     {
       "value": "(\"final_segment_ended_at\" is null and \"transcript_admission_cutoff\" is null) or (\"final_segment_ended_at\" is not null and \"transcript_admission_cutoff\" is not null and \"transcript_admission_cutoff\" = \"final_segment_ended_at\" + interval '120 seconds')",
       "name": "rounds_transcript_cutoff_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "value": "(\"final_segment_ended_at\" is null and \"attendance_resolution_cutoff_at\" is null) or (\"final_segment_ended_at\" is not null and \"attendance_resolution_cutoff_at\" is not null and \"attendance_resolution_cutoff_at\" = \"final_segment_ended_at\" + interval '60 minutes')",
+      "name": "rounds_attendance_cutoff_check",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"

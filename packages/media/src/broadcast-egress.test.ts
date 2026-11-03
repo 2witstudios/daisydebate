@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { EgressStatus } from 'livekit-server-sdk';
+import { EgressStatus, ServerError } from 'livekit-server-sdk';
 import { createBroadcastEgress, egressFact } from './broadcast-egress';
 
 setupRitewayBun();
@@ -179,5 +179,32 @@ test('a token minted during a private phase cannot subscribe on reconnect', asyn
     should: 'join without subscribe, so reconnecting cannot bypass revocation',
     actual: [video.roomJoin, video.canSubscribe, video.canPublish],
     expected: [true, false, false],
+  });
+});
+
+test('revoking an observer that is not in the room counts as revoked', async () => {
+  const refuse = (status: number) => async () => {
+    throw new ServerError('refused', 'refused', status);
+  };
+  const egress = (status: number) =>
+    createBroadcastEgress({
+      config,
+      client: {} as never,
+      rooms: { updateParticipant: refuse(status) } as never,
+    });
+  const outcome = (status: number) =>
+    egress(status)
+      .revokeObserver('room')
+      .then(
+        () => 'confirmed',
+        () => 'unconfirmed',
+      );
+  assert({
+    given:
+      'a stopped Egress whose observer has left, and an unreachable LiveKit',
+    should:
+      'confirm the first, so the microphone can open, and leave the second unconfirmed',
+    actual: [await outcome(404), await outcome(503)],
+    expected: ['confirmed', 'unconfirmed'],
   });
 });

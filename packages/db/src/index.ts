@@ -61,6 +61,7 @@ import {
 import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { betaAccessOperations } from './beta-access';
+import { moderationOperations } from './moderation-operations';
 import { operatorAccountOperations } from './operator-accounts';
 import { provisionalRetentionOperations } from './provisional-retention';
 import { authOperations } from './auth-operations';
@@ -81,6 +82,8 @@ import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
 import { memberProfileReadOperations } from './member-profile-reads';
+import { recordingArchiveReadOperations } from './recording-archive-reads';
+import { recordingOperations } from './recording-operations';
 import { recordingRoundReadOperations } from './recording-round-reads';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
@@ -278,6 +281,7 @@ export function createDatabase({
     ...mailIntentOperations({ database: control, eventSink }),
     ...betaAccessOperations({ database: control, eventSink }),
     ...operatorAccountOperations({ database: control, eventSink }),
+    ...moderationOperations({ database: control, eventSink }),
     ...actorOperations({ database: control, eventSink }),
     ...messagingOperations(social, contactReactions),
     ...friendshipReadOperations({ database: social, eventSink }),
@@ -345,6 +349,8 @@ export function createDatabase({
     ...standingsOperations({ database: audience, eventSink }),
     ...memberProfileReadOperations({ database: audience, eventSink }),
     ...recordingRoundReadOperations({ database: audience }),
+    ...recordingArchiveReadOperations({ database: audience }),
+    ...recordingOperations({ database: control }),
     /**
      * Rates a completed round with the caller's domain decision (ADR 0055,
      * ADR 0058); see `rateCompletedRound`. Its consumer is the ratings

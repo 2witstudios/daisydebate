@@ -9,6 +9,7 @@ import {
   claimBroadcast,
   claimBroadcastReconcile,
   completeBroadcast,
+  discoverUnopenedBroadcastRounds,
   listOpenBroadcasts,
   openBroadcast,
   readReleasedThrough,
@@ -268,43 +269,32 @@ test('one web instance reconciles a Broadcast at a time', async () => {
   });
 });
 
-test('conversation is held only while an observer is unrevoked, and only briefly', async () => {
+test('conversation stays held until the observer is revoked, however long that takes', async () => {
   await withOps(async (db, roundId) => {
-    const held = (at: Date, privateSince: Date | null) =>
-      readConversationHeld(db, { roundId, now: at, privateSince });
-    const none = await held(now, now);
+    const held = () => readConversationHeld(db, { roundId });
+    const none = await held();
     const open = await openBroadcast(db, {
       id: createId(),
       roundId,
       releasePolicy: policy,
     });
-    const noEgress = await held(now, now);
+    const noEgress = await held();
     await recordEgressStarted(db, {
       id: open.id,
       egressId: 'EG',
       stageCredentialHash: 'h',
       now,
     });
-    const observing = await held(new Date(now.getTime() + 2999), now);
-    const limit = await held(new Date(now.getTime() + 3000), now);
-    const preRound = await held(new Date(now.getTime() + 2999), null);
-    const preRoundLimit = await held(new Date(now.getTime() + 3000), null);
+    const observing = await held();
     await recordObserverRevoked(db, { id: open.id, now });
-    const revoked = await held(now, now);
+    const revoked = await held();
     assert({
       given:
-        'no Broadcast, no Egress, a subscribed observer, the limit, a revoked observer',
-      should: 'hold only for a subscribed observer inside the limit',
-      actual: [
-        none,
-        noEgress,
-        observing,
-        limit,
-        preRound,
-        preRoundLimit,
-        revoked,
-      ],
-      expected: [false, false, true, false, true, false, false],
+        'no Broadcast, no Egress, a subscribed observer with no time limit, then revoked',
+      should:
+        'never open the microphone while the observer may still receive it',
+      actual: [none, noEgress, observing, revoked],
+      expected: [false, false, true, false],
     });
   });
 });
@@ -368,5 +358,40 @@ test('a completed Broadcast cannot be stopped', async () => {
       }),
       expected: 'unchanged',
     });
+  });
+});
+
+test('discovery finds ranked Rounds and casual Rounds whose host chose a Broadcast', async () => {
+  await withFixture(databaseUrl, async (f) => {
+    const client = new SQL(databaseUrl, { max: 2 });
+    try {
+      const chosen = await f.round();
+      const recordedOnly = await f.round();
+      const nothing = await f.round();
+      await client`update rounds set competition_type='casual', ladder_id=null, capture=${JSON.stringify(
+        {
+          broadcast: {
+            release: { kind: 'round_end' },
+            debatersReadChat: true,
+          },
+          recording: false,
+        },
+      )}::text::jsonb where id=${chosen}`;
+      await client`update rounds set competition_type='casual', ladder_id=null, capture=${JSON.stringify(
+        { broadcast: null, recording: true },
+      )}::text::jsonb where id=${recordedOnly}`;
+      await client`update rounds set competition_type='casual', ladder_id=null, capture=null where id=${nothing}`;
+      const found = (
+        await discoverUnopenedBroadcastRounds(drizzle({ client }), 1000)
+      ).map((row) => row.roundId);
+      assert({
+        given: 'a casual Broadcast choice, a recording alone, and no choice',
+        should: 'discover only the Broadcast choice',
+        actual: [chosen, recordedOnly, nothing].map((id) => found.includes(id)),
+        expected: [true, false, false],
+      });
+    } finally {
+      await client.close();
+    }
   });
 });

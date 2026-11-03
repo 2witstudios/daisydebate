@@ -77,13 +77,7 @@ export async function lockedMediaSnapshot(
         isNull(mediaVendorMutations.settledAt),
       ),
     );
-  const conversationHeld = await readConversationHeld(tx, {
-    roundId,
-    now: new Date(tick.now),
-    privateSince: tick.finalSegmentEndedAt
-      ? new Date(tick.finalSegmentEndedAt)
-      : null,
-  });
+  const conversationHeld = await readConversationHeld(tx, { roundId });
   return {
     session,
     round,

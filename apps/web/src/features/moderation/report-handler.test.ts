@@ -61,6 +61,7 @@ describe('POST /api/reports', () => {
           {
             id: 'r'.repeat(24),
             reporterUserId: principal.userId,
+            reporterActorId: principal.actorId,
             report: body,
           },
         ],

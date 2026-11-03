@@ -77,15 +77,17 @@ export function ballotReadView(input: {
       input.status === 'completed'
         ? input.rows.map((row) => {
             const ballot = ballotBody(row);
+            const own = feedbackFor(ballot.feedback, input.viewerSide);
             return {
               status: row.status,
               judge: input.aiJudgeSeatIds.has(row.judgeParticipantId)
                 ? ('ai' as const)
                 : ('human' as const),
-              ballot: {
-                ...ballot,
-                feedback: feedbackFor(ballot.feedback, input.viewerSide),
-              },
+              ballot: { ...ballot, feedback: own },
+              reportableFeedbackId:
+                row.status === 'submitted' && Object.keys(own).length > 0
+                  ? row.id
+                  : null,
             };
           })
         : [],

@@ -7,6 +7,7 @@ import {
   ratingLadders,
   roundRulesSchema,
   frozenRoomConfigSchema,
+  roomCaptureSchema,
   roundStageSchema,
   roundStatusSchema,
   runtimeCheckpointSchema,
@@ -30,6 +31,7 @@ import { actors } from './actors';
 import {
   createdAtColumn,
   jsonbColumn,
+  jsonbColumnNullable,
   jsonbIsObject,
   notBefore,
   oneOf,
@@ -96,6 +98,8 @@ export const rounds = pgTable(
       'room_config_snapshot',
       frozenRoomConfigSchema,
     ),
+    /** What every participant was told is captured, frozen at Launch (WATCH-8). */
+    capture: jsonbColumnNullable('capture', roomCaptureSchema),
     /** Proof metadata of the Room's draw, frozen at Launch; null without one. */
     resolutionEvidence: jsonbColumn(
       'resolution_evidence',

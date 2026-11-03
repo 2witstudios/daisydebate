@@ -1,1 +1,0 @@
-ALTER TABLE "broadcasts" ADD COLUMN "reconcile_lease_until" timestamp with time zone;

@@ -212,7 +212,7 @@ const privacyJobs = startPrivacyJobs({
   timers: workerTimers,
 });
 const recordingDeletions = startRecordingDeletions({
-  store: recordingPersistence(),
+  store: recordingPersistence(app),
   objects: app.recordingObjects,
   owner: app.ids.next(),
   clock: app.clock,

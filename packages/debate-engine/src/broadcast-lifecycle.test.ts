@@ -111,6 +111,35 @@ describe('private phases fail closed', () => {
       expected: [{ type: 'revoke-observer' }],
     });
   });
+  test('after an unconfirmed stop, revocation is retried and the Round carries on', () => {
+    const stopped = { kind: 'complete' } as const;
+    assert({
+      given:
+        'a stopped Egress in a private phase, observer never confirmed revoked',
+      should:
+        'revoke, which an absent observer confirms, and start nothing subscribed',
+      actual: decideBroadcast(
+        facts({
+          egress: stopped,
+          phase: { kind: 'private' },
+          revocationFailures: 3,
+        }),
+      ),
+      expected: [{ type: 'revoke-observer' }],
+    });
+    assert({
+      given: 'that revocation confirmed',
+      should: 'start a fresh Egress, revoked, so the slate returns',
+      actual: decideBroadcast(
+        facts({
+          egress: stopped,
+          phase: { kind: 'private' },
+          observerSubscribed: false,
+        }),
+      ),
+      expected: [{ type: 'start-egress' }],
+    });
+  });
   test('the observer returns only when the phase is public again', () => {
     assert({
       given: 'a revoked observer, in a private phase and then a public one',

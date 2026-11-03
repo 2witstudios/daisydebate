@@ -20,7 +20,7 @@ const open = (over = {}) => ({
 const world = (over: Partial<Record<string, unknown>> = {}) => {
   const log: string[] = [];
   const store = {
-    discoverUnopenedRanked: async () => [] as { roundId: string }[],
+    discoverUnopened: async () => [],
     open: async (input: { roundId: string; releasePolicy: unknown }) => {
       log.push(`open ${input.roundId} ${JSON.stringify(input.releasePolicy)}`);
     },
@@ -55,7 +55,9 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
 describe('createBroadcastSweep', () => {
   test('opens a Broadcast for a ranked Round at the fixed ranked policy', async () => {
     const { deps, log } = world({
-      discoverUnopenedRanked: async () => [{ roundId: 'r9' }],
+      discoverUnopened: async () => [
+        { roundId: 'r9', competitionType: 'ranked', capture: null },
+      ],
     });
     await createBroadcastSweep(deps)();
     assert({
@@ -63,6 +65,35 @@ describe('createBroadcastSweep', () => {
       should: 'open one at the ranked policy',
       actual: log,
       expected: ['open r9 {"kind":"delay","seconds":60}'],
+    });
+  });
+  test('opens a casual Round at its host’s release, and nothing without a choice', async () => {
+    const { deps, log } = world({
+      discoverUnopened: async () => [
+        {
+          roundId: 'chosen',
+          competitionType: 'casual',
+          capture: {
+            broadcast: {
+              release: { kind: 'round_end' },
+              debatersReadChat: true,
+            },
+            recording: false,
+          },
+        },
+        {
+          roundId: 'recorded',
+          competitionType: 'casual',
+          capture: { broadcast: null, recording: true },
+        },
+      ],
+    });
+    await createBroadcastSweep(deps)();
+    assert({
+      given: 'a casual Broadcast choice and a recording alone',
+      should: 'open only the first, at the host’s release',
+      actual: log,
+      expected: ['open chosen {"kind":"round_end"}'],
     });
   });
   test('one failing Broadcast does not stop the others', async () => {

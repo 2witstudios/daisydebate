@@ -179,6 +179,7 @@ const startRows = (changeVersion = 1) => [
       visibility: readyRoom.visibility,
       formatId: readyRoom.formatId,
       config: readyRoom.config,
+      capture: null,
       executionPlan: readyRoom.executionPlan,
       rulesSnapshot: readyRoom.rules,
       status: 'ready',

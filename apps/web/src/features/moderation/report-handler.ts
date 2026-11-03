@@ -29,6 +29,7 @@ export type ReportStore = {
   readonly fileReport: (input: {
     readonly id: string;
     readonly reporterUserId: string;
+    readonly reporterActorId: string;
     readonly report: ReportCreate;
   }) => Promise<void>;
 };
@@ -89,6 +90,7 @@ export function createReportHandler({
           await store.fileReport({
             id: nextId(),
             reporterUserId: userId,
+            reporterActorId: actorId,
             report,
           });
           return Response.json({ received: true });

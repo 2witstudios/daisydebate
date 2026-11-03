@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { reportAnswerText, submitReport } from './submit-report';
+import { reportAnswerText, reportNotice, submitReport } from './submit-report';
 
 setupRitewayBun();
 
@@ -47,6 +47,15 @@ describe('Submitting a report', () => {
         }, form()),
       ],
       expected: ['received', 'refused', 'unavailable', 'unavailable'],
+    });
+  });
+
+  test('only a closed notice comes back from the URL', () => {
+    assert({
+      given: 'a real outcome and something forged',
+      should: 'keep the first and drop the second',
+      actual: [reportNotice('received'), reportNotice('<script>')],
+      expected: ['received', null],
     });
   });
 

@@ -224,14 +224,21 @@ export const readBroadcastRelease = async (
 };
 
 /** Ranked Rounds still running with no Broadcast yet. Read-only; takes no Round lock. */
-export const discoverUnopenedRankedRounds = async (tx: Tx, limit: number) =>
+export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
   tx
-    .select({ roundId: rounds.id })
+    .select({
+      roundId: rounds.id,
+      competitionType: rounds.competitionType,
+      capture: rounds.capture,
+    })
     .from(rounds)
     .leftJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
     .where(
       and(
-        eq(rounds.competitionType, 'ranked'),
+        or(
+          eq(rounds.competitionType, 'ranked'),
+          sql`jsonb_typeof(${rounds.capture} -> 'broadcast') = 'object'`,
+        ),
         inArray(rounds.status, ['scheduled', 'active']),
         isNull(broadcasts.id),
       ),
@@ -268,21 +275,15 @@ export const claimBroadcastReconcile = async (
   return rows.length === 1;
 };
 
-/** How long a dead control plane can hold conversation; past it the mic opens. */
-const CONVERSATION_HOLD_LIMIT_MS = 3000;
-
 /**
- * Whether private conversation must wait for this Round's observer. True only
- * while an open Broadcast's observer is unrevoked, and only up to the limit from the
- * private phase's start, or from the Egress's start before the first segment, so a Broadcast can delay the debate by seconds and never stop it.
+ * Whether private conversation must wait for this Round's observer. Held for as
+ * long as an open Broadcast's observer may still be subscribed, with no timer: an
+ * unconfirmed revocation stops the Egress, and revoking an observer that has gone
+ * then confirms. A dead control plane costs conversation only, never speech.
  */
 export const readConversationHeld = async (
   tx: Tx,
-  input: {
-    readonly roundId: string;
-    readonly now: Date;
-    readonly privateSince: Date | null;
-  },
+  input: { readonly roundId: string },
 ): Promise<boolean> => {
   const [row] = await tx
     .select({
@@ -290,17 +291,17 @@ export const readConversationHeld = async (
       stoppedAt: broadcasts.stoppedAt,
       completedAt: broadcasts.completedAt,
       egressId: broadcasts.egressId,
-      egressStartedAt: broadcasts.egressStartedAt,
     })
     .from(broadcasts)
     .where(eq(broadcasts.roundId, input.roundId));
-  if (!row || row.stoppedAt || row.completedAt || row.revokedAt) return false;
-  const since = input.privateSince ?? row.egressStartedAt;
   return (
+    row !== undefined &&
     row.egressId !== null &&
-    since !== null &&
-    input.now.getTime() - since.getTime() < CONVERSATION_HOLD_LIMIT_MS
+    row.stoppedAt === null &&
+    row.completedAt === null &&
+    row.revokedAt === null
   );
+};
 
 /**
  * An operator stops a Broadcast (WATCH-7). The reconciler then stops its

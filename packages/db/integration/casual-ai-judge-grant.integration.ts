@@ -12,7 +12,7 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const migration = '20261103005432_superb_grandmaster';
+const migration = '20261103012431_messy_prism';
 const check = 'account_entitlement_grants_entitlement_check';
 const scratch = scratchDatabase(url, 'casualaijudge');
 
@@ -62,15 +62,19 @@ test(
       });
       assert({
         given: 'approved accounts with and without other grants',
-        should: 'add the beta grant to each and keep what they held',
+        should: 'add both beta grants to each and keep what they held',
         actual: [await held(approved), await held(alreadyPremium)],
         expected: [
           [
             ['ai_rounds', 'beta'],
             ['casual_ai_judge', 'beta'],
+            ['casual_capture', 'beta'],
             ['round_analysis', 'beta'],
           ],
-          [['casual_ai_judge', 'beta']],
+          [
+            ['casual_ai_judge', 'beta'],
+            ['casual_capture', 'beta'],
+          ],
         ],
       });
       assert({

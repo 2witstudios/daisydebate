@@ -38,7 +38,7 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
     const round = await app.database.readRecordingRound(roundId);
     return round && asRound(round);
   };
-  const store = recordingPersistence();
+  const store = recordingPersistence(app);
   return {
     readRound: readHistoryRound,
     readHistoryRound,
@@ -60,7 +60,7 @@ export const composeRecordingRoutes = (app: App) =>
     identify: (request) => identify(app.auth(), request.headers),
     limiter: () => app.limiter,
     clock: app.clock,
-    store: recordingPersistence(),
+    store: recordingPersistence(app),
     objects: app.recordingObjects,
     inputs: recordingInputs(app),
   });
@@ -68,12 +68,12 @@ export const composeRecordingRoutes = (app: App) =>
 /** What capture and processing (REC-1.2) are given. */
 export const composeRecordingCapture = (app: App) =>
   createRecordingCapturePort({
-    store: recordingPersistence(),
+    store: recordingPersistence(app),
     inputs: recordingInputs(app),
     nextId: () => app.ids.next(),
   });
 
 export const recordingReads = (app: App) => ({
   inputs: recordingInputs(app),
-  archive: recordingPersistence(),
+  archive: recordingPersistence(app),
 });

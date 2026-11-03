@@ -13,6 +13,7 @@ import { composePresenceRoutes } from '../features/presence/composition';
 import { composeContactRoutes } from '../features/contacts/composition';
 import { composeAgreementRoutes } from '../features/agreements/composition';
 import { composeRecordingRoutes } from '../features/recording/composition';
+import { composeModerationRoutes } from '../features/moderation/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
   createListSessionsHandler,
@@ -101,6 +102,7 @@ export function createRoutes(app: App) {
     privacy: composeDataRightsRoutes(app),
     agreements: composeAgreementRoutes(app),
     recordings: composeRecordingRoutes(app),
+    moderation: composeModerationRoutes(app),
     confirm: createConfirmHandlers({
       auth: confirmAuth,
       logger,

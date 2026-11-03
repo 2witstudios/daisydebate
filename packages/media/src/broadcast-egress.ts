@@ -5,6 +5,7 @@ import {
   EncodedFileOutput,
   RoomServiceClient,
   SegmentedFileOutput,
+  ServerError,
   type EgressInfo,
 } from 'livekit-server-sdk';
 import { configSchema, parseMedia, type MediaConfig } from './contracts';
@@ -98,7 +99,15 @@ export function createBroadcastEgress(deps: {
       const [info] = await client.listEgress({ egressId: id });
       return info ? egressFact(info) : { kind: 'failed', id };
     },
-    revokeObserver: (room: string) => setObserver(room, false),
+    /** An observer no longer in the room cannot receive anything: that is confirmed. */
+    revokeObserver: async (room: string) => {
+      try {
+        await setObserver(room, false);
+      } catch (error) {
+        if (!(error instanceof ServerError && error.status === 404))
+          throw error;
+      }
+    },
     restoreObserver: (room: string) => setObserver(room, true),
     /** Carries the current phase's permission, so a reconnect cannot bypass a revocation. */
     observerToken(room: string, access: { readonly canSubscribe: boolean }) {

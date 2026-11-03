@@ -105,8 +105,18 @@ test('judges see their own ballot and the frozen input, others’ only after com
         own: null,
         freeze: null,
         ballots: [
-          { status: 'submitted', judge: 'human', ballot: body },
-          { status: 'submitted', judge: 'ai', ballot: body },
+          {
+            status: 'submitted',
+            judge: 'human',
+            ballot: body,
+            reportableFeedbackId: null,
+          },
+          {
+            status: 'submitted',
+            judge: 'ai',
+            ballot: body,
+            reportableFeedbackId: null,
+          },
         ],
       },
     },

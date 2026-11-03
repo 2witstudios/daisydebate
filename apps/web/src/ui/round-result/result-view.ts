@@ -16,6 +16,8 @@ export type ResultBallot = {
   /** The heading over this ballot's feedback for the reader. */
   readonly feedbackTitle: string;
   readonly ballot: Ballot;
+  /** Set when this reader may report this ballot's feedback (WATCH-7). */
+  readonly reportableFeedbackId: string | null;
 };
 
 export type TranscriptSection = {
@@ -79,6 +81,7 @@ export function resultBallots(view: RoundBallotRead): readonly ResultBallot[] {
     author: author(entry),
     feedbackTitle: `Feedback for you from the ${judgeInSentence(entry)}`,
     ballot: entry.ballot,
+    reportableFeedbackId: entry.reportableFeedbackId,
   }));
 }
 

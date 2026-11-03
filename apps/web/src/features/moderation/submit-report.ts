@@ -33,3 +33,9 @@ const answers: Readonly<Record<ReportSubmission, string>> = {
 /** What the reporter reads back; it never says what moderation decides. */
 export const reportAnswerText = (result: ReportSubmission): string =>
   answers[result];
+
+/** The notice a Round page came back with; anything else is dropped. */
+export const reportNotice = (value: unknown): ReportSubmission | null =>
+  value === 'received' || value === 'refused' || value === 'unavailable'
+    ? value
+    : null;
