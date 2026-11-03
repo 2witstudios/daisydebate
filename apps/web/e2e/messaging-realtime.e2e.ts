@@ -26,6 +26,11 @@ import {
   renewNativeGroupInvitation,
 } from './support/messaging-journey';
 
+const isBareInboxBell = (topic: string, payload: unknown) =>
+  /^user:[^:]+:inbox$/.test(topic) &&
+  JSON.stringify(payload) ===
+    JSON.stringify({ kind: 'messaging.inbox.changed' });
+
 testMessageControlFocus();
 testWhoIsOnline();
 testMessagingNavigationOverlap();
@@ -64,7 +69,13 @@ test('an authenticated DM message reaches the other real browser as an observed 
         }
         if (result.data.type === 'subscribed')
           subscribed.push(result.data.topic);
-        if (result.data.type === 'event') events.push(result.data.payload);
+        // The shell's challenges listen on this actor's inbox on every page
+        // (ADR 0103), so its content-free bell may ring here. Nothing else may.
+        if (
+          result.data.type === 'event' &&
+          !isBareInboxBell(result.data.topic, result.data.payload)
+        )
+          events.push(result.data.payload);
         if (result.data.type === 'observation.ready') ready = true;
         if (result.data.type === 'observation.snapshot')
           snapshots.push(result.data.contentRevision);
