@@ -4,14 +4,14 @@ import { desc, eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { seasons } from './schema/ratings';
-import { isUniqueViolation } from './unique-violation';
 import { toSeasonRecord, type SeasonRecord } from './season-record';
 
 /**
- * Season operations for the `bun season` CLI (ADR 0055): a season is opened,
- * closed or rolled over from an operator's terminal, never from a route in
- * `apps/web` (ADR 0043). At most one season is active; the partial unique
- * index `seasons_single_active` is the arbiter.
+ * Season operations for the `bun season` CLI (ADR 0055): a season is opened
+ * or closed from an operator's terminal, never from a route in `apps/web`
+ * (ADR 0043). There is one season until DEC-111 decides how a debater carries
+ * into the next: a rating refuses on a prior season's standing, so a second
+ * season would stop rating every returning debater.
  */
 
 export type { SeasonRecord } from './season-record';
@@ -80,20 +80,25 @@ async function close(
   return toSeasonRecord(closed);
 }
 
+/** Serializes opening and beta activation, each of which reads for any season. */
+const lockSeasonCreation = (tx: Tx) =>
+  tx.execute(sql`select pg_advisory_xact_lock(59091, 1)`);
+
 async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
-  try {
-    const [opened] = await tx
-      .insert(seasons)
-      .values({ ...input, status: 'active' })
-      .returning();
-    if (!opened)
-      throw createAppError('INTERNAL', 'Season insert returned no row');
-    return toSeasonRecord(opened);
-  } catch (error) {
-    if (isUniqueViolation(error))
-      throw createAppError('CONFLICT', 'A season is already active', error);
-    throw error;
-  }
+  await lockSeasonCreation(tx);
+  const [earlier] = await tx.select({ id: seasons.id }).from(seasons).limit(1);
+  if (earlier)
+    throw createAppError(
+      'CONFLICT',
+      'Another season requires DEC-111 resolution',
+    );
+  const [opened] = await tx
+    .insert(seasons)
+    .values({ ...input, status: 'active' })
+    .returning();
+  if (!opened)
+    throw createAppError('INTERNAL', 'Season insert returned no row');
+  return toSeasonRecord(opened);
 }
 
 const seasonOperations = (database: BunSQLDatabase) => ({
@@ -109,7 +114,7 @@ const seasonOperations = (database: BunSQLDatabase) => ({
   /** Explicit activation only. Retries preserve the first actual activation. */
   activateBetaSeason(input: { readonly id: string }): Promise<SeasonRecord> {
     return database.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(59091, 1)`);
+      await lockSeasonCreation(tx);
       const [existing] = await tx
         .select()
         .from(seasons)
@@ -149,17 +154,6 @@ const seasonOperations = (database: BunSQLDatabase) => ({
     readonly endsAt: Date;
   }): Promise<SeasonRecord> {
     return database.transaction((tx) => close(tx, input));
-  },
-
-  /** Closes the active season at the next one's start and opens it, atomically. */
-  rolloverSeason(input: {
-    readonly closeId: string;
-    readonly open: NewSeason;
-  }): Promise<{ closed: SeasonRecord; opened: SeasonRecord }> {
-    void input;
-    return Promise.reject(
-      createAppError('CONFLICT', 'Season rollover requires DEC-111 resolution'),
-    );
   },
 });
 

@@ -71,7 +71,7 @@ export function createRoundMaintenanceOperations(input: {
     | 'readRoundMaintenanceCandidates'
     | 'tickDueRound'
     | 'finalizeDueRoundTranscript'
-    | 'readUnratedRatingRounds'
+    | 'readRatingCandidates'
     | 'rateRound'
     | 'completePanelRound'
   >;

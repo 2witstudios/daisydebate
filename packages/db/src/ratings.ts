@@ -1,3 +1,4 @@
+export type { RatingCandidate } from './rating-discovery';
 export type {
   RateDebateInput,
   RateDebateResult,

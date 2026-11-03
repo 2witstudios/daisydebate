@@ -9,8 +9,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
-import { roundAttendanceAdjudications } from './schema/round-attendance';
-import { roundCommands } from './schema/round-commands';
+import { forfeitRecorded } from './recorded-ending';
 import { roundParticipants } from './schema/round-participants';
 import { users } from './schema/users';
 
@@ -49,29 +48,17 @@ export type ListedRound = {
 };
 
 /** The Rounds a forfeit decided, by command or by attendance. */
-const forfeitedRounds = async (tx: Tx, ids: readonly string[]) =>
-  new Set(
-    [
-      ...(await tx
-        .select({ roundId: roundCommands.roundId })
-        .from(roundCommands)
-        .where(
-          and(
-            inArray(roundCommands.roundId, [...ids]),
-            eq(roundCommands.type, 'forfeit'),
-          ),
-        )),
-      ...(await tx
-        .select({ roundId: roundAttendanceAdjudications.roundId })
-        .from(roundAttendanceAdjudications)
-        .where(
-          and(
-            inArray(roundAttendanceAdjudications.roundId, [...ids]),
-            eq(roundAttendanceAdjudications.decision, 'forfeit'),
-          ),
-        )),
-    ].map((row) => row.roundId),
+const forfeitedRounds = async (tx: Tx, ids: readonly string[]) => {
+  const rows = await tx.execute(sql`select z.round_id as "roundId"
+    from round_finalizations z
+    where z.round_id in (${sql.join(
+      ids.map((id) => sql`${id}`),
+      sql`,`,
+    )}) and ${forfeitRecorded}`);
+  return new Set(
+    (rows as unknown as { roundId: string }[]).map((r) => r.roundId),
   );
+};
 
 /**
  * The listed Rounds with every seat and whether a forfeit decided them. A

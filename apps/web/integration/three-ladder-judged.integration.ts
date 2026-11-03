@@ -1,4 +1,8 @@
-import { judgingJobRules, roundWaitingOn } from '@daisy/debate-engine';
+import {
+  judgingJobRules,
+  ratingAwaited,
+  roundWaitingOn,
+} from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -85,9 +89,11 @@ for (const ladder of ratingLadders)
                   },
                 }).executeClaim(claim, new AbortController().signal);
               }
-              const candidates = await f.store.readUnratedRatingRounds({
-                limit: 64,
-              });
+              const candidates = (
+                await f.store.readRatingCandidates({ limit: 64 })
+              )
+                .filter(({ facts }) => ratingAwaited(facts))
+                .map(({ roundId: id }) => id);
               await recoverRatedResults(f);
               const ledger =
                 await f.sql`select actor_id,ladder,season_id,rating_before,rating_after from rating_changes where round_id=${roundId}`;

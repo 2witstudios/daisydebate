@@ -3,6 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { settleAttendanceFixture } from './attendance-evaluator.test-support';
+import { ratingAwaited } from '@daisy/debate-engine';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { withAttendanceRound } from './attendance.test-support';
 import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
@@ -45,9 +46,9 @@ test('existing rating feature rediscovers only committed ranked RT forfeits and 
             status: committed?.status,
             outcome: committed?.outcome,
             ledger: ledger.length,
-            rediscover: await f.store.readUnratedRatingRounds({
-              limit: 100,
-            }),
+            rediscover: (await f.store.readRatingCandidates({ limit: 100 }))
+              .filter(({ facts }) => ratingAwaited(facts))
+              .map(({ roundId }) => roundId),
           },
           expected: {
             before: 0,

@@ -122,6 +122,7 @@ export type {
   RatingPlanFacts,
   RatingState,
   RatingUnrated,
+  RecordedEnding,
 } from './ratings';
 export {
   parseTopic,

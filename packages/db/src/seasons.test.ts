@@ -92,9 +92,6 @@ const scripted = <T>(
   };
 };
 
-const uniqueViolation = () =>
-  Object.assign(new Error('duplicate key'), { errno: '23505' });
-
 describe('season operations', () => {
   test('lists and opens seasons as records', async () => {
     assert({
@@ -109,22 +106,29 @@ describe('season operations', () => {
     assert({
       given: 'no active season',
       should: 'return the opened season',
-      actual: await scripted([[seasonRow('s2', 'active')]], (seasons) =>
+      actual: await scripted([[], [], [seasonRow('s2', 'active')]], (seasons) =>
         seasons.openSeason({ id: 's2', name: 'Season 1', startsAt }),
       ).result,
       expected: record('s2', 'active'),
     });
   });
 
-  test('maps a second active season to a conflict', async () => {
+  test('refuses to open a season while any season exists (DEC-111)', async () => {
+    const refused = scripted([[], [{ id: 's1' }]], (seasons) =>
+      seasons.openSeason({ id: 's3', name: 'Season 2', startsAt }),
+    );
     await assertRejects({
-      given: 'the single-active index refusing the insert',
+      given: 'an earlier season, active or closed',
       should: 'refuse as a conflict',
-      actual: () =>
-        scripted([uniqueViolation()], (seasons) =>
-          seasons.openSeason({ id: 's3', name: 'Season 1', startsAt }),
-        ).result,
+      actual: () => refused.result,
       code: 'CONFLICT',
+    });
+    assert({
+      given: 'a refused open',
+      should: 'insert nothing',
+      actual: refused.queries.filter(({ query }) => query.startsWith('insert'))
+        .length,
+      expected: 0,
     });
   });
 
@@ -156,27 +160,6 @@ describe('season operations', () => {
       should: 'stop after the locking read',
       actual: missing.queries.filter(({ query }) => query.startsWith('update'))
         .length,
-      expected: 0,
-    });
-  });
-
-  test('refuses rollover while DEC111 carry-over remains unresolved', async () => {
-    const { result, queries } = scripted([], (seasons) =>
-      seasons.rolloverSeason({
-        closeId: 's1',
-        open: { id: 's2', name: 'Season 2', startsAt: later },
-      }),
-    );
-    await assertRejects({
-      given: 'an attempted rollover before DEC111 resolution',
-      should: 'refuse without reading or mutating either season',
-      actual: () => result,
-      code: 'CONFLICT',
-    });
-    assert({
-      given: 'the refused rollover',
-      should: 'issue no SQL',
-      actual: queries.length,
       expected: 0,
     });
   });

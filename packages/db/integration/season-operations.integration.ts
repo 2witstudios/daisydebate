@@ -104,39 +104,31 @@ describe('season operations (RATE-1.2)', () => {
     });
   });
 
-  test('rollover refuses every next-season shape pending DEC-111 without changing any season', async () => {
+  test('a closed season still refuses another pending DEC-111', async () => {
     await withFixture(url, async (fixture) => {
       const current = tracked(fixture);
+      const next = tracked(fixture);
       await withSeasons(url, async (seasons) => {
         await seasons.openSeason({
           id: current,
           name: 'Season 1',
           startsAt: october,
         });
+        await seasons.closeSeason({ id: current, endsAt: january });
         const before = await seasons.listSeasons();
-        for (const [id, startsAt] of [
-          [tracked(fixture), january],
-          [tracked(fixture), new Date('2026-09-01T00:00:00Z')],
-          [current, january],
-        ] as const) {
-          await assertRejects({
-            given:
-              'unresolved DEC-111 with future, earlier or competing season ID',
-            should: 'refuse rollover before any close or insert',
-            actual: () =>
-              seasons.rolloverSeason({
-                closeId: current,
-                open: { id, name: 'Season 2', startsAt },
-              }),
-            code: 'CONFLICT',
-          });
-          assert({
-            given: 'a refused rollover',
-            should: 'preserve every original season field',
-            actual: await seasons.listSeasons(),
-            expected: before,
-          });
-        }
+        await assertRejects({
+          given: 'a closed earlier season and unresolved DEC-111',
+          should: 'refuse to open another',
+          actual: () =>
+            seasons.openSeason({ id: next, name: 'Two', startsAt: january }),
+          code: 'CONFLICT',
+        });
+        assert({
+          given: 'the refused open',
+          should: 'preserve every season as it was',
+          actual: await seasons.listSeasons(),
+          expected: before,
+        });
       });
     });
   });

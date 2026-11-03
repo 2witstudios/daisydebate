@@ -1,14 +1,19 @@
 import type { IdGenerator } from '@daisy/clock';
-import type { RateDebateInput, RateDebateResult } from '@daisy/db/ratings';
+import type {
+  RateDebateInput,
+  RateDebateResult,
+  RatingCandidate,
+} from '@daisy/db/ratings';
+import { ratingAwaited } from '@daisy/debate-engine';
 import { rateCompletedRound } from './rate-debate';
 
 /** Bounded durable recovery for every finalized rating input, also on restart. */
 export function createRatingSweep(deps: {
   readonly database: {
-    readonly readUnratedRatingRounds: (input: {
+    readonly readRatingCandidates: (input: {
       readonly afterId?: string;
       readonly limit: number;
-    }) => Promise<readonly string[]>;
+    }) => Promise<readonly RatingCandidate[]>;
     readonly rateRound: (input: RateDebateInput) => Promise<RateDebateResult>;
   };
   readonly ids: IdGenerator;
@@ -18,8 +23,9 @@ export function createRatingSweep(deps: {
     readonly afterId?: string;
     readonly limit: number;
   }) => {
-    const roundIds = await deps.database.readUnratedRatingRounds(input);
-    for (const roundId of roundIds) {
+    const candidates = await deps.database.readRatingCandidates(input);
+    for (const { roundId, facts } of candidates) {
+      if (!ratingAwaited(facts)) continue;
       try {
         await rateCompletedRound(deps.database, roundId, deps.ids);
       } catch (error) {
@@ -27,8 +33,8 @@ export function createRatingSweep(deps: {
       }
     }
     return {
-      afterId: roundIds.at(-1),
-      exhausted: roundIds.length < input.limit,
+      afterId: candidates.at(-1)?.roundId,
+      exhausted: candidates.length < input.limit,
     };
   };
 }
