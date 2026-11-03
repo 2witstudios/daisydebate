@@ -70,6 +70,7 @@ export const roomRefusalSchema = z.enum([
   'ai-judge-premium',
   /** Ready on a ranked Round needs this season's signed content waiver (WATCH-15). */
   'content-waiver-required',
+  'content-waiver-changed',
   /** The capture notice changed after the form showed it: read it again. */
   'capture-notice-changed',
 ]);

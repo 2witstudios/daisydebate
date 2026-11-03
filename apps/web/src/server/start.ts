@@ -252,6 +252,7 @@ async function shutdown() {
         betaMailStopped,
         operatorApiStopped,
         filesStopped,
+        broadcastSweepStopped,
         observationPurgesStopped,
         privacyJobsStopped,
         availabilityStopped,
