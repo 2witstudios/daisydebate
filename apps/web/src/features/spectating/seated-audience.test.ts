@@ -1,11 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { audienceShownTo } from './seated-audience';
+import { audienceShownTo, type LiveRoomStanding } from './seated-audience';
 
 setupRitewayBun();
 
 const seat = (
-  over: Partial<Parameters<typeof audienceShownTo>[0] & object>,
-) => ({
+  over: Partial<Extract<LiveRoomStanding, { kind: 'seat' }>>,
+): LiveRoomStanding => ({
+  kind: 'seat',
   role: 'affirmative',
   competitionType: 'casual' as const,
   roundEnded: false,
@@ -19,6 +20,15 @@ describe('audienceShownTo', () => {
       given: 'no seat',
       should: 'show chat, reactions and the count',
       actual: audienceShownTo(null),
+      expected: { chat: true, reactions: true, viewers: true },
+    });
+  });
+
+  test('a seatless host reads like anyone', () => {
+    assert({
+      given: 'a host with no seat, during the Round',
+      should: 'show everything, since a host only loses posting',
+      actual: audienceShownTo({ kind: 'seatless-host' }),
       expected: { chat: true, reactions: true, viewers: true },
     });
   });

@@ -273,11 +273,19 @@ export const requestDebaterFollow = (
   username: string,
 ) => processApp().database.readDebaterFollow({ followerUserId, username });
 
-/** A Round's audience for this viewer, by the same released reads as the snapshot. */
-export const requestAudience = (roundId: string, actorId: string | null) =>
+/** A Round's audience for this viewer, by the same reads as the snapshot. */
+export const requestAudience = async (
+  roundId: string,
+  actorId: string | null,
+) =>
   readAudienceForViewer(
     { store: processApp().database, counts: processApp().redis },
-    { roundId, actorId, now: processApp().clock.now() },
+    {
+      roundId,
+      actorId,
+      presentedHash: await requestPresentedLink(roundId),
+      now: processApp().clock.now(),
+    },
   );
 
 /** Process binding for the public ladder and its signed-in blinding context. */

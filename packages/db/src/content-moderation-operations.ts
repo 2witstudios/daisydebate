@@ -22,6 +22,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { stopBroadcast } from './broadcast-operations';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import {
   noRecordings,
   noSpectatorChat,
@@ -40,30 +41,32 @@ const rows = async <T>(
   query: ReturnType<typeof sql>,
 ) => (await tx.execute(query)) as unknown as T[];
 
-/** A reporter's seat on a Round, if any: a role, or nothing. */
-const seatOn = async (tx: Tx, roundId: string, actorId: string) => {
-  const [seat] = await rows<{ role: string }>(
-    tx,
-    sql`select role from round_participants
-      where round_id = ${roundId} and actor_id = ${actorId} limit 1`,
-  );
-  return seat?.role ?? null;
-};
-
 const roundFacts = async (tx: Tx, roundId: string, actorId: string) => {
-  const [round] = await rows<{ visibility: string; competition_type: string }>(
+  const [round] = await rows<{
+    visibility: 'public' | 'unlisted' | 'private';
+    competition_type: string;
+    audience_link_hash: string | null;
+    seated: boolean;
+    in_live_room: boolean;
+  }>(
     tx,
-    sql`select visibility, competition_type from rounds where id = ${roundId}`,
+    sql`select r.visibility, r.competition_type, r.audience_link_hash,
+        exists(select 1 from round_participants p
+          where p.round_id = r.id and p.actor_id = ${actorId}) as seated,
+        ${inLiveRoomSql(liveRoomOfR, actorId)} as in_live_room
+      from rounds r where r.id = ${roundId}`,
   );
   if (!round) return { kind: 'missing' } as const;
-  const seat = await seatOn(tx, roundId, actorId);
-  // A private Round does not exist to anyone without a seat.
-  if (round.visibility === 'private' && seat === null)
-    return { kind: 'missing' } as const;
   return {
     kind: 'footage',
     ranked: round.competition_type === 'ranked',
-    reporterSeated: seat !== null,
+    reporterSeated: round.seated,
+    audience: {
+      roundId,
+      visibility: round.visibility,
+      audienceLinkHash: round.audience_link_hash,
+      inLiveRoom: round.in_live_room,
+    },
   } as const;
 };
 

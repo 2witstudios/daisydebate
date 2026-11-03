@@ -1,4 +1,17 @@
 import type { ContentReportCreate, ContentReportReason } from '@daisy/protocol';
+import {
+  audienceAdmits,
+  type AudienceLinkFacts,
+} from '../audience-link/audience-link';
+
+/**
+ * Whose audience a target belongs to, as a named read-only input: the Round, how
+ * it admits an audience, and whether the reporter is in its live room.
+ */
+export type ReportAudience = AudienceLinkFacts & {
+  readonly roundId: string;
+  readonly inLiveRoom: boolean;
+};
 
 /**
  * What the store read about a report's target, for this reporter. Absent or
@@ -11,8 +24,13 @@ export type ReportTargetFacts =
       readonly kind: 'footage';
       readonly ranked: boolean;
       readonly reporterSeated: boolean;
+      readonly audience: ReportAudience;
     }
-  | { readonly kind: 'chat_message'; readonly ownMessage: boolean }
+  | {
+      readonly kind: 'chat_message';
+      readonly ownMessage: boolean;
+      readonly audience: ReportAudience;
+    }
   | {
       readonly kind: 'ballot_feedback';
       readonly feedbackIsForReporter: boolean;
@@ -32,13 +50,22 @@ const eligibleFootage = (
 /**
  * Who may report what. Anyone with an account may report conduct. Only a seat
  * of a ranked Round disputes its result, and only the debater who received
- * ballot feedback may report it, with no other access to private feedback.
+ * ballot feedback may report it, with no other access to private feedback. A
+ * target on a Round the reporter cannot reach, private or unlisted with no link,
+ * answers exactly as a missing one does, before any other rule can tell them apart.
  */
 export const reportRefusal = (
   report: ContentReportCreate,
   facts: ReportTargetFacts,
+  presentedHashOf: (roundId: string) => string | null,
 ): ReportRefusal | null => {
   if (facts.kind === 'missing') return 'report-not-found';
+  if (
+    facts.kind !== 'ballot_feedback' &&
+    !facts.audience.inLiveRoom &&
+    !audienceAdmits(facts.audience, presentedHashOf(facts.audience.roundId))
+  )
+    return 'report-not-found';
   switch (facts.kind) {
     case 'footage':
       return eligibleFootage(report.reason, facts)

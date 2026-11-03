@@ -4,6 +4,8 @@ import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { idSchema, viewerPulseSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
+import { presentedLinkHash } from '../audience-link/audience-link';
+import { admitAudience } from '../spectating/read-timeline';
 import { roundIdOf } from '../../server/account-route';
 import {
   handleOperation,
@@ -21,10 +23,12 @@ const ON_AIR_ROUNDS = 5000;
 const PULSE_LIMIT = { max: 600, windowSeconds: 60 };
 
 /**
- * POST /api/rounds/:id/viewers: one tab says it is watching. It reads no cookie
- * or session and takes no identity, and the address goes only into the limiter's
- * hashed key, so no count can be tied to anyone, in any log or event. A Round off
- * the air answers the same and stores nothing.
+ * POST /api/rounds/:id/viewers: one tab says it is watching. It reads no session
+ * and takes no identity, and the address goes only into the limiter's hashed key,
+ * so no count can be tied to anyone, in any log or event. An unlisted Round counts
+ * only the holder of its link, the one cookie read here, which names a Round and
+ * no one. A Round off the air, or closed to this tab, answers the same and stores
+ * nothing.
  */
 export function createViewerPulseRoute(deps: {
   readonly logger: Logger;
@@ -33,10 +37,10 @@ export function createViewerPulseRoute(deps: {
   readonly limiter: () => RateLimiter;
   readonly clock: Pick<Clock, 'now'>;
   readonly store: {
-    readonly readBroadcastOnAir: (input: {
+    readonly readOnAirAudience: (input: {
       readonly roundId: string;
-    }) => Promise<boolean>;
-  };
+    }) => Promise<{ readonly visibility: 'public' | 'unlisted' } | null>;
+  } & Parameters<typeof admitAudience>[0];
   readonly counts: {
     readonly recordViewerPulse: (pulse: {
       readonly roundId: string;
@@ -46,7 +50,10 @@ export function createViewerPulseRoute(deps: {
     }) => Promise<void>;
   };
 }) {
-  const onAir = createSnapshotMemo<boolean>({
+  // Keyed by Round alone and holding no link: admission happens after it.
+  const onAir = createSnapshotMemo<{
+    readonly visibility: 'public' | 'unlisted';
+  } | null>({
     nowMs: () => Date.parse(deps.clock.now()),
     ttlMs: ON_AIR_TTL_MS,
     maxEntries: ON_AIR_ROUNDS,
@@ -70,8 +77,18 @@ export function createViewerPulseRoute(deps: {
           viewerPulseSchema,
           await readJson(request, 256),
         );
+        const audience = await onAir(roundId, () =>
+          deps.store.readOnAirAudience({ roundId }),
+        );
         if (
-          await onAir(roundId, () => deps.store.readBroadcastOnAir({ roundId }))
+          audience &&
+          (await admitAudience(deps.store, audience, {
+            roundId,
+            presentedHash: presentedLinkHash(
+              request.headers.get('cookie'),
+              roundId,
+            ),
+          }))
         )
           await deps.counts.recordViewerPulse({
             roundId,

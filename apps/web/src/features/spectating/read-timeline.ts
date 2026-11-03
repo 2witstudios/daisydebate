@@ -54,7 +54,7 @@ export async function readAudienceSnapshot(
  */
 export const admitAudience = async (
   store: Pick<Store, 'readRoundAudienceLink'>,
-  snapshot: AudienceSnapshot,
+  snapshot: Pick<AudienceSnapshot, 'visibility'>,
   input: { readonly roundId: string; readonly presentedHash: string | null },
 ): Promise<boolean> => {
   if (snapshot.visibility === 'public') return true;

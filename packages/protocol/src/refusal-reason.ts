@@ -18,6 +18,7 @@ type AudienceRefusal =
   | 'chat-unavailable'
   | 'chat-closed'
   | 'chat-banned'
+  | 'chat-live-room'
   | 'chat-slow-mode'
   | 'chat-needs-username'
   | 'reactions-unavailable'

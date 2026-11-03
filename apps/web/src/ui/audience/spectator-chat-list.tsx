@@ -1,7 +1,7 @@
 import type { SpectatorChatMessage } from '@daisy/protocol';
 import { ReportForm } from '../content-moderation/report-form';
 
-/** The audience's released messages, oldest first. A removed one keeps its place. */
+/** The audience's messages, oldest first. A removed one keeps its place. */
 export function SpectatorChatList({
   messages,
   reportAction,

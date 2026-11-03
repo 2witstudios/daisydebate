@@ -2,9 +2,10 @@ import { noopErrorReporter } from '@daisy/observability';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { silentLogger } from '../../server/test-loggers.test-support';
+import { audienceLinkHash } from '../audience-link/audience-link';
 import { createViewerPulseRoute } from './handler';
 import {
-  releasedViewerBucket,
+  latestViewerBucket,
   VIEWER_BUCKET_MS,
   VIEWER_BUCKET_TTL_MS,
 } from './viewer-count';
@@ -14,13 +15,14 @@ setupRitewayBun();
 const origin = 'http://local.test';
 const roundId = createId();
 const token = createId();
+const link = 'k'.repeat(43);
 const pulseAt = (headers: Record<string, string> = {}, body?: unknown) =>
   new Request(`${origin}/api/rounds/${roundId}/viewers`, {
     method: 'POST',
     headers: { origin, 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body ?? { version: 1, token }),
   });
-const setup = (onAir = true) => {
+const setup = (onAir = true, visibility: 'public' | 'unlisted' = 'public') => {
   const pulses: unknown[] = [];
   const logged: unknown[] = [];
   const keys: string[] = [];
@@ -42,7 +44,14 @@ const setup = (onAir = true) => {
       },
     }),
     clock: { now: () => new Date(VIEWER_BUCKET_MS * 10 + 5).toISOString() },
-    store: { readBroadcastOnAir: async () => onAir },
+    store: {
+      readOnAirAudience: async () => (onAir ? { visibility } : null),
+      readRoundAudienceLink: async () => ({
+        roomId: 'room',
+        visibility,
+        audienceLinkHash: audienceLinkHash(link),
+      }),
+    },
     counts: {
       recordViewerPulse: async (pulse) => {
         pulses.push(pulse);
@@ -88,6 +97,21 @@ describe('the viewer pulse route', () => {
     });
   });
 
+  test('an unlisted Round counts only the holder of its link', async () => {
+    const stranger = setup(true, 'unlisted');
+    const holder = setup(true, 'unlisted');
+    const refused = await stranger.route(pulseAt());
+    await holder.route(
+      pulseAt({ cookie: `daisy_audience_link_${roundId}=${link}` }),
+    );
+    assert({
+      given: 'a pulse with no link, and one with the current link',
+      should: 'answer the same and store only the second',
+      actual: [refused.status, stranger.pulses, holder.pulses.length],
+      expected: [204, [], 1],
+    });
+  });
+
   test('another site cannot pulse, nor a pulse carry an account', async () => {
     const { route, pulses } = setup();
     const foreign = await route(pulseAt({ origin: 'http://other.test' }));
@@ -103,16 +127,13 @@ describe('the viewer pulse route', () => {
   });
 });
 
-describe('releasedViewerBucket', () => {
-  test('follows the timeline, whole buckets only', () => {
+describe('latestViewerBucket', () => {
+  test('is the newest whole bucket before now', () => {
     assert({
-      given: 'no horizon, and one inside a bucket',
-      should: 'give none, then the last whole one before the margin',
-      actual: [
-        releasedViewerBucket(null),
-        releasedViewerBucket(VIEWER_BUCKET_MS * 100 + 30_000),
-      ],
-      expected: [null, 99],
+      given: 'a moment inside a bucket',
+      should: 'give the one before it, which has finished gathering',
+      actual: latestViewerBucket(VIEWER_BUCKET_MS * 100 + 5),
+      expected: 99,
     });
   });
 });

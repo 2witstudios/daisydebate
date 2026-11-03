@@ -15,6 +15,7 @@ import {
   requireSignedIn,
 } from '../../server/http';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
+import { presentedLinkHash } from '../audience-link/audience-link';
 import { reportRefusal, type ReportTargetFacts } from './report-eligibility';
 
 export const reportRefusals = ['report-not-eligible'] as const;
@@ -38,7 +39,7 @@ export type ReportStore = {
 };
 
 /**
- * POST /api/reports: an account reports a Round, a Recording, a chat message
+ * POST /api/content-reports: an account reports a Round, a Recording, a chat message
  * or abusive ballot feedback, with a closed reason (WATCH-7). The response
  * says only that it was received, so a repeat looks the same as the first.
  */
@@ -88,6 +89,8 @@ export function createReportHandler({
               reporterActorId: actorId,
               report,
             }),
+            (roundId) =>
+              presentedLinkHash(request.headers.get('cookie'), roundId),
           );
           if (refusal === 'report-not-found') throw createAppError('NOT_FOUND');
           if (refusal) throw createRefusal('CONFLICT', refusal);

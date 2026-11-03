@@ -17,7 +17,7 @@ const snapshot = {
       sequence: 1,
       at: '2026-11-02T12:00:00.000Z',
       author: 'someone',
-      text: 'A released line',
+      text: 'A line',
     },
     {
       id: createId(),
@@ -67,7 +67,7 @@ describe('AudiencePanel', () => {
       should:
         'show the line, count and totals, tell them to sign in, and offer no form',
       actual: {
-        line: html.includes('A released line'),
+        line: html.includes('A line'),
         removed: html.includes('This message was removed.'),
         count: html.includes('12 people watching'),
         total: html.includes('Sharp point 3'),
@@ -101,6 +101,38 @@ describe('AudiencePanel', () => {
     });
   });
 
+  test('someone in the live room is told why they cannot post', () => {
+    const html = render({
+      viewer: {
+        kind: 'live-room',
+        react: account.react,
+        reportMessage: account.reportMessage,
+      },
+    });
+    assert({
+      given: 'a debater, judge or seatless host on an open Round',
+      should:
+        'offer no composer, say why plainly, and keep reacting and reporting',
+      actual: {
+        composer: html.includes('name="text"'),
+        why: html.includes('you cannot post in its chat'),
+        react: html.includes('name="kind"'),
+        report: html.includes('value="chat_message"'),
+      },
+      expected: { composer: false, why: true, react: true, report: true },
+    });
+  });
+
+  test('the composer promises no wait', () => {
+    const html = render({ viewer: account });
+    assert({
+      given: 'an account about to post',
+      should: 'not say a message waits for the broadcast',
+      actual: html.includes('when the broadcast reaches'),
+      expected: false,
+    });
+  });
+
   test('a closed Round keeps its history and takes no more', () => {
     const html = render({
       viewer: account,
@@ -110,7 +142,7 @@ describe('AudiencePanel', () => {
       given: 'a completed or stopped Broadcast',
       should: 'keep the line and say chat is closed, with no composer',
       actual: [
-        html.includes('A released line'),
+        html.includes('A line'),
         html.includes('Chat is closed.'),
         html.includes('name="text"'),
       ],

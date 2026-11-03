@@ -5,8 +5,8 @@ import { rounds } from './rounds';
 import { users } from './users';
 
 /**
- * One account's reaction to a Round (SPECT-1.4). The audience reads only totals
- * of what has been released; the account is for spacing, export and erasure.
+ * One account's reaction to a Round (SPECT-1.4). The audience reads only totals;
+ * the account is for spacing, export and erasure.
  * `spacedAt` is the start of the spacing window, so a press repeats at most once
  * in each.
  */
@@ -37,6 +37,7 @@ export const audienceReactions = pgTable(
       table.createdAt,
     ),
     index('audience_reactions_user_idx').on(table.userId),
+    index('audience_reactions_retention_idx').on(table.createdAt),
     check(
       'audience_reactions_kind_check',
       oneOf(table.kind, audienceReactionKinds),

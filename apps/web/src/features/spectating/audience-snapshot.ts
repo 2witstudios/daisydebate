@@ -8,11 +8,13 @@ import {
   type AudienceReactionKind,
   type AudienceSnapshot,
 } from '@daisy/protocol';
+import type { Identity } from '@daisy/auth';
 import { handleOperation, PUBLIC_SNAPSHOT_CACHE } from '../../server/http';
-import { releasedViewerBucket } from '../viewer-counts/viewer-count';
+import { presentedLinkHash } from '../audience-link/audience-link';
+import { latestViewerBucket } from '../viewer-counts/viewer-count';
+import { admitAudience } from './read-timeline';
 import { createSnapshotMemo } from './snapshot-memo';
 import { audienceShownTo, type AudienceShown } from './seated-audience';
-import { spectatorClockAt } from './spectator-clock';
 
 const SNAPSHOT_TTL_MS = 1000;
 const SNAPSHOT_ROUNDS = 5000;
@@ -26,7 +28,7 @@ const reactionTotals = (read: Read): AudienceSnapshot['reactions'] =>
     count: read.reactions.find((row) => row.kind === kind)?.count ?? 0,
   }));
 
-/** Built from released rows alone. A zero count is no count: nothing to say. */
+/** A zero count is no count: nothing to say. */
 export const projectAudienceSnapshot = (
   roundId: string,
   read: Read,
@@ -52,9 +54,17 @@ export type ViewerCounts = {
   ) => Promise<number>;
 };
 
+/** A Round's audience as it stands, not yet admitted to anyone. */
+export type AudienceRead = {
+  readonly visibility: 'public' | 'unlisted';
+  readonly snapshot: AudienceSnapshot;
+};
+
 /**
- * A lost count must not take the rest with it: Redis is expendable (AGENTS.md),
- * and a count drives nothing. Null when the snapshot has no audience.
+ * Near real time, through moderation alone, for everyone on the shared feed (ADR
+ * 0108). A count only while a Broadcast is on. A lost count must not take the rest
+ * with it: Redis is expendable (AGENTS.md), and a count drives nothing. Null when
+ * the Round has no audience. Never answer one without `admitAudience`.
  */
 export const readAudienceSnapshot = async (
   deps: {
@@ -62,63 +72,25 @@ export const readAudienceSnapshot = async (
     readonly counts: ViewerCounts;
   },
   input: { readonly roundId: string; readonly now: string },
-): Promise<AudienceSnapshot | null> => {
+): Promise<AudienceRead | null> => {
   if (!idSchema.safeParse(input.roundId).success) return null;
   const read = await deps.store.readAudienceSnapshot({
     roundId: input.roundId,
-    clock: spectatorClockAt(input.now),
   });
   if (!read) return null;
-  const bucket = releasedViewerBucket(read.horizonMs);
-  const viewers =
-    bucket === null
-      ? null
-      : await deps.counts
-          .readViewerCount(input.roundId, bucket)
-          .catch(() => null);
-  return projectAudienceSnapshot(input.roundId, read, viewers);
+  const viewers = read.open
+    ? await deps.counts
+        .readViewerCount(
+          input.roundId,
+          latestViewerBucket(Date.parse(input.now)),
+        )
+        .catch(() => null)
+    : null;
+  return {
+    visibility: read.visibility,
+    snapshot: projectAudienceSnapshot(input.roundId, read, viewers),
+  };
 };
-
-/**
- * GET /api/rounds/:id/audience: anonymous, the same for everyone, and cacheable,
- * as the timeline is. It reads no cookie or session.
- */
-export function createAudienceSnapshotRoute(deps: {
-  readonly logger: Logger;
-  readonly reporter: ErrorReporter;
-  readonly store: AudienceSnapshotStore;
-  readonly counts: ViewerCounts;
-  readonly clock: Pick<Clock, 'now'>;
-}) {
-  const memo = createSnapshotMemo<AudienceSnapshot | null>({
-    nowMs: () => Date.parse(deps.clock.now()),
-    ttlMs: SNAPSHOT_TTL_MS,
-    maxEntries: SNAPSHOT_ROUNDS,
-  });
-  return (request: Request, roundId: string) =>
-    handleOperation(
-      deps.logger,
-      request,
-      'audience.snapshot',
-      async () => {
-        const snapshot = await memo(roundId, () =>
-          readAudienceSnapshot(deps, { roundId, now: deps.clock.now() }),
-        );
-        if (snapshot === null)
-          return Response.json(
-            { error: { code: 'NOT_FOUND' } },
-            { status: 404 },
-          );
-        return Response.json(snapshot, {
-          headers: {
-            'Cache-Control': PUBLIC_SNAPSHOT_CACHE,
-            'X-Robots-Tag': 'noindex',
-          },
-        });
-      },
-      deps.reporter,
-    );
-}
 
 /** The snapshot with what this reader may not see taken out, and what they may. */
 export const audienceFor = (
@@ -131,33 +103,114 @@ export const audienceFor = (
   viewers: shown.viewers ? snapshot.viewers : null,
 });
 
+type AdmissionStore = Parameters<typeof admitAudience>[0] &
+  Pick<Database, 'readLiveRoomStanding'>;
+
 /**
- * A render's read for one viewer. A seat is read only for an account with an
- * actor, and a visitor's read touches nothing about who they are.
+ * GET /api/rounds/:id/audience. A public Round answers everyone alike and may be
+ * cached, with no cookie or session read. An unlisted one is never cached and
+ * reads its link fresh on each request; failing that, someone in its live room is
+ * shown what their place allows, since a host or a seat needs no link. Anyone else
+ * reads it as missing.
+ */
+export function createAudienceSnapshotRoute(deps: {
+  readonly logger: Logger;
+  readonly reporter: ErrorReporter;
+  readonly store: AudienceSnapshotStore & AdmissionStore;
+  readonly counts: ViewerCounts;
+  readonly clock: Pick<Clock, 'now'>;
+  readonly identify: (request: Request) => Promise<Identity>;
+}) {
+  // Keyed by Round alone and holding no link: admission happens after it.
+  const memo = createSnapshotMemo<AudienceRead | null>({
+    nowMs: () => Date.parse(deps.clock.now()),
+    ttlMs: SNAPSHOT_TTL_MS,
+    maxEntries: SNAPSHOT_ROUNDS,
+  });
+  const shownToLiveRoom = async (request: Request, roundId: string) => {
+    const identity = await deps.identify(request);
+    const actorId =
+      'principal' in identity && identity.principal.kind === 'user'
+        ? identity.principal.actorId
+        : null;
+    const standing = actorId
+      ? await deps.store.readLiveRoomStanding({ roundId, actorId })
+      : null;
+    return standing ? audienceShownTo(standing) : null;
+  };
+  const notFound = () =>
+    Response.json({ error: { code: 'NOT_FOUND' } }, { status: 404 });
+  return (request: Request, roundId: string) =>
+    handleOperation(
+      deps.logger,
+      request,
+      'audience.snapshot',
+      async () => {
+        const read = await memo(roundId, () =>
+          readAudienceSnapshot(deps, { roundId, now: deps.clock.now() }),
+        );
+        if (read === null) return notFound();
+        if (read.visibility === 'public')
+          return Response.json(read.snapshot, {
+            headers: {
+              'Cache-Control': PUBLIC_SNAPSHOT_CACHE,
+              'X-Robots-Tag': 'noindex',
+            },
+          });
+        // handleOperation answers anything uncached no-store.
+        const noindex = { headers: { 'X-Robots-Tag': 'noindex' } };
+        if (
+          await admitAudience(deps.store, read, {
+            roundId,
+            presentedHash: presentedLinkHash(
+              request.headers.get('cookie'),
+              roundId,
+            ),
+          })
+        )
+          return Response.json(read.snapshot, noindex);
+        const shown = await shownToLiveRoom(request, roundId);
+        return shown
+          ? Response.json(audienceFor(read.snapshot, shown), noindex)
+          : notFound();
+      },
+      deps.reporter,
+    );
+}
+
+/**
+ * A render's read for one viewer, or null when they cannot reach the Round. A
+ * standing is read only for an account with an actor, and a visitor's read touches
+ * nothing about who they are. Someone in the live room needs no link to it.
  */
 export const readAudienceForViewer = async (
   deps: {
-    readonly store: AudienceSnapshotStore & Pick<Database, 'readAudienceSeat'>;
+    readonly store: AudienceSnapshotStore & AdmissionStore;
     readonly counts: ViewerCounts;
   },
   input: {
     readonly roundId: string;
     readonly actorId: string | null;
+    readonly presentedHash: string | null;
     readonly now: string;
   },
 ) => {
-  const snapshot = await readAudienceSnapshot(deps, input);
-  if (!snapshot) return null;
-  const seat = input.actorId
-    ? await deps.store.readAudienceSeat({
+  const read = await readAudienceSnapshot(deps, input);
+  if (!read) return null;
+  const standing = input.actorId
+    ? await deps.store.readLiveRoomStanding({
         roundId: input.roundId,
         actorId: input.actorId,
       })
     : null;
-  const shown = audienceShownTo(seat);
+  if (standing === null && !(await admitAudience(deps.store, read, input)))
+    return null;
+  const shown = audienceShownTo(standing);
   return {
-    snapshot: audienceFor(snapshot, shown),
+    snapshot: audienceFor(read.snapshot, shown),
     shown,
-    seated: seat !== null,
+    seated: standing?.kind === 'seat',
+    inLiveRoom: standing !== null,
+    unlisted: read.visibility === 'unlisted',
   };
 };

@@ -107,8 +107,8 @@ const broadcast = async (
     readonly slowMode?: number;
   } = {},
 ) => {
-  await client`insert into broadcasts (feed_key, id, round_id,release_policy,released_through_at,completed_at,stopped_at,stop_reason,chat_slow_mode_seconds)
-    values (${createId()},${createId()},${roundId},${{ kind: 'delay', seconds: 60 }},${columns.released ?? null},${columns.completed ?? null},${columns.stopped ?? null},${columns.stopped ? 'test' : null},${columns.slowMode ?? 0})`;
+  await client`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,completed_at,stopped_at,stop_reason,chat_slow_mode_seconds)
+    values (${createId()},${roundId},${createId()},${{ kind: 'delay', seconds: 60 }},${columns.released ?? null},${columns.completed ?? null},${columns.stopped ?? null},${columns.stopped ? 'test' : null},${columns.slowMode ?? 0})`;
 };
 
 const planner =
@@ -154,6 +154,7 @@ const post = async (
       actorId: input.actorId,
       userId: input.userId,
       newChannelId: createId(),
+      admit: () => true,
       command: {
         version: 1,
         requestId: input.requestId ?? createId(),
@@ -168,28 +169,20 @@ const member = async (f: Fixture) => {
   return { userId, actorId: await f.actor(userId) };
 };
 
-test('chat reaches no one before the timeline passes it, and only the audience read holds it', async () => {
+test('chat reaches a reader at once, with the feed still held, and only the audience read holds it', async () => {
   await withEnv(async (env) => {
     const roundId = await env.audienceRound();
+    // No watermark at all: the release timeline has not started.
     await broadcast(env.client, roundId);
     const poster = await member(env.f);
     const message = await post(env, {
       roundId,
       ...poster,
-      text: 'A released line',
+      text: 'A line',
       seconds: 0,
     });
-    const held = await env.chat.readSpectatorChat({
-      roundId,
-      clock: clockAt(5),
-      limit: 10,
-    });
-    await env.client`update broadcasts set released_through_at=${at(120)} where round_id=${roundId}`;
-    const released = await env.chat.readSpectatorChat({
-      roundId,
-      clock: clockAt(121),
-      limit: 10,
-    });
+    const read = await env.chat.readSpectatorChat({ roundId, limit: 10 });
+    const snapshot = await env.snapshot.readAudienceSnapshot({ roundId });
     const [channel] =
       (await env.client`select id,kind,policy_key from messaging_channels where round_id=${roundId}`) as {
         id: string;
@@ -200,20 +193,236 @@ test('chat reaches no one before the timeline passes it, and only the audience r
       readMessagingChannelFact(tx, channel!.id, poster.actorId),
     );
     assert({
-      given: 'a message the watermark has not reached, then one it has',
+      given: 'a message on a Broadcast the timeline has not reached',
       should:
-        'return nothing, then the message, on a spectator channel no DM or group read can see',
+        'return it at once, on a spectator channel no DM or group read can see',
       actual: {
-        held,
-        released: released.map((row) => [row.id, row.author, row.text]),
+        read: read.map((row) => [row.id, row.author, row.text]),
+        inSnapshot: snapshot?.messages.map((row) => row.text),
+        visibility: snapshot?.visibility,
         kind: [channel!.kind, channel!.policy_key],
         socialFact,
       },
       expected: {
-        held: [],
-        released: [[message!.id, `u-${poster.userId}`, 'A released line']],
+        read: [[message!.id, `u-${poster.userId}`, 'A line']],
+        inSnapshot: ['A line'],
+        visibility: 'public',
         kind: ['round_spectator', 'round.spectator'],
         socialFact: null,
+      },
+    });
+  });
+});
+
+test('the live room is told apart in the post transaction: a seat of any role and a seatless host', async () => {
+  await withEnv(async (env) => {
+    const debater = await member(env.f);
+    const judge = await member(env.f);
+    const host = await member(env.f);
+    const viewer = await member(env.f);
+    const roundId = await env.audienceRound('public', {
+      created_by_actor_id: host.actorId,
+    });
+    await broadcast(env.client, roundId);
+    await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    await env.f.participant(roundId, 'judge', 0, judge.actorId);
+    const seenBy = async (account: typeof viewer) => {
+      let seen: { inLiveRoom: boolean } | undefined;
+      await env.chat.postSpectatorChatMessage(
+        {
+          roundId,
+          ...account,
+          newChannelId: createId(),
+          admit: () => true,
+          command: { version: 1, requestId: createId(), text: 'A line' },
+        },
+        (facts, state) => {
+          seen = facts;
+          return planner(
+            createId(),
+            at(0),
+            account.actorId,
+            'A line',
+          )(facts, state);
+        },
+      );
+      return seen?.inLiveRoom;
+    };
+    const standing = (actorId: string) =>
+      env.snapshot.readLiveRoomStanding({ roundId, actorId });
+    assert({
+      given: 'a debater, a judge, a seatless host and a viewer',
+      should:
+        'put the first three in the live room, for the planner and for the read alike',
+      actual: {
+        planner: [
+          await seenBy(debater),
+          await seenBy(judge),
+          await seenBy(host),
+          await seenBy(viewer),
+        ],
+        standing: [
+          (await standing(debater.actorId))?.kind,
+          (await standing(judge.actorId))?.kind,
+          (await standing(host.actorId))?.kind,
+          await standing(viewer.actorId),
+        ],
+      },
+      expected: {
+        planner: [true, true, true, false],
+        standing: ['seat', 'seat', 'seatless-host', null],
+      },
+    });
+  });
+});
+
+test('a post or a press the audience does not admit writes nothing, not even a channel', async () => {
+  await withEnv(async (env) => {
+    const roundId = await env.audienceRound('unlisted', {
+      audience_link_hash: 'current',
+    });
+    await broadcast(env.client, roundId);
+    const account = await member(env.f);
+    const offered: unknown[] = [];
+    const refuse = (admission: unknown) => {
+      offered.push(admission);
+      return false;
+    };
+    const posted = await env.chat.postSpectatorChatMessage(
+      {
+        roundId,
+        ...account,
+        newChannelId: createId(),
+        admit: refuse,
+        command: { version: 1, requestId: createId(), text: 'A line' },
+      },
+      planner(createId(), at(0), account.actorId, 'A line'),
+    );
+    const pressed = await env.reactions.recordAudienceReaction(
+      {
+        id: createId(),
+        roundId,
+        ...account,
+        admit: refuse,
+        kind: 'sharp_point',
+        at: at(0),
+        spacedAt: at(0),
+      },
+      () => {},
+    );
+    const [channels] =
+      (await env.client`select count(*)::int as c from messaging_channels where round_id=${roundId}`) as {
+        c: number;
+      }[];
+    const [presses] =
+      (await env.client`select count(*)::int as c from audience_reactions where round_id=${roundId}`) as {
+        c: number;
+      }[];
+    const admission = {
+      visibility: 'unlisted',
+      audienceLinkHash: 'current',
+      inLiveRoom: false,
+    };
+    assert({
+      given: 'an unlisted Round refusing this request',
+      should: 'answer null and store nothing, offering the rule its link facts',
+      actual: {
+        posted,
+        pressed,
+        channels: channels!.c,
+        presses: presses!.c,
+        offered,
+      },
+      expected: {
+        posted: null,
+        pressed: null,
+        channels: 0,
+        presses: 0,
+        offered: [admission, admission],
+      },
+    });
+  });
+});
+
+test('the retention sweep takes spectator chat and reactions at 180 days, and no DM or group', async () => {
+  await withEnv(async (env) => {
+    const roundId = await env.audienceRound();
+    await broadcast(env.client, roundId);
+    const poster = await member(env.f);
+    const day0 = at(0);
+    const old = await post(env, {
+      roundId,
+      ...poster,
+      text: 'Old',
+      seconds: 0,
+    });
+    const young = await post(env, {
+      roundId,
+      ...poster,
+      text: 'Young',
+      seconds: 100 * 86_400,
+    });
+    const privateChannel = createId();
+    const privateMessage = createId();
+    await env.client`insert into messaging_channels (id,kind,policy_key,policy_revision,lifecycle)
+      values (${privateChannel},'dm','social.dm',1,'active')`;
+    await env.client`insert into messaging_messages (id,channel_id,author_actor_id,sequence,change_version,text,created_at)
+      values (${privateMessage},${privateChannel},${poster.actorId},1,1,'Private',${day0})`;
+    const press = (seconds: number) =>
+      env.reactions.recordAudienceReaction(
+        {
+          id: createId(),
+          roundId,
+          ...poster,
+          admit: () => true,
+          kind: 'sharp_point',
+          at: at(seconds),
+          spacedAt: at(seconds),
+        },
+        () => {},
+      );
+    await press(0);
+    await press(100 * 86_400);
+    const before = at(20 * 86_400);
+    const [chatGone, chatAgain, pressesGone, pressesAgain] = [
+      await env.chat.purgeExpiredSpectatorChat({ before, limit: 10 }),
+      await env.chat.purgeExpiredSpectatorChat({ before, limit: 10 }),
+      await env.reactions.purgeExpiredAudienceReactions({ before, limit: 10 }),
+      await env.reactions.purgeExpiredAudienceReactions({ before, limit: 10 }),
+    ];
+    const left = await env.chat.readSpectatorChat({ roundId, limit: 10 });
+    const receipts =
+      (await env.client`select message_id from messaging_receipts where message_id=${old!.id}`) as unknown[];
+    const privateLeft =
+      (await env.client`select id from messaging_messages where id=${privateMessage}`) as unknown[];
+    const snapshot = await env.snapshot.readAudienceSnapshot({ roundId });
+    const next = await post(env, {
+      roundId,
+      ...poster,
+      text: 'Next',
+      seconds: 201 * 86_400,
+    });
+    await env.client`delete from messaging_messages where id=${privateMessage}`;
+    await env.client`delete from messaging_channels where id=${privateChannel}`;
+    assert({
+      given: 'rows either side of the cutoff, and an older private message',
+      should:
+        'delete the old message with its receipt and the old press, once, keep the young ones and the private message, and leave the stream able to post',
+      actual: {
+        gone: [chatGone, chatAgain, pressesGone, pressesAgain],
+        left: left.map((row) => row.id),
+        receipts: receipts.length,
+        privateLeft: privateLeft.length,
+        totals: snapshot?.reactions,
+        nextSequence: next?.sequence,
+      },
+      expected: {
+        gone: [1, 0, 1, 0],
+        left: [young!.id],
+        receipts: 0,
+        privateLeft: 1,
+        totals: [{ kind: 'sharp_point', count: 1 }],
+        nextSequence: young!.sequence + 1,
       },
     });
   });
@@ -274,6 +483,7 @@ test('the planner sees the ban, slow mode, last post and closed Broadcast in the
         roundId,
         ...poster,
         newChannelId: createId(),
+        admit: () => true,
         command: { version: 1, requestId: createId(), text: 'Second' },
       },
       (facts, state) => {
@@ -295,6 +505,7 @@ test('the planner sees the ban, slow mode, last post and closed Broadcast in the
         broadcast: { open: false, slowModeSeconds: 30 },
         account: { erased: false, restricted: false, underThirteen: false },
         banned: true,
+        inLiveRoom: false,
         lastPostAtMs: Date.parse(at(0)),
       },
     });
@@ -339,7 +550,6 @@ test('moderation removes a spectator message for everyone and reaches no other c
     });
     const [read] = await env.chat.readSpectatorChat({
       roundId,
-      clock: clockAt(121),
       limit: 10,
     });
     assert({
@@ -354,8 +564,24 @@ test('moderation removes a spectator message for everyone and reaches no other c
         read: { author: read!.author, text: read!.text },
       },
       expected: {
-        facts: { ownMessage: false },
-        own: { ownMessage: true },
+        facts: {
+          ownMessage: false,
+          audience: {
+            roundId,
+            visibility: 'public',
+            audienceLinkHash: null,
+            inLiveRoom: false,
+          },
+        },
+        own: {
+          ownMessage: true,
+          audience: {
+            roundId,
+            visibility: 'public',
+            audienceLinkHash: null,
+            inLiveRoom: false,
+          },
+        },
         subject: { text: 'Abusive line', authorUserId: poster.userId },
         results: ['applied', 'unchanged', null],
         read: { author: null, text: null },
@@ -364,7 +590,7 @@ test('moderation removes a spectator message for everyone and reaches no other c
   });
 });
 
-test('reaction totals follow the timeline, and one window holds one press', async () => {
+test('reaction totals are current, and one window holds one press', async () => {
   await withEnv(async (env) => {
     const roundId = await env.audienceRound();
     await broadcast(env.client, roundId);
@@ -374,7 +600,8 @@ test('reaction totals follow the timeline, and one window holds one press', asyn
         {
           id: createId(),
           roundId,
-          userId: account.userId,
+          ...account,
+          admit: () => true,
           kind: 'sharp_point',
           at: at(seconds),
           spacedAt: at(spacedAt),
@@ -384,21 +611,11 @@ test('reaction totals follow the timeline, and one window holds one press', asyn
     await press(0, 0);
     await press(1, 0);
     await press(11, 10);
-    const totals = async (seconds: number) =>
-      (await env.snapshot.readAudienceSnapshot({
-        roundId,
-        clock: clockAt(seconds),
-      }))!.reactions;
-    const before = await totals(5);
-    await env.client`update broadcasts set released_through_at=${at(120)} where round_id=${roundId}`;
     assert({
-      given: 'three presses in two windows, held and then released',
-      should: 'show nothing, then a total of two',
-      actual: { before, after: await totals(121) },
-      expected: {
-        before: [],
-        after: [{ kind: 'sharp_point', count: 2 }],
-      },
+      given: 'three presses in two windows, with the timeline not started',
+      should: 'show a total of two at once',
+      actual: (await env.snapshot.readAudienceSnapshot({ roundId }))!.reactions,
+      expected: [{ kind: 'sharp_point', count: 2 }],
     });
   });
 });
@@ -748,21 +965,25 @@ test('a seat reads as what its Round is, and no seat reads as none', async () =>
     });
     const debater = await member(env.f);
     await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
-    await env.client`insert into broadcasts (feed_key, id, round_id,release_policy,debaters_read_chat)
-      values (${createId()},${createId()},${roundId},${{ kind: 'delay', seconds: 60 }},true)`;
+    await env.client`insert into broadcasts (id,round_id,feed_key,release_policy,debaters_read_chat)
+      values (${createId()},${roundId},${createId()},${{ kind: 'delay', seconds: 60 }},true)`;
     assert({
       given: 'a ranked seat whose Broadcast wrongly says debaters may read',
       should:
         'report the facts for the feature’s rule, and nothing for a stranger',
       actual: [
-        await env.snapshot.readAudienceSeat({
+        await env.snapshot.readLiveRoomStanding({
           roundId,
           actorId: debater.actorId,
         }),
-        await env.snapshot.readAudienceSeat({ roundId, actorId: createId() }),
+        await env.snapshot.readLiveRoomStanding({
+          roundId,
+          actorId: createId(),
+        }),
       ],
       expected: [
         {
+          kind: 'seat',
           role: 'affirmative',
           competitionType: 'ranked',
           roundEnded: true,

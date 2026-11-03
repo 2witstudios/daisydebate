@@ -1,19 +1,13 @@
-import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
-
 /** How long one count gathers. A tab pulses at this rate, or a little faster. */
 export const VIEWER_BUCKET_MS = 30_000;
-/** Long enough to outlast the default delay; a longer hold simply shows no count. */
-export const VIEWER_BUCKET_TTL_MS = 10 * 60_000;
+/** Outlasts the newest whole bucket a read asks for, and nothing more. */
+export const VIEWER_BUCKET_TTL_MS = 2 * 60_000;
 
 export const viewerBucketOf = (atMs: number) =>
   Math.floor(atMs / VIEWER_BUCKET_MS);
 
 /**
- * The newest bucket the timeline has wholly passed, or null when it has not
- * started. A count leaves as any other fact does, by the one horizon: a bucket's
- * end must be released, so nobody can read how many are watching ahead of the feed.
+ * The newest bucket that has finished gathering: how many are watching now, near
+ * enough. A count is the audience's own, so it is not held to the timeline.
  */
-export const releasedViewerBucket = (horizonMs: number | null) =>
-  horizonMs === null
-    ? null
-    : viewerBucketOf(horizonMs - SPECTATOR_MARGIN_MS) - 1;
+export const latestViewerBucket = (nowMs: number) => viewerBucketOf(nowMs) - 1;

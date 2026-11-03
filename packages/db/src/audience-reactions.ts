@@ -1,27 +1,26 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
+import type { RoundAudienceAdmission } from './messaging/spectator-chat';
 import { rowsOf } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
-import {
-  factReleasedSql,
-  roundAliasR,
-  type SpectatorClock,
-} from './spectator-release-sql';
 
-/** The released totals inside a caller's snapshot: anonymous, by the one rule. */
-export const readReleasedReactions = async (
+/**
+ * The totals inside a caller's snapshot: anonymous and current. Reactions are the
+ * audience talking to itself, so nothing holds them back (ADR 0108).
+ */
+export const readReactionTotals = async (
   tx: Pick<BunSQLDatabase, 'execute'>,
-  input: { readonly roundId: string; readonly clock: SpectatorClock },
+  input: { readonly roundId: string },
 ) =>
   (
     await rowsOf<{ kind: string; count: number | string }>(
       tx,
       sql`select ar.kind,count(*) as count
-        from audience_reactions ar join rounds r on r.id=ar.round_id
+        from audience_reactions ar
         where ar.round_id=${input.roundId}
-          and ${factReleasedSql(sql`ar.created_at`, roundAliasR, input.clock)}
         group by ar.kind`,
     )
   ).map((row) => ({ kind: row.kind, count: Number(row.count) }));
@@ -34,12 +33,17 @@ export const audienceReactionOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  /** Null when the Round has no audience. A repeat within the window is one reaction. */
+  /**
+   * Null when the Round has no audience for this request. A repeat within the
+   * window is one reaction.
+   */
   recordAudienceReaction(
     input: {
       readonly id: string;
       readonly roundId: string;
       readonly userId: string;
+      readonly actorId: string | null;
+      readonly admit: (admission: RoundAudienceAdmission) => boolean;
       readonly kind: string;
       readonly at: string;
       readonly spacedAt: string;
@@ -52,18 +56,31 @@ export const audienceReactionOperations = ({
     return instrumented(eventSink, 'recordAudienceReaction', () =>
       database.transaction(async (tx) => {
         const [round] = await rowsOf<{
+          visibility: 'public' | 'unlisted';
+          audience_link_hash: string | null;
+          in_live_room: boolean;
           has_broadcast: boolean;
           open: boolean;
           banned: boolean;
         }>(
           tx,
-          sql`select b.id is not null as has_broadcast,
+          sql`select r.visibility,r.audience_link_hash,
+              ${inLiveRoomSql(liveRoomOfR, input.actorId)} as in_live_room,
+              b.id is not null as has_broadcast,
               (b.completed_at is null and b.stopped_at is null) as open,
               exists(select 1 from audience_bans x where x.user_id=${input.userId}) as banned
             from rounds r left join broadcasts b on b.round_id=r.id
             where r.id=${input.roundId} and r.visibility in ('public','unlisted') and r.room_id is not null`,
         );
-        if (!round) return null;
+        if (
+          !round ||
+          !input.admit({
+            visibility: round.visibility,
+            audienceLinkHash: round.audience_link_hash,
+            inLiveRoom: round.in_live_room,
+          })
+        )
+          return null;
         allow({
           broadcastOpen: round.has_broadcast ? round.open : null,
           banned: round.banned,
@@ -75,6 +92,26 @@ export const audienceReactionOperations = ({
           on conflict do nothing`);
         return true;
       }),
+    );
+  },
+  /** The retention sweep: a reaction goes 180 days after it was pressed. */
+  purgeExpiredAudienceReactions(input: {
+    readonly before: string;
+    readonly limit: number;
+  }) {
+    return instrumented(
+      eventSink,
+      'purgeExpiredAudienceReactions',
+      async () => {
+        const gone = await rowsOf(
+          database,
+          sql`delete from audience_reactions where id in (
+              select id from audience_reactions
+              where created_at < ${input.before}::timestamptz limit ${input.limit})
+            returning id`,
+        );
+        return gone.length;
+      },
     );
   },
 });

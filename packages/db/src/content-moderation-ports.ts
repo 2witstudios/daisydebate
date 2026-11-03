@@ -6,6 +6,17 @@ type Tx = BoundedTransactionContext;
 export type ContentModerationOutcome = 'applied' | 'unchanged' | null;
 
 /**
+ * Whose audience a report's target belongs to, for the feature's one rule: a
+ * target the reporter could not reach answers as if it did not exist.
+ */
+export type ReportAudience = {
+  readonly roundId: string;
+  readonly visibility: 'public' | 'unlisted' | 'private';
+  readonly audienceLinkHash: string | null;
+  readonly inLiveRoom: boolean;
+};
+
+/**
  * What moderation needs from Recording (WATCH-7, REC-1.5), a named port its
  * owner implements over its own tables. A takedown runs in the moderation
  * command's transaction and removes listing and delivery within
@@ -18,6 +29,7 @@ export type RecordingModeration = {
   ) => Promise<{
     readonly ranked: boolean;
     readonly reporterSeated: boolean;
+    readonly audience: ReportAudience;
   } | null>;
   readonly exists: (tx: Tx, recordingId: string) => Promise<boolean>;
   readonly takeDown: (
@@ -38,7 +50,10 @@ export type SpectatorChatModeration = {
   readonly readReportFacts: (
     tx: Tx,
     input: { readonly messageId: string; readonly reporterActorId: string },
-  ) => Promise<{ readonly ownMessage: boolean } | null>;
+  ) => Promise<{
+    readonly ownMessage: boolean;
+    readonly audience: ReportAudience;
+  } | null>;
   readonly readSubject: (
     tx: Tx,
     messageId: string,

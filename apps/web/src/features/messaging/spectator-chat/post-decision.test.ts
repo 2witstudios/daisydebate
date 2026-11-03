@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sendPayloadDigest } from '../send-plan';
 import type { SpectatorChannelFacts } from '@daisy/db/messaging';
+import { chatRefusalText } from './form';
 import { planSpectatorPost } from './post-decision';
 
 setupRitewayBun();
@@ -23,6 +24,7 @@ const facts = (
   broadcast: { open: true, slowModeSeconds: 0 },
   account,
   banned: false,
+  inLiveRoom: false,
   lastPostAtMs: null,
   ...over,
 });
@@ -64,13 +66,14 @@ describe('planSpectatorPost', () => {
   test('refuses by rule', () => {
     assert({
       given:
-        'no Broadcast, a closed one, a ban, a restricted account, a slow-mode window',
+        'no Broadcast, a closed one, a ban, a restricted account, a place in the live room, a slow-mode window',
       should: 'refuse each with its own fixed key',
       actual: [
         refused(facts({ broadcast: null })),
         refused(facts({ broadcast: { open: false, slowModeSeconds: 0 } })),
         refused(facts({ banned: true })),
         refused(facts({ account: { ...account, restricted: true } })),
+        refused(facts({ inLiveRoom: true })),
         refused(
           facts({
             broadcast: { open: true, slowModeSeconds: 60 },
@@ -83,8 +86,19 @@ describe('planSpectatorPost', () => {
         'chat-closed',
         'chat-banned',
         'chat-banned',
+        'chat-live-room',
         'chat-slow-mode',
       ],
+    });
+  });
+
+  test('the live room is told why, in plain words', () => {
+    assert({
+      given: 'the refusal for someone in the live room',
+      should: 'say so plainly, naming neither mechanism nor outcome',
+      actual: chatRefusalText['chat-live-room'],
+      expected:
+        'You are in this Round’s live room, so you cannot post in its chat. The audience watches on a delay.',
     });
   });
 

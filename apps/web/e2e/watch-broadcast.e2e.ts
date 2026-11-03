@@ -390,9 +390,7 @@ test.describe('watching with no account', () => {
   }) => {
     const casual = await liveRound({ mode: 'casual', visibility: 'unlisted' });
     await page.goto(`/watch/${casual.roundId}`);
-    await expect(
-      page.getByText('This debate is not being broadcast'),
-    ).toBeVisible();
+    await expect(page.getByText(REFUSED)).toBeVisible();
     await expect(page.getByText('Stream this Round')).toHaveCount(0);
     const round = await liveRound();
     const context = await browser.newContext({

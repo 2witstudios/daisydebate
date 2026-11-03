@@ -4,7 +4,7 @@ import { idSchema } from './primitives';
 /** The longest spectator chat message, in UTF-16 units. A DM may be longer. */
 export const SPECTATOR_CHAT_UNITS = 500;
 
-/** How many released messages one audience snapshot carries. */
+/** How many of the newest messages one audience snapshot carries. */
 export const SPECTATOR_CHAT_WINDOW = 50;
 
 export const audienceReactionKinds = [
@@ -39,7 +39,7 @@ export const viewerPulseSchema = z.strictObject({
 });
 
 /**
- * A released message. A removed or erased one keeps its place with no text and
+ * A message. A removed or erased one keeps its place with no text and
  * no author, so the order holds and nothing of it survives.
  */
 const spectatorChatMessageSchema = z.strictObject({
@@ -52,9 +52,9 @@ const spectatorChatMessageSchema = z.strictObject({
 export type SpectatorChatMessage = z.infer<typeof spectatorChatMessageSchema>;
 
 /**
- * The audience's own activity on a Round, on the spectator timeline: only what
- * has been released, the same for everyone. `viewers` is null when no count is
- * released; there is no such thing as a live one.
+ * The audience's own activity on a Round, in near real time and through moderation
+ * alone: it is everyone on the same held feed talking to each other, so nothing here
+ * waits for the spectator timeline. `viewers` is null when there is no count to give.
  */
 export const audienceSnapshotSchema = z.strictObject({
   version: z.literal(1),

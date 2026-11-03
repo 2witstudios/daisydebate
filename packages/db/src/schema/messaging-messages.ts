@@ -37,6 +37,11 @@ export const messagingMessages = pgTable(
   },
   (table) => [
     index('messaging_messages_author_idx').on(table.authorActorId),
+    /** The spectator retention sweep probes each spectator channel by age. */
+    index('messaging_messages_channel_created_idx').on(
+      table.channelId,
+      table.createdAt,
+    ),
     index('messaging_messages_reply_channel_idx').on(
       table.replyToMessageId,
       table.channelId,

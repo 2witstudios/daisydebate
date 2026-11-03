@@ -57,6 +57,19 @@ export const audienceAdmits = (
   );
 };
 
+/**
+ * The rule for a request that names an account: someone in the Round's live room
+ * reaches its audience surfaces by being there, and anyone else by the link.
+ */
+export const requestAdmits =
+  (request: Request, roundId: string) =>
+  (admission: AudienceLinkFacts & { readonly inLiveRoom: boolean }): boolean =>
+    admission.inLiveRoom ||
+    audienceAdmits(
+      admission,
+      presentedLinkHash(request.headers.get('cookie'), roundId),
+    );
+
 const cookieName = (roundId: string) => `daisy_audience_link_${roundId}`;
 
 /** Script never reads it, and it leaves in no URL, referrer or cache key. */

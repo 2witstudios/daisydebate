@@ -84,6 +84,8 @@ export function retentionTargets({
     readonly purgeExpiredSocialRequests: (batch: Batch) => Promise<number>;
     readonly purgeReadNotifications: (batch: Batch) => Promise<number>;
     readonly purgeExpiredWatchHistory: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredSpectatorChat: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredAudienceReactions: (batch: Batch) => Promise<number>;
   };
   readonly redis: {
     readonly sweepOnlinePresence: (limit: number) => Promise<number>;
@@ -257,6 +259,22 @@ export function retentionTargets({
           limit,
         }),
     },
+    /**
+     * The point guard's ruling of 2026-11-03: spectator chat and audience reactions
+     * go 180 days after posting, matching transcripts (not reviewed by counsel).
+     */
+    ...(
+      [
+        ['spectator_chat', database.purgeExpiredSpectatorChat],
+        ['audience_reactions', database.purgeExpiredAudienceReactions],
+      ] as const
+    ).map(([name, purge]) => ({
+      name: `retention.${name}`,
+      batchSize: 1000,
+      maxBatches: 20,
+      purge: ({ now, limit }: { now: string; limit: number }) =>
+        purge({ before: cutoff(now, 180 * DAY_MS), limit }),
+    })),
     /** Offers past their time; the list already ignores them (ADR 0103). */
     {
       name: 'retention.challenges',

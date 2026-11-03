@@ -11,12 +11,15 @@ export const spectatorChatRefusals = [
   'chat-unavailable',
   'chat-closed',
   'chat-banned',
+  'chat-live-room',
   'chat-slow-mode',
 ] as const;
 
 /**
  * Whether this post may stand, and how it is written. Authority comes first, so
- * a ban or a closed account refuses a retry too; a retried request then replays,
+ * a ban, a closed account or a place in the live room refuses a retry too. The
+ * live room sees ahead of the audience's feed, so it never posts to that chat,
+ * even after the Round ends while the feed is still catching up; a retried request then replays,
  * so a slow-mode window never turns a lost answer into a refusal. Pure and total:
  * refusals leave state unchanged, because the caller's transaction rolls back.
  */
@@ -42,6 +45,7 @@ export const planSpectatorPost = (
     nowMs,
   });
   if (verdict.kind === 'banned') throw createRefusal('CONFLICT', 'chat-banned');
+  if (facts.inLiveRoom) throw createRefusal('CONFLICT', 'chat-live-room');
   if (state.receipt) return planMessageSend(command, state, resources);
   if (!broadcast) throw createRefusal('CONFLICT', 'chat-unavailable');
   if (!broadcast.open) throw createRefusal('CONFLICT', 'chat-closed');

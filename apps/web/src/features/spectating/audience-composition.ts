@@ -37,6 +37,7 @@ export function composeAudienceRoutes(app: App) {
       store,
       counts: app.redis,
       clock,
+      identify: account.identify,
     }),
     chat: createSpectatorChatRoute({ ...account, store, clock, ids }),
     reaction: createAudienceReactionRoute({ ...account, store, clock, ids }),

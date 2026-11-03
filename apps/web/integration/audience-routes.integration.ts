@@ -6,11 +6,13 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAudienceReactionRoute } from '../src/features/audience-reactions/handler';
 import { createReportHandler } from '../src/features/content-moderation/report-handler';
 import { createSpectatorChatRoute } from '../src/features/messaging/spectator-chat/handler';
+import { audienceLinkHash } from '../src/features/audience-link/audience-link';
 import { createDebaterFollowRoute } from '../src/features/following/handler';
 import {
   createAudienceSnapshotRoute,
   readAudienceForViewer,
 } from '../src/features/spectating/audience-snapshot';
+import { createWatchHistoryRoute } from '../src/features/watch-history/handler';
 import { createViewerPulseRoute } from '../src/features/viewer-counts/handler';
 import { VIEWER_BUCKET_MS } from '../src/features/viewer-counts/viewer-count';
 import { createRateLimiter } from '../src/server/rate-limit';
@@ -50,8 +52,8 @@ const onAirRound = async (f: Runtime, debatersReadChat = false) => {
   for (const seat of [f.host, f.guest])
     view = (await f.consent(seat, view, 'ready')).view;
   const { roundId } = await launchRuntimeRound(f, view);
-  await f.sql`insert into broadcasts (feed_key, id, round_id,release_policy,debaters_read_chat)
-    values (${createId()},${createId()},${roundId},${{ kind: 'delay', seconds: 60 }},${debatersReadChat})`;
+  await f.sql`insert into broadcasts (id,round_id,feed_key,release_policy,debaters_read_chat)
+    values (${createId()},${roundId},${createId()},${{ kind: 'delay', seconds: 60 }},${debatersReadChat})`;
   return roundId;
 };
 
@@ -127,7 +129,9 @@ const routes = (
       store: f.store,
       counts: f.redis,
       clock,
+      identify: account.identify,
     }),
+    history: createWatchHistoryRoute({ ...account, store: f.store, clock }),
   };
 };
 
@@ -152,7 +156,7 @@ const NOW = '2026-11-03T12:00:00.000Z';
 const secondsAfter = (seconds: number) =>
   new Date(Date.parse(NOW) + seconds * 1000).toISOString();
 
-test('an account that was never admitted posts through the route, and no one reads it before release', async () => {
+test('an account that was never admitted posts through the route, and the next read holds it', async () => {
   await withRoomRuntime(async (f) => {
     const roundId = await onAirRound(f);
     const poster = await unadmitted(f);
@@ -176,13 +180,13 @@ test('an account that was never admitted posts through the route, and no one rea
       );
       const requestId = createId();
       const posted = await route.chat(
-        postTo(chatPath, chatBody('A released line', requestId)),
+        postTo(chatPath, chatBody('A line', requestId)),
       );
       const { messageId } = (await posted.json()) as { messageId: string };
       const replay = await route.chat(
-        postTo(chatPath, chatBody('A released line', requestId)),
+        postTo(chatPath, chatBody('A line', requestId)),
       );
-      const held = audienceSnapshotSchema.parse(
+      const read = audienceSnapshotSchema.parse(
         await (
           await route.snapshot(
             new Request(`${origin}/api/rounds/${roundId}/audience`),
@@ -194,7 +198,7 @@ test('an account that was never admitted posts through the route, and no one rea
         given:
           'no session, a foreign origin, then an account with no admission',
         should:
-          'refuse the first two, take the third once across a retry, and hold it from the audience',
+          'refuse the first two, take the third once across a retry, and show it to the audience with the feed still held',
         actual: {
           anonymous: anonymous.status,
           foreign: foreign.status,
@@ -203,36 +207,20 @@ test('an account that was never admitted posts through the route, and no one rea
             replay.status,
             ((await replay.json()) as { messageId: string }).messageId,
           ],
-          held: held.messages,
-          interaction: held.interaction,
+          read: read.messages.map((row) => [row.id, row.author, row.text]),
+          interaction: read.interaction,
         },
         expected: {
           anonymous: 401,
           foreign: 403,
           posted: 200,
           replay: [200, messageId],
-          held: [],
+          read: [[messageId, poster.username, 'A line']],
           interaction: 'open',
         },
       });
 
-      await f.sql`update broadcasts set released_through_at=${secondsAfter(120)} where round_id=${roundId}`;
       now = secondsAfter(121);
-      const released = await readAudienceForViewer(
-        { store: f.store, counts: f.redis },
-        { roundId, actorId: null, now },
-      );
-      assert({
-        given: 'the watermark past the message by the margin',
-        should: 'show it to a visitor, under its author’s name',
-        actual: released?.snapshot.messages.map((row) => [
-          row.id,
-          row.author,
-          row.text,
-        ]),
-        expected: [[messageId, poster.username, 'A released line']],
-      });
-
       who = reporter;
       const reported = await route.report(
         postTo('/api/content-reports', {
@@ -378,7 +366,7 @@ test('a seat reads what the rule gives it, from the real store', async () => {
     const read = (actorId: string | null) =>
       readAudienceForViewer(
         { store: f.store, counts: f.redis },
-        { roundId, actorId, now: NOW },
+        { roundId, actorId, presentedHash: null, now: NOW },
       );
     try {
       const on = await read(debater.actorId);
@@ -410,7 +398,7 @@ test('a seat reads what the rule gives it, from the real store', async () => {
   });
 });
 
-test('a count gathers on real Redis, and shows only once the timeline passes its bucket', async () => {
+test('a count gathers on real Redis and shows as soon as its bucket is whole', async () => {
   await withRoomRuntime(async (f) => {
     const roundId = await onAirRound(f);
     const nowMs =
@@ -429,23 +417,304 @@ test('a count gathers on real Redis, and shows only once the timeline passes its
       const read = () =>
         readAudienceForViewer(
           { store: f.store, counts: f.redis },
-          { roundId, actorId: null, now },
+          { roundId, actorId: null, presentedHash: null, now },
         );
-      const live = await read();
-      await f.sql`update broadcasts set released_through_at=${new Date(
-        nowMs + VIEWER_BUCKET_MS + 15_000,
-      ).toISOString()} where round_id=${roundId}`;
-      now = new Date(nowMs + 3 * VIEWER_BUCKET_MS).toISOString();
-      const released = await read();
+      const gathering = await read();
+      now = new Date(nowMs + VIEWER_BUCKET_MS + 1000).toISOString();
+      const whole = await read();
       assert({
         given:
-          'two tabs pulsing, before and after the timeline passes that bucket',
-        should: 'show no count, then two',
-        actual: [live?.snapshot.viewers, released?.snapshot.viewers],
+          'two tabs pulsing, read during that bucket and just after it, with no timeline at all',
+        should: 'show no count yet, then two',
+        actual: [gathering?.snapshot.viewers, whole?.snapshot.viewers],
         expected: [null, 2],
       });
     } finally {
       await cleanup(f, roundId, []);
+    }
+  });
+});
+
+test('anyone in the live room is refused by name, and a viewer posts on', async () => {
+  await withRoomRuntime(async (f) => {
+    const roundId = await onAirRound(f, true);
+    const seatlessHost = await unadmitted(f);
+    const humanJudge = await unadmitted(f);
+    const viewer = await unadmitted(f);
+    let who: { userId: string; actorId: string | null } = viewer;
+    const route = routes(
+      f,
+      () => who,
+      () => NOW,
+    );
+    const postAs = async (account: typeof who) => {
+      who = account;
+      const response = await route.chat(
+        postTo(`/api/rounds/${roundId}/chat`, chatBody('A line')),
+      );
+      return {
+        status: response.status,
+        refusal: ((await response.json()) as { refusal?: string }).refusal,
+      };
+    };
+    try {
+      await f.sql`update rounds set created_by_actor_id=${seatlessHost.actorId} where id=${roundId}`;
+      await f.sql`insert into round_participants (id,round_id,actor_id,role,slot)
+        values (${createId()},${roundId},${humanJudge.actorId},'judge',1)`;
+      const refusedAs = { status: 409, refusal: 'chat-live-room' };
+      const debater = await postAs(f.host);
+      const judge = await postAs(humanJudge);
+      const host = await postAs(seatlessHost);
+      const channels = (await f.sql`
+        select m.id from messaging_messages m join messaging_channels c on c.id=m.channel_id
+        where c.round_id=${roundId}`) as unknown[];
+      const posted = await postAs(viewer);
+      const nonRanked = await readAudienceForViewer(
+        { store: f.store, counts: f.redis },
+        { roundId, actorId: f.host.actorId, presentedHash: null, now: NOW },
+      );
+      await f.sql`update rounds set competition_type='ranked',format_id='freestyle',preset_version=1,ladder_id='freestyle' where id=${roundId}`;
+      const ranked = await readAudienceForViewer(
+        { store: f.store, counts: f.redis },
+        { roundId, actorId: f.host.actorId, presentedHash: null, now: NOW },
+      );
+      assert({
+        given:
+          'a debater, a judge and a seatless host, then a viewer, then a debater reading',
+        should:
+          'refuse the three with the same typed refusal and store nothing; the viewer posts; a non-ranked debater reads it and a ranked one does not',
+        actual: {
+          refused: [debater, judge, host],
+          stored: channels.length,
+          posted: posted.status,
+          nonRanked: [
+            nonRanked?.inLiveRoom,
+            nonRanked?.snapshot.messages.length,
+          ],
+          ranked: ranked?.snapshot.messages.length,
+        },
+        expected: {
+          refused: [refusedAs, refusedAs, refusedAs],
+          stored: 0,
+          posted: 200,
+          nonRanked: [true, 1],
+          ranked: 0,
+        },
+      });
+    } finally {
+      await f.sql`delete from round_participants where round_id=${roundId} and actor_id=${humanJudge.actorId}`;
+      await f.sql`update rounds set created_by_actor_id=null where id=${roundId}`;
+      await cleanup(f, roundId, [
+        seatlessHost.userId,
+        humanJudge.userId,
+        viewer.userId,
+      ]);
+    }
+  });
+});
+
+test('an unlisted Round: every audience route answers as missing with no link, and works with one', async () => {
+  await withRoomRuntime(async (f) => {
+    const roundId = await onAirRound(f);
+    const token = 'k'.repeat(43);
+    const link = { cookie: `daisy_audience_link_${roundId}=${token}` };
+    const stranger = await unadmitted(f);
+    const reader = await unadmitted(f);
+    let who: { userId: string; actorId: string | null } | null = stranger;
+    const nowMs =
+      Math.floor(Date.parse(NOW) / VIEWER_BUCKET_MS) * VIEWER_BUCKET_MS;
+    let now = new Date(nowMs + 1000).toISOString();
+    const route = routes(
+      f,
+      () => who,
+      () => now,
+    );
+    // Every request has its own id; everything else must match byte for byte.
+    const answer = async (response: Response) => [
+      response.status,
+      (await response.text()).replace(/"requestId":"[^"]+"/, ''),
+      response.headers.get('Cache-Control'),
+    ];
+    const path = (leaf: string) => `/api/rounds/${roundId}/${leaf}`;
+    const snapshot = (headers: Record<string, string> = {}) =>
+      route.snapshot(
+        new Request(`${origin}${path('audience')}`, { headers }),
+        roundId,
+      );
+    const reportOn = (
+      targetKind: 'round' | 'chat_message',
+      targetId: string,
+      headers: Record<string, string> = {},
+    ) =>
+      route.report(
+        postTo(
+          '/api/content-reports',
+          { targetKind, targetId, reason: 'spam' },
+          headers,
+        ),
+      );
+    try {
+      await f.sql`update rounds set visibility='unlisted', audience_link_hash=${audienceLinkHash(token)} where id=${roundId}`;
+      await f.sql`update rooms set visibility='unlisted' where id=(select room_id from rounds where id=${roundId})`;
+
+      const missingRound = createId();
+      const missingChat = await route.chat(
+        postTo(`/api/rounds/${missingRound}/chat`, chatBody('A line')),
+      );
+      const missingReaction = await route.reaction(
+        postTo(`/api/rounds/${missingRound}/reactions`, {
+          version: 1,
+          kind: 'sharp_point',
+        }),
+      );
+      const missingReport = await reportOn('round', missingRound);
+      const missingText = {
+        chat: await answer(missingChat),
+        reaction: await answer(missingReaction),
+        report: await answer(missingReport),
+      };
+
+      const refusedChat = await route.chat(
+        postTo(path('chat'), chatBody('A line')),
+      );
+      const refusedReaction = await route.reaction(
+        postTo(path('reactions'), { version: 1, kind: 'sharp_point' }),
+      );
+      const refusedReport = await reportOn('round', roundId);
+      assert({
+        given: 'a signed-in account with no link',
+        should:
+          'answer chat, reactions and a report exactly as for a Round that does not exist',
+        actual: {
+          chat: await answer(refusedChat),
+          reaction: await answer(refusedReaction),
+          report: await answer(refusedReport),
+        },
+        expected: missingText,
+      });
+      const [channels] =
+        (await f.sql`select count(*)::int as c from messaging_channels where round_id=${roundId}`) as {
+          c: number;
+        }[];
+      assert({
+        given: 'those refused posts',
+        should: 'open no channel',
+        actual: channels!.c,
+        expected: 0,
+      });
+
+      who = reader;
+      const posted = await route.chat(
+        postTo(path('chat'), chatBody('A held line'), link),
+      );
+      const { messageId } = (await posted.json()) as { messageId: string };
+      const pressed = await route.reaction(
+        postTo(path('reactions'), { version: 1, kind: 'sharp_point' }, link),
+      );
+
+      who = stranger;
+      const reportedWithout = await reportOn('chat_message', messageId);
+      const reportedWith = await reportOn('chat_message', messageId, link);
+      const roundWith = await reportOn('round', roundId, link);
+      assert({
+        given: 'a message on the Round, reported with no link and with one',
+        should:
+          'answer as missing, then file; a Round report with the link files',
+        actual: [
+          reportedWithout.status,
+          reportedWith.status,
+          roundWith.status,
+          posted.status,
+          pressed.status,
+        ],
+        expected: [404, 200, 200, 200, 200],
+      });
+
+      now = new Date(nowMs + 3000).toISOString();
+      const anonymous = await snapshot();
+      const held = await snapshot(link);
+      const body = audienceSnapshotSchema.parse(await held.clone().json());
+      assert({
+        given: 'the anonymous read with no link, and with the current link',
+        should:
+          'answer 404, then the line and the press uncached, so no shared cache can carry it past the link',
+        actual: {
+          anonymous: anonymous.status,
+          held: held.status,
+          cache: held.headers.get('Cache-Control'),
+          lines: body.messages.map((row) => row.text),
+          sharp: body.reactions.find((row) => row.kind === 'sharp_point')
+            ?.count,
+        },
+        expected: {
+          anonymous: 404,
+          held: 200,
+          cache: 'no-store',
+          lines: ['A held line'],
+          sharp: 1,
+        },
+      });
+
+      for (const headers of [{}, link])
+        await route.pulse(
+          postTo(path('viewers'), { version: 1, token: createId() }, headers),
+        );
+      now = new Date(nowMs + VIEWER_BUCKET_MS + 2000).toISOString();
+      const counted = await readAudienceForViewer(
+        { store: f.store, counts: f.redis },
+        {
+          roundId,
+          actorId: null,
+          presentedHash: audienceLinkHash(token),
+          now,
+        },
+      );
+      const noLink = await readAudienceForViewer(
+        { store: f.store, counts: f.redis },
+        { roundId, actorId: stranger.actorId, presentedHash: null, now },
+      );
+      const debaterNoLink = await readAudienceForViewer(
+        { store: f.store, counts: f.redis },
+        { roundId, actorId: f.host.actorId, presentedHash: null, now },
+      );
+      assert({
+        given:
+          'a pulse without the link and one with it, then each kind of reader',
+        should:
+          'count only the holder; render nothing for a stranger, and render for a seat with no link',
+        actual: {
+          viewers: counted?.snapshot.viewers,
+          noLink,
+          seat: debaterNoLink?.seated,
+          unlisted: debaterNoLink?.unlisted,
+        },
+        expected: { viewers: 1, noLink: null, seat: true, unlisted: true },
+      });
+
+      await route.history(
+        postTo('/api/watch-history', { version: 1, kind: 'watched', roundId }),
+      );
+      const watchedWithout =
+        (await f.sql`select 1 from watch_history where user_id=${stranger.userId}`) as unknown[];
+      await route.history(
+        postTo(
+          '/api/watch-history',
+          { version: 1, kind: 'watched', roundId },
+          link,
+        ),
+      );
+      const watchedWith =
+        (await f.sql`select 1 from watch_history where user_id=${stranger.userId}`) as unknown[];
+      assert({
+        given: 'a visit recorded with no link, then with one',
+        should: 'write nothing for the first, so history cannot open the Round',
+        actual: [watchedWithout.length, watchedWith.length],
+        expected: [0, 1],
+      });
+    } finally {
+      await f.sql`delete from watch_history where round_id=${roundId}`;
+      await f.sql`delete from content_reports where target_id=${roundId}`;
+      await cleanup(f, roundId, [stranger.userId, reader.userId]);
     }
   });
 });

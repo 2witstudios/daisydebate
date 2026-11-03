@@ -8,6 +8,7 @@ import {
   type AccountRouteDeps,
 } from '../../server/account-route';
 import { parseValidated } from '../../server/http';
+import { requestAdmits } from '../audience-link/audience-link';
 import { decideChatPost } from '../content-moderation/chat-post';
 
 /** One press of one reaction per account in each window; repeats are one. */
@@ -64,11 +65,14 @@ export const createAudienceReactionRoute = (
       async ({ identity, body }) => {
         const { kind } = parseValidated(audienceReactionPostSchema, body);
         const at = deps.clock.now();
+        const roundId = roundIdOf(request);
         const recorded = await deps.store.recordAudienceReaction(
           {
             id: deps.ids.next(),
-            roundId: roundIdOf(request),
+            roundId,
             userId: identity.principal.userId,
+            actorId: identity.principal.actorId,
+            admit: requestAdmits(request, roundId),
             kind,
             at,
             spacedAt: reactionWindowOf(at),

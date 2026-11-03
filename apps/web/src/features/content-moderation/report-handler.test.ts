@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../server/test-loggers.test-support';
+import { audienceLinkHash } from '../audience-link/audience-link';
 import { createReportHandler } from './report-handler';
 import type { ReportTargetFacts } from './report-eligibility';
 
@@ -8,11 +9,31 @@ setupRitewayBun();
 
 const origin = 'https://daisy.test';
 const principal = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
+const roundId = 't'.repeat(24);
 const body = { targetKind: 'round', targetId: 't'.repeat(24), reason: 'spam' };
+
+const publicRound = {
+  roundId,
+  visibility: 'public',
+  audienceLinkHash: null,
+  inLiveRoom: false,
+} as const;
+const linkToken = 'k'.repeat(43);
+const unlistedRound = {
+  ...publicRound,
+  visibility: 'unlisted',
+  audienceLinkHash: audienceLinkHash(linkToken),
+} as const;
 
 const post = async ({
   state = 'member',
-  facts = { kind: 'footage', ranked: true, reporterSeated: false },
+  facts = {
+    kind: 'footage',
+    ranked: true,
+    reporterSeated: false,
+    audience: publicRound,
+  },
+  cookie,
   sent = body,
   limited = false,
 }: {
@@ -20,6 +41,7 @@ const post = async ({
   readonly facts?: ReportTargetFacts;
   readonly sent?: unknown;
   readonly limited?: boolean;
+  readonly cookie?: string;
 } = {}) => {
   const filed: unknown[] = [];
   const handle = createReportHandler({
@@ -40,16 +62,20 @@ const post = async ({
     nextId: () => 'r'.repeat(24),
   });
   const response = await handle(
-    new Request(`${origin}/api/reports`, {
+    new Request(`${origin}/api/content-reports`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin },
+      headers: {
+        'content-type': 'application/json',
+        origin,
+        ...(cookie ? { cookie } : {}),
+      },
       body: JSON.stringify(sent),
     }),
   );
   return { status: response.status, filed };
 };
 
-describe('POST /api/reports', () => {
+describe('POST /api/content-reports', () => {
   test('a member files a report with a bounded reason', async () => {
     assert({
       given: 'a member reporting a Round for spam',
@@ -85,6 +111,64 @@ describe('POST /api/reports', () => {
       should: 'file the report, since interaction needs only an account',
       actual: [answer.status, answer.filed.length],
       expected: [200, 1],
+    });
+  });
+
+  test('a target on an unlisted Round answers as missing with no link', async () => {
+    const unlisted = {
+      kind: 'footage',
+      ranked: false,
+      reporterSeated: false,
+      audience: unlistedRound,
+    } as const;
+    const message = {
+      kind: 'chat_message',
+      ownMessage: false,
+      audience: unlistedRound,
+    } as const;
+    const chatBody = {
+      targetKind: 'chat_message',
+      targetId: 'm'.repeat(24),
+      reason: 'spam',
+    };
+    const link = `daisy_audience_link_${roundId}=${linkToken}`;
+    const refused = await post({ facts: unlisted });
+    assert({
+      given:
+        'no link, a stale link, a current link and a seat in the live room',
+      should:
+        'answer exactly as a missing Round for the first two, for a Round and a message alike, and file for the rest',
+      actual: {
+        none: [refused.status, refused.filed],
+        stale: (
+          await post({
+            facts: unlisted,
+            cookie: `daisy_audience_link_${roundId}=${'x'.repeat(43)}`,
+          })
+        ).status,
+        chat: (await post({ facts: message, sent: chatBody })).status,
+        missing: (await post({ facts: { kind: 'missing' } })).status,
+        held: (await post({ facts: unlisted, cookie: link })).status,
+        heldChat: (await post({ facts: message, sent: chatBody, cookie: link }))
+          .status,
+        seated: (
+          await post({
+            facts: {
+              ...unlisted,
+              audience: { ...unlistedRound, inLiveRoom: true },
+            },
+          })
+        ).status,
+      },
+      expected: {
+        none: [404, []],
+        stale: 404,
+        chat: 404,
+        missing: 404,
+        held: 200,
+        heldChat: 200,
+        seated: 200,
+      },
     });
   });
 

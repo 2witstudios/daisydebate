@@ -32,6 +32,8 @@ export async function RoundAudience({
   const audience = await requestAudience(roundId, principal?.actorId ?? null);
   if (!audience) return null;
   const target = { roundId, returnTo };
+  const react = reactToRoundAction.bind(null, target);
+  const reportMessage = reportChatMessageAction.bind(null, returnTo);
   const viewer: AudienceViewer =
     principal === null
       ? {
@@ -40,21 +42,26 @@ export async function RoundAudience({
         }
       : principal.actorId === null || !claimedUsername(identity)
         ? { kind: 'needs-username' }
-        : {
-            kind: 'account',
-            requestId: systemId.next(),
-            postChat: postSpectatorChatAction.bind(null, target),
-            react: reactToRoundAction.bind(null, target),
-            reportMessage: reportChatMessageAction.bind(null, returnTo),
-          };
+        : audience.inLiveRoom
+          ? { kind: 'live-room', react, reportMessage }
+          : {
+              kind: 'account',
+              requestId: systemId.next(),
+              postChat: postSpectatorChatAction.bind(null, target),
+              react,
+              reportMessage,
+            };
   return (
     <>
-      {audience.seated ? null : <ViewerPulse roundId={roundId} />}
+      {audience.seated ? null : (
+        <ViewerPulse roundId={roundId} unlisted={audience.unlisted} />
+      )}
       {principal ? <WatchedMark roundId={roundId} /> : null}
       <AudiencePanel
         initial={audience.snapshot}
         viewer={viewer}
         shown={audience.shown}
+        unlisted={audience.unlisted}
       />
     </>
   );
