@@ -157,8 +157,7 @@ describe('media room service boundary', () => {
     await assertRejects({
       given: 'a malformed participant from the service',
       should: 'fail as infrastructure instead of returning invalid state',
-      actual: () =>
-        createMediaService({ config, rooms }).participants(room),
+      actual: () => createMediaService({ config, rooms }).participants(room),
       code: 'INFRASTRUCTURE',
     });
   });
