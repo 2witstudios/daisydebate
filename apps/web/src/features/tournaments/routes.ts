@@ -1,5 +1,6 @@
 /**
- * Where tournament links go. Public pages live under /tournaments/[id];
+ * Where tournament links go once Tournaments launches; until then the proxy
+ * answers them with the explainer. Public pages live under /tournaments/[id];
  * everything that needs an account sits under /tournaments/enter, /mine or
  * /organize, the guarded areas in features/access/decision.ts.
  */

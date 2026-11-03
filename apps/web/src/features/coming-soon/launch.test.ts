@@ -1,12 +1,102 @@
+import { join } from 'node:path';
+import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { destinationSlugs } from './destinations';
-import { destinationHref, explainerHref, launched, liveHref } from './launch';
+import {
+  closedDestinationOf,
+  destinationHref,
+  explainerHref,
+  launched,
+  liveHref,
+} from './launch';
 
 setupRitewayBun();
 
 const allSoon = Object.fromEntries(
   destinationSlugs.map((slug) => [slug, false]),
 ) as Record<(typeof destinationSlugs)[number], boolean>;
+
+describe('closedDestinationOf', () => {
+  test('every route of a closed destination is closed', () => {
+    assert({
+      given: 'no destination launched',
+      should: 'name the destination that owns each area, at any depth',
+      actual: [
+        '/lobby',
+        '/watch/abc',
+        '/recordings',
+        '/judge/waiting',
+        '/tournaments/organize/new',
+        '/leaderboard/seasons',
+        '/train',
+        '//prep/cards/abc',
+        '/%70rep',
+        '/%74ournaments/abc',
+      ].map((path) => closedDestinationOf(path, allSoon)),
+      expected: [
+        'lobby',
+        'watch',
+        'watch',
+        'judge',
+        'tournaments',
+        'leaderboard',
+        'train',
+        'prep',
+        'prep',
+        'tournaments',
+      ],
+    });
+  });
+
+  test('anything else stays open', () => {
+    const allOpen = { ...allSoon, watch: true, prep: true };
+    assert({
+      given: 'paths no destination owns, lookalikes, and launched destinations',
+      should: 'close none of them',
+      actual: [
+        closedDestinationOf('/', allSoon),
+        closedDestinationOf('/settings', allSoon),
+        closedDestinationOf('/coming-soon/prep', allSoon),
+        closedDestinationOf('/prepare', allSoon),
+        closedDestinationOf('/%zz', allSoon),
+        closedDestinationOf('/constructor', allSoon),
+        closedDestinationOf('/recordings', allOpen),
+        closedDestinationOf('/prep', allOpen),
+      ],
+      expected: [null, null, null, null, null, null, null, null],
+    });
+  });
+
+  test('every page that reads sample data sits in a closed area', async () => {
+    const app = join(import.meta.dir, '../../app');
+    const open: string[] = [];
+    let readers = 0;
+    for await (const file of new Glob('**/page.tsx').scan(app)) {
+      if (!(await Bun.file(join(app, file)).text()).includes('/ui/mock/'))
+        continue;
+      readers += 1;
+      const route = file.replace(/\(.*?\)\//g, '').replace(/\/?page\.tsx$/, '');
+      if (closedDestinationOf(`/${route}`) === null) open.push(route);
+    }
+    assert({
+      given: 'the pages that pass sample data to a feature',
+      should: 'all answer with an explainer under the launch config',
+      actual: { open, found: readers > 0 },
+      expected: { open: [], found: true },
+    });
+  });
+
+  test('sample data is out of reach today', () => {
+    assert({
+      given: 'the launch config',
+      should: 'close the areas that still read samples',
+      actual: ['/tournaments', '/prep', '/watch', '/recordings'].map((path) =>
+        closedDestinationOf(path),
+      ),
+      expected: ['tournaments', 'prep', 'watch', 'watch'],
+    });
+  });
+});
 
 describe('launch config', () => {
   test('names every destination', () => {

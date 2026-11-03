@@ -1,4 +1,4 @@
-import type { ThemePreference } from './theme-preference';
+import type { ThemePreference } from '../../features/theme/theme-preference';
 
 /** The slice of <html> a theme switch writes to; tests pass a plain object. */
 type ThemeTarget = {

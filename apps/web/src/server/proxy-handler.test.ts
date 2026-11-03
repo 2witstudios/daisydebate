@@ -268,10 +268,40 @@ describe('proxy early sign-in hint', () => {
     assert({
       given: 'cookie-less requests for public routes and lookalikes',
       should: 'not redirect',
-      actual: ['/', '/watch', '/watch/abc', '/sign-in', '/playground'].map(
+      actual: ['/', '/leaderboard', '/sign-in', '/playground', '/prepare'].map(
         (path) => at(path).status,
       ),
       expected: [200, 200, 200, 200, 200],
+    });
+  });
+
+  test('sends a closed destination to its explainer before any sign-in', () => {
+    const locations = [
+      '/tournaments',
+      '/tournaments/organize',
+      '/tournaments/mine/abc/certificate',
+      '/prep/cards/abc',
+      '//prep',
+      '/watch/abc',
+      '/recordings',
+    ].map((path) => [at(path).status, at(path).headers.get('location')]);
+    const explainer = (slug: string) => [
+      307,
+      `https://daisy.invalid/coming-soon/${slug}`,
+    ];
+    assert({
+      given: 'cookie-less requests under destinations that are not launched',
+      should: 'redirect each to the explainer its flag names',
+      actual: locations,
+      expected: [
+        explainer('tournaments'),
+        explainer('tournaments'),
+        explainer('tournaments'),
+        explainer('prep'),
+        explainer('prep'),
+        explainer('watch'),
+        explainer('watch'),
+      ],
     });
   });
 });
@@ -327,8 +357,8 @@ test('LiveKit origins are restricted to Ready and live Round presentations', () 
   assert({
     given: 'unrelated pages and API routes',
     should: 'retain the existing CSP without media origins',
-    actual: ['/', '/watch', '/api/rounds/abc', '/rounds/abc/docs'].map((path) =>
-      connect(path).includes('media.daisy.invalid'),
+    actual: ['/', '/leaderboard', '/api/rounds/abc', '/rounds/abc/docs'].map(
+      (path) => connect(path).includes('media.daisy.invalid'),
     ),
     expected: [false, false, false, false],
   });

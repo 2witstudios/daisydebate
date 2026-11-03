@@ -1,7 +1,7 @@
 'use client';
 
 // First: protocol schemas built after this load without Zod's eval probe.
-import '../debate-room/zod-jitless';
+import '../../lib/zod-jitless';
 import {
   ONLINE_TOPIC,
   onlineRosterSchema,

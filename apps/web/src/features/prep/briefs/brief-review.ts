@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { SearchParams } from '../../access/decision';
 import type { Brief, BriefCardRef, Contention } from './brief';
+import type { PrepSource } from '../source';
 import { checkShareTarget } from '../teams/get-team';
 import { shareNotAllowed, type Notice } from '../notices';
 import {
@@ -78,12 +79,13 @@ export type ReviewView = {
 
 /** The brief review page's driver: a brief, who it is shared with, and the URL. */
 export function reviewView(
+  source: PrepSource,
   brief: Brief,
   record: ShareRecord,
   query: ReviewQuery,
 ): ReviewView {
   const closeHref = reviewHref(brief.id, false);
-  const target = checkShareTarget(query.add, query.perm);
+  const target = checkShareTarget(source, query.add, query.perm);
   const team = record.grants.find((g) => g.kind === 'team');
   return {
     brief,

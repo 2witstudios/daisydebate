@@ -3,17 +3,18 @@ import { previewLines } from './case-export';
 import { caseHref, parseCaseQuery } from './case-query';
 import { caseView } from './case-view';
 import { getCase } from './get-case';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
 const now = '2026-09-30T12:00:00.000Z';
 const sample = (id: string) => {
-  const found = getCase(id);
+  const found = getCase(samplePrepSource, id);
   if (found === undefined) throw new Error(`no sample ${id}`);
   return found;
 };
 const view = (id: string, params: Record<string, string | string[]> = {}) =>
-  caseView(sample(id), parseCaseQuery(params), 160, 360, now);
+  caseView(samplePrepSource, sample(id), parseCaseQuery(params), 160, 360, now);
 
 describe('parseCaseQuery', () => {
   test('defaults, values and junk', () => {

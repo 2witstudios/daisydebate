@@ -1,6 +1,7 @@
 import {
   adminSurfaceIssue,
   conceptCouplingIssue,
+  featureUiIssue,
   reservedWordIssue,
   runnerOnlyIssue,
   testSupportIssue,
@@ -262,6 +263,56 @@ describe('coach is reserved for human coaches', () => {
         reservedWordIssue('apps/web/src/ui/train/card.tsx', 'Practice prompts'),
       ].map((issue) => issue !== null),
       expected: [true, true, false, false, false],
+    });
+  });
+});
+
+describe('features never import ui (ISSUE-1005)', () => {
+  test('flags a feature importing ui, sample data or otherwise', () => {
+    assert({
+      given: 'feature modules importing from ui/',
+      should: 'report each as an inward dependency violation',
+      actual: [
+        featureUiIssue(
+          '../../ui/mock/tournaments',
+          'apps/web/src/features/tournaments/list-tournaments.ts',
+        ),
+        featureUiIssue(
+          '../../../ui/theme/theme-provider',
+          'apps/web/src/features/auth/confirmation/confirm-page.ts',
+        ),
+      ],
+      expected: [
+        'feature imports ui ../../ui/mock/tournaments (dependencies point inward)',
+        'feature imports ui ../../../ui/theme/theme-provider (dependencies point inward)',
+      ],
+    });
+  });
+
+  test('allows every other edge', () => {
+    assert({
+      given:
+        'a test fixture, a page, a ui module and a feature-to-feature import',
+      should: 'report nothing',
+      actual: [
+        featureUiIssue(
+          '../../ui/mock/tournaments',
+          'apps/web/src/features/tournaments/filter.test.ts',
+        ),
+        featureUiIssue(
+          '../../../ui/mock/tournament-source',
+          'apps/web/src/app/(shell)/tournaments/page.tsx',
+        ),
+        featureUiIssue(
+          '../../features/theme/theme-preference',
+          'apps/web/src/ui/theme/theme-provider.tsx',
+        ),
+        featureUiIssue(
+          '../coming-soon/launch',
+          'apps/web/src/features/play/options.ts',
+        ),
+      ],
+      expected: [null, null, null, null],
     });
   });
 });

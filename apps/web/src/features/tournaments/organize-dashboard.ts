@@ -1,7 +1,4 @@
-import {
-  sampleAttention,
-  sampleOrganized,
-} from '../../ui/mock/tournament-organizer';
+import type { TournamentSource } from './source';
 
 /** Where an organizer's tournament is in its life. */
 export type OrganizePhase =
@@ -53,10 +50,12 @@ export const phaseCounts = (
  * tournaments and what needs them. The backend read replaces this function
  * only. Organizing is a participant-app surface, never an admin one.
  */
-export function getOrganizeDashboard(): OrganizeDashboard {
+export function getOrganizeDashboard(
+  source: TournamentSource,
+): OrganizeDashboard {
   return {
-    counts: phaseCounts(sampleOrganized),
-    tournaments: sampleOrganized,
-    attention: sampleAttention,
+    counts: phaseCounts(source.organized),
+    tournaments: source.organized,
+    attention: source.attention,
   };
 }

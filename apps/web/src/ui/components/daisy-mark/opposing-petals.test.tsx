@@ -1,8 +1,11 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { opposingGeometry, petalShape } from '../../brand/brand-geometry';
-import { opposingPetals } from '../../brand/petal';
+import {
+  opposingGeometry,
+  petalShape,
+} from '../../../features/brand/brand-geometry';
+import { opposingPetals } from '../../../features/brand/petal';
 import { OpposingPetals } from './opposing-petals';
 
 setupRitewayBun();

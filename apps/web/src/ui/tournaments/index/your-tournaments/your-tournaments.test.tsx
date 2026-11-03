@@ -4,13 +4,15 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { listTournaments } from '../../../../features/tournaments/list-tournaments';
 import { defaultQuery } from '../../../../features/tournaments/query';
 import { YourTournaments } from './your-tournaments';
+import { sampleTournamentSource } from '../../../mock/tournament-source';
 
 setupRitewayBun();
 
 const render = (signedIn: boolean) =>
   renderToString(
     h(YourTournaments, {
-      yours: listTournaments(defaultQuery, signedIn).yours,
+      yours: listTournaments(sampleTournamentSource, defaultQuery, signedIn)
+        .yours,
       signedIn,
     }),
   );

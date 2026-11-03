@@ -211,14 +211,5 @@ export function createRoomHandlers(dependencies: Dependencies) {
           ...serverClockHeaders(dependencies.clock),
         },
       ),
-    roundRef: (request: Request, roomId: string) =>
-      run(request, 'read', false, async (caller) => {
-        const view = await dependencies.operations.view(
-          caller,
-          parseValidated(idSchema, roomId),
-        );
-        if (!view.roundRef) throw createAppError('NOT_FOUND');
-        return view.roundRef;
-      }),
   };
 }

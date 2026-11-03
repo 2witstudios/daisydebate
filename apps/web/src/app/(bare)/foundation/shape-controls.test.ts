@@ -1,8 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { petalShape } from '../../../ui/brand/brand-geometry';
+import { petalShape } from '../../../features/brand/brand-geometry';
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
-import type { PetalShape } from '../../../ui/brand/petal';
+import type { PetalShape } from '../../../features/brand/petal';
 import { DaisyMark } from '../../../ui/components/daisy-mark/daisy-mark';
 import { OpposingPetals } from '../../../ui/components/daisy-mark/opposing-petals';
 import { shapeControls, tuneShape } from './shape-controls';

@@ -6,6 +6,7 @@ import {
   type CardCreateQuery,
 } from '../../../features/prep/cards/card-create';
 import { CardCreate } from './card-create';
+import { samplePrepSource } from '../../mock/prep-source';
 
 setupRitewayBun();
 
@@ -17,7 +18,9 @@ const base: CardCreateQuery = {
 };
 const render = (over: Partial<CardCreateQuery>) =>
   renderToString(
-    h(CardCreate, { view: cardCreateView({ ...base, ...over }, 160) }),
+    h(CardCreate, {
+      view: cardCreateView(samplePrepSource, { ...base, ...over }, 160),
+    }),
   );
 
 describe('CardCreate', () => {

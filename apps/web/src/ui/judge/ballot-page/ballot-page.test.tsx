@@ -12,7 +12,7 @@ import {
   rules,
 } from '../../debate-room/live-round.test-support';
 import { attendanceSettlesAtMs } from '../../../features/round-ballots/settling';
-import { sampleJudgeBallot } from '../../mock/judge';
+import { sampleJudgeBallot } from '../../mock/judge.test-support';
 setupRitewayBun();
 await mockNextRouter();
 const { BallotPage } = await import('./ballot-page');

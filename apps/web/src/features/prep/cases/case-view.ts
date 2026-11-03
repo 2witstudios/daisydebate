@@ -1,3 +1,4 @@
+import type { PrepSource } from '../source';
 import { findBlockSources, type BlockSource } from '../cards/block-sources';
 import {
   blockClock,
@@ -234,6 +235,7 @@ function exportModel(
 
 /** The case page's one driver: a case and the URL state to a view model. */
 export function caseView(
+  source: PrepSource,
   c: Case,
   query: CaseQuery,
   pace: number,
@@ -258,7 +260,7 @@ export function caseView(
     hasRemovedCard: speeches.some((s) =>
       s.blocks.some((b) => b.removed === true),
     ),
-    sources: findBlockSources(query.q, now, pace),
+    sources: findBlockSources(source, query.q, now, pace),
     versions: versionRows(c),
     nextVersion: latestVersion(c).version + 1,
     compare: compareModel(c, query),

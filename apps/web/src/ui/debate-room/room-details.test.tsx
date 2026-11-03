@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sampleRound } from '../mock/debate-room';
+import { sampleRound } from '../mock/debate-room.test-support';
 import { RoomDetails } from './room-details';
 
 setupRitewayBun();

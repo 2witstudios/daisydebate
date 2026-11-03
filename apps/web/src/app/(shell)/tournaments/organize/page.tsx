@@ -3,6 +3,7 @@ import type { SearchParams } from '../../../../features/access/decision';
 import { getOrganizeDashboard } from '../../../../features/tournaments/organize-dashboard';
 import { requireAccess } from '../../../../lib/access';
 import { DashboardPage } from '../../../../ui/tournaments/organize/dashboard-page';
+import { sampleTournamentSource } from '../../../../ui/mock/tournament-source';
 
 export const metadata: Metadata = { title: 'Organize' };
 
@@ -13,5 +14,7 @@ export default async function OrganizeRoute({
   searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/tournaments/organize', searchParams);
-  return <DashboardPage dashboard={getOrganizeDashboard()} />;
+  return (
+    <DashboardPage dashboard={getOrganizeDashboard(sampleTournamentSource)} />
+  );
 }

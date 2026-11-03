@@ -23,29 +23,7 @@ type Dependencies = RoundMemberRouteDependencies & {
 /** Shared HTTP gates for the JSON command envelope; native forms reach it through the server action, and bots call the same operation server-side. */
 export function createRoundHandlers(d: Dependencies) {
   const run = createRoundMemberGate(d);
-  const read = (
-    request: Request,
-    roundId: string,
-    select: (view: RoundView) => unknown,
-  ) =>
-    run(request, 'read', async (caller) =>
-      Response.json(
-        select(await d.view(caller, parseValidated(idSchema, roundId))),
-      ),
-    );
   return {
-    participants: (request: Request, roundId: string) =>
-      read(request, roundId, (view) => ({
-        roundId: view.id,
-        version: view.version,
-        participants: view.participants,
-      })),
-    segments: (request: Request, roundId: string) =>
-      read(request, roundId, (view) => ({
-        roundId: view.id,
-        version: view.version,
-        segments: view.segments,
-      })),
     transcript: (request: Request, roundId: string) =>
       run(request, 'read', async (caller) =>
         Response.json(

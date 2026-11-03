@@ -1,7 +1,7 @@
 import type { RoundBallotRead } from '@daisy/protocol';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { sampleJudgeBallot } from '../mock/judge';
+import { sampleJudgeBallot } from '../mock/judge.test-support';
 import { completed } from './result.test-support';
 import { RoundResult } from './round-result';
 

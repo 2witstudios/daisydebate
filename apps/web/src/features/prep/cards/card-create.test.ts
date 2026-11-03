@@ -5,6 +5,7 @@ import {
   parseCardCreateQuery,
   type CardCreateQuery,
 } from './card-create';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
@@ -15,7 +16,7 @@ const base: CardCreateQuery = {
   url: '',
 };
 const view = (over: Partial<CardCreateQuery>) =>
-  cardCreateView({ ...base, ...over }, 160);
+  cardCreateView(samplePrepSource, { ...base, ...over }, 160);
 
 describe('parseCardCreateQuery', () => {
   test('defaults, values and bad values', () => {

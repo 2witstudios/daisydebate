@@ -1,0 +1,30 @@
+{
+  // The second pass of `bun run knip`: what a deployed web app reaches. Tests
+  // are no entries here, so a module only its own test imports is reported
+  // (ISSUE-1006). `--production` reads only the `!` patterns.
+  "$schema": "./node_modules/knip/schema.json",
+  "ignore": [
+    // Built, integration-tested adapters no production composition reads yet:
+    // ISSUE-1105.
+    "apps/web/src/features/messaging/files/clamd.ts",
+    "apps/web/src/features/messaging/files/image-sanitizer.ts",
+    "apps/web/src/features/messaging/files/local-object-store.ts",
+  ],
+  "workspaces": {
+    "apps/web": {
+      "entry": [
+        // The custom server `start` runs. knip does not follow start.ts's own
+        // imports, so every server composition module is an entry.
+        "src/server/*.ts!",
+        "!src/server/*.test.ts!",
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}!",
+        "!src/**/*.test.{ts,tsx}!",
+        "!src/**/*.test-support.{ts,tsx}!",
+        "!src/**/test-support/**!",
+        "!src/lib/testing/**!",
+      ],
+    },
+  },
+}

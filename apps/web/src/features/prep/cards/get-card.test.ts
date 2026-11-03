@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleLibrary } from '../../../ui/mock/prep';
 import { getCard } from './get-card';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
@@ -9,7 +10,10 @@ describe('getCard', () => {
     assert({
       given: 'a known and an unknown id',
       should: 'find the card, and nothing for the other',
-      actual: [getCard('cost-estimates')?.tagLine, getCard('nope')],
+      actual: [
+        getCard(samplePrepSource, 'cost-estimates')?.tagLine,
+        getCard(samplePrepSource, 'nope'),
+      ],
       expected: ['Cost estimates depend on assumed take-up', undefined],
     });
   });
@@ -21,7 +25,7 @@ describe('getCard', () => {
       actual: sampleLibrary('2026-09-30T12:00:00.000Z')
         .filter((item) => item.kind === 'card')
         .filter((item) => {
-          const card = getCard(item.id);
+          const card = getCard(samplePrepSource, item.id);
           return (
             card === undefined ||
             card.tagLine !== item.title ||

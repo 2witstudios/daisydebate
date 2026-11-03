@@ -1,6 +1,6 @@
-import { markGeometry, petalShape } from '../../../ui/brand/brand-geometry';
-import { bloomPetals } from '../../../ui/brand/petal';
-import { colorSchemeFor } from '../../../ui/theme/theme-preference';
+import { markGeometry, petalShape } from '../../brand/brand-geometry';
+import { bloomPetals } from '../../brand/petal';
+import { colorSchemeFor } from '../../theme/theme-preference';
 import { confirmPageStylesheet } from './confirm-page-style';
 import { escapeHtml } from '../../../lib/escape-html';
 import type { PageContext } from './confirm-http-shared';

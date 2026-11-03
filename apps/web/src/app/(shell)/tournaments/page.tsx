@@ -4,6 +4,7 @@ import { listTournaments } from '../../../features/tournaments/list-tournaments'
 import { parseTournamentsQuery } from '../../../features/tournaments/query';
 import { requestIdentity } from '../../../lib/request-session';
 import { TournamentsIndex } from '../../../ui/tournaments/index/tournaments-index';
+import { sampleTournamentSource } from '../../../ui/mock/tournament-source';
 
 export const metadata: Metadata = { title: 'Tournaments' };
 
@@ -17,7 +18,11 @@ export default async function TournamentsPage({
   const identity = await requestIdentity();
   return (
     <TournamentsIndex
-      listing={listTournaments(query, identity.state === 'member')}
+      listing={listTournaments(
+        sampleTournamentSource,
+        query,
+        identity.state === 'member',
+      )}
       query={query}
     />
   );

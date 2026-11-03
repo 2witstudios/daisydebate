@@ -3,8 +3,8 @@ import {
   EXPECTED_SINGLE_H1_PAGE_SHAPE,
   singleH1PageShape,
 } from './confirm-page.test-support';
-import { markGeometry, petalShape } from '../../../ui/brand/brand-geometry';
-import { bloomPetals } from '../../../ui/brand/petal';
+import { markGeometry, petalShape } from '../../brand/brand-geometry';
+import { bloomPetals } from '../../brand/petal';
 import { renderConfirmPage } from './confirm-page';
 import { confirmPageStylesheet } from './confirm-page-style';
 
