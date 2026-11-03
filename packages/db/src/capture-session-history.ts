@@ -1,3 +1,4 @@
+import { speakingEndMs } from '@daisy/protocol';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { CaptureTx } from './media-capture-context';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
@@ -27,10 +28,11 @@ export async function captureSessionInterrupted(
       ),
     );
   const start = segment.startedAt.getTime();
-  const end = Math.min(
-    segment.endedAt?.getTime() ?? Infinity,
-    start + segment.durationMs,
-  );
+  const end = speakingEndMs({
+    startedAtMs: start,
+    endedAtMs: segment.endedAt?.getTime() ?? null,
+    durationMs: segment.durationMs,
+  });
   const creations = history.filter(
     (row) => row.kind === 'create' && row.outcome === 'succeeded',
   );

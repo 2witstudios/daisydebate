@@ -1,5 +1,6 @@
 import {
   debateSides,
+  segmentDueAtMs,
   type DebateSide,
   type RoundCommand,
   type RoundParticipantSeat,
@@ -182,7 +183,7 @@ const interruptRefusal = (facts: RoundCommandFacts) => {
       id,
       'Nobody interrupts cross-examination: every debater already speaks',
     );
-  const remaining = open.startedAtMs + open.durationMs - facts.nowMs;
+  const remaining = segmentDueAtMs(open) - facts.nowMs;
   if (remaining < policy.minRemainingMs)
     return violates(id, 'Too little of the segment remains to interrupt');
   if (debateSideOf(facts.seat) === null)

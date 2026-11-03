@@ -1,3 +1,4 @@
+import { segmentDueAtMs } from '@daisy/protocol';
 import type {
   DebateSide,
   RoundPosition,
@@ -53,7 +54,7 @@ const openSegmentOf = (
 ): RoundPosition['openSegment'] => {
   if (open === undefined) return null;
   const segment = rules.segments[open.sequence]!;
-  const endsAtMs = open.startedAtMs + open.durationMs;
+  const endsAtMs = segmentDueAtMs(open);
   return {
     key: open.key,
     label: segment.label,

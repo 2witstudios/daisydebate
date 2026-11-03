@@ -1,5 +1,9 @@
 import type { BrowserContext, Page } from '@playwright/test';
-import { roundViewSchema, type RoundView } from '@daisy/protocol';
+import {
+  roundViewSchema,
+  segmentDueAtMs,
+  type RoundView,
+} from '@daisy/protocol';
 
 /** The m:ss reading of a live round clock ("aria-label": label m:ss). */
 const parseClock = (aria: string | null): number => {
@@ -18,7 +22,12 @@ const parseClock = (aria: string | null): number => {
 const openSegmentRemaining = (view: RoundView, atMs: number) => {
   const row = view.segments.at(-1);
   if (!row || row.endedAt !== null) return null;
-  return Date.parse(row.startedAt) + row.durationMs - atMs;
+  return (
+    segmentDueAtMs({
+      startedAtMs: Date.parse(row.startedAt),
+      durationMs: row.durationMs,
+    }) - atMs
+  );
 };
 
 /** How far the page's clock is from the server's own timetable right now. */

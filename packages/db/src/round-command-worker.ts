@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { RoundCommandPrincipal } from '@daisy/protocol';
+import { segmentDueAtMs, type RoundCommandPrincipal } from '@daisy/protocol';
 import type { RoundHydration } from './round-hydration';
 import type { RoundWriteTransaction } from './round-write-authority';
 import { roundBotPublications } from './schema/round-bot-publications';
@@ -75,8 +75,11 @@ function currentWorkerSegment(
   if (!segment || segment.id !== segmentId || segment.endedAt !== null)
     return false;
   const at = Date.parse(now),
-    start = Date.parse(segment.startedAt);
-  return at >= start && at < start + segment.durationMs;
+    startedAtMs = Date.parse(segment.startedAt);
+  return (
+    at >= startedAtMs &&
+    at < segmentDueAtMs({ startedAtMs, durationMs: segment.durationMs })
+  );
 }
 
 function currentLease(

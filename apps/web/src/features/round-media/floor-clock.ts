@@ -1,4 +1,5 @@
 import { mediaWindowEndsAt } from '@daisy/debate-engine/media-window';
+import { segmentDueAtMs } from '@daisy/protocol';
 
 /** What a Round's clock boundaries are read from, in the browser's view or a server row. */
 export type FloorClock = {
@@ -17,6 +18,12 @@ export type FloorClock = {
     readonly durationMs: number;
   } | null;
 };
+/** When the open segment is due, from its committed row. */
+export const dueAt = (segment: NonNullable<FloorClock['lastSegment']>) =>
+  segmentDueAtMs({
+    startedAtMs: Date.parse(segment.startedAt),
+    durationMs: segment.durationMs,
+  });
 const gapBoundaries = (clock: FloorClock): number[] => {
   if (clock.activePrep || clock.segmentCount >= clock.segmentTotal) return [];
   const anchor =
@@ -37,9 +44,7 @@ export function floorBoundaries(clock: FloorClock): number[] {
   const prep = clock.activePrep;
   return [
     ...gapBoundaries(clock),
-    ...(last?.endedAt === null
-      ? [Date.parse(last.startedAt) + last.durationMs]
-      : []),
+    ...(last?.endedAt === null ? [dueAt(last)] : []),
     ...(prep && clock.prepBudgetMs !== null
       ? [Date.parse(prep.startedAt) + clock.prepBudgetMs - prep.consumedMs]
       : []),

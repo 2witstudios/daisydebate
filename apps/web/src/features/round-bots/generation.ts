@@ -9,7 +9,7 @@ import type {
   BotPublicationScope,
 } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, segmentDueAtMs } from '@daisy/protocol';
 import type { ProviderCall } from '../../server/provider-budget';
 
 type Producer = ReturnType<typeof createBotPublicationOperations>;
@@ -22,6 +22,11 @@ type Store = {
 function requireActive(signal: AbortSignal) {
   if (signal.aborted) throw createAppError('CONFLICT', 'Generation cancelled');
 }
+const dueAtOf = (segment: Context['round']['segments'][number]) =>
+  segmentDueAtMs({
+    startedAtMs: Date.parse(segment.startedAt),
+    durationMs: segment.durationMs,
+  });
 function messagesFor(
   context: Context,
   scope: BotPublicationScope,
@@ -40,7 +45,7 @@ function messagesFor(
     round.resolution === null
   )
     throw createAppError('CONFLICT');
-  const durationMs = Date.parse(segment.startedAt) + segment.durationMs - nowMs;
+  const durationMs = dueAtOf(segment) - nowMs;
   if (durationMs <= 0) throw createAppError('CONFLICT');
   return roundDebaterMessages({
     resolution: round.resolution,
@@ -78,9 +83,7 @@ function segmentEndOf(context: Context, scope: BotPublicationScope) {
   const segment = context.round.segments.find(
     (row) => row.id === scope.segmentId,
   );
-  return segment
-    ? new Date(Date.parse(segment.startedAt) + segment.durationMs).toISOString()
-    : null;
+  return segment ? new Date(dueAtOf(segment)).toISOString() : null;
 }
 type Usage = {
   readonly inputTokens: number;

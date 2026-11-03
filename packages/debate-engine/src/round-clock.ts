@@ -1,5 +1,5 @@
 import { createInvariantError } from '@daisy/errors';
-import type { RoundRules } from '@daisy/protocol';
+import { segmentDueAtMs, type RoundRules } from '@daisy/protocol';
 import { debateInvariantIds } from './invariant-ids';
 import {
   closedCount,
@@ -118,7 +118,7 @@ export const advanceRoundClock = (
     const open = state.rows.find((row) => row.endedAtMs === null);
     let transition: ClockTransition;
     if (open) {
-      const due = open.startedAtMs + open.durationMs;
+      const due = segmentDueAtMs(open);
       if (nowMs < due) break;
       transition = closeClockSegment(state, open.sequence, due);
     } else {

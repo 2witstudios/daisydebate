@@ -1,10 +1,11 @@
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { CaptureTx, CaptureStream } from './media-capture-context';
-import type {
-  CaptureInterval,
-  CaptureRule,
-  SeatGrantFacts,
+import {
+  speakingEndMs,
+  type CaptureInterval,
+  type CaptureRule,
+  type SeatGrantFacts,
 } from '@daisy/protocol';
 import { actors } from './schema/actors';
 import { rounds } from './schema/rounds';
@@ -44,10 +45,11 @@ export function grantWindows(
   segment: Pick<Segment, 'startedAt' | 'endedAt' | 'durationMs'>,
 ) {
   const segmentStart = segment.startedAt.getTime();
-  const segmentEnd = Math.min(
-    segment.endedAt?.getTime() ?? Infinity,
-    segmentStart + segment.durationMs,
-  );
+  const segmentEnd = speakingEndMs({
+    startedAtMs: segmentStart,
+    endedAtMs: segment.endedAt?.getTime() ?? null,
+    durationMs: segment.durationMs,
+  });
   return rows.map((row) => ({
     start: Math.max(row.startedAt.getTime(), segmentStart),
     end:

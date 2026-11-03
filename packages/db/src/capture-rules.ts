@@ -1,6 +1,6 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import { captureDigest } from './capture-input';
-import type { CaptureInterval } from '@daisy/protocol';
+import { speakingEndMs, type CaptureInterval } from '@daisy/protocol';
 
 type SegmentTiming = {
   readonly startedAt: Date;
@@ -8,12 +8,12 @@ type SegmentTiming = {
   readonly durationMs: number;
 };
 
-/** A segment's speaking time ends at its close or its scheduled duration, whichever is first. */
 const speakingEnd = (segment: SegmentTiming) =>
-  Math.min(
-    segment.endedAt?.getTime() ?? Infinity,
-    segment.startedAt.getTime() + segment.durationMs,
-  );
+  speakingEndMs({
+    startedAtMs: segment.startedAt.getTime(),
+    endedAtMs: segment.endedAt?.getTime() ?? null,
+    durationMs: segment.durationMs,
+  });
 
 /**
  * A clip's server bracket must contain its nominal position, lie within one

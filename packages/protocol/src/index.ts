@@ -5,6 +5,7 @@
  * added in the same change as its first consumer (knip's
  * `includeEntryExports` fails an export nobody imports).
  */
+export { segmentDueAtMs, speakingEndMs } from './segment-end';
 export {
   idSchema,
   debateSides,

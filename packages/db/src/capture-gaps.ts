@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { grantWindows } from './capture-history';
-import type { CaptureRule } from '@daisy/protocol';
+import { speakingEndMs, type CaptureRule } from '@daisy/protocol';
 import { actors } from './schema/actors';
 import { roundBotPublicationWindows } from './schema/round-bot-publications';
 import { roundParticipants } from './schema/round-participants';
@@ -98,10 +98,11 @@ export async function closedStreamGaps(
     const segment = segments.find((row) => row.id === stream.segmentId);
     if (!segment) continue;
     const startMs = segment.startedAt.getTime();
-    const speakingEndMs = Math.min(
-      segment.endedAt?.getTime() ?? Infinity,
-      startMs + segment.durationMs,
-    );
+    const speakingEnd = speakingEndMs({
+      startedAtMs: segment.startedAt.getTime(),
+      endedAtMs: segment.endedAt?.getTime() ?? null,
+      durationMs: segment.durationMs,
+    });
     const kind = seats.find(
       (seat) => seat.id === stream.roundParticipantId,
     )?.kind;
@@ -110,7 +111,7 @@ export async function closedStreamGaps(
       grantWindows(grantsOf.get(streamKey(stream)) ?? [], segment).map(
         (grant) => ({
           start: grant.start,
-          end: grant.end ?? speakingEndMs,
+          end: grant.end ?? speakingEnd,
         }),
       ),
       (windowsOf.get(streamKey(stream)) ?? []).map((row) => ({
