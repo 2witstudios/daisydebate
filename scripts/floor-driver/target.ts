@@ -96,6 +96,8 @@ const argsSchema = z.object({
   maxMinutes: z.coerce.number().positive().default(60),
   control: z.boolean().default(false),
   controlBoundMs: z.coerce.number().int().min(0).default(500),
+  /** Where the report goes; LiveKit's native logging shares stdout. */
+  out: z.string().min(1).optional(),
 });
 const camel = (flag: string) =>
   flag

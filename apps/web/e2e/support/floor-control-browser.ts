@@ -40,6 +40,16 @@ const opened = await Promise.all(
       })),
     );
     const page = await context.newPage();
+    const problems: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error')
+        problems.push(message.text().slice(0, 300));
+    });
+    page.on('requestfailed', (request) =>
+      problems.push(
+        `${new URL(request.url()).pathname}: ${request.failure()?.errorText}`,
+      ),
+    );
     if (input.profile === 'held')
       await page.route(`**${mediaPath}/reconcile`, (route) => route.abort());
     const admission = page.waitForResponse(
@@ -56,7 +66,14 @@ const opened = await Promise.all(
     await page
       .getByRole('status')
       .filter({ hasText: /^Connected$/ })
-      .waitFor({ timeout: 60_000 });
+      .waitFor({ timeout: 60_000 })
+      .catch(async (error: unknown) => {
+        const statuses = await page.getByRole('status').allTextContents();
+        process.stderr.write(
+          `${JSON.stringify({ role: seat.role, statuses, problems: problems.slice(-12) })}\n`,
+        );
+        throw error;
+      });
     return { role: seat.role, identity, token };
   }),
 );

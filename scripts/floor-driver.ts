@@ -187,5 +187,7 @@ const report = {
       }
     : 'not run',
 };
-process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+const printed = `${JSON.stringify(report, null, 2)}\n`;
+if (args.out) await Bun.write(args.out, printed);
+else process.stdout.write(printed);
 process.exit(report.cell.valid && report.loopFailures.length === 0 ? 0 : 1);
