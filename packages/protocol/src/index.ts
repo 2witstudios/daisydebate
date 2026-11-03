@@ -487,6 +487,27 @@ export {
   type SpectatorTimeline,
 } from './spectator-timeline';
 export {
+  audienceReactionKinds,
+  audienceReactionPostSchema,
+  audienceSnapshotSchema,
+  debaterFollowUpdateSchema,
+  notificationKinds,
+  notificationPreferencesSchema,
+  notificationsReadSchema,
+  SPECTATOR_CHAT_UNITS,
+  SPECTATOR_CHAT_WINDOW,
+  spectatorChatMessageSchema,
+  spectatorChatPostSchema,
+  viewerPulseSchema,
+  watchHistoryUpdateSchema,
+  type AudienceReactionKind,
+  type AudienceSnapshot,
+  type NotificationKind,
+  type NotificationPreferences,
+  type SpectatorChatMessage,
+  type SpectatorChatPost,
+} from './audience';
+export {
   recordingClasses,
   recordingEligibilitySchema,
   recordingFailureReasons,

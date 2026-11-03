@@ -9,6 +9,7 @@ import {
   primaryKey,
   text,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import {
   messagingActorColumn,
@@ -16,9 +17,13 @@ import {
 } from './messaging-columns';
 import { createdAtColumn, oneOf } from './columns';
 import { actors } from './actors';
+import { rounds } from './rounds';
 import { messagingChannelLifecycles } from '@daisy/protocol';
 
-/** Social foundation only; contextual kinds arrive with their real producer. */
+/**
+ * DMs, private groups and one contextual kind with its real producer: a Round's
+ * spectator channel (SPECT-1.4, ADR 0107), constrained to its exact Round.
+ */
 export const messagingChannels = pgTable(
   'messaging_channels',
   {
@@ -27,6 +32,10 @@ export const messagingChannels = pgTable(
     policyKey: text('policy_key').notNull(),
     policyRevision: integer('policy_revision').notNull(),
     lifecycle: text('lifecycle').notNull(),
+    /** The Round a spectator channel belongs to; every other kind has none. */
+    roundId: text('round_id').references(() => rounds.id, {
+      onDelete: 'cascade',
+    }),
     title: text('title'),
     titleAuthorActorId: text('title_author_actor_id').references(
       () => actors.id,
@@ -40,9 +49,14 @@ export const messagingChannels = pgTable(
   (table) => [
     index('messaging_channels_title_author_idx').on(table.titleAuthorActorId),
     unique('messaging_channels_id_kind_unique').on(table.id, table.kind),
+    uniqueIndex('messaging_channels_round_unique').on(table.roundId),
     check(
       'messaging_channels_kind',
-      oneOf(table.kind, ['dm', 'private_group']),
+      oneOf(table.kind, ['dm', 'private_group', 'round_spectator']),
+    ),
+    check(
+      'messaging_channels_round',
+      sql`(${table.kind} = 'round_spectator') = (${table.roundId} is not null)`,
     ),
     check(
       'messaging_channels_lifecycle',
@@ -50,7 +64,7 @@ export const messagingChannels = pgTable(
     ),
     check(
       'messaging_channels_policy',
-      sql`${table.policyRevision} > 0 and ((${table.kind} = 'dm' and ${table.policyKey} = 'social.dm') or (${table.kind} = 'private_group' and ${table.policyKey} = 'social.private_group'))`,
+      sql`${table.policyRevision} > 0 and ((${table.kind} = 'dm' and ${table.policyKey} = 'social.dm') or (${table.kind} = 'private_group' and ${table.policyKey} = 'social.private_group') or (${table.kind} = 'round_spectator' and ${table.policyKey} = 'round.spectator'))`,
     ),
     check(
       'messaging_channels_authority_revision',
