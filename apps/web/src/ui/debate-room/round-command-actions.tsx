@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useId, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { isLiveDebater } from './live-round';
 import { UnacknowledgedCommand } from './unacknowledged-command';
@@ -138,8 +138,12 @@ export function RoundCommandActions({
     if (answer !== unanswered && (answer.view || answer.error))
       onAnswer(answer);
   }, [answer, onAnswer]);
+  // The feedback moves when the Round ends and the frame gives way, so an answer
+  // on screen is focused again in its new place.
+  const live = isLiveDebater(view, actorId);
+  const answered = useMemo(() => ({ answer, live }), [answer, live]);
   useFocusAfterAnswer(
-    answer,
+    answered,
     shownError(answer, view) ? feedback : `${control}-${answer.values.type}`,
     !pending,
   );
