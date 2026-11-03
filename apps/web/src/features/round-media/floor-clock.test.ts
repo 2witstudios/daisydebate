@@ -37,7 +37,12 @@ test('the floor is due at the latest committed change, never a future one', () =
     given: 'an open speech past its time',
     should: 'be due when its time ran out',
     actual: floorDueAt(
-      clock({ startedAt: at(5_000), endedAt: null, durationMs: 2_000 }),
+      clock({
+        startedAt: at(5_000),
+        endedAt: null,
+        durationMs: 2_000,
+        returnedMs: 0,
+      }),
       7_100,
     ),
     expected: 7_000,
