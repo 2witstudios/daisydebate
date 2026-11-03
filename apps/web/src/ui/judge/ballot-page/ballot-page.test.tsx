@@ -28,7 +28,6 @@ const input: RoundBallotRead = {
   },
   own: {
     participantId: judge.id,
-    status: null,
     ballot: null,
     freezeRevision: null,
   },
