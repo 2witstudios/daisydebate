@@ -18,6 +18,7 @@ import {
 import { stayOn } from '../../../server/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
+import { audienceRefusalText } from '../../../ui/audience/audience-copy';
 import type { NotificationPreferencesState } from '../../../ui/notifications/notification-preferences-form';
 import { post } from '../form-post';
 
@@ -90,7 +91,10 @@ const mutate = async (
   const incoming = new Headers(await headers());
   try {
     const response = await post(route, path, body);
-    if (!response.ok) return refused(form, FAILED);
+    if (!response.ok) {
+      const refusal = await refusalOf(response);
+      return refused(form, (refusal && audienceRefusalText[refusal]) ?? FAILED);
+    }
   } catch {
     return refused(form, FAILED);
   }

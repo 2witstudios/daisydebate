@@ -92,15 +92,34 @@ const sortKeys = {
   longest: sql`coalesce(${durationMs}, -1)`,
 } as const;
 
+const cursorRound = {
+  id: sql`c.id`,
+  status: sql`c.status`,
+  competitionType: sql`c.competition_type`,
+  completedAt: sql`c.completed_at`,
+};
+
+/**
+ * A cursor outside the viewer's scope reads as a missing one, so polling a live or
+ * private Round's id learns nothing of when it ended.
+ */
+const cursorInScope = (input: ArchiveInput): SQL =>
+  input.query.scope === 'mine'
+    ? input.viewerActorId === null
+      ? sql`false`
+      : sql`exists (select 1 from round_participants p where p.round_id = c.id and p.actor_id = ${input.viewerActorId})`
+    : sql`coalesce((select v.visibility from rooms v where v.id = c.room_id), c.visibility, 'private') = 'public'
+        and ${factReleasedSql(sql`c.completed_at`, cursorRound, input.clock)}`;
+
 /** Compared in SQL against the cursor's own row, so no precision is lost in JS. */
 const afterCursor = (input: ArchiveInput): SQL | undefined => {
   const { before, sort } = input.query;
   if (before === '') return undefined;
   return sort === 'newest'
-    ? sql`(${rounds.completedAt}, ${rounds.id}) < (select c.completed_at, c.id from rounds c where c.id = ${before})`
+    ? sql`(${rounds.completedAt}, ${rounds.id}) < (select c.completed_at, c.id from rounds c where c.id = ${before} and ${cursorInScope(input)})`
     : sql`(coalesce(${durationMs}, -1), ${rounds.id}) < (
         select coalesce((r.lifecycle->'media'->>'durationMs')::int, -1), c.id
-        from rounds c left join recordings r on r.round_id = c.id where c.id = ${before})`;
+        from rounds c left join recordings r on r.round_id = c.id where c.id = ${before} and ${cursorInScope(input)})`;
 };
 
 /**

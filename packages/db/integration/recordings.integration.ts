@@ -485,6 +485,73 @@ test('erasure under an open report keeps a taken-down casual Recording hidden, t
   });
 });
 
+test('a cursor outside the archive scope tells nothing of that Round', async () => {
+  await withStore(async ({ ops, archive, fixture, track, client }) => {
+    const formatId = 'freestyle';
+    const ranked = {
+      competition_type: 'ranked',
+      format_id: formatId,
+      ladder_id: formatId,
+      preset_version: 1,
+      visibility: 'public',
+    };
+    const older = track(
+      await fixture.round({
+        ...ranked,
+        status: 'completed',
+        started_at: at,
+        completed_at: at,
+      }),
+    );
+    const id = createId();
+    await ops.requestRecording({
+      id,
+      roundId: older,
+      class: 'ranked',
+      eligibility: { kind: 'ranked' },
+    });
+    await ops.applyRecording(id, () => ({ kind: 'moved', next: ready(id) }));
+    const held = track(
+      await fixture.round({
+        ...ranked,
+        status: 'active',
+        current_stage: 'live',
+        started_at: at,
+      }),
+    );
+    const pageBefore = async (now: string) =>
+      (
+        await archive.listRecordingArchive({
+          query: {
+            scope: 'all',
+            mode: 'any',
+            q: '',
+            sort: 'newest',
+            before: held,
+          },
+          viewerActorId: null,
+          clock: { now, rankedDelaySeconds: 60 },
+          limit: 200,
+        })
+      ).rows.some((row) => row.id === older);
+    const endedAt = '2026-11-02T11:00:00.000Z';
+    const live = await pageBefore(endedAt);
+    await client`update rounds set status='completed', current_stage=null, outcome='affirmative', completed_at=${endedAt}::timestamptz where id=${held}`;
+    assert({
+      given: 'a live Round as cursor, then the same Round ended and still held',
+      should: 'answer nothing both times, so polling learns no end',
+      actual: [live, await pageBefore(endedAt)],
+      expected: [false, false],
+    });
+    assert({
+      given: 'its end released',
+      should: 'page as any listed Round does',
+      actual: await pageBefore('2026-11-02T12:00:00.000Z'),
+      expected: true,
+    });
+  });
+});
+
 test('a ranked Round leaves the archive when its Recording is taken down, transcript or not', async () => {
   await withStore(async ({ ops, archive, fixture, track, client }) => {
     const formatId = 'freestyle';
@@ -797,7 +864,7 @@ test('moderation reaches a real Recording, and a takedown holds what it can rest
           status: 'ready',
           version: 2,
           restorable: false,
-          removable: true,
+          removable: false,
           rebuildable: false,
           takedownReason: null,
         },
@@ -849,7 +916,8 @@ test('moderation reaches a real Recording, and a takedown holds what it can rest
         }),
     });
     assert({
-      given: 'a restore at the current version, then a removal',
+      given:
+        'a restore at the current version, then a second takedown and a removal',
       should: 'put the same media back, then write a durable moderation intent',
       actual: [
         await recordingModeration.restore(db as never, {
@@ -857,9 +925,15 @@ test('moderation reaches a real Recording, and a takedown holds what it can rest
           expectedVersion: 3,
         }),
         (await ops.findRecording(id))?.lifecycle,
-        await recordingModeration.remove(db as never, {
+        await recordingModeration.takeDown(db as never, {
           recordingId: id,
           expectedVersion: 4,
+          reason: 'policy_violation',
+          now: later,
+        }),
+        await recordingModeration.remove(db as never, {
+          recordingId: id,
+          expectedVersion: 5,
           now: later,
         }),
         (await ops.findRecording(id))?.lifecycle,
@@ -867,6 +941,7 @@ test('moderation reaches a real Recording, and a takedown holds what it can rest
       expected: [
         'applied',
         ready(id),
+        'applied',
         'applied',
         {
           status: 'removing',

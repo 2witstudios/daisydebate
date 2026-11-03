@@ -4,8 +4,10 @@ import { SQL } from 'bun';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { broadcastHoldPrefix } from '@daisy/protocol';
 import {
   openBroadcast,
+  recordEgressStarted,
   readConversationHeld,
 } from '../src/broadcast-operations';
 import { createRecordingCaptureStore } from '../src/recording-capture-store';
@@ -630,6 +632,58 @@ test('one own start is recorded per attempt, and a racing one loses', async () =
         (await store.readOwnEgress(id))?.egressId,
       ],
       expected: [1, winner],
+    });
+  });
+});
+
+test('sources are known from the moment an Egress is recorded, whatever the lifecycle', async () => {
+  await withStores(async ({ store, db, newRecording, client }) => {
+    const prefixOf = async (id: string) =>
+      (
+        (await client`select hold_prefix from recording_processing_jobs where recording_id=${id}`) as {
+          hold_prefix: string;
+        }[]
+      )[0]?.hold_prefix;
+    const own = await newRecording();
+    await store.openOwn({ recordingId: own.id, roundId: own.roundId });
+    await store.recordOwnEgressStarted({
+      recordingId: own.id,
+      egressId: 'EG_OWN',
+      generation: 1,
+      stageCredentialHash: 'h',
+      now: NOW,
+    });
+    assert({
+      given: 'an own Egress recorded before any pass reported it',
+      should: 'open the job, so a removal now still waits for the sources',
+      actual: [await prefixOf(own.id), await store.sourcesRemain(own.id)],
+      expected: [`recording-hold/${own.id}/`, true],
+    });
+    const held = await newRecording();
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId: held.roundId,
+      feedKey: createId(),
+      releasePolicy: { kind: 'delay', seconds: 60 },
+    });
+    assert({
+      given: 'a Broadcast with no Egress yet',
+      should: 'know of no sources',
+      actual: await store.sourcesRemain(held.id),
+      expected: false,
+    });
+    await recordEgressStarted(db, {
+      generation: 1,
+      id: open.id,
+      egressId: 'EG_B',
+      stageCredentialHash: 'h',
+      now: NOW,
+    });
+    assert({
+      given: "a Broadcast's Egress recorded",
+      should: 'open the job under the hold of that Broadcast',
+      actual: await prefixOf(held.id),
+      expected: broadcastHoldPrefix(open.id),
     });
   });
 });

@@ -13,6 +13,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import { controlHeartbeat } from './control-heartbeat';
+import { openRecordingJobIfEgressRecorded } from './recording-processing-operations';
 import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { mediaSessions } from './schema/media-sessions';
@@ -298,8 +299,11 @@ export const recordEgressStarted = async (
         eq(broadcasts.egressGeneration, input.generation - 1),
       ),
     )
-    .returning({ id: broadcasts.id });
-  return rows.length === 1;
+    .returning({ id: broadcasts.id, roundId: broadcasts.roundId });
+  const [won] = rows;
+  if (!won) return false;
+  await openRecordingJobIfEgressRecorded(tx, won.roundId);
+  return true;
 };
 
 export const recordObserverRevoked = (

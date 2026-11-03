@@ -76,10 +76,20 @@ const seatedAny = (usernames: readonly string[] | undefined) =>
 const moded = (mode: LiveBroadcastFilter['mode']) =>
   mode === 'any' ? undefined : eq(rounds.competitionType, mode);
 
-const afterCursor = (before: string): SQL | undefined =>
+const cursorRound = {
+  id: sql`c.id`,
+  status: sql`c.status`,
+  competitionType: sql`c.competition_type`,
+  completedAt: sql`c.completed_at`,
+};
+
+/** A cursor at a Round not yet on Live reads as a missing one: polling learns no start. */
+const afterCursor = (before: string, clock: SpectatorClock): SQL | undefined =>
   before === ''
     ? undefined
-    : sql`(${rounds.startedAt}, ${rounds.id}) < (select c.started_at, c.id from rounds c where c.id = ${before})`;
+    : sql`(${rounds.startedAt}, ${rounds.id}) < (select c.started_at, c.id from rounds c
+        where c.id = ${before} and c.visibility = 'public'
+          and ${factReleasedSql(sql`c.started_at`, cursorRound, clock)})`;
 
 /**
  * The Live listing, paged and filtered in SQL under the one release rule. Rows
@@ -143,7 +153,7 @@ export const liveBroadcastReads = ({
               moded(input.filter.mode),
               searched(input.filter.q),
               seatedAny(input.seatedUsernames),
-              afterCursor(input.before),
+              afterCursor(input.before, input.clock),
             ),
           )
           .orderBy(desc(rounds.startedAt), desc(rounds.id))

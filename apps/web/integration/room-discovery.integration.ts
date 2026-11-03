@@ -160,7 +160,8 @@ test('selected Room locks recheck visibility, participant and status races with 
 
 test('selected Round locks recheck frozen visibility and terminal status races', async () => {
   await withRoomRuntime(async (f) => {
-    for (const change of ['visibility', 'status', 'seat'] as const) {
+    // An outsider never selects a live Round, so only a member can be mid-read.
+    for (const change of ['status', 'seat'] as const) {
       const title = createId();
       const cast = await f.freshCast();
       let view = await f.assemble({ title }, cast);
@@ -169,17 +170,12 @@ test('selected Round locks recheck frozen visibility and terminal status races',
         await f.sql`update rounds set visibility='private' where id=${view.roundRef!.id}`;
       await withHeld(async (holder, pid) => {
         await holder`select id from rounds where id=${view.roundRef!.id} for update`;
-        const reading = f.operations.list(
-          change === 'seat' ? cast.guest : f.outsider,
-          {
-            q: title,
-            pageSize: 1,
-          },
-        );
+        const reading = f.operations.list(cast.guest, {
+          q: title,
+          pageSize: 1,
+        });
         await blocked(f.sql, pid);
-        if (change === 'visibility')
-          await holder`update rounds set visibility='private' where id=${view.roundRef!.id}`;
-        else if (change === 'seat')
+        if (change === 'seat')
           await holder`delete from round_participants where round_id=${view.roundRef!.id} and actor_id=${cast.guest.actorId}`;
         else
           await holder`update rounds set status='abandoned',current_stage=null,completed_at=statement_timestamp() where id=${view.roundRef!.id}`;

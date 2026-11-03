@@ -3,7 +3,7 @@ import { sql, type SQL } from 'drizzle-orm';
 /**
  * Whether an actor is in a Round's live room: any seat, judges included, or the
  * host who watches it undelayed (`round.observe.undelayed`). They see ahead of
- * the audience's feed, so they take no part in its chat. A null actor is nobody.
+ * the audience's feed, so they take no part in its chat or reactions. A null actor is nobody.
  */
 export const inLiveRoomSql = (
   round: { readonly id: SQL; readonly createdByActorId: SQL },

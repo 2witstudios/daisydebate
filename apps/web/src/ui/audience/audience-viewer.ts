@@ -12,7 +12,7 @@ type Actions = {
 
 /**
  * Who the audience panel is for. A visitor's sign-in comes back to `returnTo`,
- * the page they were reading; a place in the live room never posts.
+ * the page they were reading; a place in the live room neither posts nor reacts.
  */
 export const audienceViewerOf = (input: {
   readonly account: { readonly actorId: string | null } | null;
@@ -31,7 +31,7 @@ export const audienceViewerOf = (input: {
     return { kind: 'needs-username' };
   const { react, reportMessage, postChat } = actions;
   return input.inLiveRoom
-    ? { kind: 'live-room', react, reportMessage }
+    ? { kind: 'live-room', reportMessage }
     : {
         kind: 'account',
         requestId: input.requestId(),

@@ -31,6 +31,29 @@ test('Lobby discovery filters by status and mode and reports seats, format and l
       actual: outsiderLive.rooms.map((room) => room.id),
       expected: [],
     });
+    const guessed = await f.operations.list(f.outsider, {
+      q: title,
+      pageSize: 20,
+      status: 'live',
+    });
+    const missed = await f.operations.list(f.outsider, {
+      q: createId(),
+      pageSize: 20,
+      status: 'live',
+    });
+    assert({
+      given: 'an outsider searching for a live Round, right and wrong',
+      should: 'answer both alike, so a guess learns nothing (WATCH-6)',
+      actual: [guessed, missed].map(({ rooms, nextCursor, retry }) => ({
+        rooms: rooms.length,
+        nextCursor,
+        retry,
+      })),
+      expected: [
+        { rooms: 0, nextCursor: null, retry: false },
+        { rooms: 0, nextCursor: null, retry: false },
+      ],
+    });
     const facts = (id: string) => {
       const room = all.rooms.find((entry) => entry.id === id)!;
       return {

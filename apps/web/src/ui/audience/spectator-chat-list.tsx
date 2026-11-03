@@ -13,31 +13,33 @@ export function SpectatorChatList({
   if (messages.length === 0)
     return <p className="text-sm text-ink-muted">No messages yet.</p>;
   return (
-    <ul aria-label="Chat messages" className="flex flex-col gap-3">
-      {messages.map((message) => (
-        <li key={message.id} className="flex flex-col gap-1 text-sm">
-          {message.text === null ? (
-            <span className="text-ink-faint italic">
-              This message was removed.
-            </span>
-          ) : (
-            <>
-              <span className="font-strong text-ink">
-                {message.author ? `@${message.author}` : 'A closed account'}
+    <div role="log" aria-live="polite" aria-label="Chat messages">
+      <ul className="flex flex-col gap-3">
+        {messages.map((message) => (
+          <li key={message.id} className="flex flex-col gap-1 text-sm">
+            {message.text === null ? (
+              <span className="text-ink-faint italic">
+                This message was removed.
               </span>
-              <span className="text-ink-muted">{message.text}</span>
-              {reportAction ? (
-                <ReportForm
-                  targetKind="chat_message"
-                  targetId={message.id}
-                  label="Report"
-                  action={reportAction}
-                />
-              ) : null}
-            </>
-          )}
-        </li>
-      ))}
-    </ul>
+            ) : (
+              <>
+                <span className="font-strong text-ink">
+                  {message.author ? `@${message.author}` : 'A closed account'}
+                </span>
+                <span className="text-ink-muted">{message.text}</span>
+                {reportAction ? (
+                  <ReportForm
+                    targetKind="chat_message"
+                    targetId={message.id}
+                    label="Report"
+                    action={reportAction}
+                  />
+                ) : null}
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

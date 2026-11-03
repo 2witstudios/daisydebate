@@ -493,15 +493,16 @@ test('an operator or legal removal ends the feed, and only an operator stop with
     });
     try {
       assert({
-        given: 'a moderation removal just after the Broadcast completed',
+        given: 'a legal removal just after the Broadcast completed',
         should: 'ask for its feed to be withdrawn at once',
         actual: [
           (
             await ops.runModerationCommand(
               command({
-                action: 'recording.remove',
+                action: 'recording.legal_remove',
                 recordingId: removed,
                 expectedVersion: 1,
+                reason: 'court_order',
               } as never),
             )
           ).outcome,

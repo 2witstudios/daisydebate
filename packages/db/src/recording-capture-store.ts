@@ -10,6 +10,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import { recordingHoldPrefix } from '@daisy/protocol';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRoom } from './broadcast-operations';
 import { controlHeartbeat, heartbeatStale } from './control-heartbeat';
@@ -111,13 +112,12 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
       .leftJoin(captures, eq(captures.recordingId, recordings.id))
       .where(
         and(
-          or(
-            inArray(recordings.status, ['requested', 'capturing']),
-            and(
-              eq(captures.recordingId, recordings.id),
-              isNull(captures.endedAt),
-            ),
-          ),
+          // Each side by its own index: this runs every second over tables that never
+          // shrink, and an OR across the join would scan both.
+          sql`${recordings.id} in (
+            select r.id from ${recordings} r where r.status in ('requested', 'capturing')
+            union all
+            select c.recording_id from ${captures} c where c.ended_at is null)`,
           after === null ? undefined : gt(recordings.id, after),
         ),
       )
@@ -196,24 +196,34 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
     readonly stageCredentialHash: string;
     readonly now: Date;
   }): Promise<boolean> {
-    const rows = await database
-      .update(captures)
-      .set({
-        egressId: input.egressId,
-        egressGeneration: input.generation,
-        revocationFailures: 0,
-        stageCredentialHash: input.stageCredentialHash,
-        egressStartedAt: input.now,
-        ...controlHeartbeat(),
-      })
-      .where(
-        and(
-          eq(captures.recordingId, input.recordingId),
-          eq(captures.egressGeneration, input.generation - 1),
-        ),
-      )
-      .returning({ id: captures.recordingId });
-    return rows.length === 1;
+    return database.transaction(async (tx) => {
+      const rows = await tx
+        .update(captures)
+        .set({
+          egressId: input.egressId,
+          egressGeneration: input.generation,
+          revocationFailures: 0,
+          stageCredentialHash: input.stageCredentialHash,
+          egressStartedAt: input.now,
+          ...controlHeartbeat(),
+        })
+        .where(
+          and(
+            eq(captures.recordingId, input.recordingId),
+            eq(captures.egressGeneration, input.generation - 1),
+          ),
+        )
+        .returning({ id: captures.recordingId });
+      if (rows.length !== 1) return false;
+      // Whatever the lifecycle: a removal from here on still reaches what it writes.
+      await openRecordingJob(tx, {
+        recordingId: input.recordingId,
+        holdPrefix: recordingHoldPrefix(input.recordingId, {
+          kind: 'own_capture',
+        }),
+      });
+      return true;
+    });
   },
 
   async recordOwnRevoked(input: {

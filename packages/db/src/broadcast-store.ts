@@ -97,7 +97,7 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
     };
   },
   recordEgressStarted: (input: Parameters<typeof recordEgressStarted>[1]) =>
-    recordEgressStarted(database, input),
+    database.transaction((tx) => recordEgressStarted(tx, input)),
   async recordObserverRevoked(
     input: Parameters<typeof recordObserverRevoked>[1],
   ) {

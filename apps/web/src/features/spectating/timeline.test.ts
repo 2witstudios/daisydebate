@@ -272,9 +272,16 @@ describe('projectSpectatorTimeline', () => {
     const standing = (
       over: Partial<NonNullable<Read['broadcast']>> | null,
       round: Partial<Read['round']> = {},
+      facts: Partial<Read> = {},
     ) =>
       projectSpectatorTimeline(
-        read({ broadcast: over === null ? null : broadcast(over) }, round),
+        read(
+          {
+            broadcast: over === null ? null : broadcast(over),
+            ...facts,
+          },
+          round,
+        ),
       ).broadcast;
     const onTime = new Date(NOW - 60_000);
     const justLate = new Date(
@@ -415,11 +422,29 @@ describe('projectSpectatorTimeline', () => {
         expected: { state: 'failed' },
       });
       assert({
+        given: 'a Round ended but its end not yet released, the feed silent',
+        should: 'still read as interrupted, so the end stays held',
+        actual: [
+          standing(
+            { releasedThroughAt: justLate },
+            { status: 'completed', completedAt: justLate },
+            { outcomeReleased: false },
+          ).state,
+          standing(
+            {},
+            { status: 'completed', startedAt: justLate, completedAt: justLate },
+            { outcomeReleased: false },
+          ).state,
+        ],
+        expected: ['interrupted', 'interrupted'],
+      });
+      assert({
         given: 'a finished Round that never released media, past the bound',
         should: 'be failed',
         actual: standing(
           {},
           { status: 'completed', startedAt: justLate, completedAt: justLate },
+          { outcomeReleased: true },
         ),
         expected: { state: 'failed' },
       });
@@ -429,6 +454,7 @@ describe('projectSpectatorTimeline', () => {
         actual: standing(
           { releasedThroughAt: justLate },
           { status: 'completed', completedAt: justLate },
+          { outcomeReleased: true },
         ),
         expected: { state: 'ended' },
       });

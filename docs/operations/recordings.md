@@ -59,7 +59,7 @@ video: `RECORDING_WORK_DIR` needs room for the longest Round times three.
 
 ### Sources
 
-The job row exists from the first attempt, so a Recording removed mid-capture still knows
+The job row opens as soon as an Egress is recorded, whatever the Recording's state, so one removed mid-capture still knows
 what it left. The worker deletes `holdPrefix` once a Recording is `ready`, `removing` or
 `removed` and no Broadcast or own Egress may still use it; a scheduled Broadcast can hold
 them for hours. A Recording taken down keeps its sources, as evidence. A removal does not
@@ -127,7 +127,8 @@ rest of a Round whose Broadcast was stopped.
 A takedown hides the Recording from everyone at once. Every new playback or download
 request is refused, and a signed read already issued lasts at most 60 seconds. The
 objects stay, as evidence for disputes and integrity review, until moderation
-removes them. A Recording taken down while ready can be restored as it was, and the audience
+removes them: a moderation removal needs the takedown first, and only a legal ground removes
+a Recording still up. A Recording taken down while ready can be restored as it was, and the audience
 can watch it again. A takedown, a moderation removal and a legal removal each end the feed of
 the Round's open Broadcast and withdraw it, and a restore does not start it again.
 A ranked Round leaves the archive with its Recording, and the audience no longer gets its

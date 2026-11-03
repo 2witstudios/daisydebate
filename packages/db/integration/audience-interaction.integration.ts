@@ -709,6 +709,55 @@ test('reaction totals are current, and one window holds one press', async () => 
   });
 });
 
+test('a banned account cannot follow, and can still stop following', async () => {
+  await withEnv(async (env) => {
+    const fan = await member(env.f);
+    const debater = await member(env.f);
+    const other = await member(env.f);
+    const set = (username: string, state: 'following' | 'not_following') =>
+      env.follows.setDebaterFollow({
+        followerUserId: fan.userId,
+        username,
+        state,
+      });
+    await set(`u-${debater.userId}`, 'following');
+    await env.client`insert into audience_bans (user_id,banned_by_ref) values (${fan.userId},'operator')`;
+    assert({
+      given: 'a ban on the follower',
+      should: 'refuse a new follow with the one answer, and let one go',
+      actual: [
+        await set(`u-${other.userId}`, 'following'),
+        await set(`u-${debater.userId}`, 'not_following'),
+      ],
+      expected: ['unavailable', 'not_following'],
+    });
+  });
+});
+
+test('"on air" reads only while the Broadcast is open', async () => {
+  await withEnv(async (env) => {
+    const debater = await member(env.f);
+    const fan = await member(env.f);
+    await env.follows.setDebaterFollow({
+      followerUserId: fan.userId,
+      username: `u-${debater.userId}`,
+      state: 'following',
+    });
+    const roundId = await env.audienceRound();
+    await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    await broadcast(env.client, roundId, { released: at(10) });
+    await sweep(env, 11);
+    const onAir = await rowsFor(env, fan.userId);
+    await env.client`update broadcasts set stopped_at=${at(12)},stop_reason='test' where round_id=${roundId}`;
+    assert({
+      given: 'an unread on-air notification, then the Broadcast stopped',
+      should: 'stand while it is on air and not after',
+      actual: [onAir.length, (await rowsFor(env, fan.userId)).length],
+      expected: [1, 0],
+    });
+  });
+});
+
 test('following: one way, refused for yourself, a stranger or a block with one answer', async () => {
   await withEnv(async (env) => {
     const fan = await member(env.f);

@@ -56,6 +56,7 @@ type RecordingRefusal =
   | 'not_restorable'
   | 'not_rebuildable'
   | 'evidence_held'
+  | 'take_down_first'
   | 'out_of_order';
 
 /** Repeating a settled event changes nothing, so a retry cannot duplicate one. */
@@ -233,6 +234,9 @@ const removalRequested = (
     event.cause === 'moderation'
   )
     return refused('evidence_held');
+  // Moderation takes a Recording down, then decides; only a legal ground skips that.
+  if (event.cause === 'moderation' && lifecycle.status !== 'taken_down')
+    return refused('take_down_first');
   if (
     lifecycle.status === 'taken_down' &&
     event.cause === 'participant_request' &&

@@ -58,8 +58,10 @@ export const startHiddenFrom = (
 
 /**
  * A started Room as someone outside it may know it: closed, as an expired or
- * cancelled Room reads, so the read says nothing of a start (WATCH-6). A drawn
- * resolution was never public before the Round; the spectator timeline releases
+ * cancelled Room reads, so the read does not say it started (WATCH-6). When it turned
+ * closed is known undelayed, and that is accepted: this read holds no horizon, and
+ * keeping it `ready` would offer seats and commands that are refused (ADR 0099). A
+ * drawn resolution was never public before the Round; the spectator timeline releases
  * it. Commands they send are refused alike, `room-closed` either way.
  */
 const roomKnownTo = (

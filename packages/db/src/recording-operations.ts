@@ -2,6 +2,7 @@ import type { RecordingClass, RecordingEligibility } from '@daisy/protocol';
 import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { endRoundFeed } from './broadcast-operations';
+import { openRecordingJobIfEgressRecorded } from './recording-processing-operations';
 import {
   moveRecording,
   type RecordingDecision,
@@ -42,6 +43,8 @@ export const recordingOperations = ({
         lifecycle: { status: 'requested' },
       })
       .onConflictDoNothing({ target: recordings.roundId });
+    // A Recording asked for after its Broadcast's Egress began knows its sources too.
+    await openRecordingJobIfEgressRecorded(database, input.roundId);
     const [row] = await database
       .select()
       .from(recordings)

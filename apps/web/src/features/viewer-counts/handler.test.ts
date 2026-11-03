@@ -97,6 +97,65 @@ describe('the viewer pulse route', () => {
     });
   });
 
+  test('one address adds only so many new tabs a minute', async () => {
+    const seen = new Set<string>();
+    let newTabs = 0;
+    const pulses: unknown[] = [];
+    const route = createViewerPulseRoute({
+      logger: { ...silentLogger, child: () => silentLogger } as never,
+      reporter: noopErrorReporter,
+      origin: () => origin,
+      limiter: () => ({
+        consume: async (key, rule) => {
+          if (key.startsWith('audience:pulse-seen:')) {
+            const first = !seen.has(key);
+            seen.add(key);
+            return { allowed: first, retryAfterSeconds: rule.windowSeconds };
+          }
+          if (key.startsWith('audience:pulse-new:')) {
+            newTabs += 1;
+            return { allowed: newTabs <= 2, retryAfterSeconds: 60 };
+          }
+          return { allowed: true, retryAfterSeconds: 0 };
+        },
+      }),
+      clock: { now: () => new Date(VIEWER_BUCKET_MS * 10 + 5).toISOString() },
+      store: {
+        readOnAirAudience: async () => ({ visibility: 'public' as const }),
+        readRoundAudienceLink: async () => null,
+      } as never,
+      counts: {
+        recordViewerPulse: async (pulse) => {
+          pulses.push(pulse.token);
+        },
+      },
+    });
+    const tab = (id: string) =>
+      route(
+        pulseAt(
+          { 'x-daisy-client-ip': '192.0.2.7' },
+          { version: 1, token: id },
+        ),
+      );
+    const [a, b, c] = [createId(), createId(), createId()];
+    const answers = [
+      await tab(a),
+      await tab(b),
+      await tab(a),
+      await tab(c),
+    ].map((response) => response.status);
+    assert({
+      given: 'two new tabs within the cap, one repeating, and one past it',
+      should:
+        'count the first two, not charge the repeat, and refuse the third',
+      actual: [answers, pulses],
+      expected: [
+        [204, 204, 204, 429],
+        [a, b, a],
+      ],
+    });
+  });
+
   test('an unlisted Round counts only the holder of its link', async () => {
     const stranger = setup(true, 'unlisted');
     const holder = setup(true, 'unlisted');

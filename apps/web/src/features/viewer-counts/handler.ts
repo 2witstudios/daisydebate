@@ -13,7 +13,11 @@ import {
   readJson,
   requireSameOrigin,
 } from '../../server/http';
-import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
+import {
+  consumeOrThrow,
+  readLimiterDecision,
+  type RateLimiter,
+} from '../../server/rate-limit';
 import { createSnapshotMemo } from '../spectating/snapshot-memo';
 import { VIEWER_BUCKET_TTL_MS, viewerBucketOf } from './viewer-count';
 
@@ -21,6 +25,12 @@ const ON_AIR_TTL_MS = 5000;
 const ON_AIR_ROUNDS = 5000;
 /** A shared address can hold a whole room of viewers; this only stops a flood. */
 const PULSE_LIMIT = { max: 600, windowSeconds: 60 };
+/**
+ * A tab an address has not been heard from lately, so one script cannot inflate a
+ * count with made-up tokens. Repeats cost nothing here.
+ */
+const NEW_TAB_LIMIT = { max: 60, windowSeconds: 60 };
+const TAB_SEEN = { max: 1, windowSeconds: 60 };
 
 /**
  * POST /api/rounds/:id/viewers: one tab says it is watching. It reads no session
@@ -77,6 +87,16 @@ export function createViewerPulseRoute(deps: {
           viewerPulseSchema,
           await readJson(request, 256),
         );
+        const address = request.headers.get(CLIENT_IP_HEADER) ?? 'unknown';
+        const seen = await deps
+          .limiter()
+          .consume(`audience:pulse-seen:${address}:${token}`, TAB_SEEN);
+        if (readLimiterDecision(seen).allowed)
+          await consumeOrThrow(
+            deps.limiter(),
+            `audience:pulse-new:${address}`,
+            NEW_TAB_LIMIT,
+          );
         const audience = await onAir(roundId, () =>
           deps.store.readOnAirAudience({ roundId }),
         );

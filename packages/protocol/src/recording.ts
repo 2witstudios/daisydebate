@@ -34,7 +34,12 @@ export type RecordingEligibility = z.infer<typeof recordingEligibilitySchema>;
 
 const at = z.iso.datetime({ offset: false });
 const offsetMs = z.int().nonnegative();
-const objectKey = z.string().min(1).max(512);
+/** Never a `..` segment: storage normalizes it, which would climb out of the prefix. */
+const objectKey = z
+  .string()
+  .min(1)
+  .max(512)
+  .refine((key) => !key.split('/').includes('..'));
 
 /** A stretch of the video no media covers, stated rather than hidden. */
 const coverageGapSchema = z.strictObject({

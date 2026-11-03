@@ -31,9 +31,24 @@ export function CaptureChoice({
   if (view.captureOffer === null) return null;
   if (view.captureOffer === 'premium')
     return (
-      <p role="status" className="text-sm text-ink-muted">
-        {capturePremiumText}
-      </p>
+      <>
+        <p role="status" className="text-sm text-ink-muted">
+          {capturePremiumText}
+        </p>
+        {/* Losing the grant never traps a Room: no choice posted clears it. */}
+        {view.capture ? (
+          <AssemblyCommandForm action={action} className="flex flex-col gap-3">
+            <AssemblyCommandFields
+              type="set-capture"
+              version={view.version}
+              commandId={commandId}
+            />
+            <button type="submit" className="self-start text-sm font-strong">
+              Turn off broadcast and recording
+            </button>
+          </AssemblyCommandForm>
+        ) : null}
+      </>
     );
   const broadcast = view.capture?.broadcast ?? null;
   return (

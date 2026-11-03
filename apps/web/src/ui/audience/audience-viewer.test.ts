@@ -50,5 +50,11 @@ describe('audienceViewerOf', () => {
       ],
       expected: ['needs-username', 'needs-username', 'live-room', 'account'],
     });
+    assert({
+      given: 'a place in the live room',
+      should: 'offer no reaction, and keep reporting',
+      actual: Object.keys(of({ inLiveRoom: true })).sort(),
+      expected: ['kind', 'reportMessage'],
+    });
   });
 });

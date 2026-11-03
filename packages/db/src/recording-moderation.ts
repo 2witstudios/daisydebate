@@ -86,10 +86,7 @@ export const recordingModeration: RecordingModeration = {
         lifecycle.status === 'taken_down' &&
         lifecycle.held !== null &&
         !heldAsEvidence,
-      removable:
-        !heldAsEvidence &&
-        lifecycle.status !== 'removing' &&
-        lifecycle.status !== 'removed',
+      removable: lifecycle.status === 'taken_down' && !heldAsEvidence,
       rebuildable:
         lifecycle.status === 'failed' &&
         lifecycle.capture !== undefined &&
