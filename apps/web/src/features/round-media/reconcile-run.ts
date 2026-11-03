@@ -21,7 +21,7 @@ import type {
   MediaOperationInput,
 } from './operation-context';
 import { OperationTimedOut } from '@daisy/observability';
-import type { MediaRoomFacts, MediaRoomRead } from '@daisy/protocol';
+import type { MediaRoomRead } from '@daisy/protocol';
 import { createMediaMutations } from './mutation';
 
 /** What a vendor mutation's authorization reads, under its locks. */
