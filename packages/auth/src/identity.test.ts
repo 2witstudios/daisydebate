@@ -276,6 +276,7 @@ describe('resolveIdentity temporary failures', () => {
         readParticipation: async () => ({
           betaState: 'approved',
           ageBand: 'adult',
+          restricted: false,
         }),
         isTemporary: (error) => error === refusal,
         ...over,
