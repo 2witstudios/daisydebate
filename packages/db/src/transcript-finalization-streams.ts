@@ -1,6 +1,7 @@
 import { asc, eq, sql } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
-import { readSeatGrants, type BotGrantRule } from './capture-history';
+import type { CaptureRule } from '@daisy/protocol';
+import { readSeatGrants } from './capture-history';
 import { transcriptSegments } from './schema/transcript-segments';
 
 export type ExpectedTranscriptStream = {
@@ -10,7 +11,7 @@ export type ExpectedTranscriptStream = {
 export async function lockFinalizationStreams(
   tx: BoundedTransactionContext,
   roundId: string,
-  botGrantUnused: BotGrantRule,
+  botGrantUnused: CaptureRule['botGrantUnused'],
 ) {
   // Takeover requests only lease, never Round afterward. Missing sessions need no lease.
   await tx.execute(sql`select l.session_id from media_worker_leases l
@@ -56,6 +57,7 @@ export async function closeUnresolvedStreams(
         ...stream,
         roundId,
         state: 'partial' as const,
+        partialReasons: ['never-sealed' as const],
         chunkCount: 0,
         sealedChunkCount: 0,
         sealedAt: sql`clock_timestamp()`,
@@ -65,6 +67,7 @@ export async function closeUnresolvedStreams(
     .update(transcriptSegments)
     .set({
       state: 'partial',
+      partialReasons: ['never-sealed'],
       sealedChunkCount: sql`${transcriptSegments.chunkCount}`,
       sealedAt: sql`clock_timestamp()`,
     })

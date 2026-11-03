@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { capturePartialReasonSchema } from './capture-verdict';
 import { debateSides, idSchema } from './primitives';
 import { roundRecordSchema } from './round-view';
 
@@ -32,6 +33,8 @@ export const roundTranscriptReadSchema = z.strictObject({
       segmentId: idSchema,
       roundParticipantId: idSchema,
       state: z.enum(['open', 'complete', 'partial']),
+      /** Why a partial stream is partial. Empty unless partial. */
+      partialReasons: z.array(capturePartialReasonSchema),
       /** Required speech with no capture, as offsets into the speech. Closed or frozen streams only. */
       gaps: z.array(
         z.strictObject({

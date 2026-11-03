@@ -1,4 +1,4 @@
-import { judgingJobRules } from './judging-job-rules.test-support';
+import { judgingJobRules } from '@daisy/debate-engine';
 import { ballotCategories, ballotSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';

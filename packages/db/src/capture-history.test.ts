@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { coverageAuthority } from './capture-history';
+import type { CaptureRule } from '@daisy/protocol';
 import type { CaptureTx } from './media-capture-context';
 
 setupRitewayBun();
@@ -12,7 +13,14 @@ const stream = {
   roundParticipantId: 'p'.repeat(24),
 };
 const grants = [{ start: 1000, end: 6000 }];
-const tolerance = { joinMs: 4000, relayMs: 1000 };
+/** Echoes what the adapter read: the decision itself is the engine's, tested there. */
+const tolerance = {
+  coverage: (kind: string, authorityGrants: unknown, botWindows: unknown) => ({
+    kind,
+    authorityGrants,
+    botWindows,
+  }),
+} as unknown as CaptureRule;
 /** Answers each select with the next canned rows, in query order. */
 const reading = (...answers: readonly unknown[][]) => {
   const queue = [...answers];
@@ -24,11 +32,10 @@ const reading = (...answers: readonly unknown[][]) => {
   return { select: () => query } as unknown as CaptureTx;
 };
 
-test('a human seat must cover its grants, joined within the join tolerance (DEC-218)', async () => {
+test('a human seat\u2019s stream is read for the rule as human', async () => {
   assert({
     given: 'a human seat and one without a readable actor',
-    should:
-      'require its grants, opening by join tolerance and closing by relay',
+    should: 'ask the rule for a human stream, with its grants',
     actual: [
       await coverageAuthority(
         reading([{ kind: 'human' }]),
@@ -39,17 +46,17 @@ test('a human seat must cover its grants, joined within the join tolerance (DEC-
       await coverageAuthority(reading([]), stream, grants, tolerance),
     ],
     expected: [
-      { authority: grants, tolerance: { openMs: 4000, closeMs: 1000 } },
-      { authority: grants, tolerance: { openMs: 4000, closeMs: 1000 } },
+      { kind: 'human', authorityGrants: grants, botWindows: [] },
+      { kind: 'human', authorityGrants: grants, botWindows: [] },
     ],
   });
 });
 
-test('a bot seat must cover only its credited windows, joined within relay latency (DEC-218, DEC-219)', async () => {
+test('a bot seat\u2019s stream is read for the rule with its credited windows', async () => {
   assert({
     given: 'a bot seat with two credited runs, and one with none',
     should:
-      'require exactly those windows with relay edges, never the floor grants',
+      'ask the rule for a bot stream, with exactly those windows as instants',
     actual: [
       await coverageAuthority(
         reading(
@@ -72,16 +79,14 @@ test('a bot seat must cover only its credited windows, joined within relay laten
     ],
     expected: [
       {
-        authority: [
+        kind: 'bot',
+        authorityGrants: grants,
+        botWindows: [
           { start: 1880, end: 4790 },
           { start: 6000, end: 6500 },
         ],
-        tolerance: { openMs: 1000, closeMs: 1000, terminalCloseMs: 1000 },
       },
-      {
-        authority: [],
-        tolerance: { openMs: 1000, closeMs: 1000, terminalCloseMs: 1000 },
-      },
+      { kind: 'bot', authorityGrants: grants, botWindows: [] },
     ],
   });
 });

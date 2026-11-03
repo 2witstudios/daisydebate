@@ -11,7 +11,6 @@ const allOpen = Object.fromEntries(
 
 const betaConfig = {
   ...allOpen,
-  ranked: false,
   train: false,
   tournaments: false,
 };
@@ -49,17 +48,17 @@ describe('playOptions', () => {
 
   test('a way to play that is not open goes to its explainer, after the open ones', () => {
     assert({
-      given: 'ranked, train and tournaments not launched',
+      given: 'train and tournaments not launched',
       should:
-        'lead with Open a room, then tag the rest Coming soon and link their explainers',
+        'lead with rated and Open a room, then tag the rest Coming soon and link their explainers',
       actual: playOptionsFor(betaConfig).map(({ id, href, comingSoon }) => [
         id,
         href,
         comingSoon,
       ]),
       expected: [
+        ['ranked', '/ranked', false],
         ['room', openRoomHref, false],
-        ['ranked', '/coming-soon/ranked', true],
         ['bot', '/coming-soon/train', true],
         ['events', '/coming-soon/tournaments', true],
       ],

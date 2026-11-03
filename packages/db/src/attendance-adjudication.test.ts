@@ -1,7 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import type { RoundProjection } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { NextAttendanceWindow } from './attendance-adjudication';
+import { nextAttendanceSegment as nextWindow } from '@daisy/debate-engine';
 import {
   adjudicationColumns,
   adjudicationCommand,
@@ -38,21 +38,6 @@ const resolution = (
   ...overrides,
 });
 const projection = {} as RoundProjection;
-
-/** The engine's rule, as injected; the db never imports the engine. */
-const nextWindow: NextAttendanceWindow = ({
-  ruleSegments: rules,
-  segments: rows,
-  finalizedSegmentIds,
-}) => {
-  const last = rules.filter((s) => s.type === 'speech').at(-1)?.key;
-  return rows.find(
-    (s) =>
-      s.type === 'speech' &&
-      s.rulesSegmentKey !== last &&
-      !finalizedSegmentIds.includes(s.id),
-  );
-};
 
 test('attendance resolves the earliest unadjudicated speech before the last one', async () => {
   assert({

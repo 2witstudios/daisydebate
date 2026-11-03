@@ -18,8 +18,8 @@ differently depending on which path noticed it.
 Round's end ended a job, whether a bot's grant owes a stream, which attendance
 window is next and whether attendance is settled are pure engine functions over
 facts, with time injected. `@daisy/db` still may not import the engine, so these
-rules reach it by injection. Its integration suites inject small stand-ins; the
-engine's unit tests and the `apps/web` suites run the real rules.
+rules reach it by injection. Its tests inject the real rules, through its existing
+test-only development dependency.
 
 **One panel, one decision.** `JudgingPanel` is an optional human window plus AI
 seats, each with one standing, so a human seat with no deadline has no

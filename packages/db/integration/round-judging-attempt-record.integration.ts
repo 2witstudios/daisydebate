@@ -11,7 +11,7 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const record = '20261102231940_round_completion_structure';
+const record = '20261103002410_round_completion_structure';
 const scratch = scratchDatabase(databaseUrl, 'judgingattempts');
 afterAll(() => scratch.drop());
 

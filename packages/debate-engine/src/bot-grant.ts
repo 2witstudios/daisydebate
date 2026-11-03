@@ -1,16 +1,4 @@
-/** One seat's grant in one segment, as read. */
-export type SeatGrantFacts = {
-  readonly seat: {
-    readonly kind: 'human' | 'bot';
-    readonly role: string;
-    readonly slot: number;
-  };
-  /** The frozen rules' entry for the grant's segment, when they can name one. */
-  readonly turn:
-    | { readonly side?: string | undefined; readonly slot?: number | undefined }
-    | undefined;
-  readonly hasCreditedWindow: boolean;
-};
+import type { SeatGrantFacts } from '@daisy/protocol';
 
 /**
  * True for a bot seat holding a grant it did not use: not its scheduled turn,

@@ -1,4 +1,4 @@
-import { botGrantUnused } from '@daisy/debate-engine';
+import { captureRule } from '@daisy/debate-engine';
 import {
   createAdmissionPriority,
   MEDIA_ADMISSION_HINT_TIMEOUT_MS,
@@ -13,10 +13,7 @@ import { createRoundMediaOperations } from '../src/features/round-media/operatio
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
 import { withRoomRuntime } from './room-runtime.test-support';
-import {
-  CAPTURE_COVERAGE_TOLERANCE,
-  CAPTURE_STT_LAG_MS,
-} from '@daisy/protocol';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 
 export const localMediaConfig = {
   url: 'http://127.0.0.1:7880',
@@ -105,8 +102,7 @@ export const captureOperations = (
 ) =>
   fixture.store.createMediaCaptureOperations({
     sttLagMs: CAPTURE_STT_LAG_MS,
-    coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
-    botGrantUnused,
+    captureRule,
     nextId: createId,
     buildProjection: (context) =>
       mediaRuntime(context, createId).tick(context.now),
@@ -128,8 +124,7 @@ export async function openRoundCapture(
     workerId,
     capture: f.store.createMediaCaptureOperations({
       sttLagMs: CAPTURE_STT_LAG_MS,
-      coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
-      botGrantUnused,
+      captureRule,
       nextId: createId,
       buildProjection,
     }),

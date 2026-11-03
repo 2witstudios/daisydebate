@@ -1,4 +1,6 @@
 import { botGrantUnused } from '@daisy/debate-engine';
+import { judgingPolicy } from '@daisy/protocol';
+import { captureRule } from '@daisy/debate-engine';
 import { createCaptureProofDiagnostics } from './media-worker-diagnostics';
 import { randomBytes } from 'node:crypto';
 import { createOpenRouter } from '@daisy/ai-voice';
@@ -16,11 +18,7 @@ import { createCaptureHeardRelay } from '../apps/web/src/features/media-capture/
 import { mediaDependencies } from '../apps/web/integration/round-media.test-support';
 import { mediaWorkerRole } from './test-logins';
 import type { withRoomRuntime } from '../apps/web/integration/room-runtime.test-support';
-import {
-  CAPTURE_COVERAGE_TOLERANCE,
-  CAPTURE_STT_LAG_MS,
-  judgingPolicy,
-} from '@daisy/protocol';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 const nextId = () => systemId.next();
@@ -103,8 +101,7 @@ async function startShortRound(
 function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
   const capture = f.store.createMediaCaptureOperations({
     sttLagMs: CAPTURE_STT_LAG_MS,
-    coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
-    botGrantUnused,
+    captureRule,
     nextId,
     buildProjection: (context) =>
       mediaRuntime(context, nextId).tick(context.now),

@@ -1,4 +1,4 @@
-import { attendanceSettled } from './attendance-settled-rule.test-support';
+import { attendanceSettled } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { ballotCategories, type Ballot } from '@daisy/protocol';

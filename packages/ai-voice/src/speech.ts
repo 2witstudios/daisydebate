@@ -84,17 +84,3 @@ export function phrasesOf(text: string, maxChars = PHRASE_CHARS): string[] {
     ...buffer.flush(),
   ];
 }
-
-/** Voice under this long in a clip is silence, breath or a cough. */
-const MIN_VOICED_MS = 500;
-
-/**
- * Whether a recorded clip is worth transcribing. Speech-to-text models
- * invent words ("Thank you.") from silence and noise, so a clip with too
- * little voice in it is never sent.
- */
-export const worthTranscribing = ({
-  voicedMs,
-}: {
-  readonly voicedMs: number;
-}) => voicedMs >= MIN_VOICED_MS;

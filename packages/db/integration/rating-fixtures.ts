@@ -1,4 +1,4 @@
-import { attendanceSettled } from './attendance-settled-rule.test-support';
+import { attendanceSettled } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import type {
   CompetitionType,

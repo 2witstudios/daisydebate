@@ -1,4 +1,4 @@
-import type { BotGrantRule } from './capture-history';
+import type { CaptureRule } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { and, eq } from 'drizzle-orm';
@@ -36,24 +36,18 @@ export type CaptureDependencies = {
   readonly transaction: BoundedTransaction;
   /** Injected policy: how long after a session closes earlier audio may still arrive (CAP-E.1-r8). */
   readonly sttLagMs: number;
-  /** Injected policy: how far required coverage may move to captured frames (DEC-218, DEC-220). */
-  readonly coverageTolerance: CoverageTolerance;
-  readonly botGrantUnused: BotGrantRule;
+  /** The engine's decisions on capture evidence (DEC-212, DEC-218, DEC-220). */
+  readonly captureRule: CaptureRule;
   /** Told each seal's facts, for the log. */
   readonly sealed?: (fact: {
     readonly roundId: string;
     readonly sessionId: string;
-    readonly state: 'complete' | 'partial';
-    readonly cause: string | null;
+    readonly cause: string;
     readonly windows: number;
     readonly captureStartMs: number | null;
   }) => void;
   readonly nextId: () => string;
   readonly buildProjection: LockedRoundTickInput['buildProjection'];
-};
-export type CoverageTolerance = {
-  readonly joinMs: number;
-  readonly relayMs: number;
 };
 export type CaptureTx = BoundedTransactionContext;
 export const validCaptureIds = (...ids: readonly string[]) => {

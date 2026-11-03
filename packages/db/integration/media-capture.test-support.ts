@@ -1,6 +1,5 @@
-import { botGrantUnused } from './bot-grant-rule.test-support';
+import { captureRule } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
-import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol';
 import type { BoundedTransaction } from '../src/bounded-transaction';
 import { mediaCaptureOperations } from '../src/media-capture';
 import type { Fixture } from './constraint-helpers';
@@ -20,7 +19,7 @@ export async function historicalCapture(
   const end = new Date(clock!.now.getTime() - endedAgoMs);
   const start = new Date(end.getTime() - durationMs);
   await fixture.sql.unsafe(
-    "update rounds set status='completed',outcome='affirmative',started_at=$2,completed_at=$3,final_segment_ended_at=$3,transcript_admission_cutoff=$4,attendance_resolution_cutoff_at=$3::timestamptz+interval '60 minutes' where id=$1",
+    "update rounds set status='completed',outcome='affirmative',started_at=$2,completed_at=$3,final_segment_ended_at=$3,transcript_admission_cutoff=$4 where id=$1",
     [roundId, start, end, new Date(end.getTime() + 120000)],
   );
   const seat = shape.bot
@@ -51,8 +50,7 @@ export async function historicalCapture(
   const store = mediaCaptureOperations({
     transaction,
     sttLagMs,
-    coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
-    botGrantUnused,
+    captureRule,
     nextId: createId,
     buildProjection: () => {
       throw new Error(

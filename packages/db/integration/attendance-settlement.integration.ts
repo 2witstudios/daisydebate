@@ -1,4 +1,4 @@
-import { attendanceSettled } from './attendance-settled-rule.test-support';
+import { attendanceSettled } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';

@@ -422,3 +422,24 @@ export type {
 export type { AttendanceLedgerFacts } from './attendance';
 export { attendanceRoundReadSchema } from './attendance';
 export { roundRecordSchema, type RoundRecord } from './round-view';
+export {
+  capturePartialReasons,
+  capturePartialReasonSchema,
+  type CaptureFacts,
+  type CaptureGap,
+  type CaptureInterval,
+  type CapturePartialReason,
+  type CaptureRule,
+  type CaptureVerdict,
+  type SeatGrantFacts,
+  type CoverageEdges,
+  type StreamCoverage,
+} from './capture-verdict';
+export {
+  acknowledgedReply,
+  captureMutationReply,
+  captureStateReply,
+  leaseReply,
+  sealReply,
+  tokenReply,
+} from './capture-worker-replies';

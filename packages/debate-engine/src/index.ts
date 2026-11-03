@@ -57,10 +57,11 @@ export {
   judgingJobEndReason,
   judgingJobRules,
 } from './judging-job-rules';
-export { botGrantUnused } from './bot-grant';
 export {
   attendanceSettled,
   finalSpeechKey,
   nextAttendanceSegment,
 } from './attendance-order';
 export type { RoundAdjudication } from './round-adjudication';
+export { captureRule } from './capture-verdict';
+export { botGrantUnused } from './bot-grant';

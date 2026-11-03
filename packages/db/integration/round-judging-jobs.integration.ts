@@ -1,5 +1,5 @@
-import { attendanceSettled } from './attendance-settled-rule.test-support';
-import { judgingJobRules } from './judging-job-rules.test-support';
+import { attendanceSettled } from '@daisy/debate-engine';
+import { judgingJobRules } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';

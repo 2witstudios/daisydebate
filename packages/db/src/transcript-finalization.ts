@@ -1,4 +1,4 @@
-import type { BotGrantRule } from './capture-history';
+import type { CaptureRule } from '@daisy/protocol';
 import {
   appendRoundPhaseChanged,
   lockedRoundVersion,
@@ -36,7 +36,7 @@ export const transcriptFinalizationOperations = (input: {
 
 export type FreezeRequest = LockedRoundTickInput & {
   /** The engine's rule, shared with the seal: a bot's unused grant owes no stream. */
-  readonly botGrantUnused: BotGrantRule;
+  readonly botGrantUnused: CaptureRule['botGrantUnused'];
   /**
    * The caller's judging rule for this freeze (DEC-201, DEC-207, DEC-208): how
    * long judges may rule after it, and whether AI judges are dispatched.

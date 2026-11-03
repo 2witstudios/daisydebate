@@ -1,5 +1,6 @@
 import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
 import { closedStreamGaps, streamKey } from './capture-gaps';
+import type { CaptureRule } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
@@ -26,6 +27,7 @@ export async function audienceTranscript(
   tx: Parameters<typeof readLockedFrozenRoundTranscript>[0],
   roundId: string,
   allowed: boolean,
+  captureRule: CaptureRule,
 ) {
   if (!allowed) return null;
   const frozen = await readLockedFrozenRoundTranscript(tx, roundId);
@@ -33,7 +35,7 @@ export async function audienceTranscript(
   const partial = frozen.coverage.filter(
     (stream) => stream.state === 'partial',
   );
-  const found = await closedStreamGaps(tx, roundId, partial);
+  const found = await closedStreamGaps(tx, roundId, partial, captureRule);
   const gaps = partial.flatMap((stream) =>
     (found.get(streamKey(stream)) ?? []).map((gap) => ({
       segmentId: stream.segmentId,
@@ -45,6 +47,11 @@ export async function audienceTranscript(
     completeness: frozen.completeness,
     utterances: frozen.utterances,
     gaps,
+    partialStreams: partial.map((stream) => ({
+      segmentId: stream.segmentId,
+      roundParticipantId: stream.roundParticipantId,
+      reasons: stream.partialReasons,
+    })),
   };
 }
 
@@ -96,6 +103,7 @@ export const roundBallotReads = ({
     readonly decideWaitingOn: (
       facts: RoundWaitingFacts,
     ) => RoundWaitingOn | null;
+    readonly captureRule: CaptureRule;
   }): Promise<RoundBallotRead> {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
@@ -142,6 +150,7 @@ export const roundBallotReads = ({
           tx,
           input.roundId,
           completed && input.authorizeTranscript(round, currentAccount),
+          input.captureRule,
         ),
       });
     });

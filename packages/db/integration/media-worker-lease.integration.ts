@@ -1,6 +1,5 @@
-import { botGrantUnused } from './bot-grant-rule.test-support';
+import { captureRule } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
-import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
@@ -20,8 +19,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
     };
     const store = mediaCaptureOperations({
       sttLagMs: 60_000,
-      coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
-      botGrantUnused,
+      captureRule,
       transaction,
       nextId: createId,
       buildProjection: () => {

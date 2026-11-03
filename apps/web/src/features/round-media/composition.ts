@@ -1,4 +1,4 @@
-import { botGrantUnused } from '@daisy/debate-engine';
+import { captureRule } from '@daisy/debate-engine';
 import {
   createAdmissionPriority,
   MEDIA_ADMISSION_HINT_TIMEOUT_MS,
@@ -15,10 +15,7 @@ import { createMediaWorkerTokenBroker } from './worker-token';
 import { mediaRuntime } from './projection';
 import type { MediaOperationInput } from './operation-context';
 import { createRoundMediaOperations } from './operations';
-import {
-  CAPTURE_COVERAGE_TOLERANCE,
-  CAPTURE_STT_LAG_MS,
-} from '@daisy/protocol';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 
 /** Optional configuration stays inert until a real media operation is requested. */
 export function createRoundMediaRuntime(
@@ -71,19 +68,12 @@ export function createRoundMediaRuntime(
         sessions: resources.store,
         capture: app.database.createMediaCaptureOperations({
           sttLagMs: CAPTURE_STT_LAG_MS,
-          coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
-          botGrantUnused,
+          captureRule,
           nextId: resources.nextId,
           buildProjection: (context) =>
             mediaRuntime(context, resources.nextId).tick(context.now),
         }),
         media: resources.media,
-        deferred: (cause, sessionId) =>
-          app.logger.log(
-            'media.capture.token_deferred',
-            { cause, sessionId },
-            'Capture token deferred',
-          ),
         workerUrl: resources.workerUrl,
         nextId: resources.nextId,
         deadline: resources.deadline,

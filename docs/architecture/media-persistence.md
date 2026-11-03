@@ -135,7 +135,10 @@ observation or chunk still seals partial. A bot's scheduled turn stays owed, and
 a human owes every grant, so a failed speech or a dead microphone still freezes
 incomplete. `transcript_segments`
 stores `open`, `complete` or `partial`, with received and declared chunk counts.
-A finalizer can insert a missing stream directly as partial with zero chunks.
+A partial stream always has `partial_reasons`, decided by the engine at its seal,
+and a CHECK refuses a partial row without one and any unknown reason. A finalizer
+can insert a missing stream directly as partial with zero chunks, or close an open
+one, with the reason `never-sealed`.
 Closed complete/partial records are immutable. Matching counts is necessary for
 complete but insufficient: the sealing operation must also prove continuous
 trusted observation coverage over every required interval. Missing tracks,
@@ -169,7 +172,7 @@ acceptance. These schema tables alone do not prove a working capture producer.
 | round_transcripts             | round_id                                                           | identifier       | Bind the committed frontier to its Round                 |
 | round_transcripts             | revision                                                           | none             | Monotonic committed transcript frontier                  |
 | transcript_segments           | round_id, segment_id, round_participant_id                         | identifier       | Bind a stream to authoritative segment and seat          |
-| transcript_segments           | state, chunk_count, sealed_chunk_count, sealed_at                  | none             | Preserve honest complete/partial write closure           |
+| transcript_segments           | state, partial_reasons, chunk_count, sealed_chunk_count, sealed_at | none             | Preserve honest complete/partial write closure           |
 | transcript_observations       | id, round_id, segment_id, round_participant_id, track_id           | identifier       | Bind trusted observation coverage to the media stream    |
 | transcript_observations       | worker_epoch, observed_from, observed_until                        | none             | Prove continuous coverage without persisting PCM         |
 | round_bot_publication_windows | id, round_id, segment_id, round_participant_id                     | identifier       | Bind a bot's credited publication time to its seat       |
@@ -436,7 +439,11 @@ closure and incomplete freeze never wait for a client deadline to show Partial.
 Each partial stream's read carries its `gaps`: required speech with no
 observation, as offsets into the speech, derived on each read from
 `transcript_observations` and the same coverage edges that decide a complete
-seal. The completed Round's transcript read carries the same gaps. A stream can
+seal. The protected transcript read also carries each stream's `partialReasons`,
+and the ballot read's transcript carries `partialStreams`, so a stream partial with
+no gap still says why. The live read schema does not require them, because nothing
+renders them yet (ISSUE-1026). The completed Round's transcript read carries the
+same gaps. A stream can
 be Partial with no gap to show: a lost tail inside the close tolerance, or a clean
 handover at a new epoch with contiguous observations. It then says Partial
 without saying where (ISSUE-944 tracks showing that). A gap is

@@ -11,8 +11,8 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const noVoid = '20261102231940_round_completion_structure';
-const cutoffName = '20261102231940_round_completion_structure';
+const noVoid = '20261103002410_round_completion_structure';
+const cutoffName = '20261103002410_round_completion_structure';
 const scratch = scratchDatabase(databaseUrl, 'roundstructure');
 afterAll(() => scratch.drop());
 

@@ -6,7 +6,7 @@ import {
   closeUnresolvedStreams,
   lockFinalizationStreams,
 } from '../src/transcript-finalization-streams';
-import { botGrantUnused } from './bot-grant-rule.test-support';
+import { botGrantUnused } from '@daisy/debate-engine';
 import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import type { Fixture } from './constraint-helpers';
@@ -57,6 +57,7 @@ const sealed = (
       segment_id: segmentId,
       round_participant_id: roundParticipantId,
       state,
+      ...(state === 'partial' ? { partial_reasons: '{frames-lost}' } : {}),
       chunk_count: 0,
       sealed_chunk_count: 0,
       sealed_at: end,

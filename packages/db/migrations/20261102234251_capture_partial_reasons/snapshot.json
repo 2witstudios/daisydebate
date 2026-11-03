@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "3f10eaad-36f6-42a3-8797-ffbd065be74b",
+  "id": "c117c4e1-14e1-4d32-8e03-b21bc0fc75fb",
   "prevIds": [
     "a8930bd8-b8d5-4c27-949b-b29601dfafc6"
   ],
@@ -1603,6 +1603,32 @@
       "generated": null,
       "identity": null,
       "name": "submitted_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "voided_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "voided_by_actor_id",
       "entityType": "columns",
       "schema": "public",
       "table": "ballots"
@@ -7423,7 +7449,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": null,
+      "default": "'settled_availability'",
       "generated": null,
       "identity": null,
       "name": "evidence",
@@ -8154,32 +8180,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "outcome",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judging_attempts"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "answered_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judging_attempts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "category",
       "entityType": "columns",
       "schema": "public",
@@ -8188,7 +8188,7 @@
     {
       "type": "jsonb",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -8385,7 +8385,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": null,
+      "default": "clock_timestamp() + interval '5 minutes'",
       "generated": null,
       "identity": null,
       "name": "generation_deadline_at",
@@ -9538,6 +9538,19 @@
       "table": "transcript_segments"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "partial_reasons",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
       "type": "integer",
       "typeSchema": null,
       "notNull": true,
@@ -10454,6 +10467,27 @@
       "method": "btree",
       "concurrently": false,
       "name": "ballots_judge_seat_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "voided_by_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ballots_voided_by_actor_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "ballots"
@@ -15262,6 +15296,23 @@
     {
       "nameExplicit": true,
       "columns": [
+        "voided_by_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ballots_voided_by_actor_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
         "round_id"
       ],
       "schemaTo": "public",
@@ -19448,7 +19499,7 @@
       "table": "ballots"
     },
     {
-      "value": "\"status\" in ('submitted')",
+      "value": "\"status\" in ('submitted', 'voided')",
       "name": "ballots_status_check",
       "entityType": "checks",
       "schema": "public",
@@ -19464,6 +19515,20 @@
     {
       "value": "\"rubric_version\" = 'speaker-10@1'",
       "name": "ballots_rubric_version_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "value": "(\"status\" = 'voided' and \"voided_at\" is not null and \"voided_by_actor_id\" is not null) or (\"status\" <> 'voided' and \"voided_at\" is null and \"voided_by_actor_id\" is null)",
+      "name": "ballots_voided_fields_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "value": "\"voided_at\" is null or \"voided_at\" >= \"submitted_at\"",
+      "name": "ballots_voided_after_submitted",
       "entityType": "checks",
       "schema": "public",
       "table": "ballots"
@@ -20771,7 +20836,7 @@
       "table": "round_analyses"
     },
     {
-      "value": "(\"evidence\" = 'settled_availability' and \"effective_deadline\" is not null and \"settled_horizon\" is not null and \"receipt_participant_id\" is null)\n        or (\"evidence\" = 'on_time_receipt' and \"decision\" = 'attended' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is not null)\n        or (\"evidence\" = 'resolution_cutoff' and \"decision\" = 'abandoned' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is null)",
+      "value": "(\"evidence\" = 'settled_availability' and \"effective_deadline\" is not null and \"settled_horizon\" is not null and \"receipt_participant_id\" is null)\n        or (\"evidence\" = 'on_time_receipt' and \"decision\" = 'attended' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is not null)\n        or (\"evidence\" = 'infrastructure_unresolved' and \"decision\" = 'abandoned' and \"effective_deadline\" is null and \"settled_horizon\" is null and \"receipt_participant_id\" is null)",
       "name": "round_attendance_adjudications_evidence_check",
       "entityType": "checks",
       "schema": "public",
@@ -20904,15 +20969,8 @@
       "table": "round_judging_attempts"
     },
     {
-      "value": "\"category\" is null or \"category\" in ('invalid_json', 'schema_rejected', 'truncated', 'refused', 'provider_refused', 'provider_error', 'timeout')",
+      "value": "\"category\" in ('invalid_json', 'schema_rejected', 'truncated', 'refused', 'provider_refused', 'provider_error', 'timeout')",
       "name": "round_judging_attempts_category_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judging_attempts"
-    },
-    {
-      "value": "\"outcome\" in ('dispatched', 'succeeded', 'failed') and (\"outcome\" = 'failed') = (\"category\" is not null) and (\"category\" is null) = (\"diagnostic\" is null)",
-      "name": "round_judging_attempts_outcome_check",
       "entityType": "checks",
       "schema": "public",
       "table": "round_judging_attempts"
@@ -20925,7 +20983,7 @@
       "table": "round_judging_jobs"
     },
     {
-      "value": "(\"status\" = 'failed') = (\"terminal_reason\" is not null) and (\"terminal_reason\" is null or \"terminal_reason\" in ('attempts_exhausted', 'ballot_discarded', 'ballot_hold_ended', 'generation_deadline', 'provider_refused', 'round_ended'))",
+      "value": "\"terminal_reason\" is null or (\"status\" = 'failed' and \"terminal_reason\" in ('attempts_exhausted', 'ballot_hold_ended', 'generation_deadline', 'provider_refused', 'round_ended'))",
       "name": "round_judging_jobs_terminal_reason_check",
       "entityType": "checks",
       "schema": "public",
@@ -21060,13 +21118,6 @@
     {
       "value": "(\"final_segment_ended_at\" is null and \"transcript_admission_cutoff\" is null) or (\"final_segment_ended_at\" is not null and \"transcript_admission_cutoff\" is not null and \"transcript_admission_cutoff\" = \"final_segment_ended_at\" + interval '120 seconds')",
       "name": "rounds_transcript_cutoff_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "value": "(\"final_segment_ended_at\" is null and \"attendance_resolution_cutoff_at\" is null) or (\"final_segment_ended_at\" is not null and \"attendance_resolution_cutoff_at\" is not null and \"attendance_resolution_cutoff_at\" = \"final_segment_ended_at\" + interval '60 minutes')",
-      "name": "rounds_attendance_cutoff_check",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"
@@ -21235,6 +21286,20 @@
     {
       "value": "\"state\" in ('open', 'complete', 'partial')",
       "name": "transcript_segments_state_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "value": "(\"state\" = 'partial') = (cardinality(\"partial_reasons\") > 0)",
+      "name": "transcript_segments_partial_reasons_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "value": "\"partial_reasons\" <@ array['session-interrupted', 'frames-lost', 'other-worker-evidence', 'chunks-uncounted', 'invalid-history', 'no-authority-window', 'coverage-gap', 'never-sealed']::text[]",
+      "name": "transcript_segments_partial_reasons_known_check",
       "entityType": "checks",
       "schema": "public",
       "table": "transcript_segments"
