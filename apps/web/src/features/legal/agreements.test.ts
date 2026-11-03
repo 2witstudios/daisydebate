@@ -50,8 +50,8 @@ describe('agreements', () => {
         optedIn: digest(roundCaptureNotice('opted-in')).slice(0, 16),
       },
       expected: {
-        waiver: ['draft-3', '26fdba58a4c4d9c1 9995635043e09c3e'],
-        policy: ['draft-3', ''],
+        waiver: ['draft-3', '26fdba58a4c4d9c1'],
+        policy: ['draft-3', '9995635043e09c3e'],
         ranked: 'aa20970794be07a1',
         optedIn: 'f5a46abec416c6cb',
       },
