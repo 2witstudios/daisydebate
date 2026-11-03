@@ -319,7 +319,8 @@ describe('answerRecordingJob', () => {
     state: Parameters<typeof answerRecordingJob>[0]['state'],
     lifecycle: RecordingLifecycle,
     sourcesInUse = false,
-  ) => answerRecordingJob({ state, lifecycle, sourcesInUse });
+    povsOpen = false,
+  ) => answerRecordingJob({ state, lifecycle, sourcesInUse, povsOpen });
   const media = {
     capturedFrom: at,
     playlistKey: 'recordings/r/hls/master.m3u8',
@@ -334,6 +335,18 @@ describe('answerRecordingJob', () => {
     capture: processing.capture,
     media: { ...media, speeches: [] },
   };
+
+  test('a build waits for a POV still writing, and nothing else does', () => {
+    assert({
+      given: 'capture ended and a POV open; then the same, closed',
+      should: 'wait, then queue',
+      actual: [
+        answer({ status: 'waiting' }, processing, false, true),
+        answer({ status: 'waiting' }, processing)?.type,
+      ],
+      expected: [null, 'queue'],
+    });
+  });
 
   test('queues every attempt once capture has ended', () => {
     assert({

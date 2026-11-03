@@ -1,6 +1,6 @@
 import { mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';
-import type { BuildPorts } from './build-recording';
+import type { BuildPorts } from './build-ports';
 import { encodedMsOf } from './media-commands';
 
 /** The real local machine: files on disk and child processes that can be cancelled. */
@@ -36,11 +36,15 @@ export const runCommand =
   async (
     command: readonly string[],
     onEncodedMs?: (encodedMs: number) => void,
+    withinMs?: number,
   ): Promise<string> => {
     const child = Bun.spawn([...command], {
       stdout: 'pipe',
       stderr: 'ignore',
-      signal,
+      signal:
+        withinMs === undefined
+          ? signal
+          : AbortSignal.any([signal, AbortSignal.timeout(withinMs)]),
     });
     const read = async () => {
       let output = '';

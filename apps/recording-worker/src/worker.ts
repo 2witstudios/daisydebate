@@ -1,8 +1,10 @@
 import type { createRecordingWorkerStore } from '@daisy/db/recording-worker';
-import type {
-  PublicInterval,
-  RecordingBuildProgress,
-  RecordingJobState,
+import {
+  povHoldRoot,
+  type PovBuild,
+  type PublicInterval,
+  type RecordingBuildProgress,
+  type RecordingJobState,
 } from '@daisy/protocol';
 import { RecordingVerificationError } from './build-recording';
 
@@ -77,6 +79,8 @@ export const runWorker = async (deps: {
       readonly holdPrefix: string;
       readonly attemptCount: number;
       readonly publicIntervals: readonly PublicInterval[];
+      readonly povs: readonly PovBuild[];
+      readonly ceilingMs?: number | undefined;
     },
     run: {
       readonly workDir: string;
@@ -188,9 +192,12 @@ export const runWorker = async (deps: {
 
   const runBuild = async (
     job: Claimed,
-    attemptCount: number,
-    intervals: readonly PublicInterval[],
-    ceilingMs?: number,
+    {
+      attemptCount,
+      publicIntervals,
+      povs,
+      ceilingMs,
+    }: Extract<RecordingJobState, { status: 'queued' }>,
   ) => {
     const workDir = deps.workDirOf(job.recordingId, owner);
     const lease = holdLease(job, ceilingMs);
@@ -201,7 +208,9 @@ export const runWorker = async (deps: {
             recordingId: job.recordingId,
             holdPrefix: job.holdPrefix,
             attemptCount,
-            publicIntervals: intervals,
+            publicIntervals,
+            povs: povs ?? [],
+            ceilingMs,
           },
           { workDir, signal: lease.signal, progress: progressWriter(job) },
         ),
@@ -231,8 +240,10 @@ export const runWorker = async (deps: {
   const runDiscard = async (job: Claimed) => {
     const lease = holdLease(job);
     try {
-      while ((await deps.discardPage(job.holdPrefix)) > 0)
-        if (lease.signal.aborted) return;
+      // A composite on a Broadcast holds elsewhere; every POV holds under its Recording.
+      for (const prefix of [job.holdPrefix, povHoldRoot(job.recordingId)])
+        while ((await deps.discardPage(prefix)) > 0)
+          if (lease.signal.aborted) return;
       await finish(job, { status: 'settled', settledAt: iso() });
     } catch {
       deps.report('recording.source_discard_failed');
@@ -260,14 +271,7 @@ export const runWorker = async (deps: {
     }
     const { state } = job;
     await (
-      state.status === 'queued'
-        ? runBuild(
-            job,
-            state.attemptCount,
-            state.publicIntervals,
-            state.ceilingMs,
-          )
-        : runDiscard(job)
+      state.status === 'queued' ? runBuild(job, state) : runDiscard(job)
     ).catch(() => deps.report('recording.processing_failed'));
   }
 };

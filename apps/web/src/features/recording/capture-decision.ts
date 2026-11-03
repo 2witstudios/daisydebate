@@ -167,11 +167,14 @@ export const answerRecordingJob = (input: {
   readonly state: RecordingJobState;
   readonly lifecycle: RecordingLifecycle;
   readonly sourcesInUse: boolean;
+  /** A debater's POV still writing: the build waits, so it reads all of it. */
+  readonly povsOpen: boolean;
 }): RecordingJobAnswer | null => {
-  const { state, lifecycle, sourcesInUse } = input;
+  const { state, lifecycle, sourcesInUse, povsOpen } = input;
   if (state.status === 'settled' || state.status === 'discarding') return null;
   switch (lifecycle.status) {
     case 'processing':
+      if (state.status === 'waiting' && povsOpen) return null;
       if (state.status === 'waiting')
         return {
           type: 'queue',

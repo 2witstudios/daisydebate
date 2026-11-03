@@ -9,7 +9,7 @@ export const RECORDING_RENDITIONS = [
 
 const SEGMENT_SECONDS = 4;
 const FPS = 30;
-const seconds = (ms: number) => (ms / 1000).toFixed(3);
+export const seconds = (ms: number) => (ms / 1000).toFixed(3);
 
 export const probeArgs = (path: string): readonly string[] => [
   'ffprobe',
@@ -90,7 +90,7 @@ export const cutArgs = (
 
 const master = RECORDING_RENDITIONS[0];
 const fit = `scale=${master.width}:${master.height}:force_original_aspect_ratio=decrease,pad=${master.width}:${master.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS},format=yuv420p`;
-const SILENCE = 'anullsrc=channel_layout=stereo:sample_rate=48000';
+export const SILENCE = 'anullsrc=channel_layout=stereo:sample_rate=48000';
 
 /**
  * Attempts and gap slates joined in order, one input per part plus silence for
@@ -98,7 +98,7 @@ const SILENCE = 'anullsrc=channel_layout=stereo:sample_rate=48000';
  * download states it as plainly as the player does.
  */
 /** Machine-readable progress on stdout, so a long encode can say how far it is. */
-const FFMPEG_PROGRESS = ['-progress', 'pipe:1', '-nostats'] as const;
+export const FFMPEG_PROGRESS = ['-progress', 'pipe:1', '-nostats'] as const;
 
 /** How much video the newest `out_time_us` line in a piece of that output counts. */
 export const encodedMsOf = (text: string): number | null => {

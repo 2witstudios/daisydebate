@@ -1,0 +1,14 @@
+# Staging POV Egress (REC-1.6, approved under BCAST-H): each debater's Participant
+# Egress, apart from the composite's. Writes to the same private Tigris bucket through
+# EGRESS_CONFIG_BODY, a Fly secret that prices stage Egress out of this pool. The size
+# is a placeholder until the load run sets it. No public services. Stop the machines
+# when idle: nothing auto-stops them.
+app = "daisy-debate-staging-pov-egress"
+primary_region = "ord"
+
+[build]
+  image = "livekit/egress:v1.15.0"
+
+[[vm]]
+  size = "performance-2x"
+  memory = "4gb"

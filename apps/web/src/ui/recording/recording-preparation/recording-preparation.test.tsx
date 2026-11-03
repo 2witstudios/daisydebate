@@ -22,7 +22,7 @@ describe('RecordingPreparationStatus', () => {
       given: 'an encode 41:20 into an 80 minute video',
       should: 'name the step and those figures, with no invented percentage',
       actual: [
-        encoding.includes('Step 3 of 5'),
+        encoding.includes('Step 3 of 6'),
         encoding.includes('Encoding for playback: 41:20 of 1:20:00'),
         encoding.includes('value="2480000"'),
         encoding.includes('%'),

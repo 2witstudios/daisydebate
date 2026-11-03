@@ -4,7 +4,8 @@ import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildRecording, type BuildPorts } from '../src/build-recording';
+import type { BuildPorts } from '../src/build-ports';
+import { buildRecording } from '../src/build-recording';
 import { localFiles, runCommand } from '../src/local-ports';
 
 setupRitewayBun();
@@ -86,6 +87,7 @@ const setup = async (name: string) => {
     files: localFiles,
     run: runCommand(new AbortController().signal),
     progress: (progress) => progressSeen.push(progress),
+    povMissing: () => undefined,
     slatePath,
     workDir,
     now: () => '2026-11-03T11:00:00.000Z',
@@ -178,6 +180,7 @@ test('what is not public is cut from a whole attempt, stated, and never built', 
       { fromMs: T0, toMs: T0 + 10_000 },
       { fromMs: T0 + 14_000, toMs: T0 + 24_000 },
     ],
+    povs: [],
   });
   if (state.status !== 'built') throw new Error(`state ${state.status}`);
   const { media } = state;
@@ -211,6 +214,7 @@ test('a crashed attempt, a gap and a clean attempt become one honest video', asy
     holdPrefix: 'hold/b/',
     attemptCount: 2,
     publicIntervals: ALL_PUBLIC,
+    povs: [],
   });
   if (state.status !== 'built') throw new Error(`state ${state.status}`);
   const { media } = state;
@@ -300,6 +304,7 @@ test('a crashed attempt, a gap and a clean attempt become one honest video', asy
     holdPrefix: 'hold/b/',
     attemptCount: 2,
     publicIntervals: ALL_PUBLIC,
+    povs: [],
   });
   assert({
     given: 'the build repeated after a crash',
@@ -321,6 +326,7 @@ test('one clean attempt is that file, not encoded again', async () => {
     holdPrefix: 'hold/b/',
     attemptCount: 1,
     publicIntervals: ALL_PUBLIC,
+    povs: [],
   });
   assert({
     given: 'one attempt',
@@ -351,6 +357,7 @@ test('a corrupt whole file falls back to its segments', async () => {
     holdPrefix: 'hold/b/',
     attemptCount: 1,
     publicIntervals: ALL_PUBLIC,
+    povs: [],
   });
   assert({
     given: 'a whole file ffprobe cannot read and intact segments',
@@ -383,6 +390,7 @@ test('an attempt with no audio joins with silence, so the video stays whole', as
     holdPrefix: 'hold/b/',
     attemptCount: 2,
     publicIntervals: ALL_PUBLIC,
+    povs: [],
   });
   const streams = await runCommand(new AbortController().signal)([
     'ffprobe',
@@ -418,6 +426,7 @@ test('capture that left nothing reports no media', async () => {
       holdPrefix: 'hold/b/',
       attemptCount: 2,
       publicIntervals: ALL_PUBLIC,
+      povs: [],
     }),
     expected: {
       status: 'failed',
@@ -426,3 +435,141 @@ test('capture that left nothing reports no media', async () => {
     },
   });
 });
+
+/** A composite and one debater's capture, both on the same 24 s of real time. */
+const withPov = async (name: string) => {
+  const built = await setup(name);
+  await holdSegments(join(built.hold, 'hold/b/1'), T0, 24);
+  await source(24, join(built.hold, 'hold/b/1/full.mp4'));
+  await holdSegments(join(built.hold, 'recording-hold/rec/pov/seat/1'), T0, 24);
+  await source(24, join(built.hold, 'recording-hold/rec/pov/seat/1/full.mp4'));
+  return built;
+};
+const PRIVATE_MIDDLE = [
+  { fromMs: T0, toMs: T0 + 10_000 },
+  { fromMs: T0 + 14_000, toMs: T0 + 24_000 },
+];
+const job = {
+  recordingId: 'rec',
+  holdPrefix: 'hold/b/',
+  attemptCount: 1,
+  publicIntervals: PRIVATE_MIDDLE,
+};
+
+test('a POV shows nothing the gate did not pass, in sync with the composite', async () => {
+  const { recordings, ports } = await withPov('with-view');
+  const state = await buildRecording(ports, {
+    ...job,
+    povs: [{ roundParticipantId: 'seat', picture: '540p', attemptCount: 1 }],
+  });
+  if (state.status !== 'built') throw new Error(`state ${state.status}`);
+  const [pov] = state.media.povs ?? [];
+  if (pov?.status !== 'built') throw new Error('pov not built');
+  const video = join(recordings, pov.video!.key);
+  const audio = join(recordings, pov.audio.key);
+  const streams = await runCommand(new AbortController().signal)([
+    'ffprobe',
+    '-v',
+    'error',
+    '-show_entries',
+    'stream=codec_name',
+    '-of',
+    'csv=p=0',
+    audio,
+  ]);
+  assert({
+    given: '4 s not public inside a debater’s capture',
+    should:
+      'slate exactly that, at the composite’s length, with its voice as its own file',
+    actual: [
+      pov.gaps.map((gap) => gap.reason),
+      Math.abs(pov.gaps[0]!.startMs - 10_000) < 200,
+      (await greenAt(video, 12)) < 60,
+      (await greenAt(video, 9)) > 60,
+      (await greenAt(video, 15)) > 60,
+      Math.abs((await durationOf(video)) - state.media.durationMs / 1000) < 1,
+      Math.abs((await durationOf(audio)) - state.media.durationMs / 1000) < 1,
+      streams.trim(),
+      pov.video!.key,
+      pov.video!.quality,
+    ],
+    expected: [
+      ['not_public'],
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      'aac',
+      'recordings/rec/pov/seat/video.mp4',
+      '540p',
+    ],
+  });
+}, 120_000);
+
+test('a debater with no camera gets their voice, and no video file', async () => {
+  const { recordings, ports } = await withPov('voice-only');
+  const state = await buildRecording(ports, {
+    ...job,
+    povs: [{ roundParticipantId: 'seat', picture: null, attemptCount: 1 }],
+  });
+  if (state.status !== 'built') throw new Error(`state ${state.status}`);
+  const [pov] = state.media.povs ?? [];
+  if (pov?.status !== 'built') throw new Error('pov not built');
+  assert({
+    given: 'a bot debater',
+    should: 'keep audio alone',
+    actual: [
+      pov.video,
+      await Bun.file(join(recordings, pov.audio.key)).exists(),
+      await Bun.file(
+        join(recordings, 'recordings/rec/pov/seat/video.mp4'),
+      ).exists(),
+    ],
+    expected: [null, true, false],
+  });
+}, 120_000);
+
+test('a failed POV leaves the Recording built, with that one listed as missing', async () => {
+  const { ports } = await withPov('one-fails');
+  let missing = 0;
+  const failing: BuildPorts = {
+    ...ports,
+    povMissing: () => {
+      missing += 1;
+    },
+    run: (command, onEncodedMs, withinMs) =>
+      command.at(-1)?.includes('/pov-0-')
+        ? Promise.reject(new Error('encoder died'))
+        : ports.run(command, onEncodedMs, withinMs),
+  };
+  const state = await buildRecording(failing, {
+    ...job,
+    povs: [
+      { roundParticipantId: 'seat', picture: '360p', attemptCount: 1 },
+      { roundParticipantId: 'never', picture: '540p', attemptCount: 0 },
+    ],
+  });
+  if (state.status !== 'built') throw new Error(`state ${state.status}`);
+  assert({
+    given: 'one POV that cannot be built and one that never ran',
+    should: 'still build the composite, list both, and say so once',
+    actual: [state.media.povs, missing],
+    expected: [
+      [
+        {
+          status: 'missing',
+          roundParticipantId: 'seat',
+          reason: 'build_failed',
+        },
+        {
+          status: 'missing',
+          roundParticipantId: 'never',
+          reason: 'never_captured',
+        },
+      ],
+      1,
+    ],
+  });
+}, 120_000);

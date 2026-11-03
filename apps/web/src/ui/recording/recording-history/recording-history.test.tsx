@@ -25,6 +25,7 @@ const screen: Extract<RecordingHistoryScreen, { kind: 'history' }> = {
   transcript: null,
   result: null,
   downloadHref: null,
+  povDownloads: [],
   removal: null,
   reportTarget: {
     targetKind: 'recording',
@@ -91,6 +92,41 @@ describe('RecordingHistory', () => {
         html.includes('The whole recording'),
       ],
       expected: [true, true, true, true],
+    });
+  });
+
+  test('offers each debater apart, labels low quality and names what is missing', () => {
+    const html = render({
+      downloadHref: '/api/recordings/rec/download',
+      povDownloads: [
+        {
+          state: 'ready',
+          name: '@ada',
+          quality: '360p',
+          videoHref: '/video-href',
+          audioHref: '/audio-href',
+        },
+        {
+          state: 'ready',
+          name: 'Bot',
+          quality: null,
+          videoHref: null,
+          audioHref: '/bot-audio-href',
+        },
+        { state: 'missing', name: 'Negative' },
+      ],
+    } as never);
+    assert({
+      given: 'a video at 360p, a voice alone and a missing debater',
+      should: 'link plainly, say why it is 360p, and state the missing one',
+      actual: [
+        html.includes('href="/video-href"'),
+        html.includes('href="/audio-href"'),
+        html.includes('href="/bot-audio-href"'),
+        html.includes('360p: this device could not send more'),
+        html.includes('Negative: not available for this recording'),
+      ],
+      expected: [true, true, true, true, true],
     });
   });
 

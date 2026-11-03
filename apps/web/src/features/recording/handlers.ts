@@ -3,13 +3,17 @@ import type { Identity } from '@daisy/auth';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, povFileKinds, type PovFileKind } from '@daisy/protocol';
 import { readBoundedBody } from '../../server/bounded-body';
 import { handleOperation, requireSameOrigin } from '../../server/http';
 import { presentedLinkHash } from '../audience-link/audience-link';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import { replayHref } from '../watch/routes';
-import { openDownload, recordingDownloadRule } from './download';
+import {
+  openDownload,
+  recordingDownloadRule,
+  type RecordingDownloadChoice,
+} from './download';
 import { openPlayback, type PlaybackAnswer } from './playback';
 import type {
   RecordingInputs,
@@ -61,6 +65,18 @@ const playbackResponse = (answer: PlaybackAnswer): Response =>
         headers: { location: answer.url, 'cache-control': 'no-store' },
       });
 
+/** Zero trust: a seat id and a closed file kind, or nothing that can be found. */
+const downloadChoiceOf = (request: Request): RecordingDownloadChoice | null => {
+  const query = new URL(request.url).searchParams;
+  const pov = query.get('pov');
+  if (pov === null) return { kind: 'composite' };
+  const roundParticipantId = idSchema.safeParse(pov).data;
+  const file = query.get('file') as PovFileKind | null;
+  return roundParticipantId && file && povFileKinds.includes(file)
+    ? { kind: 'pov', roundParticipantId, file }
+    : null;
+};
+
 const readRemovalForm = async (request: Request) => {
   const body = await readBoundedBody(request, MAX_REMOVAL_FORM_BYTES);
   const form = new URLSearchParams(body?.toString('utf8') ?? '');
@@ -95,7 +111,7 @@ export const createRecordingHandlers = (deps: Deps) => ({
       deps.reporter,
     ),
 
-  /** GET a short-lived link to the whole video, rate limited per account. */
+  /** GET a short-lived link to a file of this Recording, rate limited per account. */
   download: (request: Request, recordingId: string) =>
     handleOperation(
       deps.logger,
@@ -109,8 +125,11 @@ export const createRecordingHandlers = (deps: Deps) => ({
           `recording:download:${viewer.userId}`,
           recordingDownloadRule,
         );
+        const choice = downloadChoiceOf(request);
+        if (choice === null) throw createAppError('NOT_FOUND');
         const url = await openDownload(deps, {
           recordingId,
+          choice,
           viewer,
           presentedLinkHashOf: linkHeldBy(request),
         });

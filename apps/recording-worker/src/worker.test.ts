@@ -195,13 +195,17 @@ describe('a claimed discard', () => {
       },
     });
     assert({
-      given: 'three pages, the last empty',
-      should: 'keep deleting, then settle fenced',
+      given:
+        'three pages, the last empty, on a composite held under a Broadcast',
+      should: 'keep deleting, clear the POV sources too, then settle fenced',
       actual: [
-        asked.length,
+        asked,
         (calls.finished[0] as { state: { status: string } }).state.status,
       ],
-      expected: [3, 'settled'],
+      expected: [
+        ['hold/b/', 'hold/b/', 'hold/b/', 'recording-hold/r/pov/'],
+        'settled',
+      ],
     });
   });
   test('a storage failure retries and never claims it settled', async () => {

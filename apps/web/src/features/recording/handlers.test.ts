@@ -65,6 +65,26 @@ const roundId = 'a'.repeat(24);
 
 describe('download', () => {
   const get = () => new Request(`${origin}/api/recordings/rec/download`);
+  test('a POV asked for with anything but a seat and a closed kind finds nothing', async () => {
+    const status = async (query: string) =>
+      (
+        await setup(member('x')).handlers.download(
+          new Request(`${origin}/api/recordings/rec/download?${query}`),
+          'rec',
+        )
+      ).status;
+    assert({
+      given: 'no file; an unknown file; a key for a seat; a seat with no POV',
+      should: 'answer not found every time',
+      actual: [
+        await status('pov=abc'),
+        await status('pov=abc&file=hold'),
+        await status('pov=../../x&file=video'),
+        await status('pov=abc&file=video'),
+      ],
+      expected: [404, 404, 404, 404],
+    });
+  });
   test('redirects a subscriber and refuses everyone else', async () => {
     const paid = await setup(member('x')).handlers.download(get(), 'rec');
     assert({

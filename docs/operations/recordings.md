@@ -81,6 +81,44 @@ from recording_processing_jobs where status <> 'settled' order by updated_at;
   Chrome or Firefox. `RECORDING_BUCKET_ENDPOINT` must also be set on the web app, which is
   what names the bucket in the replay page's browser policy.
 
+## POVs
+
+Beside the composite, a Recording captures each debater apart when `RECORDING_POV_CAPTURE=on`
+(with `RECORDING_CAPTURE=on`): one Participant Egress per debater, chosen from the Round's seats,
+so a judge can never have one. A bot gets voice alone. It runs in the POV Egress pool
+([deploy-staging](deploy-staging.md)), and starts only once the composite has reported, in a
+public phase, with that debater in the room.
+
+- **Hold.** `recording-hold/<recordingId>/pov/<roundParticipantId>/<attempt>/`, in the same
+  layout as a composite attempt, whichever way the composite runs. A debater leaving, a room
+  rotation or a crash ends an attempt; the next one starts when they are back. A republish
+  does not: the Egress follows them by identity.
+- **Private phases.** The same rule as an observer. The POV Egress has its subscription revoked,
+  private conversation and cameras wait until that lands, and a failed revocation stops it.
+- **Build.** The worker builds POVs after the composite, on the composite's timeline. It uses
+  only what `publicClips` passes, the same gate as Broadcast and the Recording, with slate for
+  real time everywhere else, so a POV lines up with the composite in an editor. One encode:
+  the cut and the slate happen together. Files are `recordings/<id>/pov/<roundParticipantId>/video.mp4`
+  (picture with that debater's voice) and `audio.m4a` (the same audio stream, unchanged).
+- **Quality.** Rounds with POVs ask for 540p from devices with four cores or more. Any other
+  stays at 360p, and its POV is built and labelled 360p. Capture is never refused.
+- **Failure.** A POV gets two tries and a share of what remains of the run's ceiling. Past that,
+  `recording.pov_missing` is raised and the Recording becomes `ready`, with that debater listed
+  as missing. Nothing rebuilds a missing POV once its sources are discarded; an operator who
+  needs one must rebuild before the Recording is ready.
+- **Removal.** Everything is under the two prefixes above, so removal, takedown, erasure, the
+  evidence hold and a restore treat POVs as part of the Recording. POV files are never in HLS
+  or the player: only the download route signs them.
+
+Scratch space grows with POVs: allow about three times the video again for each debater.
+
+To see a Recording's POV captures:
+
+```sql
+select round_participant_id, camera, egress_generation, camera_height, ended_at
+from recording_pov_captures where recording_id = '<id>';
+```
+
 ## States
 
 `requested`, `capturing`, `processing`, `ready`, `failed`, `taken_down`, `removing`,
@@ -172,5 +210,6 @@ with no intent left to delete them.
 
 ## Downloads
 
-A subscriber gets a link signed for 60 seconds, ten per hour per account. A copy
-already downloaded is outside Daisy and nothing here reaches it.
+A subscriber gets a link signed for 60 seconds, thirty per hour per account, across the
+whole video and each debater's video and audio. A large file needs a fresh link if a resumed
+transfer outlasts it. A copy already downloaded is outside Daisy and nothing here reaches it.

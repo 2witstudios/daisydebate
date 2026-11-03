@@ -4,7 +4,7 @@ import {
   type RecordingJobState,
   type RecordingPreparation,
 } from '@daisy/protocol';
-import type { RecordingMedia } from '@daisy/protocol';
+import type { PovQuality, RecordingMedia } from '@daisy/protocol';
 import { UNDRAWN_RESOLUTION } from './archive';
 import { resultHeadline } from './archive';
 import {
@@ -120,6 +120,17 @@ export type RecordingMediaPanel =
         Exclude<RecordingMediaState, 'watch' | 'processing'> | 'withheld';
     };
 
+/** One debater's files, or the plain fact that this Recording has none of them. */
+export type PovDownload =
+  | {
+      readonly state: 'ready';
+      readonly name: string;
+      readonly quality: PovQuality | null;
+      readonly videoHref: string | null;
+      readonly audioHref: string;
+    }
+  | { readonly state: 'missing'; readonly name: string };
+
 export type RecordingHistoryScreen =
   | { readonly kind: 'unavailable' }
   | {
@@ -135,6 +146,8 @@ export type RecordingHistoryScreen =
       readonly transcript: TranscriptPanel | null;
       readonly result: ResultPanel | null;
       readonly downloadHref: string | null;
+      /** Each debater's own files, beside the whole video, on the same rule. */
+      readonly povDownloads: readonly PovDownload[];
       readonly removal: {
         readonly recordingId: string;
         readonly version: number;
@@ -164,6 +177,27 @@ const speakerOf = (round: HistoryRound, participantId: string): string => {
   );
   if (!seat) return 'Speaker';
   return seat.label === null ? sideName(seat.role) : `@${seat.label}`;
+};
+
+/** Only ever links through the download route, which authorizes each request again. */
+const povDownloadsOf = (
+  round: HistoryRound,
+  record: RecordingRecord,
+): readonly PovDownload[] => {
+  if (record.lifecycle.status !== 'ready') return [];
+  return (record.lifecycle.media.povs ?? []).map((pov) => {
+    const name = speakerOf(round, pov.roundParticipantId);
+    if (pov.status === 'missing') return { state: 'missing', name };
+    const href = (file: string) =>
+      `/api/recordings/${record.id}/download?pov=${pov.roundParticipantId}&file=${file}`;
+    return {
+      state: 'ready',
+      name,
+      quality: pov.video?.quality ?? null,
+      videoHref: pov.video ? href('video') : null,
+      audioHref: href('audio'),
+    };
+  });
 };
 
 /** Actual turn order, numbered before any search so a match keeps its number. */
@@ -260,15 +294,16 @@ const recordingActions = (input: {
   readonly subscribed: boolean;
 }): Pick<
   Extract<RecordingHistoryScreen, { kind: 'history' }>,
-  'downloadHref' | 'removal'
+  'downloadHref' | 'povDownloads' | 'removal'
 > => {
   const { record, round, viewer, permissions, subscribed } = input;
-  if (record === null) return { downloadHref: null, removal: null };
+  if (record === null)
+    return { downloadHref: null, povDownloads: [], removal: null };
   const status = record.lifecycle.status;
+  const downloads = mayDownload({ viewer, permissions, status, subscribed });
   return {
-    downloadHref: mayDownload({ viewer, permissions, status, subscribed })
-      ? `/api/recordings/${record.id}/download`
-      : null,
+    downloadHref: downloads ? `/api/recordings/${record.id}/download` : null,
+    povDownloads: downloads ? povDownloadsOf(round, record) : [],
     removal: mayRequestRemoval({
       recordingClass: record.class,
       round,

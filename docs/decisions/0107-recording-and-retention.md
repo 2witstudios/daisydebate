@@ -1,6 +1,6 @@
 # 0107: Recording and retention
 
-Status: accepted, owner decisions on the Watch plan, 2026-11-02. The retention of
+Status: accepted, owner decisions on the Watch plan, 2026-11-02; amended for POVs, 2026-11-03. The retention of
 ranked video after erasure is **proposed and not reviewed by counsel** (COMP-4), and
 may change after that review.
 
@@ -64,7 +64,33 @@ Recording page too. A member seated in the Round keeps their own record.
 
 **Downloads.** A subscriber may download any Recording they may watch and no other,
 through a link signed for 60 seconds, rate limited. It is one whole-video file kept
-beside the HLS, so processing keeps that file when it deletes its sources.
+beside the HLS, so processing keeps that file when it deletes its sources, plus each POV's files
+below; the same check and the same rate limit answer all of them.
+
+**Each debater has a POV (REC-1.6, owner and point guard, 2026-11-03).** A Recording, ranked or
+recorded casual, also captures each debater's camera and voice apart, as private source for
+two kept files: `video.mp4` (the picture with that debater's voice) and `audio.m4a`. It is
+Recording's own concept: `recording_pov_captures`, `features/recording/pov-*` and
+`@daisy/media/pov` borrow nothing from Broadcast. They share only `egressPrivacyActions`, the one rule
+for any Egress in a Round's room.
+
+- *Participant Egress, one per debater.* It follows republishes by identity, writes crash-safe
+  segments and a fixed format, where a Track Egress ends at each of the microphone's unpublishes. It
+  costs a transcode. A cheaper mix of Track and audio Egress is a later cost measure; it risks silent
+  lip-sync drift no check can see.
+- *Chosen from seats, never a room listing.* Only affirmative and negative seats get a row, so a
+  hidden human judge is never captured, by construction. A bot gets voice alone.
+- *The same gate.* Revocation keeps private media out of the hold where it works, but only
+  `publicClips` decides what is kept. Anything not known to be public is slate.
+- *In sync, in real time.* A POV starts at the composite's first frame and runs its length. Gaps
+  are stated per POV: `not_public` or `capture_restart`.
+- *Failure is local.* A POV that never ran, had nothing public or would not build is listed as
+  missing, and the Recording is ready. The composite is the record; ranked evidence does not
+  rest on POVs.
+- *540p where the device can,* 360p with a label, never a refusal.
+- *Kept as the Recording is.* Removal, takedown, erasure and the evidence hold cover POVs through
+  the same prefix and the same lifecycle, and anything a person can watch is kept after ranked
+  erasure. The waiver and notices say so. **Not reviewed by counsel** (COMP-4).
 
 **Capture spans every attempt.** A crash starts a new Egress under a new number, so a
 Recording's capture is an ordered list of attempts. Each attempt is timed from its own
@@ -95,15 +121,15 @@ worker reads only its job) is stopped and counted as a failed attempt, which ret
 `recording.build_ceiling_exceeded` is raised. Nothing is discarded. The bound counts queue
 wait, because that is what a viewer waits through; the ceiling counts one run.
 
-**What persists.** The manifest is the composited one, and only a Recording's current state,
-its version and operator receipts persist; there is no per-track manifest and no transition
-history (point guard, 2026-11-03).
+**What persists.** The manifest is the composited one, listing each debater's POV beside it, and
+only a Recording's current state, its version and operator receipts persist; there is no raw-track
+manifest and no transition history (point guard, 2026-11-03).
 
 **Polling is the mechanism.** The capture sweep reads each Egress from LiveKit on every
 pass, so a lost, forged, duplicated or reordered webhook cannot change anything. Webhooks
 are at most hints, and no receiver is needed (point guard, 2026-11-03).
 
-**Two capture paths, one job.** A Round with a Broadcast reads that Broadcast's Egress. A
+**Two capture paths, one job.** POVs run beside either, and the job carries them. A Round with a Broadcast reads that Broadcast's Egress. A
 casual Recording with no Broadcast runs its own, in `recording_captures`, and obeys the
 same privacy rule (`egressPrivacyActions`). The stage page and its credential are their own
 module (`features/stage-capture`) because both use them.
@@ -124,5 +150,10 @@ no Broadcast or Egress can still read them.
   the capture left in the hold bucket, and `removed` waits for it.
 - A Broadcast stopped before its watermark passes the Round's end holds the Recording
   back from the audience. Releasing it then is a moderation decision not yet built.
+- POV Egress revocations add to what private conversation and cameras wait on, and a POV holds
+  a build back at most two minutes after capture ends.
+- POV video has two generations: the Egress's encode and the worker's, because a frame-exact cut
+  and slate cannot be stream copied. Its audio file adds none.
+- POV capacity is its own Egress pool. Machine size is set by a load run, not by this decision.
 - Reads authorize per request, one indexed read per media segment. Replay load is
   unmeasured; WATCH-4 proves it, and a short-lived grant cache is the expansion path.

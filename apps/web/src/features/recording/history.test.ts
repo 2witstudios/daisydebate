@@ -321,6 +321,79 @@ describe('permissions', () => {
   });
 });
 
+describe('each debater on their own', () => {
+  const file = (name: string) => ({
+    key: `recordings/rec/pov/${name}`,
+    byteSize: 1,
+  });
+  const lifecycle = {
+    status: 'ready',
+    capture: {
+      source: { kind: 'own_capture' },
+      startedAt: at,
+      endedAt: at,
+      attempts: [{ attempt: 1, egressId: 'e', startedAt: at }],
+    },
+    media: {
+      capturedFrom: at,
+      playlistKey: 'recordings/rec/hls/master.m3u8',
+      downloadKey: 'recordings/rec/video.mp4',
+      durationMs: 1000,
+      byteSize: 1,
+      verifiedAt: at,
+      gaps: [],
+      speeches: [],
+      povs: [
+        {
+          status: 'built',
+          roundParticipantId: 'p-aff',
+          video: { ...file('video.mp4'), quality: '360p' },
+          audio: file('audio.m4a'),
+          durationMs: 1000,
+          gaps: [],
+        },
+        {
+          status: 'missing',
+          roundParticipantId: 'p-neg',
+          reason: 'build_failed',
+        },
+      ],
+    },
+  } satisfies RecordingLifecycle;
+  test('a subscriber is offered each file, and told which one is missing', async () => {
+    const { povDownloads } = await history({
+      lifecycle,
+      viewer: account('stranger'),
+      subscribed: true,
+    });
+    assert({
+      given: 'one built POV at 360p and one missing',
+      should:
+        'link through the route, label the quality, and say who is missing',
+      actual: povDownloads,
+      expected: [
+        {
+          state: 'ready',
+          name: '@ada',
+          quality: '360p',
+          videoHref: '/api/recordings/rec/download?pov=p-aff&file=video',
+          audioHref: '/api/recordings/rec/download?pov=p-aff&file=audio',
+        },
+        { state: 'missing', name: 'Negative' },
+      ],
+    });
+  });
+  test('nobody else is offered any of it', async () => {
+    const free = await history({ lifecycle, viewer: account('stranger') });
+    assert({
+      given: 'a member with no subscription',
+      should: 'offer no POV',
+      actual: free.povDownloads,
+      expected: [],
+    });
+  });
+});
+
 describe('after moderation hides a Recording', () => {
   const ranked = { competitionType: 'ranked' } as const;
   const hidden: RecordingLifecycle = {

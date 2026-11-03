@@ -1,176 +1,28 @@
 import {
-  holdAttemptPrefix,
-  parseHoldPlaylist,
   type BuiltRecordingMedia,
+  type PovBuild,
   type RecordingBuildProgress,
   type RecordingJobState,
   publicClips,
+  recordingBuildCeilingMs,
   type PublicInterval,
 } from '@daisy/protocol';
-import {
-  attemptSource,
-  HOLD_PLAYLIST,
-  segmentsSource,
-  WHOLE_FILE,
-  type AttemptSource,
-} from './attempt-source';
+import { probe, readAttempt } from './attempt-media';
+import type { BuildPorts } from './build-ports';
+import { buildPovs } from './build-pov';
 import { coverageOf, type CapturedPiece, type Coverage } from './coverage';
 import {
-  concatList,
   cutArgs,
   hlsArgs,
-  joinSegmentsArgs,
   joinTimelineArgs,
-  probeArgs,
   recordingMasterPlaylist,
   RECORDING_RENDITIONS,
   remuxArgs,
 } from './media-commands';
 import { verificationProblem } from './verify';
 
-export type MediaProbe = {
-  readonly durationMs: number;
-  readonly hasVideo: boolean;
-  readonly hasAudio: boolean;
-};
-
-/** Everything a build touches, so its order and its failures can be tested. */
-export type BuildPorts = {
-  readonly hold: {
-    readonly readText: (key: string) => Promise<string>;
-    readonly listNames: (prefix: string) => Promise<readonly string[]>;
-    readonly download: (key: string, path: string) => Promise<void>;
-  };
-  readonly recordings: {
-    readonly upload: (key: string, path: string) => Promise<void>;
-    readonly sizes: (prefix: string) => Promise<ReadonlyMap<string, number>>;
-  };
-  readonly files: {
-    readonly makeDir: (path: string) => Promise<void>;
-    readonly write: (path: string, text: string) => Promise<void>;
-    readonly read: (path: string) => Promise<string>;
-    /** Every file under a directory, relative to it, with its size. */
-    readonly list: (dir: string) => Promise<ReadonlyMap<string, number>>;
-  };
-  /**
-   * Runs a command; a non-zero exit rejects. `onEncodedMs` hears how much video an
-   * ffmpeg asked for `-progress` has written so far.
-   */
-  readonly run: (
-    command: readonly string[],
-    onEncodedMs?: (encodedMs: number) => void,
-  ) => Promise<string>;
-  /** How far the build really is. Reporting never fails or slows it. */
-  readonly progress: (progress: RecordingBuildProgress) => void;
-  readonly slatePath: string;
-  readonly workDir: string;
-  readonly now: () => string;
-};
-
 /** The stored media did not match what was built: nothing false may become ready. */
 export class RecordingVerificationError extends Error {}
-
-const probeOutput = (text: string): MediaProbe | null => {
-  const parsed = JSON.parse(text) as {
-    readonly format?: { readonly duration?: string };
-    readonly streams?: readonly { readonly codec_type?: string }[];
-  };
-  const seconds = parseFloat(parsed.format?.duration ?? '');
-  if (!(seconds > 0)) return null;
-  const has = (kind: string) =>
-    (parsed.streams ?? []).some((stream) => stream.codec_type === kind);
-  return {
-    durationMs: Math.round(seconds * 1000),
-    hasVideo: has('video'),
-    hasAudio: has('audio'),
-  };
-};
-
-/** A file ffprobe cannot read is what a crashed writer leaves: not media, no error. */
-const probe = async (ports: BuildPorts, path: string) => {
-  const found = await ports
-    .run(probeArgs(path))
-    .then(probeOutput)
-    .catch(() => null);
-  return found?.hasVideo ? found : null;
-};
-
-const readableWholeFile = async (
-  ports: BuildPorts,
-  key: string,
-  path: string,
-) => {
-  await ports.hold.download(key, path);
-  return probe(ports, path);
-};
-
-const joinedSegments = async (
-  ports: BuildPorts,
-  prefix: string,
-  dir: string,
-  source: Extract<AttemptSource, { kind: 'segments' }>,
-) => {
-  const paths: string[] = [];
-  for (const entry of source.entries) {
-    const path = `${dir}/${entry.name}`;
-    await ports.hold.download(`${prefix}${entry.name}`, path);
-    paths.push(path);
-  }
-  const list = `${dir}/segments.txt`;
-  const output = `${dir}/segments.mp4`;
-  await ports.files.write(list, concatList(paths));
-  await ports.run(joinSegmentsArgs(list, output));
-  return { output, found: await probe(ports, output) };
-};
-
-/** One attempt's media as a local file, or null when it left nothing readable. */
-const readAttempt = async (
-  ports: BuildPorts,
-  holdPrefix: string,
-  attempt: number,
-): Promise<readonly CapturedPiece[]> => {
-  const prefix = holdAttemptPrefix(holdPrefix, attempt);
-  const entries = parseHoldPlaylist(
-    await ports.hold.readText(`${prefix}${HOLD_PLAYLIST}`),
-  );
-  const names = new Set(await ports.hold.listNames(prefix));
-  const dir = `${ports.workDir}/attempt-${attempt}`;
-  await ports.files.makeDir(dir);
-  const source = attemptSource(entries, names);
-  if (source.kind === 'absent') return [];
-  if (source.kind === 'whole_file') {
-    const path = `${dir}/${WHOLE_FILE}`;
-    const found = await readableWholeFile(
-      ports,
-      `${prefix}${WHOLE_FILE}`,
-      path,
-    );
-    if (found)
-      return [
-        {
-          attempt,
-          path,
-          startedAtMs: source.startedAtMs,
-          durationMs: found.durationMs,
-          hasAudio: found.hasAudio,
-        },
-      ];
-  }
-  const segments = segmentsSource(entries, names);
-  if (segments.kind !== 'segments') return [];
-  const { output, found } = await joinedSegments(ports, prefix, dir, segments);
-  return found
-    ? [
-        {
-          attempt,
-          path: output,
-          startedAtMs: segments.startedAtMs,
-          durationMs: found.durationMs,
-          hasAudio: found.hasAudio,
-        },
-      ]
-    : [];
-};
 
 /**
  * One attempt cut to what is public, to the frame. A piece wholly inside an interval
@@ -266,8 +118,12 @@ export const buildRecording = async (
     readonly holdPrefix: string;
     readonly attemptCount: number;
     readonly publicIntervals: readonly PublicInterval[];
+    /** Each debater's own capture; a failure in one costs only that one. */
+    readonly povs: readonly PovBuild[];
+    readonly ceilingMs?: number | undefined;
   },
 ): Promise<RecordingJobState> => {
+  const startedAtMs = Date.parse(ports.now());
   const pieces: CapturedPiece[] = [];
   for (let attempt = 1; attempt <= job.attemptCount; attempt += 1) {
     ports.progress({
@@ -330,14 +186,32 @@ export const buildRecording = async (
     stored,
   });
   if (problem) throw new RecordingVerificationError(problem);
+  const povs = await buildPovs(ports, {
+    recordingId: job.recordingId,
+    povs: job.povs,
+    intervals: job.publicIntervals,
+    frame: { fromMs: coverage.capturedFromMs, durationMs: coverage.durationMs },
+    budgetMs:
+      (job.ceilingMs ?? recordingBuildCeilingMs(coverage.durationMs)) -
+      (Date.parse(ports.now()) - startedAtMs),
+  });
   const media: BuiltRecordingMedia = {
     capturedFrom: new Date(coverage.capturedFromMs).toISOString(),
     playlistKey: `${hlsRoot}master.m3u8`,
     downloadKey,
     durationMs: download.durationMs,
-    byteSize: [...written.values()].reduce((sum, size) => sum + size, 0),
+    byteSize:
+      [...written.values()].reduce((sum, size) => sum + size, 0) +
+      povs.reduce(
+        (sum, pov) =>
+          pov.status === 'built'
+            ? sum + pov.audio.byteSize + (pov.video?.byteSize ?? 0)
+            : sum,
+        0,
+      ),
     verifiedAt: ports.now(),
     gaps: [...coverage.gaps],
+    ...(povs.length > 0 ? { povs: [...povs] } : {}),
   };
   return { status: 'built', media };
 };

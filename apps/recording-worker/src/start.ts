@@ -49,6 +49,12 @@ await Promise.all(
             files: localFiles,
             run: runCommand(AbortSignal.any([signal, stopped.signal])),
             progress,
+            povMissing: () =>
+              logger.log(
+                'recording.pov_missing',
+                {},
+                'Recording worker failure',
+              ),
             slatePath,
             workDir,
             now: () => new Date(realClock()).toISOString(),

@@ -1,6 +1,6 @@
 # Ranked content waiver — not reviewed by counsel
 
-**Not reviewed by counsel.** Version `draft-3`. This file is the source of truth for the wording; the app shows the same text from `apps/web/src/features/legal/agreements.ts`, without the placeholders, and a change to one changes the other and the version. Owner decisions of 2026-11-02 set the deal. Legal review blocks nothing: counsel can review this at any time, and the wording may change after that.
+**Not reviewed by counsel.** Version `draft-4`. This file is the source of truth for the wording; the app shows the same text from `apps/web/src/features/legal/agreements.ts`, without the placeholders, and a change to one changes the other and the version. Owner decisions of 2026-11-02 set the deal. Legal review blocks nothing: counsel can review this at any time, and the wording may change after that.
 
 Placeholders: **[COUNSEL: …]** is a question for counsel's review. An open one holds nothing back.
 
@@ -12,7 +12,7 @@ Ranked rounds are always public, always broadcast and always recorded. Competing
 
 ## In-round content
 
-Daisy owns what is said and shown in a ranked round, including its video and transcript. [COUNSEL: the form of the grant: assignment, exclusive licence or other.] It stays after you close your account, because ranked season rounds are qualifying artifacts for tournaments.
+Daisy owns what is said and shown in a ranked round, including its video and transcript. That video includes each debater's own camera and voice as separate files, which any subscriber who may watch the round can download. [COUNSEL: the form of the grant: assignment, exclusive licence or other.] It stays after you close your account, because ranked season rounds are qualifying artifacts for tournaments.
 
 ## Clips and other media
 

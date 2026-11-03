@@ -1,5 +1,9 @@
 import { createAppError } from '@daisy/errors';
-import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol';
+import {
+  CONTENT_MODERATION_DELIVERY_BOUND_MS,
+  type PovFileKind,
+  type RecordingMedia,
+} from '@daisy/protocol';
 import {
   mayDownload,
   roundEvidencePermissions,
@@ -15,11 +19,45 @@ import type {
 export const DOWNLOAD_LINK_SECONDS =
   CONTENT_MODERATION_DELIVERY_BOUND_MS / 1000;
 
-export const recordingDownloadRule = { max: 10, windowSeconds: 3600 };
+/** Five files a Recording with two debaters, for several Recordings in an hour. */
+export const recordingDownloadRule = { max: 30, windowSeconds: 3600 };
+
+/** What can be asked for: the composite or a named file of one debater's view. */
+export type RecordingDownloadChoice =
+  | { readonly kind: 'composite' }
+  | {
+      readonly kind: 'pov';
+      readonly roundParticipantId: string;
+      readonly file: PovFileKind;
+    };
+
+/** Named by seat, never by a person, and looked up in the media: never a free key. */
+const chosenFile = (
+  recordingId: string,
+  media: RecordingMedia,
+  choice: RecordingDownloadChoice,
+): { readonly key: string; readonly attachmentName: string } | null => {
+  if (choice.kind === 'composite')
+    return {
+      key: media.downloadKey,
+      attachmentName: `daisy-recording-${recordingId}.mp4`,
+    };
+  const pov = media.povs?.find(
+    (entry) => entry.roundParticipantId === choice.roundParticipantId,
+  );
+  if (pov?.status !== 'built') return null;
+  const file = choice.file === 'video' ? pov.video : pov.audio;
+  return (
+    file && {
+      key: file.key,
+      attachmentName: `daisy-recording-${recordingId}-${pov.roundParticipantId}.${choice.file === 'video' ? 'mp4' : 'm4a'}`,
+    }
+  );
+};
 
 /**
- * A short-lived link to the whole video, for a subscriber who may watch this
- * Recording. Anything else answers as if there were nothing to download, so the
+ * A short-lived link to the whole video or a debater's own file, for a subscriber
+ * who may watch this Recording. Anything else answers as if there were nothing to download, so the
  * refusal says nothing about a Recording they cannot see.
  */
 export const openDownload = async (
@@ -33,6 +71,7 @@ export const openDownload = async (
   },
   input: {
     readonly recordingId: string;
+    readonly choice: RecordingDownloadChoice;
     readonly viewer: RecordingViewer;
     readonly presentedLinkHashOf: (roundId: string) => string | null;
   },
@@ -56,8 +95,10 @@ export const openDownload = async (
     subscribed: await deps.inputs.holdsRecordingDownload(input.viewer.userId),
   });
   if (!allowed || record.lifecycle.status !== 'ready') throw refused;
-  return deps.objects.signedRead(record.lifecycle.media.downloadKey, {
+  const file = chosenFile(record.id, record.lifecycle.media, input.choice);
+  if (file === null) throw refused;
+  return deps.objects.signedRead(file.key, {
     expiresInSeconds: DOWNLOAD_LINK_SECONDS,
-    attachmentName: `daisy-recording-${record.id}.mp4`,
+    attachmentName: file.attachmentName,
   });
 };

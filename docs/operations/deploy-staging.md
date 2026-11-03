@@ -814,6 +814,25 @@ config in the `EGRESS_CONFIG_BODY` secret and writes to the private Tigris bucke
 `daisy-debate-staging-broadcast`, created with `fly storage create`. Stop the
 machine when idle: it has no proxy to auto-stop it.
 
+**POV Egress pool (REC-1.6, approved on staging under BCAST-H).** `daisy-debate-staging-pov-egress`
+(`fly.egress-pov.toml`) runs each debater's Participant Egress apart from the composite, so POV
+load never reaches the audience's Chrome. Its size is set by the load run; the file's is a
+placeholder. To bring it up:
+
+1. `fly apps create daisy-debate-staging-pov-egress`, then `fly deploy -c fly.egress-pov.toml`.
+2. Set `EGRESS_CONFIG_BODY` on it to the composite pool's config, same Redis, LiveKit and bucket,
+   adding `cpu_cost: { web_cpu_cost: 1000, room_composite_cpu_cost: 1000 }`, so it refuses stage
+   Egress.
+3. Add `cpu_cost: { participant_cpu_cost: 1000, track_cpu_cost: 1000 }` to the composite pool's
+   `EGRESS_CONFIG_BODY`, so it refuses POVs. Lower `participant_cpu_cost` on the POV pool only
+   once measured.
+4. Set `RECORDING_POV_CAPTURE=on` on `daisy-debate-staging`. Unset it first to back out: POVs in
+   progress stop at the next pass and the Recordings list them as they stand.
+
+Stop its machines when idle (`fly machine stop`): nothing auto-stops them. Start one before a
+Round, or POV starts are refused and `recording.pov.start_failed` is raised, and those POVs are
+missing or late. The composite is untouched either way.
+
 **Web restarts stop capture (hold).** A Broadcast's or own Recording's stage page ends
 its own Egress once the stage route has refused or failed for about 10 s, and media
 captured after the last control-plane heartbeat is never published (ADR 0099). So a
@@ -851,6 +870,7 @@ a Round already running, except where noted.
 | Pressure                | Step                                                                                                                         | Limit and what shows it                                                                                     |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | More Broadcasts at once | `fly scale count <n> -a daisy-debate-staging-egress`, with `fly machine start` first if stopped                              | One Round per machine at 4 CPU. A start with no capacity retries and raises `broadcast.egress.start_failed` |
+| More POVs at once       | `fly scale count <n> -a daisy-debate-staging-pov-egress`, with `fly machine start` first if stopped                          | Sized by the load run. A start with no capacity retries and raises `recording.pov.start_failed`             |
 | More releases to encode | `fly scale count <n> -a daisy-debate-staging-encoder`, or raise `BROADCAST_WORKER_SLOTS` (default 4, at most 32) per machine | `broadcast.release_failed`, or viewers falling behind the Round's delay                                     |
 | More Recording builds   | `fly scale count <n> -a daisy-debate-staging-recorder`                                                                       | Builds queue durably, so the cost of too few is a later Ready                                               |
 | More people in Rounds   | `fly scale vm <size> -a daisy-debate-staging-livekit`, under the hold below                                                  | It restarts the machine, which ends every live call                                                         |

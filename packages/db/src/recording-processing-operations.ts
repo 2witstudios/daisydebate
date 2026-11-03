@@ -23,6 +23,8 @@ import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { roundSegments } from './schema/round-segments';
 import { recordingCaptures } from './schema/recording-captures';
+import { readPovBuilds } from './recording-pov-reads';
+import { recordingPovCaptures } from './schema/recording-pov-captures';
 import { recordingProcessingJobs as jobs } from './schema/recording-processing-jobs';
 import { recordings } from './schema/recordings';
 
@@ -88,6 +90,12 @@ export const readRecordingPublicHistory = async (
   };
 };
 
+/** Absent on a Recording no POV was captured for, which then lists none. */
+const povsOf = async (tx: Tx, recordingId: string) => {
+  const povs = await readPovBuilds(tx, recordingId);
+  return povs.length > 0 ? { povs: [...povs] } : {};
+};
+
 export const queueRecordingJob = async (
   tx: Tx,
   input: {
@@ -105,6 +113,7 @@ export const queueRecordingJob = async (
         attemptCount: input.attemptCount,
         publicIntervals: [...input.publicIntervals],
         ceilingMs: input.ceilingMs,
+        ...(await povsOf(tx, input.recordingId)),
       }),
       dueAt: sql`clock_timestamp()`,
     })
@@ -137,6 +146,7 @@ export const requeueRecordingJob = async (
           ...publicIntervals(history.segments, history.knownThroughMs),
         ],
         ceilingMs: input.ceilingMs,
+        ...(await povsOf(tx, input.recordingId)),
       }),
       failures: 0,
       dueAt: sql`clock_timestamp()`,
@@ -300,7 +310,13 @@ export const listUnsettledRecordingJobs = (
         or exists (select 1 from ${recordingCaptures}
           where ${recordingCaptures.recordingId} = ${recordings.id}
             and ${recordingCaptures.endedAt} is null)
+        or exists (select 1 from ${recordingPovCaptures}
+          where ${recordingPovCaptures.recordingId} = ${recordings.id}
+            and ${recordingPovCaptures.endedAt} is null)
       )`,
+      povsOpen: sql<boolean>`exists (select 1 from ${recordingPovCaptures}
+        where ${recordingPovCaptures.recordingId} = ${recordings.id}
+          and ${recordingPovCaptures.endedAt} is null)`,
     })
     .from(jobs)
     .innerJoin(recordings, eq(recordings.id, jobs.recordingId))

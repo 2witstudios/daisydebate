@@ -1,5 +1,6 @@
 import { publicIntervalsSchema } from './public-interval';
 import { z } from 'zod';
+import { povBuildSchema } from './recording-pov';
 import {
   recordingFailureReasons,
   recordingMediaSchema,
@@ -91,6 +92,8 @@ export const recordingJobStateSchema = z.discriminatedUnion('status', [
     attemptCount: z.int().positive(),
     /** What committed history proves public: only this is built. */
     publicIntervals: publicIntervalsSchema,
+    /** Each debater's own capture, copied here for the same reason. Absent when none. */
+    povs: z.array(povBuildSchema).max(32).optional(),
     /** How long one run may go on, sized by the web from the capture's length. */
     ceilingMs: z.int().positive().optional(),
     /** Absent until a worker holds it, and again after a run that failed. */

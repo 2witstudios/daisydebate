@@ -119,14 +119,62 @@ function Result({ result }: { result: NonNullable<History['result']> }) {
   );
 }
 
-function Download({ href }: { href: string }) {
+const POV_QUALITY_NOTE = {
+  '540p': '540p',
+  '360p': '360p: this device could not send more',
+} as const;
+
+function PovDownloads({ povs }: { povs: History['povDownloads'] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <span className="text-sm font-strong text-ink">
+        Each debater on their own
+      </span>
+      {povs.map((pov) =>
+        pov.state === 'missing' ? (
+          <p key={pov.name} className="text-sm text-ink-muted">
+            {`${pov.name}: not available for this recording`}
+          </p>
+        ) : (
+          <div key={pov.name} className="flex flex-col gap-1">
+            <span className="text-sm text-ink">{pov.name}</span>
+            {pov.quality ? (
+              <span className="text-sm text-ink-muted">
+                {POV_QUALITY_NOTE[pov.quality]}
+              </span>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              {pov.videoHref ? (
+                <a href={pov.videoHref} className={buttonClass('secondary')}>
+                  Video with voice
+                </a>
+              ) : null}
+              <a href={pov.audioHref} className={buttonClass('secondary')}>
+                Audio only
+              </a>
+            </div>
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
+function Download({
+  href,
+  povs,
+}: {
+  href: string;
+  povs: History['povDownloads'];
+}) {
   return (
     <section aria-label="Download" className={card}>
       <span className={label}>Download</span>
-      {/* A plain link, so no prefetch spends the download allowance. */}
+      {/* Plain links, so no prefetch spends the download allowance. */}
       <a href={href} className={buttonClass('secondary')}>
         Download video
       </a>
+      {povs.length > 0 ? <PovDownloads povs={povs} /> : null}
       <p className="text-sm text-ink-muted">
         A copy you download is outside Daisy. Removing this recording, taking it
         down or erasing an account cannot reach that copy.
@@ -227,7 +275,9 @@ export function RecordingHistory({
               </div>
             )}
           </section>
-          {screen.downloadHref ? <Download href={screen.downloadHref} /> : null}
+          {screen.downloadHref ? (
+            <Download href={screen.downloadHref} povs={screen.povDownloads} />
+          ) : null}
           {screen.removal ? (
             <Removal roundId={screen.roundId} removal={screen.removal} />
           ) : null}

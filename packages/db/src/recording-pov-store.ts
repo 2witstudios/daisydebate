@@ -1,4 +1,3 @@
-import type { PovBuild } from '@daisy/protocol';
 import { and, asc, eq, exists, gt, isNull, lte, or, sql } from 'drizzle-orm';
 import { readBroadcastRoom } from './broadcast-operations';
 import { hydrateRoundRows } from './round-hydration';
@@ -8,11 +7,7 @@ import { recordingPovCaptures as povs } from './schema/recording-pov-captures';
 import { recordings } from './schema/recordings';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-
-/** The label's threshold: a camera this tall reached the POV's full quality. */
-const FULL_QUALITY_HEIGHT = 540;
 
 type Pov = {
   readonly recordingId: string;
@@ -24,34 +19,6 @@ const thisPov = (input: Pov) =>
     eq(povs.recordingId, input.recordingId),
     eq(povs.roundParticipantId, input.roundParticipantId),
   );
-
-/**
- * What the worker needs of each debater's capture. Its login reaches its job table
- * alone, so the web copies this onto the job when it queues a build.
- */
-export const readPovBuilds = async (
-  tx: BoundedTransactionContext,
-  recordingId: string,
-): Promise<readonly PovBuild[]> => {
-  const rows = await tx
-    .select({
-      roundParticipantId: povs.roundParticipantId,
-      camera: povs.camera,
-      cameraHeight: povs.cameraHeight,
-      attemptCount: povs.egressGeneration,
-    })
-    .from(povs)
-    .where(eq(povs.recordingId, recordingId))
-    .orderBy(asc(povs.roundParticipantId));
-  return rows.map(({ camera, cameraHeight, ...row }) => ({
-    ...row,
-    picture: !camera
-      ? null
-      : (cameraHeight ?? 0) >= FULL_QUALITY_HEIGHT
-        ? ('540p' as const)
-        : ('360p' as const),
-  }));
-};
 
 /**
  * The control plane of each debater's own capture: its own table, and the Round and

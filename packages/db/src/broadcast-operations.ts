@@ -16,7 +16,7 @@ import { controlHeartbeat } from './control-heartbeat';
 import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { mediaSessions } from './schema/media-sessions';
-import { readPovSubscribed } from './recording-pov-hold';
+import { readPovSubscribed } from './recording-pov-reads';
 import { recordingCaptures } from './schema/recording-captures';
 import { rounds } from './schema/rounds';
 import {

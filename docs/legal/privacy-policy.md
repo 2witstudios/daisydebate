@@ -74,7 +74,7 @@ We keep ranked video, with the results and ballots, as Daisy’s content for as 
 
 On any other round, recording happens only if the host opts in, and you are told before you are Ready. A casual recording is kept until any participant removes it, and then the whole recording goes.
 
-A subscriber can download a recording they can watch. A copy outside Daisy is beyond our reach, so neither erasure nor takedown can remove it.
+A recording also keeps each debater's own camera and voice as separate files, under the same rules as the recording itself. A subscriber can download a recording they can watch, and those files. A copy outside Daisy is beyond our reach, so neither erasure nor takedown can remove it.
 
 ## Service providers and international transfers
 

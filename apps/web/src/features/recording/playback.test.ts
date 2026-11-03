@@ -46,6 +46,18 @@ describe('openPlayback', () => {
     });
   });
 
+  test('can only ever reach the HLS tree, so no POV is ever played', async () => {
+    assert({
+      given: 'a path naming a POV file',
+      should: 'resolve inside the HLS tree, where no POV is',
+      actual: await open(deps(), ['pov', 'seat', 'video.mp4']),
+      expected: {
+        kind: 'redirect',
+        url: `https://store.test/${prefix}hls/pov/seat/video.mp4?expires=60`,
+      },
+    });
+  });
+
   test('refuses what is hidden, gone or malformed alike', async () => {
     const down = record({
       lifecycle: { status: 'taken_down', takenDownAt: at, held: null },
