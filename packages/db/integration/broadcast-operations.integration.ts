@@ -14,6 +14,7 @@ import {
   recordObserverRevoked,
   recordRevocationFailed,
   recordSegmentReleased,
+  stopBroadcast,
 } from '../src/broadcast-operations';
 import { withFixture } from './constraint-helpers';
 
@@ -197,6 +198,68 @@ test('reconcile records are idempotent and a revocation resets its failures', as
         await read(),
       ],
       expected: [2, 0, now.toISOString(), null, now.toISOString(), undefined],
+    });
+  });
+});
+
+test('an operator stop stands once, and a missing Broadcast says so', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      releasePolicy: policy,
+    });
+    const first = await stopBroadcast(db, {
+      id: open.id,
+      reason: 'policy_violation',
+      now,
+    });
+    const repeat = await stopBroadcast(db, {
+      id: open.id,
+      reason: 'technical',
+      now: later,
+    });
+    const stored = (await listOpenBroadcasts(db, 100)).find(
+      (row) => row.id === open.id,
+    );
+    assert({
+      given: 'a stop, a repeat with another reason, and an unknown Broadcast',
+      should: 'apply once, keep the first stop, and answer null for the last',
+      actual: [
+        first,
+        repeat,
+        stored?.stopReason,
+        stored?.stoppedAt?.toISOString(),
+        await stopBroadcast(db, { id: createId(), reason: 'technical', now }),
+      ],
+      expected: [
+        'applied',
+        'unchanged',
+        'policy_violation',
+        now.toISOString(),
+        null,
+      ],
+    });
+  });
+});
+
+test('a completed Broadcast cannot be stopped', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      releasePolicy: policy,
+    });
+    await completeBroadcast(db, { id: open.id, at: now });
+    assert({
+      given: 'a Broadcast already complete',
+      should: 'leave it unchanged',
+      actual: await stopBroadcast(db, {
+        id: open.id,
+        reason: 'technical',
+        now,
+      }),
+      expected: 'unchanged',
     });
   });
 });
