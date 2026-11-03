@@ -1,3 +1,4 @@
+import { SEGMENT_CACHE_CONTROL } from './hold-manifest';
 import { S3Client } from 'bun';
 
 /** The hold key reads the private bucket; only the release key writes public (ADR 0099). */
@@ -24,6 +25,17 @@ export const createObjects = (config: {
     });
   const hold = client(config.hold);
   const pub = client(config.public);
+  const putPublic = async (
+    key: string,
+    body: string | Blob,
+    headers: Readonly<Record<string, string>>,
+  ) => {
+    const response = await fetch(
+      pub.presign(key, { method: 'PUT', expiresIn: 60 }),
+      { method: 'PUT', body, headers },
+    );
+    if (!response.ok) throw new Error(`public put ${response.status}`);
+  };
   return {
     /** Empty until Egress writes its first playlist: nothing is due yet. */
     readHoldText: async (key: string) => {
@@ -34,26 +46,22 @@ export const createObjects = (config: {
       await Bun.write(path, hold.file(key));
     },
     deletePublic: (key: string) => pub.delete(key),
-    putSegment: async (key: string, path: string) => {
-      await pub.write(key, Bun.file(path), { type: 'video/mp2t' });
-    },
     /**
-     * A presigned PUT, because Bun's write drops Cache-Control and an uncached
-     * header is the only thing that keeps a rewritten manifest fresh (BCAST-1).
+     * Presigned PUTs, because Bun's write drops Cache-Control. An uncached header
+     * keeps a rewritten manifest fresh (BCAST-1); a short one bounds how long a
+     * withdrawn segment can be served.
      */
+    putSegment: async (key: string, path: string) => {
+      await putPublic(key, Bun.file(path), {
+        'cache-control': SEGMENT_CACHE_CONTROL,
+        'content-type': 'video/mp2t',
+      });
+    },
     putManifest: async (key: string, body: string) => {
-      const response = await fetch(
-        pub.presign(key, { method: 'PUT', expiresIn: 60 }),
-        {
-          method: 'PUT',
-          body,
-          headers: {
-            'cache-control': 'no-cache',
-            'content-type': 'application/vnd.apple.mpegurl',
-          },
-        },
-      );
-      if (!response.ok) throw new Error(`manifest put ${response.status}`);
+      await putPublic(key, body, {
+        'cache-control': 'no-cache',
+        'content-type': 'application/vnd.apple.mpegurl',
+      });
     },
   };
 };

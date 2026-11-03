@@ -74,6 +74,14 @@ export const mediaPlaylist = (
   );
 };
 
+/**
+ * A released segment never changes, but Tigris keeps a default hour at the edge
+ * and a delete reaches no cache, so this bounds how long a withdrawn segment is
+ * still served. Half the 60 s a takedown may take (DEC-303), the rest for the
+ * delete itself. Measured on staging: an unset one served 200 after deletion.
+ */
+export const SEGMENT_CACHE_CONTROL = 'public, max-age=30';
+
 export const masterPlaylist = (): string =>
   '#EXTM3U\n' +
   RENDITIONS.map(

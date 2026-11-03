@@ -16,7 +16,7 @@ const world = (over: Partial<ReleasePorts> = {}) => {
   const log: string[] = [];
   const ports: ReleasePorts = {
     readHoldPlaylist: async () => playlist(3),
-    encode: async (name) => {
+    encode: async ({ name }) => {
       log.push(`encode ${name}`);
       return ['720', '480', '240'].map((rendition) => ({
         rendition,
