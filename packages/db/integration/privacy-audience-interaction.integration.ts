@@ -2,6 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { audienceReactionPrivacyAdopter } from '../src/audience-reactions';
+import { createMessagingPrivacyAdopter } from '../src/messaging/privacy';
 import { debaterFollowPrivacyAdopter } from '../src/debater-follows';
 import { notificationPrivacyAdopter } from '../src/notifications';
 import { watchHistoryPrivacyAdopter } from '../src/watch-history';
@@ -91,6 +92,49 @@ test('export carries the subject’s audience activity, and erasure removes ever
           left: [0, 0, 0, 0, 0, 0, 0],
         },
       });
+    });
+  });
+});
+
+test('erasure scrubs the subject’s spectator chat in place, keeping its place and no words', async () => {
+  await withPrivacySubject(async ({ client, database, userId, actorId }) => {
+    await withFixture(databaseUrl, async (f) => {
+      const roundId = await f.round();
+      const channelId = createId();
+      const messageId = createId();
+      try {
+        await client.unsafe(
+          `insert into messaging_channels (id,kind,policy_key,policy_revision,lifecycle,round_id)
+           values ($1,'round_spectator','round.spectator',1,'active',$2)`,
+          [channelId, roundId],
+        );
+        await client.unsafe(
+          `insert into messaging_channel_streams (channel_id,message_sequence,change_version) values ($1,1,1)`,
+          [channelId],
+        );
+        await client.unsafe(
+          `insert into messaging_messages (id,channel_id,author_actor_id,sequence,change_version,text,created_at)
+           values ($1,$2,$3,1,1,'Words to erase',timestamptz '2020-01-01 00:00:00+00')`,
+          [messageId, channelId, actorId],
+        );
+        const exported = await exportThenErase(database, { userId, actorId }, [
+          createMessagingPrivacyAdopter(),
+        ]);
+        const [row] = (await client.unsafe(
+          'select text,removed_at is not null as removed from messaging_messages where id=$1',
+          [messageId],
+        )) as { text: string | null; removed: boolean }[];
+        assert({
+          given: 'a spectator message by a member who is erased',
+          should: 'export it, then keep its place with no words',
+          actual: [exported.messaging_messages?.length, row],
+          expected: [1, { text: null, removed: true }],
+        });
+      } finally {
+        await client.unsafe('delete from messaging_channels where id=$1', [
+          channelId,
+        ]);
+      }
     });
   });
 });
