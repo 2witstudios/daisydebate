@@ -1,3 +1,4 @@
+import type { CaptureSummary } from './capture-summary';
 import {
   CAPTURE_CALL_DEADLINE_MS,
   CAPTURE_STT_TIMEOUT_MS,
@@ -34,6 +35,8 @@ type Fetch = (
  * speech-to-text call; capture-process.ts passes the real one.
  */
 export async function runCaptureProcess(input: {
+  /** What the session counted, sent to the worker: numbers, never content. */
+  readonly report?: (summary: CaptureSummary) => void;
   readonly argv: readonly string[];
   readonly env: Record<string, string | undefined>;
   readonly fetch: Fetch;
@@ -114,6 +117,7 @@ export async function runCaptureProcess(input: {
       },
       stop.signal,
     );
+    input.report?.({ silentClips: ended.silentClips });
     process.exitCode = exitStatus(ended.closed);
   } catch (error) {
     process.exitCode = startRefusalExit(error);

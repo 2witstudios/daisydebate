@@ -53,8 +53,10 @@ export function flushQuietCarries(
   serverNowMs: number,
 ) {
   return [...carries].flatMap(([key, carry]) => {
-    const last = carry.frames.at(-1);
-    if (last && serverNowMs - last.frame.afterMs < CLIP_PAUSE_MS) return [];
+    // An empty carry can still hold a run of speech: it ends a pause after its frame.
+    const heardUntil =
+      carry.frames.at(-1)?.frame.afterMs ?? carry.lastNominal + 10;
+    if (serverNowMs - heardUntil < CLIP_PAUSE_MS) return [];
     const [segmentId, roundParticipantId] = JSON.parse(key) as [string, string];
     return flushClipCarry(carries, roundId, { segmentId, roundParticipantId });
   });

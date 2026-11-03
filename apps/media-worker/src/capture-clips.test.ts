@@ -407,3 +407,113 @@ test('the tail of long speech cut at the bound is never recorded as silence', ()
     expected,
   });
 });
+
+/** Speech cut with one frame missing every `every` frames, then a real pause. */
+const withMissing = (count: number, missing: (i: number) => boolean) =>
+  cutCaptureClips({
+    ...scope,
+    segments: [segment],
+    intervals: [grant],
+    frames: [
+      ...Array.from({ length: count }, (_, i) => i)
+        .filter((i) => !missing(i))
+        .map((i) => frame(10 + i * 10)),
+      ...Array.from({ length: 60 }, (_, i) =>
+        frame(10 + (count + i) * 10, true),
+      ),
+    ],
+    final: true,
+  }).clips;
+
+test('voice is judged over the run of speech, not one fragment', () => {
+  const audibleWithVoice = (clips: ReturnType<typeof withMissing>) =>
+    clips.filter((c) => c.kind === 'audible').length;
+  assert({
+    given: 'two seconds of speech missing one frame in every ten',
+    should: 'send every fragment holding voice, not cut 21 silent clips',
+    actual: audibleWithVoice(withMissing(200, (i) => i % 10 === 9)),
+    expected: 20,
+  });
+  assert({
+    given: 'a 200 ms word split by two missing frames',
+    should: 'reach speech-to-text',
+    actual: audibleWithVoice(withMissing(20, (i) => i === 6 || i === 13)),
+    expected: 3,
+  });
+  assert({
+    given: 'a 370 ms word split by three missing frames',
+    should: 'reach speech-to-text',
+    actual: audibleWithVoice(
+      withMissing(37, (i) => i === 9 || i === 18 || i === 27),
+    ),
+    expected: 4,
+  });
+});
+
+test('a run ends at a real pause, or with its track or grant', () => {
+  const clicks = cutCaptureClips({
+    ...scope,
+    segments: [segment],
+    intervals: [grant],
+    frames: Array.from({ length: 150 }, (_, i) =>
+      frame(10 + i * 10, !(i < 9 || (i >= 80 && i < 89))),
+    ),
+    final: true,
+  }).clips.map((c) => c.kind);
+  assert({
+    given: 'two 90 ms clicks with a real pause between them',
+    should: 'keep both silent: voice does not add across a pause',
+    actual: clicks.includes('audible'),
+    expected: false,
+  });
+  const otherTrack = cutCaptureClips({
+    ...scope,
+    segments: [segment],
+    intervals: [grant],
+    frames: [
+      ...Array.from({ length: 30 }, (_, i) => frame(10 + i * 10)),
+      ...Array.from({ length: 9 }, (_, i) => ({
+        ...frame(310 + i * 10),
+        trackId: 'other-track',
+      })),
+      ...Array.from({ length: 40 }, (_, i) => ({
+        ...frame(400 + i * 10, true),
+        trackId: 'other-track',
+      })),
+    ],
+    final: true,
+  }).clips.map((c) => [c.trackId, c.kind]);
+  assert({
+    given: 'speech on one track, then a 90 ms click on another',
+    should: 'not count the first track toward the click',
+    actual: otherTrack,
+    expected: [
+      [trackId, 'audible'],
+      ['other-track', 'silent'],
+    ],
+  });
+});
+
+test('a run survives a batch boundary', () => {
+  const first = cutCaptureClips({
+    ...scope,
+    segments: [segment],
+    intervals: [grant],
+    frames: Array.from({ length: 12 }, (_, i) => frame(10 + i * 10)),
+    final: false,
+  });
+  const second = cutCaptureClips({
+    ...scope,
+    segments: [segment],
+    intervals: [grant],
+    frames: Array.from({ length: 8 }, (_, i) => frame(140 + i * 10)),
+    carry: first.carry,
+    final: true,
+  });
+  assert({
+    given: 'a word split by a missing frame across two batches',
+    should: 'send both pieces',
+    actual: second.clips.map((c) => c.kind),
+    expected: ['audible', 'audible'],
+  });
+});

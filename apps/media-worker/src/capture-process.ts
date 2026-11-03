@@ -5,4 +5,5 @@ await runCaptureProcess({
   argv: process.argv.slice(2),
   env: process.env,
   fetch,
+  report: (summary) => process.send?.(summary),
 });
