@@ -3,6 +3,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import {
   createChallengeStore,
@@ -58,6 +59,7 @@ const page = (
     ctx.me,
     {
       onlineActorIds: [ctx.me.actorId, ctx.them.actorId],
+      admittedAgeBands: ['16-17', 'adult'],
       now: ctx.now,
       filter: 'all',
       // Other suites' members share this database: read only this fixture's.
@@ -158,6 +160,7 @@ test('the roster counts, and orders friends, then online, then by name, across p
     await admitParticipants(
       ctx.client,
       others.map((other) => other.userId),
+      ctx.now,
     );
     const [first, second] = [...others].sort((a, b) =>
       a.username < b.username ? -1 : 1,
@@ -252,6 +255,94 @@ test('the roster leaves out a member who could not sign in', async () => {
       await ctx.cleanup();
       await ctx.client.close();
     }
+  }
+});
+
+test('the roster leaves out an approved account the age rule does not admit', async () => {
+  const contexts = [await open(), await open(), await open()] as const;
+  const [unrecorded, underFloor, oldEnough] = contexts;
+  const listed = async (ctx: Awaited<ReturnType<typeof open>>) =>
+    (await page(ctx)).rows.length;
+  const online = async (ctx: Awaited<ReturnType<typeof open>>) =>
+    (await page(ctx, { onlineActorIds: [ctx.them.actorId] })).counts.online;
+  try {
+    // The grandfathered cohort was approved with no age check.
+    await unrecorded.client.unsafe(
+      'delete from account_age where user_id = $1',
+      [unrecorded.them.userId],
+    );
+    await underFloor.client.unsafe(
+      "update account_age set birth_month = '2012-01' where user_id = $1",
+      [underFloor.them.userId],
+    );
+    await oldEnough.client.unsafe(
+      "update account_age set birth_month = '2010-01' where user_id = $1",
+      [oldEnough.them.userId],
+    );
+    assert({
+      given:
+        'approved accounts with no age record, in the 13-15 band, and in the 16-17 band',
+      should: 'list and count only the one the age floor admits',
+      actual: [
+        await listed(unrecorded),
+        await online(unrecorded),
+        await listed(underFloor),
+        await online(underFloor),
+        await listed(oldEnough),
+        await online(oldEnough),
+      ],
+      expected: [0, 0, 0, 0, 1, 1],
+    });
+  } finally {
+    for (const ctx of contexts) {
+      await ctx.cleanup();
+      await ctx.client.close();
+    }
+  }
+});
+
+test('the web role can run the roster read', async () => {
+  const ctx = await open();
+  try {
+    const rows = await ctx.database.transaction(async (tx) => {
+      await tx.execute(sql`set local role daisy_web`);
+      return (
+        await readRosterPage(
+          tx as never,
+          ctx.me,
+          {
+            onlineActorIds: [ctx.them.actorId],
+            admittedAgeBands: ['16-17', 'adult'],
+            now: ctx.now,
+            filter: 'all',
+            query: ctx.them.userId,
+            after: null,
+            limit: 10,
+          },
+          unfenced,
+        )
+      ).rows;
+    });
+    assert({
+      given: 'the read running as the production web role',
+      should: 'answer the row, carrying no age or birth data',
+      actual: rows.map((row) => Object.keys(row).sort()),
+      expected: [
+        [
+          'actorId',
+          'chosen',
+          'friend',
+          'friendshipState',
+          'online',
+          'placement',
+          'requesterActorId',
+          'username',
+        ],
+      ],
+    });
+  } finally {
+    await ctx.cleanup();
+    await ctx.client.close();
   }
 });
 

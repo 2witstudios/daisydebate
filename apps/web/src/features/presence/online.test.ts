@@ -1,6 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import {
+  ADMITTED_AGE_BANDS,
+  type AuthorizationPrincipal,
+} from '@daisy/auth/authorization';
 import {
   decodeRosterCursor,
   encodeRosterCursor,
@@ -104,6 +107,23 @@ describe('readOnlineRoster', () => {
         self: 'busy',
         counts: { everyone: 2, friends: 1, online: 2 },
       },
+    });
+  });
+
+  test('the read takes its age rule from the one admission rule', async () => {
+    const seen: unknown[] = [];
+    const base = deps();
+    await read({
+      page: (scope, input) => {
+        seen.push(input.admittedAgeBands);
+        return base.page(scope, input);
+      },
+    });
+    assert({
+      given: 'a read of the list',
+      should: 'ask for exactly the bands the account floor admits',
+      actual: seen,
+      expected: [ADMITTED_AGE_BANDS],
     });
   });
 

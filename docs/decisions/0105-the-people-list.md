@@ -17,9 +17,12 @@ and messaged.
 1. **The list shows every admitted member.** `GET /api/online` lists every named,
    current human who could sign in now, except the reader and anyone in a blocked
    pair either way. A lease says who counts as online and no longer who is
-   listed. Beta approval, a verified email and no restriction in force stand for
-   admission; approval needs an admitted age and age only rises, so the read
-   touches no birth data.
+   listed. Admission is ADR 0075's rule, age included: approval alone does not
+   stand for it, because the grandfathered cohort was approved with no age check.
+   The list reads the rule through one published SQL predicate with the admitted
+   bands injected from `@daisy/auth`, so an account with no age record or below
+   the floor is not listed. `daisy_web` gains `daisy_age_band` for this; the band
+   stays inside the predicate and no age data leaves the read.
 2. **Appearing offline reads as offline.** It no longer removes a member from the
    list, because absence from a list of everyone would reveal the setting.
    Nothing in the response or the cursor tells it apart from holding no lease.

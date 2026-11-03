@@ -29,6 +29,7 @@ import type {
   AuthorizationDecision,
 } from './authorization-facts';
 export {
+  ADMITTED_AGE_BANDS,
   admitsPrincipalAccess,
   ageAdmitted,
   participantAccess,

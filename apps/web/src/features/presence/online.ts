@@ -1,4 +1,8 @@
-import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import {
+  ADMITTED_AGE_BANDS,
+  type AuthorizationPrincipal,
+} from '@daisy/auth/authorization';
+import type { AgeBand } from '@daisy/auth';
 import { tallyRecord } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type {
@@ -31,6 +35,7 @@ export type OnlineRosterDependencies = {
     scope: { readonly userId: string; readonly actorId: string },
     input: {
       readonly onlineActorIds: readonly string[];
+      readonly admittedAgeBands: readonly AgeBand[];
       readonly now: string;
       readonly filter: OnlineFilter;
       readonly query: string | null;
@@ -157,6 +162,7 @@ export async function readOnlineRoster(
     { userId, actorId },
     {
       onlineActorIds,
+      admittedAgeBands: ADMITTED_AGE_BANDS,
       now,
       filter: input.filter,
       query: input.query,

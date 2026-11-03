@@ -1,3 +1,4 @@
+import type { AgeBand } from '@daisy/auth';
 import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
@@ -13,7 +14,7 @@ import {
   type OwnCollectionFence,
 } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import { restrictionInForce } from '../moderation/in-force';
+import { admittedParticipant } from '../participant-admission';
 import { roomIsOpen } from '../room-open';
 
 type RosterScope = { readonly userId: string; readonly actorId: string };
@@ -55,6 +56,8 @@ export type RosterPageInput = {
    * never who is listed, and presence grants nothing.
    */
   readonly onlineActorIds: readonly string[];
+  /** The bands the one admission rule admits, from `@daisy/auth`. */
+  readonly admittedAgeBands: readonly AgeBand[];
   readonly now: string;
   readonly filter: OnlineFilter;
   readonly query: string | null;
@@ -84,23 +87,24 @@ const textArray = (values: readonly string[]) =>
 
 /**
  * Who this reader may see (ADR 0105): every named, current, admitted human
- * other than the reader, with no block either way. Beta approval needs an
- * admitted age and age only rises, so approval stands for the age rule without
- * reading birth data here. The block filter is why this is an HTTP read rather
- * than a shared observed body.
+ * other than the reader, with no block either way. The block filter is why
+ * this is an HTTP read rather than a shared observed body.
  */
-const visibleFrom = (viewerId: string, at: Date) => sql`
+const visibleFrom = (
+  viewerId: string,
+  at: Date,
+  admittedAgeBands: readonly AgeBand[],
+) => sql`
   from actors a
   join users u on u.id = a.user_id and u.deleted_at is null
     and u.username is not null and u.email_verified
-  join account_beta_access b on b.user_id = u.id and b.state = 'approved'
   left join presence_settings ps on ps.actor_id = a.id
   left join contact_pairs p on p.low_actor_id = least(a.id, ${viewerId})
     and p.high_actor_id = greatest(a.id, ${viewerId})
   left join friendships f on f.low_actor_id = least(a.id, ${viewerId})
     and f.high_actor_id = greatest(a.id, ${viewerId})
   where a.kind = 'human' and a.id <> ${viewerId}
-    and not ${restrictionInForce(sql`u.id`, at)}
+    and ${admittedParticipant(sql`u.id`, at, admittedAgeBands)}
     and not coalesce(p.low_blocks_high or p.high_blocks_low, false)`;
 
 const isFriend = sql`coalesce(f.state = 'accepted', false)`;
@@ -120,7 +124,11 @@ export function readRosterPage(
   for (const id of input.onlineActorIds) idSchema.parse(id);
   return readOwnCollection(database, scope, authorize, async (tx) => {
     const self = await readSelf(tx, scope.actorId);
-    const from = visibleFrom(scope.actorId, new Date(input.now));
+    const from = visibleFrom(
+      scope.actorId,
+      new Date(input.now),
+      input.admittedAgeBands,
+    );
     const online = isOnline(input.onlineActorIds);
     const [counts] = (await tx.execute(
       sql`select count(*)::int as everyone,
