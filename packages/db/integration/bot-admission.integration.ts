@@ -158,7 +158,7 @@ test('actual global capacity fails closed', async () => {
       actual: () =>
         admission.reserve({ actorId: otherActor, roundId: secondRound }),
       code: 'CONFLICT',
-      message: 'bots-busy',
+      reason: 'bots-busy',
     });
     assert({
       given: 'invalid capacity configuration',
@@ -207,7 +207,7 @@ test('capacity counts live bot-debater Rounds, not reservations (ISSUE-773)', as
       should: 'refuse the next AI Round for capacity, as bots-busy',
       actual: () => admission.reserve({ actorId, roundId: refused }),
       code: 'CONFLICT',
-      message: 'bots-busy',
+      reason: 'bots-busy',
     });
     const status = await admission.readStatus(actorId);
     assert({
@@ -256,7 +256,7 @@ test('two bot-debater Rounds racing for the last capacity slot admit exactly one
           should: 'refuse it for capacity, as bots-busy',
           actual: () => Promise.reject(attempt.reason),
           code: 'CONFLICT',
-          message: 'bots-busy',
+          reason: 'bots-busy',
         });
   });
 });

@@ -10,7 +10,14 @@ export type HeldSegment = {
   readonly durationMs: number;
 };
 
-const RANKED_DELAY_SECONDS = 60;
+/**
+ * The one trusted value for a ranked Round's delay, read by the hold and the
+ * timeline alike. Lowering it is this one line; nothing else names the number.
+ */
+export const RANKED_DELAY_SECONDS = 60;
+/** How far real delay may run past the policy before it alerts (DEC-303). */
+const DELAY_ALERT_MARGIN_SECONDS = 30;
+
 const standardDelay: BroadcastReleasePolicy = {
   kind: 'delay',
   seconds: RANKED_DELAY_SECONDS,
@@ -64,8 +71,12 @@ export const factReleased = (
 export const delayAlert = (
   watermarkMs: number,
   nowMs: number,
-  options: { readonly boundMs: number },
-): boolean => nowMs - watermarkMs > options.boundMs;
+  options: { readonly policySeconds: number } = {
+    policySeconds: RANKED_DELAY_SECONDS,
+  },
+): boolean =>
+  nowMs - watermarkMs >
+  (options.policySeconds + DELAY_ALERT_MARGIN_SECONDS) * 1000;
 
 /**
  * Debaters reading a Broadcast's chat during the Round: never on ranked, and on

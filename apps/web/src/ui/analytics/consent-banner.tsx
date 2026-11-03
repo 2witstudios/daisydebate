@@ -5,7 +5,7 @@ import type {
   AnalyticsAvailability,
   Consent,
 } from '../../features/analytics/consent';
-import { ConsentControls } from './consent-controls';
+import { ConsentForm } from './consent-controls';
 
 export function ConsentBanner(props: {
   readonly consent: Consent;
@@ -13,5 +13,5 @@ export function ConsentBanner(props: {
 }) {
   const pathname = usePathname();
   if (pathname === '/analytics' || pathname === '/settings') return null;
-  return <ConsentControls {...props} banner />;
+  return <ConsentForm {...props} banner />;
 }

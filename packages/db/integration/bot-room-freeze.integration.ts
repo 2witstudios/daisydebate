@@ -228,7 +228,7 @@ test('a bot debater that spends no allowance still takes a capacity slot (ISSUE-
             botAdmission: testBotAdmission(run, 1),
           }).executeRoomCommand(input),
         code: 'CONFLICT',
-        message: 'bots-busy',
+        reason: 'bots-busy',
       });
       const accepted = await roomCommandOperations({
         ...common,

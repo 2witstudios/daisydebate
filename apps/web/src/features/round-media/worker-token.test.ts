@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { AppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { createRoundMediaOperations } from './operations';
 import { broker, scope, authenticated } from './worker-token.test-support';
@@ -152,7 +153,7 @@ test("a terminal Round's capture token is refused for good, whoever holds the se
     .captureToken(scope(world), authenticated(world))
     .then(
       () => null,
-      (error: { code: string; message: string }) => [error.code, error.message],
+      (error: AppError) => [error.code, error.reason],
     );
   assert({
     given:
@@ -160,7 +161,7 @@ test("a terminal Round's capture token is refused for good, whoever holds the se
     should:
       'refuse definitely as an ended capture session, so the worker stops instead of retrying (ISSUE-494)',
     actual: refused,
-    expected: ['CONFLICT', 'Capture session has ended'],
+    expected: ['CONFLICT', 'capture-closed'],
   });
 });
 

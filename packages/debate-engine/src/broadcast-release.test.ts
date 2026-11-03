@@ -160,10 +160,7 @@ describe('delayAlert', () => {
     assert({
       given: 'a watermark 90 s and then 90.001 s behind the clock',
       should: 'alert only past 90 seconds',
-      actual: [
-        delayAlert(at(0), at(90), { boundMs: 90_000 }),
-        delayAlert(at(0), at(90.001), { boundMs: 90_000 }),
-      ],
+      actual: [delayAlert(at(0), at(90)), delayAlert(at(0), at(90.001))],
       expected: [false, true],
     });
   });
@@ -180,5 +177,21 @@ test('debaters read chat only off ranked, with a host off switch', () => {
       debatersReadChat('casual', false),
     ],
     expected: [false, true, false],
+  });
+});
+
+test('a lower policy moves the delay and the alert together', () => {
+  assert({
+    given: 'a Broadcast with a 10 s policy',
+    should: 'release after 10 s and alert past 40 s',
+    actual: [
+      segmentDue({ kind: 'delay', seconds: 10 }, segment(0), {
+        nowMs: at(14),
+        roundEndedAtMs: null,
+      }),
+      delayAlert(at(0), at(40), { policySeconds: 10 }),
+      delayAlert(at(0), at(40.001), { policySeconds: 10 }),
+    ],
+    expected: [true, false, true],
   });
 });

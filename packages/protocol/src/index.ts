@@ -291,7 +291,13 @@ export {
   type MessagingReactionPolicy,
 } from './messaging/reactions';
 
-export { roundCommandEnvelopeSchema } from './round-command';
+export {
+  roundCommandEnvelopeSchema,
+  roundRefusalSchema,
+} from './round-command';
+export { captureRefusalSchema } from './capture-refusal';
+export type { CaptureRefusal } from './capture-refusal';
+export type { RefusalReason } from './refusal-reason';
 export type {
   RoundCommandAuthority,
   RoundCommandEnvelope,
@@ -315,6 +321,7 @@ export {
 } from './round-media';
 export type { RoundMediaState, RoundMediaAdmission } from './round-media';
 export {
+  attendanceRefusalSchema,
   attendanceTimingPolicy,
   availabilityRecoveryPolicy,
   attendanceEnvelopeSchema,
@@ -424,3 +431,23 @@ export {
   broadcastReleasePolicySchema,
   type BroadcastReleasePolicy,
 } from './broadcast';
+export {
+  capturePartialReasons,
+  capturePartialReasonSchema,
+  type CaptureFacts,
+  type CaptureGap,
+  type CaptureInterval,
+  type CapturePartialReason,
+  type CaptureRule,
+  type CaptureVerdict,
+  type CoverageEdges,
+  type StreamCoverage,
+} from './capture-verdict';
+export {
+  acknowledgedReply,
+  captureMutationReply,
+  captureStateReply,
+  leaseReply,
+  sealReply,
+  tokenReply,
+} from './capture-worker-replies';

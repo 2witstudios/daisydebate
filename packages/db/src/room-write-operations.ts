@@ -15,9 +15,10 @@ import type {
   RoomCommandReceipt,
   RoomMutationOutcome,
   PublishedResolution,
+  RoomRefusal,
 } from '@daisy/protocol';
 
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 
 import {
   lockAuthorizationActors,
@@ -117,7 +118,7 @@ export const roomWriteOperations = ({
         (error) => error instanceof RoomMoved,
         ATTEMPTS,
         // The Room kept moving under the command: the caller rereads it.
-        () => createAppError('CONFLICT', 'version-conflict'),
+        () => createRefusal('CONFLICT', 'version-conflict'),
       ),
     );
   },
@@ -208,7 +209,7 @@ async function executeOnce(
       : null,
   );
   if (!outcome.ok)
-    throw createAppError(refusalCode(outcome.refusal), outcome.refusal);
+    throw createRefusal(refusalCode(outcome.refusal), outcome.refusal);
   const next = outcome.mutation.state;
   const roundRef = await persistRoomMutation(
     tx,
@@ -266,7 +267,7 @@ const drawFacts = async (
 const storedStrikes = (state: RoomAssemblyState) =>
   state.resolutionDraw?.strikes.length ?? 0;
 
-const refusalCode = (refusal: string) =>
+const refusalCode = (refusal: RoomRefusal) =>
   refusal === 'host-required'
     ? ('AUTHORIZATION' as const)
     : refusal === 'readiness-unavailable'

@@ -1,4 +1,5 @@
-import { createAppError } from '@daisy/errors';
+import type { CaptureRule } from '@daisy/protocol';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { and, eq } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -35,14 +36,10 @@ export type CaptureDependencies = {
   readonly transaction: BoundedTransaction;
   /** Injected policy: how long after a session closes earlier audio may still arrive (CAP-E.1-r8). */
   readonly sttLagMs: number;
-  /** Injected policy: how far required coverage may move to captured frames (DEC-218, DEC-220). */
-  readonly coverageTolerance: CoverageTolerance;
+  /** The engine's decisions on capture evidence (DEC-212, DEC-218, DEC-220). */
+  readonly captureRule: CaptureRule;
   readonly nextId: () => string;
   readonly buildProjection: LockedRoundTickInput['buildProjection'];
-};
-export type CoverageTolerance = {
-  readonly joinMs: number;
-  readonly relayMs: number;
 };
 export type CaptureTx = BoundedTransactionContext;
 export const validCaptureIds = (...ids: readonly string[]) => {
@@ -93,7 +90,11 @@ export async function captureAdmission(
       cutoff,
     })
   )
-    throw createAppError('CONFLICT', 'Capture admission is closed');
+    throw createRefusal(
+      'CONFLICT',
+      'capture-closed',
+      'Capture admission is closed',
+    );
   return new Date(now);
 }
 type CaptureSessionClose = {
@@ -148,7 +149,11 @@ export async function requireCaptureSession(
     .from(mediaSessions)
     .where(eq(mediaSessions.id, input.sessionId));
   if (!session || !captureSessionAdmits(session, write))
-    throw createAppError('CONFLICT', 'Capture session is closed');
+    throw createRefusal(
+      'CONFLICT',
+      'capture-paused',
+      'Capture session is closed',
+    );
 }
 export async function lockCaptureLease(tx: CaptureTx, input: CaptureIdentity) {
   validCaptureIds(input.workerId);

@@ -2,7 +2,7 @@ import {
   requireAttendanceWindow,
   deriveOutageIntervals,
 } from '@daisy/debate-engine';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createRefusal, isAppError } from '@daisy/errors';
 import { attendanceTimingPolicy } from '@daisy/protocol';
 import type { LockedAttendanceCheckIn } from '@daisy/db/attendance';
 import { attendanceWindowFor } from './windows';
@@ -37,7 +37,7 @@ export function acceptAttendanceReceipt(
       error.invariantId !== 'debate.check-in.window-open'
     )
       throw error;
-    throw createAppError(
+    throw createRefusal(
       'CONFLICT',
       receivedAtMs < window.openedAtMs - attendanceTimingPolicy.leadMs
         ? 'attendance-too-early'

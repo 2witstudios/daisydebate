@@ -49,7 +49,7 @@ if (import.meta.main) {
       if (closePartial) {
         await tx`
           update transcript_segments
-          set state='partial',sealed_at=now(),chunk_count=${from + count},sealed_chunk_count=${from + count}
+          set state='partial',partial_reasons='{never-sealed}',sealed_at=now(),chunk_count=${from + count},sealed_chunk_count=${from + count}
           where round_id=${roundId} and segment_id=${line.segment_id} and round_participant_id=${line.participant_id}`;
         await tx`update round_transcripts set revision=revision+1 where round_id=${roundId}`;
       }

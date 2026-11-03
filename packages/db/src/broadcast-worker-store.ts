@@ -1,0 +1,25 @@
+import { SQL } from 'bun';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import {
+  claimBroadcast,
+  recordSegmentReleased,
+  renewBroadcastLease,
+} from './broadcast-operations';
+
+/**
+ * The hold worker's one database credential: broadcasts only. It cannot read a
+ * Round, so nothing it does can reach the debate (ADR 0099).
+ */
+export const createBroadcastWorkerStore = (url: string) => {
+  const client = new SQL(url, { max: 2 });
+  const database = drizzle({ client });
+  return {
+    claim: (input: Parameters<typeof claimBroadcast>[1]) =>
+      database.transaction((tx) => claimBroadcast(tx, input)),
+    recordReleased: (input: Parameters<typeof recordSegmentReleased>[1]) =>
+      recordSegmentReleased(database, input),
+    renew: (input: Parameters<typeof renewBroadcastLease>[1]) =>
+      renewBroadcastLease(database, input),
+    close: () => client.close(),
+  };
+};

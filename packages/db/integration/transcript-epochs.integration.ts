@@ -1,3 +1,4 @@
+import { captureRule } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { audienceTranscript } from '../src/round-ballot-reads';
@@ -39,7 +40,7 @@ test('a transcript read returns the committed prefix across capture epochs', asy
       });
       await f.store.appendCapturedTranscript(clip(epoch, 700, 'third'));
       const read = await transaction((tx) =>
-        readTranscriptSnapshot(tx, roundId),
+        readTranscriptSnapshot(tx, roundId, captureRule),
       );
       assert({
         given: 'two chunks in epoch 1, a takeover and a chunk in epoch 2',
@@ -69,7 +70,7 @@ test('a transcript read returns the committed prefix across capture epochs', asy
         framesLost: false,
       });
       const closed = await transaction((tx) =>
-        readTranscriptSnapshot(tx, roundId),
+        readTranscriptSnapshot(tx, roundId, captureRule),
       );
       assert({
         given: 'a takeover worker sealing with only its own chunk',
@@ -88,7 +89,7 @@ test('a transcript read returns the committed prefix across capture epochs', asy
       });
       await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,${closed.revision},'incomplete')`;
       const completed = await transaction((tx) =>
-        audienceTranscript(tx, roundId, true),
+        audienceTranscript(tx, roundId, true, captureRule),
       );
       assert({
         given: 'that stream frozen',
@@ -110,9 +111,9 @@ test('a closed stream with a grant still open reports what nobody observed', asy
     const f = await historicalCapture(fixture, transaction, roundId);
     try {
       await fixture.sql`update round_speaking_intervals set ended_at=null,ended_version=null where round_id=${roundId}`;
-      await fixture.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,sealed_at,sealed_chunk_count) values(${roundId},${f.stream.segmentId},${f.stream.roundParticipantId},'partial',now(),0)`;
+      await fixture.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,partial_reasons,sealed_at,sealed_chunk_count) values(${roundId},${f.stream.segmentId},${f.stream.roundParticipantId},'partial','{never-sealed}',now(),0)`;
       const read = await transaction((tx) =>
-        readTranscriptSnapshot(tx, roundId),
+        readTranscriptSnapshot(tx, roundId, captureRule),
       );
       assert({
         given: 'a partial stream whose speaking grant was never closed',

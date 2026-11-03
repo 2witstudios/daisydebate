@@ -1,8 +1,10 @@
 export { formatStanding } from './format-standing';
 export { broadcastPhase } from './broadcast-phase';
+export type { PhasePosition } from './broadcast-phase';
 export { decideBroadcast, REVOCATION_LEAD_MS } from './broadcast-lifecycle';
 export type { BroadcastAction, BroadcastFacts } from './broadcast-lifecycle';
 export {
+  RANKED_DELAY_SECONDS,
   debatersReadChat,
   delayAlert,
   factReleased,
@@ -63,3 +65,4 @@ export { requireAttendanceDecision } from './attendance-decision';
 export { decideFormatSelection } from './format-selection';
 export { decideRoomResolution } from './room-resolution';
 export { hasOpenQuestioning } from './round-speaking';
+export { captureRule } from './capture-verdict';

@@ -1,5 +1,5 @@
 import { roundWaitingOn } from '@daisy/debate-engine';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
 import { hostHoldsCasualAiJudge, roomAiJudgeSeating } from './ai-judge-seating';
@@ -255,12 +255,12 @@ export function createRoomRuntimeOperations({
         ['policy', 'value', 'freestyle'].includes(formatId),
       strikes: resolved.roomPlan.resolutionDraw.enabled,
     });
-    if (!resolution.ok) throw createAppError('CONFLICT', 'illegal-config');
+    if (!resolution.ok) throw createRefusal('CONFLICT', 'illegal-config');
     // Each requested actor at most once: assign-seat would move, not
     // reject, a repeat, so the cast refuses duplicates up front.
     const cast = body.cast ?? [];
     if (new Set(cast.map((seat) => seat.actorId)).size !== cast.length)
-      throw createAppError('CONFLICT', 'illegal-config');
+      throw createRefusal('CONFLICT', 'illegal-config');
     const receipt = await store.createRoomCommand({
       caller,
       authorize: (account) => can(caller, 'room.create', account),

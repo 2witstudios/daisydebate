@@ -36,6 +36,8 @@ export type ReleaseInput = {
   readonly nextSegment: number;
   readonly nowMs: number;
   readonly roundEndedAtMs: number | null;
+  /** Known once the Egress stopped; the last held segment then ends the stream. */
+  readonly finalMediaEnded: boolean;
 };
 
 export type ReleaseResult =
@@ -75,7 +77,9 @@ export const releaseStep = async (
   for (const { name } of RENDITIONS)
     await ports.publishManifest(
       `${name}/index.m3u8`,
-      mediaPlaylist(window, { ended: false }),
+      mediaPlaylist(window, {
+        ended: input.finalMediaEnded && seq === held.length - 1,
+      }),
     );
   const recorded = await ports.recordReleased(
     seq,
