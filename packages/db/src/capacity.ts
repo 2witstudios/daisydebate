@@ -5,7 +5,7 @@
  * without loading the driver or schema.
  */
 export {
-  capacityRefusalDetail,
+  capacityRefusalFields,
   isReportedCapacityRefusal,
   isCapacityRefusal,
   isTemporaryRefusal,
