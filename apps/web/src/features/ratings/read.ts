@@ -29,15 +29,13 @@ export async function readRatingStandings(
   },
 ) {
   const records = await store.listLadderSeasons();
-  const seasons: readonly RatingSeason[] = records
-    .filter((s) => s.status !== 'scheduled')
-    .map((s) => ({
-      id: s.id,
-      name: s.name,
-      startsAt: s.startsAt,
-      endsAt: s.endsAt,
-      status: s.status === 'closed' ? 'closed' : 'active',
-    }));
+  const seasons: readonly RatingSeason[] = records.map((s) => ({
+    id: s.id,
+    name: s.name,
+    startsAt: s.startsAt,
+    endsAt: s.endsAt,
+    status: s.status,
+  }));
   const season =
     seasons.find((s) => s.id === input.seasonId) ??
     seasons.find((s) => s.status === 'active') ??

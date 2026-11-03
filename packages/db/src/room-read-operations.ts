@@ -1,4 +1,9 @@
-import { withOpening, type ReadOpening } from './round-opening-read';
+import {
+  currentRoomTopic,
+  withOpening,
+  type ReadOpening,
+  type ReadOpeningTopic,
+} from './round-opening-read';
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
 import type { roomCommandTransaction } from './room-command-transaction';
 import {
@@ -233,14 +238,18 @@ export const roomReadOperations = ({
     roomId: string,
     caller: Caller,
     authorize: AuthorizeRoom,
+    readTopic: ReadOpeningTopic,
   ): Promise<RoomAssemblyState> {
-    return (await this.readRoomAssemblyFacts(roomId, caller, authorize)).state;
+    return (
+      await this.readRoomAssemblyFacts(roomId, caller, authorize, readTopic)
+    ).state;
   },
   /** The Room and its draw seed in one read; the seed settles projections and never leaves the server. */
   async readRoomAssemblyFacts(
     roomId: string,
     caller: Caller,
     authorize: AuthorizeRoom,
+    readTopic: ReadOpeningTopic,
   ): Promise<{ readonly state: RoomAssemblyState }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
       database.transaction(async (tx) => {
@@ -253,7 +262,12 @@ export const roomReadOperations = ({
         if (!row) throw createAppError('NOT_FOUND');
         const facts = await roomFacts(tx, row);
         if (!authorize(facts.state, account)) throw createAppError('NOT_FOUND');
-        return facts;
+        return {
+          state: {
+            ...facts.state,
+            topic: await currentRoomTopic(tx, facts.state, readTopic),
+          },
+        };
       }),
     );
   },
@@ -263,6 +277,7 @@ export const roomReadOperations = ({
     authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
     authorizeCollection: (account: Account) => boolean,
     hostHidden: (fact: RoomDiscoveryFact) => boolean,
+    readTopic: ReadOpeningTopic,
   ): Promise<RoomListPage> {
     if (!roomListQuerySchema.safeParse(query).success)
       throw createAppError('VALIDATION');
@@ -275,6 +290,7 @@ export const roomReadOperations = ({
           authorize,
           authorizeCollection,
           hostHidden,
+          readTopic,
         ),
       ),
     );

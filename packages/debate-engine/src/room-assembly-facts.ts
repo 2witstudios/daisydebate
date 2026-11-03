@@ -100,7 +100,6 @@ export const acceptedRoomMutation = (
     state,
     consent: null,
     freeze: false,
-    spendsAiRound: false,
     seatsBotDebater: false,
     publishDefinition: false,
     draw: null,

@@ -44,6 +44,46 @@ export type ReadOpening = (
   readonly topic: string | null;
 };
 
+/** The stored opening of a Round still in it, at the database clock. */
+const openingNow = async (tx: Tx, roundId: string) => {
+  const [row] = await tx
+    .select({
+      id: rounds.id,
+      status: rounds.status,
+      createdAt: rounds.createdAt,
+      preRoundPrepMs: rounds.preRoundPrepMs,
+    })
+    .from(rounds)
+    .where(eq(rounds.id, roundId));
+  const opening = row && (await loadRoundOpening(tx, row));
+  return opening ? { opening, now: await transactionNow(tx) } : null;
+};
+
+/** The engine's settled resolution of an opening, for any viewer. */
+export type ReadOpeningTopic = (
+  opening: StoredOpening,
+  now: string,
+) => string | null;
+
+/**
+ * The one answer to a Room's resolution: what is stored, or, while its Round is
+ * opening, what that opening has settled to before a tick stores it
+ * (ISSUE-1127). Only a Round still undecided costs a read of its opening.
+ */
+export const currentRoomTopic = async (
+  tx: Tx,
+  room: {
+    readonly topic: string | null;
+    readonly roundRef: { readonly id: string; readonly status: string } | null;
+  },
+  readTopic: ReadOpeningTopic,
+): Promise<string | null> => {
+  if (room.topic !== null || room.roundRef?.status !== 'opening')
+    return room.topic;
+  const settled = await openingNow(tx, room.roundRef.id);
+  return settled && readTopic(settled.opening, settled.now);
+};
+
 /** A viewer's Round with its opening read; only an opening Round costs a read. */
 export const withOpening = async (
   tx: Tx,
@@ -53,22 +93,13 @@ export const withOpening = async (
   readOpening: ReadOpening,
 ): Promise<RoundView> => {
   if (view.status !== 'opening') return view;
-  const [row] = await tx
-    .select({
-      id: rounds.id,
-      status: rounds.status,
-      createdAt: rounds.createdAt,
-      preRoundPrepMs: rounds.preRoundPrepMs,
-    })
-    .from(rounds)
-    .where(eq(rounds.id, round.id));
-  const opening = row && (await loadRoundOpening(tx, row));
-  if (!opening) return view;
+  const settled = await openingNow(tx, round.id);
+  if (!settled) return view;
   const read = readOpening(
-    opening,
+    settled.opening,
     round.participants,
     viewerActorId,
-    await transactionNow(tx),
+    settled.now,
   );
-  return { ...view, opening: read.view, topic: read.topic ?? view.topic };
+  return { ...view, opening: read.view, topic: view.topic ?? read.topic };
 };

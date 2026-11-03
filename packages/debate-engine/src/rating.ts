@@ -1,5 +1,5 @@
 import { createAppError, createInvariantError } from '@daisy/errors';
-import type { RatedOutcome } from '@daisy/protocol';
+import type { RoundOutcome } from '@daisy/protocol';
 import {
   GLICKO2_SCALE,
   ratePeriod,
@@ -164,7 +164,7 @@ const toBounds = (state: Glicko2State): Glicko2State => ({
 
 const scores: Readonly<
   Record<
-    RatedOutcome,
+    RoundOutcome,
     { affirmative: Glicko2Game['score']; negative: Glicko2Game['score'] }
   >
 > = {
@@ -183,7 +183,7 @@ const scores: Readonly<
 export function rateDebate(input: {
   readonly affirmative: DebaterRating;
   readonly negative: DebaterRating;
-  readonly outcome: RatedOutcome;
+  readonly outcome: RoundOutcome;
   readonly occurredAt: string;
 }): RatedDebate {
   const { affirmative, negative, outcome, occurredAt } = input;

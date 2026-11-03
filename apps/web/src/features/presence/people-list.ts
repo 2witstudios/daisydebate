@@ -13,7 +13,7 @@ import type {
   RatingLadder,
   RatingState,
   RoundStatus,
-  RatedOutcome,
+  RoundOutcome,
   DebateRole,
 } from '@daisy/protocol';
 import type {
@@ -191,7 +191,7 @@ export async function readPeopleList(
         .filter((group) => group.actorId === row.actorId)
         .map((group) => ({
           status: group.status as RoundStatus,
-          outcome: group.outcome as RatedOutcome | null,
+          outcome: group.outcome as RoundOutcome | null,
           role: group.role as DebateRole,
           rounds: group.rounds,
         })),

@@ -99,20 +99,19 @@ export async function lockMediaRound(
 /** The one refusal a human gets for a Round it holds no live seat in, or that does not exist. */
 export const unseatedRefusal = () => createAppError('AUTHORIZATION');
 
-export const mediaWindowClosed = (
+/** The engine's decision (`mediaWindowClosed`); the adapter only applies it. */
+export type MediaWindowRule = (
   status: string,
   now: string,
-  finalEndedAt: string | null,
-) =>
-  !['opening', 'active'].includes(status) ||
-  (finalEndedAt !== null &&
-    Date.parse(now) >= Date.parse(finalEndedAt) + 30 * 60_000);
+  finalSegmentEndedAt: string | null,
+) => boolean;
 
 export function requireMediaWindow(
+  closed: MediaWindowRule,
   status: string,
   now: string,
   finalEndedAt: string | null,
 ) {
-  if (mediaWindowClosed(status, now, finalEndedAt))
+  if (closed(status, now, finalEndedAt))
     throw createAppError('CONFLICT', 'Round media has ended');
 }

@@ -2,7 +2,7 @@ import type { RoundView } from '@daisy/protocol';
 import {
   launched,
   round,
-} from '../../features/room-runtime/operations.test-support';
+} from '../../features/round-runtime/round.test-support';
 
 /** A casual round, an affirmative human against a bot, with a human judge. */
 export const aff = launched.participants[0]!;

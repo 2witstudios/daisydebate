@@ -1,13 +1,8 @@
+import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
-import {
-  emptyRuntimeCheckpoint,
-  freezeRoomConfig,
-  type LaunchedRound,
-  type RoomAssemblyState,
-  type RoundView,
-} from '@daisy/protocol';
+import { type RoomAssemblyState } from '@daisy/protocol';
 import {
   oneOnOneDefinition,
   oneOnOneRankedSettings,
@@ -76,47 +71,9 @@ export const state: RoomAssemblyState = {
   roundRef: null,
 };
 
-/** The stored Round its host reads; `round` is what a viewer receives. */
-export const launched: LaunchedRound = {
-  id: 'd4n6p8r2t4v6x8z1k3b5c7d9',
-  roomId: state.id,
-  version: 1,
-  status: 'opening',
-  ladderId: null,
-  competitionType: 'casual',
-  topic: state.topic ?? '',
-  visibility: 'private',
-  hostActorId: caller.actorId,
-  config: freezeRoomConfig(oneOnOneRankedSettings),
-  rules: resolved.rules,
-  participants: [
-    {
-      id: state.participants[0]!.id,
-      actorId: caller.actorId,
-      kind: 'human',
-      label: 'Member',
-      role: 'affirmative',
-      slot: 0,
-    },
-  ],
-  startedAt: null,
-  completedAt: null,
-  outcome: null,
-  panelRuling: null,
-  transcriptCompleteness: null,
-  resolutionAudit: null,
-  checkpoint: emptyRuntimeCheckpoint,
-  segments: [],
-};
-/** The host's own reading of the launched Round. */
-export const round: RoundView = (({ hostActorId, ...viewed }) => {
-  void hostActorId;
-  return { ...viewed, opening: null, waitingOn: null, viewerIsHost: true };
-})(launched);
-
 export function makeOperations(
   overrides: Partial<Store> = {},
-  botsAvailable = false,
+  aiSeats: boolean | AiSeatAvailability = false,
 ) {
   let createInput: Parameters<Store['createRoomCommand']>[0] | null = null;
   const base = {
@@ -241,14 +198,6 @@ export function makeOperations(
         retry: false,
       };
     },
-    readLaunchedRound: async (
-      _id: string,
-      _caller: typeof caller,
-      authorize: (view: RoundView, fact: AccountAuthorizationFact) => boolean,
-    ) => {
-      if (!authorize(round, account)) throw createAppError('NOT_FOUND');
-      return round;
-    },
     executeRoomCommand: async () => {
       throw new Error(
         'Command execution is outside this operation contract test',
@@ -268,7 +217,10 @@ export function makeOperations(
       'f5n6p8r2t4v6x8z1k3b5c7d9',
     ]),
     consentTtlMs: () => 60_000,
-    botsAvailable: () => botsAvailable,
+    aiSeats: () =>
+      typeof aiSeats === 'boolean'
+        ? { debater: aiSeats, judge: aiSeats }
+        : aiSeats,
     entropy: () => '01'.repeat(32),
   });
   return {

@@ -1,7 +1,7 @@
 import type {
   DebateRecord,
   DebateRole,
-  RatedOutcome,
+  RoundOutcome,
   RecordResult,
   RoundStatus,
 } from '@daisy/protocol';
@@ -9,7 +9,7 @@ import type {
 /** A Round as a debater's record reads it: its state and canonical outcome. */
 type RecordedRound = {
   readonly status: RoundStatus;
-  readonly outcome: RatedOutcome | null;
+  readonly outcome: RoundOutcome | null;
 };
 
 /**

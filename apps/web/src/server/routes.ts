@@ -93,7 +93,6 @@ export function createRoutes(app: App) {
     presence: composePresenceRoutes(app),
     contacts: composeContactRoutes(app),
     rounds: {
-      read: rooms.roundRead,
       ...composeRoundRoutes(app),
       ...composeRoundBallotRoutes(app),
       ...composeRoundAnalysisRoutes(app),

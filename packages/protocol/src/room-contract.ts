@@ -277,9 +277,7 @@ type RoomMutation = {
     readonly commandId: string;
   } | null;
   readonly freeze: boolean;
-  /** A freeze that reserves the host's AI-round allowance (DEC-186). */
-  readonly spendsAiRound: boolean;
-  /** A freeze that takes a slot of the global bot-debater capacity, ranked included. */
+  /** A freeze seating a bot debater: it spends the host's allowance (DEC-186) and takes a capacity slot (ADR 0058). */
   readonly seatsBotDebater: boolean;
   readonly publishDefinition: boolean;
   /** The draw a Start round creates with its Round, secrets never delivered. */

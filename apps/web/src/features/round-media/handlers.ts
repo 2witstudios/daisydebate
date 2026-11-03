@@ -1,15 +1,14 @@
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import { consumeOrThrow } from '../../server/rate-limit';
 import {
   handleOperation,
   parseValidated,
   readJson,
   requireSameOrigin,
   requireSameOriginRead,
-  requireSignedIn,
 } from '../../server/http';
+import { requireMember } from '../../server/member-gate';
 import type { createRoundHandlers } from '../round-runtime/handlers';
 import { isMediaDeferred, type createRoundMediaOperations } from './operations';
 
@@ -57,27 +56,23 @@ export function createRoundMediaHandlers(
           if (!d.active()) throw createAppError('NOT_FOUND');
           if (operation === 'read') requireSameOriginRead(request, d.origin());
           else requireSameOrigin(request, d.origin());
-          const identity = requireSignedIn(await d.identify(request));
-          if (identity.state !== 'member')
-            throw createAppError('AUTHORIZATION');
-          await consumeOrThrow(
-            d.limiter(),
-            `round:media:${operation}:${identity.principal.userId}`,
-            { max: operation === 'session' ? 30 : 240, windowSeconds: 60 },
-          );
-          const actor = await d.getActorByUserId(identity.principal.userId);
-          if (!actor || actor.id !== identity.principal.actorId)
-            throw createAppError('INFRASTRUCTURE');
+          const { actorId } = await requireMember(d, request, {
+            bucket: `round:media:${operation}`,
+            rule: {
+              max: operation === 'session' ? 30 : 240,
+              windowSeconds: 60,
+            },
+          });
           const roundId = parseValidated(idSchema, rawRoundId);
           if (operation !== 'read')
             parseValidated(emptyBody, await readJson(request, 128));
           const operations = d.operations();
           const body =
             operation === 'read'
-              ? await operations.read(roundId, actor.id)
+              ? await operations.read(roundId, actorId)
               : await operations[operation](
                   roundId,
-                  actor.id,
+                  actorId,
                   request.signal,
                 ).catch((error: unknown) => {
                   if (!isMediaDeferred(error) || request.signal.aborted)

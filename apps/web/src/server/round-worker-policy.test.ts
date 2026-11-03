@@ -5,7 +5,7 @@ import { readServerConfig } from '@daisy/config';
 import { AI_ROUND_MONTHLY_CAP_MAX } from '@daisy/protocol';
 import { createApp } from './app';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
-import { botAdmissionOptions } from './round-worker-policy';
+import { aiSeatAvailability, botAdmissionOptions } from './round-worker-policy';
 setupRitewayBun();
 const env = {
   NODE_ENV: 'test',
@@ -172,5 +172,69 @@ test('the configurable cap ceiling is the Room contract ceiling', () => {
       read(String(AI_ROUND_MONTHLY_CAP_MAX + 1)),
     ],
     expected: [AI_ROUND_MONTHLY_CAP_MAX, 'refused'],
+  });
+});
+
+test('aiSeatAvailability()', () => {
+  const bots = { models: {} } as never;
+  const judging = { model: 'm' } as never;
+  const provider = {
+    OPENROUTER_API_KEY: 'key',
+    COMPETITIVE_PROVIDER_CONCURRENCY: 2,
+  };
+  const full = {
+    ...provider,
+    ROUND_BOT_WORKER_POLICY: bots,
+    ROUND_JUDGING_POLICY: judging,
+    AI_ROUND_BUSY_CAP: 4,
+    LIVEKIT_URL: 'http://livekit.invalid',
+    LIVEKIT_PUBLIC_URL: 'ws://livekit.invalid',
+    LIVEKIT_API_KEY: 'key',
+    LIVEKIT_API_SECRET: 'secret',
+  };
+  assert({
+    given: 'an OpenRouter key with no policy',
+    should: 'offer neither seat',
+    actual: aiSeatAvailability({ OPENROUTER_API_KEY: 'key' } as never),
+    expected: { debater: false, judge: false },
+  });
+  assert({
+    given: 'every bound, with and without the key',
+    should: 'offer both seats only with the key',
+    actual: [
+      aiSeatAvailability(full as never),
+      aiSeatAvailability({ ...full, OPENROUTER_API_KEY: undefined } as never),
+    ],
+    expected: [
+      { debater: true, judge: true },
+      { debater: false, judge: false },
+    ],
+  });
+  assert({
+    given: 'a judging policy alone, with the provider budget',
+    should: 'offer the judge and not the debater',
+    actual: aiSeatAvailability({
+      ...provider,
+      ROUND_JUDGING_POLICY: judging,
+    } as never),
+    expected: { debater: false, judge: true },
+  });
+  assert({
+    given: 'everything but the media service',
+    should: 'offer the judge, and not a debater that could not speak',
+    actual: aiSeatAvailability({
+      ...full,
+      LIVEKIT_API_SECRET: undefined,
+    } as never),
+    expected: { debater: false, judge: true },
+  });
+  assert({
+    given: 'a bot policy without its busy cap',
+    should: 'not offer the debater',
+    actual: aiSeatAvailability({
+      ...provider,
+      ROUND_BOT_WORKER_POLICY: bots,
+    } as never).debater,
+    expected: false,
   });
 });

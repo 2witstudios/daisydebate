@@ -67,7 +67,6 @@ test('the baseline declares the integrity CHECKs the audit listed', async () => 
           'email_delivery_status_check',
           'email_suppression_reason_check',
           'seasons_ends_after_starts',
-          'role_grants_revoked_after_granted',
           'rounds_completed_after_started',
         ])}
         order by conname
@@ -84,7 +83,6 @@ test('the baseline declares the integrity CHECKs the audit listed', async () => 
     expected: [
       'email_delivery_status_check',
       'email_suppression_reason_check',
-      'role_grants_revoked_after_granted',
       'rounds_completed_after_started',
       'seasons_ends_after_starts',
       'users_version_positive',
