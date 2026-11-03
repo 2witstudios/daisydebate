@@ -101,7 +101,7 @@ export const roomViewSchema = z.strictObject({
    * entitled, else premium, and null for ranked or anyone but the host. The
    * command rechecks it under the host's fence.
    */
-  captureOffer: z.enum(['included', 'premium', 'closed']).nullable(),
+  captureOffer: z.enum(['included', 'premium']).nullable(),
   /** The casual host's choice, shown to everyone before Ready. */
   capture: roomCaptureSchema.nullable(),
   /** The exact notice shown before Ready, or null when nothing is captured. */

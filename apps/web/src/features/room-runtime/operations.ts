@@ -74,7 +74,6 @@ export function createRoomRuntimeOperations({
   consentTtlMs,
   aiSeats,
   betaGrantsPremium,
-  casualCaptureOpen = true,
   entropy,
 }: {
   readonly store: Store;
@@ -86,8 +85,6 @@ export function createRoomRuntimeOperations({
   readonly aiSeats: () => AiSeatAvailability;
   /** Whether a beta-sourced premium grant counts (`PREMIUM_BETA_GRANT`). */
   readonly betaGrantsPremium: boolean;
-  /** Off where no Egress is free for a casual Round: nothing is offered. */
-  readonly casualCaptureOpen?: boolean;
   /** 32 CSPRNG bytes as hex, for a draw's seed and salt; fixed in tests. */
   readonly entropy: () => string;
 }) {
@@ -176,15 +173,11 @@ export function createRoomRuntimeOperations({
           ),
       ),
       contentWaiver: await viewerContentWaiver(state, caller),
-      captureOffer: await roomCaptureOffer(
-        state,
-        caller.actorId,
-        async () =>
-          hostHoldsCasualCapture(
-            await store.readOwnEntitlementGrants(caller),
-            betaGrantsPremium,
-          ),
-        casualCaptureOpen,
+      captureOffer: await roomCaptureOffer(state, caller.actorId, async () =>
+        hostHoldsCasualCapture(
+          await store.readOwnEntitlementGrants(caller),
+          betaGrantsPremium,
+        ),
       ),
       captureNotice: roomCaptureNotice(state),
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
@@ -456,7 +449,6 @@ export function createRoomRuntimeOperations({
       ids,
       aiSeats,
       betaGrantsPremium,
-      casualCaptureOpen,
       consentTtlMs,
       eligible,
       consentOf,

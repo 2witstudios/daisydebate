@@ -138,8 +138,6 @@ const serverFields = {
    * Unset, no Round is requested a Recording and no Egress starts for one.
    */
   RECORDING_CAPTURE: z.literal('on').optional(),
-  /** Off: no Egress is free for a casual Round, so none is offered. Ranked is untouched. */
-  CASUAL_CAPTURE: z.literal('off').optional(),
   /**
    * Where signed Recording reads point. Not a secret: every signed URL names it.
    * The replay page's browser policy names it, and no other page's does.

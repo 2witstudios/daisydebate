@@ -73,9 +73,6 @@ kill_timeout = 35
   # the server API this app calls and the signalling URL browsers join.
   # LIVEKIT_API_KEY, LIVEKIT_API_SECRET and MEDIA_WORKER_SECRET are Fly
   # secrets. The realtime service (fly.realtime.toml) serves the sockets.
-  # One Egress machine, and nothing wakes a stopped one: casual capture stays off,
-  # so ranked always has the machine (owner decision, 2026-11-03).
-  CASUAL_CAPTURE = "off"
   LIVEKIT_URL = "https://daisy-debate-staging-livekit.fly.dev"
   LIVEKIT_PUBLIC_URL = "wss://daisy-debate-staging-livekit.fly.dev"
   REALTIME_PUBLIC_URL = "wss://daisy-debate-staging-realtime.fly.dev/ws"
