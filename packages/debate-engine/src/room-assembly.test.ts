@@ -206,7 +206,7 @@ test('a Room command states its authority and edit class', () => {
   assert({
     given: 'a policy table that names no commands',
     should: 'be a compile error, so nothing reaches here but an empty object',
-    actual: missing,
-    expected: {},
+    actual: Object.keys(missing),
+    expected: [],
   });
 });
