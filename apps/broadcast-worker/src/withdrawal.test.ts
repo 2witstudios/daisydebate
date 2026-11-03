@@ -210,6 +210,7 @@ describe('The withdrawal loop', () => {
         recordFeedWithdrawn: async ({ id }: { readonly id: string }) => {
           withdrawn.push(id);
         },
+        recordingKeepsHold: async () => true,
       } as never,
     });
     assert({
@@ -261,15 +262,17 @@ describe('The withdrawal loop', () => {
   });
 
   test('a hold no Recording will read goes with the feed, and one it will read stays', async () => {
-    const tail = async (recording: boolean) =>
-      (await run(LONG_AGO, LONG_AGO, { recording })).slice(-3);
+    const seen = async (recording: boolean) => {
+      const log = await run(LONG_AGO, LONG_AGO, { recording });
+      return [log.filter((line) => line === 'discard').length, log.at(-1)];
+    };
     assert({
       given: 'a finished Broadcast with no Recording, then one with',
       should: 'empty the hold before recording it withdrawn, or leave it',
-      actual: [await tail(false), await tail(true)],
+      actual: [await seen(false), await seen(true)],
       expected: [
-        ['discard', 'discard', 'withdrawn'],
-        ['live/b/480/seg-1.ts', 'live/b/240/seg-1.ts', 'withdrawn'],
+        [2, 'withdrawn'],
+        [0, 'withdrawn'],
       ],
     });
   });

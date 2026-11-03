@@ -68,6 +68,8 @@ export type ReleaseInput = {
   readonly heartbeatMs: number | null;
   /** What committed history knows, by kind: nothing outside this is ever released. */
   readonly stage: readonly StageInterval[];
+  /** Clips given up on, by capture time: stated gaps, never published. */
+  readonly skippedClips: readonly number[];
   /** The durable watermark as last read, so a pass with nothing new writes nothing. */
   readonly releasedThroughMs: number | null;
 };
@@ -186,12 +188,14 @@ export const releaseStep = async (
   const settled = entries.filter((one) =>
     settledByHeartbeat(one, input.heartbeatMs),
   );
-  const held = publicClips(settled, input.stage);
+  const held = publicClips(settled, input.stage).filter(
+    (clip) => !input.skippedClips.includes(clip.capturedAtMs),
+  );
   const entry = held[input.holdCursor];
   const unsettled = entries[settled.length];
   // Due settled time before the next clip holds nothing to release, or the watermark
   // would sit still through a long prep and read as a stalled Broadcast.
-  const due = (one: HoldEntry) =>
+  const due = (one: { capturedAtMs: number; durationMs: number }) =>
     segmentDue(input.policy, one, {
       nowMs: input.nowMs,
       roundEndedAtMs: input.roundEndedAtMs,
@@ -218,9 +222,11 @@ export const releaseStep = async (
           : { kind: 'fenced' }
         : { kind: 'waiting' };
     const end = input.finalMediaEndMs;
+    // The delay is a floor here too: this moves the watermark, and facts follow it.
     return end !== null &&
       !input.streamEnded &&
-      input.nowMs >= end + HOLD_SETTLE_MS
+      input.nowMs >= end + HOLD_SETTLE_MS &&
+      due({ capturedAtMs: end, durationMs: 0 })
       ? endStream(input, end, held, ports)
       : { kind: 'waiting' };
   }

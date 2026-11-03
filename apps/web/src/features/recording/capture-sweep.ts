@@ -296,6 +296,11 @@ export const createRecordingCaptureSweep = (deps: {
           },
           () => deps.report('recording.observer.restore_failed'),
         );
+      case 'forget-revocation':
+        return attempt(
+          () => store.recordOwnRestored(recordingId),
+          () => deps.report('recording.observer.restore_failed'),
+        );
       case 'close-own-capture':
         return store.closeOwn({ recordingId, now: new Date(nowMs) });
       default:

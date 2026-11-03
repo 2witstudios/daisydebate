@@ -8,6 +8,7 @@ import {
   readRecordingKeepsHold,
   recordFeedWithdrawn,
   recordHoldAdvanced,
+  recordClipSkipped,
   recordMediaEndReleased,
   recordNotPublicPassed,
   recordSegmentReleased,
@@ -32,6 +33,8 @@ export const createBroadcastWorkerStore = (url: string) => {
       recordHoldAdvanced(database, input),
     recordPassed: (input: Parameters<typeof recordNotPublicPassed>[1]) =>
       recordNotPublicPassed(database, input),
+    recordSkipped: (input: Parameters<typeof recordClipSkipped>[1]) =>
+      recordClipSkipped(database, input),
     recordEnded: (input: Parameters<typeof recordMediaEndReleased>[1]) =>
       recordMediaEndReleased(database, input),
     renew: (input: Parameters<typeof renewBroadcastLease>[1]) =>

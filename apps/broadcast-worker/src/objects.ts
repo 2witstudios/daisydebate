@@ -56,6 +56,7 @@ export const createObjects = (config: {
       await Promise.all(keys.map((key) => hold.delete(key)));
       return keys.length;
     },
+    holdExists: (key: string) => hold.file(key).exists(),
     copyHoldToFile: async (key: string, path: string) => {
       await Bun.write(path, hold.file(key));
     },
