@@ -17,7 +17,7 @@ export type AnalyticsViewer =
       readonly read: StoredConsentRead;
     };
 
-type Capture = {
+export type Capture = {
   readonly keyValue: string;
   readonly host: string | null;
 } & (

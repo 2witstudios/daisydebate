@@ -2,7 +2,10 @@ import { roundDocumentPrincipal } from '../../../../../features/debate-room/docu
 import { requestRoundRatings } from '../../../../../lib/request-session';
 import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
-import { LiveTranscript } from '../../../../../ui/round-result/live-transcript';
+import {
+  LiveTranscript,
+  type TranscriptPlacement,
+} from '../../../../../ui/round-result/live-transcript';
 import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[debateId]/actions';
 import { LiveJudgeRoom } from '../../../../../ui/debate-room/live-judge-room';
 import {
@@ -34,8 +37,6 @@ import {
 import { LiveSpectatorRoom } from '../../../../../ui/spectating/live-spectator-room';
 
 export const metadata: Metadata = { title: 'Round' };
-
-type TranscriptPlacement = 'card' | 'sidebar';
 
 const transcriptOf = (
   id: string,
