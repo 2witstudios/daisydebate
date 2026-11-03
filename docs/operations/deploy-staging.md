@@ -818,6 +818,17 @@ machine when idle: it has no proxy to auto-stop it.
 read origin (`https://<bucket>.t3.tigrisfiles.io`), from `fly.toml`. It is not a
 secret. Unset, no Round offers Stream this Round.
 
+The Recording worker (`fly.recording-worker.toml`, app
+`daisy-debate-staging-recorder`) writes to its own private bucket,
+`daisy-debate-staging-recording`, with its own Tigris key: that key cannot read
+the hold bucket, and neither the hold key nor the public key can read it (checked
+by listing each way on 2026-11-03). Create it with
+`fly storage create -a daisy-debate-staging-recorder -n daisy-debate-staging-recording`
+and set the `RECORDING_BUCKET_*` secrets from what it prints. The worker reads the
+hold through `RECORDING_HOLD_*`. The bucket needs a CORS rule allowing `GET` and
+`HEAD` from the app's origin only, because players fetch signed Recording URLs
+across origins.
+
 The public broadcast bucket needs a CORS rule, or every browser player fails
 with `manifestLoadError`: allow `GET` and `HEAD` from any origin, nothing else.
 Objects there are public by design, and only the release step writes them. A
