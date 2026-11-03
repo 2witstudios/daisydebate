@@ -33,7 +33,6 @@ export function createLocalConsent({
   let running: Promise<void> | null = null;
   // A Ready whose answer was lost may have committed; the view cannot say yet.
   let readyUnconfirmed = false;
-  let heldPass = false;
   let disposed = false;
   const listeners = new Set<() => void>();
   const own = () =>
@@ -173,16 +172,12 @@ export function createLocalConsent({
       if (desired === false && !snapshot.devicesPassed && effective())
         void intent(false);
     },
-    /** `invalidated`: the device check reported a reasoned loss, not a re-check. */
-    devices(passed: boolean, invalidated = false) {
+    devices(passed: boolean) {
       if (disposed) return Promise.resolve();
       // Only a pass this tab held can be lost. A tab that never passed (a new
       // tab, a reload) knows nothing against a standing Ready: it fences its own
-      // Start and leaves the consent alone. Re-checking a working device says
-      // nothing yet: its own failure arrives as a reasoned invalidation.
-      const lost = heldPass && !passed && invalidated;
-      if (passed) heldPass = true;
-      else if (lost) heldPass = false;
+      // Start and leaves the consent alone.
+      const lost = snapshot.devicesPassed && !passed;
       publish({ devicesPassed: passed });
       return lost && (effective() || desired === true || snapshot.pending)
         ? intent(false)
