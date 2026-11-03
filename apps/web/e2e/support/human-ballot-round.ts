@@ -126,6 +126,7 @@ export async function readyOwnSeat(
   return roomCommand(member.context.request, own, {
     type: 'ready',
     expectedConsentVersion: participant.consentVersion,
+    ...(own.captureNotice ? { noticeVersion: own.captureNotice.version } : {}),
   });
 }
 /** Launch, then the host's start command. */

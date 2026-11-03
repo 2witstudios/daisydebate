@@ -196,6 +196,9 @@ async function fixture(
       expectedConsentVersion: view.participants
         .filter(isNamedSeat)
         .find((p) => p.actorId === who.actorId)!.consentVersion,
+      ...(type === 'ready' && view.captureNotice
+        ? { noticeVersion: view.captureNotice.version }
+        : {}),
     });
   const seatBotOpponent = async (view: RoomView, actorId: string) => {
     view = (

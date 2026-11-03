@@ -48,8 +48,9 @@ export const termsDocument: LegalDocument = {
       id: 'your-content',
       heading: 'What you post',
       paragraphs: [
-        'You own what you write and say. You give Daisy Debate permission to store it, show it to the people in the round and to spectators where the room allows, and keep a recording of a debate when the room says it is being recorded.',
-        'Prep material you save is private to you until you share it with a person or a team you choose.',
+        'In a ranked round, Daisy holds what is said and shown under the ranked content waiver you sign once per season. Ranked rounds are always public, broadcast and recorded, and their video stays after you close your account. Anyone may stream and post them under the ranked content policy; a stream must not carry assistance to a debater in that round, and relaying arguments can be reported.',
+        'In any other round, your content stays with you and the other participants. You give Daisy Debate permission to store it, show it to the people in the round and to the audience where the room allows, and keep a recording when the host opted in and the room says so.',
+        'Prep material and drives stay yours on every kind of round, and are private to you until you share them with a person or a team you choose.',
       ],
     },
     {
@@ -121,8 +122,8 @@ export const privacyDocument: LegalDocument = {
       id: 'how-long',
       heading: 'How long we keep it',
       paragraphs: [
-        'Account data is kept while the account is open. Sign-in sessions and verification links expire on their own. Recordings and prep material follow the visibility you chose, and you can delete them.',
-        'When you close your account we delete your email, sign-in, private profile, messages and what you said in rounds. Your username, results and the rounds you played stay on the public record, marked closed, so other people’s standings do not change. You can object to this by writing to us.',
+        'Account data is kept while the account is open. Sign-in sessions and verification links expire on their own. Prep material follows the visibility you chose, and you can delete it. A casual recording is kept until any participant removes it, and then the whole recording goes.',
+        'When you close your account we delete your email, sign-in, private profile, messages and what you said in rounds. Your username, results and the rounds you played stay on the public record, marked closed, so other people’s standings do not change. Ranked video and your signed ranked content waiver stay too: ranked season rounds are qualifying artifacts for tournaments, and this is a proposed period that counsel has not yet reviewed. You can object to this by writing to us.',
       ],
     },
     {

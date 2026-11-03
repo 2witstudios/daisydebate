@@ -5,6 +5,8 @@ import { StartControl, ReadyControl } from './assembly-readiness';
 
 setupRitewayBun();
 const base = {
+  contentWaiver: null,
+  captureNotice: null,
   resolutionDraw: null,
   botAdmission: null,
   version: 7,
@@ -47,6 +49,32 @@ const props = {
 };
 
 describe('native room readiness and Start round controls', () => {
+  test('a captured Round shows its notice and Ready states it', () => {
+    const notice = { version: 'ranked-draft-1', text: 'Exact notice words.' };
+    const ready = ReadyControl({
+      ...props,
+      view: { ...base, captureNotice: notice },
+    });
+    assert({
+      given: 'a Room with a capture notice',
+      should: 'show its exact words and post its version natively',
+      actual: [
+        findElements(
+          ready,
+          (element) => element.props.children === 'Exact notice words.',
+        ).length,
+        findElements(
+          ready,
+          (element) =>
+            element.type === 'input' &&
+            element.props.name === 'noticeVersion' &&
+            element.props.value === notice.version,
+        ).length,
+      ],
+      expected: [1, 1],
+    });
+  });
+
   test('judge Ready submits a versioned command through the injected real action', () => {
     const tree = controls(props);
     const form = findElements(

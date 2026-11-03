@@ -18,6 +18,8 @@ type View = Pick<
   | 'startRefusal'
   | 'botAdmission'
   | 'resolutionDraw'
+  | 'contentWaiver'
+  | 'captureNotice'
 > & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
   readonly prep: RoomView['prep'];
@@ -57,6 +59,7 @@ export function CommandForm({
   label,
   enabled,
   expectedConsentVersion = null,
+  noticeVersion = null,
   className,
 }: {
   readonly type: Control | 'start-pre-round' | 'finish-prep';
@@ -66,6 +69,7 @@ export function CommandForm({
   readonly label: string;
   readonly enabled: boolean;
   readonly expectedConsentVersion?: number | null;
+  readonly noticeVersion?: string | null;
   readonly className: string;
 }) {
   return (
@@ -77,6 +81,9 @@ export function CommandForm({
           name="expectedConsentVersion"
           value={String(expectedConsentVersion)}
         />
+      ) : null}
+      {noticeVersion !== null ? (
+        <input type="hidden" name="noticeVersion" value={noticeVersion} />
       ) : null}
       <button type="submit" disabled={!enabled} className={className}>
         {label}
@@ -101,6 +108,11 @@ export function ReadyControl({
   const isReady = ready.type === 'unready' && !local.unreadyPending;
   return (
     <div className="flex flex-wrap items-center justify-end gap-3">
+      {ready.type === 'ready' && view.captureNotice ? (
+        <p role="note" className="w-full text-sm text-ink-muted">
+          {view.captureNotice.text}
+        </p>
+      ) : null}
       {ready.reason ? (
         <p role="status" className="mr-auto text-sm text-ink-muted">
           {ready.reason}
@@ -119,6 +131,8 @@ export function ReadyControl({
         commandId: commandIds[ready.type],
         action,
         expectedConsentVersion: own?.consentVersion ?? null,
+        noticeVersion:
+          ready.type === 'ready' ? (view.captureNotice?.version ?? null) : null,
         className: buttonClass(
           ready.type === 'ready' ? 'primary' : 'secondary',
         ),

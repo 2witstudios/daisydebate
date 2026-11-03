@@ -230,6 +230,26 @@ describe('Room command boundary', () => {
       expected: [true, false, false, false],
     });
   });
+  test('only Ready states the capture notice its form showed', () => {
+    const consent = {
+      commandId,
+      expectedVersion: 3,
+      expectedConsentVersion: 0,
+    };
+    assert({
+      given: 'a stated notice on Ready and on Unready',
+      should: 'accept it on Ready alone',
+      actual: ['ready', 'unready'].map(
+        (type) =>
+          roomCommandSchema.safeParse({
+            ...consent,
+            type,
+            noticeVersion: 'ranked-draft-1',
+          }).success,
+      ),
+      expected: [true, false],
+    });
+  });
   test('requires an explicit actor and legal seat for host casting', () => {
     const base = {
       commandId,
