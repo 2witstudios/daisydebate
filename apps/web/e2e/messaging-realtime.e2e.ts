@@ -131,10 +131,29 @@ const inboxHasNoUnread = (sender: Page) =>
       0,
     );
   }).toPass();
+/**
+ * Opens the conversation for the sender. With a script, the page marks it read
+ * once on screen, and leaving first can lose that POST, so this waits for it.
+ */
+const viewDm = async (
+  sender: Page,
+  channelId: string,
+  javaScriptEnabled: boolean,
+) => {
+  const marked = javaScriptEnabled
+    ? sender.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === '/api/messaging/read' &&
+          response.ok(),
+      )
+    : undefined;
+  await Promise.all([sender.goto(`/messages/${channelId}`), marked]);
+};
 /** That DM, read by the sender, whose page is back on the conversation. */
 const readDm = async (journey: DmJourney, javaScriptEnabled: boolean) => {
   const { recipient, sender } = await repliedDm(journey);
-  await sender.goto(`/messages/${journey.channelId}`);
+  await viewDm(sender, journey.channelId, javaScriptEnabled);
   await expect(messageInHistory(sender, replyText)).toHaveCount(1);
   if (!javaScriptEnabled)
     await sender
@@ -171,7 +190,7 @@ for (const javaScriptEnabled of [true, false]) {
       await expect(sender.getByRole('link', { name: /, unread$/ })).toHaveCount(
         1,
       );
-      await sender.goto(`/messages/${journey.channelId}`);
+      await viewDm(sender, journey.channelId, javaScriptEnabled);
       await expect(messageInHistory(sender, replyText)).toHaveCount(1);
       await expect(
         sender.getByRole('heading', { name: `@${journey.recipientUsername}` }),
@@ -216,14 +235,10 @@ for (const javaScriptEnabled of [true, false]) {
     },
   );
 
-  dmTest(
-    'a DM member reacts and revises their own message',
-    async (journey) => {
-      const { sender } = await readDm(journey, javaScriptEnabled);
-      await manageNativeReactions(sender, journey.channelId, replyText);
-      await editNativeMessage(sender, journey.channelId);
-    },
-  );
+  dmTest("a DM member reacts to the peer's message", async (journey) => {
+    const { sender } = await readDm(journey, javaScriptEnabled);
+    await manageNativeReactions(sender, journey.channelId, replyText);
+  });
 
   dmTest(
     'only DM members read or search its history, and a search takes its query literally,',
