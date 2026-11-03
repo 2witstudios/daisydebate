@@ -68,19 +68,6 @@ describe('BroadcastViewer', () => {
       [{ stage: { kind: 'upcoming' } }, 'This debate has not started'],
       [{}, 'The broadcast is starting'],
       [
-        { broadcast: { state: 'held', releasesAt: null } },
-        'It is released when the debate ends.',
-      ],
-      [
-        {
-          broadcast: {
-            state: 'held',
-            releasesAt: '2026-11-03T12:00:00.000Z',
-          },
-        },
-        '12:00:00 GMT',
-      ],
-      [
         { broadcast: { state: 'interrupted', stream: null } },
         'The broadcast is interrupted',
       ],

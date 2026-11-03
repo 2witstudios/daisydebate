@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "3743d014-7097-488f-8719-5f2dd79544e3",
+  "id": "e55d9d69-07f0-4e0f-bd38-a07ae7afab9f",
   "prevIds": [
     "76f39dc1-2cc6-49bc-9eb4-3dc57d9abc0a"
   ],
@@ -15048,27 +15048,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "recording_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "\"ended_at\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "recording_captures_open_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "recording_captures"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "due_at",
           "isExpression": false,
           "asc": true,
@@ -23387,7 +23366,7 @@
       "table": "broadcasts"
     },
     {
-      "value": "\"release_policy\"->>'kind' in ('delay','round_end','at')",
+      "value": "\"release_policy\"->>'kind' = 'delay'",
       "name": "broadcasts_release_policy_check",
       "entityType": "checks",
       "schema": "public",

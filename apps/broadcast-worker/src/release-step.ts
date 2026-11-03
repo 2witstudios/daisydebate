@@ -61,7 +61,6 @@ export type ReleaseInput = {
   readonly laterAttemptStartedMs: number | null;
   readonly streamEnded: boolean;
   readonly nowMs: number;
-  readonly roundEndedAtMs: number | null;
   /** Known once the Egress stopped; a cursor past the hold then ends the stream. */
   readonly finalMediaEndMs: number | null;
   /** The last heartbeat: past it, what history says is not yet settled (ADR 0099). */
@@ -191,11 +190,7 @@ export const releaseStep = async (
   const unsettled = entries[settled.length];
   // Due settled time before the next clip holds nothing to release, or the watermark
   // would sit still through a long prep and read as a stalled Broadcast.
-  const due = (one: HoldEntry) =>
-    segmentDue(input.policy, one, {
-      nowMs: input.nowMs,
-      roundEndedAtMs: input.roundEndedAtMs,
-    });
+  const due = (one: HoldEntry) => segmentDue(input.policy, one, input.nowMs);
   const lastDue = settled.filter(due).at(-1);
   if (lastDue && !(entry && due({ ...entry.source, ...entry }))) {
     const through = Math.min(
@@ -224,13 +219,7 @@ export const releaseStep = async (
       ? endStream(input, end, held, ports)
       : { kind: 'waiting' };
   }
-  if (
-    !segmentDue(input.policy, entry, {
-      nowMs: input.nowMs,
-      roundEndedAtMs: input.roundEndedAtMs,
-    })
-  )
-    return { kind: 'waiting' };
+  if (!segmentDue(input.policy, entry, input.nowMs)) return { kind: 'waiting' };
   const seq = input.nextSegment;
   for (const { rendition, file } of await ports.encode(entry))
     await ports.publishSegment(seq, rendition, file);

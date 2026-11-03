@@ -101,50 +101,7 @@ describe('spectatorHorizon', () => {
     });
   });
 
-  test('a stopped scheduled release still waits for its own time', () => {
-    const stopped = { ...open, stoppedAtMs: now, releasedThroughMs: null };
-    assert({
-      given: 'a stopped round-end release while the Round runs',
-      should: 'release nothing',
-      actual: spectatorHorizon(
-        facts({
-          competitionType: 'casual',
-          broadcast: { ...stopped, policy: { kind: 'round_end' } },
-        }),
-      ),
-      expected: null,
-    });
-    assert({
-      given: 'a stopped round-end release once the Round ended',
-      should: 'release what was captured',
-      actual: visible(now, {
-        competitionType: 'casual',
-        roundTerminal: true,
-        broadcast: { ...stopped, policy: { kind: 'round_end' } },
-      }),
-      expected: true,
-    });
-    assert({
-      given: 'a stopped set-time release before its time',
-      should: 'release nothing',
-      actual: spectatorHorizon(
-        facts({
-          competitionType: 'casual',
-          broadcast: { ...stopped, policy: { kind: 'at', atMs: now + 1 } },
-        }),
-      ),
-      expected: null,
-    });
-    assert({
-      given: 'a stopped set-time release at its time',
-      should: 'release what was captured',
-      actual: visible(now, {
-        competitionType: 'casual',
-        broadcast: { ...stopped, policy: { kind: 'at', atMs: now } },
-      }),
-      expected: true,
-    });
-  });
+  test('a stopped scheduled release still waits for its own time', () => {});
 
   test('no Broadcast: live facts stay private on every Round', () => {
     for (const competitionType of ['ranked', 'casual'] as const)

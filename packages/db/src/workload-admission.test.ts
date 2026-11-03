@@ -230,14 +230,28 @@ test('the deployed profiles are valid and sized as the plan states', () => {
   assert({
     given: 'the web, realtime and observer profiles',
     should:
-      'validate and hold 27, 7 and 11 connections, dedicated ones included',
+      'validate and hold 29, 7 and 11 connections, dedicated ones included',
     actual: [
       WORKLOAD_PROFILES.web,
       WORKLOAD_PROFILES.realtime,
       WORKLOAD_PROFILES['realtime-observer'],
     ].map((profile) => profileConnections(validateWorkloadProfile(profile))),
-    expected: [27, 7, 11],
+    expected: [29, 7, 11],
   });
+});
+
+test('a full audience lane refuses at once and queues no viewer', async () => {
+  const gate = createLaneGate('audience', WORKLOAD_PROFILES.web.lanes.audience);
+  const held = [await gate.admit(), await gate.admit()];
+  const refused = await gate.admit().catch((error: unknown) => error);
+  assert({
+    given: 'the audience lane with every connection taken',
+    should: 'refuse the next read as saturated with nobody waiting',
+    actual: [capacityRefusalDetail(refused)?.reason, gate.stats().waiting],
+    expected: ['saturated', 0],
+  });
+  held.forEach((release) => release());
+  (await gate.admit())();
 });
 
 test('a queued subscribe outlasts one read blocked on a fence (ISSUE-914)', () => {

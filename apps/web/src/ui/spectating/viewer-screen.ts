@@ -12,7 +12,6 @@ export type ViewerScreen =
     }
   | { readonly kind: 'upcoming' }
   | { readonly kind: 'starting' }
-  | { readonly kind: 'held'; readonly releasesAt: string | null }
   | { readonly kind: 'interrupted' }
   | { readonly kind: 'stopped' }
   | { readonly kind: 'failed' }
@@ -55,8 +54,6 @@ export const viewerScreenOf = (
       return { kind: 'failed' };
     case 'none':
       return stage.kind === 'ended' ? ended : { kind: 'no-broadcast' };
-    case 'held':
-      return { kind: 'held', releasesAt: broadcast.releasesAt };
     case 'starting':
       return stage.kind === 'upcoming'
         ? { kind: 'upcoming' }

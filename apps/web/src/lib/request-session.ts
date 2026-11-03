@@ -18,17 +18,13 @@ import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
 import { spectatorClockAt } from '../features/spectating/spectator-clock';
-import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { presentedLinkHash } from '../features/audience-link/audience-link';
 import { readHostedAudienceLink } from '../features/audience-link/issue-link';
-import { readSpectatorTimeline } from '../features/spectating/read-timeline';
+import { admitAudience } from '../features/spectating/read-timeline';
+import { readUnlessRefused } from '../features/spectating/refused-read';
 import { followingOf } from '../features/watch/following';
 import type { HubCounts } from '../features/watch/hub-counts';
-import {
-  leadingLive,
-  listLive,
-  liveRoundsOf,
-} from '../features/watch/list-live';
+import { liveRoundsOf } from '../features/watch/list-live';
 import type { LiveQuery } from '../features/watch/live-query';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
@@ -189,15 +185,20 @@ export const requestMemberProfile = async (
 
 /**
  * What the public Round route reads, its one way in: the same facts the
- * anonymous snapshot serves. Null when this Round has no audience.
+ * anonymous snapshot serves, from the same one read a second. Null when this Round
+ * has no audience, `refused` when the audience lane is full.
  */
 export const requestWatchRound = async (roundId: string) =>
-  readSpectatorTimeline(processApp().database, {
-    roundId,
-    now: processApp().clock.now(),
-    feedUrlOf: broadcastFeedUrls(processApp().config.BROADCAST_PUBLIC_ORIGIN),
-    presentedHash: await requestPresentedLink(roundId),
-  });
+  readUnlessRefused(async () => {
+    const snapshot = await processApp().watchRounds(roundId);
+    return snapshot &&
+      (await admitAudience(processApp().database, snapshot, {
+        roundId,
+        presentedHash: await requestPresentedLink(roundId),
+      }))
+      ? snapshot.timeline
+      : null;
+  }, 'refused' as const);
 
 /** The public Round a Room's link may send anyone to, once its start is released. */
 export const requestWatchableRoundOfRoom = (roomId: string) =>
@@ -227,18 +228,25 @@ export const requestPresentedLink = async (roundId: string) =>
 
 /** One page of the real Live listing. */
 export const requestLiveListing = (query: LiveQuery) =>
-  listLive(processApp().database, { query, now: processApp().clock.now() });
+  readUnlessRefused(
+    () => processApp().liveReads.listing(query),
+    'refused' as const,
+  );
 
 /** The newest live Rounds, for the home page. */
 export const requestLeadingLive = () =>
-  leadingLive(processApp().database, processApp().clock.now());
+  readUnlessRefused(() => processApp().liveReads.leading(), []);
 
 /** The live Round of each named debater, for a profile or the Friends list. */
 export const requestLiveRoundsOf = (usernames: readonly string[]) =>
-  liveRoundsOf(processApp().database, {
-    usernames,
-    now: processApp().clock.now(),
-  });
+  readUnlessRefused(
+    () =>
+      liveRoundsOf(processApp().database, {
+        usernames,
+        now: processApp().clock.now(),
+      }),
+    new Map(),
+  );
 
 const FOLLOWING_ROWS = 50;
 const RECENTLY_WATCHED_ROWS = 10;
@@ -267,7 +275,7 @@ export const requestHubCounts = async (): Promise<HubCounts> => {
   const app = processApp();
   const clock = spectatorClockAt(app.clock.now());
   const [live, recordings] = await Promise.all([
-    app.database.countLiveBroadcasts({ clock }),
+    readUnlessRefused(() => app.liveReads.count(), 0),
     recordingReads(app).archive.countPublicArchive({ clock }),
   ]);
   return { live, recordings };
@@ -303,20 +311,25 @@ export const requestDebaterFollow = (
   username: string,
 ) => processApp().database.readDebaterFollow({ followerUserId, username });
 
-/** A Round's audience for this viewer, by the same reads as the snapshot. */
+/**
+ * A Round's audience for this viewer, by the same reads as the snapshot. Fresh, so
+ * a poster sees their own message. A full lane omits it from this render: it sits
+ * beside a debate or a feed and never takes them down.
+ */
 export const requestAudience = async (
   roundId: string,
   actorId: string | null,
-) =>
-  readAudienceForViewer(
-    { store: processApp().database, counts: processApp().redis },
-    {
-      roundId,
-      actorId,
-      presentedHash: await requestPresentedLink(roundId),
-      now: processApp().clock.now(),
-    },
+) => {
+  const presentedHash = await requestPresentedLink(roundId);
+  return readUnlessRefused(
+    () =>
+      readAudienceForViewer(
+        { store: processApp().database, counts: processApp().redis },
+        { roundId, actorId, presentedHash, now: processApp().clock.now() },
+      ),
+    null,
   );
+};
 
 /** Process binding for the public ladder and its signed-in blinding context. */
 export async function requestLadder(input: {

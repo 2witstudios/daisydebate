@@ -22,8 +22,9 @@ alone would protect nothing: anyone who could work out an object key could play 
   link, so it says nothing about a Round. A cookie also reaches what a query string
   cannot: the relative segment reads of a Recording's HLS, with no script.
 - **No cache can serve it.** The snapshot memo is keyed by Round and holds no link;
-  admission runs after it, and an unlisted Round's link is read fresh on every request,
-  so replacing a link refuses the old one on the next read. An unlisted answer is
+  admission runs after it, and an unlisted Round's link is never held past its read:
+  a request reads it, or joins the read already running, so a crowd costs one read at a
+  time and replacing a link refuses the old one on the next read. An unlisted answer is
   `no-store`, so `PUBLIC_SNAPSHOT_CACHE` applies to public Rounds alone and a CDN never
   holds one.
 - **The media's name.** Every Broadcast has `broadcasts.feed_key`, 256 CSPRNG bits set

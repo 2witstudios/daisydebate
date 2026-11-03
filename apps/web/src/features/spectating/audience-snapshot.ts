@@ -1,5 +1,6 @@
 import type { Clock } from '@daisy/clock';
 import type { Database } from '@daisy/db';
+import { isTemporaryRefusal } from '@daisy/db/capacity';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import {
@@ -12,7 +13,9 @@ import type { Identity } from '@daisy/auth';
 import { handleOperation, PUBLIC_SNAPSHOT_CACHE } from '../../server/http';
 import { presentedLinkHash } from '../audience-link/audience-link';
 import { latestViewerBucket } from '../viewer-counts/viewer-count';
+import { joinReadInFlight } from './in-flight-read';
 import { admitAudience } from './read-timeline';
+import { answerUnlessRefused } from './refused-read';
 import { createSnapshotMemo } from './snapshot-memo';
 import { audienceShownTo, type AudienceShown } from './seated-audience';
 
@@ -121,12 +124,32 @@ export function createAudienceSnapshotRoute(deps: {
   readonly clock: Pick<Clock, 'now'>;
   readonly identify: (request: Request) => Promise<Identity>;
 }) {
-  // Keyed by Round alone and holding no link: admission happens after it.
-  const memo = createSnapshotMemo<AudienceRead | null>({
+  // Keyed by Round alone and holding no link: admission happens after it. The
+  // body is the one serialization a crowd shares; a reader's own view is apart.
+  const memo = createSnapshotMemo<{
+    readonly read: AudienceRead;
+    readonly body: string;
+  } | null>({
     nowMs: () => Date.parse(deps.clock.now()),
     ttlMs: SNAPSHOT_TTL_MS,
     maxEntries: SNAPSHOT_ROUNDS,
+    keepsFailure: isTemporaryRefusal,
   });
+  const readShared = async (roundId: string) => {
+    const read = await readAudienceSnapshot(deps, {
+      roundId,
+      now: deps.clock.now(),
+    });
+    return read && { read, body: JSON.stringify(read.snapshot) };
+  };
+  const links =
+    joinReadInFlight<
+      Awaited<ReturnType<AdmissionStore['readRoundAudienceLink']>>
+    >();
+  const linkStore = {
+    readRoundAudienceLink: (roundId: string) =>
+      links(roundId, () => deps.store.readRoundAudienceLink(roundId)),
+  };
   const shownToLiveRoom = async (request: Request, roundId: string) => {
     const identity = await deps.identify(request);
     const actorId =
@@ -145,35 +168,40 @@ export function createAudienceSnapshotRoute(deps: {
       deps.logger,
       request,
       'audience.snapshot',
-      async () => {
-        const read = await memo(roundId, () =>
-          readAudienceSnapshot(deps, { roundId, now: deps.clock.now() }),
-        );
-        if (read === null) return notFound();
-        if (read.visibility === 'public')
-          return Response.json(read.snapshot, {
-            headers: {
-              'Cache-Control': PUBLIC_SNAPSHOT_CACHE,
-              'X-Robots-Tag': 'noindex',
-            },
-          });
-        // handleOperation answers anything uncached no-store.
-        const noindex = { headers: { 'X-Robots-Tag': 'noindex' } };
-        if (
-          await admitAudience(deps.store, read, {
-            roundId,
-            presentedHash: presentedLinkHash(
-              request.headers.get('cookie'),
+      () =>
+        answerUnlessRefused(async () => {
+          const shared = await memo(roundId, () => readShared(roundId));
+          if (shared === null) return notFound();
+          const { read, body } = shared;
+          if (read.visibility === 'public')
+            return new Response(body, {
+              headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': PUBLIC_SNAPSHOT_CACHE,
+                'X-Robots-Tag': 'noindex',
+              },
+            });
+          // handleOperation answers anything uncached no-store.
+          const noindex = { 'X-Robots-Tag': 'noindex' };
+          if (
+            await admitAudience(linkStore, read, {
               roundId,
-            ),
-          })
-        )
-          return Response.json(read.snapshot, noindex);
-        const shown = await shownToLiveRoom(request, roundId);
-        return shown
-          ? Response.json(audienceFor(read.snapshot, shown), noindex)
-          : notFound();
-      },
+              presentedHash: presentedLinkHash(
+                request.headers.get('cookie'),
+                roundId,
+              ),
+            })
+          )
+            return new Response(body, {
+              headers: { 'Content-Type': 'application/json', ...noindex },
+            });
+          const shown = await shownToLiveRoom(request, roundId);
+          return shown
+            ? Response.json(audienceFor(read.snapshot, shown), {
+                headers: noindex,
+              })
+            : notFound();
+        }),
       deps.reporter,
     );
 }

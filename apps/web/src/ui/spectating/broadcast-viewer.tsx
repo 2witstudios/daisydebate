@@ -14,7 +14,9 @@ import { RecordingPreparationStatus } from '../recording/recording-preparation/r
 import { StateCard } from '../watch/state-card/state-card';
 import { SpectateRefusal } from '../watch/spectate-refusal/spectate-refusal';
 import { StreamThisRound } from '../broadcast/stream-this-round/stream-this-round';
+import { answerOfResponse } from '../../features/spectating/poll-pace';
 import { BroadcastPlayer } from './broadcast-player';
+import { startBrowserPoll } from './browser-poll';
 import { SpectatorFacts } from './spectator-timeline';
 import {
   streamableFeedOf,
@@ -22,13 +24,6 @@ import {
   viewerScreenOf,
   viewerSettled,
 } from './viewer-screen';
-
-const POLL_MS = 2000;
-
-const heldDetail = (releasesAt: string | null) =>
-  releasesAt === null
-    ? 'It is released when the debate ends.'
-    : `It is released at ${new Date(releasesAt).toUTCString()}.`;
 
 const browseRecordings = (
   <ActionLink href={watchRoutes.recordings}>Browse recordings</ActionLink>
@@ -103,12 +98,6 @@ function StateInsteadOfPlayer({
       return (
         <StateCard icon="clock" title="The broadcast is starting">
           <p>It plays here by itself once it is out.</p>
-        </StateCard>
-      );
-    case 'held':
-      return (
-        <StateCard icon="clock" title="This broadcast is being held">
-          <p>{heldDetail(screen.releasesAt)}</p>
         </StateCard>
       );
     case 'interrupted':
@@ -195,19 +184,21 @@ export function BroadcastViewer({
   const { broadcast, roundId } = timeline;
   useEffect(() => {
     if (settled || gone) return;
-    const poll = setInterval(() => {
-      void fetch(`/api/rounds/${roundId}/timeline`)
-        .then((response) => {
-          if (response.status === 404) setGone(true);
-          return response.ok ? response.json() : null;
-        })
-        .then((body) => {
-          const parsed = spectatorTimelineSchema.safeParse(body);
-          if (parsed.success) setTimeline(parsed.data);
-        })
-        .catch(() => undefined);
-    }, POLL_MS);
-    return () => clearInterval(poll);
+    let stopped = false;
+    const stop = startBrowserPoll(async () => {
+      const response = await fetch(`/api/rounds/${roundId}/timeline`);
+      if (stopped) return answerOfResponse(response);
+      if (response.status === 404) setGone(true);
+      const parsed = spectatorTimelineSchema.safeParse(
+        response.ok ? await response.json() : null,
+      );
+      if (parsed.success && !stopped) setTimeline(parsed.data);
+      return answerOfResponse(response);
+    });
+    return () => {
+      stopped = true;
+      stop();
+    };
   }, [settled, gone, roundId]);
   const screen = viewerScreenOf(timeline, { stream, finished, failed });
   const playing = screen.kind === 'player' ? screen.stream : null;

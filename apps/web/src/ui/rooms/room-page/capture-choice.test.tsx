@@ -77,28 +77,27 @@ describe('The capture choice', () => {
         'name="broadcast"',
         'name="recording"',
         'name="release"',
-        'name="releaseAt"',
         'name="debatersReadChat"',
         'value="set-capture"',
         'value="capture-id"',
       ].map((field) => html.includes(field)),
-      expected: Array(7).fill(true),
+      expected: Array(6).fill(true),
     });
   });
 
   test('the stored choice fills the form', () => {
     const html = render('included', {
       broadcast: {
-        release: { kind: 'round_end' },
+        release: { kind: 'delay', seconds: 300 },
         debatersReadChat: false,
       },
       recording: true,
     });
     assert({
-      given: 'a stored broadcast released at the end, chat off, recorded',
+      given: 'a stored broadcast on a 5 minute delay, chat off, recorded',
       should: 'select the release and tick only what was chosen',
       actual: [
-        /<option value="round_end" selected/.test(html),
+        /<option value="delay:300" selected/.test(html),
         /name="broadcast" checked/.test(html),
         /name="recording" checked/.test(html),
         /name="debatersReadChat" checked/.test(html),

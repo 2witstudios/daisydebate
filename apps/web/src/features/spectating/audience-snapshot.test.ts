@@ -1,3 +1,4 @@
+import { refuseCapacity } from '@daisy/db/testing';
 import { noopErrorReporter } from '@daisy/observability';
 import { audienceSnapshotSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
@@ -211,6 +212,65 @@ describe('the snapshot route', () => {
         response.headers.get('Set-Cookie'),
       ],
       expected: [200, PUBLIC_SNAPSHOT_CACHE, null],
+    });
+  });
+
+  test('a full lane refuses, and a viewer answers from nothing per viewer', async () => {
+    let reads = 0;
+    const refusing = createAudienceSnapshotRoute({
+      logger: silentLogger,
+      reporter: noopErrorReporter,
+      store: {
+        readAudienceSnapshot: async () => {
+          reads += 1;
+          throw refuseCapacity({ lane: 'audience', reason: 'saturated' });
+        },
+      } as never,
+      counts: { readViewerCount: async () => 0 },
+      clock: { now: () => new Date(0).toISOString() },
+      identify: async () => ({ state: 'anonymous' }) as never,
+    });
+    const answers = await Promise.all(
+      [0, 1].map(() => refusing(get(), roundId)),
+    );
+    assert({
+      given: 'two asks while the audience lane is full',
+      should: 'try once and refuse both with a time to come back',
+      actual: [
+        answers.map((response) => response.status),
+        answers[0]!.headers.get('Retry-After'),
+        reads,
+      ],
+      expected: [[503, 503], '2', 1],
+    });
+  });
+
+  test('asks inside the interval share one read and its very bytes', async () => {
+    let reads = 0;
+    let nowMs = 0;
+    const shared = createAudienceSnapshotRoute({
+      logger: silentLogger,
+      reporter: noopErrorReporter,
+      store: {
+        readAudienceSnapshot: async () => {
+          reads += 1;
+          return read;
+        },
+      } as never,
+      counts: { readViewerCount: async () => 7 },
+      clock: { now: () => new Date(nowMs).toISOString() },
+      identify: async () => ({ state: 'anonymous' }) as never,
+    });
+    const first = await (await shared(get(), roundId)).text();
+    nowMs = 999;
+    const second = await (await shared(get('session=one'), roundId)).text();
+    nowMs = 1000;
+    await shared(get(), roundId);
+    assert({
+      given: 'two asks inside a second, one with a session, and one after it',
+      should: 'answer the same body from one read, then read again',
+      actual: [first === second, reads],
+      expected: [true, 2],
     });
   });
 

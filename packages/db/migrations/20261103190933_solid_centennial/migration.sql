@@ -1,1 +1,0 @@
-CREATE INDEX "recording_captures_open_idx" ON "recording_captures" ("recording_id") WHERE "ended_at" is null;

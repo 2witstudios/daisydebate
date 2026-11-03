@@ -5,7 +5,7 @@ import { idSchema } from '@daisy/protocol';
 
 type Store = Pick<
   Database,
-  | 'readRoundAudienceLink'
+  | 'readHostedRoundAudienceLink'
   | 'readRoomAuthorizationFacts'
   | 'setRoundAudienceLink'
 >;
@@ -16,11 +16,14 @@ type Caller = { readonly userId: string; readonly actorId: string };
  * null for anyone and anything else, so a stranger learns nothing of it.
  */
 export const readHostedAudienceLink = async (
-  store: Pick<Store, 'readRoundAudienceLink' | 'readRoomAuthorizationFacts'>,
+  store: Pick<
+    Store,
+    'readHostedRoundAudienceLink' | 'readRoomAuthorizationFacts'
+  >,
   input: { readonly roundId: string; readonly caller: Caller },
 ): Promise<{ readonly issued: boolean } | null> => {
   if (!idSchema.safeParse(input.roundId).success) return null;
-  const round = await store.readRoundAudienceLink(input.roundId);
+  const round = await store.readHostedRoundAudienceLink(input.roundId);
   if (round?.visibility !== 'unlisted' || round.roomId === null) return null;
   const facts = await store.readRoomAuthorizationFacts(
     round.roomId,
