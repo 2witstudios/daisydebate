@@ -1,3 +1,4 @@
+import { readConversationHeld } from './broadcast-operations';
 import { rotateRevokedMediaSession } from './media-session-rotation';
 import {
   readMediaBotLeases,
@@ -118,6 +119,7 @@ export function createMediaReconcileStore(input: {
         /** ADR 0075: participant access, read for every human seat. */
         readonly admits: ParticipantAdmission;
         readonly authorize: (context: {
+          readonly conversationHeld: boolean;
           readonly round: RoundHydration;
           readonly participants: RoundCommandAuthority['participants'];
           /** Bot seats that may hear, floor or not (ISSUE-764). */
@@ -165,6 +167,9 @@ export function createMediaReconcileStore(input: {
           participantId = binding.participantId;
         }
         request.authorize({
+          conversationHeld: await readConversationHeld(tx, {
+            roundId: session.roundId,
+          }),
           bindings: await tx
             .select({
               roundParticipantId: mediaParticipants.roundParticipantId,

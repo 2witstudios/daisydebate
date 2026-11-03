@@ -6,6 +6,10 @@
  */
 const OPERATION_NAMES = [
   'account.age.answer',
+  'moderation.report',
+  'recording.playback',
+  'recording.download',
+  'recording.removal',
   'account.onboarding.save',
   'account.sessions.list',
   'account.sessions.revoke',
