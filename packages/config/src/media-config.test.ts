@@ -100,6 +100,11 @@ test('media configuration refuses invalid schemes and credential-bearing URLs sa
     { LIVEKIT_PUBLIC_URL: 'http://localhost:7880' },
     { LIVEKIT_URL: 'http://127.0.0.1:7880,file:///private' },
     { LIVEKIT_URL: 'http://127.0.0.1:7880,' },
+    { LIVEKIT_URL: 'http://127.0.0.1:7880, http://127.0.0.1:7881' },
+    {
+      LIVEKIT_URL: 'http://127.0.0.1:7880,http://127.0.0.1:7881',
+      LIVEKIT_PUBLIC_URL: 'ws://localhost:7880',
+    },
     { LIVEKIT_API_SECRET: 'private secret' },
   ]) {
     let message = 'accepted';

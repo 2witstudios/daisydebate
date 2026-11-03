@@ -28,6 +28,15 @@ export const mediaEnded = (
     snapshot.now,
     snapshot.finalSegmentEndedAt,
   );
+/** This seat itself has lost its place, as opposed to another's revocation rotating the room. */
+export const ownSeatRevoked = (
+  snapshot: Pick<MediaSnapshot, 'participants'>,
+  participantId: string,
+) =>
+  snapshot.participants.some(
+    (seat) =>
+      seat.id === participantId && seat.kind === 'human' && !seat.eligible,
+  );
 /** Issued old-room tokens require rotation; departed unbound seats cannot veto it. */
 export const admissionRevoked = (
   snapshot: Pick<MediaSnapshot, 'participants'> & {
@@ -100,6 +109,7 @@ export function projectMedia(
     version: 1,
     roundId: snapshot.round.id,
     state,
+    room: snapshot.session.roomName,
     grants:
       state === 'ready' && snapshot.caller
         ? {

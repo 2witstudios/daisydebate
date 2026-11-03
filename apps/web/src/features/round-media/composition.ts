@@ -19,7 +19,7 @@ import { createRoundMediaOperations } from './operations';
 import { MEDIA_RECOVERY_HEARTBEAT_MS } from './recovery-due';
 import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 
-/** How soon a dead node stops being offered. A join through it fails over on Retry. */
+/** How soon a dead node stops being offered to a new join. */
 const MEDIA_NODE_PROBE_MS = 1_000;
 
 /** Optional configuration stays inert until a real media operation is requested. */
@@ -43,10 +43,7 @@ export function createRoundMediaRuntime(
       throw createAppError('INFRASTRUCTURE');
     const apiUrls = mediaEndpointsOf(url);
     const publicUrls = mediaEndpointsOf(publicUrl);
-    if (
-      apiUrls.length !== publicUrls.length ||
-      publicUrls.some((entry) => new URL(entry).protocol !== 'wss:')
-    )
+    if (publicUrls.some((entry) => new URL(entry).protocol !== 'wss:'))
       throw createAppError('INFRASTRUCTURE');
     const nodes = createMediaNodes({
       nodes: apiUrls.map((entry, index) => ({
@@ -56,9 +53,19 @@ export function createRoundMediaRuntime(
       apiKey,
       apiSecret,
       fetch,
+      healthChanged: (count, healthy) =>
+        app.logger.log(
+          'round.media.node_health',
+          { count, cause: healthy ? 'up' : 'down' },
+          'A media node changed health',
+        ),
     });
-    void nodes.probe();
-    setInterval(() => void nodes.probe(), MEDIA_NODE_PROBE_MS).unref();
+    // One node has nowhere to fail over to, so it pays for no probe. The runtime lives
+    // as long as the process, and the timer never holds it open.
+    if (nodes.size > 1) {
+      void nodes.probe();
+      setInterval(() => void nodes.probe(), MEDIA_NODE_PROBE_MS).unref();
+    }
     const resources: MediaOperationInput = {
       priority: createAdmissionPriority({
         deadline: (work) => withTimeout(work, MEDIA_ADMISSION_HINT_TIMEOUT_MS),

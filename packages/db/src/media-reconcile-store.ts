@@ -42,7 +42,7 @@ import {
   reconcileCompletion,
   requireMutationAdmissible,
   requireReconcileLease,
-  roomRetirement,
+  decideRoom,
 } from './media-reconcile-rules';
 
 /** Durable serialization only; every provider call happens after these bounded transactions commit. */
@@ -243,16 +243,14 @@ export function createMediaReconcileStore(input: {
           .where(eq(mediaSessions.id, session.id));
       });
     },
-    /** Obtain the settled immutable-intent horizon BEFORE observing provider absence. */
+    /** The mutation horizon, taken BEFORE observing absence: a later intent voids the proof. */
     async prepareMediaAbsenceProof(
       request: MediaReconcileFence,
-    ): Promise<MediaAbsenceProof | null> {
-      return withFence(request, async (tx, session) => {
-        return {
-          ...request,
-          mutationHorizon: await mutationCount(tx, session.id),
-        };
-      });
+    ): Promise<MediaAbsenceProof> {
+      return withFence(request, async (tx, session) => ({
+        ...request,
+        mutationHorizon: await mutationCount(tx, session.id),
+      }));
     },
     async finishMediaReconcile(
       request: MediaReconcileFence & {
@@ -276,8 +274,9 @@ export function createMediaReconcileStore(input: {
           round.finalSegmentEndedAt?.toISOString() ?? null,
         );
         const outstanding = await pending(tx, session.id);
-        const retired = roomRetirement({
+        const decision = decideRoom({
           now,
+          terminal,
           absenceProven: proofMatches(
             request.absenceProof,
             request,
@@ -289,8 +288,8 @@ export function createMediaReconcileStore(input: {
               .map((row) => row.dispatchedAt)
               .sort((a, b) => a.getTime() - b.getTime())[0] ?? null,
         });
-        const cleaned = retired !== null;
-        if (cleaned && outstanding.length)
+        const retiring = decision.kind === 'retire';
+        if (retiring && outstanding.length)
           await tx
             .update(mediaVendorMutations)
             .set({ settledAt: now, outcome: 'superseded' })
@@ -300,22 +299,21 @@ export function createMediaReconcileStore(input: {
                 isNull(mediaVendorMutations.settledAt),
               ),
             );
-        const uncertain = session.unsafeAt !== null || outstanding.length > 0;
         const roomName =
-          cleaned && !terminal && !session.endedAt
+          retiring && !terminal && !session.endedAt
             ? await rotateMediaRoom(
                 tx,
                 session.id,
                 session.seats,
                 now,
                 input.nextId,
-                uncertain,
+                decision.uncertain,
               )
             : undefined;
         const { fields, result } = reconcileCompletion(session, now, {
           terminal,
-          unresolved: outstanding.length > 0 && !cleaned,
-          cleaned,
+          unresolved: outstanding.length > 0 && !retiring,
+          decision,
           clean: request.clean,
         });
         await tx
@@ -324,7 +322,8 @@ export function createMediaReconcileStore(input: {
           .where(eq(mediaSessions.id, session.id));
         return {
           ...result,
-          retired: roomName && uncertain ? retired : null,
+          retired:
+            roomName && retiring && decision.uncertain ? decision.cause : null,
         };
       });
     },

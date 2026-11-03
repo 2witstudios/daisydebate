@@ -78,7 +78,7 @@ export const TRANSITIONS: Readonly<
     'read-answered ended':
       'ended | cancel:all, abort-read, release-connection, forget-mute',
     'read-answered unavailable':
-      'released(definite) | cancel:all, abort-read, release-connection, refresh-view',
+      'released(transient) | refresh-view, cancel:all, abort-read, release-connection, schedule:recovery',
     'read-failed transient':
       'live(establishing) cam:off mic:off read:pausing next:none apply:none | schedule:read-retry',
     'read-failed definite':
@@ -112,7 +112,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(establishing) cam:off mic:off read:requesting next:none apply:none',
     'transport-resuming':
-      'live(establishing) cam:off mic:off read:requesting next:none apply:none resuming',
+      'live(establishing) cam:off mic:off read:requesting next:none apply:none resuming | schedule:resume-budget',
   },
   live: {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -151,7 +151,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:off mic:off read:none next:none apply:none',
     'transport-resuming':
-      'live(current) cam:off mic:off read:none next:none apply:none resuming',
+      'live(current) cam:off mic:off read:none next:none apply:none resuming | schedule:resume-budget',
   },
   'live resuming': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -191,7 +191,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:off mic:off read:none next:none apply:none resuming',
     'transport-resumed':
-      'live(current) cam:off mic:off read:none next:starting apply:none | refresh-view, defer-read-start',
+      'live(current) cam:off mic:off read:none next:starting apply:none | cancel:resume-budget, refresh-view, defer-read-start',
   },
   'live publishing': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -245,7 +245,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:publishing mic:capturing read:none next:none apply:running',
     'transport-resuming':
-      'live(current) cam:publishing mic:capturing read:none next:none apply:running resuming',
+      'live(current) cam:publishing mic:capturing read:none next:none apply:running resuming | schedule:resume-budget',
   },
   'live capturing': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -301,7 +301,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:capturing mic:capturing read:none next:none apply:running',
     'transport-resuming':
-      'live(current) cam:capturing mic:capturing read:none next:none apply:running resuming',
+      'live(current) cam:capturing mic:capturing read:none next:none apply:running resuming | schedule:resume-budget',
   },
   'live published': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -349,7 +349,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:published mic:published read:none next:none apply:none',
     'transport-resuming':
-      'live(current) cam:published mic:published read:none next:none apply:none resuming',
+      'live(current) cam:published mic:published read:none next:none apply:none resuming | schedule:resume-budget',
   },
   'live stale': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -389,7 +389,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(stale-definite) cam:off mic:off read:none next:none apply:none',
     'transport-resuming':
-      'live(stale-definite) cam:off mic:off read:none next:none apply:none resuming',
+      'live(stale-definite) cam:off mic:off read:none next:none apply:none resuming | schedule:resume-budget',
   },
   'released transient': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all',
@@ -490,7 +490,7 @@ export const TRANSITIONS: Readonly<
     'read-answered ended':
       'ended | cancel:all, abort-read, release-connection, forget-mute',
     'read-answered unavailable':
-      'released(definite) | cancel:all, abort-read, release-connection, refresh-view',
+      'released(transient) | refresh-view, cancel:all, abort-read, release-connection, schedule:recovery',
     'read-failed transient':
       'live(establishing) cam:off mic:off read:pausing next:none apply:none | schedule:read-retry',
     'read-failed definite':
@@ -526,7 +526,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(establishing) cam:off mic:off read:pausing next:none apply:none',
     'transport-resuming':
-      'live(establishing) cam:off mic:off read:pausing next:none apply:none resuming',
+      'live(establishing) cam:off mic:off read:pausing next:none apply:none resuming | schedule:resume-budget',
   },
   'read starting': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -566,7 +566,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:off mic:off read:none next:starting apply:none',
     'transport-resuming':
-      'live(current) cam:off mic:off read:none next:starting apply:none resuming',
+      'live(current) cam:off mic:off read:none next:starting apply:none resuming | schedule:resume-budget',
   },
   'read in flight, another wanted': {
     'tab-changed false':
@@ -589,7 +589,7 @@ export const TRANSITIONS: Readonly<
     'read-answered ended':
       'ended | cancel:all, abort-read, release-connection, forget-mute',
     'read-answered unavailable':
-      'released(definite) | cancel:all, abort-read, release-connection, refresh-view',
+      'released(transient) | refresh-view, cancel:all, abort-read, release-connection, schedule:recovery',
     'read-failed transient':
       'live(current) cam:off mic:off read:pausing next:wanted apply:none | schedule:read-retry',
     'read-failed definite':
@@ -623,7 +623,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:off mic:off read:requesting next:wanted apply:none',
     'transport-resuming':
-      'live(current) cam:off mic:off read:requesting next:wanted apply:none resuming',
+      'live(current) cam:off mic:off read:requesting next:wanted apply:none resuming | schedule:resume-budget',
   },
   'read aborting, checking': {
     'tab-changed false':
@@ -680,7 +680,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(checking) cam:off mic:off read:aborting next:wanted apply:none',
     'transport-resuming':
-      'live(checking) cam:off mic:off read:aborting next:wanted apply:none resuming',
+      'live(checking) cam:off mic:off read:aborting next:wanted apply:none resuming | schedule:resume-budget',
   },
   'read letting finish': {
     'tab-changed false':
@@ -739,7 +739,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(checking) cam:off mic:off read:letting-finish next:wanted apply:none',
     'transport-resuming':
-      'live(checking) cam:off mic:off read:letting-finish next:wanted apply:none resuming',
+      'live(checking) cam:off mic:off read:letting-finish next:wanted apply:none resuming | schedule:resume-budget',
   },
   'prompt past patience': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -791,7 +791,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:capturing(past patience) mic:capturing(past patience) read:none next:none apply:none',
     'transport-resuming':
-      'live(current) cam:capturing(past patience) mic:capturing(past patience) read:none next:none apply:none resuming',
+      'live(current) cam:capturing(past patience) mic:capturing(past patience) read:none next:none apply:none resuming | schedule:resume-budget',
   },
   'answer waiting behind an apply': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -843,7 +843,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(checking) cam:publishing mic:capturing read:none next:none apply:queued',
     'transport-resuming':
-      'live(checking) cam:publishing mic:capturing read:none next:none apply:queued resuming',
+      'live(checking) cam:publishing mic:capturing read:none next:none apply:queued resuming | schedule:resume-budget',
   },
   'warm microphone': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -887,7 +887,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:published mic:warm read:none next:none apply:none',
     'transport-resuming':
-      'live(current) cam:published mic:warm read:none next:none apply:none resuming',
+      'live(current) cam:published mic:warm read:none next:none apply:none resuming | schedule:resume-budget',
   },
   unpublishing: {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -931,7 +931,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:unpublishing mic:off read:none next:starting apply:none',
     'transport-resuming':
-      'live(current) cam:unpublishing mic:off read:none next:starting apply:none resuming',
+      'live(current) cam:unpublishing mic:off read:none next:starting apply:none resuming | schedule:resume-budget',
   },
   'failed and still removing': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -975,7 +975,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:failed(removing) mic:warm read:none next:none apply:none',
     'transport-resuming':
-      'live(current) cam:failed(removing) mic:warm read:none next:none apply:none resuming',
+      'live(current) cam:failed(removing) mic:warm read:none next:none apply:none resuming | schedule:resume-budget',
   },
   failed: {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -1025,7 +1025,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:failed mic:capturing read:none next:none apply:running',
     'transport-resuming':
-      'live(current) cam:failed mic:capturing read:none next:none apply:running resuming',
+      'live(current) cam:failed mic:capturing read:none next:none apply:running resuming | schedule:resume-budget',
   },
   missing: {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -1077,7 +1077,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:missing mic:capturing read:none next:none apply:running',
     'transport-resuming':
-      'live(current) cam:missing mic:capturing read:none next:none apply:running resuming',
+      'live(current) cam:missing mic:capturing read:none next:none apply:running resuming | schedule:resume-budget',
   },
   'stale publication': {
     'tab-changed false':
@@ -1102,7 +1102,7 @@ export const TRANSITIONS: Readonly<
     'read-answered ended':
       'ended | cancel:all, abort-read, release-connection, forget-mute',
     'read-answered unavailable':
-      'released(definite) | cancel:all, abort-read, release-connection, refresh-view',
+      'released(transient) | refresh-view, cancel:all, abort-read, release-connection, schedule:recovery',
     'read-failed transient':
       'live(current) cam:stale-publication mic:off read:pausing next:none apply:none | schedule:read-retry',
     'read-failed definite':
@@ -1136,7 +1136,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:stale-publication mic:off read:requesting next:none apply:none',
     'transport-resuming':
-      'live(current) cam:stale-publication mic:off read:requesting next:none apply:none resuming',
+      'live(current) cam:stale-publication mic:off read:requesting next:none apply:none resuming | schedule:resume-budget',
   },
   'published on a swapped device': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -1180,7 +1180,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:published(swapped) mic:warm read:none next:none apply:none',
     'transport-resuming':
-      'live(current) cam:published(swapped) mic:warm read:none next:none apply:none resuming',
+      'live(current) cam:published(swapped) mic:warm read:none next:none apply:none resuming | schedule:resume-budget',
   },
   'mute in flight': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -1228,7 +1228,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:off mic:published read:none next:none apply:none muting',
     'transport-resuming':
-      'live(current) cam:off mic:published read:none next:none apply:none muting resuming',
+      'live(current) cam:off mic:published read:none next:none apply:none muting resuming | schedule:resume-budget',
   },
   'stale, its wake waiting': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -1268,7 +1268,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(stale-wake) cam:off mic:off read:none next:starting apply:none',
     'transport-resuming':
-      'live(stale-wake) cam:off mic:off read:none next:starting apply:none resuming',
+      'live(stale-wake) cam:off mic:off read:none next:starting apply:none resuming | schedule:resume-budget',
   },
   'defaults chosen': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -1322,7 +1322,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(current) cam:capturing mic:capturing read:none next:wanted apply:running',
     'transport-resuming':
-      'live(current) cam:capturing mic:capturing read:none next:wanted apply:running resuming',
+      'live(current) cam:capturing mic:capturing read:none next:wanted apply:running resuming | schedule:resume-budget',
   },
   'stuck publish beside a live microphone': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -1374,7 +1374,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(stale-wake) cam:publishing mic:published read:none next:none apply:running',
     'transport-resuming':
-      'live(stale-wake) cam:publishing mic:published read:none next:none apply:running resuming',
+      'live(stale-wake) cam:publishing mic:published read:none next:none apply:running resuming | schedule:resume-budget',
   },
   'stuck publish with nothing healthy': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -1422,7 +1422,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running',
     'transport-resuming':
-      'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running resuming',
+      'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running resuming | schedule:resume-budget',
   },
   'stuck publish, nothing published, reception live': {
     'tab-changed false': 'waiting(elsewhere) | cancel:all, release-connection',
@@ -1470,7 +1470,7 @@ export const TRANSITIONS: Readonly<
     'playback-changed':
       'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running',
     'transport-resuming':
-      'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running resuming',
+      'live(stale-wake) cam:publishing mic:failed read:none next:none apply:running resuming | schedule:resume-budget',
   },
   ended: {},
 };

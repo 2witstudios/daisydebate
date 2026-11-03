@@ -165,6 +165,17 @@ const serverConfigSchema = z
   .superRefine((config, ctx) => {
     refineOperatorConfig(config, ctx);
     requireCompetitiveBudget(config, ctx);
+    if (
+      config.LIVEKIT_URL &&
+      config.LIVEKIT_PUBLIC_URL &&
+      mediaEndpointsOf(config.LIVEKIT_URL).length !==
+        mediaEndpointsOf(config.LIVEKIT_PUBLIC_URL).length
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LIVEKIT_PUBLIC_URL'],
+        message: 'LIVEKIT_URL and LIVEKIT_PUBLIC_URL must list the same nodes',
+      });
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     requireDeploymentIdentity(config, ctx);

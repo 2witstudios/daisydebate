@@ -85,10 +85,12 @@ test('a blip keeps every captured track; only a drop ends them', async () => {
   await transport.connect(admission);
   void transport.apply(publish(['camera']));
   await settle();
+  stub.fire(RoomEvent.SignalReconnecting);
+  stub.fire(RoomEvent.Reconnected);
   stub.fire(RoomEvent.Reconnecting);
   stub.fire(RoomEvent.Reconnected);
   assert({
-    given: 'the SDK resuming the connection after a signal blip',
+    given: 'the SDK resuming after a signal blip, then a full restart',
     should: 'leave the captured camera running',
     actual: stub.captured.filter((track) => track.ended).length,
     expected: 0,

@@ -18,8 +18,8 @@ import type { RoomEvent as MediaRoomEvent } from '../model/media-events';
 import type { ObservedTrack, Source } from '../model/media-state';
 import { preferenceFailureOf, sourceFailureOf } from '../source-failure';
 
-/** How long a connection may try to resume before it counts as a drop (SFU-4). */
-const RESUME_BUDGET_MS = 5_000;
+/** How long a connection may try to resume before it counts as a drop. */
+export const RESUME_BUDGET_MS = 5_000;
 const RESUME_DELAYS_MS = [0, 300, 1_000, 1_500];
 /**
  * A blip resumes the same connection with its tracks. Past the budget the SDK gives up,
@@ -190,6 +190,9 @@ export function createLiveKitRoom(
     .on(RoomEvent.LocalTrackUnpublished, observe)
     .on(RoomEvent.ActiveSpeakersChanged, observe)
     .on(RoomEvent.AudioPlaybackStatusChanged, playback)
+    // A signal resume says SignalReconnecting; a full restart or the browser going
+    // offline says Reconnecting. The model ignores whichever comes second.
+    .on(RoomEvent.SignalReconnecting, () => say({ type: 'transport-resuming' }))
     .on(RoomEvent.Reconnecting, () => say({ type: 'transport-resuming' }))
     .on(RoomEvent.Reconnected, () => {
       say({ type: 'transport-resumed' });

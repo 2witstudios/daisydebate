@@ -137,7 +137,13 @@ export const reduceReadAnswered = (
   if (flight.generation !== state.intent.generation)
     return leaveFlight(state, live, ctx.atMs);
   if (answer.state === 'ended') return finish(state, [{ type: 'forget-mute' }]);
-  if (answer.state !== 'ready') return release(state, 'definite', ctx);
+  // Not ready, or the session has left this room: a fresh admission decides, and refuses
+  // if the seat has lost its authority. Nobody should need to press Retry for an outage.
+  if (answer.state !== 'ready' || answer.room !== live.room)
+    return prepend(
+      [{ type: 'refresh-view' }],
+      release(state, 'transient', ctx),
+    );
   const pending = { generation: flight.generation, answer };
   const cleared = clearFlight(live);
   return cleared.apply

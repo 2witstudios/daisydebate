@@ -16,7 +16,7 @@ export type Scope = BotPublicationScope;
 export type MediaOperationInput = {
   readonly priority: ReturnType<typeof createAdmissionPriority>;
   readonly store: Store;
-  readonly media: Omit<MediaNodes, 'urlsFor' | 'probe'>;
+  readonly media: Omit<MediaNodes, 'urlsFor' | 'probe' | 'size'>;
   readonly urlsFor: MediaNodes['urlsFor'];
   readonly nextId: () => string;
   readonly reporter: ErrorReporter;

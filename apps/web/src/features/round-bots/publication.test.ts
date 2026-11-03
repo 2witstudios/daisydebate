@@ -47,11 +47,16 @@ function harness(
         _scope: unknown,
         _token: unknown,
         window?: unknown,
+        room?: unknown,
       ) => {
-        if (window) events.push('credit');
+        if (window) events.push(room === 'room' ? 'credit' : 'credit-no-room');
       },
     } as never,
-    botToken: async () => ({ url: 'ws://media.test', token: 'grant' }),
+    botToken: async () => ({
+      url: 'ws://media.test',
+      token: 'grant',
+      roomName: 'room',
+    }),
     connect: async () => {
       const attempt = joins++;
       await options.join?.(attempt);

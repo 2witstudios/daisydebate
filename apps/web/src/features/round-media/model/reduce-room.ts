@@ -8,6 +8,7 @@ import type {
   SourceState,
 } from './media-state';
 import {
+  cancel,
   moved,
   prepend,
   rejected,
@@ -41,6 +42,7 @@ const reduceConnected = (
     phase: 'live',
     connection: link.connection,
     identity: link.identity,
+    room: link.room,
     establishment: { stage: 'establishing', reconnecting: link.reconnecting },
     grants: [],
     permission: event.permission,
@@ -260,12 +262,15 @@ export const reduceRoom = (
     case 'transport-resuming':
       return link.transport === 'resuming'
         ? rejected(state)
-        : moved(withLive(state, { ...link, transport: 'resuming' }));
+        : {
+            state: withLive(state, { ...link, transport: 'resuming' }),
+            effects: [schedule('resume-budget', ctx.policy.resumeBudgetMs)],
+          };
     case 'transport-resumed': {
       if (link.transport === 'steady') return rejected(state);
       // A grant may have moved while the signal was away: read it before trusting it.
       return prepend(
-        [{ type: 'refresh-view' }],
+        [cancel('resume-budget'), { type: 'refresh-view' }],
         requestRead(state, { ...link, transport: 'steady' }),
       );
     }

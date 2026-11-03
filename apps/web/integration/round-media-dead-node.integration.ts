@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createMediaService } from '@daisy/media';
+import { createMediaNodes, createMediaService } from '@daisy/media';
 import { Room } from '@livekit/rtc-node';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import {
@@ -114,3 +114,42 @@ test('a permission call lost to a dying node never strands the session', async (
     }
   });
 }, 40_000);
+
+test('an unreachable node costs nothing: admission reads through a healthy one and sends the seat there', async () => {
+  await withMediaRound(async (f) => {
+    const nodes = createMediaNodes({
+      nodes: [
+        // Nothing listens here: the first node in the list is down.
+        { url: 'http://127.0.0.1:9', publicUrl: 'wss://dead.invalid' },
+        { url: localMediaConfig.url, publicUrl: 'wss://healthy.invalid' },
+      ],
+      apiKey: localMediaConfig.apiKey,
+      apiSecret: localMediaConfig.apiSecret,
+      // Public routes are named, not served, here; the API probes are real.
+      fetch: (url, init) =>
+        url.includes('healthy.invalid')
+          ? Promise.resolve(new Response('OK'))
+          : fetch(url, init),
+    });
+    await nodes.probe();
+    const admitted = await createRoundMediaOperations({
+      ...mediaDependencies(f, nodes),
+      urlsFor: nodes.urlsFor,
+    }).session(f.roundId, f.host.actorId);
+    const [session] =
+      await f.sql`select room_name,unsafe_at from media_sessions where round_id=${f.roundId}`;
+    assert({
+      given:
+        'a node list whose first node is down, and a real LiveKit behind it',
+      should:
+        'admit through the healthy node, with its URL, and leave the session safe',
+      actual: [
+        admitted.state,
+        admitted.url,
+        session!.unsafe_at,
+        await nodes.exists(String(session!.room_name)),
+      ],
+      expected: ['ready', 'wss://healthy.invalid', null, true],
+    });
+  });
+});

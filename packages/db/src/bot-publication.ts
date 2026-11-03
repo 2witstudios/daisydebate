@@ -144,9 +144,18 @@ export function createBotPublicationOperations(input: {
       scope: BotPublicationScope,
       token: string,
       window?: PublicationWindow,
+      /** The vendor room this publisher joined; a retired one hears nobody (ADR 0110). */
+      room?: string,
     ) =>
       input.run(async (tx) => {
         await verifyLockedBotWorker(tx, scope, token);
+        if (room !== undefined) {
+          const named = await tx.execute(
+            sql`select 1 from media_sessions where round_id=${scope.roundId} and room_name=${room} limit 1`,
+          );
+          if (named.length !== 1)
+            throw createAppError('CONFLICT', 'Bot media room changed');
+        }
         await requireBotSpeakingWindow(tx, scope, window);
         if (window)
           await creditBotPublicationWindow(tx, scope, window, input.nextId);
