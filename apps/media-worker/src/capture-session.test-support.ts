@@ -107,7 +107,7 @@ export function createCaptureSessionFixture(
       if (!options.closingFirst) closed.resolve('disconnected');
     }, options.drop);
   let reads = 0;
-  let silentClips = 0;
+  let summary = { silentClips: 0, audibleClips: 0 };
   const seals: number[] = [];
   const client = {
     lease: options.lease ?? (async () => ({ epoch: 1 })),
@@ -200,7 +200,10 @@ export function createCaptureSessionFixture(
     new AbortController().signal,
   ).then(
     (ended) => {
-      silentClips = ended.silentClips;
+      summary = {
+        silentClips: ended.silentClips,
+        audibleClips: ended.audibleClips,
+      };
       return ended.closed ? 'closed for good' : 'ended cleanly';
     },
     (error: unknown) => describeCaptureExit(captureFailureExit(error)),
@@ -210,7 +213,7 @@ export function createCaptureSessionFixture(
     /** History reads answered so far, and the read count at each seal. */
     reads: () => reads,
     seals: () => seals,
-    /** Silent clips the ended session counted. */
-    silentClips: () => silentClips,
+    /** The clips the ended session counted. */
+    summary: () => summary,
   };
 }

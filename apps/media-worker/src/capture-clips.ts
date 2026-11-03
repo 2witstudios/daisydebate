@@ -44,6 +44,8 @@ type SpeechRun = {
   readonly grant: string;
   readonly trackId: string;
   readonly voicedMs: number;
+  /** When its last voice was heard: a pause this long ends the run. */
+  readonly lastVoicedMs: number;
 };
 type Input = {
   readonly roundId: string;
@@ -258,8 +260,12 @@ function openClip(input: Input, carry: ClipCarry | null | undefined) {
     heard = false;
   };
   const push = (current: Admitted) => {
+    // One rule ends a run: another grant or track, or a pause by the clock, so a
+    // pause broken by a missing frame still counts as one.
     const sameRun =
-      run?.grant === current.grant && run.trackId === current.frame.trackId;
+      run?.grant === current.grant &&
+      run.trackId === current.frame.trackId &&
+      current.frame.nominalStartMs - run.lastVoicedMs <= CLIP_PAUSE_MS + 10;
     const previous = pending.at(-1);
     if (previous && !continues(previous, current)) flush(sameRun);
     if (!sameRun) run = null;
@@ -275,6 +281,7 @@ function openClip(input: Input, carry: ClipCarry | null | undefined) {
         grant: current.grant,
         trackId: current.frame.trackId,
         voicedMs: (run?.voicedMs ?? 0) + 10,
+        lastVoicedMs: current.frame.nominalStartMs,
       };
     pending.push(current);
     if (voiced) [quiet, heard] = [0, true];

@@ -117,7 +117,10 @@ export async function runCaptureProcess(input: {
       },
       stop.signal,
     );
-    input.report?.({ silentClips: ended.silentClips });
+    input.report?.({
+      silentClips: ended.silentClips,
+      audibleClips: ended.audibleClips,
+    });
     process.exitCode = exitStatus(ended.closed);
   } catch (error) {
     process.exitCode = startRefusalExit(error);

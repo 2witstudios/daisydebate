@@ -517,3 +517,66 @@ test('a run survives a batch boundary', () => {
     expected: ['audible', 'audible'],
   });
 });
+
+test('a pause ends a run even when a frame went missing in it', () => {
+  const clicks = (holes: readonly number[], clickAt = 330) =>
+    cutCaptureClips({
+      ...scope,
+      segments: [segment],
+      intervals: [grant],
+      frames: Array.from({ length: clickAt + 63 }, (_, i) => i)
+        .filter((i) => !holes.includes(i))
+        .map((i) =>
+          frame(10 + i * 10, !(i < 30 || (i >= clickAt && i < clickAt + 3))),
+        ),
+      final: true,
+    }).clips.filter((c) => c.kind === 'audible').length;
+  assert({
+    given:
+      '300 ms of speech, 3 s of silence and a 30 ms click, no frame missing',
+    should: 'send only the speech',
+    actual: clicks([]),
+    expected: 1,
+  });
+  assert({
+    given: 'the same with one frame missing 100 ms into the silence',
+    should: 'still send only the speech',
+    actual: clicks([40]),
+    expected: 1,
+  });
+  const hole = cutCaptureClips({
+    ...scope,
+    segments: [segment],
+    intervals: [grant],
+    frames: [
+      ...Array.from({ length: 3 }, (_, i) => frame(10 + i * 10)),
+      ...Array.from({ length: 3 }, (_, i) => frame(2010 + i * 10)),
+      ...Array.from({ length: 60 }, (_, i) => frame(2040 + i * 10, true)),
+    ],
+    final: true,
+  }).clips.map((c) => c.kind);
+  assert({
+    given: 'two 30 ms clicks with a 2 s hole in the frames between them',
+    should: 'treat the hole as a pause and send neither',
+    actual: hole.includes('audible'),
+    expected: false,
+  });
+});
+
+test('the bound landing on a quiet frame does not keep a run open', () => {
+  const kinds = cutCaptureClips({
+    ...scope,
+    segments: [segment],
+    intervals: [grant],
+    frames: Array.from({ length: 6400 }, (_, i) =>
+      frame(10 + i * 10, !(i < 5900 || (i >= 6250 && i < 6253))),
+    ),
+    final: true,
+  }).clips.filter((c) => c.kind === 'audible');
+  assert({
+    given: 'speech, a long quiet past the bound, then a 30 ms click',
+    should: 'send the speech and not the click',
+    actual: kinds.length,
+    expected: 1,
+  });
+});

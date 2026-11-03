@@ -13,21 +13,34 @@ test('a summary is one count and nothing else', () => {
     given: 'a count, and messages that are anything else',
     should: 'read only the count',
     actual: [
+      { silentClips: 3, audibleClips: 0 },
       { silentClips: 3 },
-      { silentClips: -1 },
-      { silentClips: 1.5 },
-      { silentClips: 3, text: 'words' },
+      { silentClips: -1, audibleClips: 0 },
+      { silentClips: 1.5, audibleClips: 0 },
+      { silentClips: 3, audibleClips: 0, text: 'words' },
       'silentClips',
       null,
     ].map(readCaptureSummary),
-    expected: [{ silentClips: 3 }, null, null, null, null, null],
+    expected: [
+      { silentClips: 3, audibleClips: 0 },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ],
   });
 });
 
 test('a child with its output closed can still report to the worker', async () => {
   const heard = Promise.withResolvers<unknown>();
   const child = Bun.spawn(
-    [process.execPath, '-e', 'process.send({ silentClips: 3 })'],
+    [
+      process.execPath,
+      '-e',
+      'process.send({ silentClips: 3, audibleClips: 1 })',
+    ],
     {
       stdin: 'ignore',
       stdout: 'ignore',
@@ -41,7 +54,7 @@ test('a child with its output closed can still report to the worker', async () =
     given: 'a process spawned as the worker spawns capture',
     should: 'deliver its summary',
     actual: readCaptureSummary(message),
-    expected: { silentClips: 3 },
+    expected: { silentClips: 3, audibleClips: 1 },
   });
 });
 
@@ -108,8 +121,9 @@ test('a session counts the silent clips it cut', async () => {
   });
   assert({
     given: 'one frame of silence, then the capture closing',
-    should: 'report one silent clip',
-    actual: [await session.done, session.silentClips()],
-    expected: ['closed for good', 1],
+    should:
+      'report one silent clip and no audible one: the sign of a quiet speaker',
+    actual: [await session.done, session.summary()],
+    expected: ['closed for good', { silentClips: 1, audibleClips: 0 }],
   });
 });

@@ -80,7 +80,7 @@ export async function startMediaWorker(input: {
             if (summary)
               logger.log(
                 'media.capture.session_ended',
-                summary,
+                { sessionId: scope.sessionId, ...summary },
                 'Capture session ended',
               );
           },

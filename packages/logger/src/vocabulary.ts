@@ -138,6 +138,7 @@ export const loggableFields = {
   durationMs: 'count',
   status: 'count',
   silentClips: 'count',
+  audibleClips: 'count',
   port: 'count',
   deleted: 'count',
   batches: 'count',

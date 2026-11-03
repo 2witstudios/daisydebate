@@ -226,7 +226,12 @@ test('an empty carry holds its run of speech until a pause has passed', () => {
       {
         frames: [],
         lastNominal: 1000,
-        run: { grant: 'grant', trackId: 'track', voicedMs: 300 },
+        run: {
+          grant: 'grant',
+          trackId: 'track',
+          voicedMs: 300,
+          lastVoicedMs: 1000,
+        },
       },
     ],
   ]);

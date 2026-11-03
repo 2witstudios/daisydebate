@@ -69,6 +69,7 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `durationMs`             | count |
 | `status`                 | count |
 | `silentClips`            | count |
+| `audibleClips`           | count |
 | `port`                   | count |
 | `deleted`                | count |
 | `batches`                | count |
