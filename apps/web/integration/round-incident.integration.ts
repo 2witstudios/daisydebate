@@ -281,3 +281,34 @@ test('attendance holds while an incident is open', async () => {
     });
   });
 });
+
+test('a platform-ended Round charges nothing, once', async () => {
+  await withMediaRound(async (f) => {
+    const { observe } = await liveSpeech(f);
+    const [seat] =
+      await f.sql`select actor_id from round_participants where round_id=${f.roundId} limit 1`;
+    const id = createId();
+    // Spent and counted: a billable call was really served in this Round.
+    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, counted_at) values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round', clock_timestamp())`;
+    await observe(room({}));
+    await observe(room({ empty: true, captureListed: false }));
+    await passBound(f);
+    await observe({ kind: 'unreachable' });
+    const [first] =
+      await f.sql`select refunded_at from usage_reservations where id=${id}`;
+    await observe({ kind: 'unreachable' });
+    const [second] =
+      await f.sql`select refunded_at from usage_reservations where id=${id}`;
+    assert({
+      given: 'a served practice call in a Round the platform ended',
+      should: 'refund it, and a later observation changes nothing',
+      actual: {
+        refunded: first!.refunded_at !== null,
+        once:
+          new Date(first!.refunded_at).getTime() ===
+          new Date(second!.refunded_at).getTime(),
+      },
+      expected: { refunded: true, once: true },
+    });
+  });
+});

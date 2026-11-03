@@ -476,6 +476,8 @@ export {
 } from './attendance';
 export { attendanceRoundReadSchema } from './attendance';
 export { roundRecordSchema, type RoundRecord } from './round-view';
+export { frozenCaptureGapsSchema } from './capture-gap';
+export type { FrozenCaptureGaps } from './capture-gap';
 export { roundMediaPolicy } from './round-media-policy';
 export { roundIncidentPolicy } from './round-incident-policy';
 export {

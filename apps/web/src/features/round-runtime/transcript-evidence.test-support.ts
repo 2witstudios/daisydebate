@@ -11,6 +11,9 @@ export const frozen = {
   frontier: 0,
   frozenAt: '2026-10-22T00:00:00.000Z',
   completeness: 'incomplete' as const,
+  expectedSpeechMs: 0,
+  captureGapMs: 0,
+  captureGaps: { gaps: [] },
   coverage: [
     {
       segmentId: 'segment',

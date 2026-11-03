@@ -103,7 +103,8 @@ export function roundMaintenanceOperations(run: BoundedTransaction) {
     tickDueRound: (input: DueInput) =>
       withRound(input, (tx) => executeLockedRoundTick(tx, input)),
     finalizeDueRoundTranscript: (
-      input: DueInput & Pick<FreezeRequest, 'planJudging' | 'botGrantUnused'>,
+      input: DueInput &
+        Pick<FreezeRequest, 'planJudging' | 'botGrantUnused' | 'captureRule'>,
     ) =>
       withRound(input, (tx, assertCurrent) =>
         finalizeLockedRoundTranscript(tx, input, assertCurrent),

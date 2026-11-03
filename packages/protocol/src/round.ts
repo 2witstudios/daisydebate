@@ -34,6 +34,8 @@ export const platformIncidentCauses = [
   'vendor_unreachable',
   'room_retired',
   'room_emptied',
+  /** No pause: the debate finished, having lost more speech than can be judged. */
+  'capture_below_limit',
 ] as const;
 export const platformIncidentCauseSchema = z.enum(platformIncidentCauses);
 export type PlatformIncidentCause = (typeof platformIncidentCauses)[number];

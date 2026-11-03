@@ -4,6 +4,7 @@ import type { Database } from '@daisy/db';
 import {
   attendanceSettled,
   botGrantUnused,
+  captureRule,
   createRoundRuntime,
   decidePanelCompletion,
   judgingEndIsReported,
@@ -135,6 +136,7 @@ export function createRoundMaintenanceOperations(input: {
         buildProjection,
         planJudging,
         botGrantUnused,
+        captureRule,
       });
       if (result.status !== 'frozen') return result;
       try {

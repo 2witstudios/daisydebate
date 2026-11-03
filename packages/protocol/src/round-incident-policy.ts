@@ -11,4 +11,6 @@ export const roundIncidentPolicy = {
   recoveryBoundMs: 90_000,
   /** PROVISIONAL. The automatic countdown shown to everyone before the clock runs. */
   resumeCountdownMs: 5_000,
+  /** PROVISIONAL. The share of expected speech a Round may lose and still be judged by AI. */
+  maxCaptureGapShare: 0.05,
 } as const;

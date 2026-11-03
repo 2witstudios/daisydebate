@@ -188,13 +188,15 @@ test('a judged Round completes without a winner only after its ballot deadline',
   });
 });
 
-test('an incomplete freeze dispatches no AI judge and, with no human judge, closes the ruling window (DEC-208)', () => {
+test('a freeze of unmeasured loss dispatches no AI judge and, with no human judge, closes the ruling window (DEC-208)', () => {
   const plan = (
     completeness: 'complete' | 'incomplete',
     humanJudges: boolean,
   ) =>
     freezeJudgingPlan({
       completeness,
+      // Unmeasured, so never within the limit: freeze-judging-plan.test.ts has the limit.
+      capture: { gapMs: completeness === 'complete' ? 0 : null, expectedMs: 1 },
       humanJudges,
       ballotDeadlineMs: 1_800_000,
       aiJudgingBudgetMs: 300_000,
@@ -210,16 +212,19 @@ test('an incomplete freeze dispatches no AI judge and, with no human judge, clos
     ],
     expected: [
       {
+        endsAsPlatformIncident: false,
         dispatchAiJudges: true,
         ballotDeadlineMs: null,
         aiJudgingBudgetMs: 300_000,
       },
       {
+        endsAsPlatformIncident: false,
         dispatchAiJudges: false,
         ballotDeadlineMs: 1_800_000,
         aiJudgingBudgetMs: 300_000,
       },
       {
+        endsAsPlatformIncident: true,
         dispatchAiJudges: false,
         ballotDeadlineMs: null,
         aiJudgingBudgetMs: 300_000,

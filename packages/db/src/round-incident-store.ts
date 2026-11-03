@@ -3,6 +3,7 @@ import { idSchema, type RoundProjection } from '@daisy/protocol';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
+import { refundPlatformEndedLocked } from './round-bot-admission';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import {
   lockedRoundVersion,
@@ -186,6 +187,7 @@ async function writeIncidentRow(
           isNull(roundIncidents.endedAt),
         ),
       );
+    await refundPlatformEndedLocked(tx, roundId);
     return { kind: 'ended' };
   }
   if (incident?.phase === 'paused' && before === 'none') {

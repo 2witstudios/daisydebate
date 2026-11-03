@@ -1,6 +1,8 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { captureRule } from '@daisy/debate-engine';
+import { readCaptureShortfall } from '../src/capture-shortfall';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { historicalCapture } from './media-capture.test-support';
 
@@ -180,5 +182,42 @@ test('a bot stream is required only over its credited publication windows (DEC-2
       'seal complete when its credited phrases are captured, never requiring the silent floor',
     actual,
     expected: cases.map(([, , state]) => state),
+  });
+});
+
+test('a freeze can say how much speech a Round lost', async () => {
+  await withBoundedRound(async (fixture, transaction, roundId) => {
+    const capture = await historicalCapture(
+      fixture,
+      transaction,
+      roundId,
+      1000,
+      60_000,
+      { durationMs: 5190 },
+    );
+    await sealObserved(capture, [
+      [1934, 3000],
+      [3100, 5164],
+    ]);
+    const { captureGapMs, expectedSpeechMs, captureGaps } = await transaction(
+      (tx) => readCaptureShortfall(tx as never, roundId, captureRule),
+    );
+    assert({
+      given: 'a sealed stream with a 100 ms dropout',
+      should: 'measure that loss, and state where it was in the speech',
+      actual: {
+        captureGapMs,
+        hasExpectedSpeech: expectedSpeechMs > 0,
+        gaps: captureGaps.gaps.map(({ fromOffsetMs, untilOffsetMs }) => [
+          fromOffsetMs,
+          untilOffsetMs,
+        ]),
+      },
+      expected: {
+        captureGapMs: 100,
+        hasExpectedSpeech: true,
+        gaps: [[3000, 3100]],
+      },
+    });
   });
 });
