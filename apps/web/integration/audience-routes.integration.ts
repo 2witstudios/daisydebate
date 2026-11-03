@@ -16,7 +16,10 @@ import { VIEWER_BUCKET_MS } from '../src/features/viewer-counts/viewer-count';
 import { createRateLimiter } from '../src/server/rate-limit';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { assembleJudgedRoom } from './round-judging.test-support';
-import { launchRuntimeRound, withRoomRuntime } from './round-runtime.test-support';
+import {
+  launchRuntimeRound,
+  withRoomRuntime,
+} from './round-runtime.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -188,7 +191,8 @@ test('an account that was never admitted posts through the route, and no one rea
         ).json(),
       );
       assert({
-        given: 'no session, a foreign origin, then an account with no admission',
+        given:
+          'no session, a foreign origin, then an account with no admission',
         should:
           'refuse the first two, take the third once across a retry, and hold it from the audience',
         actual: {
@@ -304,7 +308,8 @@ test('slow mode, a ban and the end of the Broadcast each refuse a post, with sta
       const stopped = await route.chat(postTo(chatPath, chatBody('Stopped')));
       assert({
         given: 'a slow-mode window, its end, a ban, then a stopped Broadcast',
-        should: 'refuse each by name, write nothing for them, keep two messages',
+        should:
+          'refuse each by name, write nothing for them, keep two messages',
         actual: {
           slowed: await refusal(slowed),
           spaced: spaced.status,
@@ -350,7 +355,8 @@ test('the route’s rate limit runs on real Redis before any work', async () => 
             )
           ).status,
         );
-      const [row] = (await f.sql`select count(*)::int as c from audience_reactions
+      const [row] =
+        (await f.sql`select count(*)::int as c from audience_reactions
         where round_id=${roundId}`) as { c: number }[];
       assert({
         given: '61 presses in one minute and one spacing window',
@@ -383,7 +389,8 @@ test('a seat reads what the rule gives it, from the real store', async () => {
       assert({
         given:
           'a debater on a non-ranked Round, chat on then off, a visitor and an unseated account',
-        should: 'follow the host’s switch for the seat, and show the others all',
+        should:
+          'follow the host’s switch for the seat, and show the others all',
         actual: {
           on: on?.shown,
           off: off?.shown,
@@ -406,7 +413,8 @@ test('a seat reads what the rule gives it, from the real store', async () => {
 test('a count gathers on real Redis, and shows only once the timeline passes its bucket', async () => {
   await withRoomRuntime(async (f) => {
     const roundId = await onAirRound(f);
-    const nowMs = Math.floor(Date.parse(NOW) / VIEWER_BUCKET_MS) * VIEWER_BUCKET_MS;
+    const nowMs =
+      Math.floor(Date.parse(NOW) / VIEWER_BUCKET_MS) * VIEWER_BUCKET_MS;
     let now = new Date(nowMs + 1000).toISOString();
     const route = routes(
       f,
@@ -430,7 +438,8 @@ test('a count gathers on real Redis, and shows only once the timeline passes its
       now = new Date(nowMs + 3 * VIEWER_BUCKET_MS).toISOString();
       const released = await read();
       assert({
-        given: 'two tabs pulsing, before and after the timeline passes that bucket',
+        given:
+          'two tabs pulsing, before and after the timeline passes that bucket',
         should: 'show no count, then two',
         actual: [live?.snapshot.viewers, released?.snapshot.viewers],
         expected: [null, 2],
