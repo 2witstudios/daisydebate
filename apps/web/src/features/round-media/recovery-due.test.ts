@@ -210,6 +210,58 @@ test('an overdue heartbeat outranks floors and repairs for a slot', () => {
   });
 });
 
+test('floors keep moving while every overdue Round gets its turn', () => {
+  const floor = (roundId: string) => idle({ roundId, roundChangedAt: at(11) });
+  const overdue = (roundId: string, lastSecond: number) =>
+    idle({ roundId, lastPassAt: at(lastSecond), roundChangedAt: at(0) });
+  const backlog = [overdue('c', 3), overdue('a', 1), overdue('b', 2)];
+  assert({
+    given: 'sustained overdue Rounds and a due floor, with 2 free slots',
+    should: 'start the oldest overdue Round and the floor on that same tick',
+    actual: rounds(
+      recoveryDue([...backlog, floor('floor')], new Set(), HEARTBEAT_MS, 2),
+    ),
+    expected: ['a', 'floor'],
+  });
+  assert({
+    given: 'exactly 1 free slot, an overdue Round and a due floor',
+    should: 'give the slot to the overdue Round; the floor waits a tick',
+    actual: rounds(
+      recoveryDue([floor('floor'), ...backlog], new Set(), HEARTBEAT_MS, 1),
+    ),
+    expected: ['a'],
+  });
+  assert({
+    given: 'slots left after the floors',
+    should: 'give them to the other overdue Rounds, oldest first',
+    actual: rounds(
+      recoveryDue([...backlog, floor('floor')], new Set(), HEARTBEAT_MS, 4),
+    ),
+    expected: ['a', 'floor', 'b', 'c'],
+  });
+  const turns = (ticks: number) => {
+    const started: string[] = [];
+    let sessions: readonly RecoverySession[] = [...backlog, floor('floor')];
+    for (let tick = 0; tick < ticks; tick++) {
+      const due = rounds(recoveryDue(sessions, new Set(), HEARTBEAT_MS, 1));
+      started.push(...due);
+      // A started Round has just passed; the floor keeps asking every tick.
+      sessions = sessions.map((session) =>
+        due.includes(session.roundId) && session.roundId !== 'floor'
+          ? { ...session, lastPassAt: session.now }
+          : session,
+      );
+    }
+    return started;
+  };
+  assert({
+    given: 'many overdue Rounds across ticks and a floor always due',
+    should: 'give each overdue Round its turn, longest overdue first',
+    actual: turns(3),
+    expected: ['a', 'b', 'c'],
+  });
+});
+
 test('a tick spends its slots on floors first, then what is free', () => {
   const floor = idle({ roundId: 'floor', roundChangedAt: at(11) });
   const repair = idle({ roundId: 'repair', unsafe: true });

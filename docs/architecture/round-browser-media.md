@@ -118,9 +118,10 @@ recovery tick moves it, and pacing cannot slow or speed the tick.
 The tick is the last resort, the only mover when every browser read is held, so one
 Round never waits on another there, and it spends its passes where a floor must move
 (ISSUE-972). Each tick makes one read, one query for all active sessions, and
-`recoveryDue` decides from it. A Round with no pass in 5 s comes first, so nothing can
-starve the heartbeat. Then a commit since its last pass or a clock boundary passed since
-then, then repairs (never passed, unsafe, terminal, or a last pass that did not finish),
+`recoveryDue` decides from it. The Round longest without a pass past 5 s comes first, one
+each tick, so nothing can starve the heartbeat. Then a commit since its last pass or a
+clock boundary passed since then, then the other overdue Rounds, then repairs (never passed, unsafe, past the media
+window, or a last pass that did not finish),
 then a heartbeat for a Round with no pass in 2 s, which covers what that read cannot see,
 such as a revoked seat. A Round with none of these costs no pass, and neither does one a
 claim could not start for yet (a live lease, or under 500 ms since its last pass), which

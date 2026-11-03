@@ -81,27 +81,35 @@ export const recoveryNeed = (
     return 'repair';
   return sinceLastPassMs >= heartbeatMs ? 'heartbeat' : null;
 };
-const ORDER: readonly RecoveryNeed[] = [
-  'overdue',
-  'floor',
-  'repair',
-  'heartbeat',
-];
 /**
- * Which sessions this tick starts: those with a need and no recovery running
- * here, an overdue Round first, then a floor that must move, in the order given
- * within each need, up to the free capacity.
+ * Which sessions this tick starts, up to the free capacity. A session qualifies
+ * with a need and no recovery running here. The order is: the Round overdue the
+ * longest, then floors that must move, then the other overdue Rounds, oldest
+ * first, then repairs, then heartbeats. So at most one overdue Round goes ahead
+ * of a floor each tick, which keeps floors moving and still gives every overdue
+ * Round its turn. With exactly one free slot and an overdue Round, that Round
+ * takes the slot and a floor waits for the next tick.
  */
 export const recoveryDue = <S extends RecoverySession>(
   sessions: readonly S[],
   running: ReadonlySet<string>,
   heartbeatMs: number,
   capacity: number = MEDIA_RECOVERY_CONCURRENCY,
-): readonly S[] =>
-  ORDER.flatMap((need) =>
+): readonly S[] => {
+  const needing = (need: RecoveryNeed) =>
     sessions.filter(
       (session) =>
         !running.has(session.roundId) &&
         recoveryNeed(session, heartbeatMs) === need,
-    ),
-  ).slice(0, Math.max(0, capacity - running.size));
+    );
+  const [longestOverdue, ...otherOverdue] = needing('overdue').toSorted(
+    (a, b) => Date.parse(a.lastPassAt!) - Date.parse(b.lastPassAt!),
+  );
+  return [
+    ...(longestOverdue ? [longestOverdue] : []),
+    ...needing('floor'),
+    ...otherOverdue,
+    ...needing('repair'),
+    ...needing('heartbeat'),
+  ].slice(0, Math.max(0, capacity - running.size));
+};
