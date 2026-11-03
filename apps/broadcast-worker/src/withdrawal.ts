@@ -1,5 +1,9 @@
 import type { createBroadcastWorkerStore } from '@daisy/db/broadcast-worker';
-import { broadcastLivePrefix, officialFeedPath } from '@daisy/protocol';
+import {
+  broadcastHoldPrefix,
+  broadcastLivePrefix,
+  officialFeedPath,
+} from '@daisy/protocol';
 import { RENDITIONS } from './hold-manifest';
 import type { createObjects } from './objects';
 
@@ -17,6 +21,8 @@ export const FEED_END_GRACE_MS = 60_000;
 const DELETE_BATCH = 32;
 const WITHDRAWAL_LEASE_MS = 30_000;
 const IDLE_MS = 500;
+/** Egress finishes writing its last segments this long after a stop (measured: 2 s). */
+const HOLD_SETTLE_MS = 10_000;
 
 /**
  * Every public object a Broadcast can have, manifests first so no player is told
@@ -50,7 +56,9 @@ type FinishedJob = {
  * and its grace passed. Either way nothing public stays, so a finished feed
  * stops replaying and a later takedown has no public copy left behind. A stopped
  * Broadcast completes only once the reconciler has recorded that the Egress is
- * gone, because a completed Broadcast is reconciled no more. Safe to repeat:
+ * gone, because a completed Broadcast is reconciled no more. The hold goes with it
+ * when no Recording will read it: the Recording worker clears a hold it read, and
+ * nothing else would clear this one. Safe to repeat:
  * deleting what is already gone is not an error.
  */
 export const withdrawFeed = async (
@@ -59,6 +67,11 @@ export const withdrawFeed = async (
     readonly deletePublic: (key: string) => Promise<void>;
     readonly recordWithdrawn: () => Promise<void>;
     readonly complete: () => Promise<void>;
+    /** Whether a Recording will read, and later clear, this Broadcast's hold. */
+    readonly recordingKeepsHold: () => Promise<boolean>;
+    /** One bounded page of deletes from the hold; zero means it lists empty. */
+    readonly discardHoldPage: () => Promise<number>;
+    readonly nowMs: () => number;
   },
 ): Promise<void> => {
   const keys = withdrawalKeys(job.feedKey, job.nextSegment);
@@ -69,9 +82,14 @@ export const withdrawFeed = async (
     await Promise.all(
       segments.slice(at, at + DELETE_BATCH).map(ports.deletePublic),
     );
+  const endMs = job.finalMediaEndAt?.getTime() ?? null;
+  // Nothing more is coming once the Egress has had time to finish writing. A stop
+  // too recent comes back here when its lease ends, not yet complete.
+  const settled = endMs !== null && ports.nowMs() >= endMs + HOLD_SETTLE_MS;
+  if (settled && !(await ports.recordingKeepsHold()))
+    while ((await ports.discardHoldPage()) > 0);
   await ports.recordWithdrawn();
-  if (job.completedAt === null && job.finalMediaEndAt !== null)
-    await ports.complete();
+  if (job.completedAt === null && settled) await ports.complete();
 };
 
 type WithdrawalDeps = {
@@ -89,6 +107,9 @@ export const feedWithdrawalPorts = (id: string, deps: WithdrawalDeps) => ({
   complete: async () => {
     await deps.store.complete({ id, at: new Date(deps.now()) });
   },
+  recordingKeepsHold: () => deps.store.recordingKeepsHold(id),
+  discardHoldPage: () => deps.objects.discardHoldPage(broadcastHoldPrefix(id)),
+  nowMs: deps.now,
 });
 
 /**

@@ -81,6 +81,7 @@ const setup = (over: {
           { startedAtMs: 1000, endedAtMs: 61_000, durationMs: 60_000 },
         ],
         knownThroughMs: 90_000,
+        captureFromMs: 0,
       }),
       discardSources: log('discardSources'),
       listProcessingUnalerted: async () => over.processing ?? [],
@@ -353,7 +354,7 @@ describe('answers to the worker', () => {
           {
             recordingId: 'rec',
             attemptCount: 2,
-            publicIntervals: [{ fromMs: 2200, toMs: 61_000 }],
+            publicIntervals: [{ fromMs: 2301, toMs: 61_000 }],
             ceilingMs: recordingBuildCeilingMs(
               capturedMediaMs(processing.capture),
             ),

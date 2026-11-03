@@ -92,6 +92,11 @@ const run = (action: BroadcastAction, ports: ReconcilePorts) => {
         },
         () => ports.report('broadcast.observer.restore_failed'),
       );
+    case 'forget-revocation':
+      return attempt(
+        () => ports.recordRestored(),
+        () => ports.report('broadcast.observer.restore_failed'),
+      );
     case 'complete':
       return attempt(
         () => ports.complete(),

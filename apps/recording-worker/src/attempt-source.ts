@@ -29,6 +29,29 @@ export const segmentsSource = (
     : { kind: 'absent' };
 };
 
+/** A hole this wide, left by stripping a failed source, is not one continuous piece. */
+const CONTINUOUS_WITHIN_MS = 500;
+
+/** Held entries split where their capture times stop following on. */
+export const continuousRuns = (
+  entries: readonly HoldEntry[],
+): readonly (readonly HoldEntry[])[] => {
+  const runs: HoldEntry[][] = [];
+  for (const entry of entries) {
+    const run = runs.at(-1);
+    const last = run?.at(-1);
+    if (
+      run &&
+      last &&
+      entry.capturedAtMs - (last.capturedAtMs + last.durationMs) <=
+        CONTINUOUS_WITHIN_MS
+    )
+      run.push(entry);
+    else runs.push([entry]);
+  }
+  return runs;
+};
+
 /** Media with no capture time has no honest place in the timeline, so it is left out. */
 export const attemptSource = (
   entries: readonly HoldEntry[],

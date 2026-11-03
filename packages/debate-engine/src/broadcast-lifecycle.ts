@@ -34,6 +34,7 @@ export type BroadcastAction =
   /** Said again each pass: a stage joining just as it was revoked would miss it. */
   | { readonly type: 'reassert-revocation' }
   | { readonly type: 'restore-observer' }
+  | { readonly type: 'forget-revocation' }
   | { readonly type: 'complete' };
 
 /** The delay still owed after the last media is out; a hold releases at its own time. */

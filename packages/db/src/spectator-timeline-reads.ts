@@ -213,33 +213,35 @@ export const spectatorTimelineReads = ({
                   )
                   .orderBy(asc(roundParticipants.role))
               : [];
-          const captionRows = ranked
-            ? await tx
-                .select({
-                  id: utterances.id,
-                  side: roundParticipants.role,
-                  text: utterances.text,
-                })
-                .from(utterances)
-                .innerJoin(
-                  roundParticipants,
-                  eq(roundParticipants.id, utterances.roundParticipantId),
-                )
-                .where(
-                  and(
-                    eq(utterances.roundId, input.roundId),
-                    eq(utterances.complete, true),
-                    inArray(roundParticipants.role, [...debateRoles]),
-                    released(utterances.createdAt),
-                    captionKnownPublicSql({
-                      segmentId: utterances.segmentId,
-                      createdAt: utterances.createdAt,
-                    }),
-                  ),
-                )
-                .orderBy(desc(utterances.createdAt), desc(utterances.id))
-                .limit(CAPTION_WINDOW)
-            : [];
+          // A takedown takes the words with the video, from the audience.
+          const captionRows =
+            ranked && recording?.status !== 'taken_down'
+              ? await tx
+                  .select({
+                    id: utterances.id,
+                    side: roundParticipants.role,
+                    text: utterances.text,
+                  })
+                  .from(utterances)
+                  .innerJoin(
+                    roundParticipants,
+                    eq(roundParticipants.id, utterances.roundParticipantId),
+                  )
+                  .where(
+                    and(
+                      eq(utterances.roundId, input.roundId),
+                      eq(utterances.complete, true),
+                      inArray(roundParticipants.role, [...debateRoles]),
+                      released(utterances.createdAt),
+                      captionKnownPublicSql({
+                        segmentId: utterances.segmentId,
+                        createdAt: utterances.createdAt,
+                      }),
+                    ),
+                  )
+                  .orderBy(desc(utterances.createdAt), desc(utterances.id))
+                  .limit(CAPTION_WINDOW)
+              : [];
           return {
             ...shared,
             segments,

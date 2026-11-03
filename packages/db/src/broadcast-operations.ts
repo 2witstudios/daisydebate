@@ -200,6 +200,8 @@ export const recordHoldAdvanced = async (
     readonly id: string;
     readonly owner: string;
     readonly epoch: number;
+    /** The attempt this worker has emptied: repeating cannot skip the next one. */
+    readonly generation: number;
   },
 ): Promise<boolean> => {
   const rows = await tx
@@ -208,7 +210,12 @@ export const recordHoldAdvanced = async (
       releasedGeneration: sql`${broadcasts.releasedGeneration} + 1`,
       holdCursor: 0,
     })
-    .where(held(input.id, input.owner, input.epoch))
+    .where(
+      and(
+        held(input.id, input.owner, input.epoch),
+        eq(broadcasts.releasedGeneration, input.generation),
+      ),
+    )
     .returning({ id: broadcasts.id });
   return rows.length > 0;
 };
@@ -231,6 +238,26 @@ export const recordNotPublicPassed = async (
     .update(broadcasts)
     .set({
       releasedThroughAt: sql`greatest(${broadcasts.releasedThroughAt}, ${input.through.toISOString()}::timestamptz)`,
+    })
+    .where(held(input.id, input.owner, input.epoch))
+    .returning({ id: broadcasts.id });
+  return rows.length > 0;
+};
+
+/** A clip that cannot be read or encoded, given up on: a stated gap, never published. */
+export const recordClipSkipped = async (
+  tx: Tx,
+  input: {
+    readonly id: string;
+    readonly owner: string;
+    readonly epoch: number;
+    readonly capturedAtMs: number;
+  },
+): Promise<boolean> => {
+  const rows = await tx
+    .update(broadcasts)
+    .set({
+      releaseSkips: sql`jsonb_build_object('clips', (${broadcasts.releaseSkips} -> 'clips') || to_jsonb(${input.capturedAtMs}::bigint))`,
     })
     .where(held(input.id, input.owner, input.epoch))
     .returning({ id: broadcasts.id });
@@ -502,6 +529,17 @@ export const readBroadcastStageHistory = async (
       endedAtMs: ms(row.ended_at),
     })),
   };
+};
+
+/** Whether this Broadcast's Round has a Recording, which reads its hold, then clears it. */
+export const readRecordingKeepsHold = async (
+  tx: Pick<BoundedTransactionContext, 'execute'>,
+  broadcastId: string,
+) => {
+  const rows = (await tx.execute(sql`
+    select 1 from broadcast_recording_claims
+    where broadcast_id = ${broadcastId}`)) as unknown as unknown[];
+  return rows.length > 0;
 };
 
 /** Keeps the claim across a call that outlasts it; null `until` gives it back. */

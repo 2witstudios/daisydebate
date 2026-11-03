@@ -5,6 +5,7 @@ export {
   publicIntervalsSchema,
   settledByHeartbeat,
   stageTimeline,
+  wholeSegmentsInside,
   type PublicClip,
   type PublicInterval,
   type StageInterval,
@@ -496,6 +497,7 @@ export { roundMediaPolicy } from './round-media-policy';
 export { broadcastLivePrefix, officialFeedPath } from './official-feed';
 export {
   broadcastReleasePolicySchema,
+  releaseSkipsSchema,
   SPECTATOR_MARGIN_MS,
   type BroadcastReleasePolicy,
 } from './broadcast';

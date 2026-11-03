@@ -129,6 +129,19 @@ A Recording's source video waits in the private
 hold bucket until it is built and nothing else reads it; a removal also clears that, and
 is not `removed` until it has.
 
+How long private seconds can live in the hold bucket: revocation keeps them out of it
+where it lands in time, but a late revocation, or an unexpected phase, can put some there.
+Nothing published ever holds them (ADR 0099). **Not reviewed by counsel.**
+
+| Case                                     | How long the hold lasts                                                                                                                                              |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A Broadcast with no Recording            | Until its feed is withdrawn: 60 s after the Broadcast completes, or at a stop once the Egress is gone.                                                               |
+| A Recording that builds                  | Until it is `ready` and the Broadcast or capture no longer reads it. Normally minutes after the Round, plus the build.                                               |
+| A build that keeps failing               | Until five runs have failed and nothing else reads the source. It is then stripped to whole segments history proves public, and anything unknown then goes for good. |
+| Failed and stripped                      | Only known-public seconds, kept for a rebuild until removal: no retention limit if ranked, seven days if casual.                                                     |
+| A Recording taken down                   | Kept as it stood, private seconds included, as evidence, until the report closes or 90 days pass.                                                                    |
+| A Round the web tier never returned from | Until an operator acts: nothing runs to clear it.                                                                                                                    |
+
 Ranked content is its own class, not part of the competitive record. Its stated
 purpose (owner, 2026-11-02) is that ranked season Rounds are qualifying artifacts
 for tournaments, so results and video stand as the evidence behind qualification,

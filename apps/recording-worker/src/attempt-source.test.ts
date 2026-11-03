@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { attemptSource } from './attempt-source';
+import { attemptSource, continuousRuns } from './attempt-source';
 
 setupRitewayBun();
 
@@ -43,5 +43,23 @@ describe('attemptSource', () => {
       actual: attemptSource(entries, new Set()),
       expected: { kind: 'absent' },
     });
+  });
+});
+
+test('a hole left by stripping splits the runs; a small seam does not', () => {
+  const entry = (name: string, capturedAtMs: number) => ({
+    name,
+    capturedAtMs,
+    durationMs: 4000,
+  });
+  assert({
+    given: 'segments following on within a seam, then after a 12 s hole',
+    should: 'give two runs',
+    actual: continuousRuns([
+      entry('a', 0),
+      entry('b', 4100),
+      entry('c', 20_000),
+    ]).map((run) => run.map(({ name }) => name)),
+    expected: [['a', 'b'], ['c']],
   });
 });

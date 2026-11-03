@@ -34,6 +34,8 @@ export const runningEgress = (egress: StageEgressFact) =>
 export type StagePrivacyAction =
   | { readonly type: 'revoke-observer' }
   | { readonly type: 'restore-observer' }
+  /** The observer left with its Egress: only the record is left to clear. */
+  | { readonly type: 'forget-revocation' }
   /** Said again each pass: a stage joining just as it was revoked would miss it. */
   | { readonly type: 'reassert-revocation' }
   | {
@@ -52,7 +54,9 @@ export const stagePrivacyActions = (facts: {
 }): readonly StagePrivacyAction[] => {
   const live = runningEgress(facts.egress);
   if (!phasePrivateAt(facts.phase, facts.nowMs))
-    return facts.observerSubscribed ? [] : [{ type: 'restore-observer' }];
+    return facts.observerSubscribed
+      ? []
+      : [{ type: live ? 'restore-observer' : 'forget-revocation' }];
   if (!facts.observerSubscribed)
     return live ? [{ type: 'reassert-revocation' }] : [];
   if (!live) return [{ type: 'revoke-observer' }];

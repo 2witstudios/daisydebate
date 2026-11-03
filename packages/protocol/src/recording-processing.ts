@@ -104,6 +104,13 @@ export const recordingJobStateSchema = z.discriminatedUnion('status', [
     failedAt: at,
   }),
   z.strictObject({ status: z.literal('discarding') }),
+  /** A failed Recording's sources are being cut to what history proved public. */
+  z.strictObject({
+    status: z.literal('stripping'),
+    publicIntervals: publicIntervalsSchema,
+  }),
+  /** Only known-public segments remain, for a rebuild. Not settled: they are kept. */
+  z.strictObject({ status: z.literal('stripped'), strippedAt: at }),
   z.strictObject({ status: z.literal('settled'), settledAt: at }),
 ]);
 export type RecordingJobState = z.infer<typeof recordingJobStateSchema>;
@@ -114,6 +121,8 @@ export const recordingJobStatuses = [
   'built',
   'failed',
   'discarding',
+  'stripping',
+  'stripped',
   'settled',
 ] as const satisfies readonly RecordingJobState['status'][];
 

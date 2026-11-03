@@ -50,7 +50,7 @@ export const recordingProcessingJobs = pgTable(
   (table) => [
     index('recording_jobs_claimable_idx')
       .on(table.dueAt)
-      .where(sql`${table.status} in ('queued', 'discarding')`),
+      .where(sql`${table.status} in ('queued', 'discarding', 'stripping')`),
     index('recording_jobs_answerable_idx')
       .on(table.updatedAt)
       .where(sql`${table.status} <> 'settled'`),

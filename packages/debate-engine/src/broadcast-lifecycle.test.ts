@@ -344,3 +344,28 @@ describe('ending', () => {
     });
   });
 });
+
+describe('a revoked observer with no Egress left', () => {
+  test('its record clears with no call to LiveKit, and the next pass starts one', () => {
+    const revoked = {
+      phase: { kind: 'public' } as const,
+      observerSubscribed: false,
+    };
+    assert({
+      given:
+        'a public phase, the observer revoked, its Egress gone; then that record cleared',
+      should: 'forget the revocation, then start an Egress',
+      actual: [
+        decideBroadcast(facts({ ...revoked, egress: { kind: 'none' } })),
+        decideBroadcast(
+          facts({
+            phase: { kind: 'public' },
+            observerSubscribed: true,
+            egress: { kind: 'none' },
+          }),
+        ),
+      ],
+      expected: [[{ type: 'forget-revocation' }], [{ type: 'start-egress' }]],
+    });
+  });
+});
