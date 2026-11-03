@@ -16,6 +16,7 @@ import { createRoundIncidentObserver } from '../round-incidents/observe';
 import { createMediaWorkerTokenBroker } from './worker-token';
 import { mediaRuntime } from './projection';
 import type { MediaOperationInput } from './operation-context';
+import { observeFloor } from './floor-telemetry';
 import { createRoundMediaOperations } from './operations';
 import { MEDIA_RECOVERY_HEARTBEAT_MS } from './recovery-due';
 import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
@@ -90,7 +91,15 @@ export function createRoundMediaRuntime(
       now: () => Date.parse(app.clock.now()),
       recoveryHeartbeatMs: MEDIA_RECOVERY_HEARTBEAT_MS,
     };
-    const operations = createRoundMediaOperations(resources);
+    const floor = observeFloor(resources);
+    const passes = createRoundMediaOperations(floor.input);
+    const operations: typeof passes = {
+      ...passes,
+      recoverActiveSessions: () =>
+        floor.asMover('tick', passes.recoverActiveSessions),
+      holdForCapture: (sessionId, work) =>
+        floor.asMover('capture', () => passes.holdForCapture(sessionId, work)),
+    };
     runtime = {
       operations,
       workerTokens: createMediaWorkerTokenBroker({
@@ -102,7 +111,7 @@ export function createRoundMediaRuntime(
           buildProjection: (context) =>
             mediaRuntime(context, resources.nextId).tick(context.now),
         }),
-        media: resources.media,
+        media: floor.input.media,
         deferred: (cause, sessionId) =>
           app.logger.log(
             'media.capture.token_deferred',

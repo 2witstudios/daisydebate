@@ -227,6 +227,8 @@ export function createDatabase({
     listenRealtimeHints(handlers: RealtimeHintHandlers) {
       return subscribeRealtimeHints(dedicated, handlers);
     },
+    laneGauges: workload.laneGauges,
+    drainLaneHolds: workload.drainLaneHolds,
     async close() {
       await workload.close();
       if (dedicated !== injectedClient) await dedicated.close({ timeout: 5 });

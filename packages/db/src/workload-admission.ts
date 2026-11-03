@@ -1,6 +1,7 @@
 import { currentLaneOperation } from './lane-operation';
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from './capacity-refusal';
+import { createHoldLedger, type LaneHoldSummary } from './lane-holds';
 import { RUNTIME_SESSION } from './session-bounds';
 
 /**
@@ -139,6 +140,8 @@ export type LaneGate = {
     readonly active: number;
     readonly waiting: number;
   };
+  /** How long each operation held this lane's connections since the last drain. */
+  readonly drainHolds: () => readonly LaneHoldSummary[];
 };
 export type LaneTimer = (ms: number, fire: () => void) => () => void;
 export type LaneClock = () => number;
@@ -182,6 +185,7 @@ export function createLaneGate(
     readonly operation: string;
     readonly weight: number;
   }>();
+  const holds = createHoldLedger();
   const queues = new Map<string, Waiter[]>();
   const order: string[] = [];
   const refuse = (reason: 'unconfigured' | 'saturated' | 'expired') =>
@@ -205,6 +209,7 @@ export function createLaneGate(
       if (released) return;
       released = true;
       held.delete(hold);
+      holds.record(operation, clock() - hold.since);
       active -= weight;
       pump();
     };
@@ -273,5 +278,6 @@ export function createLaneGate(
       });
     },
     stats: () => ({ active, waiting }),
+    drainHolds: holds.drain,
   };
 }

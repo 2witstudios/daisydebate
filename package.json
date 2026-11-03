@@ -86,6 +86,8 @@
     "slot:prune": "bun scripts/slot.ts prune",
     "infra:logs": "docker compose -f infra/compose.yaml logs -f",
     "audit": "bun scripts/audit.ts",
+    "floor:driver": "bun --env-file=.env scripts/floor-driver.ts",
+    "floor:local": "bun --env-file=.env scripts/heavy.ts bun apps/web/e2e/support/floor-local-stack.ts bun scripts/floor-driver.ts",
     "test:e2e:room-launch": "bun --env-file=.env apps/web/e2e/support/room-launch-runner.ts",
     "test:e2e:realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts room",
     "test:e2e:messaging-realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts messaging",
@@ -121,6 +123,7 @@
     "@daisy/media": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*",
+    "@livekit/rtc-node": "1.2.0",
     "zod": "4.6.6"
   }
 }
