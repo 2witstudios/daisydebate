@@ -65,7 +65,16 @@ test('committed transcript survives reads failing and returning, and clears on r
     await expect(lastLine).toBeHidden();
     await page.getByRole('tab', { name: 'Transcript', exact: true }).click();
     await expect(lastLine).toBeInViewport();
-    await first.scrollIntoViewIfNeeded();
+    // A move up and a read in one task: the render arrives before the scroll
+    // event, and the reader stays where they went.
+    await transcript
+      .getByRole('group', { name: 'Transcript lines' })
+      .evaluate((lines) => {
+        lines.scrollTop = 0;
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+    await expect(first).toBeInViewport();
+    await expect(latest).toBeVisible();
 
     await page.route(routeOf(round.id), (route) =>
       route.fulfill({ status: 503, body: 'unavailable' }),
