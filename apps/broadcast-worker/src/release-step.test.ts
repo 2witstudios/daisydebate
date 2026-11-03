@@ -63,7 +63,6 @@ const input = (
   laterAttemptStartedMs: null,
   streamEnded: false,
   nowMs: start + 64_000,
-  roundEndedAtMs: null,
   finalMediaEndMs: null,
   heartbeatMs: start + 1_000_000,
   publicIntervals: [{ fromMs: start - 1000, toMs: start + 1_000_000 }],

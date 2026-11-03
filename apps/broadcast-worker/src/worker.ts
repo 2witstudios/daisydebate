@@ -103,7 +103,6 @@ export const runWorker = async (deps: {
                   : null,
               streamEnded: facts.streamEndedAt !== null,
               nowMs: deps.now(),
-              roundEndedAtMs: facts.finalMediaEndAt?.getTime() ?? null,
               finalMediaEndMs: facts.finalMediaEndAt?.getTime() ?? null,
               heartbeatMs: facts.controlHeartbeatAt?.getTime() ?? null,
               releasedThroughMs: Math.max(

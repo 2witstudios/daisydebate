@@ -83,30 +83,6 @@ const ms = (value: Date | null) => value?.getTime() ?? null;
 const isTerminal = (status: string) =>
   status === 'completed' || status === 'abandoned';
 
-type Policy = NonNullable<SpectatorTimelineRead['broadcast']>['policy'];
-
-/** The instant a policy still holds the Broadcast until, or null when it no longer holds it. */
-const holdOf = (
-  policy: Policy,
-  terminal: boolean,
-  nowMs: number,
-): { readonly releasesAt: string | null } | null => {
-  if (policy.kind === 'round_end')
-    return terminal ? null : { releasesAt: null };
-  if (policy.kind === 'at' && nowMs < policy.atMs)
-    return { releasesAt: new Date(policy.atMs).toISOString() };
-  return null;
-};
-
-const delayOwedMs = (policy: Policy) =>
-  policy.kind === 'delay' ? policy.seconds * 1000 : 0;
-
-/** When a hold let go, so its first release is not measured from the Round's start. */
-const releaseBegan = (policy: Policy, roundEnded: Date | null): number => {
-  if (policy.kind === 'round_end') return ms(roundEnded) ?? 0;
-  return policy.kind === 'at' ? policy.atMs : 0;
-};
-
 /**
  * The audience's stream, from durable facts alone. Who may read this at all is
  * decided before it leaves (`admitAudience`): it names the feed's random key,
@@ -124,14 +100,9 @@ const standingOf = (
   if (broadcast.completedAt)
     return { state: watermark === null ? 'failed' : 'ended' };
   const terminal = isTerminal(round.status);
-  const hold = holdOf(broadcast.policy, terminal, context.nowMs);
-  if (hold) return { state: 'held', ...hold };
-  const since = Math.max(
-    watermark ?? ms(round.startedAt) ?? context.nowMs,
-    releaseBegan(broadcast.policy, round.completedAt),
-  );
+  const since = watermark ?? ms(round.startedAt) ?? context.nowMs;
   const late =
-    context.nowMs - delayOwedMs(broadcast.policy) - since >
+    context.nowMs - broadcast.policy.seconds * 1000 - since >
     BROADCAST_INTERRUPTED_AFTER_MS;
   const stream = { path: 'owned_hls', manifestUrl } as const;
   if (watermark === null) {

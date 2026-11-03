@@ -38,17 +38,15 @@ describe('releaseOverdue', () => {
   test('nothing is owed once it is all out, stopped, or on a hold', () => {
     const late = 1_000_000;
     assert({
-      given:
-        'media fully released, a stop, a completion, a round_end hold, no Egress',
+      given: 'media fully released, a stop, a completion, no Egress',
       should: 'not alert',
       actual: [
         row({ finalMediaEndAt: at(100) }),
         row({ stoppedAt: at(1) }),
         row({ completedAt: at(1) }),
-        row({ releasePolicy: { kind: 'round_end' } }),
         row({ egressStartedAt: null }),
       ].map((broadcast) => releaseOverdue(broadcast, late)),
-      expected: [false, false, false, false, false],
+      expected: [false, false, false, false],
     });
   });
   test('held media past the end still counts', () => {

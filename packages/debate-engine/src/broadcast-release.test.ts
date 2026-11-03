@@ -24,7 +24,7 @@ describe('resolveReleasePolicy', () => {
       actual: [
         resolveReleasePolicy('ranked', null),
         resolveReleasePolicy('ranked', { kind: 'delay', seconds: 5 }),
-        resolveReleasePolicy('ranked', { kind: 'round_end' }),
+        resolveReleasePolicy('ranked', { kind: 'delay', seconds: 1800 }),
       ],
       expected: [
         { kind: 'delay', seconds: 60 },
@@ -38,14 +38,12 @@ describe('resolveReleasePolicy', () => {
       actual: [
         resolveReleasePolicy('casual', null),
         resolveReleasePolicy('casual', { kind: 'delay', seconds: 0 }),
-        resolveReleasePolicy('casual', { kind: 'round_end' }),
-        resolveReleasePolicy('casual', { kind: 'at', atMs: at(900) }),
+        resolveReleasePolicy('casual', { kind: 'delay', seconds: 300 }),
       ],
       expected: [
         { kind: 'delay', seconds: 60 },
         { kind: 'delay', seconds: 0 },
-        { kind: 'round_end' },
-        { kind: 'at', atMs: at(900) },
+        { kind: 'delay', seconds: 300 },
       ],
     });
   });
@@ -59,54 +57,10 @@ describe('segmentDue', () => {
       should:
         'hold it until 64 s, so its last frame is never younger than the delay',
       actual: [
-        segmentDue(delay, segment(0), {
-          nowMs: at(63.999),
-          roundEndedAtMs: null,
-        }),
-        segmentDue(delay, segment(0), { nowMs: at(64), roundEndedAtMs: null }),
+        segmentDue(delay, segment(0), at(63.999)),
+        segmentDue(delay, segment(0), at(64)),
       ],
       expected: [false, true],
-    });
-  });
-  test('Round-end release waits for the end, however old the media is', () => {
-    const policy = { kind: 'round_end' } as const;
-    assert({
-      given: 'a Round-end hold before and after the Round ends',
-      should: 'release nothing until it ends',
-      actual: [
-        segmentDue(policy, segment(0), {
-          nowMs: at(9000),
-          roundEndedAtMs: null,
-        }),
-        segmentDue(policy, segment(0), {
-          nowMs: at(9000),
-          roundEndedAtMs: at(9001),
-        }),
-        segmentDue(policy, segment(0), {
-          nowMs: at(9001),
-          roundEndedAtMs: at(9001),
-        }),
-      ],
-      expected: [false, false, true],
-    });
-  });
-  test('a set time holds until that time and never before capture ends', () => {
-    const policy = { kind: 'at', atMs: at(100) } as const;
-    assert({
-      given: 'a set release time, and a segment still being captured past it',
-      should: 'release at the set time, and only once the segment is complete',
-      actual: [
-        segmentDue(policy, segment(0), { nowMs: at(99), roundEndedAtMs: null }),
-        segmentDue(policy, segment(0), {
-          nowMs: at(100),
-          roundEndedAtMs: null,
-        }),
-        segmentDue(policy, segment(99), {
-          nowMs: at(100),
-          roundEndedAtMs: null,
-        }),
-      ],
-      expected: [false, true, false],
     });
   });
 });
@@ -185,10 +139,7 @@ test('a lower policy moves the delay and the alert together', () => {
     given: 'a Broadcast with a 10 s policy',
     should: 'release after 10 s and alert past 40 s',
     actual: [
-      segmentDue({ kind: 'delay', seconds: 10 }, segment(0), {
-        nowMs: at(14),
-        roundEndedAtMs: null,
-      }),
+      segmentDue({ kind: 'delay', seconds: 10 }, segment(0), at(14)),
       delayAlert(at(0), at(40), { policySeconds: 10 }),
       delayAlert(at(0), at(40.001), { policySeconds: 10 }),
     ],

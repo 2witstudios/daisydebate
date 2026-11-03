@@ -3,7 +3,6 @@ import type { RoomFormState } from '../../../features/rooms/command-answer';
 import {
   DEFAULT_RELEASE_CHOICE,
   captureLine,
-  releaseAtValue,
   releaseChoiceOf,
   releaseChoices,
 } from '../../../features/rooms/capture-form';
@@ -68,14 +67,6 @@ export function CaptureChoice({
               </option>
             ))}
           </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Set time, in UTC, if you chose one
-          <input
-            type="datetime-local"
-            name="releaseAt"
-            defaultValue={broadcast ? releaseAtValue(broadcast.release) : ''}
-          />
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input

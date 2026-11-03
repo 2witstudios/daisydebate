@@ -16,10 +16,6 @@ const refuse = (
 const chosen = (capture: RoomCapture): RoomCapture | null =>
   capture.broadcast === null && !capture.recording ? null : capture;
 
-const releaseAhead = (capture: RoomCapture, now: string) =>
-  capture.broadcast?.release.kind !== 'at' ||
-  capture.broadcast.release.atMs > Date.parse(now);
-
 /**
  * The host's capture choice (WATCH-8). The grant is read under the host's
  * fence, and clearing a choice needs none, so losing a grant never traps one.
@@ -37,8 +33,6 @@ export const setCapture = (
     return refuse('capture-premium');
   if (capture?.broadcast && room.visibility === 'private')
     return refuse('broadcast-private');
-  if (capture && !releaseAhead(capture, edges.now))
-    return refuse('illegal-config');
   return acceptedRoomMutation({ ...room, capture });
 };
 

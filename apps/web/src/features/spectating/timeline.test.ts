@@ -366,34 +366,6 @@ describe('projectSpectatorTimeline', () => {
       });
     });
 
-    test('held by its policy', () => {
-      assert({
-        given: 'a Round-long hold on a live Round',
-        should: 'be held until the Round ends',
-        actual: standing({ policy: { kind: 'round_end' } }),
-        expected: { state: 'held', releasesAt: null },
-      });
-      const atMs = NOW + 60_000;
-      assert({
-        given: 'a scheduled hold before its time',
-        should: 'be held until that time',
-        actual: standing({ policy: { kind: 'at', atMs } }),
-        expected: {
-          state: 'held',
-          releasesAt: new Date(atMs).toISOString(),
-        },
-      });
-      assert({
-        given: 'a Round-long hold once the Round has ended',
-        should: 'no longer be held',
-        actual: standing(
-          { policy: { kind: 'round_end' } },
-          { status: 'completed', completedAt: new Date(NOW - 1000) },
-        ),
-        expected: { state: 'starting' },
-      });
-    });
-
     test('how it finishes', () => {
       assert({
         given: 'a stop, even with released media',
