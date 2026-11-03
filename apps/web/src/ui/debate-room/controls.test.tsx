@@ -2,7 +2,7 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
-import { sampleRound } from '../mock/debate-room';
+import { sampleRound } from '../mock/debate-room.test-support';
 import { DebateRoom } from './room';
 import { liveRoundOf } from './live-round';
 import {

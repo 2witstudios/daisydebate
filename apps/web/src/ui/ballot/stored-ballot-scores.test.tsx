@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { sampleJudgeBallot } from '../mock/judge';
+import { sampleJudgeBallot } from '../mock/judge.test-support';
 import { StoredBallotScores } from './stored-ballot-scores';
 setupRitewayBun();
 test('recorded scores name both actual sides and every rubric category without a fabricated companion', () => {

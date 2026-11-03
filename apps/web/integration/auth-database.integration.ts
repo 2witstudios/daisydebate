@@ -19,7 +19,7 @@ import {
 import {
   logsLeakSecrets,
   type RecordedLogs,
-} from '../src/features/auth/log-leaks';
+} from '../src/features/auth/log-leaks.test-support';
 import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();

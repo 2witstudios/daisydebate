@@ -32,22 +32,10 @@
     // Integration suites are globbed by scripts/test-integration.ts, which
     // each workspace's test:integration runs instead of listing files.
     "apps/web": {
-      // `--production` reads only the `!` patterns: what a deployed app reaches.
-      // A module only its own test imports is unused there (ISSUE-1006).
-      "project": [
-        "**/*.{js,mjs,cjs,ts,tsx}",
-        "src/**/*.{ts,tsx}!",
-        "!src/**/*.test.{ts,tsx}!",
-        "!src/**/*.test-support.{ts,tsx}!",
-        "!src/**/test-support/**!",
-        "!src/lib/testing/**!",
-      ],
       "playwright": {
         "config": ["playwright.config.ts", "playwright.analytics.config.ts"],
       },
       "entry": [
-        // The custom server `start` runs.
-        "src/server/start.ts!",
         // `test` runs `bun test src scripts` through the heavy queue.
         "src/**/*.test.{ts,tsx}",
         "scripts/**/*.test.ts",

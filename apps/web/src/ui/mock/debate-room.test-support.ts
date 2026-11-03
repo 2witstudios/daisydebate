@@ -4,7 +4,7 @@ import type { SpeechSlot } from '../../features/debate-room/speeches';
 import { judgingClockOf } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { Debater, RoundSnapshot } from '../debate-room/round';
-import { sampleRoomDocuments } from './debate-room-docs';
+import { sampleRoomDocuments } from './debate-room-docs.test-support';
 
 const minutes = (n: number) => n * 60_000;
 

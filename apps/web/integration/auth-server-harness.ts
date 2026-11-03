@@ -6,7 +6,7 @@ import { createDatabase } from '@daisy/db';
 import { fixedClock, systemId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { createConfirmHandlers } from '../src/features/auth/confirmation/confirm';
-import type { RecordedLogs } from '../src/features/auth/log-leaks';
+import type { RecordedLogs } from '../src/features/auth/log-leaks.test-support';
 import {
   createAuthServer,
   type EmailMessage,

@@ -4,7 +4,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { validRules } from '@daisy/db/testing';
 import { noopErrorReporter } from '@daisy/observability';
 import { createDatabase } from '@daisy/db';
-import type { RecordedLogs } from '../src/features/auth/log-leaks';
+import type { RecordedLogs } from '../src/features/auth/log-leaks.test-support';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { counts, emptyCounts, fixtureEmail, removeAccount } from './fixtures';
 import { createTestAuthServer, type SentMessages } from './auth-server-harness';

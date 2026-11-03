@@ -279,7 +279,7 @@ export const conceptCouplingIssue = (
 const humanCoaching = [
   'packages/protocol/src/onboarding.ts',
   'apps/web/src/ui/onboarding/',
-  'apps/web/src/ui/mock/debate-room.ts',
+  'apps/web/src/ui/mock/debate-room.test-support.ts',
 ];
 export const reservedWordIssue = (file: string, word: string): string | null =>
   /coach/i.test(word) &&
