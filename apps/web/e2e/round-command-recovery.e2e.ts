@@ -204,6 +204,10 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
     await formPage.goto(path);
     const seats = [page, formPage];
     const receipt = await openPage(native, 'native refused receipt');
+    const scriptedReceipt = await openPage(
+      page.context(),
+      'scripted refused receipt',
+    );
     for (const read of ['round', 'identity'] as const) {
       await controlLaunch(`refuse-${read}-reads`);
       try {
@@ -223,19 +227,22 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
           await expect(endSpeech(seat)).toHaveCount(0);
         }
         // The Round's own page recovers the same way, and its redirect still applies.
-        await receipt.goto(`/rounds/${roundId}`);
-        await expect(
-          receipt.getByRole('heading', {
-            name: 'Reconnecting to the Round',
-            exact: true,
-          }),
-        ).toBeVisible();
+        for (const seat of [receipt, scriptedReceipt]) {
+          await seat.goto(`/rounds/${roundId}`);
+          await expect(
+            seat.getByRole('heading', {
+              name: 'Reconnecting to the Round',
+              exact: true,
+            }),
+          ).toBeVisible();
+        }
       } finally {
         await controlLaunch(`allow-${read}-reads`);
       }
       // Nothing touches either page from here: each must come back by itself.
       for (const seat of [...seats, receipt])
         await expect(endSpeech(seat)).toBeEnabled();
+      await expect(scriptedReceipt).toHaveURL(new RegExp(`${path}$`));
     }
     await endSpeech(formPage).click();
     await formPage

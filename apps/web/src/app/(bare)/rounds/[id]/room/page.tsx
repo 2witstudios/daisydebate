@@ -25,7 +25,8 @@ import type { SearchParams } from '../../../../../features/access/decision';
 import { accessOrTemporary } from '../../../../../lib/access';
 import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
-import { reconnectingRoundPage } from '../../../../../ui/debate-room/round-room-reconnecting';
+import { temporarilyRefused } from '../../../../../server/temporary-read';
+import { reconnectingRoundPage } from '../../../../../ui/debate-room/round-reconnecting';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
 import { readPersistedTranscript } from '../../../../(shell)/rounds/[id]/read-persisted-transcript';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
@@ -69,8 +70,8 @@ async function watchingRoom(
   transcript: ReactNode,
 ) {
   const assigned = await readPersistedJudgeRound(id);
+  if (temporarilyRefused(assigned)) return reconnectingRoundPage();
   if (assigned.kind === 'unavailable') {
-    if (assigned.temporary) return reconnectingRoundPage();
     throw createAppError('INFRASTRUCTURE');
   }
   const room = watchingRoomOf({

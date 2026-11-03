@@ -10,7 +10,7 @@ import type { SearchParams } from '../../../../features/access/decision';
 import { accessOrTemporary } from '../../../../lib/access';
 import { isLiveDebater } from '../../../../ui/debate-room/live-round';
 import { RoundDocuments } from '../../../../ui/debate-room/round-documents';
-import { reconnectingRoundPage } from '../../../../ui/debate-room/round-room-reconnecting';
+import { reconnectingRoundPage } from '../../../../ui/debate-room/round-reconnecting';
 import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
 import { RoundResult } from '../../../../ui/round-result/round-result';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
@@ -53,12 +53,12 @@ export default async function RoundPage({
 }) {
   const { id } = await params;
   const access = await accessOrTemporary(`/rounds/${id}`, searchParams);
-  if (access.kind === 'temporary') return reconnectingRoundPage();
+  if (access.kind === 'temporary') return reconnectingRoundPage(true);
   const { identity } = access;
   if (!idSchema.safeParse(id).success) notFound();
   const result = await readPersistedRound(id);
   if (result.kind === 'missing') notFound();
-  if (temporarilyRefused(result)) return reconnectingRoundPage();
+  if (temporarilyRefused(result)) return reconnectingRoundPage(true);
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   if (
     identity.state === 'member' &&
