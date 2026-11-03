@@ -187,11 +187,22 @@ The rest of this record describes BETA-2.
   stays open, and the opponent's grants and floor are computed exactly as
   before, so the Round continues and forfeit stays available (DEC-249).
   - **The bound.** The revoked identity's room permissions go to nothing
-    by the end of the first full media recovery pass that starts after the
-    revoke commits. Passes start on a 500 ms cadence, but that is not a
-    latency. A pass reconciles every live session serially, each with its
-    own bounded vendor calls, so with N live Rounds the demotion can wait
-    up to N reconciles behind a pass already under way.
+    by the end of the first full media recovery pass of that Round that
+    starts after the revoke commits. A revoke is not on the tick's one read,
+    so that pass may be the Round's heartbeat, 2 s after its last pass
+    (`MEDIA_RECOVERY_HEARTBEAT_MS`). A heartbeat can wait behind floors, but
+    at 5 s with no pass (`MEDIA_RECOVERY_OVERDUE_MS`) the Round is overdue,
+    and each tick starts the longest-overdue Round ahead of floors, so floor
+    work cannot starve it (ISSUE-972).
+  - **Worst case in plain terms.** This is a bound under load, not a promise
+    of 5 s. With a slot free and no backlog: about 5 s, plus up to one 500 ms
+    tick, plus the pass, which on the CI runner took about 1 s at p99 and 3 s
+    at most. With a backlog, overdue Rounds ahead of floors get about one
+    turn per 500 ms tick, so 19 overdue Rounds can add about 9.5 s; they get
+    more when slots are left after floors. A live lease holds the Round too:
+    a crashed owner's lease lasts up to 15 s. These are measured or derived
+    from the constants, not a guarantee under an outage of the media provider
+    or the database.
   - **Old tokens.** A token minted before the revoke stays usable for its
     60 s join window, because self-hosted LiveKit does not invalidate it.
     A rejoin with one is demoted again by the next pass. No new token can

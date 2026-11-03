@@ -61,6 +61,7 @@ test('durable reconcile claims serve only the request horizon they actually star
         mediaWindowClosed,
         ...claim.fence,
         absenceProof: await store.prepareMediaAbsenceProof(claim.fence),
+        clean: true,
       });
       const progress = await store.mediaReconcileProgress(binding.sessionId);
       assert({
@@ -150,6 +151,7 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
         mediaWindowClosed,
         ...recovery.fence,
         absenceProof: await restarted.prepareMediaAbsenceProof(recovery.fence),
+        clean: true,
       });
       assert({
         given:
@@ -204,6 +206,7 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
         mediaWindowClosed,
         ...claim.fence,
         absenceProof: proof,
+        clean: true,
       });
       assert({
         given:
@@ -225,6 +228,7 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
         mediaWindowClosed,
         ...next.fence,
         absenceProof: { ...current, owner: claim.fence.owner },
+        clean: true,
       });
       assert({
         given: 'a settled horizon bearing a different owner fence',

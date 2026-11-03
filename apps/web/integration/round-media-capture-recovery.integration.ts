@@ -55,6 +55,7 @@ test('a capture token for a safe live session is issued while a foreign reconcil
       mediaWindowClosed,
       ...fence,
       absenceProof: null,
+      clean: true,
     });
     assert({
       given:
