@@ -28,6 +28,8 @@ const freshProgress = (): Progress => ({
   sent: 0,
 });
 const STOPPED = 'Bot publication stopped before the phrase was sent';
+const isPlatformIncidentRefusal = (error: unknown) =>
+  isAppError(error) && error.reason === 'platform-incident';
 export type PeerActivity =
   'speech-start' | 'end-of-turn' | 'barge-in' | 'unknown';
 /**
@@ -166,6 +168,12 @@ export function createBotSpeaker(input: {
     if (isCapacityRefusal(error)) {
       if (crossEx) owed = true;
       return input.failed(error, stage);
+    }
+    // A platform incident is a wait: the same answer resumes where it stopped,
+    // in cross-examination too, with nothing new bought and no attempt spent.
+    if (isPlatformIncidentRefusal(error)) {
+      if (crossEx) owed = true;
+      return;
     }
     // One paid answer per speech: every other failure keeps it, and the
     // next attempt resumes at the failed step. A cross-examination answer

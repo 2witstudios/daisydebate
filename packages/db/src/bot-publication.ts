@@ -11,6 +11,7 @@ import {
   startLockedRoundAgentRun,
 } from './round-agent-runs';
 import {
+  botSegmentDueAt,
   verifyLockedBotWorker,
   requireBotSpeakingWindow,
   creditBotPublicationWindow,
@@ -150,6 +151,7 @@ export function createBotPublicationOperations(input: {
         await requireBotSpeakingWindow(tx, scope, window);
         if (window)
           await creditBotPublicationWindow(tx, scope, window, input.nextId);
+        return { segmentDueAt: await botSegmentDueAt(tx, scope) };
       }),
     verifyBotWorker: (scope: BotPublicationScope, token: string) =>
       input.run(async (tx) => {

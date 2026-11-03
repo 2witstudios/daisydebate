@@ -194,6 +194,8 @@ async function writeIncidentRow(
       roundId,
       cause: incident.cause,
       detectedAt: new Date(incident.since),
+      resumePoint:
+        incident.resume_point === null ? null : new Date(incident.resume_point),
     });
     return { kind: 'opened' };
   }

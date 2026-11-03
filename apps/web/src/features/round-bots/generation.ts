@@ -79,13 +79,6 @@ function messagesFor(
     }),
   });
 }
-/** The scheduled end of the scoped segment, as the generation read it. */
-function segmentEndOf(context: Context, scope: BotPublicationScope) {
-  const segment = context.round.segments.find(
-    (row) => row.id === scope.segmentId,
-  );
-  return segment ? new Date(dueAtOf(segment)).toISOString() : null;
-}
 type Usage = {
   readonly inputTokens: number;
   readonly outputTokens: number;
@@ -241,9 +234,8 @@ export function createBotGeneration(input: {
               text,
               signal,
             },
-            segmentEndsAt: segmentEndOf(context, scope),
           }),
-          call: async (voice, { request, segmentEndsAt }) => {
+          call: async (voice, { request }) => {
             const audio = await voice.speakPcm(request);
             return {
               value: {
@@ -254,7 +246,6 @@ export function createBotGeneration(input: {
                 pcm: audio.pcm,
                 sampleRate: audio.sampleRate,
                 channels: audio.channels,
-                ...(segmentEndsAt ? { segmentEndsAt } : {}),
               },
               usage: {
                 inputTokens: 0,

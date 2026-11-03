@@ -29,6 +29,8 @@ export const roundIncidents = pgTable(
       .references(() => rounds.id, { onDelete: 'cascade' }),
     cause: text('cause').$type<PlatformIncidentCause>().notNull(),
     detectedAt: timestampColumn('detected_at').notNull(),
+    /** The end of the speaker's last confirmed audio; null when no speech was open. */
+    resumePoint: timestampColumn('resume_point'),
     resumedAt: timestampColumn('resumed_at'),
     endedAt: timestampColumn('ended_at'),
     /** Airtime this incident gave back to the speech it interrupted. */

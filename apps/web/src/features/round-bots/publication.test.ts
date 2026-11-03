@@ -49,6 +49,9 @@ function harness(
         window?: unknown,
       ) => {
         if (window) events.push('credit');
+        return {
+          segmentDueAt: new Date(1_792_000_000_000 + 3_600_000).toISOString(),
+        };
       },
     } as never,
     botToken: async () => ({ url: 'ws://media.test', token: 'grant' }),

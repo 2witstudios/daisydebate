@@ -1,5 +1,7 @@
 import { speakingEndMs } from '@daisy/protocol';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { mediaSessions } from './schema/media-sessions';
+import { roundIncidents } from './schema/round-incidents';
 import type { CaptureTx } from './media-capture-context';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
 
@@ -14,6 +16,24 @@ export async function captureSessionInterrupted(
     readonly returnedMs: number;
   },
 ) {
+  const incidents = await tx
+    .select({
+      from: sql<Date>`coalesce(${roundIncidents.resumePoint}, ${roundIncidents.detectedAt})`.mapWith(
+        roundIncidents.detectedAt,
+      ),
+      resumedAt: roundIncidents.resumedAt,
+      endedAt: roundIncidents.endedAt,
+    })
+    .from(roundIncidents)
+    .innerJoin(mediaSessions, eq(mediaSessions.roundId, roundIncidents.roundId))
+    .where(eq(mediaSessions.id, sessionId));
+  /** A vendor change inside an incident's span is the incident, stated elsewhere. */
+  const excused = (at: Date) =>
+    incidents.some(
+      ({ from, resumedAt, endedAt }) =>
+        at.getTime() >= from.getTime() &&
+        at.getTime() <= (resumedAt ?? endedAt ?? new Date(8.64e15)).getTime(),
+    );
   const history = await tx
     .select({
       kind: mediaVendorMutations.kind,
@@ -43,6 +63,7 @@ export async function captureSessionInterrupted(
       (row) =>
         row.kind === 'delete' &&
         row.outcome !== 'failed' &&
+        !excused(row.dispatchedAt) &&
         row.dispatchedAt.getTime() < end &&
         !creations.some(
           (creation) =>
@@ -54,6 +75,7 @@ export async function captureSessionInterrupted(
     ) ||
     creations.some(
       (row) =>
+        !excused(row.dispatchedAt) &&
         row.dispatchedAt.getTime() >= start &&
         row.dispatchedAt.getTime() < end &&
         creations.some((previous) => previous.dispatchedAt < row.dispatchedAt),
