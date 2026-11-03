@@ -1,7 +1,9 @@
 import { createRoundRuntime, plannedBroadcast } from '@daisy/debate-engine';
 import type { createDatabase } from '@daisy/db';
 import { broadcastHoldPrefix, holdAttemptPrefix } from '@daisy/protocol';
+import { createSweepPass } from '../../lib/sweep-pass';
 import { reconcileFacts } from './reconcile-facts';
+import { releaseOverdue } from './release-lag';
 import { reconcileStep, type ReconcilePorts } from './reconcile-step';
 
 type Database = ReturnType<typeof createDatabase>;
@@ -23,6 +25,8 @@ type Egress = {
 const SEGMENT_SECONDS = 4;
 const BATCH = 64;
 const RECONCILE_LEASE_MS = 800;
+/** Long enough for any start; a crash inside one delays the next by this much. */
+const START_LEASE_MS = 15_000;
 
 /**
  * One pass over every open Broadcast. It reads the Round without a lock and
@@ -41,9 +45,24 @@ export const createBroadcastSweep = (deps: {
   readonly stageUrl: (broadcastId: string, credential: string) => string;
   readonly report: (
     event:
-      Parameters<ReconcilePorts['report']>[0] | 'broadcast.reconcile_failed',
+      | Parameters<ReconcilePorts['report']>[0]
+      | 'broadcast.reconcile_failed'
+      | 'broadcast.release_delayed',
   ) => void;
+  /** Resolves when a pass has waited long enough for its slowest Broadcast. */
+  readonly passBudget?: () => Promise<void>;
 }) => {
+  const overdue = new Set<string>();
+  /** Reported once per stretch: this runs each pass, and the alert is the crossing. */
+  const watchRelease = (
+    broadcast: Awaited<ReturnType<Store['listOpen']>>[number],
+  ) => {
+    if (!releaseOverdue(broadcast, deps.now()))
+      return void overdue.delete(broadcast.id);
+    if (overdue.has(broadcast.id)) return;
+    overdue.add(broadcast.id);
+    deps.report('broadcast.release_delayed');
+  };
   const reconcile = async (
     broadcast: Awaited<ReturnType<Store['listOpen']>>[number],
   ) => {
@@ -73,6 +92,12 @@ export const createBroadcastSweep = (deps: {
         egress,
       }),
       {
+        holdClaim: () =>
+          deps.store.holdReconcile({
+            id,
+            until: new Date(nowMs + START_LEASE_MS),
+          }),
+        releaseClaim: () => deps.store.holdReconcile({ id, until: null }),
         startEgress: () =>
           deps.egress.start({
             stageUrl: deps.stageUrl(id, credential.secret),
@@ -105,7 +130,8 @@ export const createBroadcastSweep = (deps: {
       },
     );
   };
-  return async () => {
+  const pass = createSweepPass(deps.passBudget);
+  const sweep = async () => {
     for (const round of await deps.store.discoverUnopened(BATCH)) {
       const plan = plannedBroadcast(round);
       if (plan)
@@ -116,17 +142,23 @@ export const createBroadcastSweep = (deps: {
           ...plan,
         });
     }
-    for (const broadcast of await deps.store.listOpen(BATCH)) {
-      const nowMs = deps.now();
-      const mine = await deps.store.claimReconcile({
-        id: broadcast.id,
-        now: new Date(nowMs),
-        until: new Date(nowMs + RECONCILE_LEASE_MS),
-      });
-      if (mine)
-        await reconcile(broadcast).catch(() =>
-          deps.report('broadcast.reconcile_failed'),
-        );
-    }
+    await pass.overPages(
+      BATCH,
+      (after) => deps.store.listOpen(BATCH, after),
+      (broadcast) => broadcast.id,
+      async (broadcast) => {
+        const nowMs = deps.now();
+        const mine = await deps.store.claimReconcile({
+          id: broadcast.id,
+          now: new Date(nowMs),
+          until: new Date(nowMs + RECONCILE_LEASE_MS),
+        });
+        if (!mine) return;
+        watchRelease(broadcast);
+        await reconcile(broadcast);
+      },
+      () => deps.report('broadcast.reconcile_failed'),
+    );
   };
+  return Object.assign(sweep, { settled: pass.settled });
 };

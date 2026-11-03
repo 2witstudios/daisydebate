@@ -26,16 +26,16 @@ describe('the content waiver form', () => {
     });
   });
 
-  test('it says it is a draft for counsel', () => {
+  test('it says it has not been reviewed', () => {
     const lede = findElements(
       tree,
       (element) =>
         typeof element.props.children === 'string' &&
-        element.props.children.includes('draft for counsel'),
+        element.props.children.includes('has not been reviewed by counsel'),
     );
     assert({
       given: 'the waiver as a member reads it',
-      should: 'call itself a draft for counsel',
+      should: 'say counsel has not reviewed it',
       actual: lede.length,
       expected: 1,
     });

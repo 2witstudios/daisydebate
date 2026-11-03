@@ -59,7 +59,27 @@ describe('starting and restarting', () => {
 describe('private phases fail closed', () => {
   const upcoming = (inMs: number) =>
     ({ kind: 'private-at', atMs: 100_000 + inMs }) as const;
-  test('the observer loses subscribe at least 500 ms ahead', () => {
+  test('a sweep every second revokes before a scheduled speech ends, wherever its passes fall', () => {
+    const SWEEP_EVERY_MS = 1000;
+    const leadOf = (firstPassMs: number) => {
+      for (let inMs = 60_000 - firstPassMs; inMs > 0; inMs -= SWEEP_EVERY_MS)
+        if (
+          decideBroadcast(
+            facts({ egress: active, phase: upcoming(inMs) }),
+          ).some((action) => action.type === 'revoke-observer')
+        )
+          return inMs;
+      return 0;
+    };
+    const offsets = Array.from({ length: 100 }, (_, tenth) => tenth * 10);
+    assert({
+      given: 'passes one second apart, at every offset from the speech end',
+      should: 'revoke with at least a full period still to run',
+      actual: Math.min(...offsets.map(leadOf)) >= SWEEP_EVERY_MS,
+      expected: true,
+    });
+  });
+  test('the observer is revoked ahead of a scheduled private phase', () => {
     assert({
       given: 'a private phase 500 ms away and the observer still subscribed',
       should: 'revoke now',

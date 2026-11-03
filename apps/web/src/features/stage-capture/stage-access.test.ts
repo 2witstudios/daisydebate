@@ -5,7 +5,6 @@ import {
   observerAccess,
   stageCredentialValid,
   stageSnapshot,
-  subscribesTo,
 } from './stage-access';
 
 setupRitewayBun();
@@ -43,27 +42,26 @@ test('observerAccess follows revocation, so a reconnect cannot bypass it', () =>
   });
 });
 
-test('the stage subscribes to debaters alone, never a judge', () => {
-  const debaters = ['aff', 'neg'];
-  assert({
-    given: 'a debater, a judge and an unknown identity',
-    should: 'subscribe only to the debater',
-    actual: [
-      subscribesTo(debaters, 'aff'),
-      subscribesTo(debaters, 'judge'),
-      subscribesTo(debaters, 'someone'),
-    ],
-    expected: [true, false, false],
-  });
-});
-
 describe('stageSnapshot', () => {
   const seats = [
-    { role: 'affirmative', label: 'Ann', identity: 'aff', participantId: 'p1' },
-    { role: 'negative', label: 'Ned', identity: 'neg', participantId: 'p2' },
+    {
+      role: 'negative',
+      label: 'Ned',
+      kind: 'bot' as const,
+      identity: 'neg',
+      participantId: 'p2',
+    },
+    {
+      role: 'affirmative',
+      label: 'Ann',
+      kind: 'human' as const,
+      identity: 'aff',
+      participantId: 'p1',
+    },
     {
       role: 'judge',
       label: 'Secret Judge',
+      kind: 'human' as const,
       identity: 'j',
       participantId: 'p3',
     },
@@ -97,8 +95,20 @@ describe('stageSnapshot', () => {
         'speech',
         { label: 'Constructive', endsAt: '2026-11-02T00:01:00.000Z' },
         [
-          { side: 'affirmative', label: 'Ann', floor: true },
-          { side: 'negative', label: 'Ned', floor: false },
+          {
+            side: 'affirmative',
+            label: 'Ann',
+            kind: 'human',
+            identity: 'aff',
+            floor: true,
+          },
+          {
+            side: 'negative',
+            label: 'Ned',
+            kind: 'bot',
+            identity: 'neg',
+            floor: false,
+          },
         ],
         ['aff', 'neg'],
         false,

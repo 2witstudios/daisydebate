@@ -1,6 +1,9 @@
 import { createBroadcastWorkerStore } from '@daisy/db/broadcast-worker';
 import { createLogger } from '@daisy/logger';
 import { createId } from '@paralleldrive/cuid2';
+import { rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { readWorkerConfig } from './config';
 import { createObjects } from './objects';
 import { runFeedWithdrawals } from './withdrawal';
@@ -28,6 +31,8 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const)
   process.on(signal, () => {
     stopping = true;
   });
+const scratchDir = (broadcastId: string) =>
+  join(tmpdir(), 'broadcast-worker', broadcastId);
 const edges = {
   store,
   objects,
@@ -40,7 +45,14 @@ const edges = {
 await Promise.all([
   runFeedWithdrawals({ ...edges, owner: createId() }),
   ...Array.from({ length: config.BROADCAST_WORKER_SLOTS }, () =>
-    runWorker({ ...edges, owner: createId() }),
+    runWorker({
+      ...edges,
+      owner: createId(),
+      scratch: {
+        dir: scratchDir,
+        clear: (id) => rm(scratchDir(id), { recursive: true, force: true }),
+      },
+    }),
   ),
 ]);
 await store.close();

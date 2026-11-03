@@ -24,7 +24,8 @@ type AudienceRefusal =
   | 'reactions-unavailable'
   | 'reactions-closed'
   | 'reactions-banned'
-  | 'follow-unavailable';
+  | 'follow-unavailable'
+  | 'account-restricted';
 
 /**
  * Every word an `AppError` may carry as its `reason`: code branches on these

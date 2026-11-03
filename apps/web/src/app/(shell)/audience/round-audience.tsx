@@ -1,16 +1,15 @@
 import { claimedUsername } from '@daisy/auth';
 import { systemId } from '@daisy/clock';
 import { requestAudience, requestIdentity } from '../../../lib/request-session';
-import {
-  AudiencePanel,
-  type AudienceViewer,
-} from '../../../ui/audience/audience-panel';
+import { accountOf } from '../../../features/access/account-of';
+import { AudiencePanel } from '../../../ui/audience/audience-panel';
+import { audienceViewerOf } from '../../../ui/audience/audience-viewer';
 import { ViewerPulse } from '../../../ui/audience/viewer-pulse';
 import { WatchedMark } from '../../../ui/audience/watched-mark';
 import {
   postSpectatorChatAction,
   reactToRoundAction,
-  reportChatMessageAction,
+  reportFromPageAction,
 } from './actions';
 
 /**
@@ -26,31 +25,23 @@ export async function RoundAudience({
   readonly returnTo: string;
 }) {
   const identity = await requestIdentity();
-  const signedIn = identity.state !== 'anonymous' && 'principal' in identity;
-  const principal =
-    signedIn && identity.principal.kind === 'user' ? identity.principal : null;
+  const principal = accountOf(identity);
   const audience = await requestAudience(roundId, principal?.actorId ?? null);
   if (!audience) return null;
   const target = { roundId, returnTo };
-  const react = reactToRoundAction.bind(null, target);
-  const reportMessage = reportChatMessageAction.bind(null, returnTo);
-  const viewer: AudienceViewer =
-    principal === null
-      ? {
-          kind: 'visitor',
-          signInHref: `/sign-in?next=${encodeURIComponent(returnTo)}`,
-        }
-      : principal.actorId === null || !claimedUsername(identity)
-        ? { kind: 'needs-username' }
-        : audience.inLiveRoom
-          ? { kind: 'live-room', react, reportMessage }
-          : {
-              kind: 'account',
-              requestId: systemId.next(),
-              postChat: postSpectatorChatAction.bind(null, target),
-              react,
-              reportMessage,
-            };
+  const viewer = audienceViewerOf({
+    account: principal,
+    restricted: identity.state === 'restricted',
+    usernameClaimed: principal !== null && claimedUsername(identity) !== null,
+    inLiveRoom: audience.inLiveRoom,
+    returnTo,
+    requestId: () => systemId.next(),
+    actions: {
+      react: reactToRoundAction.bind(null, target),
+      reportMessage: reportFromPageAction.bind(null, returnTo),
+      postChat: postSpectatorChatAction.bind(null, target),
+    },
+  });
   return (
     <>
       {audience.seated ? null : (

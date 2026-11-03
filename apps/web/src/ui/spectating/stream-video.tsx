@@ -3,12 +3,7 @@ import type { BroadcastStream } from '@daisy/protocol';
 import { useEffect, useRef, type RefObject } from 'react';
 import { trackClient } from '../../features/analytics/client-adapter';
 import { browserDocument } from '../round-media/browser-document';
-import {
-  initialPlaybackQuality,
-  nextPlaybackQuality,
-  playbackReport,
-  type PlaybackEvent,
-} from './playback-quality';
+import { watchPlayback } from './playback-session';
 import {
   attachStream,
   browserHlsSupport,
@@ -74,31 +69,15 @@ export function StreamVideo({
       latest.current.onFailed();
       return;
     }
-    let quality = initialPlaybackQuality;
-    const note = (event: PlaybackEvent) => {
-      quality = nextPlaybackQuality(quality, event);
-    };
-    const at = () => Math.round(performance.now());
-    const listeners: readonly (readonly [string, () => void])[] = [
-      ['play', () => note({ type: 'requested', atMs: at() })],
-      ['playing', () => note({ type: 'playing', atMs: at() })],
-      ['waiting', () => note({ type: 'stalled', atMs: at() })],
-      ['pause', () => note({ type: 'paused', atMs: at() })],
-      ['resize', () => note({ type: 'height', height: element.videoHeight })],
-      ['ended', () => latest.current.onFinished?.()],
-    ];
-    for (const [name, listener] of listeners)
-      element.addEventListener(name, listener);
-    const report = () => {
-      const measured = playbackReport(quality, at());
-      if (measured === null) return;
-      quality = initialPlaybackQuality;
-      trackClient({
-        event: latest.current.surface,
-        properties: { engine, ...measured },
-      });
-    };
-    window.addEventListener('pagehide', report);
+    const stopWatching = watchPlayback({
+      element,
+      page: window,
+      engine,
+      surface: () => latest.current.surface,
+      nowMs: () => Math.round(performance.now()),
+      report: trackClient,
+      onEnded: () => latest.current.onFinished?.(),
+    });
     const detach = attachStream(element, { path, manifestUrl }, engine, {
       // A refused autoplay leaves the controls for the viewer to press.
       onReady: () => {
@@ -107,10 +86,7 @@ export function StreamVideo({
       onFailed: () => latest.current.onFailed(),
     });
     return () => {
-      report();
-      window.removeEventListener('pagehide', report);
-      for (const [name, listener] of listeners)
-        element.removeEventListener(name, listener);
+      stopWatching();
       detach();
     };
   }, [autoPlay, manifestUrl, path, video]);

@@ -59,14 +59,36 @@ describe('projectRoom judge anonymity (DEC-174)', () => {
     });
   });
 
-  test('the judge and the host', () => {
+  test('the judge and a seatless host', () => {
+    const seatless = {
+      ...room,
+      hostActorId: 'seatless-host',
+    };
     assert({
-      given: 'the same room read by the judge and by the host',
+      given: 'the same room read by the judge and by a seatless host',
       should: 'name the judge to both',
-      actual: ['judge-actor', 'host'].map(
-        (viewer) => 'label' in view(viewer).participants[2]!,
+      actual: ['judge-actor', 'seatless-host'].map(
+        (viewer) =>
+          'label' in
+          projectRoom(seatless, viewer, consent, '2026-11-02T12:00:00.000Z')
+            .participants[2]!,
       ),
       expected: [true, true],
+    });
+  });
+
+  test('a debater who hosts', () => {
+    const seen = view('host');
+    assert({
+      given: 'the room read by its host, who holds a debating seat',
+      should:
+        'carry no judge name, seat id or actor: hosting adds nothing to a seat (WATCH-6)',
+      actual: [
+        'anonymous' in seen.participants[2]!,
+        leaks(seen),
+        seen.readiness.readyActorIds.includes('judge-actor'),
+      ],
+      expected: [true, [], false],
     });
   });
 });
@@ -237,6 +259,78 @@ describe('projectRoom format (FMT-1)', () => {
           },
         ],
       },
+    });
+  });
+});
+
+describe('projectRoom for someone outside a started Room (WATCH-6)', () => {
+  const now = '2026-01-01T00:00:00.000Z';
+  const started = {
+    ...room,
+    status: 'started' as const,
+    roundRef: { id: 'round', status: 'active' as const },
+  };
+  const drawn = {
+    ...started,
+    topic: 'The drawn resolution',
+    config: {
+      ...started.config,
+      resolutionDraw: {
+        enabled: true as const,
+        source: { kind: 'bank' as const, count: 5 },
+      },
+    },
+  } as unknown as typeof started;
+  const noConsent = { available: true, readyActorIds: [] };
+  const closedBase = { ...room, status: 'closed' as const };
+
+  test('reads like any other closed Room', () => {
+    const outsider = projectRoom(started, 'outsider', noConsent, now);
+    assert({
+      given: 'a started public Room read by someone with no seat',
+      should:
+        'answer closed, as an expired or cancelled Room does, so nothing says it started',
+      actual: outsider,
+      expected: projectRoom(closedBase, 'outsider', noConsent, now),
+    });
+  });
+
+  test('never carries a drawn resolution', () => {
+    const outsider = projectRoom(drawn, 'outsider', noConsent, now);
+    assert({
+      given: 'a started draw Room read by someone with no seat',
+      should: 'carry no resolution, which the spectator timeline releases',
+      actual: [outsider.topic, JSON.stringify(outsider).includes('drawn res')],
+      expected: [null, false],
+    });
+  });
+
+  test('keeps a resolution known before the Round', () => {
+    assert({
+      given: 'a started Room with no draw, read by someone with no seat',
+      should: 'keep the topic it showed during assembly',
+      actual: projectRoom(
+        { ...started, topic: 'Authored' },
+        'outsider',
+        noConsent,
+        now,
+      ).topic,
+      expected: 'Authored',
+    });
+  });
+
+  test('tells its seats and host the truth', () => {
+    assert({
+      given: 'the same draw Room read by a seat and by its host',
+      should: 'say started and carry the resolution',
+      actual: ['judge-actor', drawn.hostActorId].map((viewer) => {
+        const seen = projectRoom(drawn, viewer, noConsent, now);
+        return [seen.status, seen.topic];
+      }),
+      expected: [
+        ['started', 'The drawn resolution'],
+        ['started', 'The drawn resolution'],
+      ],
     });
   });
 });

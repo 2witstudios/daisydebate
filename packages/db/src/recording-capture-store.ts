@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRoom } from './broadcast-operations';
 import { readEntitlementGrants } from './entitlement-grants';
@@ -66,8 +66,8 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
   readAccountGrants: (userId: string) =>
     readEntitlementGrants(database, userId),
 
-  /** Every Recording whose capture is unfinished, oldest first, with what it depends on. */
-  listOpen: (limit: number) =>
+  /** One page of Recordings whose capture is unfinished, with what each depends on. */
+  listOpen: (limit: number, after: string | null = null) =>
     database
       .select({
         id: recordings.id,
@@ -97,15 +97,18 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
       .leftJoin(broadcasts, eq(broadcasts.roundId, recordings.roundId))
       .leftJoin(captures, eq(captures.recordingId, recordings.id))
       .where(
-        or(
-          inArray(recordings.status, ['requested', 'capturing']),
-          and(
-            eq(captures.recordingId, recordings.id),
-            isNull(captures.endedAt),
+        and(
+          or(
+            inArray(recordings.status, ['requested', 'capturing']),
+            and(
+              eq(captures.recordingId, recordings.id),
+              isNull(captures.endedAt),
+            ),
           ),
+          after === null ? undefined : gt(recordings.id, after),
         ),
       )
-      .orderBy(asc(recordings.createdAt))
+      .orderBy(asc(recordings.id))
       .limit(limit),
 
   /** The Round's position and room, for a Recording running its own Egress. */
@@ -148,14 +151,39 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
     return rows.length === 1;
   },
 
+  /** Keeps the claim across a call that outlasts it; null `until` gives it back. */
+  async holdOwn(input: {
+    readonly recordingId: string;
+    readonly until: Date | null;
+  }) {
+    await database
+      .update(captures)
+      .set({ reconcileLeaseUntil: input.until })
+      .where(eq(captures.recordingId, input.recordingId));
+  },
+
+  /** The Egress this capture recorded as its own; null when no such capture. */
+  async readOwnEgress(recordingId: string) {
+    const [row] = await database
+      .select({ egressId: captures.egressId })
+      .from(captures)
+      .where(eq(captures.recordingId, recordingId));
+    return row ?? null;
+  },
+
+  /**
+   * One Egress per attempt: the first report wins, and false tells any other to
+   * stop what it started. A loser's credential is never stored, so its stage page
+   * is refused, never signals Egress to record and writes nothing.
+   */
   async recordOwnEgressStarted(input: {
     readonly recordingId: string;
     readonly egressId: string;
     readonly generation: number;
     readonly stageCredentialHash: string;
     readonly now: Date;
-  }) {
-    await database
+  }): Promise<boolean> {
+    const rows = await database
       .update(captures)
       .set({
         egressId: input.egressId,
@@ -164,7 +192,14 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         stageCredentialHash: input.stageCredentialHash,
         egressStartedAt: input.now,
       })
-      .where(eq(captures.recordingId, input.recordingId));
+      .where(
+        and(
+          eq(captures.recordingId, input.recordingId),
+          eq(captures.egressGeneration, input.generation - 1),
+        ),
+      )
+      .returning({ id: captures.recordingId });
+    return rows.length === 1;
   },
 
   async recordOwnRevoked(input: {
@@ -219,13 +254,13 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         identity: mediaParticipants.identity,
       })
       .from(roundParticipants)
-      .innerJoin(
+      .leftJoin(
         mediaParticipants,
         eq(mediaParticipants.roundParticipantId, roundParticipants.id),
       )
       .where(eq(roundParticipants.roundId, capture.roundId));
     const launched = await launchedRoundRows(database, capture.roundId);
-    const labels = new Map(launched.participants.map((p) => [p.id, p.label]));
+    const seen = new Map(launched.participants.map((p) => [p.id, p]));
     return {
       capture: {
         stageCredentialHash: capture.stageCredentialHash,
@@ -236,8 +271,10 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
       round,
       roomName: await readBroadcastRoom(database, capture.roundId),
       seats: seats.flatMap((seat) => {
-        const label = labels.get(seat.participantId);
-        return label === undefined ? [] : [{ ...seat, label }];
+        const person = seen.get(seat.participantId);
+        return person === undefined
+          ? []
+          : [{ ...seat, label: person.label, kind: person.kind }];
       }),
     };
   },
@@ -250,9 +287,10 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
     discardRecordingSources(database, recordingId),
   sourcesRemain: (recordingId: string) =>
     recordingSourcesRemain(database, recordingId),
-  listJobs: (limit: number) => listUnsettledRecordingJobs(database, limit),
-  listProcessingUnalerted: (limit: number) =>
-    listProcessingRecordingsUnalerted(database, limit),
+  listJobs: (limit: number, after: string | null = null) =>
+    listUnsettledRecordingJobs(database, limit, after),
+  listProcessingUnalerted: (limit: number, after: string | null = null) =>
+    listProcessingRecordingsUnalerted(database, limit, after),
   markDelayAlerted: (input: Parameters<typeof markRecordingDelayAlerted>[1]) =>
     markRecordingDelayAlerted(database, input),
   readJobState: (recordingId: string) =>

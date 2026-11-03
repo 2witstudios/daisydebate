@@ -18,6 +18,7 @@ const stateLabels = {
   failed: 'Video could not be saved',
   not_recorded: 'Not recorded',
   removed: 'Video no longer available',
+  withheld: 'Video being held back',
 } as const;
 
 const facts = (row: ArchiveEntry): string =>

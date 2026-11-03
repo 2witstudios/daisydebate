@@ -168,4 +168,18 @@ describe('AudiencePanel', () => {
       expected: [true, false, false, false],
     });
   });
+
+  test('a restricted account reads and joins nothing', () => {
+    const html = render({ viewer: { kind: 'restricted' } });
+    assert({
+      given: 'an account under a suspension or ban',
+      should:
+        'show the chat and its reason, with no composer, reaction or report',
+      actual: {
+        reason: html.includes('Your account is restricted'),
+        forms: html.includes('<form'),
+      },
+      expected: { reason: true, forms: false },
+    });
+  });
 });

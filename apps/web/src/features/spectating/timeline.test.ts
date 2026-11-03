@@ -70,7 +70,7 @@ describe('projectSpectatorTimeline', () => {
       given: 'a live Round with no released media',
       should: 'show a slate, no resolution and no result',
       actual: [view.stage, view.resolution, view.result],
-      expected: [{ kind: 'slate' }, null, null],
+      expected: [{ kind: 'slate', moment: 'unreleased' }, null, null],
     });
   });
 
@@ -160,7 +160,63 @@ describe('projectSpectatorTimeline', () => {
           ],
         }),
       ).stage,
-      expected: { kind: 'slate' },
+      expected: { kind: 'slate', moment: 'speeches_over' },
+    });
+  });
+
+  test('a slate says what the video shows, from released facts alone', () => {
+    const speech = (key: string, endedAt: Date | null) => ({
+      type: 'speech' as const,
+      key,
+      startedAt: started,
+      endedAt,
+      durationMs: 100_000,
+    });
+    const rules = {
+      segments: [
+        { key: '1AC', label: 'First affirmative', side: 'affirmative' },
+        { key: '1NC', label: 'First negative', side: 'negative' },
+      ],
+    } as unknown as Read['round']['rules'];
+    const phaseOf = (over: Partial<Read>) => {
+      const stage = projectSpectatorTimeline(read(over, { rules })).stage;
+      return stage.kind === 'slate' ? stage.moment : stage.kind;
+    };
+    assert({
+      given: 'nothing released at all',
+      should: 'say only that nothing is known yet',
+      actual: phaseOf({ horizonMs: null }),
+      expected: 'unreleased',
+    });
+    assert({
+      given: 'a horizon short of the Round start',
+      should: 'not say the Round has begun',
+      actual: phaseOf({ horizonMs: started.getTime() - 1000 }),
+      expected: 'unreleased',
+    });
+    assert({
+      given: 'the start released and no speech yet',
+      should: 'say the first speech is coming',
+      actual: phaseOf({ horizonMs: horizon(started), segments: [] }),
+      expected: 'before_first_speech',
+    });
+    assert({
+      given: 'a released speech ended with another still to come',
+      should: 'say the next speech is coming',
+      actual: phaseOf({
+        horizonMs: horizon(ended),
+        segments: [speech('1AC', ended)],
+      }),
+      expected: 'between_speeches',
+    });
+    assert({
+      given: 'the last released speech of the format ended',
+      should: 'say the judges are deciding',
+      actual: phaseOf({
+        horizonMs: horizon(ended),
+        segments: [speech('1NC', ended)],
+      }),
+      expected: 'speeches_over',
     });
   });
 

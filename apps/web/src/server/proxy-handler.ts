@@ -4,13 +4,20 @@ import { broadcastPlaybackOrigin } from '../features/spectating/browser-policy';
 import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { IdGenerator } from '@daisy/clock';
+import { createAppError, toPublicError } from '@daisy/errors';
 import { isValidTraceparent } from '@daisy/observability';
 import { isGuardedPath, signInHref } from '../features/access/decision';
 import {
   closedDestinationOf,
   explainerHref,
+  isApiPath,
+  roomLinkReachesWatch,
 } from '../features/coming-soon/launch';
 import { returnableDestination } from '../features/auth/redirect';
+import {
+  robotsHeaderOf,
+  type SearchIndexing,
+} from '../features/search-indexing/search-indexing';
 import { hasSessionCookie } from '../features/auth/sessions/session-cookie'; // A nonce never authorizes a `style="…"` attribute, and `next/image` always
 // server-renders one. Hash the exact strings it emits (`fill`, and the default)
 // so every other inline style attribute stays refused. The CSP e2e fails if a
@@ -47,6 +54,8 @@ export type ProxySettings = {
   readonly development: boolean;
   readonly ids: IdGenerator;
   readonly analyticsHost?: string | null;
+  /** `SEARCH_INDEXING`: unset is closed. */
+  readonly searchIndexing?: SearchIndexing;
 };
 
 /**
@@ -89,6 +98,19 @@ function edgeRedirect(
   return response;
 }
 
+/** A closed destination's API answers as a route that does not exist. */
+function closedApi(policy: string, requestId: string): NextResponse {
+  const { status, body } = toPublicError(
+    createAppError('NOT_FOUND'),
+    requestId,
+  );
+  const response = NextResponse.json(body, { status });
+  response.headers.set('Content-Security-Policy', policy);
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('x-request-id', requestId);
+  return response;
+}
+
 /**
  * Early hint only: a guarded request with no session cookie at all can never
  * pass, so skip the render. Whether a cookie is a live session is decided
@@ -101,7 +123,11 @@ function signInHint(
   publicAppUrl: string,
 ): NextResponse | null {
   const { pathname, search } = request.nextUrl;
-  if (!isGuardedPath(pathname) || hasSessionCookie(request.headers))
+  if (
+    !isGuardedPath(pathname) ||
+    hasSessionCookie(request.headers) ||
+    roomLinkReachesWatch(pathname)
+  )
     return null;
   const next = returnableDestination(`${pathname}${search}`);
   return edgeRedirect(signInHref(next), policy, requestId, publicAppUrl);
@@ -157,9 +183,17 @@ function contentSecurityPolicy(
 /**
  * Every request's first stop (bound in `proxy.ts`): the foundation gate,
  * the CSP nonce and policy, the closed destination's explainer, the early
- * sign-in hint, and trusted correlation headers.
+ * sign-in hint, and trusted correlation headers. Whatever it answers, a closed
+ * deployment stays out of search indexes.
  */
 export function handleProxy(request: NextRequest, settings: ProxySettings) {
+  const response = routeRequest(request, settings);
+  const robots = robotsHeaderOf(settings.searchIndexing ?? 'closed');
+  if (robots) response.headers.set('X-Robots-Tag', robots);
+  return response;
+}
+
+function routeRequest(request: NextRequest, settings: ProxySettings) {
   const requestId = settings.ids.next();
   const { pathname } = request.nextUrl;
   const closed = closedFoundation(
@@ -175,6 +209,8 @@ export function handleProxy(request: NextRequest, settings: ProxySettings) {
   ).toString('base64');
   const policy = contentSecurityPolicy(pathname, settings, nonce);
   const closedDestination = closedDestinationOf(pathname);
+  if (closedDestination && isApiPath(pathname))
+    return closedApi(policy, requestId);
   if (closedDestination)
     return edgeRedirect(
       explainerHref(closedDestination),

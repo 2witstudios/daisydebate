@@ -38,7 +38,7 @@ export const lobbyRooms: readonly PreviewRowData[] = [
     title: 'Quarterfinal practice',
     detail: '@debater-a 1620 vs @debater-b 1588',
     tag: { tone: 'live', text: 'Live' },
-    trailing: '14 watching',
+    trailing: 'Speeches',
   },
 ];
 
@@ -48,14 +48,14 @@ export const watchRooms: readonly PreviewRowData[] = [
     title: 'Finals rehearsal',
     detail: '@debater-c vs @debater-d',
     tag: { tone: 'live', text: 'Live' },
-    trailing: '31 watching',
+    trailing: 'Speeches',
   },
   {
     id: 'w2',
     title: 'Friendly spar',
     detail: '@debater-e vs @debater-f',
     tag: { tone: 'live', text: 'Live' },
-    trailing: '3 watching',
+    trailing: 'Prep',
   },
 ];
 

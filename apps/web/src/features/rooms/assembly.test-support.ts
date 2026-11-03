@@ -101,6 +101,7 @@ export const assemblySnapshot = {
   capture: null,
   captureNotice: null,
   botAdmission: null,
+  watchRoundId: null,
   status: 'assembling',
   formatId: unequalTemplate.formatId,
   formatVersion: unequalTemplate.formatVersion,

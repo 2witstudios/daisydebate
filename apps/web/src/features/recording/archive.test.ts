@@ -79,6 +79,28 @@ describe('archiveEntries', () => {
     });
   });
 
+  test('video the page holds back is not offered here', () => {
+    const [held] = entries({
+      release: { releasedThroughMs: Number.MAX_SAFE_INTEGER, stopped: true },
+    });
+    assert({
+      given: 'a ranked Recording whose Broadcast was stopped, for the audience',
+      should: 'list it as withheld with no length, keeping its text and result',
+      actual: [held?.media, held?.length, held?.transcript, held?.result],
+      expected: ['withheld', null, true, 'Affirmative wins'],
+    });
+    const [own] = entries(
+      { release: { releasedThroughMs: null, stopped: true } },
+      account('neg'),
+    );
+    assert({
+      given: 'the same Recording for a debater who sat in it',
+      should: 'still offer the video and its length',
+      actual: [own?.media, own?.length],
+      expected: ['watch', '30 min'],
+    });
+  });
+
   test('own history shows every state honestly', () => {
     const [own] = entries(
       {

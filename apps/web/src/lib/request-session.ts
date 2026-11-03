@@ -22,6 +22,7 @@ import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { presentedLinkHash } from '../features/audience-link/audience-link';
 import { readHostedAudienceLink } from '../features/audience-link/issue-link';
 import { readSpectatorTimeline } from '../features/spectating/read-timeline';
+import { followingOf } from '../features/watch/following';
 import type { HubCounts } from '../features/watch/hub-counts';
 import {
   leadingLive,
@@ -198,6 +199,13 @@ export const requestWatchRound = async (roundId: string) =>
     presentedHash: await requestPresentedLink(roundId),
   });
 
+/** The public Round a Room's link may send anyone to, once its start is released. */
+export const requestWatchableRoundOfRoom = (roomId: string) =>
+  processApp().database.readWatchableRoundOfRoom(
+    roomId,
+    spectatorClockAt(processApp().clock.now()),
+  );
+
 /** A Round's link standing, for the member who hosts it; null for anyone else. */
 export const requestHostedAudienceLink = async (
   roundId: string,
@@ -231,6 +239,28 @@ export const requestLiveRoundsOf = (usernames: readonly string[]) =>
     usernames,
     now: processApp().clock.now(),
   });
+
+const FOLLOWING_ROWS = 50;
+const RECENTLY_WATCHED_ROWS = 10;
+
+/** The Following tab for one account: who it follows, who is live, what it watched. */
+export const requestFollowing = async (userId: string) => {
+  const { database, clock } = processApp();
+  const now = clock.now();
+  const [usernames, history] = await Promise.all([
+    database.listFollowedDebaters({
+      followerUserId: userId,
+      limit: FOLLOWING_ROWS,
+    }),
+    database.listWatchHistory({
+      userId,
+      clock: spectatorClockAt(now),
+      limit: RECENTLY_WATCHED_ROWS,
+    }),
+  ]);
+  const live = await liveRoundsOf(database, { usernames, now });
+  return followingOf({ usernames, live, history });
+};
 
 /** The numbers on the Watch tabs. */
 export const requestHubCounts = async (): Promise<HubCounts> => {
@@ -340,6 +370,8 @@ export async function requestRoundRatings(
 /** Canonical deployment URL, never derived from a caller-controlled Host. */
 export const requestMetadataBase = (): URL =>
   new URL(processApp().config.PUBLIC_APP_URL);
+
+export const requestSearchIndexing = () => processApp().config.SEARCH_INDEXING;
 
 /** Native create-room preview answers are scoped to this authenticated member. */
 export async function requestRoomDraftAnswer(

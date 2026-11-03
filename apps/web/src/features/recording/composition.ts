@@ -24,6 +24,8 @@ import type { RecordingInputs } from './ports';
 
 /** As often as a Broadcast's: its own Egress has the same revocation lead to meet. */
 const CAPTURE_SWEEP_EVERY_MS = 1000;
+/** A slow Recording runs on past this; the next pass reaches the others on time. */
+const PASS_BUDGET_MS = 750;
 
 type RoundRow = NonNullable<
   Awaited<ReturnType<App['database']['readRecordingRound']>>
@@ -125,6 +127,7 @@ export const startRecordingCapture = (app: App, timers: WorkerTimers) => {
     stageUrl: (id, credential) =>
       `${app.config.PUBLIC_APP_URL}/stage/${id}?c=${encodeURIComponent(credential)}`,
     report: (event) => app.logger.log(event, {}, 'Recording capture'),
+    passBudget: () => Bun.sleep(PASS_BUDGET_MS),
   });
   const running = startSingleFlightWorker({
     run: sweep,
@@ -133,7 +136,7 @@ export const startRecordingCapture = (app: App, timers: WorkerTimers) => {
     failed: () =>
       app.logger.log('recording.capture_failed', {}, 'Recording capture'),
   });
-  return { stop: running.stop };
+  return { stop: () => running.stop().then(sweep.settled) };
 };
 
 export const recordingReads = (app: App) => ({

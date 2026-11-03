@@ -65,7 +65,8 @@ tournament portal exists. Operators use the admin app (ADR 0043).
 durable released-through watermark, and the server releases a fact only once the
 watermark has passed its capture time, plus a margin for viewer latency. The
 spectator timeline follows media actually released, not the clock. Ranked Rounds
-never skip media; real delay above 90 seconds raises an alert (DEC-303).
+never skip media; real delay above 90 seconds raises an alert (DEC-303), logged as
+`broadcast.release_delayed` from the web, because a dead worker is the likely cause.
 
 **Media path.** A Web Egress renders Daisy's stage page under a server-minted,
 subscribe-only observer token held by no other browser, and writes HLS segments
@@ -73,9 +74,30 @@ and a file. Room Composite is rejected: deleting its room ends it, or leaves it
 active and writing silence. Daisy stops the Egress, and the reconciler stops any
 whose Round is terminal.
 
-**Privacy boundary.** Revoking the observer's subscribe permission on the server,
-at least 500 ms before a private phase, is the boundary; the page slate is
-appearance only. If revocation cannot be confirmed, the Egress stops.
+**Privacy boundary.** Revoking the observer's subscribe permission on the server
+is the boundary; the page slate is appearance only. If revocation cannot be
+confirmed, the Egress stops. The criterion is zero leak measured at the production
+sweep's timing (point guard, 2026-11-03), not a lead on a rig. Where a speech end is
+scheduled, the sweep revokes 2 s ahead, which is its 1 s period, a late pass and
+the call. A private phase with no schedule, prep or an early yield, is revoked
+after it opens: its microphones close by grant, and conversation stays held until
+the revocation lands.
+
+**When the sweep dies.** Nothing on a timer revokes for it, so the observer stays
+subscribed. What bounds that is the hold, not a duration: while the observer may be
+subscribed, conversation stays closed however long that lasts, and speech ends by
+grant, so no private talk exists to reach it. Cameras stay published in a private
+phase and are not held. The stage lets go of every track when it reads a private
+phase, as a second layer that needs the stage route alive. The media reconciler
+raises `broadcast.conversation_held_long` past 30 s. If the whole web tier is down,
+grants stop changing too, and the microphone open at that moment stays open until
+it returns. That case has no bound in code.
+
+**Stray Egress.** The first start recorded for a generation wins. A loser's
+credential is never stored, so the stage refuses it, it never signals Egress to
+record, and it writes nothing. The loser stops its own Egress; a crash before the
+record leaves one that a sweep every 15 s finds in LiveKit's active list by its
+stage URL and stops, under the capture's claim, which a start holds for 15 s.
 
 **Delivery.** Daisy owns it, with no video vendor. Segments enter a private
 Tigris bucket. The release step alone holds a credential for a separate public
@@ -92,12 +114,22 @@ after completion). OBS reopens an ended address on a loop and would otherwise pu
 the last 24 s back on air for as long as the source stays up, and a later takedown
 would leave a public copy behind. Afterwards the Recording is the only copy.
 
+**One-click push, later.** Pushing to Twitch or YouTube stays out of this release
+(WATCH-17). The later path is LiveKit Egress's external stream URLs, which need no
+new vendor. One constraint comes with it: the Egress works ahead of the hold, so a
+stream output from it would carry undelayed media. A push must take released media,
+never the Egress's own live output, on any Round with a delay.
+
 ## Evidence
 
 Staging, BCAST-1: revoking 500 ms before a private marker left no marker audio in
 10 ms windows and no marker frames, in 6 of 6 windows; revoking about 310 ms after
 it was detected in 3 of 3. Web Egress kept one egress across room rotation locally
-with a gap of about 100 ms. The remaining BCAST-1 measurements are on the plan.
+with a gap of about 100 ms.
+
+Not recorded here yet: Web Egress when its room is deleted (the finding above that
+mentions deletion is about Room Composite), an attempt to reach undelayed media on
+the real pipeline, Egress and encoder CPU on Fly, startup, and end-to-end delay.
 
 ## Consequences
 

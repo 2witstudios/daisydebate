@@ -37,6 +37,8 @@ const setup = (over: {
   readonly unrecorded?: readonly unknown[];
   readonly egressRead?: unknown;
   readonly claim?: boolean;
+  readonly startWon?: boolean;
+  readonly verified?: string;
   readonly failing?: string;
 }) => {
   const calls: unknown[][] = [];
@@ -58,7 +60,11 @@ const setup = (over: {
       }),
       openOwn: log('openOwn'),
       claimOwn: async () => over.claim ?? true,
-      recordOwnEgressStarted: log('recordOwnEgressStarted'),
+      holdOwn: log('holdOwn'),
+      recordOwnEgressStarted: log(
+        'recordOwnEgressStarted',
+        over.startWon ?? true,
+      ),
       recordOwnRevoked: log('recordOwnRevoked'),
       recordOwnRevocationFailed: log('recordOwnRevocationFailed'),
       recordOwnRestored: log('recordOwnRestored'),
@@ -73,7 +79,7 @@ const setup = (over: {
       request: log('request'),
       captureStarted: log('captureStarted', 'moved'),
       captureEnded: log('captureEnded', 'moved'),
-      mediaVerified: log('mediaVerified', 'moved'),
+      mediaVerified: log('mediaVerified', over.verified ?? 'moved'),
       failed: log('failed', 'moved'),
     } as unknown as RecordingCapturePort,
     egress: {
@@ -180,6 +186,7 @@ describe('a Recording with no Broadcast', () => {
       actual: calls,
       expected: [
         ['openOwn', { recordingId: 'rec', roundId: 'round' }],
+        ['holdOwn', { recordingId: 'rec', until: new Date(NOW + 15_000) }],
         [
           'egress.start',
           {
@@ -198,6 +205,28 @@ describe('a Recording with no Broadcast', () => {
             now: new Date(NOW),
           },
         ],
+        ['holdOwn', { recordingId: 'rec', until: null }],
+      ],
+    });
+  });
+
+  test('a start that lost its attempt stops what it started', async () => {
+    const { sweep, calls } = setup({ open: [row(casualOwn)], startWon: false });
+    await sweep();
+    assert({
+      given: 'another instance having recorded this attempt first',
+      should: 'report it, stop its own Egress and give the claim back',
+      actual: calls.map(([name, arg]) =>
+        name === 'report' || name === 'egress.stop' ? [name, arg] : [name],
+      ),
+      expected: [
+        ['openOwn'],
+        ['holdOwn'],
+        ['egress.start'],
+        ['recordOwnEgressStarted'],
+        ['report', 'recording.egress.start_lost'],
+        ['egress.stop', 'EG_NEW'],
+        ['holdOwn'],
       ],
     });
   });
@@ -215,6 +244,45 @@ describe('a Recording with no Broadcast', () => {
 });
 
 describe('answers to the worker', () => {
+  test('a refused verification ends the Recording and says so, instead of retrying', async () => {
+    const lifecycle = {
+      status: 'processing',
+      capture: {
+        source: { kind: 'own_capture' },
+        startedAt: at,
+        endedAt: at,
+        attempts: [{ attempt: 1, egressId: 'EG_1', startedAt: at }],
+      },
+    };
+    const { sweep, calls } = setup({
+      verified: 'refused',
+      jobs: [
+        {
+          recordingId: 'rec',
+          state: { status: 'built', media: { playlistKey: 'elsewhere' } },
+          lifecycle,
+          sourcesInUse: false,
+        },
+      ],
+    });
+    await sweep();
+    assert({
+      given: 'built media the Recording refuses',
+      should: 'report it and fail the Recording, which leaves the job list',
+      actual: calls.map(([name, , detail]) =>
+        name === 'report'
+          ? [name, calls.find(([n]) => n === 'report')?.[1]]
+          : name === 'failed'
+            ? [name, (detail as { reason: string }).reason]
+            : [name],
+      ),
+      expected: [
+        ['mediaVerified'],
+        ['report', 'recording.verification_refused'],
+        ['failed', 'verification_failed'],
+      ],
+    });
+  });
   const media = {
     capturedFrom: at,
     playlistKey: 'recordings/rec/hls/master.m3u8',

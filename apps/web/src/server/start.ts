@@ -1,8 +1,10 @@
 import { recordingPersistence } from '../features/recording/persistence';
 import { startRecordingDeletions } from './recording-deletions';
 import { startBroadcastSweep } from '../features/broadcast/composition';
+import { startStrayEgressSweep } from '../features/stage-capture/composition';
 import { startNotificationSweep } from '../features/spectating/audience-composition';
 import { startRecordingCapture } from '../features/recording/composition';
+import { recoveryFailureFields } from '../features/round-media/recovery-failure';
 import { mediaConfigured } from './round-worker-policy';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
@@ -78,10 +80,14 @@ const mediaRuntime = mediaConfigured(app.config)
 const mediaRecovery = mediaRuntime
   ? startRoundMediaRecovery({
       recover: () => mediaRuntime.operations().recoverActiveSessions(),
-      failed: () =>
+      failed: (error) =>
         app.logger.log(
           'round.media.recovery_failed',
-          { operation: 'round.media.recovery', errorCode: 'INFRASTRUCTURE' },
+          {
+            operation: 'round.media.recovery',
+            errorCode: 'INFRASTRUCTURE',
+            ...recoveryFailureFields(error),
+          },
           'Media recovery remains pending',
         ),
       every: (ms, tick) => {
@@ -218,6 +224,7 @@ const recordingDeletions = startRecordingDeletions({
   timers: workerTimers,
 });
 const broadcastSweep = startBroadcastSweep(app, workerTimers);
+const strayEgressSweep = startStrayEgressSweep(app, workerTimers);
 const notificationSweep = startNotificationSweep(app, workerTimers);
 const recordingCapture = startRecordingCapture(app, workerTimers);
 async function shutdown() {
@@ -232,6 +239,7 @@ async function shutdown() {
   const privacyJobsStopped = privacyJobs.stop();
   const recordingDeletionsStopped = recordingDeletions.stop();
   const broadcastSweepStopped = broadcastSweep?.stop();
+  const strayEgressSweepStopped = strayEgressSweep?.stop();
   const notificationSweepStopped = notificationSweep.stop();
   const recordingCaptureStopped = recordingCapture?.stop();
   const availabilityStopped = availability.stop();
@@ -265,6 +273,7 @@ async function shutdown() {
         operatorApiStopped,
         filesStopped,
         broadcastSweepStopped,
+        strayEgressSweepStopped,
         notificationSweepStopped,
         recordingCaptureStopped,
         observationPurgesStopped,

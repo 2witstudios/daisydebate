@@ -171,6 +171,7 @@ test('a ranked submission is always public', () => {
     title: 'A ranked room',
     visibility: 'unlisted',
     ranked: 'on',
+    noticeVersion: 'ranked-draft-1',
     valueResolutionId: 'published',
     intent: 'create',
   }).forEach(([key, text]) => form.set(key, text));
@@ -197,5 +198,33 @@ test('a ranked submission is always public', () => {
         ? [result.form.get('competition'), result.form.get('visibility')]
         : result,
     expected: ['ranked', 'public'],
+  });
+});
+
+test('a ranked form that never showed the notice shows it before creating', () => {
+  const template = {
+    ...unequalTemplate,
+    formatId: 'value',
+    role: 'standard' as const,
+    preset: { ...unequalTemplate.preset, rankedEligible: true },
+  };
+  const form = new FormData();
+  for (const [key, value] of Object.entries({
+    ...draftFormValues(createRoomDraft(template)),
+    title: 'A ranked room',
+    visibility: 'unlisted',
+    ranked: 'on',
+    intent: 'create',
+  }))
+    form.set(key, value);
+  const prepared = prepareRoomDraft(form, [template], []);
+  assert({
+    given: 'Ranked ticked with no script, so no notice was on the page',
+    should: 'answer the form again rather than create',
+    actual: [
+      prepared.kind,
+      prepared.kind === 'preview' && prepared.values.ranked,
+    ],
+    expected: ['preview', 'on'],
   });
 });

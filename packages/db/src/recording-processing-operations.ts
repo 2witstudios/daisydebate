@@ -7,6 +7,7 @@ import {
   and,
   asc,
   eq,
+  gt,
   inArray,
   isNull,
   lte,
@@ -195,7 +196,11 @@ export const deferRecordingRun = async (
  * job, a discard under way, and pairs that are waiting on someone else are left
  * out, so they cannot crowd out the jobs behind them.
  */
-export const listUnsettledRecordingJobs = (tx: Tx, limit: number) =>
+export const listUnsettledRecordingJobs = (
+  tx: Tx,
+  limit: number,
+  after: string | null = null,
+) =>
   tx
     .select({
       recordingId: jobs.recordingId,
@@ -225,9 +230,10 @@ export const listUnsettledRecordingJobs = (tx: Tx, limit: number) =>
         not(
           and(eq(jobs.status, 'queued'), eq(recordings.status, 'processing'))!,
         ),
+        after === null ? undefined : gt(jobs.recordingId, after),
       ),
     )
-    .orderBy(asc(jobs.updatedAt))
+    .orderBy(asc(jobs.recordingId))
     .limit(limit);
 
 /**
@@ -255,15 +261,23 @@ export const discardRecordingSources = async (tx: Tx, recordingId: string) => {
  * what the bound is measured from. A build running long is the point, so unlike
  * `listUnsettledRecordingJobs` this includes the queued.
  */
-export const listProcessingRecordingsUnalerted = (tx: Tx, limit: number) =>
+export const listProcessingRecordingsUnalerted = (
+  tx: Tx,
+  limit: number,
+  after: string | null = null,
+) =>
   tx
     .select({ id: recordings.id, lifecycle: recordings.lifecycle })
     .from(recordings)
     .innerJoin(jobs, eq(jobs.recordingId, recordings.id))
     .where(
-      and(eq(recordings.status, 'processing'), isNull(jobs.delayAlertedAt)),
+      and(
+        eq(recordings.status, 'processing'),
+        isNull(jobs.delayAlertedAt),
+        after === null ? undefined : gt(recordings.id, after),
+      ),
     )
-    .orderBy(asc(recordings.updatedAt))
+    .orderBy(asc(recordings.id))
     .limit(limit);
 
 /** True for the one caller that gets to raise the alert, whoever else is sweeping. */

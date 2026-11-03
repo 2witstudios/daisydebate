@@ -17,10 +17,12 @@ import {
 import {
   requestIdentity,
   requestMetadataBase,
+  requestSearchIndexing,
   sessionRefreshDueNow,
 } from '../lib/request-session';
 import { SessionRefresh } from '../ui/auth/session-refresh/session-refresh';
 import { RoundNotesPrivacy } from '../ui/debate-room/round-notes-privacy';
+import { robotsMetadataOf } from '../features/search-indexing/search-indexing';
 import './globals.css';
 
 // Self-hosted via next/font: same-origin at runtime, CSP-safe, no dependency.
@@ -40,7 +42,9 @@ const display = Fraunces({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
+  const robots = robotsMetadataOf(requestSearchIndexing());
   return {
+    ...(robots ? { robots } : {}),
     metadataBase: requestMetadataBase(),
     openGraph: { type: 'website', siteName: 'Daisy Debate' },
     twitter: { card: 'summary_large_image' },

@@ -11,6 +11,8 @@ import { createBroadcastSweep } from './sweep';
 
 const SWEEP_EVERY_MS = 1000;
 const FACT_LOG_EVERY_MS = 15_000;
+/** A slow Broadcast runs on past this; the next pass reaches the others on time. */
+const PASS_BUDGET_MS = 750;
 
 /** Inert unless BROADCAST_CAPTURE is on, so merging never activates capture. */
 export const startBroadcastSweep = (app: App, timers: WorkerTimers) => {
@@ -28,6 +30,7 @@ export const startBroadcastSweep = (app: App, timers: WorkerTimers) => {
     stageUrl: (id, credential) =>
       `${app.config.PUBLIC_APP_URL}/stage/${id}?c=${encodeURIComponent(credential)}`,
     report: log,
+    passBudget: () => Bun.sleep(PASS_BUDGET_MS),
   });
   const factLog = startSingleFlightWorker({
     run: createFactLogSweep({
@@ -45,6 +48,7 @@ export const startBroadcastSweep = (app: App, timers: WorkerTimers) => {
     failed: () => log('broadcast.reconcile_failed'),
   });
   return {
-    stop: () => Promise.all([factLog.stop(), reconcile.stop()]),
+    stop: () =>
+      Promise.all([factLog.stop(), reconcile.stop()]).then(sweep.settled),
   };
 };

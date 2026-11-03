@@ -45,6 +45,7 @@ export function reconcileClaim(
   if (reconcileLive(session, now))
     return {
       kind: 'wait' as const,
+      reason: 'lease' as const,
       retryAt: session.reconcileLeaseUntil.toISOString(),
     };
   const earliest =
@@ -54,6 +55,7 @@ export function reconcileClaim(
   if (now.getTime() < earliest)
     return {
       kind: 'wait' as const,
+      reason: 'interval' as const,
       retryAt: new Date(earliest).toISOString(),
     };
   return {

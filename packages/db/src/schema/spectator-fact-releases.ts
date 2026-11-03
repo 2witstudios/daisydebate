@@ -5,6 +5,7 @@ import { rounds } from './rounds';
 
 export const spectatorFactKinds = [
   'stage',
+  'resolution',
   'result',
   'ballot',
   'rating',
@@ -37,7 +38,7 @@ export const spectatorFactReleases = pgTable(
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
     kind: text('kind').$type<(typeof spectatorFactKinds)[number]>().notNull(),
-    /** The fact's own row: the Round for a result, else the segment, ballot, posting or line. */
+    /** The fact's own row: the Round for a result or resolution, else the segment, ballot, posting or line. */
     factId: text('fact_id').notNull(),
     capturedAt: timestampColumn('captured_at').notNull(),
     releasedAt: timestampColumn('released_at').notNull(),
@@ -65,4 +66,20 @@ export const spectatorFactReleases = pgTable(
       sql`${table.releasedAt} >= ${table.capturedAt}`,
     ),
   ],
+);
+
+/**
+ * The Rounds that may still have a fact to log, so a sweep's cost follows them
+ * and never the history. Triggers open a row when a Round or one of its facts
+ * changes; the sweep removes it once the Round is over and every fact is logged.
+ * `touchedAt` is what a removal checks, so a fact landing during it keeps the row.
+ */
+export const spectatorFactLogOpenRounds = pgTable(
+  'spectator_fact_log_open_rounds',
+  {
+    roundId: text('round_id')
+      .primaryKey()
+      .references(() => rounds.id, { onDelete: 'cascade' }),
+    touchedAt: timestampColumn('touched_at').notNull(),
+  },
 );

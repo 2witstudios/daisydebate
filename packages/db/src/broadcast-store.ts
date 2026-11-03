@@ -5,9 +5,11 @@ import {
   claimBroadcastReconcile,
   completeBroadcast,
   discoverUnopenedBroadcastRounds,
+  holdBroadcastReconcile,
   listOpenBroadcasts,
   openBroadcast,
   readConversationHeld,
+  readBroadcastEgress,
   readBroadcastRoom,
   recordEgressStarted,
   recordFinalMediaEnd,
@@ -32,11 +34,16 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
     readonly feedKey: string;
     readonly releasePolicy: BroadcastReleasePolicy;
   }) => openBroadcast(database, input),
-  listOpen: (limit: number) => listOpenBroadcasts(database, limit),
+  listOpen: (limit: number, after: string | null = null) =>
+    listOpenBroadcasts(database, limit, after),
+  readEgress: (id: string) => readBroadcastEgress(database, id),
   conversationHeld: (roundId: string) =>
     readConversationHeld(database, { roundId }),
   claimReconcile: (input: Parameters<typeof claimBroadcastReconcile>[1]) =>
     claimBroadcastReconcile(database, input),
+  async holdReconcile(input: Parameters<typeof holdBroadcastReconcile>[1]) {
+    await holdBroadcastReconcile(database, input);
+  },
   /** Everything the stage burns in. Read-only, and it locks nothing. */
   async readStage(id: string) {
     const [broadcast] = await database
@@ -53,20 +60,22 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
         identity: mediaParticipants.identity,
       })
       .from(roundParticipants)
-      .innerJoin(
+      .leftJoin(
         mediaParticipants,
         eq(mediaParticipants.roundParticipantId, roundParticipants.id),
       )
       .where(eq(roundParticipants.roundId, broadcast.roundId));
     const launched = await launchedRoundRows(database, broadcast.roundId);
-    const labels = new Map(launched.participants.map((p) => [p.id, p.label]));
+    const seen = new Map(launched.participants.map((p) => [p.id, p]));
     return {
       capture: broadcast,
       round,
       roomName: await readBroadcastRoom(database, broadcast.roundId),
       seats: seats.flatMap((seat) => {
-        const label = labels.get(seat.participantId);
-        return label === undefined ? [] : [{ ...seat, label }];
+        const person = seen.get(seat.participantId);
+        return person === undefined
+          ? []
+          : [{ ...seat, label: person.label, kind: person.kind }];
       }),
     };
   },
@@ -83,9 +92,8 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
       roomName: await readBroadcastRoom(database, roundId),
     };
   },
-  async recordEgressStarted(input: Parameters<typeof recordEgressStarted>[1]) {
-    await recordEgressStarted(database, input);
-  },
+  recordEgressStarted: (input: Parameters<typeof recordEgressStarted>[1]) =>
+    recordEgressStarted(database, input),
   async recordObserverRevoked(
     input: Parameters<typeof recordObserverRevoked>[1],
   ) {

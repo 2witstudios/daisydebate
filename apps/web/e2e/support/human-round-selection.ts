@@ -2,7 +2,7 @@ import { foundationDefinition } from '@daisy/db/reference-formats';
 import { foundationProofConfig } from '../../integration/foundation-selection.test-support';
 import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
 
-type ProofChoice = {
+export type ProofChoice = {
   readonly definition: FormatDefinition;
   readonly preset: { readonly config: RoomConfig };
 };
@@ -14,6 +14,38 @@ type ProofChoice = {
 export const foundationChoice: ProofChoice = {
   definition: foundationDefinition,
   preset: { config: foundationProofConfig },
+};
+
+/**
+ * The proof format with a third speech, for a journey that needs the floor to
+ * come back: in two speeches, ending the second finishes the Round.
+ */
+export const floorReturnsChoice: ProofChoice = {
+  ...foundationChoice,
+  definition: {
+    ...foundationDefinition,
+    segments: [
+      ...foundationDefinition.segments,
+      {
+        key: 'AR',
+        label: 'Affirmative rebuttal',
+        type: 'speech',
+        side: 'affirmative',
+        slot: 0,
+        defaultDurationMs: 240_000,
+      },
+    ],
+    configurable: {
+      ...foundationDefinition.configurable,
+      timing: {
+        ...foundationDefinition.configurable.timing,
+        segmentDurationMs: {
+          ...foundationDefinition.configurable.timing.segmentDurationMs,
+          AR: { min: 60_000, max: 600_000 },
+        },
+      },
+    },
+  },
 };
 
 export const humanRoundSelection = (

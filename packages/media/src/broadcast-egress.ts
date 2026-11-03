@@ -42,6 +42,17 @@ export const egressFact = (
   }
 };
 
+/**
+ * The capture a stage URL belongs to, only under this deployment's own origin, so
+ * an Egress of any other deployment sharing a LiveKit is never taken for ours.
+ */
+export const stageCaptureId = (url: string, origin: string): string | null => {
+  const prefix = `${origin}/stage/`;
+  if (!url.startsWith(prefix)) return null;
+  const id = url.slice(prefix.length).split(/[/?#]/, 1)[0];
+  return id ? id : null;
+};
+
 const observerPermission = (canSubscribe: boolean) => ({
   canSubscribe,
   canPublish: false,
@@ -102,6 +113,22 @@ export function createBroadcastEgress(deps: {
     async read(id: string): Promise<BroadcastEgressFact> {
       const [info] = await client.listEgress({ egressId: id });
       return info ? egressFact(info) : { kind: 'failed', id };
+    },
+    /**
+     * Every running stage Egress of this deployment, whatever we recorded: what a
+     * crash between a start and its record leaves is found here and nowhere else.
+     */
+    async listStages(origin: string) {
+      const running = await client.listEgress({ active: true });
+      return running.flatMap((info) => {
+        const captureId =
+          info.request.case === 'web'
+            ? stageCaptureId(info.request.value.url, origin)
+            : null;
+        return captureId === null
+          ? []
+          : [{ egressId: info.egressId, captureId }];
+      });
     },
     /** An observer no longer in the room cannot receive anything: that is confirmed. */
     revokeObserver: async (room: string) => {

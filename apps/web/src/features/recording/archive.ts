@@ -61,7 +61,8 @@ export type ArchiveEntry = {
   readonly neg: string;
   /** Null unless this viewer may read the result. */
   readonly result: string | null;
-  readonly media: RecordingMediaState;
+  /** `withheld` is ready video this viewer may not play, as its page says. */
+  readonly media: RecordingMediaState | 'withheld';
   readonly transcript: boolean;
   /** Set only for the viewer's own Rounds: who else can open this. */
   readonly ownVisibility: RecordingRound['visibility'] | null;
@@ -89,7 +90,7 @@ const minutes = (durationMs: number): string =>
 const listed = (
   round: ArchiveRound,
   permissions: RoundEvidencePermissions,
-  media: RecordingMediaState,
+  media: ArchiveEntry['media'],
   transcript: boolean,
 ): boolean =>
   permissions.open &&
@@ -113,7 +114,9 @@ export const archiveEntries = (
       viewer,
       null,
     );
-    const media = recordingMediaState(round.status);
+    const stored = recordingMediaState(round.status);
+    const media =
+      stored === 'watch' && !permissions.media ? 'withheld' : stored;
     const transcript = permissions.transcript && round.hasTranscript;
     if (!listed(round, permissions, media, transcript)) return [];
     const own =

@@ -618,6 +618,37 @@ test('the archive pages, filters and holds back what is not released', async () 
         actual: longest.indexOf(older) < longest.indexOf(newer),
         expected: true,
       });
+      const pagedLongest: string[] = [];
+      for (let before = '', page = 0; page < 10; page += 1) {
+        const next = await list(
+          { scope: 'mine', sort: 'longest', before },
+          debater,
+          2,
+        );
+        pagedLongest.push(...ids(next));
+        if (next.nextBefore === null) break;
+        before = next.nextBefore;
+      }
+      assert({
+        given: 'longest first read two rows at a time',
+        should: 'continue from the cursor with no gap or overlap',
+        actual: pagedLongest,
+        expected: ids(await list({ scope: 'mine', sort: 'longest' }, debater)),
+      });
+      assert({
+        given: 'the pages of longest first',
+        should: 'cover every Round the debater sat in',
+        actual: pagedLongest.length,
+        expected: 5,
+      });
+      const phrase = `Quorum ${createId()}`;
+      await client`update rounds set resolution=${`Resolved: ${phrase}`} where id=${older}`;
+      assert({
+        given: 'a search for words in one resolution, in another case',
+        should: 'find that row and no other',
+        actual: ids(await list({ q: phrase.toLowerCase() })),
+        expected: [older],
+      });
       assert({
         given: 'a search holding LIKE wildcards',
         should: 'treat them as text',

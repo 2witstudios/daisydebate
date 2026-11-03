@@ -2,6 +2,10 @@
 export const LIVE_ROOM_CHAT_TEXT =
   'You are in this Round’s live room, so you cannot post in its chat. The audience watches on a delay.';
 
+/** Why a restricted account can read a Round's audience and not join it. */
+export const RESTRICTED_AUDIENCE_TEXT =
+  'Your account is restricted, so you can read this chat but not take part.';
+
 /** What each chat refusal says. The words are fixed; nothing comes from the URL. */
 export const chatRefusalText: Readonly<Record<string, string>> = {
   'chat-unavailable': 'This Round has no chat.',
@@ -10,6 +14,7 @@ export const chatRefusalText: Readonly<Record<string, string>> = {
   'chat-live-room': LIVE_ROOM_CHAT_TEXT,
   'chat-slow-mode': 'Slow mode is on. Wait a moment and post again.',
   'chat-needs-username': 'Choose a username before you post.',
+  'account-restricted': RESTRICTED_AUDIENCE_TEXT,
 };
 
 export const CHAT_POST_FAILED = 'Could not post that. Your message is kept.';

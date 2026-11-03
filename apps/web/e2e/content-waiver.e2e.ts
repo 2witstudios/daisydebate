@@ -42,7 +42,9 @@ test('a ranked seat signs the content waiver without JavaScript', async ({
         name: 'Sign the ranked content waiver',
       });
       await expect(waiver).toBeVisible();
-      await expect(page.getByText('draft for counsel').first()).toBeVisible();
+      await expect(
+        page.getByText('has not been reviewed by counsel').first(),
+      ).toBeVisible();
       await page
         .getByRole('checkbox', {
           name: 'I agree to the ranked content waiver for this season.',
