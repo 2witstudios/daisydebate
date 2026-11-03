@@ -43,7 +43,8 @@ const edges = {
     event:
       | 'broadcast.release_failed'
       | 'broadcast.withdrawal_failed'
-      | 'broadcast.release_lapsed',
+      | 'broadcast.release_lapsed'
+      | 'broadcast.clip_skipped',
   ) => logger.log(event, {}, 'Broadcast worker'),
 };
 await Promise.all([

@@ -130,8 +130,10 @@ the hold, with its audio replaced by generated silence, so no byte of the hold's
 is in it. `private` reads nothing from the hold: a generated frame in the stage's
 background colour, and silence, because a phase's first moments can still hold a camera
 frame until the page's next read and the revocation arrive. Going into something more
-private a boundary uses the end-edge stamp lag and coming out the start-edge one, two
-named values from staging's measurement across attempts.
+private a boundary uses the end-edge stamp lag, which is none, and coming out the
+start-edge one, 1300 ms plus 6 ms per minute of the capture's age, from staging's
+measurement including one 80 minute attempt. Age counts from when the capture was
+opened, which is before any attempt, so it can only be overstated and fails closed.
 
 The public playlist marks a discontinuity at each gap. The Daisy player covers the
 video with a slate after 5 s stalled, and for 4 s when hls.js sees capture time jump

@@ -40,6 +40,7 @@ type Store = Pick<
   | 'queueJob'
   | 'readPublicHistory'
   | 'discardSources'
+  | 'stripSources'
   | 'listJobs'
   | 'listProcessingUnalerted'
   | 'markDelayAlerted'
@@ -295,6 +296,11 @@ export const createRecordingCaptureSweep = (deps: {
           },
           () => deps.report('recording.observer.restore_failed'),
         );
+      case 'forget-revocation':
+        return attempt(
+          () => store.recordOwnRestored(recordingId),
+          () => deps.report('recording.observer.restore_failed'),
+        );
       case 'close-own-capture':
         return store.closeOwn({ recordingId, now: new Date(nowMs) });
       default:
@@ -349,6 +355,7 @@ export const createRecordingCaptureSweep = (deps: {
           publicIntervals: publicIntervals(
             history.segments,
             history.knownThroughMs,
+            history.captureFromMs,
           ),
           ceilingMs: answer.ceilingMs,
         });
@@ -376,6 +383,18 @@ export const createRecordingCaptureSweep = (deps: {
           at: iso(deps.now()),
         });
         return;
+      case 'strip-sources': {
+        const history = await store.readPublicHistory(job.recordingId);
+        await store.stripSources({
+          recordingId: job.recordingId,
+          publicIntervals: publicIntervals(
+            history.segments,
+            history.knownThroughMs,
+            history.captureFromMs,
+          ),
+        });
+        return;
+      }
       case 'discard-sources':
         await store.discardSources(job.recordingId);
     }

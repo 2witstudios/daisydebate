@@ -7,6 +7,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   readBroadcastObserverHeld,
   readBroadcastStageHistory,
+  readRecordingKeepsHold,
   readConversationHeld,
   recordEgressStarted,
   recordFeedWithdrawn,
@@ -713,6 +714,35 @@ test('a Broadcast observer holds cameras', async () => {
       should: 'hold only the middle',
       actual: [before, observing, await held()],
       expected: [false, true, false],
+    });
+  });
+});
+
+test('the worker can tell whether a Recording will clear a hold, and no more', async () => {
+  await withOps(async (db, roundId, client) => {
+    const { id } = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const none = await readRecordingKeepsHold(db, id);
+    const recordingId = createId();
+    await client`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle)
+      values (${recordingId},${roundId},'ranked','requested',
+        jsonb_build_object('kind','ranked'),
+        jsonb_build_object('status','requested','eligibility',jsonb_build_object('kind','ranked')))`;
+    const one = await readRecordingKeepsHold(db, id);
+    await client`delete from recordings where id=${recordingId}`;
+    const [view] =
+      await client`select has_table_privilege('daisy_broadcast_worker','broadcast_recording_claims','select') as yes`;
+    const [table] =
+      await client`select has_table_privilege('daisy_broadcast_worker','recordings','select') as yes`;
+    assert({
+      given: 'no Recording, then one, and the worker role',
+      should: 'answer false then true, through the view alone',
+      actual: [none, one, view?.yes, table?.yes],
+      expected: [false, true, true, false],
     });
   });
 });

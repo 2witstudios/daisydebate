@@ -422,3 +422,29 @@ describe('answerRecordingJob', () => {
     });
   });
 });
+
+describe('a failed Recording keeps no private seconds', () => {
+  const failed = {
+    status: 'failed',
+    reason: 'processing_failed',
+    failedAt: at,
+  } as const;
+  const answer = (
+    state: Parameters<typeof answerRecordingJob>[0]['state'],
+    sourcesInUse = false,
+  ) => answerRecordingJob({ state, lifecycle: failed, sourcesInUse });
+  test('its sources are stripped once nothing reads them, and only once', () => {
+    assert({
+      given:
+        'a failed job free; still read by a Broadcast; stripping; stripped',
+      should: 'strip the first, and leave the rest',
+      actual: [
+        answer({ status: 'failed', reason: 'processing_failed', failedAt: at }),
+        answer({ status: 'waiting' }, true),
+        answer({ status: 'stripping', publicIntervals: [] }),
+        answer({ status: 'stripped', strippedAt: at }),
+      ],
+      expected: [{ type: 'strip-sources' }, null, null, null],
+    });
+  });
+});

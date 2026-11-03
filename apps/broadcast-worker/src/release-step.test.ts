@@ -69,14 +69,59 @@ const input = (
     { kind: 'speech' as const, fromMs: start - 1000, toMs: start + 1_000_000 },
   ],
   releasedThroughMs: null,
+  skippedClips: [],
   ...over,
+});
+
+describe('the end of the stream', () => {
+  test('the delay is a floor for the last watermark too', async () => {
+    const end = start + 12_000;
+    const finished = (nowMs: number) => ({
+      holdCursor: 3,
+      nextSegment: 3,
+      finalMediaEndMs: end,
+      roundEndedAtMs: end,
+      releasedThroughMs: end,
+      nowMs,
+    });
+    const { ports, log } = world();
+    const early = await releaseStep(input(finished(end + 12_000)), ports);
+    const onTime = await releaseStep(input(finished(end + 60_000)), ports);
+    assert({
+      given:
+        'an Egress that crashed, its end settled 12 s ago, then a full delay on',
+      should: 'not end the stream until the delay has passed',
+      actual: [
+        early.kind,
+        onTime.kind,
+        log.filter((l) => l.startsWith('ended')),
+      ],
+      expected: ['waiting', 'ended', ['ended 12000']],
+    });
+  });
+});
+
+describe('a clip given up on', () => {
+  test('is left out, and the next takes its place in the sequence', async () => {
+    const { ports, log } = world();
+    const answer = await releaseStep(
+      input({ skippedClips: [start], nowMs: start + 200_000 }),
+      ports,
+    );
+    assert({
+      given: 'the first clip skipped after bounded retries',
+      should: 'publish the second under the same public sequence',
+      actual: [answer.kind, log[0], log.at(-1)],
+      expected: ['released', 'encode s_1.ts', 'record 0 8000'],
+    });
+  });
 });
 
 describe('only what history proves public', () => {
   test('past the heartbeat nothing is settled, however due', async () => {
     const { ports, log } = world();
     const answer = await releaseStep(
-      input({ heartbeatMs: start + 5_199 }),
+      input({ heartbeatMs: start + 5_299 }),
       ports,
     );
     assert({
@@ -349,13 +394,18 @@ describe('releaseStep', () => {
           nextSegment: 3,
           holdCursor: 3,
           finalMediaEndMs,
-          nowMs: finalMediaEndMs + 10_000,
+          releasedThroughMs: start + 13_000,
+          nowMs: finalMediaEndMs + 60_000,
           ...over,
         }),
         ports,
       );
     const open = await past({ finalMediaEndMs: null });
-    const settling = await past({ nowMs: finalMediaEndMs + 9_999 });
+    const settling = await past({
+      policy: { kind: 'round_end' },
+      roundEndedAtMs: finalMediaEndMs,
+      nowMs: finalMediaEndMs + 9_999,
+    });
     assert({
       given: 'no final media yet, then a hold still settling after a stop',
       should: 'wait and touch nothing',
@@ -388,7 +438,7 @@ describe('releaseStep', () => {
       actual: [
         (
           await releaseStep(
-            input({ finalMediaEndMs: start, nowMs: start + 10_000 }),
+            input({ finalMediaEndMs: start, nowMs: start + 60_000 }),
             ports,
           )
         ).kind,

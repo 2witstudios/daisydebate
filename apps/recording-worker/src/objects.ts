@@ -61,6 +61,10 @@ export const createObjects = (config: {
         [...(await listAll(hold, prefix)).keys()].map((key) =>
           key.slice(prefix.length),
         ),
+      writeText: async (key: string, text: string) => {
+        await hold.file(key).write(text);
+      },
+      deleteKey: (key: string) => hold.delete(key),
       download: async (key: string, path: string) => {
         await Bun.write(path, hold.file(key));
       },

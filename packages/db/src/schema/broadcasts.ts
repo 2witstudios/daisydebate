@@ -8,7 +8,10 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { broadcastReleasePolicySchema } from '@daisy/protocol';
+import {
+  broadcastReleasePolicySchema,
+  releaseSkipsSchema,
+} from '@daisy/protocol';
 import {
   createdAtColumn,
   jsonbColumn,
@@ -48,6 +51,10 @@ export const broadcasts = pgTable(
     nextSegment: integer('next_segment').notNull().default(0),
     /** Each Egress attempt holds under its own prefix, so a restart overwrites nothing. */
     egressGeneration: integer('egress_generation').notNull().default(0),
+    /** Clips the worker gave up on after bounded retries: stated gaps, by capture time. */
+    releaseSkips: jsonbColumn('release_skips', releaseSkipsSchema)
+      .notNull()
+      .default({ clips: [] }),
     /** The attempt the worker is releasing, and its position in that attempt's hold. */
     releasedGeneration: integer('released_generation').notNull().default(1),
     holdCursor: integer('hold_cursor').notNull().default(0),
@@ -95,6 +102,7 @@ export const broadcasts = pgTable(
       sql`${table.deliveryPath} in ('owned_hls')`,
     ),
     jsonbIsObject('broadcasts', table.releasePolicy),
+    jsonbIsObject('broadcasts', table.releaseSkips),
     check(
       'broadcasts_release_policy_check',
       sql`${table.releasePolicy}->>'kind' = 'delay'`,

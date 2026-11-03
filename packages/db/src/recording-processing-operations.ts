@@ -60,6 +60,8 @@ export const readRecordingPublicHistory = async (
       roundId: recordings.roundId,
       broadcast: broadcasts.controlHeartbeatAt,
       own: recordingCaptures.controlHeartbeatAt,
+      broadcastOpenedAt: broadcasts.createdAt,
+      ownOpenedAt: recordingCaptures.createdAt,
     })
     .from(recordings)
     .leftJoin(broadcasts, eq(broadcasts.roundId, recordings.roundId))
@@ -68,7 +70,7 @@ export const readRecordingPublicHistory = async (
       eq(recordingCaptures.recordingId, recordings.id),
     )
     .where(eq(recordings.id, recordingId));
-  if (!capture) return { segments: [], knownThroughMs: null };
+  if (!capture) return { segments: [], knownThroughMs: null, captureFromMs: 0 };
   const segments = await tx
     .select({
       startedAt: roundSegments.startedAt,
@@ -85,6 +87,9 @@ export const readRecordingPublicHistory = async (
       durationMs: segment.durationMs,
     })),
     knownThroughMs: (capture.broadcast ?? capture.own)?.getTime() ?? null,
+    // Opened before any Egress of it, so a start's allowance can only be overstated.
+    captureFromMs:
+      (capture.broadcastOpenedAt ?? capture.ownOpenedAt)?.getTime() ?? 0,
   };
 };
 
@@ -134,7 +139,11 @@ export const requeueRecordingJob = async (
         status: 'queued',
         attemptCount: input.attemptCount,
         publicIntervals: [
-          ...publicIntervals(history.segments, history.knownThroughMs),
+          ...publicIntervals(
+            history.segments,
+            history.knownThroughMs,
+            history.captureFromMs,
+          ),
         ],
         ceilingMs: input.ceilingMs,
       }),
@@ -144,7 +153,13 @@ export const requeueRecordingJob = async (
     .where(
       and(
         eq(jobs.recordingId, input.recordingId),
-        inArray(jobs.status, ['waiting', 'queued', 'built', 'failed']),
+        inArray(jobs.status, [
+          'waiting',
+          'queued',
+          'built',
+          'failed',
+          'stripped',
+        ]),
       ),
     )
     .returning({ id: jobs.recordingId });
@@ -170,7 +185,7 @@ export const claimRecordingJob = async (
     .from(jobs)
     .where(
       and(
-        inArray(jobs.status, ['queued', 'discarding']),
+        inArray(jobs.status, ['queued', 'discarding', 'stripping']),
         lte(jobs.dueAt, input.now),
         or(isNull(jobs.leaseUntil), lte(jobs.leaseUntil, input.now)),
       ),
@@ -318,13 +333,13 @@ export const listUnsettledRecordingJobs = (
     .innerJoin(recordings, eq(recordings.id, jobs.recordingId))
     .where(
       and(
-        notInArray(jobs.status, ['settled', 'discarding']),
-        notInArray(recordings.status, [
-          'requested',
-          'capturing',
-          'taken_down',
-          'failed',
+        notInArray(jobs.status, [
+          'settled',
+          'discarding',
+          'stripping',
+          'stripped',
         ]),
+        notInArray(recordings.status, ['requested', 'capturing', 'taken_down']),
         not(
           and(eq(jobs.status, 'queued'), eq(recordings.status, 'processing'))!,
         ),
@@ -333,6 +348,34 @@ export const listUnsettledRecordingJobs = (
     )
     .orderBy(asc(jobs.recordingId))
     .limit(limit);
+
+/**
+ * A failed Recording's sources are cut down to what history proves public, so private
+ * seconds do not wait on a rebuild that may never come. Fences a running build.
+ */
+export const stripRecordingSources = async (
+  tx: Tx,
+  input: {
+    readonly recordingId: string;
+    readonly publicIntervals: readonly PublicInterval[];
+  },
+) => {
+  await tx
+    .update(jobs)
+    .set({
+      ...stateColumns({
+        status: 'stripping',
+        publicIntervals: [...input.publicIntervals],
+      }),
+      dueAt: sql`clock_timestamp()`,
+    })
+    .where(
+      and(
+        eq(jobs.recordingId, input.recordingId),
+        inArray(jobs.status, ['waiting', 'queued', 'built', 'failed']),
+      ),
+    );
+};
 
 /**
  * The web tells the worker the sources can go. It also fences a running build:

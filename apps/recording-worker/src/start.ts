@@ -5,6 +5,7 @@ import { buildRecording } from './build-recording';
 import { readWorkerConfig } from './config';
 import { localFiles, removeWorkDir, runCommand } from './local-ports';
 import { createObjects } from './objects';
+import { stripSources } from './strip-sources';
 import { runWorker } from './worker';
 
 // The deployment edge: the real environment, clock and process signals.
@@ -56,6 +57,8 @@ await Promise.all(
           job,
         ),
       discardPage: objects.discardPage,
+      strip: (holdPrefix, intervals) =>
+        stripSources(objects.hold, holdPrefix, intervals),
       workDirOf: (recordingId, owner) =>
         `${config.RECORDING_WORK_DIR}/${recordingId}-${owner}`,
       removeWorkDir,

@@ -9,11 +9,15 @@ import {
 
 setupRitewayBun();
 
+const NOW = Date.parse('2026-11-03T12:00:00.000Z');
+const LONG_AGO = new Date(NOW - 3_600_000);
 const run = async (
   finalMediaEndAt: Date | null,
   completedAt: Date | null = null,
+  hold: { readonly recording?: boolean; readonly pages?: number } = {},
 ) => {
   const log: string[] = [];
+  let pages = hold.pages ?? 2;
   await withdrawFeed(
     { feedKey: 'b', nextSegment: 1, finalMediaEndAt, completedAt },
     {
@@ -26,6 +30,13 @@ const run = async (
       complete: async () => {
         log.push('complete');
       },
+      recordingKeepsHold: async () => hold.recording ?? true,
+      discardHoldPage: async () => {
+        pages -= 1;
+        log.push('discard');
+        return Math.max(0, pages);
+      },
+      nowMs: () => NOW,
     },
   );
   return log;
@@ -101,6 +112,9 @@ describe('Deleting a long feed', () => {
         },
         recordWithdrawn: async () => {},
         complete: async () => {},
+        recordingKeepsHold: async () => true,
+        discardHoldPage: async () => 0,
+        nowMs: () => NOW,
       },
     );
     assert({
@@ -199,6 +213,7 @@ describe('The withdrawal loop', () => {
         recordFeedWithdrawn: async ({ id }: { readonly id: string }) => {
           withdrawn.push(id);
         },
+        recordingKeepsHold: async () => true,
       } as never,
     });
     assert({
@@ -246,6 +261,31 @@ describe('The withdrawal loop', () => {
       should: 'report it and keep polling',
       actual: [polls, reports],
       expected: [2, ['broadcast.withdrawal_failed']],
+    });
+  });
+
+  test('a hold no Recording will read goes with the feed, and one it will read stays', async () => {
+    const seen = async (recording: boolean) => {
+      const log = await run(LONG_AGO, LONG_AGO, { recording });
+      return [log.filter((line) => line === 'discard').length, log.at(-1)];
+    };
+    assert({
+      given: 'a finished Broadcast with no Recording, then one with',
+      should: 'empty the hold before recording it withdrawn, or leave it',
+      actual: [await seen(false), await seen(true)],
+      expected: [
+        [2, 'withdrawn'],
+        [0, 'withdrawn'],
+      ],
+    });
+  });
+  test('a stop too recent leaves the hold, and does not complete yet', async () => {
+    const log = await run(new Date(NOW - 1000), null, { recording: false });
+    assert({
+      given: 'a stop whose Egress may still be writing',
+      should: 'withdraw the feed, and neither discard nor complete',
+      actual: [log.includes('discard'), log.includes('complete'), log.at(-1)],
+      expected: [false, false, 'withdrawn'],
     });
   });
 });
