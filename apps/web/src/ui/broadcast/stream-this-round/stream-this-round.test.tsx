@@ -28,6 +28,20 @@ describe('StreamThisRound', () => {
     });
   });
 
+  test('the steps say what OBS does at a break and at the end', () => {
+    const html = render('casual');
+    assert({
+      given: 'behaviour measured on OBS 32.1.2',
+      should:
+        'tell a streamer how to clear a jumping picture and how the end looks',
+      actual: [
+        html.includes('delete the source and add it again'),
+        html.includes('about') && html.includes('two minutes'),
+      ],
+      expected: [true, true],
+    });
+  });
+
   test('no stream key, and nothing that looks like one-click push', () => {
     const text = render('ranked').toLowerCase();
     assert({
