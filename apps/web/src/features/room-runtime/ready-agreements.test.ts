@@ -67,7 +67,7 @@ describe('Ready agreements', () => {
       given: 'a ranked and a casual Room with no opt-in',
       should: 'show the ranked notice and nothing on the casual Room',
       actual: [roomCaptureNotice(ranked)?.version, roomCaptureNotice(casual)],
-      expected: ['ranked-draft-1', null],
+      expected: ['ranked-draft-2', null],
     });
   });
 

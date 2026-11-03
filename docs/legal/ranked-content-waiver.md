@@ -8,7 +8,7 @@ A member signs this once per season, separately from the Terms, before Ready on 
 
 ## The deal
 
-Ranked rounds are always public, always broadcast and always recorded. Competing in one is the deal. If you do not want this, play casual.
+Ranked rounds are always public, and they are broadcast and recorded. If every capture machine is busy, a round can run without a broadcast or recording; the debate and its result are not affected. Competing in one is the deal. If you do not want this, play casual.
 
 ## In-round content
 

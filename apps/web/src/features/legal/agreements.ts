@@ -8,7 +8,7 @@ import type { LegalDocument } from './documents';
  * Source of truth for the wording: docs/legal/ranked-content-waiver.md and
  * docs/legal/ranked-content-policy.md.
  */
-export const CONTENT_WAIVER_VERSION = 'draft-3';
+export const CONTENT_WAIVER_VERSION = 'draft-4';
 export const CONTENT_POLICY_VERSION = 'draft-3';
 
 const notReviewed =
@@ -23,7 +23,7 @@ export const contentWaiverDocument: LegalDocument = {
       id: 'the-deal',
       heading: 'The deal',
       paragraphs: [
-        'Ranked rounds are always public, always broadcast and always recorded. Competing in one is the deal. If you do not want this, play casual.',
+        'Ranked rounds are always public, and they are broadcast and recorded. If every capture machine is busy, a round can run without a broadcast or recording; the debate and its result are not affected. Competing in one is the deal. If you do not want this, play casual.',
       ],
     },
     {
@@ -137,8 +137,8 @@ const notices: Readonly<
   Record<Exclude<RoundCapture, 'none'>, RoundCaptureNotice>
 > = {
   ranked: {
-    version: 'ranked-draft-1',
-    text: 'This ranked round is public, broadcast with a delay and recorded. Its video stays after you close your account, and you cannot remove it; moderation can still take it down. A subscriber can download a recording, and a copy outside Daisy is beyond erasure and takedown.',
+    version: 'ranked-draft-2',
+    text: 'This ranked round is public, broadcast with a delay and recorded. If every capture machine is busy it can run without a broadcast or recording; the debate and its result are not affected. Its video stays after you close your account, and you cannot remove it; moderation can still take it down. A subscriber can download a recording, and a copy outside Daisy is beyond erasure and takedown.',
   },
   'opted-in': {
     version: 'casual-draft-1',

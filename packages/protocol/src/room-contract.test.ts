@@ -244,7 +244,7 @@ describe('Room command boundary', () => {
           roomCommandSchema.safeParse({
             ...consent,
             type,
-            noticeVersion: 'ranked-draft-1',
+            noticeVersion: 'ranked-draft-2',
           }).success,
       ),
       expected: [true, false],

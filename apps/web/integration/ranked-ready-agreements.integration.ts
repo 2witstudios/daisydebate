@@ -99,7 +99,7 @@ test('Ready on a ranked Round waits for the signed waiver, and records the notic
           signed: 'signed',
           stale: 'capture-notice-changed',
           isReady: 'ready',
-          notices: [{ version: 'ranked-draft-1', room_id: room.id }],
+          notices: [{ version: 'ranked-draft-2', room_id: room.id }],
         },
       });
     }),

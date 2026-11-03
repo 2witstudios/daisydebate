@@ -148,7 +148,7 @@ test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0
           formatVersion: 1,
           presetVersion: 1,
         },
-        noticeVersion: 'ranked-draft-1',
+        noticeVersion: 'ranked-draft-2',
       }),
     }),
   );
