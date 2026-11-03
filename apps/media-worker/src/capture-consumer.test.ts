@@ -43,6 +43,7 @@ const clip = (beforeMs: number, afterMs: number, owner = seat): QueuedClip =>
     before: at(beforeMs).toISOString(),
     after: at(afterMs).toISOString(),
     clipKey: 'k',
+    kind: 'audible',
     wav: new Uint8Array(4),
     bytes: 4,
   }) as unknown as QueuedClip;
@@ -149,6 +150,45 @@ test('a transcribed clip records the window it captured, speech or silence', asy
         },
       ],
     },
+  });
+});
+
+test('a silent clip is observed coverage and is never sent to speech-to-text', async () => {
+  const silent = (beforeMs: number, afterMs: number) =>
+    ({
+      ...clip(beforeMs, afterMs),
+      kind: 'silent',
+      wav: undefined,
+      bytes: 0,
+    }) as unknown as QueuedClip;
+  const { calls, transcribes, observed } = await consume(
+    [silent(1000, 3000)],
+    ['Thank you.'],
+  );
+  assert({
+    given: 'a silent clip and a provider that would invent "Thank you."',
+    should: 'make no call, append nothing and still observe the window',
+    actual: { calls, transcribes, observedCount: observed.length },
+    expected: { calls: ['observe'], transcribes: 0, observedCount: 1 },
+  });
+});
+
+test('a silent clip after a refused stream is still observed', async () => {
+  const silent = {
+    ...clip(3000, 5000),
+    kind: 'silent',
+    wav: undefined,
+    bytes: 0,
+  } as unknown as QueuedClip;
+  const { calls, dropped } = await consume(
+    [clip(1000, 3000), silent],
+    [await providerFailure(400)],
+  );
+  assert({
+    given: 'a stream whose earlier clip the vendor refused',
+    should: 'still observe a later silent window, which needs no provider',
+    actual: { calls, dropped },
+    expected: { calls: ['observe'], dropped: 200 },
   });
 });
 

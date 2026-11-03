@@ -1,6 +1,6 @@
 import { createTrackClocks } from '@daisy/media/observation';
 import type { createAudioSubscription } from '@daisy/media/subscription';
-import type { cutCaptureClips } from '@daisy/media/clips';
+import type { cutCaptureClips } from './capture-clips';
 import {
   contained,
   straddlesGrantEdge,

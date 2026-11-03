@@ -21,11 +21,7 @@ import {
 } from './media-capture-context';
 import { transcriptObservations } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
-import {
-  requireObservationWindow,
-  sealAction,
-  sealState,
-} from './capture-rules';
+import { requireObservationWindow, sealAction } from './capture-rules';
 
 export async function observeCapturedStream(
   tx: CaptureTx,
@@ -141,29 +137,29 @@ export async function sealCapturedStream(
   const [{ unused } = { unused: false }] = (await tx.execute(
     sql`select ${botGrantUnused(input.roundId, input.segmentId, input.roundParticipantId)} as unused`,
   )) as unknown as { unused: boolean }[];
-  const state = sealState({
+  const verdict = dependencies.captureRule.decideStreamCapture({
     grantUnused: unused,
     interrupted: await captureSessionInterrupted(tx, input.sessionId, segment),
     framesLost: input.framesLost,
     epoch: input.epoch,
-    observations,
+    observations: observations.map((row) => ({
+      start: row.start.getTime(),
+      end: row.end.getTime(),
+      epoch: row.epoch,
+    })),
     chunks,
     storedChunks: stream.chunkCount,
     expectedChunks: input.expectedChunkCount,
-    ...(await coverageAuthority(
-      tx,
-      input,
-      required,
-      dependencies.coverageTolerance,
-    )),
+    ...(await coverageAuthority(tx, input, required, dependencies.captureRule)),
   });
   const mutationNow = await freshCaptureMutation(tx, input.roundId, context);
   await updateCaptureStream(tx, input, {
-    state,
+    state: verdict.state,
+    partialReasons: verdict.state === 'partial' ? [...verdict.reasons] : [],
     sealedChunkCount: Math.max(input.expectedChunkCount, stream.chunkCount),
     sealedAt: mutationNow,
   });
   const revision = await advanceTranscriptRevision(tx, input.roundId);
   await appendTranscriptChanged(tx, input.roundId, revision);
-  return { state, revision };
+  return { state: verdict.state, revision };
 }

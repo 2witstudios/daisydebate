@@ -1,3 +1,4 @@
+import { captureRule } from '@daisy/debate-engine';
 import { composeRoundMemberDependencies } from '../round-runtime/member-composition';
 import type { App } from '../../server/app';
 import { canReadRound, canReadTranscript } from '../round-runtime/reads';
@@ -16,6 +17,7 @@ export function composeRoundBallotRoutes(app: App) {
       app.database.readRoundBallot({
         caller,
         roundId,
+        captureRule,
         authorize: (round, account) => canReadRound(caller, round, account),
         authorizeTranscript: (round, account) =>
           canReadTranscript(caller, round, account),

@@ -1,8 +1,7 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, leaseReply } from '@daisy/protocol';
 import type { z } from 'zod';
 import type { createMediaWorkerAuthentication } from './worker-auth';
-import { leaseReply } from './worker-replies';
 type WorkerScope = {
   readonly roundId: string;
   readonly sessionId: string;

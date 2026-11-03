@@ -9,6 +9,16 @@ setupRitewayBun();
 const id = (c: string) => c.repeat(24);
 const principal = { roundId: id('r'), sessionId: id('s'), workerId: id('w') };
 const base = 'http://localhost/internal/media/capture';
+const leaseGranted = { epoch: 1, expiresAt: '2026-11-02T12:00:00.000Z' };
+const sealed = { state: 'partial', revision: 1 };
+const tokenIssued = {
+  sessionId: id('s'),
+  roomName: id('m'),
+  identity: id('i'),
+  url: 'wss://media.example.test',
+  token: 'media-token',
+  expiresAt: '2026-11-02T12:00:00.000Z',
+};
 
 const fixture = (
   seal?: () => Promise<unknown>,
@@ -42,19 +52,16 @@ const fixture = (
       }) as never,
     capture: () =>
       ({
-        claimMediaWorkerLease: record(
-          'lease',
-          lease?.result ?? { ok: 'lease' },
-        ),
+        claimMediaWorkerLease: record('lease', lease?.result ?? leaseGranted),
         readMediaCaptureState: record('read'),
         appendCapturedTranscript: record('append'),
         observeCapturedStream: record('observe'),
-        sealCapturedStream: seal ?? record('seal', null),
+        sealCapturedStream: seal ?? record('seal', sealed),
       }) as never,
     token: (async (scope: unknown) => {
       if (token) return token();
       calls.push(['token', scope]);
-      return { token: 'media-token' };
+      return tokenIssued;
     }) as never,
     heard: async (identity, body) => {
       calls.push(['heard', { identity, body }]);
@@ -80,9 +87,8 @@ test('a signed capture call dispatches under the authenticated Round scope', asy
   );
   const seal = await f.handlers.handle(signed('seal', '{}'));
   assert({
-    given: 'a signed lease claiming another Round and a seal with no result',
-    should:
-      'bind the verified Round id over the body and answer null for an empty result',
+    given: 'a signed lease claiming another Round and a seal',
+    should: 'bind the verified Round id over the body and answer each reply',
     actual: [
       lease.status,
       await lease.json(),
@@ -92,11 +98,32 @@ test('a signed capture call dispatches under the authenticated Round scope', asy
     ],
     expected: [
       200,
-      { ok: 'lease' },
-      null,
+      leaseGranted,
+      sealed,
       ['lease', 'seal'],
       { roundId: id('r'), leaseMs: 5000 },
     ],
+  });
+});
+
+test('a reply outside the capture contract is never sent', async () => {
+  const f = fixture(async () => ({ state: 'complete', revision: 1, extra: 1 }));
+  const response = await f.handlers.handle(signed('seal', '{}'));
+  assert({
+    given: 'an operation whose answer the worker would refuse',
+    should: 'fail here rather than send it',
+    actual: response.status,
+    expected: 500,
+  });
+});
+
+test('an inherited object name is refused like any unknown operation', async () => {
+  const response = await fixture().handlers.handle(signed('constructor', '{}'));
+  assert({
+    given: 'a signed call to an operation name every object inherits',
+    should: 'be refused rather than fail on it',
+    actual: response.status,
+    expected: 403,
   });
 });
 
@@ -113,11 +140,7 @@ test('a signed token request is validated against its strict scope', async () =>
     given: 'an exact token scope and one with an extra field',
     should: 'issue only for the exact scope bound to the verified Round',
     actual: [await issued.json(), extra.status, f.calls],
-    expected: [
-      { token: 'media-token' },
-      400,
-      [['token', { ...scope, roundId: id('r') }]],
-    ],
+    expected: [tokenIssued, 400, [['token', { ...scope, roundId: id('r') }]]],
   });
 });
 

@@ -3,7 +3,7 @@ import {
   MAX_CUT_FRAMES,
   cutCaptureClips,
   type ClipCarry,
-} from '@daisy/media/clips';
+} from './capture-clips';
 import {
   readCaptureHistory,
   straddlesGrantEdge,

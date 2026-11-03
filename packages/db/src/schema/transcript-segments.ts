@@ -1,3 +1,7 @@
+import {
+  capturePartialReasons,
+  type CapturePartialReason,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -40,6 +44,12 @@ export const transcriptSegments = pgTable(
       .$type<'open' | 'complete' | 'partial'>()
       .notNull()
       .default('open'),
+    /** Why a partial stream is partial, decided at its seal (never derivable later). */
+    partialReasons: text('partial_reasons')
+      .$type<CapturePartialReason>()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     chunkCount: integer('chunk_count').notNull().default(0),
     sealedChunkCount: integer('sealed_chunk_count'),
     sealedAt: timestampColumn('sealed_at'),
@@ -73,6 +83,14 @@ export const transcriptSegments = pgTable(
     check(
       'transcript_segments_state_check',
       oneOf(table.state, ['open', 'complete', 'partial']),
+    ),
+    check(
+      'transcript_segments_partial_reasons_check',
+      sql`(${table.state} = 'partial') = (cardinality(${table.partialReasons}) > 0)`,
+    ),
+    check(
+      'transcript_segments_partial_reasons_known_check',
+      sql`${table.partialReasons} <@ array[${sql.raw(capturePartialReasons.map((reason) => `'${reason}'`).join(', '))}]::text[]`,
     ),
     check(
       'transcript_segments_counts_check',
