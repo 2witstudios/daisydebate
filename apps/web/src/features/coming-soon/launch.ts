@@ -9,7 +9,7 @@ type LaunchConfig = Readonly<Record<DestinationSlug, boolean>>;
  * explainer redirects there. Until then the nav leaves it out and every link
  * into it goes to its explainer, never to sample data. A destination's own
  * routes enforce this with `redirectUnlessLaunched`; Watch does, and other
- * closed destinations that still serve samples are tracked on the board. Seasons is the exception:
+ * closed destinations that still serve samples are ISSUE-1041. Seasons is the exception:
  * a tile for a public page under the Leaderboard, so its flag changes only the
  * tile and the explainer redirect.
  */
