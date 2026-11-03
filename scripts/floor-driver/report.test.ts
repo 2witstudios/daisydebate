@@ -129,7 +129,14 @@ test('a server log gives refusals, cost per floor change and lane use', () => {
     should: 'report each measure, labelling the bound on hold p95',
     actual: summary,
     expected: {
-      refusals: [{ lane: 'competitive', operation: 'media.capture', count: 2 }],
+      refusals: [
+        {
+          lane: 'competitive',
+          reason: 'saturated',
+          operation: 'media.capture',
+          count: 2,
+        },
+      ],
       floorMoves: { tick: 1, browser: 1, capture: 0 },
       passes: 2,
       passesPerFloorChange: 1,
