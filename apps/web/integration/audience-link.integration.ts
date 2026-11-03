@@ -67,6 +67,8 @@ test('an unlisted Round, by its link, on real Postgres', async () => {
       feedKey: 'second-random-key',
       releasePolicy: policy,
     });
+    await f.sql`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,duration_ms)
+      values (${createId()},${roundId},0,'speech','1AC',now() - interval '1 minute',${60_000})`;
     await f.sql`update broadcasts set released_through_at=now() where id=${opened.id}`;
     try {
       assert({
