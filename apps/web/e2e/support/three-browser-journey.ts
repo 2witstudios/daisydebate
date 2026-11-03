@@ -365,9 +365,7 @@ export async function proveThreeBrowserRound(browser: Browser) {
     expect(roundViewSchema.parse(await readRound(host, first.roundId))).toEqual(
       finished,
     );
-    const seats = (await readRound(host, second.roundId)).participants.filter(
-      isNamedSeat,
-    );
+    const seats = (await readRound(host, second.roundId)).participants;
     expect(seats.map((seat) => seat.role).sort()).toEqual([
       'affirmative',
       'judge',

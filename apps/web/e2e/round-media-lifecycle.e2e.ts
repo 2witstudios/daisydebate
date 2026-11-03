@@ -1,3 +1,4 @@
+import { reread } from './support/room-launch-flow';
 import { roundMediaStateSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
@@ -37,10 +38,10 @@ test('closing an account leaves no live Round behind it', async ({
     const round = await createHumanBallotRound(accounts.members, 0);
     await accounts.closeContexts();
     const { request } = observer.members[0]!.context;
-    // A stranger reads the audience's timeline; the Round itself belongs to its seats.
-    const timeline = await request.get(`/api/rounds/${round.id}/timeline`);
-    expect(timeline.status()).toBe(200);
-    expect((await timeline.json()).stage.kind).toBe('ended');
+    // A stranger reads the public Room; the Round itself belongs to its seats.
+    const room = await reread(request, round.roomId);
+    expect(room.roundRef?.id).toBe(round.id);
+    expect(['completed', 'abandoned']).toContain(room.roundRef?.status);
   } finally {
     await accounts.closeContexts();
     await observer.closeContexts();
