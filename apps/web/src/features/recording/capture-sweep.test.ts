@@ -81,13 +81,7 @@ const setup = (over: {
       restoreObserver: log('egress.restore'),
     },
     holdsCapture: () => true,
-    positionAt: () => ({
-      status: 'active',
-      openSegment: { endsAt: at },
-      nextSegment: { type: 'speech' },
-      prep: null,
-      stage: null,
-    }),
+    phaseAt: () => ({ kind: 'public' }),
     now: () => NOW,
     newCredential: () => ({ secret: 's3cret', hash: 'digest' }),
     stageUrl: (id, credential) =>

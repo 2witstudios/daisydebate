@@ -1,6 +1,10 @@
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { hostHoldsCasualCapture as holdsCasualCapture } from '../room-runtime/capture-offer';
-import { captureRule, createRoundRuntime } from '@daisy/debate-engine';
+import {
+  broadcastPhase,
+  captureRule,
+  createRoundRuntime,
+} from '@daisy/debate-engine';
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
 import {
@@ -106,12 +110,15 @@ export const startRecordingCapture = (app: App, timers: WorkerTimers) => {
     egress,
     holdsCapture: (grants) =>
       holdsCasualCapture(grants, app.config.PREMIUM_BETA_GRANT),
-    positionAt: (round, now) =>
-      createRoundRuntime({
-        ...round,
-        round,
-        nextSegmentId: () => app.ids.next(),
-      }).position(now),
+    phaseAt: (round, now) =>
+      broadcastPhase(
+        createRoundRuntime({
+          ...round,
+          round,
+          nextSegmentId: () => app.ids.next(),
+        }).position(now),
+        round.rules.segments.length - 1,
+      ),
     now: () => Date.parse(app.clock.now()),
     newCredential: () => newStageCredential(),
     stageUrl: (id, credential) =>

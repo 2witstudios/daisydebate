@@ -252,6 +252,13 @@ export default defineConfig({
         E2E_MAIL_PORT: String(ports.mail),
         E2E_FEED_PORT: String(ports.feed),
         BROADCAST_PUBLIC_ORIGIN: `https://localhost:${ports.feed}`,
+        // The Recording bucket's stand-in is the same local server. Only this
+        // suite's server talks to it, over its self-signed certificate.
+        RECORDING_BUCKET_ENDPOINT: `https://localhost:${ports.feed}`,
+        RECORDING_BUCKET_NAME: 'recordings-e2e',
+        RECORDING_BUCKET_ACCESS_KEY_ID: 'e2e',
+        RECORDING_BUCKET_SECRET_ACCESS_KEY: 'e2e',
+        NODE_TLS_REJECT_UNAUTHORIZED: '0',
         NODE_ENV: 'production',
         // The production configuration refinements must hold: HTTPS public URL,
         // deployment identity, no development credentials, proof route closed.

@@ -1,9 +1,8 @@
 import {
-  broadcastPhase,
   plannedBroadcast,
   plannedRecording,
-  type PhasePosition,
   type StageEgressFact,
+  type StagePhaseFact,
 } from '@daisy/debate-engine';
 import {
   holdAttemptPrefix,
@@ -93,11 +92,11 @@ export const createRecordingCaptureSweep = (deps: {
   readonly port: RecordingCapturePort;
   readonly egress: Egress;
   readonly holdsCapture: (grants: readonly EntitlementGrant[]) => boolean;
-  /** Where the Round stands: read without a lock and without ticking it. */
-  readonly positionAt: (
+  /** What the stage may show now: read without a lock and without ticking the Round. */
+  readonly phaseAt: (
     round: NonNullable<Awaited<ReturnType<Store['readRound']>>>['round'],
     now: string,
-  ) => PhasePosition;
+  ) => StagePhaseFact;
   readonly now: () => number;
   /** CSPRNG secret; only its SHA3-256 hash is stored. */
   readonly newCredential: () => {
@@ -156,7 +155,7 @@ export const createRecordingCaptureSweep = (deps: {
     open: Open,
     nowMs: number,
     own: NonNullable<Open['own']>,
-    position: PhasePosition,
+    phase: StagePhaseFact,
   ): Promise<RecordingCaptureFacts> => ({
     nowMs,
     lifecycle: open.lifecycle,
@@ -165,7 +164,7 @@ export const createRecordingCaptureSweep = (deps: {
       kind: 'own',
       latest: attemptOf(own, nowMs),
       egress: own.egressId ? await egress.read(own.egressId) : { kind: 'none' },
-      phase: broadcastPhase(position),
+      phase,
       observerSubscribed: own.observerRevokedAt === null,
       revocationFailures: own.revocationFailures,
     },
@@ -284,7 +283,7 @@ export const createRecordingCaptureSweep = (deps: {
     if (!mine) return;
     const read = await store.readRound(open.roundId);
     if (!read) return;
-    const position = deps.positionAt(read.round, iso(nowMs));
+    const phase = deps.phaseAt(read.round, iso(nowMs));
     const own = open.own ?? {
       recordingId: open.id,
       egressId: null,
@@ -293,7 +292,7 @@ export const createRecordingCaptureSweep = (deps: {
       observerRevokedAt: null,
       revocationFailures: 0,
     };
-    const facts = await ownFacts(open, nowMs, own, position);
+    const facts = await ownFacts(open, nowMs, own, phase);
     for (const action of decideRecordingCapture(facts))
       await runOwn(open, own, read.roomName, action, nowMs);
   };

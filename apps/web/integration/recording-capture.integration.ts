@@ -1,6 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { createRecordingWorkerStore } from '@daisy/db/recording-worker';
-import { createRoundRuntime } from '@daisy/debate-engine';
+import { broadcastPhase, createRoundRuntime } from '@daisy/debate-engine';
 import {
   oneOnOneDefinition,
   oneOnOneSettings,
@@ -79,12 +79,15 @@ const setup = async (f: Harness, capture: { readonly broadcast: boolean }) => {
       },
     },
     holdsCapture: () => true,
-    positionAt: (round, now) =>
-      createRoundRuntime({
-        ...round,
-        round,
-        nextSegmentId: createId,
-      } as never).position(now),
+    phaseAt: (round, now) =>
+      broadcastPhase(
+        createRoundRuntime({
+          ...round,
+          round,
+          nextSegmentId: createId,
+        } as never).position(now),
+        round.rules.segments.length - 1,
+      ),
     now: () => nowMs,
     newCredential: () => ({ secret: 's', hash: 'digest' }),
     stageUrl: (id, credential) =>

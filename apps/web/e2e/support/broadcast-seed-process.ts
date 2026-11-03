@@ -21,7 +21,13 @@ type Create = {
 
 type Advance = {
   readonly command:
-    'slate' | 'on-air' | 'interrupt' | 'stop' | 'end' | 'recording-ready';
+    | 'slate'
+    | 'on-air'
+    | 'interrupt'
+    | 'stop'
+    | 'end'
+    | 'recording-ready'
+    | 'recording-takedown';
   readonly roundId: string;
 };
 
@@ -115,26 +121,38 @@ const advance = async (sql: SQL, input: Advance) => {
       return;
     case 'recording-ready': {
       const at = systemClock.now();
-      const prefix = `recordings/${createId()}/`;
+      const [row] =
+        await sql`select id from recordings where round_id=${roundId}`;
+      const prefix = `recordings/${row.id}/`;
+      const [speaker] =
+        await sql`select id from round_participants where round_id=${roundId} and role='affirmative'`;
       await sql`update recordings set status='ready',lifecycle=${{
         status: 'ready',
         capture: {
-          egressId: 'EG',
+          source: { kind: 'own_capture' },
           startedAt: at,
           endedAt: at,
-          sourceKey: `${prefix}source.mp4`,
+          attempts: [{ attempt: 1, egressId: 'EG', startedAt: at }],
         },
         media: {
+          capturedFrom: at,
           playlistKey: `${prefix}hls/master.m3u8`,
           downloadKey: `${prefix}video.mp4`,
-          durationMs: 60_000,
+          durationMs: 8000,
           byteSize: 10,
           verifiedAt: at,
-          gaps: [],
-          speeches: [],
+          gaps: [{ startMs: 4000, endMs: 6000, reason: 'capture_restart' }],
+          speeches: [
+            { roundParticipantId: speaker.id, startMs: 2000, endMs: 4000 },
+          ],
         },
       }} where round_id=${roundId}`;
-      return;
+      return row.id as string;
+    }
+    case 'recording-takedown': {
+      const at = systemClock.now();
+      await sql`update recordings set status='taken_down',lifecycle=jsonb_build_object('status','taken_down','takenDownAt',${at}::text,'held',lifecycle) where round_id=${roundId}`;
+      return undefined;
     }
   }
 };
