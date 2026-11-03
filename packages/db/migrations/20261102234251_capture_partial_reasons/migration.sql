@@ -3,6 +3,7 @@ ALTER TABLE "transcript_segments" ADD COLUMN "partial_reasons" text[] DEFAULT '{
 -- Only this one-time backfill may pass the guard.
 ALTER TABLE "transcript_segments" DISABLE TRIGGER "transcript_segments_seal_immutable";--> statement-breakpoint
 UPDATE "transcript_segments" SET "partial_reasons" = '{never-sealed}' WHERE "state" = 'partial';--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "transcript_segments" ENABLE TRIGGER "transcript_segments_seal_immutable";
 --> statement-breakpoint
 ALTER TABLE "transcript_segments" ADD CONSTRAINT "transcript_segments_partial_reasons_check" CHECK (("state" = 'partial') = (cardinality("partial_reasons") > 0));--> statement-breakpoint
