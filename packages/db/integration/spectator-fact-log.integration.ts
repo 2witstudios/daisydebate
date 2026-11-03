@@ -206,7 +206,8 @@ test('a full batch of waiting Rounds starves nothing', async () => {
     const { sweepSpectatorFactLog } = spectatorFactLogOperations({
       database: db,
     });
-    for (const _pass of ids) await sweepSpectatorFactLog({ clock, limit: 1 });
+    for (let pass = 0; pass < ids.length; pass += 1)
+      await sweepSpectatorFactLog({ clock, limit: 1 });
     const logged = await Promise.all(
       ids.map(async (id) => (await rows(sql, id)).length > 0),
     );
