@@ -1,5 +1,10 @@
 import { resumeAttemptPrefix } from './resume-attempt';
-import { resumeHeirPrefix, resumeOwnershipPrefix } from './resume-ownership';
+import { documentTabId } from './document-tab';
+import {
+  markClaimLeft,
+  resumeHeirPrefix,
+  resumeOwnershipPrefix,
+} from './resume-ownership';
 
 /**
  * Whether a member left this Round explicitly in this tab, so auto-resume does
@@ -23,6 +28,22 @@ export function markDeparture(
     );
   } catch {
     // Storage disabled: the departure holds only for this navigation.
+  }
+}
+
+/** Leaving, as a member's press: recorded here, and told to any tab waiting on this one. */
+export function leaveRound(actorId: string | null, roundId: string): void {
+  markDeparture(actorId, roundId);
+  if (actorId === null) return;
+  try {
+    markClaimLeft({
+      storage: window.localStorage,
+      actorId,
+      roundId,
+      tabId: documentTabId(),
+    });
+  } catch {
+    // Storage blocked: no tab can be waiting on this one.
   }
 }
 

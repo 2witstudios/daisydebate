@@ -25,7 +25,7 @@ const profile = (overrides: Partial<MemberProfile> = {}): MemberProfile => ({
   memberSince: '2026-09-14T00:00:00.000Z',
   closed: false,
   me: false,
-  record: { wins: 3, losses: 1, draws: 0 },
+  record: { wins: 3, losses: 1 },
   history: [entry({})],
   nextBefore: null,
   ...overrides,
@@ -46,7 +46,7 @@ describe('ProfilePage', () => {
         html.includes('>@debater-a<'),
         html.includes('Member since September 2026'),
         html.includes('aria-label="Record"'),
-        html.includes('Draws'),
+        html.includes('No ruling'),
         html.includes(`href="/rounds/${'r'.repeat(24)}"`),
         html.includes('href="/profile/debater-b"'),
         html.includes('>Won<'),
@@ -94,7 +94,7 @@ describe('ProfilePage', () => {
   test('results and opponents', () => {
     const html = render(
       profile({
-        record: { wins: 0, losses: 1, draws: 1 },
+        record: { wins: 0, losses: 1 },
         history: [
           entry({
             roundId: 'a'.repeat(24),
@@ -105,16 +105,21 @@ describe('ProfilePage', () => {
               { kind: 'human', label: 'gone-debater', closed: true },
             ],
           }),
-          entry({ roundId: 'b'.repeat(24), result: 'draw', judges: 'mixed' }),
+          entry({
+            roundId: 'b'.repeat(24),
+            result: 'no-ruling',
+            judges: 'mixed',
+          }),
         ],
       }),
     );
     assert({
-      given: 'a forfeited loss against a bot and a closed account, and a draw',
+      given:
+        'a forfeited loss against a bot and a closed account, and no ruling',
       should:
-        'show draws in the record, the forfeit, the AI opponent and the closed account by name',
+        'show no ruling, the forfeit, the AI opponent and the closed account by name',
       actual: [
-        html.includes('Draws'),
+        html.includes('No ruling'),
         html.includes('>Lost<'),
         html.includes('By forfeit'),
         html.includes('Socrates (AI)'),

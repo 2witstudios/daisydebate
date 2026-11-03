@@ -3,7 +3,7 @@ import { recordResult, tallyRecord } from './debate-record';
 
 setupRitewayBun();
 
-const completed = (outcome: 'affirmative' | 'negative' | 'draw' | null) =>
+const completed = (outcome: 'affirmative' | 'negative' | null) =>
   ({ status: 'completed', outcome }) as const;
 
 describe('recordResult', () => {
@@ -29,18 +29,6 @@ describe('recordResult', () => {
         recordResult(completed('affirmative'), 'negative'),
       ],
       expected: ['win', 'loss'],
-    });
-  });
-
-  test('a split panel', () => {
-    assert({
-      given: 'a completed Round whose judges split evenly',
-      should: 'be a draw for both sides',
-      actual: [
-        recordResult(completed('draw'), 'affirmative'),
-        recordResult(completed('draw'), 'negative'),
-      ],
-      expected: ['draw', 'draw'],
     });
   });
 
@@ -77,17 +65,16 @@ describe('tallyRecord', () => {
     assert({
       given: 'grouped Rounds across sides, outcomes and states',
       should:
-        'count wins, losses and draws, and leave out no-ruling, abandoned and judged-from-the-bench Rounds',
+        'count wins and losses, and leave out no-ruling, abandoned and judged-from-the-bench Rounds',
       actual: tallyRecord([
         { ...completed('affirmative'), role: 'affirmative', rounds: 3 },
         { ...completed('negative'), role: 'affirmative', rounds: 2 },
         { ...completed('negative'), role: 'negative', rounds: 1 },
-        { ...completed('draw'), role: 'negative', rounds: 1 },
         { ...completed(null), role: 'affirmative', rounds: 4 },
         { status: 'abandoned', outcome: null, role: 'negative', rounds: 5 },
         { ...completed('affirmative'), role: 'judge', rounds: 6 },
       ]),
-      expected: { wins: 4, losses: 2, draws: 1 },
+      expected: { wins: 4, losses: 2 },
     });
   });
 
@@ -96,7 +83,7 @@ describe('tallyRecord', () => {
       given: 'a member with no Rounds',
       should: 'be an empty record',
       actual: tallyRecord([]),
-      expected: { wins: 0, losses: 0, draws: 0 },
+      expected: { wins: 0, losses: 0 },
     });
   });
 });

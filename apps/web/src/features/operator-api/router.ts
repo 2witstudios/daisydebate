@@ -13,6 +13,7 @@ import type { Database } from '@daisy/db';
 import { createAppError, isAppError, type ErrorCode } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
+import { restrictionRules } from '../moderation/restriction-rules';
 import { REPORT_EVIDENCE_RETENTION_MS } from '../reports/operations';
 import { boundedBody, json, refusal, transportRefusal } from './http';
 import {
@@ -435,6 +436,7 @@ async function resolveReport(
       now.getTime() + REPORT_EVIDENCE_RETENTION_MS,
     ).toISOString(),
     nextId: deps.nextId,
+    restrictionRules,
     live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,
   });
   deps.logger.log(

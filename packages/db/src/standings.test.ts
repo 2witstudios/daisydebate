@@ -73,7 +73,7 @@ describe('standings reads', () => {
           'affirmative',
         ],
         ['s1', 'a2', 'd1', 1500, 1484, 350, 290, at, 'negative', 'affirmative'],
-        ['s1', 'a1', 'd2', 1516, 1516, 290, 250, at, 'affirmative', 'draw'],
+        ['s1', 'a1', 'd2', 1516, 1516, 290, 250, at, 'affirmative', 'negative'],
       ],
     ]);
     const read = await database.readStandings({
@@ -97,7 +97,7 @@ describe('standings reads', () => {
       expected: [
         ['affirmative', 'affirmative', at.toISOString()],
         ['negative', 'affirmative', at.toISOString()],
-        ['affirmative', 'draw', at.toISOString()],
+        ['affirmative', 'negative', at.toISOString()],
       ],
     });
   });

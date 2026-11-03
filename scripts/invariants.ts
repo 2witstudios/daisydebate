@@ -240,7 +240,7 @@ const fixtures: Readonly<Record<string, Fixture>> = {
         state: { rating: 1500, deviation: 350, volatility: 0.06 },
         lastRatedAt: null,
       },
-      outcome: 'draw',
+      outcome: 'affirmative',
       occurredAt: t0,
     }),
   'rating-volatility-converges': () =>

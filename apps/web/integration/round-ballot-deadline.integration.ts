@@ -1,6 +1,11 @@
 import { decisionOf } from './attendance-evaluation.test-support';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
-import { judgingJobRules, ratingAwaited } from '@daisy/debate-engine';
+import {
+  judgingJobRules,
+  ratingAwaited,
+  readRoundOpening,
+  roundWaitingOn,
+} from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
 import { withSeasons } from '@daisy/db/seasons';
 import { recoverRatedResults } from './rated-room.test-support';
@@ -12,6 +17,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
 import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
+import { readRoundRatings } from '../src/features/ratings/read-round';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import {
   fixtureBallot,
@@ -290,11 +296,8 @@ test('an AI judging job no provider ever served by its budget is a known failure
   );
 });
 
-for (const [captured, postings] of [
-  [true, 2],
-  [false, 0],
-] as const)
-  test(`on a rated Round with a ${captured ? 'complete' : 'incomplete'} freeze, a decisive ballot beside a silent judge posts ${postings} ratings (DEC-277)`, async () => {
+for (const captured of [true, false])
+  test(`on a rated Round with a ${captured ? 'complete' : 'incomplete'} freeze, a decisive ballot beside a silent judge posts both ratings (DEC-277, DEC-329)`, async () => {
     await withRoomRuntime(async (f) => {
       const seasonId = createId();
       const { room, judges } = await readyTwoHumanJudgeRoom(f);
@@ -322,23 +325,36 @@ for (const [captured, postings] of [
         await recoverRatedResults(f);
         const ledger =
           await f.sql`select actor_id from rating_changes where round_id=${roundId}`;
+        const roundReceipt = await readRoundRatings(f.store, {
+          round: await f.store.readLaunchedRound(
+            roundId,
+            f.host,
+            () => true,
+            readRoundOpening,
+            roundWaitingOn,
+          ),
+          now: done.completedAt!,
+          viewerActorId: f.host.actorId,
+        });
         assert({
           given: 'one human ruling decisively and one silent past the deadline',
           should:
-            'complete with that winner, posting each debater once only on a complete transcript',
+            'complete with that winner and post each debater once, whatever the capture',
           actual: {
             done: [done.status, done.outcome],
             ruling: receipt?.result.ruling,
             awaited,
             postings: ledger.length,
             awaitsAfter: await awaitsRating(f, roundId),
+            posting: roundReceipt?.posting,
           },
           expected: {
             done: ['completed', 'negative'],
             ruling: 'partial',
-            awaited: captured,
-            postings,
+            awaited: true,
+            postings: 2,
             awaitsAfter: false,
+            posting: 'rated',
           },
         });
       } finally {

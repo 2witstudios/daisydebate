@@ -122,7 +122,6 @@ test('an AI ballot with feedback for both sides never stops a round analysis', a
         affirmative: 'Weigh earlier.',
         negative: 'Answer the access turn.',
       },
-      status: 'submitted',
       submitted_at: new Date(1000),
     });
     const listed = (await listedSeats(jobs, dayAgo())).includes(aff.id);

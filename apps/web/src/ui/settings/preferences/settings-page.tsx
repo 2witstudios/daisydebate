@@ -124,9 +124,11 @@ export function SettingsPage({
             )}
           </Section>
           <Section id="privacy" title="Privacy and data">
-            <p className="text-sm text-ink-muted">
-              Not answering counts as no.
-            </p>
+            {analytics.available.analytics || analytics.available.replay ? (
+              <p className="text-sm text-ink-muted">
+                Not answering counts as no.
+              </p>
+            ) : null}
             <ConsentControls {...analytics} />
             <p className="text-sm text-ink-muted">
               Read the <Link href="/privacy">privacy policy</Link> and the{' '}

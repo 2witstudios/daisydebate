@@ -6,6 +6,7 @@
  */
 export {
   capacityRefusalFields,
+  reportCapacityHolders,
   isReportedCapacityRefusal,
   isCapacityRefusal,
   isTemporaryRefusal,

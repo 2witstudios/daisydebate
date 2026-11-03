@@ -46,7 +46,10 @@ export function ResumeRound({
       attemptedResume(actorId, roundId),
   );
   const resuming = resumeRoundHrefOf({ actorId, room, departed, attempted });
-  const ownership = useResumeLifetime(actorId, resuming ? roundId : null);
+  // Reading again with the departure marked, this tab stays where it is.
+  const ownership = useResumeLifetime(actorId, resuming ? roundId : null, () =>
+    window.location.reload(),
+  );
   const waited = useRef(false);
   useEffect(() => {
     if (resuming === null || ownership.owns === null) return;

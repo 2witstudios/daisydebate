@@ -94,6 +94,8 @@ export const liveTranscriptReadSchema = z.looseObject({
       segmentId: idSchema,
       roundParticipantId: idSchema,
       state: z.enum(['open', 'complete', 'partial']),
+      /** Why a partial stream is partial; a newer reason parses and says nothing. */
+      partialReasons: z.array(z.string()).optional(),
       gaps: z.array(
         z.looseObject({
           fromOffsetMs: z.int().nonnegative(),

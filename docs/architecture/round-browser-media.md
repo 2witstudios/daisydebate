@@ -239,6 +239,13 @@ Local mute and confirmed explicit departure suppression are tab-scoped keys unde
 cannot be read by another principal, and every record dies with the tab
 (ISSUE-879).
 
+A tab holding the Round that leaves it also says so in its advisory claim. A tab
+waiting on it records its own departure and moves away instead of inheriting
+the Round: home reads again and stays, a waiting room goes to the lobby. So
+nothing captures or checks in for a member who left, and no record outlives the
+claim (ISSUE-1033). A leave pressed in a waiting tab says nothing, and a holder
+that closed or crashed without leaving is still taken over (ISSUE-879, DEC-332).
+
 A resume fires once per tab until the Round has rendered: `rooms/resume-attempt.ts` holds the attempt in tab storage, so a failing Round page cannot take home and the lobby with it (ISSUE-1035).
 
 ### The media model
