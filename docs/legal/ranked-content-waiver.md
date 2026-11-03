@@ -1,8 +1,8 @@
-# Ranked content waiver — draft for counsel
+# Ranked content waiver — not reviewed by counsel
 
-**DRAFT for counsel, not reviewed.** Version `draft-2`. This file is the source of truth for the wording; the app shows the same text from `apps/web/src/features/legal/agreements.ts`, and a change to one changes the other and the version. Owner decisions of 2026-11-02 set the deal; the legal form is for counsel, and the wording may change after that review.
+**Not reviewed by counsel.** Version `draft-3`. This file is the source of truth for the wording; the app shows the same text from `apps/web/src/features/legal/agreements.ts`, without the placeholders, and a change to one changes the other and the version. Owner decisions of 2026-11-02 set the deal. Legal review blocks nothing: counsel can review this at any time, and the wording may change after that.
 
-Placeholders: **[COUNSEL: …]** is a legal judgment for counsel.
+Placeholders: **[COUNSEL: …]** is a question for counsel's review. An open one holds nothing back.
 
 A member signs this once per season, separately from the Terms, before Ready on their first ranked round of that season. Daisy records the account, the version and the time.
 
@@ -20,7 +20,7 @@ Daisy may edit ranked rounds into clips and other media, and use your name and l
 
 ## Payment
 
-This waiver promises no payment. Any revenue share would be a future program, not part of the beta, and is stated only as counsel approves. [COUNSEL: whether to mention it at all.]
+This waiver promises no payment. Any revenue share would be a future program, not part of the beta. [COUNSEL: whether to mention it at all.]
 
 ## What stays yours
 
