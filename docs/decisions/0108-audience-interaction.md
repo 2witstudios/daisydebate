@@ -1,4 +1,4 @@
-# 0107: Audience interaction and notifications
+# 0108: Audience interaction and notifications
 
 Status: accepted (SPECT-1.4 and WATCH-12; owner decisions on the Watch plan,
 2026-11-02). Settles the contextual spectator contract

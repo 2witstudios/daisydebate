@@ -1,13 +1,9 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { rowsOf } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
-
-const rowsOf = async <T>(
-  tx: Pick<BunSQLDatabase, 'execute'>,
-  query: ReturnType<typeof sql>,
-) => (await tx.execute(query)) as unknown as T[];
 
 const debaterNamed = (username: string) =>
   sql`select a.id,u.id as user_id from users u join actors a on a.user_id=u.id

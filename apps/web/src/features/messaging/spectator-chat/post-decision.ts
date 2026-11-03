@@ -1,6 +1,7 @@
 import type {
-  MessagingSendState,
   MessagingSendCommand,
+  MessagingSendState,
+  SpectatorChannelFacts,
 } from '@daisy/db/messaging';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { decideChatPost } from '../../content-moderation/chat-post';
@@ -13,21 +14,6 @@ export const spectatorChatRefusals = [
   'chat-slow-mode',
 ] as const;
 
-/** What the channel's owner read about this post, under the stream lock. */
-export type SpectatorPostFacts = {
-  readonly broadcast: null | {
-    readonly open: boolean;
-    readonly slowModeSeconds: number;
-  };
-  readonly account: null | {
-    readonly erased: boolean;
-    readonly restricted: boolean;
-    readonly underThirteen: boolean;
-  };
-  readonly banned: boolean;
-  readonly lastPostAtMs: number | null;
-};
-
 /**
  * Whether this post may stand, and how it is written. Authority comes first, so
  * a ban or a closed account refuses a retry too; a retried request then replays,
@@ -35,7 +21,7 @@ export type SpectatorPostFacts = {
  * refusals leave state unchanged, because the caller's transaction rolls back.
  */
 export const planSpectatorPost = (
-  facts: SpectatorPostFacts,
+  facts: SpectatorChannelFacts,
   state: MessagingSendState,
   command: MessagingSendCommand,
   resources: {

@@ -11,10 +11,10 @@ import { parseValidated } from '../../server/http';
 import { decideChatPost } from '../content-moderation/chat-post';
 
 /** One press of one reaction per account in each window; repeats are one. */
-export const REACTION_WINDOW_MS = 10_000;
+const REACTION_WINDOW_MS = 10_000;
 const REACTION_LIMIT = { max: 60, windowSeconds: 60 };
 
-export const audienceReactionRefusals = [
+const audienceReactionRefusals = [
   'reactions-unavailable',
   'reactions-closed',
   'reactions-banned',

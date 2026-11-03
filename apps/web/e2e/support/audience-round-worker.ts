@@ -21,7 +21,9 @@ try {
     await client`select id,current_version as version from formats order by id limit 1`;
   const roomId = createId();
   const roundId = createId();
-  const started = new Date(Date.now() - 3_600_000);
+  const [clock] =
+    await client`select now() as now, now() - interval '1 hour' as started, now() + interval '1 hour' as ahead`;
+  const started = clock.started as Date;
   await client`insert into rooms ${client({
     id: roomId,
     host_actor_id: account.actor,
@@ -55,7 +57,7 @@ try {
     id: createId(),
     round_id: roundId,
     release_policy: { kind: 'delay', seconds: 60 },
-    released_through_at: new Date(Date.now() + 3_600_000),
+    released_through_at: clock.ahead as Date,
   })}`;
   await client`insert into notifications ${client({
     id: createId(),
@@ -67,7 +69,7 @@ try {
   await client`insert into watch_history ${client({
     user_id: account.id,
     round_id: roundId,
-    watched_at: new Date(),
+    watched_at: clock.now as Date,
   })}`;
   process.stdout.write(JSON.stringify({ roundId }));
 } finally {

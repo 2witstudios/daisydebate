@@ -505,7 +505,6 @@ export {
   notificationsReadSchema,
   SPECTATOR_CHAT_UNITS,
   SPECTATOR_CHAT_WINDOW,
-  spectatorChatMessageSchema,
   spectatorChatPostSchema,
   viewerPulseSchema,
   watchHistoryUpdateSchema,
@@ -514,7 +513,6 @@ export {
   type NotificationKind,
   type NotificationPreferences,
   type SpectatorChatMessage,
-  type SpectatorChatPost,
 } from './audience';
 export {
   recordingClasses,

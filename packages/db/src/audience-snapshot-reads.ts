@@ -2,6 +2,7 @@ import { SPECTATOR_CHAT_WINDOW } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readReleasedReactions } from './audience-reactions';
+import { rowsOf } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readReleasedChat } from './messaging/spectator-chat';
 import {
@@ -9,11 +10,6 @@ import {
   spectatorHorizonSql,
   type SpectatorClock,
 } from './spectator-release-sql';
-
-const rowsOf = async <T>(
-  tx: Pick<BunSQLDatabase, 'execute'>,
-  query: ReturnType<typeof sql>,
-) => (await tx.execute(query)) as unknown as T[];
 
 /**
  * A Round's audience activity, in one snapshot and all of it released: rows

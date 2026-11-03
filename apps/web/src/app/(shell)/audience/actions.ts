@@ -75,27 +75,40 @@ export async function postSpectatorChatAction(
   return { values: {}, ...stayOn(incoming, to) };
 }
 
+const FAILED = 'That did not go through. Try again.';
+
+/** One no-input mutation: its route, then the page it stays on. */
+const mutate = async (
+  route: (request: Request) => Promise<Response>,
+  path: string,
+  body: unknown,
+  form: FormData,
+  to: string,
+): Promise<FormState> => {
+  const incoming = new Headers(await headers());
+  try {
+    const response = await post(route, path, body);
+    if (!response.ok) return refused(form, FAILED);
+  } catch {
+    return refused(form, FAILED);
+  }
+  revalidatePath(to);
+  return { values: {}, ...stayOn(incoming, to) };
+};
+
 /** Sends one reaction; the pressed button names which. */
 export async function reactToRoundAction(
   target: { readonly roundId: string; readonly returnTo: string },
   _previous: FormState,
   form: FormData,
 ): Promise<FormState> {
-  const incoming = new Headers(await headers());
-  try {
-    const response = await post(
-      routes.reaction,
-      roundPath(target.roundId, 'reactions'),
-      { version: 1, kind: field(form, 'kind') },
-    );
-    if (!response.ok)
-      return refused(form, 'That reaction did not go through. Try again.');
-  } catch {
-    return refused(form, 'That reaction did not go through. Try again.');
-  }
-  const to = backTo(target.returnTo);
-  revalidatePath(to);
-  return { values: {}, ...stayOn(incoming, to) };
+  return mutate(
+    routes.reaction,
+    roundPath(target.roundId, 'reactions'),
+    { version: 1, kind: field(form, 'kind') },
+    form,
+    backTo(target.returnTo),
+  );
 }
 
 /** Follows or stops following a debater. */
@@ -108,80 +121,67 @@ export async function setDebaterFollowAction(
   _previous: FormState,
   form: FormData,
 ): Promise<FormState> {
-  const incoming = new Headers(await headers());
-  const failed = refused(form, 'That did not go through. Try again.');
-  try {
-    const response = await post(routes.follow, '/api/debater-follows', {
-      version: 1,
-      username: target.username,
-      state: target.state,
-    });
-    if (!response.ok) return failed;
-  } catch {
-    return failed;
-  }
-  const to = backTo(target.returnTo);
-  revalidatePath(to);
-  return { values: {}, ...stayOn(incoming, to) };
+  return mutate(
+    routes.follow,
+    '/api/debater-follows',
+    { version: 1, username: target.username, state: target.state },
+    form,
+    backTo(target.returnTo),
+  );
 }
-
-const updateHistory = async (
-  body: unknown,
-  form: FormData,
-): Promise<FormState> => {
-  const incoming = new Headers(await headers());
-  const failed = refused(form, 'That did not go through. Try again.');
-  try {
-    const response = await post(routes.history, '/api/watch-history', body);
-    if (!response.ok) return failed;
-  } catch {
-    return failed;
-  }
-  revalidatePath('/settings');
-  return { values: {}, ...stayOn(incoming, '/settings#watch-history') };
-};
 
 export async function forgetWatchedAction(
   roundId: string,
   _previous: FormState,
   form: FormData,
 ): Promise<FormState> {
-  return updateHistory({ version: 1, kind: 'forget', roundId }, form);
+  return mutate(
+    routes.history,
+    '/api/watch-history',
+    { version: 1, kind: 'forget', roundId },
+    form,
+    '/settings',
+  );
 }
 
 export async function clearWatchHistoryAction(
   _previous: FormState,
   form: FormData,
 ): Promise<FormState> {
-  return updateHistory({ version: 1, kind: 'clear' }, form);
+  return mutate(
+    routes.history,
+    '/api/watch-history',
+    { version: 1, kind: 'clear' },
+    form,
+    '/settings',
+  );
 }
-
-const markRead = async (body: unknown, form: FormData): Promise<FormState> => {
-  const incoming = new Headers(await headers());
-  const failed = refused(form, 'That did not go through. Try again.');
-  try {
-    const response = await post(routes.read, '/api/notifications/read', body);
-    if (!response.ok) return failed;
-  } catch {
-    return failed;
-  }
-  revalidatePath('/notifications');
-  return { values: {}, ...stayOn(incoming, '/notifications') };
-};
 
 export async function markNotificationReadAction(
   notificationId: string,
   _previous: FormState,
   form: FormData,
 ): Promise<FormState> {
-  return markRead({ version: 1, kind: 'one', notificationId }, form);
+  return mutate(
+    routes.read,
+    '/api/notifications/read',
+    { version: 1, kind: 'one', notificationId },
+    form,
+    '/notifications',
+  );
 }
 
 export async function markAllNotificationsReadAction(
   _previous: FormState,
   form: FormData,
 ): Promise<FormState> {
-  return markRead({ version: 1, kind: 'all' }, form);
+  return mutate(
+    routes.read,
+    '/api/notifications/read',
+    { version: 1, kind: 'all' },
+    form,
+    '/notifications',
+  );
 }
 
 /** Stores what the member chose; Settings then reads it back (ISSUE-1045). */

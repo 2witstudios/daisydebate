@@ -3,6 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readAuthorizationActors } from '../authorization';
 import type { SpectatorChatModeration } from '../content-moderation-ports';
+import { rowsOf } from '../raw-rows';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   messagingMessages,
@@ -23,11 +24,6 @@ import type {
 import { appendStream, lockStream, openStream } from './stream';
 
 type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
-
-const rowsOf = async <T>(
-  tx: Pick<Tx, 'execute'>,
-  query: ReturnType<typeof sql>,
-) => (await tx.execute(query)) as unknown as T[];
 
 /** The Round's side of a post: what its Broadcast allows, as read under the stream lock. */
 export type SpectatorChannelFacts = {
@@ -122,7 +118,7 @@ const audienceRound = (roundId: string) =>
 
 /**
  * Spectator chat over Messaging's own channel, stream and message tables
- * (SPECT-1.4, ADR 0107): one channel per Round, isolated from the floor, every
+ * (SPECT-1.4, ADR 0108): one channel per Round, isolated from the floor, every
  * DM and every group. It takes the same lock order as any Messaging writer:
  * account under a shared fence, then the stream row, then content.
  */

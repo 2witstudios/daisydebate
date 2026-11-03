@@ -6,6 +6,7 @@ import {
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { blockedBetween } from './debater-follows';
+import { rowsOf } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
@@ -16,9 +17,6 @@ import {
 } from './spectator-release-sql';
 
 type Tx = Pick<BunSQLDatabase, 'execute'>;
-
-const rowsOf = async <T>(tx: Tx, query: ReturnType<typeof sql>) =>
-  (await tx.execute(query)) as unknown as T[];
 
 const wants = (kind: NotificationKind, user: ReturnType<typeof sql>) =>
   sql`coalesce((select np.enabled from notification_preferences np

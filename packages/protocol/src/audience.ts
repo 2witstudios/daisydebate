@@ -23,7 +23,6 @@ export const spectatorChatPostSchema = z.strictObject({
     .refine((text) => text.length <= SPECTATOR_CHAT_UNITS)
     .refine((text) => text.trim().length > 0),
 });
-export type SpectatorChatPost = z.infer<typeof spectatorChatPostSchema>;
 
 export const audienceReactionPostSchema = z.strictObject({
   version: z.literal(1),
@@ -43,7 +42,7 @@ export const viewerPulseSchema = z.strictObject({
  * A released message. A removed or erased one keeps its place with no text and
  * no author, so the order holds and nothing of it survives.
  */
-export const spectatorChatMessageSchema = z.strictObject({
+const spectatorChatMessageSchema = z.strictObject({
   id: idSchema,
   sequence: z.number().int().positive(),
   at: z.iso.datetime(),

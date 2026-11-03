@@ -22,7 +22,7 @@ import { messagingChannelLifecycles } from '@daisy/protocol';
 
 /**
  * DMs, private groups and one contextual kind with its real producer: a Round's
- * spectator channel (SPECT-1.4, ADR 0107), constrained to its exact Round.
+ * spectator channel (SPECT-1.4, ADR 0108), constrained to its exact Round.
  */
 export const messagingChannels = pgTable(
   'messaging_channels',

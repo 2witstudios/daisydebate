@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { rowsOf } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
@@ -8,11 +9,6 @@ import {
   roundAliasR,
   type SpectatorClock,
 } from './spectator-release-sql';
-
-const rowsOf = async <T>(
-  tx: Pick<BunSQLDatabase, 'execute'>,
-  query: ReturnType<typeof sql>,
-) => (await tx.execute(query)) as unknown as T[];
 
 /**
  * What an account has watched (SPECT-1.4). It lists a Round's resolution only

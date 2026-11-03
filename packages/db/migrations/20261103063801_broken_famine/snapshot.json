@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "62062377-9cf4-4e5a-b63f-f5432f35b0e5",
+  "id": "72b931c1-fe69-40a3-ad55-3770600325af",
   "prevIds": [
-    "89605b3f-e3d9-4bf1-a8ca-cfa2aab00e05"
+    "d77d8480-3123-48af-a48b-f65523644c0c"
   ],
   "ddl": [
     {
@@ -2402,6 +2402,19 @@
       "generated": null,
       "identity": null,
       "name": "completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "feed_withdrawn_at",
       "entityType": "columns",
       "schema": "public",
       "table": "broadcasts"
@@ -12252,6 +12265,27 @@
       "method": "btree",
       "concurrently": false,
       "name": "broadcasts_open_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"feed_withdrawn_at\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "broadcasts_feed_up_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "broadcasts"

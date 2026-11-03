@@ -2,7 +2,8 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sendPayloadDigest } from '../send-plan';
-import { planSpectatorPost, type SpectatorPostFacts } from './post-decision';
+import type { SpectatorChannelFacts } from '@daisy/db/messaging';
+import { planSpectatorPost } from './post-decision';
 
 setupRitewayBun();
 
@@ -16,7 +17,9 @@ const command = {
   text: 'A line',
 };
 const account = { erased: false, restricted: false, underThirteen: false };
-const facts = (over: Partial<SpectatorPostFacts> = {}): SpectatorPostFacts => ({
+const facts = (
+  over: Partial<SpectatorChannelFacts> = {},
+): SpectatorChannelFacts => ({
   broadcast: { open: true, slowModeSeconds: 0 },
   account,
   banned: false,
@@ -29,9 +32,9 @@ const state = {
   existingMessage: null,
   reply: null,
 };
-const plan = (f: SpectatorPostFacts, s = state as never) =>
+const plan = (f: SpectatorChannelFacts, s = state as never) =>
   planSpectatorPost(f, s, command, { actorId, messageId: createId(), now });
-const refused = (f: SpectatorPostFacts) => {
+const refused = (f: SpectatorChannelFacts) => {
   try {
     plan(f);
     return null;
