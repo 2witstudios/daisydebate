@@ -261,7 +261,7 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       actual: () =>
         operation.submit(finalPrincipal, roundId, {
           ...finalEnvelope,
-          ballot: ruling('affirmative'),
+          ballot: ruling('negative'),
         }),
       code: 'CONFLICT',
     });
