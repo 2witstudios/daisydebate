@@ -54,8 +54,9 @@ a separate decision, and can restore a Recording taken down while ready. The tak
 closed reason is stored on the Recording for the operator; the audience never reads it. Each is an
 operator command in the admin app (`recording.takedown`, `recording.restore`,
 `recording.remove`) naming the version the operator read, so a changed Recording is looked
-at again. A takedown also ends the feed of the Round's open Broadcast in the same
-transaction; a restore does not start it again. Listing and delivery are gone within
+at again. A takedown, a moderation removal and a legal removal also end the feed of the Round's
+open Broadcast in the same transaction; a restore does not start it again, and gives the audience
+the video back, since only an operator's stop of the Broadcast withholds the media. Listing and delivery are gone within
 `CONTENT_MODERATION_DELIVERY_BOUND_MS`: a signed read lasts no longer than it, and a stop
 reaching a Broadcast that already completed asks for its feed at once instead of waiting
 out the grace (`feed_withdrawal_requested_at`, read by `claimFeedWithdrawal`). A ranked Round
@@ -122,7 +123,7 @@ no Broadcast or Egress can still read them.
 - Capture and processing call `RecordingCapturePort`. They do not write the table.
 - The job row exists from the first attempt, so a removal mid-capture still reaches what
   the capture left in the hold bucket, and `removed` waits for it.
-- A Broadcast stopped before its watermark passes the Round's end holds the Recording
-  back from the audience. Releasing it then is a moderation decision not yet built.
+- A Broadcast an operator stopped before its watermark passes the Round's end holds the
+  Recording back from the audience. Releasing it then is a moderation decision not yet built.
 - Reads authorize per request, one indexed read per media segment. Replay load is
   unmeasured; WATCH-4 proves it, and a short-lived grant cache is the expansion path.

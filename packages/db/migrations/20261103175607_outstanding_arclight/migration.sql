@@ -44,9 +44,12 @@ CREATE TABLE "broadcasts" (
 	"final_media_end_at" timestamp with time zone,
 	"stopped_at" timestamp with time zone,
 	"stop_reason" text,
+	"media_withheld" boolean DEFAULT false NOT NULL,
 	"completed_at" timestamp with time zone,
+	"feed_withdrawal_requested_at" timestamp with time zone,
 	"feed_withdrawn_at" timestamp with time zone,
 	"reconcile_lease_until" timestamp with time zone,
+	"control_heartbeat_at" timestamp with time zone,
 	"lease_epoch" integer DEFAULT 0 NOT NULL,
 	"lease_owner" text,
 	"lease_until" timestamp with time zone,
@@ -57,7 +60,8 @@ CREATE TABLE "broadcasts" (
 	CONSTRAINT "broadcasts_release_policy_check" CHECK ("release_policy"->>'kind' in ('delay','round_end','at')),
 	CONSTRAINT "broadcasts_cursor_check" CHECK ("next_segment" >= 0 and "hold_cursor" >= 0 and "egress_generation" >= 0 and "released_generation" >= 1 and "revocation_failures" >= 0 and "lease_epoch" >= 0 and "chat_slow_mode_seconds" between 0 and 3600),
 	CONSTRAINT "broadcasts_lease_check" CHECK (("lease_owner" is null) = ("lease_until" is null)),
-	CONSTRAINT "broadcasts_stop_check" CHECK (("stopped_at" is null) = ("stop_reason" is null))
+	CONSTRAINT "broadcasts_stop_check" CHECK (("stopped_at" is null) = ("stop_reason" is null)),
+	CONSTRAINT "broadcasts_withheld_check" CHECK (not "media_withheld" or "stopped_at" is not null)
 );
 --> statement-breakpoint
 CREATE TABLE "audience_bans" (
@@ -91,6 +95,12 @@ CREATE TABLE "debater_follows" (
 	"debater_actor_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "debater_follows_pkey" PRIMARY KEY("follower_user_id","debater_actor_id")
+);
+--> statement-breakpoint
+CREATE TABLE "media_room_rotations" (
+	"id" text PRIMARY KEY,
+	"round_id" text NOT NULL,
+	"rotated_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "notification_fanouts" (
@@ -131,6 +141,7 @@ CREATE TABLE "recording_captures" (
 	"observer_revoked_at" timestamp with time zone,
 	"revocation_failures" integer DEFAULT 0 NOT NULL,
 	"reconcile_lease_until" timestamp with time zone,
+	"control_heartbeat_at" timestamp with time zone,
 	"ended_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "recording_captures_counters_check" CHECK ("egress_generation" >= 0 and "revocation_failures" >= 0)
@@ -141,17 +152,18 @@ CREATE TABLE "recording_processing_jobs" (
 	"hold_prefix" text NOT NULL,
 	"status" text NOT NULL,
 	"state" jsonb NOT NULL,
-	"failures" integer DEFAULT 0 NOT NULL,
+	"runs_started" integer DEFAULT 0 NOT NULL,
 	"due_at" timestamp with time zone,
 	"lease_owner" text,
 	"lease_until" timestamp with time zone,
+	"delay_alerted_at" timestamp with time zone,
 	"lease_epoch" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "recording_jobs_status_check" CHECK ("status" in ('waiting', 'queued', 'built', 'failed', 'discarding', 'settled')),
 	CONSTRAINT "recording_processing_jobs_state_is_object" CHECK (jsonb_typeof("state") = 'object'),
 	CONSTRAINT "recording_jobs_state_status_check" CHECK ("state"->>'status' = "status"),
-	CONSTRAINT "recording_jobs_counters_check" CHECK ("failures" >= 0 and "lease_epoch" >= 0),
+	CONSTRAINT "recording_jobs_counters_check" CHECK ("runs_started" >= 0 and "lease_epoch" >= 0),
 	CONSTRAINT "recording_jobs_lease_check" CHECK (("lease_owner" is null) = ("lease_until" is null))
 );
 --> statement-breakpoint
@@ -178,6 +190,15 @@ CREATE TABLE "recordings" (
 	CONSTRAINT "recordings_deletion_attempts_check" CHECK ("deletion_attempts" >= 0),
 	CONSTRAINT "recordings_lease_check" CHECK (("lease_owner" is null) = ("lease_until" is null)),
 	CONSTRAINT "recordings_version_positive" CHECK ("version" > 0)
+);
+--> statement-breakpoint
+CREATE TABLE "round_private_spans" (
+	"round_id" text,
+	"kind" text,
+	"started_at" timestamp with time zone,
+	"ended_at" timestamp with time zone,
+	CONSTRAINT "round_private_spans_pkey" PRIMARY KEY("round_id","kind","started_at"),
+	CONSTRAINT "round_private_spans_kind_check" CHECK ("kind" in ('prep', 'judging'))
 );
 --> statement-breakpoint
 CREATE TABLE "spectator_fact_log_open_rounds" (
@@ -224,6 +245,7 @@ CREATE INDEX "broadcasts_feed_up_idx" ON "broadcasts" ("created_at") WHERE "feed
 CREATE UNIQUE INDEX "content_reports_once_unique" ON "content_reports" ("reporter_user_id","target_kind","target_id");--> statement-breakpoint
 CREATE INDEX "content_reports_queue_idx" ON "content_reports" ("queue","status","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "debater_follows_debater_idx" ON "debater_follows" ("debater_actor_id");--> statement-breakpoint
+CREATE INDEX "media_room_rotations_round_idx" ON "media_room_rotations" ("round_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "messaging_channels_round_unique" ON "messaging_channels" ("round_id");--> statement-breakpoint
 CREATE INDEX "messaging_messages_channel_created_idx" ON "messaging_messages" ("channel_id","created_at");--> statement-breakpoint
 CREATE INDEX "notification_fanouts_round_idx" ON "notification_fanouts" ("round_id");--> statement-breakpoint
@@ -238,6 +260,7 @@ CREATE INDEX "recording_jobs_answerable_idx" ON "recording_processing_jobs" ("up
 CREATE UNIQUE INDEX "recordings_round_unique" ON "recordings" ("round_id");--> statement-breakpoint
 CREATE INDEX "recordings_status_idx" ON "recordings" ("status","updated_at");--> statement-breakpoint
 CREATE INDEX "recordings_deletion_due_idx" ON "recordings" ("deletion_due_at") WHERE "status" = 'removing';--> statement-breakpoint
+CREATE UNIQUE INDEX "round_private_spans_single_open" ON "round_private_spans" ("round_id","kind") WHERE "ended_at" is null;--> statement-breakpoint
 CREATE INDEX "spectator_fact_releases_round_idx" ON "spectator_fact_releases" ("round_id","released_at");--> statement-breakpoint
 CREATE INDEX "watch_history_user_idx" ON "watch_history" ("user_id","watched_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "watch_history_retention_idx" ON "watch_history" ("watched_at");--> statement-breakpoint
@@ -252,6 +275,7 @@ ALTER TABLE "audience_bans" ADD CONSTRAINT "audience_bans_user_id_users_id_fkey"
 ALTER TABLE "content_reports" ADD CONSTRAINT "content_reports_reporter_user_id_users_id_fkey" FOREIGN KEY ("reporter_user_id") REFERENCES "users"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "debater_follows" ADD CONSTRAINT "debater_follows_follower_user_id_users_id_fkey" FOREIGN KEY ("follower_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "debater_follows" ADD CONSTRAINT "debater_follows_debater_actor_id_actors_id_fkey" FOREIGN KEY ("debater_actor_id") REFERENCES "actors"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "media_room_rotations" ADD CONSTRAINT "media_room_rotations_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "messaging_channels" ADD CONSTRAINT "messaging_channels_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_fanouts" ADD CONSTRAINT "notification_fanouts_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_preferences" ADD CONSTRAINT "notification_preferences_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -262,6 +286,7 @@ ALTER TABLE "recording_captures" ADD CONSTRAINT "recording_captures_recording_id
 ALTER TABLE "recording_captures" ADD CONSTRAINT "recording_captures_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "recording_processing_jobs" ADD CONSTRAINT "recording_processing_jobs_recording_id_recordings_id_fkey" FOREIGN KEY ("recording_id") REFERENCES "recordings"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "recordings" ADD CONSTRAINT "recordings_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "round_private_spans" ADD CONSTRAINT "round_private_spans_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "spectator_fact_log_open_rounds" ADD CONSTRAINT "spectator_fact_log_open_rounds_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "spectator_fact_releases" ADD CONSTRAINT "spectator_fact_releases_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "watch_history" ADD CONSTRAINT "watch_history_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -372,3 +397,16 @@ CREATE TRIGGER utterances_open_fact_log
 INSERT INTO spectator_fact_log_open_rounds (round_id, touched_at)
   SELECT id, clock_timestamp() FROM rounds
   WHERE room_id IS NOT NULL AND visibility IN ('public','unlisted');
+--> statement-breakpoint
+-- What the broadcast worker may read of a Round: when its speeches and private spans
+-- ran. Views run as their owner, so this grants no Round table and no other column (ADR 0099).
+CREATE VIEW "broadcast_public_history" AS
+  SELECT b.id AS broadcast_id, s.sequence, s.started_at, s.ended_at, s.duration_ms
+  FROM broadcasts b
+  JOIN round_segments s ON s.round_id = b.round_id;--> statement-breakpoint
+CREATE VIEW "broadcast_private_history" AS
+  SELECT b.id AS broadcast_id, p.kind, p.started_at, p.ended_at
+  FROM broadcasts b
+  JOIN round_private_spans p ON p.round_id = b.round_id;--> statement-breakpoint
+GRANT SELECT ON "broadcast_public_history" TO daisy_broadcast_worker;--> statement-breakpoint
+GRANT SELECT ON "broadcast_private_history" TO daisy_broadcast_worker;

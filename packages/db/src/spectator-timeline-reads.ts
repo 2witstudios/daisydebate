@@ -135,6 +135,7 @@ export const spectatorTimelineReads = ({
                   releasedThroughAt: broadcast.releasedThroughAt,
                   completedAt: broadcast.completedAt,
                   stoppedAt: broadcast.stoppedAt,
+                  mediaWithheld: broadcast.mediaWithheld,
                 }
               : null,
             recordingStatus: recording?.status ?? null,

@@ -11,7 +11,8 @@ Objects live in a private Tigris bucket, set by `RECORDING_BUCKET_ENDPOINT`,
 `RECORDING_BUCKET_SECRET_ACCESS_KEY` and optionally `RECORDING_BUCKET_REGION`. It has
 no public access. Every object of a Recording sits under `recordings/<id>/`, which
 is what lets deletion reach all of it. Without these settings the app serves no
-object and the sweep deletes nothing: intents wait, and are logged as failures.
+object and the sweep deletes nothing: intents wait, and each attempt reports
+`recording.deletion_failed`.
 
 Creating the bucket and its secrets is a deploy-rail change with human sign-off.
 
@@ -46,10 +47,13 @@ capture port, under the row lock, can make a Recording ready. It:
 4. Reports `built`. The web turns that into `ready` with the speech timeline, or refuses
    it if the Recording was taken down or removed meanwhile.
 
-A run that fails comes due again after one minute, doubling to an hour. Five failed runs
-end the Recording as `failed`, with `processing_failed` or `verification_failed`. A run
-that dies holds a 60 second lease, renewed every 15; the next owner repeats it to the same
-keys with a higher epoch, and the old owner can no longer write. One slot uses every core
+A run counts when it is claimed, so one that kills its process spends an attempt like one
+that throws, and only a shutdown gives its run back. A run that does not answer comes due
+again after one minute, doubling to an hour, measured from its claim. Five runs end the
+Recording as `failed` with `recording.processing_gave_up`, with `processing_failed` or
+`verification_failed`. A run that dies holds a 60 second lease, renewed every 15; the next owner
+repeats it to the same keys with a higher epoch, and the old owner can no longer write. Nothing
+is discarded, and an operator can rebuild a ranked one. One slot uses every core
 it can; add machines rather than slots. A build's scratch space is about three times the
 video: `RECORDING_WORK_DIR` needs room for the longest Round times three.
 
@@ -64,7 +68,7 @@ end as `removed` until they are gone.
 To find stuck work:
 
 ```sql
-select recording_id, status, failures, due_at, lease_owner
+select recording_id, status, runs_started, due_at, lease_owner
 from recording_processing_jobs where status <> 'settled' order by updated_at;
 ```
 
@@ -86,10 +90,11 @@ from recording_processing_jobs where status <> 'settled' order by updated_at;
 `requested`, `capturing`, `processing`, `ready`, `failed`, `taken_down`, `removing`,
 `removed`. `recordings.lifecycle` is the whole state; `status` repeats its tag.
 
-A Broadcast stopped before its watermark passed the Round's end still builds its
-Recording, and the audience sees that video as held back (ISSUE-1094). Seats and
-insiders can still watch it; releasing it to the audience is an operator action not yet
-built.
+A Broadcast an operator stopped before its watermark passed the Round's end still builds
+its Recording, and the audience sees that video as held back (ISSUE-1094), recorded as
+`broadcasts.media_withheld`. Seats and insiders can still watch it; releasing it to the
+audience is an operator action not yet built. A feed that a takedown or a removal ended is
+not withheld: the Recording's own state hides it.
 
 ## Preparation and delay
 
@@ -99,7 +104,7 @@ capture's end. Past it `recording.processing_delayed` is raised once, viewers ar
 delayed, and it keeps retrying. Nothing is failed or discarded on a timer. Look at the
 worker's capacity and queue.
 
-`recording.processing_gave_up` means five runs failed and the Recording is `failed`. A casual
+`recording.processing_gave_up` means five runs did not produce a result and the Recording is `failed`. A casual
 failure's partial objects are removed after seven days. A ranked one is never removed by a
 sweep: it stays `failed`, with its hold cut down to whole segments committed history proved
 public. Rebuild it from the admin app:
@@ -124,8 +129,9 @@ rest of a Round whose Broadcast was stopped.
 A takedown hides the Recording from everyone at once. Every new playback or download
 request is refused, and a signed read already issued lasts at most 60 seconds. The
 objects stay, as evidence for disputes and integrity review, until moderation
-removes them. A Recording taken down while ready can be restored as it was. A takedown
-also ends the feed of the Round's open Broadcast, and a restore does not start it again.
+removes them. A Recording taken down while ready can be restored as it was, and the audience
+can watch it again. A takedown, a moderation removal and a legal removal each end the feed of
+the Round's open Broadcast and withdraw it, and a restore does not start it again.
 A ranked Round leaves the archive with its Recording, and the audience no longer gets its
 transcript on the Recording page; a member seated in the Round still does. The reason is kept
 on the Recording, from a closed list. A takedown just after a Broadcast completed withdraws its
@@ -167,8 +173,9 @@ select id, deletion_attempts, deletion_due_at
 from recordings where status = 'removing' order by deletion_due_at;
 ```
 
-A failed attempt doubles its wait, from one minute to at most one hour, and keeps
-retrying. Fix the storage credentials or outage and the sweep catches up by itself.
+A failed attempt reports `recording.deletion_failed`, doubles its wait, from one minute to at
+most one hour, and keeps retrying. A removal requested over 24 hours ago reports
+`recording.deletion_overdue` on every attempt until it ends. Alert on both. Fix the storage credentials or outage and the sweep catches up by itself.
 Never edit `lifecycle` by hand to `removed`: the objects would stay in the bucket
 with no intent left to delete them.
 
