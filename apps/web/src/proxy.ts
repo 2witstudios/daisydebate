@@ -19,6 +19,7 @@ export function proxy(request: NextRequest) {
       : null,
     development: app.config.NODE_ENV === 'development',
     ids: app.ids,
+    searchIndexing: app.config.SEARCH_INDEXING,
     analyticsHost: analyticsConfiguration(app.config).key
       ? (app.config.NEXT_PUBLIC_POSTHOG_HOST ?? null)
       : null,

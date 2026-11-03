@@ -11,6 +11,10 @@ import {
   explainerHref,
 } from '../features/coming-soon/launch';
 import { returnableDestination } from '../features/auth/redirect';
+import {
+  robotsHeaderOf,
+  type SearchIndexing,
+} from '../features/search-indexing/search-indexing';
 import { hasSessionCookie } from '../features/auth/sessions/session-cookie'; // A nonce never authorizes a `style="…"` attribute, and `next/image` always
 // server-renders one. Hash the exact strings it emits (`fill`, and the default)
 // so every other inline style attribute stays refused. The CSP e2e fails if a
@@ -47,6 +51,8 @@ export type ProxySettings = {
   readonly development: boolean;
   readonly ids: IdGenerator;
   readonly analyticsHost?: string | null;
+  /** `SEARCH_INDEXING`: unset is closed. */
+  readonly searchIndexing?: SearchIndexing;
 };
 
 /**
@@ -157,9 +163,17 @@ function contentSecurityPolicy(
 /**
  * Every request's first stop (bound in `proxy.ts`): the foundation gate,
  * the CSP nonce and policy, the closed destination's explainer, the early
- * sign-in hint, and trusted correlation headers.
+ * sign-in hint, and trusted correlation headers. Whatever it answers, a closed
+ * deployment stays out of search indexes.
  */
 export function handleProxy(request: NextRequest, settings: ProxySettings) {
+  const response = routeRequest(request, settings);
+  const robots = robotsHeaderOf(settings.searchIndexing ?? 'closed');
+  if (robots) response.headers.set('X-Robots-Tag', robots);
+  return response;
+}
+
+function routeRequest(request: NextRequest, settings: ProxySettings) {
   const requestId = settings.ids.next();
   const { pathname } = request.nextUrl;
   const closed = closedFoundation(

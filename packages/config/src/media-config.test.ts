@@ -117,3 +117,26 @@ test('the public Broadcast origin is optional, public and never a credential', (
     expected: [origin, undefined, 'refused', 'refused'],
   });
 });
+
+test('search indexing is closed unless a deployment opens it', () => {
+  assert({
+    given: 'the setting unset, open, closed and misspelt',
+    should: 'read closed, open, closed, and refuse the last',
+    actual: [
+      readServerConfig(baseline).SEARCH_INDEXING,
+      readServerConfig({ ...baseline, SEARCH_INDEXING: 'open' })
+        .SEARCH_INDEXING,
+      readServerConfig({ ...baseline, SEARCH_INDEXING: 'closed' })
+        .SEARCH_INDEXING,
+      (() => {
+        try {
+          readServerConfig({ ...baseline, SEARCH_INDEXING: 'yes' });
+          return 'accepted';
+        } catch {
+          return 'refused';
+        }
+      })(),
+    ],
+    expected: ['closed', 'open', 'closed', 'refused'],
+  });
+});

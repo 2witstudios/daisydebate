@@ -341,6 +341,9 @@ export async function requestRoundRatings(
 export const requestMetadataBase = (): URL =>
   new URL(processApp().config.PUBLIC_APP_URL);
 
+export const requestSearchIndexing = () =>
+  processApp().config.SEARCH_INDEXING;
+
 /** Native create-room preview answers are scoped to this authenticated member. */
 export async function requestRoomDraftAnswer(
   commandId: unknown,
