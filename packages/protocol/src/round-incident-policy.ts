@@ -12,18 +12,4 @@ export const roundIncidentPolicy = {
   recoveryBoundMs: 90_000,
   /** PROVISIONAL. The automatic countdown shown to everyone before the clock runs. */
   resumeCountdownMs: 5_000,
-  /** PROVISIONAL. The share of expected speech a Round may lose and still be judged by AI. */
-  maxCaptureGapShare: 0.05,
 } as const;
-
-/**
- * Whether a freeze's capture is good enough for an AI judge: a small gap is judged and
- * stated. A gap that was never measured cannot be proven small.
- */
-export const captureWithinLimit = (capture: {
-  readonly gapMs: number | null;
-  readonly expectedMs: number;
-}): boolean =>
-  capture.gapMs !== null &&
-  capture.expectedMs > 0 &&
-  capture.gapMs / capture.expectedMs <= roundIncidentPolicy.maxCaptureGapShare;

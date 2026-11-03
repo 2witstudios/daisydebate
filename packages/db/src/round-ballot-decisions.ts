@@ -15,7 +15,7 @@ export function requireAgentBallotCapture(
   principal: RoundCommandPrincipal,
   frozen: {
     readonly completeness: string;
-    readonly captureGapMs: number | null;
+    readonly unheardMs: number | null;
     readonly expectedSpeechMs: number;
   },
 ): void {
@@ -23,7 +23,7 @@ export function requireAgentBallotCapture(
     principal.kind === 'agent' &&
     frozen.completeness !== 'complete' &&
     !captureWithinLimit({
-      gapMs: frozen.captureGapMs,
+      gapMs: frozen.unheardMs,
       expectedMs: frozen.expectedSpeechMs,
     })
   )

@@ -58,17 +58,18 @@ export async function readCaptureShortfall(
         reason === 'invalid-history' || reason === 'no-authority-window',
     ),
   );
+  const sum = (of: typeof partial) =>
+    gapsOf(of).reduce(
+      (total, gap) => total + gap.untilOffsetMs - gap.fromOffsetMs,
+      0,
+    );
   return {
-    platformLostAudio: lost.length > 0,
     expectedSpeechMs,
-    // Stated as the platform's fault only where it was.
+    // What is stated as the platform's fault, and the amount that sums it.
     captureGaps: { gaps: gapsOf(lost) },
-    captureGapMs: unmeasured
-      ? null
-      : // Everything unheard counts against what a judge can rule on, a silent seat too.
-        gapsOf(partial).reduce(
-          (total, gap) => total + gap.untilOffsetMs - gap.fromOffsetMs,
-          0,
-        ),
+    captureGapMs: unmeasured ? null : sum(lost),
+    // All speech nobody heard, a silent seat's too.
+    unheardMs: unmeasured ? null : sum(partial),
+    platformLostUnmeasured: unmeasured && lost.length > 0,
   };
 }

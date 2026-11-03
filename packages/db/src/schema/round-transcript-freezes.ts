@@ -27,9 +27,11 @@ export const roundTranscriptFreezes = pgTable(
       .notNull(),
     /** Speech the played segments owed, for the published capture coverage. */
     expectedSpeechMs: integer('expected_speech_ms').notNull().default(0),
-    /** Speech lost; null when a stream fell short by an unmeasured amount. */
+    /** Speech the platform lost, the sum of `capture_gaps`; null when never measured. */
     captureGapMs: integer('capture_gap_ms'),
-    /** Each gap as offsets into its speech, given to the judge in plain words. */
+    /** All speech nobody heard, a silent seat's too; null when never measured. */
+    unheardMs: integer('unheard_ms'),
+    /** Each platform gap as offsets into its speech, given to the judge in plain words. */
     captureGaps: jsonbColumn('capture_gaps', frozenCaptureGapsSchema)
       .notNull()
       .default({ gaps: [] }),

@@ -11,7 +11,10 @@ import type { ErrorReporter } from '@daisy/observability';
 import { roundIncidentPolicy } from '@daisy/protocol';
 import type { MediaPassReport } from '../round-media/operation-context';
 
-type Store = Pick<Database['roundIncidents'], 'observeRoundIncident'>;
+type Store = Pick<
+  Database['roundIncidents'],
+  'observeRoundIncident' | 'readRoundIncidentWatch'
+>;
 
 const watchOf = (observation: MediaObservation) => ({
   unreachable: observation.kind === 'unreachable',
@@ -119,21 +122,22 @@ export function createRoundIncidentObserver(input: {
   return async (evidence: MediaPassReport): Promise<void> => {
     const { known, observation, nowMs } = evidence;
     if (known.status !== 'active' && known.status !== 'opening') return;
-    if (
-      !observationMatters({
-        incident: known.incident,
-        nowMs,
-        observation,
-        roomRetired: known.roomRetired,
-        unreachableSinceMs:
-          known.unreachableSince === null
-            ? null
-            : Date.parse(known.unreachableSince),
-        captureExpected: known.status === 'active',
-      })
-    )
-      return;
     try {
+      const watch = await input.store.readRoundIncidentWatch(evidence.roundId);
+      if (
+        !observationMatters({
+          incident: known.incident,
+          nowMs,
+          observation,
+          roomRetired: watch.roomRetired,
+          unreachableSinceMs:
+            watch.unreachableSince === null
+              ? null
+              : Date.parse(watch.unreachableSince),
+          captureExpected: known.status === 'active',
+        })
+      )
+        return;
       await observe(evidence);
     } catch (error) {
       input.reporter.capture(error, {

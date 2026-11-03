@@ -31,19 +31,13 @@ test('a pass tells the incident hook what it read of the room', async () => {
   assert({
     given: 'a pass that listed one seat and no capture agent',
     should: 'report the room as read, with no retirement',
-    actual: seen.map(({ observation, known }) => ({
-      observation,
-      roomRetired: known.roomRetired,
-    })),
+    actual: seen.map(({ observation }) => observation),
     expected: [
       {
-        observation: {
-          kind: 'room',
-          captureListed: false,
-          seatsListed: false,
-          speakerHeard: null,
-        },
-        roomRetired: false,
+        kind: 'room',
+        captureListed: false,
+        seatsListed: false,
+        speakerHeard: null,
       },
     ],
   });

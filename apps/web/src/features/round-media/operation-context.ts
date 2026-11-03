@@ -15,9 +15,6 @@ export type MediaPassReport = {
   readonly known: {
     readonly incident: RoundIncident;
     readonly status: string;
-    /** This pass retired the room, or an earlier one did and nothing took it up. */
-    readonly roomRetired: boolean;
-    readonly unreachableSince: string | null;
   };
 };
 

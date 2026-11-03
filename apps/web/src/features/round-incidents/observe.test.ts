@@ -4,12 +4,14 @@ setupRitewayBun();
 
 const world = (
   observeRoundIncident: () => Promise<{ readonly kind: string }>,
+  watch = { roomRetired: true, unreachableSince: null as string | null },
 ) => {
   const alerts: unknown[] = [];
   const logged: string[] = [];
   let calls = 0;
   const observer = createRoundIncidentObserver({
     store: {
+      readRoundIncidentWatch: async () => watch,
       observeRoundIncident: (async () => {
         calls += 1;
         return observeRoundIncident();
@@ -35,8 +37,6 @@ const evidence = (over = {}) => ({
   known: {
     incident: { phase: 'none' } as const,
     status: 'active',
-    roomRetired: true,
-    unreachableSince: null,
   },
   ...over,
 });
@@ -61,7 +61,10 @@ test('the operator alert', async () => {
 });
 
 test('what costs no transaction', async () => {
-  const healthy = world(async () => ({ kind: 'unchanged' }));
+  const healthy = world(async () => ({ kind: 'unchanged' }), {
+    roomRetired: false,
+    unreachableSince: null,
+  });
   await healthy.observer(
     evidence({
       observation: {
@@ -73,8 +76,6 @@ test('what costs no transaction', async () => {
       known: {
         incident: { phase: 'none' },
         status: 'active',
-        roomRetired: false,
-        unreachableSince: null,
       },
     }),
   );
@@ -84,8 +85,6 @@ test('what costs no transaction', async () => {
       known: {
         incident: { phase: 'none' },
         status: 'completed',
-        roomRetired: true,
-        unreachableSince: null,
       },
     }),
   );

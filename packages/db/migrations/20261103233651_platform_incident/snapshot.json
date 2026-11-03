@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ce77e8b1-b5e9-4ca7-b952-4c356108b71c",
+  "id": "a5821f2d-04cb-4469-98be-51ce24288ed1",
   "prevIds": [
     "cfbdc3ef-f492-454f-96ed-78471979d127"
   ],
@@ -591,6 +591,12 @@
     {
       "isRlsEnabled": false,
       "name": "round_finalizations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_incident_watches",
       "entityType": "tables",
       "schema": "public"
     },
@@ -4335,6 +4341,19 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "cause",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_room_rotations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "id",
       "entityType": "columns",
       "schema": "public",
@@ -4544,32 +4563,6 @@
       "generated": null,
       "identity": null,
       "name": "deletion_requested_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "media_sessions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "vendor_unreachable_since",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "media_sessions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "room_retired_at",
       "entityType": "columns",
       "schema": "public",
       "table": "media_sessions"
@@ -10016,6 +10009,45 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incident_watches"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "unreachable_since",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incident_watches"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "retirement_taken_up_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incident_watches"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "id",
       "entityType": "columns",
       "schema": "public",
@@ -10956,6 +10988,19 @@
       "generated": null,
       "identity": null,
       "name": "capture_gap_ms",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_transcript_freezes"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "unheard_ms",
       "entityType": "columns",
       "schema": "public",
       "table": "round_transcript_freezes"
@@ -21493,6 +21538,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "name": "round_incident_watches_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_incident_watches"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "round_incidents_round_id_rounds_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -23183,6 +23245,16 @@
       "name": "round_finalizations_pkey",
       "schema": "public",
       "table": "round_finalizations",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "round_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_incident_watches_pkey",
+      "schema": "public",
+      "table": "round_incident_watches",
       "entityType": "pks"
     },
     {
@@ -25587,7 +25659,7 @@
       "table": "rounds"
     },
     {
-      "value": "\"platform_ending\" is null or \"platform_ending\" in ('recovery_bound', 'capture_shortfall')",
+      "value": "\"platform_ending\" is null or (\"platform_ending\" = 'recovery_bound' and \"status\" = 'abandoned') or (\"platform_ending\" = 'capture_shortfall' and \"status\" in ('active', 'completed'))",
       "name": "rounds_platform_ending_check",
       "entityType": "checks",
       "schema": "public",

@@ -13,6 +13,7 @@ export const frozen = {
   completeness: 'incomplete' as const,
   expectedSpeechMs: 0,
   captureGapMs: 0,
+  unheardMs: 0,
   captureGaps: { gaps: [] },
   coverage: [
     {

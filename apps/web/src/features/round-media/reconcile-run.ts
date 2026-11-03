@@ -146,7 +146,6 @@ export function createMediaReconcileRun(
   const reportToIncident = (
     state: MediaSnapshot,
     observation: MediaObservation,
-    roomRetired: boolean,
   ) =>
     input.observeIncident({
       roundId: state.round.id,
@@ -155,9 +154,6 @@ export function createMediaReconcileRun(
       known: {
         incident: state.round.checkpoint.incident,
         status: state.round.status,
-        roomRetired: roomRetired || state.session.roomRetiredAt !== null,
-        unreachableSince:
-          state.session.vendorUnreachableSince?.toISOString() ?? null,
       },
     });
   const removeRoom = async (claim: Claim) => {
@@ -518,8 +514,6 @@ export function createMediaReconcileRun(
           read?.observation ?? {
             kind: failure && !cleanupAttempted ? 'unreachable' : 'unread',
           },
-          finished.fate.kind === 'rotate' &&
-            finished.fate.cause !== 'seat-revoked',
         );
     }
     if (failure) {

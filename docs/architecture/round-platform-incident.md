@@ -71,14 +71,18 @@ person's network loss cannot either, because capture and the other seat remain.
 
 ## A gap that survives
 
-The freeze measures the speech a Round owed and lost, on
-`round_transcript_freezes`. The AI judge is dispatched unless capture falls below
-`roundIncidentPolicy.maxCaptureGapShare`, and each gap reaches its prompt in plain
-words. A shortfall nobody measured cannot be proven small. An AI-only Round past
-the limit is ended on the Round (`platform_ending = capture_shortfall`), refunds and
-alerts once; a human judge heard the Round live and still rules. Only a stream that lost
-state counts: a coverage gap alone can be a silent seat, and a takeover with valid windows
-and no gaps measures zero.
+The freeze measures two things on `round_transcript_freezes`, over played speaking time: all
+speech nobody heard (`unheard_ms`), and the speech the platform lost (`capture_gap_ms`, the
+sum of `capture_gaps`). A stream lost state, or was taken over by a new worker: its gaps are
+the platform's. A coverage gap alone can be a silent seat, so it is unheard but never stated
+as the platform's fault.
+
+An AI judge rules unless unheard speech passes `maxUnheardShare`, with each platform gap in
+its prompt in plain words. A shortfall nobody measured cannot be proven small. Past the
+limit, an AI-only Round ends as `platform_ending = capture_shortfall`, refunds and alerts once
+only if the platform's own loss is past that limit too. Otherwise it takes the
+transcript-incomplete path, so a debater's silence never voids a Round. A human judge heard
+the Round live and still rules.
 
 ## Rate and alert
 

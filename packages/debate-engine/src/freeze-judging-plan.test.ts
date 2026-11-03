@@ -1,19 +1,20 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roundIncidentPolicy } from '@daisy/protocol';
+import { maxUnheardShare } from '@daisy/protocol';
 import { freezeJudgingPlan } from './round-panel-completion';
 setupRitewayBun();
 
-const limit = roundIncidentPolicy.maxCaptureGapShare;
+const limit = maxUnheardShare;
 const expectedMs = 1_000_000;
 const plan = (
   completeness: 'complete' | 'incomplete',
-  gapMs: number | null,
+  unheardMs: number | null,
   humanJudges = false,
-  platformLostAudio = true,
+  platformLostMs: number | null = unheardMs,
+  platformLostUnmeasured = unheardMs === null,
 ) => {
   const { dispatchAiJudges, endsAsPlatformIncident } = freezeJudgingPlan({
     completeness,
-    capture: { gapMs, expectedMs, platformLostAudio },
+    capture: { unheardMs, platformLostMs, expectedMs, platformLostUnmeasured },
     humanJudges,
     ballotDeadlineMs: 1,
     aiJudgingBudgetMs: 1,
@@ -40,7 +41,17 @@ test('the dispatch rule follows the capture limit', () => {
     ],
     [
       'a silent seat on an AI-only panel, which is no failure of the platform',
-      plan('incomplete', expectedMs, false, false),
+      plan('incomplete', expectedMs, false, 0),
+      { dispatchAiJudges: false, endsAsPlatformIncident: false },
+    ],
+    [
+      'a lossless takeover plus a seat silent past the limit, which the platform did not cause',
+      plan('incomplete', expectedMs * limit + 1, false, 0),
+      { dispatchAiJudges: false, endsAsPlatformIncident: false },
+    ],
+    [
+      'history with no measure and no platform loss',
+      plan('incomplete', null, false, null, false),
       { dispatchAiJudges: false, endsAsPlatformIncident: false },
     ],
     [

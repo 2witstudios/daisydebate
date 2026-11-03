@@ -11,7 +11,6 @@ import {
   roundStatusSchema,
   runtimeCheckpointSchema,
   roundOutcomeSchema,
-  roundPlatformEndings,
   type RoundPlatformEnding,
   type RoundOutcome,
   type RoundStage,
@@ -178,7 +177,7 @@ export const rounds = pgTable(
       versionPositive('rounds', table.version),
       check(
         'rounds_platform_ending_check',
-        sql`${table.platformEnding} is null or ${oneOf(table.platformEnding, roundPlatformEndings)}`,
+        sql`${table.platformEnding} is null or (${table.platformEnding} = 'recovery_bound' and ${table.status} = 'abandoned') or (${table.platformEnding} = 'capture_shortfall' and ${table.status} in ('active', 'completed'))`,
       ),
       check(
         'rounds_transcript_cutoff_check',

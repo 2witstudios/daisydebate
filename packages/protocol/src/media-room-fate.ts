@@ -25,7 +25,7 @@ export type MediaRoomRead =
   | {
       readonly kind: 'read';
       /** LiveKit's id for the room now. */
-      readonly sid: string | null;
+      readonly sid: string;
       readonly empty: boolean;
       /** The capture agent is listed. */
       readonly captureListed: boolean;

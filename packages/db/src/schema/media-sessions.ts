@@ -45,10 +45,6 @@ export const mediaSessions = pgTable(
     reconcileOwner: text('reconcile_owner'),
     unsafeAt: timestampColumn('unsafe_at'),
     deletionRequestedAt: timestampColumn('deletion_requested_at'),
-    /** When a pass first failed to reach the vendor; a pass that reads it clears this. */
-    vendorUnreachableSince: timestampColumn('vendor_unreachable_since'),
-    /** A pass retired a lost or uncertain room; the incident feature takes this up. */
-    roomRetiredAt: timestampColumn('room_retired_at'),
     /** The last pass that read the room saw the capture agent in it. */
     roomSawCapture: boolean('room_saw_capture').notNull().default(false),
     /** LiveKit's id for the room when last occupied: a new id means the node was lost. */
@@ -85,6 +81,10 @@ export const mediaRoomRotations = pgTable(
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
     rotatedAt: timestampColumn('rotated_at').notNull(),
+    /** Why the session moved, as its room's fate said. Read by the incident feature. */
+    cause: text('cause')
+      .$type<'absent' | 'unreachable' | 'seat-revoked' | 'lost'>()
+      .notNull(),
   },
   (table) => [index('media_room_rotations_round_idx').on(table.roundId)],
 );

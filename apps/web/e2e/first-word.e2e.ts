@@ -157,6 +157,15 @@ for (const [index, { name, reactionMs }] of CASES.entries())
     browser,
   }) => {
     test.setTimeout(900_000);
+    // Before the Round exists, so the seats arrive early in its countdown.
+    const wavs = Object.fromEntries(
+      await Promise.all(
+        oneOnOneChoice.definition.segments.map(
+          async (segment) =>
+            [segment.key, await spoken(OPENING_WORDS[segment.key]!)] as const,
+        ),
+      ),
+    );
     const accounts = await createRoomLaunchAccounts(browser, 2);
     try {
       const { round } = await grantedDebaters(
@@ -181,7 +190,7 @@ for (const [index, { name, reactionMs }] of CASES.entries())
                 .map(async (segment) => ({
                   key: segment.key,
                   shows: clockLabel(segment),
-                  wav: await spoken(OPENING_WORDS[segment.key]!),
+                  wav: wavs[segment.key]!,
                 })),
             ),
             reactionMs,

@@ -185,7 +185,7 @@ test('an AI judge is refused an incomplete transcript and a human is not (DEC-20
   const human = { kind: 'human', actorId: 'actor' } as const;
   const unmeasured = {
     completeness: 'incomplete',
-    captureGapMs: null,
+    unheardMs: null,
     expectedSpeechMs: 0,
   };
   await assertRejects({
@@ -200,7 +200,7 @@ test('an AI judge is refused an incomplete transcript and a human is not (DEC-20
     actual: async () =>
       requireAgentBallotCapture(agent, {
         ...unmeasured,
-        captureGapMs: 10_000,
+        unheardMs: 10_000,
         expectedSpeechMs: 100_000,
       }),
     code: 'INVARIANT',
@@ -216,7 +216,7 @@ test('an AI judge is refused an incomplete transcript and a human is not (DEC-20
       }),
       requireAgentBallotCapture(agent, {
         ...unmeasured,
-        captureGapMs: 1_000,
+        unheardMs: 1_000,
         expectedSpeechMs: 100_000,
       }),
       requireAgentBallotCapture(human, unmeasured),

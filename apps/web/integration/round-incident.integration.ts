@@ -19,6 +19,10 @@ requireTestServices(process.env);
 
 type Fixture = Parameters<Parameters<typeof withMediaRound>[0]>[0];
 
+const pause = (ms: number) =>
+  new Promise((done) => {
+    setTimeout(done, ms);
+  });
 const room = (over: Partial<Extract<MediaObservation, { kind: 'room' }>>) =>
   ({
     kind: 'room',
@@ -54,8 +58,6 @@ const liveSpeech = async (f: Fixture) => {
       known: {
         incident: { phase: 'paused' } as never,
         status: round!.status,
-        roomRetired: true,
-        unreachableSince: null,
       },
     });
   };
@@ -63,7 +65,7 @@ const liveSpeech = async (f: Fixture) => {
 };
 /** What a recovery pass commits when it leaves a lost room. */
 const retireRoom = (f: Fixture) =>
-  f.sql`update media_sessions set room_retired_at = clock_timestamp() where round_id=${f.roundId}`;
+  f.sql`insert into media_room_rotations (id, round_id, rotated_at, cause) values (${createId()}, ${f.roundId}, clock_timestamp(), 'lost')`;
 const checkpointOf = async (f: Fixture) => {
   const [row] =
     await f.sql`select status, outcome, final_segment_ended_at, runtime_state from rounds where id=${f.roundId}`;
@@ -313,6 +315,7 @@ test('a retirement outlives a failed observation', async () => {
     await retireRoom(f);
     const failing = createRoundIncidentObserver({
       store: {
+        readRoundIncidentWatch: f.store.roundIncidents.readRoundIncidentWatch,
         observeRoundIncident: async () => {
           throw new Error('lane refused');
         },
@@ -331,23 +334,22 @@ test('a retirement outlives a failed observation', async () => {
       known: {
         incident: { phase: 'none' },
         status: 'active',
-        roomRetired: true,
-        unreachableSince: null,
       },
     });
     await observe(room({}));
-    const [session] =
-      await f.sql`select room_retired_at from media_sessions where round_id=${f.roundId}`;
+    const watch = await f.store.roundIncidents.readRoundIncidentWatch(
+      f.roundId,
+    );
     assert({
       given: 'the observation failing in the pass that retired the room',
       should:
-        'still pause and alert on the next pass, whose read is healthy, and clear the mark',
+        'still pause and alert on the next pass, whose read is healthy, and take it up once',
       actual: {
         phase: (await checkpointOf(f)).runtime_state.incident.phase,
         alerts: alerts.length,
-        mark: session!.room_retired_at,
+        pending: watch.roomRetired,
       },
-      expected: { phase: 'paused', alerts: 1, mark: null },
+      expected: { phase: 'paused', alerts: 1, pending: false },
     });
   });
 });
@@ -504,6 +506,45 @@ test('a reservation never counted needs no refund when the platform ends the Rou
         refunded: row!.refunded_at,
       },
       expected: { status: 'abandoned', refunded: null },
+    });
+  });
+});
+
+test('a rotation after the decision read is not lost', async () => {
+  await withMediaRound(async (f) => {
+    const { observe } = await liveSpeech(f);
+    await retireRoom(f);
+    await observe(room({ captureListed: false }));
+    await pause(2);
+    await retireRoom(f);
+    const watch = await f.store.roundIncidents.readRoundIncidentWatch(
+      f.roundId,
+    );
+    const lostRoom =
+      await f.sql`select count(*)::int as n from media_sessions where round_id=${f.roundId}`;
+    assert({
+      given: 'a room retired again after an earlier retirement was taken up',
+      should:
+        'still be waiting for a decision, on media rows nobody else wrote',
+      actual: [watch.roomRetired, lostRoom[0]!.n],
+      expected: [true, 1],
+    });
+  });
+});
+
+test('a platform ending agrees with the status', async () => {
+  await withMediaRound(async (f) => {
+    const refused =
+      await f.sql`update rounds set platform_ending='recovery_bound' where id=${f.roundId}`.then(
+        () => null,
+        (error: { constraint_name?: string; message?: string }) =>
+          error.constraint_name ?? error.message ?? 'refused',
+      );
+    assert({
+      given: 'recovery_bound on a Round that is not abandoned',
+      should: 'be refused',
+      actual: String(refused).includes('rounds_platform_ending_check'),
+      expected: true,
     });
   });
 });

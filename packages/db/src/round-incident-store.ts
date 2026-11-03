@@ -1,10 +1,7 @@
 import { createAppError } from '@daisy/errors';
-import {
-  idSchema,
-  type RoundIncident,
-  type RoundProjection,
-} from '@daisy/protocol';
-import { eq, sql } from 'drizzle-orm';
+import { idSchema, type RoundProjection } from '@daisy/protocol';
+import { and, desc, eq, ne, sql } from 'drizzle-orm';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
@@ -14,7 +11,10 @@ import {
 } from './round-projection-writer';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { writeSpeakingProjection } from './round-speaking-writer';
-import { mediaSessions } from './schema/media-sessions';
+import { mediaRoomRotations } from './schema/media-sessions';
+import { roundIncidentWatches } from './schema/round-incident-watches';
+
+type Reader = Pick<BunSQLDatabase, 'select'>;
 
 /** What a pass read from the vendor, as far as this store keeps it. */
 export type IncidentWatch = {
@@ -39,7 +39,7 @@ export type IncidentStep = {
 } | null;
 
 export type IncidentOutcome = {
-  readonly kind: 'unchanged' | 'opened' | 'held_again' | 'resuming' | 'ended';
+  readonly kind: 'unchanged' | 'opened' | 'ended';
 };
 
 /**
@@ -70,21 +70,42 @@ async function confirmedUntil(
 }
 
 /** What this revision did to the incident, as the observer reports it. */
-const outcomeOf = (
-  before: RoundIncident['phase'],
-  projection: RoundProjection,
-): IncidentOutcome => {
+const outcomeOf = (projection: RoundProjection): IncidentOutcome => {
   const changes = projection.incidentChanges ?? [];
   if (changes.some((change) => change.kind === 'ended'))
     return { kind: 'ended' };
-  if (changes.some((change) => change.kind === 'opened'))
-    return { kind: 'opened' };
-  const after = projection.round?.checkpoint.incident.phase;
-  if (after === 'resuming' && before === 'paused') return { kind: 'resuming' };
-  if (after === 'paused' && before === 'resuming')
-    return { kind: 'held_again' };
-  return { kind: 'unchanged' };
+  return changes.some((change) => change.kind === 'opened')
+    ? { kind: 'opened' }
+    : { kind: 'unchanged' };
 };
+
+/** What this feature knows between passes: its own row, and media's published rotations. */
+async function readWatch(tx: Reader, roundId: string) {
+  const [own] = await tx
+    .select()
+    .from(roundIncidentWatches)
+    .where(eq(roundIncidentWatches.roundId, roundId));
+  const [rotation] = await tx
+    .select({ rotatedAt: mediaRoomRotations.rotatedAt })
+    .from(mediaRoomRotations)
+    .where(
+      and(
+        eq(mediaRoomRotations.roundId, roundId),
+        ne(mediaRoomRotations.cause, 'seat-revoked'),
+      ),
+    )
+    .orderBy(desc(mediaRoomRotations.rotatedAt))
+    .limit(1);
+  const takenUp = own?.retirementTakenUpAt ?? null;
+  const retiredAt = rotation?.rotatedAt ?? null;
+  return {
+    unreachableSince: own?.unreachableSince ?? null,
+    takenUp,
+    retiredAt,
+    roomRetired:
+      retiredAt !== null && (takenUp === null || retiredAt > takenUp),
+  };
+}
 
 /**
  * One concept, one home: a platform incident's transaction. The server's own observation
@@ -96,6 +117,15 @@ export function createRoundIncidentStore(deps: {
   readonly run: BoundedTransaction;
 }) {
   return {
+    /** An ordinary pass's unlocked read, so a healthy Round costs no Round lock. */
+    readRoundIncidentWatch: (roundId: string) =>
+      deps.run(async (tx) => {
+        const { roomRetired, unreachableSince } = await readWatch(tx, roundId);
+        return {
+          roomRetired,
+          unreachableSince: unreachableSince?.toISOString() ?? null,
+        };
+      }),
     async observeRoundIncident(input: {
       readonly roundId: string;
       readonly watch: IncidentWatch;
@@ -113,27 +143,26 @@ export function createRoundIncidentStore(deps: {
         const read = await hydrateRoundRows(tx, input.roundId);
         if (!read) throw createAppError('NOT_FOUND');
         const now = await sampleRoundExecutionTime(tx);
-        const [session] = await tx
-          .select({
-            unreachableSince: mediaSessions.vendorUnreachableSince,
-            roomRetiredAt: mediaSessions.roomRetiredAt,
-          })
-          .from(mediaSessions)
-          .where(eq(mediaSessions.roundId, input.roundId));
-        if (!session) return { kind: 'unchanged' };
+        const known = await readWatch(tx, input.roundId);
         const unreachableSince = input.watch.unreachable
-          ? (session.unreachableSince ?? new Date(now))
+          ? (known.unreachableSince ?? new Date(now))
           : input.watch.roomRead
             ? null
-            : session.unreachableSince;
-        if (read.status !== 'active' && read.status !== 'opening') {
-          await tx
-            .update(mediaSessions)
-            .set({
-              vendorUnreachableSince: unreachableSince,
-              roomRetiredAt: null,
+            : known.unreachableSince;
+        const remember = (retirementTakenUpAt: Date | null) =>
+          tx
+            .insert(roundIncidentWatches)
+            .values({
+              roundId: input.roundId,
+              unreachableSince,
+              retirementTakenUpAt,
             })
-            .where(eq(mediaSessions.roundId, input.roundId));
+            .onConflictDoUpdate({
+              target: roundIncidentWatches.roundId,
+              set: { unreachableSince, retirementTakenUpAt },
+            });
+        if (read.status !== 'active' && read.status !== 'opening') {
+          await remember(known.retiredAt);
           return { kind: 'unchanged' };
         }
         const due =
@@ -163,22 +192,16 @@ export function createRoundIncidentStore(deps: {
           ? await hydrateRoundRows(tx, input.roundId)
           : read;
         if (!round) throw createAppError('NOT_FOUND');
-        const before = round.checkpoint.incident.phase;
         const step = await input.decide({
           round,
           now,
-          roomRetired: session.roomRetiredAt !== null,
+          roomRetired: known.roomRetired,
           unreachableSince: unreachableSince?.toISOString() ?? null,
           confirmedUntil: () => confirmedUntil(tx, input.roundId),
         });
-        // The decision has taken the retirement up; a failure from here rolls this back too.
-        await tx
-          .update(mediaSessions)
-          .set({
-            vendorUnreachableSince: unreachableSince,
-            roomRetiredAt: null,
-          })
-          .where(eq(mediaSessions.roundId, input.roundId));
+        // The decision has taken up the retirement it read, and no later one: a rotation
+        // committing after that read stays newer. A failure from here rolls this back too.
+        await remember(known.retiredAt);
         if (step === null) return { kind: 'unchanged' };
         const { projection } = step;
         const changed = await writeProjectionWithPhaseSignal(
@@ -194,7 +217,7 @@ export function createRoundIncidentStore(deps: {
           resultingVersion: current.version + (changed ? 1 : 0),
           commandId: null,
         });
-        return outcomeOf(before, projection);
+        return outcomeOf(projection);
       });
     },
   };

@@ -10,7 +10,7 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const platformIncident = '20261103223352_platform_incident';
+const platformIncident = '20261103233651_platform_incident';
 const scratch = scratchDatabase(databaseUrl, 'platformincident');
 afterAll(() => scratch.drop());
 

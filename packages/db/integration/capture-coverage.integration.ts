@@ -209,7 +209,7 @@ const shortfallOf = async (
 };
 
 test('a freeze can say how much speech the platform lost', async () => {
-  const { captureGapMs, expectedSpeechMs, captureGaps, platformLostAudio } =
+  const { captureGapMs, unheardMs, expectedSpeechMs, captureGaps } =
     await shortfallOf(
       [
         [1934, 3000],
@@ -222,8 +222,8 @@ test('a freeze can say how much speech the platform lost', async () => {
     should: 'measure that loss, and state where it was in the speech',
     actual: {
       captureGapMs,
+      unheardMs,
       expectedSpeechMs,
-      platformLostAudio,
       gaps: captureGaps.gaps.map(({ fromOffsetMs, untilOffsetMs }) => [
         fromOffsetMs,
         untilOffsetMs,
@@ -231,15 +231,15 @@ test('a freeze can say how much speech the platform lost', async () => {
     },
     expected: {
       captureGapMs: 100,
+      unheardMs: 100,
       expectedSpeechMs: 5190,
-      platformLostAudio: true,
       gaps: [[3000, 3100]],
     },
   });
 });
 
 test('a seat that went quiet is no loss of the platform', async () => {
-  const { captureGapMs, captureGaps, platformLostAudio } = await shortfallOf(
+  const { captureGapMs, unheardMs, captureGaps } = await shortfallOf(
     [
       [1934, 3000],
       [3100, 5164],
@@ -249,8 +249,8 @@ test('a seat that went quiet is no loss of the platform', async () => {
   assert({
     given: 'a coverage gap alone, with nothing lost by the platform',
     should: 'state nothing as the platform fault, and still count it unheard',
-    actual: { captureGapMs, gaps: captureGaps.gaps, platformLostAudio },
-    expected: { captureGapMs: 100, gaps: [], platformLostAudio: false },
+    actual: { captureGapMs, unheardMs, gaps: captureGaps.gaps },
+    expected: { captureGapMs: 0, unheardMs: 100, gaps: [] },
   });
 });
 
@@ -326,9 +326,10 @@ test('a capture takeover with no gap is judged', async () => {
         completeness: 'incomplete',
         humanJudges: false,
         capture: {
-          gapMs: shortfall.captureGapMs,
+          unheardMs: shortfall.unheardMs,
+          platformLostMs: shortfall.captureGapMs,
           expectedMs: shortfall.expectedSpeechMs,
-          platformLostAudio: shortfall.platformLostAudio,
+          platformLostUnmeasured: shortfall.platformLostUnmeasured,
         },
         ballotDeadlineMs: 60_000,
         aiJudgingBudgetMs: 60_000,
@@ -345,9 +346,9 @@ test("a takeover's gap is the platform's, and stated", async () => {
     should: 'measure it, state it, and call it lost audio',
     actual: {
       gapMs: shortfall.captureGapMs,
+      unheard: shortfall.unheardMs,
       gaps: shortfall.captureGaps.gaps.length,
-      lost: shortfall.platformLostAudio,
     },
-    expected: { gapMs: 400, gaps: 1, lost: true },
+    expected: { gapMs: 400, unheard: 400, gaps: 1 },
   });
 });

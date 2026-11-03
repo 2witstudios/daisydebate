@@ -32,10 +32,13 @@ export type PanelDecision =
 type Completeness = { readonly completeness: 'complete' | 'incomplete' };
 /** What a freeze measured of its capture; a null gap was never measured. */
 type FrozenCapture = {
-  readonly gapMs: number | null;
+  /** All speech nobody heard, a silent seat's too: whether an AI judge may rule. */
+  readonly unheardMs: number | null;
+  /** The speech the platform lost: whether the platform ended the Round. */
+  readonly platformLostMs: number | null;
   readonly expectedMs: number;
-  /** A stream states lost audio. A silent seat also falls short, and is no incident. */
-  readonly platformLostAudio: boolean;
+  /** A stream lost audio by an amount never measured, which cannot be proven small. */
+  readonly platformLostUnmeasured: boolean;
 };
 /**
  * Who may rule on a frozen transcript (DEC-208, ADR 0110). An AI judge rules
@@ -53,12 +56,25 @@ export function freezeJudgingPlan(
     readonly aiJudgingBudgetMs: number;
   },
 ) {
+  const { capture } = input;
   const judgeable =
-    input.completeness !== 'incomplete' || captureWithinLimit(input.capture);
+    input.completeness !== 'incomplete' ||
+    captureWithinLimit({
+      gapMs: capture.unheardMs,
+      expectedMs: capture.expectedMs,
+    });
+  // Silence past the limit takes the transcript-incomplete path: only the platform's own
+  // loss, past that same limit, is an ending blamed on it.
+  const platformFailed =
+    capture.platformLostMs === null
+      ? capture.platformLostUnmeasured
+      : !captureWithinLimit({
+          gapMs: capture.platformLostMs,
+          expectedMs: capture.expectedMs,
+        });
   return {
     dispatchAiJudges: judgeable,
-    endsAsPlatformIncident:
-      !judgeable && !input.humanJudges && input.capture.platformLostAudio,
+    endsAsPlatformIncident: !judgeable && !input.humanJudges && platformFailed,
     ballotDeadlineMs: input.humanJudges ? input.ballotDeadlineMs : null,
     aiJudgingBudgetMs: input.aiJudgingBudgetMs,
   };

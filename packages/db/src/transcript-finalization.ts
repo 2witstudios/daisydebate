@@ -48,9 +48,10 @@ export type FreezeRequest = LockedRoundTickInput & {
     readonly completeness: 'complete' | 'incomplete';
     readonly humanJudges: boolean;
     readonly capture: {
-      readonly gapMs: number | null;
+      readonly unheardMs: number | null;
+      readonly platformLostMs: number | null;
       readonly expectedMs: number;
-      readonly platformLostAudio: boolean;
+      readonly platformLostUnmeasured: boolean;
     };
   }) => {
     /** An AI-only Round lost more speech than can be judged (ADR 0110). */
@@ -71,9 +72,10 @@ async function planFrozenJudging(
   request: FreezeRequest,
   completeness: 'complete' | 'incomplete',
   capture: {
-    readonly gapMs: number | null;
+    readonly unheardMs: number | null;
+    readonly platformLostMs: number | null;
     readonly expectedMs: number;
-    readonly platformLostAudio: boolean;
+    readonly platformLostUnmeasured: boolean;
   },
 ) {
   const [judges] =
@@ -171,13 +173,15 @@ export async function finalizeLockedRoundTranscript(
       completeness: state,
       expectedSpeechMs: shortfall.expectedSpeechMs,
       captureGapMs: shortfall.captureGapMs,
+      unheardMs: shortfall.unheardMs,
       captureGaps: shortfall.captureGaps,
     })
     .returning();
   const platformEnded = await planFrozenJudging(tx, request, state, {
-    gapMs: shortfall.captureGapMs,
+    unheardMs: shortfall.unheardMs,
+    platformLostMs: shortfall.captureGapMs,
     expectedMs: shortfall.expectedSpeechMs,
-    platformLostAudio: shortfall.platformLostAudio,
+    platformLostUnmeasured: shortfall.platformLostUnmeasured,
   });
   await appendTranscriptChanged(tx, request.roundId, revision + 1);
   // What the Round waits on changes here, so the room must read it: a new version

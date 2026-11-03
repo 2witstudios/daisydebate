@@ -8,8 +8,8 @@ import { rounds } from './schema/rounds';
 type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
 
 /**
- * The one writer of an incident's row, which only records what the engine said happened
- * in the revision it commits with.
+ * The one writer of an incident's row, recording what the engine said happened in the
+ * revision it commits with. An ending also sets the Round's platform ending and refunds.
  */
 export async function writeRoundIncidentChanges(
   tx: Tx,

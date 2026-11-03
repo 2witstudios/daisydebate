@@ -336,14 +336,7 @@ export function createMediaReconcileStore(input: {
             ...fields,
             // The one writer of the room watch. A fresh room has been seen by nobody.
             ...(roomName
-              ? {
-                  roomName,
-                  roomOccupiedSid: null,
-                  roomSawCapture: false,
-                  ...(fate.kind === 'rotate' && fate.cause !== 'seat-revoked'
-                    ? { roomRetiredAt: now }
-                    : {}),
-                }
+              ? { roomName, roomOccupiedSid: null, roomSawCapture: false }
               : request.seen?.kind === 'absent'
                 ? { roomOccupiedSid: null, roomSawCapture: false }
                 : request.seen
@@ -356,11 +349,12 @@ export function createMediaReconcileStore(input: {
                   : {}),
           })
           .where(eq(mediaSessions.id, session.id));
-        if (roomName)
+        if (roomName && fate.kind === 'rotate')
           await tx.insert(mediaRoomRotations).values({
             id: input.nextId(),
             roundId: session.roundId,
             rotatedAt: now,
+            cause: fate.cause,
           });
         return { ...result, fate };
       });
