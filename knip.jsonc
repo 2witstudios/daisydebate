@@ -58,6 +58,12 @@
         // Explicit subprocess/container entries, with no browser import edge.
         "e2e/support/room-launch-app.ts",
         "e2e/support/room-launch-queued.ts",
+        // The on-demand node kill drill: never in CI, started by its runner.
+        "e2e/node-kill-drill.e2e.ts",
+        "e2e/support/node-kill-drill-runner.ts",
+        "e2e/support/node-kill-drill-queued.ts",
+        "e2e/support/node-kill-drill-config.ts",
+        "e2e/support/node-kill-drill-evidence-process.ts",
         "e2e/support/launch-browser-network.mjs",
         // CI executes these proof CLIs through the heavy queue; the Node driver is spawned.
         "e2e/support/launch-browser-archive-proof.ts",

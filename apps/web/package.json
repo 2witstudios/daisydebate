@@ -15,6 +15,7 @@
     "load:local": "bun --env-file=../../.env run scripts/auth-load/run.ts",
     "load:abuse": "bun --env-file=../../.env run scripts/auth-load/abuse-run.ts",
     "test:e2e:room-launch": "bun --env-file=../../.env e2e/support/room-launch-runner.ts",
+    "drill:node-kill": "bun --env-file=../../.env e2e/support/node-kill-drill-runner.ts",
     "test:e2e:realtime": "bun --env-file=../../.env e2e/support/realtime-runner.ts room",
     "test:e2e:messaging-realtime": "bun --env-file=../../.env e2e/support/realtime-runner.ts messaging"
   },
