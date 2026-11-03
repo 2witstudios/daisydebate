@@ -55,7 +55,6 @@ export const eventRegistry = {
   'round.media.floor_tick': 'info',
   'round.media.floor_waiting': 'info',
   'round.media.floor_pass': 'info',
-  'round.media.room_retired': 'info',
   'round.media.pass': 'info',
   'round.media.floor_moved': 'info',
   'media.discovery.failed': 'error',
