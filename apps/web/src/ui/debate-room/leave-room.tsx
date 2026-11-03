@@ -9,7 +9,7 @@ import {
 } from '../../features/round-runtime/command-form';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
-import { markDeparture } from '../../features/rooms/resume-departure';
+import { leaveRound } from '../../features/rooms/resume-departure';
 import { clearRoundMediaPreferences } from '../../features/round-media/media-preferences';
 
 export type LeaveLinks = {
@@ -33,8 +33,8 @@ export type LeaveLinks = {
   readonly held?: boolean;
   /**
    * Whose departure this is (ISSUE-879): the member who confirmed leaves
-   * this browser session's auto-resume for that Round; nothing server-side
-   * can re-suppress it.
+   * this tab's auto-resume for that Round, and any tab waiting on it
+   * (ISSUE-1033); nothing server-side can re-suppress it.
    */
   readonly left?: {
     readonly actorId: string | null;
@@ -86,7 +86,7 @@ function ForfeitLeave({
       answer.next &&
       left
     ) {
-      markDeparture(left.actorId, left.roundId);
+      leaveRound(left.actorId, left.roundId);
       clearRoundMediaPreferences(left.actorId, left.roomId, left.roundId);
     }
   }, [pending, answer, left]);
@@ -136,7 +136,7 @@ function LeavePermanent({
       href={links.leaveHref}
       className={className}
       onClick={() => {
-        markDeparture(links.left.actorId, links.left.roundId);
+        leaveRound(links.left.actorId, links.left.roundId);
         clearRoundMediaPreferences(
           links.left.actorId,
           links.left.roomId,
@@ -159,7 +159,7 @@ function StepAway({
     <a
       href="/lobby"
       className={`${action} border border-border-strong text-ink`}
-      onClick={() => markDeparture(left.actorId, left.roundId)}
+      onClick={() => leaveRound(left.actorId, left.roundId)}
     >
       Go to the lobby, keeping your seat
     </a>

@@ -26,6 +26,8 @@ export const resumeOwnershipStaleMs = 5000;
 export type ResumeOwnership = {
   readonly owner: string | null;
   readonly claimedAtMs: number | null;
+  /** The holder left this Round explicitly, so no waiting tab inherits it. */
+  readonly left?: true | undefined;
 };
 
 /** Whether this tab may resume now: fresh foreign claim defers, else resume. */
