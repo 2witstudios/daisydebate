@@ -40,23 +40,25 @@ const auditFor = (
 /**
  * One viewer's Round (DEC-98, DEC-174): a human judge's seat names the
  * judge only to that judge and to the host who seated them; everyone else,
- * debaters and spectators alike, sees that the seat is filled. The host's
- * actor is never sent.
+ * debaters and spectators alike, sees that the seat is filled. A host who
+ * inherited the Room is told as anyone is (DEC-331).
+ * The host's actor is never sent.
  */
 export function roundViewFor(
   round: LaunchedRound,
   viewerActorId: string | null,
 ): Omit<RoundView, 'waitingOn'> {
-  const { hostActorId, ...view } = round;
-  const knowsJudges = viewerActorId !== null && viewerActorId === hostActorId;
+  const { hostActorId, hostInherited, ...view } = round;
+  const viewerIsHost = viewerActorId !== null && viewerActorId === hostActorId;
+  const knowsJudges = viewerIsHost && !hostInherited;
   const ownPeople =
-    knowsJudges ||
+    viewerIsHost ||
     round.participants.some((seat) => seat.actorId === viewerActorId);
   return {
     ...view,
     opening: null,
     resolutionAudit: auditFor(round.resolutionAudit, ownPeople),
-    viewerIsHost: knowsJudges,
+    viewerIsHost,
     participants: round.participants.map((seat) =>
       seat.role !== 'judge' ||
       seat.kind === 'bot' ||
