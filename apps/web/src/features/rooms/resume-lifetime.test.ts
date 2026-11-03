@@ -1,11 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createResumeLifetime } from './resume-lifetime';
+import { markClaimLeft } from './resume-ownership';
 
 setupRitewayBun();
 
 const world = () => {
   let nowMs = 10_000;
   const entries = new Map<string, string>();
+  const left: string[] = [];
   const ticks = new Set<() => void>();
   const listeners = new Set<() => void>();
   const storage = {
@@ -25,7 +27,6 @@ const world = () => {
     tabId: string,
     changed: (owner: boolean) => void,
     successor: { id: string | null } = { id: null },
-    departed: () => boolean = () => false,
   ) =>
     createResumeLifetime({
       actorId: 'actor',
@@ -42,7 +43,7 @@ const world = () => {
         },
       },
       now: () => nowMs,
-      departed,
+      holderLeft: () => left.push(tabId),
       subscribe: (listener) => {
         listeners.add(listener);
         return () => {
@@ -59,6 +60,8 @@ const world = () => {
     });
   return {
     tab,
+    left,
+    storage,
     tick: (ms: number) => {
       nowMs += ms;
       [...ticks].forEach((tick) => tick());
@@ -92,50 +95,65 @@ test('direct route and deferred entry share takeover, stepdown and crash expiry'
   });
 });
 
-test('a waiting tab does not take a Round the member left until they press', () => {
+const leaving = {
+  actorId: 'actor',
+  roundId: 'round',
+} as const;
+
+test('a tab waiting on a holder that left never takes the Round', () => {
   const host = world();
-  let left = false;
-  const first = host.tab('first', () => undefined);
   const owned: boolean[] = [];
-  const waiting = host.tab(
-    'waiting',
-    (value) => owned.push(value),
-    { id: null },
-    () => left,
-  );
-  left = true;
-  first.stop();
+  const first = host.tab('first', () => undefined);
+  const waiting = host.tab('waiting', (value) => owned.push(value));
+  markClaimLeft({ storage: host.storage, ...leaving, tabId: 'first' });
+  first.handOff();
   host.tick(2500);
-  const afterLeaving = owned.at(-1);
-  waiting.takeOver();
+  host.tick(6000);
   assert({
-    given: 'an owner that departed, then a press in the waiting tab',
-    should: 'keep waiting past the release and own only after the press',
-    actual: [afterLeaving, owned.at(-1)],
-    expected: [false, true],
+    given: 'the holder leaves and its claim then goes stale',
+    should: 'report the departure once and never own the Round',
+    actual: [host.left, owned],
+    expected: [['waiting'], [false]],
   });
   waiting.stop();
 });
 
-test('a departure elsewhere does not unseat the tab holding the Round', () => {
+test('leaving from a waiting tab costs the holder nothing', () => {
   const host = world();
   const owned: boolean[] = [];
-  const holder = host.tab(
-    'holder',
-    (value) => owned.push(value),
-    { id: null },
-    () => true,
-  );
-  const first = host.tab('first', () => undefined);
-  first.stop();
-  holder.takeOver();
-  owned.length = 0;
+  const holder = host.tab('holder', (value) => owned.push(value));
+  const waiting = host.tab('waiting', () => undefined);
+  markClaimLeft({ storage: host.storage, ...leaving, tabId: 'waiting' });
+  waiting.stop();
   host.tick(6000);
   assert({
-    given: 'an owner whose heartbeat lapsed while a departure stands',
-    should: 'keep the Round with no step-down',
-    actual: owned,
-    expected: [],
+    given: 'a leave pressed in a tab holding nothing, then a lapsed heartbeat',
+    should: 'keep the holder owning and report no departure',
+    actual: [owned, host.left],
+    expected: [[true], []],
+  });
+  holder.stop();
+});
+
+test('a holder whose leave never navigated takes its claim back', () => {
+  const host = world();
+  const owned: boolean[] = [];
+  const holder = host.tab('holder', (value) => owned.push(value));
+  markClaimLeft({ storage: host.storage, ...leaving, tabId: 'holder' });
+  host.tick(2500);
+  const flagged = JSON.parse(
+    host.storage.getItem('daisy:resume-owner:actor:round')!,
+  );
+  host.tick(6000);
+  assert({
+    given: 'a leave that opened a new tab and left this one here',
+    should: 'keep the flag while fresh, then reclaim with no step-down',
+    actual: [
+      flagged.left,
+      JSON.parse(host.storage.getItem('daisy:resume-owner:actor:round')!).left,
+      owned,
+    ],
+    expected: [true, undefined, [true]],
   });
   holder.stop();
 });

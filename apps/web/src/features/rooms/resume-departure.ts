@@ -1,57 +1,63 @@
-import { systemClock } from '@daisy/clock';
 import { resumeAttemptPrefix } from './resume-attempt';
-import { resumeHeirPrefix, resumeOwnershipPrefix } from './resume-ownership';
+import { documentTabId } from './document-tab';
+import {
+  markClaimLeft,
+  resumeHeirPrefix,
+  resumeOwnershipPrefix,
+} from './resume-ownership';
 
 /**
- * Whether a member left this Round explicitly in this browser, so no tab's
- * auto-resume fights the departure (ISSUE-879, ISSUE-1033). Local UX only: the
- * server still decides who is seated.
+ * Whether a member left this Round explicitly in this tab, so auto-resume does
+ * not fight the departure (ISSUE-879). Local UX only: the server still decides
+ * who is seated.
  */
 const departurePrefix = 'daisy:resume-left:';
 const departureKey = (actorId: string, roundId: string) =>
   `${departurePrefix}${actorId}:${roundId}`;
-const departureRetentionMs = 24 * 60 * 60 * 1000;
-
-const freshMark = (raw: string | null, nowMs: number) =>
-  raw !== null && nowMs - Number(raw) < departureRetentionMs;
-
-const sweepExpiredDepartures = (storage: Storage, nowMs: number) => {
-  const expired: string[] = [];
-  for (let index = 0; index < storage.length; index++) {
-    const key = storage.key(index);
-    if (!key?.startsWith(departurePrefix)) continue;
-    if (!freshMark(storage.getItem(key), nowMs)) expired.push(key);
-  }
-  for (const key of expired) storage.removeItem(key);
-};
 
 export function markDeparture(
   actorId: string | null,
   roundId: string,
-  local?: Storage,
-  nowMs: number = Date.parse(systemClock.now()),
+  session?: Pick<Storage, 'setItem'>,
 ): void {
   if (actorId === null) return;
   try {
-    const storage = local ?? window.localStorage;
-    sweepExpiredDepartures(storage, nowMs);
-    storage.setItem(departureKey(actorId, roundId), String(nowMs));
+    (session ?? window.sessionStorage).setItem(
+      departureKey(actorId, roundId),
+      '1',
+    );
   } catch {
     // Storage disabled: the departure holds only for this navigation.
   }
 }
 
-export function hasDeparted(
+/** Leaving, as a member's press: recorded here, and told to any tab waiting on this one. */
+export function leaveRound(actorId: string | null, roundId: string): void {
+  markDeparture(actorId, roundId);
+  if (actorId === null) return;
+  try {
+    markClaimLeft({
+      storage: window.localStorage,
+      actorId,
+      roundId,
+      tabId: documentTabId(),
+    });
+  } catch {
+    // Storage blocked: no tab can be waiting on this one.
+  }
+}
+
+export function departedInSession(
   actorId: string | null,
   roundId: string,
-  local?: Pick<Storage, 'getItem'>,
-  nowMs: number = Date.parse(systemClock.now()),
+  session?: Pick<Storage, 'getItem'>,
 ): boolean {
   if (actorId === null) return false;
   try {
-    return freshMark(
-      (local ?? window.localStorage).getItem(departureKey(actorId, roundId)),
-      nowMs,
+    return (
+      (session ?? window.sessionStorage).getItem(
+        departureKey(actorId, roundId),
+      ) === '1'
     );
   } catch {
     return false;
@@ -67,18 +73,6 @@ const removeWithPrefix = (storage: Storage, prefix: string) => {
   for (const key of doomed) storage.removeItem(key);
 };
 
-/** Each tab starting to coordinate removes what no later departure ever swept. */
-export function sweepDepartures(
-  local: Storage,
-  nowMs: number = Date.parse(systemClock.now()),
-): void {
-  try {
-    sweepExpiredDepartures(local, nowMs);
-  } catch {
-    // Storage disabled: it holds no records to sweep.
-  }
-}
-
 /** An ended account leaves no departure, nor an advisory claim a crash stranded. */
 export function clearAccountResumeRecords(
   session?: Storage,
@@ -86,11 +80,10 @@ export function clearAccountResumeRecords(
 ): void {
   try {
     const tab = session ?? window.sessionStorage;
-    const browser = local ?? window.localStorage;
+    removeWithPrefix(tab, departurePrefix);
     removeWithPrefix(tab, resumeHeirPrefix);
     removeWithPrefix(tab, resumeAttemptPrefix);
-    removeWithPrefix(browser, departurePrefix);
-    removeWithPrefix(browser, resumeOwnershipPrefix);
+    removeWithPrefix(local ?? window.localStorage, resumeOwnershipPrefix);
   } catch {
     // Storage disabled: it holds no records to clear.
   }
@@ -100,10 +93,12 @@ export function clearAccountResumeRecords(
 export function clearDeparture(
   actorId: string,
   roundId: string,
-  local?: Pick<Storage, 'removeItem'>,
+  session?: Pick<Storage, 'removeItem'>,
 ): void {
   try {
-    (local ?? window.localStorage).removeItem(departureKey(actorId, roundId));
+    (session ?? window.sessionStorage).removeItem(
+      departureKey(actorId, roundId),
+    );
   } catch {
     // Storage disabled: there is no record to clear.
   }

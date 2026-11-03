@@ -1,18 +1,15 @@
 'use client';
 
 import { systemClock } from '@daisy/clock';
-import { createId } from '@paralleldrive/cuid2';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { clearDeparture, sweepDepartures } from './resume-departure';
+import { documentTabId } from './document-tab';
+import { markDeparture } from './resume-departure';
 import { createResumeLifetime } from './resume-lifetime';
 import {
   resumeHeirKey,
   resumeOwnershipHeartbeatMs,
   subscribeOwnership,
 } from './resume-ownership';
-
-// One document identity, never sessionStorage (which a newly opened tab may clone).
-let documentTabId: string | null = null;
 
 /** Blocked storage means no coordination, which must never mean no media. */
 const advisoryStorage = () => {
@@ -50,8 +47,9 @@ const tabPredecessor = (actorId: string, roundId: string) => {
 export function useResumeLifetime(
   actorId: string | null,
   roundId: string | null,
+  /** Where this tab goes when the tab it waited on left the Round. */
+  holderLeft: () => void,
   steppedDown?: () => void,
-  departed: (actorId: string, roundId: string) => boolean = () => false,
 ) {
   const [claim, setClaim] = useState<{
     readonly actorId: string;
@@ -64,23 +62,24 @@ export function useResumeLifetime(
       : null;
   const lifetime = useRef<ReturnType<typeof createResumeLifetime> | null>(null);
   const onStepDown = useRef(steppedDown);
-  const holdForDeparture = useRef(departed);
+  const onHolderLeft = useRef(holderLeft);
   useEffect(() => {
     onStepDown.current = steppedDown;
-    holdForDeparture.current = departed;
-  }, [steppedDown, departed]);
+    onHolderLeft.current = holderLeft;
+  }, [steppedDown, holderLeft]);
   useEffect(() => {
     if (actorId === null || roundId === null) return;
-    documentTabId ??= createId();
-    sweepDepartures(advisoryStorage() as Storage);
     const current = createResumeLifetime({
       actorId,
       roundId,
-      tabId: documentTabId,
+      tabId: documentTabId(),
       storage: advisoryStorage(),
       predecessor: tabPredecessor(actorId, roundId),
       now: () => Date.parse(systemClock.now()),
-      departed: () => holdForDeparture.current(actorId, roundId),
+      holderLeft: () => {
+        markDeparture(actorId, roundId);
+        onHolderLeft.current();
+      },
       subscribe: (listener) =>
         subscribeOwnership(window, actorId, roundId, listener),
       schedule: (tick) => {
@@ -104,10 +103,6 @@ export function useResumeLifetime(
       lifetime.current = null;
     };
   }, [actorId, roundId]);
-  /** The person chose this tab, so any earlier departure no longer stands. */
-  const takeOver = useCallback(() => {
-    if (actorId !== null && roundId !== null) clearDeparture(actorId, roundId);
-    lifetime.current?.takeOver();
-  }, [actorId, roundId]);
+  const takeOver = useCallback(() => lifetime.current?.takeOver(), []);
   return { owns, takeOver };
 }

@@ -25,8 +25,8 @@ export function createResumeLifetime(input: {
     readonly write: (tabId: string) => void;
     readonly clear: () => void;
   };
-  /** The member left this Round in another tab: only an explicit press takes it. */
-  readonly departed: () => boolean;
+  /** Called once: the tab this one waited on left the Round. It never takes it. */
+  readonly holderLeft: () => void;
   /** False must synchronously release this tab's media before any later attempt. */
   readonly changed: (owns: boolean) => void;
 }) {
@@ -40,23 +40,19 @@ export function createResumeLifetime(input: {
   const claim = () => claimOwnership({ ...input, nowMs: input.now() });
   const check = () => {
     if (stopped) return;
-    const decision = mayResumeTab(
-      input.tabId,
-      readOwnership(input.storage, input.actorId, input.roundId),
-      input.now(),
-    );
+    const held = readOwnership(input.storage, input.actorId, input.roundId);
+    if (held.left && held.owner !== input.tabId) {
+      stopTicking();
+      input.holderLeft();
+      return;
+    }
+    const decision = mayResumeTab(input.tabId, held, input.now());
     if (decision === 'defer') {
       publish(false);
       return;
     }
-    if (decision === 'take-over') {
-      // A departure stops a tab gaining the Round, never one already holding it.
-      if (owns !== true && input.departed()) {
-        publish(false);
-        return;
-      }
-      claim();
-    } else heartbeatOwnership({ ...input, nowMs: input.now() });
+    if (decision === 'take-over') claim();
+    else heartbeatOwnership({ ...input, nowMs: input.now() });
     publish(true);
   };
   sweepExpiredClaims(input.storage, input.now());

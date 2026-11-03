@@ -1,10 +1,10 @@
 'use client';
 
-/** This tab does not hold the Round, whether another tab does or the member left; only a press moves it. */
+/** The Round is live in another tab of this browser; only an explicit press moves it. */
 export function TabElsewhere({ takeOver }: { readonly takeOver: () => void }) {
   return (
     <>
-      <p role="status">This Round is not open in this tab.</p>
+      <p role="status">This Round is open in another tab.</p>
       <button type="button" onClick={takeOver}>
         Use this tab
       </button>

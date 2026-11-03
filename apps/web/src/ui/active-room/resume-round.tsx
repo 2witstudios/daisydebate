@@ -2,7 +2,7 @@
 
 import type { ActiveRoom } from '@daisy/protocol';
 import { useEffect, useRef, useState } from 'react';
-import { hasDeparted } from '../../features/rooms/resume-departure';
+import { departedInSession } from '../../features/rooms/resume-departure';
 import { resumeRoundHrefOf } from '../../features/rooms/resume';
 import {
   attemptedResume,
@@ -37,7 +37,7 @@ export function ResumeRound({
     () =>
       typeof window !== 'undefined' &&
       roundId !== null &&
-      hasDeparted(actorId, roundId),
+      departedInSession(actorId, roundId),
   );
   const [attempted] = useState(
     () =>
@@ -46,7 +46,10 @@ export function ResumeRound({
       attemptedResume(actorId, roundId),
   );
   const resuming = resumeRoundHrefOf({ actorId, room, departed, attempted });
-  const ownership = useResumeLifetime(actorId, resuming ? roundId : null);
+  // Reading again with the departure marked, this tab stays where it is.
+  const ownership = useResumeLifetime(actorId, resuming ? roundId : null, () =>
+    window.location.reload(),
+  );
   const waited = useRef(false);
   useEffect(() => {
     if (resuming === null || ownership.owns === null) return;
