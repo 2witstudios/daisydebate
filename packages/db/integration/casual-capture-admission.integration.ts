@@ -16,7 +16,7 @@ const { databaseUrl } = requireTestServices(process.env);
 
 const capture = { broadcast: null, recording: true };
 
-test('casual captures are capped per host and fleet-wide, and ranked counts for neither', async () => {
+test('casual captures are capped per host and fleet-wide', async () => {
   const client = new SQL(databaseUrl, { max: 2 });
   const db = drizzle({ client });
   try {
@@ -39,37 +39,67 @@ test('casual captures are capped per host and fleet-wide, and ranked counts for 
             roundId: createId(),
           }),
         );
-      for (let i = 0; i < CASUAL_CAPTURES_PER_HOST - 1; i += 1)
-        await running(host);
-      await running(host, {
+      const stranger = async () => f.actor(await f.user());
+      assert({
+        given: 'nothing running',
+        should: 'admit',
+        actual: await answer(host),
+        expected: undefined,
+      });
+      for (let i = 0; i < CASUAL_CAPTURES_AT_ONCE; i += 1)
+        await running(await stranger());
+      await assertRejects({
+        given: 'a new host with the fleet at its casual cap',
+        should: 'refuse by name',
+        code: 'CONFLICT',
+        reason: 'capture-capacity',
+        actual: async () => answer(await stranger()),
+      });
+      for (let i = 0; i < CASUAL_CAPTURES_PER_HOST; i += 1) await running(host);
+      await assertRejects({
+        given: 'a host at the per-host cap',
+        should: 'refuse by name',
+        code: 'CONFLICT',
+        reason: 'capture-host-limit',
+        actual: () => answer(host),
+      });
+    });
+  } finally {
+    await client.close();
+  }
+});
+
+test('a live ranked Round refuses casual capture, and is never counted against itself', async () => {
+  const client = new SQL(databaseUrl, { max: 2 });
+  const db = drizzle({ client });
+  try {
+    await withFixture(databaseUrl, async (f) => {
+      const host = await f.actor(await f.user());
+      await f.round({
+        status: 'active',
+        current_stage: 'live',
+        started_at: new Date(),
+        resolution: 'A resolution',
+        capture,
+        created_by_actor_id: host,
         competition_type: 'ranked',
         format_id: 'freestyle',
         ladder_id: 'freestyle',
         preset_version: 1,
         visibility: 'public',
       });
-      assert({
-        given: 'a host one under the cap, with a ranked Round besides',
-        should: 'admit, since ranked is not counted',
-        actual: await answer(host),
-        expected: undefined,
-      });
-      await running(host);
       await assertRejects({
-        given: 'that host at the cap',
-        should: 'refuse by name',
-        code: 'CONFLICT',
-        reason: 'capture-host-limit',
-        actual: () => answer(host),
-      });
-      for (let i = 0; i < CASUAL_CAPTURES_AT_ONCE; i += 1)
-        await running(await f.actor(await f.user()));
-      await assertRejects({
-        given: 'a new host with the fleet at its casual cap',
-        should: 'refuse by name',
+        given: 'one Egress machine and a ranked Round live',
+        should: 'refuse casual capture, since ranked comes first',
         code: 'CONFLICT',
         reason: 'capture-capacity',
-        actual: async () => answer(await f.actor(await f.user())),
+        actual: async () =>
+          db.transaction((tx) =>
+            admitCasualCapture(tx as never, {
+              hostActorId: host,
+              roundId: createId(),
+            }),
+          ),
       });
     });
   } finally {
