@@ -321,7 +321,45 @@ test('slow mode, a ban and the end of the Broadcast each refuse a post, with sta
   });
 });
 
-test('the route’s rate limit runs on real Redis before any work', async () => {
+test('the chat route’s own rate limit runs on real Redis before any work', async () => {
+  await withRoomRuntime(async (f) => {
+    const roundId = await onAirRound(f);
+    const poster = await unadmitted(f);
+    const route = routes(
+      f,
+      () => poster,
+      () => NOW,
+    );
+    try {
+      const statuses: number[] = [];
+      for (let press = 0; press < 21; press += 1)
+        statuses.push(
+          (
+            await route.chat(
+              postTo(
+                `/api/rounds/${roundId}/chat`,
+                chatBody(`Line ${press}`),
+              ),
+            )
+          ).status,
+        );
+      const [row] =
+        (await f.sql`select count(*)::int as c from messaging_messages m
+        join messaging_channels c on c.id=m.channel_id
+        where c.round_id=${roundId}`) as { c: number }[];
+      assert({
+        given: '21 chat posts in one minute',
+        should: 'accept 20, limit the last, and store only what was accepted',
+        actual: [statuses.slice(0, 20).every((s) => s === 200), statuses[20], row!.c],
+        expected: [true, 429, 20],
+      });
+    } finally {
+      await cleanup(f, roundId, [poster.userId]);
+    }
+  });
+});
+
+test('the reaction route’s rate limit runs on real Redis before any work', async () => {
   await withRoomRuntime(async (f) => {
     const roundId = await onAirRound(f);
     const poster = await unadmitted(f);

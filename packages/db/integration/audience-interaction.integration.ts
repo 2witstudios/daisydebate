@@ -14,6 +14,7 @@ import {
 } from '../src/messaging/spectator-chat';
 import { notificationOperations } from '../src/notifications';
 import { watchHistoryOperations } from '../src/watch-history';
+import { openDm } from './messaging-retained-dm.test-support';
 import { validConfig, validRules } from './round-fixtures';
 import { withFixture, type Fixture } from './constraint-helpers';
 
@@ -469,6 +470,85 @@ test('a retried post keeps one message, and a Round with no audience has no chat
   });
 });
 
+test('chat keeps its history when a Broadcast fails or stops', async () => {
+  await withEnv(async (env) => {
+    const roundId = await env.audienceRound();
+    await broadcast(env.client, roundId);
+    const poster = await member(env.f);
+    await post(env, { roundId, ...poster, text: 'Before', seconds: 0 });
+    const texts = async () => ({
+      chat: (await env.chat.readSpectatorChat({ roundId, limit: 10 })).map(
+        (row) => row.text,
+      ),
+      snapshot: (
+        await env.snapshot.readAudienceSnapshot({ roundId })
+      )?.messages.map((row) => row.text),
+    });
+    const live = await texts();
+    // Failed: the Broadcast closed having released nothing (`standingOf`).
+    await env.client`update broadcasts set completed_at=${at(5)}, released_through_at=null where round_id=${roundId}`;
+    const failed = await texts();
+    await env.client`update broadcasts set stopped_at=${at(7)}, stop_reason='test' where round_id=${roundId}`;
+    assert({
+      given: 'chat read live, after a failed Broadcast, and after a stop',
+      should: 'read the same history each time, in both reads',
+      actual: { failed, stopped: await texts() },
+      expected: { failed: live, stopped: live },
+    });
+  });
+});
+
+test('a seat taken and given up changes nothing about a DM between the two debaters', async () => {
+  await withEnv(async (env) => {
+    const dm = await openDm(databaseUrl);
+    const { channelId, subject, survivor } = dm;
+    const roundId = await env.audienceRound();
+    try {
+      await broadcast(env.client, roundId);
+      const facts = async () => [
+        await readMessagingChannelFact(dm.database, channelId, subject.actorId),
+        await readMessagingChannelFact(dm.database, channelId, survivor.actorId),
+      ];
+      const messages = async () =>
+        (await dm.client.unsafe(
+          'select id from messaging_messages where channel_id=$1 order by sequence',
+          [channelId],
+        )) as unknown[];
+      const spectators = await facts();
+      const history = await messages();
+      await post(env, { roundId, ...subject, text: 'From the crowd', seconds: 0 });
+      const spectating = await facts();
+      await env.f.participant(roundId, 'affirmative', 0, subject.actorId);
+      await env.f.participant(roundId, 'negative', 0, survivor.actorId);
+      const seated = await facts();
+      await env.client`delete from round_participants where round_id=${roundId}`;
+      const unseated = await facts();
+      assert({
+        given: 'two people with a DM who watch, take seats, then lose them',
+        should: 'read that DM and its history the same at every step',
+        actual: {
+          exists: spectators.every((fact) => fact !== null),
+          spectating,
+          seated,
+          unseated,
+          history: await messages(),
+        },
+        expected: {
+          exists: true,
+          spectating: spectators,
+          seated: spectators,
+          unseated: spectators,
+          history,
+        },
+      });
+    } finally {
+      // Its author goes with the DM fixture, so the crowd's line goes first.
+      await env.client`delete from messaging_channels where round_id=${roundId}`;
+      await dm.close();
+    }
+  });
+});
+
 test('the planner sees the ban, slow mode, last post and closed Broadcast in the transaction', async () => {
   await withEnv(async (env) => {
     const roundId = await env.audienceRound();
@@ -672,6 +752,35 @@ test('following: one way, refused for yourself, a stranger or a block with one a
         after: 'not_following',
         none: [],
       },
+    });
+  });
+});
+
+test('a block after a follow takes that debater off the list, and lifting it restores them', async () => {
+  await withEnv(async (env) => {
+    const fan = await member(env.f);
+    const debater = await member(env.f);
+    const listed = () =>
+      env.follows.listFollowedDebaters({
+        followerUserId: fan.userId,
+        limit: 10,
+      });
+    await env.follows.setDebaterFollow({
+      followerUserId: fan.userId,
+      username: `u-${debater.userId}`,
+      state: 'following',
+    });
+    const before = await listed();
+    const [low, high] = [fan.actorId, debater.actorId].sort();
+    await env.client`insert into contact_pairs (low_actor_id,high_actor_id,high_blocks_low,low_blocks_high)
+      values (${low!},${high!},true,false)`;
+    const blocked = await listed();
+    await env.client`delete from contact_pairs where low_actor_id=${low!} and high_actor_id=${high!}`;
+    assert({
+      given: 'a debater followed, then a block between the two, then none',
+      should: 'list them, not list them, then list them again',
+      actual: [before, blocked, await listed()],
+      expected: [[`u-${debater.userId}`], [], [`u-${debater.userId}`]],
     });
   });
 });
