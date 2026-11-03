@@ -104,6 +104,7 @@ test('an authenticated DM message reaches the other real browser as an observed 
   }
 });
 
+type DmJourney = Awaited<ReturnType<typeof openMessagingJourney>>;
 const unreadableNotice = 'This conversation could not be marked read.';
 // Playwright's text engine skips <noscript>, though a no-JS browser renders
 // it, so read the notices' rendered status text directly.
@@ -111,23 +112,59 @@ const noScriptStatus = (page: Page) =>
   page
     .locator('noscript [role="status"]')
     .evaluateAll((notices) => notices.map((notice) => notice.textContent));
+const replyText = 'Native browser DM history';
+/** An accepted DM whose recipient has replied, with the sender's page open. */
+const repliedDm = async (journey: DmJourney) => {
+  const recipient = await acceptMessagingJourney(journey);
+  await recipient.getByLabel('Your message').fill(replyText);
+  await recipient
+    .getByRole('button', { name: 'Send message', exact: true })
+    .click();
+  await expect(messageInHistory(recipient, replyText)).toBeVisible();
+  const sender = await openPage(journey.sender, 'the sender durable history');
+  return { recipient, sender };
+};
+const inboxHasNoUnread = (sender: Page) =>
+  expect(async () => {
+    await sender.goto('/messages');
+    await expect(sender.getByRole('link', { name: /, unread$/ })).toHaveCount(
+      0,
+    );
+  }).toPass();
+/** That DM, read by the sender, whose page is back on the conversation. */
+const readDm = async (journey: DmJourney, javaScriptEnabled: boolean) => {
+  const { recipient, sender } = await repliedDm(journey);
+  await sender.goto(`/messages/${journey.channelId}`);
+  await expect(messageInHistory(sender, replyText)).toHaveCount(1);
+  if (!javaScriptEnabled)
+    await sender
+      .getByRole('button', { name: 'Mark as read', exact: true })
+      .click();
+  await inboxHasNoUnread(sender);
+  await sender.goto(`/messages/${journey.channelId}`);
+  return { recipient, sender };
+};
+
 for (const javaScriptEnabled of [true, false]) {
-  test(`a recipient accepts a DM and sends durable history with JavaScript ${javaScriptEnabled ? 'enabled' : 'disabled'}`, async ({
-    browser,
-  }) => {
-    const journey = await openMessagingJourney(browser, javaScriptEnabled);
-    try {
-      const recipient = await acceptMessagingJourney(journey);
-      const text = 'Native browser DM history';
-      await recipient.getByLabel('Your message').fill(text);
-      await recipient
-        .getByRole('button', { name: 'Send message', exact: true })
-        .click();
-      await expect(messageInHistory(recipient, text)).toBeVisible();
-      const sender = await openPage(
-        journey.sender,
-        'the sender durable history',
-      );
+  const mode = `with JavaScript ${javaScriptEnabled ? 'enabled' : 'disabled'}`;
+  /** One claim about a DM, on its own journey, inside the default budget. */
+  const dmTest = (
+    claim: string,
+    prove: (journey: DmJourney) => Promise<void>,
+  ) =>
+    test(`${claim} ${mode}`, async ({ browser }) => {
+      const journey = await openMessagingJourney(browser, javaScriptEnabled);
+      try {
+        await prove(journey);
+      } finally {
+        await journey.close();
+      }
+    });
+
+  dmTest(
+    'an accepted DM reply is durable history, unread for the sender until read,',
+    async (journey) => {
+      const { sender } = await repliedDm(journey);
       // ISSUE-639 social clause: the reply shows unread in the sender's
       // inbox until they read it, by script or, without one, by native POST.
       await sender.goto('/messages');
@@ -135,7 +172,7 @@ for (const javaScriptEnabled of [true, false]) {
         1,
       );
       await sender.goto(`/messages/${journey.channelId}`);
-      await expect(messageInHistory(sender, text)).toHaveCount(1);
+      await expect(messageInHistory(sender, replyText)).toHaveCount(1);
       await expect(
         sender.getByRole('heading', { name: `@${journey.recipientUsername}` }),
       ).toBeVisible();
@@ -161,17 +198,37 @@ for (const javaScriptEnabled of [true, false]) {
           `${unreadableNotice} Try again.`,
         ]);
       }
-      await expect(async () => {
-        await sender.goto('/messages');
-        await expect(
-          sender.getByRole('link', { name: /, unread$/ }),
-        ).toHaveCount(0);
-      }).toPass();
-      await sender.goto(`/messages/${journey.channelId}`);
-      await attachNativeMessageFile(recipient, sender, journey.channelId, text);
+      await inboxHasNoUnread(sender);
+    },
+  );
+
+  dmTest(
+    "a DM's files reach the peer, and its preferences save and clear with nothing unread,",
+    async (journey) => {
+      const { recipient, sender } = await readDm(journey, javaScriptEnabled);
+      await attachNativeMessageFile(
+        recipient,
+        sender,
+        journey.channelId,
+        replyText,
+      );
       await manageNativePreferences(sender, journey);
-      await manageNativeReactions(sender, journey.channelId, text);
-      const ownMessage = await editNativeMessage(sender, journey.channelId);
+    },
+  );
+
+  dmTest(
+    'a DM member reacts and revises their own message',
+    async (journey) => {
+      const { sender } = await readDm(journey, javaScriptEnabled);
+      await manageNativeReactions(sender, journey.channelId, replyText);
+      await editNativeMessage(sender, journey.channelId);
+    },
+  );
+
+  dmTest(
+    'only DM members read or search its history, and a search takes its query literally,',
+    async (journey) => {
+      const { sender } = await readDm(journey, javaScriptEnabled);
       const foreign = await journey.outsider.request.get(
         `/api/messaging/channels/${journey.channelId}/messages`,
       );
@@ -184,7 +241,7 @@ for (const javaScriptEnabled of [true, false]) {
         .getByRole('searchbox', { name: 'Search messages' })
         .fill('browser');
       await sender.getByRole('button', { name: 'Search', exact: true }).click();
-      await expect(messageInHistory(sender, text)).toHaveCount(1);
+      await expect(messageInHistory(sender, replyText)).toHaveCount(1);
       await sender
         .getByRole('searchbox', { name: 'Search messages' })
         .fill('%');
@@ -199,7 +256,15 @@ for (const javaScriptEnabled of [true, false]) {
         new RegExp(`/messages/${journey.channelId}$`),
       );
       await sender.reload();
-      await expect(messageInHistory(sender, text)).toHaveCount(1);
+      await expect(messageInHistory(sender, replyText)).toHaveCount(1);
+    },
+  );
+
+  dmTest(
+    'a block keeps the draft and still lets a member remove their own message, and unblock sends it,',
+    async (journey) => {
+      const { recipient, sender } = await readDm(journey, javaScriptEnabled);
+      const ownMessage = await editNativeMessage(sender, journey.channelId);
       await recipient.goto('/messages/contacts');
       await recipient
         .getByLabel('Username', { exact: true })
@@ -235,10 +300,8 @@ for (const javaScriptEnabled of [true, false]) {
       await expect(
         messageInHistory(sender, 'Retained retry after unblock'),
       ).toHaveCount(1);
-    } finally {
-      await journey.close();
-    }
-  });
+    },
+  );
 }
 
 for (const javaScriptEnabled of [true, false]) {
