@@ -40,7 +40,7 @@ export const panelCompletion =
   ({ round, now, panel: facts, ballotIds }) => {
     const nowMs = Date.parse(now);
     const panel = judgingPanelOf(facts, nowMs);
-    if (panel === null) throw createAppError('CONFLICT', 'panel-ineligible');
+    if (panel === null) throw createRefusal('CONFLICT', 'panel-ineligible');
     const { completeness, ballots } = facts;
     const decision = decidePanelCompletion({
       completeness,
