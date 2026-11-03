@@ -37,6 +37,8 @@ export const broadcasts = pgTable(
     ).notNull(),
     /** Whether debaters may read this Broadcast's chat during the Round; off on ranked. */
     debatersReadChat: boolean('debaters_read_chat').notNull().default(false),
+    /** SHA3-256 of the stage page's credential; the secret itself is never stored. */
+    stageCredentialHash: text('stage_credential_hash'),
     egressId: text('egress_id'),
     egressStartedAt: timestampColumn('egress_started_at'),
     observerRevokedAt: timestampColumn('observer_revoked_at'),
@@ -47,6 +49,8 @@ export const broadcasts = pgTable(
     stoppedAt: timestampColumn('stopped_at'),
     stopReason: text('stop_reason'),
     completedAt: timestampColumn('completed_at'),
+    /** One web instance reconciles a Broadcast at a time, so one Egress starts. */
+    reconcileLeaseUntil: timestampColumn('reconcile_lease_until'),
     leaseEpoch: integer('lease_epoch').notNull().default(0),
     leaseOwner: text('lease_owner'),
     leaseUntil: timestampColumn('lease_until'),

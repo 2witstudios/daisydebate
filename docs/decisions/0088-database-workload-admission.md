@@ -38,7 +38,9 @@ needs.
    AppError, recognised by identity through native causes
    (`isCapacityRefusal`) and carrying `{ lane, reason }` where the reason
    is `unconfigured | saturated | expired`. It is logged once as
-   `db.capacity.refused`.
+   `db.capacity.refused`. A route answers a `saturated` or `expired`
+   refusal 503 with `Retry-After`, which says asking again can clear it;
+   `unconfigured` is the same on every request, so it gets a plain 503.
 5. **No reachable raw client.** Areas receive a lane-bound Drizzle handle
    (`$client` included) whose every top-level query, transaction and
    reservation is admitted. The handle is an allowlist: the tagged query,

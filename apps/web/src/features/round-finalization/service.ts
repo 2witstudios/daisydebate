@@ -40,9 +40,7 @@ type MaintenancePorts = {
 };
 
 const terminalRace = (error: unknown) =>
-  isAppError(error) &&
-  error.code === 'CONFLICT' &&
-  error.message === 'attendance-terminal';
+  isAppError(error) && error.reason === 'attendance-terminal';
 
 type Evaluation = 'ended' | 'continue';
 const evaluationOf = (

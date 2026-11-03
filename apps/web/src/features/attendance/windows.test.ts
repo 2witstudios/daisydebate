@@ -118,7 +118,7 @@ const receipt = (
     acceptAttendanceReceipt(facts, change.segmentId ?? actual.id);
     return 'accepted';
   } catch (error) {
-    return isAppError(error) ? `${error.code}:${error.message}` : 'unknown';
+    return isAppError(error) ? `${error.code}:${error.reason}` : 'unknown';
   }
 };
 

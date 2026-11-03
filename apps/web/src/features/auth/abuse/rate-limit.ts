@@ -207,7 +207,7 @@ const denial = (
 };
 
 /**
- * A server-side session read (`auth.api.getSession` from lib/identity.ts,
+ * A server-side session read (`readSession` in features/auth/server.ts,
  * which has no Request) is Principal resolution: ADR 0020 orders it before
  * the rate-limit gate, which limits the operation the Principal then
  * performs. It must not spend the per-client auth budget, or busy or

@@ -35,7 +35,8 @@
     "./documents": "./src/documents.ts",
     "./profile": "./src/profile.ts",
     "./outbox": "./src/outbox-api.ts",
-    "./attendance": "./src/attendance.ts"
+    "./attendance": "./src/attendance.ts",
+    "./broadcast-worker": "./src/broadcast-worker-store.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",
@@ -56,6 +57,7 @@
   },
   "devDependencies": {
     "@daisy/auth": "workspace:*",
+    "@daisy/debate-engine": "workspace:*",
     "drizzle-kit": "1.0.0-rc.4",
     "riteway": "9.3.0"
   }

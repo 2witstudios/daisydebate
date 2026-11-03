@@ -33,11 +33,14 @@ const render = (
         profileAction: action,
         notificationsAction: action,
         analytics: {
-          consent: {
-            version: 1,
-            necessary: 'granted',
-            analytics: 'unanswered',
-            replay: 'unanswered',
+          choice: {
+            kind: 'known',
+            consent: {
+              version: 1,
+              necessary: 'granted',
+              analytics: 'unanswered',
+              replay: 'unanswered',
+            },
           },
           available: { analytics: true, replay: false },
         },

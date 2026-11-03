@@ -773,13 +773,8 @@ see [auth-delivery.md](auth-delivery.md#alerting-auth-77).
 
 ## 11. Live Rounds: LiveKit, realtime and the capture worker (ISSUE-528)
 
-The worker's deploy waits while an active Round's session has a fresh capture
-lease, for at most 45 minutes (`scripts/capture-deploy-hold.ts`, ADR 0094). It
-then deploys anyway, and that speech records a gap. A check that fails three
-times running, or the step itself failing, never stops the deploy. Its last log
-line gives the reason (`idle`, `budget` or `check-failed`), the time held and the
-count. The first deploy carrying the hold finds no check on the old image, so it
-goes without one.
+The worker deploys without waiting for live capture, so a speech under way
+records a gap (ADR 0094).
 
 A Round needs three more apps (DEC-228, org sign-off DEC-229). Each has its
 own committed config and its own app-scoped deploy token, and

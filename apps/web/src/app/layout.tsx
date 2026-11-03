@@ -79,11 +79,17 @@ export default async function RootLayout({
           <RoundNotesPrivacy principalId={notesPrincipal} />
           {children}
           {refreshSession ? <SessionRefresh /> : null}
-          {analytics.keyValue ? (
+          {analytics.capture ? (
             <>
-              <AnalyticsClient {...analytics} />
+              <AnalyticsClient
+                {...analytics.capture}
+                consent={analytics.choice.consent}
+              />
               <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-reading">
-                <ConsentBanner {...analytics} />
+                <ConsentBanner
+                  consent={analytics.choice.consent}
+                  available={analytics.available}
+                />
               </div>
               <footer className="p-4 text-center text-sm">
                 <Link href="/analytics" className="text-ink-muted underline">

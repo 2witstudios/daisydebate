@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  backOffDelay,
   createTypingWriter,
   TYPING_RETRY_MAX_MS,
   TYPING_RETRY_MS,
@@ -147,4 +148,19 @@ test('transient failures back off doubling to a cap, honour Retry-After, and res
     ],
   });
   await writer.close();
+});
+
+test('a short Retry-After never undoes the back-off', async () => {
+  const delays = [0, 1, 2, 3].map((failures) => backOffDelay(failures, '1'));
+  assert({
+    given: 'consecutive failures each hinting one second',
+    should: 'keep doubling up to the cap',
+    actual: delays,
+    expected: [
+      TYPING_RETRY_MS,
+      TYPING_RETRY_MS * 2,
+      TYPING_RETRY_MS * 4,
+      TYPING_RETRY_MS * 8,
+    ],
+  });
 });

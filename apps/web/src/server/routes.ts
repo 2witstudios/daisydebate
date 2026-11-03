@@ -1,3 +1,4 @@
+import { composeBroadcastStage } from '../features/broadcast/composition';
 import { createConsentHandler } from '../features/analytics/handlers';
 import { composeAttendanceRoutes } from '../features/attendance/composition';
 import { composeMediaCaptureRoutes } from '../features/media-capture/composition';
@@ -74,6 +75,7 @@ export function createRoutes(app: App) {
   return {
     analyticsConsent: { POST: createConsentHandler(app) },
     mediaCapture: composeMediaCaptureRoutes(app),
+    broadcastStage: composeBroadcastStage(app),
     roundMedia: createRoundMediaHandlers({
       ...memberGates,
       active: () => Boolean(app.roomPolicy),
@@ -121,10 +123,7 @@ export function createRoutes(app: App) {
         listSessions: async (headers) =>
           app.auth().instance.api.listSessions({ headers }),
         currentSessionId: async (headers) => {
-          const found = await app.auth().instance.api.getSession({
-            headers,
-            query: { disableRefresh: true },
-          });
+          const found = await app.auth().readSession(headers);
           return found?.session.id ?? null;
         },
       }),
@@ -193,10 +192,7 @@ export function createRoutes(app: App) {
         origin,
         identify: (request) => identify(app.auth(), request.headers),
         sessionId: async (headers) => {
-          const found = await app.auth().instance.api.getSession({
-            headers,
-            query: { disableRefresh: true },
-          });
+          const found = await app.auth().readSession(headers);
           return found?.session.id ?? null;
         },
         limiter: () => app.limiter,

@@ -1,0 +1,16 @@
+# Staging Broadcast worker (BCAST-4, owner sign-off under BCAST-H): reads held
+# segments, encodes three renditions and writes public HLS. Its image is the
+# `broadcast-worker` target of apps/web/Dockerfile. Its database login reaches
+# broadcasts only, and its secrets are all Fly secrets. It has no public service.
+# Stop the machine when idle: there is no proxy to auto-stop it.
+app = "daisy-debate-staging-encoder"
+primary_region = "ord"
+kill_timeout = 30
+
+[build]
+  dockerfile = "apps/web/Dockerfile"
+  target = "broadcast-worker"
+
+[[vm]]
+  size = "performance-4x"
+  memory = "8gb"

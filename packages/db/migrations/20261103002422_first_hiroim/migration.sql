@@ -1,1 +1,0 @@
-ALTER TABLE "broadcasts" ADD COLUMN "debaters_read_chat" boolean DEFAULT false NOT NULL;

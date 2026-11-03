@@ -1,7 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { withSeasons } from '@daisy/db/seasons';
-import { RANKED_DELAY_SECONDS } from '@daisy/debate-engine';
+import { captureRule, RANKED_DELAY_SECONDS } from '@daisy/debate-engine';
 import { SPECTATOR_MARGIN_MS, spectatorTimelineSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -210,6 +210,7 @@ test('every public and member read holds a ranked outcome until release', async 
             authorize: (r, account) =>
               canReadRound(stranger, r, account as never),
             authorizeTranscript: () => false,
+            captureRule,
           }),
         code: 'NOT_FOUND',
       });

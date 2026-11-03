@@ -1,3 +1,4 @@
+import { captureRule } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -199,6 +200,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     await f.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete) values(${createId()},${roundId},${segment.id},${speaker.id},0,'Private transcript',true)`;
     const read = (caller: typeof f.host) =>
       f.store.readRoundTranscript({
+        captureRule,
         caller,
         roundId,
         authorize: (r, a) => canReadTranscript(caller, r, a),
@@ -223,12 +225,14 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     // A test audience adapter, not a production spectator grant: neither
     // persistence nor presentation is allowed to add a second seat veto.
     const futureAudience = await f.store.readRoundTranscript({
+      captureRule,
       caller: spectator,
       roundId,
       authorize: () => true,
     });
     await f.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     const completedAudience = await f.store.readRoundBallot({
+      captureRule,
       caller: spectator,
       roundId,
       authorize: () => true,

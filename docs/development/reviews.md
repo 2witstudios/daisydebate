@@ -14,7 +14,7 @@ channel:
 
 ```sh
 pu spawn --agent claude -w <worktree id> "/review <PR url>"
-pu spawn --agent claude -w <worktree id> "/code-review <PR url>"
+pu spawn --agent claude -w <worktree id> "/code-review --comment <PR url>"
 ```
 
 Reviewers stay read-only on the worktree and post to the PR. The builder
@@ -24,8 +24,9 @@ loop asks for one; no reviewer has to re-review every push.
 - **`/review`** posts one PR comment. It covers acceptance criteria,
   architecture, security (each OWASP Top 10 category for runtime changes),
   tests, privacy and telemetry, and it ends with a verdict line.
-- **`/code-review`** posts inline review comments on the lines it questions,
-  so each finding is its own thread.
+- **`/code-review --comment`** posts inline review comments on the lines it
+  questions, so each finding is its own thread. It posts without asking:
+  without `--comment` it would stop at a prompt nobody answers.
 - **astra** posts architecture comments on the PR, or on the Delivery channel when
   the question is about the plan.
 

@@ -4,6 +4,7 @@ import {
   markCapacityRefusalReported,
 } from '@daisy/db/capacity';
 import type { Logger } from '@daisy/logger';
+import { noteSessionRefusal } from './sessions/session-refusal';
 
 /**
  * One authentication failure, reported once. A capacity refusal is work
@@ -38,14 +39,15 @@ export function reportAuthFailure(
 export const betterAuthLogger = (logger: Logger) => ({
   log: (level: string, _message: string, ...details: unknown[]) => {
     const refusal = details.find(isCapacityRefusal);
-    if (refusal !== undefined)
+    if (refusal !== undefined) {
+      noteSessionRefusal(refusal);
       reportAuthFailure(
         logger,
         refusal,
         'better-auth',
         'Authentication library reported a refusal',
       );
-    else if (level === 'error' || level === 'warn')
+    } else if (level === 'error' || level === 'warn')
       logger.log(
         'request.unhandled',
         { source: 'better-auth', sourceLevel: level },

@@ -66,8 +66,12 @@
       "name": "@daisy/broadcast-worker",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/db": "workspace:*",
         "@daisy/debate-engine": "workspace:*",
+        "@daisy/logger": "workspace:*",
         "@daisy/protocol": "workspace:*",
+        "@paralleldrive/cuid2": "3.3.0",
+        "zod": "4.6.6",
       },
       "devDependencies": {
         "riteway": "9.3.0",
@@ -236,6 +240,7 @@
       },
       "devDependencies": {
         "@daisy/auth": "workspace:*",
+        "@daisy/debate-engine": "workspace:*",
         "drizzle-kit": "1.0.0-rc.4",
         "riteway": "9.3.0",
       },

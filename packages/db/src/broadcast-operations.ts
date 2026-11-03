@@ -1,7 +1,9 @@
 import type { BroadcastReleasePolicy } from '@daisy/protocol';
-import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
+import { mediaSessions } from './schema/media-sessions';
+import { rounds } from './schema/rounds';
 
 type Tx = BoundedTransactionContext;
 
@@ -101,6 +103,24 @@ export const recordSegmentReleased = async (
   return rows.length === 1;
 };
 
+/** Keeps the job and returns its current row; null means this worker was fenced. */
+export const renewBroadcastLease = async (
+  tx: Tx,
+  input: {
+    readonly id: string;
+    readonly owner: string;
+    readonly epoch: number;
+    readonly leaseUntil: Date;
+  },
+) => {
+  const [row] = await tx
+    .update(broadcasts)
+    .set({ leaseUntil: input.leaseUntil })
+    .where(held(input.id, input.owner, input.epoch))
+    .returning();
+  return row ?? null;
+};
+
 /** The watermark the spectator timeline reads; null until media is out. */
 export const readReleasedThrough = async (tx: Tx, roundId: string) => {
   const [row] = await tx
@@ -113,11 +133,20 @@ export const readReleasedThrough = async (tx: Tx, roundId: string) => {
 /** Records the running Egress; the reconcile pass reads its state from LiveKit. */
 export const recordEgressStarted = (
   tx: Tx,
-  input: { readonly id: string; readonly egressId: string; readonly now: Date },
+  input: {
+    readonly id: string;
+    readonly egressId: string;
+    readonly stageCredentialHash: string;
+    readonly now: Date;
+  },
 ) =>
   tx
     .update(broadcasts)
-    .set({ egressId: input.egressId, egressStartedAt: input.now })
+    .set({
+      egressId: input.egressId,
+      stageCredentialHash: input.stageCredentialHash,
+      egressStartedAt: input.now,
+    })
     .where(eq(broadcasts.id, input.id));
 
 export const recordObserverRevoked = (
@@ -170,3 +199,48 @@ export const listOpenBroadcasts = (tx: Tx, limit: number) =>
     .where(isNull(broadcasts.completedAt))
     .orderBy(asc(broadcasts.createdAt))
     .limit(limit);
+
+/** Ranked Rounds still running with no Broadcast yet. Read-only; takes no Round lock. */
+export const discoverUnopenedRankedRounds = async (tx: Tx, limit: number) =>
+  tx
+    .select({ roundId: rounds.id })
+    .from(rounds)
+    .leftJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
+    .where(
+      and(
+        eq(rounds.competitionType, 'ranked'),
+        inArray(rounds.status, ['scheduled', 'active']),
+        isNull(broadcasts.id),
+      ),
+    )
+    .limit(limit);
+
+/** The room the observer currently belongs in; rotation moves it (ADR 0099). */
+export const readBroadcastRoom = async (tx: Tx, roundId: string) => {
+  const [session] = await tx
+    .select({ roomName: mediaSessions.roomName })
+    .from(mediaSessions)
+    .where(eq(mediaSessions.roundId, roundId));
+  return session?.roomName ?? null;
+};
+
+/** True for the one instance that may reconcile this Broadcast until the lease ends. */
+export const claimBroadcastReconcile = async (
+  tx: Tx,
+  input: { readonly id: string; readonly now: Date; readonly until: Date },
+): Promise<boolean> => {
+  const rows = await tx
+    .update(broadcasts)
+    .set({ reconcileLeaseUntil: input.until })
+    .where(
+      and(
+        eq(broadcasts.id, input.id),
+        or(
+          isNull(broadcasts.reconcileLeaseUntil),
+          lte(broadcasts.reconcileLeaseUntil, input.now),
+        ),
+      ),
+    )
+    .returning({ id: broadcasts.id });
+  return rows.length === 1;
+};
