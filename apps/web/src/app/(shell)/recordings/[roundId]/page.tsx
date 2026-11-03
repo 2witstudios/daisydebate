@@ -46,7 +46,7 @@ export default async function RecordingPage({
     />
   ) : (
     <div className="px-6 pt-8 pb-8 max-compact:px-4">
-      <SpectateRefusal screen={{ kind: 'unavailable' }} />
+      <SpectateRefusal />
     </div>
   );
 }

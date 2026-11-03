@@ -2,14 +2,12 @@ import Link from 'next/link';
 import type { LiveCard } from '../../../features/watch/live-card';
 import { buttonClass } from '../../components/button/button-class';
 import { Badge } from '../../components/badge/badge';
-import { Icon } from '../../components/icon/icon';
 import { StatusLine } from '../../components/status-line/status-line';
 import { cn } from '../../cn';
 import { LiveClock } from '../live-clock/live-clock';
 
 export type FeaturedRoundProps = {
   readonly card: LiveCard;
-  readonly delaySeconds: number;
 };
 
 function Seat({ seat }: { seat: LiveCard['aff'] }) {
@@ -18,9 +16,8 @@ function Seat({ seat }: { seat: LiveCard['aff'] }) {
       <span className="text-2xs font-bold tracking-wider text-ink-faint uppercase">
         {seat.label}
       </span>
-      <span className="truncate text-lg font-bold">{`@${seat.handle}`}</span>
-      <span className="text-sm text-ink-muted tabular-nums">
-        {`${seat.rating} ${seat.standing === 'est.' ? 'established' : 'provisional'}`}
+      <span className="truncate text-lg font-bold">
+        {seat.name ?? 'Unnamed debater'}
       </span>
       <span className="text-sm text-accent">
         {seat.speaking ? 'Speaking' : 'Listening'}
@@ -30,11 +27,10 @@ function Seat({ seat }: { seat: LiveCard['aff'] }) {
 }
 
 /**
- * The featured live Round: the highest-rated ranked Round live now, picked
- * by rating alone. It leads the page on a wash of the ranked hue (clay,
- * ADR 0051) instead of a flat green slab.
+ * The featured live Round: the newest ranked Round on the listing. It leads the
+ * page on a wash of the ranked hue (clay, ADR 0051) instead of a flat green slab.
  */
-export function FeaturedRound({ card, delaySeconds }: FeaturedRoundProps) {
+export function FeaturedRound({ card }: FeaturedRoundProps) {
   return (
     <section
       aria-label="Featured live debate"
@@ -43,27 +39,26 @@ export function FeaturedRound({ card, delaySeconds }: FeaturedRoundProps) {
       <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
         <StatusLine tone="live">Live</StatusLine>
         <Badge tone="clay">{card.mode}</Badge>
-        {card.customRules ? <Badge tone="neutral">{card.rules}</Badge> : null}
-        <span className="ml-auto flex items-center gap-1 whitespace-nowrap tabular-nums">
-          <Icon name="eye" size={16} />
-          {`${card.watching} watching`}
-        </span>
       </div>
       <div className="flex flex-col gap-1">
         <span className="text-xs text-ink-muted">Featured</span>
         <h2 className="font-display text-2xl font-bold tracking-tight">
           {card.title}
         </h2>
+        {card.resolution ? (
+          <p className="text-base text-ink-muted">{card.resolution}</p>
+        ) : null}
       </div>
       <div className="flex items-center gap-6 max-compact:flex-col max-compact:items-stretch max-compact:gap-4">
         <Seat seat={card.aff} />
         <div className="flex flex-col items-center gap-1 text-center">
           <span className="text-sm text-ink-muted">{card.phaseName}</span>
-          <LiveClock
-            initialSeconds={card.secondsLeft}
-            className="font-display text-2xl font-bold tabular-nums"
-          />
-          <span className="text-xs text-ink-muted">{`delayed ${delaySeconds} s`}</span>
+          {card.secondsLeft === null ? null : (
+            <LiveClock
+              initialSeconds={card.secondsLeft}
+              className="font-display text-2xl font-bold tabular-nums"
+            />
+          )}
         </div>
         <Seat seat={card.neg} />
       </div>
@@ -80,10 +75,6 @@ export function FeaturedRound({ card, delaySeconds }: FeaturedRoundProps) {
           />
         ))}
       </div>
-      <p className="text-base text-ink-muted">
-        <span className="font-strong text-ink">{`@${card.speaker}`}</span>
-        {` ${card.excerpt}`}
-      </p>
       <Link
         href={card.href}
         className={cn(

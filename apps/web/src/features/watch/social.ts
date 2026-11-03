@@ -1,25 +1,4 @@
-/** Spectator reactions and chat, as a live Round's audience sees them. */
-
-type Reaction = {
-  readonly id: string;
-  readonly label: string;
-  /** Anonymous total; no names are kept or shown. */
-  readonly count: number;
-};
-
-type ChatMessage = {
-  readonly id: string;
-  readonly handle: string;
-  /** Clock time the message was posted, as shown. */
-  readonly at: string;
-  /** Null when a moderator removed the message. */
-  readonly text: string | null;
-};
-
-export type SpectatorSocial = {
-  readonly reactions: readonly Reaction[];
-  readonly messages: readonly ChatMessage[];
-};
+/** Who a viewer follows, and what they watched, as the Following tab shows it. */
 
 /** One person the viewer follows, and what they are doing. */
 export type Followed = {

@@ -42,12 +42,12 @@ describe('redirectUnlessLaunched', () => {
     });
   });
 
-  test('Watch stays closed until its real sources exist', () => {
+  test('Watch is open on its real sources', () => {
     assert({
-      given: 'the launch config while Broadcast and Recording are unbuilt',
-      should: 'keep Watch closed',
+      given: 'the launch config with the real listing, Broadcast and Recording',
+      should: 'open Watch',
       actual: launched.watch,
-      expected: false,
+      expected: true,
     });
   });
 });

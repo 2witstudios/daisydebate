@@ -1,12 +1,32 @@
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { projectSpectatorTimeline } from './timeline';
+import {
+  BROADCAST_INTERRUPTED_AFTER_MS,
+  projectSpectatorTimeline as project,
+} from './timeline';
 
 setupRitewayBun();
 
-type Read = Parameters<typeof projectSpectatorTimeline>[0];
+type Read = Parameters<typeof project>[0];
 const started = new Date('2026-11-02T00:00:00.000Z');
 const ended = new Date('2026-11-02T00:10:00.000Z');
+const MANIFEST = 'https://feed.daisy.invalid/live/b1/master.m3u8';
+const NOW = started.getTime() + 300_000;
+const context = { nowMs: NOW, feedUrlOf: () => MANIFEST };
+const projectSpectatorTimeline = (facts: Read) => project(facts, context);
+const delay60 = { kind: 'delay', seconds: 60 } as const;
+const broadcast = (
+  over: Partial<NonNullable<Read['broadcast']>> = {},
+): NonNullable<Read['broadcast']> => ({
+  id: 'b1',
+  deliveryPath: 'owned_hls',
+  policy: delay60,
+  releasedThroughAt: null,
+  completedAt: null,
+  stoppedAt: null,
+  ...over,
+});
+const stream = { path: 'owned_hls', manifestUrl: MANIFEST } as const;
 const read = (over: Partial<Read>, round: Partial<Read['round']> = {}): Read =>
   ({
     round: {
@@ -26,9 +46,8 @@ const read = (over: Partial<Read>, round: Partial<Read['round']> = {}): Read =>
       completedAt: null,
       ...round,
     },
-    hasBroadcast: true,
-    broadcastStopped: false,
-    releasedThroughAt: null,
+    broadcast: broadcast(),
+    recordingStatus: null,
     seats: [],
     horizonMs: null,
     segments: [],
@@ -55,7 +74,7 @@ describe('projectSpectatorTimeline', () => {
   test('a stopped Broadcast has ended for its audience', () => {
     const view = projectSpectatorTimeline(
       read({
-        broadcastStopped: true,
+        broadcast: broadcast({ stoppedAt: ended }),
         horizonMs: horizon(started, 30_000),
         segments: [
           {
@@ -164,10 +183,10 @@ describe('projectSpectatorTimeline', () => {
     });
   });
 
-  test('a casual Round has no public result', () => {
+  test('a casual Round releases its winner alone', () => {
     assert({
       given: 'an ended casual Round',
-      should: 'show it ended with no result',
+      should: 'show it ended with the winner, and no scores or reason',
       actual: (() => {
         const view = projectSpectatorTimeline(
           read(
@@ -182,7 +201,185 @@ describe('projectSpectatorTimeline', () => {
         );
         return [view.stage, view.result];
       })(),
-      expected: [{ kind: 'ended' }, null],
+      expected: [
+        { kind: 'ended' },
+        { winner: 'affirmative', ballots: [], ratings: [] },
+      ],
+    });
+  });
+
+  describe('the Broadcast as its audience can use it', () => {
+    const standing = (
+      over: Partial<NonNullable<Read['broadcast']>> | null,
+      round: Partial<Read['round']> = {},
+    ) =>
+      projectSpectatorTimeline(
+        read({ broadcast: over === null ? null : broadcast(over) }, round),
+      ).broadcast;
+    const onTime = new Date(NOW - 60_000);
+    const justLate = new Date(
+      NOW - 60_000 - BROADCAST_INTERRUPTED_AFTER_MS - 1,
+    );
+
+    test('no Broadcast', () => {
+      assert({
+        given: 'a Round with no Broadcast',
+        should: 'say so',
+        actual: standing(null),
+        expected: { state: 'none' },
+      });
+    });
+
+    test('an unlisted Round', () => {
+      assert({
+        given: 'an unlisted Round whose Round id is not a secret',
+        should: 'offer no stream until its link token exists',
+        actual: standing(
+          { releasedThroughAt: onTime },
+          { visibility: 'unlisted' },
+        ),
+        expected: { state: 'none' },
+      });
+    });
+
+    test('a deployment with no public feed', () => {
+      assert({
+        given: 'no configured feed',
+        should: 'offer no stream',
+        actual: project(
+          read({ broadcast: broadcast({ releasedThroughAt: onTime }) }),
+          { nowMs: NOW, feedUrlOf: () => null },
+        ).broadcast,
+        expected: { state: 'none' },
+      });
+    });
+
+    test('starting', () => {
+      assert({
+        given: 'an open Broadcast inside its delay with nothing released',
+        should: 'be starting, with no stream to fail on',
+        actual: standing({}, { startedAt: new Date(NOW - 60_000) }),
+        expected: { state: 'starting' },
+      });
+    });
+
+    test('on air and interrupted', () => {
+      assert({
+        given: 'a watermark keeping up with the delay',
+        should: 'be on air with the stream',
+        actual: standing({ releasedThroughAt: onTime }),
+        expected: { state: 'on_air', stream },
+      });
+      assert({
+        given: 'a watermark just past the bound behind its delay',
+        should: 'be interrupted, keeping the stream',
+        actual: standing({ releasedThroughAt: justLate }),
+        expected: { state: 'interrupted', stream },
+      });
+      assert({
+        given: 'a live Round that has never released media, past the bound',
+        should: 'be interrupted with nothing to play',
+        actual: standing({}, { startedAt: justLate }),
+        expected: { state: 'interrupted', stream: null },
+      });
+    });
+
+    test('held by its policy', () => {
+      assert({
+        given: 'a Round-long hold on a live Round',
+        should: 'be held until the Round ends',
+        actual: standing({ policy: { kind: 'round_end' } }),
+        expected: { state: 'held', releasesAt: null },
+      });
+      const atMs = NOW + 60_000;
+      assert({
+        given: 'a scheduled hold before its time',
+        should: 'be held until that time',
+        actual: standing({ policy: { kind: 'at', atMs } }),
+        expected: {
+          state: 'held',
+          releasesAt: new Date(atMs).toISOString(),
+        },
+      });
+      assert({
+        given: 'a Round-long hold once the Round has ended',
+        should: 'no longer be held',
+        actual: standing(
+          { policy: { kind: 'round_end' } },
+          { status: 'completed', completedAt: new Date(NOW - 1000) },
+        ),
+        expected: { state: 'starting' },
+      });
+    });
+
+    test('how it finishes', () => {
+      assert({
+        given: 'a stop, even with released media',
+        should: 'be stopped and offer no stream',
+        actual: standing({ stoppedAt: ended, releasedThroughAt: onTime }),
+        expected: { state: 'stopped' },
+      });
+      assert({
+        given: 'a completed Broadcast with released media',
+        should: 'be ended',
+        actual: standing({ completedAt: ended, releasedThroughAt: onTime }),
+        expected: { state: 'ended' },
+      });
+      assert({
+        given: 'a completed Broadcast that released nothing',
+        should: 'be failed',
+        actual: standing({ completedAt: ended }),
+        expected: { state: 'failed' },
+      });
+      assert({
+        given: 'a finished Round that never released media, past the bound',
+        should: 'be failed',
+        actual: standing(
+          {},
+          { status: 'completed', startedAt: justLate, completedAt: justLate },
+        ),
+        expected: { state: 'failed' },
+      });
+      assert({
+        given: 'a finished Round whose feed went silent past the bound',
+        should: 'be ended',
+        actual: standing(
+          { releasedThroughAt: justLate },
+          { status: 'completed', completedAt: justLate },
+        ),
+        expected: { state: 'ended' },
+      });
+    });
+  });
+
+  test('the Recording follows the release', () => {
+    const recording = (over: Partial<Read>) =>
+      projectSpectatorTimeline(read(over)).recording;
+    assert({
+      given: 'a ready Recording before the Round end is released',
+      should: 'not be mentioned',
+      actual: recording({ recordingStatus: 'ready' }),
+      expected: 'none',
+    });
+    assert({
+      given: 'a released end and each Recording status',
+      should: 'say ready, processing or none',
+      actual: (
+        ['ready', 'processing', 'capturing', 'failed', 'removed'] as const
+      ).map((recordingStatus) =>
+        recording({ recordingStatus, outcomeReleased: true }),
+      ),
+      expected: ['ready', 'processing', 'processing', 'none', 'none'],
+    });
+    assert({
+      given: 'a released end on a stopped Broadcast',
+      should: 'withhold the Recording',
+      actual: recording({
+        recordingStatus: 'ready',
+        outcomeReleased: true,
+        broadcast: broadcast({ stoppedAt: ended }),
+      }),
+      expected: 'none',
     });
   });
 });

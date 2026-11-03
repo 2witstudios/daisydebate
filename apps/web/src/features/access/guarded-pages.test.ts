@@ -38,7 +38,16 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestIdentity: async () => ({ state: 'anonymous' }),
   requestLadder: async () => null,
   requestRoundRatings: async () => null,
-  requestSpectatorTimeline: async () => null,
+  requestWatchRound: async () => null,
+  requestHubCounts: async () => ({ live: 0, recordings: 0 }),
+  requestLeadingLive: async () => [],
+  requestLiveRoundsOf: async () => new Map(),
+  requestLiveListing: async () => ({
+    featured: null,
+    rows: [],
+    total: 0,
+    nextBefore: null,
+  }),
   readRecordingArchive: async () => ({
     page: { rows: [], nextBefore: null },
     publicCount: 0,
@@ -322,7 +331,7 @@ describe('guarded pages', () => {
     });
   });
 
-  test('Watch and Recordings honour the launch flag', async () => {
+  test('Watch and Recordings open with their launch flag', async () => {
     const files = [
       '(shell)/watch/page.tsx',
       '(shell)/watch/[roundId]/page.tsx',
@@ -332,10 +341,10 @@ describe('guarded pages', () => {
     const destinations: Array<string | null> = [];
     for (const file of files) destinations.push(await redirectOf(file));
     assert({
-      given: 'every Watch page while Watch is not launched',
-      should: 'answer with the explainer, never a screen',
+      given: 'every Watch page with Watch launched',
+      should: 'answer with its own screen, never the explainer',
       actual: destinations,
-      expected: files.map(() => '/coming-soon/watch'),
+      expected: files.map(() => null),
     });
   });
 });

@@ -27,13 +27,13 @@ describe('parseLiveQuery', () => {
         tab: 'following',
         mode: 'ranked',
         q: '  debater-a ',
-        sort: 'rated',
+        before: 'abcdefghijklmnopqrstuvwx',
       }),
       expected: {
         tab: 'following',
         mode: 'ranked',
         q: 'debater-a',
-        sort: 'rated',
+        before: 'abcdefghijklmnopqrstuvwx',
       },
     });
   });
@@ -45,7 +45,7 @@ describe('parseLiveQuery', () => {
       actual: parseLiveQuery({
         tab: 'recordings',
         mode: ['casual', 'ranked'],
-        sort: '%00',
+        before: '%00',
         q: 'x'.repeat(500),
       }),
       expected: { ...defaultLiveQuery, mode: 'casual', q: 'x'.repeat(80) },
@@ -67,21 +67,22 @@ describe('hub hrefs', () => {
     });
   });
 
-  test('clearing filters keeps the tab and sort', () => {
+  test('clearing filters keeps the tab and leaves the page', () => {
     const query = {
       ...defaultLiveQuery,
-      sort: 'rated',
+      tab: 'following',
+      before: 'abcdefghijklmnopqrstuvwx',
       mode: 'casual',
     } as const;
     assert({
-      given: 'a filtered, sorted query',
+      given: 'a filtered later page on the following tab',
       should: 'drop only mode and search',
       actual: [
         clearFiltersHref(query),
         isFiltered(query),
-        isFiltered({ ...defaultLiveQuery, sort: 'rated' }),
+        isFiltered({ ...defaultLiveQuery, tab: 'following' }),
       ],
-      expected: ['/watch?sort=rated', true, false],
+      expected: ['/watch?tab=following', true, false],
     });
   });
 });

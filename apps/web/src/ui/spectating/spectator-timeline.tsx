@@ -1,18 +1,10 @@
-'use client';
-import '../../lib/zod-jitless';
-import {
-  speakerTotal,
-  spectatorTimelineSchema,
-  type SpectatorTimeline,
-} from '@daisy/protocol';
-import { useEffect, useState } from 'react';
+import { speakerTotal, type SpectatorTimeline } from '@daisy/protocol';
+import { formatCountdown } from '../../lib/clock-display';
 import {
   resultSentence,
   sideLabel,
   stageSentence,
 } from './spectator-timeline-copy';
-
-const POLL_MS = 2000;
 
 /** The released facts as text: what the video shows, for anyone who cannot see it. */
 export function SpectatorFacts({
@@ -23,15 +15,24 @@ export function SpectatorFacts({
   const { result } = timeline;
   return (
     <section aria-label="Round facts" className="grid gap-4">
-      {timeline.resolution ? <h1>{timeline.resolution}</h1> : null}
-      <ul>
+      <h1 className="font-display text-2xl font-bold tracking-tight">
+        {timeline.resolution ?? 'Debate'}
+      </h1>
+      <ul className="text-base text-ink">
         {timeline.seats.map((seat) => (
           <li key={seat.side}>
             {sideLabel[seat.side]}: {seat.label ?? 'Unnamed debater'}
           </li>
         ))}
       </ul>
-      <p aria-live="polite">{stageSentence(timeline.stage)}</p>
+      <p aria-live="polite" className="text-base text-ink-muted">
+        {stageSentence(timeline.stage)}
+      </p>
+      {timeline.stage.kind === 'floor' ? (
+        <p role="timer" className="font-display text-xl font-bold tabular-nums">
+          {`${formatCountdown(timeline.stage.remainingMs)} left`}
+        </p>
+      ) : null}
       {result ? (
         <div aria-live="polite">
           <p>{resultSentence(result.winner)}</p>
@@ -57,7 +58,7 @@ export function SpectatorFacts({
         </div>
       ) : null}
       {timeline.captions.length > 0 ? (
-        <ol aria-label="Captions">
+        <ol aria-label="Captions" className="flex flex-col gap-1 text-base">
           {timeline.captions.map((caption) => (
             <li key={caption.id}>
               {sideLabel[caption.side]}: {caption.text}
@@ -67,32 +68,4 @@ export function SpectatorFacts({
       ) : null}
     </section>
   );
-}
-
-/**
- * The server-rendered snapshot, kept current by reading the same cacheable
- * answer every couple of seconds: no socket, and nothing beyond what any
- * visitor may read. A failed read keeps the last released facts on screen.
- */
-export function SpectatorTimelineView({
-  initial,
-}: {
-  readonly initial: SpectatorTimeline;
-}) {
-  const [timeline, setTimeline] = useState(initial);
-  const ended = timeline.stage.kind === 'ended';
-  useEffect(() => {
-    if (ended) return;
-    const poll = setInterval(() => {
-      void fetch(`/api/rounds/${initial.roundId}/timeline`)
-        .then((response) => (response.ok ? response.json() : null))
-        .then((body) => {
-          const parsed = spectatorTimelineSchema.safeParse(body);
-          if (parsed.success) setTimeline(parsed.data);
-        })
-        .catch(() => undefined);
-    }, POLL_MS);
-    return () => clearInterval(poll);
-  }, [ended, initial.roundId]);
-  return <SpectatorFacts timeline={timeline} />;
 }
