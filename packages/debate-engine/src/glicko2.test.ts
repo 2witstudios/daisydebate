@@ -65,7 +65,6 @@ describe('ratePeriod', () => {
     const opponent = { rating: 1500, deviation: 350 };
     const win = ratePeriod(fresh, [{ opponent, score: 1 }], config);
     const loss = ratePeriod(fresh, [{ opponent, score: 0 }], config);
-    const draw = ratePeriod(fresh, [{ opponent, score: 0.5 }], config);
     assert({
       given: 'a win against an equal opponent',
       should: 'raise the rating and narrow the deviation',
@@ -78,12 +77,6 @@ describe('ratePeriod', () => {
       actual: (win.rating - 1500 - (1500 - loss.rating)).toFixed(9),
       expected: '0.000000000',
     });
-    assert({
-      given: 'a draw between equal players',
-      should: 'leave the rating unchanged',
-      actual: Math.abs(draw.rating - 1500) < 1e-9,
-      expected: true,
-    });
   });
 
   test('converges on both volatility search branches', () => {
@@ -94,7 +87,7 @@ describe('ratePeriod', () => {
     );
     const routine = ratePeriod(
       { rating: 1500, deviation: 60, volatility: 0.06 },
-      [{ opponent: { rating: 1500, deviation: 60 }, score: 0.5 }],
+      [{ opponent: { rating: 1000, deviation: 60 }, score: 1 }],
       config,
     );
     assert({

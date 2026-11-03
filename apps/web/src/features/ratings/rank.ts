@@ -15,7 +15,6 @@ export type RatingEntry = {
   readonly deviation: number;
   readonly played: number;
   readonly wins: number;
-  readonly draws: number;
   /** Rating change over the last seven days (a live season's movement). */
   readonly weekChange: number;
   /** Rating change over the whole season (a closed season's movement). */
@@ -48,7 +47,7 @@ export function rankRatingEntries(
       ...entry,
       rank: provisional ? null : rank,
       provisional,
-      losses: entry.played - entry.wins - entry.draws,
+      losses: entry.played - entry.wins,
     };
   });
 }

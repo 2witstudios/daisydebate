@@ -28,8 +28,6 @@ import { roundParticipants } from './round-participants';
 import { rounds } from './rounds';
 import { roundTranscriptFreezes } from './round-transcript-freezes';
 
-export const ballotStatuses = ['submitted'] as const;
-
 /**
  * One ballot per judge seat (ADR 0058 §6): the contract's shape, decomposed
  * into columns a write path validates with the full `ballotSchema` before
@@ -51,7 +49,6 @@ export const ballots = pgTable(
     reason: text('reason').notNull(),
     feedback: jsonbColumnNullable('feedback', ballotFeedbackSchema),
     citations: jsonbColumnNullable('citations', ballotCitationsSchema),
-    status: text('status').notNull(),
     submittedAt: timestampColumn('submitted_at').notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
@@ -100,7 +97,6 @@ export const ballots = pgTable(
       table.judgeParticipantId,
     ),
     uniqueIndex('ballots_judge_seat_unique').on(table.judgeParticipantId),
-    check('ballots_status_check', oneOf(table.status, ballotStatuses)),
     check('ballots_winner_check', oneOf(table.winner, debateSides)),
     check(
       'ballots_rubric_version_check',

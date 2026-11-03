@@ -185,7 +185,6 @@ test('a judge seat with a submitted ballot is RESTRICTed from deletion', async (
           ),
         },
         reason: 'probe',
-        status: 'submitted',
         submitted_at: new Date(),
       },
       'id',
