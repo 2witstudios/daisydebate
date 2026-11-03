@@ -170,3 +170,26 @@ export const listOpenBroadcasts = (tx: Tx, limit: number) =>
     .where(isNull(broadcasts.completedAt))
     .orderBy(asc(broadcasts.createdAt))
     .limit(limit);
+
+/**
+ * What the Broadcast has released, for features that hold facts back until it
+ * has: no Broadcast at all, the watermark, or complete.
+ */
+export const readBroadcastRelease = async (
+  reader: Pick<Tx, 'select'>,
+  roundId: string,
+) => {
+  const [row] = await reader
+    .select({
+      at: broadcasts.releasedThroughAt,
+      completedAt: broadcasts.completedAt,
+    })
+    .from(broadcasts)
+    .where(eq(broadcasts.roundId, roundId));
+  if (!row) return { kind: 'none' } as const;
+  if (row.completedAt) return { kind: 'completed' } as const;
+  return {
+    kind: 'open',
+    releasedThroughMs: row.at?.getTime() ?? null,
+  } as const;
+};
