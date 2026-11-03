@@ -19,8 +19,7 @@ export default async function RestrictedPage({
   searchParams: Promise<SearchParams>;
 }) {
   const identity = await requestIdentity();
-  if (identity.state !== 'waitlisted' || identity.reason !== 'restricted')
-    redirect('/');
+  if (identity.state !== 'restricted') redirect('/');
   return (
     <RestrictedAccount
       username={identity.username}

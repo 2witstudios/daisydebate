@@ -1,6 +1,4 @@
-import { createAppError, isAppError } from '@daisy/errors';
-import type { Logger } from '@daisy/logger';
-import type { ErrorReporter } from '@daisy/observability';
+import { isAppError } from '@daisy/errors';
 import {
   idSchema,
   roomCommandSchema,
@@ -9,28 +7,16 @@ import {
   roomRefusalSchema,
 } from '@daisy/protocol';
 import type { RateRule } from '../../server/rate-limit';
+import { refusalResponse, parseValidated, readJson } from '../../server/http';
 import {
-  refusalResponse,
-  handleOperation,
-  parseValidated,
-  readJson,
-  requireSameOrigin,
-  requireSameOriginRead,
-} from '../../server/http';
-import {
-  requireMember,
+  runMemberRoute,
+  type BudgetedMemberBoundary,
   type MemberCaller,
-  type MemberGateDependencies,
-} from '../../server/member-gate';
+} from '../../server/member-boundary';
 import type { RoomRuntimeOperations } from './operations';
 
-type Dependencies = MemberGateDependencies & {
-  readonly logger: Logger;
-  /** ADR 0037: where a 5xx from these handlers' raw errors goes, scrubbed. */
-  readonly reporter: ErrorReporter;
-  readonly origin: () => string;
+type Dependencies = BudgetedMemberBoundary & {
   readonly operations: RoomRuntimeOperations;
-  readonly active: () => boolean;
   readonly maxBodyBytes: number;
   readonly limits: {
     readonly create: RateRule;
@@ -49,22 +35,20 @@ export function createRoomHandlers(dependencies: Dependencies) {
     action: (caller: MemberCaller) => Promise<unknown>,
     headers: Readonly<Record<string, string>> = {},
   ) =>
-    handleOperation(
-      dependencies.logger,
+    runMemberRoute(
+      dependencies,
       request,
-      `room.${operation}`,
-      async (requestId) => {
-        if (!dependencies.active()) throw createAppError('NOT_FOUND');
-        if (mutate) requireSameOrigin(request, dependencies.origin());
-        else requireSameOriginRead(request, dependencies.origin());
-        const caller = await requireMember(dependencies, request, {
-          bucket: `room:${operation}`,
-          rule: dependencies.limits[operation],
-          // A waitlisted account may command, where the evaluator keeps only
-          // its withdrawals (leaving, ADR 0075); reads and creation stay
-          // member-only.
-          admitWaitlisted: operation === 'command',
-        });
+      {
+        name: `room.${operation}`,
+        readOnly: !mutate,
+        bucket: `room:${operation}`,
+        rule: dependencies.limits[operation],
+        // An account that is waitlisted or restricted may command, where the
+        // evaluator keeps only its withdrawals (leaving, ADR 0075); reads and
+        // creation stay member-only.
+        evaluatorDecides: operation === 'command',
+      },
+      async (caller, { requestId }) => {
         try {
           return Response.json(await action(caller), {
             status: operation === 'create' ? 201 : 200,
@@ -90,7 +74,6 @@ export function createRoomHandlers(dependencies: Dependencies) {
           return response;
         }
       },
-      dependencies.reporter,
     );
   const doorbell = dependencies.websocketEndpoint
     ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }

@@ -11,6 +11,34 @@ const waitlisted: Identity = {
   principal: { kind: 'user', userId: 'u', actorId: 'actor1' },
 };
 
+describe('decideAccess for a restricted account (ADR 0103)', () => {
+  test('a restricted account goes straight to its own page and keeps its account pages', () => {
+    const restricted: Identity = {
+      state: 'restricted',
+      username: 'ada',
+      principal: waitlisted.principal,
+    };
+    assert({
+      given: 'a restricted account requesting /play and /settings',
+      should:
+        'send /play to /restricted, not the beta page, and allow /settings',
+      actual: [
+        decideAccess({
+          identity: restricted,
+          path: '/play?x=1',
+          requirement: 'participant',
+        }),
+        decideAccess({
+          identity: restricted,
+          path: '/settings',
+          requirement: 'account',
+        }),
+      ],
+      expected: [{ kind: 'redirect', to: '/restricted' }, { kind: 'allow' }],
+    });
+  });
+});
+
 describe('decideAccess for the beta gate (ADR 0075)', () => {
   test('a waitlisted account waits on /beta for participant pages but keeps its account pages (ADR 0075)', () => {
     assert({

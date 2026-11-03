@@ -109,6 +109,23 @@ describe('POST /api/account/onboarding gates', () => {
     });
   });
 
+  test('a restricted account has nothing to onboard into (ADR 0103)', async () => {
+    const { handler, saved } = handlerWith({
+      identity: {
+        state: 'restricted',
+        username: 'ada',
+        principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
+      },
+    });
+    const response = await handler(post(about));
+    assert({
+      given: 'a suspended account saving an onboarding answer',
+      should: 'refuse it and store nothing',
+      actual: [response.status, saved.length],
+      expected: [403, 0],
+    });
+  });
+
   test('another origin is refused', async () => {
     const { handler, saved } = handlerWith();
     assert({

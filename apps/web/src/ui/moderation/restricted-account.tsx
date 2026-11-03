@@ -30,7 +30,9 @@ export function RestrictedAccount({
           manage your data in account settings.
         </p>
       </div>
-      <AccountExit failed={signOutFailed}>{null}</AccountExit>
+      <AccountExit failed={signOutFailed} returnTo="/restricted">
+        {null}
+      </AccountExit>
     </OnboardingFrame>
   );
 }

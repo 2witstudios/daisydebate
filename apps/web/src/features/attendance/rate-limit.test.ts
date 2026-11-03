@@ -9,15 +9,10 @@ test('attendance shares one member budget across unverified round ids', async ()
   const origin = 'https://daisy.invalid';
   const uses = new Map<string, number>();
   let userId = 'a'.repeat(24);
-  let lookups = 0;
   let writes = 0;
   let unavailable = false;
   const handler = createAttendanceHandler({
     ...attendanceMemberGates(origin, () => userId),
-    getActorByUserId: async () => {
-      lookups++;
-      return { id: userId };
-    },
     limiter: () => ({
       consume: async (key, rule) => {
         if (unavailable) throw new Error('Limiter unavailable');
@@ -52,11 +47,10 @@ test('attendance shares one member budget across unverified round ids', async ()
   assert({
     given: '121 different well-formed round ids submitted by one member',
     should: 'stop at the member ceiling before another lookup or transaction',
-    actual: { statuses, buckets: uses.size, lookups, writes },
+    actual: { statuses, buckets: uses.size, writes },
     expected: {
       statuses: [...Array<number>(120).fill(404), 429],
       buckets: 1,
-      lookups: 120,
       writes: 120,
     },
   });
@@ -70,8 +64,8 @@ test('attendance shares one member budget across unverified round ids', async ()
   unavailable = true;
   assert({
     given: 'an unavailable attendance limiter',
-    should: 'fail closed before actor lookup or durable work',
-    actual: { status: (await send(123)).status, lookups, writes },
-    expected: { status: 503, lookups: 121, writes: 121 },
+    should: 'fail closed before durable work',
+    actual: { status: (await send(123)).status, writes },
+    expected: { status: 503, writes: 121 },
   });
 });

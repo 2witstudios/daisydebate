@@ -1,13 +1,10 @@
 import { createHash } from 'node:crypto';
 import { createAppError } from '@daisy/errors';
-import type { Logger } from '@daisy/logger';
-import type { ErrorReporter } from '@daisy/observability';
 import { ticketSchema } from '@daisy/protocol';
-import { handleOperation, requireSameOrigin } from '../../server/http';
 import {
-  requireMember,
-  type MemberGateDependencies,
-} from '../../server/member-gate';
+  runMemberRoute,
+  type BudgetedMemberBoundary,
+} from '../../server/member-boundary';
 
 /** ADR 0031 §11 / plan section D: 60 s, single-use. */
 const TICKET_TTL_SECONDS = 60;
@@ -17,11 +14,7 @@ const TICKET_TTL_SECONDS = 60;
  */
 const TICKET_RULE = { windowSeconds: 60, max: 20 } as const;
 
-type TicketDependencies = MemberGateDependencies & {
-  readonly logger: Logger;
-  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
-  readonly reporter: ErrorReporter;
-  readonly origin: () => string;
+type TicketDependencies = BudgetedMemberBoundary & {
   readonly websocketEndpoint: () => string | null;
   /** The caller's own durable session id, resolved from the same cookies. */
   readonly sessionId: (headers: Headers) => Promise<string | null>;
@@ -59,22 +52,22 @@ const hashTicket = (ticket: string): string =>
  */
 export function createTicketHandler(dependencies: TicketDependencies) {
   return (request: Request) =>
-    handleOperation(
-      dependencies.logger,
+    // Signed in, but no username yet or no beta access (ADR 0075):
+    // authenticated, not authorized, same as every other permission gate.
+    runMemberRoute(
+      dependencies,
       request,
-      'realtime.ticket.issue',
-      async () => {
-        requireSameOrigin(request, dependencies.origin());
-        // Signed in, but no username yet or no beta access (ADR 0075):
-        // authenticated, not authorized, same as every other permission gate.
-        const caller = await requireMember(dependencies, request, {
-          bucket: 'realtime:ticket',
-          rule: TICKET_RULE,
-          beforeBudget: () => {
-            if (dependencies.websocketEndpoint() === null)
-              throw createAppError('INFRASTRUCTURE');
-          },
-        });
+      {
+        name: 'realtime.ticket.issue',
+        readOnly: false,
+        bucket: 'realtime:ticket',
+        rule: TICKET_RULE,
+        beforeBudget: () => {
+          if (dependencies.websocketEndpoint() === null)
+            throw createAppError('INFRASTRUCTURE');
+        },
+      },
+      async (caller) => {
         const socketUrl = dependencies.websocketEndpoint();
         const sessionId = await dependencies.sessionId(request.headers);
         // The session read that produced the identity just succeeded; a null
@@ -95,6 +88,5 @@ export function createTicketHandler(dependencies: TicketDependencies) {
           expiresInSeconds: TICKET_TTL_SECONDS,
         });
       },
-      dependencies.reporter,
     );
 }

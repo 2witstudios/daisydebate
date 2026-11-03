@@ -8,7 +8,7 @@ import {
 } from './handler-boundary';
 
 import { composeMessagingPreferences } from './preference-composition';
-import { runMemberHandler } from '../../server/member-handler';
+import { runEvaluatedRoute } from '../../server/member-boundary';
 import { requireMemberActor } from '../access/actor';
 export function composeMessagingPreferenceRoutes(app: App) {
   return (
@@ -41,7 +41,7 @@ export function createMessagingPreferenceHandler({
     operation: 'read' | 'update' | 'clear',
     channelId?: string,
   ) =>
-    runMemberHandler(boundary, request, {
+    runEvaluatedRoute(boundary, request, {
       name: `messaging.preferences.${operation}`,
       readOnly: operation === 'read',
       readInput: () =>

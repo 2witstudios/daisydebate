@@ -129,5 +129,7 @@ export const wayIn = (
       return { href: '/onboarding/username', label: 'Finish sign-up' };
     case 'waitlisted':
       return { href: '/beta', label: 'Beta list' };
+    case 'restricted':
+      return { href: '/restricted', label: 'Account restricted' };
   }
 };

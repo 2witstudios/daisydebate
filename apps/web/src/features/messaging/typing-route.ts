@@ -11,7 +11,7 @@ import {
 import { composeMessagingTyping } from './typing-operations';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 import { consumeWindowsOrThrow } from '../../server/rate-limit';
-import { runMemberHandler } from '../../server/member-handler';
+import { runEvaluatedRoute } from '../../server/member-boundary';
 import { requireMemberActor } from '../access/actor';
 export function composeMessagingTypingRoutes(app: App) {
   return (request: Request, write: boolean, channelId?: string) => {
@@ -52,7 +52,7 @@ export function createMessagingTypingHandler({
   readonly signal: (actorId: string) => Promise<void>;
 }) {
   return (request: Request, write: boolean, channelId?: string) =>
-    runMemberHandler(boundary, request, {
+    runEvaluatedRoute(boundary, request, {
       name: write ? 'messaging.typing.update' : 'messaging.typing.read',
       readOnly: !write,
       readInput: () =>

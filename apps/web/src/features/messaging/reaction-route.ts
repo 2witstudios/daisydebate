@@ -9,8 +9,8 @@ import { changeMessagingReaction, readMessagingReactions } from './reactions';
 import { messagingReactionFence } from './reaction-fence';
 import {
   memberHttpBoundary,
-  runMemberHandler,
-} from '../../server/member-handler';
+  runEvaluatedRoute,
+} from '../../server/member-boundary';
 
 /** Optional reaction policy never creates posting or cleanup authority. */
 export function composeMessagingReactionRoute(app: App) {
@@ -67,7 +67,7 @@ export function createMessagingReactionHandler(input: {
   ) => Promise<unknown>;
 }) {
   return (request: Request) =>
-    runMemberHandler(input.boundary, request, {
+    runEvaluatedRoute(input.boundary, request, {
       name: 'messaging.reaction.change',
       readOnly: false,
       readInput: () => readJson(request, input.maxBodyBytes),
@@ -94,7 +94,7 @@ export function createMessagingReactionReader(input: {
   ) => Promise<unknown>;
 }) {
   return (request: Request, channelId?: string) =>
-    runMemberHandler(input.boundary, request, {
+    runEvaluatedRoute(input.boundary, request, {
       name: 'messaging.reaction.read',
       readOnly: true,
       headers:

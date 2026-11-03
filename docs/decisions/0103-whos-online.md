@@ -76,7 +76,9 @@ be able to see who is online."
    its one named write, a restriction ends offers through a reaction Challenges
    registers, and `daisy_restriction_in_force` is the one SQL rule. A suspension
    or ban in force sets `restricted` on the one account
-   producer, so `participantAccess` stops web and realtime at the same check.
+   producer, so `participantAccess` stops web and realtime at the same check,
+   and the account resolves to its own `restricted` Identity state, which goes
+   straight to `/restricted` and keeps its withdrawals, Room exits included.
    Closing an account never wipes this: reports about it and its sanctions stay
    through retention, and a report it filed stays with the reporter removed.
    These defaults and the evidence retention of 12 months after a report closes

@@ -98,6 +98,9 @@ export const usernameHref = (destination: string): string =>
 export const betaHref = (destination: string): string =>
   `/beta?next=${encodeURIComponent(destination)}`;
 
+/** Where a suspended or banned account lands (ADR 0103). */
+export const RESTRICTED_HREF = '/restricted';
+
 /** The passkey offer after a claimed username, then the destination. */
 export const passkeyOfferHref = (destination: string): string =>
   `/onboarding/passkey?next=${encodeURIComponent(destination)}`;
@@ -154,6 +157,8 @@ export function decideAccess({
       return redirectTo(onboardingHref(returnableDestination(path)));
     case 'waitlisted':
       return redirectTo(betaHref(returnableDestination(path)));
+    case 'restricted':
+      return redirectTo(RESTRICTED_HREF);
     case 'member':
       return { kind: 'allow' };
   }
