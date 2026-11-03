@@ -379,9 +379,9 @@ export function CreateRoomEditor({
                 value={rankedNotice.version}
               />
               <p>
-                Listed in the lobby. Ranked Rounds are always public, broadcast
-                and recorded, so anyone can watch them. Play casual to keep a
-                Round out of public view.
+                Listed in the lobby. Ranked Rounds are always public, and are
+                broadcast with a delay and recorded when capture has capacity.
+                Play casual to keep a Round out of public view.
               </p>
               <p>{rankedNotice.text}</p>
             </div>
@@ -399,7 +399,8 @@ export function CreateRoomEditor({
               </select>
               <small>
                 Choosing Ranked makes the Room public: ranked Rounds are always
-                public, broadcast and recorded.
+                public, and are broadcast with a delay and recorded when capture
+                has capacity.
               </small>
             </label>
           )}

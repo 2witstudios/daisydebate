@@ -103,7 +103,7 @@ export async function submitCreateRoom(
       await expect(page).toHaveURL(/\/play\/room\?draft=/);
       await expect(form.getByLabel('Who can join')).toHaveCount(0);
       await expect(
-        form.getByText('Ranked Rounds are always public, broadcast'),
+        form.getByText('Ranked Rounds are always public, and are broadcast'),
       ).toBeVisible();
     }
   } else await form.getByLabel('Who can join').selectOption('public');

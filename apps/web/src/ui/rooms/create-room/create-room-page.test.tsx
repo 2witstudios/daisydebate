@@ -62,7 +62,7 @@ test('the ranked create form explains why it is public and states the notice it 
     given: 'the form with Ranked on',
     should: 'say why it is public, show the exact notice and post its version',
     actual: [
-      ranked.includes('Ranked Rounds are always public, broadcast'),
+      ranked.includes('Ranked Rounds are always public, and are broadcast'),
       ranked.includes(notice.text),
       /name="noticeVersion"[^>]*value="ranked-draft-2"/.test(ranked),
     ],

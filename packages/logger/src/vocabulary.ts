@@ -89,6 +89,7 @@ export const eventRegistry = {
   'broadcast.release_lapsed': 'error',
   'broadcast.clip_skipped': 'error',
   'audience.state_failed': 'error',
+  'stage.media.node_health': 'warn',
   'stage.stray_egress_stopped': 'warn',
   'stage.stray_sweep_failed': 'error',
   'media.capture.lease_reinstated': 'warn',
