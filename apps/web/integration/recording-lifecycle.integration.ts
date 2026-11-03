@@ -93,6 +93,7 @@ const withReadyRecording = (
           spectatorClockAt(new Date().toISOString()),
         ),
       readFloorIntervals: database.readRecordingFloorIntervals,
+      readCoverageFacts: database.readRecordingCoverageFacts,
       holdsRecordingDownload: async () => true,
     };
     const port = createRecordingCapturePort({

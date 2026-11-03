@@ -63,6 +63,7 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
         spectatorClockAt(app.clock.now()),
       ),
     readFloorIntervals: app.database.readRecordingFloorIntervals,
+    readCoverageFacts: app.database.readRecordingCoverageFacts,
     readTranscript: (roundId) =>
       app.database.readRecordingTranscript(roundId, captureRule),
     readBallots: app.database.readRecordingBallots,

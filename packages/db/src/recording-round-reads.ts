@@ -7,6 +7,9 @@ import { historyRows } from './member-history-rows';
 import { audienceTranscript } from './round-ballot-reads';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { ballots } from './schema/ballots';
+import { mediaRoomRotations } from './schema/media-sessions';
+import { roundCommands } from './schema/round-commands';
+import { roundSegments } from './schema/round-segments';
 import { roundParticipants } from './schema/round-participants';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { rooms } from './schema/rooms';
@@ -128,6 +131,46 @@ export const recordingRoundReadOperations = ({
       .from(ballots)
       .where(eq(ballots.roundId, roundId))
       .orderBy(asc(ballots.submittedAt), asc(ballots.id)),
+
+  /**
+   * What a finished video is measured against: the Round's public segments, the
+   * private prep it took between them, and when its media room moved.
+   */
+  async readRecordingCoverageFacts(roundId: string) {
+    const [segments, preps, rotations] = await Promise.all([
+      database
+        .select({
+          startedAt: roundSegments.startedAt,
+          endedAt: roundSegments.endedAt,
+        })
+        .from(roundSegments)
+        .where(eq(roundSegments.roundId, roundId))
+        .orderBy(asc(roundSegments.sequence)),
+      database
+        .select({ appliedAt: roundCommands.appliedAt })
+        .from(roundCommands)
+        .where(
+          and(
+            eq(roundCommands.roundId, roundId),
+            eq(roundCommands.type, 'start_prep'),
+          ),
+        )
+        .orderBy(asc(roundCommands.appliedAt)),
+      database
+        .select({ rotatedAt: mediaRoomRotations.rotatedAt })
+        .from(mediaRoomRotations)
+        .where(eq(mediaRoomRotations.roundId, roundId))
+        .orderBy(asc(mediaRoomRotations.rotatedAt)),
+    ]);
+    return {
+      segments: segments.map((row) => ({
+        startedAtMs: row.startedAt.getTime(),
+        endedAtMs: row.endedAt?.getTime() ?? null,
+      })),
+      prepStartsAtMs: preps.map((row) => row.appliedAt.getTime()),
+      rotationsAtMs: rotations.map((row) => row.rotatedAt.getTime()),
+    };
+  },
 
   /** Accepted floor authority, for the speech timeline of a finished video. */
   async readRecordingFloorIntervals(roundId: string) {

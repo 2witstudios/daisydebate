@@ -19,6 +19,7 @@ const screen: Extract<RecordingHistoryScreen, { kind: 'history' }> = {
     playlistHref: '/api/recordings/rec/playback/master.m3u8',
     durationMs: 60_000,
     gaps: [],
+    unrecorded: [],
     speeches: [],
   },
   transcript: null,

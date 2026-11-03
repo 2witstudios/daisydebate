@@ -4,7 +4,12 @@ import { recordingDocumentStale } from '../../../features/recording/browser-poli
 import type { RecordingMediaPanel } from '../../../features/recording/history';
 import { StateCard } from '../../watch/state-card/state-card';
 import { StreamVideo } from '../../spectating/stream-video';
-import { clockTime, gapCopy, RECORDING_SPEEDS } from './recording-player-copy';
+import {
+  clockTime,
+  gapCopy,
+  RECORDING_SPEEDS,
+  unrecordedCopy,
+} from './recording-player-copy';
 
 type Watchable = Extract<RecordingMediaPanel, { state: 'watch' }>;
 
@@ -50,7 +55,7 @@ export function RecordingPlayer({ media }: { readonly media: Watchable }) {
           ))}
         </select>
       </label>
-      {media.gaps.length > 0 ? (
+      {media.gaps.length > 0 || media.unrecorded.length > 0 ? (
         <section
           aria-label="Missing from this recording"
           className="flex flex-col gap-1 rounded-md border border-border bg-surface p-3 text-sm"
@@ -59,6 +64,9 @@ export function RecordingPlayer({ media }: { readonly media: Watchable }) {
             Parts of this debate were not recorded
           </span>
           <ul className="text-ink-muted">
+            {media.unrecorded.map((part) => (
+              <li key={part.part}>{unrecordedCopy(part)}</li>
+            ))}
             {media.gaps.map((gap) => (
               <li key={gap.startMs}>{gapCopy(gap)}</li>
             ))}

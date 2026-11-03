@@ -4,6 +4,7 @@ import { recordingFailureReasons, recordingMediaSchema } from './recording';
 /** What the processing worker found. Only the web's capture port can make it ready. */
 export const builtRecordingMediaSchema = recordingMediaSchema.omit({
   speeches: true,
+  unrecorded: true,
 });
 export type BuiltRecordingMedia = z.infer<typeof builtRecordingMediaSchema>;
 

@@ -91,6 +91,8 @@ export type RecordingMediaPanel =
       readonly durationMs: number;
       /** What the video does not hold, stated rather than hidden. */
       readonly gaps: RecordingMedia['gaps'];
+      /** Debate the video never reached, before its start or after its end. */
+      readonly unrecorded: NonNullable<RecordingMedia['unrecorded']>;
       readonly speeches: readonly {
         readonly speaker: string;
         readonly startMs: number;
@@ -209,6 +211,7 @@ const mediaPanel = (
     playlistHref: `/api/recordings/${record.id}/playback/${media.playlistKey.slice(media.playlistKey.lastIndexOf('/') + 1)}`,
     durationMs: media.durationMs,
     gaps: media.gaps,
+    unrecorded: media.unrecorded ?? [],
     speeches: media.speeches.map((speech) => ({
       speaker: speaker(speech.roundParticipantId),
       startMs: speech.startMs,

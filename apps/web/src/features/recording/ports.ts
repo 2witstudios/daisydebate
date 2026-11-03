@@ -5,6 +5,7 @@ import type {
   RecordingTransition,
 } from '@daisy/protocol';
 import type { BroadcastRelease, RecordingRound } from './audience';
+import type { RoundCoverageFacts } from './coverage-statement';
 import type { FloorInterval } from './speech-timeline';
 
 export type RecordingRecord = {
@@ -109,6 +110,7 @@ export type RecordingInputs = {
   readonly readFloorIntervals: (
     roundId: string,
   ) => Promise<readonly FloorInterval[]>;
+  readonly readCoverageFacts: (roundId: string) => Promise<RoundCoverageFacts>;
   /** The WATCH-8 subscription entitlement: read here, granted there. */
   readonly holdsRecordingDownload: (userId: string) => Promise<boolean>;
 };

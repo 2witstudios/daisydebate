@@ -43,6 +43,16 @@ const coverageGapSchema = z.strictObject({
   reason: z.enum(['private_phase', 'room_rotation', 'capture_restart']),
 });
 
+/**
+ * Debate the video never reached, so no offset can name it: before its first frame
+ * or after its last. `broadcast_stopped` is the rest of a Round an operator stopped.
+ */
+const unrecordedSchema = z.strictObject({
+  part: z.enum(['start', 'end']),
+  durationMs: z.int().positive(),
+  reason: z.enum(['late_start', 'ended_early', 'broadcast_stopped']),
+});
+
 /** One accepted turn at the floor, in video time. */
 const speechSchema = z.strictObject({
   roundParticipantId: idSchema,
@@ -89,6 +99,8 @@ export const recordingMediaSchema = z.strictObject({
   byteSize: z.int().positive(),
   verifiedAt: at,
   gaps: z.array(coverageGapSchema).max(10_000),
+  /** Absent when the video reaches the whole debate. */
+  unrecorded: z.array(unrecordedSchema).max(2).optional(),
   speeches: z.array(speechSchema).max(100_000),
 });
 export type RecordingMedia = z.infer<typeof recordingMediaSchema>;

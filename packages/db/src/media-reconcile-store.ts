@@ -27,7 +27,7 @@ import {
 } from './participant-admission';
 import { mediaParticipants } from './schema/media-sessions';
 import { sampleRoundExecutionTime } from './round-execution-time';
-import { mediaSessions } from './schema/media-sessions';
+import { mediaSessions, mediaRoomRotations } from './schema/media-sessions';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
 import { rounds } from './schema/rounds';
 
@@ -305,6 +305,12 @@ export function createMediaReconcileStore(input: {
           .update(mediaSessions)
           .set({ ...fields, ...(roomName ? { roomName } : {}) })
           .where(eq(mediaSessions.id, session.id));
+        if (roomName)
+          await tx.insert(mediaRoomRotations).values({
+            id: input.nextId(),
+            roundId: session.roundId,
+            rotatedAt: now,
+          });
         return result;
       });
     },

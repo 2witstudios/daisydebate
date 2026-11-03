@@ -1,6 +1,8 @@
 import type { RecordingMediaPanel } from '../../../features/recording/history';
 
-type Gap = Extract<RecordingMediaPanel, { state: 'watch' }>['gaps'][number];
+type Watchable = Extract<RecordingMediaPanel, { state: 'watch' }>;
+type Gap = Watchable['gaps'][number];
+type Unrecorded = Watchable['unrecorded'][number];
 
 export const RECORDING_SPEEDS = [0.75, 1, 1.25, 1.5, 2] as const;
 
@@ -23,3 +25,12 @@ const WHY: Readonly<Record<Gap['reason'], string>> = {
 
 export const gapCopy = (gap: Gap): string =>
   `${clockTime(gap.startMs)} to ${clockTime(gap.endMs)}: ${WHY[gap.reason]}`;
+
+const UNRECORDED: Readonly<Record<Unrecorded['reason'], string>> = {
+  late_start: 'recording started late',
+  ended_early: 'recording ended early',
+  broadcast_stopped: 'the broadcast was stopped',
+};
+
+export const unrecordedCopy = (part: Unrecorded): string =>
+  `${part.part === 'start' ? 'The first' : 'The last'} ${clockTime(part.durationMs)} of the debate is not in this video: ${UNRECORDED[part.reason]}`;
