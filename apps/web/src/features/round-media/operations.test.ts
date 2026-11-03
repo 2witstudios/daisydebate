@@ -178,7 +178,7 @@ test('a terminal Round is cleaned up once and then reads as ended', async () => 
 });
 
 /** An admitted affirmative, then a permission update whose vendor outcome is unknown. */
-const unsafeWithPendingMutation = async () => {
+const unsafeWithPendingMutation = async (cleanupFails = false) => {
   const { world, operations, affirmative } = await admitted();
   world.connect(world.seats[1].id, {
     publish: [],
@@ -186,30 +186,32 @@ const unsafeWithPendingMutation = async () => {
     hidden: false,
   });
   world.fail('updateParticipant');
+  if (cleanupFails) world.fail('deleteRoom');
   const refused = await operations.reconcile(world.roundId);
   return { world, operations, affirmative, refused };
 };
 
-test('a failed vendor update leaves the session unsafe until cleanup proves absence', async () => {
+test('a failed vendor update closes the room until cleanup retires it', async () => {
   const { world, operations, affirmative, refused } =
-    await unsafeWithPendingMutation();
+    await unsafeWithPendingMutation(true);
   const unsafe = world.state();
-  await assertRejects({
-    given: 'an admission while the failed mutation is unresolved',
-    should: 'refuse as an infrastructure fault',
-    code: 'INFRASTRUCTURE',
-    actual: () => operations.session(world.roundId, affirmative.actorId),
+  const back = await operations.session(world.roundId, affirmative.actorId);
+  assert({
+    given: 'the next admission, once cleanup observes the room absent',
+    should: 'admit into a fresh room, with nothing left pending',
+    actual: [back.state, world.state().unsafe, world.state().pending],
+    expected: ['ready', false, 0],
   });
   assert({
-    given: 'a permission update whose outcome is unknown',
-    should: 'persist it as unsafe, report it, and stop serving the room',
+    given: 'a permission update and its cleanup, both with unknown outcomes',
+    should: 'persist them as unsafe, report it, and stop serving the room',
     actual: [
       refused.state,
       unsafe.unsafe,
       unsafe.pending,
       world.reported.length > 0,
     ],
-    expected: ['unavailable', true, 1, true],
+    expected: ['unavailable', true, 2, true],
   });
 });
 
@@ -261,21 +263,17 @@ test('an admission issues its token under its own reconcile lease (ISSUE-534)', 
   });
 });
 
-test('an admission to an unsafe session with pending vendor work refuses after one reconcile', async () => {
-  const { world, operations, affirmative } = await unsafeWithPendingMutation();
+test('an admission to an unsafe session cleans up once, then runs once on the fresh room', async () => {
+  const { world, operations, affirmative } =
+    await unsafeWithPendingMutation(true);
   const before = world.reconciles();
-  await assertRejects({
+  await operations.session(world.roundId, affirmative.actorId);
+  assert({
     given:
       'a session left unsafe by an unknown vendor outcome, its mutation pending',
-    should: 'refuse as an infrastructure fault',
-    code: 'INFRASTRUCTURE',
-    actual: () => operations.session(world.roundId, affirmative.actorId),
-  });
-  assert({
-    given: 'that refused admission',
-    should: 'run one cleanup reconcile, not retry',
+    should: 'run one cleanup reconcile and one for the fresh room, no more',
     actual: world.reconciles() - before,
-    expected: 1,
+    expected: 2,
   });
 });
 

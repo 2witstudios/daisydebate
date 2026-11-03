@@ -1,6 +1,6 @@
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import type { Database } from '@daisy/db';
-import type { createMediaService } from '@daisy/media';
+import type { MediaNodes } from '@daisy/media';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import type { createRoundMediaOperations } from './operations';
 import { createAppError, createRefusal } from '@daisy/errors';
@@ -16,8 +16,8 @@ type AuthenticatedWorker = ReturnType<
 export function createMediaWorkerTokenBroker(input: {
   readonly sessions: Database['mediaSessions'];
   readonly capture: Capture;
-  readonly media: ReturnType<typeof createMediaService>;
-  readonly workerUrl: string;
+  readonly media: Omit<MediaNodes, 'urlsFor' | 'probe'>;
+  readonly urlsFor: MediaNodes['urlsFor'];
   readonly nextId: () => string;
   readonly deadline: <T>(work: Promise<T>) => Promise<T>;
   /** Told why a worker must retry, so the retried 503s can be read in the log. */
@@ -88,7 +88,7 @@ export function createMediaWorkerTokenBroker(input: {
           sessionId: scope.sessionId,
           roomName: state.session.roomName,
           identity,
-          url: input.workerUrl,
+          url: input.urlsFor(state.session.roomName).workerUrl,
           token,
           expiresAt: new Date(
             Date.parse(current.serverNow) + 60_000,

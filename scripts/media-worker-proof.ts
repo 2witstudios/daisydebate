@@ -99,7 +99,7 @@ function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
     sessions: deps.store,
     capture,
     media: deps.media,
-    workerUrl: deps.workerUrl,
+    urlsFor: deps.urlsFor,
     nextId,
     deadline: deps.deadline,
     hold: createRoundMediaOperations(deps).holdForCapture,

@@ -266,7 +266,10 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         state: 'ready' as const,
         identity,
         token,
-        url: principal.kind === 'bot' ? input.workerUrl : input.publicUrl,
+        url:
+          principal.kind === 'bot'
+            ? input.urlsFor(context.binding.roomName).workerUrl
+            : input.urlsFor(context.binding.roomName).publicUrl,
         expiresAt: new Date(Date.parse(context.now) + 60_000).toISOString(),
         sessionId: context.session.id,
         roomName: context.binding.roomName,

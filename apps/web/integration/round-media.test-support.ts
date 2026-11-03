@@ -39,8 +39,10 @@ export const mediaDependencies = (
       })),
   },
   media,
-  publicUrl: 'wss://localhost.invalid',
-  workerUrl: 'ws://127.0.0.1:7880',
+  urlsFor: () => ({
+    publicUrl: 'wss://localhost.invalid',
+    workerUrl: 'ws://127.0.0.1:7880',
+  }),
   nextId: createId,
   reporter: noopErrorReporter,
   logger: createLogger({ service: 'round-media-proof', level: 'silent' }),
@@ -231,7 +233,7 @@ export function hearRoundTracks(
         const [session] =
           await f.sql`select room_name from media_sessions where round_id=${roundId}`;
         await room.connect(
-          deps.workerUrl,
+          deps.urlsFor().workerUrl,
           await deps.media.joinToken({
             room: session.room_name,
             identity: createId(),

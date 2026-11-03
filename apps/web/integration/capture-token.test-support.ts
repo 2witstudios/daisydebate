@@ -19,7 +19,7 @@ export function captureTokenBroker(
       sessions: deps.store,
       capture,
       media: deps.media,
-      workerUrl: deps.workerUrl,
+      urlsFor: deps.urlsFor,
       nextId: deps.nextId,
       deadline: deps.deadline,
       hold,

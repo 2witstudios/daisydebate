@@ -105,10 +105,7 @@ test('a permission call lost to a dying node never strands the session', async (
       assert({
         given: 'a healthy node after retirement',
         should: 'admit the same seat identity into the fresh room',
-        actual: [
-          back.identity,
-          (tokenClaims(back.token) as { video: { room: string } }).video.room,
-        ],
+        actual: [back.identity, tokenClaims(back.token).video.room],
         expected: [admitted.identity, retired!.room_name],
       });
     } finally {

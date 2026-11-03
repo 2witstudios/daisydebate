@@ -223,30 +223,39 @@ export function createMediaWorld(
     markMediaUnsafe: async () => {
       unsafeAt ??= now;
     },
-    prepareMediaAbsenceProof: async (fence: object) =>
-      pending.size ? null : { ...fence, settledMutationCount: mutations },
+    prepareMediaAbsenceProof: async (fence: object) => ({
+      ...fence,
+      mutationHorizon: mutations,
+    }),
     finishMediaReconcile: async (request: {
-      absenceProof: { settledMutationCount: number } | null;
+      absenceProof: { mutationHorizon: number } | null;
     }) => {
       served = running;
       leaseOwner = options.reclaimedAfterFinish ? 'recovery-worker' : null;
-      const cleaned =
-        pending.size === 0 &&
-        request.absenceProof?.settledMutationCount === mutations;
+      const cleaned = request.absenceProof?.mutationHorizon === mutations;
       const terminal = ['completed', 'abandoned'].includes(status);
+      const uncertain = unsafeAt !== null || pending.size > 0;
+      let retired: 'absent' | null = null;
       if (cleaned) {
+        pending.clear();
         unsafeAt = null;
         if (terminal) endedAt ??= now;
         else {
           const kept = bindings.filter((binding) =>
             eligible.get(binding.roundParticipantId),
           );
-          if (kept.length !== bindings.length) {
+          if (kept.length !== bindings.length || uncertain) {
             bindings.splice(0, bindings.length, ...kept);
             roomName = nextId();
+            retired = uncertain ? 'absent' : null;
           }
         }
       }
+      return {
+        safe: cleaned || !uncertain,
+        ended: cleaned && terminal,
+        retired,
+      };
     },
     ensureBinding: async (input: { caller: Caller }) => {
       if (['completed', 'abandoned'].includes(status))
@@ -317,8 +326,10 @@ export function createMediaWorld(
     priority,
     store,
     media,
-    publicUrl: 'wss://media.daisy.invalid',
-    workerUrl: 'ws://worker.daisy.invalid',
+    urlsFor: () => ({
+      publicUrl: 'wss://media.daisy.invalid',
+      workerUrl: 'ws://worker.daisy.invalid',
+    }),
     nextId,
     reporter: { capture: (error: unknown) => void reported.push(error) },
     logger: {
