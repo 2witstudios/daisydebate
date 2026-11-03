@@ -5,7 +5,7 @@
  */
 export function startRoundMediaRecovery(input: {
   readonly recover: () => Promise<unknown>;
-  readonly failed: () => void;
+  readonly failed: (error: unknown) => void;
   readonly every: (
     ms: number,
     tick: () => void,

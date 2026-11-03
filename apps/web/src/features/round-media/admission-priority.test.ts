@@ -78,7 +78,11 @@ test('another web instance yields its recovery claim to an admission already wai
     }) => {
       if (first) {
         first = false;
-        return { kind: 'wait' as const, retryAt: '2026-10-22T00:00:00.000Z' };
+        return {
+          kind: 'wait' as const,
+          reason: 'lease' as const,
+          retryAt: '2026-10-22T00:00:00.000Z',
+        };
       }
       if (!waiting.has(request.owner)) observed.resolve('recovery-claimed');
       return world.input.store.claimMediaReconcile(request);
