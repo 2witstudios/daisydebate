@@ -12,19 +12,20 @@ const checkout = resolve(import.meta.dir, '../../../..');
 const web = resolve(import.meta.dir, '../..');
 const slot = requireLaunchSlot(checkout, process.env);
 const certificates = createLaunchCertificates();
-const stackEnv = {
-  ...process.env,
+// Last in every spread: the Launch config reads these from the environment when imported.
+const launchEnv = {
   NODE_EXTRA_CA_CERTS: certificates.ca,
   E2E_LOCAL_TLS_CERT: certificates.cert,
   E2E_LOCAL_TLS_KEY: certificates.key,
   PW_WS_ENDPOINT: 'ws://unused.invalid',
 };
+const stackEnv = { ...process.env, ...launchEnv };
 const { default: config } = await import('./room-launch-config');
 const server = [config.webServer].flat()[0];
 if (!server) throw new Error('Launch server missing');
 const stack = Bun.spawn(['sh', '-c', server.command], {
   cwd: server.cwd ?? web,
-  env: { ...stackEnv, ...server.env },
+  env: { ...stackEnv, ...server.env, ...launchEnv },
   stdout: 'inherit',
   stderr: 'inherit',
 });
