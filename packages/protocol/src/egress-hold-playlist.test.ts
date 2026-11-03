@@ -10,7 +10,10 @@ describe('parseHoldPlaylist', () => {
     assert({
       given: 'an Egress playlist',
       should: 'return segments in order with capture time and integer ms',
-      actual: parseHoldPlaylist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-PROGRAM-DATE-TIME:2026-11-02T00:00:00.000Z\n#EXTINF:4.000,\ns_00000.ts\n#EXT-X-PROGRAM-DATE-TIME:2026-11-02T00:00:04.000Z\n#EXTINF:3.500,\ns_00001.ts\n', LATER),
+      actual: parseHoldPlaylist(
+        '#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-PROGRAM-DATE-TIME:2026-11-02T00:00:00.000Z\n#EXTINF:4.000,\ns_00000.ts\n#EXT-X-PROGRAM-DATE-TIME:2026-11-02T00:00:04.000Z\n#EXTINF:3.500,\ns_00001.ts\n',
+        LATER,
+      ),
       expected: [
         {
           name: 's_00000.ts',

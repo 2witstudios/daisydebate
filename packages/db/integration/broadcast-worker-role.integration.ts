@@ -10,7 +10,7 @@ test('the hold worker can reach broadcasts and nothing else', async () => {
   try {
     const can = async (table: string, privilege: string) =>
       (
-        await sql`select has_table_privilege('daisy_broadcast_worker', ${table}, ${privilege}) as ok`
+        await sql`select (has_table_privilege('daisy_broadcast_worker', ${table}, ${privilege}) or (lower(${privilege}) in ('select', 'update') and has_any_column_privilege('daisy_broadcast_worker', ${table}, ${privilege}))) as ok`
       )[0].ok as boolean;
     assert({
       given: 'the worker role',

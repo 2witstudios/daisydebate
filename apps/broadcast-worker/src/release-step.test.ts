@@ -101,6 +101,43 @@ describe('the end of the stream', () => {
   });
 });
 
+describe('what is due next', () => {
+  test('says when, so a long delay can give its slot back', async () => {
+    const { ports } = world();
+    const long = { kind: 'delay' as const, seconds: 3600 };
+    const nowMs = start + 5_000;
+    const [listed, empty, ended] = [
+      await releaseStep(input({ policy: long, nowMs }), ports),
+      await releaseStep(
+        input({ policy: long, nowMs, holdCursor: 3, nextSegment: 3 }),
+        ports,
+      ),
+      await releaseStep(
+        input({
+          policy: long,
+          nowMs,
+          holdCursor: 3,
+          nextSegment: 3,
+          streamEnded: true,
+        }),
+        ports,
+      ),
+    ];
+    assert({
+      given:
+        'a segment an hour from due; nothing left to release; a stream already ended',
+      should:
+        'name that due time; now plus the delay, less a little for what is not listed yet; and nothing',
+      actual: [listed, empty, ended],
+      expected: [
+        { kind: 'waiting', nextDueMs: start + 4_000 + 3_600_000 },
+        { kind: 'waiting', nextDueMs: nowMs + 3_600_000 - 10_000 },
+        { kind: 'waiting' },
+      ],
+    });
+  });
+});
+
 describe('a clip given up on', () => {
   test('is left out, and the next takes its place in the sequence', async () => {
     const { ports, log } = world();

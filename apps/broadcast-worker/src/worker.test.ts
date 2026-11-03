@@ -376,3 +376,43 @@ test('a stop seen mid-step withdraws, and nothing more is published', async () =
     expected: [true, ['live/k/master.m3u8']],
   });
 });
+
+test('a long delay gives the slot back, until something is due', async () => {
+  const parked: number[] = [];
+  let claims = 0;
+  await runWorker({
+    owner: 'w',
+    now: () => 900_000,
+    sleep: async () => {},
+    stopped: () => claims >= 2,
+    report: () => {},
+    scratch: noScratch,
+    objects: {
+      putManifest: async () => {},
+      readHoldText: async () => '',
+    } as never,
+    store: {
+      recordPassed: async () => true,
+      readStageHistory: async () => ({ segments: [], privateSpans: [] }),
+      park: async ({ until }: { until: Date }) => {
+        parked.push(until.getTime());
+        return true;
+      },
+      claim: async () => {
+        claims += 1;
+        return claims === 1
+          ? {
+              ...dueFromWorker([]),
+              releasePolicy: { kind: 'delay', seconds: 86_400 },
+            }
+          : null;
+      },
+    } as never,
+  });
+  assert({
+    given: 'a host’s day-long delay with nothing held',
+    should: 'park until about a day on, and go on to the next claim',
+    actual: [parked, claims],
+    expected: [[900_000 + 86_400_000 - 10_000], 2],
+  });
+});

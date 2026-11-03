@@ -19,7 +19,10 @@ import {
   listOpenBroadcasts,
   openBroadcast,
   readReleasedThrough,
+  parkBroadcast,
+  recordClipSkipped,
   recordFinalMediaEnd,
+  recordNotPublicPassed,
   recordObserverRestored,
   recordObserverRevoked,
   recordRevocationFailed,
@@ -399,6 +402,7 @@ test('discovery finds ranked Rounds and casual Rounds whose host chose a Broadca
       const chosen = await f.round();
       const recordedOnly = await f.round();
       const nothing = await f.round();
+      await client`update rounds set visibility='public' where id=${chosen}`;
       await client`update rounds set competition_type='casual', ladder_id=null, capture=${JSON.stringify(
         {
           broadcast: {
@@ -743,6 +747,141 @@ test('the worker can tell whether a Recording will clear a hold, and no more', a
       should: 'answer false then true, through the view alone',
       actual: [none, one, view?.yes, table?.yes],
       expected: [false, true, true, false],
+    });
+  });
+});
+
+test('the worker role reads no stage credential, writes only its own columns, and still works', async () => {
+  await withOps(async (_db, roundId, client) => {
+    const id = createId();
+    await client`insert into broadcasts (id,round_id,feed_key,release_policy,stage_credential_hash)
+      values (${id},${roundId},${createId()},jsonb_build_object('kind','delay','seconds',60),'secret-hash')`;
+    const canRead = async (column: string) =>
+      (
+        await client`select has_column_privilege('daisy_broadcast_worker','broadcasts',${column},'select') as yes`
+      )[0]?.yes;
+    const canWrite = async (column: string) =>
+      (
+        await client`select has_column_privilege('daisy_broadcast_worker','broadcasts',${column},'update') as yes`
+      )[0]?.yes;
+    // Run the worker's own statements under its role: a grant it needs and lacks fails here.
+    const asWorker = await client.begin(async (tx) => {
+      await tx`set local role daisy_broadcast_worker`;
+      const db = drizzle({ client: tx as never });
+      const claimed = await claimBroadcast(db as never, {
+        owner: 'w',
+        now: later,
+        leaseUntil: new Date(later.getTime() + 1000),
+      });
+      const held = {
+        id,
+        owner: 'w',
+        epoch: claimed?.leaseEpoch ?? 0,
+      };
+      const renewed = await renewBroadcastLease(db as never, {
+        ...held,
+        leaseUntil: new Date(later.getTime() + 2000),
+      });
+      await recordClipSkipped(db as never, { ...held, capturedAtMs: 5 });
+      await recordNotPublicPassed(db as never, { ...held, through: now });
+      const parked = await parkBroadcast(db as never, {
+        ...held,
+        until: later,
+      });
+      return {
+        reachedIt: claimed?.id === id,
+        hashInRow: 'stageCredentialHash' in (claimed ?? {}),
+        renewed: renewed?.id === id,
+        parked,
+      };
+    });
+    assert({
+      given: 'the worker role, running its own claim, renewal and records',
+      should:
+        'work, with no credential hash in its rows, and no grant on what it does not write',
+      actual: [
+        asWorker,
+        await canRead('stage_credential_hash'),
+        await canWrite('egress_id'),
+        await canWrite('feed_key'),
+        await canWrite('stage_credential_hash'),
+      ],
+      expected: [
+        { reachedIt: true, hashInRow: false, renewed: true, parked: true },
+        false,
+        false,
+        false,
+        false,
+      ],
+    });
+  });
+});
+
+test('the watermark never passes now, whatever a playlist claimed', async () => {
+  await withOps(async (db, roundId) => {
+    const { id } = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const claimed = await db.transaction((tx) =>
+      claimBroadcast(tx, {
+        owner: 'w',
+        now: later,
+        leaseUntil: new Date(Date.now() + 60_000),
+      }),
+    );
+    const before = Date.now();
+    await recordNotPublicPassed(db, {
+      id,
+      owner: 'w',
+      epoch: claimed!.leaseEpoch,
+      through: new Date(before + 86_400_000),
+    });
+    const [row] = await db
+      .select()
+      .from(broadcasts)
+      .where(eq(broadcasts.id, id));
+    assert({
+      given: 'a stamp a day in the future',
+      should: 'stop the watermark at about now',
+      actual: row!.releasedThroughAt!.getTime() < before + 60_000,
+      expected: true,
+    });
+  });
+});
+
+test('a parked Broadcast is not claimed until it is due', async () => {
+  await withOps(async (db, roundId) => {
+    const { id } = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const claim = (at: Date) =>
+      db.transaction((tx) =>
+        claimBroadcast(tx, {
+          owner: 'w',
+          now: at,
+          leaseUntil: new Date(at.getTime() + 1),
+        }),
+      );
+    const first = await claim(now);
+    const parked = await parkBroadcast(db, {
+      id,
+      owner: 'w',
+      epoch: first!.leaseEpoch,
+      until: later,
+    });
+    const tooSoon = await claim(new Date(later.getTime() - 1));
+    const due = await claim(later);
+    assert({
+      given: 'a Broadcast parked until a time, claimed before and at it',
+      should: 'free its lease, and be claimed only then',
+      actual: [parked, tooSoon?.id === id, due?.id === id],
+      expected: [true, false, true],
     });
   });
 });

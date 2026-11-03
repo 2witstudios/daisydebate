@@ -143,6 +143,15 @@ carrying the official feed gets no slate this release.
 Revocation stays: it keeps private audio out of storage. It no longer has to protect
 what is published.
 
+**The worker's reach.** Its role holds named columns only, so a new column is denied
+until granted, and it can never read a stage credential's hash. It believes a held
+playlist only as far as plain segment names, rising times and times already past, and
+the watermark never passes now, so a false stamp cannot release a fact early. A clip
+it cannot read or encode gets five tries, then is recorded as a stated gap with
+`broadcast.clip_skipped`. Nothing due for over 30 s gives its slot back until it is.
+Each stage and segment type declares its publicity in one place; anything undeclared
+is private. A private Round's Broadcast is refused at Launch, and never opened.
+
 **Ending the Egress.** Ending the Egress only limits what reaches the hold. The stage page logs `END_RECORDING`, which Egress stops on, when the stage
 route refuses on a stale heartbeat (410) or has failed for about 10 s. No process holds
 a LiveKit credential for this. A control plane that returns finds the Egress complete

@@ -35,7 +35,8 @@ export const parseHoldPlaylist = (
         Number.isNaN(capturedAtMs) ||
         Number.isNaN(durationMs) ||
         !SEGMENT_NAME.test(line.trim()) ||
-        capturedAtMs <= (entries.at(-1)?.capturedAtMs ?? Number.NEGATIVE_INFINITY) ||
+        capturedAtMs <=
+          (entries.at(-1)?.capturedAtMs ?? Number.NEGATIVE_INFINITY) ||
         capturedAtMs + durationMs > nowMs
       )
         return entries;

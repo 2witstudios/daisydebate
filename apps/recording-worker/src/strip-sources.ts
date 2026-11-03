@@ -50,7 +50,10 @@ export const stripSources = async (
   const attempts = attemptsUnder(holdPrefix, await hold.listNames(holdPrefix));
   for (const prefix of attempts) {
     const kept = wholeSegmentsInside(
-      parseHoldPlaylist(await hold.readText(`${prefix}${HOLD_PLAYLIST}`), nowMs),
+      parseHoldPlaylist(
+        await hold.readText(`${prefix}${HOLD_PLAYLIST}`),
+        nowMs,
+      ),
       intervals,
     );
     await hold.writeText(`${prefix}${HOLD_PLAYLIST}`, playlistOf(kept));

@@ -41,9 +41,12 @@ const bucket = () => {
 describe('stripSources', () => {
   test('only whole segments known public remain, and the playlist says so', async () => {
     const { files, port } = bucket();
-    await stripSources(port, 'hold/b/', [
-      { fromMs: T0 + 3000, toMs: T0 + 8500 },
-    ], T0 + 900_000);
+    await stripSources(
+      port,
+      'hold/b/',
+      [{ fromMs: T0 + 3000, toMs: T0 + 8500 }],
+      T0 + 900_000,
+    );
     assert({
       given:
         'an attempt with a whole file, a straddler each side and one inside, and one with no playlist',

@@ -115,6 +115,28 @@ describe('The host capture choice', () => {
     });
   });
 
+  test('Launch refuses a private Room’s Broadcast, and keeps its Recording', () => {
+    const start = {
+      commandId: 'c',
+      expectedVersion: 4,
+      type: 'start-round' as const,
+    };
+    const launch = (capture: typeof both) =>
+      executeRoomCommand(
+        { ...state(), visibility: 'private' as const, capture },
+        'host',
+        start,
+        consent,
+        entitled,
+      );
+    assert({
+      given: 'a private Room holding a Broadcast choice, however it got there',
+      should: 'refuse at Launch, and a Recording alone still starts',
+      actual: [launch(both), launch({ broadcast: null, recording: true }).ok],
+      expected: [{ ok: false, refusal: 'broadcast-private' }, true],
+    });
+  });
+
   test('Launch refuses a choice the host can no longer make', () => {
     const start = {
       commandId: 'c',
