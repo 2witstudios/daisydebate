@@ -152,8 +152,8 @@ owner, and never fails the run. A CI entry cannot be replaced under its key, so 
 rejected one rebuilds on every run until its key changes: bump `refresh` in the
 base descriptor or delete the entry. A refused save emits a `cache-refused` warning,
 publishes nothing and keeps the valid image. A `docker save` refusal names its exit
-code and docker's last stderr line, reduced to plain words so paths, URLs, assignments
-and digests never reach a log.
+code and docker's last stderr line, reduced to a fixed vocabulary of diagnostic
+words, so a path, URL, secret or name never reaches a log.
 
 A cache hit holds only the prepared image and needs no network. Its entry saves only
 after the lifecycle, archive and trust proofs pass, and the key covers the first

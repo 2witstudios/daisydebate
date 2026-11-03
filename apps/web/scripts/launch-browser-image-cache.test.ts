@@ -209,7 +209,7 @@ test('a real cache hit does not run the archive proof', async () => {
   });
 });
 
-test('a docker failure summary keeps only plain words', () => {
+test('a docker failure summary keeps only its fixed vocabulary', () => {
   for (const [given, stderr, expected] of [
     [
       'a path and an errno',
@@ -227,9 +227,9 @@ test('a docker failure summary keeps only plain words', () => {
       'exit 1: … refused …',
     ],
     [
-      'a long unbroken word, which could be a secret',
-      `refused ${'a'.repeat(33)}\n`,
-      'exit 1: refused …',
+      'a plain-word secret',
+      'authentication failed for secret-password\n',
+      'exit 1: … failed for …',
     ],
     [
       'a workflow command injected into the annotation',
@@ -252,7 +252,7 @@ test('a docker failure summary keeps only plain words', () => {
   assert({
     given: 'a very long diagnostic',
     should: 'stay within its fixed bound',
-    actual: dockerFailureSummary(1, 'word '.repeat(200)).length <= 200,
+    actual: dockerFailureSummary(1, 'error '.repeat(200)).length <= 200,
     expected: true,
   });
 });
