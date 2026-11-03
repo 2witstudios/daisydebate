@@ -115,10 +115,12 @@ test('direct tabs take over without duplicate capture and reload recovers throug
         } else await route.continue();
       },
     );
+    const admissions = countMediaAdmissions(second);
     await second.reload();
     await serviceRecovered;
     await connected(second);
     expect(refusals).toBe(6);
+    expect(admissions()).toBe(1);
     await expectPeerCamera(peer);
     const stateResponse = await speaker.context.request.get(
       `/api/rounds/${round.id}/media`,

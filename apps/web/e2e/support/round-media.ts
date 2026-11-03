@@ -112,9 +112,10 @@ export async function readMediaState(
 }
 
 /**
- * Media sessions this page asked for, less those the server refused: a refused
- * ask admitted nobody, and retrying it is designed (ADR 0088). An ask still in
- * flight counts, so a second admission cannot hide behind its slow answer.
+ * Media sessions this page asked for, less those answered with a status the
+ * client retries (media-failure.ts): such an ask admitted nobody, and retrying it
+ * is designed (ADR 0088). An ask still in flight counts, so a second admission
+ * cannot hide behind its slow answer.
  */
 export const countMediaAdmissions = (page: Page) => {
   const isSession = (url: string) =>
@@ -124,7 +125,12 @@ export const countMediaAdmissions = (page: Page) => {
     if (isSession(request.url())) admissions++;
   });
   page.on('response', (response) => {
-    if (isSession(response.url()) && response.status() === 503) admissions--;
+    const status = response.status();
+    if (
+      isSession(response.url()) &&
+      (status === 408 || status === 429 || status >= 500)
+    )
+      admissions--;
   });
   return () => admissions;
 };
