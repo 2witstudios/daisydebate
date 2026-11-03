@@ -96,7 +96,7 @@ test('durable reconcile claims serve only the request horizon they actually star
   });
 });
 
-test('restart, verified absence and late acknowledgement never erase unknown vendor outcomes', async () => {
+test('a verified absence retires the room, and a late acknowledgement cannot rewrite that', async () => {
   await withFixture(databaseUrl, async (fixture) => {
     const { roundId, seat, store, binding, request } =
       await reconcileFixture(fixture);
@@ -156,24 +156,31 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
       assert({
         given:
           'one provider absence observation while old creation is still unresolved',
-        should: 'retain unsafe state and never stamp ended',
+        should:
+          'retire the room under a fresh name, sign nothing, and never stamp ended',
         actual: [
           result.safe,
           result.ended,
+          result.retired,
           signed,
           (await restarted.mediaReconcileProgress(binding.sessionId)).endedAt,
+          (
+            await fixture.sql`select room_name from media_sessions where id=${binding.sessionId}`
+          )[0]!.room_name !== binding.roomName,
         ],
-        expected: [false, false, false, null],
+        expected: [true, false, 'absent', false, null, true],
       });
       await restarted.settleMediaMutation(intent, 'succeeded');
       assert({
-        given: 'a late real success response',
-        should:
-          'settle its immutable intent without silently clearing unsafe state',
-        actual:
-          (await restarted.mediaReconcileProgress(binding.sessionId))
-            .unsafeAt !== null,
-        expected: true,
+        given: 'a late real success response for the retired room',
+        should: 'leave the intent superseded and the session safe',
+        actual: [
+          (
+            await fixture.sql`select outcome from media_vendor_mutations where id=${intent}`
+          )[0]!.outcome,
+          (await restarted.mediaReconcileProgress(binding.sessionId)).unsafeAt,
+        ],
+        expected: ['superseded', null],
       });
     } finally {
       await fixture.sql.unsafe('delete from media_sessions where id=$1', [
@@ -197,9 +204,10 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       await store.markMediaUnsafe(claim.fence);
       assert({
         given: 'an outstanding actual durable intent',
-        should: 'refuse an absence proof before it settles',
-        actual: await store.prepareMediaAbsenceProof(claim.fence),
-        expected: null,
+        should: 'count it in the horizon of a proof prepared now',
+        actual: (await store.prepareMediaAbsenceProof(claim.fence))
+          ?.mutationHorizon,
+        expected: 1,
       });
       await store.settleMediaMutation(intent, 'succeeded');
       const result = await store.finishMediaReconcile({
@@ -223,7 +231,7 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       });
       if (next.kind !== 'claimed') throw new Error('Missing next proof claim');
       const current = await store.prepareMediaAbsenceProof(next.fence);
-      if (!current) throw new Error('Settled horizon missing');
+      if (!current) throw new Error('Mutation horizon missing');
       const refused = await store.finishMediaReconcile({
         mediaWindowClosed,
         ...next.fence,

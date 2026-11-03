@@ -149,7 +149,7 @@ test('authenticated capture broker verifies the actual lease and never creates a
   });
 });
 
-test('unknown real vendor outcomes survive restart and absence probes until actual late settlement', async () => {
+test('an unknown real vendor outcome is fenced by retirement, and its late settlement changes nothing', async () => {
   await withMediaRound(async (f) => {
     const delayed = delayedMediaCreation();
     const reporter: unknown[] = [];
@@ -170,54 +170,37 @@ test('unknown real vendor outcomes survive restart and absence probes until actu
         actual: () => joining,
       });
       await delayed.entered;
+      const [first] =
+        await f.sql`select id,room_name from media_sessions where round_id=${f.roundId}`;
       await refused;
       const [session] =
-        await f.sql`select id,room_name,unsafe_at from media_sessions where round_id=${f.roundId}`;
+        await f.sql`select id,room_name,unsafe_at,ended_at from media_sessions where id=${first!.id}`;
+      const [journal] =
+        await f.sql`select outcome from media_vendor_mutations where session_id=${first!.id} and kind='create' order by dispatched_at limit 1`;
       assert({
         given:
-          'a timed-out real provider creation with no browser or later scheduler request',
+          'a real creation unanswered past its deadline, with its room then observed absent',
         should:
-          'attempt real room cleanup before returning the refused admission',
-        actual: await f.media.exists(session!.room_name),
-        expected: false,
-      });
-      const freshProcess = createRoundMediaOperations(mediaDependencies(f));
-      await freshProcess.recoverActiveSessions();
-      const [unresolved] =
-        await f.sql`select unsafe_at,ended_at,(select count(*)::int from media_vendor_mutations where session_id=s.id and settled_at is null) pending from media_sessions s where id=${session!.id}`;
-      assert({
-        given:
-          'restart and a real deletion/absence observation while creation acknowledgement is pending',
-        should: 'keep durable uncertainty and refuse to stamp ended',
+          'retire the room, mark the creation superseded and invent no Round end',
         actual: [
-          unresolved!.unsafe_at !== null,
-          unresolved!.ended_at,
-          unresolved!.pending,
+          await f.media.exists(first!.room_name),
+          session!.room_name !== first!.room_name,
+          session!.unsafe_at,
+          session!.ended_at,
+          journal!.outcome,
           reporter.length,
         ],
-        expected: [true, null, 1, 1],
+        expected: [false, true, null, null, 'superseded', 1],
       });
       delayed.release();
-      await waitForMediaFact(async () => {
-        const [pending] =
-          await f.sql`select count(*)::int n from media_vendor_mutations where session_id=${session!.id} and settled_at is null`;
-        return pending!.n === 0;
-      });
-      await freshProcess.recoverActiveSessions();
-      const [safe] =
-        await f.sql`select unsafe_at,ended_at,deletion_requested_at from media_sessions where id=${session!.id}`;
+      await Bun.sleep(100);
+      const [settled] =
+        await f.sql`select outcome from media_vendor_mutations where session_id=${first!.id} and kind='create' order by dispatched_at limit 1`;
       assert({
-        given:
-          'actual delayed acknowledgement followed by another fresh absence proof',
-        should:
-          'recover the session, end the episode so capture discovery resumes (ISSUE-465), and invent no Round terminal result',
-        actual: [
-          safe!.unsafe_at,
-          safe!.ended_at,
-          safe!.deletion_requested_at,
-          await f.media.exists(session!.room_name),
-        ],
-        expected: [null, null, null, false],
+        given: 'the actual delayed acknowledgement arriving afterwards',
+        should: 'not rewrite the superseded outcome',
+        actual: settled!.outcome,
+        expected: 'superseded',
       });
     } finally {
       delayed.release();

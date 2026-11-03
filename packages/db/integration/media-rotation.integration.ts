@@ -24,7 +24,8 @@ for (const failure of [
   'debater',
   'terminal',
 ] as const) {
-  const rotated = ['none', 'erased', 'debater'].includes(failure);
+  // A pending outcome no longer holds the room: observed absence retires it (ADR 0108).
+  const rotated = ['pending', 'none', 'erased', 'debater'].includes(failure);
   const role = failure === 'debater' ? 'negative' : 'judge';
   const expectedEpoch = rotated ? 2 : 1;
   test(`rotation preserves session evidence and checks the absence fence: ${failure}`, async () => {
@@ -75,7 +76,7 @@ for (const failure of [
           ...(failure === 'owner' ? { owner: createId() } : {}),
           ...(failure === 'epoch' ? { epoch: proof.epoch + 1 } : {}),
           ...(failure === 'horizon'
-            ? { settledMutationCount: proof.settledMutationCount - 1 }
+            ? { mutationHorizon: proof.mutationHorizon - 1 }
             : {}),
         };
         await store.finishMediaReconcile({
@@ -95,7 +96,7 @@ for (const failure of [
         assert({
           given: `revoked bound human and ${failure} proof condition`,
           should:
-            'rotate only behind the exact settled nonterminal fence, retaining session and journal',
+            'rotate only behind the exact nonterminal absence fence, retaining session and journal',
           actual: [
             session!.id,
             session!.room_name !== binding.roomName,

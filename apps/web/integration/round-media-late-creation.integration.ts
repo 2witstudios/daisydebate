@@ -1,5 +1,4 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createMediaService } from '@daisy/media';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
@@ -7,21 +6,26 @@ import {
   withMediaRound,
   mediaDependencies,
   delayedMediaCreation,
+  tokenClaims,
   waitForMediaFact,
 } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
 for (const terminal of [false, true])
-  test(`late actual creation after absence cannot finalize a ${terminal ? 'terminal' : 'live'} session`, async () => {
+  test(`late actual creation after absence reaches only a retired room of a ${terminal ? 'terminal' : 'live'} session`, async () => {
     await withMediaRound(async (f) => {
       const delayed = delayedMediaCreation('before');
+      let retiredRoom = '';
       const store = f.store.mediaSessions;
       const operations = createRoundMediaOperations({
         ...mediaDependencies(f, createMediaService({ config: delayed.config })),
         store: {
           ...store,
           finishMediaReconcile: async (request) => {
+            const [named] =
+              await f.sql`select room_name from media_sessions where id=${request.sessionId}`;
+            retiredRoom = String(named!.room_name);
             // The provider effect and actual settlement occur after cleanup's absence read,
             // before the real bounded finalization transaction obtains its locks.
             if (terminal)
@@ -37,43 +41,36 @@ for (const terminal of [false, true])
         },
       });
       try {
-        await assertRejects({
-          given:
-            'a real provider creation settling between absence and finalization',
-          should: 'keep admission refused despite the now-settled intent',
-          code: 'INFRASTRUCTURE',
-          actual: () => operations.session(f.roundId, f.host.actorId),
-        });
+        // The retiring request answers the retryable 503; the browser's next one joins.
+        await operations
+          .session(f.roundId, f.host.actorId)
+          .catch(() => undefined);
         const [session] =
           await f.sql`select id,room_name,unsafe_at,ended_at from media_sessions where round_id=${f.roundId}`;
         assert({
-          given: 'the late room exists after the stale absence read',
+          given: 'a real provider creation settling after the absence read',
           should:
-            'retain unsafe state and remain discoverable for durable recovery',
+            'leave that room behind: a live session names a fresh room, a terminal one has ended',
           actual: [
-            await f.media.exists(session!.room_name),
-            session!.unsafe_at !== null,
-            session!.ended_at,
-            (await store.activeMediaSessions()).some(
-              (active) => active.roundId === f.roundId,
-            ),
+            await f.media.exists(retiredRoom),
+            session!.room_name !== retiredRoom,
+            session!.unsafe_at,
+            session!.ended_at !== null,
           ],
-          expected: [true, true, null, true],
+          expected: [true, !terminal, null, terminal],
         });
-        await f.mediaOperations.recoverActiveSessions();
-        const [recovered] =
-          await f.sql`select unsafe_at,ended_at from media_sessions where id=${session!.id}`;
-        assert({
-          given: 'a later run starting after actual creation settlement',
-          should:
-            'clean up the real room before clearing uncertainty or stamping terminal end',
-          actual: [
-            await f.media.exists(session!.room_name),
-            recovered!.unsafe_at,
-            recovered!.ended_at !== null,
-          ],
-          expected: [false, null, terminal],
-        });
+        if (!terminal) {
+          const back = await operations.session(f.roundId, f.host.actorId);
+          const [now] =
+            await f.sql`select room_name from media_sessions where id=${session!.id}`;
+          assert({
+            given: 'the next admission after retirement',
+            should: 'sign for the fresh room, never the retired one',
+            actual: tokenClaims(back.token).video.room,
+            expected: now!.room_name,
+          });
+        }
+        await f.media.deleteRoom(retiredRoom);
       } finally {
         delayed.release();
         delayed.stop();

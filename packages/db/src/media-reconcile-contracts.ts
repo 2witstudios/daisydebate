@@ -20,7 +20,7 @@ export type MediaReconcileFence = {
   readonly epoch: number;
 };
 export type MediaAbsenceProof = MediaReconcileFence & {
-  readonly settledMutationCount: number;
+  readonly mutationHorizon: number;
 };
 export const proofMatches = (
   proof: MediaAbsenceProof | null,
@@ -31,4 +31,4 @@ export const proofMatches = (
   proof.sessionId === fence.sessionId &&
   proof.owner === fence.owner &&
   proof.epoch === fence.epoch &&
-  proof.settledMutationCount === mutations;
+  proof.mutationHorizon === mutations;

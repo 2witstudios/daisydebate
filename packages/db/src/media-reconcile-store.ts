@@ -250,7 +250,7 @@ export function createMediaReconcileStore(input: {
       return withFence(request, async (tx, session) => {
         return {
           ...request,
-          settledMutationCount: await mutationCount(tx, session.id),
+          mutationHorizon: await mutationCount(tx, session.id),
         };
       });
     },
