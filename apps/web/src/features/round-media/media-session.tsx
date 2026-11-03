@@ -5,7 +5,7 @@ import type { RoundView } from '@daisy/protocol';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
 import { selectMediaAccount } from './account-signout-cleanup';
 import { subscribeBrowserPageEvents } from './adapters/browser-page-events';
-import { createLiveKitRoom } from './adapters/livekit-room';
+import { createLiveKitRoom, RESUME_BUDGET_MS } from './adapters/livekit-room';
 import { createRoundViewFollower } from './follow-round-view';
 import { MediaBar } from './media-bar';
 import {
@@ -40,6 +40,7 @@ import {
 const MEDIA_POLICY: MediaPolicy = {
   requestRetryDelaysMs: MEDIA_RETRY_DELAYS_MS,
   readBudgetMs: MEDIA_READ_BUDGET_MS,
+  resumeBudgetMs: RESUME_BUDGET_MS,
 
   /** A prompt may stay open indefinitely; the connection does not wait for it. */
   capturePatienceMs: 3_000,

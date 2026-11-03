@@ -302,6 +302,7 @@ test('a completion records whether the pass finished its work', () => {
 test('a room is retired on observed absence, or once uncertainty outlasts the bound', () => {
   const quiet = {
     now,
+    terminal: false,
     absenceProven: false,
     unsafeAt: null,
     oldestPendingAt: null,
@@ -327,7 +328,21 @@ test('a room is retired on observed absence, or once uncertainty outlasts the bo
         unsafeAt: at(-MEDIA_ROOM_RETIRE_AFTER_MS),
         oldestPendingAt: at(-1),
       }),
+      roomRetirement({
+        ...quiet,
+        terminal: true,
+        unsafeAt: at(-MEDIA_ROOM_RETIRE_AFTER_MS),
+      }),
+      roomRetirement({ ...quiet, terminal: true, absenceProven: true }),
     ],
-    expected: [null, 'absent', null, 'unreachable', 'unreachable'],
+    expected: [
+      null,
+      'absent',
+      null,
+      'unreachable',
+      'unreachable',
+      null,
+      'absent',
+    ],
   });
 });

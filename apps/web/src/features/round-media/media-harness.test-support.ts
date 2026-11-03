@@ -163,6 +163,7 @@ export function createMediaHarness(input: {
   const policy: MediaPolicy = {
     requestRetryDelaysMs: retryDelays,
     readBudgetMs: BUDGET,
+    resumeBudgetMs: 5_000,
     capturePatienceMs: 3_000,
     recoveryDelaysMs: input.recoveryDelaysMs ?? [],
     eventFloorMs: 5_000,
@@ -439,6 +440,7 @@ export function createBrowserMediaTransport(
       policy: {
         requestRetryDelaysMs: [],
         readBudgetMs: 1e12,
+        resumeBudgetMs: 5_000,
         capturePatienceMs: 3_000,
         recoveryDelaysMs: [],
         eventFloorMs: 0,

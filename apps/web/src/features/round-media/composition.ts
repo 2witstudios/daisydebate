@@ -19,7 +19,7 @@ import { createRoundMediaOperations } from './operations';
 import { MEDIA_RECOVERY_HEARTBEAT_MS } from './recovery-due';
 import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 
-/** How soon a dead node stops being offered. A join through it fails over on Retry. */
+/** How soon a dead node stops being offered to a new join. */
 const MEDIA_NODE_PROBE_MS = 1_000;
 
 /** Optional configuration stays inert until a real media operation is requested. */
@@ -43,10 +43,7 @@ export function createRoundMediaRuntime(
       throw createAppError('INFRASTRUCTURE');
     const apiUrls = mediaEndpointsOf(url);
     const publicUrls = mediaEndpointsOf(publicUrl);
-    if (
-      apiUrls.length !== publicUrls.length ||
-      publicUrls.some((entry) => new URL(entry).protocol !== 'wss:')
-    )
+    if (publicUrls.some((entry) => new URL(entry).protocol !== 'wss:'))
       throw createAppError('INFRASTRUCTURE');
     const nodes = createMediaNodes({
       nodes: apiUrls.map((entry, index) => ({

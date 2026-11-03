@@ -9,6 +9,7 @@ import {
   admissionRevoked,
   mediaEnded,
   mediaRuntime,
+  ownSeatRevoked,
   projectMedia,
   seatGrants,
 } from './projection';
@@ -226,9 +227,11 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
             mediaWindowClosed,
           });
     const sign = async (context: AdmissionContext) => {
-      // Post-lock PostgreSQL eligibility, not the earlier unlocked read.
-      if (admissionRevoked(context))
+      // Post-lock PostgreSQL eligibility, not the earlier unlocked read. Only the
+      // caller's own seat is a refusal; another's revocation is a room still rotating.
+      if (ownSeatRevoked(context, context.participantId))
         throw createAppError('CONFLICT', 'Round media admission is closed');
+      if (admissionRevoked(context)) throw createAppError('INFRASTRUCTURE');
       // A hearing grant rests on the projected hearing seats, the same fact
       // room creation reads: base eligibility, a live claim, a live segment.
       if (hearing && !context.hearing.includes(context.participantId))
@@ -282,9 +285,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     // between to refuse it (ISSUE-534).
     const issue = async () => {
       const state = await snapshot(roundId);
-      if (admissionRevoked(state))
-        throw createAppError('CONFLICT', 'Round media admission is closed');
       if (
+        admissionRevoked(state) ||
         state.session.unsafeAt ||
         state.unresolved ||
         !(await input.deadline(input.media.exists(state.session.roomName)))
@@ -328,7 +330,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       roundId,
       principal.kind === 'human' ? principal.actorId : undefined,
     );
-    if (admissionRevoked(after))
+    if (after.caller && ownSeatRevoked(after, after.caller.id))
       return createAppError('CONFLICT', 'Round media admission is closed');
     return refusal ?? createAppError('INFRASTRUCTURE');
   };

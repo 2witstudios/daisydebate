@@ -754,3 +754,20 @@ test('a read arriving as a poll finishes still waits for its own version', async
     expected: true,
   });
 });
+
+test("another seat's revocation never refuses an eligible caller while the room cannot rotate", async () => {
+  const { world, operations, affirmative } = await admitted();
+  const other = world.seats.find(
+    (seat) => seat.actorId !== affirmative.actorId,
+  )!;
+  await operations.session(world.roundId, other.actorId);
+  world.revoke(other.id);
+  world.fail('listRooms', 8);
+  await assertRejects({
+    given: 'seat B revoked, with the vendor unreachable so its room stays',
+    should:
+      'answer eligible seat A retryably, never with a 409 that waits on a click',
+    code: 'INFRASTRUCTURE',
+    actual: () => operations.session(world.roundId, affirmative.actorId),
+  });
+});

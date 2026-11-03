@@ -124,6 +124,11 @@ const reduceTimer = (
       };
     case 'read-budget':
       return budgetExpired(state, ctx);
+    case 'resume-budget':
+      // An SDK attempt can wait 15 s on a frozen node; this bar does not wait with it.
+      return link.phase === 'live' && link.transport === 'resuming'
+        ? prepend([{ type: 'refresh-view' }], release(state, 'transient', ctx))
+        : rejected(state);
     case 'capture-patience':
       return link.phase === 'live' && link.apply
         ? patienceExpired(state, link, ctx)

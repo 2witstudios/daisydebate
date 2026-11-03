@@ -29,7 +29,11 @@ export function createSpeakingBotControl(input: {
   readonly botToken: (
     scope: BotPublicationScope,
     token: string,
-  ) => Promise<{ readonly url: string; readonly token: string }>;
+  ) => Promise<{
+    readonly url: string;
+    readonly token: string;
+    readonly roomName: string;
+  }>;
   /** The bot seat's own listen-only grant for cross-examination (ISSUE-764). */
   readonly listenToken: Parameters<typeof createBotListening>[0]['listenToken'];
   readonly readPeers: Parameters<typeof createBotListening>[0]['readPeers'];

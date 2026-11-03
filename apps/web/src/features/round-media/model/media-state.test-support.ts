@@ -17,6 +17,7 @@ import type { SourceFailureKind } from '../source-failure';
 export const testPolicy: MediaPolicy = {
   requestRetryDelaysMs: [500, 1_000, 2_000],
   readBudgetMs: 43_500,
+  resumeBudgetMs: 5_000,
 
   capturePatienceMs: 3_000,
   recoveryDelaysMs: [1_000, 2_000, 4_000, 8_000, 10_000],

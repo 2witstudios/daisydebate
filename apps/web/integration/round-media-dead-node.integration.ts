@@ -125,7 +125,11 @@ test('an unreachable node costs nothing: admission reads through a healthy one a
       ],
       apiKey: localMediaConfig.apiKey,
       apiSecret: localMediaConfig.apiSecret,
-      fetch,
+      // Public routes are named, not served, here; the API probes are real.
+      fetch: (url, init) =>
+        url.includes('healthy.invalid')
+          ? Promise.resolve(new Response('OK'))
+          : fetch(url, init),
     });
     await nodes.probe();
     const admitted = await createRoundMediaOperations({

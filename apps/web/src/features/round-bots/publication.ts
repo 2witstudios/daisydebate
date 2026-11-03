@@ -112,7 +112,7 @@ export function createBotPublisher(input: {
   readonly botToken: (
     scope: BotPublicationScope,
     token: string,
-  ) => Promise<{ url: string; token: string }>;
+  ) => Promise<{ url: string; token: string; roomName: string }>;
   readonly connect: typeof createAudioPublication;
   /** The seat capture reports hearing the track for, or null. */
   readonly heard: (roundId: string, trackSid: string) => Promise<string | null>;
@@ -142,10 +142,12 @@ export function createBotPublisher(input: {
         );
       }
     };
+    let room: string | undefined;
     const publication = createClaimPublication({
       open: async (signal) => {
         await input.store.verifyRoundBotPublication(claim.scope, claim.token);
         const grant = await input.botToken(claim.scope, claim.token);
+        room = grant.roomName;
         const native = await input.connect({
           url: grant.url,
           token: grant.token,
@@ -202,10 +204,15 @@ export function createBotPublisher(input: {
           return { sentAtMs, receivedAtMs, serverNowMs, precisionMs: 1 };
         },
         authorizeWindow: async (window) => {
-          await input.store.verifyRoundBotPublication(job.scope, job.token, {
-            beforeMs: Date.parse(window.before),
-            afterMs: Date.parse(window.after),
-          });
+          await input.store.verifyRoundBotPublication(
+            job.scope,
+            job.token,
+            {
+              beforeMs: Date.parse(window.before),
+              afterMs: Date.parse(window.after),
+            },
+            room,
+          );
           return true;
         },
         // Resume follows what was heard, not what was credited (ISSUE-431-r7),

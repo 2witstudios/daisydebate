@@ -99,3 +99,28 @@ test('with no node healthy, every node is still tried', async () => {
     expected: true,
   });
 });
+
+test('a node whose public route fails is not offered, even with its API up', async () => {
+  const service = createMediaNodes({
+    nodes: [
+      { url: 'http://a.private', publicUrl: 'wss://a.public' },
+      { url: 'http://b.private', publicUrl: 'wss://b.public' },
+    ],
+    apiKey: 'key',
+    apiSecret: 'secret',
+    services: [{} as Service, {} as Service],
+    fetch: async (url) => {
+      if (url.includes('a.public')) throw new Error('refused');
+      return new Response('OK');
+    },
+  });
+  await service.probe();
+  assert({
+    given: 'node A answering on its API but not its public route',
+    should: 'send every room to B',
+    actual: ['room-1', 'room-2', 'room-3'].map(
+      (room) => service.urlsFor(room).publicUrl,
+    ),
+    expected: Array(3).fill('wss://b.public'),
+  });
+});

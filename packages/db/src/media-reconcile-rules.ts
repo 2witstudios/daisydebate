@@ -110,6 +110,8 @@ export const MEDIA_ROOM_RETIRE_AFTER_MS = 6_000;
  */
 export function roomRetirement(input: {
   readonly now: Date;
+  /** An end stops every later attempt, so a terminal session waits for proof. */
+  readonly terminal: boolean;
   readonly absenceProven: boolean;
   readonly unsafeAt: Date | null;
   readonly oldestPendingAt: Date | null;
@@ -118,7 +120,7 @@ export function roomRetirement(input: {
     at ? [at.getTime()] : [],
   );
   if (input.absenceProven) return 'absent';
-  if (since.length === 0) return null;
+  if (since.length === 0 || input.terminal) return null;
   return input.now.getTime() - Math.min(...since) >= MEDIA_ROOM_RETIRE_AFTER_MS
     ? 'unreachable'
     : null;

@@ -278,6 +278,7 @@ export function createMediaReconcileStore(input: {
         const outstanding = await pending(tx, session.id);
         const retired = roomRetirement({
           now,
+          terminal,
           absenceProven: proofMatches(
             request.absenceProof,
             request,

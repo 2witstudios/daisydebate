@@ -19,6 +19,12 @@ const stableIndex = (room: string, size: number) => {
   return hash % size;
 };
 
+const httpRouteOf = (publicUrl: string) => {
+  const route = new URL(publicUrl);
+  route.protocol = route.protocol === 'wss:' ? 'https:' : 'http:';
+  return route.toString();
+};
+
 const workerUrlOf = (url: string) => {
   const worker = new URL(url);
   worker.protocol = worker.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -85,18 +91,25 @@ export function createMediaNodes(input: {
       const node = input.nodes[up[stableIndex(room, up.length)]!]!;
       return { publicUrl: node.publicUrl, workerUrl: workerUrlOf(node.url) };
     },
-    /** Asks every node once. LiveKit answers on `/` once it serves. */
+    /** Asks every node's API and public route once. LiveKit answers on `/` once it serves. */
     async probe() {
       await Promise.all(
-        input.nodes.map(async ({ url }, index) => {
-          healthy[index] = await input
-            .fetch(new URL('/', url).toString(), {
-              signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-            })
-            .then(
-              (response) => response.ok,
-              () => false,
-            );
+        input.nodes.map(async ({ url, publicUrl }, index) => {
+          const answers = (route: string) =>
+            input
+              .fetch(new URL('/', route).toString(), {
+                signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+              })
+              .then(
+                (response) => response.ok,
+                () => false,
+              );
+          // Browsers join the public route, so it must answer as well as the API.
+          const [api, joinable] = await Promise.all([
+            answers(url),
+            answers(httpRouteOf(publicUrl)),
+          ]);
+          healthy[index] = api && joinable;
         }),
       );
     },

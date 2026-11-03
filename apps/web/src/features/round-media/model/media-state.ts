@@ -202,6 +202,8 @@ export type MediaState = {
 /** The numbers an environment chooses. The let-finish limit stays with read intent. */
 export type MediaPolicy = {
   readonly requestRetryDelaysMs: readonly number[];
+  /** How long a blip may last before it is a drop, whatever the SDK is waiting on. */
+  readonly resumeBudgetMs: number;
   readonly readBudgetMs: number;
 
   readonly capturePatienceMs: number;

@@ -37,8 +37,9 @@ that outcome.
 **When.** At once on observed absence, or once uncertainty is 6 s old by the PostgreSQL
 clock: the 5 s the adapter waits on one call, plus 1 s. Restart still clears nothing,
 since the age comes from the durable record. Before that bound, admission and opening
-stay refused as ADR 0053 requires. Terminal sessions use the same rule, so a Round can
-end while its node is dead.
+stay refused as ADR 0053 requires. A terminal session ends only on observed absence, since an end stops every later delete
+attempt, and the reclaiming delete can reach a stale room. The Round itself is already
+over and does not wait for this.
 
 **What stays behind.** An empty late-created room closes itself by `empty_timeout`. A
 client still in a retired room on a partitioned node can talk only to others there: no
