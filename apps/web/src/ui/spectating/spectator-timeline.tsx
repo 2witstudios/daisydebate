@@ -1,5 +1,5 @@
 'use client';
-import '../debate-room/zod-jitless';
+import '../../lib/zod-jitless';
 import {
   speakerTotal,
   spectatorTimelineSchema,
