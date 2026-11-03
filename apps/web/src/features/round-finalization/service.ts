@@ -206,7 +206,7 @@ export function startRoundMaintenance(input: MaintenancePorts) {
         waiting.set(id, opening.has(id) ? 'opening' : 'live');
     }
     if (cycleComplete) {
-      for (const id of waiting) if (!seen.has(id)) waiting.delete(id);
+      for (const id of waiting.keys()) if (!seen.has(id)) waiting.delete(id);
       for (const id of [...pacing.known()])
         if (!seen.has(id)) pacing.forget(id);
       seen = new Set();
