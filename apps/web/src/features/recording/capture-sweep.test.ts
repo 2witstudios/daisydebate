@@ -70,6 +70,12 @@ const setup = (over: {
       closeOwn: log('closeOwn'),
       openJob: log('openJob'),
       queueJob: log('queueJob'),
+      readPublicHistory: async () => ({
+        segments: [
+          { startedAtMs: 1000, endedAtMs: 61_000, durationMs: 60_000 },
+        ],
+        knownThroughMs: 90_000,
+      }),
       discardSources: log('discardSources'),
     } as never,
     port: {
@@ -333,7 +339,16 @@ describe('answers to the worker', () => {
       given: 'a waiting job',
       should: 'queue up to the last attempt',
       actual: calls,
-      expected: [['queueJob', { recordingId: 'rec', attemptCount: 2 }]],
+      expected: [
+        [
+          'queueJob',
+          {
+            recordingId: 'rec',
+            attemptCount: 2,
+            publicIntervals: [{ fromMs: 1500, toMs: 60_500 }],
+          },
+        ],
+      ],
     });
   });
 });
