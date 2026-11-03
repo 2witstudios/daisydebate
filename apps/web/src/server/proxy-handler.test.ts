@@ -282,8 +282,6 @@ describe('proxy early sign-in hint', () => {
       '/tournaments/mine/abc/certificate',
       '/prep/cards/abc',
       '//prep',
-      '/watch/abc',
-      '/recordings',
     ].map((path) => [at(path).status, at(path).headers.get('location')]);
     const explainer = (slug: string) => [
       307,
@@ -299,10 +297,44 @@ describe('proxy early sign-in hint', () => {
         explainer('tournaments'),
         explainer('prep'),
         explainer('prep'),
-        explainer('watch'),
-        explainer('watch'),
       ],
     });
+  });
+});
+
+test('only the Round page may play the public feed', () => {
+  const FEED = 'https://bucket.t3.tigrisfiles.io';
+  const policy = (path: string) =>
+    proxy(new NextRequest(`https://daisy.invalid${path}`), {
+      broadcastPublicOrigin: FEED,
+    }).headers.get('Content-Security-Policy') ?? '';
+  const round = policy('/watch/abc');
+  assert({
+    given: 'the Round page with a configured feed origin',
+    should: 'allow media and reads from it, and only a same-origin worker',
+    actual: [
+      round.includes(`media-src 'self' blob: ${FEED}`),
+      /connect-src [^;]*https:\/\/bucket\.t3\.tigrisfiles\.io/.test(round),
+      /worker-src 'self'(;|$)/.test(round),
+    ],
+    expected: [true, true, true],
+  });
+  assert({
+    given: 'the hub, a Recording and the Lobby',
+    should: 'keep the strict policy, naming no feed',
+    actual: ['/watch', '/recordings/abc', '/lobby'].map((path) => {
+      const other = policy(path);
+      return [
+        other.includes(FEED),
+        other.includes('media-src'),
+        other.includes('worker-src'),
+      ];
+    }),
+    expected: [
+      [false, false, false],
+      [false, false, false],
+      [false, false, false],
+    ],
   });
 });
 

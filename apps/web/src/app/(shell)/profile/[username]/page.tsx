@@ -9,6 +9,7 @@ import type { SearchParams } from '../../../../features/access/decision';
 import { ProfilePage } from '../../../../ui/profile/profile-page/profile-page';
 import {
   requestIdentity,
+  requestLiveRoundsOf,
   requestMemberProfile,
 } from '../../../../lib/request-session';
 import { ProfileFriendActions } from '../../../../ui/friends/profile-friend-actions';
@@ -45,10 +46,12 @@ export default async function ProfileRoute({
   const profile = await requestMemberProfile(name.username, query.data);
   if (profile === null) notFound();
   const standings = await requestMemberStandings(profile.username);
+  const live = await requestLiveRoundsOf([profile.username]);
   return (
     <ProfilePage
       ratings={<MemberStandings standings={standings} />}
       profile={profile}
+      liveRound={live.get(profile.username) ?? null}
       paged={query.data.before !== undefined}
       actions={
         profile.me || profile.closed

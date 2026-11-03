@@ -1,37 +1,30 @@
-import { sampleWatchSource } from '../../../features/watch/sample-source.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { listLive } from '../../../features/watch/list-live';
-import { defaultLiveQuery } from '../../../features/watch/live-query';
+import { liveCard } from '../../../features/watch/live-card.test-support';
 import { LiveCard } from './live-card';
 
 setupRitewayBun();
 
 describe('LiveCard', () => {
   test('a live Round', () => {
-    const card = listLive(defaultLiveQuery, sampleWatchSource).rows.find(
-      (row) => row.id === 'finals-rehearsal',
-    );
-    if (!card) throw new Error('sample missing');
-    const html = renderToString(h(LiveCard, { card }));
+    const html = renderToString(h(LiveCard, { card: liveCard() }));
     assert({
-      given: 'the finals rehearsal card',
+      given: 'a released Round on the floor',
       should:
-        'show title, seats, phase, a ranked chip and one Watch link, and not repeat the delay or standard rules',
+        'show title, resolution, seats, phase, a ranked chip and one Watch link, with no invented count',
       actual: [
-        html.includes('Finals rehearsal'),
-        html.includes('@debater-c'),
-        html.includes('@debater-d'),
-        html.includes('Speech [3] · @debater-c speaking'),
+        html.includes('Friday night'),
+        html.includes('A drawn resolution'),
+        html.includes('@ana'),
+        html.includes('Socrates'),
+        html.includes('First affirmative'),
         html.includes('>Ranked<'),
-        html.includes('31 watching'),
-        html.includes('Delayed'),
-        html.includes('Standard rules'),
-        /<a [^>]*href="\/watch\/finals-rehearsal"/.test(html),
+        html.includes('watching'),
+        /<a [^>]*href="\/watch\/abcdefghijklmnopqrstuvwx"/.test(html),
         html.split('<a ').length - 1,
       ],
-      expected: [true, true, true, true, true, true, false, false, true, 1],
+      expected: [true, true, true, true, true, true, false, true, 1],
     });
   });
 });

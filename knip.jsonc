@@ -51,6 +51,7 @@
         "e2e/support/messaging-realtime-config.ts",
         "e2e/support/messaging-data-worker.ts",
         "e2e/support/transcript-seed-process.ts",
+        "e2e/support/broadcast-seed-process.ts",
         // Launch config/server are process entries selected by runner/command replacement;
         // evidence/release are Bun subprocess CLI entries, never browser imports.
         "e2e/support/room-launch-config.ts",

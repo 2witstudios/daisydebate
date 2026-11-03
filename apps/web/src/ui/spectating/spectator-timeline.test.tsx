@@ -9,7 +9,8 @@ const timeline: SpectatorTimeline = {
   version: 1,
   roundId: 'abcdefghijklmnopqrstuvwx',
   mode: 'ranked',
-  hasBroadcast: true,
+  broadcast: { state: 'none' },
+  recording: 'none',
   resolution: null,
   seats: [
     { side: 'affirmative', kind: 'human', label: 'ana' },
@@ -25,6 +26,30 @@ const html = (over: Partial<SpectatorTimeline>) =>
   renderToStaticMarkup(<SpectatorFacts timeline={{ ...timeline, ...over }} />);
 
 describe('SpectatorFacts', () => {
+  test('a screen reader hears the floor change, not the clock', () => {
+    const page = html({
+      stage: {
+        kind: 'floor',
+        segment: 'speech',
+        label: 'First affirmative',
+        side: 'affirmative',
+        remainingMs: 65_000,
+      },
+    });
+    assert({
+      given: 'a clock that changes on every read',
+      should: 'keep it outside the live region',
+      actual: [
+        /aria-live="polite"[^>]*>First affirmative: Affirmative has the floor\.</.test(
+          page,
+        ),
+        /aria-live="polite"[^>]*>[^<]*1:05/.test(page),
+        page.includes('role="timer"'),
+      ],
+      expected: [true, false, true],
+    });
+  });
+
   test('repeats the facts in the video as text', () => {
     const page = html({
       resolution: 'A resolution',
@@ -39,14 +64,13 @@ describe('SpectatorFacts', () => {
     });
     assert({
       given: 'a released speech',
-      should:
-        'state resolution, seats, floor, clock and captions in a live region',
+      should: 'state resolution, seats, floor, clock and captions as text',
       actual: [
         'A resolution',
         'Affirmative: ana',
         'Negative: Unnamed debater',
-        'aria-live="polite">First affirmative: Affirmative has the floor',
-        '1:05',
+        'First affirmative: Affirmative has the floor.</p>',
+        '1:05 left',
         'Affirmative: A line',
       ].filter((text) => !page.includes(text)),
       expected: [],

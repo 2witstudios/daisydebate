@@ -10,7 +10,14 @@ import { explainerHref, launched } from '../../features/coming-soon/launch';
  * interior gaps of the column; content owns its own appearance. The hero is
  * the page's: a visitor's waitlist join or a member's way into the Lobby.
  */
-export function Dashboard({ hero }: { readonly hero: ReactNode }) {
+export function Dashboard({
+  hero,
+  liveNow,
+}: {
+  readonly hero: ReactNode;
+  /** Who is live, once Watch is open; the page reads it. */
+  readonly liveNow: ReactNode;
+}) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8">
       {hero}
@@ -26,7 +33,9 @@ export function Dashboard({ hero }: { readonly hero: ReactNode }) {
       </ul>
       <div className="grid grid-cols-dash-lower gap-4 max-compact:grid-cols-1">
         <BetaOpenTeaser />
-        {launched.watch ? null : (
+        {launched.watch ? (
+          liveNow
+        ) : (
           <ComingSoonCard title="Live now" href={explainerHref('watch')} />
         )}
       </div>

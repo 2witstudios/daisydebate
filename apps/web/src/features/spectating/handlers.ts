@@ -4,6 +4,7 @@ import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { handleOperation, PUBLIC_SNAPSHOT_CACHE } from '../../server/http';
 import { readSpectatorTimeline } from './read-timeline';
+import type { SpectatorTimelineContext } from './timeline';
 import { createSnapshotMemo } from './snapshot-memo';
 
 const SNAPSHOT_TTL_MS = 1000;
@@ -19,6 +20,7 @@ export function createSpectatorTimelineHandlers(deps: {
   readonly reporter: ErrorReporter;
   readonly store: Pick<Database, 'readSpectatorTimeline'>;
   readonly clock: Pick<Clock, 'now'>;
+  readonly feedUrlOf: SpectatorTimelineContext['feedUrlOf'];
 }) {
   const memo = createSnapshotMemo<Awaited<ReturnType<typeof read>>>({
     nowMs: () => Date.parse(deps.clock.now()),
@@ -26,7 +28,11 @@ export function createSpectatorTimelineHandlers(deps: {
     maxEntries: SNAPSHOT_ROUNDS,
   });
   const read = (roundId: string) =>
-    readSpectatorTimeline(deps.store, { roundId, now: deps.clock.now() });
+    readSpectatorTimeline(deps.store, {
+      roundId,
+      now: deps.clock.now(),
+      feedUrlOf: deps.feedUrlOf,
+    });
   return {
     GET: (request: Request, roundId: string) =>
       handleOperation(

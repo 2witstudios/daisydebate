@@ -2,11 +2,12 @@ import type { Metadata } from 'next';
 import { redirectUnlessLaunched } from '../../../features/coming-soon/launch-gate';
 import type { SearchParams } from '../../../features/access/decision';
 import { signInHref } from '../../../features/access/decision';
-import { watchSource } from '../../../features/watch/round-source';
-import { countHub, listLive } from '../../../features/watch/list-live';
 import { hubHref, parseLiveQuery } from '../../../features/watch/live-query';
-import { viewerOf } from '../../../features/watch/viewer';
-import { requestIdentity } from '../../../lib/request-session';
+import {
+  requestHubCounts,
+  requestIdentity,
+  requestLiveListing,
+} from '../../../lib/request-session';
 import { FollowingTab } from '../../../ui/watch/following-tab/following-tab';
 import { LiveTab } from '../../../ui/watch/live-tab/live-tab';
 import { WatchHub } from '../../../ui/watch/watch-hub/watch-hub';
@@ -21,16 +22,18 @@ export default async function WatchPage({
 }) {
   redirectUnlessLaunched('watch');
   const query = parseLiveQuery(await searchParams);
-  const viewer = viewerOf(await requestIdentity());
+  const identity = await requestIdentity();
   return (
-    <WatchHub active={query.tab} counts={countHub(watchSource)}>
+    <WatchHub active={query.tab} counts={await requestHubCounts()}>
       {query.tab === 'following' ? (
         <FollowingTab
-          following={viewer.signedIn ? watchSource.following(viewer) : null}
+          following={
+            identity.state === 'member' ? { people: [], history: [] } : null
+          }
           signInHref={signInHref(hubHref(query))}
         />
       ) : (
-        <LiveTab query={query} listing={listLive(query, watchSource)} />
+        <LiveTab query={query} listing={await requestLiveListing(query)} />
       )}
     </WatchHub>
   );
