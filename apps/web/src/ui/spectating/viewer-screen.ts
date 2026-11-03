@@ -76,6 +76,20 @@ export const viewerScreenOf = (
   }
 };
 
+/**
+ * The feed a streamer may carry now: the one this audience plays. It goes when a
+ * stop or the end takes the stream from the snapshot, so it has no rule of its own.
+ */
+export const streamableFeedOf = (
+  timeline: SpectatorTimeline,
+): string | null => {
+  const { broadcast, stage } = timeline;
+  if (stage.kind === 'upcoming') return null;
+  return broadcast.state === 'on_air' || broadcast.state === 'interrupted'
+    ? (broadcast.stream?.manifestUrl ?? null)
+    : null;
+};
+
 /** Polling ends once nothing about this Round can change for its audience. */
 export const viewerSettled = (timeline: SpectatorTimeline): boolean =>
   (timeline.broadcast.state === 'stopped' ||

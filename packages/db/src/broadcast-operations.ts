@@ -263,27 +263,6 @@ export const recordFeedWithdrawn = (
     .set({ feedWithdrawnAt: input.at })
     .where(eq(broadcasts.id, input.id));
 
-/**
- * What Stream this Round needs to decide whether a Round has an official feed,
- * from the visibility frozen on the Round. A Round with no Broadcast has none.
- */
-export const readOfficialFeedFacts = async (
-  tx: Tx,
-  input: { readonly roundId: string },
-) => {
-  const [row] = await tx
-    .select({
-      broadcastId: broadcasts.id,
-      visibility: rounds.visibility,
-      stoppedAt: broadcasts.stoppedAt,
-      completedAt: broadcasts.completedAt,
-    })
-    .from(broadcasts)
-    .innerJoin(rounds, eq(rounds.id, broadcasts.roundId))
-    .where(eq(broadcasts.roundId, input.roundId));
-  return row ?? null;
-};
-
 /** Every open Broadcast's reconcile facts, oldest first. */
 export const listOpenBroadcasts = (tx: Tx, limit: number) =>
   tx

@@ -5,7 +5,6 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   readConversationHeld,
-  readOfficialFeedFacts,
   recordEgressStarted,
   recordFeedWithdrawn,
   claimBroadcast,
@@ -447,40 +446,4 @@ test('a finished Broadcast is claimed once more to withdraw its feed, after its 
       expected: [false, true, false],
     });
   });
-});
-
-test('the official feed facts come from the Broadcast and its Round', async () => {
-  const client = new SQL(databaseUrl, { max: 2 });
-  const db = drizzle({ client });
-  try {
-    await withFixture(databaseUrl, async (f) => {
-      const roundId = await f.round();
-      try {
-        const none = await readOfficialFeedFacts(db, { roundId });
-        const open = await openBroadcast(db, {
-          id: createId(),
-          roundId,
-          releasePolicy: policy,
-        });
-        assert({
-          given: 'a Round with no Broadcast, then with one',
-          should: 'answer null, then its facts',
-          actual: [none, await readOfficialFeedFacts(db, { roundId })],
-          expected: [
-            null,
-            {
-              broadcastId: open.id,
-              visibility: null,
-              stoppedAt: null,
-              completedAt: null,
-            },
-          ],
-        });
-      } finally {
-        await client`delete from broadcasts where round_id=${roundId}`;
-      }
-    });
-  } finally {
-    await client.close();
-  }
 });

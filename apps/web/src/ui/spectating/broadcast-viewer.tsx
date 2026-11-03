@@ -12,9 +12,11 @@ import { replayHref, watchRoutes } from '../../features/watch/routes';
 import { ActionLink } from '../watch/action-link/action-link';
 import { StateCard } from '../watch/state-card/state-card';
 import { SpectateRefusal } from '../watch/spectate-refusal/spectate-refusal';
+import { StreamThisRound } from '../broadcast/stream-this-round/stream-this-round';
 import { BroadcastPlayer } from './broadcast-player';
 import { SpectatorFacts } from './spectator-timeline';
 import {
+  streamableFeedOf,
   type ViewerScreen,
   viewerScreenOf,
   viewerSettled,
@@ -195,6 +197,7 @@ export function BroadcastViewer({
     if (switchToRecording) router.replace(replayHref(roundId));
   }, [switchToRecording, router, roundId]);
   if (gone) return <SpectateRefusal />;
+  const feedUrl = streamableFeedOf(timeline);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <Link href={watchRoutes.hub} className="self-start text-sm font-strong">
@@ -234,6 +237,9 @@ export function BroadcastViewer({
         )}
       </div>
       <SpectatorFacts timeline={timeline} />
+      {feedUrl ? (
+        <StreamThisRound feedUrl={feedUrl} mode={timeline.mode} />
+      ) : null}
     </div>
   );
 }

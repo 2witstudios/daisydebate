@@ -352,6 +352,65 @@ test.describe('watching with no account', () => {
     });
   });
 
+  test('Stream this Round offers the played feed, and goes with it', async ({
+    page,
+  }, testInfo) => {
+    const round = await liveRound();
+    await page.goto(`/watch/${round.roundId}`);
+    await expectPlaying(page);
+    const panel = page.getByRole('region', { name: 'Stream this Round' });
+    const feed = panel.getByRole('textbox', { name: 'Official feed URL' });
+    const played = await page
+      .locator('video')
+      .evaluate(() => performance.getEntriesByType('resource'))
+      .then((entries) =>
+        entries
+          .map((entry) => entry.name)
+          .find((name) => name.endsWith('/master.m3u8')),
+      );
+    await expect(feed).toHaveValue(played ?? 'no master playlist was read');
+    await expect(panel).toContainText('no stream key');
+    await expect(
+      panel.getByRole('link', { name: 'ranked content policy' }),
+    ).toHaveAttribute('href', '/content-policy');
+    await panel.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath('stream-this-round.png'),
+      fullPage: true,
+    });
+    await advance(round.roundId, 'stop');
+    await expect(page.getByText('This broadcast was stopped')).toBeVisible();
+    await expect(panel).toHaveCount(0);
+  });
+
+  test('Stream this Round is usable with no script, and absent where there is no feed', async ({
+    browser,
+    page,
+  }) => {
+    const casual = await liveRound({ mode: 'casual', visibility: 'unlisted' });
+    await page.goto(`/watch/${casual.roundId}`);
+    await expect(
+      page.getByText('This debate is not being broadcast'),
+    ).toBeVisible();
+    await expect(page.getByText('Stream this Round')).toHaveCount(0);
+    const round = await liveRound();
+    const context = await browser.newContext({
+      javaScriptEnabled: false,
+      ignoreHTTPSErrors: true,
+    });
+    try {
+      const bare = await openPage(context, 'Streamer with no script');
+      await bare.goto(`/watch/${round.roundId}`);
+      const panel = bare.getByRole('region', { name: 'Stream this Round' });
+      await expect(
+        panel.getByRole('textbox', { name: 'Official feed URL' }),
+      ).toHaveValue(/\/live\/.+\/master\.m3u8$/);
+      await expect(panel.getByRole('button', { name: 'Copy' })).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+
   test('with no script the facts still render', async ({ browser }) => {
     const round = await liveRound();
     const context = await browser.newContext({
