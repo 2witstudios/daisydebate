@@ -33,8 +33,10 @@ test('an erasure queues a durable observation purge that survives a Redis outage
   const database = drizzle({ client });
   const fixture = await createMessagingTestFixture(client);
   try {
+    const owedBefore = await owedObservationPurges(database);
     // The member's erasure (same messaging adopter path) queues the job.
     await fixture.eraseSubject(fixture.actorId);
+    const owedOnceQueued = await owedObservationPurges(database);
     const queued = await jobOf(client, fixture.userId);
     const queuedAt = queued?.retryAt.toISOString() ?? '';
     let purges = 0;
@@ -98,6 +100,7 @@ test('an erasure queues a durable observation purge that survives a Redis outage
         done: [done?.status, done?.attempts, done?.succeededAt !== null],
         idle,
         purges,
+        owedBeforeAnyAttempt: owedOnceQueued - owedBefore,
         owedWhileRetrying: owedInBackoff - owedAfterDelivery,
       },
       expected: {
@@ -110,6 +113,7 @@ test('an erasure queues a durable observation purge that survives a Redis outage
         done: ['succeeded', 2, true],
         idle: { succeeded: 0, retried: 0 },
         purges: 2,
+        owedBeforeAnyAttempt: 1,
         owedWhileRetrying: 1,
       },
     });

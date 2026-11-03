@@ -17,12 +17,15 @@ test('configured vendor outage cannot reverse committed local erasure', async ()
     const retryAt = '2026-10-09T18:01:00.000Z';
     const observer = new SQL(databaseUrl, { max: 1 });
     try {
+      const owedBefore = await owedPrivacyJobs(database);
       const result = await runPrivacyErasure(
         database,
         { subject, now, vendors: ['posthog'], jobIds: [jobId] },
         adoption,
         bindings,
       );
+      const owedBeforeAnyAttempt =
+        (await owedPrivacyJobs(database)) - owedBefore;
       let observedCommit = false;
       const retry = await deliverPrivacyJob(
         database,
@@ -65,6 +68,7 @@ test('configured vendor outage cannot reverse committed local erasure', async ()
         actual: [
           result.jobs.length,
           observedCommit,
+          owedBeforeAnyAttempt >= 1,
           owedInBackoff >= 1,
           retry,
           pending[0],
@@ -73,6 +77,7 @@ test('configured vendor outage cannot reverse committed local erasure', async ()
         ],
         expected: [
           1,
+          true,
           true,
           true,
           'retry',

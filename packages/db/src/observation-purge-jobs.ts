@@ -5,9 +5,9 @@ import { idSchema } from '@daisy/protocol';
 
 type Execute = Pick<BunSQLDatabase, 'execute'>;
 
-/** The first retry waits 1s; each later one doubles, at most 5 minutes. */
 /** The longest a failed purge waits for its retry. */
 export const OBSERVATION_PURGE_BACKOFF_CEILING_MS = 300_000;
+/** The first retry waits 1s; each later one doubles, at most 5 minutes. */
 const observationPurgeBackoffMs = (attempts: number) =>
   Math.min(
     1_000 * 2 ** Math.max(0, attempts - 1),

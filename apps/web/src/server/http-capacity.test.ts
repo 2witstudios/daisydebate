@@ -36,7 +36,7 @@ test('a route read behind a refused identity says when to retry', async () => {
     handleOperation(
       silentLogger,
       new Request('http://localhost/x'),
-      'op',
+      'health.readiness',
       async () => {
         requireSignedIn(identity);
         return new Response();

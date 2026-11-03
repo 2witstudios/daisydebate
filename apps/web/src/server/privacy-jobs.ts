@@ -84,7 +84,7 @@ export function startPrivacyJobs(input: {
     now: string,
     retryAt: string,
   ) => Promise<'idle' | 'retry' | 'succeeded'>;
-  /** Jobs that failed and wait in backoff: this worker's unpaid obligations. */
+  /** Jobs not yet delivered: this worker's unpaid obligations. */
   readonly owed: () => Promise<number>;
   readonly clock: Clock;
   readonly logger: Logger;

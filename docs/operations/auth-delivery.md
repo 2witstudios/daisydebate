@@ -516,8 +516,11 @@ hours, or ever, fires cleanup_missed").
    "Retention of verification records" and "Retention of sessions" above
    for the manual `psql` fallback if a backlog needs draining sooner than
    the next hourly run.
-2. If no `retention.sweep.failed` events appear either, the sweep is not
-   running at all — check that the app process is up (`GET
+2. If none appear, read `retention.sweep.completed`. A target whose `batches`
+   equals its `maxBatches` has a backlog: its run did not complete, so drain it
+   or raise its bound (see "Outbox retention throughput" in
+   [database operations](database.md)). If no `retention.sweep.*` events appear
+   at all, the sweep is not running — check that the app process is up (`GET
 /api/health/ready`) and that it has completed at least one boot since
    the last deploy (`retention-sweep.ts`'s `runOnStart` sweeps once at
    start-up, before the hourly schedule).
