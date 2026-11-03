@@ -1,4 +1,5 @@
 import {
+  capacityHolderFields,
   capacityRefusalFields,
   isReportedCapacityRefusal,
   isCapacityRefusal,
@@ -26,6 +27,12 @@ export function reportAuthFailure(
       { operation: source, ...capacityRefusalFields(error) },
       'Database admission refused unrun work',
     );
+    for (const holder of capacityHolderFields(error))
+      logger.log(
+        'db.capacity.holder',
+        holder,
+        'Operation holding the refusing lane',
+      );
     markCapacityRefusalReported(error);
   }
 }

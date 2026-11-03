@@ -15,6 +15,8 @@ export type CapacityRefusalDetail = {
     readonly running: number;
     readonly oldestAgeMs: number;
   };
+  /** Connections held when it refused, by the operation that asked for each. */
+  readonly holders?: Readonly<Record<string, number>>;
 };
 
 const CAPACITY_UNAVAILABLE = 'Database capacity unavailable';
@@ -89,6 +91,17 @@ export function capacityRefusalFields(error: unknown) {
   return (
     detail && { cause: `${detail.lane}.${detail.reason}`, ...detail.pressure }
   );
+}
+/** One log line's fields per operation holding the refusing lane, largest first. */
+export function capacityHolderFields(error: unknown) {
+  const detail = capacityRefusalDetail(error);
+  return Object.entries(detail?.holders ?? {})
+    .sort(([, a], [, b]) => b - a)
+    .map(([operation, running]) => ({
+      operation,
+      cause: detail!.lane,
+      running,
+    }));
 }
 /**
  * Records that `db.capacity.refused` was emitted for this rejection. The

@@ -70,6 +70,35 @@ test('a refusal auth reports names its lane and pressure, as the database bounda
   });
 });
 
+test('a refusal auth reports also names the operations holding the lane', () => {
+  const { logger, recorded } = createRecordingLogger();
+  reportAuthFailure(
+    logger,
+    refuseCapacity({
+      lane: 'control',
+      reason: 'saturated',
+      holders: { lookup: 2 },
+    }),
+    'better-auth',
+    'Authentication request failed',
+  );
+  assert({
+    given: 'a capacity refusal outside the database boundary',
+    should: 'log its holders as the boundary does',
+    actual: recorded.map(({ event, fields }) => [event, fields]),
+    expected: [
+      [
+        'db.capacity.refused',
+        { operation: 'better-auth', cause: 'control.saturated' },
+      ],
+      [
+        'db.capacity.holder',
+        { operation: 'lookup', cause: 'control', running: 2 },
+      ],
+    ],
+  });
+});
+
 test('a refusal nobody reported is logged as a refusal, not a crash', () => {
   const { logger, recorded } = createRecordingLogger();
   reportAuthFailure(

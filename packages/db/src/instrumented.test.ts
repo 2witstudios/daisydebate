@@ -2,6 +2,7 @@ import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { instrumented } from './instrumented';
 import { refuseCapacity } from './capacity-refusal';
+import { currentLaneOperation } from './lane-operation';
 
 setupRitewayBun();
 
@@ -80,6 +81,60 @@ test('a refusal says which lane refused it and how that lane stood (ISSUE-1130)'
         },
       },
     ],
+  });
+});
+
+test('a refusal reports each operation holding the lane (ISSUE-1110)', async () => {
+  const events: unknown[] = [];
+  await instrumented(
+    (event, fields) => events.push({ event, fields }),
+    'lookup',
+    async () => {
+      throw refuseCapacity({
+        lane: 'competitive',
+        reason: 'saturated',
+        holders: { executeRoundTick: 7, readLaunchedRound: 3 },
+      });
+    },
+  ).catch(() => undefined);
+  assert({
+    given: 'a lane refusal that knows its holders',
+    should: 'log the refusal, then one line per holding operation',
+    actual: events,
+    expected: [
+      {
+        event: 'db.capacity.refused',
+        fields: { operation: 'lookup', cause: 'competitive.saturated' },
+      },
+      {
+        event: 'db.capacity.holder',
+        fields: {
+          operation: 'executeRoundTick',
+          cause: 'competitive',
+          running: 7,
+        },
+      },
+      {
+        event: 'db.capacity.holder',
+        fields: {
+          operation: 'readLaunchedRound',
+          cause: 'competitive',
+          running: 3,
+        },
+      },
+    ],
+  });
+});
+
+test('the operation runs under its own name, for the lane to read', async () => {
+  const seen = await instrumented(undefined, 'lookup', async () =>
+    currentLaneOperation(),
+  );
+  assert({
+    given: 'work inside an operation',
+    should: 'read that operation as the current one',
+    actual: seen,
+    expected: 'lookup',
   });
 });
 
