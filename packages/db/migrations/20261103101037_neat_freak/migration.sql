@@ -120,6 +120,40 @@ CREATE TABLE "notifications" (
 	CONSTRAINT "notifications_debater_check" CHECK (("kind" = 'followed_debater_live') = ("debater_actor_id" is not null))
 );
 --> statement-breakpoint
+CREATE TABLE "recording_captures" (
+	"recording_id" text PRIMARY KEY,
+	"round_id" text NOT NULL,
+	"egress_id" text,
+	"egress_started_at" timestamp with time zone,
+	"egress_generation" integer DEFAULT 0 NOT NULL,
+	"stage_credential_hash" text,
+	"observer_revoked_at" timestamp with time zone,
+	"revocation_failures" integer DEFAULT 0 NOT NULL,
+	"reconcile_lease_until" timestamp with time zone,
+	"ended_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "recording_captures_counters_check" CHECK ("egress_generation" >= 0 and "revocation_failures" >= 0)
+);
+--> statement-breakpoint
+CREATE TABLE "recording_processing_jobs" (
+	"recording_id" text PRIMARY KEY,
+	"hold_prefix" text NOT NULL,
+	"status" text NOT NULL,
+	"state" jsonb NOT NULL,
+	"failures" integer DEFAULT 0 NOT NULL,
+	"due_at" timestamp with time zone,
+	"lease_owner" text,
+	"lease_until" timestamp with time zone,
+	"lease_epoch" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "recording_jobs_status_check" CHECK ("status" in ('waiting', 'queued', 'built', 'failed', 'discarding', 'settled')),
+	CONSTRAINT "recording_processing_jobs_state_is_object" CHECK (jsonb_typeof("state") = 'object'),
+	CONSTRAINT "recording_jobs_state_status_check" CHECK ("state"->>'status' = "status"),
+	CONSTRAINT "recording_jobs_counters_check" CHECK ("failures" >= 0 and "lease_epoch" >= 0),
+	CONSTRAINT "recording_jobs_lease_check" CHECK (("lease_owner" is null) = ("lease_until" is null))
+);
+--> statement-breakpoint
 CREATE TABLE "recordings" (
 	"id" text PRIMARY KEY,
 	"round_id" text NOT NULL,
@@ -190,6 +224,9 @@ CREATE INDEX "notifications_user_idx" ON "notifications" ("user_id","created_at"
 CREATE INDEX "notifications_read_idx" ON "notifications" ("read_at") WHERE "read_at" is not null;--> statement-breakpoint
 CREATE INDEX "notifications_round_idx" ON "notifications" ("round_id");--> statement-breakpoint
 CREATE INDEX "notifications_debater_idx" ON "notifications" ("debater_actor_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "recording_captures_round_unique" ON "recording_captures" ("round_id");--> statement-breakpoint
+CREATE INDEX "recording_jobs_claimable_idx" ON "recording_processing_jobs" ("due_at") WHERE "status" in ('queued', 'discarding');--> statement-breakpoint
+CREATE INDEX "recording_jobs_answerable_idx" ON "recording_processing_jobs" ("updated_at") WHERE "status" <> 'settled';--> statement-breakpoint
 CREATE UNIQUE INDEX "recordings_round_unique" ON "recordings" ("round_id");--> statement-breakpoint
 CREATE INDEX "recordings_status_idx" ON "recordings" ("status","updated_at");--> statement-breakpoint
 CREATE INDEX "recordings_deletion_due_idx" ON "recordings" ("deletion_due_at") WHERE "status" = 'removing';--> statement-breakpoint
@@ -213,6 +250,9 @@ ALTER TABLE "notification_preferences" ADD CONSTRAINT "notification_preferences_
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_debater_actor_id_actors_id_fkey" FOREIGN KEY ("debater_actor_id") REFERENCES "actors"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "recording_captures" ADD CONSTRAINT "recording_captures_recording_id_recordings_id_fkey" FOREIGN KEY ("recording_id") REFERENCES "recordings"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "recording_captures" ADD CONSTRAINT "recording_captures_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "recording_processing_jobs" ADD CONSTRAINT "recording_processing_jobs_recording_id_recordings_id_fkey" FOREIGN KEY ("recording_id") REFERENCES "recordings"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "recordings" ADD CONSTRAINT "recordings_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "spectator_fact_releases" ADD CONSTRAINT "spectator_fact_releases_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "watch_history" ADD CONSTRAINT "watch_history_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -261,3 +301,15 @@ END $$;
 CREATE TRIGGER spectator_fact_releases_append_only
   BEFORE UPDATE OR DELETE ON spectator_fact_releases
   FOR EACH ROW EXECUTE FUNCTION guard_spectator_fact_release();
+--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'daisy_recording_worker') THEN
+    CREATE ROLE daisy_recording_worker LOGIN;
+  END IF;
+END
+$$;
+--> statement-breakpoint
+GRANT USAGE ON SCHEMA public TO daisy_recording_worker;
+--> statement-breakpoint
+GRANT SELECT, UPDATE ON recording_processing_jobs TO daisy_recording_worker;

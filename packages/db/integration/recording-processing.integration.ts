@@ -358,6 +358,7 @@ test('the web sees only jobs it can answer, and what still uses their sources', 
     });
     await openBroadcast(db, {
       id: createId(),
+      feedKey: createId(),
       roundId,
       releasePolicy: { kind: 'delay', seconds: 60 },
     });

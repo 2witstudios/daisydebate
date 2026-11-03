@@ -48,4 +48,3 @@ export const startBroadcastSweep = (app: App, timers: WorkerTimers) => {
     stop: () => Promise.all([factLog.stop(), reconcile.stop()]),
   };
 };
-
