@@ -811,8 +811,7 @@ it runs, so the app is never stopped when idle. To detach, run
 
 **Egress and storage.** `daisy-debate-staging-egress` (`fly.egress.toml`) holds its whole
 config in the `EGRESS_CONFIG_BODY` secret and writes to the private Tigris bucket
-`daisy-debate-staging-broadcast`, created with `fly storage create`. Stop the
-machine when idle: it has no proxy to auto-stop it.
+`daisy-debate-staging-broadcast`, created with `fly storage create`. Both machines stay on: nothing wakes a stopped one.
 
 **Web restarts stop capture (hold).** A Broadcast's or own Recording's stage page ends
 its own Egress once the stage route has refused or failed for about 10 s, and media
