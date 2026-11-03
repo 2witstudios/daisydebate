@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import type { AttendancePrincipal } from './attendance-facts';
 
 type Seat = {
@@ -40,9 +40,9 @@ export function requireCheckInSegment<
 >(segments: readonly S[], segmentId: string, finalized: readonly string[]): S {
   const segment = segments.find((candidate) => candidate.id === segmentId);
   if (!segment || segment.type !== 'speech')
-    throw createAppError('CONFLICT', 'attendance-segment');
+    throw createRefusal('CONFLICT', 'attendance-segment');
   if (finalized.includes(segment.id))
-    throw createAppError('CONFLICT', 'attendance-finalized');
+    throw createRefusal('CONFLICT', 'attendance-finalized');
   return segment;
 }
 
@@ -55,5 +55,5 @@ export function requireSameCheckIn(
     receipt.segmentId !== expected.segmentId ||
     receipt.participantId !== expected.participantId
   )
-    throw createAppError('CONFLICT', 'command-conflict');
+    throw createRefusal('CONFLICT', 'command-conflict');
 }

@@ -1,4 +1,4 @@
-import { createAppError, isAppError } from '@daisy/errors';
+import { isAppError, createAppError } from '@daisy/errors';
 import type { RoundPanelReceipt } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -148,11 +148,7 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
   try {
     await fenceAttendance(tx, input.roundId, input.commandId, null);
   } catch (error) {
-    if (
-      isAppError(error) &&
-      error.code === 'CONFLICT' &&
-      error.message === 'attendance-terminal'
-    ) {
+    if (isAppError(error) && error.reason === 'attendance-terminal') {
       const terminal = await replay(tx, input, digest, false);
       if (terminal) return { receipt: terminal, ended: [] };
     }
@@ -174,7 +170,8 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     projection,
     now,
   );
-  if (!changed) throw createAppError('CONFLICT', 'panel-projection');
+  if (!changed)
+    throw createAppError('CONFLICT', 'Panel projection did not apply');
   const receipt = panelReceipt({
     commandId: input.commandId,
     roundId: input.roundId,

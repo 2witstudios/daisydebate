@@ -12,7 +12,7 @@ import {
   freezeJudgingPlan,
   participatingRulings,
 } from '@daisy/debate-engine';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError, isAppError, createRefusal } from '@daisy/errors';
 import { judgingPolicy, type JudgingTerminalReason } from '@daisy/protocol';
 import { createRatingSweep } from '../ratings/sweep';
 import { maintenanceTickProjection, roundTickProjection } from './operations';
@@ -49,7 +49,7 @@ export const panelCompletion =
       nowMs,
     });
     if (decision.kind === 'pending')
-      throw createAppError('CONFLICT', 'panel-ineligible');
+      throw createRefusal('CONFLICT', 'panel-ineligible');
     return {
       ruling: decision.ruling,
       noRuling: decision.noRuling,
@@ -165,12 +165,9 @@ export function createRoundMaintenanceOperations(input: {
       } catch (error) {
         if (
           !isAppError(error) ||
-          error.code !== 'CONFLICT' ||
-          ![
-            'panel-ineligible',
-            'attendance-unsettled',
-            'attendance-terminal',
-          ].includes(error.message)
+          (error.reason !== 'panel-ineligible' &&
+            error.reason !== 'attendance-unsettled' &&
+            error.reason !== 'attendance-terminal')
         )
           throw error;
       }

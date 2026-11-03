@@ -1,6 +1,6 @@
 import type { RoundHydration } from '@daisy/db/rounds';
 import { finalSpeechKey, type AttendanceWindow } from '@daisy/debate-engine';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 /** Actual immutable opening + frozen scheduled slot; current floor/media eligibility grant no attendance authority. */
 export function attendanceWindowFor(
   round: Pick<RoundHydration, 'rules' | 'segments' | 'participants'>,
@@ -9,7 +9,7 @@ export function attendanceWindowFor(
 ): AttendanceWindow {
   const actual = round.segments.find((segment) => segment.id === segmentId);
   if (!actual || actual.type !== 'speech')
-    throw createAppError('CONFLICT', 'attendance-segment');
+    throw createRefusal('CONFLICT', 'attendance-segment');
   const scheduled = round.rules.segments.find(
     (segment) => segment.key === actual.rulesSegmentKey,
   );

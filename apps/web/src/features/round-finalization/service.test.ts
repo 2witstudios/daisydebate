@@ -1,7 +1,7 @@
 import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRoundMaintenance } from './service';
-import { createAppError } from '@daisy/errors';
+import { createRefusal } from '@daisy/errors';
 setupRitewayBun();
 /** A pass that reached a decision, as the store returns it. */
 const decided = (decision: 'forfeit' | 'abandoned' | 'attended') =>
@@ -162,7 +162,11 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
     discover: async () => page(['terminal', 'forfeit', 'pending', 'fault']),
     evaluate: async (id) => {
       if (id === 'terminal')
-        throw createAppError('CONFLICT', 'attendance-terminal');
+        throw createRefusal(
+          'CONFLICT',
+          'attendance-terminal',
+          'Reworded sentence',
+        );
       if (id === 'fault') throw new Error('actual maintenance failure');
       return id === 'forfeit'
         ? decided('forfeit')

@@ -35,9 +35,11 @@ test('creation refusals answer with what happened, and an active Room returns it
       ),
       ...(
         await Promise.all(
-          [403, 429, 409].map((status) =>
-            answer(new Response(null, { status })),
-          ),
+          [
+            new Response(null, { status: 403 }),
+            new Response(null, { status: 429 }),
+            Response.json({ refusal: 'command-conflict' }, { status: 409 }),
+          ].map((response) => answer(response)),
         )
       ).map((state) => state.error),
     ],

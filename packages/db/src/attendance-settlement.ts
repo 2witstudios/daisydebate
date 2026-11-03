@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { idSchema, type AttendanceLedgerFacts } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -54,5 +54,5 @@ export async function assertRoundAttendanceSettled(
   if (locked.length !== 1) throw createAppError('NOT_FOUND');
   const ledger = await readAttendanceLedger(tx, input.roundId);
   if (!input.attendanceSettled(ledger, Date.parse(input.now)))
-    throw createAppError('CONFLICT', 'attendance-unsettled');
+    throw createRefusal('CONFLICT', 'attendance-unsettled');
 }

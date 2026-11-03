@@ -91,7 +91,7 @@ test('a create with an initial cast persists it atomically and stays assembling 
       })
       .then(
         () => 'started',
-        (error: { message?: string }) => error.message ?? 'unknown',
+        (error: { reason?: string }) => error.reason ?? 'unknown',
       );
     assert({
       given:

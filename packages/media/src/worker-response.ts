@@ -1,4 +1,8 @@
 import { createAppError, isAppError } from '@daisy/errors';
+import { captureRefusalSchema, type CaptureRefusal } from '@daisy/protocol';
+import { z } from 'zod';
+
+const namedRefusalReply = z.object({ refusal: captureRefusalSchema });
 
 export const unavailable = () =>
   createAppError('INFRASTRUCTURE', 'Media control is unavailable');
@@ -10,13 +14,15 @@ export const aborted = (signal: AbortSignal, caller?: AbortSignal) => {
 };
 /** 503 refusals the call may retry; every other failure is final. */
 const refusedForNow = new WeakSet<object>();
-/** Seals refused only because the capture timeline has not closed yet. */
-const openTimeline = new WeakSet<object>();
-/** Requests refused because the capture session or admission is closed. */
-const captureClosed = new WeakSet<object>();
+/** The capture refusal a 409 named. */
+const namedRefusals = new WeakMap<object, CaptureRefusal>();
+const namedRefusal = (error: unknown) =>
+  typeof error === 'object' && error !== null
+    ? namedRefusals.get(error)
+    : undefined;
 /** Whether the server closed the capture for good: the session ends (ISSUE-494). */
 export const isCaptureClosedRefusal = (error: unknown) =>
-  typeof error === 'object' && error !== null && captureClosed.has(error);
+  namedRefusal(error) === 'capture-closed';
 /**
  * A 4xx is a refusal for certain, except a 408 (the outcome is unknown, as in
  * the media service, ISSUE-464) and a 429 (refused for now) (VIDEO-4.1-r4).
@@ -42,24 +48,23 @@ export const isTransientControlFailure = (error: unknown) =>
   !isDefiniteRefusal(error);
 /** Whether a seal may be resent: its timeline was still open (VIDEO-4.1-r1). */
 export const isOpenTimelineRefusal = (error: unknown) =>
-  typeof error === 'object' && error !== null && openTimeline.has(error);
-/** Throws the refusal; a 409's named refusal is read, never anything else. */
+  namedRefusal(error) === 'timeline-open';
+/** Throws the refusal; a 409's closed capture word is read, never anything else. */
 export async function refuse(
   response: Response,
   signal: AbortSignal,
   caller?: AbortSignal,
 ): Promise<never> {
-  let named: unknown;
+  let named: CaptureRefusal | undefined;
   if (response.status === 409)
     named = await readReply(response, signal, caller).then(
-      (raw) => (raw as { refusal?: unknown } | null)?.refusal,
+      (raw) => namedRefusalReply.safeParse(raw).data?.refusal,
       () => undefined,
     );
   else await response.body?.cancel().catch(() => undefined);
   const error = refusalFor(response.status);
   if (definiteStatus(response.status)) definite.add(error);
-  if (named === 'timeline-open') openTimeline.add(error);
-  if (named === 'capture-closed') captureClosed.add(error);
+  if (named) namedRefusals.set(error, named);
   throw error;
 }
 function refusalFor(status: number) {

@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { lockAuthorizationActors } from './authorization';
@@ -79,7 +79,7 @@ export async function fenceAttendance(
   const round = await hydrateRoundRows(tx, roundId);
   if (!round) throw createAppError('NOT_FOUND');
   if (round.status !== 'active')
-    throw createAppError('CONFLICT', 'attendance-terminal');
+    throw createRefusal('CONFLICT', 'attendance-terminal');
   requireFencedParticipants(round.participants, actorIds);
   const seats = await Promise.all(
     round.participants.map(async (seat) => {
