@@ -15,17 +15,13 @@ const scenario: DebateScenario = {
     { type: 'tick', atMs: 250_000 }, // the AC closes; the NC countdown runs
     { type: 'tick', atMs: 260_000 }, // the NC opens
     { type: 'tick', atMs: 500_000 }, // the NC's time is spent
-    {
-      type: 'command',
-      command: { type: 'complete', outcome: 'affirmative' },
-      actor: null,
-    },
+    { type: 'ballots', rulings: [] }, // no judge seats: unjudged
   ],
   expect: {
     id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
     status: 'completed',
     stage: null,
-    outcome: 'affirmative',
+    outcome: null,
     opened: ['AC', 'NC'],
   },
 };

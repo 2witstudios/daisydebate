@@ -61,6 +61,8 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `userId`                 | id    |
 | `actorId`                | id    |
 | `providerMessageId`      | id    |
+| `roundId`                | id    |
+| `sessionId`              | id    |
 | `route`                  | route |
 | `path`                   | route |
 | `clientIdHash`           | hash  |
@@ -76,6 +78,8 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `topics`                 | count |
 | `oldestAgeMs`            | count |
 | `pending`                | count |
+| `windows`                | count |
+| `captureStartMs`         | count |
 | `scope`                  | code  |
 | `purpose`                | code  |
 

@@ -67,12 +67,28 @@ export type CaptureFacts = StreamCoverage & {
   /** A bot's grant it did not use: with no evidence of speech, nothing was owed. */
   readonly grantUnused?: boolean;
 };
+/** One seat's grant in one segment, as read for the engine's rule. */
+export type SeatGrantFacts = {
+  readonly seat: {
+    readonly kind: 'human' | 'bot';
+    readonly role: string;
+    readonly slot: number;
+  };
+  /** The frozen rules' entry for the grant's segment, when they can name one. */
+  readonly turn:
+    | { readonly side?: string | undefined; readonly slot?: number | undefined }
+    | undefined;
+  readonly hasCreditedWindow: boolean;
+};
+
 /**
  * The engine's capture decisions, injected into the adapter, which reads
  * intervals and writes the seal and never decides what the evidence amounts to.
  */
 export type CaptureRule = {
   readonly decideStreamCapture: (facts: CaptureFacts) => CaptureVerdict;
+  /** Whether a bot's grant owes no stream. The seal and the freeze both ask it. */
+  readonly botGrantUnused: (facts: SeatGrantFacts) => boolean;
   /** Where a closed stream's required speech has no capture. */
   readonly gaps: (
     coverage: StreamCoverage,

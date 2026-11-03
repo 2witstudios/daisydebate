@@ -35,7 +35,7 @@ lifecycle:
 1. Migrations run once per release as a pipeline step
    (`packages/db/scripts/migrate.ts` with the migration credential), never
    from every app instance, and before enabling dependent code
-   (expand/contract for rolling deploys). The migrator's session gives up
+   (expand/contract for rolling deploys once real users exist, DEC-304). The migrator's session gives up
    on a lock after 1 s and on a statement after 60 s, so hot-table DDL
    fails the release instead of stalling live traffic
    ([database operations](database.md), ISSUE-112). On Fly the release is a

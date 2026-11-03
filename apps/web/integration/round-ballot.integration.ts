@@ -111,7 +111,7 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       ...first,
       commandId: createId(),
       judgeParticipantId: seats[1]!.id,
-      ballot: ruling('negative'),
+      ballot: ruling('affirmative'),
     };
     const finalPrincipal = {
       kind: 'human' as const,
@@ -163,8 +163,8 @@ test('all actual human judges submit one shared ballot against actual frozen inp
     });
     const done = (await f.store.getRound(roundId))!;
     assert({
-      given: 'every required judge supplied a valid split ruling',
-      should: 'derive draw and complete exactly once through the one engine',
+      given: 'every required judge ruled for one side',
+      should: 'complete exactly once through the one engine',
       actual: [
         last.outcome,
         last.resultingVersion,
@@ -172,7 +172,13 @@ test('all actual human judges submit one shared ballot against actual frozen inp
         done.status,
         await operation.submit(principal, roundId, first),
       ],
-      expected: ['draw', fresh.version + 1, 'draw', 'completed', receipt],
+      expected: [
+        'affirmative',
+        fresh.version + 1,
+        'affirmative',
+        'completed',
+        receipt,
+      ],
     });
     // ISSUE-602: each released ballot names its kind of judge and carries
     // only the reader's own side's feedback; the transcript is for seats.
@@ -255,7 +261,7 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       actual: () =>
         operation.submit(finalPrincipal, roundId, {
           ...finalEnvelope,
-          ballot: ruling('affirmative'),
+          ballot: ruling('negative'),
         }),
       code: 'CONFLICT',
     });

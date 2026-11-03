@@ -175,10 +175,14 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
 - `necessary`, `analytics` and `replay` consent categories always exist in
   the stored schema regardless of deploy configuration; `unanswered` counts
   as denied. See [compliance](docs/operations/compliance.md).
-- Schema changes use `bun db:generate`, reviewed SQL and metadata, forward
-  migrations, and expand/contract for rolling deployments. Never rewrite an
-  applied migration or reset production; the only sanctioned history rewrite
-  is a greenfield baseline squash recorded in
+- Schema changes use `bun db:generate`, reviewed SQL and metadata, and forward
+  migrations. Once Daisy has real users, they also use expand/contract for
+  rolling deployments. Until then, a merge to staging needs no deploy window,
+  rolling-deploy compatibility or expand/contract staging, and a destructive
+  migration only needs stating in its PR (DEC-304). A migration must never be
+  able to refuse and block a deploy, and production keeps human sign-off. Never
+  rewrite an applied migration or reset production; the only sanctioned history
+  rewrite is a greenfield baseline squash recorded in
   `policy/migration-baselines.json` (ADR 0023, ADR 0038), which requires resetting
   every local and test database once.
 

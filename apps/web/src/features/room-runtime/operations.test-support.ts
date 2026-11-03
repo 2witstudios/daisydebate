@@ -106,7 +106,6 @@ export const launched: LaunchedRound = {
   completedAt: null,
   outcome: null,
   panelRuling: null,
-  waitingOn: null,
   transcriptCompleteness: null,
   resolutionAudit: null,
   checkpoint: emptyRuntimeCheckpoint,
@@ -115,7 +114,7 @@ export const launched: LaunchedRound = {
 /** The host's own reading of the launched Round. */
 export const round: RoundView = (({ hostActorId, ...viewed }) => {
   void hostActorId;
-  return { ...viewed, viewerIsHost: true };
+  return { ...viewed, waitingOn: null, viewerIsHost: true };
 })(launched);
 
 export function makeOperations(

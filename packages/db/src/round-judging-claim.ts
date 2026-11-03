@@ -86,7 +86,6 @@ export async function claimLockedJudgingJob(
     configuration: {
       ...scope,
       executionTokenDigest: agentLeaseDigest(token),
-      providerOutcome: 'not_started',
     },
   });
   const leaseExpiresAt = new Date(now.getTime() + input.leaseMs);

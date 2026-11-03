@@ -84,12 +84,14 @@ export type {
 } from './round';
 export {
   judgingAttemptCategories,
+  judgingAttemptOutcomes,
   judgingAttemptDiagnosticSchema,
   judgingBallotFields,
   judgingFinishes,
   judgingRecordedIssueLimit,
   judgingTerminalReasons,
   type JudgingAttemptCategory,
+  type JudgingAttemptOutcome,
   type JudgingAttemptDiagnostic,
   type JudgingFinish,
   type JudgingIssueCode,
@@ -448,6 +450,19 @@ export {
   analyticsConsentSchema,
   type AnalyticsConsent,
 } from './analytics-consent';
+export { judgingPolicy } from './judging-policy';
+export type {
+  AiSeatStanding,
+  HeldBallotFacts,
+  JudgingJobFacts,
+  JudgingPanel,
+  JudgingPanelFacts,
+  PanelRuling,
+  RoundEnding,
+} from './round-panel-completion';
+export type { AttendanceLedgerFacts } from './attendance';
+export { attendanceRoundReadSchema } from './attendance';
+export { roundRecordSchema, type RoundRecord } from './round-view';
 export {
   capturePartialReasons,
   capturePartialReasonSchema,
@@ -457,6 +472,7 @@ export {
   type CapturePartialReason,
   type CaptureRule,
   type CaptureVerdict,
+  type SeatGrantFacts,
   type CoverageEdges,
   type StreamCoverage,
 } from './capture-verdict';

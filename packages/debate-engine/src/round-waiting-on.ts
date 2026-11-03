@@ -1,41 +1,42 @@
+import { attendanceSettled } from './attendance-order';
 import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
+import {
+  decidePanelCompletion,
+  judgingPanelOf,
+} from './round-panel-completion';
 
 /**
- * The one thing a played Round is waiting on, for every viewer's room. The
+ * The one thing a played Round is waiting on, for every viewer's room. It reads
+ * the same panel decision completion acts on, so the two cannot disagree. A
  * deadline is always a persisted one; no client ever invents a competitive
  * window. Null while the speeches are still running.
  */
 export function roundWaitingOn(
   input: RoundWaitingFacts,
 ): RoundWaitingOn | null {
-  if (!input.finalSegmentEnded) return null;
-  if (input.heldByWriter) return { state: 'held_by_writer', deadlineAt: null };
-  if (!input.frozen) return { state: 'closing_transcript', deadlineAt: null };
-  if (
-    input.humanJudgeUnruled &&
-    input.ballotDeadlineAt !== null &&
-    input.nowMs < Date.parse(input.ballotDeadlineAt)
-  )
-    return { state: 'human_window', deadlineAt: input.ballotDeadlineAt };
-  const generating = input.jobs.filter(
-    (job) => job.canRule && !job.holdsBallot,
-  );
-  if (generating.length > 0)
-    return {
-      state: 'ai_processing',
-      deadlineAt: generating
-        .map((job) => job.generationDeadlineAt)
-        .sort()
-        .at(-1)!,
-    };
-  if (input.attendanceUnresolved)
+  if (input.speeches === 'running') return null;
+  if (input.attendance.pendingWriter) return { state: 'held_by_writer' };
+  if (input.frozen === null) return { state: 'closing_transcript' };
+  const facts = input.frozen;
+  const panel = judgingPanelOf(facts, input.nowMs);
+  if (panel === null) return { state: 'settling' };
+  const decision = decidePanelCompletion({
+    completeness: facts.completeness,
+    panel,
+    ballots: facts.ballots,
+    nowMs: input.nowMs,
+  });
+  if (decision.kind === 'pending' && decision.waiting.on === 'human_window')
+    return { state: 'human_window', deadlineAt: decision.waiting.deadlineAt };
+  if (decision.kind === 'pending' && decision.waiting.on === 'ai_generating')
+    return { state: 'ai_processing', deadlineAt: decision.waiting.deadlineAt };
+  if (!attendanceSettled(input.attendance, input.nowMs))
     return {
       state: 'awaiting_attendance',
-      deadlineAt: input.attendanceCutoffAt,
+      deadlineAt: facts.held.attendanceCutoffAt,
     };
-  if (input.jobs.some((job) => job.canRule && job.holdsBallot))
-    return { state: 'settling', deadlineAt: null };
-  return input.jobs.some((job) => !job.canRule)
-    ? { state: 'ai_failed', deadlineAt: null }
-    : { state: 'settling', deadlineAt: null };
+  return decision.kind === 'complete' &&
+    panel.aiSeats.some((seat) => seat.standing.state === 'ended')
+    ? { state: 'ai_failed' }
+    : { state: 'settling' };
 }

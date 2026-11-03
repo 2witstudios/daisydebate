@@ -104,8 +104,12 @@ const orderedHandlers = (
     setTimeout: () => 1 as unknown as ReturnType<typeof setTimeout>,
     clearTimeout: () => {},
   },
+  logged: unknown[] = [],
 ) => {
-  const logger = { log: () => {}, child: () => logger } as Logger;
+  const logger = {
+    log: (_event: string, fields: unknown) => logged.push(fields),
+    child: () => logger,
+  } as unknown as Logger;
   return createWebSocketHandlers({
     logger,
     registry,
@@ -280,13 +284,20 @@ test('a stalled turn closes the socket so the client reconnects', async () => {
   const { ws, closes } = orderedSocket();
   const { check } = heldChecks();
   const scheduled: Array<{ callback: () => void; ms: number }> = [];
-  const handlers = orderedHandlers(check, undefined, fixture().registry, {
-    setTimeout: (callback, ms) => {
-      scheduled.push({ callback, ms });
-      return scheduled.length as unknown as ReturnType<typeof setTimeout>;
+  const logged: unknown[] = [];
+  const handlers = orderedHandlers(
+    check,
+    undefined,
+    fixture().registry,
+    {
+      setTimeout: (callback, ms) => {
+        scheduled.push({ callback, ms });
+        return scheduled.length as unknown as ReturnType<typeof setTimeout>;
+      },
+      clearTimeout: () => {},
     },
-    clearTimeout: () => {},
-  });
+    logged,
+  );
   handlers.open(ws);
   await handlers.message(ws, hello);
   void handlers.message(ws, frameOf('subscribe', 'd'));
@@ -299,10 +310,12 @@ test('a stalled turn closes the socket so the client reconnects', async () => {
     actual: {
       insideHeartbeat: budget.ms < 30_000,
       closes,
+      cause: (logged.at(-1) as { cause?: string }).cause,
     },
     expected: {
       insideHeartbeat: true,
       closes: [closeFor('authority_unavailable').code],
+      cause: 'turn_stalled',
     },
   });
 });

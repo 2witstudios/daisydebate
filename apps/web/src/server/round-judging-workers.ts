@@ -1,3 +1,4 @@
+import type { JudgingTerminalReason } from '@daisy/protocol';
 import type { RoundJudgingPolicy } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
 import type { ErrorReporter } from '@daisy/observability';
@@ -24,7 +25,7 @@ export function startRoundJudgingWorkers(input: {
     'round.judging',
     'Judging ended without a ballot',
   );
-  const jobEnded = (reason: string) =>
+  const jobEnded = (reason: JudgingTerminalReason) =>
     reportEnded(
       createAppError('INFRASTRUCTURE', `Judging ended: ${reason}`),
       'execute',
@@ -52,7 +53,7 @@ export function startRoundJudgingWorkers(input: {
       renewMs: policy.renewMs,
     },
     timers: input.timers,
-    outOfBudget: () => jobEnded('out_of_budget'),
+    outOfBudget: () => jobEnded('generation_deadline'),
     failed: failure(
       'round.judging.failed',
       'round.judging',

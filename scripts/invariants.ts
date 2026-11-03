@@ -130,11 +130,8 @@ const fixtures: Readonly<Record<string, Fixture>> = {
     round({ status: 'active' }).completePanel({
       now: t0,
       ballots: [],
-      ballotDeadlineAt: t0,
       completeness: 'complete',
-      humanJudgeSeatIds: [],
-      runningAiSeatIds: [],
-      failedAiSeatIds: [],
+      panel: { humanWindow: null, aiSeats: [] },
     }),
   'completed-is-terminal': () =>
     round({ status: 'completed' }).execute({
@@ -212,12 +209,6 @@ const fixtures: Readonly<Record<string, Fixture>> = {
     round({ status: 'active' }).execute({
       command: { type: 'interrupt' },
       actorId: opponent,
-      now: t0,
-    }),
-  'complete-after-final-segment': () =>
-    round({ status: 'active' }).execute({
-      command: { type: 'complete', outcome: 'affirmative' },
-      actorId: null,
       now: t0,
     }),
   'rating-state-bounded': () =>

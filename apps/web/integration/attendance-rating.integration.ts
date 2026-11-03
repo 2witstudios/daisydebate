@@ -1,3 +1,4 @@
+import { decisionOf } from './attendance-evaluation.test-support';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -40,7 +41,7 @@ test('existing rating feature rediscovers only committed ranked RT forfeits and 
             'commit shared engine outcome before rating and preserve no-ledger cases',
           actual: {
             before: before.length,
-            decision: resolved?.decision,
+            decision: decisionOf(resolved),
             status: committed?.status,
             outcome: committed?.outcome,
             ledger: ledger.length,

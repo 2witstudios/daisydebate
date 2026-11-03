@@ -141,7 +141,7 @@ test('pending check-in markers and immutable facts keep global receipt and ownin
         'command_id',
       );
       await fixture.sql.unsafe(
-        "insert into round_attendance_adjudications(round_id,segment_id,command_id,decision,effective_deadline,settled_horizon) values($1,$2,$3,'none',statement_timestamp(),statement_timestamp())",
+        "insert into round_attendance_adjudications(evidence,round_id,segment_id,command_id,decision,effective_deadline,settled_horizon) values('settled_availability',$1,$2,$3,'none',statement_timestamp(),statement_timestamp())",
         [roundId, segmentId, adjudicate],
       );
       assert({

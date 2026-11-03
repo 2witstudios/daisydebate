@@ -82,14 +82,6 @@
       }
     },
     {
-      "id": "round.complete.after-final-segment",
-      "check": "complete-after-final-segment",
-      "testReference": {
-        "path": "packages/debate-engine/src/round-runtime-commands.test.ts",
-        "name": "refuse with the final-segment invariant"
-      }
-    },
-    {
       "id": "round.status.completed.terminal",
       "check": "completed-is-terminal",
       "testReference": {

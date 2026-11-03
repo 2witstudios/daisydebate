@@ -59,7 +59,7 @@ const scenario: DebateScenario = {
         type: 'ballots',
         rulings: [{ judge: 3, winner: 'negative' }],
       },
-      invariantId: 'round.complete.after-final-segment',
+      invariantId: 'round.complete.panel-played-round',
     },
     ...at(185_000, 'yield', 2), // NC ends
     { type: 'tick', atMs: 195_000 }, // CX2 opens

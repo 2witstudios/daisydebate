@@ -2,8 +2,10 @@ import {
   ballotSchema,
   judgingAttemptCategories,
   judgingAttemptDiagnosticSchema,
+  judgingAttemptOutcomes,
   judgingTerminalReasons,
   type JudgingAttemptCategory,
+  type JudgingAttemptOutcome,
   type JudgingTerminalReason,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
@@ -19,7 +21,6 @@ import {
 } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
-  jsonbColumn,
   jsonbColumnNullable,
   jsonbIsObject,
   oneOf,
@@ -50,10 +51,7 @@ export const roundJudgingJobs = pgTable(
     pendingBallotEpoch: integer('pending_ballot_epoch'),
     pendingBallotReceivedAt: timestampColumn('pending_ballot_received_at'),
     /** The AI judging budget, persisted at the freeze (DEC-275). Bounds provider work only. */
-    generationDeadlineAt: timestampColumn('generation_deadline_at')
-      .notNull()
-      // Expand: a process from the previous release still inserts without it.
-      .default(sql`clock_timestamp() + interval '5 minutes'`),
+    generationDeadlineAt: timestampColumn('generation_deadline_at').notNull(),
     /** Pinned by the first claim, so a deploy cannot change a job's model between attempts. */
     model: text('model'),
     /** The job is not claimable before this; set by a retryable attempt failure. */
@@ -65,7 +63,7 @@ export const roundJudgingJobs = pgTable(
     jsonbIsObject('round_judging_jobs', table.pendingBallot),
     check(
       'round_judging_jobs_terminal_reason_check',
-      sql`${table.terminalReason} is null or (${table.status} = 'failed' and ${oneOf(table.terminalReason, judgingTerminalReasons)})`,
+      sql`(${table.status} = 'failed') = (${table.terminalReason} is not null) and (${table.terminalReason} is null or ${oneOf(table.terminalReason, judgingTerminalReasons)})`,
     ),
     foreignKey({
       name: 'round_judging_jobs_pending_run_judge_fk',
@@ -140,8 +138,11 @@ export const roundJudgingJobs = pgTable(
 );
 
 /**
- * Why one execution produced no ballot. Allowlisted facts only: never a
- * message, received value, transcript or provider text.
+ * One provider dispatch, recorded before the call is sent, and alone the answer
+ * to how many calls a job bought: every row but one the vendor certainly refused
+ * may have cost money, including one a crash left `dispatched`. Its diagnostic
+ * holds allowlisted facts only: never a message, received value, transcript or
+ * provider text.
  */
 export const roundJudgingAttempts = pgTable(
   'round_judging_attempts',
@@ -152,11 +153,14 @@ export const roundJudgingAttempts = pgTable(
     jobEpoch: integer('job_epoch').notNull(),
     model: text('model').notNull(),
     contractVersion: text('contract_version').notNull(),
-    category: text('category').$type<JudgingAttemptCategory>().notNull(),
-    diagnostic: jsonbColumn(
+    outcome: text('outcome').$type<JudgingAttemptOutcome>().notNull(),
+    /** When the provider's answer and usage were accounted. */
+    answeredAt: timestampColumn('answered_at'),
+    category: text('category').$type<JudgingAttemptCategory>(),
+    diagnostic: jsonbColumnNullable(
       'diagnostic',
       judgingAttemptDiagnosticSchema,
-    ).notNull(),
+    ),
     createdAt: createdAtColumn(),
   },
   (table) => [
@@ -184,7 +188,11 @@ export const roundJudgingAttempts = pgTable(
     ),
     check(
       'round_judging_attempts_category_check',
-      oneOf(table.category, judgingAttemptCategories),
+      sql`${table.category} is null or ${oneOf(table.category, judgingAttemptCategories)}`,
+    ),
+    check(
+      'round_judging_attempts_outcome_check',
+      sql`${oneOf(table.outcome, judgingAttemptOutcomes)} and (${table.outcome} = 'failed') = (${table.category} is not null) and (${table.category} is null) = (${table.diagnostic} is null)`,
     ),
   ],
 );

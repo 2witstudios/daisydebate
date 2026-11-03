@@ -1,7 +1,21 @@
+import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRoundMaintenance } from './service';
 import { createRefusal } from '@daisy/errors';
 setupRitewayBun();
+/** A pass that reached a decision, as the store returns it. */
+const decided = (decision: 'forfeit' | 'abandoned' | 'attended') =>
+  ({
+    kind: 'decided',
+    resolution: {
+      segmentId: 's',
+      projection: null,
+      evidence: 'settled_availability',
+      decision,
+      effectiveDeadline: '',
+      settledHorizon: '',
+    },
+  }) as const;
 
 type Ports = Parameters<typeof startRoundMaintenance>[0];
 const page = (roundIds: readonly string[]) => ({
@@ -11,7 +25,7 @@ const page = (roundIds: readonly string[]) => ({
 const ports = (): Ports => ({
   discover: async () => page([]),
   tick: async () => {},
-  evaluate: async () => null,
+  evaluate: async () => ({ kind: 'undecided' as const }),
   finalize: async () => {},
   rateUnrated: async () => {},
   timers: { setInterval: () => 1, clearInterval: () => {} },
@@ -38,7 +52,7 @@ test('maintenance immediately discovers all casts and keeps rating recovery sepa
     },
     evaluate: async (id: string) => {
       calls.push(`evaluate:${id}`);
-      return null;
+      return { kind: 'undecided' as const };
     },
     finalize: async (id: string) => {
       calls.push(`finalize:${id}`);
@@ -101,7 +115,7 @@ test('a held Round does not stop discovery or rating recovery and shutdown drain
     },
     evaluate: async () => {
       order.push('evaluate');
-      return null;
+      return { kind: 'undecided' as const };
     },
     finalize: async () => {
       order.push('finalize');
@@ -154,7 +168,9 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
           'Reworded sentence',
         );
       if (id === 'fault') throw new Error('actual maintenance failure');
-      return id === 'forfeit' ? { decision: 'forfeit' } : null;
+      return id === 'forfeit'
+        ? decided('forfeit')
+        : { kind: 'undecided' as const };
     },
     finalize: async (id) => {
       frozen.push(id);
@@ -344,7 +360,7 @@ test('a failed evaluation never starves the freeze, and backs off instead of flo
 
 test('an undecided window is read again only after its wait; a decision moves straight on', async () => {
   const reads: number[] = [];
-  let answer: { decision: string } | null = null;
+  let answer: AttendanceEvaluation = { kind: 'undecided' };
   const { service, pulse, advance } = driven({
     discover: async () => page(['round']),
     evaluate: async () => {
@@ -357,13 +373,13 @@ test('an undecided window is read again only after its wait; a decision moves st
   await pulse();
   await flush();
   assert({
-    given: 'a null evaluation',
+    given: 'an undecided evaluation',
     should: 'not read evidence again on the next pulse',
     actual: reads.length,
     expected: 1,
   });
   advance(5_000);
-  answer = { decision: 'attended' };
+  answer = decided('attended');
   await pulse();
   await flush();
   await pulse();
@@ -381,7 +397,10 @@ test('rounds an uncertain writer holds are measured, not silent', async () => {
   const measures: { rounds: number; oldestMs: number }[] = [];
   const { service, pulse, advance } = driven({
     discover: async () => page(['held']),
-    evaluate: async () => ({ decision: 'held' }),
+    evaluate: async () => ({
+      kind: 'held' as const,
+      reason: 'pending_writer' as const,
+    }),
     held: (measure) => measures.push(measure),
   });
   await service.ready;
@@ -486,7 +505,7 @@ test('a failing tick cannot stop a Round reaching its cutoff, and backs off too'
     },
     evaluate: async (id) => {
       evaluated.push(id);
-      return null;
+      return { kind: 'undecided' as const };
     },
     failed: (_error, stage) => stages.push(stage),
   });
@@ -519,7 +538,7 @@ test('a Round that leaves discovery is forgotten: back again, it waits for nothi
     discover: async () => page(ids),
     evaluate: async (id) => {
       reads.push(id);
-      return null;
+      return { kind: 'undecided' as const };
     },
   });
   await service.ready;

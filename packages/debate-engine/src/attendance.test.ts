@@ -35,6 +35,8 @@ const decide = (ids: readonly string[], lastSpeech = false) =>
       receivedAtMs: 50000,
     })),
     finalized: false,
+    cutoffAtMs: null,
+    nowMs: 0,
   });
 
 test('actual required speaker and all opposing seats determine absence', () => {
@@ -89,7 +91,14 @@ test('actual required speaker and all opposing seats determine absence', () => {
 });
 
 test('timestamp decides including equality and duplicate arrivals', () => {
-  const base = { window, availability, botSeatIds, finalized: false };
+  const base = {
+    window,
+    availability,
+    botSeatIds,
+    finalized: false,
+    cutoffAtMs: null,
+    nowMs: 0,
+  };
   const checkIns = [
     { participantId: 'a0', receivedAtMs: 50001 },
     { participantId: 'n0', receivedAtMs: 50000 },
@@ -133,6 +142,8 @@ test('horizon and open outage prevent adjudication', () => {
         botSeatIds,
         checkIns: [],
         finalized: false,
+        cutoffAtMs: null,
+        nowMs: 0,
       }),
       expected: null,
     });
@@ -144,6 +155,8 @@ test('receipt window permits open historical speech but refuses early late and f
     availability,
     receivedAtMs: 50000,
     finalized: false,
+    cutoffAtMs: null,
+    nowMs: 0,
     terminal: false,
   };
   assert({
@@ -191,6 +204,8 @@ test('finalized decisions cannot be recomputed', async () => {
         botSeatIds,
         checkIns: [],
         finalized: true,
+        cutoffAtMs: null,
+        nowMs: 0,
       }),
     code: 'INVARIANT',
     invariantId: 'debate.adjudication.finalized-irreversible',
@@ -211,6 +226,8 @@ test('ineligible scheduled speaker never creates a competitive attendance loss',
         botSeatIds,
         checkIns: [],
         finalized: false,
+        cutoffAtMs: null,
+        nowMs: 0,
       }),
       expected: {
         evidence: 'settled_availability',
@@ -231,6 +248,8 @@ test('bot worker loss never produces a forfeit: decisions a missing bot receipt 
         receivedAtMs: 50000,
       })),
       finalized: false,
+      cutoffAtMs: null,
+      nowMs: 0,
     });
   assert({
     given:
@@ -321,6 +340,8 @@ test('bot worker loss never produces a forfeit: decisions a missing bot receipt 
       botSeatIds,
       checkIns,
       finalized: false,
+      cutoffAtMs: null,
+      nowMs: 0,
     });
   const onTime = window.openedAtMs + attendancePolicy.graceMs;
   const credited = (receivedAtMs: number) =>
@@ -405,6 +426,8 @@ test('bot worker loss never produces a forfeit: decisions a missing bot receipt 
         botSeatIds,
         checkIns: [{ participantId: 'a0', receivedAtMs: window.openedAtMs }],
         finalized: false,
+        cutoffAtMs: null,
+        nowMs: 0,
       }),
       expected: null,
     });
@@ -417,8 +440,55 @@ test('bot worker loss never produces a forfeit: decisions a missing bot receipt 
         botSeatIds,
         checkIns: [{ participantId: 'a0', receivedAtMs: window.openedAtMs }],
         finalized: false,
+        cutoffAtMs: null,
+        nowMs: 0,
       }),
       expected: null,
     });
   });
 }
+
+test('past the cutoff, what evidence cannot decide ends with no winner (ISSUE-988)', () => {
+  const unsettled = {
+    historyStartsAtMs: 0,
+    settledHorizonMs: null,
+    intervals: [],
+  };
+  const pass = (
+    cutoffAtMs: number | null,
+    nowMs: number,
+    evidence: typeof availability | typeof unsettled = unsettled,
+  ) =>
+    adjudicateAttendance({
+      window,
+      availability: evidence,
+      botSeatIds,
+      checkIns: [{ participantId: 'n0', receivedAtMs: 50000 }],
+      finalized: false,
+      cutoffAtMs,
+      nowMs,
+    });
+  assert({
+    given:
+      'no settled evidence, before the final speech ended or before the cutoff',
+    should: 'keep waiting',
+    actual: [pass(null, 9_000_000), pass(1000, 999)],
+    expected: [null, null],
+  });
+  assert({
+    given: 'no settled evidence at the cutoff',
+    should: 'decide abandoned, on that evidence',
+    actual: pass(1000, 1000),
+    expected: {
+      evidence: 'resolution_cutoff',
+      decision: 'abandoned',
+      cutoffAtMs: 1000,
+    },
+  });
+  assert({
+    given: 'settled evidence of an absence past the cutoff',
+    should: 'still decide on what it proves',
+    actual: pass(1000, 1000, availability)?.decision,
+    expected: 'forfeit',
+  });
+});

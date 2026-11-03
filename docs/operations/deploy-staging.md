@@ -693,8 +693,10 @@ fly deploy -a daisy-debate-staging --image <prior-image-ref>
 ```
 
 Rolling back the web image never rolls back the schema: migrations are
-forward-only and expand/contract, so the previous release still runs
-against the newer schema. Do not redeploy the migrator app to roll back.
+forward-only. Staging does not stage them as expand/contract while it has no
+users (DEC-304), so the previous release may not run against the newer schema;
+read the PR's migration before rolling back across one, and prefer rolling
+forward with a fix. Do not redeploy the migrator app to roll back.
 
 Verify: `fly releases -a daisy-debate-staging` shows the rollback as the
 newest release, and step 7's health checks pass again.

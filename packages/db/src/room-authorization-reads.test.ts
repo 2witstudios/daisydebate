@@ -209,6 +209,7 @@ test('Round read returns only the stored receipt and current participant identit
       fact?.member === true &&
       candidate.hostActorId === caller.actorId &&
       candidate.status === 'scheduled',
+    () => null,
   );
 
   assert({

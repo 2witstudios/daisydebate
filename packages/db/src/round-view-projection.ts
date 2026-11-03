@@ -46,7 +46,7 @@ const auditFor = (
 export function roundViewFor(
   round: LaunchedRound,
   viewerActorId: string | null,
-): RoundView {
+): Omit<RoundView, 'waitingOn'> {
   const { hostActorId, ...view } = round;
   const knowsJudges = viewerActorId !== null && viewerActorId === hostActorId;
   const ownPeople =

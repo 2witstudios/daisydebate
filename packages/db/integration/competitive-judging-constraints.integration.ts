@@ -30,18 +30,15 @@ const ballot = (
   reason: 'Stronger evidence',
   status: 'submitted',
   submitted_at: at,
-  voided_at: null,
-  voided_by_actor_id: null,
   ...overrides,
 });
 
 describe('ballots (DATA-3.1)', () => {
-  test('one ballot per judge seat and voiding fields tied to status', async () => {
+  test('one ballot per judge seat, and no status but submitted', async () => {
     await withFixture(url, async (fixture) => {
       const roundId = await fixture.round();
       await fixture.freeze(roundId);
       const seat = await fixture.seat(roundId, 'judge');
-      const voider = await fixture.actor();
       const submitted = !(await fixture.rejects(
         'ballots',
         ballot(seat.id, roundId),
@@ -51,66 +48,23 @@ describe('ballots (DATA-3.1)', () => {
         ballot(seat.id, roundId),
       );
       const otherJudge = await fixture.seat(roundId, 'judge', 1);
-      const voidedWithoutVoider = await fixture.rejects(
-        'ballots',
-        ballot(otherJudge.id, roundId, { status: 'voided', voided_at: at }),
-      );
-      const voidedWithoutTime = await fixture.rejects(
-        'ballots',
-        ballot(otherJudge.id, roundId, {
-          status: 'voided',
-          voided_by_actor_id: voider,
-        }),
-      );
-      const submittedWithVoidFields = await fixture.rejects(
-        'ballots',
-        ballot(otherJudge.id, roundId, {
-          voided_at: at,
-          voided_by_actor_id: voider,
-        }),
-      );
       const badWinner = await fixture.rejects(
         'ballots',
         ballot(otherJudge.id, roundId, { winner: 'abstain' }),
       );
-      const voidedBeforeSubmitted = await fixture.rejects(
+      const voided = await fixture.rejects(
         'ballots',
-        ballot(otherJudge.id, roundId, {
-          status: 'voided',
-          voided_at: new Date(at.getTime() - 60_000),
-          voided_by_actor_id: voider,
-        }),
+        ballot(otherJudge.id, roundId, { status: 'voided' }),
       );
-      const voided = !(await fixture.rejects(
-        'ballots',
-        ballot(otherJudge.id, roundId, {
-          status: 'voided',
-          voided_at: at,
-          voided_by_actor_id: voider,
-        }),
-      ));
       assert({
         given: 'ballots for two judge seats',
         should:
-          'accept one submitted and one fully voided ballot; reject a second per seat, half-voided rows, a void before submission and an unknown winner',
-        actual: {
-          submitted,
-          secondForSeat,
-          voidedWithoutVoider,
-          voidedWithoutTime,
-          submittedWithVoidFields,
-          badWinner,
-          voidedBeforeSubmitted,
-          voided,
-        },
+          'accept one submitted; reject a second per seat, a bad winner and a voided status',
+        actual: { submitted, secondForSeat, badWinner, voided },
         expected: {
           submitted: true,
           secondForSeat: true,
-          voidedWithoutVoider: true,
-          voidedWithoutTime: true,
-          submittedWithVoidFields: true,
           badWinner: true,
-          voidedBeforeSubmitted: true,
           voided: true,
         },
       });
