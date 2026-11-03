@@ -13,6 +13,17 @@ type RoundMediaRefusal = 'media-deferred';
 
 /** A report its reporter may not make (WATCH-7). */
 type ReportRefusal = 'report-not-eligible';
+/** Audience interaction an account may not make right now (SPECT-1.4). */
+type AudienceRefusal =
+  | 'chat-unavailable'
+  | 'chat-closed'
+  | 'chat-banned'
+  | 'chat-slow-mode'
+  | 'chat-needs-username'
+  | 'reactions-unavailable'
+  | 'reactions-closed'
+  | 'reactions-banned'
+  | 'follow-unavailable';
 
 /**
  * Every word an `AppError` may carry as its `reason`: code branches on these
@@ -22,6 +33,7 @@ export type RefusalReason =
   | AttendanceRefusal
   | CaptureRefusal
   | ReportRefusal
+  | AudienceRefusal
   | RoomRefusal
   | RoundCompletionRefusal
   | RoundMediaRefusal

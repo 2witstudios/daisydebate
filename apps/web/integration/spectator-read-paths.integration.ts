@@ -11,7 +11,7 @@ import { SPECTATOR_MARGIN_MS, spectatorTimelineSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readLadder } from '../src/features/leaderboard/read-leaderboard';
-import { getNotifications } from '../src/features/notifications/get-notifications';
+import { readNotificationItems } from '../src/features/notifications/read-notifications';
 import { readProfile } from '../src/features/profile/read-profile';
 import { readMemberStandings } from '../src/features/ratings/read-member';
 import { canReadRound } from '../src/features/round-runtime/reads';
@@ -44,6 +44,7 @@ const limiter = {
 test('every public and member read holds a ranked outcome until release', async () => {
   await withRoomRuntime(async (f) => {
     const seasonId = createId();
+    const follower = createId();
     let roundId: string | undefined;
     try {
       const season = await withSeasons(process.env['TEST_DATABASE_URL']!, (s) =>
@@ -78,6 +79,22 @@ test('every public and member read holds a ranked outcome until release', async 
       const hostName = `u-${f.host.userId}`;
       // No seat in this Round: the fixture's outsider judges it.
       const stranger = { userId: createId(), actorId: createId() };
+      await f.sql`insert into users (id,username) values (${follower},${`u-${follower}`})`;
+      await f.sql`insert into debater_follows (follower_user_id,debater_actor_id)
+        values (${follower},${f.host.actorId})`;
+      const followerNotifications = async () => {
+        const now = new Date().toISOString();
+        await f.store.sweepNotificationFanouts({
+          clock: spectatorClockAt(now),
+          limit: 50,
+          nextId: createId,
+        });
+        return readNotificationItems(f.store, {
+          userId: follower,
+          unreadOnly: false,
+          now,
+        });
+      };
 
       const timelineResponse = async () => {
         const fresh = createSpectatorTimelineHandlers({
@@ -184,10 +201,10 @@ test('every public and member read holds a ranked outcome until release', async 
         expected: 0,
       });
       assert({
-        given: 'notifications before release',
-        should: 'hold nothing, as nothing stores an outcome notification',
-        actual: getNotifications({}).rows,
-        expected: [],
+        given: 'a follower of a seated debater, after a sweep, before release',
+        should: 'store no notification, so none can say anything early',
+        actual: await followerNotifications(),
+        expected: { items: [], unread: 0 },
       });
       const round = await f.store.readLaunchedRound(
         roundId,
@@ -230,6 +247,19 @@ test('every public and member read holds a ranked outcome until release', async 
         completedAt.getTime() + SPECTATOR_MARGIN_MS,
       )} where round_id=${roundId}`;
       const out = await reads();
+      const heard = await followerNotifications();
+      assert({
+        given: 'the follower once the Broadcast has released media',
+        should:
+          'store one notification saying the debater is on air, and nothing of the result',
+        actual: {
+          text: heard.items.map((item) => item.text),
+          leaks: [REASON, FEEDBACK].some((secret) =>
+            JSON.stringify(heard).includes(secret),
+          ),
+        },
+        expected: { text: [`@${hostName} is on air.`], leaks: false },
+      });
       await f.sql`update broadcasts set released_through_at=${completedAt}, stopped_at=${completedAt}, stop_reason='test' where round_id=${roundId}`;
       const stopped = await reads();
       assert({
@@ -309,7 +339,10 @@ test('every public and member read holds a ranked outcome until release', async 
       });
       await f.sql`delete from rooms where id=${openRoomId}`;
     } finally {
+      await f.sql`delete from users where id=${follower}`;
       if (roundId) {
+        await f.sql`delete from notifications where round_id=${roundId}`;
+        await f.sql`delete from notification_fanouts where round_id=${roundId}`;
         await f.sql`delete from broadcasts where round_id=${roundId}`;
         await f.sql`delete from rating_changes where round_id=${roundId}`;
       }

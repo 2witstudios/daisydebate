@@ -21,3 +21,12 @@ export function moveOn(incoming: Headers, to: string): MovedOn {
 /** Whether the hydrated page, not a native form post, made this call. */
 export const hydratedPost = (incoming: Headers): boolean =>
   incoming.has('next-action');
+
+/**
+ * Ends an action on the page it was posted from. A form posted without
+ * JavaScript gets a 303 back to it, so a reload cannot post again; a hydrated
+ * page stays where it is and takes the caller's `revalidatePath` refresh, since
+ * moving to the address it is already on would leave its form waiting.
+ */
+export const stayOn = (incoming: Headers, to: string): Partial<MovedOn> =>
+  hydratedPost(incoming) ? {} : moveOn(incoming, to);

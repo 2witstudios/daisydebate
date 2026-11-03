@@ -1,4 +1,8 @@
 import { agreementSignaturePrivacyAdopter } from '../agreement-signatures';
+import { audienceReactionPrivacyAdopter } from '../audience-reactions';
+import { debaterFollowPrivacyAdopter } from '../debater-follows';
+import { notificationPrivacyAdopter } from '../notifications';
+import { watchHistoryPrivacyAdopter } from '../watch-history';
 import { analyticsConsentPrivacyAdopter } from '../analytics-consent';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { accountTermsPrivacyAdopter } from '../age-step';
@@ -37,6 +41,10 @@ export const subjectRightsAdoption = (
   betaAccessPrivacyAdopter,
   entitlementGrantPrivacyAdopter,
   contentModerationPrivacyAdopter,
+  audienceReactionPrivacyAdopter,
+  debaterFollowPrivacyAdopter,
+  watchHistoryPrivacyAdopter,
+  notificationPrivacyAdopter,
   roundTranscriptPrivacyAdopter,
   roundAnalysisPrivacyAdopter,
   recordingPrivacyAdopter,

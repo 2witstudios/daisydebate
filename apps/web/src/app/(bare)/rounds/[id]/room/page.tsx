@@ -29,6 +29,7 @@ import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
 import { temporarilyRefused } from '../../../../../server/temporary-read';
 import { reconnectingRoundPage } from '../../../../../ui/debate-room/round-reconnecting';
+import { SeatedSpectatorChat } from '../../../../(shell)/audience/seated-spectator-chat';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
 import { readPersistedTranscript } from '../../../../(shell)/rounds/[id]/read-persisted-transcript';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
@@ -172,6 +173,7 @@ export default async function RoundRoomPage({
             />
           </>
         }
+        audienceSlot={<SeatedSpectatorChat roundId={id} actorId={actorId} />}
         transcript={transcriptIn('sidebar')}
         commandAction={roundCommandAction.bind(null, id)}
         commandIds={roundCommandIds(() => systemId.next())}

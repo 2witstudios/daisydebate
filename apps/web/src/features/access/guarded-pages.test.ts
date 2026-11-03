@@ -48,6 +48,13 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
     total: 0,
     nextBefore: null,
   }),
+  requestAudience: async () => null,
+  requestNotifications: async () => ({ items: [], unread: 0 }),
+  requestAudienceSettings: async () => ({
+    preferences: { followed_debater_live: true, recording_ready: true },
+    history: [],
+  }),
+  requestDebaterFollow: async () => null,
   readRecordingArchive: async () => ({
     page: { rows: [], nextBefore: null },
     publicCount: 0,

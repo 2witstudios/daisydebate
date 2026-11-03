@@ -53,6 +53,7 @@ export function LiveRoundRoom({
   commandIds: seedIds,
   mediaSlot,
   attendanceSlot,
+  audienceSlot,
   transcript,
 }: {
   readonly transcript?: ReactNode;
@@ -60,6 +61,8 @@ export function LiveRoundRoom({
   readonly commandIds: RoundCommandIds;
   readonly commandAction: FormAction<RoundFormState>;
   readonly attendanceSlot?: ReactNode;
+  /** Spectator chat, on a non-ranked Round whose host left it on (SPECT-1.4). */
+  readonly audienceSlot?: ReactNode;
   readonly mediaSlot?: (view: RoundView) => ReactNode;
   readonly renderedAtMs: number;
   readonly actorId: string;
@@ -193,6 +196,7 @@ export function LiveRoundRoom({
               <>
                 {notices}
                 {feedback}
+                {audienceSlot}
               </>
             }
             media={(mediaSlot ?? defaultMedia)(view)}

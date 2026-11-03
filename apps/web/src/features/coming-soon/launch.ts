@@ -26,12 +26,8 @@ export const launched: LaunchConfig = {
 /** A member's own places that wait on a real backend, like the destinations. */
 export type PlaceLaunchConfig = Readonly<Record<'notifications', boolean>>;
 
-/**
- * Which of a member's own places are open. Nothing stores a notification
- * until WATCH-12 (ISSUE-634); flip it then, and the rail and the phone's More
- * sheet list it again.
- */
-export const launchedPlaces: PlaceLaunchConfig = { notifications: false };
+/** Which of a member's own places are open (WATCH-12, ISSUE-634). */
+export const launchedPlaces: PlaceLaunchConfig = { notifications: true };
 
 /** The first path segment each destination owns. Recordings belong to Watch. */
 const destinationAreas: ReadonlyMap<string, DestinationSlug> = new Map([

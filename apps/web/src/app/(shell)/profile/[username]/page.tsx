@@ -1,4 +1,9 @@
-import { requestMemberStandings } from '../../../../lib/request-session';
+import { setDebaterFollowAction } from '../../audience/actions';
+import { FollowButton } from '../../../../ui/following/follow-button';
+import {
+  requestDebaterFollow,
+  requestMemberStandings,
+} from '../../../../lib/request-session';
 import { MemberStandings } from '../../../../ui/ranked/member-standings';
 import { parseUsername } from '@daisy/auth';
 import { systemId } from '@daisy/clock';
@@ -62,6 +67,29 @@ export default async function ProfileRoute({
   );
 }
 
+/** Following needs an account, not admission; the block rule lives in the store. */
+async function ProfileFollow({ username }: { readonly username: string }) {
+  const identity = await requestIdentity();
+  if (!('principal' in identity) || identity.principal.kind !== 'user')
+    return null;
+  const follow = await requestDebaterFollow(
+    identity.principal.userId,
+    username,
+  );
+  if (!follow) return null;
+  return (
+    <FollowButton
+      username={username}
+      following={follow.following}
+      action={setDebaterFollowAction.bind(null, {
+        username,
+        state: follow.following ? 'not_following' : 'following',
+        returnTo: `/profile/${username}`,
+      })}
+    />
+  );
+}
+
 /**
  * A member's Add friend, Message, Challenge, Report and Block, toward someone else;
  * nothing for a visitor. Message goes through the ordinary DM request, so a
@@ -79,6 +107,7 @@ async function friendActionsFor(username: string) {
           friendAction={friendAction}
         />
       ) : null}
+      <ProfileFollow username={username} />
       <MessageUserButton
         username={username}
         requestId={systemId.next()}

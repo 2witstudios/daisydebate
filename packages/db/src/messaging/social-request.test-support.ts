@@ -49,6 +49,7 @@ export const channelRow = (lifecycle: string, revision = 2) => [
   lifecycle,
   null,
   null,
+  null,
   revision,
   new Date(now),
 ];

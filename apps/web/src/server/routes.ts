@@ -42,6 +42,7 @@ import { runningWorkers } from '../features/ops/alert-state';
 import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
+import { composeAudienceRoutes } from '../features/spectating/audience-composition';
 import { createSpectatorTimelineHandlers } from '../features/spectating/handlers';
 import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { identify } from '../lib/identity';
@@ -111,6 +112,7 @@ export function createRoutes(app: App) {
     agreements: composeAgreementRoutes(app),
     recordings: composeRecordingRoutes(app),
     contentModeration: composeContentModerationRoutes(app),
+    audience: composeAudienceRoutes(app),
     confirm: createConfirmHandlers({
       auth: confirmAuth,
       logger,

@@ -12,8 +12,8 @@ import type { ShellAccount } from '../../account';
 import {
   friendsLabel,
   memberDestinations,
-  notificationsDestination,
   moreDestination,
+  notificationsDestination,
   primaryDestinations,
   profileHref,
   wayIn,

@@ -1,5 +1,6 @@
 import { createMediaAdmissionHints } from './media-admission';
 import { createCaptureHeardOperations } from './capture-heard';
+import { createViewerCountOperations } from './viewer-counts';
 import { createMessagingTypingOperations } from './messaging-typing';
 import { RedisClient } from 'bun';
 import { createRoomReadinessOperations } from './room-readiness';
@@ -214,6 +215,7 @@ export function createRedis({
       }
     },
     ...createCaptureHeardOperations({ client, namespace, reportFailure }),
+    ...createViewerCountOperations({ client, namespace, reportFailure }),
     ...createMediaAdmissionHints({ client, namespace, reportFailure }),
     ...createRoomReadinessOperations({ client, namespace, reportFailure }),
     ...createPresenceOperations({ client, namespace, reportFailure }),
