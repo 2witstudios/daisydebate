@@ -50,6 +50,7 @@ import {
   createMetricsStore,
   type MetricsStore,
 } from '../features/ops/metrics-store';
+import { recordingObjectStore } from '../features/recording/tigris-object-store';
 import { createRequestNetwork } from './request-network';
 
 export type AppDependencies = {
@@ -231,6 +232,8 @@ export function createApp({
     messagingFiles: messagingFiles
       ? parseMessagingFileLimits(messagingFiles, policy)
       : null,
+    /** The private Recording bucket; a deployment without it refuses every object. */
+    recordingObjects: recordingObjectStore(env),
     clock,
     ids,
     logger,

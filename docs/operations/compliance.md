@@ -97,6 +97,13 @@ Erasure closes the account. It deletes everything in the classes marked
 - the keyed email digests on delivery receipts and suppressions;
 - ranked content, and the agreement signatures that stand behind it.
 
+Erasure asks for every casual Recording the member sits in to go, whole
+(`recordingPrivacyAdopter`): the row records the deletion intent in the erasure's
+own transaction and the deletion sweep (`apps/web/src/server/recording-deletions.ts`)
+removes the objects, retrying until storage confirms. The row then stays as a
+tombstone holding only its Round, class and why it went. Moderation may take any
+Recording down, and may then remove it.
+
 Ranked content is its own class, not part of the competitive record. Its stated
 purpose (owner, 2026-11-02) is that ranked season Rounds are qualifying artifacts
 for tournaments, so results and video stand as the evidence behind qualification,
@@ -185,6 +192,14 @@ views over the operational log store.
   Settings shows no privacy control that saves nothing (ISSUE-722).
 - COMP-4 also covers the ranked content waiver, ranked content retention after
   erasure and agreement signature retention; all three are drafts for counsel.
+- Erasure deletes a member's own transcript lines from every Round, ranked ones
+  included (`round-transcript-privacy.ts`), though the ranked content class names
+  public captions. The ranked history then shows less text, and its video keeps
+  the voice. Whether captions survive with the video is for COMP-4.
+- Downloaded copies of a Recording are outside Daisy, and neither erasure nor
+  takedown reaches them; the download panel and the privacy policy say so.
+- A failed capture's partial objects are kept seven days for diagnosis, then
+  deleted (**proposed**).
 - Moderation and evidentiary retention for messages (an open decision on
   Privacy and safety).
 - Erasure of actor-owned documents, which exist now and are not yet erased

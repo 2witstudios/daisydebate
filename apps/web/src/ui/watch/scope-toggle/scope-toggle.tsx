@@ -1,4 +1,4 @@
-import type { RecordingsQuery } from '../../../features/watch/recordings-query';
+import type { RecordingsQuery } from '../../../features/recording/archive-query';
 import { cn } from '../../cn';
 import {
   modeOptionClass,

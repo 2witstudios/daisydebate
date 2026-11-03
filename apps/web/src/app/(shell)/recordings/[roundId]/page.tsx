@@ -1,18 +1,29 @@
 import type { Metadata } from 'next';
 import { redirectUnlessLaunched } from '../../../../features/coming-soon/launch-gate';
 import type { SearchParams } from '../../../../features/access/decision';
-import { openReplay } from '../../../../features/watch/open-replay';
-import { parseReplayQuery } from '../../../../features/watch/replay-query';
-import { watchSource } from '../../../../features/watch/round-source';
-import { viewerOf } from '../../../../features/watch/viewer';
-import { requestIdentity } from '../../../../lib/request-session';
-import { Replay } from '../../../../ui/watch/replay/replay';
-import { ReplayRefusal } from '../../../../ui/watch/replay-refusal/replay-refusal';
+import { recordingViewerOf } from '../../../../features/recording/viewer';
+import {
+  readRecordingHistory,
+  requestIdentity,
+} from '../../../../lib/request-session';
+import {
+  RecordingHistory,
+  removalNotices,
+} from '../../../../ui/recording/recording-history/recording-history';
+import { SpectateRefusal } from '../../../../ui/watch/spectate-refusal/spectate-refusal';
 
-export const metadata: Metadata = { title: 'Replay' };
+export const metadata: Metadata = { title: 'Recording' };
 
-/** The public replay of a recorded Round; its Room's visibility decides who may open it. */
-export default async function ReplayPage({
+const MAX_SEARCH_LENGTH = 80;
+
+const firstOf = (value: string | readonly string[] | undefined) =>
+  typeof value === 'string' ? value : (value?.[0] ?? '');
+
+const isNotice = (value: string): value is keyof typeof removalNotices =>
+  Object.hasOwn(removalNotices, value);
+
+/** A finished Round's video and text history; each panel has its own permission. */
+export default async function RecordingPage({
   params,
   searchParams,
 }: {
@@ -21,17 +32,21 @@ export default async function ReplayPage({
 }) {
   redirectUnlessLaunched('watch');
   const { roundId } = await params;
-  const screen = openReplay(
+  const search = await searchParams;
+  const screen = await readRecordingHistory({
     roundId,
-    viewerOf(await requestIdentity()),
-    parseReplayQuery(await searchParams),
-    watchSource,
-  );
-  return screen.kind === 'watch' ? (
-    <Replay view={screen.view} />
+    viewer: recordingViewerOf(await requestIdentity()),
+    q: firstOf(search['q']).trim().slice(0, MAX_SEARCH_LENGTH),
+  });
+  const notice = firstOf(search['removal']);
+  return screen.kind === 'history' ? (
+    <RecordingHistory
+      screen={screen}
+      notice={isNotice(notice) ? notice : null}
+    />
   ) : (
     <div className="px-6 pt-8 pb-8 max-compact:px-4">
-      <ReplayRefusal screen={screen} />
+      <SpectateRefusal screen={{ kind: 'unavailable' }} />
     </div>
   );
 }

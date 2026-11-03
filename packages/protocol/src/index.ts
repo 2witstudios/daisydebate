@@ -434,6 +434,22 @@ export {
   type BroadcastReleasePolicy,
 } from './broadcast';
 export {
+  recordingClasses,
+  recordingEligibilitySchema,
+  recordingFailureReasons,
+  recordingLifecycleSchema,
+  recordingMediaSchema,
+  recordingRemovalCauses,
+  recordingStatuses,
+  type RecordingClass,
+  type RecordingEligibility,
+  type RecordingLifecycle,
+  type RecordingMedia,
+  type RecordingRemovalCause,
+  type RecordingSpeech,
+  type RecordingStatus,
+} from './recording';
+export {
   capturePartialReasons,
   capturePartialReasonSchema,
   type CaptureFacts,

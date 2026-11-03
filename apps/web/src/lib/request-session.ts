@@ -18,6 +18,14 @@ import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
+import { ARCHIVE_PAGE_SIZE } from '../features/recording/archive';
+import type { RecordingsQuery } from '../features/recording/archive-query';
+import {
+  AUDIENCE_RELEASE_MARGIN_MS,
+  type RecordingViewer,
+} from '../features/recording/audience';
+import { recordingReads } from '../features/recording/composition';
+import { openRecordingHistory } from '../features/recording/history';
 import { resolveSession } from './identity';
 
 /**
@@ -36,6 +44,29 @@ const requestSession = cache(async () =>
  */
 export const privateGroupsOffered = (): boolean =>
   processApp().messagingPolicy.privateGroups === 'isolated-test-fixture';
+
+/** One archive page for this viewer, and how many Recordings are public. */
+export const readRecordingArchive = async (
+  query: RecordingsQuery,
+  viewer: RecordingViewer,
+) => {
+  const { archive } = recordingReads(processApp());
+  const [page, publicCount] = await Promise.all([
+    archive.listArchive({
+      query,
+      viewerActorId: viewer.kind === 'account' ? viewer.actorId : null,
+      marginMs: AUDIENCE_RELEASE_MARGIN_MS,
+      limit: ARCHIVE_PAGE_SIZE,
+    }),
+    archive.countPublicArchive({ marginMs: AUDIENCE_RELEASE_MARGIN_MS }),
+  ]);
+  return { page, publicCount };
+};
+
+/** A finished Round's history screen for this viewer. */
+export const readRecordingHistory = (
+  input: Parameters<typeof openRecordingHistory>[1],
+) => openRecordingHistory(recordingReads(processApp()).inputs, input);
 
 /** Who is asking in this server-component render. */
 export const requestIdentity = async (): Promise<Identity> =>

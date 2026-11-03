@@ -1,0 +1,213 @@
+import type {
+  RecordingClass,
+  RecordingLifecycle,
+  RecordingMedia,
+  RecordingRemovalCause,
+} from '@daisy/protocol';
+
+/** Every object of a Recording sits here, so the whole of it can be deleted. */
+export const recordingObjectPrefix = (recordingId: string): string =>
+  `recordings/${recordingId}/`;
+
+export type RecordingEvent =
+  | {
+      readonly type: 'capture_started';
+      readonly egressId: string;
+      readonly at: string;
+    }
+  | {
+      readonly type: 'capture_ended';
+      readonly egressId: string;
+      readonly sourceKey: string;
+      readonly at: string;
+    }
+  | { readonly type: 'media_verified'; readonly media: RecordingMedia }
+  | {
+      readonly type: 'failed';
+      readonly reason: Extract<
+        RecordingLifecycle,
+        { status: 'failed' }
+      >['reason'];
+      readonly at: string;
+    }
+  | { readonly type: 'taken_down'; readonly at: string }
+  | { readonly type: 'restored' }
+  | {
+      readonly type: 'removal_requested';
+      readonly cause: RecordingRemovalCause;
+      readonly at: string;
+    }
+  | { readonly type: 'objects_gone'; readonly at: string };
+
+export type RecordingRefusal =
+  | 'ranked_is_kept'
+  | 'different_capture'
+  | 'foreign_object'
+  | 'not_restorable'
+  | 'out_of_order';
+
+/** Repeating a settled event changes nothing, so a retry cannot duplicate one. */
+export type RecordingTransition =
+  | { readonly kind: 'moved'; readonly next: RecordingLifecycle }
+  | { readonly kind: 'unchanged' }
+  | { readonly kind: 'refused'; readonly reason: RecordingRefusal };
+
+type Subject = {
+  readonly id: string;
+  readonly class: RecordingClass;
+  readonly lifecycle: RecordingLifecycle;
+};
+
+const moved = (next: RecordingLifecycle): RecordingTransition => ({
+  kind: 'moved',
+  next,
+});
+const unchanged: RecordingTransition = { kind: 'unchanged' };
+const refused = (reason: RecordingRefusal): RecordingTransition => ({
+  kind: 'refused',
+  reason,
+});
+
+const captureStarted = (
+  { lifecycle }: Subject,
+  event: Extract<RecordingEvent, { type: 'capture_started' }>,
+): RecordingTransition => {
+  if (lifecycle.status === 'requested')
+    return moved({
+      status: 'capturing',
+      capture: { egressId: event.egressId, startedAt: event.at },
+    });
+  if (lifecycle.status !== 'capturing') return refused('out_of_order');
+  return lifecycle.capture.egressId === event.egressId
+    ? unchanged
+    : refused('different_capture');
+};
+
+const captureEnded = (
+  { id, lifecycle }: Subject,
+  event: Extract<RecordingEvent, { type: 'capture_ended' }>,
+): RecordingTransition => {
+  if (lifecycle.status === 'capturing') {
+    if (lifecycle.capture.egressId !== event.egressId)
+      return refused('different_capture');
+    if (!event.sourceKey.startsWith(recordingObjectPrefix(id)))
+      return refused('foreign_object');
+    return moved({
+      status: 'processing',
+      capture: {
+        ...lifecycle.capture,
+        endedAt: event.at,
+        sourceKey: event.sourceKey,
+      },
+    });
+  }
+  return lifecycle.status === 'processing' &&
+    lifecycle.capture.egressId === event.egressId
+    ? unchanged
+    : refused('out_of_order');
+};
+
+const mediaVerified = (
+  { id, lifecycle }: Subject,
+  { media }: Extract<RecordingEvent, { type: 'media_verified' }>,
+): RecordingTransition => {
+  if (lifecycle.status === 'processing') {
+    const prefix = recordingObjectPrefix(id);
+    if (
+      !media.playlistKey.startsWith(prefix) ||
+      !media.downloadKey.startsWith(prefix)
+    )
+      return refused('foreign_object');
+    return moved({ status: 'ready', capture: lifecycle.capture, media });
+  }
+  return lifecycle.status === 'ready' &&
+    lifecycle.media.playlistKey === media.playlistKey
+    ? unchanged
+    : refused('out_of_order');
+};
+
+const failed = (
+  { lifecycle }: Subject,
+  event: Extract<RecordingEvent, { type: 'failed' }>,
+): RecordingTransition => {
+  if (lifecycle.status === 'failed') return unchanged;
+  return ['requested', 'capturing', 'processing'].includes(lifecycle.status)
+    ? moved({ status: 'failed', reason: event.reason, failedAt: event.at })
+    : refused('out_of_order');
+};
+
+const takenDown = (
+  { lifecycle }: Subject,
+  event: Extract<RecordingEvent, { type: 'taken_down' }>,
+): RecordingTransition => {
+  if (lifecycle.status === 'taken_down') return unchanged;
+  if (lifecycle.status === 'removing' || lifecycle.status === 'removed')
+    return refused('out_of_order');
+  return moved({
+    status: 'taken_down',
+    takenDownAt: event.at,
+    held: lifecycle.status === 'ready' ? lifecycle : null,
+  });
+};
+
+const restored = ({ lifecycle }: Subject): RecordingTransition => {
+  if (lifecycle.status === 'ready') return unchanged;
+  if (lifecycle.status !== 'taken_down') return refused('out_of_order');
+  return lifecycle.held ? moved(lifecycle.held) : refused('not_restorable');
+};
+
+const removalRequested = (
+  subject: Subject,
+  event: Extract<RecordingEvent, { type: 'removal_requested' }>,
+): RecordingTransition => {
+  const { lifecycle } = subject;
+  if (subject.class === 'ranked' && event.cause === 'participant_request')
+    return refused('ranked_is_kept');
+  if (lifecycle.status === 'removing' || lifecycle.status === 'removed')
+    return unchanged;
+  return moved({
+    status: 'removing',
+    cause: event.cause,
+    requestedAt: event.at,
+  });
+};
+
+const objectsGone = (
+  { lifecycle }: Subject,
+  event: Extract<RecordingEvent, { type: 'objects_gone' }>,
+): RecordingTransition => {
+  if (lifecycle.status === 'removed') return unchanged;
+  return lifecycle.status === 'removing'
+    ? moved({
+        status: 'removed',
+        cause: lifecycle.cause,
+        requestedAt: lifecycle.requestedAt,
+        removedAt: event.at,
+      })
+    : refused('out_of_order');
+};
+
+/** The one place a Recording changes state. Pure and total. */
+export const transitionRecording = (
+  subject: Subject,
+  event: RecordingEvent,
+): RecordingTransition => {
+  switch (event.type) {
+    case 'capture_started':
+      return captureStarted(subject, event);
+    case 'capture_ended':
+      return captureEnded(subject, event);
+    case 'media_verified':
+      return mediaVerified(subject, event);
+    case 'failed':
+      return failed(subject, event);
+    case 'taken_down':
+      return takenDown(subject, event);
+    case 'restored':
+      return restored(subject);
+    case 'removal_requested':
+      return removalRequested(subject, event);
+    case 'objects_gone':
+      return objectsGone(subject, event);
+  }
+};

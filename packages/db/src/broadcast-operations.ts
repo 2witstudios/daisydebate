@@ -200,6 +200,29 @@ export const listOpenBroadcasts = (tx: Tx, limit: number) =>
     .orderBy(asc(broadcasts.createdAt))
     .limit(limit);
 
+/**
+ * What the Broadcast has released, for features that hold facts back until it
+ * has: no Broadcast at all, the watermark, or complete.
+ */
+export const readBroadcastRelease = async (
+  reader: Pick<Tx, 'select'>,
+  roundId: string,
+) => {
+  const [row] = await reader
+    .select({
+      at: broadcasts.releasedThroughAt,
+      completedAt: broadcasts.completedAt,
+    })
+    .from(broadcasts)
+    .where(eq(broadcasts.roundId, roundId));
+  if (!row) return { kind: 'none' } as const;
+  if (row.completedAt) return { kind: 'completed' } as const;
+  return {
+    kind: 'open',
+    releasedThroughMs: row.at?.getTime() ?? null,
+  } as const;
+};
+
 /** Ranked Rounds still running with no Broadcast yet. Read-only; takes no Round lock. */
 export const discoverUnopenedRankedRounds = async (tx: Tx, limit: number) =>
   tx

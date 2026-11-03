@@ -1,0 +1,134 @@
+import type { RecordingLifecycle } from '@daisy/protocol';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  deletionRetryAt,
+  FAILED_CAPTURE_RETENTION_MS,
+  REMOVAL_SETTLE_MS,
+  runDeletionSweep,
+} from './deletion-sweep';
+import { fakeObjectStore, fakeRecordingStore } from './fake-store.test-support';
+import { at, nowMs, prefix, record } from './fixture.test-support';
+
+setupRitewayBun();
+
+describe('runDeletionSweep', () => {
+  const removing = (requestedAt: string): RecordingLifecycle => ({
+    status: 'removing',
+    cause: 'participant_request',
+    requestedAt,
+  });
+  const settledAt = new Date(nowMs - REMOVAL_SETTLE_MS).toISOString();
+  const keys = [`${prefix}video.mp4`, `${prefix}hls/master.m3u8`];
+
+  test('deletes first and ends only when nothing is left', async () => {
+    const { store, rows } = fakeRecordingStore([
+      record({ lifecycle: removing(settledAt) }),
+    ]);
+    const objects = fakeObjectStore([...keys, 'recordings/other/keep.mp4']);
+    const run = () =>
+      runDeletionSweep({
+        store,
+        objects: objects.store,
+        owner: 'w',
+        nowMs,
+      });
+    const first = await run();
+    assert({
+      given: 'a first run',
+      should: 'delete this Recording objects and no other, and stay removing',
+      actual: [
+        first.removedKeys,
+        [...objects.objects],
+        rows.get('rec')?.lifecycle.status,
+      ],
+      expected: [2, ['recordings/other/keep.mp4'], 'removing'],
+    });
+    await run();
+    assert({
+      given: 'a run that finds nothing left',
+      should: 'mark it removed',
+      actual: rows.get('rec')?.lifecycle.status,
+      expected: 'removed',
+    });
+    const again = await run();
+    assert({
+      given: 'the sweep repeated',
+      should: 'do nothing',
+      actual: [again.removedKeys, again.removedRecordings],
+      expected: [0, 0],
+    });
+  });
+
+  test('keeps the intent through a vendor failure', async () => {
+    const { store, rows, deferred } = fakeRecordingStore([
+      record({ lifecycle: removing(settledAt) }),
+    ]);
+    const objects = fakeObjectStore(keys, { failRemoval: true });
+    const result = await runDeletionSweep({
+      store,
+      objects: objects.store,
+      owner: 'w',
+      nowMs,
+    });
+    assert({
+      given: 'object storage failing',
+      should: 'stay removing and retry later',
+      actual: [
+        result.deferred,
+        rows.get('rec')?.lifecycle.status,
+        deferred[0]?.retryAt,
+      ],
+      expected: [1, 'removing', deletionRetryAt(nowMs, 0)],
+    });
+  });
+
+  test('waits for a capture that may still be writing', async () => {
+    const { store, rows } = fakeRecordingStore([
+      record({ lifecycle: removing(at) }),
+    ]);
+    await runDeletionSweep({
+      store,
+      objects: fakeObjectStore().store,
+      owner: 'w',
+      nowMs,
+    });
+    assert({
+      given: 'an empty prefix moments after removal was asked',
+      should: 'not close it yet',
+      actual: rows.get('rec')?.lifecycle.status,
+      expected: 'removing',
+    });
+  });
+
+  test('queues the partial objects of old failures', async () => {
+    const failed = record({
+      lifecycle: { status: 'failed', reason: 'capture_failed', failedAt: at },
+    });
+    const { store, rows } = fakeRecordingStore([failed], {
+      failedBefore: ['rec'],
+    });
+    const result = await runDeletionSweep({
+      store,
+      objects: fakeObjectStore().store,
+      owner: 'w',
+      nowMs: nowMs + FAILED_CAPTURE_RETENTION_MS,
+    });
+    assert({
+      given: 'a failure past its retention',
+      should: 'carry a cleanup intent',
+      actual: [result.failedCleanups, rows.get('rec')?.lifecycle.status],
+      expected: [1, 'removing'],
+    });
+  });
+});
+
+test('deletionRetryAt doubles from a minute to an hour', () => {
+  assert({
+    given: 'growing attempts',
+    should: 'back off and stop at an hour',
+    actual: [0, 1, 20].map(
+      (attempts) => Date.parse(deletionRetryAt(0, attempts)) / 60_000,
+    ),
+    expected: [1, 2, 60],
+  });
+});
