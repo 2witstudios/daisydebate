@@ -194,6 +194,39 @@ test('a judge who never rules is recorded as no ruling at the persisted deadline
   });
 });
 
+test('a split panel ends with no winner at once, on maintenance, inside the window (ISSUE-996, ISSUE-997)', async () => {
+  await withRoomRuntime(async (f) => {
+    const { roundId, judges, seats } = await frozenTwoJudgeRound(f);
+    await submitAs(f, judges[0]!, roundId, seats[0]!.id, 'negative');
+    await submitAs(f, judges[1]!, roundId, seats[1]!.id, 'affirmative');
+    const afterBallots = (await f.store.getRound(roundId))!;
+    await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
+    const done = (await f.store.getRound(roundId))!;
+    const receipts = await completions(f, roundId);
+    assert({
+      given: 'two human judges splitting with the ballot window still open',
+      should:
+        'leave the ending to the panel path, which ends it with no winner, a recorded ruling and no rating',
+      actual: {
+        afterBallots: afterBallots.status,
+        done: [done.status, done.outcome],
+        ruling: receipts[0]?.result.ruling,
+        noRuling: receipts[0]?.result.noRuling,
+        ratings: (
+          await f.sql`select count(*)::int n from rating_changes where round_id=${roundId}`
+        )[0].n,
+      },
+      expected: {
+        afterBallots: 'active',
+        done: ['completed', null],
+        ruling: 'judges-split',
+        noRuling: [],
+        ratings: 0,
+      },
+    });
+  });
+});
+
 test('when no judge rules by the deadline the Round completes without a winner', async () => {
   await withRoomRuntime(async (f) => {
     const { roundId, seats } = await frozenTwoJudgeRound(f);
