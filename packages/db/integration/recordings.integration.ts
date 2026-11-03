@@ -8,6 +8,7 @@ import {
 } from '@daisy/protocol';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
+import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { openBroadcast } from '../src/broadcast-operations';
 import { recordingPrivacyAdopter } from '../src/recording-privacy';
@@ -319,6 +320,181 @@ test('erasure removes casual Recordings whole and keeps ranked ones', async () =
   });
 });
 
+test('erasure under an open report keeps a taken-down casual Recording hidden, then the hold ends', async () => {
+  await withPrivacySubject(async ({ client, actorId, userId, database }) => {
+    await withFixture(databaseUrl, async (fixture) => {
+      const ops = recordingOperations({ database });
+      const make = async () => {
+        const roundId = await fixture.round();
+        await fixture.seat(roundId, 'affirmative', 0, actorId);
+        const id = createId();
+        await ops.requestRecording({
+          id,
+          roundId,
+          class: 'casual',
+          eligibility: hostOptIn,
+        });
+        await ops.applyRecording(id, () => ({
+          kind: 'moved',
+          next: {
+            status: 'taken_down',
+            takenDownAt: at,
+            held: ready(id) as Extract<RecordingLifecycle, { status: 'ready' }>,
+          },
+        }));
+        return { id, roundId };
+      };
+      const reported = await make();
+      const unreported = await make();
+      const roundReported = await make();
+      const report = (kind: string, targetId: string) =>
+        client`insert into content_reports (id, target_kind, target_id, reason, queue)
+          values (${createId()}, ${kind}, ${targetId}, 'harassment', 'safety')`;
+      try {
+        await report('recording', reported.id);
+        await report('round', roundReported.roundId);
+        await exportThenErase(database, { userId, actorId }, [
+          recordingPrivacyAdopter,
+        ]);
+        const read = async (id: string) =>
+          recordingLifecycleSchema.parse(
+            (await ops.findRecording(id))?.lifecycle,
+          );
+        const held = await read(reported.id);
+        assert({
+          given: 'erasure of a seat, with open reports on two of three',
+          should: 'keep the reported ones hidden and remove the other',
+          actual: [
+            held.status,
+            (await read(roundReported.id)).status,
+            (await read(unreported.id)).status,
+          ],
+          expected: ['taken_down', 'taken_down', 'removing'],
+        });
+        const heldUntil =
+          held.status === 'taken_down' ? held.removalOwed?.heldUntil : null;
+        const requestedAt =
+          held.status === 'taken_down' ? held.removalOwed?.requestedAt : null;
+        assert({
+          given: 'the hold',
+          should: 'last 90 days from the request, and keep the media',
+          actual: [
+            Date.parse(heldUntil!) - Date.parse(requestedAt!),
+            held.status === 'taken_down' && held.held !== null,
+          ],
+          expected: [90 * 24 * 60 * 60 * 1000, true],
+        });
+        const ended = (now: string) =>
+          ops.listEndedRecordingEvidenceHolds({ now, limit: 100 });
+        const mine = (ids: readonly string[]) =>
+          [reported.id, roundReported.id].filter((id) => ids.includes(id));
+        assert({
+          given: 'open reports inside the period',
+          should: 'hold both',
+          actual: mine(await ended(requestedAt!)),
+          expected: [],
+        });
+        await client`update content_reports set status='dismissed', resolved_at=now(), resolved_by_ref='op'
+          where target_id=${reported.id}`;
+        assert({
+          given: 'one report closed',
+          should: 'end only that hold',
+          actual: mine(await ended(requestedAt!)),
+          expected: [reported.id],
+        });
+        assert({
+          given: 'the period passed with a report still open',
+          should: 'end the other hold too',
+          actual: mine(await ended(heldUntil!)).sort(),
+          expected: [reported.id, roundReported.id].sort(),
+        });
+      } finally {
+        await client`delete from content_reports where target_id in
+          (${reported.id}, ${roundReported.roundId})`;
+        await client`delete from recordings where id in
+          (${reported.id}, ${unreported.id}, ${roundReported.id})`;
+      }
+    });
+  });
+});
+
+test('a ranked Round leaves the archive when its Recording is taken down, transcript or not', async () => {
+  await withStore(async ({ ops, archive, fixture, track, client }) => {
+    const formatId = 'freestyle';
+    const roundId = track(
+      await fixture.round({
+        status: 'completed',
+        competition_type: 'ranked',
+        format_id: formatId,
+        ladder_id: formatId,
+        preset_version: 1,
+        visibility: 'public',
+        started_at: at,
+        completed_at: at,
+      }),
+    );
+    await fixture.freeze(roundId);
+    const id = createId();
+    await ops.requestRecording({
+      id,
+      roundId,
+      class: 'ranked',
+      eligibility: { kind: 'ranked' },
+    });
+    await ops.applyRecording(id, () => ({ kind: 'moved', next: ready(id) }));
+    const listed = async () =>
+      (
+        await archive.listRecordingArchive({
+          query: {
+            scope: 'all',
+            mode: 'any',
+            q: '',
+            sort: 'newest',
+            before: '',
+          },
+          viewerActorId: null,
+          clock,
+          limit: 200,
+        })
+      ).rows.some((row) => row.id === roundId);
+    const count = () => archive.countPublicRecordingArchive({ clock });
+    const before = await count();
+    assert({
+      given: 'a ready ranked Recording with a transcript',
+      should: 'be listed',
+      actual: await listed(),
+      expected: true,
+    });
+    await client`update recordings set status='taken_down',
+        lifecycle=${JSON.stringify({ status: 'taken_down', takenDownAt: at, held: null })}::text::jsonb
+      where id=${id}`;
+    assert({
+      given: 'its takedown, with the transcript remaining',
+      should: 'leave the list and the count',
+      actual: [await listed(), (await count()) - before],
+      expected: [false, -1],
+    });
+    await client`update recordings set status='removing',
+        lifecycle=${JSON.stringify({ status: 'removing', cause: 'moderation', requestedAt: at })}::text::jsonb
+      where id=${id}`;
+    assert({
+      given: 'moderation then removing it',
+      should: 'not bring the Round back',
+      actual: await listed(),
+      expected: false,
+    });
+    await client`update recordings set status='removing',
+        lifecycle=${JSON.stringify({ status: 'removing', cause: 'failed_capture_cleanup', requestedAt: at })}::text::jsonb
+      where id=${id}`;
+    assert({
+      given: 'a failed capture being cleaned up, which no moderator decided',
+      should: 'keep the ranked Round listed by its transcript',
+      actual: await listed(),
+      expected: true,
+    });
+  });
+});
+
 test('the archive pages, filters and holds back what is not released', async () => {
   await withStore(
     async ({ ops, archive, reads, db, fixture, track, client }) => {
@@ -547,23 +723,34 @@ test('moderation reaches a real Recording, and a takedown holds what it can rest
     assert({
       given: 'a stranger reporting a real Recording',
       should: 'find it, with its Round, instead of answering as missing',
-      actual: [facts, await recordingModeration.exists(db as never, id)],
-      expected: [{ ranked: false, reporterSeated: false, roundId }, true],
+      actual: [facts, await recordingModeration.readSubject(db as never, id)],
+      expected: [
+        { ranked: false, reporterSeated: false, roundId },
+        {
+          status: 'ready',
+          version: 2,
+          restorable: false,
+          removable: true,
+          rebuildable: false,
+          takedownReason: null,
+        },
+      ],
     });
-    const take = () =>
+    const take = (expectedVersion: number) =>
       recordingModeration.takeDown(db as never, {
         recordingId: id,
+        expectedVersion,
         reason: 'policy_violation',
         now: later,
       });
-    const first = await take();
+    const first = await take(2);
     const taken = await ops.findRecording(id);
     assert({
       given: 'a takedown, then the same again',
       should: 'apply once, keep the media for a restore, and hide it',
       actual: [
         first,
-        await take(),
+        await take(3),
         taken?.lifecycle.status,
         taken?.lifecycle.status === 'taken_down' &&
           taken.lifecycle.held?.status,
@@ -576,12 +763,50 @@ test('moderation reaches a real Recording, and a takedown holds what it can rest
       actual: [
         await recordingModeration.takeDown(db as never, {
           recordingId: createId(),
+          expectedVersion: 1,
           reason: 'policy_violation',
           now: later,
         }),
-        await recordingModeration.exists(db as never, createId()),
+        await recordingModeration.readSubject(db as never, createId()),
       ],
-      expected: [null, false],
+      expected: [null, null],
+    });
+    await assertRejects({
+      given: 'a restore naming a version that no longer holds',
+      should: 'refuse',
+      code: 'CONFLICT',
+      actual: () =>
+        recordingModeration.restore(db as never, {
+          recordingId: id,
+          expectedVersion: 2,
+        }),
+    });
+    assert({
+      given: 'a restore at the current version, then a removal',
+      should: 'put the same media back, then write a durable moderation intent',
+      actual: [
+        await recordingModeration.restore(db as never, {
+          recordingId: id,
+          expectedVersion: 3,
+        }),
+        (await ops.findRecording(id))?.lifecycle,
+        await recordingModeration.remove(db as never, {
+          recordingId: id,
+          expectedVersion: 4,
+          now: later,
+        }),
+        (await ops.findRecording(id))?.lifecycle,
+      ],
+      expected: [
+        'applied',
+        ready(id),
+        'applied',
+        {
+          status: 'removing',
+          cause: 'moderation',
+          requestedAt: later.toISOString(),
+        },
+      ],
     });
   });
 });

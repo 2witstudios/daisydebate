@@ -1,6 +1,7 @@
 import {
   recordingJobStateSchema,
   type PublicInterval,
+  type RecordingBuildProgress,
   type RecordingJobState,
 } from '@daisy/protocol';
 import {
@@ -92,6 +93,7 @@ export const queueRecordingJob = async (
     readonly recordingId: string;
     readonly attemptCount: number;
     readonly publicIntervals: readonly PublicInterval[];
+    readonly ceilingMs: number;
   },
 ) => {
   await tx
@@ -101,12 +103,46 @@ export const queueRecordingJob = async (
         status: 'queued',
         attemptCount: input.attemptCount,
         publicIntervals: [...input.publicIntervals],
+        ceilingMs: input.ceilingMs,
       }),
       dueAt: sql`clock_timestamp()`,
     })
     .where(
       and(eq(jobs.recordingId, input.recordingId), eq(jobs.status, 'waiting')),
     );
+};
+
+/**
+ * An operator asked for a failed build again. Its count starts over, and false
+ * means nothing could be queued: the sources are gone or going.
+ */
+export const requeueRecordingJob = async (
+  tx: Tx,
+  input: {
+    readonly recordingId: string;
+    readonly attemptCount: number;
+    readonly ceilingMs: number;
+  },
+): Promise<boolean> => {
+  const rows = await tx
+    .update(jobs)
+    .set({
+      ...stateColumns({
+        status: 'queued',
+        attemptCount: input.attemptCount,
+        ceilingMs: input.ceilingMs,
+      }),
+      failures: 0,
+      dueAt: sql`clock_timestamp()`,
+    })
+    .where(
+      and(
+        eq(jobs.recordingId, input.recordingId),
+        inArray(jobs.status, ['waiting', 'queued', 'built', 'failed']),
+      ),
+    )
+    .returning({ id: jobs.recordingId });
+  return rows.length === 1;
 };
 
 /** The next job with work: the oldest due whose lease is free. The epoch fences the last owner. */
@@ -176,6 +212,23 @@ export const renewRecordingJob = async (
   return row !== undefined;
 };
 
+/**
+ * How far this run is, only for the current owner of a job still queued, so a
+ * former owner cannot overwrite the current run's figures. It moves no `updated_at`:
+ * nothing is waiting on it.
+ */
+export const recordRecordingBuildProgress = async (
+  tx: Tx,
+  input: Held & { readonly progress: RecordingBuildProgress },
+) => {
+  await tx
+    .update(jobs)
+    .set({
+      state: sql`${jobs.state} || jsonb_build_object('progress', ${JSON.stringify(input.progress)}::text::jsonb)`,
+    })
+    .where(and(held(input), eq(jobs.status, 'queued')));
+};
+
 /** A run's result, only for the current owner of a job still in the state it read. */
 export const finishRecordingRun = async (
   tx: Tx,
@@ -205,6 +258,8 @@ export const deferRecordingRun = async (
   const rows = await tx
     .update(jobs)
     .set({
+      // Its figures are over: a job waiting for its retry is not at them.
+      state: sql`${jobs.state} - 'progress'`,
       leaseOwner: null,
       leaseUntil: null,
       dueAt: input.retryAt,
@@ -279,6 +334,57 @@ export const discardRecordingSources = async (tx: Tx, recordingId: string) => {
         ne(jobs.status, 'settled'),
       ),
     );
+};
+
+/**
+ * Recordings still processing that no operator has yet been alerted about, with
+ * what the bound is measured from. A build running long is the point, so unlike
+ * `listUnsettledRecordingJobs` this includes the queued.
+ */
+export const listProcessingRecordingsUnalerted = (
+  tx: Tx,
+  limit: number,
+  after: string | null = null,
+) =>
+  tx
+    .select({ id: recordings.id, lifecycle: recordings.lifecycle })
+    .from(recordings)
+    .innerJoin(jobs, eq(jobs.recordingId, recordings.id))
+    .where(
+      and(
+        eq(recordings.status, 'processing'),
+        isNull(jobs.delayAlertedAt),
+        after === null ? undefined : gt(recordings.id, after),
+      ),
+    )
+    .orderBy(asc(recordings.id))
+    .limit(limit);
+
+/** True for the one caller that gets to raise the alert, whoever else is sweeping. */
+export const markRecordingDelayAlerted = async (
+  tx: Tx,
+  input: { readonly recordingId: string; readonly at: Date },
+): Promise<boolean> => {
+  const rows = await tx
+    .update(jobs)
+    .set({ delayAlertedAt: input.at })
+    .where(
+      and(eq(jobs.recordingId, input.recordingId), isNull(jobs.delayAlertedAt)),
+    )
+    .returning({ id: jobs.recordingId });
+  return rows.length === 1;
+};
+
+/** The job's state, as the web reads it to say how far preparation is. */
+export const readRecordingJobState = async (
+  tx: Tx,
+  recordingId: string,
+): Promise<RecordingJobState | null> => {
+  const [row] = await tx
+    .select({ state: jobs.state })
+    .from(jobs)
+    .where(eq(jobs.recordingId, recordingId));
+  return row?.state ?? null;
 };
 
 /** Whether anything of this Recording may still wait in the hold bucket. */

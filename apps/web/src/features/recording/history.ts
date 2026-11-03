@@ -1,3 +1,9 @@
+import {
+  recordingHiddenByModeration,
+  recordingPreparationOf,
+  type RecordingJobState,
+  type RecordingPreparation,
+} from '@daisy/protocol';
 import type { RecordingMedia } from '@daisy/protocol';
 import { UNDRAWN_RESOLUTION } from './archive';
 import { resultHeadline } from './archive';
@@ -5,6 +11,7 @@ import {
   mayDownload,
   mayRequestRemoval,
   recordingMediaState,
+  permissionsAfterModeration,
   roundEvidencePermissions,
   type BroadcastRelease,
   type RecordingMediaState,
@@ -47,6 +54,11 @@ export type HistoryBallot = {
 };
 
 export type HistoryInputs = {
+  /** The processing job's state, read only to say how far a build is. */
+  readonly nowMs: () => number;
+  readonly readJobState: (
+    recordingId: string,
+  ) => Promise<RecordingJobState | null>;
   readonly readHistoryRound: (roundId: string) => Promise<HistoryRound | null>;
   readonly readBroadcastRelease: (roundId: string) => Promise<BroadcastRelease>;
   readonly readTranscript: (
@@ -91,13 +103,22 @@ export type RecordingMediaPanel =
       readonly durationMs: number;
       /** What the video does not hold, stated rather than hidden. */
       readonly gaps: RecordingMedia['gaps'];
+      /** Debate the video never reached, before its start or after its end. */
+      readonly unrecorded: NonNullable<RecordingMedia['unrecorded']>;
       readonly speeches: readonly {
         readonly speaker: string;
         readonly startMs: number;
         readonly endMs: number;
       }[];
     }
-  | { readonly state: Exclude<RecordingMediaState, 'watch'> | 'withheld' };
+  | {
+      readonly state: 'processing';
+      readonly preparation: RecordingPreparation | null;
+    }
+  | {
+      readonly state:
+        Exclude<RecordingMediaState, 'watch' | 'processing'> | 'withheld';
+    };
 
 export type RecordingHistoryScreen =
   | { readonly kind: 'unavailable' }
@@ -195,14 +216,20 @@ const mediaPanel = (
   round: HistoryRound,
   record: RecordingRecord | null,
   mayWatch: boolean,
+  job: RecordingJobState | null,
+  nowMs: number,
 ): RecordingMediaPanel => {
-  if (record?.lifecycle.status !== 'ready')
+  if (record?.lifecycle.status !== 'ready') {
+    const state = recordingMediaState(record?.lifecycle.status ?? null);
+    if (state === 'processing' && record)
+      return {
+        state,
+        preparation: recordingPreparationOf(record.lifecycle, job, nowMs),
+      };
     return {
-      state: recordingMediaState(record?.lifecycle.status ?? null) as Exclude<
-        RecordingMediaState,
-        'watch'
-      >,
+      state: state as Exclude<RecordingMediaState, 'watch' | 'processing'>,
     };
+  }
   if (!mayWatch) return { state: 'withheld' };
   const { media } = record.lifecycle;
   const speaker = (id: string) => {
@@ -215,6 +242,7 @@ const mediaPanel = (
     playlistHref: `/api/recordings/${record.id}/playback/${media.playlistKey.slice(media.playlistKey.lastIndexOf('/') + 1)}`,
     durationMs: media.durationMs,
     gaps: media.gaps,
+    unrecorded: media.unrecorded ?? [],
     speeches: media.speeches.map((speech) => ({
       speaker: speaker(speech.roundParticipantId),
       startMs: speech.startMs,
@@ -292,14 +320,20 @@ export const openRecordingHistory = async (
   const round = await inputs.readHistoryRound(input.roundId);
   if (round === null || round.completedAtMs === null)
     return { kind: 'unavailable' };
-  const permissions = roundEvidencePermissions(
+  const admitted = roundEvidencePermissions(
     round,
     await inputs.readBroadcastRelease(round.id),
     input.viewer,
     input.presentedLinkHash,
   );
-  if (!permissions.open) return { kind: 'unavailable' };
+  if (!admitted.open) return { kind: 'unavailable' };
   const record = await inputs.findRecordingByRound(round.id);
+  const permissions = permissionsAfterModeration(
+    admitted,
+    round,
+    input.viewer,
+    record !== null && recordingHiddenByModeration(record.lifecycle),
+  );
   const [transcript, ballots, subscribed] = await permittedReads(
     inputs,
     round.id,
@@ -319,7 +353,15 @@ export const openRecordingHistory = async (
     ranked: round.competitionType === 'ranked',
     date: new Date(round.completedAtMs).toISOString().slice(0, 10),
     visibility: round.visibility,
-    media: mediaPanel(round, record, permissions.media),
+    media: mediaPanel(
+      round,
+      record,
+      permissions.media,
+      record && state === 'processing'
+        ? await inputs.readJobState(record.id)
+        : null,
+      inputs.nowMs(),
+    ),
     reportTarget: reportTargetOf(record, round.id),
     transcript: transcript && transcriptPanel(round, transcript, input.q),
     result: ballots && resultPanel(round, ballots),

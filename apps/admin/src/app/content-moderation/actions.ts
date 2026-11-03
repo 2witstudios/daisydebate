@@ -3,6 +3,7 @@
 import {
   broadcastStopReasons,
   chatSlowModeSchema,
+  recordingLegalRemovalReasons,
   recordingTakedownReasons,
 } from '@daisy/protocol/content-moderation';
 import { idSchema } from '@daisy/protocol';
@@ -18,6 +19,7 @@ import { adminRuntime } from '../../server/runtime';
  * again before anything is signed. The redirect carries a closed notice.
  */
 const target = { targetId: idSchema };
+const expectedVersion = z.coerce.number().int().positive();
 const requestSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('content_report.resolve'),
@@ -37,7 +39,29 @@ const requestSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('recording.takedown'),
     ...target,
+    expectedVersion,
     reason: z.enum(recordingTakedownReasons),
+  }),
+  z.strictObject({
+    action: z.literal('recording.restore'),
+    ...target,
+    expectedVersion,
+  }),
+  z.strictObject({
+    action: z.literal('recording.remove'),
+    ...target,
+    expectedVersion,
+  }),
+  z.strictObject({
+    action: z.literal('recording.legal_remove'),
+    ...target,
+    expectedVersion,
+    reason: z.enum(recordingLegalRemovalReasons),
+  }),
+  z.strictObject({
+    action: z.literal('recording.rebuild'),
+    ...target,
+    expectedVersion,
   }),
   z.strictObject({ action: z.literal('chat_message.remove'), ...target }),
   z.strictObject({
@@ -53,9 +77,12 @@ export async function contentModerationAction(form: FormData): Promise<never> {
   if (!operator) redirect('/sign-in');
   const reportId = idSchema.safeParse(form.get('reportId'));
   const commandId = idSchema.safeParse(form.get('commandId'));
+  // A rebuild from the failed Recordings page has no report to go back to.
   const back = reportId.success
     ? `/content-moderation/${reportId.data}`
-    : '/content-moderation';
+    : form.get('action') === 'recording.rebuild'
+      ? '/content-moderation/failed-recordings'
+      : '/content-moderation';
   const { commands } = adminRuntime();
   if (!commands) redirect(`${back}?notice=unconfigured`);
   const fields = Object.fromEntries(

@@ -24,7 +24,20 @@ export type ContentModerationRequest =
   | {
       readonly action: 'recording.takedown';
       readonly targetId: string;
+      readonly expectedVersion: number;
       readonly reason: string;
+    }
+  | {
+      readonly action: 'recording.legal_remove';
+      readonly targetId: string;
+      readonly expectedVersion: number;
+      readonly reason: string;
+    }
+  | {
+      readonly action:
+        'recording.restore' | 'recording.remove' | 'recording.rebuild';
+      readonly targetId: string;
+      readonly expectedVersion: number;
     }
   | { readonly action: 'chat_message.remove'; readonly targetId: string }
   | {
@@ -41,10 +54,25 @@ const paths: Readonly<Record<ContentModerationAction, (id: string) => string>> =
     'broadcast.chat_slow_mode.update': (id) =>
       `/operator/v1/broadcasts/${id}/chat-slow-mode`,
     'recording.takedown': (id) => `/operator/v1/recordings/${id}/takedown`,
+    'recording.restore': (id) => `/operator/v1/recordings/${id}/restoration`,
+    'recording.remove': (id) => `/operator/v1/recordings/${id}/removal`,
+    'recording.legal_remove': (id) =>
+      `/operator/v1/recordings/${id}/legal-removal`,
+    'recording.rebuild': (id) => `/operator/v1/recordings/${id}/rebuild`,
     'chat_message.remove': (id) => `/operator/v1/chat-messages/${id}/removal`,
     'account.audience_ban.update': (id) =>
       `/operator/v1/accounts/${id}/audience-ban`,
   };
+
+/**
+ * What the audit chain records before a command is signed: the action and its target
+ * id, closed, naming no person's content. A legal removal outruns every hold, so its
+ * closed legal ground is on the record too.
+ */
+export const auditedIntent = (request: ContentModerationRequest): string =>
+  request.action === 'recording.legal_remove'
+    ? `${request.action}:${request.targetId}:${request.reason}`
+    : `${request.action}:${request.targetId}`;
 
 /** Where a request goes, and the command body it signs. */
 export function contentModerationCall(

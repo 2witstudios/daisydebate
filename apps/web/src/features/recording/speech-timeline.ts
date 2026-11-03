@@ -10,7 +10,10 @@ export type FloorInterval = {
 type Span = { readonly startMs: number; readonly endMs: number };
 
 /** What of a span survives once the stretches no media covers are taken out. */
-const outsideGaps = (span: Span, gaps: readonly Span[]): readonly Span[] => {
+export const outsideGaps = (
+  span: Span,
+  gaps: readonly Span[],
+): readonly Span[] => {
   const spans: Span[] = [];
   let cursor = span.startMs;
   for (const gap of [...gaps].sort((x, y) => x.startMs - y.startMs)) {

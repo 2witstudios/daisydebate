@@ -41,13 +41,14 @@ await Promise.all(
     runWorker({
       owner: createId(),
       store,
-      build: (job, { workDir, signal }) =>
+      build: (job, { workDir, signal, progress }) =>
         buildRecording(
           {
             hold: objects.hold,
             recordings: objects.recordings,
             files: localFiles,
             run: runCommand(AbortSignal.any([signal, stopped.signal])),
+            progress,
             slatePath,
             workDir,
             now: () => new Date(realClock()).toISOString(),

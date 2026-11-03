@@ -62,6 +62,11 @@ export default async function ContentModerationPage({
           <h1>Moderation</h1>
         </div>
       </div>
+      <p>
+        <Link href="/content-moderation/failed-recordings">
+          Failed ranked recordings
+        </Link>
+      </p>
       {query.notice ? (
         <p role="status" className="notice notice-ok">
           {contentModerationNoticeText(query.notice)}

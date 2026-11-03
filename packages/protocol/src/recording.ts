@@ -48,6 +48,16 @@ const coverageGapSchema = z.strictObject({
   ]),
 });
 
+/**
+ * Debate the video never reached, so no offset can name it: before its first frame
+ * or after its last. `broadcast_stopped` is the rest of a Round an operator stopped.
+ */
+const unrecordedSchema = z.strictObject({
+  part: z.enum(['start', 'end']),
+  durationMs: z.int().positive(),
+  reason: z.enum(['late_start', 'ended_early', 'broadcast_stopped']),
+});
+
 /** One accepted turn at the floor, in video time. */
 const speechSchema = z.strictObject({
   roundParticipantId: idSchema,
@@ -94,6 +104,8 @@ export const recordingMediaSchema = z.strictObject({
   byteSize: z.int().positive(),
   verifiedAt: at,
   gaps: z.array(coverageGapSchema).max(10_000),
+  /** Absent when the video reaches the whole debate. */
+  unrecorded: z.array(unrecordedSchema).max(2).optional(),
   speeches: z.array(speechSchema).max(100_000),
 });
 export type RecordingMedia = z.infer<typeof recordingMediaSchema>;
@@ -105,10 +117,26 @@ export const recordingFailureReasons = [
   'verification_failed',
 ] as const;
 
+/** Why moderation hid a Recording: closed, so it can hold nothing personal. */
+export const recordingTakedownReasons = [
+  'policy_violation',
+  'legal_request',
+  'participant_safety',
+] as const;
+
+/** The legal ground for removing a Recording whatever holds it: closed the same way. */
+export const recordingLegalRemovalReasons = [
+  'court_order',
+  'statutory_obligation',
+  'data_subject_right',
+] as const;
+
 /** Who asked for the whole Recording to go. */
 export const recordingRemovalCauses = [
   'participant_request',
   'moderation',
+  /** Some content must go whatever an evidence hold says: an operator's legal removal. */
+  'legal_removal',
   'failed_capture_cleanup',
 ] as const;
 export type RecordingRemovalCause = (typeof recordingRemovalCauses)[number];
@@ -131,6 +159,8 @@ export const recordingLifecycleSchema = z.discriminatedUnion('status', [
     status: z.literal('failed'),
     reason: z.enum(recordingFailureReasons),
     failedAt: at,
+    /** Kept when a finished capture's build failed: what a rebuild goes back to. */
+    capture: endedCaptureSchema.optional(),
   }),
   /**
    * Hidden from everyone at once. The objects stay as evidence until moderation
@@ -139,7 +169,14 @@ export const recordingLifecycleSchema = z.discriminatedUnion('status', [
   z.strictObject({
     status: z.literal('taken_down'),
     takenDownAt: at,
+    reason: z.enum(recordingTakedownReasons).optional(),
     held: readySchema.nullable(),
+    /**
+     * A subject's erasure that an open report is holding back (ADR 0107). It is
+     * paid when the report closes, at `heldUntil` at the latest, and rules out a
+     * restore.
+     */
+    removalOwed: z.strictObject({ requestedAt: at, heldUntil: at }).optional(),
   }),
   /** The durable deletion intent: it outlives the process that asked. */
   z.strictObject({
@@ -156,6 +193,9 @@ export const recordingLifecycleSchema = z.discriminatedUnion('status', [
 ]);
 export type RecordingLifecycle = z.infer<typeof recordingLifecycleSchema>;
 
+/** How long an open report can hold a taken-down casual Recording past erasure. */
+export const RECORDING_EVIDENCE_HOLD_MS = 90 * 24 * 60 * 60 * 1000;
+
 /** Every held object of an attempt sits here, whichever Egress wrote it. */
 export const recordingHoldPrefix = (
   recordingId: string,
@@ -170,3 +210,14 @@ export const holdAttemptPrefix = (
   holdPrefix: string,
   attempt: number,
 ): string => `${holdPrefix}${attempt}/`;
+
+/**
+ * Moderation hid or removed this Recording, so the audience gets nothing of its
+ * Round's footage or text. A participant's removal or a cleanup is no such decision.
+ */
+export const recordingHiddenByModeration = (
+  lifecycle: RecordingLifecycle,
+): boolean =>
+  lifecycle.status === 'taken_down' ||
+  ((lifecycle.status === 'removing' || lifecycle.status === 'removed') &&
+    (lifecycle.cause === 'moderation' || lifecycle.cause === 'legal_removal'));

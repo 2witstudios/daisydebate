@@ -136,7 +136,7 @@ capabilities:
 **Moderation capabilities (WATCH-7).** Seven more closed capabilities, each
 decided the same way and held only by the operator service: `report.queue.read`,
 `report.resolve`, `broadcast.stop`, `broadcast.chat_slow_mode.update`,
-`recording.takedown`, `chat_message.remove` and `account.audience_ban.update`.
+`recording.takedown`, `recording.restore`, `recording.remove`, `recording.legal_remove`, `recording.rebuild`, `chat_message.remove` and `account.audience_ban.update`.
 Each has its own typed route under `/operator/v1`, and its store checks that its
 target exists. A stop and a takedown take away listing and delivery within
 `MODERATION_DELIVERY_BOUND_MS` (60 s, DEC-303). With these, the scope does hold

@@ -1,5 +1,6 @@
 import {
   debateSides,
+  recordingPreparationOf,
   type BroadcastStanding,
   type DebateSide,
   type SpectatorTimeline,
@@ -159,9 +160,24 @@ const recordingOf = (
     case 'capturing':
     case 'processing':
       return 'processing';
+    case 'failed':
+      return 'failed';
     default:
       return 'none';
   }
+};
+
+/** Only a Recording this audience may know of as `processing` says how far it is. */
+const preparationOf = (read: SpectatorTimelineRead, nowMs: number) => {
+  const preparation =
+    read.recordingLifecycle !== null && recordingOf(read) === 'processing'
+      ? recordingPreparationOf(
+          read.recordingLifecycle,
+          read.recordingJob,
+          nowMs,
+        )
+      : null;
+  return preparation ? { recordingPreparation: preparation } : {};
 };
 
 /** The resolution enters the timeline with the Round's start, never before. */
@@ -213,6 +229,7 @@ export const projectSpectatorTimeline = (
   mode: read.round.competitionType,
   broadcast: standingOf(read, context),
   recording: recordingOf(read),
+  ...preparationOf(read, context.nowMs),
   resolution: resolutionOf(read),
   seats: read.seats.flatMap((seat) =>
     sideOf(seat.side).map((side) => ({

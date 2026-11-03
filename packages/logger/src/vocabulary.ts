@@ -59,6 +59,8 @@ export const eventRegistry = {
   'broadcast.release_failed': 'error',
   'broadcast.withdrawal_failed': 'error',
   'recording.processing_failed': 'error',
+  'recording.processing_delayed': 'error',
+  'recording.build_ceiling_exceeded': 'error',
   'recording.processing_gave_up': 'error',
   'recording.source_discard_failed': 'error',
   'recording.capture_failed': 'error',

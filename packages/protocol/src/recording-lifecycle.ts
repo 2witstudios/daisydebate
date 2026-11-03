@@ -4,7 +4,8 @@ import type {
   RecordingMedia,
   RecordingRemovalCause,
   RecordingSource,
-} from '@daisy/protocol';
+  recordingTakedownReasons,
+} from './recording';
 
 /** Every object of a Recording sits here, so the whole of it can be deleted. */
 export const recordingObjectPrefix = (recordingId: string): string =>
@@ -28,20 +29,33 @@ export type RecordingEvent =
       >['reason'];
       readonly at: string;
     }
-  | { readonly type: 'taken_down'; readonly at: string }
+  | {
+      readonly type: 'taken_down';
+      readonly at: string;
+      readonly reason: (typeof recordingTakedownReasons)[number];
+    }
+  | { readonly type: 'rebuild_requested' }
   | { readonly type: 'restored' }
   | {
       readonly type: 'removal_requested';
       readonly cause: RecordingRemovalCause;
       readonly at: string;
+      /**
+       * Set when an open report holds a taken-down casual Recording as evidence:
+       * the removal is owed, and waits until then at the latest.
+       */
+      readonly evidenceHeldUntil?: string;
     }
+  | { readonly type: 'evidence_hold_ended' }
   | { readonly type: 'objects_gone'; readonly at: string };
 
-export type RecordingRefusal =
+type RecordingRefusal =
   | 'ranked_is_kept'
   | 'different_capture'
   | 'foreign_object'
   | 'not_restorable'
+  | 'not_rebuildable'
+  | 'evidence_held'
   | 'out_of_order';
 
 /** Repeating a settled event changes nothing, so a retry cannot duplicate one. */
@@ -145,7 +159,14 @@ const failed = (
   event: Extract<RecordingEvent, { type: 'failed' }>,
 ): RecordingTransition => {
   if (lifecycle.status === 'failed') return unchanged;
-  return ['requested', 'capturing', 'processing'].includes(lifecycle.status)
+  if (lifecycle.status === 'processing')
+    return moved({
+      status: 'failed',
+      reason: event.reason,
+      failedAt: event.at,
+      capture: lifecycle.capture,
+    });
+  return lifecycle.status === 'requested' || lifecycle.status === 'capturing'
     ? moved({ status: 'failed', reason: event.reason, failedAt: event.at })
     : refused('out_of_order');
 };
@@ -160,14 +181,40 @@ const takenDown = (
   return moved({
     status: 'taken_down',
     takenDownAt: event.at,
+    reason: event.reason,
     held: lifecycle.status === 'ready' ? lifecycle : null,
   });
 };
 
+/** A subject asked for this to go while it was held, so it never comes back. */
 const restored = ({ lifecycle }: Subject): RecordingTransition => {
   if (lifecycle.status === 'ready') return unchanged;
   if (lifecycle.status !== 'taken_down') return refused('out_of_order');
-  return lifecycle.held ? moved(lifecycle.held) : refused('not_restorable');
+  return lifecycle.held && !lifecycle.removalOwed
+    ? moved(lifecycle.held)
+    : refused('not_restorable');
+};
+
+/** Only ranked is kept for this: a failed casual Recording is cleaned up instead. */
+const rebuildRequested = (subject: Subject): RecordingTransition => {
+  const { lifecycle } = subject;
+  if (lifecycle.status === 'processing') return unchanged;
+  if (lifecycle.status !== 'failed') return refused('out_of_order');
+  return subject.class === 'ranked' && lifecycle.capture
+    ? moved({ status: 'processing', capture: lifecycle.capture })
+    : refused('not_rebuildable');
+};
+
+const evidenceHoldEnded = ({ lifecycle }: Subject): RecordingTransition => {
+  if (lifecycle.status === 'removing' || lifecycle.status === 'removed')
+    return unchanged;
+  return lifecycle.status === 'taken_down' && lifecycle.removalOwed
+    ? moved({
+        status: 'removing',
+        cause: 'participant_request',
+        requestedAt: lifecycle.removalOwed.requestedAt,
+      })
+    : refused('out_of_order');
 };
 
 const removalRequested = (
@@ -179,6 +226,27 @@ const removalRequested = (
     return refused('ranked_is_kept');
   if (lifecycle.status === 'removing' || lifecycle.status === 'removed')
     return unchanged;
+  // Only a legal removal outruns an owed erasure's hold.
+  if (
+    lifecycle.status === 'taken_down' &&
+    lifecycle.removalOwed &&
+    event.cause === 'moderation'
+  )
+    return refused('evidence_held');
+  if (
+    lifecycle.status === 'taken_down' &&
+    event.cause === 'participant_request' &&
+    event.evidenceHeldUntil !== undefined
+  )
+    return lifecycle.removalOwed
+      ? unchanged
+      : moved({
+          ...lifecycle,
+          removalOwed: {
+            requestedAt: event.at,
+            heldUntil: event.evidenceHeldUntil,
+          },
+        });
   return moved({
     status: 'removing',
     cause: event.cause,
@@ -221,6 +289,10 @@ export const transitionRecording = (
       return restored(subject);
     case 'removal_requested':
       return removalRequested(subject, event);
+    case 'rebuild_requested':
+      return rebuildRequested(subject);
+    case 'evidence_hold_ended':
+      return evidenceHoldEnded(subject);
     case 'objects_gone':
       return objectsGone(subject, event);
   }

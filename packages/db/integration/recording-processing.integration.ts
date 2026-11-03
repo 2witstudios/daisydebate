@@ -142,6 +142,7 @@ test('a job is claimable once capture ended, by one worker at a time', async () 
       recordingId: id,
       attemptCount: 2,
       publicIntervals: [],
+      ceilingMs: 60_000,
     });
     const claims = await Promise.all(
       Array.from({ length: 6 }, (_, n) => claimAt(worker, `w${n}`, FUTURE)),
@@ -159,7 +160,12 @@ test('a job is claimable once capture ended, by one worker at a time', async () 
       expected: [
         1,
         'hold/b/',
-        { status: 'queued', attemptCount: 2, publicIntervals: [] },
+        {
+          status: 'queued',
+          attemptCount: 2,
+          ceilingMs: 60_000,
+          publicIntervals: [],
+        },
         1,
       ],
     });
@@ -174,6 +180,7 @@ test('a slower former owner can write nothing', async () => {
       recordingId: id,
       attemptCount: 1,
       publicIntervals: [],
+      ceilingMs: 60_000,
     });
     const first = await claimAt(worker, 'old', FUTURE);
     assert({
@@ -245,6 +252,7 @@ test('a failed run comes due later and counts, and shutdown does not count', asy
       recordingId: id,
       attemptCount: 1,
       publicIntervals: [],
+      ceilingMs: 60_000,
     });
     await claimAt(worker, 'w', FUTURE);
     const failures = await worker.defer({
@@ -282,6 +290,113 @@ test('a failed run comes due later and counts, and shutdown does not count', asy
   });
 });
 
+test('a build reports how far it is, and only its current owner can say so', async () => {
+  await withStores(async ({ store, worker, newRecording }) => {
+    const { id } = await newRecording();
+    await store.openJob({ recordingId: id, holdPrefix: 'hold/b/' });
+    await store.queueJob({
+      recordingId: id,
+      attemptCount: 1,
+      ceilingMs: 60_000,
+    });
+    const job = await claimAt(worker, 'w', FUTURE);
+    const progress = { step: 'encoding', done: 1000, total: 2000 } as const;
+    await worker.recordProgress({
+      recordingId: id,
+      owner: 'w',
+      epoch: job!.leaseEpoch,
+      progress,
+    });
+    await worker.recordProgress({
+      recordingId: id,
+      owner: 'old',
+      epoch: job!.leaseEpoch - 1,
+      progress: { ...progress, done: 1 },
+    });
+    assert({
+      given: 'its owner reporting, and a former owner reporting after',
+      should: 'keep the owner\u2019s figures, on the state the web reads',
+      actual: await store.readJobState(id),
+      expected: {
+        status: 'queued',
+        attemptCount: 1,
+        ceilingMs: 60_000,
+        publicIntervals: [],
+        progress,
+      },
+    });
+    await worker.defer({
+      recordingId: id,
+      owner: 'w',
+      epoch: job!.leaseEpoch,
+      retryAt: later(FUTURE),
+      failed: true,
+    });
+    assert({
+      given: 'a run that failed and waits for its retry',
+      should: 'not keep showing figures no run is at',
+      actual: await store.readJobState(id),
+      expected: {
+        status: 'queued',
+        attemptCount: 1,
+        ceilingMs: 60_000,
+        publicIntervals: [],
+      },
+    });
+  });
+});
+
+test('a delay is alerted once, and failed ranked work is never cleaned on a timer', async () => {
+  await withStores(async ({ store, ops, newRecording, client }) => {
+    const { id } = await newRecording();
+    await store.openJob({ recordingId: id, holdPrefix: 'hold/b/' });
+    const capture = {
+      source: { kind: 'own_capture' as const },
+      startedAt: at,
+      attempts: [{ attempt: 1, egressId: 'EG', startedAt: at }],
+      endedAt: at,
+    };
+    await ops.applyRecording(id, () => ({
+      kind: 'moved',
+      next: { status: 'processing', capture },
+    }));
+    const listed = async () =>
+      (await store.listProcessingUnalerted(500)).some((row) => row.id === id);
+    const alert = () =>
+      store.markDelayAlerted({ recordingId: id, at: later(FUTURE) });
+    assert({
+      given: 'a processing Recording, alerted, then alerted again',
+      should: 'list it until told, and let one caller raise it',
+      actual: [await listed(), await alert(), await alert(), await listed()],
+      expected: [true, true, false, false],
+    });
+    await ops.applyRecording(id, () => ({
+      kind: 'moved',
+      next: { status: 'failed', reason: 'processing_failed', failedAt: at },
+    }));
+    const old = async () =>
+      (
+        await ops.listFailedRecordingsBefore({
+          before: new Date(FUTURE * 2).toISOString(),
+          limit: 500,
+        })
+      ).includes(id);
+    assert({
+      given: 'an old failed casual Recording',
+      should: 'come up for cleanup',
+      actual: await old(),
+      expected: true,
+    });
+    await client`update recordings set recording_class='ranked', eligibility=${{ kind: 'ranked' }} where id=${id}`;
+    assert({
+      given: 'the same as a ranked Recording',
+      should: 'never come up: ranked is kept forever',
+      actual: await old(),
+      expected: false,
+    });
+  });
+});
+
 test('discarding fences a running build and is claimable itself', async () => {
   await withStores(async ({ store, worker, newRecording }) => {
     const { id } = await newRecording();
@@ -290,6 +405,7 @@ test('discarding fences a running build and is claimable itself', async () => {
       recordingId: id,
       attemptCount: 1,
       publicIntervals: [],
+      ceilingMs: 60_000,
     });
     await claimAt(worker, 'builder', FUTURE);
     await store.discardSources(id);
@@ -402,6 +518,7 @@ test('the web sees only jobs it can answer, and what still uses their sources', 
       recordingId: id,
       attemptCount: 1,
       publicIntervals: [],
+      ceilingMs: 60_000,
     });
     assert({
       given: 'a queued job while processing',
@@ -421,6 +538,7 @@ test('a queued build carries the intervals it is given', async () => {
       recordingId: id,
       attemptCount: 1,
       publicIntervals: intervals,
+      ceilingMs: 60_000,
     });
     const [job] = await db
       .select({ state: recordingProcessingJobs.state })

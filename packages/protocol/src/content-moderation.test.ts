@@ -124,6 +124,10 @@ describe('Operator moderation commands', () => {
         'broadcast.stop',
         'chat_message.remove',
         'content_report.resolve',
+        'recording.legal_remove',
+        'recording.rebuild',
+        'recording.remove',
+        'recording.restore',
         'recording.takedown',
       ],
     });

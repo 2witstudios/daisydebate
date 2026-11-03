@@ -3,6 +3,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { recordingRoundReadOperations } from '../src/recording-round-reads';
 import { withFixture } from './constraint-helpers';
 import {
   mediaTestHuman,
@@ -114,6 +116,15 @@ for (const failure of [
             true,
             1,
           ],
+        });
+        const facts = await recordingRoundReadOperations({
+          database: drizzle({ client: f.sql }),
+        }).readRecordingCoverageFacts(roundId);
+        assert({
+          given: `${failure} proof condition, read as Recording reads it`,
+          should: 'record a rotation exactly when the room moved',
+          actual: facts.rotationsAtMs.length,
+          expected: rotated ? 1 : 0,
         });
         await assertRejects({
           given: 'the revoked human after reconciliation',

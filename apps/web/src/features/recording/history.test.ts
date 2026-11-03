@@ -14,6 +14,7 @@ import {
   type HistoryInputs,
   type HistoryRound,
 } from './history';
+import type { RecordingJobState } from '@daisy/protocol';
 
 setupRitewayBun();
 
@@ -68,6 +69,8 @@ const open = (
     round?: Partial<HistoryRound>;
     release?: BroadcastRelease;
     lifecycle?: RecordingLifecycle | null;
+    job?: RecordingJobState | null;
+    nowMs?: number;
     recordingClass?: 'ranked' | 'casual';
     subscribed?: boolean;
     transcript?: HistoryInputs['readTranscript'];
@@ -94,6 +97,8 @@ const open = (
       return ballots;
     },
     holdsRecordingDownload: async () => over.subscribed ?? false,
+    readJobState: async () => over.job ?? null,
+    nowMs: () => over.nowMs ?? Date.parse(at),
     findRecordingByRound: async () =>
       over.lifecycle === null
         ? null
@@ -312,6 +317,78 @@ describe('permissions', () => {
       should: 'offer download only to the subscriber and removal to nobody',
       actual: [free.downloadHref, paid.downloadHref, rankedSeat.removal],
       expected: [null, '/api/recordings/rec/download', null],
+    });
+  });
+});
+
+describe('after moderation hides a Recording', () => {
+  const ranked = { competitionType: 'ranked' } as const;
+  const hidden: RecordingLifecycle = {
+    status: 'taken_down',
+    takenDownAt: at,
+    reason: 'policy_violation',
+    held: null,
+  };
+  const screen = async (
+    viewer: RecordingViewer,
+    lifecycle: RecordingLifecycle,
+  ) => {
+    const shown = await history({ round: ranked, lifecycle, viewer });
+    return shown.transcript !== null;
+  };
+
+  test('the audience gets no transcript, on the page either', async () => {
+    assert({
+      given: 'a stranger on a ranked Round whose Recording was taken down',
+      should: 'hide the transcript',
+      actual: await screen(account('stranger'), hidden),
+      expected: false,
+    });
+    assert({
+      given: 'a visitor on the same',
+      should: 'hide it too',
+      actual: await screen(visitor, hidden),
+      expected: false,
+    });
+    assert({
+      given: 'a moderation removal, and a legal one',
+      should: 'stay hidden after the takedown moves on',
+      actual: [
+        await screen(visitor, {
+          status: 'removing',
+          cause: 'moderation',
+          requestedAt: at,
+        }),
+        await screen(visitor, {
+          status: 'removed',
+          cause: 'legal_removal',
+          requestedAt: at,
+          removedAt: at,
+        }),
+      ],
+      expected: [false, false],
+    });
+  });
+
+  test('a seated member keeps their record, and nothing else hides it', async () => {
+    assert({
+      given: 'a debater in that Round',
+      should: 'still read the transcript',
+      actual: await screen(account('aff'), hidden),
+      expected: true,
+    });
+    assert({
+      given: 'the audience on a ready Recording, and a failed cleanup',
+      should: 'still read it: no moderator decided anything',
+      actual: [
+        await screen(visitor, ready),
+        await screen(visitor, {
+          status: 'removing',
+          cause: 'failed_capture_cleanup',
+          requestedAt: at,
+        }),
+      ],
+      expected: [true, true],
     });
   });
 });

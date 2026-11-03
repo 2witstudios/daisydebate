@@ -19,8 +19,9 @@ reads the Round, the Broadcast watermark and the floor intervals as named, read-
 inputs, and takes the download entitlement from WATCH-8 the same way.
 
 **State is one value.** `recordingLifecycleSchema` is a discriminated union, so ready
-without media or removed with media cannot be represented. `transitionRecording` is
-the only place it changes: pure and total. A repeat is `unchanged` and an out-of-order
+without media or removed with media cannot be represented. `transitionRecording`, beside
+it in `@daisy/protocol` so the feature and the store share it, is the only place it
+changes: pure and total, run under the row lock by `moveRecording`, the one writer. A repeat is `unchanged` and an out-of-order
 report is `refused`, so a crash or an ambiguous vendor answer is resolved by reporting
 again. `ready` is reachable only from verified media.
 
@@ -39,12 +40,27 @@ media redirects to a read signed for 60 seconds. Nothing in the bucket is public
 
 **Removal.** A participant removes a casual Recording, whole; the transition refuses
 ranked. Erasure counts as that request for every casual Recording the member sits in,
-and never touches ranked. `removing` is a durable intent held on the row, carried out
+and never touches ranked. A casual Recording already taken down, with an open report on
+it or its Round, survives erasure, hidden, with the removal owed on its lifecycle: it goes
+when the report closes or 90 days pass. Until then it cannot be restored, and moderation
+cannot remove it, with one exception: `recording.legal_remove`, an operator's removal with
+a required closed legal ground, written to the admin audit chain, because some content must
+be removable whatever a hold says (point guard, 2026-11-03). `removing` is a durable intent held on the row, carried out
 by a bounded, idempotent sweep that ends only when the prefix lists empty.
 
 **Takedown is not deletion.** It hides at once and keeps the objects, because ranked
 video is the evidence behind disputes and integrity review. Moderation removes them as
-a separate decision, and can restore a Recording taken down while ready.
+a separate decision, and can restore a Recording taken down while ready. The takedown's
+closed reason is stored on the Recording for the operator; the audience never reads it. Each is an
+operator command in the admin app (`recording.takedown`, `recording.restore`,
+`recording.remove`) naming the version the operator read, so a changed Recording is looked
+at again. A takedown also ends the feed of the Round's open Broadcast in the same
+transaction; a restore does not start it again. Listing and delivery are gone within
+`CONTENT_MODERATION_DELIVERY_BOUND_MS`: a signed read lasts no longer than it, and a stop
+reaching a Broadcast that already completed asks for its feed at once instead of waiting
+out the grace (`feed_withdrawal_requested_at`, read by `claimFeedWithdrawal`). A ranked Round
+leaves the archive with its Recording, and for the audience its transcript leaves the
+Recording page too. A member seated in the Round keeps their own record.
 
 **Downloads.** A subscriber may download any Recording they may watch and no other,
 through a link signed for 60 seconds, rate limited. It is one whole-video file kept
@@ -55,6 +71,37 @@ Recording's capture is an ordered list of attempts. Each attempt is timed from i
 held playlist, and video time follows real time: the stretch between two attempts is that
 long a stretch of slate, in the HLS and in the download, and is listed in `media.gaps`. A
 Recording never pretends to be continuous. A speech marker claims nothing inside a gap.
+
+**Coverage is stated against the Round's own record.** When media is verified, the capture
+port adds to the worker's restarts what the Round's segments, prep and media room rotations
+say the video shows as something else (`coverageStatement`): a private phase, which is the
+stage's slate, and a room rotation, stated at an estimated 5 seconds because no one records
+its end. Debate before the first frame or after the last has no place in video time, so
+`media.unrecorded` states it apart: a late start, an early end, or a stopped Broadcast. The
+worker reads none of this: its login reaches its job table and nothing else.
+
+**Preparation says how far it really is.** A running build writes its figures on its own
+job row, in each step's units: attempts read, milliseconds encoded as ffmpeg counts them,
+files uploaded. There is no percentage of the whole, because nothing measures one. The
+viewer and the Recording page read that, fenced to the lease's current owner.
+`recordingProcessingBoundMs` is half the media's length plus five minutes, from the
+capture's end. Past it an operator is alerted once, viewers are told it is delayed, and it
+keeps retrying: a timer never fails or discards a Recording, and a ranked Recording is kept
+forever (point guard, 2026-11-03). `failed` means the retries ran out, with an alert.
+A failed ranked Recording keeps its capture and its sources; no sweep removes them, and an
+operator can rebuild it (`recording.rebuild`), from a report or the failed recordings page.
+A run past three times the bound (`recordingBuildCeilingMs`, sized by the web, since the
+worker reads only its job) is stopped and counted as a failed attempt, which retries, and
+`recording.build_ceiling_exceeded` is raised. Nothing is discarded. The bound counts queue
+wait, because that is what a viewer waits through; the ceiling counts one run.
+
+**What persists.** The manifest is the composited one, and only a Recording's current state,
+its version and operator receipts persist; there is no per-track manifest and no transition
+history (point guard, 2026-11-03).
+
+**Polling is the mechanism.** The capture sweep reads each Egress from LiveKit on every
+pass, so a lost, forged, duplicated or reordered webhook cannot change anything. Webhooks
+are at most hints, and no receiver is needed (point guard, 2026-11-03).
 
 **Two capture paths, one job.** A Round with a Broadcast reads that Broadcast's Egress. A
 casual Recording with no Broadcast runs its own, in `recording_captures`, and obeys the
@@ -75,9 +122,6 @@ no Broadcast or Egress can still read them.
 - Capture and processing call `RecordingCapturePort`. They do not write the table.
 - The job row exists from the first attempt, so a removal mid-capture still reaches what
   the capture left in the hold bucket, and `removed` waits for it.
-- Only capture restarts are recorded as gaps. A private phase is the stage's slate, in the
-  video; naming it in `media.gaps` needs a durable record of revocations, which no one
-  keeps today.
 - A Broadcast stopped before its watermark passes the Round's end holds the Recording
   back from the audience. Releasing it then is a moderation decision not yet built.
 - Reads authorize per request, one indexed read per media segment. Replay load is

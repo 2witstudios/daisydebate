@@ -4,9 +4,11 @@ import type {
   CompetitionType,
   RecordingLifecycle,
   RecordingSource,
+  RecordingEvent,
 } from '@daisy/protocol';
+import { transitionRecording } from '@daisy/protocol';
+import { coverageStatement } from './coverage-statement';
 import { captureEligibility } from './eligibility';
-import { transitionRecording, type RecordingEvent } from './lifecycle';
 import type { RecordingInputs, RecordingRecord, RecordingStore } from './ports';
 import { speechTimeline } from './speech-timeline';
 
@@ -63,7 +65,10 @@ export const createRecordingCapturePort = ({
   nextId,
 }: {
   readonly store: RecordingStore;
-  readonly inputs: Pick<RecordingInputs, 'readFloorIntervals'>;
+  readonly inputs: Pick<
+    RecordingInputs,
+    'readFloorIntervals' | 'readCoverageFacts' | 'readBroadcastRelease'
+  >;
   readonly nextId: () => string;
 }): RecordingCapturePort => {
   const report = async (
@@ -94,17 +99,35 @@ export const createRecordingCapturePort = ({
     mediaVerified: async (recordingId, media) => {
       const record = await store.find(recordingId);
       if (record === null) throw createAppError('NOT_FOUND');
-      const speeches =
-        record.lifecycle.status === 'processing'
-          ? speechTimeline(await inputs.readFloorIntervals(record.roundId), {
-              startedAtMs: Date.parse(media.capturedFrom),
-              durationMs: media.durationMs,
-              gaps: media.gaps,
-            })
-          : [];
+      // Only a Recording still processing can use this: a report that will be
+      // refused or repeated reads nothing of the Round.
+      if (record.lifecycle.status !== 'processing')
+        return report(recordingId, {
+          type: 'media_verified',
+          media: { ...media, speeches: [] },
+        });
+      const capture = {
+        startedAtMs: Date.parse(media.capturedFrom),
+        durationMs: media.durationMs,
+      };
+      const { gaps, unrecorded } = coverageStatement({
+        facts: await inputs.readCoverageFacts(record.roundId),
+        capture: { ...capture, restartGaps: media.gaps },
+        broadcastStopped: (await inputs.readBroadcastRelease(record.roundId))
+          .stopped,
+      });
+      const speeches = speechTimeline(
+        await inputs.readFloorIntervals(record.roundId),
+        { ...capture, gaps },
+      );
       return report(recordingId, {
         type: 'media_verified',
-        media: { ...media, speeches: [...speeches] },
+        media: {
+          ...media,
+          gaps: [...gaps],
+          ...(unrecorded.length > 0 ? { unrecorded: [...unrecorded] } : {}),
+          speeches: [...speeches],
+        },
       });
     },
     failed: (recordingId, { reason, at }) =>

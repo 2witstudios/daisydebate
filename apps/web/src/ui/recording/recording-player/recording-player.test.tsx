@@ -12,6 +12,7 @@ const media: Extract<RecordingMediaPanel, { state: 'watch' }> = {
   playlistHref: '/api/recordings/rec/playback/master.m3u8',
   durationMs: 600_000,
   gaps: [],
+  unrecorded: [],
   speeches: [],
 };
 const render = (over: Partial<typeof media> = {}) =>
@@ -47,6 +48,49 @@ describe('RecordingPlayer', () => {
         gaps: [{ startMs: 60_000, endMs: 90_000, reason: 'capture_restart' }],
       }).includes('1:00 to 1:30: recording stopped and restarted'),
       expected: true,
+    });
+    const said = (over: Parameters<typeof render>[0]) =>
+      render(over).replaceAll('&#x27;', "'");
+    assert({
+      given: 'each kind of stretch the video shows as something else',
+      should: 'name it plainly',
+      actual: [
+        said({
+          gaps: [{ startMs: 0, endMs: 5000, reason: 'private_phase' }],
+        }).includes('0:00 to 0:05: a private part of the debate'),
+        said({
+          gaps: [{ startMs: 60_000, endMs: 65_000, reason: 'room_rotation' }],
+        }).includes('1:00 to 1:05: the room changed over'),
+      ],
+      expected: [true, true],
+    });
+    assert({
+      given: 'debate before and after the video',
+      should: 'say how much is missing and why, with no gap in sight',
+      actual: [
+        said({
+          unrecorded: [
+            { part: 'start', durationMs: 30_000, reason: 'late_start' },
+          ],
+        }).includes(
+          'The first 0:30 of the debate is not in this video: recording started late',
+        ),
+        said({
+          unrecorded: [
+            { part: 'end', durationMs: 90_000, reason: 'ended_early' },
+          ],
+        }).includes(
+          'The last 1:30 of the debate is not in this video: recording ended early',
+        ),
+        said({
+          unrecorded: [
+            { part: 'end', durationMs: 60_000, reason: 'broadcast_stopped' },
+          ],
+        }).includes(
+          'The last 1:00 of the debate is not in this video: the broadcast was stopped',
+        ),
+      ],
+      expected: [true, true, true],
     });
   });
   test('lists the speech timeline as controls that seek', () => {

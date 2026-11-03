@@ -1,3 +1,4 @@
+import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
 import { requireTestServices } from '@daisy/config';
 import { createRecordingWorkerStore } from '@daisy/db/recording-worker';
 import { broadcastPhase, createRoundRuntime } from '@daisy/debate-engine';
@@ -47,7 +48,15 @@ const setup = async (f: Harness, capture: { readonly broadcast: boolean }) => {
   const port = createRecordingCapturePort({
     store,
     nextId: createId,
-    inputs: { readFloorIntervals: database.readRecordingFloorIntervals },
+    inputs: {
+      readFloorIntervals: database.readRecordingFloorIntervals,
+      readCoverageFacts: database.readRecordingCoverageFacts,
+      readBroadcastRelease: (roundId) =>
+        database.readRecordingBroadcastRelease(
+          roundId,
+          spectatorClockAt(new Date().toISOString()),
+        ),
+    },
   });
   let nowMs = T0;
   let started = 0;
@@ -185,7 +194,13 @@ test('a Broadcast with a crash becomes one Recording spanning both attempts', as
         expected: [
           record?.id,
           `hold/${broadcastId}/`,
-          { status: 'queued', attemptCount: 2, publicIntervals: [] },
+          // A 60 s capture: its bound is 5.5 minutes, so one run may take 16.5.
+          {
+            status: 'queued',
+            attemptCount: 2,
+            ceilingMs: 990_000,
+            publicIntervals: [],
+          },
         ],
       });
 

@@ -20,6 +20,37 @@ describe('runDeletionSweep', () => {
   const settledAt = new Date(nowMs - REMOVAL_SETTLE_MS).toISOString();
   const keys = [`${prefix}video.mp4`, `${prefix}hls/master.m3u8`];
 
+  test('an evidence hold that ended pays the removal it owed', async () => {
+    const owed: RecordingLifecycle = {
+      status: 'taken_down',
+      takenDownAt: at,
+      held: null,
+      removalOwed: { requestedAt: at, heldUntil: at },
+    };
+    const { store, rows } = fakeRecordingStore(
+      [
+        record({ lifecycle: owed }),
+        record({ id: 'still', roundId: 'r2', lifecycle: owed }),
+      ],
+      { endedHolds: ['rec'] },
+    );
+    await runDeletionSweep({
+      store,
+      objects: fakeObjectStore().store,
+      owner: 'w',
+      nowMs,
+    });
+    assert({
+      given: 'one hold ended and one still running',
+      should: 'move only the ended one to removing',
+      actual: [
+        rows.get('rec')?.lifecycle.status,
+        rows.get('still')?.lifecycle.status,
+      ],
+      expected: ['removing', 'taken_down'],
+    });
+  });
+
   test('stays removing while its sources wait in the hold bucket', async () => {
     const { store, rows } = fakeRecordingStore(
       [record({ lifecycle: removing(settledAt) })],

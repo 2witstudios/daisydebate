@@ -1,10 +1,17 @@
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { contentModerationOperations } from '../src/content-moderation-operations';
-import { openBroadcast } from '../src/broadcast-operations';
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol';
+import {
+  claimFeedWithdrawal,
+  openBroadcast,
+} from '../src/broadcast-operations';
+import { recordingModeration } from '../src/recording-moderation';
+import { recordingOperations } from '../src/recording-operations';
 import { withFixture, type Fixture } from './constraint-helpers';
 
 setupRitewayBun();
@@ -295,12 +302,370 @@ test('a target that is not there answers not found and writes nothing', async ()
         await run({
           action: 'recording.takedown',
           recordingId: createId(),
+          expectedVersion: 1,
           reason: 'legal_request',
         }),
         await run({ action: 'chat_message.remove', messageId: createId() }),
       ],
       expected: ['NOT_FOUND', 'NOT_FOUND', 'NOT_FOUND', 'NOT_FOUND'],
     });
+  });
+});
+
+test('a Recording takedown ends the feed of its open Broadcast, and a stale one touches neither', async () => {
+  await withOps(async (_ops, f, client, roundId) => {
+    const ops = contentModerationOperations({
+      database: drizzle({ client }) as never,
+      recordings: recordingModeration,
+    });
+    const store = recordingOperations({ database: drizzle({ client }) });
+    await openBroadcast(drizzle({ client }), {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: { kind: 'delay', seconds: 60 },
+    });
+    const id = createId();
+    await store.requestRecording({
+      id,
+      roundId,
+      class: 'ranked',
+      eligibility: { kind: 'ranked' },
+    });
+    const stoppedAt = async () => {
+      const [row] = (await client`select stopped_at, stop_reason from broadcasts
+        where round_id=${roundId}`) as {
+        stopped_at: unknown;
+        stop_reason: string | null;
+      }[];
+      return row;
+    };
+    try {
+      const change = {
+        action: 'recording.takedown',
+        recordingId: id,
+        reason: 'legal_request',
+      };
+      await assertRejects({
+        given: 'a takedown at a version gone stale',
+        should: 'refuse',
+        code: 'CONFLICT',
+        actual: () =>
+          ops.runModerationCommand(
+            command({ ...change, expectedVersion: 9 } as never),
+          ),
+      });
+      assert({
+        given: 'the refused takedown',
+        should: 'write nothing: neither the Recording nor the feed',
+        actual: [
+          (await store.findRecording(id))?.lifecycle.status,
+          (await stoppedAt())?.stopped_at,
+        ],
+        expected: ['requested', null],
+      });
+      assert({
+        given: 'a takedown at the current version with the feed open',
+        should: 'apply, take the Recording down and stop the Broadcast',
+        actual: [
+          (
+            await ops.runModerationCommand(
+              command({ ...change, expectedVersion: 1 } as never),
+            )
+          ).outcome,
+          (await store.findRecording(id))?.lifecycle.status,
+          (await stoppedAt())?.stop_reason,
+        ],
+        expected: ['applied', 'taken_down', 'legal_request'],
+      });
+      assert({
+        given: 'the same takedown again from a fresh page',
+        should: 'change nothing',
+        actual: (
+          await ops.runModerationCommand(
+            command({ ...change, expectedVersion: 2 } as never),
+          )
+        ).outcome,
+        expected: 'unchanged',
+      });
+    } finally {
+      await client`delete from recordings where id=${id}`;
+    }
+  });
+});
+
+test('a takedown just after a Broadcast completed withdraws its feed now, not after the grace', async () => {
+  await withOps(async (_ops, _f, client, roundId) => {
+    const database = drizzle({ client });
+    const ops = contentModerationOperations({
+      database: database as never,
+      recordings: recordingModeration,
+    });
+    const store = recordingOperations({ database });
+    const broadcast = await openBroadcast(database, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: { kind: 'delay', seconds: 60 },
+    });
+    const id = createId();
+    await store.requestRecording({
+      id,
+      roundId,
+      class: 'ranked',
+      eligibility: { kind: 'ranked' },
+    });
+    const now = new Date();
+    await client`update broadcasts set completed_at=${now.toISOString()}::timestamptz,
+        final_media_end_at=${now.toISOString()}::timestamptz where id=${broadcast.id}`;
+    const claim = () =>
+      database.transaction((tx) =>
+        claimFeedWithdrawal(tx, {
+          owner: 'w',
+          now,
+          leaseUntil: new Date(now.getTime() + 30_000),
+          withdrawFinishedBefore: new Date(
+            now.getTime() - CONTENT_MODERATION_DELIVERY_BOUND_MS,
+          ),
+        }),
+      );
+    const claimedThis = async () => (await claim())?.id === broadcast.id;
+    try {
+      assert({
+        given: 'a Broadcast that completed this instant',
+        should: 'wait out its grace, as a finished feed does',
+        actual: await claimedThis(),
+        expected: false,
+      });
+      assert({
+        given: 'a takedown of its Recording',
+        should: 'apply, and not pretend the completed Broadcast was stopped',
+        actual: [
+          (
+            await ops.runModerationCommand(
+              command({
+                action: 'recording.takedown',
+                recordingId: id,
+                expectedVersion: 1,
+                reason: 'legal_request',
+              } as never),
+            )
+          ).outcome,
+          (
+            (await client`select stopped_at from broadcasts where id=${broadcast.id}`) as {
+              stopped_at: unknown;
+            }[]
+          )[0]?.stopped_at,
+        ],
+        expected: ['applied', null],
+      });
+      assert({
+        given: 'the very next poll of the withdrawal loop, the grace unspent',
+        should: 'claim the feed, so it goes within the delivery bound',
+        actual: await claimedThis(),
+        expected: true,
+      });
+      const stored = await store.findRecording(id);
+      assert({
+        given: 'the stored Recording',
+        should: 'keep the closed takedown reason',
+        actual:
+          stored?.lifecycle.status === 'taken_down'
+            ? stored.lifecycle.reason
+            : null,
+        expected: 'legal_request',
+      });
+    } finally {
+      await client`delete from recordings where id=${id}`;
+    }
+  });
+});
+
+test('a failed ranked Recording rebuilds, and an evidence hold yields only to a legal removal', async () => {
+  await withOps(async (_ops, f, client, roundId) => {
+    const database = drizzle({ client });
+    const ops = contentModerationOperations({
+      database: database as never,
+      recordings: recordingModeration,
+    });
+    const store = recordingOperations({ database });
+    const at = '2026-11-03T10:00:00.000Z';
+    const capture = {
+      source: { kind: 'own_capture' as const },
+      startedAt: at,
+      attempts: [{ attempt: 2, egressId: 'EG', startedAt: at }],
+      endedAt: '2026-11-03T11:20:00.000Z',
+    };
+    const make = async (round: string, recordingClass: 'ranked' | 'casual') => {
+      const id = createId();
+      await store.requestRecording({
+        id,
+        roundId: round,
+        class: recordingClass,
+        eligibility:
+          recordingClass === 'ranked'
+            ? { kind: 'ranked' }
+            : { kind: 'host_opt_in', hostActorId: 'a'.repeat(24) },
+      });
+      return id;
+    };
+    const run = (change: object) =>
+      ops.runModerationCommand(command(change as never));
+    const ranked = await make(roundId, 'ranked');
+    const held = await make(await f.round(), 'casual');
+    try {
+      await client`insert into recording_processing_jobs
+          (recording_id, hold_prefix, status, state, failures)
+        values (${ranked}, 'hold/r/', 'failed',
+          ${JSON.stringify({ status: 'failed', reason: 'processing_failed', failedAt: at })}::text::jsonb, 5)`;
+      await store.applyRecording(ranked, () => ({
+        kind: 'moved',
+        next: {
+          status: 'failed',
+          reason: 'processing_failed',
+          failedAt: at,
+          capture,
+        },
+      }));
+      assert({
+        given: 'the failed Recordings list',
+        should: 'offer the ranked one with its version',
+        actual: (await ops.listRebuildableRecordings()).find(
+          (item) => item.recordingId === ranked,
+        )?.version,
+        expected: 2,
+      });
+      await assertRejects({
+        given: 'a rebuild at a stale version',
+        should: 'refuse',
+        code: 'CONFLICT',
+        actual: () =>
+          run({
+            action: 'recording.rebuild',
+            recordingId: ranked,
+            expectedVersion: 1,
+          }),
+      });
+      assert({
+        given: 'a rebuild at the current version',
+        should: 'go back to processing and queue it afresh, for every attempt',
+        actual: [
+          (
+            await run({
+              action: 'recording.rebuild',
+              recordingId: ranked,
+              expectedVersion: 2,
+            })
+          ).outcome,
+          (await store.findRecording(ranked))?.lifecycle.status,
+          (
+            (await client`select status, failures, state from recording_processing_jobs
+              where recording_id=${ranked}`) as {
+              status: string;
+              failures: number;
+              state: unknown;
+            }[]
+          )[0],
+        ],
+        expected: [
+          'applied',
+          'processing',
+          {
+            status: 'queued',
+            failures: 0,
+            // 80 minutes: a 45 minute bound, so a 135 minute ceiling.
+            state: {
+              status: 'queued',
+              attemptCount: 2,
+              ceilingMs: 135 * 60_000,
+              publicIntervals: [],
+            },
+          },
+        ],
+      });
+
+      const noSources = await make(await f.round(), 'ranked');
+      await client`insert into recording_processing_jobs
+          (recording_id, hold_prefix, status, state)
+        values (${noSources}, 'hold/n/', 'settled',
+          ${JSON.stringify({ status: 'settled', settledAt: at })}::text::jsonb)`;
+      await store.applyRecording(noSources, () => ({
+        kind: 'moved',
+        next: {
+          status: 'failed',
+          reason: 'processing_failed',
+          failedAt: at,
+          capture,
+        },
+      }));
+      await assertRejects({
+        given: 'a rebuild whose sources are gone',
+        should: 'refuse',
+        code: 'CONFLICT',
+        actual: () =>
+          run({
+            action: 'recording.rebuild',
+            recordingId: noSources,
+            expectedVersion: 2,
+          }),
+      });
+      assert({
+        given: 'that refusal',
+        should: 'leave it failed, not processing with nothing to build',
+        actual: (await store.findRecording(noSources))?.lifecycle.status,
+        expected: 'failed',
+      });
+      await client`delete from recording_processing_jobs where recording_id=${noSources}`;
+      await client`delete from recordings where id=${noSources}`;
+
+      await store.applyRecording(held, () => ({
+        kind: 'moved',
+        next: {
+          status: 'taken_down',
+          takenDownAt: at,
+          reason: 'policy_violation',
+          held: null,
+          removalOwed: {
+            requestedAt: at,
+            heldUntil: '2027-02-01T10:00:00.000Z',
+          },
+        },
+      }));
+      await assertRejects({
+        given: 'an ordinary moderation removal of a Recording held as evidence',
+        should: 'refuse',
+        code: 'CONFLICT',
+        actual: () =>
+          run({
+            action: 'recording.remove',
+            recordingId: held,
+            expectedVersion: 2,
+          }),
+      });
+      assert({
+        given: 'a legal removal of the same',
+        should: 'go, whatever the hold says',
+        actual: [
+          (
+            await run({
+              action: 'recording.legal_remove',
+              recordingId: held,
+              expectedVersion: 2,
+              reason: 'court_order',
+            })
+          ).outcome,
+          (await store.findRecording(held))?.lifecycle,
+        ].map((value) =>
+          typeof value === 'object' && value !== null && 'cause' in value
+            ? value.cause
+            : value,
+        ),
+        expected: ['applied', 'legal_removal'],
+      });
+    } finally {
+      await client`delete from recording_processing_jobs where recording_id=${ranked}`;
+      await client`delete from recordings where id in (${ranked}, ${held})`;
+    }
   });
 });
 

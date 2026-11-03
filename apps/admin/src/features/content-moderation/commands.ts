@@ -7,6 +7,7 @@ import {
 import { findOperator } from '../../auth/store';
 import type { CommandDeps } from '../accounts/commands';
 import {
+  auditedIntent,
   auditedModeration,
   contentModerationCall,
   contentModerationNotice,
@@ -70,8 +71,7 @@ export async function submitModeration(
       operatorId,
       commandId,
       targetUserId,
-      // The action and its target id: closed, and names no person's content.
-      outcome: `${request.action}:${request.targetId}`,
+      outcome: auditedIntent(request),
       detail: null,
       at: deps.clock.now(),
     }),

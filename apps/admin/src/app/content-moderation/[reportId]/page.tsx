@@ -1,5 +1,6 @@
 import {
   broadcastStopReasons,
+  recordingLegalRemovalReasons,
   recordingTakedownReasons,
   type ContentModerationSubject,
 } from '@daisy/protocol/content-moderation';
@@ -41,6 +42,20 @@ function ActionForm({
       <input type="hidden" name="targetId" value={targetId} />
       {children}
     </form>
+  );
+}
+
+/** A command on a Recording names the version this page read. */
+function RecordingForm({
+  version,
+  children,
+  ...form
+}: Parameters<typeof ActionForm>[0] & { readonly version: number }) {
+  return (
+    <ActionForm {...form}>
+      <input type="hidden" name="expectedVersion" value={version} />
+      {children}
+    </ActionForm>
   );
 }
 
@@ -116,18 +131,57 @@ function SubjectActions({
           ) : null}
         </>
       );
-    case 'recording':
+    case 'recording': {
+      const recordingForm = {
+        ...form,
+        targetId: subject.recordingId,
+        commandId: nextId(),
+        version: subject.version,
+      };
       return (
-        <ActionForm
-          {...form}
-          action="recording.takedown"
-          targetId={subject.recordingId}
-          commandId={nextId()}
-        >
-          <ReasonSelect reasons={recordingTakedownReasons} />
-          <button type="submit">Take down recording</button>
-        </ActionForm>
+        <>
+          <p>Status: {subject.status}</p>
+          {subject.takedownReason ? (
+            <p>Taken down for: {subject.takedownReason}</p>
+          ) : null}
+          {subject.status === 'taken_down' && !subject.removable ? (
+            <p>
+              Held as evidence: a member asked for this to go while a report is
+              open. Only a legal removal can delete it before the hold ends.
+            </p>
+          ) : null}
+          {subject.restorable ? (
+            <RecordingForm {...recordingForm} action="recording.restore">
+              <button type="submit">Restore recording</button>
+            </RecordingForm>
+          ) : null}
+          {subject.rebuildable ? (
+            <RecordingForm {...recordingForm} action="recording.rebuild">
+              <button type="submit">Rebuild recording</button>
+            </RecordingForm>
+          ) : null}
+          {subject.status === 'taken_down' && subject.removable ? (
+            <RecordingForm {...recordingForm} action="recording.remove">
+              <button type="submit">Delete recording for good</button>
+            </RecordingForm>
+          ) : null}
+          {subject.status !== 'taken_down' &&
+          subject.status !== 'removing' &&
+          subject.status !== 'removed' ? (
+            <RecordingForm {...recordingForm} action="recording.takedown">
+              <ReasonSelect reasons={recordingTakedownReasons} />
+              <button type="submit">Take down recording</button>
+            </RecordingForm>
+          ) : null}
+          {subject.status !== 'removing' && subject.status !== 'removed' ? (
+            <RecordingForm {...recordingForm} action="recording.legal_remove">
+              <ReasonSelect reasons={recordingLegalRemovalReasons} />
+              <button type="submit">Remove for a legal reason</button>
+            </RecordingForm>
+          ) : null}
+        </>
       );
+    }
     case 'chat_message':
       return (
         <>

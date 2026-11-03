@@ -1,4 +1,4 @@
-import { recordingObjectPrefix, transitionRecording } from './lifecycle';
+import { recordingObjectPrefix, transitionRecording } from '@daisy/protocol';
 import type { RecordingObjectStore, RecordingStore } from './ports';
 
 const MINUTE_MS = 60_000;
@@ -50,6 +50,21 @@ const queueFailedCleanups = async (
   return ids.length;
 };
 
+/** Pays the removals an evidence hold owed, now the report closed or time ran out. */
+const payEndedEvidenceHolds = async (store: RecordingStore, nowMs: number) => {
+  const ids = await store.listEndedEvidenceHolds({
+    now: new Date(nowMs).toISOString(),
+    limit: DELETIONS_PER_RUN,
+  });
+  await Promise.all(
+    ids.map((id) =>
+      store.apply(id, (record) =>
+        transitionRecording(record, { type: 'evidence_hold_ended' }),
+      ),
+    ),
+  );
+};
+
 const settled = (requestedAt: string, nowMs: number): boolean =>
   nowMs - Date.parse(requestedAt) >= REMOVAL_SETTLE_MS;
 
@@ -67,6 +82,7 @@ export const runDeletionSweep = async (deps: {
 }): Promise<DeletionSweepResult> => {
   const { store, objects, nowMs } = deps;
   const failedCleanups = await queueFailedCleanups(store, nowMs);
+  await payEndedEvidenceHolds(store, nowMs);
   const claims = await store.claimDeletions({
     owner: deps.owner,
     now: new Date(nowMs).toISOString(),

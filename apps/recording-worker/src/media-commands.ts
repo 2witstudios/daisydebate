@@ -97,6 +97,15 @@ const SILENCE = 'anullsrc=channel_layout=stereo:sample_rate=48000';
  * whatever carries no audio. A gap is slate video of its real length, so a
  * download states it as plainly as the player does.
  */
+/** Machine-readable progress on stdout, so a long encode can say how far it is. */
+const FFMPEG_PROGRESS = ['-progress', 'pipe:1', '-nostats'] as const;
+
+/** How much video the newest `out_time_us` line in a piece of that output counts. */
+export const encodedMsOf = (text: string): number | null => {
+  const last = [...text.matchAll(/^out_time_us=(\d+)$/gm)].at(-1);
+  return last ? Math.floor(Number(last[1]) / 1000) : null;
+};
+
 export const joinTimelineArgs = (
   parts: readonly TimelinePart[],
   slatePath: string,
@@ -132,6 +141,7 @@ export const joinTimelineArgs = (
     '-y',
     '-loglevel',
     'error',
+    ...FFMPEG_PROGRESS,
     ...inputs,
     '-filter_complex',
     `${filters.join(';')};${labels.join('')}concat=n=${parts.length}:v=1:a=1[v][a]`,
@@ -164,6 +174,7 @@ export const hlsArgs = (
   '-y',
   '-loglevel',
   'error',
+  ...FFMPEG_PROGRESS,
   '-i',
   input,
   ...RECORDING_RENDITIONS.flatMap((r) => [

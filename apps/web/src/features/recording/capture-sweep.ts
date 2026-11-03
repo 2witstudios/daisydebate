@@ -7,6 +7,7 @@ import {
 import {
   holdAttemptPrefix,
   publicIntervals,
+  recordingBuildDelayed,
   recordingHoldPrefix,
   type BuiltRecordingMedia,
   type EntitlementGrant,
@@ -40,6 +41,8 @@ type Store = Pick<
   | 'readPublicHistory'
   | 'discardSources'
   | 'listJobs'
+  | 'listProcessingUnalerted'
+  | 'markDelayAlerted'
 >;
 type Open = Awaited<ReturnType<Store['listOpen']>>[number];
 
@@ -50,7 +53,8 @@ export type RecordingCaptureEvent =
   | 'recording.verification_refused'
   | 'recording.egress.stop_failed'
   | 'recording.observer.restore_failed'
-  | 'recording.observer.revoke_retry_failed';
+  | 'recording.observer.revoke_retry_failed'
+  | 'recording.processing_delayed';
 
 type Egress = {
   readonly start: (input: {
@@ -69,6 +73,11 @@ const BATCH = 64;
 const RECONCILE_LEASE_MS = 800;
 /** Long enough for any start; a crash inside one delays the next by this much. */
 const START_LEASE_MS = 15_000;
+const JOB_KEY = 'job:';
+const DELAY_KEY = 'delay:';
+/** A pass keys its rows apart; a page continues from the row's own id. */
+const afterKey = (prefix: string, after: string | null) =>
+  after === null ? null : after.slice(prefix.length);
 const OWN_SOURCE: RecordingSource = { kind: 'own_capture' };
 
 const attemptOf = (
@@ -341,6 +350,7 @@ export const createRecordingCaptureSweep = (deps: {
             history.segments,
             history.knownThroughMs,
           ),
+          ceilingMs: answer.ceilingMs,
         });
         return;
       }
@@ -371,6 +381,20 @@ export const createRecordingCaptureSweep = (deps: {
     }
   };
 
+  /** Tells an operator once. The build carries on: a timer fails nothing. */
+  const alertIfDelayed = async ({
+    id,
+    lifecycle,
+  }: Awaited<ReturnType<Store['listProcessingUnalerted']>>[number]) => {
+    const nowMs = deps.now();
+    if (
+      lifecycle.status === 'processing' &&
+      recordingBuildDelayed(lifecycle.capture, nowMs) &&
+      (await store.markDelayAlerted({ recordingId: id, at: new Date(nowMs) }))
+    )
+      deps.report('recording.processing_delayed');
+  };
+
   const failed = () => deps.report('recording.capture_failed');
   const pass = createSweepPass(deps.passBudget);
   const sweep = async () => {
@@ -394,9 +418,17 @@ export const createRecordingCaptureSweep = (deps: {
     );
     await pass.overPages(
       BATCH,
-      (after) => store.listJobs(BATCH, after),
-      (job) => `job:${job.recordingId}`,
+      (after) => store.listJobs(BATCH, afterKey(JOB_KEY, after)),
+      (job) => `${JOB_KEY}${job.recordingId}`,
       answerJob,
+      failed,
+    );
+    await pass.overPages(
+      BATCH,
+      (after) =>
+        store.listProcessingUnalerted(BATCH, afterKey(DELAY_KEY, after)),
+      (row) => `${DELAY_KEY}${row.id}`,
+      alertIfDelayed,
       failed,
     );
   };

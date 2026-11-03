@@ -39,7 +39,15 @@ const setup = (
       clock: { now: () => '2026-11-02T12:00:00.000Z' } as never,
       store: d.store,
       objects: d.objects,
-      inputs: { ...d.inputs, readFloorIntervals: async () => [] },
+      inputs: {
+        ...d.inputs,
+        readFloorIntervals: async () => [],
+        readCoverageFacts: async () => ({
+          segments: [],
+          prepStartsAtMs: [],
+          rotationsAtMs: [],
+        }),
+      },
     }),
   };
 };

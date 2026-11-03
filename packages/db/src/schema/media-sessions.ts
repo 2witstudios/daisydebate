@@ -65,6 +65,22 @@ export const mediaSessions = pgTable(
   ],
 );
 
+/**
+ * When a session moved to a fresh room (a revoked seat), since `room_name` only
+ * holds the current one. Recording reads it to state the dropout (REC-1.2).
+ */
+export const mediaRoomRotations = pgTable(
+  'media_room_rotations',
+  {
+    id: text('id').primaryKey(),
+    roundId: text('round_id')
+      .notNull()
+      .references(() => rounds.id, { onDelete: 'cascade' }),
+    rotatedAt: timestampColumn('rotated_at').notNull(),
+  },
+  (table) => [index('media_room_rotations_round_idx').on(table.roundId)],
+);
+
 export const mediaParticipants = pgTable(
   'media_participants',
   {

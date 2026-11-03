@@ -522,9 +522,11 @@ export {
   type SpectatorChatMessage,
 } from './audience';
 export {
+  RECORDING_EVIDENCE_HOLD_MS,
   recordingClasses,
   recordingEligibilitySchema,
   recordingFailureReasons,
+  recordingHiddenByModeration,
   recordingHoldPrefix,
   holdAttemptPrefix,
   recordingLifecycleSchema,
@@ -541,6 +543,21 @@ export {
   type RecordingSpeech,
   type RecordingStatus,
 } from './recording';
+export {
+  recordingObjectPrefix,
+  transitionRecording,
+  type RecordingEvent,
+  type RecordingTransition,
+} from './recording-lifecycle';
+export {
+  capturedMediaMs,
+  recordingBuildCeilingMs,
+  recordingBuildDelayed,
+  recordingBuildSteps,
+  recordingPreparationOf,
+  type RecordingBuildProgress,
+  type RecordingPreparation,
+} from './recording-processing';
 export {
   builtRecordingMediaSchema,
   recordingJobStateSchema,

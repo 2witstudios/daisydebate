@@ -1,5 +1,9 @@
 import type { createRecordingWorkerStore } from '@daisy/db/recording-worker';
-import type { PublicInterval, RecordingJobState } from '@daisy/protocol';
+import type {
+  PublicInterval,
+  RecordingBuildProgress,
+  RecordingJobState,
+} from '@daisy/protocol';
 import { RecordingVerificationError } from './build-recording';
 
 const LEASE_MS = 60_000;
@@ -9,14 +13,31 @@ const FIRST_RETRY_MS = 60_000;
 const LONGEST_RETRY_MS = 60 * 60_000;
 /** After this many failed runs a build is reported failed; a discard never gives up. */
 const BUILD_ATTEMPTS = 5;
+const PROGRESS_EVERY_MS = 5000;
 
 type Store = ReturnType<typeof createRecordingWorkerStore>;
 type Claimed = NonNullable<Awaited<ReturnType<Store['claim']>>>;
 
 export type WorkerEvent =
   | 'recording.processing_failed'
+  | 'recording.build_ceiling_exceeded'
   | 'recording.processing_gave_up'
   | 'recording.source_discard_failed';
+
+/** A new step is news at once; within a step, often enough to show it moving. */
+export const progressIsNews = (
+  last: { readonly step: string; readonly atMs: number } | null,
+  step: string,
+  atMs: number,
+): boolean =>
+  last === null || last.step !== step || atMs - last.atMs >= PROGRESS_EVERY_MS;
+
+const rejectedOnAbort = (signal: AbortSignal) =>
+  new Promise<never>((_, reject) => {
+    signal.addEventListener('abort', () => reject(new Error('aborted')), {
+      once: true,
+    });
+  });
 
 export const retryDelayMs = (failures: number): number =>
   Math.min(LONGEST_RETRY_MS, FIRST_RETRY_MS * 2 ** Math.max(0, failures - 1));
@@ -46,7 +67,10 @@ export const afterBuildFailure = (
  */
 export const runWorker = async (deps: {
   readonly owner: string;
-  readonly store: Pick<Store, 'claim' | 'renew' | 'finish' | 'defer'>;
+  readonly store: Pick<
+    Store,
+    'claim' | 'renew' | 'finish' | 'defer' | 'recordProgress'
+  >;
   readonly build: (
     job: {
       readonly recordingId: string;
@@ -57,6 +81,7 @@ export const runWorker = async (deps: {
     run: {
       readonly workDir: string;
       readonly signal: AbortSignal;
+      readonly progress: (progress: RecordingBuildProgress) => void;
     },
   ) => Promise<RecordingJobState>;
   /** One bounded page of deletes; zero means the prefix lists empty. */
@@ -73,15 +98,23 @@ export const runWorker = async (deps: {
 
   /**
    * Keeps the lease until released, and aborts the moment the job is no longer
-   * ours: fenced, moved to discarding, or this process stopping.
+   * ours: fenced, moved to discarding, or this process stopping. A run past its
+   * ceiling aborts too, marked as overrun: that one counts as a failed attempt.
    */
-  const holdLease = (job: Claimed) => {
+  const holdLease = (job: Claimed, ceilingMs?: number) => {
     const lost = new AbortController();
+    const startedAtMs = deps.now();
     let released = false;
+    let overran = false;
     void (async () => {
       while (!released) {
         await deps.sleep(RENEW_MS);
         if (released) return;
+        if (ceilingMs !== undefined && deps.now() - startedAtMs > ceilingMs) {
+          overran = true;
+          lost.abort();
+          return;
+        }
         const ours =
           !deps.stopped() &&
           (await store
@@ -102,6 +135,7 @@ export const runWorker = async (deps: {
     })();
     return {
       signal: lost.signal,
+      overran: () => overran,
       release: () => {
         released = true;
       },
@@ -128,27 +162,57 @@ export const runWorker = async (deps: {
       failed,
     });
 
+  /**
+   * Writes a build's figures one at a time, at most every few seconds within a step.
+   * A write that fails is dropped: the next one says more, and the build goes on.
+   */
+  const progressWriter = (job: Claimed) => {
+    let written: { step: string; atMs: number } | null = null;
+    let writing: Promise<unknown> = Promise.resolve();
+    return (progress: RecordingBuildProgress) => {
+      const atMs = deps.now();
+      if (!progressIsNews(written, progress.step, atMs)) return;
+      written = { step: progress.step, atMs };
+      writing = writing
+        .then(() =>
+          store.recordProgress({
+            recordingId: job.recordingId,
+            owner,
+            epoch: job.leaseEpoch,
+            progress,
+          }),
+        )
+        .catch(() => undefined);
+    };
+  };
+
   const runBuild = async (
     job: Claimed,
     attemptCount: number,
     intervals: readonly PublicInterval[],
+    ceilingMs?: number,
   ) => {
     const workDir = deps.workDirOf(job.recordingId, owner);
-    const lease = holdLease(job);
+    const lease = holdLease(job, ceilingMs);
     try {
-      const state = await deps.build(
-        {
-          recordingId: job.recordingId,
-          holdPrefix: job.holdPrefix,
-          attemptCount,
-          publicIntervals: intervals,
-        },
-        { workDir, signal: lease.signal },
-      );
+      const state = await Promise.race([
+        deps.build(
+          {
+            recordingId: job.recordingId,
+            holdPrefix: job.holdPrefix,
+            attemptCount,
+            publicIntervals: intervals,
+          },
+          { workDir, signal: lease.signal, progress: progressWriter(job) },
+        ),
+        // What ffmpeg cannot be told, such as an upload: the run still stops here.
+        rejectedOnAbort(lease.signal),
+      ]);
       await finish(job, state);
     } catch (error) {
+      if (lease.overran()) deps.report('recording.build_ceiling_exceeded');
       // A job taken away or a shutdown is nobody's failure: no backoff, no report.
-      if (lease.signal.aborted || deps.stopped()) {
+      else if (lease.signal.aborted || deps.stopped()) {
         await defer(job, false);
         return;
       }
@@ -197,7 +261,12 @@ export const runWorker = async (deps: {
     const { state } = job;
     await (
       state.status === 'queued'
-        ? runBuild(job, state.attemptCount, state.publicIntervals)
+        ? runBuild(
+            job,
+            state.attemptCount,
+            state.publicIntervals,
+            state.ceilingMs,
+          )
         : runDiscard(job)
     ).catch(() => deps.report('recording.processing_failed'));
   }

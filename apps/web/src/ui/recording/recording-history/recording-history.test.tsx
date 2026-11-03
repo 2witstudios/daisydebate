@@ -19,6 +19,7 @@ const screen: Extract<RecordingHistoryScreen, { kind: 'history' }> = {
     playlistHref: '/api/recordings/rec/playback/master.m3u8',
     durationMs: 60_000,
     gaps: [],
+    unrecorded: [],
     speeches: [],
   },
   transcript: null,
@@ -45,7 +46,6 @@ describe('RecordingHistory', () => {
       expected: true,
     });
     for (const [state, text] of [
-      ['processing', 'being prepared'],
       ['failed', 'could not be saved'],
       ['not_recorded', 'not recorded'],
       ['removed', 'no longer available'],
@@ -101,6 +101,29 @@ describe('RecordingHistory', () => {
       should: 'not say draw',
       actual: [html.includes('No winner'), /draw/i.test(html)],
       expected: [true, false],
+    });
+  });
+  test('says how far a video being prepared really is', () => {
+    const html = render({
+      media: {
+        state: 'processing',
+        preparation: {
+          stage: 'building',
+          delayed: true,
+          progress: { step: 'uploading', done: 3, total: 9 },
+        },
+      },
+    });
+    assert({
+      given: 'a late build part way through saving',
+      should: 'state the real figures and the delay, with no player',
+      actual: [
+        html.includes('being prepared'),
+        html.includes('Saving the video: 3 of 9 files'),
+        html.includes('taking longer than it should'),
+        html.includes('<video'),
+      ],
+      expected: [true, true, true, false],
     });
   });
 });

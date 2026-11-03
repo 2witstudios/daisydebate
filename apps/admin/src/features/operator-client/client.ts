@@ -19,6 +19,7 @@ import {
   contentModerationCommandResultSchema,
   contentReportDetailSchema,
   contentReportsPageSchema,
+  rebuildableRecordingsSchema,
   type ContentModerationQueue,
   type ContentReport,
 } from '@daisy/protocol/content-moderation';
@@ -293,6 +294,16 @@ export function createOperatorClient(deps: {
           query: [],
         },
         contentReportDetailSchema,
+      ),
+    listRebuildableRecordings: (operatorRef: string) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: '/operator/v1/recordings/rebuildable',
+          query: [],
+        },
+        rebuildableRecordingsSchema,
       ),
     /** One content moderation command at its own path; the body is already closed. */
     moderate: (operatorRef: string, path: string, body: object) =>

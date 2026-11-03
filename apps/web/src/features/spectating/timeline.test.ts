@@ -49,6 +49,8 @@ const read = (over: Partial<Read>, round: Partial<Read['round']> = {}): Read =>
     },
     broadcast: broadcast(),
     recordingStatus: null,
+    recordingLifecycle: null,
+    recordingJob: null,
     seats: [],
     horizonMs: null,
     segments: [],
@@ -443,13 +445,48 @@ describe('projectSpectatorTimeline', () => {
     });
     assert({
       given: 'a released end and each Recording status',
-      should: 'say ready, processing or none',
+      should: 'say ready, processing, failed or none',
       actual: (
         ['ready', 'processing', 'capturing', 'failed', 'removed'] as const
       ).map((recordingStatus) =>
         recording({ recordingStatus, outcomeReleased: true }),
       ),
-      expected: ['ready', 'processing', 'processing', 'none', 'none'],
+      expected: ['ready', 'processing', 'processing', 'failed', 'none'],
+    });
+    const capture = {
+      source: { kind: 'own_capture' as const },
+      startedAt: '2026-11-03T08:00:00.000Z',
+      attempts: [
+        { attempt: 1, egressId: 'EG', startedAt: '2026-11-03T08:00:00.000Z' },
+      ],
+      endedAt: '2026-11-03T09:00:00.000Z',
+    };
+    const processing: Partial<Read> = {
+      recordingStatus: 'processing',
+      recordingLifecycle: { status: 'processing', capture },
+      recordingJob: {
+        status: 'queued',
+        attemptCount: 1,
+        publicIntervals: [],
+        progress: { step: 'encoding', done: 60_000, total: 3_600_000 },
+      },
+    };
+    const preparation = (over: Partial<Read>) =>
+      projectSpectatorTimeline(read(over)).recordingPreparation;
+    assert({
+      given: 'a build under way, released',
+      should: 'say how far, from the job',
+      actual: (() => {
+        const seen = preparation({ ...processing, outcomeReleased: true });
+        return seen?.stage === 'building' ? seen.progress : null;
+      })(),
+      expected: { step: 'encoding', done: 60_000, total: 3_600_000 },
+    });
+    assert({
+      given: 'the same build before the end is released',
+      should: 'say nothing of it',
+      actual: preparation(processing),
+      expected: undefined,
     });
     assert({
       given: 'a released end on a stopped Broadcast',

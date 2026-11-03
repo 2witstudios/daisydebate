@@ -1,3 +1,4 @@
+import type { RoundCoverageFacts } from './coverage-statement';
 import type { BuiltRecordingMedia } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRecordingCapturePort } from './capture-port';
@@ -25,13 +26,24 @@ const round = {
   hostHoldsRecording: false,
 } as const;
 
-const setup = () => {
+const setup = (
+  facts: RoundCoverageFacts = {
+    segments: [],
+    prepStartsAtMs: [],
+    rotationsAtMs: [],
+  },
+) => {
   const { store, rows } = fakeRecordingStore();
   let next = 0;
   const port = createRecordingCapturePort({
     store,
     nextId: () => `rec-${++next}`,
     inputs: {
+      readCoverageFacts: async () => facts,
+      readBroadcastRelease: async () => ({
+        releasedThroughMs: null,
+        stopped: false,
+      }),
       readFloorIntervals: async () => [
         {
           roundParticipantId: 'aff',
@@ -43,6 +55,53 @@ const setup = () => {
   });
   return { port, rows };
 };
+
+test('a verified video records what it does not hold', async () => {
+  const { port, rows } = setup({
+    segments: [
+      {
+        startedAtMs: Date.parse(startedAt) - 20_000,
+        endedAtMs: Date.parse(startedAt) + 90_000,
+      },
+    ],
+    prepStartsAtMs: [],
+    rotationsAtMs: [Date.parse(startedAt) + 10_000],
+  });
+  const record = await port.request(round);
+  const id = record!.id;
+  await port.captureStarted(id, {
+    source: { kind: 'own_capture' },
+    attempt: 1,
+    egressId: 'EG',
+    at: startedAt,
+  });
+  await port.captureEnded(id, { at: startedAt });
+  await port.mediaVerified(id, {
+    capturedFrom: startedAt,
+    playlistKey: `recordings/${id}/hls/master.m3u8`,
+    downloadKey: `recordings/${id}/video.mp4`,
+    durationMs: 60_000,
+    byteSize: 10,
+    verifiedAt: startedAt,
+    gaps: [],
+  });
+  const stored = rows.get(id)?.lifecycle;
+  assert({
+    given: 'a late start, a rotation and a truncated tail',
+    should: 'state each on the ready media',
+    actual:
+      stored?.status === 'ready'
+        ? [stored.media.gaps.map((gap) => gap.reason), stored.media.unrecorded]
+        : null,
+    expected: [
+      ['room_rotation'],
+      [
+        { part: 'start', durationMs: 20_000, reason: 'late_start' },
+        { part: 'end', durationMs: 30_000, reason: 'ended_early' },
+      ],
+    ],
+  });
+});
 
 test('a request is idempotent per Round and needs eligibility', async () => {
   const { port, rows } = setup();

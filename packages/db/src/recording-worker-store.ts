@@ -4,6 +4,7 @@ import {
   claimRecordingJob,
   deferRecordingRun,
   finishRecordingRun,
+  recordRecordingBuildProgress,
   renewRecordingJob,
 } from './recording-processing-operations';
 
@@ -20,6 +21,9 @@ export const createRecordingWorkerStore = (url: string) => {
       database.transaction((tx) => claimRecordingJob(tx, input)),
     renew: (input: Parameters<typeof renewRecordingJob>[1]) =>
       renewRecordingJob(database, input),
+    recordProgress: (
+      input: Parameters<typeof recordRecordingBuildProgress>[1],
+    ) => recordRecordingBuildProgress(database, input),
     finish: (input: Parameters<typeof finishRecordingRun>[1]) =>
       finishRecordingRun(database, input),
     defer: (input: Parameters<typeof deferRecordingRun>[1]) =>

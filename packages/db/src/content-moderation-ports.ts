@@ -1,6 +1,12 @@
+import type { RecordingStatus } from '@daisy/protocol';
+import type {
+  RebuildableRecordings,
+  recordingTakedownReasons,
+} from '@daisy/protocol/content-moderation';
 import type { BoundedTransactionContext } from './transaction-context';
 
 type Tx = BoundedTransactionContext;
+type RecordingTakedownReason = (typeof recordingTakedownReasons)[number];
 
 /** A change a port made: it was applied, it already held, or no such thing. */
 export type ContentModerationOutcome = 'applied' | 'unchanged' | null;
@@ -31,15 +37,63 @@ export type RecordingModeration = {
     readonly reporterSeated: boolean;
     readonly audience: ReportAudience;
   } | null>;
-  readonly exists: (tx: Tx, recordingId: string) => Promise<boolean>;
+  readonly readSubject: (
+    tx: Tx,
+    recordingId: string,
+  ) => Promise<{
+    readonly status: RecordingStatus;
+    readonly version: number;
+    readonly restorable: boolean;
+    readonly removable: boolean;
+    readonly rebuildable: boolean;
+    readonly takedownReason: RecordingTakedownReason | null;
+  } | null>;
+  /** Each names the version it read: one that no longer holds is a CONFLICT. */
   readonly takeDown: (
     tx: Tx,
     input: {
       readonly recordingId: string;
-      readonly reason: string;
+      readonly expectedVersion: number;
+      readonly reason: RecordingTakedownReason;
       readonly now: Date;
     },
   ) => Promise<ContentModerationOutcome>;
+  readonly restore: (
+    tx: Tx,
+    input: { readonly recordingId: string; readonly expectedVersion: number },
+  ) => Promise<ContentModerationOutcome>;
+  readonly remove: (
+    tx: Tx,
+    input: {
+      readonly recordingId: string;
+      readonly expectedVersion: number;
+      readonly now: Date;
+    },
+  ) => Promise<ContentModerationOutcome>;
+  /** The one removal an evidence hold does not stop. */
+  readonly legallyRemove: (
+    tx: Tx,
+    input: {
+      readonly recordingId: string;
+      readonly expectedVersion: number;
+      readonly now: Date;
+    },
+  ) => Promise<ContentModerationOutcome>;
+  /** A failed ranked Recording builds again from what it captured. */
+  readonly rebuild: (
+    tx: Tx,
+    input: { readonly recordingId: string; readonly expectedVersion: number },
+  ) => Promise<ContentModerationOutcome>;
+  /** Every failed ranked Recording that could: a report need not name them. */
+  readonly listRebuildable: (
+    tx: Tx,
+    limit: number,
+  ) => Promise<RebuildableRecordings['items']>;
+  /** The Broadcast of the Recording's Round, whose feed a takedown also ends. */
+  readonly readBroadcastId: (
+    tx: Tx,
+    recordingId: string,
+  ) => Promise<string | null>;
 };
 
 /**
@@ -70,8 +124,14 @@ export type SpectatorChatModeration = {
 /** Until its owner lands, there is no Recording to report or take down. */
 export const noRecordings: RecordingModeration = {
   readReportFacts: async () => null,
-  exists: async () => false,
+  readSubject: async () => null,
   takeDown: async () => null,
+  restore: async () => null,
+  remove: async () => null,
+  legallyRemove: async () => null,
+  rebuild: async () => null,
+  listRebuildable: async () => [],
+  readBroadcastId: async () => null,
 };
 
 /** Until its owner lands, there is no spectator message to report or remove. */

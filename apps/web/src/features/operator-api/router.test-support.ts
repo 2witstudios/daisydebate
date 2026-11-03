@@ -43,6 +43,7 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
     },
     contentModeration: {
       listModerationReports: async () => [],
+      listRebuildableRecordings: async () => [],
       readModerationReport: async () => null,
       runModerationCommand: async () => ({ v: 1, outcome: 'applied' }),
     },

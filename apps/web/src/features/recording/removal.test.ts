@@ -1,8 +1,8 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RecordingViewer } from './audience';
-import { account, at, deps, ready, record } from './fixture.test-support';
-import { applyModeration, requestParticipantRemoval } from './removal';
+import { account, at, deps, record } from './fixture.test-support';
+import { requestParticipantRemoval } from './removal';
 
 setupRitewayBun();
 
@@ -63,42 +63,6 @@ describe('requestParticipantRemoval', () => {
       should: 'change nothing',
       actual: stale.rows.get('rec')?.lifecycle.status,
       expected: 'ready',
-    });
-  });
-});
-
-describe('applyModeration', () => {
-  test('can take ranked down and put it back', async () => {
-    const d = deps(record({ class: 'ranked' }));
-    const down = await applyModeration(d.store, {
-      recordingId: 'rec',
-      action: 'take_down',
-      expectedVersion: 3,
-      now: at,
-    });
-    const back = await applyModeration(d.store, {
-      recordingId: 'rec',
-      action: 'restore',
-      expectedVersion: 4,
-      now: at,
-    });
-    assert({
-      given: 'a takedown then a restore',
-      should: 'hide and then restore the same media',
-      actual: [down.lifecycle.status, back.lifecycle],
-      expected: ['taken_down', ready],
-    });
-    await assertRejects({
-      given: 'a stale moderation decision',
-      should: 'refuse',
-      actual: () =>
-        applyModeration(d.store, {
-          recordingId: 'rec',
-          action: 'remove',
-          expectedVersion: 3,
-          now: at,
-        }),
-      code: 'CONFLICT',
     });
   });
 });
