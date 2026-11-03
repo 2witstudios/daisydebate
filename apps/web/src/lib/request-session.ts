@@ -11,19 +11,21 @@ import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
-import type { MatchHistoryQuery, MemberProfile } from '@daisy/protocol';
+import {
+  SPECTATOR_MARGIN_MS,
+  type MatchHistoryQuery,
+  type MemberProfile,
+} from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
+import { readSpectatorTimeline } from '../features/spectating/read-timeline';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
 import { ARCHIVE_PAGE_SIZE } from '../features/recording/archive';
 import type { RecordingsQuery } from '../features/recording/archive-query';
-import {
-  AUDIENCE_RELEASE_MARGIN_MS,
-  type RecordingViewer,
-} from '../features/recording/audience';
+import type { RecordingViewer } from '../features/recording/audience';
 import { recordingReads } from '../features/recording/composition';
 import { openRecordingHistory } from '../features/recording/history';
 import { resolveSession } from './identity';
@@ -55,10 +57,10 @@ export const readRecordingArchive = async (
     archive.listArchive({
       query,
       viewerActorId: viewer.kind === 'account' ? viewer.actorId : null,
-      marginMs: AUDIENCE_RELEASE_MARGIN_MS,
+      marginMs: SPECTATOR_MARGIN_MS,
       limit: ARCHIVE_PAGE_SIZE,
     }),
-    archive.countPublicArchive({ marginMs: AUDIENCE_RELEASE_MARGIN_MS }),
+    archive.countPublicArchive({ marginMs: SPECTATOR_MARGIN_MS }),
   ]);
   return { page, publicCount };
 };
@@ -165,8 +167,16 @@ export const requestMemberProfile = async (
       identity: await requestIdentity(),
       username,
       query,
+      now: processApp().clock.now(),
     },
   );
+
+/** The released timeline a render shows: the same facts the anonymous snapshot serves. */
+export const requestSpectatorTimeline = (roundId: string) =>
+  readSpectatorTimeline(processApp().database, {
+    roundId,
+    now: processApp().clock.now(),
+  });
 
 /** Process binding for the public ladder and its signed-in blinding context. */
 export async function requestLadder(input: {

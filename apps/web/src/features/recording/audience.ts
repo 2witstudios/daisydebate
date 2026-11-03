@@ -1,8 +1,9 @@
 import { factReleased } from '@daisy/debate-engine';
-import type { CompetitionType, RecordingStatus } from '@daisy/protocol';
-
-/** How far the audience's released media may trail a fact (ADR 0099). */
-export const AUDIENCE_RELEASE_MARGIN_MS = 5_000;
+import {
+  SPECTATOR_MARGIN_MS,
+  type CompetitionType,
+  type RecordingStatus,
+} from '@daisy/protocol';
 
 export type RecordingViewer =
   | { readonly kind: 'visitor' }
@@ -47,7 +48,7 @@ const releasedToAudience = (
   if (round.completedAtMs === null) return false;
   if (release.kind === 'none' || release.kind === 'completed') return true;
   return factReleased(round.completedAtMs, release.releasedThroughMs, {
-    marginMs: AUDIENCE_RELEASE_MARGIN_MS,
+    marginMs: SPECTATOR_MARGIN_MS,
   });
 };
 

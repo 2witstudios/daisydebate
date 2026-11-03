@@ -13,6 +13,11 @@ export {
   segmentDue,
 } from './broadcast-release';
 export type { HeldSegment } from './broadcast-release';
+export {
+  spectatorHorizon,
+  spectatorTimelineHorizon,
+} from './spectator-horizon';
+export type { SpectatorHorizonFacts } from './spectator-horizon';
 export { plannedBroadcast, plannedRecording } from './room-capture';
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';

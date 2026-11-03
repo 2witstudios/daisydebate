@@ -9,6 +9,10 @@ import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { users } from './schema/users';
+import {
+  outcomeReleasedSql,
+  type SpectatorClock,
+} from './spectator-release-sql';
 
 /**
  * The profile's read (ISSUE-600): who a member is, their Rounds grouped for
@@ -85,21 +89,29 @@ async function memberRow(tx: Tx, username: string): Promise<MemberRow | null> {
 
 /**
  * The member's debating seats in Rounds the scope shows: played from a Room
- * (a room-less service Round has no page to link to), and public only
- * outside the owner's scope. The tally and the history use this one filter.
+ * (a room-less service Round has no page to link to), and outside the owner's
+ * scope public only, with a completed Round waiting for the spectator
+ * timeline. The tally and the history use this one filter.
  */
-const seatsShown = (actorId: string, scope: HistoryScope) =>
+const seatsShown = (
+  actorId: string,
+  scope: HistoryScope,
+  clock: SpectatorClock,
+) =>
   and(
     eq(roundParticipants.actorId, actorId),
     debating,
     isNotNull(rounds.roomId),
-    scope === 'owner' ? undefined : eq(rounds.visibility, 'public'),
+    scope === 'owner'
+      ? undefined
+      : and(eq(rounds.visibility, 'public'), outcomeReleasedSql(rounds, clock)),
   );
 
 const recordGroups = async (
   tx: Tx,
   actorId: string,
   scope: HistoryScope,
+  clock: SpectatorClock,
 ): Promise<readonly RecordGroup[]> =>
   (
     await tx
@@ -111,7 +123,7 @@ const recordGroups = async (
       })
       .from(roundParticipants)
       .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
-      .where(seatsShown(actorId, scope))
+      .where(seatsShown(actorId, scope, clock))
       .groupBy(rounds.status, rounds.outcome, roundParticipants.role)
   ).map((row) => ({ ...row, role: row.role as DebateRole }));
 
@@ -127,10 +139,11 @@ async function historyPage(
     readonly scope: HistoryScope;
     readonly before: string | null;
     readonly limit: number;
+    readonly clock: SpectatorClock;
   },
 ) {
   const listed = and(
-    seatsShown(input.actorId, input.scope),
+    seatsShown(input.actorId, input.scope, input.clock),
     eq(rounds.status, 'completed'),
   );
   if (input.before !== null) {
@@ -196,6 +209,7 @@ export const memberProfileReadOperations = ({
     ) => HistoryScope;
     readonly before: string | null;
     readonly limit: number;
+    readonly clock: SpectatorClock;
   }): Promise<MemberProfileRead | null> {
     if (
       !Number.isSafeInteger(input.limit) ||
@@ -217,12 +231,18 @@ export const memberProfileReadOperations = ({
                 ? null
                 : await sharedAccount(tx, input.caller),
             );
-        const groups = await recordGroups(tx, member.actorId, scope);
+        const groups = await recordGroups(
+          tx,
+          member.actorId,
+          scope,
+          input.clock,
+        );
         const page = await historyPage(tx, {
           actorId: member.actorId,
           scope,
           before: input.before,
           limit: input.limit,
+          clock: input.clock,
         });
         if (page === null) return null;
         return { member, scope, groups, ...page };

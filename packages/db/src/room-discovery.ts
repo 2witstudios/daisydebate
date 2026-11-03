@@ -13,6 +13,7 @@ import {
   type Tx,
 } from './room-command-facts';
 import { loadAuthorizationAccount } from './authorization';
+import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 type Seat = {
   readonly actorId: string;
   readonly role: string;
@@ -60,7 +61,17 @@ const modeMatches = (mode: RoomListQuery['mode']) =>
 /** Seat totals and the format label, read with the page; never a lock target. */
 const seatCount = sql`((r.rules_snapshot->'seats'->>'affirmative')::int+(r.rules_snapshot->'seats'->>'negative')::int+(r.rules_snapshot->'seats'->>'judge')::int)`;
 const seatsTaken = sql`case when r.status='started' then (select count(*)::int from round_participants s where s.round_id=d.id) else (select count(*)::int from room_participants s where s.room_id=r.id) end`;
-const hostRating = sql`case when r.competition_type='ranked' then (select round(rt.rating)::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id limit 1) end`;
+/** The host's rating where the audience may know it: before any posting still held by the timeline. */
+const hostRating = (clock: SpectatorClock) => {
+  const held = {
+    id: sql`c_r.id`,
+    status: sql`c_r.status`,
+    competitionType: sql`c_r.competition_type`,
+    completedAt: sql`c_r.completed_at`,
+  };
+  const earliestHeld = sql`(select c.rating_before from rating_changes c join rounds c_r on c_r.id=c.round_id where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.season_id=rt.season_id and not ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)} order by c.occurred_at asc limit 1)`;
+  return sql`case when r.competition_type='ranked' then (select round(coalesce(${earliestHeld},rt.rating))::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id limit 1) end`;
+};
 const search = (q: string) =>
   sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(r.topic),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;
 /** The driver returns a timestamp, or JSON's string for one, as a canonical ISO instant. */
@@ -91,6 +102,7 @@ export async function discoverRooms(
   authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
   authorizeCollection: (account: Account) => boolean,
   hostHidden: (fact: RoomDiscoveryFact) => boolean,
+  clock: SpectatorClock,
 ): Promise<RoomListPage> {
   const parsed = roomListQuerySchema.safeParse(input);
   if (!parsed.success) throw createAppError('VALIDATION');
@@ -136,7 +148,7 @@ export async function discoverRooms(
    f.name as "formatLabel",${seatsTaken} as "seatsTaken",${seatCount} as "seatCount",
    case when r.status in ('assembling','ready') then r.created_at end as "waitingSince",
    case when r.status='started' then json_build_object('stage',d.current_stage,'startedAt',d.started_at) else null end as "live",
-   ${hostRating} as "hostRating"
+   ${hostRating(clock)} as "hostRating"
   from rooms r ${joins}
   join formats f on f.id=r.format_id
   left join room_participants p on p.room_id=r.id and p.actor_id=${caller.actorId}

@@ -24,6 +24,7 @@ test('server-render profile reads consume a real shared Redis budget before Post
     username: 'missing-profile-budget-fixture',
     clientId: 'profile-budget-client',
     query: {},
+    now: new Date().toISOString(),
   } as const;
   assert({
     given: 'an anonymous in-process profile read with capacity',

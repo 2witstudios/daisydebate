@@ -444,8 +444,13 @@ export { attendanceRoundReadSchema } from './attendance';
 export { roundRecordSchema, type RoundRecord } from './round-view';
 export {
   broadcastReleasePolicySchema,
+  SPECTATOR_MARGIN_MS,
   type BroadcastReleasePolicy,
 } from './broadcast';
+export {
+  spectatorTimelineSchema,
+  type SpectatorTimeline,
+} from './spectator-timeline';
 export {
   recordingClasses,
   recordingEligibilitySchema,

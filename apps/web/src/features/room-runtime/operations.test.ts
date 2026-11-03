@@ -59,6 +59,7 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
 test('Room runtime distinguishes Redis consent loss and authorizes the canonical private Round projection', async () => {
   const base = makeOperations();
   const withUnavailableRedis = createRoomRuntimeOperations({
+    now: () => '2026-11-02T00:00:00.000Z',
     store: base.store,
     redis: {
       setRoomConsent: async () => undefined,
@@ -127,6 +128,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
   const firstRound = first.createInput()?.room.rules;
   let catalogReads = 0;
   const replay = createRoomRuntimeOperations({
+    now: () => '2026-11-02T00:00:00.000Z',
     store: {
       readRoomCreateReceipt: async ({
         authorize,

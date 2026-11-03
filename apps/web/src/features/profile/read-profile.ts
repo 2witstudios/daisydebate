@@ -1,4 +1,5 @@
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
+import { spectatorClockAt } from '../spectating/spectator-clock';
 import type { Identity } from '@daisy/auth';
 import {
   authorize,
@@ -103,6 +104,8 @@ export async function readProfile(
     readonly query: MatchHistoryQuery;
     /** Ingress-stamped client hash; absent clients share the unknown bucket. */
     readonly clientId?: string | null;
+    /** The render's instant: a public record waits for the spectator timeline. */
+    readonly now: string;
   },
 ): Promise<MemberProfile | null> {
   const { identity } = input;
@@ -134,6 +137,7 @@ export async function readProfile(
       caller === null ? 'public' : historyScope(caller, memberActorId, account),
     before: input.query.before ?? null,
     limit: HISTORY_PAGE_SIZE,
+    clock: spectatorClockAt(input.now),
   });
   if (read === null) return null;
   return {

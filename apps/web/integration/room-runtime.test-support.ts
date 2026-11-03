@@ -116,6 +116,7 @@ async function fixture(
     },
   };
   const operations = createRoomRuntimeOperations({
+    now: () => new Date().toISOString(),
     store,
     redis: controlled,
     ids: systemId,
@@ -126,6 +127,7 @@ async function fixture(
   });
   const operationsWithBotAvailability = (available: boolean) =>
     createRoomRuntimeOperations({
+      now: () => new Date().toISOString(),
       store,
       redis: controlled,
       ids: systemId,

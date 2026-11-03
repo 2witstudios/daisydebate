@@ -51,6 +51,7 @@ const read = (
     decide: input.decide,
     before: input.before ?? null,
     limit: input.limit ?? 1,
+    clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
   });
 
 describe('readMemberProfile', () => {

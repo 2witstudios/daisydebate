@@ -1,4 +1,10 @@
-import type { SQL } from 'bun';
+import { SQL } from 'bun';
+import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import {
+  spectatorHorizonSql,
+  type SpectatorClock,
+} from './spectator-release-sql';
 
 export { validRules } from './testing-rules';
 
@@ -129,3 +135,29 @@ export { refuseFinalSpeech } from './bot-generation-rules';
 
 /** The database boundary's failure wrapper, for composing refusal telemetry across packages. */
 export { instrumented } from './instrumented';
+
+/** The list reads' horizon for one Round, for the suite that holds it equal to the engine's. */
+export async function readSpectatorHorizon(
+  url: string,
+  roundId: string,
+  clock: SpectatorClock,
+): Promise<number | null> {
+  const client = new SQL(url, { max: 1 });
+  try {
+    const rows = (await drizzle({ client }).execute(
+      sql`select ${spectatorHorizonSql(
+        {
+          id: sql`r.id`,
+          status: sql`r.status`,
+          competitionType: sql`r.competition_type`,
+          completedAt: sql`r.completed_at`,
+        },
+        clock,
+      )} as horizon from rounds r where r.id=${roundId}`,
+    )) as unknown as { horizon: Date | string | null }[];
+    const horizon = rows[0]?.horizon ?? null;
+    return horizon === null ? null : new Date(horizon).getTime();
+  } finally {
+    await client.close();
+  }
+}

@@ -1,4 +1,8 @@
-import { judgingJobRules, roundWaitingOn } from '@daisy/debate-engine';
+import {
+  judgingJobRules,
+  RANKED_DELAY_SECONDS,
+  roundWaitingOn,
+} from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -96,7 +100,10 @@ for (const ladder of ratingLadders)
                 await f.sql`select actor_id,ladder,season_id,rating_before,rating_after from rating_changes where round_id=${roundId}`;
               const projection =
                 await f.sql`select version from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
-              const now = new Date().toISOString();
+              // The audience reads the ranked result once the delay has passed.
+              const now = new Date(
+                Date.now() + (RANKED_DELAY_SECONDS + 1) * 1000,
+              ).toISOString();
               const leaderboard = await readLadder(f.store, {
                 seasonId: season.id,
                 ladder,
@@ -177,6 +184,7 @@ for (const ladder of ratingLadders)
               if (roundId)
                 await f.sql`delete from rating_changes where round_id=${roundId}`;
               await f.sql`delete from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
+              await f.sql`delete from agreement_signatures where season_id=${seasonId}`;
               await f.sql`delete from seasons where id=${seasonId}`;
             }
           },

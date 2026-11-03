@@ -125,6 +125,7 @@ export const profileOf = (
     decide: ownerOnly,
     before: input.before ?? null,
     limit: input.limit ?? 10,
+    clock: { now: new Date().toISOString(), rankedDelaySeconds: 0 },
   });
 
 /** A profile the test expects to exist. */

@@ -16,8 +16,45 @@ requirement, so an open live read would defeat the delay.
 
 **Live reads.** `round.read` needs a seat or the host. Public and unlisted decide
 who may watch the Broadcast, never who reads undelayed clock, phase, floor or
-outcome. Until the spectator timeline exists a non-participant has no Round read
-at all, and a Room view carries no Round reference for them.
+outcome. A non-participant has no Round read at all, only the spectator timeline, and a
+Room view carries no Round reference for them.
+
+**Spectator timeline.** One named read serves the audience:
+`GET /api/rounds/:id/timeline`, anonymous, the same for every viewer, cached for
+one second by any CDN and never holding a socket. It reads no session and sets no
+cookie. A private Round, or one with no Room, is one not-found answer. An unlisted
+Round is served to anyone holding its link (DEC-302) and never indexed; the link
+is the Round's id, the same way an unlisted Room is reached today.
+
+**How far the timeline has reached.** `spectatorHorizon` in the domain states it,
+and `spectatorHorizonSql` states it for list reads that filter in the database; an
+integration suite holds the two equal. A fact leaves once the horizon has passed
+its capture time by the margin:
+
+- An open Broadcast: its watermark alone, never the clock.
+- A completed Broadcast: no more media will come, so what it held leaves behind
+  the Broadcast's own release policy.
+- A stopped Broadcast: the spectator timeline has ended. It shows as ended, stays
+  at the watermark the stop left, and no fact appears after the stop. The
+  competitive record does not end with the video, so standings, a listed rating
+  and a public profile treat a stop as they treat completion.
+- No Broadcast, Round still live: nothing is released, on any Round.
+- No Broadcast, Round ended: a casual Round has nothing holding it. A ranked Round
+  is always meant to have a Broadcast, so this is a capture failure or capture not
+  yet active; its record must not hang on the video, so it leaves behind the fixed
+  ranked delay.
+
+**What each fact's capture time is.** A result and its ballots, the Round's
+completion. A rating, the later of its posting and the completion. A caption, when
+its line was stored. The resolution, the Round's start. Captions, winner, scores,
+reason and ratings are public on ranked Rounds only (plan section 5, DEC-301); a
+tie has a null winner. Judges are never named and side feedback never appears.
+
+**Reads outside the timeline.** Standings, the leaderboard and a listed host's
+rating rebuild a rating from the ledger: it stands where the earliest unreleased
+posting found it, and a debater with no released posting is not listed yet. A
+public profile lists neither the Round nor its tally until release. A person with
+an authorized Round read still reads that Round's own rating at once.
 
 **Undelayed observer.** `round.observe.undelayed` is held by a seatless host on
 any Round, because a seatless host acts as an event host. A competitor who hosts
@@ -56,6 +93,6 @@ with a gap of about 100 ms. The remaining BCAST-1 measurements are on the plan.
 
 ## Consequences
 
-- Reads and listings for non-participants return only with the spectator timeline
-  (BCAST-5), so WATCH-6 cannot ship without it.
+- Live reads and listings stay closed to non-participants; the spectator timeline
+  is the one read they get.
 - Staging LiveKit and Egress share a Redis, superseding DEC-228 for this purpose.

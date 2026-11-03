@@ -21,6 +21,7 @@ import {
   decideRoomResolution,
 } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
+import { spectatorClockAt } from '../spectating/spectator-clock';
 import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
@@ -63,6 +64,7 @@ export function createRoomRuntimeOperations({
   store,
   redis,
   ids,
+  now,
   consentTtlMs,
   botsAvailable,
   betaGrantsPremium,
@@ -71,6 +73,8 @@ export function createRoomRuntimeOperations({
   readonly store: Store;
   readonly redis: Redis;
   readonly ids: IdGenerator;
+  /** A listed host's rating waits for the spectator timeline. */
+  readonly now: () => string;
   readonly consentTtlMs: () => number;
   readonly botsAvailable: () => boolean;
   /** Whether a beta-sourced premium grant counts (`PREMIUM_BETA_GRANT`). */
@@ -401,6 +405,7 @@ export function createRoomRuntimeOperations({
             }).allow),
         (account) => can(caller, 'room.list', account),
         (fact) => hostIdentityHidden(fact, caller.actorId),
+        spectatorClockAt(now()),
       );
     },
     create,

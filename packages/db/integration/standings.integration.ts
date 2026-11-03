@@ -102,6 +102,7 @@ describe('standings reads (RATE-1.4.1)', () => {
         const read = await database.readStandings({
           ladder: 'freestyle',
           seasonIds: [first, second],
+          clock: { now: new Date().toISOString(), rankedDelaySeconds: 0 },
         });
         const [winnerName] = (await fixture.sql.unsafe(
           'select username from users where id = (select user_id from actors where id = $1)',

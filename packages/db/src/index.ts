@@ -69,6 +69,7 @@ import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
 import { agreementSignatureOperations } from './agreement-signatures';
 export type { ContentWaiverStanding } from './agreement-signatures';
+export type { SpectatorTimelineRead } from './spectator-timeline-reads';
 import { roomCommandOperations } from './room-command-operations';
 import { roomCommandTransaction } from './room-command-transaction';
 import { roundCommandOperations } from './round-command-operations';
@@ -81,6 +82,7 @@ import { ageStepOperations } from './age-step';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
+import { spectatorTimelineReads } from './spectator-timeline-reads';
 import { memberProfileReadOperations } from './member-profile-reads';
 import { recordingArchiveReadOperations } from './recording-archive-reads';
 import { recordingOperations } from './recording-operations';
@@ -348,6 +350,7 @@ export function createDatabase({
     ...ageStepOperations({ database: control, eventSink }),
     ...standingsOperations({ database: audience, eventSink }),
     ...memberProfileReadOperations({ database: audience, eventSink }),
+    ...spectatorTimelineReads({ database: audience, eventSink }),
     ...recordingRoundReadOperations({ database: audience }),
     ...recordingArchiveReadOperations({ database: audience }),
     ...recordingOperations({ database: control }),
