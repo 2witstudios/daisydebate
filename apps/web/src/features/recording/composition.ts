@@ -1,3 +1,4 @@
+import { captureRule } from '@daisy/debate-engine';
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
 import { createRecordingCapturePort } from './capture-port';
@@ -43,7 +44,8 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
     readHistoryRound,
     readBroadcastRelease: app.database.readRecordingBroadcastRelease,
     readFloorIntervals: app.database.readRecordingFloorIntervals,
-    readTranscript: app.database.readRecordingTranscript,
+    readTranscript: (roundId) =>
+      app.database.readRecordingTranscript(roundId, captureRule),
     readBallots: app.database.readRecordingBallots,
     holdsRecordingDownload: async () => false,
     findRecordingByRound: store.findByRound,

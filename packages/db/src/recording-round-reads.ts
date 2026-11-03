@@ -1,4 +1,4 @@
-import type { DebateRole, RatedOutcome } from '@daisy/protocol';
+import type { CaptureRule, DebateRole, RatedOutcome } from '@daisy/protocol';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
@@ -100,11 +100,16 @@ export const recordingRoundReadOperations = ({
     readBroadcastRelease(database, roundId),
 
   /** The frozen transcript with its revision and honest coverage; null before one. */
-  async readRecordingTranscript(roundId: string) {
+  async readRecordingTranscript(roundId: string, captureRule: CaptureRule) {
     return database.transaction(async (tx) => {
       const freeze = await readTranscriptFreeze(tx, roundId);
       if (!freeze) return null;
-      const transcript = await audienceTranscript(tx, roundId, true);
+      const transcript = await audienceTranscript(
+        tx,
+        roundId,
+        true,
+        captureRule,
+      );
       return transcript && { revision: freeze.revision, ...transcript };
     });
   },
