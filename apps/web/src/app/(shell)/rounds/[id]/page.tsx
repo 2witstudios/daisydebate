@@ -12,6 +12,11 @@ import { isLiveDebater } from '../../../../ui/debate-room/live-round';
 import { RoundDocuments } from '../../../../ui/debate-room/round-documents';
 import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
 import { RoundResult } from '../../../../ui/round-result/round-result';
+import {
+  ResultRetry,
+  resultPart,
+} from '../../../../ui/round-result/result-part';
+import { reconnectDelaySeconds } from '../../../../ui/debate-room/reconnect-delay';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
@@ -21,26 +26,34 @@ import { MediaDocument } from '../../../../ui/round-media/media-document';
 
 export const metadata: Metadata = { title: 'Round' };
 async function completedBallots(round: RoundView, member: boolean) {
-  if (!member || round.status !== 'completed') return null;
-  const result = await readPersistedBallot(round.id);
-  return result.kind === 'found' ? result.view : null;
+  if (!member || round.status !== 'completed')
+    return { value: null, unavailable: false };
+  return resultPart(await readPersistedBallot(round.id), ({ view }) => view);
 }
 /**
  * Only a seated debater of a completed Round has a round analysis to read.
  * Its quotes come from the transcript read, never from the ballot read.
  */
 async function ownAnalysis(round: RoundView, debater: boolean) {
-  if (!debater || round.status !== 'completed') return null;
+  if (!debater || round.status !== 'completed')
+    return { value: null, unavailable: false };
   const [result, transcript] = await Promise.all([
     readPersistedRoundAnalysis(round.id),
     readPersistedTranscript(round.id),
   ]);
-  if (result.kind !== 'found') return null;
-  return {
-    view: result.view,
+  const analysis = resultPart(result, ({ view }) => ({
+    view,
     lines: transcript.kind === 'found' ? transcriptLines(transcript.value) : [],
+  }));
+  return {
+    ...analysis,
+    unavailable: analysis.unavailable || transcript.kind === 'unavailable',
   };
 }
+const resultRetry = () => {
+  const [entropy] = crypto.getRandomValues(new Uint8Array(1));
+  return <ResultRetry retrySeconds={reconnectDelaySeconds(entropy!)} />;
+};
 export default async function RoundPage({
   params,
   searchParams,
@@ -82,9 +95,13 @@ export default async function RoundPage({
       <MediaDocument />
       <RoundReceipt round={result.round}>
         <RoundRatings view={await requestRoundRatings(result.round)} />
-        {ballots ? <RoundResult view={ballots} /> : null}
-        {analysis ? (
-          <RoundAnalysis view={analysis.view} lines={analysis.lines} />
+        {ballots.unavailable || analysis.unavailable ? resultRetry() : null}
+        {ballots.value ? <RoundResult view={ballots.value} /> : null}
+        {analysis.value ? (
+          <RoundAnalysis
+            view={analysis.value.view}
+            lines={analysis.value.lines}
+          />
         ) : null}
       </RoundReceipt>
       {ownsFiles && filePrincipal !== null ? (
