@@ -195,6 +195,7 @@ test('an unlisted Recording opens only past its current link', async () => {
         });
       const download = (link: string | null) =>
         openDownload(deps, {
+          choice: { kind: 'composite' },
           recordingId: id,
           viewer: stranger,
           presentedLinkHashOf: () => link,
@@ -268,6 +269,7 @@ test('racing removals and a takedown settle to one state, and every link goes st
     const objects = fakeObjectStore().store;
     const deps = { store, objects, inputs };
     const link = await openDownload(deps, {
+      choice: { kind: 'composite' },
       recordingId: id,
       viewer: seat,
       presentedLinkHashOf: () => null,
@@ -308,6 +310,7 @@ test('racing removals and a takedown settle to one state, and every link goes st
       code: 'NOT_FOUND',
       actual: () =>
         openDownload(deps, {
+          choice: { kind: 'composite' },
           recordingId: id,
           viewer: seat,
           presentedLinkHashOf: () => null,
