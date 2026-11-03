@@ -76,10 +76,10 @@
 <tr><td>Subtitle</td><td>Web Egress stage page, lifecycle, owned delivery</td></tr>
 <tr><td>Features</td><td>75</td></tr>
 <tr><td>Stable</td><td>55</td></tr>
-<tr><td>Hardened</td><td>50</td></tr>
+<tr><td>Hardened</td><td>70</td></tr>
 <tr><td>Scale</td><td>50</td></tr>
 <tr><td>Spec</td><td>90</td></tr>
-<tr><td>Status</td><td>Whole path with audio proven on staging to 5,000 simulated viewers. Privacy at release and 540p are being built.</td></tr>
+<tr><td>Status</td><td>Whole path with audio proven on staging to 5,000 simulated viewers on delivery. 22 real Rounds put no private audio or video in the public feed. 360p ships; 540p and per-POV capture follow.</td></tr>
 <tr><td>Tasks</td><td>BCAST-1 BCAST-3 BCAST-6</td></tr>
 </table>
 <h3>Score: Delay and release</h3>
@@ -105,7 +105,7 @@
 <tr><td>Hardened</td><td>65</td></tr>
 <tr><td>Scale</td><td>5</td></tr>
 <tr><td>Spec</td><td>85</td></tr>
-<tr><td>Status</td><td>Leak tests per read path pass on real Postgres and Redis; release log built. Margin has only 1 second to spare.</td></tr>
+<tr><td>Status</td><td>Leak tests per read path pass on real Postgres and Redis; release log built. A finished Broadcast's facts now also wait out the player's margin. 670 audience polls a second saturated the web process on the rig and failed debate work (ISSUE-1305).</td></tr>
 <tr><td>Tasks</td><td>BCAST-5 WATCH-6</td></tr>
 </table>
 <h3>Score: Recording</h3>
@@ -161,7 +161,7 @@
 <tr><td>Tasks</td><td>WATCH-9 WATCH-15 REC-1.5 WATCH-H</td></tr>
 </table>
 <!-- standing -->
-<div class="cat"><p class="p"><strong>Nothing of Watch is on main yet.</strong> All of it is on the branch and its PR, not deployed to staging or production. Point guard is the owner's Claude Code session. Builder ag-ez2sisqa is on branch pu/watch. The whole Broadcast path runs on staging. All features exist on the branch and the whole journey passed on staging, and the second audit, by reading, found 107 of 151 criteria met (38 of them behind the launch flag), 39 partly and 2 not, with 8 release-blocking defects: 6 fixed since, 2 in progress. Landing now: privacy at release, the audience read lane, reviews and one browser run. 540p and per-POV capture follow right after merge. Open PRs to check for overlap when work starts: #535 Round timing, #536 rejoin and media, #541 Round completion.</p></div>
+<div class="cat"><p class="p"><strong>Watch is built and stays off until the flip.</strong> PR 553 is ready to merge, and merging leaves Watch closed and capture off. The flip commit stays last: it waits for the media-resilience recovery PR with two LiveKit nodes on staging, ISSUE-1299 and a real privacy contact, then one three-Round leak proof on the final head. Builder ag-ez2sisqa, branch pu/watch. Proven on a rig built from the branch: 22 real Rounds with no private audio or video in the public feed, a real Round with Broadcast and Recording, and one browser run whose failures were fixed and rerun locally. The second audit, by reading at an older head, found 107 of 151 criteria met (38 of them behind the launch flag), 39 partly and 2 not. One load run saturated the web process at 670 polls a second (ISSUE-1305), a question for the flip.</p></div>
 <div class="cat"><h2>Before production <span class="tag fut">discovery running</span></h2><p class="p">Legal review blocks nothing, by owner decision. Three items are open: the production SFU (multi-node on Fly, TURN and a node-failure drill), measuring floor control scaling (ISSUE-1079), and the owner's real iPhone and Safari tap. Production still needs the owner through <task>WATCH-H</task>.</p></div>
 <div class="cat"><h2>Production readiness</h2><p class="p">Stage percentages under Order of work are estimates, set by hand at each merge. Media resilience: <task>SFU-1</task> <task>SFU-2</task> <task>SFU-3</task> <task>SFU-4</task> <task>SFU-5</task> <task>SFU-6</task> <task>SFU-7</task> <task>SFU-8</task> <task>SFU-9</task> <task>SFU-10</task> <task>SFU-11</task> <task>SFU-12</task>. Floor control scaling: <task>FLOOR-1</task> <task>FLOOR-2</task> <task>FLOOR-3</task> <task>FLOOR-4</task> <task>FLOOR-5</task>.</p></div>
 <!-- changes -->
