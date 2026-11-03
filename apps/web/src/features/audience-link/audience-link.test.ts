@@ -7,6 +7,7 @@ import {
   audienceLinkHref,
   newAudienceLinkToken,
   presentedLinkHash,
+  shareLinkHref,
 } from './audience-link';
 
 setupRitewayBun();
@@ -163,6 +164,21 @@ describe('the browser holding a link', () => {
       should: 'present nothing',
       actual: presentedLinkHash(`${name}=short`, roundId),
       expected: null,
+    });
+  });
+});
+
+describe('shareLinkHref', () => {
+  test('offers the page only with a link and Watch open', () => {
+    assert({
+      given: 'a host with a link and without, with Watch open and closed',
+      should: 'name the page only for a host with a link while Watch is open',
+      actual: [
+        shareLinkHref({ state: 'set' }, 'round', true),
+        shareLinkHref(null, 'round', true),
+        shareLinkHref({ state: 'set' }, 'round', false),
+      ],
+      expected: ['/rounds/round/audience-link', null, null],
     });
   });
 });

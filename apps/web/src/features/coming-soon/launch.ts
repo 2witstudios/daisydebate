@@ -69,6 +69,9 @@ const destinationOfPath = (
 ): DestinationSlug | undefined => {
   const [first = '', second = '', , fourth = ''] = segments;
   if (first === 'api') {
+    // Capture can run while Watch is closed, so a participant's right to have a
+    // Recording removed never waits on the flag; sign-in and its own rules decide.
+    if (second === 'recordings' && fourth === 'removal') return undefined;
     if (watchApis.has(second)) return 'watch';
     return second === 'rounds' && watchRoundApis.has(fourth)
       ? 'watch'
@@ -102,6 +105,25 @@ export const closedDestinationOf = (
   );
   return slug !== undefined && !config[slug] ? slug : null;
 };
+
+/**
+ * A Room link, which a visitor may follow to Watch once the Round's start is
+ * released: its page decides, so the proxy sends no sign-in hint ahead of it.
+ * While Watch is closed it is an ordinary guarded page.
+ */
+export const roomLinkReachesWatch = (
+  pathname: string,
+  config: LaunchConfig = launched,
+): boolean => config.watch && /^\/rooms\/[^/]+$/.test(pathname);
+
+/** Where a Room's link sends someone outside it; null until Watch is open and the start released. */
+export const roomWatchHref = (
+  roundId: string | null,
+  config: LaunchConfig = launched,
+): string | null =>
+  roundId !== null && config.watch
+    ? `/watch/${encodeURIComponent(roundId)}`
+    : null;
 
 /** The live route of a destination; Seasons lives under the Leaderboard. */
 export const liveHref = (slug: DestinationSlug): string =>

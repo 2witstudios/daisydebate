@@ -8,6 +8,8 @@ import {
   explainerHref,
   launched,
   liveHref,
+  roomLinkReachesWatch,
+  roomWatchHref,
 } from './launch';
 
 setupRitewayBun();
@@ -15,6 +17,38 @@ setupRitewayBun();
 const allSoon = Object.fromEntries(
   destinationSlugs.map((slug) => [slug, false]),
 ) as Record<(typeof destinationSlugs)[number], boolean>;
+
+describe('a Room link and Watch', () => {
+  const watchOpen = { ...allSoon, watch: true };
+  test('reaches Watch only with Watch open and a released Round', () => {
+    assert({
+      given: 'a released Round, and none, with Watch open and closed',
+      should: 'name the Watch page only for a released Round with Watch open',
+      actual: [
+        roomWatchHref('round', watchOpen),
+        roomWatchHref(null, watchOpen),
+        roomWatchHref('round', allSoon),
+      ],
+      expected: ['/watch/round', null, null],
+    });
+  });
+  test('only the Room page itself skips the sign-in hint, only with Watch open', () => {
+    assert({
+      given: 'the Room page and its neighbours, with Watch open',
+      should: 'let the page decide for the Room alone',
+      actual: ['/rooms/abc', '/rooms', '/rooms/abc/rematch', '/rounds/abc'].map(
+        (path) => roomLinkReachesWatch(path, watchOpen),
+      ),
+      expected: [true, false, false, false],
+    });
+    assert({
+      given: 'the Room page with Watch closed',
+      should: 'stay an ordinary guarded page',
+      actual: roomLinkReachesWatch('/rooms/abc', allSoon),
+      expected: false,
+    });
+  });
+});
 
 describe('closedDestinationOf', () => {
   test('every route of a closed destination is closed', () => {
@@ -59,7 +93,6 @@ describe('closedDestinationOf', () => {
       '/api/rounds/round/viewers',
       '/api/recordings/rec/download',
       '/api/recordings/rec/playback/master.m3u8',
-      '/api/recordings/rec/removal',
       '/api/watch-history',
       '/api/debater-follows',
       '/api//rounds//round/%74imeline/',
@@ -77,6 +110,29 @@ describe('closedDestinationOf', () => {
       should: 'close none of them',
       actual: paths.map((path) => closedDestinationOf(path, allOpen)),
       expected: paths.map(() => null),
+    });
+  });
+
+  test('removing a Recording never waits on the flag', () => {
+    assert({
+      given: 'the removal route with Watch closed, however it is written',
+      should: 'stay open: a participant can always have a Recording removed',
+      actual: [
+        '/api/recordings/rec/removal',
+        '/api//recordings/rec/removal/',
+        '/%61pi/recordings/rec/%72emoval',
+      ].map((path) => closedDestinationOf(path, allSoon)),
+      expected: [null, null, null],
+    });
+    assert({
+      given: 'a route beside it, or under a path that only ends the same way',
+      should: 'stay closed with Watch',
+      actual: [
+        '/api/recordings/rec/download',
+        '/api/recordings/removal',
+        '/api/recordings/rec/playback/removal',
+      ].map((path) => closedDestinationOf(path, allSoon)),
+      expected: ['watch', 'watch', 'watch'],
     });
   });
 

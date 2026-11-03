@@ -304,6 +304,16 @@ describe('proxy early sign-in hint', () => {
     });
   });
 
+  test('the proxy lets a Recording removal through with Watch closed', () => {
+    const response = at('/api/recordings/rec/removal');
+    assert({
+      given: 'the removal route under the real launch config',
+      should: 'reach its handler, which applies sign-in and its own rules',
+      actual: [response.status, response.headers.get('location')],
+      expected: [200, null],
+    });
+  });
+
   test('sends a closed destination to its explainer before any sign-in', () => {
     const locations = [
       '/tournaments',
