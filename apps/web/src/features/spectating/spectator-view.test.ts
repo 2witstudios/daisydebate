@@ -152,8 +152,7 @@ describe('spectatorViewOf', () => {
 
   test('before the round starts, and an unreadable checkpoint', () => {
     assert({
-      given:
-        'a scheduled round, then an active one whose checkpoint is unreadable',
+      given: 'a new round, then an active one whose checkpoint is unreadable',
       should: 'show it starting with no clock, then waiting with nothing lit',
       actual: [
         [

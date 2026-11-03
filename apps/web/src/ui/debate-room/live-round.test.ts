@@ -40,7 +40,7 @@ describe('liveRoundOf before the start', () => {
 
   test('the debaters and the anonymous judge', () => {
     assert({
-      given: 'a scheduled round against a bot with a human judge',
+      given: 'a new round against a bot with a human judge',
       should:
         'seat you and the bot opposite, and list the judge without a name',
       actual: {
@@ -72,7 +72,7 @@ describe('liveRoundOf before the start', () => {
     });
   });
 
-  test('a scheduled round', () => {
+  test('a new round', () => {
     assert({
       given: 'a round whose clock has not started',
       should:

@@ -56,7 +56,7 @@ test('proof vertical: validated create, durable store, restored read', async () 
   assert({
     given: 'a proof debate created with a padded resolution, then read back',
     should:
-      'answer 201 with a request id and a trimmed scheduled round, then restore it carrying the canonical foundation rules',
+      'answer 201 with a request id and a trimmed new round, then restore it carrying the canonical foundation rules',
     actual: {
       created: {
         httpStatus: created.status,

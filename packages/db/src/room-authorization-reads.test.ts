@@ -34,7 +34,7 @@ test('Room assembly read hydrates its pinned definition and current host label',
     [[foundationDefinition]],
     [], // the Room has no claimed participants yet
     [[caller.actorId, 'human', 'current-host', null, true, null]],
-    [], // no scheduled Round exists
+    [], // no new Round exists
   ]);
 
   const state = await database.readRoomAssembly(
@@ -114,7 +114,7 @@ test('Round authority projection returns only frozen audience and seat facts', a
   const facts = await database.readRoundAuthorizationFacts(roundId, caller);
 
   assert({
-    given: 'a private scheduled Round with a participant and an empty join row',
+    given: 'a private new Round with a participant and an empty join row',
     should: 'return the account-fenced audience facts without Round content',
     actual: facts,
     expected: {

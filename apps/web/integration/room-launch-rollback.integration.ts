@@ -40,7 +40,7 @@ test('outbox failure rolls back Launch including frozen Round and participants',
     `;
     assert({
       given: 'a Room frozen through the canonical command operation',
-      should: 'commit exactly one scheduled Round phase doorbell',
+      should: 'commit exactly one new Round phase doorbell',
       actual: phase.map((row: { readonly payload: unknown }) => row.payload),
       expected: [
         {

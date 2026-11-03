@@ -23,9 +23,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
       transaction,
       nextId: createId,
       buildProjection: () => {
-        throw new Error(
-          'A scheduled Round must not invent a running projection',
-        );
+        throw new Error('A new Round must not invent a running projection');
       },
     });
     try {

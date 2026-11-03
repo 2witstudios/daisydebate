@@ -219,7 +219,7 @@ const startRows = (changeVersion = 1) => [
   [[readyRoom.id]], // the host's active membership is this Room's
   [],
   [],
-  [[2n, '42']], // Round phase signal for the frozen scheduled Round
+  [[2n, '42']], // Round phase signal for the frozen Round
   [],
   [], // command receipt insert follows the Round phase signal
   [[1n, '42']],

@@ -58,11 +58,10 @@ const scheduled: RoundReceiptView = {
   ],
 };
 
-test('persisted scheduled Round renders the frozen asymmetric schedule and cast', () => {
+test('persisted new Round renders the frozen asymmetric schedule and cast', () => {
   const html = renderToStaticMarkup(<RoundReceipt round={scheduled} />);
   assert({
-    given:
-      'a scheduled Round with unequal frozen speech lengths and an AI judge',
+    given: 'a new Round with unequal frozen speech lengths and an AI judge',
     should:
       'show its real receipt, ordered slots and exact durations without implying media or a ballot exists',
     actual: [

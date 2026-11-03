@@ -30,10 +30,10 @@ describe('round runtime lifecycle', () => {
       invariantId: 'debate.rules.speech-covers-grace',
     });
   });
-  test('starts a scheduled round into the countdown with the clock anchored', () => {
+  test('starts a new round into the countdown with the clock anchored', () => {
     const world = runtimeWorld();
     assert({
-      given: 'a scheduled round before its start',
+      given: 'a new round before its start',
       should: 'show no stage and the first segment as next',
       actual: world.position(at(0)),
       expected: {

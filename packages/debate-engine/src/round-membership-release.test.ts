@@ -41,7 +41,7 @@ test('the runtime rules the release in the revision that ends the debate', () =>
   });
   assert({
     given:
-      'a Round started, speaking, past its final speech, and a scheduled Round forfeited',
+      'a Round started, speaking, past its final speech, and a new Round forfeited',
     should:
       'keep members while it plays and release them once it is over or abandoned',
     actual: [
