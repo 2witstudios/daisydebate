@@ -67,6 +67,7 @@ export const eventRegistry = {
   'realtime.observation.unavailable': 'warn',
   'db.query.failed': 'error',
   'db.capacity.refused': 'warn',
+  'db.capacity.holder': 'warn',
   'retention.sweep.completed': 'info',
   'retention.sweep.failed': 'error',
   'retention.run.completed': 'info',

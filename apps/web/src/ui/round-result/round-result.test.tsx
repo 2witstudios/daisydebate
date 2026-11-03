@@ -60,7 +60,6 @@ test('a debater without the round analysis entitlement keeps the whole official 
     ballots: [
       completed.ballots[0]!,
       {
-        status: 'submitted',
         judge: 'ai',
         ballot: { ...sampleJudgeBallot, feedback: { affirmative: aiFeedback } },
       },

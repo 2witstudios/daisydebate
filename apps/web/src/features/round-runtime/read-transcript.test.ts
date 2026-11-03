@@ -138,3 +138,20 @@ test('a read that never answers gives up rather than holding the sync', async ()
     expected: ['unavailable', true],
   });
 });
+
+test('a transcript read says whether asking again can help', async () => {
+  const read = (status: number, headers: HeadersInit = {}) =>
+    readTranscript(
+      async () => new Response(null, { status, headers }),
+      round.id,
+    );
+  assert({
+    given: 'a temporary refusal and a failure that may last',
+    should: 'mark only the temporary one',
+    actual: await Promise.all([read(503, { 'retry-after': '1' }), read(503)]),
+    expected: [
+      { kind: 'unavailable', temporary: true },
+      { kind: 'unavailable' },
+    ],
+  });
+});

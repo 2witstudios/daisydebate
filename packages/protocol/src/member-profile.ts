@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { idSchema, type DebateSide } from './primitives';
 
 /** What one completed Round means for one debater's record. */
-export type RecordResult = 'win' | 'loss' | 'draw' | 'no-ruling';
+export type RecordResult = 'win' | 'loss' | 'no-ruling';
 
 /** Who ruled a Round: AI judges, human judges, both, or nobody. */
 export type JudgePanel = 'ai' | 'human' | 'mixed' | 'none';
@@ -11,7 +11,6 @@ export type JudgePanel = 'ai' | 'human' | 'mixed' | 'none';
 export type DebateRecord = {
   readonly wins: number;
   readonly losses: number;
-  readonly draws: number;
 };
 
 /** In-process projection from the validated durable rows; no wire consumer. */

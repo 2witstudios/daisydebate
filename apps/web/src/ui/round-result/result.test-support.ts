@@ -16,7 +16,6 @@ export const completed: RoundBallotRead = {
   freeze: null,
   ballots: [
     {
-      status: 'submitted',
       judge: 'human',
       ballot: {
         ...sampleJudgeBallot,
@@ -24,7 +23,6 @@ export const completed: RoundBallotRead = {
       },
     },
     {
-      status: 'submitted',
       judge: 'ai',
       ballot: { ...sampleJudgeBallot, feedback: {} },
     },

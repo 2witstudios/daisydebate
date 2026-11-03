@@ -15,6 +15,8 @@ export type CapacityRefusalDetail = {
     readonly running: number;
     readonly oldestAgeMs: number;
   };
+  /** Connections held when it refused, by the operation that asked for each. */
+  readonly holders?: Readonly<Record<string, number>>;
 };
 
 const CAPACITY_UNAVAILABLE = 'Database capacity unavailable';
@@ -98,6 +100,34 @@ export function capacityRefusalFields(error: unknown) {
 export function markCapacityRefusalReported(error: unknown) {
   const refusal = refusalIn(error);
   if (refusal) reportedRefusals.add(refusal);
+}
+/**
+ * The one report of what held a refusing lane: one line per operation, largest
+ * first. A refusal is reported once, by whichever boundary reaches it first.
+ */
+export function reportCapacityHolders(
+  error: unknown,
+  log: (
+    event: 'db.capacity.holder',
+    fields: {
+      readonly operation: string;
+      readonly cause: string;
+      readonly running: number;
+    },
+    message: string,
+  ) => void,
+) {
+  const detail = capacityRefusalDetail(error);
+  if (!detail || isReportedCapacityRefusal(error)) return;
+  markCapacityRefusalReported(error);
+  for (const [operation, running] of Object.entries(detail.holders ?? {}).sort(
+    ([, a], [, b]) => b - a,
+  ))
+    log(
+      'db.capacity.holder',
+      { operation, cause: detail.lane, running },
+      'Operation holding the refusing lane',
+    );
 }
 /**
  * A capacity refusal the database boundary already reported, so a caller

@@ -17,6 +17,10 @@ const render = (
     exportData: null,
     erase: null,
   },
+  available: { analytics: boolean; replay: boolean } = {
+    analytics: true,
+    replay: false,
+  },
 ) =>
   renderToString(
     h(ThemeProvider, {
@@ -34,7 +38,7 @@ const render = (
               replay: 'unanswered',
             },
           },
-          available: { analytics: true, replay: false },
+          available,
         },
         onboarding,
       }),
@@ -42,6 +46,22 @@ const render = (
   );
 
 describe('SettingsPage', () => {
+  test('a deploy with no consent choice', () => {
+    const sentence = 'Not answering counts as no.';
+    assert({
+      given: 'a deploy offering a choice, then one offering none',
+      should: 'say what not answering means only beside a choice',
+      actual: [
+        render('debater-a').includes(sentence),
+        render('debater-a', null, undefined, {
+          analytics: false,
+          replay: false,
+        }).includes(sentence),
+      ],
+      expected: [true, false],
+    });
+  });
+
   test('a member', () => {
     const html = render('debater-a');
     assert({

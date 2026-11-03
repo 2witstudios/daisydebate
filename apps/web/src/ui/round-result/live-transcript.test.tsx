@@ -188,3 +188,51 @@ test('a completed transcript says where a speech was partial, even a speech with
     expected: [1, `${last.sequence}`, 1],
   });
 });
+
+test('a partial speech with no gap says part of it was lost', () => {
+  const html = renderToString(
+    h(TranscriptContent, {
+      sections: [liveTranscriptSections(read('partial'))[0]!],
+      empty: '',
+    }),
+  );
+  const gapped = liveTranscriptSections({
+    ...read('partial'),
+    streams: read('partial').streams.map((stream) => ({
+      ...stream,
+      gaps: [{ fromOffsetMs: 1000, untilOffsetMs: 2000 }],
+    })),
+  })[0]!;
+  assert({
+    given: 'a partial stream with nothing to place, and one with a gap',
+    should: 'say a part was lost only where no gap can say where',
+    actual: [html.includes('part of this speech was lost'), gapped.losses],
+    expected: [true, []],
+  });
+});
+
+test('a completed speech partial with no gap says the same, even with no lines', () => {
+  const played = completed.round.segments[0]!;
+  const seat = completed.transcript!.utterances[0]!.roundParticipantId;
+  const sections = transcriptSections({
+    ...completed,
+    transcript: {
+      ...completed.transcript!,
+      utterances: [],
+      gaps: [],
+      partialStreams: [
+        {
+          segmentId: played.id,
+          roundParticipantId: seat,
+          reasons: ['frames-lost'],
+        },
+      ],
+    },
+  });
+  assert({
+    given: 'a frozen partial stream with no gap and no lines',
+    should: 'keep its section and name the loss',
+    actual: sections.map((section) => section.losses?.length),
+    expected: [1],
+  });
+});

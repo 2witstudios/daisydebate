@@ -28,7 +28,6 @@ const input: RoundBallotRead = {
   },
   own: {
     participantId: judge.id,
-    status: null,
     ballot: null,
     freezeRevision: null,
   },
@@ -53,7 +52,6 @@ const render = (state: 'waiting' | 'open' | 'submitted') =>
                 ...input,
                 own: {
                   participantId: judge.id,
-                  status: 'submitted',
                   ballot: sampleJudgeBallot,
                   freezeRevision: 1,
                 },

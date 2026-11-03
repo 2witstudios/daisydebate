@@ -32,7 +32,6 @@ test('every ballot names its own Round and an immutable committed freeze revisio
         winner: 'affirmative',
         scores: {},
         reason: 'Synthetic integrity fixture',
-        status: 'submitted',
         submitted_at: new Date(1000),
       });
     assert({
@@ -127,7 +126,6 @@ test('every judge has a separate job and only owning Round erasure removes froze
           winner: 'affirmative',
           scores: {},
           reason: 'Synthetic cascade fixture',
-          status: 'submitted',
           submitted_at: new Date(1000),
         });
         await queueSchemaJudge(fixture, roundId, judge.id);

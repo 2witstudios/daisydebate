@@ -79,7 +79,6 @@ describe('competitive schema child tables', () => {
             'ballots_freeze_revision_positive',
             'ballots_rubric_version_check',
             'ballots_scores_is_object',
-            'ballots_status_check',
             'ballots_winner_check',
           ],
           indexes: [

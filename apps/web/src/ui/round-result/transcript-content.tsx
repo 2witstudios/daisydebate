@@ -30,7 +30,11 @@ export function TranscriptSections({
       ) : null}
       <ol className="flex flex-col gap-1">
         {sectionItems(section).map((item) =>
-          item.kind === 'gap' ? (
+          item.kind === 'loss' ? (
+            <li key={item.key} className="text-sm text-ink-muted">
+              {item.speaker}: part of this speech was lost
+            </li>
+          ) : item.kind === 'gap' ? (
             <li key={item.key} className="text-sm text-ink-muted">
               {item.speaker}: not captured{' '}
               {formatSeconds(item.fromOffsetMs / 1000)}–
