@@ -1,5 +1,9 @@
 import { assertRejects } from '@daisy/errors/testing';
-import type { DebaterStanding, RatingEligibilityFacts } from '@daisy/protocol';
+import type {
+  DebaterStanding,
+  RatingEligibility,
+  RatingEligibilityFacts,
+} from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { rateDebate, ratingPolicy } from './rating';
 import {
@@ -39,7 +43,7 @@ const unsettled: RatingEligibilityFacts['attendance'] = {
   speeches: [{ id: 's1', rulesSegmentKey: 'first', startedAt: at }],
 };
 
-const rated = {
+const rated: RatingEligibility = {
   kind: 'rated',
   ladder: 'freestyle',
   outcome: 'affirmative',

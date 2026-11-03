@@ -13,7 +13,7 @@ import { forfeitRecorded } from './recorded-ending';
 import { roundParticipants } from './schema/round-participants';
 import { users } from './schema/users';
 
-type Tx = Pick<BunSQLDatabase, 'select'>;
+type Tx = Pick<BunSQLDatabase, 'select' | 'execute'>;
 
 export const debating = inArray(roundParticipants.role, [...debateSides]);
 
