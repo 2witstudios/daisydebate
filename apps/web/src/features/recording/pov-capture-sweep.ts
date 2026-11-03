@@ -67,6 +67,8 @@ const UNREADABLE = (id: string): StageEgressFact => ({
  */
 export const createPovCaptureSweep = (deps: {
   readonly store: Store;
+  /** Off, nothing new starts, and whatever runs is stopped and closed as if over. */
+  readonly enabled: boolean;
   /** The LiveKit holding this room: nothing here assumes there is only one. */
   readonly egressFor: (room: string) => PovEgress;
   readonly phaseAt: (
@@ -263,7 +265,7 @@ export const createPovCaptureSweep = (deps: {
 
   const reconcile = async (open: Open) => {
     const nowMs = deps.now();
-    const ended = roundEnded(open.roundStatus);
+    const ended = roundEnded(open.roundStatus) || !deps.enabled;
     const capturing = open.lifecycle.status === 'capturing' && !ended;
     const seats = capturing ? await store.readSeats(open.roundId) : [];
     if (capturing) await openSeats(open, seats);

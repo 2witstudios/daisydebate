@@ -1,7 +1,6 @@
 import {
   type BuiltRecordingMedia,
   type PovBuild,
-  type RecordingBuildProgress,
   type RecordingJobState,
   publicClips,
   recordingBuildCeilingMs,

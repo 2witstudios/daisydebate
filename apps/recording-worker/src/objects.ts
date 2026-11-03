@@ -39,6 +39,7 @@ const listAll = async (client: S3Client, prefix: string) => {
 const contentType = (key: string) => {
   if (key.endsWith('.m3u8')) return 'application/vnd.apple.mpegurl';
   if (key.endsWith('.ts')) return 'video/mp2t';
+  if (key.endsWith('.m4a')) return 'audio/mp4';
   return 'video/mp4';
 };
 

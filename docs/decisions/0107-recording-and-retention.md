@@ -74,21 +74,21 @@ Recording's own concept: `recording_pov_captures`, `features/recording/pov-*` an
 `@daisy/media/pov` borrow nothing from Broadcast. They share only `egressPrivacyActions`, the one rule
 for any Egress in a Round's room.
 
-- *Participant Egress, one per debater.* It follows republishes by identity, writes crash-safe
+- _Participant Egress, one per debater._ It follows republishes by identity, writes crash-safe
   segments and a fixed format, where a Track Egress ends at each of the microphone's unpublishes. It
   costs a transcode. A cheaper mix of Track and audio Egress is a later cost measure; it risks silent
   lip-sync drift no check can see.
-- *Chosen from seats, never a room listing.* Only affirmative and negative seats get a row, so a
+- _Chosen from seats, never a room listing._ Only affirmative and negative seats get a row, so a
   hidden human judge is never captured, by construction. A bot gets voice alone.
-- *The same gate.* Revocation keeps private media out of the hold where it works, but only
+- _The same gate._ Revocation keeps private media out of the hold where it works, but only
   `publicClips` decides what is kept. Anything not known to be public is slate.
-- *In sync, in real time.* A POV starts at the composite's first frame and runs its length. Gaps
+- _In sync, in real time._ A POV starts at the composite's first frame and runs its length. Gaps
   are stated per POV: `not_public` or `capture_restart`.
-- *Failure is local.* A POV that never ran, had nothing public or would not build is listed as
+- _Failure is local._ A POV that never ran, had nothing public or would not build is listed as
   missing, and the Recording is ready. The composite is the record; ranked evidence does not
   rest on POVs.
-- *540p where the device can,* 360p with a label, never a refusal.
-- *Kept as the Recording is.* Removal, takedown, erasure and the evidence hold cover POVs through
+- _540p where the device can,_ 360p with a label, never a refusal.
+- _Kept as the Recording is._ Removal, takedown, erasure and the evidence hold cover POVs through
   the same prefix and the same lifecycle, and anything a person can watch is kept after ranked
   erasure. The waiver and notices say so. **Not reviewed by counsel** (COMP-4).
 

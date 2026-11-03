@@ -774,7 +774,7 @@ test('an open POV keeps sources in use and is reported to the sweep', async () =
           ],
         },
       });
-      await client`update recordings set status='processing', lifecycle=${lifecycle}::jsonb where id=${id}`;
+      await client`update recordings set status='processing', lifecycle=${lifecycle}::text::jsonb where id=${id}`;
       const jobs = await store.listJobs(1000);
       const found = jobs.find((job) => job.recordingId === id);
       return [found?.povsOpen, found?.sourcesInUse];

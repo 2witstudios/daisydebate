@@ -16,10 +16,7 @@ import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
 } from './round-clock-transaction';
-import {
-  readCameraHeld,
-  readConversationHeld,
-} from './broadcast-operations';
+import { readCameraHeld, readConversationHeld } from './broadcast-operations';
 import { hydrateRoundRows } from './round-hydration';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
 import { mediaBindingFields } from './media-participant-binding';

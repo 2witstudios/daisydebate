@@ -64,6 +64,7 @@ const setup = (
     readonly claim?: boolean;
     readonly startWon?: boolean;
     readonly failing?: string;
+    readonly enabled?: boolean;
   } = {},
 ) => {
   const calls: unknown[][] = [];
@@ -102,6 +103,7 @@ const setup = (
       recordCameraHeight: log('recordCameraHeight'),
       close: log('close'),
     } as never,
+    enabled: over.enabled ?? true,
     egressFor: () => egress,
     phaseAt: () => over.phase ?? { kind: 'public' },
     now: () => NOW,
@@ -277,6 +279,27 @@ describe('createPovCaptureSweep', () => {
       should: 'close it, and open nothing new',
       actual: [named('close').length, named('open').length],
       expected: [1, 0],
+    });
+  });
+  test('switched off, what runs is stopped and closed, so nothing waits on it', async () => {
+    const running = setup({
+      enabled: false,
+      rows: [row({ egressId: 'EG', egressRoom: 'room-1' })],
+      egressFact: { kind: 'active', id: 'EG' },
+    });
+    await running.sweep();
+    const done = setup({ enabled: false });
+    await done.sweep();
+    assert({
+      given: 'POV capture off with one running, then with none',
+      should: 'stop the first, close the second, and start or open nothing',
+      actual: [
+        running.named('stop').length,
+        done.named('close').length,
+        done.named('start').length,
+        done.named('open').length,
+      ],
+      expected: [1, 1, 0, 0],
     });
   });
   test('a claim held elsewhere is left alone', async () => {

@@ -147,8 +147,10 @@ const STRAY_POV_SWEEP_EVERY_MS = 15_000;
 const STRAY_POV_CLAIM_MS = 800;
 
 /**
- * Inert unless RECORDING_CAPTURE and RECORDING_POV_CAPTURE are both on, so merging
- * never activates capture. A failure here reaches no composite and no Round.
+ * Inert unless RECORDING_CAPTURE is on, and it starts nothing unless
+ * RECORDING_POV_CAPTURE is too, so merging never activates capture. With the switch
+ * off it still finishes what ran, so no build or conversation waits on it. A failure
+ * here reaches no composite and no Round.
  */
 export const startPovCapture = (app: App, timers: WorkerTimers) => {
   const {
@@ -158,7 +160,6 @@ export const startPovCapture = (app: App, timers: WorkerTimers) => {
   } = app.config;
   if (
     app.config.RECORDING_CAPTURE !== 'on' ||
-    app.config.RECORDING_POV_CAPTURE !== 'on' ||
     !url ||
     !apiKey ||
     !apiSecret
@@ -171,6 +172,7 @@ export const startPovCapture = (app: App, timers: WorkerTimers) => {
     app.logger.log(event, {}, 'Recording POV capture');
   const sweep = createPovCaptureSweep({
     store,
+    enabled: app.config.RECORDING_POV_CAPTURE === 'on',
     egressFor: () => egress,
     phaseAt: (round, now) =>
       broadcastPhase(
