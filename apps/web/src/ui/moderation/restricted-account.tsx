@@ -1,3 +1,4 @@
+import { RESTRICTED_HREF } from '../../features/access/decision';
 import { OnboardingFrame } from '../onboarding/frame/frame';
 import { AccountExit } from '../onboarding/account-exit/account-exit';
 
@@ -30,7 +31,7 @@ export function RestrictedAccount({
           manage your data in account settings.
         </p>
       </div>
-      <AccountExit failed={signOutFailed} returnTo="/restricted">
+      <AccountExit failed={signOutFailed} returnTo={RESTRICTED_HREF}>
         {null}
       </AccountExit>
     </OnboardingFrame>

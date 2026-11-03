@@ -214,6 +214,19 @@ test('a waitlisted account reaches the evaluator only through Room commands (ADR
   });
 });
 
+test('a Room list naming a query parameter twice is a validation refusal', async () => {
+  const handlers = createRoomHandlers(dependencies(member, {}));
+  const response = await handlers.list(
+    new Request(`${origin}/api/rooms?a=1&a=2`, { headers: { origin } }),
+  );
+  assert({
+    given: 'a member listing Rooms with a repeated parameter',
+    should: 'answer 400 rather than a server fault',
+    actual: response.status,
+    expected: 400,
+  });
+});
+
 test('a restricted account keeps its Room exit (ADR 0103)', async () => {
   let commands = 0;
   const handlers = createRoomHandlers(

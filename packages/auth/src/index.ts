@@ -3,6 +3,7 @@ export { parseUsername } from '@daisy/protocol';
 export {
   claimedUsername,
   resolveIdentity,
+  type ClaimedIdentity,
   type Identity,
   type Participation,
 } from './identity';

@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { Identity } from '@daisy/auth';
+import { resolveIdentity, type Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import { noopErrorReporter } from '@daisy/observability';
 import { runEvaluatedRoute, runMemberRoute } from './member-boundary';
@@ -151,6 +151,43 @@ test('runMemberRoute()', async () => {
     should: 'spend nothing',
     actual: [early.status, checked.events],
     expected: [400, ['identify']],
+  });
+});
+
+test('a member whose actor row is missing', async () => {
+  const gate = boundary(member);
+  let ran = false;
+  const response = await runMemberRoute(
+    {
+      ...gate,
+      identify: () =>
+        resolveIdentity({
+          cookie: 'session=1',
+          readSession: async () => ({
+            userId: 'user',
+            emailVerified: true,
+            username: 'Ada',
+            expiresAt: '2100-01-01T00:00:00.000Z',
+          }),
+          readActor: async () => null,
+          readParticipation: async () => {
+            throw new Error('Must not read participation');
+          },
+          now: () => '2026-01-01T00:00:00.000Z',
+        }),
+    },
+    request(),
+    route,
+    async () => {
+      ran = true;
+      return new Response(null, { status: 204 });
+    },
+  );
+  assert({
+    given: 'identity resolution through the boundary',
+    should: 'answer 503 as an outage, spending nothing and running nothing',
+    actual: [response.status, gate.events, ran],
+    expected: [503, [], false],
   });
 });
 

@@ -93,8 +93,6 @@ export function createEraseAccountHandler({
           : seeOther('/sign-in');
       const account = requireSignedIn(identity);
       if (!evaluatedIdentity(account)) throw createAppError('AUTHORIZATION');
-      if (account.principal.actorId === null)
-        throw createAppError('AUTHORIZATION');
       await consumeWindowsOrThrow(
         limiter(),
         `privacy:erase:${account.principal.userId}`,

@@ -1,3 +1,4 @@
+import { RESTRICTED_HREF } from '../../../../features/access/decision';
 import type { DestinationSlug } from '../../../../features/coming-soon/destinations';
 import {
   launched,
@@ -130,6 +131,6 @@ export const wayIn = (
     case 'waitlisted':
       return { href: '/beta', label: 'Beta list' };
     case 'restricted':
-      return { href: '/restricted', label: 'Account restricted' };
+      return { href: RESTRICTED_HREF, label: 'Account restricted' };
   }
 };

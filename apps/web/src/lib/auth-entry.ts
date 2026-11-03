@@ -3,7 +3,7 @@ import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import {
   nextDestination,
-  RESTRICTED_HREF,
+  restrictedHref,
   signInHref,
   type SearchParams,
 } from '../features/access/decision';
@@ -41,6 +41,7 @@ export async function readOnboardingEntry(
   const { destination, identity } = await readAuthEntry(searchParams);
   if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
   if (identity.state === 'anonymous') redirect(signInHref(here(destination)));
-  if (identity.state === 'restricted') redirect(RESTRICTED_HREF);
+  if (identity.state === 'restricted')
+    redirect(restrictedHref(await searchParams));
   return { destination, identity };
 }

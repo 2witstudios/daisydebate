@@ -50,8 +50,6 @@ export function createExportDataHandler({
       requireSameOrigin(request, origin());
       const account = requireSignedIn(await identify(request));
       if (!evaluatedIdentity(account)) throw createAppError('AUTHORIZATION');
-      if (account.principal.actorId === null)
-        throw createAppError('AUTHORIZATION');
       await consumeWindowsOrThrow(
         limiter(),
         `privacy:export:${account.principal.userId}`,

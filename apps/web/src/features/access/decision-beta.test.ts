@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
-import { decideAccess, requirementFor } from './decision';
+import { decideAccess, requirementFor, restrictedHref } from './decision';
 
 setupRitewayBun();
 
@@ -35,6 +35,20 @@ describe('decideAccess for a restricted account (ADR 0103)', () => {
         }),
       ],
       expected: [{ kind: 'redirect', to: '/restricted' }, { kind: 'allow' }],
+    });
+  });
+});
+
+describe('restrictedHref (ADR 0103)', () => {
+  test('a failed sign-out keeps its notice on the way to the restricted page', () => {
+    assert({
+      given: 'a page query with and without a failed sign-out',
+      should: 'carry only that flag over',
+      actual: [
+        restrictedHref({ signOut: 'failed', next: '/play' }),
+        restrictedHref({ next: '/play' }),
+      ],
+      expected: ['/restricted?signOut=failed', '/restricted'],
     });
   });
 });

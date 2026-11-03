@@ -23,7 +23,7 @@ writer. Each stayed correct only while its copies agreed.
    evaluator decides from the principal uses `runEvaluatedRoute`, which waitlisted
    and restricted accounts pass too. Each feature keeps its own refusal
    vocabulary. The actor is read once a request, by identity resolution, and a
-   durable write checks it again under the account fence; no route reads it
+   write under the account fence checks it again there; no route reads it
    again. A missing actor resolves `unavailable`, so it answers INFRASTRUCTURE:
    the fault is in the data, not in the caller's authority.
 2. **A Round read belongs to Rounds.** `GET /api/rounds/:id` is served by

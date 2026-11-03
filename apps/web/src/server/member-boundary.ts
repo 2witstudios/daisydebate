@@ -1,5 +1,5 @@
 import type { OperationName } from '../features/ops/operation-names';
-import type { Identity } from '@daisy/auth';
+import type { ClaimedIdentity, Identity } from '@daisy/auth';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
@@ -43,10 +43,7 @@ type RouteContext = {
 /** An identity whose principal the evaluator decides for, keeping only its withdrawals (ADR 0075). */
 export const evaluatedIdentity = (
   identity: Identity,
-): identity is Extract<
-  Identity,
-  { state: 'member' | 'waitlisted' | 'restricted' }
-> =>
+): identity is ClaimedIdentity =>
   identity.state === 'member' ||
   identity.state === 'waitlisted' ||
   identity.state === 'restricted';
@@ -56,21 +53,15 @@ export const evaluatedIdentity = (
  * who may pass, then the work.
  *
  * The actor is read once a request, by identity resolution, and never again
- * here: a route's actor is what that read returned, and a durable write
- * checks it again under the account fence. A missing actor resolves
- * `unavailable`, so it answers as an outage before any route runs.
+ * here: a route's actor is what that read returned, and a write under the
+ * account fence checks it again there. A missing actor resolves `unavailable`,
+ * so it answers as an outage before any route runs.
  */
 function runGated(
   boundary: MemberBoundary,
   request: Request,
   route: Route,
-  work: (
-    identity: Extract<
-      Identity,
-      { state: 'member' | 'waitlisted' | 'restricted' }
-    >,
-    context: RouteContext,
-  ) => Promise<Response>,
+  work: (identity: ClaimedIdentity, context: RouteContext) => Promise<Response>,
 ) {
   return handleOperation(
     boundary.logger,
@@ -109,7 +100,6 @@ export function runMemberRoute(
   return runGated(boundary, request, route, async (identity, context) => {
     route.beforeBudget?.();
     const { userId, actorId } = identity.principal;
-    if (actorId === null) throw createAppError('INFRASTRUCTURE');
     await consumeOrThrow(
       boundary.limiter(),
       `${route.bucket}:${userId}`,

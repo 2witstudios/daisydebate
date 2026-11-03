@@ -38,6 +38,8 @@ const anonymous = { kind: 'anonymous' } as const;
  */
 type AnonymousPrincipal = Extract<Principal, { kind: 'anonymous' }>;
 type UserPrincipal = Extract<Principal, { kind: 'user' }>;
+/** A claimed username means an actor was read, so these principals always hold one. */
+type ClaimedPrincipal = UserPrincipal & { readonly actorId: string };
 
 export type Identity =
   | { readonly state: 'anonymous'; readonly principal: AnonymousPrincipal }
@@ -57,19 +59,25 @@ export type Identity =
        * `age-required` (no durable age record at the floor yet).
        */
       readonly reason: 'pending' | 'revoked' | 'age-required';
-      readonly principal: UserPrincipal;
+      readonly principal: ClaimedPrincipal;
     }
   /** A suspension or ban in force, which outranks every other fact. */
   | {
       readonly state: 'restricted';
       readonly username: string;
-      readonly principal: UserPrincipal;
+      readonly principal: ClaimedPrincipal;
     }
   | {
       readonly state: 'member';
       readonly username: string;
-      readonly principal: UserPrincipal;
+      readonly principal: ClaimedPrincipal;
     };
+
+/** An account with a claimed username and its actor, whatever it may do. */
+export type ClaimedIdentity = Extract<
+  Identity,
+  { state: 'member' | 'waitlisted' | 'restricted' }
+>;
 
 /**
  * The username an account has claimed, approved or still waiting (ISSUE-690),
@@ -171,7 +179,7 @@ async function identityFromSession(
  */
 function participation(
   username: string,
-  principal: UserPrincipal,
+  principal: ClaimedPrincipal,
   facts: {
     readonly betaState: BetaAccessState | null;
     readonly ageBand: AgeBand | null;
@@ -179,7 +187,6 @@ function participation(
   },
 ): Identity {
   const { betaState, ageBand, restricted } = facts;
-  if (restricted) return { state: 'restricted', username, principal };
   if (
     participantAccess({
       beta: betaState && { state: betaState },
@@ -188,6 +195,7 @@ function participation(
     })
   )
     return { state: 'member', username, principal };
+  if (restricted) return { state: 'restricted', username, principal };
   const reason =
     betaState === 'revoked'
       ? 'revoked'
