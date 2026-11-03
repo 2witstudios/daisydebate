@@ -20,7 +20,7 @@ describe('StreamThisRound', () => {
         html.includes('Stream this Round'),
         html.includes(`value="${feedUrl}"`),
         html.includes('readOnly') || html.includes('readonly'),
-        html.includes('Media Source'),
+        html.includes('then Media (Media Source in older versions)'),
         html.includes('Local File'),
         html.includes('>Copy<'),
       ],
