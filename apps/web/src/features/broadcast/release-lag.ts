@@ -24,7 +24,6 @@ export const releaseOverdue = (
   const released = ms(broadcast.releasedThroughAt);
   const end = ms(broadcast.finalMediaEndAt);
   if (
-    broadcast.releasePolicy.kind !== 'delay' ||
     broadcast.stoppedAt !== null ||
     broadcast.completedAt !== null ||
     started === null ||

@@ -24,16 +24,7 @@ const floorOf = (nowMs: number, delayMs: number) =>
 const finishedFloor = (
   policy: BroadcastReleasePolicy,
   facts: SpectatorHorizonFacts,
-): number | null => {
-  switch (policy.kind) {
-    case 'delay':
-      return floorOf(facts.nowMs, policy.seconds * 1000);
-    case 'round_end':
-      return facts.roundTerminal ? floorOf(facts.nowMs, 0) : null;
-    case 'at':
-      return facts.nowMs >= policy.atMs ? floorOf(facts.nowMs, 0) : null;
-  }
-};
+): number => floorOf(facts.nowMs, policy.seconds * 1000);
 
 /**
  * How far the audience's knowledge has reached: `factReleased` compares a fact's

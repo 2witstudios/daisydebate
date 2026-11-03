@@ -115,23 +115,6 @@ describe('The host capture choice', () => {
     });
   });
 
-  test('a scheduled release must still be ahead', () => {
-    const at = (atMs: number): RoomCapture => ({
-      broadcast: {
-        release: { kind: 'at', atMs },
-        debatersReadChat: false,
-      },
-      recording: false,
-    });
-    const now = Date.parse(entitled.now);
-    assert({
-      given: 'a release time already passed, and one ahead',
-      should: 'refuse the first and accept the second',
-      actual: [run(state(), at(now)), run(state(), at(now + 1)).ok],
-      expected: [{ ok: false, refusal: 'illegal-config' }, true],
-    });
-  });
-
   test('Launch refuses a choice the host can no longer make', () => {
     const start = {
       commandId: 'c',

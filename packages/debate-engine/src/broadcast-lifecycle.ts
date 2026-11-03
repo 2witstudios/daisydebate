@@ -38,8 +38,7 @@ export type BroadcastAction =
   | { readonly type: 'complete' };
 
 /** The delay still owed after the last media is out; a hold releases at its own time. */
-const delayMs = (policy: BroadcastReleasePolicy) =>
-  policy.kind === 'delay' ? policy.seconds * 1000 : 0;
+const delayMs = (policy: BroadcastReleasePolicy) => policy.seconds * 1000;
 
 /**
  * What the reconciler does next, from observed facts alone. A decision never

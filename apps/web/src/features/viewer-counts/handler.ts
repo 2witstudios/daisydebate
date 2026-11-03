@@ -1,4 +1,5 @@
 import type { Clock } from '@daisy/clock';
+import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
@@ -14,6 +15,8 @@ import {
   requireSameOrigin,
 } from '../../server/http';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
+import { joinReadInFlight } from '../spectating/in-flight-read';
+import { answerUnlessRefused } from '../spectating/refused-read';
 import { createSnapshotMemo } from '../spectating/snapshot-memo';
 import { VIEWER_BUCKET_TTL_MS, viewerBucketOf } from './viewer-count';
 
@@ -57,47 +60,59 @@ export function createViewerPulseRoute(deps: {
     nowMs: () => Date.parse(deps.clock.now()),
     ttlMs: ON_AIR_TTL_MS,
     maxEntries: ON_AIR_ROUNDS,
+    keepsFailure: isTemporaryRefusal,
   });
+  const links =
+    joinReadInFlight<
+      Awaited<
+        ReturnType<Parameters<typeof admitAudience>[0]['readRoundAudienceLink']>
+      >
+    >();
+  const linkStore = {
+    readRoundAudienceLink: (roundId: string) =>
+      links(roundId, () => deps.store.readRoundAudienceLink(roundId)),
+  };
   return (request: Request) =>
     handleOperation(
       deps.logger,
       request,
       'audience.viewer-pulse',
-      async () => {
-        requireSameOrigin(request, deps.origin());
-        const roundId = roundIdOf(request);
-        if (!idSchema.safeParse(roundId).success)
-          throw createAppError('NOT_FOUND');
-        await consumeOrThrow(
-          deps.limiter(),
-          `audience:pulse:${request.headers.get(CLIENT_IP_HEADER) ?? 'unknown'}`,
-          PULSE_LIMIT,
-        );
-        const { token } = parseValidated(
-          viewerPulseSchema,
-          await readJson(request, 256),
-        );
-        const audience = await onAir(roundId, () =>
-          deps.store.readOnAirAudience({ roundId }),
-        );
-        if (
-          audience &&
-          (await admitAudience(deps.store, audience, {
-            roundId,
-            presentedHash: presentedLinkHash(
-              request.headers.get('cookie'),
+      () =>
+        answerUnlessRefused(async () => {
+          requireSameOrigin(request, deps.origin());
+          const roundId = roundIdOf(request);
+          if (!idSchema.safeParse(roundId).success)
+            throw createAppError('NOT_FOUND');
+          await consumeOrThrow(
+            deps.limiter(),
+            `audience:pulse:${request.headers.get(CLIENT_IP_HEADER) ?? 'unknown'}`,
+            PULSE_LIMIT,
+          );
+          const { token } = parseValidated(
+            viewerPulseSchema,
+            await readJson(request, 256),
+          );
+          const audience = await onAir(roundId, () =>
+            deps.store.readOnAirAudience({ roundId }),
+          );
+          if (
+            audience &&
+            (await admitAudience(linkStore, audience, {
               roundId,
-            ),
-          }))
-        )
-          await deps.counts.recordViewerPulse({
-            roundId,
-            bucket: viewerBucketOf(Date.parse(deps.clock.now())),
-            token,
-            ttlMs: VIEWER_BUCKET_TTL_MS,
-          });
-        return new Response(null, { status: 204 });
-      },
+              presentedHash: presentedLinkHash(
+                request.headers.get('cookie'),
+                roundId,
+              ),
+            }))
+          )
+            await deps.counts.recordViewerPulse({
+              roundId,
+              bucket: viewerBucketOf(Date.parse(deps.clock.now())),
+              token,
+              ttlMs: VIEWER_BUCKET_TTL_MS,
+            });
+          return new Response(null, { status: 204 });
+        }),
       deps.reporter,
     );
 }

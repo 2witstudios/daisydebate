@@ -294,6 +294,7 @@ ALTER TABLE "watch_history" ADD CONSTRAINT "watch_history_round_id_rounds_id_fke
 ALTER TABLE "messaging_channels" ADD CONSTRAINT "messaging_channels_round" CHECK (("kind" = 'round_spectator') = ("round_id" is not null));--> statement-breakpoint
 -- A ranked Room is public from here on; one left unlisted must not refuse the deploy.
 UPDATE "rooms" SET "visibility" = 'public' WHERE "competition_type" = 'ranked' AND "visibility" <> 'public';--> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_ranked_public_check" CHECK ("competition_type" <> 'ranked' or "visibility" = 'public');--> statement-breakpoint
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_capture_is_object" CHECK (jsonb_typeof("capture") = 'object');--> statement-breakpoint
 ALTER TABLE "rounds" ADD CONSTRAINT "rounds_capture_is_object" CHECK (jsonb_typeof("capture") = 'object');--> statement-breakpoint

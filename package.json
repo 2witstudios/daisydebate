@@ -39,6 +39,7 @@
     "migrations:check": "bun scripts/check-migrations.ts",
     "check:affected": "bun scripts/heavy.ts bun scripts/check-affected.ts",
     "hooks:install": "git config core.hooksPath .githooks",
+    "audience:load": "bun scripts/audience-load.ts",
     "board:read": "bun scripts/board.ts read",
     "board:hash": "bun scripts/board.ts hash",
     "board:status": "bun scripts/board.ts status",

@@ -71,7 +71,7 @@ test('one Broadcast per Round, and its policy is kept', async () => {
       id: createId(),
       roundId,
       feedKey: createId(),
-      releasePolicy: { kind: 'round_end' },
+      releasePolicy: { kind: 'delay', seconds: 1800 },
     });
     assert({
       given: 'a second open for the same Round',
@@ -402,7 +402,7 @@ test('discovery finds ranked Rounds and casual Rounds whose host chose a Broadca
       await client`update rounds set competition_type='casual', ladder_id=null, capture=${JSON.stringify(
         {
           broadcast: {
-            release: { kind: 'round_end' },
+            release: { kind: 'delay', seconds: 300 },
             debatersReadChat: true,
           },
           recording: false,
@@ -578,46 +578,6 @@ test('one start is recorded per generation, and a racing one loses', async () =>
         next,
       ],
       expected: [1, winner, `hash-${winner}`, true],
-    });
-  });
-});
-
-test('a hold with nothing due occupies no release slot', async () => {
-  await withOps(async (db, roundId) => {
-    const { id } = await openBroadcast(db, {
-      id: createId(),
-      roundId,
-      feedKey: createId(),
-      releasePolicy: { kind: 'round_end' },
-    });
-    const claim = async (at: Date) => {
-      const claimed = await db.transaction((tx) =>
-        claimBroadcast(tx, {
-          owner: 'w',
-          now: at,
-          leaseUntil: new Date(at.getTime() + 1),
-        }),
-      );
-      return claimed?.id === id;
-    };
-    const claimedRunning = await claim(now);
-    await recordFinalMediaEnd(db, { id, at: now });
-    const claimedEnded = await claim(later);
-    await db
-      .update(broadcasts)
-      .set({
-        releasePolicy: { kind: 'at', atMs: later.getTime() },
-        leaseOwner: null,
-        leaseUntil: null,
-      })
-      .where(eq(broadcasts.id, id));
-    const claimedEarly = await claim(now);
-    const claimedAtTime = await claim(later);
-    assert({
-      given: 'a Round-end hold before and after media ends, then a set time',
-      should: 'claim each only once something can be due',
-      actual: [claimedRunning, claimedEnded, claimedEarly, claimedAtTime],
-      expected: [false, true, false, true],
     });
   });
 });

@@ -3,7 +3,6 @@ import { roomCommandSchema } from '@daisy/protocol';
 import {
   captureFromFields,
   captureLine,
-  releaseAtValue,
   releaseChoiceOf,
   releaseChoices,
 } from './capture-form';
@@ -26,20 +25,15 @@ describe('The capture form without script', () => {
 
   test('a Broadcast carries its release and its chat switch', () => {
     assert({
-      given: 'a broadcast at each kind of release',
+      given: 'a broadcast at a short and a long delay',
       should: 'read the policy, with chat off unless ticked',
       actual: [
         captureFromFields({ broadcast: 'on', release: 'delay:10' }),
         captureFromFields({
           broadcast: 'on',
-          release: 'round_end',
+          release: 'delay:300',
           debatersReadChat: 'on',
           recording: 'on',
-        }),
-        captureFromFields({
-          broadcast: 'on',
-          release: 'at',
-          releaseAt: '2026-11-03T18:30',
         }),
       ],
       expected: [
@@ -51,15 +45,11 @@ describe('The capture form without script', () => {
           recording: false,
         },
         {
-          broadcast: { release: { kind: 'round_end' }, debatersReadChat: true },
-          recording: true,
-        },
-        {
           broadcast: {
-            release: { kind: 'at', atMs: Date.UTC(2026, 10, 3, 18, 30) },
-            debatersReadChat: false,
+            release: { kind: 'delay', seconds: 300 },
+            debatersReadChat: true,
           },
-          recording: false,
+          recording: true,
         },
       ],
     });
@@ -67,46 +57,38 @@ describe('The capture form without script', () => {
 
   test('a release it cannot read is refused, not guessed', () => {
     assert({
-      given: 'no release, a junk release, and a set time with no time',
+      given:
+        'no release, a junk release, and the Round-end and set-time choices no longer offered',
       should: 'answer null each time',
       actual: [
         captureFromFields({ broadcast: 'on' }),
         captureFromFields({ broadcast: 'on', release: 'delay:soon' }),
-        captureFromFields({ broadcast: 'on', release: 'at', releaseAt: '' }),
+        captureFromFields({ broadcast: 'on', release: 'round_end' }),
+        captureFromFields({
+          broadcast: 'on',
+          release: 'at',
+          releaseAt: '2026-11-03T18:30',
+        }),
       ],
-      expected: [null, null, null],
+      expected: [null, null, null, null],
     });
   });
 
   test('every offered choice reads back as itself', () => {
-    const roundTrips = releaseChoices
-      .filter((choice) => choice.value !== 'at')
-      .map((choice) => {
-        const read = captureFromFields({
-          broadcast: 'on',
-          release: choice.value,
-        });
-        return read?.broadcast
-          ? releaseChoiceOf(read.broadcast.release) === choice.value
-          : false;
+    const roundTrips = releaseChoices.map((choice) => {
+      const read = captureFromFields({
+        broadcast: 'on',
+        release: choice.value,
       });
+      return read?.broadcast
+        ? releaseChoiceOf(read.broadcast.release) === choice.value
+        : false;
+    });
     assert({
       given: 'each release in the select',
       should: 'select the same value when stored',
       actual: roundTrips.every(Boolean),
       expected: true,
-    });
-  });
-
-  test('a stored set time fills its field in UTC', () => {
-    assert({
-      given: 'a set time and a delay',
-      should: 'give the UTC minute, and nothing for a delay',
-      actual: [
-        releaseAtValue({ kind: 'at', atMs: Date.UTC(2026, 10, 3, 18, 30) }),
-        releaseAtValue({ kind: 'delay', seconds: 60 }),
-      ],
-      expected: ['2026-11-03T18:30', ''],
     });
   });
 

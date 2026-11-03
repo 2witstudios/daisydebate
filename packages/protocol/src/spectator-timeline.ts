@@ -43,11 +43,6 @@ const broadcastStandingSchema = z.discriminatedUnion('state', [
   /** The Round has no Broadcast this audience can play. */
   z.strictObject({ state: z.literal('none') }),
   z.strictObject({ state: z.literal('starting') }),
-  /** Held by its release policy: until a set time, or the Round's end when null. */
-  z.strictObject({
-    state: z.literal('held'),
-    releasesAt: z.iso.datetime().nullable(),
-  }),
   z.strictObject({ state: z.literal('on_air'), stream: broadcastStreamSchema }),
   /** Released media stopped arriving; null when none ever left to play. */
   z.strictObject({

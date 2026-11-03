@@ -36,22 +36,8 @@ const segmentEnd = (segment: HeldSegment) =>
 export const segmentDue = (
   policy: BroadcastReleasePolicy,
   segment: HeldSegment,
-  facts: { readonly nowMs: number; readonly roundEndedAtMs: number | null },
-): boolean => {
-  const complete = facts.nowMs >= segmentEnd(segment);
-  switch (policy.kind) {
-    case 'delay':
-      return facts.nowMs >= segmentEnd(segment) + policy.seconds * 1000;
-    case 'round_end':
-      return (
-        complete &&
-        facts.roundEndedAtMs !== null &&
-        facts.nowMs >= facts.roundEndedAtMs
-      );
-    case 'at':
-      return complete && facts.nowMs >= policy.atMs;
-  }
-};
+  nowMs: number,
+): boolean => nowMs >= segmentEnd(segment) + policy.seconds * 1000;
 
 /** The next durable watermark once a segment is published; it never recedes. */
 export const releasedThrough = (

@@ -116,9 +116,6 @@ test('only a public Round whose start the audience has reached is on Live', asyn
     await add({ broadcast: null });
     await add({ broadcast: { released: null } });
     await add({ startedAt: ago(30) });
-    await add({
-      broadcast: { released: null, policy: { kind: 'round_end' } },
-    });
     await add({ broadcast: { released: ago(60), stopped: ago(10) } });
     await add({ broadcast: { released: ago(60), completed: ago(10) } });
     await add({
@@ -128,7 +125,7 @@ test('only a public Round whose start the audience has reached is on Live', asyn
     });
     assert({
       given:
-        'a public Round on air, then private, unlisted, unbroadcast, unreleased, just started, held, stopped, finished and released-ended ones',
+        'a public Round on air, then private, unlisted, unbroadcast, unreleased, just started, stopped, finished and released-ended ones',
       should: 'list only the one on air',
       actual: await list(),
       expected: [live.roundId],

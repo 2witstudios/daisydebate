@@ -83,36 +83,6 @@ const horizonCases: readonly (readonly [
     'completed',
   ],
   ['stopped', { stopped: iso(completedAt) }, 'ranked', 'completed'],
-  [
-    'stopped round end, live',
-    { stopped: iso(completedAt), policy: { kind: 'round_end' } },
-    'casual',
-    'active',
-  ],
-  [
-    'stopped round end, ended',
-    { stopped: iso(completedAt), policy: { kind: 'round_end' } },
-    'casual',
-    'completed',
-  ],
-  [
-    'stopped set time, early',
-    {
-      stopped: iso(completedAt),
-      policy: { kind: 'at', atMs: completedAt + 9 * delayMs },
-    },
-    'casual',
-    'completed',
-  ],
-  [
-    'stopped set time, due',
-    {
-      stopped: iso(completedAt),
-      policy: { kind: 'at', atMs: completedAt - 1 },
-    },
-    'casual',
-    'completed',
-  ],
 ];
 
 test('the list reads and the snapshot share one rule: SQL equals the engine', async () => {

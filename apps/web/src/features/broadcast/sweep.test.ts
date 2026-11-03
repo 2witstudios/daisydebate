@@ -83,7 +83,7 @@ describe('createBroadcastSweep', () => {
           competitionType: 'casual',
           capture: {
             broadcast: {
-              release: { kind: 'round_end' },
+              release: { kind: 'delay', seconds: 300 },
               debatersReadChat: true,
             },
             recording: false,
@@ -101,7 +101,7 @@ describe('createBroadcastSweep', () => {
       given: 'a casual Broadcast choice and a recording alone',
       should: 'open only the first, at the host’s release',
       actual: log,
-      expected: ['open chosen random-key {"kind":"round_end"}'],
+      expected: ['open chosen random-key {"kind":"delay","seconds":300}'],
     });
   });
   test('one failing Broadcast does not stop the others', async () => {

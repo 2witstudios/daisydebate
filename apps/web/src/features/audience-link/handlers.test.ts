@@ -33,7 +33,7 @@ const build = (over: { identity?: unknown; visibility?: string } = {}) => {
         consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
       }) as never,
     store: {
-      readRoundAudienceLink: async () => ({
+      readHostedRoundAudienceLink: async () => ({
         roomId: 'room',
         visibility: over.visibility ?? 'unlisted',
         audienceLinkHash: null,

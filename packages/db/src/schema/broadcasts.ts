@@ -105,7 +105,7 @@ export const broadcasts = pgTable(
     jsonbIsObject('broadcasts', table.releaseSkips),
     check(
       'broadcasts_release_policy_check',
-      sql`${table.releasePolicy}->>'kind' in ('delay','round_end','at')`,
+      sql`${table.releasePolicy}->>'kind' = 'delay'`,
     ),
     check(
       'broadcasts_cursor_check',

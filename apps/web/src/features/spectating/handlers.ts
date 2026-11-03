@@ -4,12 +4,12 @@ import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { handleOperation, PUBLIC_SNAPSHOT_CACHE } from '../../server/http';
 import { presentedLinkHash } from '../audience-link/audience-link';
-import { admitAudience, readAudienceSnapshot } from './read-timeline';
+import { admitAudience, createWatchRoundSnapshots } from './read-timeline';
 import type { SpectatorTimelineContext } from './timeline';
-import { createSnapshotMemo } from './snapshot-memo';
+import { joinReadInFlight } from './in-flight-read';
+import { answerUnlessRefused } from './refused-read';
 
-const SNAPSHOT_TTL_MS = 1000;
-const SNAPSHOT_ROUNDS = 5000;
+type LinkRead = Awaited<ReturnType<Database['readRoundAudienceLink']>>;
 
 /**
  * The audience's one read: anonymous and the same for everyone, so it reads no
@@ -17,7 +17,9 @@ const SNAPSHOT_ROUNDS = 5000;
  * unlisted Round's never may: it is read past its link cookie and answered
  * no-store, so a shared cache can hold nothing to serve to someone without the
  * link. A Round with no audience is one answer, never cached, whether it is
- * private, missing or an unlisted Round without its current link.
+ * private, missing or an unlisted Round without its current link. A crowd costs
+ * one read and one serialization per Round per second. A full lane refuses at once
+ * and the viewer keeps what it has (ADR 0088 §6).
  */
 export function createSpectatorTimelineHandlers(deps: {
   readonly logger: Logger;
@@ -29,50 +31,46 @@ export function createSpectatorTimelineHandlers(deps: {
   readonly clock: Pick<Clock, 'now'>;
   readonly feedUrlOf: SpectatorTimelineContext['feedUrlOf'];
 }) {
-  // Keyed by Round alone and holding no link: admission happens after it.
-  const memo = createSnapshotMemo<Awaited<ReturnType<typeof read>>>({
-    nowMs: () => Date.parse(deps.clock.now()),
-    ttlMs: SNAPSHOT_TTL_MS,
-    maxEntries: SNAPSHOT_ROUNDS,
-  });
-  const read = (roundId: string) =>
-    readAudienceSnapshot(deps.store, {
-      roundId,
-      now: deps.clock.now(),
-      feedUrlOf: deps.feedUrlOf,
-    });
+  const snapshots = createWatchRoundSnapshots(deps);
+  const links = joinReadInFlight<LinkRead>();
+  const linkStore = {
+    readRoundAudienceLink: (roundId: string) =>
+      links(roundId, () => deps.store.readRoundAudienceLink(roundId)),
+  };
   return {
     GET: (request: Request, roundId: string) =>
       handleOperation(
         deps.logger,
         request,
         'spectating.timeline',
-        async () => {
-          const snapshot = await memo(roundId, () => read(roundId));
-          const admitted =
-            snapshot !== null &&
-            (await admitAudience(deps.store, snapshot, {
-              roundId,
-              presentedHash: presentedLinkHash(
-                request.headers.get('cookie'),
+        () =>
+          answerUnlessRefused(async () => {
+            const snapshot = await snapshots(roundId);
+            const admitted =
+              snapshot !== null &&
+              (await admitAudience(linkStore, snapshot, {
                 roundId,
-              ),
-            }));
-          if (!admitted)
-            return Response.json(
-              { error: { code: 'NOT_FOUND' } },
-              { status: 404 },
-            );
-          return Response.json(snapshot.timeline, {
-            headers: {
-              // handleOperation answers anything else no-store.
-              ...(snapshot.visibility === 'public'
-                ? { 'Cache-Control': PUBLIC_SNAPSHOT_CACHE }
-                : {}),
-              'X-Robots-Tag': 'noindex',
-            },
-          });
-        },
+                presentedHash: presentedLinkHash(
+                  request.headers.get('cookie'),
+                  roundId,
+                ),
+              }));
+            if (!admitted)
+              return Response.json(
+                { error: { code: 'NOT_FOUND' } },
+                { status: 404 },
+              );
+            return new Response(snapshot.body, {
+              headers: {
+                'Content-Type': 'application/json',
+                // handleOperation answers anything else no-store.
+                ...(snapshot.visibility === 'public'
+                  ? { 'Cache-Control': PUBLIC_SNAPSHOT_CACHE }
+                  : {}),
+                'X-Robots-Tag': 'noindex',
+              },
+            });
+          }),
         deps.reporter,
       ),
   };

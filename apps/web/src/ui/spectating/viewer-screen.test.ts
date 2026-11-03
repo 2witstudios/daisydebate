@@ -57,12 +57,11 @@ describe('streamableFeedOf', () => {
   test('nothing is offered where there is no feed to stream', () => {
     assert({
       given:
-        'no Broadcast, starting, held, interrupted with nothing released, stopped, failed, ended, and not started',
+        'no Broadcast, starting, interrupted with nothing released, stopped, failed, ended, and not started',
       should: 'offer none',
       actual: [
         { state: 'none' },
         { state: 'starting' },
-        { state: 'held', releasesAt: null },
         { state: 'interrupted', stream: null },
         { state: 'stopped' },
         { state: 'failed' },
@@ -74,7 +73,7 @@ describe('streamableFeedOf', () => {
           ),
         )
         .concat(streamableFeedOf(timeline({ stage: { kind: 'upcoming' } }))),
-      expected: Array.from({ length: 8 }, () => null),
+      expected: Array.from({ length: 7 }, () => null),
     });
   });
 });
@@ -128,14 +127,6 @@ describe('viewerScreenOf', () => {
         broadcast: { state: 'starting' },
       }),
       expected: { kind: 'starting' },
-    });
-    assert({
-      given: 'a Broadcast held to a time',
-      should: 'say until when',
-      actual: screen({
-        broadcast: { state: 'held', releasesAt: '2026-11-03T00:00:00.000Z' },
-      }),
-      expected: { kind: 'held', releasesAt: '2026-11-03T00:00:00.000Z' },
     });
     assert({
       given: 'a Round with no Broadcast',

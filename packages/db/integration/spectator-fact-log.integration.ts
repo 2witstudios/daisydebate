@@ -170,7 +170,7 @@ test('the log refuses a change, and goes only with its Round', async () => {
 test('the sweep finds a Round only while a fact has left and no row records it', async () => {
   await withEndedRound(async ({ db, sql, roundId }) => {
     await sql`insert into broadcasts (id, round_id, feed_key, release_policy, released_through_at, completed_at)
-      values (${'b' + roundId.slice(1)}, ${roundId}, ${'k' + roundId.slice(1)}, ${{ kind: 'at', atMs: ended.getTime() + 90 * 86_400_000 }}, ${started}, ${ended})`;
+      values (${'b' + roundId.slice(1)}, ${roundId}, ${'k' + roundId.slice(1)}, ${{ kind: 'delay', seconds: 90 * 86_400 }}, ${started}, ${ended})`;
     const found = async (at: Date) =>
       (
         await readRoundsAwaitingFactLog(db, {
@@ -181,13 +181,13 @@ test('the sweep finds a Round only while a fact has left and no row records it',
     const monthLater = after(ended, 30 * 86_400_000);
     const released = after(ended, 90 * 86_400_000);
     assert({
-      given: 'a scheduled hold nothing has passed, a month after the Round',
+      given: 'a long delay nothing has passed, a month after the Round',
       should: 'not take a place in the pass',
       actual: await found(monthLater),
       expected: false,
     });
     assert({
-      given: 'the hold ending three months after the Round',
+      given: 'the delay ending three months after the Round',
       should: 'find it however long the hold ran',
       actual: await found(released),
       expected: true,

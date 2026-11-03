@@ -84,20 +84,11 @@ const claimOldestFree = async (tx: Tx, work: SQL, input: ClaimLease) => {
   return claimed!;
 };
 
-/**
- * Takes the oldest Broadcast still releasing whose lease is free, once something
- * in it can be due. A hold for the Round's end or a set time has nothing to do
- * until then, so it occupies no release slot.
- */
+/** Takes the oldest Broadcast still releasing whose lease is free. */
 export const claimBroadcast = (tx: Tx, input: ClaimLease) =>
   claimOldestFree(
     tx,
-    and(
-      isNull(broadcasts.completedAt),
-      isNull(broadcasts.stoppedAt),
-      sql`not (${broadcasts.releasePolicy} ->> 'kind' = 'round_end' and ${broadcasts.finalMediaEndAt} is null)`,
-      sql`not (${broadcasts.releasePolicy} ->> 'kind' = 'at' and (${broadcasts.releasePolicy} ->> 'atMs')::bigint > ${input.now.getTime()}::bigint)`,
-    )!,
+    and(isNull(broadcasts.completedAt), isNull(broadcasts.stoppedAt))!,
     input,
   );
 
