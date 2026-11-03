@@ -34,8 +34,8 @@ describe('agreements', () => {
         optedIn: digest(roundCaptureNotice('opted-in')).slice(0, 16),
       },
       expected: {
-        waiver: ['draft-1', 'd9d2b18d3f4fef40'],
-        policy: ['draft-1', '4db0f95544723b21'],
+        waiver: ['draft-2', '280b7de281c63afa'],
+        policy: ['draft-2', 'ad02eaf3e87c4119'],
         ranked: 'aa20970794be07a1',
         optedIn: 'f5a46abec416c6cb',
       },
@@ -47,7 +47,7 @@ describe('agreements', () => {
     assert({
       given: 'the waiver wording',
       should:
-        'state ownership, clips, likeness, no payment, prep, streaming, assistance, per-event terms',
+        'state ownership, clips, likeness, no payment, prep, streaming, per-event terms',
       actual: [
         'Daisy owns what is said and shown',
         'clips and other media',
@@ -56,7 +56,6 @@ describe('agreements', () => {
         'prep material and drives stay yours',
         'no royalty',
         'no exclusive broadcast, no streaming limit and no commercial restriction',
-        'must not carry assistance',
         'stays with its participants',
         'per-event terms',
       ].filter((phrase) => !waiver.includes(phrase)),
@@ -103,5 +102,17 @@ describe('agreements', () => {
       actual: roundCaptureNotice('none'),
       expected: null,
     });
+  });
+});
+
+test('no agreement restricts help during a ranked round (ADR 0097)', () => {
+  const served = [contentWaiverDocument, contentPolicyDocument]
+    .map(words)
+    .join(' ');
+  assert({
+    given: 'the waiver and content policy',
+    should: 'carry no rule against help or relaying arguments',
+    actual: [/assistance/i.test(served), /relaying/i.test(served)],
+    expected: [false, false],
   });
 });

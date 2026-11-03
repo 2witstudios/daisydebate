@@ -12,6 +12,7 @@ export const openBroadcast = async (
     readonly id: string;
     readonly roundId: string;
     readonly releasePolicy: BroadcastReleasePolicy;
+    readonly debatersReadChat?: boolean;
   },
 ) => {
   await tx

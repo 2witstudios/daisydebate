@@ -48,7 +48,7 @@ export const termsDocument: LegalDocument = {
       id: 'your-content',
       heading: 'What you post',
       paragraphs: [
-        'In a ranked round, Daisy holds what is said and shown under the ranked content waiver you sign once per season. Ranked rounds are always public, broadcast and recorded, and their video stays after you close your account. Anyone may stream and post them under the ranked content policy; a stream must not carry assistance to a debater in that round, and relaying arguments can be reported.',
+        'In a ranked round, Daisy holds what is said and shown under the ranked content waiver you sign once per season. Ranked rounds are always public, broadcast and recorded, and their video stays after you close your account. Anyone may stream and post them under the ranked content policy.',
         'In any other round, your content stays with you and the other participants. You give Daisy Debate permission to store it, show it to the people in the round and to the audience where the room allows, and keep a recording when the host opted in and the room says so.',
         'Prep material and drives stay yours on every kind of round, and are private to you until you share them with a person or a team you choose.',
       ],

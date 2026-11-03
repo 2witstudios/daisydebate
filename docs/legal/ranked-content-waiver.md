@@ -1,6 +1,6 @@
 # Ranked content waiver — draft for counsel
 
-**DRAFT for counsel, not reviewed.** Version `draft-1`. This file is the source of truth for the wording; the app shows the same text from `apps/web/src/features/legal/agreements.ts`, and a change to one changes the other and the version. Owner decisions of 2026-11-02 set the deal; the legal form is for counsel, and the wording may change after that review.
+**DRAFT for counsel, not reviewed.** Version `draft-2`. This file is the source of truth for the wording; the app shows the same text from `apps/web/src/features/legal/agreements.ts`, and a change to one changes the other and the version. Owner decisions of 2026-11-02 set the deal; the legal form is for counsel, and the wording may change after that review.
 
 Placeholders: **[COUNSEL: …]** is a legal judgment for counsel.
 
@@ -29,8 +29,6 @@ Your prep material and drives stay yours, ranked rounds included.
 ## Streaming and posting
 
 You and anyone else may stream and post ranked rounds under the [ranked content policy](ranked-content-policy.md), with no royalty, and Daisy may restrict or take down ranked content. The ranked ladder has no exclusive broadcast, no streaming limit and no commercial restriction on competitors.
-
-A stream of a ranked round must not carry assistance to a debater in that round. Relaying arguments is a competitive violation that can be reported.
 
 ## Other rounds and events
 

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   index,
   integer,
@@ -34,6 +35,8 @@ export const broadcasts = pgTable(
       'release_policy',
       broadcastReleasePolicySchema,
     ).notNull(),
+    /** Whether debaters may read this Broadcast's chat during the Round; off on ranked. */
+    debatersReadChat: boolean('debaters_read_chat').notNull().default(false),
     egressId: text('egress_id'),
     egressStartedAt: timestampColumn('egress_started_at'),
     observerRevokedAt: timestampColumn('observer_revoked_at'),

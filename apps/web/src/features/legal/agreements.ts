@@ -7,8 +7,8 @@ import type { LegalDocument } from './documents';
  * Source of truth for the wording: docs/legal/ranked-content-waiver.md and
  * docs/legal/ranked-content-policy.md.
  */
-export const CONTENT_WAIVER_VERSION = 'draft-1';
-export const CONTENT_POLICY_VERSION = 'draft-1';
+export const CONTENT_WAIVER_VERSION = 'draft-2';
+export const CONTENT_POLICY_VERSION = 'draft-2';
 
 const draftForCounsel =
   'This is a draft for counsel and has not been reviewed; the wording may change after that review.';
@@ -58,7 +58,6 @@ export const contentWaiverDocument: LegalDocument = {
       heading: 'Streaming and posting',
       paragraphs: [
         'You and anyone else may stream and post ranked rounds under the ranked content policy, with no royalty, and Daisy may restrict or take down ranked content. The ranked ladder has no exclusive broadcast, no streaming limit and no commercial restriction on competitors.',
-        'A stream of a ranked round must not carry assistance to a debater in that round. Relaying arguments is a competitive violation that can be reported.',
       ],
     },
     {
@@ -93,9 +92,7 @@ export const contentPolicyDocument: LegalDocument = {
     {
       id: 'no-help-through-a-stream',
       heading: 'No help through a stream',
-      paragraphs: [
-        'A stream of a ranked round must not carry assistance to a debater in that round. Relaying arguments is a competitive violation that can be reported.',
-      ],
+      paragraphs: [],
     },
     {
       id: 'no-limits-on-competitors',

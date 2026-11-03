@@ -66,3 +66,12 @@ export const delayAlert = (
   nowMs: number,
   options: { readonly boundMs: number },
 ): boolean => nowMs - watermarkMs > options.boundMs;
+
+/**
+ * Debaters reading a Broadcast's chat during the Round: never on ranked, and on
+ * non-ranked Rounds on unless the host turned it off. Stored per Broadcast.
+ */
+export const debatersReadChat = (
+  competitionType: 'ranked' | 'casual',
+  hostAllows: boolean,
+): boolean => competitionType !== 'ranked' && hostAllows;

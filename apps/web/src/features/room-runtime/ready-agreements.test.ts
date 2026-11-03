@@ -1,3 +1,4 @@
+import { CONTENT_WAIVER_VERSION } from '../legal/agreements';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   captureNoticeRefusal,
@@ -18,7 +19,7 @@ describe('Ready agreements', () => {
       given: 'a ranked and a casual Room',
       should: 'require the current waiver on ranked alone',
       actual: [requiredContentWaiver(ranked), requiredContentWaiver(casual)],
-      expected: ['draft-1', null],
+      expected: [CONTENT_WAIVER_VERSION, null],
     });
   });
 

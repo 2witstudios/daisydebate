@@ -54,7 +54,7 @@ Who holds what you say depends on the kind of round.
 
 **Your prep.** Your prep material and drives stay yours, on every kind of round, ranked included.
 
-**Streaming and posting ranked rounds.** Anyone may stream and post ranked rounds under our [ranked content policy](ranked-content-policy.md), with no royalty. Daisy may restrict or take down ranked content. A stream of a ranked round must not carry assistance to a debater in that round: relaying arguments is a competitive violation you can report. [OWNER: ADR 0097 allows all help in every round, ranked included; confirm this one exception reads as you intend.]
+**Streaming and posting ranked rounds.** Anyone may stream and post ranked rounds under our [ranked content policy](ranked-content-policy.md), with no royalty. Daisy may restrict or take down ranked content.
 
 You are responsible for what you post and confirm you have the right to post it. We may remove content that breaks these terms. [COUNSEL: confirm the licence scope and any notice-and-takedown process.]
 

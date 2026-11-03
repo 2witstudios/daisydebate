@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  debatersReadChat,
   delayAlert,
   factReleased,
   releasedThrough,
@@ -165,5 +166,19 @@ describe('delayAlert', () => {
       ],
       expected: [false, true],
     });
+  });
+});
+
+test('debaters read chat only off ranked, with a host off switch', () => {
+  assert({
+    given:
+      'ranked with the host allowing, casual allowing, casual switched off',
+    should: 'allow only casual with the switch on',
+    actual: [
+      debatersReadChat('ranked', true),
+      debatersReadChat('casual', true),
+      debatersReadChat('casual', false),
+    ],
+    expected: [false, true, false],
   });
 });
