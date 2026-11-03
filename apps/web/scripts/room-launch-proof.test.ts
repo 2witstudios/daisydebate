@@ -215,7 +215,7 @@ test('proof decoder rejects malformed, substituted, extra and negative worker ev
         }),
       ),
       rejected(
-        JSON.stringify({ ...emptyEvidence, frozen: [{ status: 'scheduled' }] }),
+        JSON.stringify({ ...emptyEvidence, frozen: [{ status: 'opening' }] }),
       ),
     ],
     expected: Array(6).fill('Invalid Launch evidence payload'),

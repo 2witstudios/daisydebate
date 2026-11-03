@@ -17,7 +17,7 @@ const member = { member: true, erased: false };
 const round = (overrides: Record<string, unknown> = {}) => ({
   createdByActorId: host,
   competitionType: 'casual',
-  status: 'scheduled',
+  status: 'opening',
   ...overrides,
 });
 const at = new Date('2026-10-22T12:00:00.000Z');

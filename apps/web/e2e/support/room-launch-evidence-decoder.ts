@@ -15,12 +15,12 @@ const evidence = z.strictObject({
   }),
   frozen: z.array(
     z.strictObject({
-      status: z.literal('scheduled'),
+      status: z.literal('active'),
       topic: z.string().min(1),
       config: roomConfigSchema,
       rules: roundRulesSchema,
       cast: z.array(idSchema),
-      startedAt: z.null(),
+      startedAt: z.iso.datetime({ offset: true }),
     }),
   ),
   launchDoorbells: count,

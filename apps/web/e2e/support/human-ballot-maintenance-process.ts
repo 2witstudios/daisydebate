@@ -2,10 +2,7 @@ import { resolve } from 'node:path';
 import { createDatabase } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { idSchema } from '@daisy/protocol';
-import {
-  createRoundMaintenanceOperations,
-  ROUND_START_HORIZON_MS,
-} from '../../src/features/round-finalization/maintenance';
+import { createRoundMaintenanceOperations } from '../../src/features/round-finalization/maintenance';
 import { requireLaunchSlot } from './room-launch-slot';
 import { admitLaunchCheckout } from './room-launch-admission';
 
@@ -30,7 +27,6 @@ if (import.meta.main) {
       ratingFailed: (_id, error) => {
         throw error;
       },
-      startHorizonMs: ROUND_START_HORIZON_MS,
       probeRoundId: null,
       store: database,
       instanceId,

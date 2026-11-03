@@ -29,12 +29,12 @@ test('persisted workspace loads actual documents and keeps valid active tabs', (
     expected: [document.id, '<p>latest</p>'],
   });
 });
-test('scheduled workspace ignores competitive floor and fabricated chat actions', () => {
+test('opening workspace ignores competitive floor and fabricated chat actions', () => {
   const unchanged = reducePersistedWorkspace(initialPersistedWorkspace, {
     type: 'files/toggle',
   });
   assert({
-    given: 'a scheduled document workspace',
+    given: 'a document workspace in the opening',
     should:
       'keep document state unchanged for an unsupported live-round action',
     actual: unchanged === initialPersistedWorkspace,

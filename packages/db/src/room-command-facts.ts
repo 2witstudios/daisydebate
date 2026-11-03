@@ -29,7 +29,6 @@ import { rounds } from './schema/rounds';
 
 import { formats } from './schema/formats';
 import { formatRevisions } from './schema/format-revisions';
-import { loadRoomDraw } from './room-draw-persistence';
 
 export type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 export type Caller = { readonly userId: string; readonly actorId: string };
@@ -149,17 +148,9 @@ export const publishDefinition = async (
 export const roomFacts = async (
   tx: Tx,
   row: typeof rooms.$inferSelect,
-): Promise<{
-  readonly state: RoomAssemblyState;
-  readonly drawSeed: string | null;
-}> => {
-  const state = await hydrateRoom(tx, row);
-  const draw = await loadRoomDraw(tx, row.id);
-  return {
-    state: { ...state, resolutionDraw: draw?.state ?? null },
-    drawSeed: draw?.seed ?? null,
-  };
-};
+): Promise<{ readonly state: RoomAssemblyState }> => ({
+  state: await hydrateRoom(tx, row),
+});
 
 const hydrateRoom = async (
   tx: Tx,
@@ -206,7 +197,11 @@ const hydrateRoom = async (
   );
   const host = await actorFact(tx, row.hostActorId);
   const [round] = await tx
-    .select({ id: rounds.id, status: rounds.status })
+    .select({
+      id: rounds.id,
+      status: rounds.status,
+      resolution: rounds.resolution,
+    })
     .from(rounds)
     .where(eq(rounds.roomId, row.id));
   const seatHolds = await tx
@@ -222,7 +217,8 @@ const hydrateRoom = async (
       until: new Date(hold.until).toISOString(),
     })),
     title: row.title,
-    topic: row.topic,
+    // A draw Room's resolution is its Round's, once revealed.
+    topic: round?.resolution ?? row.topic,
     publishedResolutionId: row.publishedResolutionId,
     visibility: row.visibility,
     hostActorId: row.hostActorId,
@@ -243,10 +239,7 @@ const hydrateRoom = async (
     executionPlan: row.executionPlan,
     rules: row.rulesSnapshot,
     participants,
-    prepStartedAt: row.prepStartedAt?.toISOString() ?? null,
-    prepRemainingMs: row.prepRemainingMs,
-    resolutionDraw: null,
-    roundRef: round ?? null,
+    roundRef: round ? { id: round.id, status: round.status } : null,
   };
 };
 export const lockCommand = (tx: Tx, commandId: string) =>

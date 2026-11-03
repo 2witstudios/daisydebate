@@ -104,7 +104,7 @@ export const mediaWindowClosed = (
   now: string,
   finalEndedAt: string | null,
 ) =>
-  !['scheduled', 'active'].includes(status) ||
+  !['opening', 'active'].includes(status) ||
   (finalEndedAt !== null &&
     Date.parse(now) >= Date.parse(finalEndedAt) + 30 * 60_000);
 

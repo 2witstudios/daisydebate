@@ -37,7 +37,6 @@ const authorizationCapabilities = [
   'room.ready',
   'room.leave',
   /** A seated debater's strike; the engine decides whose turn it is. */
-  'room.strike',
   'channel.inbox.read',
   'channel.read',
   'channel.preferences.read',

@@ -4,7 +4,6 @@ import {
   roundBallotReadSchema,
   roundBallotReceiptSchema,
   roundJudgeAssignmentsSchema,
-  roundViewSchema,
   type Ballot,
 } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
@@ -27,8 +26,7 @@ test('authenticated ballot JSON/native POST and protected GET share actual froze
   await withHumanJudgeHttpRound(
     h,
     { host, guest, judges: [firstJudge, secondJudge], countdownMs: 10000 },
-    async ({ roundId, startBody }) => {
-      const view = roundViewSchema.parse((startBody as { view: unknown }).view);
+    async ({ roundId, view }) => {
       const elapsed = view.rules.segments.reduce(
         (total, s) => total + s.durationMs + view.rules.countdownMs,
         125000,

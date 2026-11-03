@@ -22,6 +22,8 @@ const HELD_REPORT_MS = 60_000;
 /** One discovery page. `cycleComplete` ends a pass over every due Round. */
 type DiscoveryPage = {
   readonly roundIds: readonly string[];
+  /** Those still in their opening: only the clock can move them yet. */
+  readonly openingIds?: readonly string[];
   readonly cycleComplete: boolean;
 };
 type MaintenancePorts = {
@@ -45,6 +47,7 @@ type MaintenancePorts = {
 const terminalRace = (error: unknown) =>
   isAppError(error) && error.reason === 'attendance-terminal';
 
+type RoundPhase = 'opening' | 'live';
 type Evaluation = 'ended' | 'continue';
 const evaluationOf = (found: AttendanceEvaluation): Evaluation =>
   found.kind === 'decided' &&
@@ -111,6 +114,7 @@ async function maintainRound(
   input: MaintenancePorts,
   pacing: ReturnType<typeof createEvaluationPacing>,
   roundId: string,
+  phase: RoundPhase,
 ) {
   const stage = async (
     name: 'tick' | 'finalize',
@@ -132,6 +136,7 @@ async function maintainRound(
     }
   };
   if (!(await stage('tick', () => input.tick(roundId)))) return;
+  if (phase === 'opening') return;
   if ((await pacing.evaluate(roundId)) === 'ended') {
     pacing.forget(roundId);
     return;
@@ -147,17 +152,18 @@ export function startRoundMaintenance(input: MaintenancePorts) {
   let discoveryWork = Promise.resolve(),
     ratingWork = Promise.resolve();
   const active = new Map<string, Promise<void>>();
-  const waiting = new Set<string>();
+  const waiting = new Map<string, RoundPhase>();
   const pacing = createEvaluationPacing(input);
   /** Every id this discovery cycle saw; a queued Round it missed is no longer due. */
   let seen = new Set<string>();
   const advance = () => {
     while (!stopped && active.size < MAX_ACTIVE_ROUNDS && waiting.size > 0) {
-      const id = waiting.values().next().value;
-      if (id === undefined) return;
+      const next = waiting.entries().next().value;
+      if (next === undefined) return;
+      const [id, phase] = next;
       waiting.delete(id);
       const work = Promise.resolve()
-        .then(() => maintainRound(input, pacing, id))
+        .then(() => maintainRound(input, pacing, id, phase))
         .finally(() => {
           active.delete(id);
           advance();
@@ -166,13 +172,18 @@ export function startRoundMaintenance(input: MaintenancePorts) {
     }
   };
   /** A queued Round keeps its place, so repeated discovery can never reorder the queue. */
-  const remember = ({ roundIds, cycleComplete }: DiscoveryPage) => {
+  const remember = ({ roundIds, openingIds, cycleComplete }: DiscoveryPage) => {
+    const opening = new Set(openingIds);
     for (const id of roundIds) {
       seen.add(id);
-      if (!active.has(id) && waiting.size < MAX_WAITING_ROUNDS) waiting.add(id);
+      if (
+        !active.has(id) &&
+        (waiting.has(id) || waiting.size < MAX_WAITING_ROUNDS)
+      )
+        waiting.set(id, opening.has(id) ? 'opening' : 'live');
     }
     if (cycleComplete) {
-      for (const id of waiting) if (!seen.has(id)) waiting.delete(id);
+      for (const id of waiting.keys()) if (!seen.has(id)) waiting.delete(id);
       for (const id of [...pacing.known()])
         if (!seen.has(id)) pacing.forget(id);
       seen = new Set();

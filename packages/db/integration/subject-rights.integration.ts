@@ -234,20 +234,20 @@ test('exporting a member includes their competitive record and nothing of anothe
     // export must return exactly the subject's.
     const draw = (
       fixture: Fixture,
-      room: string,
+      round: string,
       striker: string,
     ): Promise<string> => {
       const id = createId();
       return (async () => {
-        await fixture.insert('room_resolution_draws', {
+        await fixture.insert('round_resolution_draws', {
           id,
-          room_id: room,
+          round_id: round,
           source_kind: 'host',
           draw_size: 2,
           manifest: {
             version: 1,
             algorithm: 'daisy-draw-v1',
-            roomId: room,
+            roomId: round,
             drawId: id,
             source: { kind: 'host', count: 2 },
             drawSize: 2,
@@ -258,18 +258,16 @@ test('exporting a member includes their competitive record and nothing of anothe
           },
           manifest_digest: '0'.repeat(64),
           commitment: '0'.repeat(64),
-          seed: '1'.repeat(64),
           started_at: at(2),
         });
-        await fixture.insert('room_resolution_draw_items', {
+        await fixture.insert('round_resolution_draw_items', {
           draw_id: id,
           position: 0,
           source_kind: 'host',
           draw_size: 2,
           candidate_id: createId(),
-          text: 'A hosted resolution',
         });
-        await fixture.insert('room_resolution_strikes', {
+        await fixture.insert('round_resolution_strikes', {
           draw_id: id,
           ordinal: 0,
           position: 0,
@@ -283,7 +281,11 @@ test('exporting a member includes their competitive record and nothing of anothe
         return id;
       })();
     };
-    const subjectStrike = await draw(fixture, hostedRoom, subject.actorId);
+    const subjectStrike = await draw(
+      fixture,
+      await fixture.round({ created_by_actor_id: subject.actorId }),
+      subject.actorId,
+    );
     const otherRoom = createId();
     await fixture.insert('rooms', {
       id: otherRoom,
@@ -299,7 +301,11 @@ test('exporting a member includes their competitive record and nothing of anothe
       rules_snapshot: validRules,
       status: 'assembling',
     });
-    const otherStrike = await draw(fixture, otherRoom, other.actorId);
+    const otherStrike = await draw(
+      fixture,
+      await fixture.round({ created_by_actor_id: other.actorId }),
+      other.actorId,
+    );
     const database = drizzle({ client: fixture.sql });
     const exported = await exportPrivacySubject(database, subject, rooms);
     // Compare declared sets deterministically: the export orders rows by id,
@@ -324,11 +330,11 @@ test('exporting a member includes their competitive record and nothing of anothe
         changeActors: (exported.rating_changes ?? []).map(
           (row) => row.actor_id,
         ),
-        strikes: (exported.room_resolution_strikes ?? []).map((row) => [
+        strikes: (exported.round_resolution_strikes ?? []).map((row) => [
           row.draw_id,
           row.actor_id,
         ]),
-        peerStrikeExported: ids(exported.room_resolution_strikes).includes(
+        peerStrikeExported: ids(exported.round_resolution_strikes).includes(
           otherStrike,
         ),
         // Real signup rows export their timestamps as ISO strings, never a

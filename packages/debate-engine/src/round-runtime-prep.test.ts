@@ -18,7 +18,7 @@ const person = oneOnOneActors.affirmative;
 describe('round runtime prep', () => {
   test('runs elective prep for the prepping side only, folding elapsed into the budget', async () => {
     const world = runtimeWorld();
-    world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+    world.activate({ at: at(0), now: at(0) });
     world.tick(at(10_000 + 300_000)); // AC done by time; gap before CX1
     const refused = () =>
       world.execute({
@@ -84,7 +84,7 @@ describe('round runtime prep', () => {
 
   test('expires running prep at its remaining budget and opens the segment', () => {
     const ready = runtimeWorld();
-    ready.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+    ready.activate({ at: at(0), now: at(0) });
     ready.tick(at(940_000)); // AC, CX1, NC and CX2 closed; 1AR's countdown runs
     ready.execute({
       command: { type: 'start_prep' },
@@ -118,7 +118,7 @@ describe('round runtime prep', () => {
       rules: withoutPrep.rules,
       checkpoint: null,
     });
-    world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+    world.activate({ at: at(0), now: at(0) });
     const before = world.position(at(1_000));
     await assertRejects({
       given: 'a room whose config declined in-round prep',

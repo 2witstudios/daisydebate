@@ -15,7 +15,7 @@ test('a Round holds its Room members only while scheduled or speaking (ADR 0070)
       'scheduled, speaking, awaiting-ballot, completed and abandoned Rounds',
     should: 'hold members only before the last speech ends',
     actual: [
-      roundHoldsMembers({ status: 'scheduled', debateEnded: false }),
+      roundHoldsMembers({ status: 'opening', debateEnded: false }),
       roundHoldsMembers({ status: 'active', debateEnded: false }),
       roundHoldsMembers({ status: 'active', debateEnded: true }),
       roundHoldsMembers({ status: 'completed', debateEnded: true }),
@@ -31,11 +31,7 @@ test('the runtime rules the release in the revision that ends the debate', () =>
     rules.segments.length * rules.countdownMs +
     rules.segments.reduce((sum, segment) => sum + segment.durationMs, 0);
   const played = runtimeWorld();
-  const started = played.execute({
-    command: { type: 'start' },
-    actorId: null,
-    now: roundAt(0),
-  });
+  const started = played.activate({ at: roundAt(0), now: roundAt(0) });
   const speaking = played.tick(roundAt(rules.countdownMs + 1_000));
   const ended = played.tick(roundAt(totalMs));
   const forfeited = runtimeWorld().execute({
@@ -45,7 +41,7 @@ test('the runtime rules the release in the revision that ends the debate', () =>
   });
   assert({
     given:
-      'a Round started, speaking, past its final speech, and a scheduled Round forfeited',
+      'a Round started, speaking, past its final speech, and a new Round forfeited',
     should:
       'keep members while it plays and release them once it is over or abandoned',
     actual: [
@@ -54,6 +50,6 @@ test('the runtime rules the release in the revision that ends the debate', () =>
       [ended.round?.status, ended.releasesRoomMembers],
       [forfeited.round?.status, forfeited.releasesRoomMembers],
     ],
-    expected: [undefined, undefined, ['active', true], ['abandoned', true]],
+    expected: [undefined, undefined, ['active', true], ['completed', true]],
   });
 });

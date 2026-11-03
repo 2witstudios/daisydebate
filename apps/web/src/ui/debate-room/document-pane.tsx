@@ -85,7 +85,7 @@ function DocumentTabs({ tabs, active, dispatch, save, leading }: TabsProps) {
   );
 }
 
-/** Shared editor pane for scheduled private files and the active-round workspace. */
+/** Shared editor pane for private files in the opening and the active-round workspace. */
 export function DocumentPane({
   documents,
   tabs,

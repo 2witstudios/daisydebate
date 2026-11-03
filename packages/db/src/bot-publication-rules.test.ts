@@ -23,7 +23,7 @@ test('bots publish only for a debating seat of an active Round', async () => {
     expected: undefined,
   });
   for (const [status, role] of [
-    ['scheduled', 'negative'],
+    ['opening', 'negative'],
     ['completed', 'affirmative'],
     ['active', 'judge'],
   ] as const)

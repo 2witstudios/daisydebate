@@ -177,7 +177,7 @@ const roundPositionOf = (
   const spoken = rows.filter((row) => row.endedAtMs !== null).length;
   const active = checkpoint.active_prep;
   const startable =
-    lifecycle.status === 'scheduled' || lifecycle.status === 'active';
+    lifecycle.status === 'opening' || lifecycle.status === 'active';
   const inRoundPrep = rules.inRoundPrep;
   const upcoming = nextSegmentOf(open, startable, spoken, rules);
   return {

@@ -4,21 +4,13 @@ import { canOfferFreshRoom } from '../room-runtime/fresh-room';
 import { roundEntry } from './round-entry';
 import { assemblySnapshot } from './assembly.test-support';
 import type { RoomCommandIds } from './room-command-ids';
-import {
-  prepDeadline,
-  presentedView,
-  roomDeadline,
-  roomSync,
-  seedRoomSync,
-} from './room-sync';
+import { roomSync, seedRoomSync } from './room-sync';
 
 setupRitewayBun();
 
 const ids = (tag: string): RoomCommandIds => ({
   header: { details: `${tag}d`, leave: `${tag}l`, close: `${tag}c` },
   readiness: { ready: `${tag}r`, unready: `${tag}u`, 'start-round': `${tag}s` },
-  prep: { start: `${tag}ps`, finish: `${tag}pf` },
-  strikes: [],
   settings: `${tag}x`,
   seats: [],
   format: { choose: `${tag}fc`, reset: `${tag}fr`, template: `${tag}ft` },
@@ -43,9 +35,6 @@ const read = (
     value: { view: view(changeVersion, patch), ids: ids(tag) },
     at: 9000,
   });
-const running = (remainingMs: number, finished = false) => ({
-  prep: { startedAt: '2026-01-01T00:00:00.000Z', remainingMs, finished },
-});
 
 describe('room sync', () => {
   test('command identifiers rotate only when the room changes', () => {
@@ -55,115 +44,9 @@ describe('room sync', () => {
         'offer the new identifiers for the newer change and keep them for the same one',
       actual: [
         read(4, 'b').value.ids.settings,
-        read(3, 'b', running(0, true)).value.ids.settings,
-        read(3, 'b', running(0, true)).value.view.prep.finished,
+        read(3, 'b').value.ids.settings,
       ],
-      expected: ['bx', 'ax', true],
-    });
-  });
-});
-
-describe('room sync time', () => {
-  const prepping = seedRoomSync(view(3, running(60000)), ids('a'), 1000);
-
-  test('prep remaining counts down from the read that reported it', () => {
-    assert({
-      given: 'prep with 60 s left at the read, observed 15 s and 90 s later',
-      should: 'present 45 s, then zero, never negative',
-      actual: [
-        presentedView(prepping, 16000).prep.remainingMs,
-        presentedView(prepping, 91000).prep.remainingMs,
-      ],
-      expected: [45000, 0],
-    });
-    assert({
-      given: 'a client clock that reads fractions of a millisecond',
-      should: 'present whole milliseconds, as every duration is',
-      actual: presentedView(prepping, 16000.7).prep.remainingMs,
-      expected: 45000,
-    });
-  });
-
-  test('a running prep has a read deadline; any other room has none', () => {
-    assert({
-      given:
-        'a running prep, rooms without prep and with finished prep, and a prep with no time left not yet marked finished',
-      should:
-        'schedule a read when the reported time runs out, otherwise none, so no read loops at zero',
-      actual: [
-        prepDeadline(prepping),
-        prepDeadline(seeded),
-        prepDeadline(seedRoomSync(view(3, running(0, true)), ids('a'), 1000)),
-        prepDeadline(seedRoomSync(view(3, running(0)), ids('a'), 1000)),
-      ],
-      expected: [61000, null, null, null],
-    });
-  });
-
-  test('a room without running prep is presented as read', () => {
-    assert({
-      given: 'a room with no prep running',
-      should: 'present the held view itself',
-      actual: presentedView(seeded, 50000) === seeded.value.view,
-      expected: true,
-    });
-  });
-});
-
-describe('strike time', () => {
-  const striking = seedRoomSync(
-    {
-      ...view(3),
-      resolutionDraw: {
-        visibility: 'progress',
-        drawSize: 5,
-        strikes: [],
-        turn: {
-          ordinal: 0,
-          side: 'negative',
-          dueAt: '2026-10-12T00:01:00.000Z',
-          remainingMs: 60_000,
-        },
-        revealedAt: null,
-      },
-    },
-    ids('a'),
-    1000,
-  );
-  test('the strike counts down from the read, whatever the client clock says (PR #472 review)', () => {
-    assert({
-      given:
-        'a turn with 60 s left at a read at 1 s, observed at 16 s and 91 s',
-      should:
-        'present 45 s then zero, and reread when the reported time runs out',
-      actual: [
-        presentedView(striking, 16_000).resolutionDraw?.turn?.remainingMs,
-        presentedView(striking, 91_000).resolutionDraw?.turn?.remainingMs,
-        roomDeadline(striking),
-      ],
-      expected: [45_000, 0, 61_000],
-    });
-  });
-  test('a turn with no time left schedules no reread (PR #472 review)', () => {
-    const due = seedRoomSync(
-      {
-        ...striking.value.view,
-        resolutionDraw: {
-          ...striking.value.view.resolutionDraw!,
-          turn: {
-            ...striking.value.view.resolutionDraw!.turn!,
-            remainingMs: 0,
-          },
-        },
-      },
-      ids('a'),
-      1000,
-    );
-    assert({
-      given: 'a read reporting a turn already at zero',
-      should: 'leave the backstop to settle it, never a read loop at zero',
-      actual: roomDeadline(due),
-      expected: null,
+      expected: ['bx', 'ax'],
     });
   });
 });

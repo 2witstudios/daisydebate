@@ -52,7 +52,7 @@ export const roundOperations = ({
           formatVersion: input.formatVersion,
           presetVersion: input.presetVersion,
           rulesSnapshot: input.rules,
-          status: 'scheduled',
+          status: 'opening',
           ladderId: roundLadder(input.competitionType, input.formatId),
         });
       } catch (error) {

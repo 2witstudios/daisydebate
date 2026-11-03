@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 setupRitewayBun();
@@ -9,7 +9,7 @@ requireTestServices(process.env);
 
 test('internal shared tick persists actual final end and immutable admission cutoff without a browser command', async () => {
   await withRoomRuntime(async (f) => {
-    const { roundId, operations } = await startRuntimeRound(
+    const { roundId, operations } = await launchRuntimeRound(
       f,
       await f.assemble(),
     );
@@ -32,7 +32,7 @@ test('internal shared tick persists actual final end and immutable admission cut
           row.final_segment_ended_at.getTime(),
         version: receipt.resultingVersion,
       },
-      expected: { status: 'active', exact: true, buffer: 120000, version: 3 },
+      expected: { status: 'active', exact: true, buffer: 120000, version: 2 },
     });
     const repeated = await operations.tick(roundId);
     assert({
@@ -49,7 +49,7 @@ test('internal shared tick persists actual final end and immutable admission cut
         )[0].transcript_admission_cutoff.getTime(),
       },
       expected: {
-        version: 3,
+        version: 2,
         rows: 2,
         cutoff: row.transcript_admission_cutoff.getTime(),
       },

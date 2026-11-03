@@ -40,7 +40,7 @@ test('outbox failure rolls back Launch including frozen Round and participants',
     `;
     assert({
       given: 'a Room frozen through the canonical command operation',
-      should: 'commit exactly one scheduled Round phase doorbell',
+      should: 'commit exactly one new Round phase doorbell',
       actual: phase.map((row: { readonly payload: unknown }) => row.payload),
       expected: [
         {
@@ -74,14 +74,14 @@ test('outbox failure rolls back Launch including frozen Round and participants',
     assert({
       given: 'a clean retry after rollback',
       should:
-        'read one persisted scheduled Round with frozen config and null clock',
+        'read one persisted Round, active from Start round, with frozen config',
       actual: [
         read.status,
         read.config,
-        read.startedAt,
+        read.startedAt !== null,
         read.participants.length,
       ],
-      expected: ['scheduled', view.config, null, 2],
+      expected: ['active', view.config, true, 2],
     });
   });
 });

@@ -16,6 +16,7 @@ test('an assigned judge watches debaters without competitive controls or attenda
   };
   const html = renderToStaticMarkup(
     <LiveJudgeRoom
+      renderedAtMs={0}
       actorId="a"
       view={assignedView}
       read={async () => ({
@@ -25,7 +26,6 @@ test('an assigned judge watches debaters without competitive controls or attenda
         socketUrl: null,
       })}
       socketUrl={null}
-      renderedAtMs={0}
     />,
   );
   // One seat's identity admits one connection, so the stage waits for this tab's claim.

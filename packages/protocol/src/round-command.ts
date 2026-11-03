@@ -7,13 +7,20 @@ import type { BetaAccessState } from './beta-access';
 const seated = (
   type: 'start_prep' | 'start_speech' | 'yield' | 'interrupt' | 'forfeit',
 ) => z.strictObject({ type: z.literal(type), participantId: idSchema });
+/** A strike names the turn it means to take, so a stale form conflicts. */
+const strikeResolution = z.strictObject({
+  type: z.literal('strike_resolution'),
+  participantId: idSchema,
+  ordinal: z.int().min(0),
+  position: z.int().min(0),
+});
 /** Completion belongs to the ballot transaction, never a caller-supplied outcome. */
 export const roundCommandEnvelopeSchema = z.strictObject({
   version: z.literal(1),
   commandId: idSchema,
   expectedVersion: z.int().positive(),
   command: z.discriminatedUnion('type', [
-    z.strictObject({ type: z.literal('start') }),
+    strikeResolution,
     seated('start_prep'),
     seated('start_speech'),
     seated('yield'),
@@ -34,6 +41,9 @@ export const roundRefusalSchema = z.enum([
   'ballot-already-submitted',
   'round-decided',
   'attendance-unsettled',
+  'strike-conflict',
+  'strike-unavailable',
+  'not-your-turn',
 ]);
 export type RoundRefusal = z.infer<typeof roundRefusalSchema>;
 export type RoundCommandReceipt = {

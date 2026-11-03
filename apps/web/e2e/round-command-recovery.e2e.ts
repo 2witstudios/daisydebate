@@ -1,18 +1,36 @@
+import type { Locator } from '@playwright/test';
 import { openPage } from './support/fixtures';
 import { test, expect } from './support/round-files';
 import { controlLaunch } from './support/room-launch-settled';
 import { roundViewSchema } from '@daisy/protocol';
 test.use({ roundCommands: true });
+
+/**
+ * The command a form would post. React adds its own $ACTION fields only to a
+ * server-rendered form, so a press that lands before hydration renders the
+ * confirmation with them and the client-rendered retry without them.
+ */
+const commandFields = async (submit: Locator) =>
+  Object.fromEntries(
+    (
+      await submit
+        .locator('..')
+        .locator('input[name]')
+        .evaluateAll((inputs) =>
+          inputs.map((input) => [
+            (input as HTMLInputElement).name,
+            (input as HTMLInputElement).value,
+          ]),
+        )
+    ).filter(([name]) => !name!.startsWith('$ACTION')),
+  );
+
 for (const command of ['yield', 'forfeit'] as const)
   test(`unknown accepted ${command} keeps its exact reachable retry across fresh canonical state`, async ({
     roundFiles,
   }) => {
     const { page, roundId } = roundFiles;
-    for (const name of [
-      'Start round',
-      'Take prep time',
-      'Start affirmative constructive',
-    ])
+    for (const name of ['Take prep time', 'Start affirmative constructive'])
       await page.getByRole('button', { name, exact: true }).click();
     const label = command === 'yield' ? 'End speech' : 'Forfeit round';
     await page.getByRole('button', { name: label, exact: true }).click();
@@ -21,17 +39,7 @@ for (const command of ['yield', 'forfeit'] as const)
       exact: true,
     });
     await expect(confirm).toBeVisible();
-    const original = Object.fromEntries(
-      await confirm
-        .locator('..')
-        .locator('input[name]')
-        .evaluateAll((inputs) =>
-          inputs.map((input) => [
-            (input as HTMLInputElement).name,
-            (input as HTMLInputElement).value,
-          ]),
-        ),
-    );
+    const original = await commandFields(confirm);
     let committed = false;
     await page.route(`**/rounds/${roundId}/room`, async (route) => {
       // Only this command's own post loses its acknowledgement: the room's
@@ -95,19 +103,7 @@ for (const command of ['yield', 'forfeit'] as const)
         })
         .locator('..'),
     ).toBeFocused();
-    expect(
-      Object.fromEntries(
-        await retry
-          .locator('..')
-          .locator('input[name]')
-          .evaluateAll((inputs) =>
-            inputs.map((input) => [
-              (input as HTMLInputElement).name,
-              (input as HTMLInputElement).value,
-            ]),
-          ),
-      ),
-    ).toEqual(original);
+    expect(await commandFields(retry)).toEqual(original);
     const beforeRetry = await read();
     await retry.click();
     if (command === 'yield')
@@ -134,7 +130,6 @@ test('native browser retry resubmits the original accepted command after a lost 
     const formPage = await openPage(native, 'native command replay');
     await formPage.goto(`/rounds/${roundId}/room`);
     for (const name of [
-      'Start round',
       'Take prep time',
       'Start affirmative constructive',
       'End speech',

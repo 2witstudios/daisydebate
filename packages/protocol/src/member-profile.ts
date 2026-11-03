@@ -18,7 +18,8 @@ export type DebateRecord = {
 export type MatchHistoryEntry = {
   readonly roundId: string;
   readonly completedAt: string;
-  readonly resolution: string;
+  /** Null when the Round ended before its reveal. */
+  readonly resolution: string | null;
   readonly side: DebateSide;
   /** A closed opponent keeps their name on the record, marked closed (ADR 0087). */
   readonly opponents: readonly {

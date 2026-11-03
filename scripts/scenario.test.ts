@@ -26,7 +26,7 @@ const scenario: DebateScenario = {
     ],
   },
   when: [
-    { type: 'command', command: { type: 'start' }, actor: null },
+    { type: 'start-round' },
     { type: 'tick', atMs: 10_000 }, // the AC opens
     { type: 'tick', atMs: 250_000 }, // the AC closes; the NC countdown runs
     { type: 'tick', atMs: 260_000 }, // the NC opens
@@ -91,7 +91,7 @@ describe('typed debate scenarios', () => {
       ...scenario,
       name: 'rejection-atomicity',
       when: [
-        { type: 'command', command: { type: 'start' }, actor: null },
+        { type: 'start-round' },
         { type: 'tick', atMs: 10_000 }, // the AC opens
         {
           type: 'expect-rejection',

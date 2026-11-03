@@ -22,7 +22,7 @@ test('one actual provider failure does not prevent cleanup of another terminal m
       await f.sql`select room_name from media_sessions where round_id=${f.roundId}`;
     const [terminal] =
       await f.sql`select room_name from media_sessions where round_id=${terminalRoundId}`;
-    await f.sql`update rounds set status='abandoned',completed_at=clock_timestamp() where id=${terminalRoundId}`;
+    await f.sql`update rounds set status='abandoned',current_stage=null,completed_at=clock_timestamp() where id=${terminalRoundId}`;
     let blocked = true;
     const proxy = Bun.serve({
       hostname: '127.0.0.1',
@@ -89,7 +89,7 @@ test('one actual provider failure does not prevent cleanup of another terminal m
           (await f.store.getRound(f.roundId))!.status,
           await f.media.exists(failed!.room_name),
         ],
-        expected: [null, 'scheduled', true],
+        expected: [null, 'active', true],
       });
     } finally {
       proxy.stop(true);

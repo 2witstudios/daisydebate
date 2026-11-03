@@ -10,13 +10,18 @@ import type {
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 import { bytesOf } from './draw-random';
+import {
+  settleOpening,
+  strikeOpening,
+  type OpeningSeat,
+} from './round-opening';
 
 export const SEED = '01'.repeat(32);
 export const SALT = '02'.repeat(32);
 export const SENTINEL = 'SENTINEL-RESOLUTION';
 const hostList = [1, 2, 3, 4, 5].map((n) => `${SENTINEL}-${n}`);
 
-export const drawConfig = {
+const drawConfig = {
   enabled: true as const,
   drawSize: 5,
   strikeWindowMs: 60_000,
@@ -79,29 +84,43 @@ export const command = (
     ...extra,
   }) as RoomCommand;
 
-export const begin = (room = drawRoom()) => {
+/** The Start round of a draw Room: its mutation, draw and secrets included. */
+export const begin = (room = drawRoom(), ready = consent) => {
   const outcome = executeRoomCommand(
     room,
     'host',
-    command('start-pre-round', {}, room),
-    consent,
+    command('start-round', {}, room),
+    ready,
     { ...edges, drawStart },
   );
   if (!outcome.ok) throw new Error(outcome.refusal);
   return outcome.mutation;
 };
 
+const seatsOf = (room: RoomAssemblyState): readonly OpeningSeat[] =>
+  room.participants;
+
+/** The opening a Start round leaves, with its seats. */
+export const opened = (room = drawRoom(), prepMs: number | null = null) => {
+  const draw = begin(room).draw;
+  return {
+    seats: seatsOf(room),
+    opening: { startedAt: edges.now, draw: draw?.state ?? null, prepMs },
+  };
+};
+
+/** A debater's strike on the opening settled at `now`. */
 export const strike = (
-  room: RoomAssemblyState,
+  { opening, seats }: ReturnType<typeof opened>,
   actorId: string,
   ordinal: number,
   position: number,
   now = edges.now,
 ) =>
-  executeRoomCommand(
-    room,
+  strikeOpening(settleOpening(opening, seedBytes, now).opening, seats, {
     actorId,
-    command('strike-resolution', { ordinal, position }, room),
-    consent,
-    { ...edges, now, drawSeed: SEED },
-  );
+    commandId: `strike-${ordinal}`,
+    ordinal,
+    position,
+    now,
+  });

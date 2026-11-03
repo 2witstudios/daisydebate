@@ -189,7 +189,7 @@ test('a subscribe whose budget is spent during the facts read stops before the l
       roundId,
       createdByActorId: principal.actorId,
       visibility: 'public',
-      status: 'scheduled',
+      status: 'opening',
       revision: 1,
       participants: [],
     },

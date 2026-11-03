@@ -139,7 +139,7 @@ const total = rules.segments.reduce(
 );
 const judged = () => {
   const world = runtimeWorld();
-  world.execute({ command: { type: 'start' }, actorId: null, now: roundAt(0) });
+  world.activate({ at: roundAt(0), now: roundAt(0) });
   world.tick(roundAt(total));
   return world;
 };

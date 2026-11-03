@@ -63,8 +63,7 @@ test('principal binding refuses seat theft and escaped AgentRun scope', () => {
     });
 });
 
-test('start and missing eligibility refuse closed without fabricating an actor', () => {
-  const human = { kind: 'human', actorId: 'host' } as const;
+test('missing eligibility refuses closed without fabricating an actor', () => {
   const agent = {
     kind: 'agent',
     serviceId: 'worker',
@@ -72,21 +71,6 @@ test('start and missing eligibility refuse closed without fabricating an actor',
     roundId: 'round',
     participantId: 'bot-seat',
   } as const;
-  for (const [principal, expected] of [
-    [human, true],
-    [{ ...human, actorId: 'outsider' }, false],
-    [agent, false],
-  ] as const)
-    assert({
-      given: JSON.stringify(principal),
-      should: 'allow only the host to start',
-      actual: bindRoundCommandPrincipal({
-        principal,
-        authority,
-        command: { type: 'start' },
-      }).ok,
-      expected,
-    });
   for (const agentRun of [
     null,
     { ...authority.agentRun!, active: false },
@@ -117,20 +101,9 @@ test('start and missing eligibility refuse closed without fabricating an actor',
       }),
       expected: { ok: false, refusal: 'not-seated' },
     });
-  assert({
-    given: 'the eligible host',
-    should: 'start without a participant impersonation',
-    actual: bindRoundCommandPrincipal({
-      principal: human,
-      authority,
-      command: { type: 'start' },
-    }),
-    expected: { ok: true, actorId: null, participantId: null },
-  });
 });
 
 test('a human without participant access keeps only the Round withdrawal (ADR 0075)', () => {
-  const host = { kind: 'human', actorId: 'host' } as const;
   const person = { kind: 'human', actorId: 'person' } as const;
   const agent = {
     kind: 'agent',
@@ -141,7 +114,7 @@ test('a human without participant access keeps only the Round withdrawal (ADR 00
   } as const;
   const bound = (
     principalAccess: RoundCommandAuthority['principalAccess'],
-    principal: typeof host | typeof person | typeof agent,
+    principal: typeof person | typeof agent,
     command: Parameters<typeof bindRoundCommandPrincipal>[0]['command'],
   ) =>
     bindRoundCommandPrincipal({
@@ -161,11 +134,10 @@ test('a human without participant access keeps only the Round withdrawal (ADR 00
   } as const;
   assert({
     given:
-      'a revoked and an age-less human commanding start, yield and forfeit, and an AgentRun with no human facts',
+      'a revoked and an age-less human commanding yield and forfeit, and an AgentRun with no human facts',
     should:
       'refuse every participation command, keep forfeit (leaving the Round), and leave AgentRuns to their own scope',
     actual: [
-      bound(revoked, host, { type: 'start' }),
       bound(revoked, person, { type: 'yield', participantId: 'human-seat' }),
       bound(ageless, person, { type: 'yield', participantId: 'human-seat' }),
       bound(revoked, person, {
@@ -174,6 +146,6 @@ test('a human without participant access keeps only the Round withdrawal (ADR 00
       }),
       bound(null, agent, { type: 'yield', participantId: 'bot-seat' }),
     ],
-    expected: [false, false, false, true, true],
+    expected: [false, false, true, true],
   });
 });

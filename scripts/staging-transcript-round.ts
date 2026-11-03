@@ -106,16 +106,6 @@ export async function runStagingTranscriptRound(cookie: string) {
   const roundId = room.roundRef?.id;
   if (!roundId) throw new Error('Staging Round not created');
   let round = roundViewSchema.parse(await request(`/api/rounds/${roundId}`));
-  round = roundViewSchema.parse(
-    (
-      await request(`/api/rounds/${roundId}/commands`, {
-        version: 1,
-        commandId: createId(),
-        expectedVersion: round.version,
-        command: { type: 'start' },
-      })
-    ).view,
-  );
   console.log(JSON.stringify({ phase: 'started', roundId, roomId: room.id }));
   const deadline = Date.now() + 420000;
   while (round.status !== 'completed' && Date.now() < deadline) {

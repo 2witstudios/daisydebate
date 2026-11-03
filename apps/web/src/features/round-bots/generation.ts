@@ -32,7 +32,13 @@ function messagesFor(
   const rule = round.rules.segments.find(
     (row) => row.key === segment?.rulesSegmentKey,
   );
-  if (!segment || !rule || seat.role === 'judge' || !Number.isFinite(nowMs))
+  if (
+    !segment ||
+    !rule ||
+    seat.role === 'judge' ||
+    !Number.isFinite(nowMs) ||
+    round.resolution === null
+  )
     throw createAppError('CONFLICT');
   const durationMs = Date.parse(segment.startedAt) + segment.durationMs - nowMs;
   if (durationMs <= 0) throw createAppError('CONFLICT');

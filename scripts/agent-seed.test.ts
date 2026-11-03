@@ -12,7 +12,7 @@ const seedRuntime = () =>
   createRoundRuntime({
     round: {
       id: agentSeedRound.id,
-      status: 'scheduled',
+      status: 'opening',
       currentStage: null,
       startedAt: null,
       completedAt: null,
@@ -28,7 +28,7 @@ const seedRuntime = () =>
 describe('agentSeedRound', () => {
   test('stores rules the protocol contract and the runtime both accept', () => {
     const world = seedRuntime();
-    world.execute({ command: { type: 'start' }, actorId: null, now: t0 });
+    world.activate({ at: t0, now: t0 });
     const position = world.position(t0);
     assert({
       given: 'the seeded round rules and seats',

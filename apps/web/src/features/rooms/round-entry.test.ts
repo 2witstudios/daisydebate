@@ -20,20 +20,15 @@ const view = (status: NonNullable<RoomView['roundRef']>['status']) => ({
   participants: [seat],
   roundRef: { id: 'round', status },
 });
-test('only scheduled or active Rounds automatically admit seated members', () => {
-  for (const status of [
-    'scheduled',
-    'active',
-    'completed',
-    'abandoned',
-  ] as const)
+test('only opening or active Rounds automatically admit seated members', () => {
+  for (const status of ['opening', 'active', 'completed', 'abandoned'] as const)
     assert({
       given: `a seated member and ${status} shared Round`,
       should:
         'auto-enter only live Rounds and retain terminal Room/rematch access',
       actual: roundEntry(view(status), 'member', null).href,
       expected:
-        status === 'scheduled' || status === 'active'
+        status === 'opening' || status === 'active'
           ? '/rounds/round/room'
           : null,
     });
@@ -59,12 +54,12 @@ test('observed terminal Rounds cannot be reopened by delayed nonmonotonic snapsh
   for (const terminal of ['completed', 'abandoned'] as const) {
     const held = roundEntry(view(terminal), 'member', null);
     assert({
-      given: `${terminal} observed before stale scheduled or active snapshots`,
+      given: `${terminal} observed before stale opening or active snapshots`,
       should: 'never redirect back into that Round after terminal observation',
-      actual: ['scheduled', 'active'].map(
+      actual: ['opening', 'active'].map(
         (status) =>
           roundEntry(
-            view(status as 'scheduled' | 'active'),
+            view(status as 'opening' | 'active'),
             'member',
             held.terminal,
           ).href,
@@ -87,7 +82,7 @@ test('refresh and a fresh rematch retain independent entry lifetimes', () => {
       roundEntry(
         {
           ...view('active'),
-          roundRef: { id: 'next-round', status: 'scheduled' },
+          roundRef: { id: 'next-round', status: 'opening' },
         },
         'member',
         terminal.terminal,
@@ -136,7 +131,7 @@ test('terminal knowledge never attaches a prior Round to a fresh rematch Room', 
     {
       ...view('active'),
       id: 'fresh-room',
-      roundRef: { id: 'new-round', status: 'scheduled' },
+      roundRef: { id: 'new-round', status: 'opening' },
     },
     'member',
     fresh.terminal,

@@ -29,7 +29,7 @@ type Caller = { readonly actorId: string; readonly admits: Admits };
  */
 export function createMediaWorld(
   options: {
-    readonly status?: 'scheduled' | 'active' | 'completed' | 'abandoned';
+    readonly status?: 'opening' | 'active' | 'completed' | 'abandoned';
     readonly busyClaims?: number;
     /** Another worker claims the reconcile lease the instant each of ours finishes, as recovery does on a busy deployment. */
     readonly reclaimedAfterFinish?: boolean;
@@ -76,7 +76,7 @@ export function createMediaWorld(
   );
   const bindings: { roundParticipantId: string; identity: string }[] = [];
   const pending = new Set<string>();
-  let status = options.status ?? 'scheduled';
+  let status = options.status ?? 'opening';
   let busy = options.busyClaims ?? 0;
   let leaseOwner: string | null = null;
   let reconciles = 0;
@@ -129,10 +129,11 @@ export function createMediaWorld(
         endedAt: endedAt && new Date(endedAt),
       },
       round: {
+        opening: null,
         id: roundId,
         status,
         currentStage: null,
-        startedAt: status === 'scheduled' ? null : now,
+        startedAt: status === 'opening' ? null : now,
         completedAt: null,
         outcome: null,
         rules,

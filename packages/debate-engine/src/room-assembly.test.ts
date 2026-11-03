@@ -1,5 +1,4 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomAssemblyState } from '@daisy/protocol';
 import { executeRoomCommand, projectRoom } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 
@@ -89,7 +88,7 @@ describe('Room assembly authority', () => {
       consent,
       edges,
     );
-    const view = projectRoom(room, 'host', consent, edges.now, null);
+    const view = projectRoom(room, 'host', consent, '2026-11-02T12:00:00.000Z');
     assert({
       given: 'complete cast and current consent',
       should:
@@ -161,105 +160,6 @@ describe('Room assembly authority', () => {
       actual: result.ok && result.mutation.freeze,
       expected: true,
     });
-  });
-});
-
-test('prep keeps its original atomic anchor and derives time without restarting on finish', () => {
-  const room: RoomAssemblyState = {
-    ...state(),
-    executionPlan: {
-      preRoundPrep: { enabled: true, durationMs: 60_000 },
-      resolutionDraw: { enabled: false },
-    },
-    prepRemainingMs: 60_000,
-  };
-  const started = executeRoomCommand(
-    room,
-    'host',
-    {
-      type: 'start-pre-round',
-      commandId: 'prep',
-      expectedVersion: room.version,
-    },
-    consent,
-    edges,
-  );
-  if (!started.ok) throw new Error('Fixture prep start refused');
-  const running = started.mutation.state;
-  const halfway = { ...edges, now: '2026-10-09T00:00:30.000Z' },
-    elapsed = { ...edges, now: '2026-10-09T00:01:00.000Z' };
-  const early = executeRoomCommand(
-    running,
-    'host',
-    {
-      type: 'finish-prep',
-      commandId: 'early',
-      expectedVersion: running.version,
-    },
-    consent,
-    halfway,
-  );
-  const done = executeRoomCommand(
-    running,
-    'host',
-    {
-      type: 'finish-prep',
-      commandId: 'finish',
-      expectedVersion: running.version,
-    },
-    consent,
-    elapsed,
-  );
-  assert({
-    given: 'a prep anchor at midnight and exact half/end clocks',
-    should:
-      'refuse early finish, project elapsed remaining, and keep the original anchor after acknowledgment',
-    actual: [
-      early,
-      projectRoom(running, 'host', consent, halfway.now, null).prep,
-      done.ok && done.mutation.state.prepStartedAt,
-      projectRoom(running, 'host', consent, elapsed.now, null).prep,
-      projectRoom(running, 'host', consent, halfway.now, null).capabilities
-        .canEdit,
-    ],
-    expected: [
-      { ok: false, refusal: 'prep-running' },
-      { startedAt: edges.now, remainingMs: 30_000, finished: false },
-      edges.now,
-      { startedAt: edges.now, remainingMs: 0, finished: true },
-      false,
-    ],
-  });
-});
-
-test('configuration changes are fenced while prep is active', () => {
-  const room: RoomAssemblyState = {
-    ...state(),
-    executionPlan: {
-      preRoundPrep: { enabled: true, durationMs: 60_000 },
-      resolutionDraw: { enabled: false },
-    },
-    prepStartedAt: edges.now,
-    prepRemainingMs: 60_000,
-  };
-  const before = JSON.stringify(room);
-  const result = executeRoomCommand(
-    room,
-    'host',
-    {
-      type: 'update-config',
-      commandId: 'edit-during-prep',
-      expectedVersion: room.version,
-      config: room.config,
-    },
-    consent,
-    edges,
-  );
-  assert({
-    given: 'an edit attempted after the prep anchor starts',
-    should: 'refuse it and preserve the full anchor and state',
-    actual: [result, JSON.stringify(room)],
-    expected: [{ ok: false, refusal: 'prep-running' }, before],
   });
 });
 

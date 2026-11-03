@@ -41,5 +41,5 @@ function ballotOpen(view: RoundBallotRead): boolean {
 function pendingDisplay(
   status: RoundBallotRead['round']['status'],
 ): BallotDisplay {
-  return status === 'active' || status === 'scheduled' ? 'waiting' : 'decided';
+  return status === 'active' || status === 'opening' ? 'waiting' : 'decided';
 }

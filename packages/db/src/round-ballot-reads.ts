@@ -1,3 +1,4 @@
+import { withOpening, type ReadOpening } from './round-opening-read';
 import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
 import { closedStreamGaps, streamKey } from './capture-gaps';
 import type { CaptureRule } from '@daisy/protocol';
@@ -99,6 +100,7 @@ export const roundBallotReads = ({
       round: LaunchedRound,
       account: Account,
     ) => boolean;
+    readonly readOpening: ReadOpening;
     /** The engine's decision, injected: an assigned judge's room shows it too. */
     readonly decideWaitingOn: (
       facts: RoundWaitingFacts,
@@ -136,7 +138,13 @@ export const roundBallotReads = ({
       );
       const waitingOn = await readWaitingOn(tx, round, input.decideWaitingOn);
       return roundBallotReadSchema.parse({
-        round: { ...roundViewFor(round, input.caller.actorId), waitingOn },
+        round: await withOpening(
+          tx,
+          round,
+          { ...roundViewFor(round, input.caller.actorId), waitingOn },
+          input.caller.actorId,
+          input.readOpening,
+        ),
         ...ballotReadView({
           status: round.status,
           ownSeatId: ownSeat?.id,

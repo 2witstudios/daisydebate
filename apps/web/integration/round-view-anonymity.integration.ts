@@ -147,7 +147,7 @@ test('a launched Round names its human judge only to that judge and the host', a
     const asJudge = await read(judge);
     assert({
       given:
-        'a scheduled Round with a human judge, read by a debater and a spectator',
+        'a new Round with a human judge, read by a debater and a spectator',
       should: 'carry no judge name, actor, seat id or host actor',
       actual: [
         leaks(await read(f.guest), roundSecrets),

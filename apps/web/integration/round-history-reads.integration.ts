@@ -1,10 +1,14 @@
-import { captureRule, roundWaitingOn } from '@daisy/debate-engine';
+import {
+  captureRule,
+  readRoundOpening,
+  roundWaitingOn,
+} from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 import {
@@ -35,7 +39,10 @@ test('accepted engine commands persist speaking grants and historical closure wi
         },
       },
     });
-    const { roundId, operations, principal } = await startRuntimeRound(f, room);
+    const { roundId, operations, principal } = await launchRuntimeRound(
+      f,
+      room,
+    );
 
     // Seed the durable elapsed anchor; command authority still samples the real post-lock DB instant.
     await f.sql`update rounds set started_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
@@ -46,7 +53,7 @@ test('accepted engine commands persist speaking grants and historical closure wi
     const envelope = {
       version: 1 as const,
       commandId: createId(),
-      expectedVersion: 2,
+      expectedVersion: 1,
       command: { type: 'yield' as const, participantId: hostSeat.id },
     };
     await operations.command(principal, roundId, envelope);
@@ -71,14 +78,14 @@ test('accepted engine commands persist speaking grants and historical closure wi
         seat: hostSeat.id,
         startCommand: envelope.commandId,
         endCommand: envelope.commandId,
-        version: 3,
+        version: 2,
       },
     });
     const query = {
       roundId,
       segmentId: speech.segment_id,
       roundParticipantId: hostSeat.id,
-      expectedVersion: 3,
+      expectedVersion: 2,
       before: new Date(speech.started_at).toISOString(),
       after: new Date(new Date(speech.started_at).getTime() + 1).toISOString(),
     };
@@ -110,7 +117,7 @@ test('accepted engine commands persist speaking grants and historical closure wi
         operations.command(principal, roundId, {
           ...envelope,
           commandId: createId(),
-          expectedVersion: 3,
+          expectedVersion: 2,
         }),
       code: 'CONFLICT',
     });
@@ -125,7 +132,7 @@ test('accepted engine commands persist speaking grants and historical closure wi
     const ended = await operations.command(principal, roundId, {
       version: 1,
       commandId: createId(),
-      expectedVersion: 3,
+      expectedVersion: 2,
       command: { type: 'forfeit', participantId: hostSeat.id },
     });
     assert({
@@ -163,7 +170,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       })
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
-    const { roundId, operations } = await startRuntimeRound(f, room);
+    const { roundId, operations } = await launchRuntimeRound(f, room);
 
     const raw = (await f.store.getRound(roundId))!;
     const seat = raw.participants.find((p) => p.actorId === f.guest.actorId)!;
@@ -173,7 +180,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       {
         version: 1,
         commandId: createId(),
-        expectedVersion: 2,
+        expectedVersion: 1,
         command: { type: 'forfeit', participantId: seat.id },
       },
     );
@@ -235,6 +242,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     });
     await f.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     const completedAudience = await f.store.readRoundBallot({
+      readOpening: readRoundOpening,
       decideWaitingOn: roundWaitingOn,
       captureRule,
       caller: spectator,

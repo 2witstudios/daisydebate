@@ -116,7 +116,12 @@ export const roundCommandOperations = ({
         const { actorId, serviceId } = roundPrincipalColumns(input.principal);
         const replay = await replayCommand(tx, input);
         if (replay) return replay;
-        if (current.version !== input.envelope.expectedVersion)
+        // A strike's ordinal is its fence: the engine refuses a taken turn, and a
+        // tick persisting a bot's strike must not refuse the turn it opened.
+        if (
+          input.envelope.command.type !== 'strike_resolution' &&
+          current.version !== input.envelope.expectedVersion
+        )
           throw createRefusal('CONFLICT', 'stale-version');
         const projection = input.buildProjection(context);
         const changed = await writeProjectionWithPhaseSignal(

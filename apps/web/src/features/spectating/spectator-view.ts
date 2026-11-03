@@ -74,7 +74,7 @@ export function spectatorAudienceOf(
 }
 
 function stageOf(view: RoundView, position: RoundPosition): SpectatorStage {
-  if (view.status === 'scheduled') return 'starting';
+  if (view.status === 'opening') return 'starting';
   if (position.awaitingBallot) return 'judging';
   if (position.openSegment)
     return position.openSegment.type === 'cross_ex' ? 'cross-ex' : 'speech';

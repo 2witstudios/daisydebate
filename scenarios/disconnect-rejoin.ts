@@ -97,7 +97,7 @@ const scenario: DebateScenario = {
   name: 'disconnect-rejoin',
   given: { ids: foundationScenarioIds },
   when: [
-    { type: 'command', command: { type: 'start' }, actor: null },
+    { type: 'start-round' },
     { type: 'tick', atMs: 10000 },
     { type: 'tick', atMs: 72000 },
   ],

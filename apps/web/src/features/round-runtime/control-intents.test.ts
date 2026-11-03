@@ -11,8 +11,8 @@ import {
 setupRitewayBun();
 test('Round controls follow existing runtime position and preserve floor command ownership', () => {
   assert({
-    given: 'a scheduled Round read by its host and by a seated non-host',
-    should: 'offer the host-only start intent to the host alone',
+    given: 'an opening Round read by its host and by a seated non-host',
+    should: 'offer neither a start intent: the opening runs on its own',
     actual: [true, false].map((viewerIsHost) =>
       roundControlIntents(
         { ...view, viewerIsHost },
@@ -20,7 +20,7 @@ test('Round controls follow existing runtime position and preserve floor command
         Date.parse(at(0)),
       ).map((c) => c.type),
     ),
-    expected: [['start'], []],
+    expected: [[], []],
   });
   const prepping = {
     ...ran(0),
