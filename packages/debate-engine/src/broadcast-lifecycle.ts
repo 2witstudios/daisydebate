@@ -58,9 +58,7 @@ const privacyActions = (facts: BroadcastFacts): readonly BroadcastAction[] => {
     (facts.phase.kind === 'private-at' &&
       facts.phase.atMs - facts.nowMs <= REVOCATION_LEAD_MS);
   if (!privateSoon)
-    return facts.observerSubscribed || facts.phase.kind !== 'public'
-      ? []
-      : [{ type: 'restore-observer' }];
+    return facts.observerSubscribed ? [] : [{ type: 'restore-observer' }];
   if (!facts.observerSubscribed)
     return live ? [{ type: 'reassert-revocation' }] : [];
   if (!live) return [{ type: 'revoke-observer' }];

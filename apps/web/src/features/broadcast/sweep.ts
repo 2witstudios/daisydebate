@@ -66,6 +66,7 @@ export const createBroadcastSweep = (deps: {
         roundStatus: read.round.status,
         roundEndedAt: read.endedAt,
         position,
+        lastSequence: read.round.rules.segments.length - 1,
         egress,
       }),
       {

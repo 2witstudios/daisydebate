@@ -180,6 +180,20 @@ describe('private phases fail closed', () => {
       expected: [{ type: 'start-egress' }],
     });
   });
+  test('prep before the last speech gives the observer back for that speech', () => {
+    assert({
+      given: 'a revoked observer and a last speech minutes from its end',
+      should: 'restore it: the private phase is not near',
+      actual: decideBroadcast(
+        facts({
+          egress: active,
+          observerSubscribed: false,
+          phase: { kind: 'private-at', atMs: 100_000 + 60_000 },
+        }),
+      ),
+      expected: [{ type: 'restore-observer' }],
+    });
+  });
   test('the observer returns only when the phase is public again', () => {
     assert({
       given: 'a revoked observer, in a private phase and then a public one',

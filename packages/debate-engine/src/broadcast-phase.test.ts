@@ -10,35 +10,29 @@ const base: PhasePosition = {
   prep: null,
   stage: null,
 };
-const open = (endsAt: string) => ({ endsAt });
 const speechNext = { type: 'speech' } as const;
 
 describe('broadcastPhase', () => {
-  test('an open segment is public', () => {
+  test('only the last segment leads to a private phase', () => {
+    const endsAt = '2026-11-02T00:01:00.000Z';
     assert({
-      given: 'a speech with another speech next',
-      should: 'stay public, since the next phase is public too',
-      actual: broadcastPhase({
-        ...base,
-        openSegment: open('2026-11-02T00:01:00.000Z'),
-        nextSegment: speechNext,
-      }),
+      given: 'a speech with others after it, as the runtime reports it',
+      should: 'stay public: its nextSegment is null only because it is open',
+      actual: broadcastPhase(
+        { ...base, openSegment: { endsAt, sequence: 2 } },
+        6,
+      ),
       expected: { kind: 'public' },
     });
-  });
-  test('the last speech announces the private phase at its scheduled end', () => {
     assert({
-      given: 'the final speech ending at a known time',
+      given: 'the last speech ending at a known time',
       should:
         'report the private phase at that time, so revocation can lead it',
-      actual: broadcastPhase({
-        ...base,
-        openSegment: open('2026-11-02T00:01:00.000Z'),
-      }),
-      expected: {
-        kind: 'private-at',
-        atMs: Date.parse('2026-11-02T00:01:00.000Z'),
-      },
+      actual: broadcastPhase(
+        { ...base, openSegment: { endsAt, sequence: 6 } },
+        6,
+      ),
+      expected: { kind: 'private-at', atMs: Date.parse(endsAt) },
     });
   });
   test('prep, the wait for a ballot and before the first segment are private', () => {
@@ -46,13 +40,12 @@ describe('broadcastPhase', () => {
       given: 'prep, awaiting a ballot, and an opening Round',
       should: 'be private in each',
       actual: [
-        broadcastPhase({ ...base, prep: { side: 'affirmative' } }),
-        broadcastPhase({ ...base, stage: 'awaiting_ballot' }),
-        broadcastPhase({
-          ...base,
-          status: 'opening',
-          nextSegment: speechNext,
-        }),
+        broadcastPhase({ ...base, prep: { side: 'affirmative' } }, 6),
+        broadcastPhase({ ...base, stage: 'awaiting_ballot' }, 6),
+        broadcastPhase(
+          { ...base, status: 'opening', nextSegment: speechNext },
+          6,
+        ),
       ],
       expected: [{ kind: 'private' }, { kind: 'private' }, { kind: 'private' }],
     });
@@ -62,8 +55,8 @@ describe('broadcastPhase', () => {
       given: 'a live Round between segments with one next, and with none',
       should: 'be public only when a segment is known to follow',
       actual: [
-        broadcastPhase({ ...base, nextSegment: speechNext }),
-        broadcastPhase(base),
+        broadcastPhase({ ...base, nextSegment: speechNext }, 6),
+        broadcastPhase(base, 6),
       ],
       expected: [{ kind: 'public' }, { kind: 'private' }],
     });
