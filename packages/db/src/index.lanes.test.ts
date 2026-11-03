@@ -5,13 +5,15 @@ import { fakeSql } from './index.test-support';
 
 setupRitewayBun();
 
-const { audience: _taken, ...withoutAudience } = WORKLOAD_PROFILES.web.lanes;
 /** With no audience lane, an operation on it refuses and any other reaches the client. */
 const database = createDatabase({
   url: 'postgres://daisy:test@localhost:5432/daisy_test',
   client: fakeSql([]).client,
   nextActorId: () => 'a'.repeat(24),
-  profile: { ...WORKLOAD_PROFILES.web, lanes: withoutAudience },
+  profile: {
+    ...WORKLOAD_PROFILES.web,
+    lanes: { ...WORKLOAD_PROFILES.web.lanes, audience: undefined },
+  },
 });
 const clock = { now: '2026-11-03T00:00:00.000Z', rankedDelaySeconds: 60 };
 const id = 'a'.repeat(24);
