@@ -2,6 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import {
   planRating,
   rateDebate,
+  attendanceSettled,
   ratingEligibility,
   ratingPolicy,
 } from '@daisy/debate-engine';
@@ -178,6 +179,7 @@ test('a posting that fails after its ledger insert leaves nothing and the next s
         actual: () =>
           f.store.rateRound({
             roundId,
+            attendanceSettled,
             changeIds: [createId(), createId()],
             decide: {
               eligibility: ratingEligibility,

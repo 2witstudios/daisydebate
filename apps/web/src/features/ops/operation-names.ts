@@ -6,6 +6,7 @@
  */
 const OPERATION_NAMES = [
   'account.age.answer',
+  'agreements.content-waiver',
   'moderation.report',
   'recording.playback',
   'recording.download',
