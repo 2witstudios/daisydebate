@@ -6,7 +6,7 @@ import {
 import { clockTime } from '../recording-player/recording-player-copy';
 
 /** A step in its own units: nothing here is an estimate of the whole. */
-export const buildStepCopy = ({
+const buildStepCopy = ({
   step,
   done,
   total,

@@ -544,8 +544,6 @@ export {
   recordingBuildDelayed,
   recordingBuildSteps,
   recordingPreparationOf,
-  recordingPreparationSchema,
-  recordingProcessingBoundMs,
   type RecordingBuildProgress,
   type RecordingPreparation,
 } from './recording-processing';

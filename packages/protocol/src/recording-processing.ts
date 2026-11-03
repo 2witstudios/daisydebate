@@ -48,7 +48,7 @@ export const recordingBuildSteps = [
  * milliseconds of video encoded as ffmpeg reports them, files uploaded. Never a
  * percentage of the whole, which nothing measures.
  */
-export const recordingBuildProgressSchema = z.strictObject({
+const recordingBuildProgressSchema = z.strictObject({
   step: z.enum(recordingBuildSteps),
   done: z.int().nonnegative(),
   total: z.int().nonnegative(),
