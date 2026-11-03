@@ -26,6 +26,7 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
     },
     listOpen: async () => [] as unknown[],
     readRound: async () => null as unknown,
+    claimReconcile: async () => true,
     recordEgressStarted: async (input: {
       egressId: string;
       stageCredentialHash: string;
@@ -83,6 +84,24 @@ describe('createBroadcastSweep', () => {
       should: 'report it and still reach the second',
       actual: [reads, log],
       expected: [['bad', 'good'], ['report broadcast.reconcile_failed']],
+    });
+  });
+  test('an instance that loses the claim leaves the Broadcast alone', async () => {
+    const reads: string[] = [];
+    const { deps } = world({
+      listOpen: async () => [open()],
+      claimReconcile: async () => false,
+      readRound: async (roundId: string) => {
+        reads.push(roundId);
+        return null;
+      },
+    });
+    await createBroadcastSweep(deps)();
+    assert({
+      given: 'another instance holding the reconcile claim',
+      should: 'not read or act on it, so a second Egress cannot start',
+      actual: reads,
+      expected: [],
     });
   });
 });

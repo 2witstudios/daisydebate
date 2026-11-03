@@ -121,6 +121,11 @@ const serverFields = {
   LIVEKIT_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
   LIVEKIT_API_SECRET: secret(z.string().regex(/^\S+$/)).optional(),
   MEDIA_WORKER_SECRET: secret(mediaWorkerSecret).optional(),
+  /**
+   * ADR 0099: the Broadcast control plane runs only when this is exactly `on`.
+   * Unset, merging or deploying this code captures nothing.
+   */
+  BROADCAST_CAPTURE: z.literal('on').optional(),
   // AIDB: OpenRouter for AI debates (chat, TTS, STT). Optional: without it
   // AI debates are unavailable and nothing calls out.
   OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),

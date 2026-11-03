@@ -49,6 +49,8 @@ export const broadcasts = pgTable(
     stoppedAt: timestampColumn('stopped_at'),
     stopReason: text('stop_reason'),
     completedAt: timestampColumn('completed_at'),
+    /** One web instance reconciles a Broadcast at a time, so one Egress starts. */
+    reconcileLeaseUntil: timestampColumn('reconcile_lease_until'),
     leaseEpoch: integer('lease_epoch').notNull().default(0),
     leaseOwner: text('lease_owner'),
     leaseUntil: timestampColumn('lease_until'),

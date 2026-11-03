@@ -5,6 +5,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   claimBroadcast,
+  claimBroadcastReconcile,
   completeBroadcast,
   listOpenBroadcasts,
   openBroadcast,
@@ -236,6 +237,30 @@ test('a held lease renews with fresh facts, and refuses a fenced owner', async (
         fenced,
       ],
       expected: [much.toISOString(), now.toISOString(), null],
+    });
+  });
+});
+
+test('one web instance reconciles a Broadcast at a time', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      releasePolicy: policy,
+    });
+    const claim = (at: Date) =>
+      claimBroadcastReconcile(db, {
+        id: open.id,
+        now: at,
+        until: new Date(at.getTime() + 5000),
+      });
+    const racing = await Promise.all([claim(now), claim(now), claim(now)]);
+    const expired = await claim(new Date(now.getTime() + 5000));
+    assert({
+      given: 'three instances racing, then one after the lease ends',
+      should: 'let exactly one through, and then the later one',
+      actual: [racing.filter(Boolean).length, expired],
+      expected: [1, true],
     });
   });
 });

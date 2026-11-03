@@ -223,3 +223,24 @@ export const readBroadcastRoom = async (tx: Tx, roundId: string) => {
     .where(eq(mediaSessions.roundId, roundId));
   return session?.roomName ?? null;
 };
+
+/** True for the one instance that may reconcile this Broadcast until the lease ends. */
+export const claimBroadcastReconcile = async (
+  tx: Tx,
+  input: { readonly id: string; readonly now: Date; readonly until: Date },
+): Promise<boolean> => {
+  const rows = await tx
+    .update(broadcasts)
+    .set({ reconcileLeaseUntil: input.until })
+    .where(
+      and(
+        eq(broadcasts.id, input.id),
+        or(
+          isNull(broadcasts.reconcileLeaseUntil),
+          lte(broadcasts.reconcileLeaseUntil, input.now),
+        ),
+      ),
+    )
+    .returning({ id: broadcasts.id });
+  return rows.length === 1;
+};

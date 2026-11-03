@@ -21,6 +21,7 @@ type Egress = {
 
 const SEGMENT_SECONDS = 4;
 const BATCH = 64;
+const RECONCILE_LEASE_MS = 800;
 
 /**
  * One pass over every open Broadcast. It reads the Round without a lock and
@@ -105,9 +106,17 @@ export const createBroadcastSweep = (deps: {
         roundId,
         releasePolicy: resolveReleasePolicy('ranked', null),
       });
-    for (const broadcast of await deps.store.listOpen(BATCH))
-      await reconcile(broadcast).catch(() =>
-        deps.report('broadcast.reconcile_failed'),
-      );
+    for (const broadcast of await deps.store.listOpen(BATCH)) {
+      const nowMs = deps.now();
+      const mine = await deps.store.claimReconcile({
+        id: broadcast.id,
+        now: new Date(nowMs),
+        until: new Date(nowMs + RECONCILE_LEASE_MS),
+      });
+      if (mine)
+        await reconcile(broadcast).catch(() =>
+          deps.report('broadcast.reconcile_failed'),
+        );
+    }
   };
 };

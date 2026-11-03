@@ -1,3 +1,4 @@
+import { composeBroadcastStage } from '../features/broadcast/composition';
 import { createConsentHandler } from '../features/analytics/handlers';
 import { composeAttendanceRoutes } from '../features/attendance/composition';
 import { composeMediaCaptureRoutes } from '../features/media-capture/composition';
@@ -73,6 +74,7 @@ export function createRoutes(app: App) {
   return {
     analyticsConsent: { POST: createConsentHandler(app) },
     mediaCapture: composeMediaCaptureRoutes(app),
+    broadcastStage: composeBroadcastStage(app),
     roundMedia: createRoundMediaHandlers({
       ...memberGates,
       active: () => Boolean(app.roomPolicy),
