@@ -13,3 +13,18 @@ export const withLaneOperation = <T>(operation: string, work: () => T): T =>
 
 /** The operation asking for a slot; `unlabelled` shows work no operation wraps. */
 export const currentLaneOperation = () => store.getStore() ?? 'unlabelled';
+
+/**
+ * The same operations, each running under its own name, for reads whose callers
+ * report their own failures, so they need no `instrumented` around them.
+ */
+export const namedLaneOperations = <T extends object>(operations: T): T =>
+  Object.fromEntries(
+    Object.entries(operations).map(([name, value]) => [
+      name,
+      typeof value === 'function'
+        ? (...args: unknown[]) =>
+            withLaneOperation(name, () => value.apply(operations, args))
+        : value,
+    ]),
+  ) as T;

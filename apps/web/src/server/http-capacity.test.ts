@@ -2,7 +2,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createAppError } from '@daisy/errors';
 import { handleOperation, requireSignedIn } from './http';
-import { silentLogger } from './test-loggers.test-support';
+import {
+  createRecordingLogger,
+  silentLogger,
+} from './test-loggers.test-support';
 
 setupRitewayBun();
 
@@ -60,5 +63,32 @@ test('a route read behind a refused identity says when to retry', async () => {
       [503, true],
       [503, false],
     ],
+  });
+});
+
+test('a refusal no operation reported still names what held the lane', async () => {
+  const { logger, recorded } = createRecordingLogger();
+  await handleOperation(
+    logger,
+    new Request('http://localhost/x'),
+    'health.readiness',
+    async () => {
+      throw refuseCapacity({
+        lane: 'competitive',
+        reason: 'saturated',
+        holders: { readFoo: 2 },
+      });
+    },
+  );
+  assert({
+    given: 'a refusal reaching the request boundary unreported',
+    should: 'log its holders once',
+    actual: recorded
+      .filter(({ event }) => event === 'db.capacity.holder')
+      .map(({ fields }) => {
+        const { operation, cause, running } = fields as Record<string, unknown>;
+        return { operation, cause, running };
+      }),
+    expected: [{ operation: 'readFoo', cause: 'competitive', running: 2 }],
   });
 });

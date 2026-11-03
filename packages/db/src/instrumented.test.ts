@@ -1,8 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { instrumented } from './instrumented';
-import { refuseCapacity } from './capacity-refusal';
-import { currentLaneOperation } from './lane-operation';
+import { refuseCapacity, reportCapacityHolders } from './capacity-refusal';
+import { currentLaneOperation, namedLaneOperations } from './lane-operation';
 
 setupRitewayBun();
 
@@ -126,6 +126,21 @@ test('a refusal reports each operation holding the lane (ISSUE-1110)', async () 
   });
 });
 
+test('a lazy query counts under its operation, not only an async one', async () => {
+  // A query builder: it starts when awaited, after the callback has returned.
+  const lazy = {
+    then: (resolve: (operation: string) => void) =>
+      resolve(currentLaneOperation()),
+  } as unknown as Promise<string>;
+  const seen = await instrumented(undefined, 'lookup', () => lazy);
+  assert({
+    given: 'an operation returning a thenable that runs when awaited',
+    should: 'still read that operation as the current one',
+    actual: seen,
+    expected: 'lookup',
+  });
+});
+
 test('the operation runs under its own name, for the lane to read', async () => {
   const seen = await instrumented(undefined, 'lookup', async () =>
     currentLaneOperation(),
@@ -172,5 +187,37 @@ test('an invariant breach inside an operation stays a database failure', async (
     should: 'still report db.query.failed',
     actual: events,
     expected: ['db.query.failed'],
+  });
+});
+
+test('named operations run under their own names and keep everything else', async () => {
+  const named = namedLaneOperations({
+    readFoo: async () => currentLaneOperation(),
+    constant: 7,
+  });
+  assert({
+    given: 'a set of reads no instrumented wraps',
+    should: 'run each under its name and leave other values alone',
+    actual: [await named.readFoo(), named.constant],
+    expected: ['readFoo', 7],
+  });
+});
+
+test('a refusal is reported once, by whichever boundary reaches it first', () => {
+  const refusal = refuseCapacity({
+    lane: 'competitive',
+    reason: 'saturated',
+    holders: { readFoo: 1 },
+  });
+  const lines: unknown[] = [];
+  const log = (_event: string, fields: unknown) => lines.push(fields);
+  reportCapacityHolders(refusal, log);
+  reportCapacityHolders(new Error('wrapper', { cause: refusal }), log);
+  reportCapacityHolders(new Error('no refusal'), log);
+  assert({
+    given: 'one refusal reaching two boundaries, and other errors',
+    should: 'log its holders once and nothing for the rest',
+    actual: lines,
+    expected: [{ operation: 'readFoo', cause: 'competitive', running: 1 }],
   });
 });

@@ -1,9 +1,8 @@
 import {
-  capacityHolderFields,
   capacityRefusalFields,
   isReportedCapacityRefusal,
   isCapacityRefusal,
-  markCapacityRefusalReported,
+  reportCapacityHolders,
 } from '@daisy/db/capacity';
 import type { Logger } from '@daisy/logger';
 import { noteSessionRefusal } from './sessions/session-refusal';
@@ -27,13 +26,7 @@ export function reportAuthFailure(
       { operation: source, ...capacityRefusalFields(error) },
       'Database admission refused unrun work',
     );
-    for (const holder of capacityHolderFields(error))
-      logger.log(
-        'db.capacity.holder',
-        holder,
-        'Operation holding the refusing lane',
-      );
-    markCapacityRefusalReported(error);
+    reportCapacityHolders(error, logger.log);
   }
 }
 

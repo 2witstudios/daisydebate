@@ -1,8 +1,7 @@
 import { isAppError, type ErrorCode } from '@daisy/errors';
 import {
-  capacityHolderFields,
   capacityRefusalFields,
-  markCapacityRefusalReported,
+  reportCapacityHolders,
 } from './capacity-refusal';
 import { withLaneOperation } from './lane-operation';
 
@@ -32,11 +31,10 @@ export async function instrumented<T>(
   fn: () => Promise<T>,
 ): Promise<T> {
   try {
-    return await withLaneOperation(operation, fn);
+    return await withLaneOperation(operation, async () => fn());
   } catch (error) {
     if (isDomainRefusal(error)) throw error;
     const refused = capacityRefusalFields(error);
-    if (refused && eventSink) markCapacityRefusalReported(error);
     eventSink?.(
       refused ? 'db.capacity.refused' : 'db.query.failed',
       { operation, ...refused },
@@ -44,12 +42,7 @@ export async function instrumented<T>(
         ? 'Database admission refused unrun work'
         : 'Database query failed',
     );
-    for (const holder of capacityHolderFields(error))
-      eventSink?.(
-        'db.capacity.holder',
-        holder,
-        'Operation holding the refusing lane',
-      );
+    if (eventSink) reportCapacityHolders(error, eventSink);
     throw error;
   }
 }

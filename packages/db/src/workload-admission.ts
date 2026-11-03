@@ -173,6 +173,7 @@ export function createLaneGate(
   budget: LaneBudget | undefined,
   timer: LaneTimer = systemTimer,
   clock: LaneClock = () => performance.now(),
+  operationNow: () => string = currentLaneOperation,
 ): LaneGate {
   let active = 0;
   let waiting = 0;
@@ -246,7 +247,7 @@ export function createLaneGate(
       if (weight > budget.connections)
         return Promise.reject(refuse('unconfigured'));
       // Read here, not at the grant: a waiter is granted from another's release.
-      const operation = currentLaneOperation();
+      const operation = operationNow();
       if (waiting === 0 && active + weight <= budget.connections) {
         active += weight;
         return Promise.resolve(release(weight, operation));
