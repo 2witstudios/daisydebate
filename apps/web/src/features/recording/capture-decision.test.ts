@@ -435,7 +435,8 @@ describe('a failed Recording keeps no private seconds', () => {
   ) => answerRecordingJob({ state, lifecycle: failed, sourcesInUse });
   test('its sources are stripped once nothing reads them, and only once', () => {
     assert({
-      given: 'a failed job free; still read by a Broadcast; stripping; stripped',
+      given:
+        'a failed job free; still read by a Broadcast; stripping; stripped',
       should: 'strip the first, and leave the rest',
       actual: [
         answer({ status: 'failed', reason: 'processing_failed', failedAt: at }),
