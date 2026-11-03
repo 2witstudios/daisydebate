@@ -1,5 +1,9 @@
 import type { RoomCastChoice, RoomCreate } from '@daisy/protocol';
 import { field, refused, type FormState } from '../forms/form-state';
+import {
+  readRoomCreateAnswer,
+  type RoomCreateRefusal,
+} from '../rooms/room-create-response';
 import { opponents, practiceJudge } from './bots';
 
 /** What the practice form needs from the one catalog read. */
@@ -69,11 +73,15 @@ export function preparePractice(
   };
 }
 
-const createdSchema = {
-  parse: (body: unknown): string | null => {
-    const receipt = (body as { receipt?: { roomId?: string } })?.receipt;
-    return typeof receipt?.roomId === 'string' ? receipt.roomId : null;
-  },
+const refusalLines: Readonly<Record<RoomCreateRefusal, string>> = {
+  forbidden: 'Your account can’t start rooms right now.',
+  'rate-limited': 'You’re starting rooms too quickly. Wait a moment.',
+  replayed: 'This form was already sent. Reload the page and try again.',
+  'actor-ineligible':
+    'That opponent can’t start a practice right now. Pick another.',
+  'seat-unavailable': 'Someone took that seat first. Start again.',
+  settings: 'Practice couldn’t start. Try again.',
+  'ranked-unavailable': 'Practice couldn’t start. Try again.',
 };
 
 /**
@@ -85,29 +93,15 @@ export async function practiceAnswer(
   response: Response,
   form: FormData,
 ): Promise<FormState> {
-  if (response.ok) {
-    const roomId = createdSchema.parse(await response.json().catch(() => null));
-    return roomId
-      ? { values: {}, next: `/rooms/${roomId}` }
-      : refused(form, 'Practice is unavailable. Try again.');
+  const answer = await readRoomCreateAnswer(response);
+  switch (answer.kind) {
+    case 'created':
+      return { values: {}, next: `/rooms/${answer.roomId}` };
+    case 'active-room':
+      return { values: {}, next: answer.href ?? '/lobby' };
+    case 'refused':
+      return refused(form, refusalLines[answer.reason]);
+    case 'unavailable':
+      return refused(form, 'Practice is unavailable. Try again.');
   }
-  const body = (await response.json().catch(() => null)) as {
-    refusal?: string;
-    activeRoom?: { href?: string | null } | null;
-  } | null;
-  if (response.status === 409 && body?.refusal === 'active-room')
-    return { values: {}, next: body.activeRoom?.href ?? '/lobby' };
-  const messages: Record<string, string> = {
-    forbidden: 'Your account can’t start rooms right now.',
-    'rate-limited': 'You’re starting rooms too quickly. Wait a moment.',
-    replayed: 'This form was already sent. Reload the page and try again.',
-    'actor-ineligible':
-      'That opponent can’t start a practice right now. Pick another.',
-    'seat-unavailable': 'Someone took that seat first. Start again.',
-  };
-  return refused(
-    form,
-    (body?.refusal && messages[body.refusal]) ??
-      'Practice couldn’t start. Try again.',
-  );
 }
