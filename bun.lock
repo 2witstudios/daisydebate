@@ -62,6 +62,17 @@
         "riteway": "9.3.0",
       },
     },
+    "apps/broadcast-worker": {
+      "name": "@daisy/broadcast-worker",
+      "version": "0.0.0",
+      "dependencies": {
+        "@daisy/debate-engine": "workspace:*",
+        "@daisy/protocol": "workspace:*",
+      },
+      "devDependencies": {
+        "riteway": "9.3.0",
+      },
+    },
     "apps/log-shipper": {
       "name": "@daisy/log-shipper",
       "version": "0.0.0",
@@ -400,6 +411,8 @@
     "@daisy/ai-voice": ["@daisy/ai-voice@workspace:packages/ai-voice"],
 
     "@daisy/auth": ["@daisy/auth@workspace:packages/auth"],
+
+    "@daisy/broadcast-worker": ["@daisy/broadcast-worker@workspace:apps/broadcast-worker"],
 
     "@daisy/clock": ["@daisy/clock@workspace:packages/clock"],
 
