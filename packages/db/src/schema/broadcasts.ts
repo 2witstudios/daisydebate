@@ -29,6 +29,11 @@ export const broadcasts = pgTable(
     roundId: text('round_id')
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
+    /**
+     * The random name of its public object tree, set at open. The bucket is
+     * public, so this, not the link, is what keeps an unlisted Broadcast unfound.
+     */
+    feedKey: text('feed_key').notNull(),
     /** Each Broadcast records its path, so a faster one can be added later. */
     deliveryPath: text('delivery_path').notNull().default('owned_hls'),
     releasePolicy: jsonbColumn(
