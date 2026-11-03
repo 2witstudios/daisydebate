@@ -507,7 +507,11 @@ test('a seat taken and given up changes nothing about a DM between the two debat
       await broadcast(env.client, roundId);
       const facts = async () => [
         await readMessagingChannelFact(dm.database, channelId, subject.actorId),
-        await readMessagingChannelFact(dm.database, channelId, survivor.actorId),
+        await readMessagingChannelFact(
+          dm.database,
+          channelId,
+          survivor.actorId,
+        ),
       ];
       const messages = async () =>
         (await dm.client.unsafe(
@@ -516,7 +520,12 @@ test('a seat taken and given up changes nothing about a DM between the two debat
         )) as unknown[];
       const spectators = await facts();
       const history = await messages();
-      await post(env, { roundId, ...subject, text: 'From the crowd', seconds: 0 });
+      await post(env, {
+        roundId,
+        ...subject,
+        text: 'From the crowd',
+        seconds: 0,
+      });
       const spectating = await facts();
       await env.f.participant(roundId, 'affirmative', 0, subject.actorId);
       await env.f.participant(roundId, 'negative', 0, survivor.actorId);

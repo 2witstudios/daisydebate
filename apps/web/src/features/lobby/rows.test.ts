@@ -84,7 +84,8 @@ describe('lobbyRow', () => {
         .action.href;
     assert({
       given: 'the seatless host of an unlisted and of a private Round',
-      should: 'send them where they are let in, not to a public page that refuses',
+      should:
+        'send them where they are let in, not to a public page that refuses',
       actual: [watching('unlisted'), watching('private')],
       expected: [`/rounds/${id('c')}`, `/rounds/${id('c')}`],
     });

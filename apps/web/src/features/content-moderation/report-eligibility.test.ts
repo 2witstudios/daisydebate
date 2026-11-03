@@ -43,7 +43,8 @@ describe('Who may report what', () => {
 
   test('a seat reaches its own Round, whatever its visibility', () => {
     assert({
-      given: 'a debater reporting the private Round they sat in, after it ended',
+      given:
+        'a debater reporting the private Round they sat in, after it ended',
       should: 'accept it',
       actual: reportRefusal(
         round('harassment'),

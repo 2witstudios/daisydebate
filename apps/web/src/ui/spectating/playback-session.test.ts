@@ -1,5 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { parseProductEvent, type ProductEvent } from '../../features/analytics/events';
+import {
+  parseProductEvent,
+  type ProductEvent,
+} from '../../features/analytics/events';
 import { watchPlayback } from './playback-session';
 
 setupRitewayBun();

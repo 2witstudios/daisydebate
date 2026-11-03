@@ -10,7 +10,11 @@ const spectatorStageSchema = z.discriminatedUnion('kind', [
    */
   z.strictObject({
     kind: z.literal('slate'),
-    moment: z.enum(['before_first_speech', 'between_speeches', 'speeches_over']),
+    moment: z.enum([
+      'before_first_speech',
+      'between_speeches',
+      'speeches_over',
+    ]),
   }),
   z.strictObject({
     kind: z.literal('floor'),

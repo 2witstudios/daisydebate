@@ -51,7 +51,9 @@ describe('SpectatorFacts', () => {
   });
 
   test('a slate says what the video says, not that nothing is happening', () => {
-    const says = (moment: 'before_first_speech' | 'between_speeches' | 'speeches_over') =>
+    const says = (
+      moment: 'before_first_speech' | 'between_speeches' | 'speeches_over',
+    ) =>
       /aria-live="polite"[^>]*>([^<]*)</.exec(
         html({ stage: { kind: 'slate', moment } }),
       )?.[1];

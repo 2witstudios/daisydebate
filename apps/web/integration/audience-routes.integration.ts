@@ -336,10 +336,7 @@ test('the chat route’s own rate limit runs on real Redis before any work', asy
         statuses.push(
           (
             await route.chat(
-              postTo(
-                `/api/rounds/${roundId}/chat`,
-                chatBody(`Line ${press}`),
-              ),
+              postTo(`/api/rounds/${roundId}/chat`, chatBody(`Line ${press}`)),
             )
           ).status,
         );
@@ -350,7 +347,11 @@ test('the chat route’s own rate limit runs on real Redis before any work', asy
       assert({
         given: '21 chat posts in one minute',
         should: 'accept 20, limit the last, and store only what was accepted',
-        actual: [statuses.slice(0, 20).every((s) => s === 200), statuses[20], row!.c],
+        actual: [
+          statuses.slice(0, 20).every((s) => s === 200),
+          statuses[20],
+          row!.c,
+        ],
         expected: [true, 429, 20],
       });
     } finally {

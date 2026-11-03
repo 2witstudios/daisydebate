@@ -115,7 +115,8 @@ export const archiveEntries = (
       null,
     );
     const stored = recordingMediaState(round.status);
-    const media = stored === 'watch' && !permissions.media ? 'withheld' : stored;
+    const media =
+      stored === 'watch' && !permissions.media ? 'withheld' : stored;
     const transcript = permissions.transcript && round.hasTranscript;
     if (!listed(round, permissions, media, transcript)) return [];
     const own =
