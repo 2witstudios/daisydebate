@@ -601,9 +601,10 @@ test('a queued build carries the intervals it is given', async () => {
       should: 'hand them to the worker through the job',
       actual: [
         (job?.state as { publicIntervals?: unknown }).publicIntervals,
-        history,
+        history.segments,
+        history.knownThroughMs,
       ],
-      expected: [intervals, { segments: [], knownThroughMs: null }],
+      expected: [intervals, [], null],
     });
   });
 });

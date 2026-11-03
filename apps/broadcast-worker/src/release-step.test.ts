@@ -122,7 +122,7 @@ describe('only what history proves public', () => {
   test('past the heartbeat nothing is settled, however due', async () => {
     const { ports, log } = world();
     const answer = await releaseStep(
-      input({ heartbeatMs: start + 5_199 }),
+      input({ heartbeatMs: start + 5_299 }),
       ports,
     );
     assert({
@@ -395,13 +395,18 @@ describe('releaseStep', () => {
           nextSegment: 3,
           holdCursor: 3,
           finalMediaEndMs,
-          nowMs: start + 900_000,
+          releasedThroughMs: start + 13_000,
+          nowMs: finalMediaEndMs + 60_000,
           ...over,
         }),
         ports,
       );
     const open = await past({ finalMediaEndMs: null });
-    const settling = await past({ nowMs: start + 900_000 });
+    const settling = await past({
+      policy: { kind: 'round_end' },
+      roundEndedAtMs: finalMediaEndMs,
+      nowMs: finalMediaEndMs + 9_999,
+    });
     assert({
       given: 'no final media yet, then a hold still settling after a stop',
       should: 'wait and touch nothing',
@@ -434,7 +439,7 @@ describe('releaseStep', () => {
       actual: [
         (
           await releaseStep(
-            input({ finalMediaEndMs: start, nowMs: start + 10_000 }),
+            input({ finalMediaEndMs: start, nowMs: start + 60_000 }),
             ports,
           )
         ).kind,

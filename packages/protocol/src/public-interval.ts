@@ -9,22 +9,35 @@ export const publicIntervalsSchema = z.array(publicIntervalSchema).max(10_000);
 export type PublicInterval = z.infer<typeof publicIntervalSchema>;
 
 /**
- * Egress stamps media later than it was made, and by how much depends on the attempt.
- * Measured on staging over 10 attempts: audio +52 to +890 ms, video +42 to +825, with
- * audio rising about 4 ms a minute. A clock difference between web and Egress adds to
- * this. Both values are provisional, until an 80 minute scan reports.
+ * Egress stamps media later than it was made, and more so as an attempt ages. Measured
+ * on staging: +42 to +890 ms over 10 short attempts, and across one 80 minute attempt
+ * audio +772 to about +1147 ms by 73 minutes, video +740 to about +1074, each rising
+ * about 5 ms a minute. A clock difference between web and Egress adds to this.
  *
- * A start waits the most the stamp can lag, plus the slope to 80 minutes, because
- * private media made before it can carry a stamp this late. This costs up to about
- * 400 ms of public speech at each start.
+ * A start waits the most the stamp can lag at that age, because private media made
+ * before it can carry a stamp this late. Above the measured lag by design: it costs
+ * up to about 500 ms of public speech at each start, and fails closed.
  */
-const START_EDGE_STAMP_LAG_MS = 1200;
+const START_EDGE_STAMP_LAG_BASE_MS = 1300;
+const START_EDGE_STAMP_LAG_MS_PER_MINUTE = 6;
 /**
- * An end takes the least, and one attempt reached about +50, so none is counted on:
- * every stamp at or after the end may be private, and none before it can be. This costs
- * about 800 ms of public speech at each end on a typical attempt.
+ * An end needs none: the stamp is never early, so every stamp at or after the end may
+ * be private, and none before it can be. This costs about 800 to 1100 ms of public
+ * speech at each end.
  */
 const END_EDGE_STAMP_LAG_MS = 0;
+
+/**
+ * The lag a start allows for. `captureFromMs` is when the capture was opened, which is
+ * before any Egress attempt of it, so age can only be overstated: a restarted attempt
+ * loses a little more speech, and nothing private gets through.
+ */
+const startEdgeLagMs = (edgeMs: number, captureFromMs: number) =>
+  START_EDGE_STAMP_LAG_BASE_MS +
+  Math.ceil(
+    (Math.max(0, edgeMs - captureFromMs) / 60_000) *
+      START_EDGE_STAMP_LAG_MS_PER_MINUTE,
+  );
 
 /** Shorter than this holds no usable word, and players trip on it. */
 const SHORTEST_CLIP_MS = 200;
@@ -46,10 +59,13 @@ type CommittedSegment = {
 export const publicIntervals = (
   segments: readonly CommittedSegment[],
   knownThroughMs: number | null,
+  captureFromMs: number,
 ): readonly PublicInterval[] =>
   segments
     .map((segment) => ({
-      fromMs: segment.startedAtMs + START_EDGE_STAMP_LAG_MS,
+      fromMs:
+        segment.startedAtMs +
+        startEdgeLagMs(segment.startedAtMs, captureFromMs),
       toMs:
         (segment.endedAtMs ??
           Math.min(
@@ -75,7 +91,7 @@ export const settledByHeartbeat = (
   knownThroughMs: number | null,
 ): boolean =>
   knownThroughMs !== null &&
-  entry.capturedAtMs + entry.durationMs + START_EDGE_STAMP_LAG_MS <=
+  entry.capturedAtMs + entry.durationMs + START_EDGE_STAMP_LAG_BASE_MS <=
     knownThroughMs;
 
 /** A part of one held segment to publish; `offsetMs` is where it starts inside it. */
@@ -148,6 +164,7 @@ export const stageTimeline = (history: {
   readonly segments: readonly CommittedSegment[];
   readonly privateSpans: readonly PrivateSpan[];
   readonly knownThroughMs: number | null;
+  readonly captureFromMs: number;
 }): readonly StageInterval[] => {
   const known = history.knownThroughMs;
   const privates = history.privateSpans.map((span) => ({
@@ -156,9 +173,14 @@ export const stageTimeline = (history: {
     toMs:
       span.endedAtMs === null
         ? (known ?? span.startedAtMs)
-        : span.endedAtMs + START_EDGE_STAMP_LAG_MS,
+        : span.endedAtMs +
+          startEdgeLagMs(span.endedAtMs, history.captureFromMs),
   }));
-  const speeches = publicIntervals(history.segments, known).map((interval) => ({
+  const speeches = publicIntervals(
+    history.segments,
+    known,
+    history.captureFromMs,
+  ).map((interval) => ({
     ...interval,
     kind: 'speech' as const,
   }));

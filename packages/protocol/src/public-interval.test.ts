@@ -10,7 +10,9 @@ import {
 
 setupRitewayBun();
 
-const LAG = 1200;
+/** The start edge's allowance at an instant, for a capture opened at zero. */
+const lag = (edgeMs: number) => 1300 + Math.ceil(edgeMs / 10_000);
+const LAG = 1300;
 const closed = (startedAtMs: number, endedAtMs: number) => ({
   startedAtMs,
   endedAtMs,
@@ -27,16 +29,20 @@ describe('publicIntervals', () => {
     assert({
       given: 'two closed segments with a stretch between them, out of order',
       should: 'give each, sorted, and not the stretch between',
-      actual: publicIntervals([closed(50_000, 70_000), closed(0, 40_000)], 0),
+      actual: publicIntervals(
+        [closed(50_000, 70_000), closed(0, 40_000)],
+        0,
+        0,
+      ),
       expected: [
         { fromMs: LAG, toMs: 40_000 },
-        { fromMs: 50_000 + LAG, toMs: 70_000 },
+        { fromMs: 50_000 + lag(50_000), toMs: 70_000 },
       ],
     });
     assert({
       given: 'no segments',
       should: 'prove nothing',
-      actual: publicIntervals([], 1000),
+      actual: publicIntervals([], 1000, 0),
       expected: [],
     });
   });
@@ -46,9 +52,9 @@ describe('publicIntervals', () => {
         'an open segment heard from at 10 s; past its schedule; no heartbeat at all',
       should: 'end at the heartbeat, at the schedule, and prove nothing',
       actual: [
-        publicIntervals([open(0)], 10_000),
-        publicIntervals([open(0)], 90_000),
-        publicIntervals([open(0)], null),
+        publicIntervals([open(0)], 10_000, 0),
+        publicIntervals([open(0)], 90_000, 0),
+        publicIntervals([open(0)], null, 0),
       ],
       expected: [
         [{ fromMs: LAG, toMs: 10_000 }],
@@ -57,10 +63,36 @@ describe('publicIntervals', () => {
       ],
     });
   });
+  test('a start allows for the measured lag however old the attempt, and fails closed', () => {
+    const startAt = (minutes: number, captureFromMs = 0) => {
+      const startedAtMs = minutes * 60_000;
+      return (
+        publicIntervals(
+          [closed(startedAtMs, startedAtMs + 60_000)],
+          0,
+          captureFromMs,
+        )[0]!.fromMs - startedAtMs
+      );
+    };
+    assert({
+      given:
+        'a speech starting at once, at 73 and at 80 minutes; a start before the capture',
+      should:
+        'wait 1300 ms plus 6 a minute, past the 1147 ms measured at 73 minutes, and never less than the base',
+      actual: [
+        startAt(0),
+        startAt(73),
+        startAt(80),
+        startAt(73) > 1147,
+        startAt(0, 60_000),
+      ],
+      expected: [1300, 1738, 1780, true, 1300],
+    });
+  });
   test('a late commit proves a stretch; only a commit can', () => {
-    const outage = publicIntervals([open(0)], 10_000);
-    const afterCommit = publicIntervals([closed(0, 60_000)], 400_000);
-    const noCommit = publicIntervals([open(0)], 10_000);
+    const outage = publicIntervals([open(0)], 10_000, 0);
+    const afterCommit = publicIntervals([closed(0, 60_000)], 400_000, 0);
+    const noCommit = publicIntervals([open(0)], 10_000, 0);
     assert({
       given:
         'an outage, then the segment closing; then the same with no commit',
@@ -73,7 +105,7 @@ describe('publicIntervals', () => {
     assert({
       given: 'a segment as short as the lag',
       should: 'give no interval',
-      actual: publicIntervals([closed(0, LAG)], 0),
+      actual: publicIntervals([closed(0, LAG)], 0, 0),
       expected: [],
     });
   });
@@ -170,15 +202,20 @@ describe('stageTimeline', () => {
         ],
         privateSpans: [prep(35_000, 45_000)],
         knownThroughMs: 90_000,
+        captureFromMs: 0,
       }),
       expected: [
         { kind: 'speech', fromMs: LAG, toMs: 10_000 },
-        { kind: 'between', fromMs: 10_000, toMs: 20_000 + LAG },
-        { kind: 'speech', fromMs: 20_000 + LAG, toMs: 30_000 },
+        { kind: 'between', fromMs: 10_000, toMs: 20_000 + lag(20_000) },
+        { kind: 'speech', fromMs: 20_000 + lag(20_000), toMs: 30_000 },
         { kind: 'between', fromMs: 30_000, toMs: 35_000 },
-        { kind: 'private', fromMs: 35_000, toMs: 45_000 + LAG },
-        { kind: 'between', fromMs: 45_000 + LAG, toMs: 50_000 + LAG },
-        { kind: 'speech', fromMs: 50_000 + LAG, toMs: 60_000 },
+        { kind: 'private', fromMs: 35_000, toMs: 45_000 + lag(45_000) },
+        {
+          kind: 'between',
+          fromMs: 45_000 + lag(45_000),
+          toMs: 50_000 + lag(50_000),
+        },
+        { kind: 'speech', fromMs: 50_000 + lag(50_000), toMs: 60_000 },
       ],
     });
   });
@@ -190,6 +227,7 @@ describe('stageTimeline', () => {
         segments: [closed(0, 10_000)],
         privateSpans: [],
         knownThroughMs: 15_000,
+        captureFromMs: 0,
       }),
       expected: [{ kind: 'speech', fromMs: LAG, toMs: 10_000 }],
     });
@@ -202,6 +240,7 @@ describe('stageTimeline', () => {
         segments: [],
         privateSpans: [prep(30_000, null)],
         knownThroughMs: 40_000,
+        captureFromMs: 0,
       }),
       expected: [{ kind: 'private', fromMs: 30_000, toMs: 40_000 }],
     });
@@ -211,6 +250,7 @@ describe('stageTimeline', () => {
       segments: [closed(0, 10_000), closed(20_000, 30_000)],
       privateSpans: [prep(10_000, 20_000)],
       knownThroughMs: 40_000,
+      captureFromMs: 0,
     });
     assert({
       given: 'prep exactly between two speeches',

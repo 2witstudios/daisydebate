@@ -155,6 +155,7 @@ export const runWorker = async (deps: {
               stage: stageTimeline({
                 ...(await store.readStageHistory(job.id)),
                 knownThroughMs: facts.controlHeartbeatAt?.getTime() ?? null,
+                captureFromMs: facts.createdAt.getTime(),
               }),
             },
             {

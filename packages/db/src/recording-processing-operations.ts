@@ -60,6 +60,8 @@ export const readRecordingPublicHistory = async (
       roundId: recordings.roundId,
       broadcast: broadcasts.controlHeartbeatAt,
       own: recordingCaptures.controlHeartbeatAt,
+      broadcastOpenedAt: broadcasts.createdAt,
+      ownOpenedAt: recordingCaptures.createdAt,
     })
     .from(recordings)
     .leftJoin(broadcasts, eq(broadcasts.roundId, recordings.roundId))
@@ -68,7 +70,7 @@ export const readRecordingPublicHistory = async (
       eq(recordingCaptures.recordingId, recordings.id),
     )
     .where(eq(recordings.id, recordingId));
-  if (!capture) return { segments: [], knownThroughMs: null };
+  if (!capture) return { segments: [], knownThroughMs: null, captureFromMs: 0 };
   const segments = await tx
     .select({
       startedAt: roundSegments.startedAt,
@@ -85,6 +87,9 @@ export const readRecordingPublicHistory = async (
       durationMs: segment.durationMs,
     })),
     knownThroughMs: (capture.broadcast ?? capture.own)?.getTime() ?? null,
+    // Opened before any Egress of it, so a start's allowance can only be overstated.
+    captureFromMs:
+      (capture.broadcastOpenedAt ?? capture.ownOpenedAt)?.getTime() ?? 0,
   };
 };
 
@@ -134,7 +139,11 @@ export const requeueRecordingJob = async (
         status: 'queued',
         attemptCount: input.attemptCount,
         publicIntervals: [
-          ...publicIntervals(history.segments, history.knownThroughMs),
+          ...publicIntervals(
+            history.segments,
+            history.knownThroughMs,
+            history.captureFromMs,
+          ),
         ],
         ceilingMs: input.ceilingMs,
       }),
