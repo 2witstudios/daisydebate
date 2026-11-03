@@ -84,13 +84,14 @@ describe('followNext', () => {
     });
     assert({
       given:
-        'a sub-pixel move up near the end, and a panel growing so the position clamps up',
+        'a sub-pixel move either way near the end, and a panel growing so the position clamps up',
       should: 'not resume',
       actual: [
         followNext(reading(880), scrolled(879.5)).state.following,
         followNext(reading(890), scrolled(880)).state.following,
+        followNext(reading(880), scrolled(880.5)).state.following,
       ],
-      expected: [false, false],
+      expected: [false, false, false],
     });
   });
 
