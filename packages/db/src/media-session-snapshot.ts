@@ -16,6 +16,7 @@ import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
 } from './round-clock-transaction';
+import { readConversationHeld } from './broadcast-operations';
 import { hydrateRoundRows } from './round-hydration';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
 import { mediaBindingFields } from './media-participant-binding';
@@ -76,9 +77,17 @@ export async function lockedMediaSnapshot(
         isNull(mediaVendorMutations.settledAt),
       ),
     );
+  const conversationHeld = await readConversationHeld(tx, {
+    roundId,
+    now: new Date(tick.now),
+    privateSince: tick.finalSegmentEndedAt
+      ? new Date(tick.finalSegmentEndedAt)
+      : null,
+  });
   return {
     session,
     round,
+    conversationHeld,
     ...authority,
     participants: mediaPublicationParticipants(
       authority.participants,

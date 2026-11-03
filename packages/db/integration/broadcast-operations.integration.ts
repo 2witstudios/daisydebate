@@ -4,6 +4,8 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  readConversationHeld,
+  recordEgressStarted,
   claimBroadcast,
   claimBroadcastReconcile,
   completeBroadcast,
@@ -261,6 +263,47 @@ test('one web instance reconciles a Broadcast at a time', async () => {
       should: 'let exactly one through, and then the later one',
       actual: [racing.filter(Boolean).length, expired],
       expected: [1, true],
+    });
+  });
+});
+
+test('conversation is held only while an observer is unrevoked, and only briefly', async () => {
+  await withOps(async (db, roundId) => {
+    const held = (at: Date, privateSince: Date | null) =>
+      readConversationHeld(db, { roundId, now: at, privateSince });
+    const none = await held(now, now);
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      releasePolicy: policy,
+    });
+    const noEgress = await held(now, now);
+    await recordEgressStarted(db, {
+      id: open.id,
+      egressId: 'EG',
+      stageCredentialHash: 'h',
+      now,
+    });
+    const observing = await held(new Date(now.getTime() + 2999), now);
+    const limit = await held(new Date(now.getTime() + 3000), now);
+    const preRound = await held(new Date(now.getTime() + 2999), null);
+    const preRoundLimit = await held(new Date(now.getTime() + 3000), null);
+    await recordObserverRevoked(db, { id: open.id, now });
+    const revoked = await held(now, now);
+    assert({
+      given:
+        'no Broadcast, no Egress, a subscribed observer, the limit, a revoked observer',
+      should: 'hold only for a subscribed observer inside the limit',
+      actual: [
+        none,
+        noEgress,
+        observing,
+        limit,
+        preRound,
+        preRoundLimit,
+        revoked,
+      ],
+      expected: [false, false, true, false, true, false, false],
     });
   });
 });

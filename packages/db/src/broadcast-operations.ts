@@ -244,3 +244,38 @@ export const claimBroadcastReconcile = async (
     .returning({ id: broadcasts.id });
   return rows.length === 1;
 };
+
+/** How long a dead control plane can hold conversation; past it the mic opens. */
+const CONVERSATION_HOLD_LIMIT_MS = 3000;
+
+/**
+ * Whether private conversation must wait for this Round's observer. True only
+ * while an open Broadcast's observer is unrevoked, and only up to the limit from the
+ * private phase's start, or from the Egress's start before the first segment, so a Broadcast can delay the debate by seconds and never stop it.
+ */
+export const readConversationHeld = async (
+  tx: Tx,
+  input: {
+    readonly roundId: string;
+    readonly now: Date;
+    readonly privateSince: Date | null;
+  },
+): Promise<boolean> => {
+  const [row] = await tx
+    .select({
+      revokedAt: broadcasts.observerRevokedAt,
+      stoppedAt: broadcasts.stoppedAt,
+      completedAt: broadcasts.completedAt,
+      egressId: broadcasts.egressId,
+      egressStartedAt: broadcasts.egressStartedAt,
+    })
+    .from(broadcasts)
+    .where(eq(broadcasts.roundId, input.roundId));
+  if (!row || row.stoppedAt || row.completedAt || row.revokedAt) return false;
+  const since = input.privateSince ?? row.egressStartedAt;
+  return (
+    row.egressId !== null &&
+    since !== null &&
+    input.now.getTime() - since.getTime() < CONVERSATION_HOLD_LIMIT_MS
+  );
+};

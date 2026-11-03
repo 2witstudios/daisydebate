@@ -263,3 +263,40 @@ test('competitive bot rights remain publish-only through reconciliation', () => 
     },
   });
 });
+
+test('conversation microphones wait for the audience observer to be revoked', () => {
+  const world = runtimeWorld();
+  const position = {
+    ...world.position(roundAt(0)),
+    status: 'active' as const,
+    awaitingBallot: true,
+    nextSegment: null,
+  };
+  const derive = (conversationHeld: boolean | undefined, now = roundAt(1000)) =>
+    mediaGrants({
+      participants: seats,
+      participantId: seats[0]!.id,
+      rules: oneOnOneRules(),
+      position,
+      now,
+      finalSegmentEndedAt: roundAt(0),
+      ...(conversationHeld === undefined ? {} : { conversationHeld }),
+    }).publish;
+  assert({
+    given:
+      'the final speech just ended early and the observer is still subscribed',
+    should:
+      'hold the microphone and leave the camera, so nothing private reaches the audience',
+    actual: derive(true),
+    expected: ['camera'],
+  });
+  assert({
+    given: 'the observer revoked, and a Round with no Broadcast',
+    should: 'open conversation as before',
+    actual: [derive(false), derive(undefined)],
+    expected: [
+      ['camera', 'microphone'],
+      ['camera', 'microphone'],
+    ],
+  });
+});
