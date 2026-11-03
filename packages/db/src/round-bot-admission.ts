@@ -119,7 +119,8 @@ export async function refundPlatformEndedLocked(
 ) {
   await tx.execute(sql`
     update usage_reservations set refunded_at = clock_timestamp()
-    where round_id = ${roundId} and kind = 'ai_round' and refunded_at is null`);
+    where round_id = ${roundId} and kind = 'ai_round' and refunded_at is null
+      and counted_at is not null`);
 }
 
 export async function markLockedRoundBotModelCall(

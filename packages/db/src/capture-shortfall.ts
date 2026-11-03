@@ -1,4 +1,8 @@
-import { speakingEndMs, type CaptureRule } from '@daisy/protocol';
+import {
+  partialReasonsStateLoss,
+  speakingEndMs,
+  type CaptureRule,
+} from '@daisy/protocol';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { closedStreamGaps, streamKey } from './capture-gaps';
@@ -34,6 +38,7 @@ export async function readCaptureShortfall(
     .select({
       segmentId: transcriptSegments.segmentId,
       roundParticipantId: transcriptSegments.roundParticipantId,
+      partialReasons: transcriptSegments.partialReasons,
     })
     .from(transcriptSegments)
     .where(
@@ -44,12 +49,19 @@ export async function readCaptureShortfall(
     );
   const found = await closedStreamGaps(tx, roundId, partial, rule);
   const gaps = partial.flatMap((stream) =>
-    (found.get(streamKey(stream)) ?? []).map((gap) => ({ ...stream, ...gap })),
+    (found.get(streamKey(stream)) ?? []).map((gap) => ({
+      segmentId: stream.segmentId,
+      roundParticipantId: stream.roundParticipantId,
+      ...gap,
+    })),
   );
   const unmeasured = partial.some(
     (stream) => (found.get(streamKey(stream)) ?? []).length === 0,
   );
   return {
+    platformLostAudio: partial.some((stream) =>
+      partialReasonsStateLoss(stream.partialReasons),
+    ),
     expectedSpeechMs,
     captureGaps: { gaps },
     captureGapMs: unmeasured

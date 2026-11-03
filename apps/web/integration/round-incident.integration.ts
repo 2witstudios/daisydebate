@@ -350,3 +350,29 @@ test('the incident rate reads round_incidents and capture coverage reads the fre
     });
   });
 });
+
+test('a reservation never counted needs no refund when the platform ends the Round', async () => {
+  await withMediaRound(async (f) => {
+    const { observe } = await liveSpeech(f);
+    const [seat] =
+      await f.sql`select actor_id from round_participants where round_id=${f.roundId} limit 1`;
+    const id = createId();
+    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind) values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round')`;
+    await observe(room({}));
+    await observe(room({ empty: true, captureListed: false }));
+    await passBound(f);
+    await observe({ kind: 'unreachable' });
+    const [row] =
+      await f.sql`select refunded_at from usage_reservations where id=${id}`;
+    assert({
+      given: 'an AI practice whose first billable call never came',
+      should:
+        'still end the Round: the allowance spends it only while the Round is live',
+      actual: {
+        status: (await checkpointOf(f)).status,
+        refunded: row!.refunded_at,
+      },
+      expected: { status: 'abandoned', refunded: null },
+    });
+  });
+});

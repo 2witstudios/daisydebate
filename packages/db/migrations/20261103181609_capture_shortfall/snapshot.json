@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ca8ceb50-c5a3-484c-b679-b502ec7cb042",
+  "id": "d081de23-fd2f-46ec-ad84-649fe8661707",
   "prevIds": [
     "ef5f7d66-021c-4d72-8421-8bb330fac8aa"
   ],
@@ -21905,6 +21905,13 @@
     {
       "value": "\"completeness\" in ('complete', 'incomplete')",
       "name": "round_transcript_freezes_completeness_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_transcript_freezes"
+    },
+    {
+      "value": "jsonb_typeof(\"capture_gaps\") = 'object'",
+      "name": "round_transcript_freezes_capture_gaps_is_object",
       "entityType": "checks",
       "schema": "public",
       "table": "round_transcript_freezes"

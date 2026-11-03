@@ -196,7 +196,11 @@ test('a freeze of unmeasured loss dispatches no AI judge and, with no human judg
     freezeJudgingPlan({
       completeness,
       // Unmeasured, so never within the limit: freeze-judging-plan.test.ts has the limit.
-      capture: { gapMs: completeness === 'complete' ? 0 : null, expectedMs: 1 },
+      capture: {
+        gapMs: completeness === 'complete' ? 0 : null,
+        expectedMs: 1,
+        platformLostAudio: completeness === 'incomplete',
+      },
       humanJudges,
       ballotDeadlineMs: 1_800_000,
       aiJudgingBudgetMs: 300_000,

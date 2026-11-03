@@ -9,10 +9,11 @@ const plan = (
   completeness: 'complete' | 'incomplete',
   gapMs: number | null,
   humanJudges = false,
+  platformLostAudio = true,
 ) => {
   const { dispatchAiJudges, endsAsPlatformIncident } = freezeJudgingPlan({
     completeness,
-    capture: { gapMs, expectedMs },
+    capture: { gapMs, expectedMs, platformLostAudio },
     humanJudges,
     ballotDeadlineMs: 1,
     aiJudgingBudgetMs: 1,
@@ -36,6 +37,11 @@ test('the dispatch rule follows the capture limit', () => {
       'a shortfall nobody measured, which cannot be proven small',
       plan('incomplete', null),
       ended,
+    ],
+    [
+      'a silent seat on an AI-only panel, which is no failure of the platform',
+      plan('incomplete', expectedMs, false, false),
+      { dispatchAiJudges: false, endsAsPlatformIncident: false },
     ],
     [
       'a gap past the limit with a human judge, who heard it live',

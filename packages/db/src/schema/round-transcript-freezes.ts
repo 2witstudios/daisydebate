@@ -7,7 +7,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { jsonbColumn, oneOf, timestampColumn } from './columns';
+import { jsonbColumn, jsonbIsObject, oneOf, timestampColumn } from './columns';
 import { rounds } from './rounds';
 
 /** A one-time frozen input. Eligibility and coverage are checked by the finalizer. */
@@ -47,5 +47,6 @@ export const roundTranscriptFreezes = pgTable(
       'round_transcript_freezes_completeness_check',
       oneOf(table.completeness, ['complete', 'incomplete']),
     ),
+    jsonbIsObject('round_transcript_freezes', table.captureGaps),
   ],
 );

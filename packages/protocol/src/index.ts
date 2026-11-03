@@ -482,6 +482,7 @@ export { roundMediaPolicy } from './round-media-policy';
 export { roundIncidentPolicy } from './round-incident-policy';
 export {
   capturePartialReasons,
+  partialReasonsStateLoss,
   capturePartialReasonSchema,
   type CaptureFacts,
   type CaptureGap,

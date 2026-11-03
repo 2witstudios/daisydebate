@@ -56,6 +56,8 @@ const freshCheckpoint: RuntimeCheckpoint = {
   prep_consumed_ms: { affirmative: 0, negative: 0 },
   active_prep: null,
   floor: null,
+  incident: { phase: 'none' },
+  clock_stops: [],
 };
 
 /** The AC, closed, so the fixture stands where the AC's own speaker does. */
@@ -68,6 +70,7 @@ const closedAc: readonly HydratedSegment[] = [
     startedAt: t0,
     endedAt: '2026-01-01T00:05:00.000Z',
     durationMs: 300_000,
+    returnedMs: 0,
   },
 ];
 
@@ -176,6 +179,7 @@ const fixtures: Readonly<Record<string, Fixture>> = {
           startedAt: '2026-01-01T00:05:00.000Z',
           endedAt: null,
           durationMs: 120_000,
+          returnedMs: 0,
         },
       ],
     }),
@@ -206,6 +210,8 @@ const fixtures: Readonly<Record<string, Fixture>> = {
         prep_consumed_ms: { affirmative: 240_000, negative: 0 },
         active_prep: null,
         floor: null,
+        incident: { phase: 'none' },
+        clock_stops: [],
       },
     }).execute({
       command: { type: 'start_prep' },

@@ -34,6 +34,8 @@ type Completeness = { readonly completeness: 'complete' | 'incomplete' };
 type FrozenCapture = {
   readonly gapMs: number | null;
   readonly expectedMs: number;
+  /** A stream states lost audio. A silent seat also falls short, and is no incident. */
+  readonly platformLostAudio: boolean;
 };
 /**
  * Whether a frozen Round's capture is good enough for an AI judge: a small gap
@@ -64,7 +66,8 @@ export function freezeJudgingPlan(
     input.completeness !== 'incomplete' || captureWithinLimit(input.capture);
   return {
     dispatchAiJudges: judgeable,
-    endsAsPlatformIncident: !judgeable && !input.humanJudges,
+    endsAsPlatformIncident:
+      !judgeable && !input.humanJudges && input.capture.platformLostAudio,
     ballotDeadlineMs: input.humanJudges ? input.ballotDeadlineMs : null,
     aiJudgingBudgetMs: input.aiJudgingBudgetMs,
   };

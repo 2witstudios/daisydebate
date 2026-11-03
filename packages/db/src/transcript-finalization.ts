@@ -51,6 +51,7 @@ export type FreezeRequest = LockedRoundTickInput & {
     readonly capture: {
       readonly gapMs: number | null;
       readonly expectedMs: number;
+      readonly platformLostAudio: boolean;
     };
   }) => {
     /** An AI-only Round lost more speech than can be judged (ADR 0110). */
@@ -70,7 +71,11 @@ async function planFrozenJudging(
   tx: BoundedTransactionContext,
   request: FreezeRequest,
   completeness: 'complete' | 'incomplete',
-  capture: { readonly gapMs: number | null; readonly expectedMs: number },
+  capture: {
+    readonly gapMs: number | null;
+    readonly expectedMs: number;
+    readonly platformLostAudio: boolean;
+  },
   nextIncidentId: () => string,
 ) {
   const [judges] =
@@ -160,14 +165,20 @@ export async function finalizeLockedRoundTranscript(
       revision: 1,
       frontier: revision,
       completeness: state,
-      ...shortfall,
+      expectedSpeechMs: shortfall.expectedSpeechMs,
+      captureGapMs: shortfall.captureGapMs,
+      captureGaps: shortfall.captureGaps,
     })
     .returning();
   await planFrozenJudging(
     tx,
     request,
     state,
-    { gapMs: shortfall.captureGapMs, expectedMs: shortfall.expectedSpeechMs },
+    {
+      gapMs: shortfall.captureGapMs,
+      expectedMs: shortfall.expectedSpeechMs,
+      platformLostAudio: shortfall.platformLostAudio,
+    },
     createId,
   );
   await appendTranscriptChanged(tx, request.roundId, revision + 1);
