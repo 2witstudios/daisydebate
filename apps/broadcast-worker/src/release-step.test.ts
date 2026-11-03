@@ -66,7 +66,9 @@ const input = (
   roundEndedAtMs: null,
   finalMediaEndMs: null,
   heartbeatMs: start + 1_000_000,
-  publicIntervals: [{ fromMs: start - 1000, toMs: start + 1_000_000 }],
+  stage: [
+    { kind: 'speech' as const, fromMs: start - 1000, toMs: start + 1_000_000 },
+  ],
   releasedThroughMs: null,
   ...over,
 });
@@ -75,7 +77,7 @@ describe('only what history proves public', () => {
   test('past the heartbeat nothing is settled, however due', async () => {
     const { ports, log } = world();
     const answer = await releaseStep(
-      input({ heartbeatMs: start + 4_499 }),
+      input({ heartbeatMs: start + 5_199 }),
       ports,
     );
     assert({
@@ -85,16 +87,56 @@ describe('only what history proves public', () => {
       expected: ['lapsed', []],
     });
   });
+  test('a known kind goes to the encoder with its clip, and a change of kind is marked', async () => {
+    const kinds: string[] = [];
+    const manifests: string[] = [];
+    const { ports } = world({
+      encode: async (clip) => {
+        kinds.push(clip.interval.kind);
+        return [];
+      },
+      publishManifest: async (_key: string, text: string) => {
+        manifests.push(text);
+      },
+    });
+    const stage = [
+      { kind: 'speech' as const, fromMs: start, toMs: start + 4_000 },
+      { kind: 'between' as const, fromMs: start + 4_000, toMs: start + 8_000 },
+      { kind: 'private' as const, fromMs: start + 8_000, toMs: start + 12_000 },
+    ];
+    const nowMs = start + 200_000;
+    for (const holdCursor of [0, 1, 2])
+      await releaseStep(
+        input({
+          stage,
+          nowMs,
+          holdCursor,
+          nextSegment: holdCursor,
+          attemptIndex: 0,
+        }),
+        ports,
+      );
+    assert({
+      given: 'a speech, then the countdown, then prep, contiguous',
+      should:
+        'hand each its own kind and mark each change, with no stall or hole',
+      actual: [
+        kinds,
+        manifests.at(-1)?.match(/#EXT-X-DISCONTINUITY\n/g)?.length,
+      ],
+      expected: [['speech', 'between', 'private'], 2],
+    });
+  });
   test('settled time with nothing public moves the timeline, and publishes nothing', async () => {
     const { ports, log } = world();
     const answer = await releaseStep(
-      input({ publicIntervals: [], nowMs: start + 200_000 }),
+      input({ stage: [], nowMs: start + 200_000 }),
       ports,
     );
     const { ports: later, log: laterLog } = world();
     await releaseStep(
       input({
-        publicIntervals: [],
+        stage: [],
         nowMs: start + 200_000,
         releasedThroughMs: start + 12_000,
       }),
@@ -111,7 +153,13 @@ describe('only what history proves public', () => {
     const { ports, log } = world();
     await releaseStep(
       input({
-        publicIntervals: [{ fromMs: start + 6_000, toMs: start + 8_000 }],
+        stage: [
+          {
+            kind: 'speech' as const,
+            fromMs: start + 6_000,
+            toMs: start + 8_000,
+          },
+        ],
         nowMs: start + 4_000 + 60_000,
       }),
       ports,
@@ -127,7 +175,13 @@ describe('only what history proves public', () => {
     const { ports, log } = world();
     const answer = await releaseStep(
       input({
-        publicIntervals: [{ fromMs: start + 4_000, toMs: start + 100_000 }],
+        stage: [
+          {
+            kind: 'speech' as const,
+            fromMs: start + 4_000,
+            toMs: start + 100_000,
+          },
+        ],
         nowMs: start + 200_000,
       }),
       ports,
@@ -143,7 +197,13 @@ describe('only what history proves public', () => {
     const { ports, log } = world();
     const answer = await releaseStep(
       input({
-        publicIntervals: [{ fromMs: start + 1_500, toMs: start + 3_000 }],
+        stage: [
+          {
+            kind: 'speech' as const,
+            fromMs: start + 1_500,
+            toMs: start + 3_000,
+          },
+        ],
         nowMs: start + 200_000,
       }),
       ports,
@@ -167,9 +227,13 @@ describe('only what history proves public', () => {
         holdCursor: 1,
         nextSegment: 1,
         attemptIndex: 0,
-        publicIntervals: [
-          { fromMs: start, toMs: start + 4_000 },
-          { fromMs: start + 8_000, toMs: start + 12_000 },
+        stage: [
+          { kind: 'speech' as const, fromMs: start, toMs: start + 4_000 },
+          {
+            kind: 'speech' as const,
+            fromMs: start + 8_000,
+            toMs: start + 12_000,
+          },
         ],
         nowMs: start + 200_000,
       }),

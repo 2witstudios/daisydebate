@@ -6,7 +6,7 @@ import {
   type BroadcastReleasePolicy,
   type HoldEntry,
   type PublicClip,
-  type PublicInterval,
+  type StageInterval,
 } from '@daisy/protocol';
 import {
   mediaPlaylist,
@@ -24,11 +24,11 @@ export type EncodedRendition = {
   readonly file: string;
 };
 
+export type Clip = PublicClip<HoldEntry, StageInterval>;
+
 export type ReleasePorts = {
   readonly readHoldPlaylist: () => Promise<string>;
-  readonly encode: (
-    clip: PublicClip<HoldEntry>,
-  ) => Promise<readonly EncodedRendition[]>;
+  readonly encode: (clip: Clip) => Promise<readonly EncodedRendition[]>;
   readonly publishSegment: (
     seq: number,
     rendition: string,
@@ -66,8 +66,8 @@ export type ReleaseInput = {
   readonly finalMediaEndMs: number | null;
   /** The last heartbeat: past it, what history says is not yet settled (ADR 0099). */
   readonly heartbeatMs: number | null;
-  /** What committed history proves public: nothing outside this is ever released. */
-  readonly publicIntervals: readonly PublicInterval[];
+  /** What committed history knows, by kind: nothing outside this is ever released. */
+  readonly stage: readonly StageInterval[];
   /** The durable watermark as last read, so a pass with nothing new writes nothing. */
   readonly releasedThroughMs: number | null;
 };
@@ -84,14 +84,14 @@ export type ReleaseResult =
 /** Clips further apart than this have something missing between them. */
 const JOINED_WITHIN_MS = 250;
 
-type Clips = readonly PublicClip<HoldEntry>[];
+type Clips = readonly Clip[];
 
 /** The newest clips of this attempt's hold, up to `cursor`, under public sequences. */
 const windowEndingAt = (
   clips: Clips,
   cursor: number,
   seq: number,
-  intervals: readonly PublicInterval[],
+  intervals: readonly StageInterval[],
 ): ReleasedWindow => {
   const start = Math.max(0, cursor - WINDOW + 1);
   const segments = clips.slice(start, cursor + 1).map((clip, i, all) => ({
@@ -103,9 +103,10 @@ const windowEndingAt = (
     const previous = clips[index - 1];
     return (
       previous !== undefined &&
-      clips[index]!.capturedAtMs -
-        (previous.capturedAtMs + previous.durationMs) >
-        JOINED_WITHIN_MS
+      (previous.interval.kind !== clips[index]!.interval.kind ||
+        clips[index]!.capturedAtMs -
+          (previous.capturedAtMs + previous.durationMs) >
+          JOINED_WITHIN_MS)
     );
   };
   // Grows only, across attempts too: an earlier gap can only have scrolled out.
@@ -157,12 +158,7 @@ const endStream = async (
   if (held.length > 0)
     await publishManifests(
       ports,
-      windowEndingAt(
-        held,
-        held.length - 1,
-        input.nextSegment - 1,
-        input.publicIntervals,
-      ),
+      windowEndingAt(held, held.length - 1, input.nextSegment - 1, input.stage),
       true,
       {
         index: input.attemptIndex,
@@ -190,7 +186,7 @@ export const releaseStep = async (
   const settled = entries.filter((one) =>
     settledByHeartbeat(one, input.heartbeatMs),
   );
-  const held = publicClips(settled, input.publicIntervals);
+  const held = publicClips(settled, input.stage);
   const entry = held[input.holdCursor];
   const unsettled = entries[settled.length];
   // Due settled time before the next clip holds nothing to release, or the watermark
@@ -238,12 +234,7 @@ export const releaseStep = async (
   const seq = input.nextSegment;
   for (const { rendition, file } of await ports.encode(entry))
     await ports.publishSegment(seq, rendition, file);
-  const window = windowEndingAt(
-    held,
-    input.holdCursor,
-    seq,
-    input.publicIntervals,
-  );
+  const window = windowEndingAt(held, input.holdCursor, seq, input.stage);
   await publishManifests(ports, window, false, {
     index: input.attemptIndex,
     firstSeq: seq - input.holdCursor,

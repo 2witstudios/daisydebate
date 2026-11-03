@@ -1,5 +1,6 @@
 import { SEGMENT_CACHE_CONTROL } from './hold-manifest';
 import { S3Client } from 'bun';
+import { mkdir } from 'node:fs/promises';
 
 /** The hold key reads the private bucket; only the release key writes public (ADR 0099). */
 export const createObjects = (config: {
@@ -41,6 +42,10 @@ export const createObjects = (config: {
     readHoldText: async (key: string) => {
       const file = hold.file(key);
       return (await file.exists()) ? file.text() : '';
+    },
+    /** A private clip reads nothing from the hold, so nothing else has made its folder. */
+    ensureDir: async (path: string) => {
+      await mkdir(path, { recursive: true });
     },
     copyHoldToFile: async (key: string, path: string) => {
       await Bun.write(path, hold.file(key));

@@ -472,25 +472,41 @@ export const claimBroadcastReconcile = async (
 };
 
 /**
- * The worker's one read of a Round: the committed times of its public intervals,
- * through a view that holds nothing else, because its role reaches no Round table.
+ * The worker's one read of a Round: the committed times of its speeches and private
+ * spans, through views that hold nothing else, because its role reaches no Round table.
  */
-export const readBroadcastPublicHistory = async (
+export const readBroadcastStageHistory = async (
   tx: Pick<BoundedTransactionContext, 'execute'>,
   broadcastId: string,
 ) => {
-  const rows = (await tx.execute(sql`
+  const segments = (await tx.execute(sql`
     select started_at, ended_at, duration_ms from broadcast_public_history
     where broadcast_id = ${broadcastId} order by sequence`)) as unknown as {
     readonly started_at: Date | string;
     readonly ended_at: Date | string | null;
     readonly duration_ms: number;
   }[];
-  return rows.map((row) => ({
-    startedAtMs: new Date(row.started_at).getTime(),
-    endedAtMs: row.ended_at === null ? null : new Date(row.ended_at).getTime(),
-    durationMs: row.duration_ms,
-  }));
+  const spans = (await tx.execute(sql`
+    select kind, started_at, ended_at from broadcast_private_history
+    where broadcast_id = ${broadcastId}`)) as unknown as {
+    readonly kind: 'prep' | 'judging';
+    readonly started_at: Date | string;
+    readonly ended_at: Date | string | null;
+  }[];
+  const ms = (at: Date | string | null) =>
+    at === null ? null : new Date(at).getTime();
+  return {
+    segments: segments.map((row) => ({
+      startedAtMs: ms(row.started_at)!,
+      endedAtMs: ms(row.ended_at),
+      durationMs: row.duration_ms,
+    })),
+    privateSpans: spans.map((row) => ({
+      kind: row.kind,
+      startedAtMs: ms(row.started_at)!,
+      endedAtMs: ms(row.ended_at),
+    })),
+  };
 };
 
 /** Keeps the claim across a call that outlasts it; null `until` gives it back. */
