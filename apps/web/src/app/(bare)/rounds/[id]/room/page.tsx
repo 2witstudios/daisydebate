@@ -158,7 +158,11 @@ export default async function RoundRoomPage({
             />
             <RoundNativeAttendance
               view={result.round}
-              state={await readPersistedAttendance(id)}
+              state={
+                result.round.status === 'active'
+                  ? await readPersistedAttendance(id)
+                  : null
+              }
             />
           </>
         }
