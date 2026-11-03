@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createMediaService } from '@daisy/media';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
+import { startRoundMediaRecovery } from '../src/server/round-media-recovery';
 import { mediaDependencies, withMediaRound } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -94,6 +95,92 @@ test('one actual provider failure does not prevent cleanup of another terminal m
       proxy.stop(true);
       if (await f.media.exists(terminal!.room_name))
         await f.media.deleteRoom(terminal!.room_name);
+    }
+  });
+});
+
+// ISSUE-972: the tick is the floor's last resort when every browser read is held,
+// so another Round's slow provider call must not stand between it and this Round.
+test('a Round whose provider call hangs does not hold another Round on the recovery tick', async () => {
+  await withMediaRound(async (f) => {
+    await f.mediaOperations.session(f.roundId, f.host.actorId);
+    const cast = await f.freshCast();
+    const fresh = await f.command(cast.host, await f.assemble({}, cast), {
+      type: 'start-round',
+    });
+    const otherRoundId = fresh.view.roundRef!.id;
+    await f.mediaOperations.session(otherRoundId, cast.host.actorId);
+    // Older of the two, so a tick that visits sessions in turn meets it first.
+    const [hung] =
+      await f.sql`select room_name from media_sessions where round_id=${f.roundId}`;
+    const [moving] =
+      await f.sql`select id from media_sessions where round_id=${otherRoundId}`;
+    const movingSessionId = String(moving!.id);
+    const servedBefore = (
+      await f.store.mediaSessions.mediaReconcileProgress(movingSessionId)
+    ).servedVersion;
+    const hang = Promise.withResolvers<void>();
+    let hangs = 0;
+    const proxy = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      idleTimeout: 0,
+      async fetch(request) {
+        const url = new URL(request.url);
+        const body = await request.arrayBuffer();
+        if (
+          url.pathname.endsWith('/ListRooms') &&
+          JSON.parse(new TextDecoder().decode(body)).names?.includes(
+            hung!.room_name,
+          )
+        ) {
+          hangs++;
+          await hang.promise;
+        }
+        return fetch(`${f.mediaConfig.url}${url.pathname}`, {
+          method: request.method,
+          headers: request.headers,
+          body,
+        });
+      },
+    });
+    const operations = createRoundMediaOperations({
+      ...mediaDependencies(
+        f,
+        createMediaService({
+          config: { ...f.mediaConfig, url: `http://127.0.0.1:${proxy.port}` },
+        }),
+      ),
+      // No 2 s cap, so the hang lasts until this test ends it, not until a timer.
+      deadline: (work) => work,
+    });
+    const recovery = startRoundMediaRecovery({
+      recover: () => operations.recoverActiveSessions(),
+      failed: () => {
+        throw Error('unexpected recovery failure');
+      },
+      every: (ms, tick) => {
+        const timer = setInterval(tick, ms);
+        return { stop: () => clearInterval(timer) };
+      },
+    });
+    try {
+      const served = async () =>
+        (await f.store.mediaSessions.mediaReconcileProgress(movingSessionId))
+          .servedVersion;
+      const giveUpAt = performance.now() + 3_000;
+      while ((await served()) === servedBefore && performance.now() < giveUpAt)
+        await Bun.sleep(25);
+      assert({
+        given: 'one session whose provider call never answers',
+        should: 'serve the other Round on the tick while that call still hangs',
+        actual: [hangs > 0, (await served()) > servedBefore],
+        expected: [true, true],
+      });
+    } finally {
+      hang.resolve();
+      await recovery.stop();
+      proxy.stop(true);
     }
   });
 });
