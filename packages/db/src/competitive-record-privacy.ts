@@ -65,7 +65,7 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
     ),
     ballots: await rows(
       tx.execute(sql`select b.id, b.round_id, b.rubric_version, b.winner,
-          b.scores, b.reason, b.feedback, b.citations, b.status,
+          b.scores, b.reason, b.feedback, b.citations,
           ${iso('b.submitted_at', 'submitted_at')}
         from ballots b
         where b.judge_participant_id in (select p.id from round_participants p
