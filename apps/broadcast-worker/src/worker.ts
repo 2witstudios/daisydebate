@@ -68,6 +68,7 @@ export const runWorker = async (deps: {
       let next = job.nextSegment;
       let facts = job;
       let renewedAt = deps.now();
+      let streamEnded = false;
       while (!deps.stopped() && facts.completedAt === null) {
         if (deps.now() - renewedAt >= RENEW_MS) {
           const row = await store.renew({
@@ -91,7 +92,7 @@ export const runWorker = async (deps: {
             nowMs: deps.now(),
             roundEndedAtMs: facts.finalMediaEndAt?.getTime() ?? null,
             finalMediaEndMs: facts.finalMediaEndAt?.getTime() ?? null,
-            releasedThroughMs: facts.releasedThroughAt?.getTime() ?? null,
+            streamEnded,
           },
           {
             readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
@@ -138,8 +139,7 @@ export const runWorker = async (deps: {
               result.released.capturedAtMs + result.released.durationMs,
             ),
           };
-        } else if (result.kind === 'ended')
-          facts = { ...facts, releasedThroughAt: facts.finalMediaEndAt };
+        } else if (result.kind === 'ended') streamEnded = true;
         else await deps.sleep(IDLE_MS);
       }
     } catch {

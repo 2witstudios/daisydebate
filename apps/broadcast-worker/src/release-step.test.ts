@@ -47,7 +47,7 @@ const input = (over = {}) => ({
   nowMs: start + 64_000,
   roundEndedAtMs: null,
   finalMediaEndMs: null,
-  releasedThroughMs: null,
+  streamEnded: false,
   ...over,
 });
 
@@ -152,7 +152,6 @@ describe('releaseStep', () => {
         input({
           nextSegment: 3,
           finalMediaEndMs,
-          releasedThroughMs: start + 12_000,
           nowMs: finalMediaEndMs + 10_000,
           ...over,
         }),
@@ -180,11 +179,32 @@ describe('releaseStep', () => {
     assert({
       given: 'a stream already ended',
       should: 'do nothing more',
-      actual: [
-        (await past({ releasedThroughMs: finalMediaEndMs })).kind,
-        log.length,
-      ],
+      actual: [(await past({ streamEnded: true })).kind, log.length],
       expected: ['waiting', before],
+    });
+  });
+  test('a last segment running past the recorded end still ends the stream', async () => {
+    const seen: string[] = [];
+    const { ports, log } = world({
+      publishManifest: async (_key, text) => {
+        seen.push(text);
+      },
+    });
+    const finalMediaEndMs = start + 11_500;
+    const result = await releaseStep(
+      input({
+        nextSegment: 3,
+        finalMediaEndMs,
+        nowMs: finalMediaEndMs + 60_000,
+      }),
+      ports,
+    );
+    assert({
+      given:
+        'the cursor past the hold, with the last released segment ending after the final media end',
+      should: 'still publish ENDLIST, so no player waits on a frozen frame',
+      actual: [result.kind, seen.at(-1)!.includes('ENDLIST'), log.at(-1)],
+      expected: ['ended', true, 'ended 11500'],
     });
   });
   test('a Round whose Egress held nothing still ends', async () => {

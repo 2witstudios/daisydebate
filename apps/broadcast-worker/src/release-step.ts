@@ -43,7 +43,8 @@ export type ReleaseInput = {
   readonly roundEndedAtMs: number | null;
   /** Known once the Egress stopped; a cursor past the hold then ends the stream. */
   readonly finalMediaEndMs: number | null;
-  readonly releasedThroughMs: number | null;
+  /** This worker has already written the end, so there is nothing more to do. */
+  readonly streamEnded: boolean;
 };
 
 export type ReleaseResult =
@@ -107,7 +108,7 @@ export const releaseStep = async (
     const end = input.finalMediaEndMs;
     return end !== null &&
       input.nowMs >= end + HOLD_SETTLE_MS &&
-      (input.releasedThroughMs ?? Number.NEGATIVE_INFINITY) < end
+      !input.streamEnded
       ? endStream(input, end, held, ports)
       : { kind: 'waiting' };
   }
