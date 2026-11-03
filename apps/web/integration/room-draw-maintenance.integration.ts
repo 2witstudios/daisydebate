@@ -1,8 +1,11 @@
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
+import { isNamedSeat } from '@daisy/protocol';
 import { AUTOMATIC_STRIKE_DELAY_MS } from '@daisy/protocol/resolution-draw';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
+import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { drawRoomOverrides } from './room-draw.test-support';
 import { botAdmissionForTests } from './bot-admission.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
@@ -68,6 +71,67 @@ test('a tick settles only the strikes that are due, with nobody online', async (
         ],
         human: [],
       },
+    });
+  }, botAdmissionForTests);
+});
+
+test('a tick persisting a bot strike does not refuse the debater whose turn it opened', async () => {
+  await withRoomRuntime(async (f) => {
+    const overrides = await drawRoomOverrides(f, {
+      kind: 'host',
+      resolutions: lines,
+    });
+    const room = await f.seatBotOpponent(
+      (await f.create(overrides)).view,
+      (await f.bot()).actorId,
+    );
+    const roundId = (await f.command(f.host, room, { type: 'start-round' }))
+      .view.roundRef!.id;
+    await new Promise((resolve) =>
+      setTimeout(resolve, AUTOMATIC_STRIKE_DELAY_MS + 250),
+    );
+    // The form the debater sees: settled on read, before any tick persists it.
+    const seen = await f.operations.roundView(f.host, roundId);
+    const draw = seen.opening!.draw!;
+    if (draw.visibility !== 'debater') throw new Error('A debater view');
+    const struck = new Set(draw.strikes.map((s) => s.position));
+    const position = draw.items.find((i) => !struck.has(i.position))!.position;
+    const seat = seen.participants
+      .filter(isNamedSeat)
+      .find((p) => p.actorId === f.host.actorId)!;
+    await f.store.executeRoundTick({
+      roundId,
+      runsOpening: true,
+      buildProjection: roundTickProjection(createId),
+    });
+    const post = (ordinal: number) =>
+      createRoundRuntimeOperations({
+        store: f.store,
+        nextSegmentId: createId,
+      }).command({ kind: 'human', actorId: f.host.actorId }, roundId, {
+        version: 1,
+        commandId: createId(),
+        expectedVersion: seen.version,
+        command: {
+          type: 'strike_resolution',
+          participantId: seat.id,
+          ordinal,
+          position,
+        },
+      });
+    await post(1);
+    assert({
+      given: 'a strike form rendered before the tick persisted the bot strike',
+      should: 'take the strike, because its ordinal names the turn',
+      actual: (await f.operations.roundView(f.host, roundId)).opening!.draw!
+        .strikes.length,
+      expected: 2,
+    });
+    await assertRejects({
+      given: 'the same turn struck again from a stale form',
+      should: 'still conflict on the ordinal',
+      actual: () => post(1),
+      code: 'CONFLICT',
     });
   }, botAdmissionForTests);
 });
