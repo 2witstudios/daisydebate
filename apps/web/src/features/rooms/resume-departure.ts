@@ -1,3 +1,4 @@
+import { resumeAttemptPrefix } from './resume-attempt';
 import { resumeHeirPrefix, resumeOwnershipPrefix } from './resume-ownership';
 
 /**
@@ -60,6 +61,7 @@ export function clearAccountResumeRecords(
     const tab = session ?? window.sessionStorage;
     removeWithPrefix(tab, departurePrefix);
     removeWithPrefix(tab, resumeHeirPrefix);
+    removeWithPrefix(tab, resumeAttemptPrefix);
     removeWithPrefix(local ?? window.localStorage, resumeOwnershipPrefix);
   } catch {
     // Storage disabled: it holds no records to clear.

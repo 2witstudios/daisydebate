@@ -367,3 +367,46 @@ test('a waiting home tab reads again when its Round ends, instead of entering it
     await closeSettledLaunchContexts(accounts);
   }
 });
+
+test('a resume that landed on a failing Round page does not fire again until the page renders', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 2);
+  try {
+    const { round, page } = await openGrantedRound(
+      accounts.members,
+      'resume onto a failing page',
+    );
+    const href = `/rounds/${round.id}/room`;
+    await page.goto(href);
+    await expectConnected(page);
+    let attempts = 0;
+    await page.route(`**${href}`, (route) => {
+      if (route.request().resourceType() !== 'document')
+        return route.fallback();
+      attempts++;
+      return route.fulfill({ status: 500, body: 'Round page failing' });
+    });
+    await page.goto('/');
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
+    expect(attempts).toBe(1);
+    for (const entry of ['/lobby', '/']) {
+      await page.goto(entry);
+      await afterHydration(page);
+      // The trap fires from an effect, so hold past when it would have run.
+      await page.waitForTimeout(1_000);
+      await expect(page).toHaveURL(
+        new RegExp(`${entry === '/' ? '/$' : '/lobby$'}`),
+      );
+    }
+    expect(attempts).toBe(1);
+    await page.unroute(`**${href}`);
+    await page.goto(href);
+    await expectConnected(page);
+    await page.goto('/');
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
+    await expectConnected(page);
+  } finally {
+    await closeSettledLaunchContexts(accounts);
+  }
+});
