@@ -13,6 +13,7 @@ import { admitsOptionalAnswers } from '@daisy/auth/account-age';
 import type { MatchHistoryQuery, MemberProfile } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
+import { readSpectatorTimeline } from '../features/spectating/read-timeline';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
@@ -159,6 +160,13 @@ export const requestMemberProfile = async (
       now: processApp().clock.now(),
     },
   );
+
+/** The released timeline a render shows: the same facts the anonymous snapshot serves. */
+export const requestSpectatorTimeline = (roundId: string) =>
+  readSpectatorTimeline(processApp().database, {
+    roundId,
+    now: processApp().clock.now(),
+  });
 
 /** Process binding for the public ladder and its signed-in blinding context. */
 export async function requestLadder(input: {

@@ -1,0 +1,102 @@
+import { requireTestServices } from '@daisy/config';
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+import { createId } from '@paralleldrive/cuid2';
+import { SQL } from 'bun';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { spectatorTimelineReads } from '../src/spectator-timeline-reads';
+import { withFixture } from './constraint-helpers';
+
+setupRitewayBun();
+const { databaseUrl } = requireTestServices(process.env);
+const started = new Date('2026-11-02T00:00:00.000Z');
+const spoken = new Date('2026-11-02T00:00:30.000Z');
+const later = new Date('2026-11-02T00:01:00.000Z');
+
+const withLiveRound = async (
+  competitionType: 'ranked' | 'casual',
+  run: (read: (horizonMs: number | null) => Promise<unknown>) => Promise<void>,
+) => {
+  const client = new SQL(databaseUrl, { max: 2 });
+  try {
+    await withFixture(databaseUrl, async (f) => {
+      const formatId = await f.format();
+      const host = await f.actor(await f.user());
+      const room = await f.room(host, formatId);
+      const roundId = await f.round({
+        room_id: room,
+        visibility: 'public',
+        room_config_snapshot: {},
+        status: 'active',
+        current_stage: 'live',
+        started_at: started,
+        ...(competitionType === 'ranked'
+          ? {
+              competition_type: 'ranked',
+              format_id: 'freestyle',
+              preset_version: 1,
+              ladder_id: 'freestyle',
+            }
+          : {}),
+      });
+      const seat = await f.seat(roundId, 'affirmative');
+      const segment = createId();
+      await client`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,duration_ms)
+        values (${segment},${roundId},0,'speech','1AC',${started},60000)`;
+      for (const [sequence, text, at] of [
+        [0, 'An early line', spoken],
+        [1, 'A later line', later],
+      ] as const)
+        await client`insert into utterances (id,round_id,segment_id,round_participant_id,sequence,text,created_at)
+          values (${createId()},${roundId},${segment},${seat.id},${sequence},${text},${at})`;
+      const { readSpectatorTimeline } = spectatorTimelineReads({
+        database: drizzle({ client }),
+      });
+      try {
+        await run((horizonMs) =>
+          readSpectatorTimeline({ roundId, horizonOf: () => horizonMs }),
+        );
+      } finally {
+        await client`delete from utterances where round_id=${roundId}`;
+        await client`delete from round_segments where round_id=${roundId}`;
+      }
+    });
+  } finally {
+    await client.close();
+  }
+};
+const captions = (read: unknown) =>
+  (read as { captions: { text: string }[] }).captions.map((c) => c.text);
+const margin = (at: Date) => at.getTime() + SPECTATOR_MARGIN_MS;
+
+test('ranked captions follow the horizon, line by line', async () => {
+  await withLiveRound('ranked', async (read) => {
+    assert({
+      given: 'no horizon, one short of a line by a millisecond, then past it',
+      should: 'caption nothing, nothing, then that line alone',
+      actual: [
+        captions(await read(null)),
+        captions(await read(margin(spoken) - 1)),
+        captions(await read(margin(spoken))),
+      ],
+      expected: [[], [], ['An early line']],
+    });
+    assert({
+      given: 'a horizon past both lines',
+      should: 'caption them in the order they were said',
+      actual: captions(await read(margin(later))),
+      expected: ['An early line', 'A later line'],
+    });
+  });
+});
+
+test('a non-ranked Round has no captions (DEC-301)', async () => {
+  await withLiveRound('casual', async (read) => {
+    assert({
+      given: 'a casual Round past every line',
+      should: 'caption nothing',
+      actual: captions(await read(margin(later))),
+      expected: [],
+    });
+  });
+});

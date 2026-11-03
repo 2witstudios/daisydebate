@@ -5,8 +5,12 @@ import { openSpectate } from '../../../../features/watch/open-spectate';
 import { parseSpectateQuery } from '../../../../features/watch/spectate-query';
 import { watchSource } from '../../../../features/watch/round-source';
 import { viewerOf } from '../../../../features/watch/viewer';
-import { requestIdentity } from '../../../../lib/request-session';
+import {
+  requestIdentity,
+  requestSpectatorTimeline,
+} from '../../../../lib/request-session';
 import { Spectate } from '../../../../ui/watch/spectate/spectate';
+import { SpectatorTimelineView } from '../../../../ui/spectating/spectator-timeline';
 import { SpectateRefusal } from '../../../../ui/watch/spectate-refusal/spectate-refusal';
 
 export const metadata: Metadata = { title: 'Live debate' };
@@ -30,6 +34,16 @@ export default async function LiveRoundPage({
     parseSpectateQuery(await searchParams),
     watchSource,
   );
+  const timeline =
+    screen.kind === 'unavailable'
+      ? await requestSpectatorTimeline(roundId)
+      : null;
+  if (timeline)
+    return (
+      <div className="px-6 pt-8 pb-8 max-compact:px-4">
+        <SpectatorTimelineView initial={timeline} />
+      </div>
+    );
   return screen.kind === 'watch' ? (
     <Spectate view={screen.view} />
   ) : (
