@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "82dde2fd-4886-4dc7-b37c-d11f0b46168e",
+  "id": "76f39dc1-2cc6-49bc-9eb4-3dc57d9abc0a",
   "prevIds": [
-    "33001d62-886c-46e5-a80c-cf0f8f1e8e11"
+    "27c0ba7f-486d-4bab-ab09-08a7161ed9c1"
   ],
   "ddl": [
     {
@@ -2419,6 +2419,19 @@
       "generated": null,
       "identity": null,
       "name": "stop_reason",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "media_withheld",
       "entityType": "columns",
       "schema": "public",
       "table": "broadcasts"
@@ -7527,7 +7540,7 @@
       "default": "0",
       "generated": null,
       "identity": null,
-      "name": "failures",
+      "name": "runs_started",
       "entityType": "columns",
       "schema": "public",
       "table": "recording_processing_jobs"
@@ -23381,6 +23394,13 @@
       "table": "broadcasts"
     },
     {
+      "value": "not \"media_withheld\" or \"stopped_at\" is not null",
+      "name": "broadcasts_withheld_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
       "value": "\"challenger_actor_id\" <> \"challenged_actor_id\"",
       "name": "challenges_distinct",
       "entityType": "checks",
@@ -24424,7 +24444,7 @@
       "table": "recording_processing_jobs"
     },
     {
-      "value": "\"failures\" >= 0 and \"lease_epoch\" >= 0",
+      "value": "\"runs_started\" >= 0 and \"lease_epoch\" >= 0",
       "name": "recording_jobs_counters_check",
       "entityType": "checks",
       "schema": "public",
@@ -25460,5 +25480,7 @@
       "table": "utterances"
     }
   ],
-  "renames": []
+  "renames": [
+    "public.rounds.rounds_rated_ladder_check->public.rounds.rounds_ranked_ladder_check"
+  ]
 }
