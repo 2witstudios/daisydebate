@@ -105,7 +105,7 @@ describe('reconcileStep', () => {
     await reconcileStep(
       facts({
         egress: { kind: 'active', id: 'EG' },
-        phase: { kind: 'private-at', atMs: 100_400 },
+        phase: { kind: 'private-at', atMs: 100_000 },
       }),
       ports,
     );
@@ -121,7 +121,7 @@ describe('reconcileStep', () => {
     await reconcileStep(
       facts({
         egress: { kind: 'active', id: 'EG' },
-        phase: { kind: 'private-at', atMs: 100_400 },
+        phase: { kind: 'private-at', atMs: 100_000 },
       }),
       ports,
     );
