@@ -5,7 +5,7 @@ import { createId } from '@paralleldrive/cuid2';
 import type { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
-import { createSpectatorTimelineHandlers } from '../src/features/spectating/handlers';
+import { readAudienceSnapshot } from '../src/features/spectating/read-timeline';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { withAttendanceRound } from './attendance.test-support';
 import { withMediaRound } from './round-media.test-support';
@@ -39,21 +39,16 @@ test('a spectator holds no Ready, command or attendance power, and watching reco
     const commandsBefore =
       await f.sql`select count(*)::int as n from round_commands where round_id=${roundId}`;
 
-    const timeline = await createSpectatorTimelineHandlers({
-      feedUrlOf: () => null,
-      logger: silentLogger,
-      reporter: noopErrorReporter,
-      store: f.store,
-      clock: { now: () => new Date().toISOString() },
-    }).GET(
-      new Request(`http://localhost/api/rounds/${roundId}/timeline`),
+    const timeline = await readAudienceSnapshot(f.store, {
       roundId,
-    );
+      now: new Date().toISOString(),
+      feedUrlOf: () => null,
+    });
     assert({
       given: 'the live public Round watched by a signed-in spectator',
-      should: 'answer the timeline, the one read a spectator has',
-      actual: timeline.status,
-      expected: 200,
+      should: 'answer the released facts, the one read a spectator has',
+      actual: timeline?.timeline.roundId,
+      expected: roundId,
     });
     await assertRejects({
       given: 'Ready sent to the started Room by a spectator',

@@ -20,7 +20,7 @@ import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
 import { spectatorClockAt } from '../features/spectating/spectator-clock';
 import { presentedLinkHash } from '../features/audience-link/audience-link';
 import { readHostedAudienceLink } from '../features/audience-link/issue-link';
-import { admitAudience } from '../features/spectating/read-timeline';
+import { readWatchRound } from '../features/spectating/read-timeline';
 import { readUnlessRefused } from '../features/spectating/refused-read';
 import { followingOf } from '../features/watch/following';
 import type { HubCounts } from '../features/watch/hub-counts';
@@ -189,16 +189,18 @@ export const requestMemberProfile = async (
  * has no audience, `refused` when the audience lane is full.
  */
 export const requestWatchRound = async (roundId: string) =>
-  readUnlessRefused(async () => {
-    const snapshot = await processApp().watchRounds(roundId);
-    return snapshot &&
-      (await admitAudience(processApp().database, snapshot, {
-        roundId,
-        presentedHash: await requestPresentedLink(roundId),
-      }))
-      ? snapshot.timeline
-      : null;
-  }, 'refused' as const);
+  readUnlessRefused(
+    async () =>
+      readWatchRound(
+        {
+          snapshots: processApp().watchRounds,
+          store: processApp().database,
+          publicOrigin: processApp().config.BROADCAST_PUBLIC_ORIGIN,
+        },
+        { roundId, presentedHash: await requestPresentedLink(roundId) },
+      ),
+    'refused' as const,
+  );
 
 /** The public Round a Room's link may send anyone to, once its start is released. */
 export const requestWatchableRoundOfRoom = (roomId: string) =>
@@ -324,8 +326,8 @@ export const requestAudience = async (
   return readUnlessRefused(
     () =>
       readAudienceForViewer(
-        { store: processApp().database, counts: processApp().redis },
-        { roundId, actorId, presentedHash, now: processApp().clock.now() },
+        { store: processApp().database },
+        { roundId, actorId, presentedHash },
       ),
     null,
   );

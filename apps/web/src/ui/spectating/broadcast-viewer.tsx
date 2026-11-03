@@ -1,10 +1,6 @@
 'use client';
 import '../../lib/zod-jitless';
-import {
-  spectatorTimelineSchema,
-  type BroadcastStream,
-  type SpectatorTimeline,
-} from '@daisy/protocol';
+import { type BroadcastStream, type SpectatorTimeline } from '@daisy/protocol';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -12,14 +8,13 @@ import { replayHref, watchRoutes } from '../../features/watch/routes';
 import { ActionLink } from '../watch/action-link/action-link';
 import { RecordingPreparationStatus } from '../recording/recording-preparation/recording-preparation';
 import { StateCard } from '../watch/state-card/state-card';
-import { SpectateRefusal } from '../watch/spectate-refusal/spectate-refusal';
 import { StreamThisRound } from '../broadcast/stream-this-round/stream-this-round';
-import { answerOfResponse } from '../../features/spectating/poll-pace';
 import { BroadcastPlayer } from './broadcast-player';
-import { startBrowserPoll } from './browser-poll';
+import { PublishedAudience, usePublishedState } from './published-state';
 import { SpectatorFacts } from './spectator-timeline';
 import {
   streamableFeedOf,
+  timelineAsOf,
   type ViewerScreen,
   viewerScreenOf,
   viewerSettled,
@@ -161,45 +156,39 @@ const playerNotices = {
 } as const;
 
 /**
- * The public Round page after its first render: the same cacheable answer read
- * every couple of seconds, no socket and no account, driving one screen rule. A
- * failed read keeps the last released facts; a refusal ends the viewing.
+ * The public Round page after its first render: the worker's published state, read
+ * from the public bucket every couple of seconds the way the player reads segments,
+ * so no viewer's read reaches web (DEC-350). No socket and no account. A failed read
+ * keeps the last released facts. With nothing published the page does not poll, and
+ * says how to look again.
  */
 export function BroadcastViewer({
   initial,
+  stateUrl,
+  refreshHref,
   children,
 }: {
   readonly initial: SpectatorTimeline;
+  /** Where the published state is read; null with no Broadcast. */
+  readonly stateUrl: string | null;
+  readonly refreshHref: string;
   /** The audience beside the video: chat, reactions and the count. */
   readonly children?: React.ReactNode;
 }) {
   const router = useRouter();
-  const [timeline, setTimeline] = useState(initial);
-  const [gone, setGone] = useState(false);
   const [stream, setStream] = useState<BroadcastStream | null>(null);
   const [finished, setFinished] = useState(false);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [settledNow, setSettledNow] = useState(viewerSettled(initial));
+  const published = usePublishedState(stateUrl, !settledNow);
+  const timeline = timelineAsOf(
+    published.state?.timeline ?? initial,
+    published.sinceMovedMs,
+  );
   const settled = viewerSettled(timeline);
+  if (settled !== settledNow) setSettledNow(settled);
   const { broadcast, roundId } = timeline;
-  useEffect(() => {
-    if (settled || gone) return;
-    let stopped = false;
-    const stop = startBrowserPoll(async () => {
-      const response = await fetch(`/api/rounds/${roundId}/timeline`);
-      if (stopped) return answerOfResponse(response);
-      if (response.status === 404) setGone(true);
-      const parsed = spectatorTimelineSchema.safeParse(
-        response.ok ? await response.json() : null,
-      );
-      if (parsed.success && !stopped) setTimeline(parsed.data);
-      return answerOfResponse(response);
-    });
-    return () => {
-      stopped = true;
-      stop();
-    };
-  }, [settled, gone, roundId]);
   const screen = viewerScreenOf(timeline, { stream, finished, failed });
   const playing = screen.kind === 'player' ? screen.stream : null;
   // Kept once seen, so a normal end can let the final seconds of it play out.
@@ -210,7 +199,6 @@ export function BroadcastViewer({
   useEffect(() => {
     if (switchToRecording) router.replace(replayHref(roundId));
   }, [switchToRecording, router, roundId]);
-  if (gone) return <SpectateRefusal />;
   const feedUrl = streamableFeedOf(timeline);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
@@ -251,7 +239,17 @@ export function BroadcastViewer({
         )}
       </div>
       <SpectatorFacts timeline={timeline} />
-      {children}
+      {stateUrl === null && !settled ? (
+        <p className="text-sm text-ink-muted">
+          This page does not update by itself.{' '}
+          <a href={refreshHref} className="font-strong">
+            Refresh
+          </a>
+        </p>
+      ) : null}
+      <PublishedAudience.Provider value={published.state}>
+        {children}
+      </PublishedAudience.Provider>
       {feedUrl ? (
         <StreamThisRound feedUrl={feedUrl} mode={timeline.mode} />
       ) : null}

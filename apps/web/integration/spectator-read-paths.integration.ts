@@ -23,9 +23,12 @@ import { audienceLinkHash } from '../src/features/audience-link/audience-link';
 import { readProfile } from '../src/features/profile/read-profile';
 import { readMemberStandings } from '../src/features/ratings/read-member';
 import { canReadRound } from '../src/features/round-runtime/reads';
-import { createSpectatorTimelineHandlers } from '../src/features/spectating/handlers';
+import {
+  createWatchRoundSnapshots,
+  readWatchRound,
+} from '../src/features/spectating/read-timeline';
+import { presentedLinkHash } from '../src/features/audience-link/audience-link';
 import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
-import { PUBLIC_SNAPSHOT_CACHE } from '../src/server/http';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { noopErrorReporter } from '@daisy/observability';
 import {
@@ -105,19 +108,24 @@ test('every public and member read holds a ranked outcome until release', async 
       };
 
       const timelineResponse = async (cookie?: string) => {
-        const fresh = createSpectatorTimelineHandlers({
-          feedUrlOf: () => null,
-          logger: silentLogger,
-          reporter: noopErrorReporter,
-          store: f.store,
-          clock: { now: () => now },
-        });
-        return fresh.GET(
-          new Request(`http://localhost/api/rounds/${roundId}/timeline`, {
-            headers: cookie ? { cookie } : {},
-          }),
-          roundId!,
+        const watched = await readWatchRound(
+          {
+            snapshots: createWatchRoundSnapshots({
+              store: f.store,
+              clock: { now: () => now },
+              feedUrlOf: () => null,
+            }),
+            store: f.store,
+            publicOrigin: undefined,
+          },
+          {
+            roundId: roundId!,
+            presentedHash: presentedLinkHash(cookie ?? null, roundId!),
+          },
         );
+        return watched
+          ? Response.json(watched.timeline)
+          : Response.json({}, { status: 404 });
       };
       // A Room the rated host opens while the Round is still held.
       const openRoomId = createId();
@@ -344,16 +352,9 @@ test('every public and member read holds a ranked outcome until release', async 
       assert({
         given:
           'an unlisted Round with no link, then by its link, then a private Round',
-        should:
-          'admit only the link, unindexed and uncached, and no audience to the last',
-        actual: [
-          noLink.status,
-          unlisted.status,
-          unlisted.headers.get('X-Robots-Tag'),
-          unlisted.headers.get('Cache-Control'),
-          hidden.status,
-        ],
-        expected: [404, 200, 'noindex', 'no-store', 404],
+        should: 'admit only the link, and no audience to the last',
+        actual: [noLink.status, unlisted.status, hidden.status],
+        expected: [404, 200, 404],
       });
       assert({
         given: 'the watermark past the outcome by the margin',
@@ -364,16 +365,12 @@ test('every public and member read holds a ranked outcome until release', async 
           winner: out.timeline.result?.winner,
           reasons: out.timeline.result?.ballots.map((b) => b.reason),
           ratings: out.timeline.result?.ratings.length,
-          cache: out.response.headers.get('Cache-Control'),
-          cookie: out.response.headers.get('Set-Cookie'),
         },
         expected: {
           stage: { kind: 'ended' },
           winner: 'affirmative',
           reasons: [REASON],
           ratings: 2,
-          cache: PUBLIC_SNAPSHOT_CACHE,
-          cookie: null,
         },
       });
       assert({

@@ -1,23 +1,11 @@
 import { SQL } from 'bun';
-import { createHash } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { audienceSnapshotReads } from './audience-snapshot-reads';
 import { rowsOf } from './raw-rows';
 import { spectatorTimelineReads } from './spectator-timeline-reads';
 
-/**
- * The key a Round's published state lives under: its feed key and, on an unlisted
- * Round, its current link. Replacing the link moves the state, so the old link's
- * holder has no address for what happens next (ADR 0109).
- */
-export const audienceStateKey = (
-  feedKey: string,
-  linkHash: string | null,
-): string =>
-  createHash('sha3-256')
-    .update(`${feedKey}:${linkHash ?? 'public'}`)
-    .digest('hex');
+export { audienceStateKey } from './audience-state-key';
 
 export type PublishingBroadcast = {
   readonly broadcastId: string;

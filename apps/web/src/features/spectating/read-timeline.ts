@@ -4,6 +4,7 @@ import type { Database } from '@daisy/db';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { idSchema, type SpectatorTimeline } from '@daisy/protocol';
 import { audienceAdmits } from '../audience-link/audience-link';
+import { publishedStateUrl } from './published-state-url';
 import { createSnapshotMemo } from './snapshot-memo';
 import {
   projectSpectatorTimeline,
@@ -19,6 +20,8 @@ const SNAPSHOT_ROUNDS = 5000;
 export type AudienceSnapshot = {
   readonly visibility: 'public' | 'unlisted';
   readonly timeline: SpectatorTimeline;
+  /** Null with no Broadcast: then nothing is published to read. */
+  readonly feedKey: string | null;
 };
 
 /**
@@ -46,6 +49,7 @@ export async function readAudienceSnapshot(
     return null;
   return {
     visibility,
+    feedKey: read.broadcast?.feedKey ?? null,
     timeline: projectSpectatorTimeline(read, {
       nowMs,
       feedUrlOf: input.feedUrlOf,
@@ -102,4 +106,34 @@ export const createWatchRoundSnapshots = (deps: {
             snapshot && { ...snapshot, body: JSON.stringify(snapshot.timeline) }
           );
         });
+};
+
+/**
+ * What the public Round page renders from, for one reader: the released facts, and
+ * where to read them next. Null past admission, so the state's address never reaches
+ * someone without the link.
+ */
+export const readWatchRound = async (
+  deps: {
+    readonly snapshots: (roundId: string) => Promise<AudienceSnapshot | null>;
+    readonly store: Pick<Store, 'readRoundAudienceLink'>;
+    readonly publicOrigin: string | undefined;
+  },
+  input: { readonly roundId: string; readonly presentedHash: string | null },
+) => {
+  const snapshot = await deps.snapshots(input.roundId);
+  if (!snapshot || !(await admitAudience(deps.store, snapshot, input)))
+    return null;
+  const link =
+    snapshot.visibility === 'unlisted'
+      ? await deps.store.readRoundAudienceLink(input.roundId)
+      : null;
+  return {
+    timeline: snapshot.timeline,
+    stateUrl: publishedStateUrl(
+      deps.publicOrigin,
+      snapshot.feedKey,
+      link?.audienceLinkHash ?? null,
+    ),
+  };
 };

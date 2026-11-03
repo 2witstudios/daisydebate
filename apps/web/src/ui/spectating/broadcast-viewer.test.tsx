@@ -36,7 +36,11 @@ const render = (over: Partial<SpectatorTimeline>) =>
     h(
       AppRouterContext,
       { value: router },
-      h(BroadcastViewer, { initial: timeline(over) }),
+      h(BroadcastViewer, {
+        initial: timeline(over),
+        stateUrl: 'https://feed.daisy.invalid/state/k.json',
+        refreshHref: '/watch/r',
+      }),
     ),
   );
 const ended = { kind: 'ended' } as const;
