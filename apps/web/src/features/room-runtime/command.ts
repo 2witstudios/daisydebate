@@ -1,4 +1,6 @@
 import type { Store, Caller } from './operations';
+import { aiSeatOf } from './ai-seat';
+import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { castSeatsBotDebater, executeRoomCommand } from '@daisy/debate-engine';
 import { createAppError, createRefusal } from '@daisy/errors';
@@ -22,7 +24,7 @@ export function roomCommandOperation({
   store,
   redis,
   ids,
-  botsAvailable,
+  aiSeats,
   betaGrantsPremium,
   consentTtlMs,
   eligible,
@@ -33,7 +35,7 @@ export function roomCommandOperation({
   store: Store;
   redis: Pick<ReturnType<typeof createRedis>, 'setRoomConsent'>;
   ids: IdGenerator;
-  botsAvailable: () => boolean;
+  aiSeats: () => AiSeatAvailability;
   betaGrantsPremium: boolean;
   consentTtlMs: () => number;
   eligible: (state: RoomAssemblyState) => RoomAssemblyState;
@@ -138,6 +140,10 @@ export function roomCommandOperation({
           if (!can(caller, capabilityOf(command), account, raw))
             throw createAppError('AUTHORIZATION');
           const state = eligible(raw);
+          const role =
+            command.type === 'claim-seat' || command.type === 'assign-seat'
+              ? command.role
+              : 'judge';
           const outcome = executeRoomCommand(
             state,
             caller.actorId,
@@ -161,15 +167,11 @@ export function roomCommandOperation({
                     ...target,
                     id: '',
                     consentVersion: 0,
-                    role:
-                      command.type === 'claim-seat' ||
-                      command.type === 'assign-seat'
-                        ? command.role
-                        : 'judge',
+                    role,
                     slot: 0,
                     eligible:
                       target.eligible &&
-                      (target.kind === 'human' || botsAvailable()),
+                      (target.kind === 'human' || aiSeats()[aiSeatOf(role)]),
                   }
                 : null,
               drawStart: secrets

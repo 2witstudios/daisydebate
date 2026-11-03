@@ -17,8 +17,7 @@ describe('standings reads (RATE-1.4.1)', () => {
         const older = await season(fixture, 'closed', at(1));
         const newer = await season(fixture, 'closed', at(3));
         const active = await season(fixture, 'active', at(7));
-        const scheduled = await season(fixture, 'scheduled', at(9));
-        const mine = new Set([older, newer, active, scheduled]);
+        const mine = new Set([older, newer, active]);
         const listed = (await database.listLadderSeasons())
           .map(({ id }) => id)
           .filter((id) => mine.has(id));
@@ -26,9 +25,8 @@ describe('standings reads (RATE-1.4.1)', () => {
           .map(({ id }) => id)
           .sort();
         assert({
-          given: 'an active, two closed and a scheduled season',
-          should:
-            'list the active and closed ones, newest start first, and never the scheduled one',
+          given: 'an active and two closed seasons',
+          should: 'list them newest start first',
           actual: listed,
           expected: [active, newer, older],
         });

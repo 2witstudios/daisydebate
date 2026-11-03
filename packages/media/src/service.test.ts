@@ -29,7 +29,7 @@ describe('media room service boundary', () => {
           }),
           new ParticipantInfo({ identity, permission: { canPublish: true } }),
         ],
-      } as unknown as Parameters<typeof createMediaService>[0]['rooms'],
+      } as never,
     });
     assert({
       given: 'a Room holding the hidden stage observer and a debater',

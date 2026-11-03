@@ -1,6 +1,7 @@
 import { createAppError, isRefusal } from '@daisy/errors';
 import {
   changedMediaGrants,
+  mediaWindowClosed,
   type RoundMediaGrants,
 } from '@daisy/debate-engine';
 import {
@@ -121,6 +122,7 @@ export function createMediaReconcileRun(
         await input.store.ensureBotBinding({
           principal: admission,
           buildProjection,
+          mediaWindowClosed,
         });
       } catch (error) {
         if (isRefusal(error)) return { refused: error };
@@ -314,6 +316,7 @@ export function createMediaReconcileRun(
         failure ??= { error };
       }
       await input.store.finishMediaReconcile({
+        mediaWindowClosed,
         ...claim.fence,
         absenceProof,
       });

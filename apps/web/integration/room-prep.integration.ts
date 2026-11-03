@@ -95,7 +95,7 @@ test('Start round commits readiness and prep in one transaction', async () => {
       commandId: started.receipt.commandId,
       expectedVersion: view.version,
     });
-    const round = await f.operations.roundView(f.guest, roundId);
+    const round = await f.roundView(f.guest, roundId);
     assert({
       given: 'Start round, refused writes, expired leases and an exact retry',
       should:
@@ -118,7 +118,7 @@ test('a forfeit during prep stands as a result and frees the Room', async () => 
       view = (await f.consent(who, view, 'ready')).view;
     const roundId = (await f.command(f.host, view, { type: 'start-round' }))
       .view.roundRef!.id;
-    const round = await f.operations.roundView(f.guest, roundId);
+    const round = await f.roundView(f.guest, roundId);
     const seat = round.participants
       .filter(isNamedSeat)
       .find((p) => p.actorId === f.guest.actorId)!;

@@ -107,6 +107,7 @@ const OPERATION_NAMES = [
   'round.media.session',
   'round.read',
   'spectating.timeline',
+  'round.view',
 ] as const;
 
 export type OperationName = (typeof OPERATION_NAMES)[number];

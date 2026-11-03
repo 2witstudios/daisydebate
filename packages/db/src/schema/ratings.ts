@@ -25,7 +25,7 @@ import { formats } from './formats';
 import { roundParticipants } from './round-participants';
 import { rounds } from './rounds';
 
-export const seasonStatuses = ['scheduled', 'active', 'closed'] as const;
+export const seasonStatuses = ['active', 'closed'] as const;
 
 /**
  * Strictly positive and finite. PostgreSQL orders NaN and +infinity above

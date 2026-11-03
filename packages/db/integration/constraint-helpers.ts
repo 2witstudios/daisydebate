@@ -72,7 +72,6 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
   ['rooms', 'id'],
   ['documents', 'id'],
   ['seasons', 'id'],
-  ['role_grants', 'id'],
   ['actors', 'id'],
   ['users', 'id'],
   // `formats.current_version` and `format_presets.format_version` both point

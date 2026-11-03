@@ -3,6 +3,7 @@ import type {
   DebateSide,
   JudgingPanel,
   JudgingPanelFacts,
+  JudgeRuling,
   PanelRuling,
   RoundPanelCompletion,
 } from '@daisy/protocol';
@@ -12,7 +13,6 @@ import { completedLifecycle } from './round-clock-state';
 import { debateIsOver, type CommandContext } from './round-commands';
 import { deriveRoundOutcome, participatingRulings } from './round-outcome';
 
-type Ruling = PanelRuling;
 /** Why a panel is still pending. */
 export type PanelWait =
   | { readonly on: 'human_window'; readonly deadlineAt: string }
@@ -22,14 +22,7 @@ export type PanelDecision =
   | { readonly kind: 'pending'; readonly waiting: PanelWait }
   | {
       readonly kind: 'complete';
-      readonly ruling:
-        | 'unjudged'
-        | 'judges-did-not-rule'
-        | 'transcript-incomplete'
-        | 'judging-failed'
-        | 'partial'
-        | 'ruled'
-        | 'judges-split';
+      readonly ruling: PanelRuling;
       readonly outcome: DebateSide | null;
       /** Judge seats recorded as giving no ruling. */
       readonly noRuling: readonly string[];
@@ -131,7 +124,7 @@ function awaitedSeat(
 export function decidePanelCompletion(input: {
   readonly completeness: 'complete' | 'incomplete';
   readonly panel: JudgingPanel;
-  readonly ballots: readonly Ruling[];
+  readonly ballots: readonly JudgeRuling[];
   readonly nowMs: number;
 }): PanelDecision {
   const { panel } = input;

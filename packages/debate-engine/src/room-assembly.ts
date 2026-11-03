@@ -96,7 +96,6 @@ export function executeRoomCommand(
   const {
     consent: consentEffect,
     freeze,
-    spendsAiRound,
     seatsBotDebater,
     publishDefinition,
     draw,
@@ -115,7 +114,6 @@ export function executeRoomCommand(
       state: next,
       consent: consentEffect,
       freeze,
-      spendsAiRound,
       seatsBotDebater,
       publishDefinition,
       draw,

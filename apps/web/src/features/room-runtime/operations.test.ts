@@ -1,7 +1,6 @@
 import { fixedIds } from '@daisy/clock';
-import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
-import type { LaunchedRound, RoomCreate } from '@daisy/protocol';
+import type { RoomCreate } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoomRuntimeOperations, type Store } from './operations';
 import {
@@ -9,11 +8,10 @@ import {
   caller,
   makeOperations,
   now,
-  launched,
-  round,
   state,
 } from './operations.test-support';
 import { valueFacts } from './catalog-sources.test-support';
+import { aiSeatOf } from './ai-seat';
 
 setupRitewayBun();
 
@@ -56,7 +54,41 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
   });
 });
 
-test('Room runtime distinguishes Redis consent loss and authorizes the canonical private Round projection', async () => {
+test('a seated bot answers its own seat availability', async () => {
+  const seated = {
+    ...state,
+    participants: [
+      {
+        ...state.participants[0]!,
+        kind: 'bot' as const,
+        role: 'negative' as const,
+      },
+    ],
+  };
+  const eligibleWith = async (aiSeats: { debater: boolean; judge: boolean }) =>
+    (
+      await makeOperations(
+        {
+          readRoomAssemblyFacts: async () => ({
+            state: seated,
+            drawSeed: null,
+          }),
+        } as never,
+        aiSeats,
+      ).operations.view(caller, state.id)
+    ).participants.map((participant) => participant.eligible);
+  assert({
+    given: 'a bot debater seat where only the judge can run, then the reverse',
+    should: 'mark it ineligible, then eligible',
+    actual: [
+      await eligibleWith({ debater: false, judge: true }),
+      await eligibleWith({ debater: true, judge: false }),
+    ],
+    expected: [[false], [true]],
+  });
+});
+
+test('Room runtime distinguishes Redis consent loss', async () => {
   const base = makeOperations();
   const withUnavailableRedis = createRoomRuntimeOperations({
     now: () => '2026-11-02T00:00:00.000Z',
@@ -69,43 +101,16 @@ test('Room runtime distinguishes Redis consent loss and authorizes the canonical
     } as never,
     ids: fixedIds(['c6n6p8r2t4v6x8z1k3b5c7d9']),
     consentTtlMs: () => 60_000,
-    botsAvailable: () => true,
+    aiSeats: () => ({ debater: true, judge: true }),
     betaGrantsPremium: true,
     entropy: () => '01'.repeat(32),
   });
   const view = await withUnavailableRedis.view(caller, state.id);
-  const permitted = await base.operations.roundView(caller, round.id);
-  const denied = await makeOperations({
-    readLaunchedRound: async (
-      _id: string,
-      _caller: typeof caller,
-      authorize: (
-        candidate: LaunchedRound,
-        fact: AccountAuthorizationFact,
-      ) => boolean,
-    ) => {
-      if (
-        !authorize(
-          { ...launched, hostActorId: null, participants: [] },
-          account,
-        )
-      )
-        throw createAppError('NOT_FOUND');
-      return round;
-    },
-  })
-    .operations.roundView(caller, round.id)
-    .then(
-      () => false,
-      () => true,
-    );
   assert({
-    given:
-      'unavailable ephemeral readiness, a private Round host and an unbound resource',
-    should:
-      'mark readiness unavailable and leave private access to the canonical evaluator',
-    actual: [view.readiness.available, permitted?.id, denied],
-    expected: [false, round.id, true],
+    given: 'unavailable ephemeral readiness',
+    should: 'mark readiness unavailable',
+    actual: view.readiness.available,
+    expected: false,
   });
 });
 
@@ -157,7 +162,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
     } as never,
     ids: fixedIds(['c8n6p8r2t4v6x8z1k3b5c7d9']),
     consentTtlMs: () => 60_000,
-    botsAvailable: () => true,
+    aiSeats: () => ({ debater: true, judge: true }),
     betaGrantsPremium: true,
     entropy: () => '01'.repeat(32),
   });
@@ -192,8 +197,11 @@ test('Room creation hands the initial cast to the create transaction through the
     eligible: true,
     seatRole: 'debater' as const,
   };
-  const create = async (cast: RoomCreate['cast'], botsAvailable = false) => {
-    const run = makeOperations({}, botsAvailable);
+  const create = async (
+    cast: RoomCreate['cast'],
+    aiSeats: boolean | { debater: boolean; judge: boolean } = false,
+  ) => {
+    const run = makeOperations({}, aiSeats);
     const error = await run.operations
       .create(caller, {
         commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
@@ -303,6 +311,32 @@ test('Room creation hands the initial cast to the create transaction through the
       'refuse the whole create before the transaction and pass it nothing',
     actual: [duplicate.createInput(), duplicateError],
     expected: [null, 'CONFLICT'],
+  });
+  const seatedWith = async (aiSeats: { debater: boolean; judge: boolean }) => {
+    const split = await create(
+      [{ actorId: botActorId, role: 'negative', slot: 0 }],
+      aiSeats,
+    );
+    const input = split.run.createInput()?.cast;
+    const debater = input?.seats[0];
+    return debater
+      ? input?.apply(
+          { ...state, participants: [] },
+          debater,
+          botTarget,
+          now,
+          [],
+        ).ok
+      : null;
+  };
+  assert({
+    given: 'a bot debater cast where only the other seat, or this one, can run',
+    should: 'seat it only where the debater seat can run',
+    actual: [
+      await seatedWith({ debater: false, judge: true }),
+      await seatedWith({ debater: true, judge: false }),
+    ],
+    expected: [false, true],
   });
 });
 
@@ -453,5 +487,30 @@ test('a create seating the AI judge passes the host grants through the entitleme
       outcome([]),
     ],
     expected: ['seated', 'ai-judge-premium', 'ai-judge-premium'],
+  });
+});
+
+test('each AI seat answers its own availability', async () => {
+  const eligibleCast = async (seats: { debater: boolean; judge: boolean }) =>
+    (await makeOperations({}, seats).operations.castChoices(caller)).map(
+      (choice) => choice.eligible,
+    );
+  assert({
+    given: 'a roster bot debater where only the judge seat can run',
+    should: 'leave it unoffered',
+    actual: await eligibleCast({ debater: false, judge: true }),
+    expected: [false],
+  });
+  assert({
+    given: 'a roster bot debater where only the debater seat can run',
+    should: 'offer it',
+    actual: await eligibleCast({ debater: true, judge: false }),
+    expected: [true],
+  });
+  assert({
+    given: 'a Room role',
+    should: 'name the AI seat that fills it',
+    actual: [aiSeatOf('judge'), aiSeatOf('affirmative'), aiSeatOf('negative')],
+    expected: ['judge', 'debater', 'debater'],
   });
 });

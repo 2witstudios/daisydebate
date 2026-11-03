@@ -1,7 +1,6 @@
 import {
   competitionTypes,
   canonicalRatingLadder,
-  debateSides,
   type CompetitionType,
   emptyRuntimeCheckpoint,
   ratingLadders,
@@ -11,7 +10,8 @@ import {
   roundStageSchema,
   roundStatusSchema,
   runtimeCheckpointSchema,
-  type RatedOutcome,
+  roundOutcomeSchema,
+  type RoundOutcome,
   type RoundStage,
   type RoundStatus,
   type RatingLadder,
@@ -52,9 +52,6 @@ export const roundLadder = (
   formatId: string,
 ): RatingLadder | null =>
   competitionType === 'ranked' ? canonicalRatingLadder(formatId) : null;
-
-/** A side wins, or nobody does. Abandonment is a status, not an outcome. */
-export const roundOutcomes = [...debateSides, 'draw'] as const;
 
 /**
  * The durable competitive occurrence (ADR 0058 §6). Every actual debate is
@@ -111,7 +108,7 @@ export const rounds = pgTable(
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),
     status: text('status').$type<RoundStatus>().notNull(),
     currentStage: text('current_stage').$type<RoundStage>(),
-    outcome: text('outcome').$type<RatedOutcome>(),
+    outcome: text('outcome').$type<RoundOutcome>(),
     /** The one authority for ratedness: null when this round never rates. */
     ladderId: text('ladder_id').$type<RatingLadder>(),
     startedAt: timestampColumn('started_at'),
@@ -213,7 +210,7 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_outcome_check',
-        sql`${table.outcome} is null or ${oneOf(table.outcome, roundOutcomes)}`,
+        sql`${table.outcome} is null or ${oneOf(table.outcome, roundOutcomeSchema.options)}`,
       ),
       check(
         'rounds_ladder_check',

@@ -13,7 +13,7 @@ import type { BoundedTransactionContext } from './transaction-context';
 import {
   lockMediaRound,
   mediaId,
-  mediaWindowClosed,
+  type MediaWindowRule,
 } from './media-session-authority';
 import {
   executeLockedRoundTick,
@@ -259,6 +259,7 @@ export function createMediaReconcileStore(input: {
     async finishMediaReconcile(
       request: MediaReconcileFence & {
         readonly absenceProof: MediaAbsenceProof | null;
+        readonly mediaWindowClosed: MediaWindowRule;
       },
     ) {
       return withFence(request, async (tx, session, now) => {
@@ -270,7 +271,7 @@ export function createMediaReconcileStore(input: {
           .from(rounds)
           .where(eq(rounds.id, session.roundId));
         if (!round) throw createAppError('NOT_FOUND');
-        const terminal = mediaWindowClosed(
+        const terminal = request.mediaWindowClosed(
           round.status,
           now.toISOString(),
           round.finalSegmentEndedAt?.toISOString() ?? null,

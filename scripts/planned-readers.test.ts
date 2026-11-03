@@ -5,17 +5,17 @@ setupRitewayBun();
 
 /** Stands in for the gate's index of what each source file really exports. */
 const exportNames = new Map([
-  ['packages/db/src/schema/role-grants.ts', ['grantRoles', 'roleGrants']],
+  ['packages/db/src/schema/standin-grants.ts', ['grantRoles', 'roleGrants']],
 ]);
 
 const knownPaths = new Set([
-  'packages/db/src/schema/role-grants.ts',
+  'packages/db/src/schema/standin-grants.ts',
   'docs/decisions/0057-planned-readers.md',
 ]);
 
 /** One declaration that satisfies every field, so a test varies only what it is about. */
 const declaration = {
-  path: 'packages/db/src/schema/role-grants.ts',
+  path: 'packages/db/src/schema/standin-grants.ts',
   export: 'roleGrants',
   task: 'ID-1',
   owner: 'platform',
@@ -34,7 +34,7 @@ describe('planned readers: a foundation may ship before its reader', () => {
           version: 1,
           readers: [
             {
-              path: 'packages/db/src/schema/role-grants.ts',
+              path: 'packages/db/src/schema/standin-grants.ts',
               export: 'roleGrants',
               task: 'ID-42',
               owner: 'platform',
@@ -57,7 +57,7 @@ describe('planned readers: a foundation may ship before its reader', () => {
       actual: validatePlannedReaders(
         {
           version: 1,
-          readers: [{ path: 'packages/db/src/schema/role-grants.ts' }],
+          readers: [{ path: 'packages/db/src/schema/standin-grants.ts' }],
         },
         { knownPaths, today: '2026-10-06' },
       ),
@@ -108,7 +108,7 @@ describe('planned readers: a foundation may ship before its reader', () => {
           version: 1,
           readers: [
             {
-              path: 'packages/db/src/schema/role-grants.ts',
+              path: 'packages/db/src/schema/standin-grants.ts',
               export: 'roleGrants',
               task: 'ID-1',
               owner: 'platform',
@@ -135,7 +135,7 @@ describe('planned readers: a foundation may ship before its reader', () => {
           version: 1,
           readers: [
             {
-              path: 'packages/db/src/schema/role-grants.ts',
+              path: 'packages/db/src/schema/standin-grants.ts',
               export: 'roleGrants',
               task: 'ID-1',
               owner: 'platform',
@@ -160,7 +160,7 @@ describe('planned readers: a foundation may ship before its reader', () => {
           version: 1,
           readers: [
             {
-              path: 'packages/db/src/schema/role-grants.ts',
+              path: 'packages/db/src/schema/standin-grants.ts',
               export: 'roleGrants',
               task: 'ID-1',
               owner: 'platform',
@@ -185,7 +185,7 @@ describe('planned readers: a foundation may ship before its reader', () => {
           version: 1,
           readers: [
             {
-              path: 'packages/db/src/schema/role-grants.ts',
+              path: 'packages/db/src/schema/standin-grants.ts',
               export: 'roleGrants',
               task: 'ID-1',
               owner: 'platform',
@@ -194,7 +194,7 @@ describe('planned readers: a foundation may ship before its reader', () => {
               reviewBy: '2027-01-01',
             },
             {
-              path: 'packages/db/src/schema/role-grants.ts',
+              path: 'packages/db/src/schema/standin-grants.ts',
               export: 'roleGrants',
               task: 'ID-2',
               owner: 'platform',
@@ -207,7 +207,7 @@ describe('planned readers: a foundation may ship before its reader', () => {
         { knownPaths, today: '2026-10-06' },
       ),
       expected: [
-        'readers[1]: duplicate packages/db/src/schema/role-grants.ts|roleGrants',
+        'readers[1]: duplicate packages/db/src/schema/standin-grants.ts|roleGrants',
       ],
     });
   });
@@ -267,7 +267,7 @@ describe('planned readers: a foundation may ship before its reader', () => {
           version: 1,
           readers: [
             {
-              path: 'packages/db/src/schema/role-grants.ts',
+              path: 'packages/db/src/schema/standin-grants.ts',
               export: 'roleGrants',
               task: '',
               owner: 'platform',
@@ -296,7 +296,7 @@ describe('planned readers: a foundation may ship before its reader', () => {
         },
       ),
       expected: [
-        'readers[0]: packages/db/src/schema/role-grants.ts does not export madeUpThing',
+        'readers[0]: packages/db/src/schema/standin-grants.ts does not export madeUpThing',
       ],
     });
   });

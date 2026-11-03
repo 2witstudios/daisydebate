@@ -1,7 +1,12 @@
 import type { AttendanceLedgerFacts } from './attendance';
 import type { JudgingPanelFacts } from './round-panel-completion';
 import { z } from 'zod';
-import { idSchema, debateRoleSchema, ratingLadders } from './primitives';
+import {
+  idSchema,
+  debateRoleSchema,
+  ratingLadders,
+  roundOutcomeSchema,
+} from './primitives';
 import { frozenRoomConfigSchema } from './room';
 import {
   resolutionAuditSchema,
@@ -108,7 +113,7 @@ export const roundViewSchema = z.strictObject({
   participants: z.array(z.union([seatSchema, anonymousJudgeSchema])).readonly(),
   startedAt: instant.nullable(),
   completedAt: instant.nullable(),
-  outcome: z.enum(['affirmative', 'negative', 'draw']).nullable(),
+  outcome: roundOutcomeSchema.nullable(),
   /** The panel completion's ruling, from its durable receipt; null for any other completion. */
   panelRuling: panelRulingSchema.nullable(),
   /** What a played Round is waiting on; null until its speeches end. */
