@@ -225,6 +225,8 @@ Local mute and confirmed explicit departure suppression are tab-scoped keys unde
 cannot be read by another principal, and every record dies with the tab
 (ISSUE-879).
 
+A resume fires once per tab until the Round has rendered: `rooms/resume-attempt.ts` holds the attempt in tab storage, so a failing Round page cannot take home and the lobby with it (ISSUE-1035).
+
 ### The media model
 
 One pure model owns a Round's media state on this tab: `round-media/model/`.
