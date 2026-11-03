@@ -2,7 +2,7 @@ import { WORKLOAD_PROFILES } from '@daisy/db';
 import { noopErrorReporter } from '@daisy/observability';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createReadinessHandler } from '../src/server/readiness';
+import { createReadinessHandler } from '../src/features/ops/readiness';
 import { createRecordingLogger } from '../src/server/test-loggers.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { consentBarrier } from './room-consent-barrier.test-support';

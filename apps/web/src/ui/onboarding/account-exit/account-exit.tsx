@@ -1,8 +1,6 @@
 import Link from 'next/link';
-import {
-  SIGN_OUT_FAILED_NOTICE,
-  SignOutForm,
-} from '../../components/sign-out-form/sign-out-form';
+import { SignOutForm } from '../../components/sign-out-form/sign-out-form';
+import { SIGN_OUT_FAILED_NOTICE } from '../../components/sign-out-form/sign-out-notice';
 
 export const accountExitLink =
   'inline-flex min-h-onboarding-touch items-center justify-center rounded-round border border-border px-6 text-md font-strong no-underline hover:no-underline';

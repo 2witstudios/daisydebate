@@ -1,7 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { startMessagingFileMaintenance } from './file-maintenance';
-import { createRecordingLogger } from './test-loggers.test-support';
+import {
+  createEventRecorder,
+  createRecordingLogger,
+} from './test-loggers.test-support';
 setupRitewayBun();
 test('explicit file cleanup schedule bounds work and drains its current vendor acknowledgement on shutdown', async () => {
   const now = '2026-10-10T00:00:00.000Z';
@@ -55,5 +58,53 @@ test('explicit file cleanup schedule bounds work and drains its current vendor a
     should: 'allow shutdown after exact trusted bounds and time',
     actual: [stopped, calls],
     expected: [true, [1000, { now, maxItems: 3, remove }, 1]],
+  });
+});
+
+test('a refused vendor deletion reports failure and a clean pass completion', async () => {
+  const { logger, logged } = createEventRecorder();
+  const start = (run: () => Promise<{ acknowledged: number }>) =>
+    startMessagingFileMaintenance({
+      maintenance: {
+        run: async () => ({ expiredChannels: 0, ...(await run()) }),
+      },
+      config: { intervalMs: 1000, maxItems: 3 },
+      remove: async () => {},
+      clock: fixedClock('2026-10-10T00:00:00.000Z'),
+      logger,
+      timers: { setInterval: () => 1, clearInterval: () => {} },
+    });
+  await start(async () => {
+    throw new Error('vendor refused');
+  }).stop();
+  await start(async () => ({ acknowledged: 2 })).stop();
+  assert({
+    given: 'a pass that threw, then one that acknowledged everything',
+    should: 'report each as what it was, under its own name',
+    actual: logged.map(({ event, fields }) => [event, fields.operation]),
+    expected: [
+      ['worker.run.failed', 'messaging_file_maintenance'],
+      ['worker.run.completed', 'messaging_file_maintenance'],
+    ],
+  });
+});
+
+test('a full batch of acknowledged deletions may leave more, so it owes', async () => {
+  const { logger, logged } = createEventRecorder();
+  await startMessagingFileMaintenance({
+    maintenance: {
+      run: async () => ({ expiredChannels: 0, acknowledged: 3 }),
+    },
+    config: { intervalMs: 1000, maxItems: 3 },
+    remove: async () => {},
+    clock: fixedClock('2026-10-10T00:00:00.000Z'),
+    logger,
+    timers: { setInterval: () => 1, clearInterval: () => {} },
+  }).stop();
+  assert({
+    given: 'a pass that filled its batch',
+    should: 'not report completion',
+    actual: logged,
+    expected: [],
   });
 });

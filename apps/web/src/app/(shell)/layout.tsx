@@ -1,3 +1,4 @@
+import { MediaAccount } from '../../features/round-media/media-account';
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
 import { SampleActionNotice } from '../../ui/components/sample-action/sample-action-notice';
@@ -68,6 +69,11 @@ export default async function ShellLayout({
       : null;
   return (
     <UiStoreProvider>
+      <MediaAccount
+        actorId={
+          identity.state === 'member' ? identity.principal.actorId : null
+        }
+      />
       <AppShell
         account={shellAccount(identity)}
         activeRoom={activeRoom}

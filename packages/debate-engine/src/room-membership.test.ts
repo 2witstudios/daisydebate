@@ -190,6 +190,7 @@ describe('my active Room', () => {
           title: 'Room',
           phase: 'assembling',
           role: 'host',
+          seated: false,
           href: `/rooms/${facts.room.id}`,
         },
         {
@@ -198,6 +199,7 @@ describe('my active Room', () => {
           title: 'Room',
           phase: 'ready',
           role: 'debater',
+          seated: true,
           href: `/rooms/${facts.room.id}`,
         },
         {
@@ -206,6 +208,7 @@ describe('my active Room', () => {
           title: 'Room',
           phase: 'live',
           role: 'judge',
+          seated: true,
           href: `/rounds/${'o'.repeat(24)}/room`,
         },
       ],

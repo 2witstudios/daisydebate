@@ -35,3 +35,30 @@ test('a debater leaving while the ballot is pending is told they are freed (ISSU
     expected: [true, true, false, false, false],
   });
 });
+
+test('a held Round cannot trap a debater: the seat is kept and the lobby stays reachable', () => {
+  const held = renderToString(
+    h(LeaveRoom, {
+      links: {
+        ...links,
+        held: true,
+        left: { actorId: 'a1', roomId: 'room-1', roundId: 'r1' },
+      },
+    }),
+  );
+  assert({
+    given: 'the Leave confirm while the Round catches up',
+    should:
+      'say leaving is unavailable and what stepping away means, and send no forfeit command',
+    actual: [
+      held.includes('Leaving is unavailable for a moment'),
+      held.includes('keeping your seat'),
+      held.includes('the round continues'),
+      held.includes('attendance rules apply'),
+      held.includes('Leave and forfeit'),
+      held.includes('<form'),
+      held.includes('commandId'),
+    ],
+    expected: [true, true, true, true, false, false, false],
+  });
+});

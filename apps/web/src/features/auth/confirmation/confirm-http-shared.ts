@@ -1,3 +1,4 @@
+import type { OperationName } from '../../ops/operation-names';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
@@ -83,7 +84,7 @@ export function createForward(auth: ConfirmAuth) {
 /** GET renders; HEAD renders the same status/headers with no body. Neither redeems. */
 export function createViewHeadHandlers(
   logger: Logger,
-  operation: string,
+  operation: OperationName,
   view: (request: Request) => Response,
   /** ADR 0037: where a 5xx from a failed render goes, scrubbed. */
   reporter: ErrorReporter,

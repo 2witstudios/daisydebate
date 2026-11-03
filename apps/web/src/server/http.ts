@@ -1,3 +1,4 @@
+import type { OperationName } from '../features/ops/operation-names';
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
 import { isCapacityRefusal, isTemporaryRefusal } from '@daisy/db/capacity';
 import {
@@ -62,7 +63,7 @@ export function parseValidated<T>(schema: ZodType<T>, input: unknown): T {
 export async function handleOperation(
   baseLogger: Logger,
   request: Request,
-  operation: string,
+  operation: OperationName,
   handler: (id: string, logger: Logger) => Promise<Response>,
   reporter: ErrorReporter = noopErrorReporter,
 ): Promise<Response> {

@@ -81,7 +81,9 @@ pruned. Every database batch is one call of `deleteExpiredBatch`
 rows, never inside a transaction, so it never holds back the
 `pg_snapshot_xmin` that `drainOutbox` waits on and never blocks a writer.
 Each target logs `retention.sweep.completed` or `retention.sweep.failed`
-with its `operation`; a failing target never stops the others.
+with its `operation`; a failing target never stops the others. A run that
+succeeded and drained on every target also logs `retention.run.completed`, the only event
+the `cleanup_missed` alert reads.
 
 **Outbox retention throughput (RT-2.2).** The outbox target deletes batches
 of 200 rows, up to 200 batches per run (40,000 rows/run), sized against an

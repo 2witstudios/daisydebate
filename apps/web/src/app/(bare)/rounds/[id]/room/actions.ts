@@ -49,7 +49,11 @@ export async function leaveRoundAction(
 ): Promise<RoundFormState> {
   const { incoming, answer } = await submitRound(roundId, form);
   if (!answer.acknowledged) return answer;
-  return { values: {}, ...moveOn(incoming, `/rounds/${roundId}`) };
+  return {
+    values: {},
+    acknowledged: true,
+    ...moveOn(incoming, `/rounds/${roundId}`),
+  };
 }
 
 const nativeState = processRoute(

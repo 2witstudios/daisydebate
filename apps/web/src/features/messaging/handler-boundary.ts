@@ -1,3 +1,4 @@
+import type { OperationName } from '../ops/operation-names';
 import type { App } from '../../server/app';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
@@ -66,7 +67,7 @@ export function messagingActorHandlerPort(
 export function unavailableMessagingHandler(
   app: App,
   request: Request,
-  name = 'messaging.unavailable',
+  name: OperationName = 'messaging.unavailable',
 ) {
   return handleOperation(
     app.logger,

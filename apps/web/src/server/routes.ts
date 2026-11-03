@@ -34,13 +34,14 @@ import { createAuthRouteHandlers } from '../features/auth/handlers';
 import { createDebateRoomDocumentHandlers } from '../features/debate-room/documents/document-handlers';
 import { createDebateDocumentOperations } from '../features/debate-room/documents/document-operations';
 import { createProofHandlers } from '../features/foundation/handlers';
+import { runningWorkers } from '../features/ops/alert-state';
 import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
 import { identify } from '../lib/identity';
 import type { App } from './app';
 import { handleOperation } from './http';
-import { createReadinessHandler } from './readiness';
+import { createReadinessHandler } from '../features/ops/readiness';
 
 /**
  * Every route handler, built from one app. The Next route modules under
@@ -247,6 +248,10 @@ export function createRoutes(app: App) {
           redis: app.redis,
           local: app.localAlertState,
           clock: app.clock,
+          workers: runningWorkers({
+            fileMaintenanceIntervalMs:
+              app.messagingFiles?.maintenance?.intervalMs ?? null,
+          }),
           token: () => app.opsProbeToken(),
         }),
       },

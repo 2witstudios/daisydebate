@@ -28,6 +28,7 @@ test('a live room whose Round completed points to its result', () => {
   };
   const html = renderToStaticMarkup(
     <LiveJudgeRoom
+      actorId="a"
       view={ended}
       read={async () => ({
         kind: 'found',

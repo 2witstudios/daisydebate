@@ -1,3 +1,4 @@
+import { browserCaptureAttributes } from '../features/telemetry/browser-capture';
 import { cookies } from 'next/headers';
 import { analyticsConfiguration } from '../features/analytics/config';
 import { CONSENT_COOKIE, parseConsent } from '../features/analytics/consent';
@@ -45,6 +46,10 @@ export const requestRestrictionEnd = (userId: string) => {
 /** Who is asking in this server-component render. */
 export const requestIdentity = async (): Promise<Identity> =>
   (await requestSession()).identity;
+
+/** Browser capture's attributes for this render's `<html>` (ISSUE-1008). */
+export const requestBrowserCapture = () =>
+  browserCaptureAttributes(processApp().config);
 
 /** Public adapter config only; management credentials never enter a rendered prop. */
 export const requestAnalytics = cache(async () => {
