@@ -1,13 +1,29 @@
 import { spectatorClockAt } from '../spectating/spectator-clock';
-import { captureRule } from '@daisy/debate-engine';
+import { hostHoldsCasualCapture as holdsCasualCapture } from '../room-runtime/capture-offer';
+import {
+  broadcastPhase,
+  captureRule,
+  createRoundRuntime,
+} from '@daisy/debate-engine';
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
+import {
+  startSingleFlightWorker,
+  type WorkerTimers,
+} from '../../lib/worker-timers';
+import { stageEgressOf } from '../stage-capture/composition';
+import { newStageCredential } from '../stage-capture/stage-access';
 import { createRecordingCapturePort } from './capture-port';
+import { holdsRecordingDownload } from './download-entitlement';
+import { createRecordingCaptureSweep } from './capture-sweep';
 import type { RecordingRound } from './audience';
 import { createRecordingHandlers } from './handlers';
 import type { HistoryInputs, HistoryRound } from './history';
 import { recordingPersistence } from './persistence';
 import type { RecordingInputs } from './ports';
+
+/** As often as a Broadcast's: its own Egress has the same revocation lead to meet. */
+const CAPTURE_SWEEP_EVERY_MS = 1000;
 
 type RoundRow = NonNullable<
   Awaited<ReturnType<App['database']['readRecordingRound']>>
@@ -31,10 +47,7 @@ const asRound = (round: RoundRow): HistoryRound & RecordingRound => ({
   })),
 });
 
-/**
- * The named read-only inputs, in one place. Downloads stay refused until WATCH-8
- * supplies `holdsRecordingDownload`: an absent entitlement is never a grant.
- */
+/** The named read-only inputs, in one place. */
 const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
   const readHistoryRound = async (roundId: string) => {
     const round = await app.database.readRecordingRound(roundId);
@@ -53,7 +66,10 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
     readTranscript: (roundId) =>
       app.database.readRecordingTranscript(roundId, captureRule),
     readBallots: app.database.readRecordingBallots,
-    holdsRecordingDownload: async () => false,
+    holdsRecordingDownload: holdsRecordingDownload({
+      readGrants: app.database.recordingCaptures.readAccountGrants,
+      betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
+    }),
     findRecordingByRound: store.findByRound,
   };
 };
@@ -72,12 +88,50 @@ export const composeRecordingRoutes = (app: App) =>
   });
 
 /** What capture and processing (REC-1.2) are given. */
-export const composeRecordingCapture = (app: App) =>
+const composeRecordingCapture = (app: App) =>
   createRecordingCapturePort({
     store: recordingPersistence(app),
     inputs: recordingInputs(app),
     nextId: () => app.ids.next(),
   });
+
+/**
+ * Inert unless RECORDING_CAPTURE is on, so merging never activates capture. It
+ * reads the Broadcast and the Round; a failure here reaches neither.
+ */
+export const startRecordingCapture = (app: App, timers: WorkerTimers) => {
+  const egress = stageEgressOf(app);
+  if (app.config.RECORDING_CAPTURE !== 'on' || !egress) return null;
+  const sweep = createRecordingCaptureSweep({
+    store: app.database.recordingCaptures,
+    port: composeRecordingCapture(app),
+    egress,
+    holdsCapture: (grants) =>
+      holdsCasualCapture(grants, app.config.PREMIUM_BETA_GRANT),
+    phaseAt: (round, now) =>
+      broadcastPhase(
+        createRoundRuntime({
+          ...round,
+          round,
+          nextSegmentId: () => app.ids.next(),
+        }).position(now),
+        round.rules.segments.length - 1,
+      ),
+    now: () => Date.parse(app.clock.now()),
+    newCredential: () => newStageCredential(),
+    stageUrl: (id, credential) =>
+      `${app.config.PUBLIC_APP_URL}/stage/${id}?c=${encodeURIComponent(credential)}`,
+    report: (event) => app.logger.log(event, {}, 'Recording capture'),
+  });
+  const running = startSingleFlightWorker({
+    run: sweep,
+    everyMs: CAPTURE_SWEEP_EVERY_MS,
+    timers,
+    failed: () =>
+      app.logger.log('recording.capture_failed', {}, 'Recording capture'),
+  });
+  return { stop: running.stop };
+};
 
 export const recordingReads = (app: App) => ({
   inputs: recordingInputs(app),

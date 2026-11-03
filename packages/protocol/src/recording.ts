@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { broadcastHoldPrefix } from './broadcast-hold';
 import { idSchema } from './primitives';
 
 /**
@@ -50,18 +51,37 @@ const speechSchema = z.strictObject({
 });
 export type RecordingSpeech = z.infer<typeof speechSchema>;
 
-const captureSchema = z.strictObject({
+/**
+ * Where a Recording's source video waits, in the private hold bucket. Named by
+ * kind, never as a free path, so a source outside these two cannot be recorded.
+ */
+export const recordingSourceSchema = z.discriminatedUnion('kind', [
+  /** The Round's Broadcast already runs an Egress; its output is read, not owned. */
+  z.strictObject({ kind: z.literal('broadcast_hold'), broadcastId: idSchema }),
+  /** A casual opted-in Recording with no Broadcast runs its own Egress. */
+  z.strictObject({ kind: z.literal('own_capture') }),
+]);
+export type RecordingSource = z.infer<typeof recordingSourceSchema>;
+
+/** A crash starts a new Egress under a new number, so a capture can have several. */
+const captureAttemptSchema = z.strictObject({
+  attempt: z.int().positive(),
   egressId: z.string().min(1).max(128),
   startedAt: at,
 });
 
-const endedCaptureSchema = captureSchema.extend({
-  endedAt: at,
-  sourceKey: objectKey,
+const captureSchema = z.strictObject({
+  source: recordingSourceSchema,
+  startedAt: at,
+  attempts: z.array(captureAttemptSchema).min(1).max(1000),
 });
+
+const endedCaptureSchema = captureSchema.extend({ endedAt: at });
 
 /** Verified, playable media. Every key sits under the Recording's own prefix. */
 export const recordingMediaSchema = z.strictObject({
+  /** The instant video time zero shows: every offset below counts from here. */
+  capturedFrom: at,
   playlistKey: objectKey,
   /** The whole video as one file: what a subscriber's download delivers. */
   downloadKey: objectKey,
@@ -130,3 +150,18 @@ export const recordingLifecycleSchema = z.discriminatedUnion('status', [
   }),
 ]);
 export type RecordingLifecycle = z.infer<typeof recordingLifecycleSchema>;
+
+/** Every held object of an attempt sits here, whichever Egress wrote it. */
+export const recordingHoldPrefix = (
+  recordingId: string,
+  source: RecordingSource,
+): string =>
+  source.kind === 'broadcast_hold'
+    ? broadcastHoldPrefix(source.broadcastId)
+    : `recording-hold/${recordingId}/`;
+
+/** Each Egress attempt writes under its own number, so a restart overwrites nothing. */
+export const holdAttemptPrefix = (
+  holdPrefix: string,
+  attempt: number,
+): string => `${holdPrefix}${attempt}/`;

@@ -302,6 +302,33 @@ describe('proxy early sign-in hint', () => {
   });
 });
 
+test('only the replay page may read the private Recording bucket', () => {
+  const BUCKET = 'https://fly.storage.tigris.dev';
+  const policy = (path: string) =>
+    proxy(new NextRequest(`https://daisy.invalid${path}`), {
+      recordingBucketOrigin: BUCKET,
+    }).headers.get('Content-Security-Policy') ?? '';
+  const replay = policy('/recordings/abc');
+  assert({
+    given: 'the replay page with a configured bucket',
+    should: 'allow media and reads from it, for redirected signed reads',
+    actual: [
+      replay.includes(`media-src 'self' blob: ${BUCKET}`),
+      /connect-src [^;]*https:\/\/fly\.storage\.tigris\.dev/.test(replay),
+      /worker-src 'self'(;|$)/.test(replay),
+    ],
+    expected: [true, true, true],
+  });
+  assert({
+    given: 'any other page',
+    should: 'name no bucket',
+    actual: ['/recordings', '/watch/abc', '/lobby'].map((path) =>
+      policy(path).includes(BUCKET),
+    ),
+    expected: [false, false, false],
+  });
+});
+
 test('only the Round page may play the public feed', () => {
   const FEED = 'https://bucket.t3.tigrisfiles.io';
   const policy = (path: string) =>
@@ -320,9 +347,9 @@ test('only the Round page may play the public feed', () => {
     expected: [true, true, true],
   });
   assert({
-    given: 'the hub, a Recording and the Lobby',
+    given: 'the hub, the archive and the Lobby',
     should: 'keep the strict policy, naming no feed',
-    actual: ['/watch', '/recordings/abc', '/lobby'].map((path) => {
+    actual: ['/watch', '/recordings', '/lobby'].map((path) => {
       const other = policy(path);
       return [
         other.includes(FEED),

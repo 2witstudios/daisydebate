@@ -1,4 +1,4 @@
-import type { RecordingMedia } from '@daisy/protocol';
+import type { BuiltRecordingMedia } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRecordingCapturePort } from './capture-port';
 import { fakeRecordingStore } from './fake-store.test-support';
@@ -7,7 +7,9 @@ setupRitewayBun();
 
 const startedAt = '2026-11-02T10:00:00.000Z';
 const endedAt = '2026-11-02T10:01:00.000Z';
-const media: Omit<RecordingMedia, 'speeches'> = {
+const source = { kind: 'broadcast_hold', broadcastId: 'b1' } as const;
+const media: BuiltRecordingMedia = {
+  capturedFrom: startedAt,
   playlistKey: 'recordings/rec-1/hls/master.m3u8',
   downloadKey: 'recordings/rec-1/video.mp4',
   durationMs: 60_000,
@@ -67,12 +69,13 @@ test('a request is idempotent per Round and needs eligibility', async () => {
 test('verified media carries the speech timeline in video time', async () => {
   const { port, rows } = setup();
   await port.request(round);
-  await port.captureStarted('rec-1', { egressId: 'EG', at: startedAt });
-  await port.captureEnded('rec-1', {
+  await port.captureStarted('rec-1', {
+    source,
+    attempt: 1,
     egressId: 'EG',
-    sourceKey: 'recordings/rec-1/source.mp4',
-    at: endedAt,
+    at: startedAt,
   });
+  await port.captureEnded('rec-1', { at: endedAt });
   assert({
     given: 'verified media',
     should: 'move to ready',

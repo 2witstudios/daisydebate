@@ -111,7 +111,9 @@ Erasure asks for every casual Recording the member sits in to go, whole
 own transaction and the deletion sweep (`apps/web/src/server/recording-deletions.ts`)
 removes the objects, retrying until storage confirms. The row then stays as a
 tombstone holding only its Round, class and why it went. Moderation may take any
-Recording down, and may then remove it.
+Recording down, and may then remove it. A Recording's source video waits in the private
+hold bucket until it is built and nothing else reads it; a removal also clears that, and
+is not `removed` until it has.
 
 Ranked content is its own class, not part of the competitive record. Its stated
 purpose (owner, 2026-11-02) is that ranked season Rounds are qualifying artifacts

@@ -3,6 +3,7 @@ import type {
   RecordingLifecycle,
   RecordingMedia,
   RecordingRemovalCause,
+  RecordingSource,
 } from '@daisy/protocol';
 
 /** Every object of a Recording sits here, so the whole of it can be deleted. */
@@ -12,15 +13,12 @@ export const recordingObjectPrefix = (recordingId: string): string =>
 export type RecordingEvent =
   | {
       readonly type: 'capture_started';
+      readonly source: RecordingSource;
+      readonly attempt: number;
       readonly egressId: string;
       readonly at: string;
     }
-  | {
-      readonly type: 'capture_ended';
-      readonly egressId: string;
-      readonly sourceKey: string;
-      readonly at: string;
-    }
+  | { readonly type: 'capture_ended'; readonly at: string }
   | { readonly type: 'media_verified'; readonly media: RecordingMedia }
   | {
       readonly type: 'failed';
@@ -68,41 +66,57 @@ const refused = (reason: RecordingRefusal): RecordingTransition => ({
   reason,
 });
 
+const sameSource = (x: RecordingSource, y: RecordingSource) =>
+  x.kind === y.kind &&
+  (x.kind !== 'broadcast_hold' ||
+    (y.kind === 'broadcast_hold' && x.broadcastId === y.broadcastId));
+
 const captureStarted = (
   { lifecycle }: Subject,
   event: Extract<RecordingEvent, { type: 'capture_started' }>,
 ): RecordingTransition => {
+  const attempt = {
+    attempt: event.attempt,
+    egressId: event.egressId,
+    startedAt: event.at,
+  };
   if (lifecycle.status === 'requested')
     return moved({
       status: 'capturing',
-      capture: { egressId: event.egressId, startedAt: event.at },
+      capture: {
+        source: event.source,
+        startedAt: event.at,
+        attempts: [attempt],
+      },
     });
   if (lifecycle.status !== 'capturing') return refused('out_of_order');
-  return lifecycle.capture.egressId === event.egressId
-    ? unchanged
-    : refused('different_capture');
+  const { capture } = lifecycle;
+  if (!sameSource(capture.source, event.source))
+    return refused('different_capture');
+  const known = capture.attempts.find((a) => a.attempt === event.attempt);
+  if (known)
+    return known.egressId === event.egressId
+      ? unchanged
+      : refused('different_capture');
+  // Attempts only grow, so an old report cannot reorder the timeline.
+  return event.attempt > (capture.attempts.at(-1)?.attempt ?? 0)
+    ? moved({
+        status: 'capturing',
+        capture: { ...capture, attempts: [...capture.attempts, attempt] },
+      })
+    : refused('out_of_order');
 };
 
 const captureEnded = (
-  { id, lifecycle }: Subject,
+  { lifecycle }: Subject,
   event: Extract<RecordingEvent, { type: 'capture_ended' }>,
 ): RecordingTransition => {
-  if (lifecycle.status === 'capturing') {
-    if (lifecycle.capture.egressId !== event.egressId)
-      return refused('different_capture');
-    if (!event.sourceKey.startsWith(recordingObjectPrefix(id)))
-      return refused('foreign_object');
+  if (lifecycle.status === 'capturing')
     return moved({
       status: 'processing',
-      capture: {
-        ...lifecycle.capture,
-        endedAt: event.at,
-        sourceKey: event.sourceKey,
-      },
+      capture: { ...lifecycle.capture, endedAt: event.at },
     });
-  }
-  return lifecycle.status === 'processing' &&
-    lifecycle.capture.egressId === event.egressId
+  return lifecycle.status === 'processing'
     ? unchanged
     : refused('out_of_order');
 };

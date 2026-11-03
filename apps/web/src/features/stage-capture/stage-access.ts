@@ -22,9 +22,9 @@ export const stageCredentialValid = (
   credentialHash(secret) === storedHash;
 
 /** The token follows revocation, so a stage reconnecting mid-prep gains nothing. */
-export const observerAccess = (broadcast: {
+export const observerAccess = (capture: {
   readonly observerRevokedAt: Date | null;
-}) => ({ canSubscribe: broadcast.observerRevokedAt === null });
+}) => ({ canSubscribe: capture.observerRevokedAt === null });
 
 /** A human judge's identity, camera and voice never reach the stage. */
 export const subscribesTo = (

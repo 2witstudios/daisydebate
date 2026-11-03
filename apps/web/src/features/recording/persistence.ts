@@ -13,6 +13,7 @@ export const recordingPersistence = ({
   claimDeletions: database.claimRecordingDeletions,
   deferDeletion: database.deferRecordingDeletion,
   listFailedBefore: database.listFailedRecordingsBefore,
+  sourcesRemain: database.recordingCaptures.sourcesRemain,
   listArchive: database.listRecordingArchive,
   countPublicArchive: database.countPublicRecordingArchive,
 });

@@ -30,12 +30,13 @@ const hostOptIn = { kind: 'host_opt_in', hostActorId: 'a'.repeat(24) } as const;
 const ready = (id: string, durationMs = 60_000): RecordingLifecycle => ({
   status: 'ready',
   capture: {
-    egressId: 'EG',
+    source: { kind: 'own_capture' },
     startedAt: at,
+    attempts: [{ attempt: 1, egressId: 'EG', startedAt: at }],
     endedAt: at,
-    sourceKey: `recordings/${id}/source.mp4`,
   },
   media: {
+    capturedFrom: at,
     playlistKey: `recordings/${id}/hls/master.m3u8`,
     downloadKey: `recordings/${id}/video.mp4`,
     durationMs,

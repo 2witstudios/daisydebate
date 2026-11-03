@@ -61,7 +61,7 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
     const launched = await launchedRoundRows(database, broadcast.roundId);
     const labels = new Map(launched.participants.map((p) => [p.id, p.label]));
     return {
-      broadcast,
+      capture: broadcast,
       round,
       roomName: await readBroadcastRoom(database, broadcast.roundId),
       seats: seats.flatMap((seat) => {

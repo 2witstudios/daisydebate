@@ -102,13 +102,15 @@ const withReadyRecording = (
     });
     const id = record!.id;
     const prefix = `recordings/${id}/`;
-    await port.captureStarted(id, { egressId: 'EG', at });
-    await port.captureEnded(id, {
+    await port.captureStarted(id, {
+      source: { kind: 'own_capture' },
+      attempt: 1,
       egressId: 'EG',
-      sourceKey: `${prefix}source.mp4`,
       at,
     });
+    await port.captureEnded(id, { at });
     await port.mediaVerified(id, {
+      capturedFrom: at,
       playlistKey: `${prefix}hls/master.m3u8`,
       downloadKey: `${prefix}video.mp4`,
       durationMs: 60_000,

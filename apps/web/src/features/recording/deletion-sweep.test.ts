@@ -20,6 +20,25 @@ describe('runDeletionSweep', () => {
   const settledAt = new Date(nowMs - REMOVAL_SETTLE_MS).toISOString();
   const keys = [`${prefix}video.mp4`, `${prefix}hls/master.m3u8`];
 
+  test('stays removing while its sources wait in the hold bucket', async () => {
+    const { store, rows } = fakeRecordingStore(
+      [record({ lifecycle: removing(settledAt) })],
+      { sourcesRemain: ['rec'] },
+    );
+    await runDeletionSweep({
+      store,
+      objects: fakeObjectStore().store,
+      owner: 'w',
+      nowMs,
+    });
+    assert({
+      given: 'an empty prefix with sources still held',
+      should: 'not claim the whole Recording is gone',
+      actual: rows.get('rec')?.lifecycle.status,
+      expected: 'removing',
+    });
+  });
+
   test('deletes first and ends only when nothing is left', async () => {
     const { store, rows } = fakeRecordingStore([
       record({ lifecycle: removing(settledAt) }),

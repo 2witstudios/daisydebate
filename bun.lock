@@ -129,6 +129,20 @@
         "riteway": "9.3.0",
       },
     },
+    "apps/recording-worker": {
+      "name": "@daisy/recording-worker",
+      "version": "0.0.0",
+      "dependencies": {
+        "@daisy/db": "workspace:*",
+        "@daisy/logger": "workspace:*",
+        "@daisy/protocol": "workspace:*",
+        "@paralleldrive/cuid2": "3.3.0",
+        "zod": "4.6.6",
+      },
+      "devDependencies": {
+        "riteway": "9.3.0",
+      },
+    },
     "apps/web": {
       "name": "@daisy/web",
       "version": "0.0.0",
@@ -445,6 +459,8 @@
     "@daisy/protocol": ["@daisy/protocol@workspace:packages/protocol"],
 
     "@daisy/realtime": ["@daisy/realtime@workspace:apps/realtime"],
+
+    "@daisy/recording-worker": ["@daisy/recording-worker@workspace:apps/recording-worker"],
 
     "@daisy/redis": ["@daisy/redis@workspace:packages/redis"],
 

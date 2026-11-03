@@ -66,6 +66,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'media_vendor_mutations.payload',
         'operator_command_receipts.result',
         'outbox.payload',
+        'recording_processing_jobs.state',
         'recordings.eligibility',
         'recordings.lifecycle',
         'room_commands.result',

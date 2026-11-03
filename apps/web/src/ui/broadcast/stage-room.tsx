@@ -15,7 +15,7 @@ type StageAnswer = StageSnapshot & {
 
 /** Connects under the observer token and rejoins when the Round's room rotates. */
 export function StageRoom(props: {
-  readonly broadcastId: string;
+  readonly captureId: string;
   readonly credential: string;
 }) {
   const [stage, setStage] = useState<StageAnswer | null>(null);
@@ -25,7 +25,7 @@ export function StageRoom(props: {
   const identities = useRef<readonly string[]>([]);
   useEffect(() => {
     const read = async () => {
-      const answer = await fetch(`/api/broadcasts/${props.broadcastId}/stage`, {
+      const answer = await fetch(`/api/stage/${props.captureId}`, {
         headers: { 'x-stage-credential': props.credential },
         cache: 'no-store',
       });
@@ -78,7 +78,7 @@ export function StageRoom(props: {
       clearInterval(handle);
       void roomRef.current?.disconnect();
     };
-  }, [props.broadcastId, props.credential]);
+  }, [props.captureId, props.credential]);
   return stage ? (
     <StageView
       snapshot={stage}

@@ -1,7 +1,17 @@
 export { formatStanding } from './format-standing';
 export { broadcastPhase } from './broadcast-phase';
 export type { PhasePosition } from './broadcast-phase';
-export { decideBroadcast, REVOCATION_LEAD_MS } from './broadcast-lifecycle';
+export { decideBroadcast } from './broadcast-lifecycle';
+export {
+  REVOCATION_LEAD_MS,
+  runningEgress,
+  stagePrivacyActions,
+} from './stage-capture';
+export type {
+  StageEgressFact,
+  StagePhaseFact,
+  StagePrivacyAction,
+} from './stage-capture';
 export type { BroadcastAction, BroadcastFacts } from './broadcast-lifecycle';
 export {
   RANKED_DELAY_SECONDS,

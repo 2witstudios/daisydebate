@@ -35,6 +35,7 @@ COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/redis/package.json packages/redis/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
 COPY apps/broadcast-worker/package.json apps/broadcast-worker/package.json
+COPY apps/recording-worker/package.json apps/recording-worker/package.json
 COPY apps/log-shipper/package.json apps/log-shipper/package.json
 COPY apps/media-worker/package.json apps/media-worker/package.json
 COPY apps/realtime/package.json apps/realtime/package.json
@@ -76,6 +77,7 @@ COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/redis/package.json packages/redis/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
 COPY apps/broadcast-worker/package.json apps/broadcast-worker/package.json
+COPY apps/recording-worker/package.json apps/recording-worker/package.json
 COPY apps/log-shipper/package.json apps/log-shipper/package.json
 COPY apps/media-worker/package.json apps/media-worker/package.json
 COPY apps/realtime/package.json apps/realtime/package.json
@@ -143,13 +145,25 @@ CMD ["bun", "src/start.ts"]
 
 # ---- broadcast-worker: apps/broadcast-worker, the hold and release of a
 # Broadcast (fly.broadcast-worker.toml, ADR 0099). No port: it only calls out.
-# It alone needs ffmpeg, so nothing else carries it.
+# It and the recording worker need ffmpeg, so nothing else carries it.
 FROM server-source AS broadcast-worker
 USER root
 RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 USER daisy
 COPY --chown=daisy:daisy apps/broadcast-worker/src apps/broadcast-worker/src
 WORKDIR /app/apps/broadcast-worker
+CMD ["bun", "src/start.ts"]
+
+# ---- recording-worker: apps/recording-worker, building a finished Round's
+# Recording (fly.recording-worker.toml, REC-1.2). No port: it only calls out. Its
+# own target, so a build never takes a core from a live release.
+FROM server-source AS recording-worker
+USER root
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+USER daisy
+COPY --chown=daisy:daisy apps/recording-worker/src apps/recording-worker/src
+COPY --chown=daisy:daisy apps/recording-worker/assets apps/recording-worker/assets
+WORKDIR /app/apps/recording-worker
 CMD ["bun", "src/start.ts"]
 
 # ---- log-shipper: apps/log-shipper, the operational log shipper

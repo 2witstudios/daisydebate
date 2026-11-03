@@ -40,7 +40,8 @@
     "./profile": "./src/profile.ts",
     "./outbox": "./src/outbox-api.ts",
     "./attendance": "./src/attendance.ts",
-    "./broadcast-worker": "./src/broadcast-worker-store.ts"
+    "./broadcast-worker": "./src/broadcast-worker-store.ts",
+    "./recording-worker": "./src/recording-worker-store.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",

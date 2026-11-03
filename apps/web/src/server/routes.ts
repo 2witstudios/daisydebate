@@ -1,4 +1,5 @@
-import { composeBroadcastStage } from '../features/broadcast/composition';
+import {} from '../features/broadcast/composition';
+import { composeStage } from '../features/stage-capture/composition';
 import { createConsentHandler } from '../features/analytics/handlers';
 import { composeAttendanceRoutes } from '../features/attendance/composition';
 import { composeMediaCaptureRoutes } from '../features/media-capture/composition';
@@ -78,7 +79,7 @@ export function createRoutes(app: App) {
   return {
     analyticsConsent: { POST: createConsentHandler(app) },
     mediaCapture: composeMediaCaptureRoutes(app),
-    broadcastStage: composeBroadcastStage(app),
+    stage: composeStage(app),
     roundMedia: createRoundMediaHandlers({
       ...memberBoundary,
       operations: createRoundMediaRuntime(app).operations,

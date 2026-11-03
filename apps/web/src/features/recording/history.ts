@@ -1,3 +1,4 @@
+import type { RecordingMedia } from '@daisy/protocol';
 import { UNDRAWN_RESOLUTION } from './archive';
 import { resultHeadline } from './archive';
 import {
@@ -82,6 +83,22 @@ type ResultPanel = {
   }[];
 };
 
+export type RecordingMediaPanel =
+  | {
+      readonly state: 'watch';
+      /** An authorized read, never a bucket URL. */
+      readonly playlistHref: string;
+      readonly durationMs: number;
+      /** What the video does not hold, stated rather than hidden. */
+      readonly gaps: RecordingMedia['gaps'];
+      readonly speeches: readonly {
+        readonly speaker: string;
+        readonly startMs: number;
+        readonly endMs: number;
+      }[];
+    }
+  | { readonly state: Exclude<RecordingMediaState, 'watch'> | 'withheld' };
+
 export type RecordingHistoryScreen =
   | { readonly kind: 'unavailable' }
   | {
@@ -92,11 +109,7 @@ export type RecordingHistoryScreen =
       readonly ranked: boolean;
       readonly date: string;
       readonly visibility: RecordingRound['visibility'];
-      readonly media: {
-        readonly state: RecordingMediaState;
-        /** Only when ready and permitted: an authorized read, never a bucket URL. */
-        readonly playlistHref: string | null;
-      };
+      readonly media: RecordingMediaPanel;
       /** Null means no text history may be shown to this viewer, or none exists. */
       readonly transcript: TranscriptPanel | null;
       readonly result: ResultPanel | null;
@@ -168,10 +181,41 @@ const resultPanel = (
   })),
 });
 
-const playlistHref = (record: RecordingRecord | null): string | null =>
-  record?.lifecycle.status === 'ready'
-    ? `/api/recordings/${record.id}/playback/${record.lifecycle.media.playlistKey.slice(record.lifecycle.media.playlistKey.lastIndexOf('/') + 1)}`
-    : null;
+/**
+ * The video for this viewer. `withheld` is a Broadcast stopped before this Round
+ * ended: the rest of its record stays open, and its video does not (ISSUE-1094).
+ */
+const mediaPanel = (
+  round: HistoryRound,
+  record: RecordingRecord | null,
+  mayWatch: boolean,
+): RecordingMediaPanel => {
+  if (record?.lifecycle.status !== 'ready')
+    return {
+      state: recordingMediaState(record?.lifecycle.status ?? null) as Exclude<
+        RecordingMediaState,
+        'watch'
+      >,
+    };
+  if (!mayWatch) return { state: 'withheld' };
+  const { media } = record.lifecycle;
+  const speaker = (id: string) => {
+    const seat = round.debaters.find((d) => d.roundParticipantId === id);
+    if (!seat) return 'A speaker';
+    return seat.label === null ? sideName(seat.role) : `@${seat.label}`;
+  };
+  return {
+    state: 'watch',
+    playlistHref: `/api/recordings/${record.id}/playback/${media.playlistKey.slice(media.playlistKey.lastIndexOf('/') + 1)}`,
+    durationMs: media.durationMs,
+    gaps: media.gaps,
+    speeches: media.speeches.map((speech) => ({
+      speaker: speaker(speech.roundParticipantId),
+      startMs: speech.startMs,
+      endMs: speech.endMs,
+    })),
+  };
+};
 
 /** What this viewer may do with the Recording, each on its own rule. */
 const recordingActions = (input: {
@@ -256,7 +300,7 @@ export const openRecordingHistory = async (
     ranked: round.competitionType === 'ranked',
     date: new Date(round.completedAtMs).toISOString().slice(0, 10),
     visibility: round.visibility,
-    media: { state, playlistHref: playlistHref(record) },
+    media: mediaPanel(round, record, permissions.media),
     transcript: transcript && transcriptPanel(round, transcript, input.q),
     result: ballots && resultPanel(round, ballots),
     ...recordingActions({

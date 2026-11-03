@@ -50,9 +50,34 @@ a separate decision, and can restore a Recording taken down while ready.
 through a link signed for 60 seconds, rate limited. It is one whole-video file kept
 beside the HLS, so processing keeps that file when it deletes its sources.
 
+**Capture spans every attempt.** A crash starts a new Egress under a new number, so a
+Recording's capture is an ordered list of attempts. Each attempt is timed from its own
+held playlist, and video time follows real time: the stretch between two attempts is that
+long a stretch of slate, in the HLS and in the download, and is listed in `media.gaps`. A
+Recording never pretends to be continuous. A speech marker claims nothing inside a gap.
+
+**Two capture paths, one job.** A Round with a Broadcast reads that Broadcast's Egress. A
+casual Recording with no Broadcast runs its own, in `recording_captures`, and obeys the
+same privacy rule (`stagePrivacyActions`). The stage page and its credential are their own
+module (`features/stage-capture`) because both use them.
+
+**Processing is its own worker.** `apps/recording-worker` claims `recording_processing_jobs`
+and fences itself the way the Broadcast worker does: lease, renewal, epoch. It lives apart
+from the Broadcast worker because a build is a bulk job that would take cores from a live
+release, and each feature owns its jobs and capacity. It is not in the web app because the
+web image carries no ffmpeg and a build must survive a web restart. Its login reaches its
+job table and nothing else, so it reports `built` and only the capture port can make a
+Recording ready. The hold keeps its sources until the Recording no longer needs them and
+no Broadcast or Egress can still read them.
+
 ## Consequences
 
 - Capture and processing call `RecordingCapturePort`. They do not write the table.
+- The job row exists from the first attempt, so a removal mid-capture still reaches what
+  the capture left in the hold bucket, and `removed` waits for it.
+- Only capture restarts are recorded as gaps. A private phase is the stage's slate, in the
+  video; naming it in `media.gaps` needs a durable record of revocations, which no one
+  keeps today.
 - A Broadcast stopped before its watermark passes the Round's end holds the Recording
   back from the audience. Releasing it then is a moderation decision not yet built.
 - Reads authorize per request, one indexed read per media segment. Replay load is

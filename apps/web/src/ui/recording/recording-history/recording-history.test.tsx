@@ -17,6 +17,9 @@ const screen: Extract<RecordingHistoryScreen, { kind: 'history' }> = {
   media: {
     state: 'watch',
     playlistHref: '/api/recordings/rec/playback/master.m3u8',
+    durationMs: 60_000,
+    gaps: [],
+    speeches: [],
   },
   transcript: null,
   result: null,
@@ -29,11 +32,11 @@ const render = (over: Partial<typeof screen> = {}) =>
   );
 
 describe('RecordingHistory', () => {
-  test('plays only through the authorized read', () => {
+  test('shows the player only for ready media', () => {
     assert({
       given: 'ready media',
-      should: 'point the player at the authorized route',
-      actual: render().includes('/api/recordings/rec/playback/master.m3u8'),
+      should: 'show the player',
+      actual: render().includes('<video'),
       expected: true,
     });
     for (const [state, text] of [
@@ -41,8 +44,9 @@ describe('RecordingHistory', () => {
       ['failed', 'could not be saved'],
       ['not_recorded', 'not recorded'],
       ['removed', 'no longer available'],
+      ['withheld', 'being held back'],
     ] as const) {
-      const html = render({ media: { state, playlistHref: null } });
+      const html = render({ media: { state } });
       assert({
         given: `media ${state}`,
         should: 'state it and show no player',

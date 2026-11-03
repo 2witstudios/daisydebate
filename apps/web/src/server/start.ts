@@ -2,6 +2,7 @@ import { recordingPersistence } from '../features/recording/persistence';
 import { startRecordingDeletions } from './recording-deletions';
 import { startBroadcastSweep } from '../features/broadcast/composition';
 import { startNotificationSweep } from '../features/spectating/audience-composition';
+import { startRecordingCapture } from '../features/recording/composition';
 import { mediaConfigured } from './round-worker-policy';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
@@ -218,6 +219,7 @@ const recordingDeletions = startRecordingDeletions({
 });
 const broadcastSweep = startBroadcastSweep(app, workerTimers);
 const notificationSweep = startNotificationSweep(app, workerTimers);
+const recordingCapture = startRecordingCapture(app, workerTimers);
 async function shutdown() {
   if (app.isDraining()) return;
   app.drain();
@@ -231,6 +233,7 @@ async function shutdown() {
   const recordingDeletionsStopped = recordingDeletions.stop();
   const broadcastSweepStopped = broadcastSweep?.stop();
   const notificationSweepStopped = notificationSweep.stop();
+  const recordingCaptureStopped = recordingCapture?.stop();
   const availabilityStopped = availability.stop();
   const workersStopped = roundWorkers?.stop();
   const mediaRecoveryStopped = mediaRecovery?.stop();
@@ -263,6 +266,7 @@ async function shutdown() {
         filesStopped,
         broadcastSweepStopped,
         notificationSweepStopped,
+        recordingCaptureStopped,
         observationPurgesStopped,
         privacyJobsStopped,
         recordingDeletionsStopped,

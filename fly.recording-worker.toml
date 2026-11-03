@@ -1,0 +1,18 @@
+# Staging Recording worker (REC-1.2, owner sign-off under BCAST-H): builds a
+# finished Round's Recording, one at a time per slot, from the Egress hold into
+# the private Recording bucket. A separate app from the Broadcast worker because a
+# build is a bulk job that would take cores from a live release. Its image is the
+# `recording-worker` target of apps/web/Dockerfile, its database login reaches its
+# job table only, and its secrets are all Fly secrets. It has no public service.
+# Stop the machine when idle: there is no proxy to auto-stop it.
+app = "daisy-debate-staging-recorder"
+primary_region = "ord"
+kill_timeout = 30
+
+[build]
+  dockerfile = "apps/web/Dockerfile"
+  target = "recording-worker"
+
+[[vm]]
+  size = "performance-4x"
+  memory = "8gb"

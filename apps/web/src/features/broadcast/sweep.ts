@@ -1,5 +1,6 @@
 import { createRoundRuntime, plannedBroadcast } from '@daisy/debate-engine';
 import type { createDatabase } from '@daisy/db';
+import { broadcastHoldPrefix, holdAttemptPrefix } from '@daisy/protocol';
 import { reconcileFacts } from './reconcile-facts';
 import { reconcileStep, type ReconcilePorts } from './reconcile-step';
 
@@ -75,7 +76,7 @@ export const createBroadcastSweep = (deps: {
         startEgress: () =>
           deps.egress.start({
             stageUrl: deps.stageUrl(id, credential.secret),
-            holdPrefix: `hold/${id}/${generation}/`,
+            holdPrefix: holdAttemptPrefix(broadcastHoldPrefix(id), generation),
             segmentSeconds: SEGMENT_SECONDS,
           }),
         recordEgressStarted: (egressId) =>

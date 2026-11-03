@@ -1,5 +1,9 @@
 import type { createBroadcastWorkerStore } from '@daisy/db/broadcast-worker';
-import { broadcastLivePrefix } from '@daisy/protocol';
+import {
+  broadcastHoldPrefix,
+  broadcastLivePrefix,
+  holdAttemptPrefix,
+} from '@daisy/protocol';
 import { encoderArgs } from './encoder';
 import { masterPlaylist, RENDITIONS } from './hold-manifest';
 import type { createObjects } from './objects';
@@ -87,7 +91,10 @@ export const runWorker = async (deps: {
               break;
             }
           }
-          const hold = `hold/${job.id}/${generation}/`;
+          const hold = holdAttemptPrefix(
+            broadcastHoldPrefix(job.id),
+            generation,
+          );
           const result = await releaseStep(
             {
               policy: facts.releasePolicy,

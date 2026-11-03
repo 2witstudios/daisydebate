@@ -56,7 +56,8 @@ const settled = (requestedAt: string, nowMs: number): boolean =>
 /**
  * One bounded run. The intent is durable, so a vendor outage or a dead process
  * only delays deletion. A Recording ends as removed only after listing its prefix
- * finds nothing left, once capture has had time to stop writing. Safe to repeat.
+ * finds nothing left, once capture has had time to stop writing and the worker
+ * has cleared its sources from the hold bucket. Safe to repeat.
  */
 export const runDeletionSweep = async (deps: {
   readonly store: RecordingStore;
@@ -86,10 +87,12 @@ export const runDeletionSweep = async (deps: {
         removedKeys += keys.length;
       }
       const status = record.lifecycle;
+      // The sources sit in another bucket: removed means they are gone too.
       if (
         keys.length === 0 &&
         status.status === 'removing' &&
-        settled(status.requestedAt, nowMs)
+        settled(status.requestedAt, nowMs) &&
+        !(await store.sourcesRemain(record.id))
       ) {
         await store.apply(record.id, (current) =>
           transitionRecording(current, {
