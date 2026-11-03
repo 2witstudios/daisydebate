@@ -1,10 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  capturePartialReasonSchema,
-  type LiveTranscriptRead,
-} from '@daisy/protocol';
+import type { LiveTranscriptRead } from '@daisy/protocol';
 import { completed } from './result.test-support';
 import {
   liveTranscriptSections,
@@ -227,7 +224,7 @@ test('a completed speech partial with no gap says the same, even with no lines',
         {
           segmentId: played.id,
           roundParticipantId: seat,
-          reasons: [capturePartialReasonSchema.options[0]],
+          reasons: ['frames-lost'],
         },
       ],
     },
