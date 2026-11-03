@@ -6,6 +6,7 @@ import {
   agreementWords,
   contentWaiverDocument,
   CONTENT_WAIVER_VERSION,
+  roundCaptureNotice,
 } from '../src/features/legal/agreements';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
@@ -34,6 +35,7 @@ export async function readyRankedRoom(
       words: agreementWords(contentWaiverDocument),
     });
   let room = await f.assemble({
+    noticeVersion: roundCaptureNotice('ranked')!.version,
     resolution:
       ladder === 'freestyle'
         ? { kind: 'strike' }

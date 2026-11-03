@@ -36,22 +36,27 @@ export const captureNoticeRefusal = (
     : 'capture-notice-changed';
 
 /**
- * The notice a create form showed, to record with the Room. A ranked host may
- * never take a seat, so no Ready would ever record it (WATCH-5). A create with
- * no form states none and is recorded as reading nothing; a stale form is refused.
+ * What a create must have shown. A ranked host may never take a seat, so no Ready
+ * would ever record the notice for them (WATCH-5): a ranked create states the
+ * notice its form showed, unless the host holds a seat, whose Ready will. Nobody
+ * is recorded as reading words their form did not show, so a stale form is refused.
  */
 export const createNoticeOf = (
   competitionType: RoomAssemblyState['competitionType'],
   noticeVersion: string | undefined,
+  hostHoldsSeat: boolean,
 ):
   | { readonly kind: 'none' }
-  | { readonly kind: 'stale' }
+  | { readonly kind: 'refused' }
   | { readonly kind: 'shown'; readonly notice: RoundCaptureNotice } => {
-  if (noticeVersion === undefined) return { kind: 'none' };
+  if (noticeVersion === undefined)
+    return competitionType === 'ranked' && !hostHoldsSeat
+      ? { kind: 'refused' }
+      : { kind: 'none' };
   const notice = roomCaptureNotice({ competitionType, capture: null });
   return notice?.version === noticeVersion
     ? { kind: 'shown', notice }
-    : { kind: 'stale' };
+    : { kind: 'refused' };
 };
 
 /** The waiver version Ready on this Room needs; only ranked needs one. */

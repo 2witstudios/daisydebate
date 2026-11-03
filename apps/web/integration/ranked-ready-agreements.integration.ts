@@ -19,6 +19,7 @@ type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 const rankedRoom = async (f: Fixture) => {
   const [preset] =
     await f.sql`select format_version,version from format_presets where format_id='freestyle' and superseded_at is null`;
+  // Cast in at creation: a host with a seat states no notice until their Ready.
   const created = await f.create({
     resolution: { kind: 'strike' },
     selection: {
@@ -27,14 +28,9 @@ const rankedRoom = async (f: Fixture) => {
       formatVersion: preset!.format_version,
       presetVersion: preset!.version,
     },
+    cast: [{ actorId: f.host.actorId, role: 'affirmative', slot: 0 }],
   });
-  return (
-    await f.command(f.host, created.view, {
-      type: 'claim-seat',
-      role: 'affirmative',
-      slot: 0,
-    })
-  ).view;
+  return created.view;
 };
 
 const withSeason = async (f: Fixture, run: () => Promise<void>) => {
@@ -221,17 +217,22 @@ test('the create form records the notice for a host who never takes a seat', asy
         f.create({ selection, noticeVersion: 'ranked-draft-0' }, f.guest),
       );
       const staleRows = await notices(f.guest.userId);
-      const challenge = await f.create({ selection }, f.outsider);
+      const seatless = await refusalOf(f.create({ selection }, f.guest));
+      const challenge = await f.create(
+        { selection, holdSeatsFor: [f.outsider.actorId] },
+        f.outsider,
+      );
       const unstated = await notices(f.outsider.userId);
       assert({
         given:
-          'a seatless host whose form showed the notice, a stale form, and a create with no form',
+          'a seatless host whose form showed the notice, a stale form, a seatless create with no notice, and a host holding a seat',
         should:
-          'record the words for the first, refuse the second with nothing kept, and claim nothing for the third',
+          'record the words for the first, refuse the next two with nothing kept, and claim nothing for the last until its Ready',
         actual: {
           stated: [...stated],
           stale,
           staleRows: staleRows.length,
+          seatless,
           seated: created.view.participants
             .filter(isNamedSeat)
             .some((p) => p.actorId === f.host.actorId),
@@ -248,6 +249,7 @@ test('the create form records the notice for a host who never takes a seat', asy
           ],
           stale: 'capture-notice-changed',
           staleRows: 0,
+          seatless: 'capture-notice-changed',
           seated: false,
           unstated: 0,
           challengeCreated: 'ranked',
