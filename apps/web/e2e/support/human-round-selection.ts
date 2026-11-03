@@ -16,6 +16,38 @@ export const foundationChoice: ProofChoice = {
   preset: { config: foundationProofConfig },
 };
 
+/**
+ * The proof format with a third speech, for a journey that needs the floor to
+ * come back: in two speeches, ending the second finishes the Round.
+ */
+export const floorReturnsChoice: ProofChoice = {
+  ...foundationChoice,
+  definition: {
+    ...foundationDefinition,
+    segments: [
+      ...foundationDefinition.segments,
+      {
+        key: 'AR',
+        label: 'Affirmative rebuttal',
+        type: 'speech',
+        side: 'affirmative',
+        slot: 0,
+        defaultDurationMs: 240_000,
+      },
+    ],
+    configurable: {
+      ...foundationDefinition.configurable,
+      timing: {
+        ...foundationDefinition.configurable.timing,
+        segmentDurationMs: {
+          ...foundationDefinition.configurable.timing.segmentDurationMs,
+          AR: { min: 60_000, max: 600_000 },
+        },
+      },
+    },
+  },
+};
+
 export const humanRoundSelection = (
   choice: ProofChoice,
   judgeSeats: 0 | 1 | 2,

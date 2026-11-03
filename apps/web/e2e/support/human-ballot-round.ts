@@ -158,11 +158,12 @@ export async function createHumanBallotRound(
   members: readonly Member[],
   judgeSeats: 0 | 2 = 2,
   countdownMs = 0,
+  choice = foundationChoice,
 ) {
   if (members.length !== 2 + judgeSeats)
     throw new Error('Human Round proof needs one member per seat');
   const host = members[0]!;
-  let room = await createFoundationRoom(host, (choice) =>
+  let room = await createFoundationRoom(host, () =>
     humanRoundSelection(choice, judgeSeats, countdownMs),
   );
   room = await seatAndReady(room, [
