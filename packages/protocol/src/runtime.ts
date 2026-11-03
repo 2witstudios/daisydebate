@@ -1,6 +1,6 @@
 import type { ResolutionDrawState } from './resolution-draw';
 import type { DebateRole, DebateSide } from './primitives';
-import type { RatedOutcome } from './ratings';
+import type { RoundOutcome } from './primitives';
 import type { SegmentType } from './format';
 import type { RoundStage, RoundStatus, RuntimeCheckpoint } from './round';
 
@@ -18,7 +18,7 @@ export type HydratedRound = {
   readonly currentStage: RoundStage | null;
   readonly startedAt: string | null;
   readonly completedAt: string | null;
-  readonly outcome: RatedOutcome | null;
+  readonly outcome: RoundOutcome | null;
 };
 
 /** One `round_segments` row, hydrated. */
@@ -85,7 +85,7 @@ export type RoundEffect =
     }
   | {
       readonly kind: 'round_completed';
-      readonly outcome: RatedOutcome | null;
+      readonly outcome: RoundOutcome | null;
       readonly at: string;
     };
 
@@ -121,7 +121,7 @@ export type RoundProjection = {
     readonly currentStage: RoundStage | null;
     readonly startedAt: string | null;
     readonly completedAt: string | null;
-    readonly outcome: RatedOutcome | null;
+    readonly outcome: RoundOutcome | null;
     readonly checkpoint: RuntimeCheckpoint;
   } | null;
   readonly segmentInserts: readonly SegmentInsert[];
@@ -135,7 +135,7 @@ export type RoundPosition = {
   readonly stage: RoundStage | null;
   readonly startedAt: string | null;
   readonly completedAt: string | null;
-  readonly outcome: RatedOutcome | null;
+  readonly outcome: RoundOutcome | null;
   readonly openSegment: {
     readonly key: string;
     readonly label: string;

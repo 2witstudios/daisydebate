@@ -268,7 +268,7 @@ export function makeOperations(
       'f5n6p8r2t4v6x8z1k3b5c7d9',
     ]),
     consentTtlMs: () => 60_000,
-    botsAvailable: () => botsAvailable,
+    aiSeats: () => ({ debater: botsAvailable, judge: botsAvailable }),
     entropy: () => '01'.repeat(32),
   });
   return {

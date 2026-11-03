@@ -4,7 +4,7 @@ import {
   runtimeCheckpointSchema,
   type HydratedRound,
   type HydratedSegment,
-  type RatedOutcome,
+  type RoundOutcome,
   type RoundRules,
   type RoundStatus,
   type RuntimeCheckpoint,
@@ -21,7 +21,7 @@ export type Lifecycle =
       readonly startedAtMs: number;
       readonly completedAtMs: number;
       /** Null is a real ending that names no winner (DEC-277). */
-      readonly outcome: RatedOutcome | null;
+      readonly outcome: RoundOutcome | null;
     }
   | {
       readonly status: 'abandoned';
@@ -37,7 +37,7 @@ export const startedAtOf = (lifecycle: Lifecycle): number | null =>
 /** An active Round ends with a result; nothing else can complete. */
 export const completedLifecycle = (
   lifecycle: Lifecycle,
-  outcome: RatedOutcome | null,
+  outcome: RoundOutcome | null,
   completedAtMs: number,
 ): Lifecycle => {
   if (lifecycle.status !== 'active')

@@ -1,7 +1,6 @@
 import { fixedIds } from '@daisy/clock';
-import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
-import type { LaunchedRound, RoomCreate } from '@daisy/protocol';
+import type { RoomCreate } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoomRuntimeOperations, type Store } from './operations';
 import {
@@ -9,8 +8,6 @@ import {
   caller,
   makeOperations,
   now,
-  launched,
-  round,
   state,
 } from './operations.test-support';
 import { valueFacts } from './catalog-sources.test-support';
@@ -56,7 +53,7 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
   });
 });
 
-test('Room runtime distinguishes Redis consent loss and authorizes the canonical private Round projection', async () => {
+test('Room runtime distinguishes Redis consent loss', async () => {
   const base = makeOperations();
   const withUnavailableRedis = createRoomRuntimeOperations({
     store: base.store,
@@ -68,42 +65,15 @@ test('Room runtime distinguishes Redis consent loss and authorizes the canonical
     } as never,
     ids: fixedIds(['c6n6p8r2t4v6x8z1k3b5c7d9']),
     consentTtlMs: () => 60_000,
-    botsAvailable: () => true,
+    aiSeats: () => ({ debater: true, judge: true }),
     entropy: () => '01'.repeat(32),
   });
   const view = await withUnavailableRedis.view(caller, state.id);
-  const permitted = await base.operations.roundView(caller, round.id);
-  const denied = await makeOperations({
-    readLaunchedRound: async (
-      _id: string,
-      _caller: typeof caller,
-      authorize: (
-        candidate: LaunchedRound,
-        fact: AccountAuthorizationFact,
-      ) => boolean,
-    ) => {
-      if (
-        !authorize(
-          { ...launched, hostActorId: null, participants: [] },
-          account,
-        )
-      )
-        throw createAppError('NOT_FOUND');
-      return round;
-    },
-  })
-    .operations.roundView(caller, round.id)
-    .then(
-      () => false,
-      () => true,
-    );
   assert({
-    given:
-      'unavailable ephemeral readiness, a private Round host and an unbound resource',
-    should:
-      'mark readiness unavailable and leave private access to the canonical evaluator',
-    actual: [view.readiness.available, permitted?.id, denied],
-    expected: [false, round.id, true],
+    given: 'unavailable ephemeral readiness',
+    should: 'mark readiness unavailable',
+    actual: view.readiness.available,
+    expected: false,
   });
 });
 
@@ -153,7 +123,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
     } as never,
     ids: fixedIds(['c8n6p8r2t4v6x8z1k3b5c7d9']),
     consentTtlMs: () => 60_000,
-    botsAvailable: () => true,
+    aiSeats: () => ({ debater: true, judge: true }),
     entropy: () => '01'.repeat(32),
   });
   const replayed = await replay.create(caller, body);

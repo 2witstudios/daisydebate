@@ -10,14 +10,12 @@ import { validConfig, validRules } from './round-fixtures';
 import { roomCommandTransaction } from '../src/room-command-transaction';
 import { roomCommandOperations } from '../src/room-command-operations';
 import { testBotAdmission } from './bot-admission.test-support';
-import { createBotSeat } from './bot-seat.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
 /**
  * A ready Room hosted by an approved member with one bot seat, and its
- * start-round input. `spendsAiRound` defaults to the casual rule; ranked play
- * seats a bot debater without spending an allowance.
+ * start-round input.
  */
 const withBotRoom = (
   botRole: 'negative' | 'judge',
@@ -31,7 +29,6 @@ const withBotRoom = (
       ReturnType<typeof roomCommandOperations>['executeRoomCommand']
     >[0];
   }) => Promise<void>,
-  spendsAiRound = botRole !== 'judge',
 ) =>
   withBoundedRound(async (fixture, run) => {
     const caller = await createAuthorizationSubject(fixture);
@@ -93,7 +90,7 @@ const withBotRoom = (
       payloadDigest: 'a'.repeat(64),
       type: 'start-round',
       targetActorId: null,
-      seatsBotDebater: () => botRole !== 'judge',
+      spendsAiRound: () => botRole !== 'judge',
       formatTuple: null,
       authorizeRead: (state, account) =>
         account?.member === true && state.hostActorId === caller.actorId,
@@ -108,8 +105,7 @@ const withBotRoom = (
             changeVersion: state.changeVersion + 1,
           },
           freeze: true,
-          spendsAiRound,
-          seatsBotDebater: botRole !== 'judge',
+          spendsAiRound: botRole !== 'judge',
           consent: null,
           publishDefinition: false,
           draw: null,
@@ -208,41 +204,4 @@ test('an AI judge alone is free: the freeze needs no bot admission and reserves 
       expected: [{ id: roundId, status: 'active' }, 0],
     });
   });
-});
-
-test('a bot debater that spends no allowance still takes a capacity slot (ISSUE-773)', async () => {
-  await withBotRoom(
-    'negative',
-    async ({ fixture, run, roundId, common, input }) => {
-      const live = await fixture.round();
-      await createBotSeat(fixture, live, 'negative');
-      await assertRejects({
-        given:
-          'a ranked-style freeze (no allowance) and another live bot-debater Round at a cap of 1',
-        should:
-          'refuse the whole freeze for capacity as the bots-busy room refusal',
-        actual: () =>
-          roomCommandOperations({
-            ...common,
-            botAdmission: testBotAdmission(run, 1),
-          }).executeRoomCommand(input),
-        code: 'CONFLICT',
-        reason: 'bots-busy',
-      });
-      const accepted = await roomCommandOperations({
-        ...common,
-        botAdmission: testBotAdmission(run, 2),
-      }).executeRoomCommand(input);
-      assert({
-        given: 'the same freeze with a free slot',
-        should: 'freeze the Round without reserving the host allowance',
-        actual: [
-          accepted.roundRef,
-          await fixture.count('usage_reservations', 'round_id', roundId),
-        ],
-        expected: [{ id: roundId, status: 'active' }, 0],
-      });
-    },
-    false,
-  );
 });

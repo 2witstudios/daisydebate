@@ -3,7 +3,7 @@ import type {
   RoundCommand,
   RoundParticipantSeat,
   RoundRules,
-  RatedOutcome,
+  RoundOutcome,
   RoundEffect,
 } from '@daisy/protocol';
 import { completedLifecycle, debateHasEnded } from './round-clock-state';
@@ -136,7 +136,7 @@ export function closePlayedRound(c: CommandContext): void {
 
 export const completeWith = (
   c: CommandContext,
-  outcome: RatedOutcome,
+  outcome: RoundOutcome,
 ): void => {
   c.on.setLifecycle(completedLifecycle(c.on.lifecycle(), outcome, c.now));
   c.into.effects.push({

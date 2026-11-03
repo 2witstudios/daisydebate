@@ -20,7 +20,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
     name: 'Season',
     starts_at: at,
     ends_at: null,
-    status: 'scheduled',
+    status: 'closed',
     ...overrides,
   });
   /** An actor, a format and a season for rating rows to reference. */
@@ -42,7 +42,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         'seasons',
         season({ status: 'active' }),
       );
-      const secondScheduled = !(await fixture.rejects('seasons', season({})));
+      const secondClosed = !(await fixture.rejects('seasons', season({})));
       const badStatus = await fixture.rejects(
         'seasons',
         season({ status: 'paused' }),
@@ -50,12 +50,12 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
       assert({
         given: 'an active season already present',
         should:
-          'reject a second active season and an unknown status, accept another scheduled one',
-        actual: { firstActive, secondActive, secondScheduled, badStatus },
+          'reject a second active season and an unknown status, accept another closed one',
+        actual: { firstActive, secondActive, secondClosed, badStatus },
         expected: {
           firstActive: true,
           secondActive: true,
-          secondScheduled: true,
+          secondClosed: true,
           badStatus: true,
         },
       });

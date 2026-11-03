@@ -101,7 +101,6 @@ export const acceptedRoomMutation = (
     consent: null,
     freeze: false,
     spendsAiRound: false,
-    seatsBotDebater: false,
     publishDefinition: false,
     draw: null,
     members: activeRoomMembers(state),

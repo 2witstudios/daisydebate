@@ -1,6 +1,11 @@
 import { createAppError } from '@daisy/errors';
-import { debateSides, type RatingLadder } from '@daisy/protocol';
-import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import {
+  debateSides,
+  roundOutcomeSchema,
+  type RatingLadder,
+  type RoundOutcome,
+} from '@daisy/protocol';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
@@ -43,7 +48,7 @@ type StandingChange = {
   readonly deviationAfter: number;
   readonly occurredAt: string;
   readonly role: 'affirmative' | 'negative';
-  readonly outcome: 'affirmative' | 'negative' | 'draw';
+  readonly outcome: RoundOutcome;
 };
 
 export type StandingsRead = {
@@ -61,16 +66,13 @@ function ratedSeat(
   outcome: string | null,
 ): Pick<StandingChange, 'role' | 'outcome'> {
   const side = role === 'affirmative' || role === 'negative' ? role : null;
-  const result =
-    outcome === 'affirmative' || outcome === 'negative' || outcome === 'draw'
-      ? outcome
-      : null;
-  if (side === null || result === null)
+  const result = roundOutcomeSchema.safeParse(outcome);
+  if (side === null || !result.success)
     throw createAppError(
       'INTERNAL',
       'A ledger posting has no rated seat or outcome',
     );
-  return { role: side, outcome: result };
+  return { role: side, outcome: result.data };
 }
 
 export const standingsOperations = ({
@@ -93,15 +95,11 @@ export const standingsOperations = ({
     );
   },
 
-  /** The seasons a ladder can show: active and closed, newest start first. */
+  /** The seasons a ladder can show, newest start first. */
   listLadderSeasons(): Promise<readonly SeasonRecord[]> {
     return instrumented(eventSink, 'listLadderSeasons', async () =>
       (
-        await database
-          .select()
-          .from(seasons)
-          .where(ne(seasons.status, 'scheduled'))
-          .orderBy(desc(seasons.startsAt))
+        await database.select().from(seasons).orderBy(desc(seasons.startsAt))
       ).map(toSeasonRecord),
     );
   },

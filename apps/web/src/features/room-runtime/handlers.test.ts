@@ -89,12 +89,11 @@ test('canonical Room handler refuses origin, identity and claimed principal befo
   });
 });
 
-test('room and round reads name the realtime endpoint their doorbells ring on', async () => {
+test('room reads name the realtime endpoint their doorbell rings on', async () => {
   const handlers = (websocketEndpoint: string | null) =>
     createRoomHandlers({
       ...dependencies(member, {
         view: async () => ({ id }),
-        roundView: async () => ({ id }),
         catalog: async () => [],
         castChoices: async () => [],
       }),
@@ -109,15 +108,14 @@ test('room and round reads name the realtime endpoint their doorbells ring on', 
     response.headers.get('x-realtime-socket-url');
   assert({
     given:
-      'room, round and catalog reads with realtime configured, and a room read without it',
-    should: 'name the endpoint on the room and round reads only',
+      'room and catalog reads with realtime configured, and a room read without it',
+    should: 'name the endpoint on the room read only',
     actual: [
       header(await configured.read(read(`/api/rooms/${id}`), id)),
-      header(await configured.roundRead(read(`/api/rounds/${id}`), id)),
       header(await configured.catalog(read('/api/rooms/catalog'))),
       header(await unconfigured.read(read(`/api/rooms/${id}`), id)),
     ],
-    expected: [endpoint, endpoint, null, null],
+    expected: [endpoint, null, null],
   });
 });
 
@@ -250,28 +248,5 @@ test('a member over the create limit gets 429 and no Room (ISSUE-205)', async ()
       'answer 429 from the per-member create key, before any validation, and create nothing',
     actual: [response.status, keys, created.length],
     expected: [429, [`room:create:${id}`], 0],
-  });
-});
-
-test('authorized Round reads stamp the injected clock without changing the response body', async () => {
-  const deps = dependencies(member, { roundView: async () => ({ id }) });
-  const handlers = createRoomHandlers({
-    ...deps,
-    clock: fixedClock('2026-11-01T12:34:56.789Z'),
-  });
-  const response = await handlers.roundRead(
-    new Request(`${origin}/api/rounds/${id}`, { headers: { origin } }),
-    id,
-  );
-  assert({
-    given: 'a canonical authorized Round read',
-    should:
-      'return precise injected server timing beside the unchanged projection',
-    actual: [
-      response.status,
-      response.headers.get('x-server-now-ms'),
-      await response.json(),
-    ],
-    expected: [200, String(Date.parse('2026-11-01T12:34:56.789Z')), { id }],
   });
 });

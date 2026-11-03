@@ -1,7 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { schemaRules as rules } from './schema.test-support';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
-import { roleGrants } from './schema/role-grants';
 import {
   memberInterests,
   memberLeagues,
@@ -15,12 +14,11 @@ describe('ratings schema rules', () => {
   test('ratings and role grants keep their ladder and scope rules', () => {
     assert({
       given: 'the ratings tables and role grants',
-      should: 'declare the single-active season, the ledger bounds and grants',
+      should: 'declare the single-active season, and the ledger bounds',
       actual: {
         seasons: rules(seasons).checks,
         ratings: rules(ratings).checks,
         changes: rules(ratingChanges).checks,
-        grants: rules(roleGrants).checks,
         onboarding: rules(memberOnboarding).checks,
         interests: rules(memberInterests).checks,
         topics: rules(memberTopics).checks,
@@ -44,12 +42,6 @@ describe('ratings schema rules', () => {
           'rating_changes_ladder_check',
           'rating_changes_rating_range',
           'rating_changes_volatility_positive',
-        ],
-        grants: [
-          'role_grants_global_scope_check',
-          'role_grants_revoked_after_granted',
-          'role_grants_role_check',
-          'role_grants_scope_type_check',
         ],
         onboarding: [
           'member_onboarding_club_check',

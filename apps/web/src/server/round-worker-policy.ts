@@ -85,3 +85,36 @@ export function botAdmissionOptions(config: {
     },
   };
 }
+
+/** The AI seats a deployment can actually serve; a Room offers no other. */
+export type AiSeatAvailability = {
+  readonly debater: boolean;
+  readonly judge: boolean;
+};
+
+/**
+ * Each seat from its own key, policy and capacity (ISSUE-1017). A key alone
+ * serves neither: without a policy no worker runs the seat, and a bot debater
+ * also needs the busy cap its Launch is admitted under.
+ */
+export function aiSeatAvailability(
+  config: Pick<
+    ServerConfig,
+    | 'OPENROUTER_API_KEY'
+    | 'COMPETITIVE_PROVIDER_CONCURRENCY'
+    | 'ROUND_BOT_WORKER_POLICY'
+    | 'ROUND_JUDGING_POLICY'
+    | 'AI_ROUND_BUSY_CAP'
+  >,
+): AiSeatAvailability {
+  const provider =
+    Boolean(config.OPENROUTER_API_KEY) &&
+    config.COMPETITIVE_PROVIDER_CONCURRENCY !== undefined;
+  return {
+    debater:
+      provider &&
+      config.ROUND_BOT_WORKER_POLICY !== undefined &&
+      config.AI_ROUND_BUSY_CAP !== undefined,
+    judge: provider && config.ROUND_JUDGING_POLICY !== undefined,
+  };
+}
