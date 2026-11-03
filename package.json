@@ -24,7 +24,7 @@
     "start": "bun run --cwd apps/web start",
     "typecheck": "bun scripts/heavy.ts turbo run typecheck",
     "lint": "bun scripts/heavy.ts sh -c 'eslint . && bun scripts/check-boundaries.ts && bun scripts/check-styling.ts && bun test --timeout 180000 eslint.config.test.ts'",
-    "knip": "bun scripts/heavy.ts sh -c 'bunx --bun knip && bunx --bun knip --config knip.production.jsonc --production --include files --workspace apps/web'",
+    "knip": "bun scripts/heavy.ts sh -c 'bunx --bun knip; first=$?; bunx --bun knip --config knip.production.jsonc --production --include files --workspace apps/web && exit $first'",
     "duplication": "bun scripts/heavy.ts bun scripts/duplication.ts",
     "metrics": "bun scripts/metrics.ts",
     "metrics:snapshot": "bun scripts/metrics.ts --append",
