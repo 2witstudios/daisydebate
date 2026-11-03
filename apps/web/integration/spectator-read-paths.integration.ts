@@ -11,6 +11,7 @@ import { SPECTATOR_MARGIN_MS, spectatorTimelineSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readLadder } from '../src/features/leaderboard/read-leaderboard';
+import { audienceLinkHash } from '../src/features/audience-link/audience-link';
 import { getNotifications } from '../src/features/notifications/get-notifications';
 import { readProfile } from '../src/features/profile/read-profile';
 import { readMemberStandings } from '../src/features/ratings/read-member';
@@ -79,7 +80,7 @@ test('every public and member read holds a ranked outcome until release', async 
       // No seat in this Round: the fixture's outsider judges it.
       const stranger = { userId: createId(), actorId: createId() };
 
-      const timelineResponse = async () => {
+      const timelineResponse = async (cookie?: string) => {
         const fresh = createSpectatorTimelineHandlers({
           feedUrlOf: () => null,
           logger: silentLogger,
@@ -88,7 +89,9 @@ test('every public and member read holds a ranked outcome until release', async 
           clock: { now: () => now },
         });
         return fresh.GET(
-          new Request(`http://localhost/api/rounds/${roundId}/timeline`),
+          new Request(`http://localhost/api/rounds/${roundId}/timeline`, {
+            headers: cookie ? { cookie } : {},
+          }),
           roundId!,
         );
       };
@@ -248,20 +251,28 @@ test('every public and member read holds a ranked outcome until release', async 
           ladderEntries: 1,
         },
       });
-      await f.sql`update rounds set visibility='unlisted' where id=${roundId}`;
-      const unlisted = await timelineResponse();
-      await f.sql`update rounds set visibility='private' where id=${roundId}`;
+      const token = 'A'.repeat(43);
+      await f.sql`update rounds set visibility='unlisted', audience_link_hash=${audienceLinkHash(token)} where id=${roundId}`;
+      const noLink = await timelineResponse();
+      const unlisted = await timelineResponse(
+        `daisy_audience_link_${roundId}=${token}`,
+      );
+      await f.sql`update rounds set visibility='private', audience_link_hash=null where id=${roundId}`;
       const hidden = await timelineResponse();
       await f.sql`update rounds set visibility='public' where id=${roundId}`;
       assert({
-        given: 'an unlisted Round by its link, then a private Round',
-        should: 'serve the first unindexed and admit no audience to the second',
+        given:
+          'an unlisted Round with no link, then by its link, then a private Round',
+        should:
+          'admit only the link, unindexed and uncached, and no audience to the last',
         actual: [
+          noLink.status,
           unlisted.status,
           unlisted.headers.get('X-Robots-Tag'),
+          unlisted.headers.get('Cache-Control'),
           hidden.status,
         ],
-        expected: [200, 'noindex', 404],
+        expected: [404, 200, 'noindex', 'no-store', 404],
       });
       assert({
         given: 'the watermark past the outcome by the margin',
