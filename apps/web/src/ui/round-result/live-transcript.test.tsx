@@ -189,16 +189,24 @@ test('a completed transcript says where a speech was partial, even a speech with
   });
 });
 
+const withReasons = (partialReasons: readonly string[]) => ({
+  ...read('partial'),
+  streams: read('partial').streams.map((stream) => ({
+    ...stream,
+    partialReasons: [...partialReasons],
+  })),
+});
+
 test('a partial speech with no gap says part of it was lost', () => {
   const html = renderToString(
     h(TranscriptContent, {
-      sections: [liveTranscriptSections(read('partial'))[0]!],
+      sections: [liveTranscriptSections(withReasons(['frames-lost']))[0]!],
       empty: '',
     }),
   );
   const gapped = liveTranscriptSections({
-    ...read('partial'),
-    streams: read('partial').streams.map((stream) => ({
+    ...withReasons(['frames-lost']),
+    streams: withReasons(['frames-lost']).streams.map((stream) => ({
       ...stream,
       gaps: [{ fromOffsetMs: 1000, untilOffsetMs: 2000 }],
     })),
@@ -208,6 +216,32 @@ test('a partial speech with no gap says part of it was lost', () => {
     should: 'say a part was lost only where no gap can say where',
     actual: [html.includes('part of this speech was lost'), gapped.losses],
     expected: [true, []],
+  });
+});
+
+test('a partial stream with no evidence of loss claims none', () => {
+  const silent = liveTranscriptSections(withReasons(['never-sealed']))[0]!;
+  const seat = completed.transcript!.utterances[0]!.roundParticipantId;
+  const sections = transcriptSections({
+    ...completed,
+    transcript: {
+      ...completed.transcript!,
+      utterances: [],
+      gaps: [],
+      partialStreams: [
+        {
+          segmentId: completed.round.segments[0]!.id,
+          roundParticipantId: seat,
+          reasons: ['never-sealed'],
+        },
+      ],
+    },
+  });
+  assert({
+    given: 'a silent bot turn, sealed never, live and completed',
+    should: 'state no lost speech and add no section for it',
+    actual: [silent.losses, sections],
+    expected: [[], []],
   });
 });
 
