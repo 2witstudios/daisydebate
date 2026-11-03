@@ -109,7 +109,7 @@ describe('round runtime command refusals and seat order', () => {
     });
     assert({
       given: 'the refused premature prep',
-      should: 'preserve the scheduled checkpoint',
+      should: 'keep its checkpoint',
       actual: world.checkpoint(),
       expected: before,
     });

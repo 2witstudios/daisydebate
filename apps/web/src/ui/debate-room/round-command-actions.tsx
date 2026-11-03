@@ -89,11 +89,10 @@ export function CommandForm({
 }
 /** A refused strike means nothing once the strike is over; other answers stay. */
 export const shownError = (
-  answer: Pick<RoundFormState, 'values' | 'error'>,
+  answer: Pick<RoundFormState, 'strikeRefused' | 'error'>,
   view: Pick<RoundView, 'opening'>,
 ) =>
-  answer.values.type === 'strike_resolution' &&
-  view.opening?.step.step !== 'strike'
+  answer.strikeRefused && view.opening?.step.step !== 'strike'
     ? undefined
     : answer.error;
 
@@ -141,7 +140,7 @@ export function RoundCommandActions({
   }, [answer, onAnswer]);
   useFocusAfterAnswer(
     answer,
-    answer.error ? feedback : `${control}-${answer.values.type}`,
+    shownError(answer, view) ? feedback : `${control}-${answer.values.type}`,
     !pending,
   );
   const actions = !answer.unacknowledged ? (

@@ -4,6 +4,8 @@ import { mockNextRouter } from '../../lib/testing/mock-router';
 setupRitewayBun();
 mockNextRouter();
 const { CommandForm, shownError } = await import('./round-command-actions');
+const { roundCommandUnavailable, submitRoundForm } =
+  await import('../../features/round-runtime/command-form');
 
 const intent = {
   type: 'yield' as const,
@@ -56,28 +58,42 @@ test('a confirmation confirms the round the debater sees now (ISSUE-838)', () =>
   });
 });
 
-test('a refused strike says so only while the strike is still open', () => {
-  const refused = {
-    values: { type: 'strike_resolution' },
-    error: 'Someone struck first',
+test('a refused strike says so only while the strike is open; a lost answer always does', async () => {
+  const id = 'a'.repeat(24);
+  const form = (type: string, fields: Record<string, string> = {}) => {
+    const posted = new FormData();
+    for (const [name, value] of Object.entries({
+      version: '1',
+      commandId: id,
+      expectedVersion: '3',
+      type,
+      participantId: id,
+      ...fields,
+    }))
+      posted.set(name, value);
+    return posted;
   };
+  const strike = form('strike_resolution', { ordinal: '0', position: '1' });
+  const refusedBy = async (type: FormData) =>
+    submitRoundForm(async () => new Response('{}', { status: 409 }), id, type);
+  const refused = await refusedBy(strike);
+  const yielded = await refusedBy(form('yield', { confirmed: 'true' }));
+  const lost = roundCommandUnavailable(strike);
   const opening = (step: 'strike' | 'prep') =>
     ({ opening: { step: { step } } }) as Parameters<typeof shownError>[1];
   assert({
     given:
-      'a refused strike, on the strike step and then in prep, and a refused yield',
+      'a refused strike on the strike step, in prep and in the debate; a refused yield; and a strike whose answer was lost',
     should:
-      'show the strike refusal only on the strike step, and the other always',
+      'show the strike refusal only on the strike step, and the others wherever the round is',
     actual: [
       shownError(refused, opening('strike')),
       shownError(refused, opening('prep')),
       shownError(refused, { opening: null }),
-      shownError(
-        { values: { type: 'yield' }, error: 'Refused' },
-        { opening: null },
-      ),
+      shownError(yielded, { opening: null }) === yielded.error,
+      shownError(lost, opening('prep')) === lost.error,
     ],
-    expected: ['Someone struck first', undefined, undefined, 'Refused'],
+    expected: [refused.error, undefined, undefined, true, true],
   });
 });
 
