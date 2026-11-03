@@ -94,7 +94,6 @@ export const assemblySnapshot = {
   topic: 'Persisted debate topic',
   visibility: 'unlisted',
   hostActorId: 'o'.repeat(24),
-  hostInherited: false,
   hostLabel: 'Host member',
   botAdmission: null,
   status: 'assembling',
