@@ -4,9 +4,12 @@ import { readBroadcastRoom } from './broadcast-operations';
 import { readEntitlementGrants } from './entitlement-grants';
 import {
   discardRecordingSources,
+  listProcessingRecordingsUnalerted,
+  markRecordingDelayAlerted,
   listUnsettledRecordingJobs,
   openRecordingJob,
   queueRecordingJob,
+  readRecordingJobState,
   recordingSourcesRemain,
 } from './recording-processing-operations';
 import { launchedRoundRows } from './room-read-operations';
@@ -248,4 +251,10 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
   sourcesRemain: (recordingId: string) =>
     recordingSourcesRemain(database, recordingId),
   listJobs: (limit: number) => listUnsettledRecordingJobs(database, limit),
+  listProcessingUnalerted: (limit: number) =>
+    listProcessingRecordingsUnalerted(database, limit),
+  markDelayAlerted: (input: Parameters<typeof markRecordingDelayAlerted>[1]) =>
+    markRecordingDelayAlerted(database, input),
+  readJobState: (recordingId: string) =>
+    readRecordingJobState(database, recordingId),
 });

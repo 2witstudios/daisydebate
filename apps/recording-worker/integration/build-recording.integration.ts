@@ -1,3 +1,4 @@
+import type { RecordingBuildProgress } from '@daisy/protocol';
 import { afterAll } from 'bun:test';
 import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -57,6 +58,7 @@ const setup = async (name: string) => {
   const workDir = join(root, name, 'work');
   await mkdir(hold, { recursive: true });
   await mkdir(recordings, { recursive: true });
+  const progressSeen: RecordingBuildProgress[] = [];
   const ports: BuildPorts = {
     hold: {
       readText: async (key) => {
@@ -83,11 +85,12 @@ const setup = async (name: string) => {
     },
     files: localFiles,
     run: runCommand(new AbortController().signal),
+    progress: (progress) => progressSeen.push(progress),
     slatePath,
     workDir,
     now: () => '2026-11-03T11:00:00.000Z',
   };
-  return { hold, recordings, ports };
+  return { hold, recordings, ports, progressSeen };
 };
 
 /** Egress's own layout: 4 s TS segments and a timed playlist under the attempt. */
@@ -160,7 +163,7 @@ const greenAt = async (path: string, seconds: number) => {
 };
 
 test('a crashed attempt, a gap and a clean attempt become one honest video', async () => {
-  const { hold, recordings, ports } = await setup('restart');
+  const { hold, recordings, ports, progressSeen } = await setup('restart');
   // Attempt 1 crashed: segments only, no whole file. 8 s of media.
   await holdSegments(join(hold, 'hold/b/1'), T0, 8);
   // 12 s lost. Attempt 2 finished cleanly: a whole file and its playlist. 8 s.
@@ -175,6 +178,26 @@ test('a crashed attempt, a gap and a clean attempt become one honest video', asy
   if (state.status !== 'built') throw new Error(`state ${state.status}`);
   const { media } = state;
   const video = join(recordings, 'recordings/rec/video.mp4');
+  const encoding = progressSeen.filter(({ step }) => step === 'encoding');
+  assert({
+    given: 'a real ffmpeg build',
+    should: 'report every step in order, and encoded video counting up',
+    actual: [
+      [...new Set(progressSeen.map(({ step }) => step))],
+      encoding.length > 0,
+      encoding.every(
+        ({ done, total }, index) =>
+          done <= total && done >= (encoding[index - 1]?.done ?? 0),
+      ),
+      Math.abs((encoding.at(-1)?.done ?? 0) - media.durationMs) < 1000,
+    ],
+    expected: [
+      ['reading', 'composing', 'encoding', 'uploading', 'verifying'],
+      true,
+      true,
+      true,
+    ],
+  });
   assert({
     given: 'two attempts with 12 s between them',
     should: 'state the gap at its real place, in video time',

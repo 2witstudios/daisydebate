@@ -67,6 +67,8 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
     readTranscript: (roundId) =>
       app.database.readRecordingTranscript(roundId, captureRule),
     readBallots: app.database.readRecordingBallots,
+    readJobState: app.database.recordingCaptures.readJobState,
+    nowMs: () => Date.parse(app.clock.now()),
     holdsRecordingDownload: holdsRecordingDownload({
       readGrants: app.database.recordingCaptures.readAccountGrants,
       betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,

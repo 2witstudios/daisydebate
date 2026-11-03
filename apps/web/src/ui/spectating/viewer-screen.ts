@@ -21,6 +21,7 @@ export type ViewerScreen =
   | {
       readonly kind: 'ended';
       readonly recording: SpectatorTimeline['recording'];
+      readonly preparation?: SpectatorTimeline['recordingPreparation'];
     };
 
 export type ViewerPlayback = {
@@ -41,8 +42,12 @@ export const viewerScreenOf = (
   timeline: SpectatorTimeline,
   playback: ViewerPlayback,
 ): ViewerScreen => {
-  const { broadcast, stage, recording } = timeline;
-  const ended = { kind: 'ended', recording } as const;
+  const { broadcast, stage, recording, recordingPreparation } = timeline;
+  const ended = {
+    kind: 'ended',
+    recording,
+    ...(recordingPreparation ? { preparation: recordingPreparation } : {}),
+  } as const;
   switch (broadcast.state) {
     case 'stopped':
       return { kind: 'stopped' };

@@ -1,3 +1,8 @@
+import {
+  recordingPreparationOf,
+  type RecordingJobState,
+  type RecordingPreparation,
+} from '@daisy/protocol';
 import type { RecordingMedia } from '@daisy/protocol';
 import { UNDRAWN_RESOLUTION } from './archive';
 import { resultHeadline } from './archive';
@@ -47,6 +52,11 @@ export type HistoryBallot = {
 };
 
 export type HistoryInputs = {
+  /** The processing job's state, read only to say how far a build is. */
+  readonly nowMs: () => number;
+  readonly readJobState: (
+    recordingId: string,
+  ) => Promise<RecordingJobState | null>;
   readonly readHistoryRound: (roundId: string) => Promise<HistoryRound | null>;
   readonly readBroadcastRelease: (roundId: string) => Promise<BroadcastRelease>;
   readonly readTranscript: (
@@ -99,7 +109,14 @@ export type RecordingMediaPanel =
         readonly endMs: number;
       }[];
     }
-  | { readonly state: Exclude<RecordingMediaState, 'watch'> | 'withheld' };
+  | {
+      readonly state: 'processing';
+      readonly preparation: RecordingPreparation | null;
+    }
+  | {
+      readonly state:
+        Exclude<RecordingMediaState, 'watch' | 'processing'> | 'withheld';
+    };
 
 export type RecordingHistoryScreen =
   | { readonly kind: 'unavailable' }
@@ -191,14 +208,20 @@ const mediaPanel = (
   round: HistoryRound,
   record: RecordingRecord | null,
   mayWatch: boolean,
+  job: RecordingJobState | null,
+  nowMs: number,
 ): RecordingMediaPanel => {
-  if (record?.lifecycle.status !== 'ready')
+  if (record?.lifecycle.status !== 'ready') {
+    const state = recordingMediaState(record?.lifecycle.status ?? null);
+    if (state === 'processing' && record)
+      return {
+        state,
+        preparation: recordingPreparationOf(record.lifecycle, job, nowMs),
+      };
     return {
-      state: recordingMediaState(record?.lifecycle.status ?? null) as Exclude<
-        RecordingMediaState,
-        'watch'
-      >,
+      state: state as Exclude<RecordingMediaState, 'watch' | 'processing'>,
     };
+  }
   if (!mayWatch) return { state: 'withheld' };
   const { media } = record.lifecycle;
   const speaker = (id: string) => {
@@ -303,7 +326,15 @@ export const openRecordingHistory = async (
     ranked: round.competitionType === 'ranked',
     date: new Date(round.completedAtMs).toISOString().slice(0, 10),
     visibility: round.visibility,
-    media: mediaPanel(round, record, permissions.media),
+    media: mediaPanel(
+      round,
+      record,
+      permissions.media,
+      record && state === 'processing'
+        ? await inputs.readJobState(record.id)
+        : null,
+      inputs.nowMs(),
+    ),
     transcript: transcript && transcriptPanel(round, transcript, input.q),
     result: ballots && resultPanel(round, ballots),
     ...recordingActions({

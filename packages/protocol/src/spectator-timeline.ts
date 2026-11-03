@@ -1,3 +1,4 @@
+import { recordingPreparationSchema } from './recording-processing';
 import { z } from 'zod';
 import { ballotScoresSchema } from './ballot';
 import { debateSideSchema, idSchema } from './primitives';
@@ -59,7 +60,9 @@ export const spectatorTimelineSchema = z.strictObject({
   mode: z.enum(['ranked', 'casual']),
   broadcast: broadcastStandingSchema,
   /** The Round's Recording once its end is released; `none` until then. */
-  recording: z.enum(['none', 'processing', 'ready']),
+  recording: z.enum(['none', 'processing', 'ready', 'failed']),
+  /** Present while `recording` is `processing`: what is happening to it now. */
+  recordingPreparation: recordingPreparationSchema.optional(),
   resolution: z.string().nullable(),
   seats: z.array(
     z.strictObject({

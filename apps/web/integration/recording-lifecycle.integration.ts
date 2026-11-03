@@ -168,6 +168,8 @@ test('an unlisted Recording opens only past its current link', async () => {
         inputs.readRound(roundId).then((round) =>
           openRecordingHistory(
             {
+              readJobState: async () => null,
+              nowMs: () => nowMs,
               readHistoryRound: async () => ({
                 ...round!,
                 title: 'Round',
@@ -472,6 +474,8 @@ test('history reads the real Round and offers each panel on its own permission',
       const open = (viewer: RecordingViewer) =>
         openRecordingHistory(
           {
+            readJobState: async () => null,
+            nowMs: () => nowMs,
             readHistoryRound: async () => ({
               ...round,
               title: 'Round',

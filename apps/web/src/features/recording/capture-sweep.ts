@@ -6,6 +6,7 @@ import {
 } from '@daisy/debate-engine';
 import {
   holdAttemptPrefix,
+  recordingBuildDelayed,
   recordingHoldPrefix,
   type BuiltRecordingMedia,
   type EntitlementGrant,
@@ -36,6 +37,8 @@ type Store = Pick<
   | 'queueJob'
   | 'discardSources'
   | 'listJobs'
+  | 'listProcessingUnalerted'
+  | 'markDelayAlerted'
 >;
 type Open = Awaited<ReturnType<Store['listOpen']>>[number];
 
@@ -44,7 +47,8 @@ export type RecordingCaptureEvent =
   | 'recording.egress.start_failed'
   | 'recording.egress.stop_failed'
   | 'recording.observer.restore_failed'
-  | 'recording.observer.revoke_retry_failed';
+  | 'recording.observer.revoke_retry_failed'
+  | 'recording.processing_delayed';
 
 type Egress = {
   readonly start: (input: {
@@ -344,6 +348,20 @@ export const createRecordingCaptureSweep = (deps: {
       await work(item).catch(() => deps.report('recording.capture_failed'));
   };
 
+  /** Tells an operator once. The build carries on: a timer fails nothing. */
+  const alertIfDelayed = async ({
+    id,
+    lifecycle,
+  }: Awaited<ReturnType<Store['listProcessingUnalerted']>>[number]) => {
+    const nowMs = deps.now();
+    if (
+      lifecycle.status === 'processing' &&
+      recordingBuildDelayed(lifecycle.capture, nowMs) &&
+      (await store.markDelayAlerted({ recordingId: id, at: new Date(nowMs) }))
+    )
+      deps.report('recording.processing_delayed');
+  };
+
   return async () => {
     await eachSafely(await store.discoverUnrecorded(BATCH), async (round) => {
       if (!plannedRecording(round)) return;
@@ -357,5 +375,9 @@ export const createRecordingCaptureSweep = (deps: {
     });
     await eachSafely(await store.listOpen(BATCH), reconcile);
     await eachSafely(await store.listJobs(BATCH), answerJob);
+    await eachSafely(
+      await store.listProcessingUnalerted(BATCH),
+      alertIfDelayed,
+    );
   };
 };

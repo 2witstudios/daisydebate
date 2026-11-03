@@ -31,6 +31,7 @@ const casualOwn = {
 };
 
 const setup = (over: {
+  readonly processing?: readonly unknown[];
   readonly open?: readonly unknown[];
   readonly jobs?: readonly unknown[];
   readonly unrecorded?: readonly unknown[];
@@ -65,6 +66,8 @@ const setup = (over: {
       openJob: log('openJob'),
       queueJob: log('queueJob'),
       discardSources: log('discardSources'),
+      listProcessingUnalerted: async () => over.processing ?? [],
+      markDelayAlerted: log('markDelayAlerted', true),
     } as never,
     port: {
       request: log('request'),
@@ -267,5 +270,39 @@ describe('answers to the worker', () => {
       actual: calls,
       expected: [['queueJob', { recordingId: 'rec', attemptCount: 2 }]],
     });
+  });
+});
+
+test('a build past its bound alerts an operator once, and fails nothing', async () => {
+  const processing = (endedAtMs: number) => ({
+    id: 'rec',
+    lifecycle: {
+      status: 'processing',
+      capture: {
+        source: { kind: 'own_capture' },
+        // An 80 minute capture: half of it plus five minutes is 45 minutes.
+        startedAt: new Date(endedAtMs - 80 * 60_000).toISOString(),
+        attempts: [],
+        endedAt: new Date(endedAtMs).toISOString(),
+      },
+    },
+  });
+  const names = (calls: unknown[][]) =>
+    calls.map(([name, event]) => (name === 'report' ? event : name));
+  const within = setup({ processing: [processing(NOW - 45 * 60_000)] });
+  await within.sweep();
+  assert({
+    given: 'an 80 minute capture exactly at its 45 minute bound',
+    should: 'say nothing',
+    actual: names(within.calls),
+    expected: [],
+  });
+  const past = setup({ processing: [processing(NOW - 45 * 60_000 - 1)] });
+  await past.sweep();
+  assert({
+    given: 'the same capture just past it',
+    should: 'mark and alert, and never report the Recording failed',
+    actual: names(past.calls),
+    expected: ['markDelayAlerted', 'recording.processing_delayed'],
   });
 });

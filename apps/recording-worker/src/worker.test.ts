@@ -1,7 +1,12 @@
 import type { RecordingJobState } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { RecordingVerificationError } from './build-recording';
-import { afterBuildFailure, retryDelayMs, runWorker } from './worker';
+import {
+  afterBuildFailure,
+  progressIsNews,
+  retryDelayMs,
+  runWorker,
+} from './worker';
 
 setupRitewayBun();
 
@@ -58,6 +63,7 @@ const runOne = async (
       }
     },
     store: {
+      recordProgress: async () => {},
       claim: async () => {
         claimed += 1;
         return claimed === 1 ? job : null;
@@ -232,6 +238,24 @@ describe('a job taken away mid-build', () => {
         (calls.deferred[0] as { failed: boolean }).failed,
       ],
       expected: [[true], [], [], false],
+    });
+  });
+});
+
+describe('progressIsNews', () => {
+  test('writes a new step at once, and a step in progress only now and then', () => {
+    const last = { step: 'encoding', atMs: 1000 };
+    assert({
+      given:
+        'nothing written, a new step, a moment later, and five seconds later',
+      should: 'write, write, skip, write',
+      actual: [
+        progressIsNews(null, 'encoding', 0),
+        progressIsNews(last, 'uploading', 1001),
+        progressIsNews(last, 'encoding', 1001),
+        progressIsNews(last, 'encoding', 6000),
+      ],
+      expected: [true, true, false, true],
     });
   });
 });

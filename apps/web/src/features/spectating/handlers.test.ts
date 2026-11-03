@@ -87,6 +87,8 @@ describe('spectator timeline route', () => {
       ratings: [],
       captions: [],
       recordingStatus: null,
+      recordingLifecycle: null,
+      recordingJob: null,
     });
     const unlistedRoute = () => {
       const world = {

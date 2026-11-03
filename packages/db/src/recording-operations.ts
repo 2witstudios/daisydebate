@@ -169,6 +169,8 @@ export const recordingOperations = ({
       .where(
         and(
           eq(recordings.status, 'failed'),
+          // A ranked Recording is kept forever: no timer removes what it left.
+          eq(recordings.recordingClass, 'casual'),
           lte(recordings.updatedAt, new Date(input.before)),
         ),
       )

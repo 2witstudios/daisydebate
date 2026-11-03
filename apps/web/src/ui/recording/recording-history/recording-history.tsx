@@ -6,6 +6,8 @@ import { buttonClass } from '../../components/button/button-class';
 import { CopyLink } from '../../watch/copy-link/copy-link';
 import { StateCard } from '../../watch/state-card/state-card';
 import { RecordingPlayer } from '../recording-player/recording-player';
+import { RecordingPreparationStatus } from '../recording-preparation/recording-preparation';
+import { RefreshWhilePreparing } from '../recording-preparation/refresh-while-preparing';
 
 type History = Extract<RecordingHistoryScreen, { kind: 'history' }>;
 
@@ -33,7 +35,6 @@ const VISIBILITY: Readonly<Record<History['visibility'], string>> = {
 };
 
 const mediaStates = {
-  processing: ['clock', 'The video is being prepared'],
   failed: ['alert', 'The video could not be saved'],
   not_recorded: ['play', 'This debate was not recorded'],
   removed: ['alert', 'This video is no longer available'],
@@ -42,6 +43,15 @@ const mediaStates = {
 
 function Media({ media }: { media: History['media'] }) {
   if (media.state === 'watch') return <RecordingPlayer media={media} />;
+  if (media.state === 'processing')
+    return (
+      <>
+        <RefreshWhilePreparing />
+        <StateCard icon="clock" title="The video is being prepared">
+          <RecordingPreparationStatus preparation={media.preparation} />
+        </StateCard>
+      </>
+    );
   const [icon, title] = mediaStates[media.state];
   return <StateCard icon={icon} title={title} />;
 }

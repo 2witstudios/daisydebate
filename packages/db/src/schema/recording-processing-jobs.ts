@@ -36,6 +36,8 @@ export const recordingProcessingJobs = pgTable(
     dueAt: timestampColumn('due_at'),
     leaseOwner: text('lease_owner'),
     leaseUntil: timestampColumn('lease_until'),
+    /** An operator was told this build ran past its bound; told once, not each pass. */
+    delayAlertedAt: timestampColumn('delay_alerted_at'),
     /** Rises with every claim, so a slower former owner can write nothing. */
     leaseEpoch: integer('lease_epoch').notNull().default(0),
     createdAt: createdAtColumn(),

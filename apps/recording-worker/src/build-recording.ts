@@ -2,6 +2,7 @@ import {
   holdAttemptPrefix,
   parseHoldPlaylist,
   type BuiltRecordingMedia,
+  type RecordingBuildProgress,
   type RecordingJobState,
 } from '@daisy/protocol';
 import {
@@ -48,8 +49,16 @@ export type BuildPorts = {
     /** Every file under a directory, relative to it, with its size. */
     readonly list: (dir: string) => Promise<ReadonlyMap<string, number>>;
   };
-  /** Runs a command; a non-zero exit rejects. */
-  readonly run: (command: readonly string[]) => Promise<string>;
+  /**
+   * Runs a command; a non-zero exit rejects. `onEncodedMs` hears how much video an
+   * ffmpeg asked for `-progress` has written so far.
+   */
+  readonly run: (
+    command: readonly string[],
+    onEncodedMs?: (encodedMs: number) => void,
+  ) => Promise<string>;
+  /** How far the build really is. Reporting never fails or slows it. */
+  readonly progress: (progress: RecordingBuildProgress) => void;
   readonly slatePath: string;
   readonly workDir: string;
   readonly now: () => string;
@@ -156,26 +165,46 @@ const readAttempt = async (
     : null;
 };
 
+/** ffmpeg's own count of what it has written, held to the length it is writing. */
+const encodingProgress =
+  (ports: BuildPorts, step: 'composing' | 'encoding', totalMs: number) =>
+  (encodedMs: number) =>
+    ports.progress({
+      step,
+      done: Math.min(encodedMs, totalMs),
+      total: totalMs,
+    });
+
 const buildDownload = async (
   ports: BuildPorts,
   coverage: Coverage,
   output: string,
 ) => {
   const [only] = coverage.parts;
-  await ports.run(
-    coverage.parts.length === 1 && only?.kind === 'media'
-      ? remuxArgs(only.piece.path, output)
-      : joinTimelineArgs(coverage.parts, ports.slatePath, output),
-  );
+  if (coverage.parts.length === 1 && only?.kind === 'media')
+    await ports.run(remuxArgs(only.piece.path, output));
+  else
+    await ports.run(
+      joinTimelineArgs(coverage.parts, ports.slatePath, output),
+      encodingProgress(ports, 'composing', coverage.durationMs),
+    );
   const found = await probe(ports, output);
   if (!found) throw new RecordingVerificationError('download_unreadable');
   return found;
 };
 
-const buildHls = async (ports: BuildPorts, input: string, dir: string) => {
+const buildHls = async (
+  ports: BuildPorts,
+  input: string,
+  dir: string,
+  durationMs: number,
+) => {
   for (const { name } of RECORDING_RENDITIONS)
     await ports.files.makeDir(`${dir}/${name}`);
-  await ports.run(hlsArgs(input, dir));
+  await ports.run(
+    hlsArgs(input, dir),
+    encodingProgress(ports, 'encoding', durationMs),
+  );
   await ports.files.write(`${dir}/master.m3u8`, recordingMasterPlaylist());
 };
 
@@ -194,6 +223,11 @@ export const buildRecording = async (
 ): Promise<RecordingJobState> => {
   const pieces: CapturedPiece[] = [];
   for (let attempt = 1; attempt <= job.attemptCount; attempt += 1) {
+    ports.progress({
+      step: 'reading',
+      done: attempt - 1,
+      total: job.attemptCount,
+    });
     const piece = await readAttempt(ports, job.holdPrefix, attempt);
     if (piece) pieces.push(piece);
   }
@@ -209,14 +243,19 @@ export const buildRecording = async (
   const downloadPath = `${outDir}/video.mp4`;
   await ports.files.makeDir(hlsDir);
   const download = await buildDownload(ports, coverage, downloadPath);
-  await buildHls(ports, downloadPath, hlsDir);
+  await buildHls(ports, downloadPath, hlsDir, download.durationMs);
 
   const local = await ports.files.list(outDir);
   const written = new Map(
     [...local].map(([name, size]) => [`${root}${name}`, size] as const),
   );
-  for (const name of local.keys())
+  let uploaded = 0;
+  for (const name of local.keys()) {
+    ports.progress({ step: 'uploading', done: uploaded, total: local.size });
     await ports.recordings.upload(`${root}${name}`, `${outDir}/${name}`);
+    uploaded += 1;
+  }
+  ports.progress({ step: 'verifying', done: 0, total: 1 });
   const stored = await ports.recordings.sizes(root);
   const playlists = Object.fromEntries(
     await Promise.all(

@@ -14,6 +14,7 @@ import {
   type HistoryInputs,
   type HistoryRound,
 } from './history';
+import type { RecordingJobState } from '@daisy/protocol';
 
 setupRitewayBun();
 
@@ -68,6 +69,8 @@ const open = (
     round?: Partial<HistoryRound>;
     release?: BroadcastRelease;
     lifecycle?: RecordingLifecycle | null;
+    job?: RecordingJobState | null;
+    nowMs?: number;
     recordingClass?: 'ranked' | 'casual';
     subscribed?: boolean;
     transcript?: HistoryInputs['readTranscript'];
@@ -94,6 +97,8 @@ const open = (
       return ballots;
     },
     holdsRecordingDownload: async () => over.subscribed ?? false,
+    readJobState: async () => over.job ?? null,
+    nowMs: () => over.nowMs ?? Date.parse(at),
     findRecordingByRound: async () =>
       over.lifecycle === null
         ? null

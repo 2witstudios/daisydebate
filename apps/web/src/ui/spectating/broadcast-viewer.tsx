@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { replayHref, watchRoutes } from '../../features/watch/routes';
 import { ActionLink } from '../watch/action-link/action-link';
+import { RecordingPreparationStatus } from '../recording/recording-preparation/recording-preparation';
 import { StateCard } from '../watch/state-card/state-card';
 import { SpectateRefusal } from '../watch/spectate-refusal/spectate-refusal';
 import { StreamThisRound } from '../broadcast/stream-this-round/stream-this-round';
@@ -36,9 +37,11 @@ const browseRecordings = (
 function EndedCard({
   roundId,
   recording,
+  preparation,
 }: {
   readonly roundId: string;
   readonly recording: SpectatorTimeline['recording'];
+  readonly preparation: SpectatorTimeline['recordingPreparation'];
 }) {
   switch (recording) {
     case 'ready':
@@ -59,6 +62,17 @@ function EndedCard({
           <p>
             The recording is being prepared and opens here when it is ready.
           </p>
+          <RecordingPreparationStatus preparation={preparation} />
+        </StateCard>
+      );
+    case 'failed':
+      return (
+        <StateCard
+          icon="alert"
+          title="This debate has ended"
+          actions={browseRecordings}
+        >
+          <p>The recording of this debate could not be saved.</p>
         </StateCard>
       );
     case 'none':
@@ -142,7 +156,13 @@ function StateInsteadOfPlayer({
         />
       );
     case 'ended':
-      return <EndedCard roundId={roundId} recording={screen.recording} />;
+      return (
+        <EndedCard
+          roundId={roundId}
+          recording={screen.recording}
+          preparation={screen.preparation}
+        />
+      );
   }
 }
 
