@@ -92,7 +92,7 @@ test('a profile shows the real member, their record and history', async ({
     page.getByText('You have no completed rounds yet.'),
   ).toBeVisible();
   await expect(
-    page.getByRole('link', { name: 'Edit profile' }),
+    page.locator('main').getByRole('link', { name: 'Settings', exact: true }),
   ).toHaveAttribute('href', '/settings');
   await expect(page.locator('main').getByText(/\b(rating|elo)\b/i)).toHaveCount(
     0,

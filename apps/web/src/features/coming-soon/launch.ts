@@ -45,17 +45,26 @@ const destinationAreas: ReadonlyMap<string, DestinationSlug> = new Map([
   ['prep', 'prep'],
 ]);
 
+const decodedSegment = (segment: string): string => {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+};
+
 /**
  * The closed destination a path falls under, or null. The proxy answers such a
  * request with the explainer, before any page renders. Empty segments are
- * dropped, so a doubled slash cannot step out of an area.
+ * dropped, so a doubled slash cannot step out of an area, and the segment is
+ * read decoded, as the router matches it, so `/%70rep` is still Prep.
  */
 export const closedDestinationOf = (
   pathname: string,
   config: LaunchConfig = launched,
 ): DestinationSlug | null => {
   const [first = ''] = pathname.split('/').filter((part) => part !== '');
-  const slug = destinationAreas.get(first);
+  const slug = destinationAreas.get(decodedSegment(first));
   return slug !== undefined && !config[slug] ? slug : null;
 };
 
