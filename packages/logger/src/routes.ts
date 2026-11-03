@@ -250,6 +250,7 @@ const appRoutes = [
 const namedRoutes = ['/api/rounds/:id/media/reconcile'];
 
 export const logRoutes: ReadonlySet<string> = new Set([
+  '/api/rounds/[roundId]/timeline',
   '/api/reports',
   '/api/recordings/[recordingId]/download',
   '/api/recordings/[recordingId]/removal',
