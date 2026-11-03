@@ -297,6 +297,7 @@ test('a build reports how far it is, and only its current owner can say so', asy
     await store.queueJob({
       recordingId: id,
       attemptCount: 1,
+      publicIntervals: [],
       ceilingMs: 60_000,
     });
     const job = await claimAt(worker, 'w', FUTURE);

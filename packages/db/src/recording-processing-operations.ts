@@ -1,4 +1,5 @@
 import {
+  publicIntervals,
   recordingJobStateSchema,
   type PublicInterval,
   type RecordingBuildProgress,
@@ -124,12 +125,17 @@ export const requeueRecordingJob = async (
     readonly ceilingMs: number;
   },
 ): Promise<boolean> => {
+  // History may have grown since the first build, so a rebuild asks it again.
+  const history = await readRecordingPublicHistory(tx, input.recordingId);
   const rows = await tx
     .update(jobs)
     .set({
       ...stateColumns({
         status: 'queued',
         attemptCount: input.attemptCount,
+        publicIntervals: [
+          ...publicIntervals(history.segments, history.knownThroughMs),
+        ],
         ceilingMs: input.ceilingMs,
       }),
       failures: 0,
