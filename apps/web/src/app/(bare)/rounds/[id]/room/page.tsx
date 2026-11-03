@@ -6,6 +6,7 @@ import {
   LiveTranscript,
   type TranscriptPlacement,
 } from '../../../../../ui/round-result/live-transcript';
+import { TranscriptSeedRecovery } from '../../../../../ui/round-result/transcript-seed-recovery';
 import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[debateId]/actions';
 import { LiveJudgeRoom } from '../../../../../ui/debate-room/live-judge-room';
 import {
@@ -53,9 +54,12 @@ const transcriptOf = (
     />
   ) : text.kind === 'unavailable' ? (
     // Refusals read as missing; only an outage, never a denial, says this.
-    <p role="status" className="p-4 text-sm">
-      Transcript unavailable. Reload to try again.
-    </p>
+    <TranscriptSeedRecovery
+      key={id}
+      roundId={id}
+      socketUrl={socketUrl}
+      placement={placement}
+    />
   ) : null;
 
 /**
