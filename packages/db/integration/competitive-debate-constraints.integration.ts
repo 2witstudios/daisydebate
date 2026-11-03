@@ -80,6 +80,12 @@ describe('rounds (DATA-2.1)', () => {
           status: 'active',
           current_stage: 'countdown',
         }),
+        activeWithoutResolution: await attempt({
+          status: 'active',
+          current_stage: 'countdown',
+          started_at: at,
+          resolution: null,
+        }),
         activeWithOutcome: await attempt({
           status: 'active',
           current_stage: 'countdown',
@@ -154,6 +160,7 @@ describe('rounds (DATA-2.1)', () => {
         expected: {
           activeWithoutStage: true,
           activeWithoutStart: true,
+          activeWithoutResolution: true,
           activeWithOutcome: true,
           activeWithCompletion: true,
           activeFull: true,

@@ -548,7 +548,7 @@ jobs. CI gate requires every one of them.
 - The publishing job executes no candidate code and alone has checks-write
   permission.
 
-Main, merge-group, scheduled and manual runs use unique per-run concurrency
+Main, scheduled and manual runs use unique per-run concurrency
 groups and never cancel each other. Only a superseded run of the same PR is
 cancelled.
 
@@ -582,10 +582,13 @@ cascades into browser reds.
   (chromium, chromium-mobile, firefox, webkit, webkit-mobile and visual) and
   posts a failure to the drive's Incidents channel.
 - **Isolated Room Launch.** Every run executes it in full.
-- **Spec selection.** `apps/web/e2e/support/room-launch-config.ts` names the
-  native specs, which run only in the Isolated Room Launch job; every other
-  discovered `apps/web/e2e/*.e2e.ts` runs in the ordinary browser job. The
-  zero-discovery, skipped-test and retry guards stay enforced.
+- **Spec selection.** A native spec runs only in the Isolated Room Launch job:
+  name it in both `testMatch` in `apps/web/e2e/support/room-launch-config.ts`
+  and the chromium `testIgnore` in `apps/web/playwright.config.ts`. That
+  `testIgnore` also holds the specs with their own configs (analytics and
+  realtime) and `visual`. Every other discovered `apps/web/e2e/*.e2e.ts` runs in
+  the ordinary browser job. The zero-discovery, skipped-test and retry guards
+  stay enforced.
 
 ### Isolated integration shards (ISSUE-869)
 

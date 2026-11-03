@@ -341,10 +341,14 @@ describe('the report routes (ADR 0103)', () => {
   };
   const head = 'a'.repeat(64);
   test('lists the queue', async () => {
+    const seen: unknown[] = [];
     const { handle } = api({
       store: {
         ...storeOf(),
-        listOperatorReports: async () => [report],
+        listOperatorReports: async (input) => {
+          seen.push(input);
+          return [report];
+        },
       },
     });
     const response = await handle(
@@ -355,10 +359,10 @@ describe('the report routes (ADR 0103)', () => {
       }),
     );
     assert({
-      given: 'an open report',
-      should: 'answer it',
-      actual: [response.status, await response.json()],
-      expected: [200, { items: [report] }],
+      given: 'an open report and a limit',
+      should: 'read with that limit and answer the report',
+      actual: [response.status, await response.json(), seen],
+      expected: [200, { items: [report] }, [{ limit: 1 }]],
     });
   });
   test('a decision carries its length, retention and digest', async () => {

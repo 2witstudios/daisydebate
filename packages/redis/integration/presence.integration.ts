@@ -208,7 +208,7 @@ test('both reads return the Redis server clock they used, never requiring an ins
     });
   }));
 
-test('several actors’ presence and the online count come from live leases', () =>
+test('several actors’ presence comes from live leases', () =>
   withRedis(url, async ({ redis }) => {
     const [active, idle, mixed, offline] = [
       createId(),
