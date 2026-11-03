@@ -17,7 +17,9 @@ export const roundLinkOf = (
   if (!round) return null;
   const inside =
     view.hostActorId === actorId ||
-    view.participants.some((seat) => seat.actorId === actorId);
+    view.participants.some(
+      (seat) => 'actorId' in seat && seat.actorId === actorId,
+    );
   return inside || view.visibility !== 'public'
     ? `/rounds/${round.id}`
     : liveHref(round.id);

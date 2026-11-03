@@ -22,6 +22,7 @@ import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { presentedLinkHash } from '../features/audience-link/audience-link';
 import { readHostedAudienceLink } from '../features/audience-link/issue-link';
 import { readSpectatorTimeline } from '../features/spectating/read-timeline';
+import { followingOf } from '../features/watch/following';
 import type { HubCounts } from '../features/watch/hub-counts';
 import {
   leadingLive,

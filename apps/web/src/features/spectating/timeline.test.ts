@@ -176,14 +176,14 @@ describe('projectSpectatorTimeline', () => {
       horizonMs: horizon(ended),
       segments: [
         {
-          type: 'speech',
+          type: 'speech' as const,
           key: '1AC',
           startedAt: started,
           endedAt: ended,
           durationMs: 100_000,
         },
       ],
-    } as const;
+    };
     assert({
       given: 'the first of two speeches ended on the released video',
       should: 'say the next speech is coming, whatever the Round does live',
