@@ -103,6 +103,30 @@ const requests = {
 } as const;
 const kinds = ['chat', 'reaction', 'follow', 'report'] as const;
 
+describe('audience interaction with no claimed username (WATCH-1)', () => {
+  test('is refused everywhere, before any write', async () => {
+    const { reached, routes } = harness({
+      state: 'provisional',
+      principal: { ...principal, actorId: null },
+    } as Identity);
+    const answers = await Promise.all(
+      kinds.map(async (kind) => {
+        const response = await routes[kind](requests[kind]());
+        return ((await response.json()) as { refusal?: string }).refusal;
+      }),
+    );
+    assert({
+      given: 'a signed-in account that has not claimed a username',
+      should: 'refuse chat, reactions, follows and reports and reach no store',
+      actual: { answers, reached },
+      expected: {
+        answers: kinds.map(() => 'audience-needs-username'),
+        reached: [],
+      },
+    });
+  });
+});
+
 describe('audience interaction by a restricted account (WATCH-1)', () => {
   test('is refused everywhere, before any write', async () => {
     const { reached, routes } = harness(identities['restricted']!);

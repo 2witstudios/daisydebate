@@ -34,12 +34,12 @@ export const createSpectatorChatRoute = (
         operation: 'audience.chat',
         limit: CHAT_LIMIT,
         maxBodyBytes: MAX_BODY_BYTES,
-        refusals: [...spectatorChatRefusals, 'chat-needs-username'],
+        refusals: spectatorChatRefusals,
       },
       async ({ identity, body }) => {
         const { userId, actorId } = identity.principal;
         if (actorId === null)
-          throw createRefusal('CONFLICT', 'chat-needs-username');
+          throw createRefusal('CONFLICT', 'audience-needs-username');
         const post = parseValidated(spectatorChatPostSchema, body);
         const roundId = roundIdOf(request);
         const message = await deps.store.postSpectatorChatMessage(

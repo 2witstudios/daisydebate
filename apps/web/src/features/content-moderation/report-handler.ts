@@ -14,7 +14,7 @@ import {
   requireSameOrigin,
   requireSignedIn,
 } from '../../server/http';
-import { refuseRestricted } from '../../server/account-route';
+import { refuseAudienceInteraction } from '../../server/account-route';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import { presentedLinkHash } from '../audience-link/audience-link';
 import { reportRefusal, type ReportTargetFacts } from './report-eligibility';
@@ -22,6 +22,7 @@ import { reportRefusal, type ReportTargetFacts } from './report-eligibility';
 export const reportRefusals = [
   'report-not-eligible',
   'account-restricted',
+  'audience-needs-username',
 ] as const;
 
 const MAX_BODY_BYTES = 1024;
@@ -72,8 +73,8 @@ export function createReportHandler({
       async (requestId) => {
         requireSameOrigin(request, origin());
         const identity = requireSignedIn(await identify(request));
-        // Interaction needs an account, not admission (owner rule); limits still apply,
-        // and a restricted account is refused below (`refuseRestricted`).
+        // Interaction needs a claimed username, not admission (owner rule); limits apply,
+        // and refuseAudienceInteraction refuses below.
         const { userId, actorId: seatActor } = identity.principal;
         // An account with no actor holds no seat: its user id matches none.
         const actorId = seatActor ?? userId;
@@ -87,7 +88,7 @@ export function createReportHandler({
           await readJson(request, MAX_BODY_BYTES),
         );
         try {
-          refuseRestricted(identity);
+          refuseAudienceInteraction(identity);
           const refusal = reportRefusal(
             report,
             await store.readReportTargetFacts({

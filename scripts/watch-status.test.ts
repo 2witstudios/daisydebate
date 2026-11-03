@@ -47,6 +47,8 @@ const block = (
 </table>`;
 
 const source = `${block('Discovery', '100', 'WATCH-1 WATCH-2')}
+<!-- standing -->
+<div class="cat"><h2>Before production</h2><p class="p">Needs <task>WATCH-2</task>.</p></div>
 <!-- changes -->
 <div class="cat"><table><tr><td class="name">One part</td><td class="tasks"><task>WATCH-1</task></td></tr><tr><td class="name">Another part</td></tr></table></div>
 <!-- reference -->
@@ -306,7 +308,7 @@ describe('renderWatchStatus', () => {
       should: 'throw rather than drop a section',
       actual: thrown(() => render({}, block('Discovery', '100', 'WATCH-1'))),
       expected:
-        'Watch Status source needs the <!-- changes --> and <!-- reference --> markers',
+        'Watch Status source needs the <!-- standing -->, <!-- changes --> and <!-- reference --> markers',
     });
     assert({
       given: 'a Score block in a category this canvas does not have',
@@ -338,8 +340,8 @@ describe('the committed Watch Status source', () => {
       should: 'compute the overall and the furthest three',
       actual: [
         'average of 12 areas',
-        'width:39%',
-        'Furthest from done: Interaction, Discovery, Live player.',
+        'width:49%',
+        'Furthest from done: Recording, Interaction, Moderation.',
         '27 changes needed outside Watch itself.',
       ].every((part) => html.includes(part)),
       expected: true,
@@ -351,6 +353,7 @@ describe('the committed Watch Status source', () => {
         'Audience experience',
         'Broadcast and recording core',
         'Trust and business',
+        'Before production',
         'Other parts of the app to fix',
         'Order of work',
         'Settled requirements',
