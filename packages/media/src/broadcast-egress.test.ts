@@ -119,7 +119,7 @@ test('the observer is hidden, subscribe-only and revocable', async () => {
 });
 
 test('starting writes held media only to the hold prefix and waits for the page', async () => {
-  const calls: any[] = [];
+  const calls: unknown[][] = [];
   const egress = createBroadcastEgress({
     config,
     client: {
@@ -135,7 +135,14 @@ test('starting writes held media only to the hold prefix and waits for the page'
     holdPrefix: 'hold/b1/',
     segmentSeconds: 1,
   });
-  const [url, output, options] = calls[0]!;
+  const [url, output, options] = calls[0]! as [
+    string,
+    {
+      segments: { filenamePrefix: string; segmentDuration: number };
+      file: { filepath: string };
+    },
+    { awaitStartSignal: boolean },
+  ];
   assert({
     given: 'a Broadcast start',
     should:

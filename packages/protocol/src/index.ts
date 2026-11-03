@@ -407,4 +407,7 @@ export {
   analyticsConsentSchema,
   type AnalyticsConsent,
 } from './analytics-consent';
-export * from './broadcast';
+export {
+  broadcastReleasePolicySchema,
+  type BroadcastReleasePolicy,
+} from './broadcast';

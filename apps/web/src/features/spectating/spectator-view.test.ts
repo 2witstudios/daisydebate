@@ -1,7 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
 import {
-  aff,
   at,
   countdown,
   neg,
@@ -19,7 +18,6 @@ import {
 
 setupRitewayBun();
 
-const host = 'h'.repeat(24);
 const hosted = (round: RoundView): RoundView => ({
   ...round,
   viewerIsHost: true,
