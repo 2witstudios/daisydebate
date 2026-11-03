@@ -40,12 +40,19 @@ const roundColumns = {
   completedAt: rounds.completedAt,
 };
 
-/** A public Round with something the audience may have: ready video or ranked text. */
+/** Moderation hid the footage: its Round leaves the archive, whatever else remains. */
+const moderationHid = sql<boolean>`coalesce(${recordings.status} = 'taken_down' or ${recordings.lifecycle}->>'cause' = 'moderation', false)`;
+
+/**
+ * A public Round with something the audience may have: ready video or ranked
+ * text. A ranked Round whose Recording was taken down is not listed, even with its
+ * transcript (point guard, 2026-11-03).
+ */
 const publicScope = (clock: SpectatorClock) =>
   and(
     sql`${visibility} = 'public'`,
     factReleasedSql(rounds.completedAt, roundColumns, clock),
-    sql`((${recordings.status} = 'ready' and ${broadcasts.stoppedAt} is null) or (${rounds.competitionType} = 'ranked' and ${hasTranscript}))`,
+    sql`((${recordings.status} = 'ready' and ${broadcasts.stoppedAt} is null) or (${rounds.competitionType} = 'ranked' and ${hasTranscript} and not ${moderationHid}))`,
   );
 
 const seatedScope = (actorId: string | null) =>

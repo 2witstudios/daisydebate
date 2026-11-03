@@ -1,3 +1,4 @@
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   FEED_END_GRACE_MS,
@@ -116,6 +117,52 @@ describe('Deleting a long feed', () => {
 });
 
 describe('The withdrawal loop', () => {
+  test('a stopped feed of a two-hour Round is gone within the delivery bound', async () => {
+    const SEGMENTS_IN_TWO_HOURS = 3600;
+    const DELETE_LATENCY_MS = 50;
+    let nowMs = 0;
+    let deletedAtMs = -1;
+    let polls = 0;
+    await runFeedWithdrawals({
+      owner: 'w',
+      now: () => nowMs,
+      sleep: async (ms) => {
+        nowMs += ms;
+      },
+      stopped: () => polls >= 3,
+      report: () => {},
+      objects: {
+        deletePublic: async () => {
+          nowMs += DELETE_LATENCY_MS / 32;
+          deletedAtMs = nowMs;
+        },
+      } as never,
+      store: {
+        // Stopped as this loop went idle: it meets the stop on its next poll.
+        claimWithdrawal: async () => {
+          polls += 1;
+          return polls === 2
+            ? {
+                id: 'b',
+                feedKey: 'b',
+                nextSegment: SEGMENTS_IN_TWO_HOURS,
+                finalMediaEndAt: null,
+                completedAt: null,
+              }
+            : null;
+        },
+        recordFeedWithdrawn: async () => {},
+      } as never,
+    });
+    assert({
+      given: 'a stop, one idle poll away, with hours of segments to delete',
+      should: 'have deleted the last public object inside the bound',
+      actual:
+        deletedAtMs > 0 && deletedAtMs <= CONTENT_MODERATION_DELIVERY_BOUND_MS,
+      expected: true,
+    });
+  });
+
   const edges = { now: () => 120_000, sleep: async () => {} };
 
   test('takes down a claimed feed without a release slot', async () => {
