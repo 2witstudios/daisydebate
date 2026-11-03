@@ -73,6 +73,7 @@ if (process.env.BROADCAST_PUBLIC_ORIGIN)
     url: env('DATABASE_URL'),
     feedOrigin: process.env.BROADCAST_PUBLIC_ORIGIN,
     publish: (path, body) => publishedStates.set(path, body),
+    now: () => Date.parse(systemClock.now()),
   });
 
 // ISSUE-279: this process's event-loop delay, one log line a second, so a

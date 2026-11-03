@@ -1,12 +1,10 @@
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
-import { noopErrorReporter } from '@daisy/observability';
 import { createId } from '@paralleldrive/cuid2';
 import type { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { readAudienceSnapshot } from '../src/features/spectating/read-timeline';
-import { silentLogger } from '../src/server/test-loggers.test-support';
 import { withAttendanceRound } from './attendance.test-support';
 import { withMediaRound } from './round-media.test-support';
 

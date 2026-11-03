@@ -19,8 +19,11 @@ export function ViewerPulse({
   readonly roundId: string;
   readonly unlisted: boolean;
 }) {
-  const rate = useRef(1);
-  rate.current = usePublishedAudience()?.pulseRate ?? 1;
+  const published = usePublishedAudience()?.pulseRate ?? 1;
+  const rate = useRef(published);
+  useEffect(() => {
+    rate.current = published;
+  }, [published]);
   useEffect(() => {
     const token = createId();
     const draw = crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32;

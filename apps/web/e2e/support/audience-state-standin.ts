@@ -18,10 +18,11 @@ export const startAudienceStateStandIn = (input: {
   readonly url: string;
   readonly feedOrigin: string;
   readonly publish: (path: string, body: string) => void;
+  readonly now: () => number;
 }) => {
   const store = createAudiencePublisherStore(input.url);
   const pass = async () => {
-    const nowMs = Date.now();
+    const nowMs = input.now();
     const publishing = await store.readPublishing({
       now: new Date(nowMs),
       keepMs: 3_600_000,

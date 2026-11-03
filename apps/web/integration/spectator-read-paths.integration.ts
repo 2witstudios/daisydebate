@@ -29,8 +29,6 @@ import {
 } from '../src/features/spectating/read-timeline';
 import { presentedLinkHash } from '../src/features/audience-link/audience-link';
 import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
-import { silentLogger } from '../src/server/test-loggers.test-support';
-import { noopErrorReporter } from '@daisy/observability';
 import {
   cachedAiJudgingRuntime,
   frozenRankedRound,

@@ -18,7 +18,7 @@ export function usePublishedState(url: string | null, polling: boolean) {
     if (!url || !polling) return;
     let stopped = false;
     let lastPublished = -1;
-    let movedAt = Date.now();
+    let movedAt = performance.now();
     const stop = startBrowserPoll(async () => {
       const response = await fetch(url, {
         cache: 'no-store',
@@ -30,10 +30,10 @@ export function usePublishedState(url: string | null, polling: boolean) {
       if (stopped) return answerOfResponse(response);
       if (parsed.success && parsed.data.publishedAtMs !== lastPublished) {
         lastPublished = parsed.data.publishedAtMs;
-        movedAt = Date.now();
+        movedAt = performance.now();
         setState(parsed.data);
       }
-      setSinceMovedMs(Date.now() - movedAt);
+      setSinceMovedMs(performance.now() - movedAt);
       return answerOfResponse(response);
     });
     return () => {

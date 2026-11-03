@@ -45,7 +45,6 @@ import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
 import { composeAudienceRoutes } from '../features/spectating/audience-composition';
 import { createAudienceLinkHandlers } from '../features/audience-link/handlers';
-import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { identify } from '../lib/identity';
 import { memberHttpBoundary } from './member-boundary';
 import type { App } from './app';

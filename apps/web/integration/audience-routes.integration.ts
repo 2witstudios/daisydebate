@@ -738,14 +738,6 @@ test('an unlisted Round: every audience route answers as missing with no link, a
           postTo(path('viewers'), { version: 1, token: createId() }, headers),
         );
       now = new Date(nowMs + VIEWER_BUCKET_MS + 2000).toISOString();
-      const counted = await readAudienceForViewer(
-        { store: f.store },
-        {
-          roundId,
-          actorId: null,
-          presentedHash: audienceLinkHash(token),
-        },
-      );
       const noLink = await readAudienceForViewer(
         { store: f.store },
         { roundId, actorId: stranger.actorId, presentedHash: null },

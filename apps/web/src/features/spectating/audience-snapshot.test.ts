@@ -1,12 +1,10 @@
 import { projectAudienceSnapshot } from '@daisy/debate-engine';
-import { refuseCapacity } from '@daisy/db/testing';
 import { noopErrorReporter } from '@daisy/observability';
 import { audienceSnapshotSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { audienceLinkHash } from '../audience-link/audience-link';
-import { VIEWER_BUCKET_MS } from '../viewer-counts/viewer-count';
 import {
   audienceFor,
   createAudienceSnapshotRoute,
@@ -65,10 +63,6 @@ describe('projectAudienceSnapshot', () => {
 });
 
 describe('readAudienceSnapshot', () => {
-  const store = (over: Partial<typeof read> = {}) => ({
-    readAudienceSnapshot: async () => ({ ...read, ...over }),
-  });
-
   test('a malformed id has no audience and reaches no store', async () => {
     assert({
       given: 'an id that is not one',
