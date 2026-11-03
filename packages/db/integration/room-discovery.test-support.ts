@@ -33,6 +33,7 @@ async function discoveryFixture(f: Fixture) {
           () => true,
           () => hidden,
           { now: new Date().toISOString(), rankedDelaySeconds: 0 },
+          () => null,
         ),
       ),
   };
