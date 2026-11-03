@@ -22,7 +22,7 @@ const refusal = (outcome: PromiseSettledResult<unknown>) =>
   outcome.status === 'fulfilled'
     ? 'accepted'
     : isAppError(outcome.reason)
-      ? outcome.reason.message
+      ? outcome.reason.reason
       : 'unexpected';
 
 test('a second create or join is refused while another Room holds the user, leaving every state unchanged', async () => {

@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import type {
   RoundBallotEnvelope,
   RoundBallotReceipt,
@@ -40,7 +40,7 @@ export function requireFrozenRevision<
   Frozen extends { readonly revision: number },
 >(frozen: Frozen | null | undefined, freezeRevision: number): Frozen {
   if (!frozen || frozen.revision !== freezeRevision)
-    throw createAppError('CONFLICT', 'freeze-not-ready');
+    throw createRefusal('CONFLICT', 'freeze-not-ready');
   return frozen;
 }
 
@@ -59,16 +59,16 @@ export function requireBallotAdmission(input: {
   readonly ballotDeadlineAt: Date | null;
 }): void {
   if (input.version !== input.expectedVersion)
-    throw createAppError('CONFLICT', 'stale-version');
+    throw createRefusal('CONFLICT', 'stale-version');
   if (input.round.status !== 'active' || input.round.outcome !== null)
-    throw createAppError('CONFLICT', 'round-decided');
+    throw createRefusal('CONFLICT', 'round-decided');
   if (
     input.ballotDeadlineAt &&
     Date.parse(input.now) >= input.ballotDeadlineAt.getTime()
   )
-    throw createAppError('CONFLICT', 'round-decided');
+    throw createRefusal('CONFLICT', 'round-decided');
   if (input.submittedJudgeIds.includes(input.judgeParticipantId))
-    throw createAppError('CONFLICT', 'ballot-already-submitted');
+    throw createRefusal('CONFLICT', 'ballot-already-submitted');
 }
 
 /** The version only advances when the engine projection changed the Round. */

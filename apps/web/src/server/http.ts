@@ -9,6 +9,7 @@ import {
   type ErrorReporter,
 } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
+import type { RefusalReason } from '@daisy/protocol';
 import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
@@ -305,12 +306,13 @@ export async function readJson(
 export function refusalResponse(
   error: unknown,
   requestId: string,
-  reasons: readonly string[],
+  reasons: readonly RefusalReason[],
 ): Response | null {
-  if (!isAppError(error) || !reasons.includes(error.message)) return null;
+  if (!isAppError(error) || !error.reason || !reasons.includes(error.reason))
+    return null;
   const mapped = toPublicError(error, requestId);
   return Response.json(
-    { ...mapped.body, refusal: error.message },
+    { ...mapped.body, refusal: error.reason },
     { status: mapped.status },
   );
 }
