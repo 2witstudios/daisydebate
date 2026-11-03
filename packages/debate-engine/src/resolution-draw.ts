@@ -1,5 +1,10 @@
 import { createAppError } from '@daisy/errors';
-import type { DebateSide, RoomAssemblyState } from '@daisy/protocol';
+import {
+  dueAfterStops,
+  type ClockStop,
+  type DebateSide,
+  type RoomAssemblyState,
+} from '@daisy/protocol';
 import { automaticChoice, canonicalOrder, shuffle } from './draw-random';
 import type {
   ResolutionCategory,
@@ -88,7 +93,11 @@ export const standingPositions = (draw: ResolutionDrawState) => {
 };
 
 /** The open turn, or null once the draw is revealed. */
-export const turnOf = (draw: ResolutionDrawState) => {
+export const turnOf = (
+  draw: ResolutionDrawState,
+  stops: readonly ClockStop[],
+  nowMs: number,
+) => {
   if (revealed(draw)) return null;
   const ordinal = draw.strikes.length;
   const side =
@@ -104,8 +113,12 @@ export const turnOf = (draw: ResolutionDrawState) => {
     side,
     automatic,
     dueAt: new Date(
-      opensAt +
-        (automatic ? AUTOMATIC_STRIKE_DELAY_MS : draw.manifest.strikeWindowMs),
+      dueAfterStops(
+        opensAt,
+        automatic ? AUTOMATIC_STRIKE_DELAY_MS : draw.manifest.strikeWindowMs,
+        stops,
+        nowMs,
+      ),
     ).toISOString(),
   };
 };
@@ -130,10 +143,11 @@ export function settleDraw(
   draw: ResolutionDrawState,
   seed: Uint8Array | null,
   now: string,
+  stops: readonly ClockStop[],
 ): ResolutionDrawState {
   let next = draw;
   for (;;) {
-    const turn = turnOf(next);
+    const turn = turnOf(next, stops, Date.parse(now));
     if (!turn || Date.parse(now) < Date.parse(turn.dueAt)) return next;
     const standing = standingPositions(next);
     if (turn.automatic && !seed)

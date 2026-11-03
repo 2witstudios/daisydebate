@@ -136,6 +136,7 @@ export const roundViewSchema = z.strictObject({
         startedAt: instant,
         endedAt: instant.nullable(),
         durationMs: z.int().positive(),
+        returnedMs: z.int().nonnegative(),
       }),
     )
     .refine(

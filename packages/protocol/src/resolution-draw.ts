@@ -1,3 +1,4 @@
+import type { ClockStop } from './clock-stops';
 import { z } from 'zod';
 import { debateSideSchema, idSchema } from './primitives';
 
@@ -294,6 +295,8 @@ export type RoundOpening = {
   readonly draw: ResolutionDrawState | null;
   /** Pre-round prep's full length, or null when the Round has none. */
   readonly prepMs: number | null;
+  /** Time a platform incident held the clock; strikes and prep owe it back. */
+  readonly stops: readonly ClockStop[];
 };
 
 const hexSchema = z.string().regex(/^[0-9a-f]{64}$/);

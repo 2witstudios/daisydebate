@@ -54,6 +54,8 @@ describe('round runtime prep', () => {
           prep_consumed_ms: { affirmative: 0, negative: 0 },
           active_prep: { side: 'affirmative', started_at: at(945_000) },
           floor: null,
+          incident: { phase: 'none' },
+          clock_stops: [],
         },
         position: {
           ...world.position(at(955_000)),
@@ -180,6 +182,8 @@ describe('round runtime prep', () => {
         prep_consumed_ms: { affirmative: 0, negative: 0 },
         active_prep: null,
         floor: null,
+        incident: { phase: 'none' },
+        clock_stops: [],
       },
     });
   });

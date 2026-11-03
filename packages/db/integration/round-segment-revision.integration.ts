@@ -42,6 +42,7 @@ test('segment-only projection commits the same revision as event and command rec
               type: first.type,
               rulesSegmentKey: first.key,
               durationMs: first.durationMs,
+              returnedMs: 0,
               startedAt: now,
             },
           ],

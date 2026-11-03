@@ -20,6 +20,7 @@ const segment = (sequence: number) => ({
   startedAt: at(sequence * 5),
   endedAt: at(sequence * 5 + 5),
   durationMs: rules.segments[sequence]!.durationMs,
+  returnedMs: 0,
 });
 const debater = {
   id: id('p'),

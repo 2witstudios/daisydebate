@@ -24,9 +24,12 @@ const plugin = Database.Plugin.create({
     startedAtMs: { type: 'number' },
     endedAtMs: Schema.Nullable({ type: 'number' }),
     durationMs: { type: 'number' },
+    returnedMs: { type: 'number' },
   },
   resources: {
     lifecycle: { default: { status: 'opening' } as Lifecycle },
+    incident: { default: { phase: 'none' } as RuntimeCheckpoint['incident'] },
+    clockStops: { default: [] as RuntimeCheckpoint['clock_stops'] },
     prepConsumedAffirmativeMs: { type: 'number', default: 0 },
     prepConsumedNegativeMs: { type: 'number', default: 0 },
     activePrepSide: {
@@ -51,6 +54,7 @@ const plugin = Database.Plugin.create({
       'startedAtMs',
       'endedAtMs',
       'durationMs',
+      'returnedMs',
     ],
   },
   transactions: {
@@ -62,6 +66,7 @@ const plugin = Database.Plugin.create({
         key: string;
         startedAtMs: number;
         durationMs: number;
+        returnedMs: number;
         endedAtMs?: number | null;
       },
     ) => {
@@ -72,6 +77,7 @@ const plugin = Database.Plugin.create({
         startedAtMs: row.startedAtMs,
         endedAtMs: row.endedAtMs ?? null,
         durationMs: row.durationMs,
+        returnedMs: row.returnedMs,
       });
     },
     closeSegment: (store, input: { sequence: number; endedAtMs: number }) => {
@@ -81,10 +87,26 @@ const plugin = Database.Plugin.create({
       if (entity !== undefined)
         store.update(entity, { endedAtMs: input.endedAtMs });
     },
+    returnSegment: (store, input: { sequence: number; returnedMs: number }) => {
+      const entity = store
+        .select(['sequence'])
+        .find((e) => store.get(e, 'sequence') === input.sequence);
+      if (entity !== undefined)
+        store.update(entity, { returnedMs: input.returnedMs });
+    },
+    setIncident: (
+      store,
+      input: Pick<RuntimeCheckpoint, 'incident' | 'clock_stops'>,
+    ) => {
+      store.resources.incident = input.incident;
+      store.resources.clockStops = input.clock_stops;
+    },
     setLifecycle: (store, lifecycle: Lifecycle) => {
       store.resources.lifecycle = lifecycle;
     },
     setCheckpoint: (store, checkpoint: RuntimeCheckpoint) => {
+      store.resources.incident = checkpoint.incident;
+      store.resources.clockStops = checkpoint.clock_stops;
       store.resources.prepConsumedAffirmativeMs =
         checkpoint.prep_consumed_ms.affirmative;
       store.resources.prepConsumedNegativeMs =

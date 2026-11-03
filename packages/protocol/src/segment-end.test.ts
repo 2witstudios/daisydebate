@@ -5,12 +5,16 @@ test('segmentDueAtMs', () => {
   assert({
     given: 'a segment that started at 1000 with a 500 ms duration',
     should: 'be due at 1500',
-    actual: segmentDueAtMs({ startedAtMs: 1000, durationMs: 500 }),
+    actual: segmentDueAtMs({
+      startedAtMs: 1000,
+      durationMs: 500,
+      returnedMs: 0,
+    }),
     expected: 1500,
   });
 });
 test('speakingEndMs', () => {
-  const segment = { startedAtMs: 1000, durationMs: 500 };
+  const segment = { startedAtMs: 1000, durationMs: 500, returnedMs: 0 };
   assert({
     given: 'a segment with no close',
     should: 'end speaking at its due instant',

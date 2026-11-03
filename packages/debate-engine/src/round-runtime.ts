@@ -41,6 +41,7 @@ import {
   positionAtState,
   stageOf,
 } from './round-position-projection';
+import { incidentTransition } from './round-incident';
 import { debateInvariantIds } from './invariant-ids';
 import {
   captureRoundStore,
@@ -106,14 +107,20 @@ export function createRoundRuntime(input: {
   ): void => {
     for (const change of transition.changes) {
       if (change.kind === 'open') on.insertSegment(change.row);
-      else
+      else if (change.kind === 'close')
         on.closeSegment({ sequence: change.sequence, endedAtMs: change.atMs });
+      else if (change.kind === 'resume')
+        on.returnSegment({
+          sequence: change.sequence,
+          returnedMs: change.returnedMs,
+        });
     }
     const checkpoint = transition.state.checkpoint;
     for (const side of debateSides)
       on.setPrepConsumed(side, checkpoint.prep_consumed_ms[side]);
     if (checkpoint.active_prep === null) on.endPrep();
     if (checkpoint.floor === null) on.clearFloor();
+    on.setIncident(checkpoint);
     into.changes.push(...transition.changes);
     for (const change of transition.changes) {
       if (change.kind === 'close')
@@ -122,7 +129,7 @@ export function createRoundRuntime(input: {
           key: change.key,
           at: new Date(change.atMs).toISOString(),
         });
-      else {
+      else if (change.kind === 'open') {
         const expected = rules.segments[change.row.sequence]!;
         into.effects.push({
           kind: 'segment_opened',
@@ -165,6 +172,16 @@ export function createRoundRuntime(input: {
           ]
         : [],
     );
+    const segmentReturns = into.changes.flatMap((change) =>
+      change.kind === 'resume'
+        ? [
+            {
+              id: segmentIds.get(change.sequence)!,
+              returnedMs: change.returnedMs,
+            },
+          ]
+        : [],
+    );
     const finalClose = into.changes.find(
       (change) =>
         change.kind === 'close' &&
@@ -196,6 +213,7 @@ export function createRoundRuntime(input: {
       round,
       segmentInserts,
       segmentCloses,
+      ...(segmentReturns.length > 0 ? { segmentReturns } : {}),
       effects: into.effects,
     };
   };
@@ -304,6 +322,25 @@ export function createRoundRuntime(input: {
       const c = contextOn(scratch, into, null, Date.parse(at));
       startRound(c);
       advance(scratch, into, Date.parse(now));
+      store = scratch;
+      return project(into);
+    },
+    /** A server-detected platform incident; the clock catches up to its instant first. */
+    applyIncident(event): RoundProjection {
+      const scratch = restoreRoundStore(capture(store));
+      const into = queues();
+      advance(scratch, into, event.atMs);
+      const transition = incidentTransition(capture(scratch), rules, event);
+      transitionOn(scratch, into, transition);
+      const ended =
+        transition.state.lifecycle.status !== scratch.lifecycle().status;
+      scratch.setLifecycle(transition.state.lifecycle);
+      if (ended) {
+        scratch.endPrep();
+        const lastPlayed = scratch.rows().at(-1)?.endedAtMs;
+        if (lastPlayed !== undefined && lastPlayed !== null)
+          into.finalPlayedEnd = new Date(lastPlayed).toISOString();
+      }
       store = scratch;
       return project(into);
     },

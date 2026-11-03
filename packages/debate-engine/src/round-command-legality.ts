@@ -231,6 +231,8 @@ export const roundCommandRefusal = (
     );
   if (status === 'abandoned')
     return conflict('An abandoned round takes no commands');
+  if (facts.state.checkpoint.incident.phase !== 'none')
+    return conflict('A platform incident holds this round');
   return refusals[type](facts);
 };
 

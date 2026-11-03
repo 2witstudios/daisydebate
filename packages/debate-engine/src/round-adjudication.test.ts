@@ -25,6 +25,7 @@ const opened = () => {
         startedAt: roundAt(10_000),
         endedAt: null,
         durationMs: first.durationMs,
+        returnedMs: 0,
       },
     ],
   });
@@ -108,6 +109,7 @@ test('historical speech absence remains tied to its speaker after another seat h
       startedAt: roundAt(index === 0 ? 10_000 : 320_000),
       endedAt: index === 0 ? roundAt(310_000) : null,
       durationMs: s.durationMs,
+      returnedMs: 0,
     })),
   });
   const projection = world.adjudicate({
@@ -145,6 +147,7 @@ test('a settled absence still forfeits after the debate is over', () => {
       startedAt: roundAt(10_000 + index * 1_000),
       endedAt: roundAt(10_500 + index * 1_000),
       durationMs: s.durationMs,
+      returnedMs: 0,
     })),
   });
   const projection = world.adjudicate({
@@ -198,6 +201,7 @@ test('early, foreign, wrong-side and final-speech attendance decisions refuse at
         startedAt: roundAt(i * 400_000),
         endedAt: i === sequence ? null : roundAt(i * 400_000 + s.durationMs),
         durationMs: s.durationMs,
+        returnedMs: 0,
       }))
       .filter((s) => s.sequence <= sequence),
   });
@@ -231,6 +235,7 @@ describe('a decision past the resolution cutoff', () => {
           i === rules.segments.length - 1 ? finalEndAt : (i + 1) * 400_000,
         ),
         durationMs: s.durationMs,
+        returnedMs: 0,
       })),
     });
   const cutoffAtMs =

@@ -6,6 +6,8 @@
  * `includeEntryExports` fails an export nobody imports).
  */
 export { segmentDueAtMs, speakingEndMs } from './segment-end';
+export { dueAfterStops, runningMs } from './clock-stops';
+export type { ClockStop } from './clock-stops';
 export {
   idSchema,
   debateSides,
@@ -65,6 +67,7 @@ export type {
   RoundCommand,
   SegmentInsert,
   SegmentClose,
+  SegmentReturn,
   RoundEffect,
   RoundProjection,
   RoundSpeakingChange,
@@ -78,12 +81,16 @@ export {
   roundStageSchema,
   runtimeCheckpointSchema,
   emptyRuntimeCheckpoint,
+  clockStopsOf,
+  platformIncidentCauses,
 } from './round';
 export type {
   CompetitionType,
   RoundStatus,
   RoundStage,
   RuntimeCheckpoint,
+  RoundIncident,
+  PlatformIncidentCause,
 } from './round';
 export {
   judgingAttemptCategories,

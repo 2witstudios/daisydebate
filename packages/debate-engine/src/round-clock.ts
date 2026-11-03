@@ -1,5 +1,11 @@
 import { createInvariantError } from '@daisy/errors';
-import { segmentDueAtMs, type RoundRules } from '@daisy/protocol';
+import {
+  clockStopsOf,
+  dueAfterStops,
+  segmentDueAtMs,
+  type RoundRules,
+} from '@daisy/protocol';
+import { resumeIfDue } from './round-incident';
 import { debateInvariantIds } from './invariant-ids';
 import {
   closedCount,
@@ -15,6 +21,16 @@ export type ClockChange =
       readonly sequence: number;
       readonly key: string;
       readonly atMs: number;
+    }
+  /** A platform incident silenced the open speech at this confirmed instant. */
+  | { readonly kind: 'stop'; readonly sequence: number; readonly atMs: number }
+  /** The speech runs again here, owed this total of returned airtime. */
+  | {
+      readonly kind: 'resume';
+      readonly sequence: number;
+      readonly atMs: number;
+      readonly returnedMs: number;
+      readonly holder: string | null;
     };
 export type ClockTransition = {
   readonly state: ClockState;
@@ -70,6 +86,7 @@ export const openClockSegment = (
     startedAtMs: atMs,
     endedAtMs: null,
     durationMs: expected.durationMs,
+    returnedMs: 0,
   };
   return {
     state: { ...state, rows: [...state.rows, row] },
@@ -84,11 +101,16 @@ const gapOpening = (
 ): ClockTransition | null => {
   const active = state.checkpoint.active_prep;
   const budget = rules.inRoundPrep?.budgetMsPerSide ?? 0;
+  const stops = clockStopsOf(state.checkpoint);
   const due =
     active === null
-      ? countdownAnchor(state) + rules.countdownMs
-      : Date.parse(active.started_at) +
-        Math.max(0, budget - state.checkpoint.prep_consumed_ms[active.side]);
+      ? dueAfterStops(countdownAnchor(state), rules.countdownMs, stops, nowMs)
+      : dueAfterStops(
+          Date.parse(active.started_at),
+          Math.max(0, budget - state.checkpoint.prep_consumed_ms[active.side]),
+          stops,
+          nowMs,
+        );
   if (nowMs < due) return null;
   if (active !== null)
     state = {
@@ -111,9 +133,15 @@ export const advanceRoundClock = (
   rules: RoundRules,
   nowMs: number,
 ): ClockTransition => {
-  let state = initial;
-  const changes: ClockChange[] = [];
-  if (state.lifecycle.status !== 'active') return { state, changes };
+  const resumed = resumeIfDue(initial, nowMs);
+  let state = resumed.state;
+  const changes: ClockChange[] = [...resumed.changes];
+  // While a platform incident holds the clock, time alone moves nothing.
+  if (
+    state.lifecycle.status !== 'active' ||
+    state.checkpoint.incident.phase !== 'none'
+  )
+    return { state, changes };
   for (;;) {
     const open = state.rows.find((row) => row.endedAtMs === null);
     let transition: ClockTransition;

@@ -1,4 +1,9 @@
-import { segmentDueAtMs } from '@daisy/protocol';
+import {
+  clockStopsOf,
+  dueAfterStops,
+  runningMs,
+  segmentDueAtMs,
+} from '@daisy/protocol';
 import type {
   DebateSide,
   RoundPosition,
@@ -51,10 +56,23 @@ const openSegmentOf = (
   rules: RoundRules,
   now: number,
   floorParticipantId: string | null,
+  incident: RuntimeCheckpoint['incident'],
 ): RoundPosition['openSegment'] => {
   if (open === undefined) return null;
   const segment = rules.segments[open.sequence]!;
-  const endsAtMs = segmentDueAtMs(open);
+  const dueMs = segmentDueAtMs(open);
+  // Held by an incident the speech is frozen at its resume point, so the clock
+  // shows what is really owed, and it runs again from the countdown's end.
+  const held = incident.phase !== 'none' ? incident.resume_point : null;
+  const remainingMs = Math.max(
+    0,
+    dueMs - (held === null ? now : Date.parse(held)),
+  );
+  const endsAtMs =
+    held === null
+      ? dueMs
+      : (incident.phase === 'resuming' ? Date.parse(incident.until) : now) +
+        remainingMs;
   return {
     key: open.key,
     label: segment.label,
@@ -63,7 +81,7 @@ const openSegmentOf = (
     sequence: open.sequence,
     startedAt: iso(open.startedAtMs),
     endsAt: iso(endsAtMs),
-    remainingMs: Math.max(0, endsAtMs - now),
+    remainingMs,
     floorParticipantId,
   };
 };
@@ -108,7 +126,15 @@ const countdownOf = (
     upcoming === null
   )
     return null;
-  return Math.max(0, countdownAnchor(state) + countdownMs - now);
+  return Math.max(
+    0,
+    dueAfterStops(
+      countdownAnchor(state),
+      countdownMs,
+      clockStopsOf(state.checkpoint),
+      now,
+    ) - now,
+  );
 };
 
 /**
@@ -129,7 +155,7 @@ const prepOf = (
       0,
       budgetMsPerSide -
         checkpoint.prep_consumed_ms[active.side] -
-        (now - Date.parse(active.started_at)),
+        runningMs(Date.parse(active.started_at), now, clockStopsOf(checkpoint)),
     ),
   };
 };
@@ -147,7 +173,14 @@ const prepBudgetOf = (
       inRoundPrep.budgetMsPerSide -
         checkpoint.prep_consumed_ms[side] -
         (checkpoint.active_prep?.side === side
-          ? Math.max(0, now - Date.parse(checkpoint.active_prep.started_at))
+          ? Math.max(
+              0,
+              runningMs(
+                Date.parse(checkpoint.active_prep.started_at),
+                now,
+                clockStopsOf(checkpoint),
+              ),
+            )
           : 0),
     );
   return { affirmative: left('affirmative'), negative: left('negative') };
@@ -177,6 +210,7 @@ export const roundPositionOf = (
       rules,
       now,
       checkpoint.floor?.holder_participant_id ?? null,
+      checkpoint.incident,
     ),
     nextSegment: upcoming,
     countdownRemainingMs: countdownOf(
@@ -189,6 +223,7 @@ export const roundPositionOf = (
     ),
     prep: prepOf(active, checkpoint, inRoundPrep?.budgetMsPerSide ?? 0, now),
     prepBudgetRemainingMs: prepBudgetOf(inRoundPrep, checkpoint, now),
+    incident: checkpoint.incident,
   };
 };
 
