@@ -3,10 +3,20 @@ import { buildUserInboxTopic } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { exportRoomAccountClosure } from '@daisy/db/testing';
-import { activeRoomMembers, closeRoom, eraseSeats } from '@daisy/debate-engine';
+import {
+  activeRoomMembers,
+  closeRoom,
+  eraseSeats,
+  readRoundOpening,
+  roundWaitingOn,
+} from '@daisy/debate-engine';
 import { restrictionRules } from '../src/features/moderation/restriction-rules';
 import { drawRoomAt } from './room-draw.test-support';
-import { playOut, readyTwoHumanJudgeRoom } from './round-judging.test-support';
+import {
+  everyoneReady,
+  playOut,
+  readyTwoHumanJudgeRoom,
+} from './round-judging.test-support';
 import {
   launchRuntimeRound,
   withRoomRuntime,
@@ -178,6 +188,94 @@ test('a hand-off does not pass a host-written list, in either export or the Room
         kept: false,
         author: [],
         heir: [],
+      },
+    });
+  });
+});
+
+test('a debater who inherits a Room never learns the hidden judge, in the Room or its Round', async () => {
+  await withBans(async (f, ban) => {
+    const { room, judges } = await readyTwoHumanJudgeRoom(f);
+    const [judge, lateJudgeSeatHolder] = judges;
+    const secrets = async () => {
+      const own = await f.operations.view(judge!, room.id);
+      const seat = own.participants.find(
+        (p) => 'actorId' in p && p.actorId === judge!.actorId,
+      );
+      if (!seat || !('label' in seat))
+        throw Error('Judge reads their own seat');
+      return [judge!.actorId, seat.id, seat.label];
+    };
+    const named = await secrets();
+    const leaked = (value: unknown) =>
+      named.filter((secret) => JSON.stringify(value).includes(secret));
+    await ban(f.host);
+    const heir = f.guest;
+
+    const roomRead = await f.operations.view(heir, room.id);
+    const third = await f.member();
+    const claimed = (
+      await f.command(third, roomRead, {
+        type: 'claim-seat',
+        role: 'affirmative',
+        slot: 0,
+      })
+    ).view;
+    const everyone = await everyoneReady(f, claimed, [
+      heir,
+      third,
+      judge!,
+      lateJudgeSeatHolder!,
+    ]);
+    const heirRoom = await f.operations.view(heir, room.id);
+    const command = await f.command(heir, heirRoom, { type: 'start-round' });
+    const roundId = command.view.roundRef!.id;
+    const round = await f.store.readLaunchedRound(
+      roundId,
+      heir,
+      () => true,
+      readRoundOpening,
+      roundWaitingOn,
+    );
+    const judgeRound = await f.store.readLaunchedRound(
+      roundId,
+      judge!,
+      () => true,
+      readRoundOpening,
+      roundWaitingOn,
+    );
+    const [frozen] =
+      await f.sql`select host_inherited,created_by_actor_id from rounds where id=${roundId}`;
+    assert({
+      given:
+        'a hand-off with human judges seated, then the Round the heir starts',
+      should:
+        'name them through no Room read, command answer or Round read, while the heir stays host',
+      actual: {
+        leaks: {
+          roomRead: leaked(roomRead),
+          afterCommand: leaked(claimed),
+          ready: leaked(everyone),
+          startAnswer: leaked(command.view),
+          round: leaked(round),
+        },
+        capabilityHost: roomRead.capabilities.host,
+        viewerIsHost: round.viewerIsHost,
+        frozen,
+        judgeSeesThemselves: leaked(judgeRound).length > 0,
+      },
+      expected: {
+        leaks: {
+          roomRead: [],
+          afterCommand: [],
+          ready: [],
+          startAnswer: [],
+          round: [],
+        },
+        capabilityHost: true,
+        viewerIsHost: true,
+        frozen: { host_inherited: true, created_by_actor_id: heir.actorId },
+        judgeSeesThemselves: true,
       },
     });
   });

@@ -85,3 +85,24 @@ test('captured transcript storage exposes no retired generation-claim columns or
     });
   });
 });
+
+test('a partial stream names a known reason', async () => {
+  await withFixture(url, async (fixture) => {
+    const { roundId, seat, segmentId } = await captureSchemaStream(fixture);
+    const insert = (reasons: string) =>
+      fixture.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,partial_reasons,chunk_count,sealed_chunk_count,sealed_at)
+        values(${roundId},${segmentId},${seat.id},'partial',${reasons},0,0,clock_timestamp())`;
+    assert({
+      given: 'a partial stream with no reason, and one with an unknown reason',
+      should: 'refuse both',
+      actual: [
+        await rejectedBy(() => insert('{}')),
+        await rejectedBy(() => insert('{because}')),
+      ],
+      expected: [
+        'transcript_segments_partial_reasons_check',
+        'transcript_segments_partial_reasons_known_check',
+      ],
+    });
+  });
+});

@@ -30,6 +30,7 @@ const round = {
   topic: 'A topic',
   visibility: 'public',
   hostActorId: host,
+  hostInherited: false,
   participants: [aff, neg, judge],
   startedAt: null,
   completedAt: null,
@@ -79,6 +80,35 @@ describe('roundViewFor', () => {
         [judge, false],
         [judge, false],
       ],
+    });
+  });
+
+  test('a host who inherited the Room', () => {
+    const inherited = { ...round, hostInherited: true };
+    const view = roundViewFor(inherited, host);
+    assert({
+      given: 'the Round read by a host who took over from a restricted one',
+      should: 'keep them the host and name no judge to them (DEC-331)',
+      actual: {
+        viewerIsHost: view.viewerIsHost,
+        judge: view.participants[2],
+        leaks: leaks({ ...view, hostInherited: undefined }).filter(
+          (secret) => secret !== host,
+        ),
+        sent: 'hostInherited' in view,
+      },
+      expected: {
+        viewerIsHost: true,
+        judge: { role: 'judge', kind: 'human', slot: 0, anonymous: true },
+        leaks: [],
+        sent: false,
+      },
+    });
+    assert({
+      given: 'the same Round read by its judge',
+      should: 'still name the judge to themselves',
+      actual: roundViewFor(inherited, judge.actorId).participants[2],
+      expected: judge,
     });
   });
 

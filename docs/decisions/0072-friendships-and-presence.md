@@ -102,8 +102,7 @@ fence (accounts, then the pair, then a channel).
    reader's own `friend_collection`, on their freshly locked account),
    lists only unblocked pairs, then reads each friend's leases in one bounded Lua op
    (`readActorsPresence`) and shows `online` (any active connection), `away`
-   (only idle ones) or `offline`. The member count online
-   (`countOnlinePresence`) is an aggregate with no identities. Presence
+   (only idle ones) or `offline`. Presence
    never grants a relationship, channel, room or attendance fact, and an
    expired lease changes no relationship.
 8. **Challenge** creates an unlisted casual room on the catalog's default

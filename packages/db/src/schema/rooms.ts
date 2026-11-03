@@ -13,6 +13,7 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   foreignKey,
+  boolean,
   primaryKey,
   index,
   integer,
@@ -53,6 +54,8 @@ export const rooms = pgTable(
     hostActorId: text('host_actor_id')
       .notNull()
       .references(() => actors.id, { onDelete: 'restrict' }),
+    /** The host took over from a restricted one, and names no human judge (DEC-331). */
+    hostInherited: boolean('host_inherited').notNull().default(false),
     title: text('title').notNull(),
     /** Null exactly while a draw Room has not revealed its resolution. */
     topic: text('topic'),

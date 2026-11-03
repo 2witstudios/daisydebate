@@ -53,10 +53,9 @@ export const friendListSchema = z.strictObject({
 });
 export type FriendList = z.infer<typeof friendListSchema>;
 
-/** The shell badge and lobby count: friends online and members online. */
+/** The shell badge: friends online. */
 export const onlineCountsSchema = z.strictObject({
   version: z.literal(1),
   friendsOnline: count,
-  membersOnline: count,
 });
 export type OnlineCounts = z.infer<typeof onlineCountsSchema>;

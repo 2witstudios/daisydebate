@@ -7,11 +7,8 @@ import { actorFact } from './room-command-facts';
 import { hydrateRoundRows } from './round-hydration';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
-import {
-  fencedActorIds,
-  requireFencedSeat,
-  seatEligibility,
-} from './seat-eligibility';
+import { requireFencedParticipants } from './round-command-replay';
+import { fencedActorIds, seatEligibility } from './seat-eligibility';
 import {
   requireAdmittedPrincipal,
   type ParticipantAdmission,
@@ -61,10 +58,8 @@ export async function lockMediaRound(
   const actorId = mediaCaller?.actorId;
   mediaId(roundId);
   if (actorId !== undefined) mediaId(actorId);
-  const seats = await tx
-    .select({ actorId: roundParticipants.actorId })
-    .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, roundId));
+  // The Round first: a launch commits it with its seats, so seats read after a
+  // visible Round are all of them, and no launch can land between (ISSUE-1186).
   const [initial] = await tx
     .select({ hostActorId: rounds.createdByActorId })
     .from(rounds)
@@ -73,6 +68,10 @@ export async function lockMediaRound(
   const missing = () =>
     actorId === undefined ? createAppError('NOT_FOUND') : unseatedRefusal();
   if (!initial) throw missing();
+  const seats = await tx
+    .select({ actorId: roundParticipants.actorId })
+    .from(roundParticipants)
+    .where(eq(roundParticipants.roundId, roundId));
   const actorIds = fencedActorIds(seats, initial.hostActorId, actorId);
   const accounts = actorIds.length
     ? await lockAuthorizationActors(tx, actorIds, {
@@ -87,9 +86,9 @@ export async function lockMediaRound(
   if (!row) throw missing();
   const round = await hydrateRoundRows(tx, roundId);
   if (!round) throw missing();
+  requireFencedParticipants(round.participants, actorIds);
   const participants: RoundCommandAuthority['participants'] = await Promise.all(
     round.participants.map(async (seat) => {
-      requireFencedSeat(actorIds, seat.actorId);
       const actor = await actorFact(tx, seat.actorId);
       return { ...seat, ...seatEligibility(actor, accounts, seat) };
     }),

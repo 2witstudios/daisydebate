@@ -28,7 +28,7 @@ const harness = (respond: () => Response) => {
 test('one shared session answers every listener and opens one socket', async () => {
   const { retain, events } = harness(() =>
     Response.json(
-      { version: 1, friendsOnline: 3, membersOnline: 5 },
+      { version: 1, friendsOnline: 3 },
       { headers: { 'x-realtime-socket-url': 'wss://realtime.daisy.test/ws' } },
     ),
   );

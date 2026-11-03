@@ -166,6 +166,8 @@ export type LaunchedRound = Omit<
   'participants' | 'viewerIsHost' | 'opening' | 'waitingOn'
 > & {
   readonly hostActorId: string | null;
+  /** The host took over from a restricted one, and names no human judge (DEC-331). */
+  readonly hostInherited: boolean;
   readonly participants: readonly RoundSeat[];
 };
 

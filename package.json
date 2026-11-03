@@ -47,6 +47,7 @@
     "board:replace": "bun scripts/board.ts replace",
     "board:stale": "bun scripts/board-stale.ts",
     "progress:sync": "bun scripts/progress-canvas.ts",
+    "progress:watch": "bun scripts/watch-status.ts",
     "decision:record": "bun scripts/decision.ts",
     "docs:classify": "bun scripts/docs-pipeline.ts",
     "docs:dispatch": "bun scripts/dispatch-docs.ts",
