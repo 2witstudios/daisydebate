@@ -63,8 +63,8 @@ test('every public and member read holds a ranked outcome until release', async 
         ballot,
       );
       await recoverRankedResults(f);
-      await f.sql`insert into broadcasts (id, round_id, release_policy)
-        values (${createId()}, ${roundId}, ${{ kind: 'delay', seconds: RANKED_DELAY_SECONDS }})`;
+      await f.sql`insert into broadcasts (id, round_id, feed_key, release_policy)
+        values (${createId()}, ${roundId}, ${createId()}, ${{ kind: 'delay', seconds: RANKED_DELAY_SECONDS }})`;
       const [ended] =
         (await f.sql`select completed_at, resolution from rounds where id=${roundId}`) as {
           completed_at: Date;

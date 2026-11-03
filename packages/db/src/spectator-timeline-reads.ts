@@ -119,6 +119,7 @@ export const spectatorTimelineReads = ({
             broadcast: broadcast
               ? {
                   id: broadcast.id,
+                  feedKey: broadcast.feedKey,
                   deliveryPath: broadcast.deliveryPath,
                   policy: broadcast.releasePolicy,
                   releasedThroughAt: broadcast.releasedThroughAt,

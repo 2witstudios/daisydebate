@@ -1,9 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { audienceLinkHash } from '../audience-link/audience-link';
 import {
   mayDownload,
   mayRequestRemoval,
   recordingMediaState,
-  roundEvidencePermissions,
+  roundEvidencePermissions as permissionsWithLink,
+  type BroadcastRelease,
   type RecordingRound,
   type RecordingViewer,
 } from './audience';
@@ -14,10 +16,16 @@ const round: RecordingRound = {
   id: 'round',
   competitionType: 'ranked',
   visibility: 'public',
+  audienceLinkHash: null,
   hostActorId: 'host',
   completedAtMs: 100_000,
   seatedActorIds: ['aff', 'neg', 'judge'],
 };
+const roundEvidencePermissions = (
+  input: RecordingRound,
+  release: BroadcastRelease,
+  viewer: RecordingViewer,
+) => permissionsWithLink(input, release, viewer, null);
 const visitor: RecordingViewer = { kind: 'visitor' };
 const account = (actorId: string): RecordingViewer => ({
   kind: 'account',
@@ -113,15 +121,53 @@ describe('roundEvidencePermissions', () => {
       ),
       expected: nothing,
     });
+    const link = audienceLinkHash('the-link');
+    const unlisted: RecordingRound = {
+      ...casual,
+      visibility: 'unlisted',
+      audienceLinkHash: link,
+    };
     assert({
-      given: 'an unlisted Round and someone with the link',
+      given: 'an unlisted Round and someone with its current link',
       should: 'admit them',
-      actual: roundEvidencePermissions(
-        { ...casual, visibility: 'unlisted' },
+      actual: permissionsWithLink(unlisted, passed, visitor, link).media,
+      expected: true,
+    });
+    assert({
+      given: 'an unlisted Round and no link',
+      should: 'answer exactly as a missing Round',
+      actual: permissionsWithLink(unlisted, passed, account('stranger'), null),
+      expected: nothing,
+    });
+    assert({
+      given: 'an unlisted Round and a replaced link',
+      should: 'answer exactly as a missing Round',
+      actual: permissionsWithLink(
+        unlisted,
         passed,
         visitor,
-      ).media,
-      expected: true,
+        audienceLinkHash('old-link'),
+      ),
+      expected: nothing,
+    });
+    assert({
+      given: 'an unlisted Round whose host has issued no link',
+      should: 'still let its host and seats in',
+      actual: [
+        permissionsWithLink(
+          { ...unlisted, audienceLinkHash: null },
+          passed,
+          account('host'),
+          null,
+        ).open,
+        permissionsWithLink(
+          { ...unlisted, audienceLinkHash: null },
+          passed,
+          account('aff'),
+          null,
+        ).open,
+      ],
+      expected: [true, true],
     });
     assert({
       given: 'a Round still running',

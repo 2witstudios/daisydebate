@@ -222,6 +222,7 @@ export const openRecordingHistory = async (
   input: {
     readonly roundId: string;
     readonly viewer: RecordingViewer;
+    readonly presentedLinkHash: string | null;
     readonly q: string;
   },
 ): Promise<RecordingHistoryScreen> => {
@@ -232,6 +233,7 @@ export const openRecordingHistory = async (
     round,
     await inputs.readBroadcastRelease(round.id),
     input.viewer,
+    input.presentedLinkHash,
   );
   if (!permissions.open) return { kind: 'unavailable' };
   const record = await inputs.findRecordingByRound(round.id);

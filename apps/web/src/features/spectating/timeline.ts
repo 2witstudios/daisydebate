@@ -19,8 +19,8 @@ export const BROADCAST_INTERRUPTED_AFTER_MS = 30_000;
 /** What the projection needs from outside the read: the instant, and where a Broadcast is read. */
 export type SpectatorTimelineContext = {
   readonly nowMs: number;
-  /** The public feed of a Broadcast; null when this deployment has none. */
-  readonly feedUrlOf: (broadcastId: string) => string | null;
+  /** The public feed under a Broadcast's key; null when this deployment has none. */
+  readonly feedUrlOf: (feedKey: string) => string | null;
 };
 
 type StageFacts = Pick<
@@ -83,19 +83,16 @@ const releaseBegan = (policy: Policy, roundEnded: Date | null): number => {
 };
 
 /**
- * The audience's stream, from durable facts alone. A stream is offered only for
- * a public Round: an unlisted one waits for its link token, because its Round id
- * is not a secret.
+ * The audience's stream, from durable facts alone. Who may read this at all is
+ * decided before it leaves (`admitAudience`): it names the feed's random key,
+ * which is what keeps an unlisted Round's media from being found.
  */
 const standingOf = (
   read: SpectatorTimelineRead,
   context: SpectatorTimelineContext,
 ): BroadcastStanding => {
   const { broadcast, round } = read;
-  const manifestUrl =
-    broadcast && round.visibility === 'public'
-      ? context.feedUrlOf(broadcast.id)
-      : null;
+  const manifestUrl = broadcast ? context.feedUrlOf(broadcast.feedKey) : null;
   if (!broadcast || manifestUrl === null) return { state: 'none' };
   if (broadcast.stoppedAt) return { state: 'stopped' };
   const watermark = ms(broadcast.releasedThroughAt);

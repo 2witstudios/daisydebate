@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { scrubEvent, type ScrubbableEvent } from './scrub-event';
+import {
+  scrubEvent,
+  scrubTransaction,
+  type ScrubbableEvent,
+} from './scrub-event';
 
 setupRitewayBun();
 
@@ -216,6 +220,75 @@ describe('scrubEvent (ADR 0037)', () => {
       should: 'keep those fields absent rather than inventing them',
       actual: scrubEvent({ tags: { x: '1' } }),
       expected: { tags: { x: '1' } },
+    });
+  });
+});
+
+describe('scrubTransaction', () => {
+  const token = 'tokentokentoken';
+  const url = `https://daisy.example/watch/r1/link?token=${token}`;
+  const scrubbed = scrubTransaction({
+    transaction: `GET /watch/r1/link?token=${token}`,
+    request: { url, query_string: `token=${token}`, headers: { a: 'b' } },
+    contexts: {
+      trace: {
+        trace_id: 't',
+        data: {
+          'http.target': `/watch/r1/link?token=${token}`,
+          'http.url': url,
+          'http.query': `token=${token}`,
+          'next.route': '/watch/[roundId]/link',
+        },
+      },
+    },
+    spans: [
+      {
+        span_id: 's',
+        data: { 'url.full': url, 'url.query': `token=${token}`, keep: 'this' },
+      },
+    ],
+  });
+
+  test('no query survives anywhere in a transaction', () => {
+    assert({
+      given: 'a transaction whose server span recorded a token-bearing URL',
+      should: 'carry the token nowhere',
+      actual: JSON.stringify(scrubbed).includes(token),
+      expected: false,
+    });
+  });
+
+  test('the route stays diagnosable', () => {
+    assert({
+      given: 'the same transaction',
+      should: 'keep the paths and every other attribute',
+      actual: scrubbed,
+      expected: {
+        transaction: 'GET /watch/r1/link',
+        request: { url: 'https://daisy.example/watch/r1/link' },
+        user: undefined,
+        breadcrumbs: undefined,
+        exception: undefined,
+        contexts: {
+          trace: {
+            trace_id: 't',
+            data: {
+              'http.target': '/watch/r1/link',
+              'http.url': 'https://daisy.example/watch/r1/link',
+              'next.route': '/watch/[roundId]/link',
+            },
+          },
+        },
+        spans: [
+          {
+            span_id: 's',
+            data: {
+              'url.full': 'https://daisy.example/watch/r1/link',
+              keep: 'this',
+            },
+          },
+        ],
+      },
     });
   });
 });

@@ -1,5 +1,9 @@
 import { roundDocumentPrincipal } from '../../../../../features/debate-room/documents/document-principal';
-import { requestRoundRatings } from '../../../../../lib/request-session';
+import { audienceLinkPageHref } from '../../../../../features/audience-link/audience-link';
+import {
+  requestHostedAudienceLink,
+  requestRoundRatings,
+} from '../../../../../lib/request-session';
 import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
 import {
@@ -150,12 +154,23 @@ export default async function RoundRoomPage({
       transcriptIn('card'),
     );
   const here = `/rounds/${id}/room`;
+  const hostedLink = await requestHostedAudienceLink(id, identity);
   return (
     <>
       <MediaDocument />
       <LiveRoundRoom
         attendanceSlot={
           <>
+            {hostedLink ? (
+              <a
+                href={audienceLinkPageHref(id)}
+                target="_blank"
+                rel="noopener"
+                className="text-sm underline"
+              >
+                Share this Round by link
+              </a>
+            ) : null}
             <RoundRatings
               view={await ratingsUnlessRefused(() =>
                 requestRoundRatings(result.round),

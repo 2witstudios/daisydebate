@@ -16,7 +16,7 @@ import {
 export const UNDRAWN_RESOLUTION = 'No topic drawn';
 
 /** One finished Round the archive store found for a query. */
-export type ArchiveRound = RecordingRound & {
+export type ArchiveRound = Omit<RecordingRound, 'audienceLinkHash'> & {
   readonly title: string | null;
   /** Null when the Round ended in its opening, before a topic was drawn. */
   readonly resolution: string | null;
@@ -106,7 +106,13 @@ export const archiveEntries = (
   viewer: RecordingViewer,
 ): readonly ArchiveEntry[] =>
   page.rows.flatMap((round): readonly ArchiveEntry[] => {
-    const permissions = roundEvidencePermissions(round, round.release, viewer);
+    // A list carries no link: an unlisted Round is listed only to its insiders.
+    const permissions = roundEvidencePermissions(
+      { ...round, audienceLinkHash: null },
+      round.release,
+      viewer,
+      null,
+    );
     const media = recordingMediaState(round.status);
     const transcript = permissions.transcript && round.hasTranscript;
     if (!listed(round, permissions, media, transcript)) return [];

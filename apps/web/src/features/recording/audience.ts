@@ -1,4 +1,5 @@
 import { factReleased } from '@daisy/debate-engine';
+import { audienceAdmits } from '../audience-link/audience-link';
 import {
   SPECTATOR_MARGIN_MS,
   type CompetitionType,
@@ -28,6 +29,8 @@ export type RecordingRound = {
   readonly id: string;
   readonly competitionType: CompetitionType;
   readonly visibility: 'public' | 'unlisted' | 'private';
+  /** SHA3-256 of an unlisted Round's current link, read fresh on every request. */
+  readonly audienceLinkHash: string | null;
   readonly hostActorId: string | null;
   readonly completedAtMs: number | null;
   readonly seatedActorIds: readonly string[];
@@ -53,8 +56,9 @@ const releasedToAudience = (
 /**
  * What this viewer may know of a finished Round. Each permission stands alone:
  * holding one implies nothing about another. Default deny. `open` is whether the
- * Round exists for them at all; a held or private Round answers exactly as a
- * missing one does, so its existence and end cannot be learned early.
+ * Round exists for them at all; a held or private Round, or an unlisted one
+ * without its current link, answers exactly as a missing one does, so its
+ * existence and end cannot be learned early.
  */
 export type RoundEvidencePermissions = {
   readonly open: boolean;
@@ -74,13 +78,14 @@ export const roundEvidencePermissions = (
   round: RecordingRound,
   release: BroadcastRelease,
   viewer: RecordingViewer,
+  presentedLinkHash: string | null,
 ): RoundEvidencePermissions => {
   if (round.completedAtMs === null) return NOTHING;
   if (seated(round, viewer))
     return { open: true, media: true, transcript: true, result: true };
   if (insider(round, viewer))
     return { open: true, media: true, transcript: false, result: true };
-  if (round.visibility === 'private') return NOTHING;
+  if (!audienceAdmits(round, presentedLinkHash)) return NOTHING;
   if (!releasedToAudience(round, release)) return NOTHING;
   const ranked = round.competitionType === 'ranked';
   return {

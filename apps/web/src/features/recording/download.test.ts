@@ -16,7 +16,11 @@ setupRitewayBun();
 
 describe('openDownload', () => {
   const download = (d: ReturnType<typeof deps>, viewer: RecordingViewer) =>
-    openDownload(d, { recordingId: 'rec', viewer });
+    openDownload(d, {
+      recordingId: 'rec',
+      viewer,
+      presentedLinkHashOf: () => null,
+    });
 
   test('gives a subscriber a short-lived attachment', async () => {
     assert({

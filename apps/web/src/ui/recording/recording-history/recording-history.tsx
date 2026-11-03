@@ -209,9 +209,13 @@ export function RecordingHistory({ screen, notice }: RecordingHistoryProps) {
             <p className="text-sm text-ink-muted">
               {VISIBILITY[screen.visibility]}
             </p>
-            <div>
-              <CopyLink path={`${watchRoutes.recordings}/${screen.roundId}`} />
-            </div>
+            {screen.visibility === 'unlisted' ? null : (
+              <div>
+                <CopyLink
+                  path={`${watchRoutes.recordings}/${screen.roundId}`}
+                />
+              </div>
+            )}
           </section>
           {screen.downloadHref ? <Download href={screen.downloadHref} /> : null}
           {screen.removal ? (

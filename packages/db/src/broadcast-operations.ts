@@ -18,6 +18,7 @@ export const openBroadcast = async (
   input: {
     readonly id: string;
     readonly roundId: string;
+    readonly feedKey: string;
     readonly releasePolicy: BroadcastReleasePolicy;
     readonly debatersReadChat?: boolean;
   },
@@ -273,8 +274,9 @@ export const readOfficialFeedFacts = async (
 ) => {
   const [row] = await tx
     .select({
-      broadcastId: broadcasts.id,
+      feedKey: broadcasts.feedKey,
       visibility: rounds.visibility,
+      audienceLinkHash: rounds.audienceLinkHash,
       stoppedAt: broadcasts.stoppedAt,
       completedAt: broadcasts.completedAt,
     })

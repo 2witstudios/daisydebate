@@ -17,6 +17,7 @@ const asRound = (round: RoundRow): HistoryRound & RecordingRound => ({
   id: round.id,
   competitionType: round.competitionType,
   visibility: round.visibility,
+  audienceLinkHash: round.audienceLinkHash,
   hostActorId: round.hostActorId,
   completedAtMs: round.completedAtMs,
   seatedActorIds: round.seats.map((seat) => seat.actorId),

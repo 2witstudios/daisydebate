@@ -141,6 +141,7 @@ test('a stop replays by its receipt, and a reused id with another digest conflic
     const broadcast = await openBroadcast(drizzle({ client }), {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: { kind: 'delay', seconds: 60 },
     });
     const stop = command({
@@ -180,6 +181,7 @@ test('a command past its deadline writes nothing', async () => {
     const broadcast = await openBroadcast(drizzle({ client }), {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: { kind: 'delay', seconds: 60 },
     });
     const late = await ops
@@ -213,6 +215,7 @@ test('slow mode and bans are what chat reads', async () => {
     const broadcast = await openBroadcast(drizzle({ client }), {
       id: createId(),
       roundId,
+      feedKey: createId(),
       releasePolicy: { kind: 'delay', seconds: 60 },
     });
     const userId = await f.user();

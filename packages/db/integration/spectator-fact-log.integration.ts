@@ -69,8 +69,8 @@ const rows = (sql: SQL, roundId: string) =>
 
 test('a fact is logged once it left, with both times, and the first release stands', async () => {
   await withEndedRound(async ({ db, sql, roundId }) => {
-    await sql`insert into broadcasts (id, round_id, release_policy, released_through_at)
-      values (${'b' + roundId.slice(1)}, ${roundId}, ${{ kind: 'delay', seconds: delay }}, ${ended})`;
+    await sql`insert into broadcasts (id, round_id, feed_key, release_policy, released_through_at)
+      values (${'b' + roundId.slice(1)}, ${roundId}, ${'k' + roundId.slice(1)}, ${{ kind: 'delay', seconds: delay }}, ${ended})`;
     const far = after(ended, 1000 * delay * 100);
     assert({
       given: 'a watermark short of the margin, long after by the clock',

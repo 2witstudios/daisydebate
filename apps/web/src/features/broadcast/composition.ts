@@ -4,7 +4,7 @@ import {
   type WorkerTimers,
 } from '../../lib/worker-timers';
 import type { App } from '../../server/app';
-import { offeredFeedUrl } from './official-feed';
+import { newFeedKey, offeredFeedUrl } from './official-feed';
 import { newStageCredential } from './stage-access';
 import { createStageRoute } from './stage-route';
 import { createFactLogSweep } from '../spectating/fact-log-sweep';
@@ -35,6 +35,7 @@ export const startBroadcastSweep = (app: App, timers: WorkerTimers) => {
     egress,
     now: () => Date.parse(app.clock.now()),
     nextId: () => app.ids.next(),
+    newFeedKey: () => newFeedKey(),
     newCredential: () => newStageCredential(),
     stageUrl: (id, credential) =>
       `${app.config.PUBLIC_APP_URL}/stage/${id}?c=${encodeURIComponent(credential)}`,
@@ -77,8 +78,12 @@ export const composeBroadcastStage = (app: App) => {
 /** The official feed a viewer page may offer for this Round, or null. */
 export const composeOfficialFeed =
   (app: App) =>
-  async (roundId: string): Promise<string | null> =>
+  async (
+    roundId: string,
+    presentedHash: string | null,
+  ): Promise<string | null> =>
     offeredFeedUrl(
       app.config.BROADCAST_PUBLIC_ORIGIN,
       await app.database.broadcasts.officialFeedFacts(roundId),
+      presentedHash,
     );

@@ -17,13 +17,13 @@ export const FEED_END_GRACE_MS = 60_000;
  * segment before the cursor moves past it.
  */
 export const withdrawalKeys = (
-  broadcastId: string,
+  feedKey: string,
   nextSegment: number,
 ): readonly string[] => {
-  const live = broadcastLivePrefix(broadcastId);
+  const live = broadcastLivePrefix(feedKey);
   const seqs = Array.from({ length: nextSegment + 1 }, (_, seq) => seq);
   return [
-    officialFeedPath(broadcastId),
+    officialFeedPath(feedKey),
     ...RENDITIONS.map(({ name }) => `${live}${name}/index.m3u8`),
     ...RENDITIONS.flatMap(({ name }) =>
       seqs.map((seq) => `${live}${name}/seg-${seq}.ts`),
@@ -32,7 +32,7 @@ export const withdrawalKeys = (
 };
 
 type FinishedJob = {
-  readonly id: string;
+  readonly feedKey: string;
   readonly nextSegment: number;
   readonly finalMediaEndAt: Date | null;
   readonly completedAt: Date | null;
@@ -54,7 +54,7 @@ export const withdrawFeed = async (
     readonly complete: () => Promise<void>;
   },
 ): Promise<void> => {
-  for (const key of withdrawalKeys(job.id, job.nextSegment))
+  for (const key of withdrawalKeys(job.feedKey, job.nextSegment))
     await ports.deletePublic(key);
   await ports.recordWithdrawn();
   if (job.completedAt === null && job.finalMediaEndAt !== null)

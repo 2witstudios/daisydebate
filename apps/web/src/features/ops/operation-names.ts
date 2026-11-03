@@ -8,6 +8,8 @@ const OPERATION_NAMES = [
   'account.age.answer',
   'agreements.content-waiver',
   'moderation.report',
+  'audience-link.issue',
+  'audience-link.open',
   'recording.playback',
   'recording.download',
   'recording.removal',

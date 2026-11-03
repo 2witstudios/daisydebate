@@ -30,6 +30,7 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
   open: (input: {
     readonly id: string;
     readonly roundId: string;
+    readonly feedKey: string;
     readonly releasePolicy: BroadcastReleasePolicy;
   }) => openBroadcast(database, input),
   listOpen: (limit: number) => listOpenBroadcasts(database, limit),

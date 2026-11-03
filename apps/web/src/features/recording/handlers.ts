@@ -6,6 +6,7 @@ import type { ErrorReporter } from '@daisy/observability';
 import { idSchema } from '@daisy/protocol';
 import { readBoundedBody } from '../../server/bounded-body';
 import { handleOperation, requireSameOrigin } from '../../server/http';
+import { presentedLinkHash } from '../audience-link/audience-link';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import { replayHref } from '../watch/routes';
 import { openDownload, recordingDownloadRule } from './download';
@@ -38,6 +39,10 @@ type Deps = {
   readonly objects: RecordingObjectStore;
   readonly inputs: RecordingInputs;
 };
+
+/** The audience link a request holds, for whichever Round its Recording is of. */
+const linkHeldBy = (request: Request) => (roundId: string) =>
+  presentedLinkHash(request.headers.get('cookie'), roundId);
 
 const seeOther = (location: string) =>
   new Response(null, { status: 303, headers: { location } });
@@ -77,6 +82,7 @@ export const createRecordingHandlers = (deps: Deps) => ({
             recordingId,
             path,
             viewer: recordingViewerOf(await deps.identify(request)),
+            presentedLinkHashOf: linkHeldBy(request),
           }),
         ),
       deps.reporter,
@@ -96,7 +102,11 @@ export const createRecordingHandlers = (deps: Deps) => ({
           `recording:download:${viewer.userId}`,
           recordingDownloadRule,
         );
-        const url = await openDownload(deps, { recordingId, viewer });
+        const url = await openDownload(deps, {
+          recordingId,
+          viewer,
+          presentedLinkHashOf: linkHeldBy(request),
+        });
         return new Response(null, { status: 302, headers: { location: url } });
       },
       deps.reporter,

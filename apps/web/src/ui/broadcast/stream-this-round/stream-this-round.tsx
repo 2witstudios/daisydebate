@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Panel } from '../../components/panel/panel';
-import { FeedUrlField } from './feed-url-field';
+import { CopyableUrlField } from '../../watch/copy-link/copyable-url-field';
 
 const steps = [
   'In OBS, under Sources, choose + and then Media Source, and name it.',
@@ -29,7 +29,7 @@ export function StreamThisRound({
           key. The picture and sound are the Round&apos;s, with Daisy&apos;s
           branding and link already in the video.
         </p>
-        <FeedUrlField feedUrl={feedUrl} />
+        <CopyableUrlField url={feedUrl} label="Official feed URL" />
         <ol className="flex list-decimal flex-col gap-1 pl-5">
           {steps.map((step) => (
             <li key={step}>{step}</li>

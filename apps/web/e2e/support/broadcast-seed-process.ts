@@ -15,6 +15,8 @@ type Create = {
   readonly command: 'create';
   readonly mode: 'ranked' | 'casual';
   readonly visibility: 'public' | 'unlisted' | 'private';
+  /** A signed-up member to host it, so a browser can act as the host. */
+  readonly hostUsername?: string;
   readonly title: string;
   readonly resolution: string;
 };
@@ -45,13 +47,22 @@ const create = async (sql: SQL, input: Create) => {
   const suffix = createId().slice(0, 10);
   const roundId = createId();
   const broadcastId = createId();
+  const feedKey = createId();
   const [segment] = rules.segments;
   if (!segment) throw new Error('Fixture rules have no speech');
   await sql.begin(async (tx) => {
-    const host = createId();
-    const hostActor = createId();
-    await tx`insert into users (id,username,email_verified) values (${host},${`host-${suffix}`},true)`;
-    await tx`insert into actors (id,kind,user_id) values (${hostActor},'human',${host})`;
+    const hostActor = input.hostUsername
+      ? (
+          (
+            await tx`select a.id from actors a join users u on u.id=a.user_id where u.username=${input.hostUsername}`
+          )[0] as { id: string }
+        ).id
+      : createId();
+    if (!input.hostUsername) {
+      const host = createId();
+      await tx`insert into users (id,username,email_verified) values (${host},${`host-${suffix}`},true)`;
+      await tx`insert into actors (id,kind,user_id) values (${hostActor},'human',${host})`;
+    }
     const formatColumns =
       input.mode === 'ranked'
         ? { format: 'freestyle', preset: 1, ladder: 'freestyle' }
@@ -75,12 +86,13 @@ const create = async (sql: SQL, input: Create) => {
       await tx`select id from round_participants where round_id=${roundId} and actor_id=${aff}`;
     await tx`insert into utterances (id,round_id,segment_id,round_participant_id,sequence,text,complete,created_at)
       values (${createId()},${roundId},${segmentId},${participant[0].id},0,${`Caption ${suffix}`},true,now()-interval '3 minutes')`;
-    await tx`insert into broadcasts (id,round_id,release_policy,released_through_at)
-      values (${broadcastId},${roundId},${{ kind: 'delay', seconds: 60 }},now()-interval '60 seconds')`;
+    await tx`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at)
+      values (${broadcastId},${roundId},${feedKey},${{ kind: 'delay', seconds: 60 }},now()-interval '60 seconds')`;
   });
   return {
     roundId,
     broadcastId,
+    feedKey,
     aff: `aff-${suffix}`,
     caption: `Caption ${suffix}`,
   };

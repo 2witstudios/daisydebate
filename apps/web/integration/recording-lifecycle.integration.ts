@@ -7,6 +7,7 @@ import {
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { audienceLinkHash } from '../src/features/audience-link/audience-link';
 import type { RecordingViewer } from '../src/features/recording/audience';
 import { createRecordingCapturePort } from '../src/features/recording/capture-port';
 import {
@@ -39,6 +40,7 @@ const withReadyRecording = (
     inputs: RecordingInputs;
     id: string;
     roundId: string;
+    sql: Parameters<Parameters<typeof withRoomRuntime>[0]>[0]['sql'];
     seat: RecordingViewer;
     stranger: RecordingViewer;
     keys: readonly string[];
@@ -71,6 +73,7 @@ const withReadyRecording = (
             id: round.id,
             competitionType: round.competitionType,
             visibility: round.visibility,
+            audienceLinkHash: round.audienceLinkHash,
             hostActorId: round.hostActorId,
             completedAtMs: round.completedAtMs,
             seatedActorIds: round.seats.map((seat) => seat.actorId),
@@ -120,6 +123,7 @@ const withReadyRecording = (
         inputs,
         id,
         roundId,
+        sql: f.sql,
         seat: { kind: 'account', userId: 'seat-user', actorId: seatActor },
         stranger: { kind: 'account', userId: 'other', actorId: createId() },
         keys: [`${prefix}hls/master.m3u8`, `${prefix}video.mp4`],
@@ -128,6 +132,101 @@ const withReadyRecording = (
       await f.sql`delete from recordings where id=${id}`;
     }
   });
+
+test('an unlisted Recording opens only past its current link', async () => {
+  await withReadyRecording(
+    async ({ store, inputs, id, roundId, sql, stranger }) => {
+      const objects = fakeObjectStore().store;
+      const deps = { store, objects, inputs };
+      await sql`update rooms set visibility='unlisted' where id=(select room_id from rounds where id=${roundId})`;
+      await sql`update rounds set visibility='unlisted' where id=${roundId}`;
+      const broadcastId = createId();
+      await sql`insert into broadcasts (id, round_id, feed_key, release_policy, released_through_at)
+        values (${broadcastId}, ${roundId}, ${createId()}, ${{ kind: 'delay', seconds: 60 }}, ${at}::timestamptz + interval '1 hour')`;
+      const history = (presentedLinkHash: string | null) =>
+        inputs.readRound(roundId).then((round) =>
+          openRecordingHistory(
+            {
+              readHistoryRound: async () => ({
+                ...round!,
+                title: 'Round',
+                resolution: 'x',
+                outcome: null,
+                debaters: [],
+              }),
+              readBroadcastRelease: inputs.readBroadcastRelease,
+              readTranscript: async () => null,
+              readBallots: async () => [],
+              holdsRecordingDownload: inputs.holdsRecordingDownload,
+              findRecordingByRound: store.findByRound,
+            },
+            { roundId, viewer: stranger, presentedLinkHash, q: '' },
+          ),
+        );
+      const play = (link: string | null) =>
+        openPlayback(deps, {
+          recordingId: id,
+          path: ['master.m3u8'],
+          viewer: stranger,
+          presentedLinkHashOf: () => link,
+        });
+      const download = (link: string | null) =>
+        openDownload(deps, {
+          recordingId: id,
+          viewer: stranger,
+          presentedLinkHashOf: () => link,
+        });
+      const first = audienceLinkHash('first-link');
+      const second = audienceLinkHash('second-link');
+      try {
+        assert({
+          given: 'no link has been issued',
+          should: 'read as a missing Recording',
+          actual: (await history(null)).kind,
+          expected: 'unavailable',
+        });
+        await assertRejects({
+          given: 'playback with no link',
+          should: 'answer not found',
+          code: 'NOT_FOUND',
+          actual: () => play(null),
+        });
+        await sql`update rounds set audience_link_hash=${first} where id=${roundId}`;
+        assert({
+          given: 'a real unlisted Round and its current link',
+          should: 'open the Recording, and refuse no link and a wrong one',
+          actual: [
+            (await history(first)).kind,
+            (await history(null)).kind,
+            (await history(second)).kind,
+          ],
+          expected: ['history', 'unavailable', 'unavailable'],
+        });
+        await assertRejects({
+          given: 'a download by a member with no link',
+          should: 'answer not found',
+          code: 'NOT_FOUND',
+          actual: () => download(null),
+        });
+        await sql`update rounds set audience_link_hash=${second} where id=${roundId}`;
+        assert({
+          given: 'the link replaced',
+          should: 'refuse the old one on the next read, and open the new one',
+          actual: [(await history(first)).kind, (await history(second)).kind],
+          expected: ['unavailable', 'history'],
+        });
+        await assertRejects({
+          given: 'playback with the replaced link',
+          should: 'answer not found',
+          code: 'NOT_FOUND',
+          actual: () => play(first),
+        });
+      } finally {
+        await sql`delete from broadcasts where id=${broadcastId}`;
+      }
+    },
+  );
+});
 
 test('capture reports are idempotent against the real store', async () => {
   await withReadyRecording(async ({ store, id }) => {
@@ -145,7 +244,11 @@ test('racing removals and a takedown settle to one state, and every link goes st
   await withReadyRecording(async ({ store, inputs, id, seat }) => {
     const objects = fakeObjectStore().store;
     const deps = { store, objects, inputs };
-    const link = await openDownload(deps, { recordingId: id, viewer: seat });
+    const link = await openDownload(deps, {
+      recordingId: id,
+      viewer: seat,
+      presentedLinkHashOf: () => null,
+    });
     assert({
       given: 'a subscriber before the takedown',
       should: 'get a link',
@@ -180,7 +283,12 @@ test('racing removals and a takedown settle to one state, and every link goes st
       given: 'a download after either outcome',
       should: 'refuse the new link',
       code: 'NOT_FOUND',
-      actual: () => openDownload(deps, { recordingId: id, viewer: seat }),
+      actual: () =>
+        openDownload(deps, {
+          recordingId: id,
+          viewer: seat,
+          presentedLinkHashOf: () => null,
+        }),
     });
     await assertRejects({
       given: 'a player still fetching segments',
@@ -191,6 +299,7 @@ test('racing removals and a takedown settle to one state, and every link goes st
           recordingId: id,
           path: ['720p', 'seg.ts'],
           viewer: seat,
+          presentedLinkHashOf: () => null,
         }),
     });
   });
@@ -287,7 +396,7 @@ test('history reads the real Round and offers each panel on its own permission',
             holdsRecordingDownload: inputs.holdsRecordingDownload,
             findRecordingByRound: store.findByRound,
           },
-          { roundId, viewer, q: '' },
+          { roundId, viewer, presentedLinkHash: null, q: '' },
         );
       const seated = await open(seat);
       assert({

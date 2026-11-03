@@ -9,7 +9,7 @@ const run = async (
 ) => {
   const log: string[] = [];
   await withdrawFeed(
-    { id: 'b', nextSegment: 1, finalMediaEndAt, completedAt },
+    { feedKey: 'b', nextSegment: 1, finalMediaEndAt, completedAt },
     {
       recordWithdrawn: async () => {
         log.push('withdrawn');

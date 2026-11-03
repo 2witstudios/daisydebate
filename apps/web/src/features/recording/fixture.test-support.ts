@@ -40,6 +40,7 @@ export const round: RecordingRound = {
   id: 'round',
   competitionType: 'casual',
   visibility: 'public',
+  audienceLinkHash: null,
   hostActorId: 'host',
   completedAtMs: nowMs,
   seatedActorIds: ['aff', 'neg'],

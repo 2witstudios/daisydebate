@@ -17,6 +17,8 @@ import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
 import { spectatorClockAt } from '../features/spectating/spectator-clock';
 import { broadcastFeedUrls } from '../features/spectating/feed-url';
+import { presentedLinkHash } from '../features/audience-link/audience-link';
+import { readHostedAudienceLink } from '../features/audience-link/issue-link';
 import { readSpectatorTimeline } from '../features/spectating/read-timeline';
 import type { HubCounts } from '../features/watch/hub-counts';
 import {
@@ -186,12 +188,32 @@ export const requestMemberProfile = async (
  * What the public Round route reads, its one way in: the same facts the
  * anonymous snapshot serves. Null when this Round has no audience.
  */
-export const requestWatchRound = (roundId: string) =>
+export const requestWatchRound = async (roundId: string) =>
   readSpectatorTimeline(processApp().database, {
     roundId,
     now: processApp().clock.now(),
     feedUrlOf: broadcastFeedUrls(processApp().config.BROADCAST_PUBLIC_ORIGIN),
+    presentedHash: await requestPresentedLink(roundId),
   });
+
+/** A Round's link standing, for the member who hosts it; null for anyone else. */
+export const requestHostedAudienceLink = async (
+  roundId: string,
+  identity: Identity,
+) =>
+  identity.state === 'member'
+    ? readHostedAudienceLink(processApp().database, {
+        roundId,
+        caller: {
+          userId: identity.principal.userId,
+          actorId: identity.principal.actorId,
+        },
+      })
+    : null;
+
+/** The hash of the audience link this render's browser holds for a Round. */
+export const requestPresentedLink = async (roundId: string) =>
+  presentedLinkHash((await headers()).get('cookie'), roundId);
 
 /** One page of the real Live listing. */
 export const requestLiveListing = (query: LiveQuery) =>

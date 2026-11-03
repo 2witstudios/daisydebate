@@ -29,7 +29,11 @@ export const openDownload = async (
       'readRound' | 'readBroadcastRelease' | 'holdsRecordingDownload'
     >;
   },
-  input: { readonly recordingId: string; readonly viewer: RecordingViewer },
+  input: {
+    readonly recordingId: string;
+    readonly viewer: RecordingViewer;
+    readonly presentedLinkHashOf: (roundId: string) => string | null;
+  },
 ): Promise<string> => {
   const refused = createAppError('NOT_FOUND');
   if (input.viewer.kind !== 'account') throw refused;
@@ -41,6 +45,7 @@ export const openDownload = async (
     round,
     await deps.inputs.readBroadcastRelease(round.id),
     input.viewer,
+    input.presentedLinkHashOf(round.id),
   );
   const allowed = mayDownload({
     viewer: input.viewer,

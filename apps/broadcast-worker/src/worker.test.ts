@@ -27,6 +27,7 @@ test('a finished Broadcast is withdrawn, not released again', async () => {
         return claimed === 1
           ? {
               id: 'b',
+              feedKey: 'b',
               nextSegment: 1,
               stoppedAt: null,
               finalMediaEndAt: new Date(1),
