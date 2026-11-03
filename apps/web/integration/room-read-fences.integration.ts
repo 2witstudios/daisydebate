@@ -1,3 +1,4 @@
+import { readRoundOpeningTopic } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { withRoomRuntime } from './room-runtime.test-support';
@@ -19,6 +20,7 @@ test('Room readers share account authority while an assembly awaits seat hydrati
       view.id,
       f.host,
       (_state, account) => account?.member === true,
+      readRoundOpeningTopic,
     );
     const assemblyResult = Promise.allSettled([assembly]);
     try {

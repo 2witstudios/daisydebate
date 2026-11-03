@@ -11,6 +11,7 @@ import { canReadRound } from '../round-runtime/reads';
 import type { Database } from '@daisy/db';
 import {
   readRoundOpening,
+  readRoundOpeningTopic,
   activeRoomMembers,
   executeRoomCommand,
   hostIdentityHidden,
@@ -112,6 +113,7 @@ export function createRoomRuntimeOperations({
       roomId,
       caller,
       (state, account) => can(caller, 'room.read', account, state),
+      readRoundOpeningTopic,
     );
     const state = eligible(facts.state);
     const consent = await consentOf(state, await store.databaseNow());
@@ -341,6 +343,7 @@ export function createRoomRuntimeOperations({
             }).allow),
         (account) => can(caller, 'room.list', account),
         (fact) => hostIdentityHidden(fact, caller.actorId),
+        readRoundOpeningTopic,
       );
     },
     create,
@@ -349,6 +352,7 @@ export function createRoomRuntimeOperations({
         sourceRoomId,
         caller,
         (state, account) => can(caller, 'room.read', account, state),
+        readRoundOpeningTopic,
       );
       if (source.hostActorId !== caller.actorId)
         throw createAppError('AUTHORIZATION');
