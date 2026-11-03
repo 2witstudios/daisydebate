@@ -1,4 +1,4 @@
-import { capacityRefusalDetail } from '@daisy/db/capacity';
+import { capacityRefusalFields } from '@daisy/db/capacity';
 import { databaseFailure } from '@daisy/db/database-failure';
 import { createAppError } from '@daisy/errors';
 import type { IntervalTimers } from './outbox-drain';
@@ -10,9 +10,8 @@ const BUDGET_SPENT = Symbol('authority check budget spent');
  * said, or `internal` for anything else (a code bug, or Redis during a hello).
  */
 export function authorityFailureFields(error: unknown) {
-  const refusal = capacityRefusalDetail(error);
-  if (refusal)
-    return { cause: `${refusal.lane}.${refusal.reason}`, ...refusal.pressure };
+  const refusal = capacityRefusalFields(error);
+  if (refusal) return refusal;
   if (isBudgetSpent(error)) return { cause: 'budget' };
   return { cause: databaseFailure(error) ?? 'internal' };
 }

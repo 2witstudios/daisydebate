@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomParticipant } from '@daisy/protocol';
-import { castSeatsBotDebater, castSpendsAiRound } from './ai-round-cast';
+import { castSeatsBotDebater } from './ai-round-cast';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 
@@ -14,66 +14,30 @@ const human = (role: RoomParticipant['role']) => seat('human', role);
 const bot = (role: RoomParticipant['role']) => seat('bot', role);
 
 const casts = [
-  [
-    'a bot debater against a human',
-    'casual',
-    [human('affirmative'), bot('negative')],
-  ],
+  ['a bot debater against a human', [human('affirmative'), bot('negative')]],
   [
     'two bot debaters and an AI judge',
-    'casual',
     [bot('affirmative'), bot('negative'), bot('judge')],
   ],
   [
     'a bot debater and an AI judge',
-    'casual',
     [human('affirmative'), bot('negative'), bot('judge')],
   ],
   [
     'human debaters with only an AI judge',
-    'casual',
     [human('affirmative'), human('negative'), bot('judge')],
   ],
   [
     'human debaters and a human judge',
-    'casual',
     [human('affirmative'), human('negative'), human('judge')],
-  ],
-  [
-    'a ranked Round with a bot debater',
-    'ranked',
-    [human('affirmative'), bot('negative')],
   ],
 ] as const;
 
-test('castSpendsAiRound()', () => {
-  assert({
-    given: 'bot-debater, mixed, AI-judge-only, human-only and ranked casts',
-    should: 'spend an allowance only when a bot debates outside ranked play',
-    actual: casts.map(([given, competitionType, participants]) => [
-      given,
-      castSpendsAiRound({
-        competitionType,
-        participants: participants as never,
-      }),
-    ]),
-    expected: [
-      ['a bot debater against a human', true],
-      ['two bot debaters and an AI judge', true],
-      ['a bot debater and an AI judge', true],
-      ['human debaters with only an AI judge', false],
-      ['human debaters and a human judge', false],
-      ['a ranked Round with a bot debater', false],
-    ],
-  });
-});
-
 test('castSeatsBotDebater()', () => {
   assert({
-    given: 'bot-debater, mixed, AI-judge-only, human-only and ranked casts',
-    should:
-      'take a bot-debater capacity slot whenever a bot debates, ranked included',
-    actual: casts.map(([given, , participants]) => [
+    given: 'bot-debater, mixed, AI-judge-only, and human-only casts',
+    should: 'answer true exactly when a bot debates',
+    actual: casts.map(([given, participants]) => [
       given,
       castSeatsBotDebater({ participants: participants as never }),
     ]),
@@ -83,7 +47,6 @@ test('castSeatsBotDebater()', () => {
       ['a bot debater and an AI judge', true],
       ['human debaters with only an AI judge', false],
       ['human debaters and a human judge', false],
-      ['a ranked Round with a bot debater', true],
     ],
   });
 });
@@ -127,14 +90,13 @@ test('a real Launch carries the cast consequence in its freeze', () => {
       return [
         given,
         result.ok && result.mutation.freeze,
-        result.ok && result.mutation.spendsAiRound,
         result.ok && result.mutation.seatsBotDebater,
       ];
     }),
     expected: [
-      ['a bot debater', true, true, true],
-      ['an AI judge alone', true, false, false],
-      ['humans only', true, false, false],
+      ['a bot debater', true, true],
+      ['an AI judge alone', true, false],
+      ['humans only', true, false],
     ],
   });
 });

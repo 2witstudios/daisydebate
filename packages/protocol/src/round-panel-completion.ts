@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { debateSides, idSchema, type DebateSide } from './primitives';
+import { debateSideSchema, idSchema, roundOutcomeSchema } from './primitives';
 
 /** What one AI judge seat can still do. One state per seat. */
 export type AiSeatStanding =
@@ -28,10 +28,12 @@ export type JudgingPanel = {
     readonly standing: AiSeatStanding;
   }[];
 };
-export type PanelRuling = {
-  readonly judgeParticipantId: string;
-  readonly winner: DebateSide;
-};
+/** One judge seat's ruling: the winner it named. */
+export const judgeRulingSchema = z.strictObject({
+  judgeParticipantId: idSchema,
+  winner: debateSideSchema,
+});
+export type JudgeRuling = z.infer<typeof judgeRulingSchema>;
 
 /** One judging job as read; the engine decides what it means. */
 export type JudgingJobFacts = {
@@ -55,7 +57,7 @@ export type JudgingPanelFacts = {
   readonly ballotDeadlineAt: string | null;
   readonly jobs: readonly JudgingJobFacts[];
   readonly held: HeldBallotFacts;
-  readonly ballots: readonly PanelRuling[];
+  readonly ballots: readonly JudgeRuling[];
 };
 /** How a Round ended, as attendance or the panel knows it. Judging names what that does to a job. */
 export type RoundEnding = 'forfeit' | 'abandoned' | 'panel_closed';
@@ -63,7 +65,7 @@ export type RoundEnding = 'forfeit' | 'abandoned' | 'panel_closed';
 /** Internal facts from the locked Round; never a public command body. */
 export type RoundPanelCompletion = {
   readonly now: string;
-  readonly ballots: readonly PanelRuling[];
+  readonly ballots: readonly JudgeRuling[];
   /** The frozen transcript's completeness (DEC-208). */
   readonly completeness: 'complete' | 'incomplete';
   readonly panel: JudgingPanel;
@@ -79,6 +81,7 @@ export const panelRulingSchema = z.enum([
   'ruled',
   'judges-split',
 ]);
+export type PanelRuling = z.infer<typeof panelRulingSchema>;
 
 /**
  * One durable finalization command; replay keeps its original result. A
@@ -95,7 +98,7 @@ export const roundPanelReceiptSchema = z.strictObject({
   resultingVersion: z.int().positive(),
   status: z.literal('completed'),
   ruling: panelRulingSchema,
-  outcome: z.enum([...debateSides, 'draw']).nullable(),
+  outcome: roundOutcomeSchema.nullable(),
   noRuling: z.array(idSchema).readonly(),
   replayed: z.boolean(),
 });

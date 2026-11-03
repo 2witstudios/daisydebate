@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "b0da3e5e-32b7-47f7-8ff8-83bc9ba67cee",
+  "id": "68d0d8d8-01ca-4213-a352-97a38292d8ca",
   "prevIds": [
-    "cc110bce-ccfb-4078-9a7a-1756abb3db2a"
+    "2ab218fa-7d67-4508-8c85-430956301942"
   ],
   "ddl": [
     {
@@ -459,12 +459,6 @@
     {
       "isRlsEnabled": false,
       "name": "round_resolution_strikes",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "role_grants",
       "entityType": "tables",
       "schema": "public"
     },
@@ -7649,110 +7643,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "role",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "scope_type",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "scope_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "granted_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "granted_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "revoked_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "command_id",
       "entityType": "columns",
       "schema": "public",
@@ -14114,90 +14004,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "role",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "scope_type",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "coalesce(\"scope_id\", '')",
-          "isExpression": true,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"revoked_at\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "role_grants_active_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "role_grants_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "granted_by_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "role_grants_granted_by_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "room_id",
           "isExpression": false,
           "asc": true,
@@ -18796,40 +18602,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "role_grants_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "granted_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "role_grants_granted_by_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "room_id"
       ],
       "schemaTo": "public",
@@ -20965,16 +20737,6 @@
     },
     {
       "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "role_grants_pkey",
-      "schema": "public",
-      "table": "role_grants",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "command_id"
       ],
       "nameExplicit": false,
@@ -22628,7 +22390,7 @@
       "table": "seasons"
     },
     {
-      "value": "\"status\" in ('scheduled', 'active', 'closed')",
+      "value": "\"status\" in ('active', 'closed')",
       "name": "seasons_status_check",
       "entityType": "checks",
       "schema": "public",
@@ -22871,34 +22633,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "round_resolution_strikes"
-    },
-    {
-      "value": "\"role\" in ('moderator', 'judge')",
-      "name": "role_grants_role_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "value": "\"scope_type\" in ('global')",
-      "name": "role_grants_scope_type_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "value": "\"scope_type\" <> 'global' or \"scope_id\" is null",
-      "name": "role_grants_global_scope_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "value": "\"revoked_at\" is null or \"revoked_at\" >= \"granted_at\"",
-      "name": "role_grants_revoked_after_granted",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "role_grants"
     },
     {
       "value": "\"payload_digest\" ~ '^[0-9a-f]{64}$'",

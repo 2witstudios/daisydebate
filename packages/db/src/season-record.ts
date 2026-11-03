@@ -1,4 +1,6 @@
-import type { seasons, seasonStatuses } from './schema/ratings';
+import { desc } from 'drizzle-orm';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { seasons, type seasonStatuses } from './schema/ratings';
 
 /**
  * A season as the season operations and the standings reads return it.
@@ -23,3 +25,11 @@ export const toSeasonRecord = (
   status: row.status as SeasonRecord['status'],
   version: row.version,
 });
+
+/** Every season, newest start first: the one listing, for the CLI and the ladder. */
+export const listSeasonRecords = async (
+  database: BunSQLDatabase,
+): Promise<readonly SeasonRecord[]> =>
+  (await database.select().from(seasons).orderBy(desc(seasons.startsAt))).map(
+    toSeasonRecord,
+  );

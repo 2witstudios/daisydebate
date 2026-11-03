@@ -8,10 +8,13 @@ import {
   ServerError,
   type EgressInfo,
 } from 'livekit-server-sdk';
-import { configSchema, parseMedia, type MediaConfig } from './contracts';
+import {
+  configSchema,
+  OBSERVER_IDENTITY,
+  parseMedia,
+  type MediaConfig,
+} from './contracts';
 
-/** The observer's one identity: hidden, subscribe-only, in no roster (ADR 0099). */
-const OBSERVER_IDENTITY = 'stage-observer';
 const OBSERVER_TTL_SECONDS = 4 * 60 * 60;
 
 export type BroadcastEgressFact =

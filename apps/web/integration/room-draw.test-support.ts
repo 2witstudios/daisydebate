@@ -53,7 +53,7 @@ export const strikeStanding = async (
   who: Caller,
   ordinal: number,
 ) => {
-  const current = await f.operations.roundView(who, roundId);
+  const current = await f.roundView(who, roundId);
   const draw = current.opening?.draw;
   if (draw?.visibility !== 'debater') throw new Error('Debater view');
   const standing = draw.items.find(
@@ -61,7 +61,7 @@ export const strikeStanding = async (
   )!;
   await strikeCommand(f, roundId, who, ordinal, standing.position);
   return {
-    view: await f.operations.roundView(who, roundId),
+    view: await f.roundView(who, roundId),
     position: standing.position,
   };
 };
@@ -74,7 +74,7 @@ export const strikeCommand = async (
   ordinal: number,
   position: number,
 ) => {
-  const current = await f.operations.roundView(who, roundId);
+  const current = await f.roundView(who, roundId);
   const seat = current.participants
     .filter(isNamedSeat)
     .find((p) => p.actorId === who.actorId);
@@ -101,7 +101,7 @@ export const strikeToReveal = async (
   roundId: string,
   cast: { readonly host: Caller; readonly guest: Caller },
 ) => {
-  const opening = (await f.operations.roundView(cast.guest, roundId)).opening;
+  const opening = (await f.roundView(cast.guest, roundId)).opening;
   const strikes = (opening?.draw?.drawSize ?? 1) - 1;
   for (let ordinal = 0; ordinal < strikes; ordinal += 1)
     await strikeStanding(

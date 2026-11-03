@@ -6,7 +6,7 @@ import {
 } from '@daisy/protocol';
 import { driverEdges } from '../resource-sync/driver.test-support';
 import type { ResourceRead } from '../resource-sync/driver';
-import { round } from '../room-runtime/operations.test-support';
+import { round } from './round.test-support';
 import {
   createTranscriptHolder,
   createTranscriptSync,

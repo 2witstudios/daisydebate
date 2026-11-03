@@ -5,7 +5,7 @@ import {
   type RoundView,
 } from '@daisy/protocol';
 import { driverEdges } from '../resource-sync/driver.test-support';
-import { round } from '../room-runtime/operations.test-support';
+import { round } from './round.test-support';
 import type { RoundRead } from './read-round';
 import {
   createRoundSyncDriver,

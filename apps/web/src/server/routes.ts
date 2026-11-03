@@ -105,7 +105,6 @@ export function createRoutes(app: App) {
       clock: app.clock,
     }),
     rounds: {
-      read: rooms.roundRead,
       ...composeRoundRoutes(app),
       ...composeRoundBallotRoutes(app),
       ...composeRoundAnalysisRoutes(app),

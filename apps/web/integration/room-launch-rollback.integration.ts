@@ -56,10 +56,7 @@ test('outbox failure rolls back Launch including frozen Round and participants',
     (await f.operations.castChoices(f.host)).forEach((choice) =>
       roomCastChoiceSchema.parse(choice),
     );
-    const read = await f.operations.roundView(
-      f.guest,
-      launched.view.roundRef!.id,
-    );
+    const read = await f.roundView(f.guest, launched.view.roundRef!.id);
     roundViewSchema.parse(read);
     assert({
       given: 'an untrusted incomplete Room or Round response',

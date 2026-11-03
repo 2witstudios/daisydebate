@@ -22,6 +22,7 @@ export { plannedBroadcast, plannedRecording } from './room-capture';
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
 export { mediaGrants, changedMediaGrants } from './media-grants';
+export { mediaWindowClosed } from './media-window';
 export type { RoundMediaGrants } from './media-grants';
 export type { RoundCommand, RoundPosition } from '@daisy/protocol';
 export { resolveRoomConfiguration } from './resolve-room-configuration';
@@ -43,7 +44,7 @@ export {
   hostIdentityHidden,
   projectRoom,
 } from './room-assembly';
-export { castSeatsBotDebater, castSpendsAiRound } from './ai-round-cast';
+export { castSeatsBotDebater } from './ai-round-cast';
 export { activeRoomMembers, projectActiveRoom } from './room-membership';
 /** Pure transitions the privacy erasure applies under its own authority. */
 export { closeRoom } from './room-consent-transitions';
