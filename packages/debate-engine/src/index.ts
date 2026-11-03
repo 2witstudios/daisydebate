@@ -50,6 +50,7 @@ export {
   requireAttendanceWindow,
   adjudicateAttendance,
   onTimeSpeakerReceipt,
+  resolutionCutoffOf,
 } from './attendance';
 export type { AttendanceDecision, AttendanceWindow } from './attendance';
 export {

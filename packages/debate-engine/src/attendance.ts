@@ -1,5 +1,5 @@
 import { createInvariantError } from '@daisy/errors';
-import type { DebateSide } from '@daisy/protocol';
+import type { DebateSide, HydratedSegment, RoundRules } from '@daisy/protocol';
 import {
   effectiveAttendanceDeadline,
   type SettledAvailability,
@@ -76,12 +76,27 @@ export type AttendanceDecision =
       readonly winner: DebateSide;
       readonly effectiveDeadlineMs: number;
     }
-  /** Settled evidence never came and the persisted cutoff passed (DEC-276). */
+  /** Settled evidence never came and the cutoff passed (DEC-276). */
   | {
       readonly evidence: 'resolution_cutoff';
       readonly decision: 'abandoned';
-      readonly cutoffAtMs: number;
     };
+/**
+ * The instant settled evidence stops being waited for: the debate's closed end
+ * plus the policy (DEC-276), null until its last segment has closed. The
+ * decision and its check both read this, so they cannot disagree, and a Round
+ * whose last segment is still open waits for the clock to close it.
+ */
+export const resolutionCutoffOf = (
+  rules: Pick<RoundRules, 'segments'>,
+  segments: readonly Pick<HydratedSegment, 'sequence' | 'endedAt'>[],
+): number | null => {
+  const last = segments.find((s) => s.sequence === rules.segments.length - 1);
+  return last?.endedAt
+    ? Date.parse(last.endedAt) + attendancePolicy.resolutionCutoffMs
+    : null;
+};
+
 /** The decisions that end a Round. */
 export type RoundEndingDecision = Extract<
   AttendanceDecision,
@@ -164,7 +179,6 @@ export function adjudicateAttendance(
       ? {
           evidence: 'resolution_cutoff',
           decision: 'abandoned',
-          cutoffAtMs: input.cutoffAtMs,
         }
       : null;
   const decision = decisionForStamps(

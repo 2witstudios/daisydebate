@@ -7,6 +7,7 @@ import {
   type RoundEndingDecision,
   onTimeSpeakerReceipt,
   requireAttendanceDecision,
+  resolutionCutoffOf,
   effectiveAttendanceDeadline,
   judgingEndIsReported,
   judgingJobEndReason,
@@ -96,9 +97,7 @@ function resolveAttendanceWindow(
     botSeatIds: facts.botSeatIds,
     finalized: false,
     segmentType: target.type,
-    cutoffAtMs: facts.resolutionCutoffAt
-      ? attendanceReceiptTime(facts.resolutionCutoffAt)
-      : null,
+    cutoffAtMs: resolutionCutoffOf(facts.round.rules, facts.round.segments),
     nowMs: Date.parse(facts.now),
   };
   const decision = adjudicateAttendance(evidence);

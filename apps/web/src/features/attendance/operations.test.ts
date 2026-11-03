@@ -62,7 +62,6 @@ const facts = (
     },
     eligibleParticipantIds: ['aff', 'neg'],
     samples: healthyThrough(openedAtMs + 50000),
-    resolutionCutoffAt: null,
     finalizedSegmentIds: [],
     now: iso(openedAtMs + 50000),
     checkIns: [],
@@ -201,7 +200,6 @@ test('unknown health forfeits nobody, and the persisted cutoff ends the Round wi
     actual: await feature({
       samples: unhealthy,
       checkIns: [late],
-      resolutionCutoffAt: iso(openedAtMs + 60000),
     }).instance.evaluate('round'),
     expected: null,
   });
@@ -210,7 +208,6 @@ test('unknown health forfeits nobody, and the persisted cutoff ends the Round wi
     should: 'postpone',
     actual: await feature({
       ...absent,
-      resolutionCutoffAt: null,
       now: iso(openedAtMs + 9_000_000),
     }).instance.evaluate('round'),
     expected: null,
@@ -231,7 +228,6 @@ test('unknown health forfeits nobody, and the persisted cutoff ends the Round wi
         durationMs: rule.durationMs,
       })),
     },
-    resolutionCutoffAt: iso(cutoffMs),
     now: iso(cutoffMs),
   }).instance.evaluate('round')) as {
     evidence: string;
@@ -239,7 +235,7 @@ test('unknown health forfeits nobody, and the persisted cutoff ends the Round wi
     projection: { round: { status: string; outcome: unknown } };
   };
   assert({
-    given: 'the same window at the persisted cutoff (DEC-276)',
+    given: 'the same window at the cutoff (DEC-276)',
     should: 'abandon on the cutoff, with no winner',
     actual: {
       evidence: ended.evidence,

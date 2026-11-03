@@ -482,7 +482,6 @@ test('past the cutoff, what evidence cannot decide ends with no winner (ISSUE-98
     expected: {
       evidence: 'resolution_cutoff',
       decision: 'abandoned',
-      cutoffAtMs: 1000,
     },
   });
   assert({

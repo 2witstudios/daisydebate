@@ -19,10 +19,14 @@ import { recordedEnding, recordedEndingJoins } from './recorded-ending';
 
 type Execute = Pick<BunSQLDatabase, 'execute'>;
 
-export type RatingCandidate = {
-  readonly roundId: string;
-  readonly facts: RatingEligibilityFacts;
-};
+/** A Round to rate, or one whose ledger row is corrupt: it fails alone, and the page moves on. */
+export type RatingCandidate =
+  | { readonly roundId: string; readonly facts: RatingEligibilityFacts }
+  | {
+      readonly roundId: string;
+      readonly facts: null;
+      readonly unreadable: unknown;
+    };
 
 type FactsRow = Omit<RatingEligibilityFacts, 'attendance'> &
   Record<keyof AttendanceLedgerFacts, unknown> & { readonly roundId: string };
@@ -49,19 +53,25 @@ const readCandidates = async (
       receipts,
       pendingWriter,
       ...facts
-    }) => ({
-      roundId,
-      facts: {
-        ...facts,
-        attendance: attendanceLedgerFacts({
-          ruleSegments,
-          speeches,
-          adjudications,
-          receipts,
-          pendingWriter,
-        }),
-      },
-    }),
+    }) => {
+      try {
+        return {
+          roundId,
+          facts: {
+            ...facts,
+            attendance: attendanceLedgerFacts({
+              ruleSegments,
+              speeches,
+              adjudications,
+              receipts,
+              pendingWriter,
+            }),
+          },
+        };
+      } catch (unreadable) {
+        return { roundId, facts: null, unreadable };
+      }
+    },
   );
 };
 
@@ -98,5 +108,6 @@ export async function readRatingFacts(
 ): Promise<RatingEligibilityFacts | null> {
   if (!idSchema.safeParse(roundId).success) throw createAppError('VALIDATION');
   const [candidate] = await readCandidates(db, sql`r.id=${roundId}`);
+  if (candidate?.facts === null) throw candidate.unreadable;
   return candidate?.facts ?? null;
 }

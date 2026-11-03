@@ -1,6 +1,10 @@
 import { createAppError } from '@daisy/errors';
 import type { HydratedSegment, RoundParticipantSeat } from '@daisy/protocol';
-import { attendancePolicy, type RoundEndingDecision } from './attendance';
+import {
+  attendancePolicy,
+  resolutionCutoffOf,
+  type RoundEndingDecision,
+} from './attendance';
 import { finalSpeechKey } from './attendance-order';
 import { abandonedLifecycle } from './round-clock-state';
 import {
@@ -24,7 +28,7 @@ export function applyRoundAdjudication(
   const { row, target } = requireActualSpeech(c, input, segments);
   const { decision } = input;
   if (decision.evidence === 'resolution_cutoff') {
-    requirePassedCutoff(c, decision.cutoffAtMs, segments);
+    requirePassedCutoff(c, segments);
     closePlayedRound(c);
     c.on.setLifecycle(abandonedLifecycle(c.on.lifecycle(), c.now));
     return;
@@ -44,23 +48,13 @@ export function applyRoundAdjudication(
   c.on.setLifecycle(abandonedLifecycle(c.on.lifecycle(), c.now));
 }
 
-/**
- * The cutoff is the debate's closed end plus the policy, and only then has it
- * passed. A caller's value that is anything else names no real cutoff.
- */
+/** Only a debate whose last segment closed has a cutoff, and only then can it pass. */
 function requirePassedCutoff(
   c: CommandContext,
-  cutoffAtMs: number,
   segments: readonly HydratedSegment[],
 ): void {
-  const last = segments.find((s) => s.sequence === c.rules.segments.length - 1);
-  if (
-    !last?.endedAt ||
-    cutoffAtMs !==
-      Date.parse(last.endedAt) + attendancePolicy.resolutionCutoffMs ||
-    !Number.isFinite(c.now) ||
-    c.now < cutoffAtMs
-  )
+  const cutoffAtMs = resolutionCutoffOf(c.rules, segments);
+  if (cutoffAtMs === null || !Number.isFinite(c.now) || c.now < cutoffAtMs)
     throw createAppError('INVARIANT');
 }
 

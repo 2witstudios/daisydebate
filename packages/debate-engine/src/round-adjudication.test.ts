@@ -237,53 +237,44 @@ describe('a decision past the resolution cutoff', () => {
     Date.parse(roundAt(finalEndAt)) + attendanceTimingPolicy.resolutionCutoffMs;
   const ended = (
     world: ReturnType<typeof played>,
-    atMs: number,
+    segmentId: string,
     nowMs: number,
   ) =>
     world.adjudicate({
-      segmentId: 'row-0',
-      decision: {
-        evidence: 'resolution_cutoff',
-        decision: 'abandoned',
-        cutoffAtMs: atMs,
-      },
+      segmentId,
+      decision: { evidence: 'resolution_cutoff', decision: 'abandoned' },
       now: new Date(nowMs).toISOString(),
     });
 
-  test('a Round abandons at the debate end plus the policy', () => {
+  test('a Round abandons once the debate end plus the policy has passed', () => {
     assert({
-      given: 'a closed last segment and its true cutoff, passed',
+      given: 'a closed last segment, at its cutoff',
       should: 'abandon the Round with no winner',
-      actual: ended(played(), cutoffAtMs, cutoffAtMs).round?.status,
+      actual: ended(played(), 'row-0', cutoffAtMs).round?.status,
       expected: 'abandoned',
     });
   });
 
-  test('a caller cannot end a Round on a cutoff of its own', async () => {
+  test('a cutoff not reached or with no closed end refuses, and changes nothing', async () => {
     const world = played();
     const before = world.position(roundAt(finalEndAt));
-    for (const [given, atMs, nowMs] of [
-      ['a cutoff earlier than the true one', 0, cutoffAtMs],
-      ['a cutoff later than the true one', cutoffAtMs + 1, cutoffAtMs + 1],
-      ['a true cutoff not yet passed', cutoffAtMs, cutoffAtMs - 1],
-    ] as const)
-      await assertRejects({
-        given,
-        should: 'refuse the abandonment',
-        actual: () => ended(world, atMs, nowMs),
-        code: 'INVARIANT',
-      });
     await assertRejects({
-      given: 'a Round mid-speech, with no closed end',
+      given: 'a closed last segment, one millisecond before its cutoff',
       should: 'refuse the abandonment',
-      actual: () => ended(opened(), cutoffAtMs, cutoffAtMs),
+      actual: () => ended(world, 'row-0', cutoffAtMs - 1),
       code: 'INVARIANT',
     });
     assert({
-      given: 'all refused abandonments',
+      given: 'that refusal',
       should: 'leave the hydrated runtime unchanged',
       actual: world.position(roundAt(finalEndAt)),
       expected: before,
+    });
+    await assertRejects({
+      given: 'a Round mid-speech, with no closed end',
+      should: 'refuse the abandonment',
+      actual: () => ended(opened(), 'actual-speech', cutoffAtMs),
+      code: 'INVARIANT',
     });
   });
 });
