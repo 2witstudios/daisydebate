@@ -126,6 +126,7 @@ export async function frozenRankedRound(
 ) {
   const room = await readyRankedRoom(f, ladder, judgeKind);
   const { roundId } = await launchRuntimeRound(f, room);
+  await runRankedOpening(f, roundId);
   await playOut(f, roundId, true);
   const frozen = await finalizeAsWeb(f, roundId);
   if (frozen.status !== 'frozen' || frozen.freeze.completeness !== 'complete')

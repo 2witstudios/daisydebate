@@ -51,6 +51,7 @@ export async function inSeason<T>(f: Fixture, work: () => Promise<T>) {
   } finally {
     await f.sql`delete from rating_changes where actor_id in (${f.host.actorId},${f.guest.actorId})`;
     await f.sql`delete from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
+    await f.sql`delete from agreement_signatures where season_id=${seasonId}`;
     await f.sql`delete from seasons where id=${seasonId}`;
   }
 }

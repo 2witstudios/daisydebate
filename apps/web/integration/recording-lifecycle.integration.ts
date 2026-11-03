@@ -56,7 +56,7 @@ const withReadyRecording = (
       },
     });
     const { roundId } = await launchRuntimeRound(f, room);
-    await f.sql`update rounds set status='completed', started_at=${at}::timestamptz, completed_at=${at}::timestamptz where id=${roundId}`;
+    await f.sql`update rounds set status='completed', current_stage=null, started_at=${at}::timestamptz, completed_at=${at}::timestamptz where id=${roundId}`;
     const database = f.store as never as Parameters<
       typeof recordingPersistence
     >[0]['database'];
