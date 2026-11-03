@@ -21,11 +21,11 @@ BEGIN
 END $$;--> statement-breakpoint
 -- ISSUE-1027: a tie has no outcome (DEC-277), so a stored draw becomes the null it now
 -- is, in the Round and its receipts, and a tie rates nothing, so its postings go.
--- This changes no completion fact the guard judges, and an old row must not block
--- the release.
+-- A stored draw had every judge ruling, so the guard has nothing to refuse, and an
+-- old row must not block the release.
 ALTER TABLE "rounds" DISABLE TRIGGER "rounds_winnerless_completion_check";--> statement-breakpoint
 DELETE FROM "rating_changes" WHERE "round_id" IN (SELECT "id" FROM "rounds" WHERE "outcome" = 'draw');--> statement-breakpoint
-UPDATE "round_commands" SET "result" = jsonb_set("result", '{outcome}', 'null') WHERE "result"->>'outcome' = 'draw';--> statement-breakpoint
+UPDATE "round_commands" SET "result" = jsonb_set("result", '{outcome}', 'null') WHERE "result"->>'outcome' = 'draw' AND "round_id" IN (SELECT "id" FROM "rounds" WHERE "outcome" = 'draw');--> statement-breakpoint
 UPDATE "rounds" SET "outcome" = NULL WHERE "outcome" = 'draw';--> statement-breakpoint
 SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "rounds" ENABLE TRIGGER "rounds_winnerless_completion_check";--> statement-breakpoint
