@@ -35,8 +35,7 @@ test('a ranked seat signs the content waiver without JavaScript', async ({
     );
     try {
       await page
-        .getByRole('button', { name: /claim|take seat/i })
-        .first()
+        .getByRole('button', { name: 'Take Affirmative 1', exact: true })
         .click();
       const waiver = page.getByRole('heading', {
         name: 'Sign the ranked content waiver',

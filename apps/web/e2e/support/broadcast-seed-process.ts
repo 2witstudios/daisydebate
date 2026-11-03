@@ -92,8 +92,9 @@ const create = async (sql: SQL, input: Create) => {
       await tx`select id from round_participants where round_id=${roundId} and actor_id=${aff}`;
     await tx`insert into utterances (id,round_id,segment_id,round_participant_id,sequence,text,complete,created_at)
       values (${createId()},${roundId},${segmentId},${participant[0].id},0,${`Caption ${suffix}`},true,now()-interval '3 minutes')`;
-    await tx`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at)
-      values (${broadcastId},${roundId},${feedKey},${{ kind: 'delay', seconds: 60 }},now()-interval '60 seconds')`;
+    // Heard from since the caption was said, or its open segment keeps it back.
+    await tx`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,control_heartbeat_at)
+      values (${broadcastId},${roundId},${feedKey},${{ kind: 'delay', seconds: 60 }},now()-interval '60 seconds',now())`;
   });
   return {
     roundId,

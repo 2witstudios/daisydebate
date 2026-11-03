@@ -82,16 +82,30 @@ export async function submitCreateRoom(
   const form = page.getByRole('form', { name: 'Create a room' });
   await expect(form).toBeVisible();
   await form.locator(`input[name="format"][value="${formatId}"]`).check();
+  // Rendered only inside noscript, so it also says this browser runs no script.
   const apply = form.getByRole('button', { name: 'Apply format', exact: true });
-  if (await apply.count()) await apply.click();
+  const scripted = (await apply.count()) === 0;
+  if (!scripted) await apply.click();
   await form.getByLabel('Room name', { exact: true }).fill(title);
   if (ranked) {
     await form.getByRole('checkbox', { name: 'Ranked', exact: true }).check();
     // A ranked Room is always public, so the form offers no choice (WATCH-5).
-    await expect(form.getByLabel('Who can join')).toHaveCount(0);
+    // Without script the page cannot redraw, so the select stays and the words say so.
+    if (scripted) await expect(form.getByLabel('Who can join')).toHaveCount(0);
     await expect(
       form.getByText('Ranked Rounds are always public'),
     ).toBeVisible();
+    if (!scripted) {
+      // The first Create only shows the capture notice; nothing exists until the second.
+      await form
+        .getByRole('button', { name: 'Create room', exact: true })
+        .click();
+      await expect(page).toHaveURL(/\/play\/room\?draft=/);
+      await expect(form.getByLabel('Who can join')).toHaveCount(0);
+      await expect(
+        form.getByText('Ranked Rounds are always public, broadcast'),
+      ).toBeVisible();
+    }
   } else await form.getByLabel('Who can join').selectOption('public');
   return createConfiguredRoom(page);
 }
