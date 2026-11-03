@@ -108,3 +108,14 @@ export {
 export type { RoundEndingDecision } from './attendance';
 export { captureRule } from './capture-verdict';
 export { botGrantUnused } from './bot-grant';
+export {
+  BROADCAST_INTERRUPTED_AFTER_MS,
+  projectSpectatorTimeline,
+  releasedStage,
+} from './spectator-timeline';
+export type {
+  SpectatorTimelineContext,
+  SpectatorTimelineRead,
+} from './spectator-timeline';
+export { projectAudienceSnapshot } from './audience-snapshot';
+export type { AudienceSnapshotRead } from './audience-snapshot';

@@ -1,3 +1,4 @@
+import { projectAudienceSnapshot } from '@daisy/debate-engine';
 import { refuseCapacity } from '@daisy/db/testing';
 import { noopErrorReporter } from '@daisy/observability';
 import { audienceSnapshotSchema } from '@daisy/protocol';
@@ -10,7 +11,6 @@ import { VIEWER_BUCKET_MS } from '../viewer-counts/viewer-count';
 import {
   audienceFor,
   createAudienceSnapshotRoute,
-  projectAudienceSnapshot,
   readAudienceForViewer,
   readAudienceSnapshot,
 } from './audience-snapshot';

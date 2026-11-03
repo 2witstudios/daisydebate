@@ -40,6 +40,12 @@ export const createObjects = (config: {
     if (!response.ok) throw new Error(`public put ${response.status}`);
   };
   return {
+    /** A Round's published state: the public key's only write outside a release. */
+    putState: (
+      key: string,
+      body: string,
+      headers: Readonly<Record<string, string>>,
+    ) => putPublic(key, body, headers),
     /** Empty until Egress writes its first playlist: nothing is due yet. */
     readHoldText: async (key: string) => {
       const file = hold.file(key);

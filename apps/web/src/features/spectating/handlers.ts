@@ -5,7 +5,7 @@ import type { ErrorReporter } from '@daisy/observability';
 import { handleOperation, PUBLIC_SNAPSHOT_CACHE } from '../../server/http';
 import { presentedLinkHash } from '../audience-link/audience-link';
 import { admitAudience, createWatchRoundSnapshots } from './read-timeline';
-import type { SpectatorTimelineContext } from './timeline';
+import type { SpectatorTimelineContext } from '@daisy/debate-engine';
 import { joinReadInFlight } from './in-flight-read';
 import { answerUnlessRefused } from './refused-read';
 

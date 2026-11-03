@@ -8,7 +8,7 @@ import { createSnapshotMemo } from './snapshot-memo';
 import {
   projectSpectatorTimeline,
   type SpectatorTimelineContext,
-} from './timeline';
+} from '@daisy/debate-engine';
 
 type Store = Pick<Database, 'readSpectatorTimeline' | 'readRoundAudienceLink'>;
 

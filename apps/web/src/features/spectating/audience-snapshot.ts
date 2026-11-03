@@ -1,14 +1,10 @@
 import type { Clock } from '@daisy/clock';
+import { projectAudienceSnapshot } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
-import {
-  audienceReactionKinds,
-  idSchema,
-  type AudienceReactionKind,
-  type AudienceSnapshot,
-} from '@daisy/protocol';
+import { idSchema, type AudienceSnapshot } from '@daisy/protocol';
 import type { Identity } from '@daisy/auth';
 import { handleOperation, PUBLIC_SNAPSHOT_CACHE } from '../../server/http';
 import { presentedLinkHash } from '../audience-link/audience-link';
@@ -21,33 +17,6 @@ import { audienceShownTo, type AudienceShown } from './seated-audience';
 
 const SNAPSHOT_TTL_MS = 1000;
 const SNAPSHOT_ROUNDS = 5000;
-
-type Read = NonNullable<Awaited<ReturnType<Database['readAudienceSnapshot']>>>;
-
-/** Every reaction kind in its order, with zero for one nobody has used. */
-const reactionTotals = (read: Read): AudienceSnapshot['reactions'] =>
-  audienceReactionKinds.map((kind: AudienceReactionKind) => ({
-    kind,
-    count: read.reactions.find((row) => row.kind === kind)?.count ?? 0,
-  }));
-
-/** A zero count is no count: nothing to say. */
-export const projectAudienceSnapshot = (
-  roundId: string,
-  read: Read,
-  viewers: number | null,
-): AudienceSnapshot => ({
-  version: 1,
-  roundId,
-  interaction: !read.hasBroadcast
-    ? 'unavailable'
-    : read.open
-      ? 'open'
-      : 'closed',
-  messages: read.messages,
-  reactions: reactionTotals(read),
-  viewers: viewers === 0 ? null : viewers,
-});
 
 export type AudienceSnapshotStore = Pick<Database, 'readAudienceSnapshot'>;
 export type ViewerCounts = {

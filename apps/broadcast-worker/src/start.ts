@@ -1,9 +1,19 @@
+import {
+  audienceStateKey,
+  createAudiencePublisherStore,
+} from '@daisy/db/audience-publisher';
 import { createBroadcastWorkerStore } from '@daisy/db/broadcast-worker';
 import { createLogger } from '@daisy/logger';
+import { officialFeedPath } from '@daisy/protocol';
+import { createRedis } from '@daisy/redis';
 import { createId } from '@paralleldrive/cuid2';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+  createAudienceStatePublisher,
+  runAudienceStatePublisher,
+} from './audience-state';
 import { readWorkerConfig } from './config';
 import { createObjects } from './objects';
 import { runFeedWithdrawals } from './withdrawal';
@@ -44,10 +54,34 @@ const edges = {
       | 'broadcast.release_failed'
       | 'broadcast.withdrawal_failed'
       | 'broadcast.release_lapsed'
-      | 'broadcast.clip_skipped',
+      | 'broadcast.clip_skipped'
+      | 'audience.state_failed',
   ) => logger.log(event, {}, 'Broadcast worker'),
 };
+const publisherStore = createAudiencePublisherStore(
+  config.AUDIENCE_PUBLISHER_DATABASE_URL,
+);
+const publisher = createAudienceStatePublisher({
+  store: publisherStore,
+  objects,
+  counts: createRedis({
+    url: config.REDIS_URL,
+    namespace: config.REDIS_NAMESPACE,
+  }),
+  keyOf: audienceStateKey,
+  feedUrlOf: (feedKey) =>
+    new URL(officialFeedPath(feedKey), config.BROADCAST_PUBLIC_ORIGIN).href,
+  now: edges.now,
+  report: edges.report,
+});
 await Promise.all([
+  runAudienceStatePublisher({
+    publisher,
+    now: edges.now,
+    sleep: edges.sleep,
+    stopped: edges.stopped,
+    report: edges.report,
+  }),
   runFeedWithdrawals({ ...edges, owner: createId() }),
   ...Array.from({ length: config.BROADCAST_WORKER_SLOTS }, () =>
     runWorker({
@@ -60,4 +94,5 @@ await Promise.all([
     }),
   ),
 ]);
+await publisherStore.close();
 await store.close();
