@@ -1,4 +1,4 @@
-import { isAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import {
   idSchema,
   roomCommandSchema,

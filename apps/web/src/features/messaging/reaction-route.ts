@@ -10,6 +10,7 @@ import { messagingReactionFence } from './reaction-fence';
 import {
   memberHttpBoundary,
   runEvaluatedRoute,
+  type MemberBoundary,
 } from '../../server/member-boundary';
 
 /** Optional reaction policy never creates posting or cleanup authority. */
@@ -59,7 +60,7 @@ export function composeMessagingReactionRoute(app: App) {
   };
 }
 export function createMessagingReactionHandler(input: {
-  readonly boundary: ReturnType<typeof memberHttpBoundary>;
+  readonly boundary: MemberBoundary;
   readonly maxBodyBytes: number;
   readonly change: (
     value: unknown,
@@ -86,7 +87,7 @@ export function readReactionQuery(
 }
 
 export function createMessagingReactionReader(input: {
-  readonly boundary: ReturnType<typeof memberHttpBoundary>;
+  readonly boundary: MemberBoundary;
   readonly websocketEndpoint: string | null;
   readonly read: (
     value: unknown,
