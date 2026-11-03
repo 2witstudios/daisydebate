@@ -12,6 +12,7 @@ import {
 import { oneOnOneChoice } from './support/human-round-selection';
 import { drillEvidence } from './support/node-kill-drill-evidence';
 import { expect, openPage, test } from './support/fixtures';
+import { nowMs } from './support/node-kill-drill-nodes';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import { expectConnected, grantedDebaters } from './support/round-media';
@@ -111,7 +112,7 @@ const installSpeaker = (
         await new Promise((done) => {
           setTimeout(done, reaction);
         });
-        onsets[key] = Date.now();
+        onsets[key] = performance.timeOrigin + performance.now();
         const source = audio.createBufferSource();
         source.buffer = buffer;
         source.connect(output);
@@ -190,9 +191,9 @@ for (const [index, { name, reactionMs }] of CASES.entries())
           return { role, member, id: own.id, page };
         }),
       );
-      const deadline = Date.now() + PLAY_OUT_LIMIT_MS;
+      const deadline = nowMs() + PLAY_OUT_LIMIT_MS;
       const request = accounts.members[0]!.context.request;
-      while (Date.now() < deadline) {
+      while (nowMs() < deadline) {
         const view = await readBallotRound(request, round.id);
         if (view.status === 'completed') break;
         const open = view.segments.find(
@@ -200,7 +201,7 @@ for (const [index, { name, reactionMs }] of CASES.entries())
         );
         if (
           open?.startedAt &&
-          Date.now() - Date.parse(open.startedAt) >= HOLD_SPEECH_MS
+          nowMs() - Date.parse(open.startedAt) >= HOLD_SPEECH_MS
         ) {
           const side = segments.find(
             (segment) => segment.key === open.rulesSegmentKey,
@@ -305,7 +306,6 @@ for (const [index, { name, reactionMs }] of CASES.entries())
           2,
         ),
       );
-      console.log(JSON.stringify(results));
       // A record, read across the cases; the bar is judged from all of them together.
     } finally {
       await closeSettledLaunchContexts(accounts).catch(() => undefined);
