@@ -41,6 +41,9 @@ export type MediaConfig = z.infer<typeof configSchema>;
 
 export const participantSchema = z.object({
   identity: idSchema,
+  tracks: z
+    .array(z.object({ sid: z.string(), source: z.enum(TrackSource) }))
+    .default([]),
   permission: z.object({
     canPublish: z.boolean(),
     canSubscribe: z.boolean(),

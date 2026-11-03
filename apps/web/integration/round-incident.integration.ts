@@ -25,6 +25,7 @@ const room = (over: Partial<Extract<MediaObservation, { kind: 'room' }>>) =>
     empty: false,
     captureListed: true,
     seatsListed: true,
+    speakerHeard: null,
     ...over,
   }) as const;
 

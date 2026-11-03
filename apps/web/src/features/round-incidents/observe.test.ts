@@ -30,6 +30,7 @@ const evidence = (over = {}) => ({
     empty: true,
     captureListed: false,
     seatsListed: false,
+    speakerHeard: null,
   } as const,
   roomRetired: false,
   nowMs: 1,
@@ -70,6 +71,7 @@ test('what costs no transaction', async () => {
         empty: false,
         captureListed: true,
         seatsListed: true,
+        speakerHeard: null,
       },
     }),
   );

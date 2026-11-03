@@ -69,6 +69,7 @@ const roomObservation = (
     readonly grants: RoundMediaGrants;
   }[],
   state: MediaSnapshot,
+  speakerHeard: boolean | null = null,
 ): MediaObservation => {
   const seatOf = (identity: string) =>
     state.bindings.find((binding) => binding.identity === identity);
@@ -90,6 +91,7 @@ const roomObservation = (
           (entry) => seatOf(entry.identity)?.roundParticipantId === seat.id,
         ),
       ),
+    speakerHeard,
   };
 };
 
@@ -296,6 +298,44 @@ export function createMediaReconcileRun(
    * Reconciles the room. The admission's own refusal, if met, is returned;
    * otherwise whether every vendor write this needed was acknowledged.
    */
+  /**
+   * While a Round is held: whether capture reads the speaker's microphone in this room.
+   * Null when no human holds the floor. A failed read is not yet heard, and the next pass
+   * asks again.
+   */
+  const speakerHeard = async (
+    current: readonly {
+      readonly identity: string;
+      readonly microphoneTrack: string | null;
+    }[],
+    state: MediaSnapshot,
+  ) => {
+    if (state.round.checkpoint.incident.phase !== 'paused') return null;
+    const speakers = state.bindings.flatMap((binding) => {
+      const seat = state.participants.find(
+        (row) => row.id === binding.roundParticipantId,
+      );
+      return seat?.kind === 'human' &&
+        seatGrants(state, seat.id, input.nextId).publish.includes('microphone')
+        ? [{ seatId: seat.id, identity: binding.identity }]
+        : [];
+    });
+    if (speakers.length === 0) return null;
+    const heard = await Promise.all(
+      speakers.map(async ({ seatId, identity }) => {
+        const track = current.find(
+          (entry) => entry.identity === identity,
+        )?.microphoneTrack;
+        if (!track) return false;
+        return (
+          (await input
+            .readCaptureHeard(state.round.id, track)
+            .catch(() => null)) === seatId
+        );
+      }),
+    );
+    return heard.every(Boolean);
+  };
   const reconcileRoom = async (
     claim: Claim,
     admission: Principal | undefined,
@@ -335,7 +375,10 @@ export function createMediaReconcileRun(
             .catch(() => false)
         : null,
     };
-    observed(roomObservation(current, state), read);
+    observed(
+      roomObservation(current, state, await speakerHeard(current, state)),
+      read,
+    );
     // Nothing is written to a room the session is about to leave.
     if (
       mediaRoomLost({

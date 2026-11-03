@@ -60,6 +60,41 @@ const speakingNow = (input: MediaGrantInput) => {
     ).includes(input.participantId)
   );
 };
+/** Who holds the floor of the open speech, whatever the clock says. */
+const holdsTheFloor = (input: MediaGrantInput) => {
+  const open = input.position.openSegment;
+  return (
+    open !== null &&
+    input.rules.segments[open.sequence]?.key === open.key &&
+    speakingParticipants(
+      input.rules,
+      input.participants,
+      open.sequence,
+      open.floorParticipantId,
+    ).includes(input.participantId)
+  );
+};
+/**
+ * Who speaks when the countdown ends. Their microphone opens now, so it is published and
+ * capture already has it when the clock starts: no word waits on a subscription, and no
+ * floor change is any longer for it. Nothing is credited outside the speech.
+ */
+const speaksNext = (input: MediaGrantInput) => {
+  const next = input.position.nextSegment;
+  const seat = input.participants.find(
+    (participant) => participant.id === input.participantId,
+  );
+  return (
+    next !== null &&
+    seat?.kind === 'human' &&
+    speakingParticipants(
+      input.rules,
+      input.participants,
+      next.sequence,
+      null,
+    ).includes(input.participantId)
+  );
+};
 const publishSources = (
   human: boolean,
   microphone: boolean,
@@ -93,13 +128,14 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
       hidden: false,
       capture: false,
     };
-  // A platform incident holds every microphone: the clock is not running. The countdown
-  // opens the speaker's again, so publishing and capture are ready when the clock restarts;
-  // only speech inside the reopened interval is ever credited.
+  // In a platform incident the clock is stopped and only the speaker's microphone stays
+  // open: the Round resumes once capture confirms it hears that track, and only speech
+  // inside the reopened interval is ever credited.
   const microphone =
-    position.incident.phase !== 'paused' &&
     position.prep === null &&
-    (conversational(position) || speakingNow(input));
+    (position.incident.phase === 'none'
+      ? conversational(position) || speakingNow(input) || speaksNext(input)
+      : holdsTheFloor(input));
   return {
     publish: publishSources(seat.kind === 'human', microphone),
     subscribe: seat.kind === 'human',

@@ -114,10 +114,17 @@ test('prep and closed between-segment floor keep cameras without speech rights',
     now: roundAt(20_000),
   });
   assert({
-    given: 'an early yield before the old scheduled end',
-    should: 'close the old speaker microphone',
-    actual: grants(world, seats[0]!.id, roundAt(20_000)).publish,
-    expected: ['camera'],
+    given: 'an early yield, in the countdown to the other side speaking',
+    should:
+      'close the old speaker and open the next, ready when the clock starts',
+    actual: [
+      grants(world, seats[0]!.id, roundAt(20_000)).publish,
+      grants(world, seats[1]!.id, roundAt(20_000)).publish,
+    ],
+    expected: [
+      ['camera', 'microphone'],
+      ['camera', 'microphone'],
+    ],
   });
   const prep = runtimeWorld();
   prep.activate({ at: roundAt(0), now: roundAt(0) });
@@ -288,5 +295,36 @@ describe('pre-round prep', () => {
       actual: [openingGrants(true), openingGrants(false)],
       expected: [[], ['camera', 'microphone']],
     });
+  });
+});
+
+test('the countdown opens only whoever speaks next', () => {
+  const world = runtimeWorld();
+  world.activate({ at: roundAt(0), now: roundAt(0) });
+  let at = 0;
+  let spoken = false;
+  // Walk the clock past a segment, to a gap before a speech: a seat's alone.
+  while (
+    !spoken ||
+    world.position(roundAt(at)).nextSegment?.type !== 'speech'
+  ) {
+    at += 1_000;
+    world.tick(roundAt(at));
+    spoken ||= world.position(roundAt(at)).openSegment !== null;
+  }
+  const now = roundAt(at);
+  const { side } = world.position(now).nextSegment!;
+  const next = seats.find((seat) => seat.role === side)!;
+  const rest = seats.find(
+    (seat) => seat.role !== side && seat.role !== 'judge',
+  )!;
+  assert({
+    given: 'the countdown to a speech by one side',
+    should: 'open that seat and keep the other closed',
+    actual: [
+      grants(world, next.id, now).publish,
+      grants(world, rest.id, now).publish,
+    ],
+    expected: [['camera', 'microphone'], ['camera']],
   });
 });

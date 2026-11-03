@@ -339,6 +339,7 @@ export function createMediaWorld(
     priority,
     store,
     media,
+    readCaptureHeard: async () => null,
     urlsFor: () => ({
       publicUrl: 'wss://media.daisy.invalid',
       workerUrl: 'ws://worker.daisy.invalid',

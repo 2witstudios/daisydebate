@@ -37,6 +37,11 @@ export function publicationPermission(
   if (allowed(TrackSource.MICROPHONE)) publish.push('microphone');
   return {
     identity: participant.identity,
+    /** The published microphone, for asking whether capture hears it. */
+    microphoneTrack:
+      participant.tracks.find(
+        (track) => track.source === TrackSource.MICROPHONE,
+      )?.sid ?? null,
     grants: {
       publish,
       subscribe: permission.canSubscribe,

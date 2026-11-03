@@ -29,6 +29,7 @@ const room = (
     empty: false,
     captureListed: true,
     seatsListed: true,
+    speakerHeard: null,
     ...over,
   }) as const;
 const facts = (over: Partial<IncidentFacts>): IncidentFacts => ({
@@ -216,4 +217,44 @@ test('an ordinary pass costs no Round lock', () => {
       actual: observationMatters(facts(over)),
       expected,
     });
+});
+
+test('the Round waits for capture to hear the speaker before it counts down', () => {
+  const held = {
+    incident: {
+      phase: 'paused' as const,
+      since: new Date(1_000_000).toISOString(),
+      cause: 'room_retired' as const,
+      resumePoint: null,
+    },
+    roomRetired: false,
+    sawCapture: true,
+    unreachableSinceMs: null,
+    captureExpected: true,
+  };
+  const at = (heldMs: number, speakerHeard: boolean | null) =>
+    incidentDecision({
+      ...held,
+      nowMs: 1_000_000 + heldMs,
+      observation: {
+        kind: 'room',
+        empty: false,
+        captureListed: true,
+        seatsListed: true,
+        speakerHeard,
+      },
+    } as never)?.kind ?? null;
+  assert({
+    given:
+      'seats and capture back, capture not yet hearing the speaker; then hearing; then no human speech held; then not heard past the grace',
+    should:
+      'wait, then begin, then begin, then begin rather than hold the Round for a dead microphone',
+    actual: [
+      at(5_000, false),
+      at(5_000, true),
+      at(5_000, null),
+      at(roundIncidentPolicy.seatGraceMs, false),
+    ],
+    expected: [null, 'begin_resume', 'begin_resume', 'begin_resume'],
+  });
 });

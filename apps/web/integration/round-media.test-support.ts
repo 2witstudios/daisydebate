@@ -42,6 +42,7 @@ export const mediaDependencies = (
       })),
   },
   media,
+  readCaptureHeard: fixture.redis.readCaptureHeard,
   urlsFor: () => ({
     publicUrl: 'wss://localhost.invalid',
     workerUrl: 'ws://127.0.0.1:7880',

@@ -21,6 +21,11 @@ export type MediaObservation =
       readonly captureListed: boolean;
       /** Every seated human debater is listed. */
       readonly seatsListed: boolean;
+      /**
+       * Capture reports reading the speaker's microphone in this room. Null when no
+       * human speech is held, so there is nothing to confirm.
+       */
+      readonly speakerHeard: boolean | null;
     };
 
 export type IncidentFacts = {
@@ -66,6 +71,7 @@ const heldFacts = (
 ): {
   readonly platformBack: boolean;
   readonly seatsBack: boolean;
+  readonly speakerHeard: boolean;
   readonly heldMs: number;
 } => {
   const { observation } = facts;
@@ -74,6 +80,7 @@ const heldFacts = (
     platformBack:
       room !== null && (room.captureListed || !facts.captureExpected),
     seatsBack: room?.seatsListed ?? false,
+    speakerHeard: room?.speakerHeard !== false,
     heldMs: facts.nowMs - Date.parse(since),
   };
 };
@@ -89,13 +96,13 @@ const decisions: {
     return cause === null ? null : { kind: 'pause', cause };
   },
   paused: (facts, incident) => {
-    const { platformBack, seatsBack, heldMs } = heldFacts(
+    const { platformBack, seatsBack, speakerHeard, heldMs } = heldFacts(
       facts,
       incident.since,
     );
     if (
       platformBack &&
-      (seatsBack || heldMs >= roundIncidentPolicy.seatGraceMs)
+      ((seatsBack && speakerHeard) || heldMs >= roundIncidentPolicy.seatGraceMs)
     )
       return { kind: 'begin_resume' };
     return heldMs >= roundIncidentPolicy.recoveryBoundMs

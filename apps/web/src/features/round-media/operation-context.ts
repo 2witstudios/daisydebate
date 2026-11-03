@@ -19,6 +19,11 @@ export type MediaOperationInput = {
   readonly store: Store;
   readonly media: MediaVendor;
   readonly urlsFor: MediaNodes['urlsFor'];
+  /** The seat capture reports reading this track for, or null. */
+  readonly readCaptureHeard: (
+    roundId: string,
+    trackId: string,
+  ) => Promise<string | null>;
   readonly nextId: () => string;
   readonly reporter: ErrorReporter;
   readonly logger: Logger;

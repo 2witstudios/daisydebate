@@ -24,6 +24,7 @@ test('a definite LiveKit not-found settles the vendor mutation instead of wedgin
                   hidden: false,
                   capture: false as const,
                 },
+                microphoneTrack: null,
                 restricted: false,
               },
             ]

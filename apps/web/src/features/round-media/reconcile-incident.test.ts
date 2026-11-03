@@ -41,6 +41,7 @@ test('a pass tells the incident hook what it read of the room', async () => {
           empty: false,
           captureListed: false,
           seatsListed: false,
+          speakerHeard: null,
         },
         roomRetired: false,
       },

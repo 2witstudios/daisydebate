@@ -430,17 +430,20 @@ test('commands are refused while held', () => {
     });
 });
 
-test('every microphone closes', () => {
+test("only the speaker's microphone stays open, for capture to confirm", () => {
   const runtime = runtimeOf([speech()]);
   const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
-  const publish = (now: string) =>
+  const other = oneOnOneSeats.find(
+    (row) => row.role !== first.side && row.role !== 'judge',
+  )!;
+  const publish = (now: string, participantId = seat.id) =>
     mediaGrants({
       participants: oneOnOneSeats.map((row) => ({
         ...row,
         eligible: true,
         kind: 'human' as const,
       })),
-      participantId: seat.id,
+      participantId,
       rules,
       position: runtime.position(now),
       now,
@@ -450,10 +453,15 @@ test('every microphone closes', () => {
   const before = publish(roundAt(30_000));
   runtime.applyIncident(pause(40_000, 37_000));
   assert({
-    given: 'the speaker before and during an incident',
-    should: 'hold the microphone, then lose it',
-    actual: [before, publish(roundAt(41_000))],
-    expected: [['camera', 'microphone'], ['camera']],
+    given:
+      'the speaker before and during an incident, and the other debater during it',
+    should: 'keep the speaker open and the other closed',
+    actual: [
+      before,
+      publish(roundAt(41_000)),
+      publish(roundAt(41_000), other.id),
+    ],
+    expected: [['camera', 'microphone'], ['camera', 'microphone'], ['camera']],
   });
 });
 

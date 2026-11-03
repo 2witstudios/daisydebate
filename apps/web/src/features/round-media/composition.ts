@@ -77,6 +77,7 @@ export function createRoundMediaRuntime(
       store: app.database.mediaSessions,
       media: nodes,
       urlsFor: nodes.urlsFor,
+      readCaptureHeard: app.redis.readCaptureHeard,
       nextId: () => app.ids.next(),
       reporter,
       logger: app.logger,
