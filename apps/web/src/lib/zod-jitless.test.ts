@@ -4,7 +4,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();
 
-const source = resolve(import.meta.dir, '../..');
+const source = resolve(import.meta.dir, '..');
 const RUNTIME_IMPORT = /^import\s+(?!type\b)(?:[^;]*?\s+from\s+)?'([^']+)';/m;
 
 const firstRuntimeImport = (text: string) =>

@@ -1,6 +1,6 @@
 'use client';
 
-import './zod-jitless';
+import '../../lib/zod-jitless';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import { roundMediaSlot } from '../../features/round-media/media-session';
 import { clearAccountResumeRecords } from '../../features/rooms/resume-departure';

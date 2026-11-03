@@ -1,5 +1,5 @@
 'use client';
-import '../../ui/debate-room/zod-jitless';
+import '../../lib/zod-jitless';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { RoundView } from '@daisy/protocol';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
