@@ -8,6 +8,9 @@ import {
 } from './alert-state';
 import { emptySnapshot } from './alert-state.test-support';
 
+import { OBSERVATION_PURGE_BACKOFF_CEILING_MS } from '@daisy/db';
+import { PRIVACY_JOBS_RETRY_MAX_MS } from '../../server/privacy-jobs';
+
 setupRitewayBun();
 
 const NOW = '2026-09-25T12:00:00.000Z';
@@ -128,7 +131,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
     });
   });
 
-  test('a retention sweep silent for 2+ hours, or never successful, fires cleanup_missed', () => {
+  test('no complete retention run for 3+ hours, or ever, fires cleanup_missed', () => {
     const justUnder = new Date(
       Date.parse(NOW) - ALERT_THRESHOLDS.retentionMissedMs + 1,
     ).toISOString();
@@ -136,7 +139,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       Date.parse(NOW) - ALERT_THRESHOLDS.retentionMissedMs,
     ).toISOString();
     assert({
-      given: 'a sweep that succeeded just under 2 hours ago',
+      given: 'a run that completed just under 3 hours ago',
       should: 'not fire (negative control)',
       actual: evaluateAlerts({
         ...baseSnapshot,
@@ -145,7 +148,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       expected: [],
     });
     assert({
-      given: 'a sweep that last succeeded exactly 2 hours ago',
+      given: 'a run that last completed exactly 3 hours ago',
       should: 'fire cleanup_missed',
       actual: evaluateAlerts({
         ...baseSnapshot,
@@ -202,6 +205,22 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       should: 'raise nothing',
       actual: evaluateAlerts(fresh).map((c) => c.id),
       expected: [],
+    });
+  });
+
+  test('each worker threshold outlasts its backoff ceiling, so one retry never pages', () => {
+    assert({
+      given: 'the thresholds and the backoff ceilings their workers use',
+      should: 'leave room for a retry at the longest wait',
+      actual: {
+        observation:
+          ALERT_THRESHOLDS.workerMissedMs.observation_purges >
+          OBSERVATION_PURGE_BACKOFF_CEILING_MS,
+        privacy:
+          ALERT_THRESHOLDS.workerMissedMs.privacy_jobs >
+          PRIVACY_JOBS_RETRY_MAX_MS,
+      },
+      expected: { observation: true, privacy: true },
     });
   });
 

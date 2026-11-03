@@ -23,18 +23,11 @@ export type RetentionTarget = {
 export type RetentionResult = {
   readonly operation: string;
   readonly ok: boolean;
+  /** False when the last batch was full at `maxBatches`: due rows remain. */
+  readonly drained: boolean;
   readonly deleted: number;
   readonly batches: number;
 };
-
-/** True only when every target of the run was swept and succeeded. */
-const retentionRunSucceeded = (
-  targets: readonly string[],
-  results: readonly RetentionResult[],
-): boolean =>
-  targets.every((name) =>
-    results.some(({ operation, ok }) => operation === name && ok),
-  );
 
 type Batch = { readonly before: string; readonly limit: number };
 
@@ -232,8 +225,9 @@ export function retentionTargets({
     },
     /**
      * ADR 0033: the online set's lapsed members, which reads filter but
-     * never delete. Redis is expendable, so a failure here only leaves
-     * stale members for the next run. 1000 is the adapter's per-call cap.
+     * never delete. Redis is expendable, so a failure here costs only stale
+     * members until the next run, yet that run still did not complete. 1000
+     * is the adapter's per-call cap.
      */
     {
       name: 'retention.presence_online',
@@ -254,7 +248,8 @@ export function retentionTargets({
  *
  * `retention.run.completed` is the run's own outcome and the only event the
  * `cleanup_missed` marker reads (ISSUE-1007): logged once, and only when
- * every target succeeded and shutdown cut nothing short.
+ * every target succeeded and drained and shutdown cut nothing short. A target
+ * that stops at `maxBatches` still has due rows, so that run did not complete.
  */
 export function createRetentionSweep({
   targets,
@@ -273,12 +268,14 @@ export function createRetentionSweep({
     const operation = target.name;
     let deleted = 0;
     let batches = 0;
+    let drained = false;
     try {
       while (!stopped && batches < target.maxBatches) {
         const count = await target.purge({ now, limit: target.batchSize });
         batches += 1;
         deleted += count;
-        if (count < target.batchSize) break;
+        drained = count < target.batchSize;
+        if (drained) break;
       }
     } catch {
       logger.log(
@@ -286,14 +283,14 @@ export function createRetentionSweep({
         { operation, errorCode: 'INFRASTRUCTURE' },
         'Retention sweep failed',
       );
-      return { operation, ok: false, deleted, batches };
+      return { operation, ok: false, drained: false, deleted, batches };
     }
     logger.log(
       'retention.sweep.completed',
       { operation, deleted, batches },
       'Retention sweep completed',
     );
-    return { operation, ok: true, deleted, batches };
+    return { operation, ok: true, drained, deleted, batches };
   };
   return {
     /** Ends a run between batches so shutdown never closes a pool under it. */
@@ -307,13 +304,7 @@ export function createRetentionSweep({
         if (stopped) break;
         results.push(await sweepTarget(target, now));
       }
-      if (
-        !stopped &&
-        retentionRunSucceeded(
-          targets.map(({ name }) => name),
-          results,
-        )
-      )
+      if (!stopped && results.every(({ ok, drained }) => ok && drained))
         logger.log(
           'retention.run.completed',
           { deleted: results.reduce((sum, { deleted }) => sum + deleted, 0) },

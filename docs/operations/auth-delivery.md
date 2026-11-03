@@ -261,7 +261,7 @@ existing event stream — no new call sites):
 | `limiter_unavailable`       | `auth.rate_limit.unavailable` persists 2+ minutes                                               | `alert-unavailable-limiter`                            |
 | `delivery_failures`         | 3+ consecutive `mail.failed` of any purpose (provider health), reset by `mail.sent`             | `alert-mail-consecutive-failures`                      |
 | `auth_5xx_rate`             | >1% of auth-operation requests are 5xx over the trailing 10 minutes, with at least 100 requests | per-minute `alert-http-total-*`/`alert-http-5xx-*`     |
-| `cleanup_missed`            | no retention run has succeeded on every target in 2+ hours, or ever                             | `alert-retention-last-success`                         |
+| `cleanup_missed`            | no retention run has succeeded and drained on every target in 3+ hours, or ever                 | `alert-retention-last-success`                         |
 | `observation_purges_missed` | the observation purge worker has had no healthy run in 15+ minutes, or ever                     | `alert-worker-last-success-observation_purges`         |
 | `privacy_jobs_missed`       | the vendor deletion worker has had no healthy run in 2+ hours, or ever                          | `alert-worker-last-success-privacy_jobs`               |
 | `file_maintenance_missed`   | file maintenance, when configured, has had no healthy run in 2+ hours or 3 intervals            | `alert-worker-last-success-messaging_file_maintenance` |
@@ -509,8 +509,8 @@ least 100 requests fires; below either threshold does not").
 ### Retention cleanup missed
 
 **Symptom:** the `cleanup_missed` alert fires
-(`apps/web/src/features/ops/alert-state.test.ts`, "a retention sweep silent for
-2+ hours, or never successful, fires cleanup_missed").
+(`apps/web/src/features/ops/alert-state.test.ts`, "no complete retention run for 3+
+hours, or ever, fires cleanup_missed").
 
 1. Filter the event stream for `event:"retention.sweep.failed"` — see
    "Retention of verification records" and "Retention of sessions" above
@@ -523,7 +523,8 @@ least 100 requests fires; below either threshold does not").
    start-up, before the hourly schedule).
 3. The marker this alert reads (`alert-retention-last-success`) is written
    only on `retention.run.completed`, which a run logs when every target
-   succeeded. One failing target keeps this alert firing even while the
+   succeeded and drained. One failing target, or one that stops at its batch
+   cap with due rows left, keeps this alert firing even while the
    others make progress: that is intentional (AUTH-7.7's "cleanup missed"
    names the failure to _complete_, not the failure to _attempt_). Scheduled
    workers cannot refresh it; each has its own marker and alert (below).
@@ -532,8 +533,8 @@ least 100 requests fires; below either threshold does not").
 
 **Symptom:** `observation_purges_missed`, `privacy_jobs_missed` or
 `file_maintenance_missed` fires: that worker has had no healthy run within
-its threshold. A healthy run is one that owes nothing, so a job in backoff
-keeps the alert armed through the idle runs between its retries. The alert
+its threshold. A healthy run is one that owes nothing, so a job in backoff or a
+queue longer than a batch keeps the alert armed. The alert
 therefore fires on an outage of the vendor the worker delivers to, which for
 `privacy_jobs` means a deletion the law requires is still unpaid.
 
@@ -544,9 +545,8 @@ therefore fires on an outage of the vendor the worker delivers to, which for
    `observation_purges`, each vendor port for `privacy_jobs`, object storage
    for `messaging_file_maintenance`). Jobs stay pending and retry on their own
    once it returns; no manual drain is needed.
-3. No failures and no `worker.run.completed` either: check for jobs still in
-   backoff (`status = 'pending' and attempts > 0` on `privacy_jobs` or
-   `observation_purge_jobs`), then that the process is up, as for
+3. No failures and no `worker.run.completed` either: check for jobs still owed
+   (`status = 'pending'` on `privacy_jobs` or `observation_purge_jobs`), then that the process is up, as for
    `cleanup_missed`.
 
 ### Auth mail shed past the bound

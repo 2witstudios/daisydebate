@@ -51,13 +51,13 @@ export async function duePrivacyJobs(
 }
 
 /**
- * Jobs a vendor failure left in backoff: an obligation still unpaid, which an
- * idle run between retries must not report as healthy (ISSUE-1007).
+ * Jobs not yet delivered, in backoff or past the batch: an unpaid obligation
+ * that a run must not report as healthy (ISSUE-1007).
  */
 export async function owedPrivacyJobs(database: Execute): Promise<number> {
   const rows = (await database.execute(sql`select count(*)::int as owed
     from privacy_jobs
-    where status = 'pending' and attempts > 0`)) as unknown as {
+    where status = 'pending'`)) as unknown as {
     owed: number;
   }[];
   return rows[0]?.owed ?? 0;

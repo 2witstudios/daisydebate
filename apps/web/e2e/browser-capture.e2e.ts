@@ -53,7 +53,7 @@ test.describe('browser capture from runtime configuration', () => {
     origin = `https://localhost:${edge}`;
     server = spawn('bun', ['e2e/support/server.ts'], {
       cwd: webDirectory,
-      stdio: 'ignore',
+      stdio: 'inherit',
       env: {
         ...process.env,
         ...productionWebEnv(),

@@ -88,3 +88,23 @@ test('a refused vendor deletion reports failure and a clean pass completion', as
     ],
   });
 });
+
+test('a full batch of acknowledged deletions may leave more, so it owes', async () => {
+  const { logger, logged } = createEventRecorder();
+  await startMessagingFileMaintenance({
+    maintenance: {
+      run: async () => ({ expiredChannels: 0, acknowledged: 3 }),
+    },
+    config: { intervalMs: 1000, maxItems: 3 },
+    remove: async () => {},
+    clock: fixedClock('2026-10-10T00:00:00.000Z'),
+    logger,
+    timers: { setInterval: () => 1, clearInterval: () => {} },
+  }).stop();
+  assert({
+    given: 'a pass that filled its batch',
+    should: 'not report completion',
+    actual: logged,
+    expected: [],
+  });
+});

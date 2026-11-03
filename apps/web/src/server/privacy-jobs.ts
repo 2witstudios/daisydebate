@@ -51,7 +51,7 @@ export const privacyJobPort = (
 const PRIVACY_JOBS_INTERVAL_MS = 60_000;
 const PRIVACY_JOBS_BATCH = 32;
 const PRIVACY_JOBS_RETRY_MS = 60_000;
-const PRIVACY_JOBS_RETRY_MAX_MS = 3_600_000;
+export const PRIVACY_JOBS_RETRY_MAX_MS = 3_600_000;
 
 /** A failed vendor deletion tries again later, doubling its wait from one
  * minute, at most hourly. The obligation stays pending until the vendor

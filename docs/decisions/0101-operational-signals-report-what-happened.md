@@ -24,8 +24,11 @@ nothing worked:
 ## Decision
 
 **A retention run decides its own outcome.** `retention.run.completed` is logged
-only when every target succeeded and shutdown cut nothing short, and it is the
-only event the `cleanup_missed` marker reads. The per-target events stay.
+only when every target succeeded and drained and shutdown cut nothing short, and
+it is the only event the `cleanup_missed` marker reads. A target stopping at its
+batch cap with due rows left did not complete. The per-target events stay. The
+threshold rises from 2 to 3 hours, since a marker now refreshes hourly at best and
+one failed run should not page.
 
 **Observation purges, privacy jobs and file maintenance are scheduled workers,**
 not retention targets. Each has its own name, marker, alert and failure counter,
@@ -34,6 +37,7 @@ and shares only `startRunSchedule` with the sweep.
 **A worker is healthy only when it owes nothing.** A retried job backs off, so
 the next runs find nothing due. If an idle run counted as success it would refresh
 the marker between retries, and the alert could never fire during a vendor outage.
+A queue longer than a batch owes too, or it could grow behind a run that delivers.
 So a run logs `worker.run.failed` if it threw or retried, nothing if a job is
 still in backoff, and `worker.run.completed` only if neither.
 
@@ -56,6 +60,11 @@ auth.
 
 ## Consequences
 
+- Redis is expendable, so losing it clears the `cleanup_missed` marker, and the alert
+  then fires until the next hourly run. A never-run sweep looks the same, and paging
+  on that is the older decision in ADR 0042.
+- A worker expected by the process but never started fires, as it should in
+  production. A process serving routes without `start.ts` would fire too.
 - `privacy_jobs_missed` fires if a vendor is down for over 2 hours. That is the
   intent: a required deletion is unpaid.
 - The histogram can reach one series per operation name per bucket. That is bounded

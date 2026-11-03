@@ -1,5 +1,8 @@
 import { withTimeout } from '@daisy/observability';
-import type { ScheduledWorkerName } from './scheduled-worker';
+import {
+  SCHEDULED_WORKERS,
+  type ScheduledWorkerName,
+} from './scheduled-worker';
 
 const MINUTE_MS = 60_000;
 
@@ -23,7 +26,18 @@ export const ALERT_THRESHOLDS = {
   auth5xxWindowMinutes: 10,
   auth5xxMinRequests: 100,
   auth5xxRate: 0.01,
-  retentionMissedMs: 2 * 60 * MINUTE_MS,
+  /** Three hourly runs: one failed run is ordinary and never pages. */
+  retentionMissedMs: 3 * 60 * MINUTE_MS,
+  /**
+   * How long each worker may go without a healthy run: longer than its backoff
+   * ceiling (`alert-state.test.ts` proves it), so one retry never pages. Keyed
+   * by every worker, so a new one cannot compile without a threshold.
+   */
+  workerMissedMs: {
+    observation_purges: 15 * MINUTE_MS,
+    privacy_jobs: 2 * 60 * MINUTE_MS,
+    messaging_file_maintenance: 2 * 60 * MINUTE_MS,
+  } satisfies Record<ScheduledWorkerName, number>,
   /**
    * ISSUE-220: handed-off auth mail work shed past its bound (512 holding
    * a slot, 64 waiting; DEC-73, DEC-76) over the trailing window. A
@@ -254,32 +268,30 @@ const ALERT_CHECKS: readonly AlertCheck[] = [
   checkNetworkLimited,
 ];
 
-const OBSERVATION_PURGES_MISSED_MS = 15 * MINUTE_MS;
-const WORKER_MISSED_FLOOR_MS = 2 * 60 * MINUTE_MS;
-
 /**
- * The workers a process runs, each given longer than its backoff ceiling
- * (observation purges 5 minutes, privacy jobs an hour) so one retry never
- * fires. File maintenance runs only when configured, and at any interval, so
- * it also gets three of its own intervals.
+ * The workers a process runs: all of them, except file maintenance when it is
+ * not configured. It runs at any interval, so it also gets three of its own.
  */
-export const runningWorkers = (input: {
+export const runningWorkers = ({
+  fileMaintenanceIntervalMs,
+}: {
   readonly fileMaintenanceIntervalMs: number | null;
-}): readonly RunningWorker[] => [
-  { name: 'observation_purges', missedAfterMs: OBSERVATION_PURGES_MISSED_MS },
-  { name: 'privacy_jobs', missedAfterMs: WORKER_MISSED_FLOOR_MS },
-  ...(input.fileMaintenanceIntervalMs === null
-    ? []
-    : [
-        {
-          name: 'messaging_file_maintenance' as const,
-          missedAfterMs: Math.max(
-            WORKER_MISSED_FLOOR_MS,
-            3 * input.fileMaintenanceIntervalMs,
-          ),
-        },
-      ]),
-];
+}): readonly RunningWorker[] =>
+  SCHEDULED_WORKERS.flatMap((name): readonly RunningWorker[] => {
+    const missedAfterMs = ALERT_THRESHOLDS.workerMissedMs[name];
+    if (name !== 'messaging_file_maintenance') return [{ name, missedAfterMs }];
+    return fileMaintenanceIntervalMs === null
+      ? []
+      : [
+          {
+            name,
+            missedAfterMs: Math.max(
+              missedAfterMs,
+              3 * fileMaintenanceIntervalMs,
+            ),
+          },
+        ];
+  });
 
 /**
  * The alert conditions, evaluated from a snapshot the caller

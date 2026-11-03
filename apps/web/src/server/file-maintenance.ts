@@ -32,15 +32,19 @@ export function startMessagingFileMaintenance(input: {
       name: 'messaging_file_maintenance',
       clock: input.clock,
       logger: input.logger,
-      // A vendor refusal throws out of `run`, so this pass owes nothing it
-      // has not already reported: the next run retries without backoff.
+      // A vendor refusal throws out of `run`, and the next run retries without
+      // backoff. A full batch may have left more behind, so it still owes.
       pass: async (now) => {
         const { acknowledged } = await input.maintenance.run({
           now,
           maxItems,
           remove: input.remove,
         });
-        return { deleted: acknowledged, retried: 0, owed: 0 };
+        return {
+          deleted: acknowledged,
+          retried: 0,
+          owed: acknowledged >= maxItems ? 1 : 0,
+        };
       },
     }),
     timers: input.timers,

@@ -116,6 +116,8 @@ export type { ChannelObservationReads } from './messaging/observation-reads';
  * competitive kernel persists what the caller's domain decisions resolve —
  * the composition root (the app) injects the engine.
  */
+export { OBSERVATION_PURGE_BACKOFF_CEILING_MS } from './observation-purge-jobs';
+
 export function createDatabase({
   url,
   profile = WORKLOAD_PROFILES.web,
