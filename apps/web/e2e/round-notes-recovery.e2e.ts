@@ -810,8 +810,9 @@ test('after a lost exit save, conflict state stays true through typing, Restore 
 test('account switch purges old-principal recovery across tabs without revealing it to the next member', async ({
   roundFiles,
 }) => {
-  const { page, documentId, stranger } = roundFiles;
+  const { page, roundId, documentId, stranger } = roundFiles;
   await roundFiles.finishRound();
+  await openNotes(page, roundId);
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'Private notes from the former account');
   await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
@@ -900,6 +901,49 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
   expect((await serverDocument(page, roundId, documentId)).html).toContain(
     '界',
   );
+});
+
+test('typing straight through the Round closing: every word the editor showed is offered on the result page the Room moves to', async ({
+  roundFiles,
+}) => {
+  const { page, documentId } = roundFiles;
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  const editor = page.getByRole('textbox', { name: untitled });
+  await editor.focus();
+  // What a person last saw in the editor, sampled on every change until it goes.
+  await page.evaluate(() => {
+    new MutationObserver(() => {
+      const shown = document.querySelector('[role="textbox"].room-doc');
+      if (shown) Reflect.set(window, '__lastShown', shown.textContent);
+    }).observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+  });
+  const typing = (async () => {
+    for (let word = 0; (await editor.count()) > 0; word += 1)
+      await page.keyboard.insertText(`word${word} `);
+  })();
+  await roundFiles.forfeitRound();
+  // Coming back to the tab reads at once, so the Room's own move has no wait on
+  // a doorbell, which carries no delivery guarantee.
+  await page.evaluate(() =>
+    document.dispatchEvent(new Event('visibilitychange')),
+  );
+  await typing;
+  await expect(
+    page
+      .getByRole('region', { name: 'Your files' })
+      .getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
+  ).toBeVisible();
+  const shown = (await page.evaluate(() =>
+    Reflect.get(window, '__lastShown'),
+  )) as string;
+  const words = shown.match(/word\d+ /g) ?? [];
+  expect(words.length).toBeGreaterThan(0);
+  const { recovery } = await draftFor(page, documentId);
+  for (const word of words) expect(recovery.html).toContain(word);
 });
 
 test('after a lost exit save, the Round receipt visibly restores a private draft through the same sync owner', async ({
