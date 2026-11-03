@@ -13,9 +13,6 @@ export type BroadcastReleasePolicy = z.infer<
   typeof broadcastReleasePolicySchema
 >;
 
-/** Ranked is fixed at this delay for outcome integrity (owner, 2026-11-02). */
-export const RANKED_DELAY_SECONDS = 60;
-
 /**
  * How far released media must have passed a fact before the fact leaves: three
  * 4 second segments, the live edge an HLS player sits behind.

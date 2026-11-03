@@ -2,6 +2,7 @@ import type { Database } from '@daisy/db';
 import type { StandingsRead } from '@daisy/db/ratings';
 import type { RatingLadder } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
+import { spectatorClockAt } from '../spectating/spectator-clock';
 import { rankRatingEntries } from './rank';
 import { ratingStanding } from './standing';
 import { summarizeStandings } from './summarize';
@@ -26,6 +27,8 @@ export async function readRatingStandings(
     readonly seasonId: string | null;
     readonly now: string;
     readonly viewerActorId?: string;
+    /** A Round the caller holds an authorized read of. */
+    readonly revealRoundId?: string;
   },
 ) {
   const records = await store.listLadderSeasons();
@@ -46,6 +49,8 @@ export async function readRatingStandings(
   const source = await store.readStandings({
     ladder: input.ladder,
     seasonIds: seasons.map((s) => s.id),
+    clock: spectatorClockAt(input.now),
+    ...(input.revealRoundId ? { revealRoundId: input.revealRoundId } : {}),
   });
   const blindedActorIds = input.viewerActorId
     ? await store.readRatingBlindings(input.viewerActorId)

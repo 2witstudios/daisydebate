@@ -50,6 +50,7 @@ export function composeRoomRoutes(app: App) {
         store: app.database,
         redis: app.redis,
         ids: app.ids,
+        now: () => app.clock.now(),
         consentTtlMs: () => policy.consentTtlMs,
         botsAvailable: () => Boolean(app.config.OPENROUTER_API_KEY),
         betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,

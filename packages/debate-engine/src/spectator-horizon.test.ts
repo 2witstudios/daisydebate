@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { factReleased } from './broadcast-release';
+import { factReleased, RANKED_DELAY_SECONDS } from './broadcast-release';
 import {
   spectatorHorizon,
   type SpectatorHorizonFacts,
@@ -9,7 +9,8 @@ import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
 setupRitewayBun();
 
 const now = 10_000_000;
-const delay = { kind: 'delay', seconds: 60 } as const;
+const delay = { kind: 'delay', seconds: RANKED_DELAY_SECONDS } as const;
+const delayMs = RANKED_DELAY_SECONDS * 1000;
 const open = {
   policy: delay,
   releasedThroughMs: 9_000_000,
@@ -70,13 +71,13 @@ describe('spectatorHorizon', () => {
       assert({
         given: 'a finished Broadcast and a fact younger than the delay',
         should: 'withhold it',
-        actual: visible(now - 59_999, { broadcast }),
+        actual: visible(now - delayMs + 1, { broadcast }),
         expected: false,
       });
       assert({
         given: 'a finished Broadcast and a fact as old as the delay',
         should: 'release it, since no more media will ever pass it',
-        actual: visible(now - 60_000, { broadcast }),
+        actual: visible(now - delayMs, { broadcast }),
         expected: true,
       });
     }
@@ -166,15 +167,18 @@ describe('spectatorHorizon', () => {
       expected: true,
     });
     assert({
-      given: 'a ranked Round that ended under 60 seconds ago with no Broadcast',
+      given: 'a ranked Round that ended inside the delay with no Broadcast',
       should: 'withhold its facts',
-      actual: visible(now - 59_999, { roundTerminal: true, broadcast: null }),
+      actual: visible(now - delayMs + 1, {
+        roundTerminal: true,
+        broadcast: null,
+      }),
       expected: false,
     });
     assert({
-      given: 'a ranked Round that ended 60 seconds ago with no Broadcast',
+      given: 'a ranked Round that ended the delay ago with no Broadcast',
       should: 'release its facts',
-      actual: visible(now - 60_000, { roundTerminal: true, broadcast: null }),
+      actual: visible(now - delayMs, { roundTerminal: true, broadcast: null }),
       expected: true,
     });
   });

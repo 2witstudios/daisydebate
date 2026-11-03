@@ -11,6 +11,8 @@ import { formats } from './schema/formats';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
 import { users } from './schema/users';
 import { toSeasonRecord, type SeasonRecord } from './season-record';
+import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
+import { releasedStandings } from './standings-release';
 
 /**
  * The leaderboard's reads (ADR 0055): the seasons a ladder can show, the
@@ -20,7 +22,7 @@ import { toSeasonRecord, type SeasonRecord } from './season-record';
  */
 
 /** A debater's current state on the ladder in one season. */
-type StandingRating = {
+export type StandingRating = {
   readonly seasonId: string;
   readonly actorId: string;
   /** Null for an actor with no account. */
@@ -33,7 +35,7 @@ type StandingRating = {
 };
 
 /** One ledger posting, with the debater's seat and the debate's outcome. */
-type StandingChange = {
+export type StandingChange = {
   readonly seasonId: string;
   readonly actorId: string;
   readonly roundId: string;
@@ -132,10 +134,18 @@ export const standingsOperations = ({
     );
   },
 
-  /** One format and ladder's ratings and ledger rows in the given seasons. */
+  /**
+   * One format and ladder's ratings and ledger rows in the given seasons, as
+   * the audience may know them at `now`: a posting waits for its Round's
+   * spectator timeline, and a rating stands where its last released posting
+   * left it. `revealRoundId` names a Round the caller already holds an
+   * authorized read of, whose own postings need no wait.
+   */
   readStandings(input: {
     readonly ladder: RatingLadder;
     readonly seasonIds: readonly string[];
+    readonly clock: SpectatorClock;
+    readonly revealRoundId?: string;
   }): Promise<StandingsRead> {
     return instrumented(eventSink, 'readStandings', async () => {
       if (input.seasonIds.length === 0) return { ratings: [], changes: [] };
@@ -171,9 +181,15 @@ export const standingsOperations = ({
               ratingAfter: ratingChanges.ratingAfter,
               deviationBefore: ratingChanges.deviationBefore,
               deviationAfter: ratingChanges.deviationAfter,
+              volatilityBefore: ratingChanges.volatilityBefore,
               occurredAt: ratingChanges.occurredAt,
               role: roundParticipants.role,
               outcome: rounds.outcome,
+              released: sql<boolean>`${factReleasedSql(
+                sql`greatest(${ratingChanges.occurredAt},${rounds.completedAt})`,
+                rounds,
+                input.clock,
+              )}`,
             })
             .from(ratingChanges)
             .innerJoin(rounds, eq(rounds.id, ratingChanges.roundId))
@@ -194,18 +210,20 @@ export const standingsOperations = ({
         }),
         { isolationLevel: 'repeatable read', accessMode: 'read only' },
       );
-      return {
+      return releasedStandings({
         ratings: ratingRows.map(({ closedAt, ...row }) => ({
           ...row,
           username: row.username ?? null,
           accountClosed: closedAt !== null,
         })),
-        changes: changeRows.map((row) => ({
+        changes: changeRows.map(({ released, volatilityBefore, ...row }) => ({
           ...row,
           occurredAt: row.occurredAt.toISOString(),
           ...ratedSeat(row.role, row.outcome),
+          released: released || row.roundId === input.revealRoundId,
+          volatilityBefore,
         })),
-      };
+      });
     });
   },
 });

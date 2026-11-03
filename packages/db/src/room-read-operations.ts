@@ -1,4 +1,5 @@
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
+import type { SpectatorClock } from './spectator-release-sql';
 import type { roomCommandTransaction } from './room-command-transaction';
 import { readEntitlementGrants } from './entitlement-grants';
 import {
@@ -303,6 +304,7 @@ export const roomReadOperations = ({
     authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
     authorizeCollection: (account: Account) => boolean,
     hostHidden: (fact: RoomDiscoveryFact) => boolean,
+    clock: SpectatorClock,
   ): Promise<RoomListPage> {
     if (!roomListQuerySchema.safeParse(query).success)
       throw createAppError('VALIDATION');
@@ -315,6 +317,7 @@ export const roomReadOperations = ({
           authorize,
           authorizeCollection,
           hostHidden,
+          clock,
         ),
       ),
     );

@@ -164,6 +164,7 @@ export async function arena(
   };
 
   return {
+    database,
     formatId,
     seasonId,
     season,

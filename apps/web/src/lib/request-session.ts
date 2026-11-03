@@ -156,6 +156,7 @@ export const requestMemberProfile = async (
       identity: await requestIdentity(),
       username,
       query,
+      now: processApp().clock.now(),
     },
   );
 

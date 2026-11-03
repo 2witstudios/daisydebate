@@ -6,6 +6,7 @@ export {
   debatersReadChat,
   delayAlert,
   factReleased,
+  RANKED_DELAY_SECONDS,
   releasedThrough,
   resolveReleasePolicy,
   segmentDue,

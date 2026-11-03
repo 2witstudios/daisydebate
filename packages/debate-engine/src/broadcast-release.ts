@@ -1,7 +1,4 @@
-import {
-  RANKED_DELAY_SECONDS,
-  type BroadcastReleasePolicy,
-} from '@daisy/protocol';
+import type { BroadcastReleasePolicy } from '@daisy/protocol';
 
 /**
  * When a Broadcast may release its media and audience facts. The delay is a
@@ -13,6 +10,8 @@ export type HeldSegment = {
   readonly durationMs: number;
 };
 
+/** Ranked is fixed at this delay for outcome integrity; the one place it is written. */
+export const RANKED_DELAY_SECONDS = 60;
 const standardDelay: BroadcastReleasePolicy = {
   kind: 'delay',
   seconds: RANKED_DELAY_SECONDS,

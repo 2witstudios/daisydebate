@@ -261,6 +261,7 @@ export function makeOperations(
     ...overrides,
   } as unknown as Store;
   const operations = createRoomRuntimeOperations({
+    now: () => '2026-11-02T00:00:00.000Z',
     store: base,
     redis: {
       setRoomConsent: async () => undefined,
