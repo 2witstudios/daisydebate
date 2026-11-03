@@ -27,6 +27,23 @@ import {
   openGrantedRound,
 } from './support/round-media';
 
+test('closing an account leaves no live Round behind it', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 2);
+  const observer = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const round = await createHumanBallotRound(accounts.members, 0);
+    await accounts.closeContexts();
+    const { request } = observer.members[0]!.context;
+    const settled = await readBallotRound(request, round.id);
+    expect(settled.completedAt).not.toBeNull();
+  } finally {
+    await accounts.closeContexts();
+    await observer.closeContexts();
+  }
+});
+
 test('canceled and unacknowledged leave retain recovery; acknowledged departure and terminal do not resume', async ({
   browser,
 }) => {

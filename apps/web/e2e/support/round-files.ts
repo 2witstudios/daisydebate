@@ -1,6 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
 import type { APIRequestContext, Page } from '@playwright/test';
-import { isNamedSeat } from '@daisy/protocol';
 import { origin } from './accounts';
 import { watchCspViolations } from './csp';
 import { expect, test as base, openPage } from './fixtures';
@@ -11,7 +10,7 @@ import {
   startRoundInBrowser,
 } from './room-launch-flow';
 import { settledLaunchAuth } from './room-launch-settled';
-import { currentRoundForfeit, readBallotRound } from './human-ballot-round';
+import { forfeitOwnSeat } from './settle-left-round';
 
 export { expect };
 
@@ -162,17 +161,9 @@ export const test = base.extend<{
  * live, every Start round after the cap was refused and its fixture timed out
  * (ISSUE-471-r1).
  */
-async function forfeitAsHost(request: APIRequestContext, roundId: string) {
-  const view = await readBallotRound(request, roundId);
-  if (view.status !== 'opening' && view.status !== 'active') return;
-  // A debate already over holds no slot, and the engine refuses its forfeit.
-  if (
-    view.segments.filter((s) => s.endedAt !== null).length ===
-    view.rules.segments.length
-  )
-    return;
-  const seat = view.participants
-    .filter(isNamedSeat)
-    .find((p) => p.role === 'affirmative' && p.slot === 0)!;
-  await currentRoundForfeit(request, roundId, seat.id);
-}
+const forfeitAsHost = (request: APIRequestContext, roundId: string) =>
+  forfeitOwnSeat(
+    request,
+    roundId,
+    (seat) => seat.role === 'affirmative' && seat.slot === 0,
+  );
