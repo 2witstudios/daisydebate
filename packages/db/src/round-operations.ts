@@ -52,7 +52,9 @@ export const roundOperations = ({
           formatVersion: input.formatVersion,
           presetVersion: input.presetVersion,
           rulesSnapshot: input.rules,
-          status: 'opening',
+          status: 'active',
+          currentStage: 'countdown',
+          startedAt: sql`statement_timestamp()`,
           ladderId: roundLadder(input.competitionType, input.formatId),
         });
       } catch (error) {

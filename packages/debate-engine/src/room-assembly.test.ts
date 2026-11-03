@@ -98,7 +98,7 @@ describe('Room assembly authority', () => {
       should:
         'allow atomic freeze while keeping the prelaunch view server-owned',
       actual: [
-        result.ok && result.mutation.freeze,
+        result.ok && result.mutation.roundStart !== null,
         result.ok && result.mutation.seatsBotDebater,
         view.capabilities.canStart,
         view.roundRef,
@@ -161,7 +161,7 @@ describe('Room assembly authority', () => {
       given:
         'a complete cast persisted in a different order from its seat slots',
       should: 'sort the occupied slots and allow the atomic Launch',
-      actual: result.ok && result.mutation.freeze,
+      actual: result.ok && result.mutation.roundStart !== null,
       expected: true,
     });
   });

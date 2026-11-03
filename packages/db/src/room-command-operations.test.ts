@@ -153,7 +153,11 @@ const startInput: Parameters<
         changeVersion: state.changeVersion + 1,
       },
       consent: null,
-      freeze: true,
+      roundStart: {
+        status: 'active',
+        currentStage: 'countdown',
+        startedAt: new Date(0).toISOString(),
+      },
       seatsBotDebater: false,
       publishDefinition: false,
       draw: null,

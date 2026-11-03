@@ -87,7 +87,7 @@ describe('Launch', () => {
       should: 'freeze it started with the host and guest still members',
       actual: started.ok && [
         started.mutation.state.status,
-        started.mutation.freeze,
+        started.mutation.roundStart !== null,
         started.mutation.members,
       ],
       expected: ['started', true, ['host', 'other']],

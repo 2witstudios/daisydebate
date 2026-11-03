@@ -40,7 +40,7 @@ export const createRoomAccountClosureAdopter = (
     const mutation: Mutation = {
       state,
       consent: null,
-      freeze: false,
+      roundStart: null,
       // Closure freezes no Round, so it never spends an AI round or seats a bot.
       seatsBotDebater: false,
       publishDefinition: false,

@@ -104,7 +104,11 @@ const withBotRoom = (
             version: state.version + 1,
             changeVersion: state.changeVersion + 1,
           },
-          freeze: true,
+          roundStart: {
+            status: 'active',
+            currentStage: 'countdown',
+            startedAt: new Date().toISOString(),
+          },
           seatsBotDebater: botRole !== 'judge',
           consent: null,
           publishDefinition: false,

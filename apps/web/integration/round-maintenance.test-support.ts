@@ -8,7 +8,7 @@ import {
   createRoundMaintenanceOperations,
   judgingPlan,
 } from '../src/features/round-finalization/maintenance';
-import { roundTickProjection } from '../src/features/round-finalization/operations';
+import { roundTickProjection } from '../src/features/round-runtime/round-tick';
 
 type WebFinalizerFixture = {
   readonly store: Pick<

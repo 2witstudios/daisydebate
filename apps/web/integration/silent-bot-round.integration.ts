@@ -6,7 +6,7 @@ import {
 import type { FormatSettings } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roundTickProjection } from '../src/features/round-finalization/operations';
+import { roundTickProjection } from '../src/features/round-runtime/round-tick';
 import { botControlOptions } from './bot-control.test-support';
 import { assignAiJudgeAndReady } from './round-judging.test-support';
 import { finalizeAsWeb } from './round-maintenance.test-support';

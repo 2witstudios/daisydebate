@@ -9,7 +9,7 @@ import {
   canReadTranscript,
 } from '../src/features/round-runtime/reads';
 import { createId } from '@paralleldrive/cuid2';
-import { roundTickProjection } from '../src/features/round-finalization/operations';
+import { roundTickProjection } from '../src/features/round-runtime/round-tick';
 import {
   oneOnOneDefinition,
   oneOnOneSettings,

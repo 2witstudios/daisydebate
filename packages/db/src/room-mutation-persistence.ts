@@ -2,8 +2,7 @@ import { eq } from 'drizzle-orm';
 
 import type { RoomMutationOutcome } from '@daisy/protocol';
 import { freezeRoomConfig } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
-import { insertRoundDraw } from './room-draw-persistence';
+import { insertRoundDraw } from './round-draw-persistence';
 
 import { rooms, roomParticipants } from './schema/rooms';
 import { challenges } from './schema/challenges';
@@ -79,20 +78,14 @@ export const persistRoomMutation = async (
     );
   await holdActiveRoomMembers(tx, next.id, mutation.members);
   let roundRef = next.roundRef;
-  if (mutation.freeze) {
-    const plan = next.executionPlan;
-    const prepMs = plan.preRoundPrep.enabled
-      ? plan.preRoundPrep.durationMs
-      : null;
-    // With nothing to run first, the Round starts at this click.
-    const opens = plan.resolutionDraw.enabled || prepMs !== null;
-    if (!opens && next.topic === null) throw createAppError('INVARIANT');
+  const start = mutation.roundStart;
+  if (start) {
     await tx.insert(rounds).values({
       id: roundId,
       roomId: next.id,
       createdByActorId: next.hostActorId,
       resolution: next.topic,
-      preRoundPrepMs: prepMs,
+      preRoundPrepMs: start.status === 'opening' ? start.preRoundPrepMs : null,
       publishedResolutionId: next.publishedResolutionId,
       competitionType: next.competitionType,
       formatId: next.formatId,
@@ -101,10 +94,13 @@ export const persistRoomMutation = async (
       roomConfigSnapshot: freezeRoomConfig(next.config),
       visibility: next.visibility,
       rulesSnapshot: next.rules,
-      status: opens ? 'opening' : 'active',
-      ...(opens
-        ? {}
-        : { currentStage: 'countdown' as const, startedAt: new Date(now) }),
+      status: start.status,
+      ...(start.status === 'active'
+        ? {
+            currentStage: start.currentStage,
+            startedAt: new Date(start.startedAt),
+          }
+        : {}),
       ladderId: roundLadder(next.competitionType, next.formatId),
       createdAt: new Date(now),
       updatedAt: new Date(now),
@@ -120,7 +116,7 @@ export const persistRoomMutation = async (
     );
     if (mutation.draw) await insertRoundDraw(tx, roundId, mutation.draw);
     await appendRoundPhaseChanged(tx, roundId, 1);
-    roundRef = { id: roundId, status: opens ? 'opening' : 'active' };
+    roundRef = { id: roundId, status: start.status };
   }
   return roundRef;
 };

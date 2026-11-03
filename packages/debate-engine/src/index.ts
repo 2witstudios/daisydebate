@@ -37,6 +37,7 @@ export {
   readRoundOpeningTopic,
   strikeInOpening,
 } from './round-opening-runtime';
+export { openingDue } from './round-opening';
 export { deriveRoundOutcome, participatingRulings } from './round-outcome';
 export { recordResult, tallyRecord } from './debate-record';
 export {

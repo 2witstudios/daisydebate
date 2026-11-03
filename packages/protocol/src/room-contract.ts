@@ -269,6 +269,15 @@ export type RoomConsent = {
   readonly available: boolean;
   readonly readyActorIds: readonly string[];
 };
+/** A Round with an opening to run opens; one with nothing to run is active at the click. */
+export type RoundStart =
+  | { readonly status: 'opening'; readonly preRoundPrepMs: number | null }
+  | {
+      readonly status: 'active';
+      readonly currentStage: 'countdown';
+      readonly startedAt: string;
+    };
+
 type RoomMutation = {
   readonly state: RoomAssemblyState;
   readonly consent: {
@@ -276,8 +285,9 @@ type RoomMutation = {
     readonly actorId: string;
     readonly commandId: string;
   } | null;
-  readonly freeze: boolean;
-  /** A freeze seating a bot debater: it spends the host's allowance (DEC-186) and takes a capacity slot (ADR 0058). */
+  /** The Round a Start round creates, in the lifecycle the engine decided; null for any other mutation. */
+  readonly roundStart: RoundStart | null;
+  /** A Start round seating a bot debater: it spends the host's allowance (DEC-186) and takes a capacity slot (ADR 0058). */
   readonly seatsBotDebater: boolean;
   readonly publishDefinition: boolean;
   /** The draw a Start round creates with its Round, secrets never delivered. */

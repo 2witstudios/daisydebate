@@ -48,7 +48,7 @@ const snapshot = (prepMs: number | null, now: string) =>
       },
       segments: [],
       opening: {
-        state: { startedAt, draw: null, prepMs },
+        state: { startRoundAt: startedAt, draw: null, prepMs },
         seed: null,
       },
     },

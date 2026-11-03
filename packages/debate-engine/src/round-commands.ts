@@ -61,10 +61,10 @@ const iso = (ms: number): string => new Date(ms).toISOString();
 const other = (side: DebateSide): DebateSide =>
   side === 'affirmative' ? 'negative' : 'affirmative';
 
-/** Only an opening Round starts; the clock anchors here. */
-export const startRound = (c: CommandContext): void => {
+/** Only an opening Round activates, at the opening's end; the clock anchors here. */
+export const activateRound = (c: CommandContext): void => {
   if (c.on.lifecycle().status !== 'opening')
-    refuse('CONFLICT', 'Only an opening round starts');
+    refuse('CONFLICT', 'Only an opening round activates');
   c.assertSeatCompleteness();
   c.on.setLifecycle({ status: 'active', startedAtMs: c.now });
   c.into.effects.push({ kind: 'round_started', at: iso(c.now) });
@@ -119,7 +119,7 @@ const forfeit = (c: CommandContext): void => {
   const side = c.sideOf(c.actorId)!;
   // A forfeit in the opening stands as a result, with no resolution before a
   // reveal; the record needs a start, so the Round starts and ends here.
-  if (c.on.lifecycle().status === 'opening') startRound(c);
+  if (c.on.lifecycle().status === 'opening') activateRound(c);
   closePlayedRound(c);
   completeWith(c, other(side));
 };

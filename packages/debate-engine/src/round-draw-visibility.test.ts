@@ -139,7 +139,7 @@ describe('who sees which resolution, stage by stage', () => {
     const striking = {
       seats: withJudge(room).participants,
       opening: {
-        startedAt: edges.now,
+        startRoundAt: edges.now,
         draw: started.mutation.draw!.state,
         prepMs: null,
       },

@@ -3,6 +3,7 @@ import type { DebateSide, RoomAssemblyState } from '@daisy/protocol';
 import { automaticChoice, canonicalOrder, shuffle } from './draw-random';
 import type {
   ResolutionCategory,
+  ResolutionDrawClock,
   ResolutionDrawItem,
   ResolutionDrawState,
   ResolutionStrike,
@@ -79,7 +80,7 @@ export const sideControllers = (
   };
 };
 
-export const revealed = (draw: ResolutionDrawState) =>
+export const revealed = (draw: ResolutionDrawClock) =>
   draw.strikes.length >= draw.manifest.drawSize - 1;
 
 export const standingPositions = (draw: ResolutionDrawState) => {
@@ -88,7 +89,7 @@ export const standingPositions = (draw: ResolutionDrawState) => {
 };
 
 /** The open turn, or null once the draw is revealed. */
-export const turnOf = (draw: ResolutionDrawState) => {
+export const turnOf = (draw: ResolutionDrawClock) => {
   if (revealed(draw)) return null;
   const ordinal = draw.strikes.length;
   const side =

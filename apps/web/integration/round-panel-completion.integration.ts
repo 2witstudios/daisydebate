@@ -13,7 +13,7 @@ import {
   judgingPlan,
   panelCompletion,
 } from '../src/features/round-finalization/maintenance';
-import { roundTickProjection } from '../src/features/round-finalization/operations';
+import { roundTickProjection } from '../src/features/round-runtime/round-tick';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import {
   launchRuntimeRound,

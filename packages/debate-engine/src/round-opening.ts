@@ -1,7 +1,10 @@
+import { createAppError } from '@daisy/errors';
 import type { DebateRole, RoundView } from '@daisy/protocol';
 import type {
+  ResolutionDrawEvidence,
   ResolutionDrawState,
   RoundOpening,
+  RoundOpeningClock,
 } from '@daisy/protocol/resolution-draw';
 export type { RoundOpening };
 import {
@@ -25,11 +28,11 @@ export type OpeningStep =
   | { readonly step: 'complete'; readonly at: string };
 
 /** Where the opening stands as stored, before any time has been settled. */
-export function openingStep(opening: RoundOpening): OpeningStep {
-  const { draw, prepMs, startedAt } = opening;
+export function openingStep(opening: RoundOpeningClock): OpeningStep {
+  const { draw, prepMs, startRoundAt } = opening;
   const turn = draw && turnOf(draw);
   if (turn) return { step: 'strike', turn };
-  const anchor = (draw && survivorOf(draw)?.at) ?? startedAt;
+  const anchor = draw?.strikes.at(-1)?.at ?? startRoundAt;
   return prepMs === null
     ? { step: 'complete', at: anchor }
     : {
@@ -37,6 +40,14 @@ export function openingStep(opening: RoundOpening): OpeningStep {
         startedAt: anchor,
         endsAt: new Date(Date.parse(anchor) + prepMs).toISOString(),
       };
+}
+
+/** Whether the clock has something to do in this opening at `now`. */
+export function openingDue(opening: RoundOpeningClock, now: string): boolean {
+  const step = openingStep(opening);
+  const at = Date.parse(now);
+  if (step.step === 'strike') return at >= Date.parse(step.turn.dueAt);
+  return step.step === 'complete' || at >= Date.parse(step.endsAt);
 }
 
 /**
@@ -158,6 +169,43 @@ export function strikeOpening(
     },
   };
 }
+
+/** The revealed draw's resolution and proof metadata, written to the Round at the reveal. */
+export const revealOf = (
+  draw: ResolutionDrawState,
+): {
+  readonly resolution: string;
+  readonly evidence: ResolutionDrawEvidence;
+} => {
+  const survivor = survivorOf(draw);
+  if (!survivor || draw.strikes.length !== draw.manifest.drawSize - 1)
+    throw createAppError('INVARIANT');
+  return {
+    resolution: survivor.item.text,
+    evidence: {
+      version: 1,
+      manifest: draw.manifest,
+      manifestDigest: draw.manifestDigest,
+      commitment: draw.commitment,
+      startedAt: draw.startedAt,
+      items: draw.items.map((i) => ({
+        position: i.position,
+        category: i.category,
+        bankEntryId:
+          draw.manifest.source.kind === 'bank' ? i.candidateId : null,
+      })),
+      strikes: draw.strikes.map(({ ordinal, side, kind, position, at }) => ({
+        ordinal,
+        side,
+        kind,
+        position,
+        at,
+      })),
+      survivorPosition: survivor.item.position,
+      revealedAt: survivor.at,
+    },
+  };
+};
 
 type OpeningView = NonNullable<RoundView['opening']>;
 

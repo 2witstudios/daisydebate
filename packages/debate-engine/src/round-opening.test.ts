@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { ResolutionDrawState } from '@daisy/protocol/resolution-draw';
 import {
+  openingDue,
   openingStep,
   settledOpeningTopic,
   settleOpening,
@@ -24,7 +25,7 @@ const windowMs = (draw: ResolutionDrawState) => draw.manifest.strikeWindowMs;
 const opening = (
   draw: ResolutionDrawState | null,
   prepMs: number | null,
-): RoundOpening => ({ startedAt: STARTED_AT, draw, prepMs });
+): RoundOpening => ({ startRoundAt: STARTED_AT, draw, prepMs });
 
 describe('openingStep', () => {
   test('a Round with neither step opens at Start round', () => {
@@ -158,6 +159,39 @@ describe('settledOpeningTopic', () => {
       should: 'leave the Round its stored resolution',
       actual: settledOpeningTopic(opening(null, PREP_MS), null, after(1)),
       expected: null,
+    });
+  });
+});
+
+describe('openingDue', () => {
+  const clock = (draw: ResolutionDrawState | null, prepMs: number | null) =>
+    opening(draw, prepMs);
+  test('the clock has work at each step only once it has fallen due', () => {
+    const draw = humanDraw();
+    const dueAt = windowMs(draw);
+    assert({
+      given: 'a strike turn just before and at its due instant',
+      should: 'be due only at the instant',
+      actual: [
+        openingDue(clock(draw, PREP_MS), after(dueAt - 1)),
+        openingDue(clock(draw, PREP_MS), after(dueAt)),
+      ],
+      expected: [false, true],
+    });
+    assert({
+      given: 'a prep-only opening just before and at its end',
+      should: 'be due only at the end',
+      actual: [
+        openingDue(clock(null, PREP_MS), after(PREP_MS - 1)),
+        openingDue(clock(null, PREP_MS), after(PREP_MS)),
+      ],
+      expected: [false, true],
+    });
+    assert({
+      given: 'nothing to run',
+      should: 'be due at once',
+      actual: openingDue(clock(null, null), STARTED_AT),
+      expected: true,
     });
   });
 });

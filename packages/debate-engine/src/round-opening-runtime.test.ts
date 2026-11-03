@@ -40,7 +40,7 @@ const hydrated = (
 
 const noDraw = (prepMs: number | null) => ({
   ...roundFacts,
-  opening: { startedAt: edges.now, draw: null, prepMs },
+  opening: { startRoundAt: edges.now, draw: null, prepMs },
   seed: null,
 });
 
@@ -54,13 +54,9 @@ describe('advanceOpening', () => {
           ...noDraw(PREP_MS),
           now: at(60),
         });
-        return [
-          projection.round?.status,
-          projection.opensAt,
-          projection.openingDraw,
-        ];
+        return [projection.round?.status, projection.openingEffect];
       })(),
-      expected: ['opening', undefined, undefined],
+      expected: ['opening', { strikes: null, reveal: null, activatedAt: null }],
     });
   });
 
@@ -72,7 +68,7 @@ describe('advanceOpening', () => {
     assert({
       given: 'a sweep 90 s after prep ended',
       should: 'start the Round at the prep end, not at the sweep',
-      actual: [projection.round?.status, projection.opensAt],
+      actual: [projection.round?.status, projection.openingEffect?.activatedAt],
       expected: ['active', at(1200)],
     });
   });
@@ -84,7 +80,7 @@ describe('advanceOpening', () => {
       given: 'two expired strike windows',
       should: 'carry both time-outs and stay in the opening',
       actual: [
-        projection.openingDraw?.strikes.length,
+        projection.openingEffect?.strikes?.added.length,
         projection.round?.status,
       ],
       expected: [2, 'opening'],
@@ -110,7 +106,10 @@ describe('strikeInOpening', () => {
     assert({
       given: 'the Negative striking on its turn',
       should: 'append a debater strike',
-      actual: projection.openingDraw?.strikes.map((s) => [s.position, s.kind]),
+      actual: projection.openingEffect?.strikes?.added.map((s) => [
+        s.position,
+        s.kind,
+      ]),
       expected: [[2, 'debater']],
     });
   });
@@ -156,7 +155,13 @@ describe('strikeInOpening', () => {
             ...world.state,
             opening: {
               ...world.state.opening,
-              draw: projection.openingDraw ?? world.state.opening.draw,
+              draw: {
+                ...world.state.opening.draw!,
+                strikes: [
+                  ...world.state.opening.draw!.strikes,
+                  ...(projection.openingEffect?.strikes?.added ?? []),
+                ],
+              },
             },
           },
         };
@@ -168,9 +173,14 @@ describe('strikeInOpening', () => {
     ).projection!;
     assert({
       given: 'the final strike of a draw with no prep',
-      should: 'start the Round at that strike',
-      actual: [last.round?.status, last.opensAt],
-      expected: ['active', edges.now],
+      should: 'start the Round at that strike, and reveal once',
+      actual: [
+        last.round?.status,
+        last.openingEffect?.activatedAt,
+        last.openingEffect?.strikes?.added.length,
+        typeof last.openingEffect?.reveal?.resolution,
+      ],
+      expected: ['active', edges.now, 1, 'string'],
     });
   });
 });
@@ -188,9 +198,13 @@ describe('forfeitInOpening', () => {
       actual: [
         projection.round?.status,
         projection.round?.outcome,
-        projection.openingDraw?.strikes.length,
+        projection.openingEffect,
       ],
-      expected: ['completed', 'negative', 0],
+      expected: [
+        'completed',
+        'negative',
+        { strikes: null, reveal: null, activatedAt: null },
+      ],
     });
   });
 
@@ -204,7 +218,7 @@ describe('forfeitInOpening', () => {
       given: 'a forfeit one second after prep ended, before any sweep',
       should: 'record the start at the prep end and the affirmative result',
       actual: [
-        projection.opensAt,
+        projection.openingEffect?.activatedAt,
         projection.round?.status,
         projection.round?.outcome,
       ],
@@ -235,7 +249,7 @@ test('a forfeit after prep ended invents no played segment, whatever the countdo
 });
 
 test('inPreRoundPrep is true only while prep runs', () => {
-  const opening = { startedAt: edges.now, draw: null, prepMs: PREP_MS };
+  const opening = { startRoundAt: edges.now, draw: null, prepMs: PREP_MS };
   assert({
     given: 'the first minute, the last millisecond and the end of prep',
     should: 'report prep until the instant it ends',

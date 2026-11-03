@@ -5,7 +5,7 @@ import {
 } from '@daisy/db/testing';
 import { activeRoomMembers, closeRoom, eraseSeats } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { drawRoomAt } from './room-draw.test-support';
+import { drawRoomAt } from './round-draw.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 
 requireTestServices(process.env);

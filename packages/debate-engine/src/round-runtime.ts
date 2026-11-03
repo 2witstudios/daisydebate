@@ -1,5 +1,5 @@
 import { speakingChangesOf } from './round-speaking';
-import { startRound } from './round-commands';
+import { activateRound } from './round-commands';
 import { roundHoldsMembers } from './room-membership';
 import { applyPanelCompletion } from './round-panel-completion';
 import type { RoundRuntime } from './round-runtime-api';
@@ -294,7 +294,7 @@ export function createRoundRuntime(input: {
       const scratch = restoreRoundStore(capture(store));
       const into = queues();
       const c = contextOn(scratch, into, null, Date.parse(at));
-      startRound(c);
+      activateRound(c);
       advance(scratch, into, Date.parse(now));
       store = scratch;
       return project(into);

@@ -105,7 +105,7 @@ export const opened = (room = drawRoom(), prepMs: number | null = null) => {
   const draw = begin(room).draw;
   return {
     seats: seatsOf(room),
-    opening: { startedAt: edges.now, draw: draw?.state ?? null, prepMs },
+    opening: { startRoundAt: edges.now, draw: draw?.state ?? null, prepMs },
   };
 };
 

@@ -87,12 +87,12 @@ test('proof vertical: validated create, durable store, restored read', async () 
         formatVersion: 1,
         // Resolved RoundRules, not a copy of the definition (ADR 0058 §6).
         rulesVersion: 2,
-        status: 'opening',
+        status: 'active',
       },
       loaded: {
         httpStatus: 200,
         id: snapshot.id,
-        status: 'opening',
+        status: 'active',
         format: 'foundation',
         formatVersion: 1,
         rulesVersion: 2,

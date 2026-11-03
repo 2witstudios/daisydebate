@@ -11,11 +11,12 @@ import {
   judgingPanelOf,
   freezeJudgingPlan,
   participatingRulings,
+  openingDue,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError, createRefusal } from '@daisy/errors';
 import { judgingPolicy, type JudgingTerminalReason } from '@daisy/protocol';
 import { createRatingSweep } from '../ratings/sweep';
-import { roundTickProjection } from './operations';
+import { roundTickProjection } from '../round-runtime/round-tick';
 
 type JudgingPlanner = Parameters<
   Database['finalizeDueRoundTranscript']
@@ -101,6 +102,7 @@ export function createRoundMaintenanceOperations(input: {
       const page = await input.store.readRoundMaintenanceCandidates({
         instanceId: input.instanceId,
         limit: 64,
+        openingDue,
         ...(discoveryAfterId ? { afterId: discoveryAfterId } : {}),
       });
       if (

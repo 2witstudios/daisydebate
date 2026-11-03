@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { castSeatsBotDebater } from './ai-round-cast';
 import { acceptedRoomMutation } from './room-assembly-facts';
 import type {
@@ -9,7 +10,7 @@ import type {
 } from '@daisy/protocol';
 
 import { startBlocker, type Edges } from './room-assembly-facts';
-import { startRoundDraw } from './room-draw-start';
+import { startRoundDraw } from './round-draw-start';
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   ok: false,
   refusal,
@@ -68,9 +69,18 @@ export const startRound = (
   if (room.executionPlan.resolutionDraw.enabled && !draw)
     return refuse('draw-unavailable');
   const next: RoomAssemblyState = { ...room, status: 'started' };
+  const plan = next.executionPlan;
+  const preRoundPrepMs = plan.preRoundPrep.enabled
+    ? plan.preRoundPrep.durationMs
+    : null;
+  // With nothing to run first, the Round is active at this click.
+  const hasOpening = plan.resolutionDraw.enabled || preRoundPrepMs !== null;
+  if (!hasOpening && next.topic === null) throw createAppError('INVARIANT');
   return acceptedRoomMutation(next, {
     draw,
-    freeze: true,
+    roundStart: hasOpening
+      ? { status: 'opening', preRoundPrepMs }
+      : { status: 'active', currentStage: 'countdown', startedAt: edges.now },
     seatsBotDebater: castSeatsBotDebater(next),
   });
 };

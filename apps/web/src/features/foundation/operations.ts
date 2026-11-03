@@ -118,7 +118,7 @@ export async function createProofDebate(
     format: format.id,
     formatVersion: format.version,
     rules: resolved.rules,
-    status: 'opening',
+    status: 'active',
   };
 }
 

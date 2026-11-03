@@ -172,7 +172,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
       mutation: {
         state: { ...state, status: 'closed', changeVersion: 2 },
         consent: null,
-        freeze: false,
+        roundStart: null,
         seatsBotDebater: false,
         publishDefinition: false,
         draw: null,

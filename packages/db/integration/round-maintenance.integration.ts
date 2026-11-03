@@ -1,3 +1,4 @@
+import { openingDue } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -36,6 +37,7 @@ test('maintenance discovery includes every cast without sessions and requires a 
           store.readRoundMaintenanceCandidates({
             instanceId,
             limit: 1,
+            openingDue,
           }),
         code: 'AUTHORIZATION',
       });
@@ -45,15 +47,18 @@ test('maintenance discovery includes every cast without sessions and requires a 
       const first = await store.readRoundMaintenanceCandidates({
         instanceId,
         limit: 1,
+        openingDue,
       });
       const second = await store.readRoundMaintenanceCandidates({
         instanceId,
         limit: 1,
+        openingDue,
         afterId: first.afterId!,
       });
       const last = await store.readRoundMaintenanceCandidates({
         instanceId,
         limit: 1,
+        openingDue,
         afterId: second.afterId!,
       });
       assert({
@@ -79,6 +84,7 @@ test('maintenance discovery includes every cast without sessions and requires a 
           store.readRoundMaintenanceCandidates({
             instanceId,
             limit: 1,
+            openingDue,
           }),
         code: 'AUTHORIZATION',
       });

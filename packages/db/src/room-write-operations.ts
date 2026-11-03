@@ -292,7 +292,7 @@ async function reserveBotFreeze(
   const state = mutation.state;
   // The pure engine decides whether this cast seats a bot debater; admission
   // then takes both its consequences, allowance and capacity (ADR 0106).
-  if (!mutation.freeze || !mutation.seatsBotDebater) return;
+  if (!mutation.roundStart || !mutation.seatsBotDebater) return;
   if (!admission)
     throw createAppError('INFRASTRUCTURE', 'Bot admission unavailable');
   if (!locked) throw createAppError('CONFLICT', 'Bot admission not serialized');

@@ -89,7 +89,7 @@ test('a real Launch carries the cast consequence in its freeze', () => {
       );
       return [
         given,
-        result.ok && result.mutation.freeze,
+        result.ok && result.mutation.roundStart !== null,
         result.ok && result.mutation.seatsBotDebater,
       ];
     }),

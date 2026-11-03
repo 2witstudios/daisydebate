@@ -1,10 +1,10 @@
-import { roundTickProjection } from '../src/features/round-finalization/operations';
+import { roundTickProjection } from '../src/features/round-runtime/round-tick';
 import { createId } from '@paralleldrive/cuid2';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import type { RatingLadder } from '@daisy/protocol';
 import type { withRoomRuntime } from './room-runtime.test-support';
 import { everyoneReady } from './round-judging.test-support';
-import { strikeToReveal } from './room-draw.test-support';
+import { strikeToReveal } from './round-draw.test-support';
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 /** Canonical setup proof; only the test-owned prep anchor advances, never real time. */
 export async function readyRatedRoom(

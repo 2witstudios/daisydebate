@@ -13,7 +13,7 @@ import {
   launchRuntimeRound,
 } from './round-runtime.test-support';
 import { playOut } from './round-judging.test-support';
-import { roundTickProjection } from '../src/features/round-finalization/operations';
+import { roundTickProjection } from '../src/features/round-runtime/round-tick';
 import {
   finalizeAsWeb,
   finalizeByMaintenance,

@@ -4,7 +4,7 @@ import {
   forfeitInOpening,
   strikeInOpening,
 } from '@daisy/debate-engine';
-import { roundTickProjection } from '../round-finalization/operations';
+import { roundTickProjection } from './round-tick';
 import type { Database } from '@daisy/db';
 import type { LockedRoundCommandContext } from '@daisy/db/rounds';
 import { createAppError, isAppError, createRefusal } from '@daisy/errors';

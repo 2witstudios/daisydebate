@@ -1,10 +1,9 @@
 import { requireCurrentWeb } from './round-service-authority';
-import { and, asc, eq, gt, or, sql, type SQL } from 'drizzle-orm';
-import { AUTOMATIC_STRIKE_DELAY_MS } from '@daisy/protocol/resolution-draw';
-import {
-  roundResolutionDraws,
-  roundResolutionStrikes,
-} from './schema/resolution-draws';
+import { and, asc, eq, exists, gt, inArray } from 'drizzle-orm';
+import type { RoundOpeningClock } from '@daisy/protocol/resolution-draw';
+import { readOpeningClocks } from './round-opening-read';
+import { transactionNow } from './room-command-facts';
+import { roundParticipants } from './schema/round-participants';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -47,14 +46,15 @@ export function roundMaintenanceOperations(run: BoundedTransaction) {
   };
   return {
     /**
-     * Rounds the clock can move now: active ones, and opening ones with a
-     * strike or a prep end due. A prefilter only: the engine decides under the
-     * Round lock. A Round with no Room is a proof fixture with no cast to open.
+     * Rounds the clock can move now: active ones, and opening ones the engine's
+     * `openingDue` rule, injected, finds due. A prefilter only: the engine decides
+     * again under the Round lock.
      */
     readRoundMaintenanceCandidates(input: {
       readonly instanceId: string;
       readonly afterId?: string;
       readonly limit: number;
+      readonly openingDue: (opening: RoundOpeningClock, now: string) => boolean;
     }) {
       if (
         !idSchema.safeParse(input.instanceId).success ||
@@ -65,33 +65,43 @@ export function roundMaintenanceOperations(run: BoundedTransaction) {
         input.limit > 1000
       )
         throw createAppError('VALIDATION');
-      // The engine's openingStep in SQL. The next strike falls due when its turn
-      // opens plus the side's window; prep ends after the reveal or Start round.
-      const turnSide = sql`case when st.n % 2 = 0 then d.manifest->>'firstStriker' when d.manifest->>'firstStriker' = 'affirmative' then 'negative' else 'affirmative' end`;
-      const turnWindowMs = sql`case when d.manifest->'controllers'->>(${turnSide}) = 'automatic' then ${AUTOMATIC_STRIKE_DELAY_MS} else (d.manifest->>'strikeWindowMs')::int end`;
-      const prepEnd = (anchor: SQL) =>
-        sql`${anchor} + coalesce(${rounds.preRoundPrepMs}, 0) * interval '1 millisecond' <= statement_timestamp()`;
-      const dueDraw = sql`exists (select 1 from ${roundResolutionDraws} d cross join lateral (select count(*)::int as n, max(s.struck_at) as last from ${roundResolutionStrikes} s where s.draw_id = d.id) st where d.round_id = ${rounds.id} and case when st.n < d.draw_size - 1 then coalesce(st.last, d.started_at) + ${turnWindowMs} * interval '1 millisecond' <= statement_timestamp() else ${prepEnd(sql`st.last`)} end)`;
-      const noDraw = sql`not exists (select 1 from ${roundResolutionDraws} d where d.round_id = ${rounds.id}) and ${prepEnd(sql`${rounds.createdAt}`)}`;
-      const dueOpening = sql`${rounds.status} = 'opening' and ${rounds.roomId} is not null and (${dueDraw} or (${noDraw}))`;
       return run(async (tx) => {
         await requireCurrentWeb(tx, input.instanceId);
         const rows = await tx
-          .select({ id: rounds.id, status: rounds.status })
+          .select({
+            id: rounds.id,
+            status: rounds.status,
+            createdAt: rounds.createdAt,
+            preRoundPrepMs: rounds.preRoundPrepMs,
+          })
           .from(rounds)
           .where(
             and(
-              or(eq(rounds.status, 'active'), dueOpening),
+              inArray(rounds.status, ['active', 'opening']),
+              // A Round with no seats, a proof, has nothing for the clock to move.
+              exists(
+                tx
+                  .select({ id: roundParticipants.id })
+                  .from(roundParticipants)
+                  .where(eq(roundParticipants.roundId, rounds.id)),
+              ),
               ...(input.afterId ? [gt(rounds.id, input.afterId)] : []),
             ),
           )
           .orderBy(asc(rounds.id))
           .limit(input.limit);
+        const opening = rows.filter((row) => row.status === 'opening');
+        const clocks = await readOpeningClocks(tx, opening);
+        const now = await transactionNow(tx);
+        const dueOpening = opening.filter((row) =>
+          input.openingDue(clocks.get(row.id)!, now),
+        );
+        const due = new Set(dueOpening.map((row) => row.id));
         return {
-          roundIds: rows.map((row) => row.id),
-          openingIds: rows
-            .filter((row) => row.status === 'opening')
+          roundIds: rows
+            .filter((row) => row.status === 'active' || due.has(row.id))
             .map((row) => row.id),
+          openingIds: dueOpening.map((row) => row.id),
           afterId: rows.at(-1)?.id ?? null,
           exhausted: rows.length < input.limit,
         };

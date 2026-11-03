@@ -93,7 +93,7 @@ export function executeRoomCommand(
   let next = outcome.mutation.state;
   const {
     consent: consentEffect,
-    freeze,
+    roundStart,
     seatsBotDebater,
     publishDefinition,
     draw,
@@ -111,7 +111,7 @@ export function executeRoomCommand(
     mutation: {
       state: next,
       consent: consentEffect,
-      freeze,
+      roundStart,
       seatsBotDebater,
       publishDefinition,
       draw,

@@ -10,7 +10,7 @@ import {
   drawRoomOverrides,
   strikeCommand,
   strikeStanding,
-} from './room-draw.test-support';
+} from './round-draw.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 
 requireTestServices(process.env);

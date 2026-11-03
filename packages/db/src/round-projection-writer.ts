@@ -10,7 +10,7 @@ import type { RoundProjection } from '@daisy/protocol';
 import { runtimeCheckpointSchema, buildRoundTopic } from '@daisy/protocol';
 import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
-import { appendRoundStrikes, revealEvidence } from './room-draw-persistence';
+import { appendRoundStrikes } from './round-draw-persistence';
 import { refundUnservedPracticeLocked } from './round-bot-admission';
 import { releaseRoundRoomMembers } from './room-membership-persistence';
 import { jsonObjectSchema } from './schema/columns';
@@ -42,11 +42,11 @@ export async function appendRoundPhaseChanged(
 const projectionChanged = (
   current: LockedRound,
   projection: RoundProjection,
-  addedStrikes: number,
+  addedStrikes: boolean,
 ): boolean => {
   const projected = projection.round;
   if (
-    addedStrikes > 0 ||
+    addedStrikes ||
     projection.segmentInserts.length > 0 ||
     projection.segmentCloses.length > 0
   )
@@ -85,20 +85,17 @@ export async function writeProjectionWithPhaseSignal(
   projection: RoundProjection,
   now: string,
 ): Promise<boolean> {
-  const draw = projection.openingDraw;
-  const addedStrikes = draw ? await appendRoundStrikes(tx, draw) : 0;
-  if (
-    addedStrikes > 0 &&
-    draw &&
-    draw.strikes.length >= draw.manifest.drawSize - 1
-  ) {
-    const { survivorText, ...evidence } = revealEvidence(draw);
+  const { strikes, reveal } = projection.openingEffect ?? {};
+  if (strikes) await appendRoundStrikes(tx, strikes);
+  if (reveal)
     await tx
       .update(rounds)
-      .set({ resolution: survivorText, resolutionEvidence: evidence })
+      .set({
+        resolution: reveal.resolution,
+        resolutionEvidence: reveal.evidence,
+      })
       .where(eq(rounds.id, roundId));
-  }
-  const changed = projectionChanged(current, projection, addedStrikes);
+  const changed = projectionChanged(current, projection, strikes != null);
   if (!changed) return false;
   await writeProjection(tx, roundId, projection, now);
   if (endsRound(current, projection))
@@ -241,8 +238,8 @@ async function writeProjection(
             status: lifecycle.status,
             currentStage: lifecycle.currentStage,
             // An opening ends at its own due instant, never the processing time.
-            startedAt: projection.opensAt
-              ? new Date(projection.opensAt)
+            startedAt: projection.openingEffect?.activatedAt
+              ? new Date(projection.openingEffect.activatedAt)
               : lifecycleInstant(rounds.startedAt, lifecycle.startedAt, now),
             completedAt: lifecycleInstant(
               rounds.completedAt,

@@ -1,4 +1,7 @@
-import type { ResolutionDrawState } from './resolution-draw';
+import type {
+  ResolutionDrawEvidence,
+  ResolutionStrike,
+} from './resolution-draw';
 import type { DebateRole, DebateSide, RoundOutcome } from './primitives';
 import type { SegmentType } from './format';
 import type { RoundStage, RoundStatus, RuntimeCheckpoint } from './round';
@@ -98,6 +101,21 @@ export type RoundSpeakingChange =
       readonly participantIds: readonly string[];
     };
 
+/** One opening's writes: the new strikes, the reveal, and the instant it ended. */
+export type OpeningEffect = {
+  readonly strikes: {
+    readonly drawId: string;
+    readonly drawSize: number;
+    readonly added: readonly ResolutionStrike[];
+  } | null;
+  readonly reveal: {
+    readonly resolution: string;
+    readonly evidence: ResolutionDrawEvidence;
+  } | null;
+  /** The opening ended here: the Round's active start, never the processing time. */
+  readonly activatedAt: string | null;
+};
+
 /** The durable writes that materialize the runtime's state. */
 export type RoundProjection = {
   /** Exact finalizer inputs, never reselected later from mutable ballot state. */
@@ -110,10 +128,8 @@ export type RoundProjection = {
   /** The engine's ruling that this Round holds its Room's members no longer (ADR 0070). */
   readonly releasesRoomMembers?: true;
   readonly speakingChanges?: readonly RoundSpeakingChange[];
-  /** The opening's draw after this revision; the writer appends its new strikes. */
-  readonly openingDraw?: ResolutionDrawState;
-  /** The opening ended here: the Round's start, never the processing time. */
-  readonly opensAt?: string;
+  /** What the opening did at this revision, decided by the engine and only written here. */
+  readonly openingEffect?: OpeningEffect;
   /** Null when no round-row column changed. */
   readonly round: {
     readonly status: RoundStatus;

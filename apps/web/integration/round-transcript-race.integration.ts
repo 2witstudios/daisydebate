@@ -4,7 +4,7 @@ import { finishedOrBlockedBehind } from '@daisy/db/testing';
 import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roundTickProjection } from '../src/features/round-finalization/operations';
+import { roundTickProjection } from '../src/features/round-runtime/round-tick';
 import {
   launchRuntimeRound,
   withRoomRuntime,

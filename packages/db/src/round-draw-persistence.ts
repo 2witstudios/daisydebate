@@ -8,6 +8,7 @@ import {
   roundResolutionDraws,
   roundResolutionStrikes,
 } from './schema/resolution-draws';
+import type { OpeningEffect } from '@daisy/protocol';
 import type { Tx } from './room-command-facts';
 import type {
   DrawPrivateInputs,
@@ -124,62 +125,28 @@ export const insertRoundDraw = async (
     );
 };
 
-/** Appends a settled draw's new strikes and counts them; a stored one stays. */
+/**
+ * Appends the strikes the engine says are new. Under the Round's lock no other
+ * writer can have added one, so a conflict is a strike that disagrees with a
+ * stored one, and it raises.
+ */
 export const appendRoundStrikes = async (
   tx: Pick<Tx, 'insert'>,
-  draw: ResolutionDrawState,
+  strikes: NonNullable<OpeningEffect['strikes']>,
 ) => {
-  if (!draw.strikes.length) return 0;
-  const added = await tx
-    .insert(roundResolutionStrikes)
-    .values(
-      draw.strikes.map((s) => ({
-        drawId: draw.id,
-        ordinal: s.ordinal,
-        position: s.position,
-        drawSize: draw.manifest.drawSize,
-        side: s.side,
-        kind: s.kind,
-        actorId: s.actorId,
-        commandId: s.commandId,
-        struckAt: new Date(s.at),
-      })),
-    )
-    .onConflictDoNothing()
-    .returning({ ordinal: roundResolutionStrikes.ordinal });
-  return added.length;
-};
-
-/** The revealed draw's proof metadata, written to the Round at the reveal. */
-export const revealEvidence = (
-  draw: ResolutionDrawState,
-): ResolutionDrawEvidence & { readonly survivorText: string } => {
-  const struck = new Set(draw.strikes.map((s) => s.position));
-  const survivor = draw.items.find((i) => !struck.has(i.position));
-  if (!survivor || draw.strikes.length !== draw.manifest.drawSize - 1)
-    throw createAppError('INVARIANT');
-  return {
-    version: 1,
-    manifest: draw.manifest,
-    manifestDigest: draw.manifestDigest,
-    commitment: draw.commitment,
-    startedAt: draw.startedAt,
-    items: draw.items.map((i) => ({
-      position: i.position,
-      category: i.category,
-      bankEntryId: draw.manifest.source.kind === 'bank' ? i.candidateId : null,
+  await tx.insert(roundResolutionStrikes).values(
+    strikes.added.map((s) => ({
+      drawId: strikes.drawId,
+      ordinal: s.ordinal,
+      position: s.position,
+      drawSize: strikes.drawSize,
+      side: s.side,
+      kind: s.kind,
+      actorId: s.actorId,
+      commandId: s.commandId,
+      struckAt: new Date(s.at),
     })),
-    strikes: draw.strikes.map(({ ordinal, side, kind, position, at }) => ({
-      ordinal,
-      side,
-      kind,
-      position,
-      at,
-    })),
-    survivorPosition: survivor.position,
-    revealedAt: draw.strikes.at(-1)!.at,
-    survivorText: survivor.text,
-  };
+  );
 };
 
 /**

@@ -18,16 +18,26 @@ import { rounds } from './schema/rounds';
  * A round hydrated for the runtime (ADR 0058 §4): the durable rows plus the
  * frozen rules and the checkpoint, everything `createRoundRuntime` needs.
  */
-export type RoundHydration = {
+export type RoundHydration = RoundHydrationFacts &
+  (
+    | {
+        readonly status: 'opening';
+        /** The opening and its secret seed, only while the Round is in it. */
+        readonly opening: StoredOpening;
+      }
+    | {
+        readonly status: 'active' | 'completed' | 'abandoned';
+        readonly opening: null;
+      }
+  );
+
+type RoundHydrationFacts = {
   readonly id: string;
   readonly competitionType: CompetitionType;
   readonly formatId: string;
   readonly formatVersion: number;
   /** Null until a draw's reveal; never null on an active Round. */
   readonly resolution: string | null;
-  /** The opening and its secret seed, only while the Round is in it. */
-  readonly opening: StoredOpening | null;
-  readonly status: 'opening' | 'active' | 'completed' | 'abandoned';
   readonly currentStage: RoundStage | null;
   /** When the Round was launched (its row's creation), on the database clock. */
   readonly launchedAt: string;
@@ -102,14 +112,12 @@ export async function hydrateRoundRows(
     .from(roundParticipants)
     .where(eq(roundParticipants.roundId, id));
   const segments = await segmentRows(tx, id);
-  return {
-    opening: await loadRoundOpening(tx, row),
+  const facts: RoundHydrationFacts = {
     id: row.id,
     competitionType: row.competitionType,
     formatId: row.formatId,
     formatVersion: row.formatVersion,
     resolution: row.resolution,
-    status: row.status,
     currentStage: row.currentStage,
     launchedAt: row.createdAt.toISOString(),
     startedAt: row.startedAt?.toISOString() ?? null,
@@ -121,6 +129,9 @@ export async function hydrateRoundRows(
     participants,
     segments,
   };
+  return row.status === 'opening'
+    ? { ...facts, status: 'opening', opening: await loadRoundOpening(tx, row) }
+    : { ...facts, status: row.status, opening: null };
 }
 
 export async function hydrateRound(

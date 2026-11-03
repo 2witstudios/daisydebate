@@ -14,7 +14,7 @@ import {
 } from '@daisy/protocol';
 import { activeRoomMembers } from './room-membership';
 import type { FormatSelectionFacts } from './format-selection';
-import type { DrawStartFacts } from './room-draw-start';
+import type { DrawStartFacts } from './round-draw-start';
 
 type Target = RoomParticipant & {
   readonly eligible: boolean;
@@ -99,7 +99,7 @@ export const acceptedRoomMutation = (
   mutation: {
     state,
     consent: null,
-    freeze: false,
+    roundStart: null,
     seatsBotDebater: false,
     publishDefinition: false,
     draw: null,

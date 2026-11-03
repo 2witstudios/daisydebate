@@ -4,9 +4,10 @@ import { isNamedSeat } from '@daisy/protocol';
 import { AUTOMATIC_STRIKE_DELAY_MS } from '@daisy/protocol/resolution-draw';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roundTickProjection } from '../src/features/round-finalization/operations';
+import { openingDue } from '@daisy/debate-engine';
+import { roundTickProjection } from '../src/features/round-runtime/round-tick';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
-import { drawRoomOverrides } from './room-draw.test-support';
+import { drawRoomOverrides } from './round-draw.test-support';
 import { botAdmissionForTests } from './bot-admission.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 
@@ -224,6 +225,7 @@ test('a tick starts a Round at the instant its prep ended, however late it runs'
       const page = await f.store.readRoundMaintenanceCandidates({
         instanceId,
         limit: 1000,
+        openingDue,
       });
       return page.roundIds.includes(roundId);
     };

@@ -1,9 +1,11 @@
 import { createRefusal } from '@daisy/errors';
-import type { RoundProjection } from '@daisy/protocol';
+import type { OpeningEffect, RoundProjection } from '@daisy/protocol';
 import { bytesOf } from './draw-random';
 import { createRoundRuntime } from './round-runtime';
+import { revealed } from './resolution-draw';
 import {
   projectOpening,
+  revealOf,
   settledOpeningTopic,
   settleOpening,
   strikeOpening,
@@ -23,30 +25,46 @@ export type OpeningRound = RuntimeInput & {
 const settled = ({ opening, seed, now }: OpeningRound) =>
   settleOpening(opening, seed === null ? null : bytesOf(seed), now);
 
-const withDraw = (
-  projection: RoundProjection,
+/** What moved between the stored opening and the settled one. */
+const effectOf = (
+  stored: RoundOpening,
   opening: RoundOpening,
-): RoundProjection =>
-  opening.draw ? { ...projection, openingDraw: opening.draw } : projection;
+  activatedAt: string | null,
+): OpeningEffect => {
+  const { draw } = opening;
+  const added = draw?.strikes.slice(stored.draw?.strikes.length ?? 0) ?? [];
+  return {
+    strikes:
+      draw && added.length > 0
+        ? { drawId: draw.id, drawSize: draw.manifest.drawSize, added }
+        : null,
+    reveal: draw && added.length > 0 && revealed(draw) ? revealOf(draw) : null,
+    activatedAt,
+  };
+};
 
 /**
- * The opening at `now`: due strikes, then the Round's start at the instant
- * the opening ended. The projection writes those instants, so a late sweep
- * cannot move the countdown.
+ * The opening at `now`, from what is stored: due strikes, then activation at
+ * the instant the opening ended. The effect carries those instants, so a late
+ * sweep cannot move the countdown.
  */
-export function advanceOpening(input: OpeningRound): RoundProjection {
+const advanceFrom = (
+  stored: RoundOpening,
+  input: OpeningRound,
+): RoundProjection => {
   const { opening, step } = settled(input);
   const runtime = createRoundRuntime(input);
-  return withDraw(
-    step.step === 'complete'
-      ? {
-          ...runtime.activate({ at: step.at, now: input.now }),
-          opensAt: step.at,
-        }
-      : runtime.tick(input.now),
-    opening,
-  );
-}
+  const activatedAt = step.step === 'complete' ? step.at : null;
+  return {
+    ...(activatedAt !== null
+      ? runtime.activate({ at: activatedAt, now: input.now })
+      : runtime.tick(input.now)),
+    openingEffect: effectOf(stored, opening, activatedAt),
+  };
+};
+
+export const advanceOpening = (input: OpeningRound): RoundProjection =>
+  advanceFrom(input.opening, input);
 
 /** A debater's strike on the settled opening; a refusal changes nothing. */
 export function strikeInOpening(
@@ -66,7 +84,7 @@ export function strikeInOpening(
     now: input.now,
   });
   if (!outcome.ok) throw createRefusal('CONFLICT', outcome.refusal);
-  return advanceOpening({ ...input, opening: outcome.opening });
+  return advanceFrom(input.opening, { ...input, opening: outcome.opening });
 }
 
 /**
@@ -78,18 +96,15 @@ export function forfeitInOpening(
   input: OpeningRound & { readonly actorId: string },
 ): RoundProjection {
   const { opening, step } = settled(input);
-  const runtime = createRoundRuntime(input);
-  return withDraw(
-    {
-      ...runtime.execute({
-        command: { type: 'forfeit' },
-        actorId: input.actorId,
-        now: input.now,
-      }),
-      ...(step.step === 'complete' ? { opensAt: step.at } : {}),
-    },
-    opening,
-  );
+  const activatedAt = step.step === 'complete' ? step.at : null;
+  return {
+    ...createRoundRuntime(input).execute({
+      command: { type: 'forfeit' },
+      actorId: input.actorId,
+      now: input.now,
+    }),
+    openingEffect: effectOf(input.opening, opening, activatedAt),
+  };
 }
 
 /** Whether the Round is in pre-round prep at `now`: every mic and camera closes. */

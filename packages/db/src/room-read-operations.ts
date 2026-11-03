@@ -58,7 +58,7 @@ import {
   lockCommand,
   replayReceipt,
 } from './room-command-facts';
-import { roundResolutionAudit } from './room-draw-persistence';
+import { roundResolutionAudit } from './round-draw-persistence';
 export async function launchedRoundRows(
   tx: Pick<BunSQLDatabase, 'select'>,
   roundId: string,

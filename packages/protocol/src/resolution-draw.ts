@@ -290,10 +290,24 @@ export type ResolutionDrawState = {
  */
 export type RoundOpening = {
   /** The Start round instant. */
-  readonly startedAt: string;
+  readonly startRoundAt: string;
   readonly draw: ResolutionDrawState | null;
   /** Pre-round prep's full length, or null when the Round has none. */
   readonly prepMs: number | null;
+};
+
+/** What of a draw its clock reads: never a text, the seed or a position. */
+export type ResolutionDrawClock = Pick<
+  ResolutionDrawState,
+  'manifest' | 'startedAt'
+> & { readonly strikes: readonly Pick<ResolutionStrike, 'at'>[] };
+
+/** What of an opening its clock reads, so discovery can ask without the secrets. */
+export type RoundOpeningClock = Pick<
+  RoundOpening,
+  'startRoundAt' | 'prepMs'
+> & {
+  readonly draw: ResolutionDrawClock | null;
 };
 
 const hexSchema = z.string().regex(/^[0-9a-f]{64}$/);

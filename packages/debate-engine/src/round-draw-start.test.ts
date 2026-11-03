@@ -246,7 +246,10 @@ describe('Start round on a draw Room', () => {
       should: 'accept edits, then freeze with no draw on Start round',
       actual: [
         edited.ok && edited.mutation.state.topic,
-        started.ok && [started.mutation.freeze, started.mutation.draw],
+        started.ok && [
+          started.mutation.roundStart !== null,
+          started.mutation.draw,
+        ],
       ],
       expected: ['New motion', [true, null]],
     });

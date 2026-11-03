@@ -308,7 +308,9 @@ export const appendRoomChanged = (
       ids: [roomId],
     },
   });
-export const transactionNow = async (tx: Tx): Promise<string> => {
+export const transactionNow = async (
+  tx: Pick<Tx, 'execute'>,
+): Promise<string> => {
   const [row] = (await tx.execute(
     sql`select statement_timestamp() as now`,
   )) as unknown as Array<{ now: Date }>;

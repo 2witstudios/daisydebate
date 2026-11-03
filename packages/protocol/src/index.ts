@@ -68,6 +68,7 @@ export type {
   RoundProjection,
   RoundSpeakingChange,
   RoundPosition,
+  OpeningEffect,
 } from './runtime';
 export {
   competitionTypes,
