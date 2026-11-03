@@ -13,10 +13,12 @@ import { RoundDocuments } from '../../../../ui/debate-room/round-documents';
 import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
 import { RoundResult } from '../../../../ui/round-result/round-result';
 import {
-  ResultRetry,
+  ResultUnavailable,
   resultPart,
+  resultRetryOf,
 } from '../../../../ui/round-result/result-part';
-import { reconnectDelaySeconds } from '../../../../ui/debate-room/reconnect-delay';
+import { drawReconnectDelaySeconds } from '../../../../ui/debate-room/reconnect-delay';
+import { RoundRoomReconnecting } from '../../../../ui/debate-room/round-room-reconnecting';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
@@ -25,9 +27,9 @@ import { readPersistedTranscript } from './read-persisted-transcript';
 import { MediaDocument } from '../../../../ui/round-media/media-document';
 
 export const metadata: Metadata = { title: 'Round' };
+const nothing = { value: null, failure: null };
 async function completedBallots(round: RoundView, member: boolean) {
-  if (!member || round.status !== 'completed')
-    return { value: null, unavailable: false };
+  if (!member || round.status !== 'completed') return nothing;
   return resultPart(await readPersistedBallot(round.id), ({ view }) => view);
 }
 /**
@@ -36,24 +38,20 @@ async function completedBallots(round: RoundView, member: boolean) {
  */
 async function ownAnalysis(round: RoundView, debater: boolean) {
   if (!debater || round.status !== 'completed')
-    return { value: null, unavailable: false };
+    return [nothing, nothing] as const;
   const [result, transcript] = await Promise.all([
     readPersistedRoundAnalysis(round.id),
     readPersistedTranscript(round.id),
   ]);
-  const analysis = resultPart(result, ({ view }) => ({
-    view,
-    lines: transcript.kind === 'found' ? transcriptLines(transcript.value) : [],
-  }));
-  return {
-    ...analysis,
-    unavailable: analysis.unavailable || transcript.kind === 'unavailable',
-  };
+  return [
+    resultPart(result, ({ view }) => ({
+      view,
+      lines:
+        transcript.kind === 'found' ? transcriptLines(transcript.value) : [],
+    })),
+    resultPart(transcript, () => null),
+  ] as const;
 }
-const resultRetry = () => {
-  const [entropy] = crypto.getRandomValues(new Uint8Array(1));
-  return <ResultRetry retrySeconds={reconnectDelaySeconds(entropy!)} />;
-};
 export default async function RoundPage({
   params,
   searchParams,
@@ -66,6 +64,8 @@ export default async function RoundPage({
   if (!idSchema.safeParse(id).success) notFound();
   const result = await readPersistedRound(id);
   if (result.kind === 'missing') notFound();
+  if (result.kind === 'unavailable' && result.temporary)
+    return <RoundRoomReconnecting retrySeconds={drawReconnectDelaySeconds()} />;
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   if (
     identity.state === 'member' &&
@@ -86,16 +86,23 @@ export default async function RoundPage({
         p.actorId === identity.principal.actorId &&
         p.role !== 'judge',
     );
-  const [ballots, analysis] = await Promise.all([
+  const [ballots, [analysis, transcript]] = await Promise.all([
     completedBallots(result.round, identity.state === 'member'),
     ownAnalysis(result.round, debater),
   ]);
+  const retry = resultRetryOf([ballots, analysis, transcript]);
   return (
     <>
       <MediaDocument />
       <RoundReceipt round={result.round}>
         <RoundRatings view={await requestRoundRatings(result.round)} />
-        {ballots.unavailable || analysis.unavailable ? resultRetry() : null}
+        {retry ? (
+          <ResultUnavailable
+            retrySeconds={
+              retry === 'refresh' ? drawReconnectDelaySeconds() : null
+            }
+          />
+        ) : null}
         {ballots.value ? <RoundResult view={ballots.value} /> : null}
         {analysis.value ? (
           <RoundAnalysis

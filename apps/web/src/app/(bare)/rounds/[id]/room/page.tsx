@@ -19,7 +19,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
 import { ratingsUnlessRefused } from '../../../../../features/ratings/ratings-unless-refused';
-import { reconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
+import { drawReconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
@@ -58,12 +58,9 @@ const transcriptOf = (
     </p>
   ) : null;
 
-const reconnecting = () => {
-  const [entropy] = crypto.getRandomValues(new Uint8Array(1));
-  return (
-    <RoundRoomReconnecting retrySeconds={reconnectDelaySeconds(entropy!)} />
-  );
-};
+const reconnecting = () => (
+  <RoundRoomReconnecting retrySeconds={drawReconnectDelaySeconds()} />
+);
 
 /**
  * A member without a seat: the assigned judge's live view, a seatless
