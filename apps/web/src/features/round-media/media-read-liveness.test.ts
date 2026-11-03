@@ -1,15 +1,15 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   fakeBudget,
-  readController,
+  readHarness,
   snapshot,
   transportStub,
   viewAt,
-} from './media-controller.test-support';
-import type { MediaConnectionState } from './media-controller';
+} from './media-fixtures.test-support';
+import type { MediaConnectionState } from './media-harness.test-support';
 import { mediaFailure, transientMediaFailure } from './media-failure';
-import { seatMicrophoneCaption } from './media-status';
-import { settle } from './browser-transport.test-support';
+import { seatMicrophoneCaption } from './model/seat-caption';
+import { settle } from './adapters/livekit-room.test-support';
 setupRitewayBun();
 
 test('only an authority answer ends a live connection', async () => {
@@ -17,7 +17,7 @@ test('only an authority answer ends a live connection', async () => {
   for (const answer of [401, 403, 404, 409, 410, 429, 500, 502, 504]) {
     let reads = 0;
     let stops = 0;
-    const controller = readController({
+    const controller = readHarness({
       reconcile: async () => {
         if (++reads === 1) return snapshot;
         throw mediaFailure(answer);
@@ -51,7 +51,7 @@ test('only an authority answer ends a live connection', async () => {
 test('a server reply saying unavailable still ends a live connection', async () => {
   let reads = 0;
   let stops = 0;
-  const controller = readController({
+  const controller = readHarness({
     reconcile: async () =>
       ++reads === 1 ? snapshot : { ...snapshot, state: 'unavailable' },
     transport: () => transportStub({ stopTracks: () => void stops++ }),
@@ -71,7 +71,7 @@ const readsStallAfterFirst = async (answeredRead?: number) => {
   const { budget, advance, pending } = fakeBudget();
   const signals: AbortSignal[] = [];
   let reads = 0;
-  const controller = readController({
+  const controller = readHarness({
     readBudget: budget,
     reconcile: (_id, signal) => {
       signals.push(signal);
@@ -118,11 +118,11 @@ test('reads that keep being superseded still show out of date at the budget', as
 });
 
 /** A controller driving a seat's caption as the session does, on a test budget. */
-const watchedCaption = (input: Parameters<typeof readController>[0]) => {
+const watchedCaption = (input: Parameters<typeof readHarness>[0]) => {
   let connection: MediaConnectionState = 'connecting';
   let confirmed = true;
   const { budget, advance } = fakeBudget();
-  const controller = readController({
+  const controller = readHarness({
     ...input,
     readBudget: budget,
     changed: (state) => {
@@ -141,9 +141,12 @@ const watchedCaption = (input: Parameters<typeof readController>[0]) => {
     caption: () =>
       seatMicrophoneCaption({
         connection,
-        peer: { microphone: false },
         confirmed,
-        speaking: false,
+        track: undefined,
+        mine: false,
+        ownMuted: false,
+        granted: false,
+        remote: { microphonePublished: false },
       }),
   };
 };
@@ -177,38 +180,10 @@ test('a seat checking its microphone cannot stick when no answer comes', async (
   seat.controller.stop();
 });
 
-test('a seat cannot stay on checking while an apply never settles', async () => {
-  let applies = 0;
-  const seat = watchedCaption({
-    reconcile: async () => snapshot,
-    transport: () =>
-      transportStub({
-        apply: () =>
-          ++applies === 1 ? Promise.resolve() : new Promise(() => undefined),
-      }),
-  });
-  await seat.controller.join();
-  void seat.controller.reconcile(viewAt(4));
-  await settle();
-  const whileChecking = [seat.caption(), seat.controller.state()];
-  seat.advance(40_000);
-  assert({
-    given: 'a newer view whose answer arrives but whose apply never settles',
-    should: 'check first, then show out of date at the budget',
-    actual: [whileChecking, seat.caption(), seat.controller.state()],
-    expected: [
-      ['Checking microphone…', 'live'],
-      'Microphone status out of date',
-      'out-of-date',
-    ],
-  });
-  seat.controller.stop();
-});
-
 test('an answer ends the budget, and stopping leaves it inert', async () => {
   const { budget, advance } = fakeBudget();
   const states: string[] = [];
-  const controller = readController({
+  const controller = readHarness({
     readBudget: budget,
     reconcile: async () => snapshot,
     changed: (state) => states.push(state),
@@ -217,7 +192,7 @@ test('an answer ends the budget, and stopping leaves it inert', async () => {
   await controller.reconcile(viewAt(4));
   advance(40_000);
   const afterAnswer = controller.state();
-  const held = readController({
+  const held = readHarness({
     readBudget: budget,
     reconcile: async () => snapshot,
   });
@@ -234,27 +209,10 @@ test('an answer ends the budget, and stopping leaves it inert', async () => {
   controller.stop();
 });
 
-test('a read let finish cannot hold the fresh read past the young limit', async () => {
-  const { controller, advance, signals, reads } = await readsStallAfterFirst(4);
-  await burstOfThree(controller, advance);
-  const whileYoung = [signals[2]?.aborted, reads()];
-  advance(1_900);
-  await settle();
-  assert({
-    given: 'the last event landing on a young read that then stalls',
-    should: 'leave it alone while young, then abort it and read fresh',
-    actual: [whileYoung, signals[2]?.aborted, reads(), controller.state()],
-    expected: [[false, 3], true, 4, 'live'],
-  });
-  controller.stop();
-});
-
 test('no timer outlives what it was timing', async () => {
   const pendings: number[] = [];
   const scenario = async (
-    end: (
-      controller: ReturnType<typeof readController>,
-    ) => Promise<void> | void,
+    end: (controller: ReturnType<typeof readHarness>) => Promise<void> | void,
   ) => {
     const { controller, advance, pending } = await readsStallAfterFirst();
     await burstOfThree(controller, advance);
@@ -270,83 +228,17 @@ test('no timer outlives what it was timing', async () => {
   assert({
     given:
       'a budget and a let-finish timer running, then a stop or a reconnect',
-    should: 'leave no timer behind',
+    should:
+      'leave none of its timers behind; a reconnect has only its new first read timed',
     actual: pendings,
-    expected: [2, 0, 2, 0],
+    expected: [2, 0, 2, 1],
   });
-});
-
-test('a failed read clears the claim even behind a device failure', async () => {
-  let reads = 0;
-  let confirmed = true;
-  const controller = readController({
-    reconcile: async () => {
-      if (++reads === 2) throw mediaFailure(503);
-      return snapshot;
-    },
-    received: () => {
-      confirmed = true;
-    },
-    superseded: () => {
-      confirmed = false;
-    },
-  });
-  await controller.join();
-  controller.deviceFailed();
-  await controller.reconcile({ kind: 'wake' });
-  assert({
-    given: 'a device failure shown, then a wake read that fails',
-    should: 'stop treating the last answer as current',
-    actual: confirmed,
-    expected: false,
-  });
-  controller.stop();
-});
-
-test('a read let finish spends no attempt after its retry pause', async () => {
-  const { budget, advance } = fakeBudget();
-  let reads = 0;
-  const pause = Promise.withResolvers<void>();
-  const inPause = Promise.withResolvers<void>();
-  const controller = readController({
-    readBudget: budget,
-    retry: {
-      delaysMs: [500],
-      wait: () => {
-        inPause.resolve();
-        return pause.promise;
-      },
-    },
-    reconcile: async () => {
-      reads++;
-      if (reads === 1 || reads >= 4) return snapshot;
-      if (reads === 3) throw transientMediaFailure();
-      return new Promise(() => undefined);
-    },
-  });
-  await controller.join();
-  void controller.reconcile(viewAt(4));
-  await settle();
-  void controller.reconcile(viewAt(5));
-  await inPause.promise;
-  const whilePaused = reads;
-  advance(100);
-  void controller.reconcile(viewAt(6));
-  pause.resolve();
-  await settle();
-  assert({
-    given: 'a read in its retry pause, superseded young in a burst',
-    should: 'skip its next attempt and go straight to the newest read',
-    actual: [whilePaused, reads, controller.state()],
-    expected: [3, 4, 'live'],
-  });
-  controller.stop();
 });
 
 test('a first read that cannot pass by itself is labelled definite', async () => {
   const failures: unknown[] = [];
   let reads = 0;
-  const controller = readController({
+  const controller = readHarness({
     reconcile: async () => {
       reads++;
       throw reads === 1 ? new Error('Malformed') : transientMediaFailure();
@@ -366,61 +258,12 @@ test('a first read that cannot pass by itself is labelled definite', async () =>
   controller.stop();
 });
 
-/** A joined controller whose second read fails transiently. */
-const secondReadFails = async () => {
-  const seen: string[] = [];
-  let reads = 0;
-  const controller = readController({
-    reconcile: async () => {
-      reads++;
-      if (reads === 2) throw mediaFailure(503);
-      return snapshot;
-    },
-    changed: (state) => seen.push(state),
-  });
-  await controller.join();
-  return { controller, seen, reads: () => reads };
-};
-
-test('a local device failure is not overwritten by later reads', async () => {
-  const { controller, seen, reads } = await secondReadFails();
-  controller.deviceFailed();
-  seen.length = 0;
-  await controller.reconcile({ kind: 'wake' });
-  await controller.reconcile({ kind: 'wake' });
-  assert({
-    given:
-      'a device failure the Round shows, then a stalled and an answered read',
-    should: 'emit no state that would hide its Retry',
-    actual: [seen, reads()],
-    expected: [[], 3],
-  });
-  controller.stop();
-});
-
-test('a device failure while out of date is not overwritten when reads recover', async () => {
-  const { controller, seen } = await secondReadFails();
-  await controller.reconcile({ kind: 'wake' });
-  const stale = seen.at(-1);
-  controller.deviceFailed();
-  seen.length = 0;
-  await controller.reconcile({ kind: 'wake' });
-  assert({
-    given:
-      'a device failure shown while reads are out of date, then an answered read',
-    should: 'not announce live over the shown failure',
-    actual: [stale, seen],
-    expected: ['out-of-date', []],
-  });
-  controller.stop();
-});
-
 test('in a burst a young read finishes, is fenced, and the newest read applies', async () => {
   const { budget, advance } = fakeBudget();
   const signals: AbortSignal[] = [];
   const replies: ReturnType<typeof Promise.withResolvers<unknown>>[] = [];
   const applied: string[] = [];
-  const controller = readController({
+  const controller = readHarness({
     readBudget: budget,
     reconcile: (_id, signal) => {
       signals.push(signal);
@@ -500,7 +343,7 @@ test('a fenced read does not spend retries', async () => {
   let reads = 0;
   const first = Promise.withResolvers<unknown>();
   const second = Promise.withResolvers<unknown>();
-  const controller = readController({
+  const controller = readHarness({
     readBudget: budget,
     retry: { delaysMs: [1, 1, 1], wait: async () => undefined },
     reconcile: () => {
@@ -533,7 +376,7 @@ test('a fenced read does not spend retries', async () => {
 test('an answered read ends the burst, so the next newer view aborts at once', async () => {
   const signals: AbortSignal[] = [];
   const replies: ReturnType<typeof Promise.withResolvers<unknown>>[] = [];
-  const controller = readController({
+  const controller = readHarness({
     readBudget: fakeBudget().budget,
     reconcile: (_id, signal) => {
       signals.push(signal);

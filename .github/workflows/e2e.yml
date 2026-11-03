@@ -330,12 +330,12 @@ jobs:
   room-launch:
     name: Isolated Room Launch browser suite
     runs-on: ubuntu-24.04
-    # One shared slot keeps the suite on a single worker: about 3 min of
-    # setup, about 30 min of Launch tests (multi-minute attendance outages and
+    # One shared slot keeps the suite on a single worker: about 5 min of
+    # setup, about 45 min of Launch tests (multi-minute attendance outages and
     # autonomous journeys), then the realtime proofs and artifact sanitizing.
-    # 30 cancelled it two tests short (ISSUE-471-r1); the suite itself stays
-    # bounded by heavy.ts (45 min).
-    timeout-minutes: 55
+    # 55 cancelled a fully passing run in its cleanup; the suite itself stays
+    # bounded by heavy.ts (set on its step).
+    timeout-minutes: 70
     env:
       CLAMD_TEST_PORT: '3310'
     defaults:
@@ -483,6 +483,8 @@ jobs:
         env:
           CI: true
           ROOM_LAUNCH_NODE: node
+          # The default 45 ended within seconds of cutting off a passing suite.
+          DAISY_HEAVY_TIMEOUT_MINUTES: '60'
       - name: Run authenticated generic realtime browser proof
         id: realtime_room
         if: ${{ !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}

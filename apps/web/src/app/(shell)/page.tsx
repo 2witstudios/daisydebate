@@ -5,6 +5,7 @@ import { Dashboard } from '../../ui/dashboard/dashboard';
 import { HeroBanner } from '../../ui/dashboard/hero-banner/hero-banner';
 import { MemberHero } from '../../ui/dashboard/member-hero/member-hero';
 import { requestActiveRoom } from './active-room';
+import { ResumeRound } from '../../ui/active-room/resume-round';
 import { requestIdentity } from '../../lib/request-session';
 import { requestLinkAction } from '../(bare)/sign-in/actions';
 
@@ -20,17 +21,21 @@ export default async function HomePage() {
   const identity = await requestIdentity();
   // Home leads into play, so a waitlisted account waits on the beta page.
   if (identity.state === 'waitlisted') redirect(betaHref('/'));
+  if (identity.state !== 'member') {
+    return (
+      <Dashboard
+        hero={<HeroBanner requestLink={requestLinkAction.bind(null, '/')} />}
+      />
+    );
+  }
+  const activeRoom = await requestActiveRoom();
   return (
     <Dashboard
       hero={
-        identity.state === 'member' ? (
-          <MemberHero
-            username={identity.username}
-            activeRoom={await requestActiveRoom()}
-          />
-        ) : (
-          <HeroBanner requestLink={requestLinkAction.bind(null, '/')} />
-        )
+        <>
+          <ResumeRound room={activeRoom} actorId={identity.principal.actorId} />
+          <MemberHero username={identity.username} activeRoom={activeRoom} />
+        </>
       }
     />
   );

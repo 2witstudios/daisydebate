@@ -72,6 +72,7 @@ test('invalid create selections refuse before transport; server refusals never b
     title: 'Current room',
     phase: 'ready',
     role: 'debater',
+    seated: true,
     href: `/rooms/${'m'.repeat(24)}`,
   };
   for (const response of [

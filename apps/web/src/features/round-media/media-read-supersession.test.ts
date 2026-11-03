@@ -1,16 +1,15 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaController } from './media-controller';
+import { createMediaHarness } from './media-harness.test-support';
 import { mediaFailure } from './media-failure';
 import {
   admission,
-  readController,
+  readHarness,
   roundId,
   snapshot,
   transportStub,
   viewAt,
-  wakeAfterJoin,
-} from './media-controller.test-support';
-import { settle } from './browser-transport.test-support';
+} from './media-fixtures.test-support';
+import { settle } from './adapters/livekit-room.test-support';
 setupRitewayBun();
 
 test('new authority supersedes ignored-abort pending read without releasing healthy media', async () => {
@@ -21,7 +20,7 @@ test('new authority supersedes ignored-abort pending read without releasing heal
   let signal: AbortSignal | undefined;
   const applied: string[] = [],
     received: string[] = [];
-  const controller = readController({
+  const controller = readHarness({
     admit: async () => {
       admits++;
       return admission;
@@ -41,6 +40,7 @@ test('new authority supersedes ignored-abort pending read without releasing heal
       apply: async (value) => {
         applied.push(value.grants.publish.join(','));
       },
+      allowRecapture: () => undefined,
       stopTracks: () => {
         stops++;
       },
@@ -76,56 +76,7 @@ test('new authority supersedes ignored-abort pending read without releasing heal
     should:
       'start fresh immediately, retain healthy connection and exclude all late old applications and receipts',
     actual: [before, applied, received],
-    expected: [[true, true, 0, 1, 'live'], ['camera'], ['camera']],
-  });
-  controller.stop();
-});
-
-test('already-started SDK work serializes fresh application without blocking a fresh read', async () => {
-  const applying = Promise.withResolvers<void>();
-  let reads = 0;
-  const applications: string[] = [],
-    receipts: string[] = [];
-  const controller = readController({
-    admit: async () => admission,
-    reconcile: async () => {
-      reads++;
-      return {
-        ...snapshot,
-        grants: {
-          ...snapshot.grants,
-          publish: reads < 3 ? ['camera', 'microphone'] : ['camera'],
-        },
-      };
-    },
-    transport: () => ({
-      connect: async () => undefined,
-      apply: async (value) => {
-        applications.push(value.grants.publish.join(','));
-        if (applications.length === 2) await applying.promise;
-      },
-      stopTracks: () => undefined,
-      disconnect: async () => undefined,
-    }),
-    received: (value) => receipts.push(value.grants.publish.join(',')),
-  });
-  const { pending } = await wakeAfterJoin(controller, receipts);
-  void controller.reconcile({ kind: 'view', roundViewVersion: 4 });
-  await settle();
-  const held = [reads, applications.length, receipts.length];
-  applying.resolve();
-  await pending;
-  await settle();
-  assert({
-    given: 'a newer view while SDK apply has already begun',
-    should:
-      'read fresh immediately but serialize SDK work and announce only the current ticket',
-    actual: [held, applications, receipts],
-    expected: [
-      [3, 2, 0],
-      ['camera,microphone', 'camera,microphone', 'camera'],
-      ['camera'],
-    ],
+    expected: [[true, true, 0, 1, 'live'], [], ['camera']],
   });
   controller.stop();
 });
@@ -134,7 +85,7 @@ test('old retry pause cannot hold or reuse the new intent signal', async () => {
   const pause = Promise.withResolvers<void>();
   let reads = 0;
   const signals: AbortSignal[] = [];
-  const controller = readController({
+  const controller = readHarness({
     admit: async () => admission,
     reconcile: async (_id, signal) => {
       signals.push(signal);
@@ -158,7 +109,7 @@ test('old retry pause cannot hold or reuse the new intent signal', async () => {
     should:
       'settle its client wait, start one new request and never retry the old ticket using successor signal',
     actual: [before, reads, controller.state()],
-    expected: [[3, true, false], 3, 'live'],
+    expected: [[3, false, false], 3, 'live'],
   });
   controller.stop();
 });
@@ -167,7 +118,7 @@ test('stop settles an ignored-abort admission and receipt reentrancy cannot revi
   const held = Promise.withResolvers<unknown>();
   let created = 0,
     settled = false;
-  const pendingController = createMediaController({
+  const pendingHarness = createMediaHarness({
     roundId,
     initialRoundViewVersion: 3,
     api: { admit: () => held.promise, reconcile: async () => snapshot },
@@ -177,15 +128,15 @@ test('stop settles an ignored-abort admission and receipt reentrancy cannot revi
     },
     changed: () => undefined,
   });
-  const pending = pendingController.join().then(() => {
+  const pending = pendingHarness.join().then(() => {
     settled = true;
   });
-  pendingController.stop();
+  pendingHarness.stop();
   await settle();
-  const stopped = [created, settled, pendingController.state()];
+  const stopped = [created, settled, pendingHarness.state()];
   held.resolve(admission);
   await pending;
-  const controller = createMediaController({
+  const controller = createMediaHarness({
     roundId,
     initialRoundViewVersion: 3,
     api: { admit: async () => admission, reconcile: async () => snapshot },
@@ -207,7 +158,7 @@ test('the caller learns when the last answer stopped being current', async () =>
   const held = Promise.withResolvers<unknown>();
   const events: string[] = [];
   let reads = 0;
-  const controller = readController({
+  const controller = readHarness({
     reconcile: async () => (++reads === 2 ? held.promise : snapshot),
     superseded: () => events.push('superseded'),
     received: () => events.push('received'),

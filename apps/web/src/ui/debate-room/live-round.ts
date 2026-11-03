@@ -188,6 +188,7 @@ export function liveRoundOf(
   if (!opponent) return null;
   const { phase, ...clocks } = liveParts(view, seat.role, nowMs);
   return {
+    id: view.id,
     resolution: view.topic,
     competition: view.competitionType,
     phase,

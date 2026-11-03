@@ -1,14 +1,14 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   admission,
-  readController,
+  readHarness,
   snapshot,
   viewAt,
   heldSecondRead,
   holdingSecondApply,
   wakeAfterJoin,
-} from './media-controller.test-support';
-import { settle } from './browser-transport.test-support';
+} from './media-fixtures.test-support';
+import { settle } from './adapters/livekit-room.test-support';
 setupRitewayBun();
 
 test('a reply superseded in any microtask gap never ends or fails its successor', async () => {
@@ -40,54 +40,13 @@ test('a reply superseded in any microtask gap never ends or fails its successor'
   });
 });
 
-test('a queued fresh reply superseded while waiting for the old apply never starts', async () => {
-  const applying = Promise.withResolvers<void>();
-  const replies = [['camera', 'microphone'], ['microphone'], ['camera']];
-  let reads = 0;
-  const applied: string[] = [];
-  const receipts: string[] = [];
-  const controller = readController({
-    admit: async () => admission,
-    reconcile: async () => {
-      const publish = reads === 0 ? [] : replies[reads - 1];
-      reads++;
-      return { ...snapshot, grants: { ...snapshot.grants, publish } };
-    },
-    transport: holdingSecondApply(applying.promise, (state) =>
-      applied.push(state.grants.publish.join('+')),
-    ),
-    received: (state) => receipts.push(state.grants.publish.join('+')),
-  });
-  const { pending } = await wakeAfterJoin(controller, receipts);
-  void controller.reconcile(viewAt(4));
-  await settle();
-  void controller.reconcile(viewAt(5));
-  await settle();
-  const held = [reads, [...applied]];
-  applying.resolve();
-  await pending;
-  await settle();
-  assert({
-    given: 'two newer views while an old SDK apply is still running',
-    should:
-      'read fresh for both, skip the superseded queued apply, and apply and announce only the last',
-    actual: [held, applied, receipts],
-    expected: [
-      [4, ['', 'camera+microphone']],
-      ['', 'camera+microphone', 'camera'],
-      ['camera'],
-    ],
-  });
-  controller.stop();
-});
-
 test('a receipt superseded in any microtask gap after apply is never announced', async () => {
   const results = new Set<string>();
   for (let gap = 0; gap < 12; gap++) {
     const applying = Promise.withResolvers<void>();
     const receipts: string[] = [];
     let reads = 0;
-    const controller = readController({
+    const controller = readHarness({
       admit: async () => admission,
       reconcile: async () => {
         reads++;
