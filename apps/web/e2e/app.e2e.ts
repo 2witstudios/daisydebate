@@ -32,7 +32,8 @@ const expectShell = async (page: Page, route: string, title: string) => {
       ? new RegExp(`^${title}$`)
       : new RegExp(`^${title} · Daisy Debate$`),
   );
-  await expect(page.locator('main h1')).toHaveText(
+  // The Lobby holds a second h1 for the phone's Online view, display:none here.
+  await expect(page.locator('main h1:visible')).toHaveText(
     route === '/'
       ? 'The arena for competitive debate'
       : (headings[route] ?? title),
