@@ -58,6 +58,8 @@ export const broadcasts = pgTable(
     stoppedAt: timestampColumn('stopped_at'),
     stopReason: text('stop_reason'),
     completedAt: timestampColumn('completed_at'),
+    /** A stop reached this after it completed: its feed goes now, not after the grace. */
+    feedWithdrawalRequestedAt: timestampColumn('feed_withdrawal_requested_at'),
     /** Every public object is deleted, so the official feed answers nothing. */
     feedWithdrawnAt: timestampColumn('feed_withdrawn_at'),
     /** One web instance reconciles a Broadcast at a time, so one Egress starts. */

@@ -1,5 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import {
+  capturedMediaMs,
+  recordingBuildCeilingMs,
   recordingLifecycleSchema,
   transitionRecording,
   type RecordingTransition,
@@ -8,6 +10,7 @@ import { sql } from 'drizzle-orm';
 import type { RecordingModeration } from './content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import { moveRecording } from './recording-move';
+import { requeueRecordingJob } from './recording-processing-operations';
 
 type ReportRow = {
   readonly competition_type: string;
@@ -66,20 +69,33 @@ export const recordingModeration: RecordingModeration = {
   },
   readSubject: async (tx, recordingId) => {
     const [row] = (await tx.execute(
-      sql`select lifecycle, version from recordings where id=${recordingId}`,
+      sql`select lifecycle, version, recording_class from recordings where id=${recordingId}`,
     )) as unknown as {
       readonly lifecycle: unknown;
       readonly version: number;
+      readonly recording_class: string;
     }[];
     if (!row) return null;
     const lifecycle = recordingLifecycleSchema.parse(row.lifecycle);
+    const heldAsEvidence =
+      lifecycle.status === 'taken_down' && lifecycle.removalOwed !== undefined;
     return {
       status: lifecycle.status,
       version: row.version,
       restorable:
         lifecycle.status === 'taken_down' &&
         lifecycle.held !== null &&
-        lifecycle.removalOwed === undefined,
+        !heldAsEvidence,
+      removable:
+        !heldAsEvidence &&
+        lifecycle.status !== 'removing' &&
+        lifecycle.status !== 'removed',
+      rebuildable:
+        lifecycle.status === 'failed' &&
+        lifecycle.capture !== undefined &&
+        row.recording_class === 'ranked',
+      takedownReason:
+        lifecycle.status === 'taken_down' ? (lifecycle.reason ?? null) : null,
     };
   },
   takeDown: async (tx, input) =>
@@ -91,6 +107,7 @@ export const recordingModeration: RecordingModeration = {
           transitionRecording(record, {
             type: 'taken_down',
             at: input.now.toISOString(),
+            reason: input.reason,
           }),
         input.expectedVersion,
       ),
@@ -122,6 +139,69 @@ export const recordingModeration: RecordingModeration = {
       ),
       'conflict',
     ),
+  legallyRemove: async (tx, input) =>
+    outcomeOf(
+      await moveRecording(
+        tx,
+        input.recordingId,
+        (record) =>
+          transitionRecording(record, {
+            type: 'removal_requested',
+            cause: 'legal_removal',
+            at: input.now.toISOString(),
+          }),
+        input.expectedVersion,
+      ),
+      'conflict',
+    ),
+  rebuild: async (tx, input) => {
+    const applied = await moveRecording(
+      tx,
+      input.recordingId,
+      (record) => transitionRecording(record, { type: 'rebuild_requested' }),
+      input.expectedVersion,
+    );
+    if (
+      applied.kind === 'decided' &&
+      applied.transition.kind === 'moved' &&
+      applied.record.lifecycle.status === 'processing'
+    ) {
+      const { capture } = applied.record.lifecycle;
+      const queued = await requeueRecordingJob(tx, {
+        recordingId: input.recordingId,
+        attemptCount: capture.attempts.at(-1)?.attempt ?? 0,
+        ceilingMs: recordingBuildCeilingMs(capturedMediaMs(capture)),
+      });
+      // Thrown, so the Recording does not stay processing with nothing to build.
+      if (!queued) throw createAppError('CONFLICT');
+    }
+    return outcomeOf(applied, 'conflict');
+  },
+  listRebuildable: async (tx, limit) => {
+    const rows = (await tx.execute(sql`select id, round_id, version, lifecycle
+      from recordings
+      where status='failed' and recording_class='ranked' and lifecycle ? 'capture'
+      order by updated_at, id limit ${limit}`)) as unknown as {
+      readonly id: string;
+      readonly round_id: string;
+      readonly version: number;
+      readonly lifecycle: unknown;
+    }[];
+    return rows.flatMap((row) => {
+      const lifecycle = recordingLifecycleSchema.parse(row.lifecycle);
+      return lifecycle.status === 'failed'
+        ? [
+            {
+              recordingId: row.id,
+              roundId: row.round_id,
+              reason: lifecycle.reason,
+              failedAt: lifecycle.failedAt,
+              version: row.version,
+            },
+          ]
+        : [];
+    });
+  },
   readBroadcastId: async (tx, recordingId) => {
     const [row] = (await tx.execute(sql`select b.id from broadcasts b
       join recordings rec on rec.round_id=b.round_id

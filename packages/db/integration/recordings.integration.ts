@@ -726,13 +726,21 @@ test('moderation reaches a real Recording, and a takedown holds what it can rest
       actual: [facts, await recordingModeration.readSubject(db as never, id)],
       expected: [
         { ranked: false, reporterSeated: false, roundId },
-        { status: 'ready', version: 2, restorable: false },
+        {
+          status: 'ready',
+          version: 2,
+          restorable: false,
+          removable: true,
+          rebuildable: false,
+          takedownReason: null,
+        },
       ],
     });
     const take = (expectedVersion: number) =>
       recordingModeration.takeDown(db as never, {
         recordingId: id,
         expectedVersion,
+        reason: 'policy_violation',
         now: later,
       });
     const first = await take(2);
@@ -756,6 +764,7 @@ test('moderation reaches a real Recording, and a takedown holds what it can rest
         await recordingModeration.takeDown(db as never, {
           recordingId: createId(),
           expectedVersion: 1,
+          reason: 'policy_violation',
           now: later,
         }),
         await recordingModeration.readSubject(db as never, createId()),

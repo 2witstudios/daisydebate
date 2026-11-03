@@ -340,7 +340,7 @@ describe('answerRecordingJob', () => {
       given: 'attempts 1 and 3 recorded, 2 never reported',
       should: 'read up to the last, so a missed attempt is still looked for',
       actual: answer({ status: 'waiting' }, processing),
-      expected: { type: 'queue', attemptCount: 3 },
+      expected: { type: 'queue', attemptCount: 3, ceilingMs: 15 * 60_000 },
     });
   });
 

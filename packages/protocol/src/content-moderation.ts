@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
-import { recordingStatuses } from './recording';
+import {
+  recordingLegalRemovalReasons,
+  recordingFailureReasons,
+  recordingStatuses,
+  recordingTakedownReasons,
+} from './recording';
+
+export { recordingLegalRemovalReasons, recordingTakedownReasons };
 
 /**
  * Reporting and moderation (WATCH-7): one report for a Round, a Recording, a
@@ -155,6 +162,12 @@ export const contentModerationSubjectSchema = z.discriminatedUnion('kind', [
     version: z.int().positive(),
     /** A restore would put it back: it was ready, and no erasure is owed. */
     restorable: z.boolean(),
+    /** An ordinary removal may go ahead: no evidence hold stands in its way. */
+    removable: z.boolean(),
+    /** A failed ranked Recording whose finished capture can be built again. */
+    rebuildable: z.boolean(),
+    /** Why it was taken down, for the operator. The audience never reads this. */
+    takedownReason: z.enum(recordingTakedownReasons).nullable(),
   }),
   z.strictObject({
     kind: z.literal('chat_message'),
@@ -173,6 +186,22 @@ export const contentModerationSubjectSchema = z.discriminatedUnion('kind', [
 export type ContentModerationSubject = z.infer<
   typeof contentModerationSubjectSchema
 >;
+
+/** A failed ranked Recording an operator can build again: nothing else reaches one. */
+export const rebuildableRecordingsSchema = z.strictObject({
+  items: z
+    .array(
+      z.strictObject({
+        recordingId: idSchema,
+        roundId: idSchema,
+        reason: z.enum(recordingFailureReasons),
+        failedAt: instant,
+        version: z.int().positive(),
+      }),
+    )
+    .max(100),
+});
+export type RebuildableRecordings = z.infer<typeof rebuildableRecordingsSchema>;
 
 export const contentReportDetailSchema = z.strictObject({
   report: contentReportSchema,
@@ -193,12 +222,6 @@ export const broadcastStopReasons = [
   'participant_safety',
   'technical',
 ] as const;
-export const recordingTakedownReasons = [
-  'policy_violation',
-  'legal_request',
-  'participant_safety',
-] as const;
-
 /** The Recording's version the operator read: a changed one is refused. */
 const recordingVersion = z.int().positive();
 
@@ -226,6 +249,16 @@ export const contentModerationCommands = {
     expectedVersion: recordingVersion,
   }),
   'recording.remove': z.strictObject({
+    ...commandFields,
+    expectedVersion: recordingVersion,
+  }),
+  /** The one removal an evidence hold does not stop; its reason is audited. */
+  'recording.legal_remove': z.strictObject({
+    ...commandFields,
+    expectedVersion: recordingVersion,
+    reason: z.enum(recordingLegalRemovalReasons),
+  }),
+  'recording.rebuild': z.strictObject({
     ...commandFields,
     expectedVersion: recordingVersion,
   }),
@@ -261,6 +294,8 @@ export const contentModerationCommandStateSchema = z.strictObject({
     'recording.takedown',
     'recording.restore',
     'recording.remove',
+    'recording.legal_remove',
+    'recording.rebuild',
     'chat_message.remove',
     'account.audience_ban.update',
   ] satisfies ContentModerationAction[]),
@@ -307,6 +342,21 @@ export const contentModerationOperatorRoutes = {
   removeRecording: {
     method: 'PUT',
     path: /^\/operator\/v1\/recordings\/([a-z0-9]{24})\/removal$/,
+    query: [],
+  },
+  legallyRemoveRecording: {
+    method: 'PUT',
+    path: /^\/operator\/v1\/recordings\/([a-z0-9]{24})\/legal-removal$/,
+    query: [],
+  },
+  rebuildRecording: {
+    method: 'PUT',
+    path: /^\/operator\/v1\/recordings\/([a-z0-9]{24})\/rebuild$/,
+    query: [],
+  },
+  listRebuildableRecordings: {
+    method: 'GET',
+    path: /^\/operator\/v1\/recordings\/rebuildable$/,
     query: [],
   },
   removeChatMessage: {

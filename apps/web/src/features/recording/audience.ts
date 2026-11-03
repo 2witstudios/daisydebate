@@ -96,6 +96,20 @@ export const roundEvidencePermissions = (
   };
 };
 
+/**
+ * After moderation hid a Recording the audience gets no text of its Round either; a
+ * member seated in it keeps their own record.
+ */
+export const permissionsAfterModeration = (
+  permissions: RoundEvidencePermissions,
+  round: RecordingRound,
+  viewer: RecordingViewer,
+  hiddenByModeration: boolean,
+): RoundEvidencePermissions =>
+  hiddenByModeration && !seated(round, viewer)
+    ? { ...permissions, transcript: false }
+    : permissions;
+
 /** What a viewer who may see the media finds; nothing is ever fabricated. */
 export type RecordingMediaState =
   'watch' | 'processing' | 'failed' | 'not_recorded' | 'removed';

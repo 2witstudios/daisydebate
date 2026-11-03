@@ -2,6 +2,7 @@ import { contentModerationCommands } from '@daisy/protocol/content-moderation';
 import { matchOperatorRoute } from '@daisy/protocol/operator';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  auditedIntent,
   auditedModeration,
   contentModerationCall,
   contentModerationNotice,
@@ -24,9 +25,43 @@ const requests: readonly ContentModerationRequest[] = [
   },
   { action: 'recording.restore', targetId, expectedVersion: 3 },
   { action: 'recording.remove', targetId, expectedVersion: 3 },
+  {
+    action: 'recording.legal_remove',
+    targetId,
+    expectedVersion: 3,
+    reason: 'court_order',
+  },
+  { action: 'recording.rebuild', targetId, expectedVersion: 3 },
   { action: 'chat_message.remove', targetId },
   { action: 'account.audience_ban.update', targetId, state: 'banned' },
 ];
+
+describe('auditedIntent', () => {
+  test('records a legal removal\u2019s ground, and only that', () => {
+    assert({
+      given: 'a legal removal, and an ordinary takedown with its reason',
+      should: 'put the legal ground on the record, and nothing else extra',
+      actual: [
+        auditedIntent({
+          action: 'recording.legal_remove',
+          targetId,
+          expectedVersion: 3,
+          reason: 'court_order',
+        }),
+        auditedIntent({
+          action: 'recording.takedown',
+          targetId,
+          expectedVersion: 3,
+          reason: 'legal_request',
+        }),
+      ],
+      expected: [
+        `recording.legal_remove:${targetId}:court_order`,
+        `recording.takedown:${targetId}`,
+      ],
+    });
+  });
+});
 
 describe('A moderation request', () => {
   test('each one is a route the API has and a body it accepts', () => {

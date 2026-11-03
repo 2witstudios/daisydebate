@@ -112,10 +112,26 @@ export const recordingFailureReasons = [
   'verification_failed',
 ] as const;
 
+/** Why moderation hid a Recording: closed, so it can hold nothing personal. */
+export const recordingTakedownReasons = [
+  'policy_violation',
+  'legal_request',
+  'participant_safety',
+] as const;
+
+/** The legal ground for removing a Recording whatever holds it: closed the same way. */
+export const recordingLegalRemovalReasons = [
+  'court_order',
+  'statutory_obligation',
+  'data_subject_right',
+] as const;
+
 /** Who asked for the whole Recording to go. */
 export const recordingRemovalCauses = [
   'participant_request',
   'moderation',
+  /** Some content must go whatever an evidence hold says: an operator's legal removal. */
+  'legal_removal',
   'failed_capture_cleanup',
 ] as const;
 export type RecordingRemovalCause = (typeof recordingRemovalCauses)[number];
@@ -138,6 +154,8 @@ export const recordingLifecycleSchema = z.discriminatedUnion('status', [
     status: z.literal('failed'),
     reason: z.enum(recordingFailureReasons),
     failedAt: at,
+    /** Kept when a finished capture's build failed: what a rebuild goes back to. */
+    capture: endedCaptureSchema.optional(),
   }),
   /**
    * Hidden from everyone at once. The objects stay as evidence until moderation
@@ -146,6 +164,7 @@ export const recordingLifecycleSchema = z.discriminatedUnion('status', [
   z.strictObject({
     status: z.literal('taken_down'),
     takenDownAt: at,
+    reason: z.enum(recordingTakedownReasons).optional(),
     held: readySchema.nullable(),
     /**
      * A subject's erasure that an open report is holding back (ADR 0107). It is
@@ -186,3 +205,14 @@ export const holdAttemptPrefix = (
   holdPrefix: string,
   attempt: number,
 ): string => `${holdPrefix}${attempt}/`;
+
+/**
+ * Moderation hid or removed this Recording, so the audience gets nothing of its
+ * Round's footage or text. A participant's removal or a cleanup is no such decision.
+ */
+export const recordingHiddenByModeration = (
+  lifecycle: RecordingLifecycle,
+): boolean =>
+  lifecycle.status === 'taken_down' ||
+  ((lifecycle.status === 'removing' || lifecycle.status === 'removed') &&
+    (lifecycle.cause === 'moderation' || lifecycle.cause === 'legal_removal'));

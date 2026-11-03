@@ -118,7 +118,8 @@ Recording down, and may then remove it.
 
 **Evidence retention.** A casual Recording already taken down, with an open report on it
 or its Round, survives erasure, hidden from everyone and not restorable, until the report
-closes or 90 days pass, and is then deleted the same way. Its purpose is to keep what a
+closes or 90 days pass, and is then deleted the same way. Only an operator's legal removal,
+with a closed legal ground on the audit record, deletes it sooner. Its purpose is to keep what a
 report rests on until the report is decided; the period and basis are **not reviewed by
 counsel**. With no open report it goes at once.
 

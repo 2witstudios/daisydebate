@@ -9,6 +9,8 @@ import {
   contentModerationCommandResultSchema,
   contentReportSchema,
   queueOfReason,
+  type recordingLegalRemovalReasons,
+  type recordingTakedownReasons,
   type ContentModerationAction,
   type ContentModerationQueue,
 } from '@daisy/protocol/content-moderation';
@@ -133,10 +135,17 @@ export type ContentModerationChange =
       readonly action: 'recording.takedown';
       readonly recordingId: string;
       readonly expectedVersion: number;
-      readonly reason: string;
+      readonly reason: (typeof recordingTakedownReasons)[number];
     }
   | {
-      readonly action: 'recording.restore' | 'recording.remove';
+      readonly action: 'recording.legal_remove';
+      readonly recordingId: string;
+      readonly expectedVersion: number;
+      readonly reason: (typeof recordingLegalRemovalReasons)[number];
+    }
+  | {
+      readonly action:
+        'recording.restore' | 'recording.remove' | 'recording.rebuild';
       readonly recordingId: string;
       readonly expectedVersion: number;
     }
@@ -247,6 +256,7 @@ const takeDownRecording = async (
   const outcome = await ports.recordings.takeDown(tx, {
     recordingId: change.recordingId,
     expectedVersion: change.expectedVersion,
+    reason: change.reason,
     now,
   });
   if (outcome === null) return null;
@@ -288,6 +298,10 @@ const applyChange = (
       return ports.recordings.restore(tx, change);
     case 'recording.remove':
       return ports.recordings.remove(tx, { ...change, now });
+    case 'recording.legal_remove':
+      return ports.recordings.legallyRemove(tx, { ...change, now });
+    case 'recording.rebuild':
+      return ports.recordings.rebuild(tx, change);
     case 'chat_message.remove':
       return ports.chat.remove(tx, { messageId: change.messageId, now });
     case 'account.audience_ban.update':
@@ -543,6 +557,10 @@ export function contentModerationOperations({
           if (!input.live()) throw createAppError('CONFLICT');
           return contentModerationCommandResultSchema.parse(receipt.result);
         }),
+      ),
+    listRebuildableRecordings: () =>
+      instrumented(eventSink, 'listRebuildableRecordings', () =>
+        recordings.listRebuildable(database, 100),
       ),
     /** What `decideChatPost` needs that this store holds. */
     readChatPostFacts: (input: {

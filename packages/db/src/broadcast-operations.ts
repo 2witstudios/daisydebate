@@ -120,6 +120,7 @@ export const claimFeedWithdrawal = (
         isNull(broadcasts.feedWithdrawnAt),
         or(
           isNotNull(broadcasts.stoppedAt),
+          isNotNull(broadcasts.feedWithdrawalRequestedAt),
           lte(broadcasts.completedAt, input.withdrawFinishedBefore),
         ),
       ),
@@ -487,7 +488,8 @@ export const readConversationHeld = async (
 /**
  * An operator stops a Broadcast (WATCH-7). The reconciler then stops its
  * Egress, and the stop stands: a repeat, or a Broadcast already complete, is
- * `unchanged`. Null when there is no such Broadcast.
+ * `unchanged`, though the complete one's feed is asked to go at once. Null when
+ * there is no such Broadcast.
  */
 export const stopBroadcast = async (
   tx: Tx,
@@ -509,6 +511,19 @@ export const stopBroadcast = async (
     )
     .returning({ id: broadcasts.id });
   if (stopped.length === 1) return 'applied';
+  // Already complete, its feed would wait out the grace: past the delivery bound
+  // for a stop that lands just after. The withdrawal loop takes it on its next poll.
+  await tx
+    .update(broadcasts)
+    .set({ feedWithdrawalRequestedAt: input.now })
+    .where(
+      and(
+        eq(broadcasts.id, input.id),
+        isNotNull(broadcasts.completedAt),
+        isNull(broadcasts.feedWithdrawnAt),
+        isNull(broadcasts.feedWithdrawalRequestedAt),
+      ),
+    );
   const [found] = await tx
     .select({ id: broadcasts.id })
     .from(broadcasts)

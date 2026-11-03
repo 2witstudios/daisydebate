@@ -1,4 +1,8 @@
-import type { RecordingLifecycle, RecordingMedia } from './recording';
+import {
+  recordingHiddenByModeration,
+  type RecordingLifecycle,
+  type RecordingMedia,
+} from './recording';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   transitionRecording,
@@ -204,7 +208,11 @@ describe('readiness', () => {
 });
 
 describe('takedown', () => {
-  const down = { type: 'taken_down', at: later } as const;
+  const down = {
+    type: 'taken_down',
+    at: later,
+    reason: 'legal_request',
+  } as const;
   test('hides at once and keeps what a restore needs', () => {
     assert({
       given: 'a ready ranked Recording',
@@ -212,7 +220,12 @@ describe('takedown', () => {
       actual: apply(ready, down, 'ranked'),
       expected: {
         kind: 'moved',
-        next: { status: 'taken_down', takenDownAt: later, held: ready },
+        next: {
+          status: 'taken_down',
+          takenDownAt: later,
+          reason: 'legal_request',
+          held: ready,
+        },
       },
     });
     assert({
@@ -409,11 +422,38 @@ describe('an evidence hold on a taken-down casual Recording', () => {
     });
   });
 
-  test('moderation removal does not wait for the hold', () => {
+  test('moderation removal waits for the hold; a legal removal does not', () => {
     assert({
-      given: 'a moderation removal of a held Recording',
-      should: 'go at once, as moderation',
+      given: 'an ordinary moderation removal of a held Recording',
+      should: 'refuse',
       actual: apply(owed, {
+        type: 'removal_requested',
+        cause: 'moderation',
+        at: heldUntil,
+      }),
+      expected: { kind: 'refused', reason: 'evidence_held' },
+    });
+    assert({
+      given: 'a legal removal of the same',
+      should: 'go at once, as a legal removal',
+      actual: apply(owed, {
+        type: 'removal_requested',
+        cause: 'legal_removal',
+        at: heldUntil,
+      }),
+      expected: {
+        kind: 'moved',
+        next: {
+          status: 'removing',
+          cause: 'legal_removal',
+          requestedAt: heldUntil,
+        },
+      },
+    });
+    assert({
+      given: 'an ordinary moderation removal with no hold',
+      should: 'still go',
+      actual: apply(down, {
         type: 'removal_requested',
         cause: 'moderation',
         at: heldUntil,
@@ -426,6 +466,95 @@ describe('an evidence hold on a taken-down casual Recording', () => {
           requestedAt: heldUntil,
         },
       },
+    });
+  });
+});
+
+describe('a rebuild', () => {
+  const failed: RecordingLifecycle = {
+    status: 'failed',
+    reason: 'processing_failed',
+    failedAt: later,
+    capture: endedCapture,
+  };
+
+  test('a failed build keeps the capture it would go back to', () => {
+    assert({
+      given: 'a build failing while processing',
+      should: 'keep the finished capture on the failure',
+      actual: apply(processing, {
+        type: 'failed',
+        reason: 'processing_failed',
+        at: later,
+      }),
+      expected: { kind: 'moved', next: failed },
+    });
+  });
+
+  test('goes back to processing for ranked only', () => {
+    const asked = { type: 'rebuild_requested' } as const;
+    assert({
+      given: 'a failed ranked build',
+      should: 'return to processing on the same capture',
+      actual: apply(failed, asked, 'ranked'),
+      expected: { kind: 'moved', next: processing },
+    });
+    assert({
+      given: 'a failed casual build, and a ranked capture that never finished',
+      should: 'refuse both',
+      actual: [
+        apply(failed, asked, 'casual'),
+        apply(
+          { status: 'failed', reason: 'capture_failed', failedAt: later },
+          asked,
+          'ranked',
+        ),
+      ],
+      expected: [
+        { kind: 'refused', reason: 'not_rebuildable' },
+        { kind: 'refused', reason: 'not_rebuildable' },
+      ],
+    });
+    assert({
+      given: 'a repeat once it is processing, and a ready Recording',
+      should: 'change nothing, and refuse',
+      actual: [
+        apply(processing, asked, 'ranked'),
+        apply(ready, asked, 'ranked'),
+      ],
+      expected: [
+        { kind: 'unchanged' },
+        { kind: 'refused', reason: 'out_of_order' },
+      ],
+    });
+  });
+});
+
+describe('recordingHiddenByModeration', () => {
+  test('is moderation\u2019s decision, not any removal', () => {
+    const removing = (
+      cause:
+        | 'moderation'
+        | 'legal_removal'
+        | 'participant_request'
+        | 'failed_capture_cleanup',
+    ) => ({ status: 'removing', cause, requestedAt: at }) as const;
+    assert({
+      given: 'each way a Recording stops showing',
+      should: 'count takedown and moderation removals only',
+      actual: [
+        recordingHiddenByModeration({
+          status: 'taken_down',
+          takenDownAt: at,
+          held: null,
+        }),
+        recordingHiddenByModeration(removing('moderation')),
+        recordingHiddenByModeration(removing('legal_removal')),
+        recordingHiddenByModeration(removing('participant_request')),
+        recordingHiddenByModeration(removing('failed_capture_cleanup')),
+        recordingHiddenByModeration(ready),
+      ],
+      expected: [true, true, true, false, false, false],
     });
   });
 });

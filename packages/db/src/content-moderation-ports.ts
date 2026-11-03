@@ -1,7 +1,12 @@
 import type { RecordingStatus } from '@daisy/protocol';
+import type {
+  RebuildableRecordings,
+  recordingTakedownReasons,
+} from '@daisy/protocol/content-moderation';
 import type { BoundedTransactionContext } from './transaction-context';
 
 type Tx = BoundedTransactionContext;
+type RecordingTakedownReason = (typeof recordingTakedownReasons)[number];
 
 /** A change a port made: it was applied, it already held, or no such thing. */
 export type ContentModerationOutcome = 'applied' | 'unchanged' | null;
@@ -39,6 +44,9 @@ export type RecordingModeration = {
     readonly status: RecordingStatus;
     readonly version: number;
     readonly restorable: boolean;
+    readonly removable: boolean;
+    readonly rebuildable: boolean;
+    readonly takedownReason: RecordingTakedownReason | null;
   } | null>;
   /** Each names the version it read: one that no longer holds is a CONFLICT. */
   readonly takeDown: (
@@ -46,6 +54,7 @@ export type RecordingModeration = {
     input: {
       readonly recordingId: string;
       readonly expectedVersion: number;
+      readonly reason: RecordingTakedownReason;
       readonly now: Date;
     },
   ) => Promise<ContentModerationOutcome>;
@@ -61,6 +70,25 @@ export type RecordingModeration = {
       readonly now: Date;
     },
   ) => Promise<ContentModerationOutcome>;
+  /** The one removal an evidence hold does not stop. */
+  readonly legallyRemove: (
+    tx: Tx,
+    input: {
+      readonly recordingId: string;
+      readonly expectedVersion: number;
+      readonly now: Date;
+    },
+  ) => Promise<ContentModerationOutcome>;
+  /** A failed ranked Recording builds again from what it captured. */
+  readonly rebuild: (
+    tx: Tx,
+    input: { readonly recordingId: string; readonly expectedVersion: number },
+  ) => Promise<ContentModerationOutcome>;
+  /** Every failed ranked Recording that could: a report need not name them. */
+  readonly listRebuildable: (
+    tx: Tx,
+    limit: number,
+  ) => Promise<RebuildableRecordings['items']>;
   /** The Broadcast of the Recording's Round, whose feed a takedown also ends. */
   readonly readBroadcastId: (
     tx: Tx,
@@ -100,6 +128,9 @@ export const noRecordings: RecordingModeration = {
   takeDown: async () => null,
   restore: async () => null,
   remove: async () => null,
+  legallyRemove: async () => null,
+  rebuild: async () => null,
+  listRebuildable: async () => [],
   readBroadcastId: async () => null,
 };
 

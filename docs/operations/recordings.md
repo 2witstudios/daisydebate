@@ -101,8 +101,12 @@ worker's capacity and queue.
 
 `recording.processing_gave_up` means five runs failed and the Recording is `failed`. A casual
 failure's partial objects are removed after seven days. A ranked one is never removed by a
-sweep: it stays `failed` with its sources in the hold bucket until an operator acts. There
-is no command to rebuild one yet.
+sweep: it stays `failed` with its sources in the hold bucket. Rebuild it from the admin app:
+Content, then Failed ranked recordings, or the report's page. A rebuild goes back to
+`processing` with its attempts counted afresh, and is refused if its sources are gone.
+
+`recording.build_ceiling_exceeded` means one run went past three times the bound. It was
+stopped and counted as a failed attempt, and it retries. Nothing is discarded.
 
 ## Coverage
 
@@ -119,7 +123,10 @@ request is refused, and a signed read already issued lasts at most 60 seconds. T
 objects stay, as evidence for disputes and integrity review, until moderation
 removes them. A Recording taken down while ready can be restored as it was. A takedown
 also ends the feed of the Round's open Broadcast, and a restore does not start it again.
-A ranked Round leaves the archive with its Recording, though its transcript remains.
+A ranked Round leaves the archive with its Recording, and the audience no longer gets its
+transcript on the Recording page; a member seated in the Round still does. The reason is kept
+on the Recording, from a closed list. A takedown just after a Broadcast completed withdraws its
+feed at once rather than after the 60 second grace.
 
 Take down, restore and delete are forms on a report's page in the admin app. Each names
 the version the page read, so a Recording that changed since refuses the command and the
@@ -130,7 +137,9 @@ page must be read again.
 Erasure of a seat does not remove a casual Recording that is already taken down while a
 report on it or its Round is open. It stays hidden with its removal owed, cannot be
 restored, and the deletion sweep moves it to `removing` when the report closes or 90 days
-after the request, whichever is first. Moderation may still delete it sooner.
+after the request, whichever is first. An ordinary moderation deletion is refused during the
+hold. The one exception is "Remove for a legal reason": it needs a closed legal ground, which
+goes on the admin audit chain, and it goes at once.
 
 ```sql
 select id, lifecycle->'removalOwed' from recordings

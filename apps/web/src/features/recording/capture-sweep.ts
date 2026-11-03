@@ -343,6 +343,7 @@ export const createRecordingCaptureSweep = (deps: {
         await store.queueJob({
           recordingId: job.recordingId,
           attemptCount: answer.attemptCount,
+          ceilingMs: answer.ceilingMs,
         });
         return;
       case 'verify':
@@ -416,7 +417,8 @@ export const createRecordingCaptureSweep = (deps: {
     );
     await pass.overPages(
       BATCH,
-      (after) => store.listProcessingUnalerted(BATCH, afterKey(DELAY_KEY, after)),
+      (after) =>
+        store.listProcessingUnalerted(BATCH, afterKey(DELAY_KEY, after)),
       (row) => `${DELAY_KEY}${row.id}`,
       alertIfDelayed,
       failed,

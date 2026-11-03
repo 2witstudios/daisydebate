@@ -1,3 +1,4 @@
+import { capturedMediaMs, recordingBuildCeilingMs } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createRecordingCaptureSweep } from './capture-sweep';
 import type { RecordingCapturePort } from './capture-port';
@@ -42,6 +43,7 @@ const setup = (over: {
   readonly failing?: string;
 }) => {
   const calls: unknown[][] = [];
+  const cursors: (string | null)[] = [];
   const log =
     (name: string, answer?: unknown) =>
     async (...args: unknown[]) => {
@@ -53,7 +55,10 @@ const setup = (over: {
     store: {
       discoverUnrecorded: async () => over.unrecorded ?? [],
       listOpen: async () => over.open ?? [],
-      listJobs: async () => over.jobs ?? [],
+      listJobs: async (_limit: number, after: string | null) => {
+        cursors.push(after);
+        return after === null ? (over.jobs ?? []) : [];
+      },
       readRound: async () => ({
         roomName: 'room-1',
         round: {},
@@ -97,7 +102,7 @@ const setup = (over: {
       `https://app.test/stage/${id}?c=${credential}`,
     report: (event) => calls.push(['report', event]),
   });
-  return { sweep, calls };
+  return { sweep, calls, cursors };
 };
 
 describe('discovery', () => {
@@ -336,7 +341,18 @@ describe('answers to the worker', () => {
       given: 'a waiting job',
       should: 'queue up to the last attempt',
       actual: calls,
-      expected: [['queueJob', { recordingId: 'rec', attemptCount: 2 }]],
+      expected: [
+        [
+          'queueJob',
+          {
+            recordingId: 'rec',
+            attemptCount: 2,
+            ceilingMs: recordingBuildCeilingMs(
+              capturedMediaMs(processing.capture),
+            ),
+          },
+        ],
+      ],
     });
   });
 });
@@ -372,5 +388,23 @@ test('a build past its bound alerts an operator once, and fails nothing', async 
     should: 'mark and alert, and never report the Recording failed',
     actual: names(past.calls),
     expected: ['markDelayAlerted', 'recording.processing_delayed'],
+  });
+});
+
+test('a full page of jobs continues from the last row\u2019s own id', async () => {
+  const jobs = Array.from({ length: 64 }, (_, index) => ({
+    recordingId: `rec-${String(index).padStart(2, '0')}`,
+    state: { status: 'settled', settledAt: at },
+    lifecycle: { status: 'ready' },
+    sourcesInUse: false,
+  }));
+  const { sweep, cursors } = setup({ jobs });
+  await sweep();
+  assert({
+    given: 'a whole page of jobs',
+    should:
+      'ask for the next by the id the store sorts on, not the pass\u2019s key',
+    actual: cursors,
+    expected: [null, 'rec-63'],
   });
 });

@@ -34,6 +34,7 @@ const withStore = (overrides: Partial<ContentModerationStore> = {}) => {
         { ...report, reportId: 's'.repeat(24) },
       ],
       readModerationReport: async () => ({ report, subject: null }),
+      listRebuildableRecordings: async () => [],
       runModerationCommand: async (input) => {
         changes.push(input.change);
         digests.push(input.requestDigest);
@@ -57,13 +58,25 @@ describe('operator moderation (WATCH-7)', () => {
         }),
         put(`/operator/v1/recordings/${id}/restoration`, {}),
         put(`/operator/v1/recordings/${id}/removal`, {}),
+        put(`/operator/v1/recordings/${id}/rebuild`, {}),
+        put(`/operator/v1/recordings/${id}/legal-removal`, {
+          reason: 'court_order',
+        }),
+        put(`/operator/v1/recordings/${id}/legal-removal`, {
+          expectedVersion: 3,
+        }),
+        put(`/operator/v1/recordings/${id}/legal-removal`, {
+          expectedVersion: 3,
+          reason: 'because I said a name here',
+        }),
       ].map(handle),
     );
     assert({
-      given: 'each Recording command without the version the operator read',
-      should: 'refuse it, and reach no store',
+      given:
+        'Recording commands without their version, or a legal removal without a closed reason',
+      should: 'refuse each, and reach no store',
       actual: [answers.map((answer) => answer.status), changes],
-      expected: [Array(3).fill(400), []],
+      expected: [Array(7).fill(400), []],
     });
   });
 
@@ -87,6 +100,15 @@ describe('operator moderation (WATCH-7)', () => {
       await handle(
         put(`/operator/v1/recordings/${id}/removal`, { expectedVersion: 5 }),
       ),
+      await handle(
+        put(`/operator/v1/recordings/${id}/legal-removal`, {
+          expectedVersion: 6,
+          reason: 'court_order',
+        }),
+      ),
+      await handle(
+        put(`/operator/v1/recordings/${id}/rebuild`, { expectedVersion: 7 }),
+      ),
       await handle(put(`/operator/v1/chat-messages/${id}/removal`, {})),
       await handle(
         put(`/operator/v1/accounts/${id}/audience-ban`, { state: 'banned' }),
@@ -105,7 +127,7 @@ describe('operator moderation (WATCH-7)', () => {
       should: 'apply each with its target and its closed value',
       actual: [answers.map((answer) => answer.status), changes],
       expected: [
-        Array(8).fill(200),
+        Array(10).fill(200),
         [
           { action: 'broadcast.stop', broadcastId: id, reason: 'technical' },
           {
@@ -116,6 +138,13 @@ describe('operator moderation (WATCH-7)', () => {
           },
           { action: 'recording.restore', recordingId: id, expectedVersion: 4 },
           { action: 'recording.remove', recordingId: id, expectedVersion: 5 },
+          {
+            action: 'recording.legal_remove',
+            recordingId: id,
+            expectedVersion: 6,
+            reason: 'court_order',
+          },
+          { action: 'recording.rebuild', recordingId: id, expectedVersion: 7 },
           { action: 'chat_message.remove', messageId: id },
           {
             action: 'account.audience_ban.update',

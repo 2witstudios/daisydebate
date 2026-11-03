@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "00c5683b-d17c-47a7-8793-5ae0aeded328",
+  "id": "97c9c230-fd6e-4266-8ebc-20cecbdafd61",
   "prevIds": [
     "aac0910e-0c95-4008-bbe7-57e859bca3ce"
   ],
@@ -2426,6 +2426,19 @@
       "generated": null,
       "identity": null,
       "name": "completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "feed_withdrawal_requested_at",
       "entityType": "columns",
       "schema": "public",
       "table": "broadcasts"

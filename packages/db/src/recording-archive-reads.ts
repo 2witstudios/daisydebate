@@ -41,7 +41,7 @@ const roundColumns = {
 };
 
 /** Moderation hid the footage: its Round leaves the archive, whatever else remains. */
-const moderationHid = sql<boolean>`coalesce(${recordings.status} = 'taken_down' or ${recordings.lifecycle}->>'cause' = 'moderation', false)`;
+const moderationHid = sql<boolean>`coalesce(${recordings.status} = 'taken_down' or ${recordings.lifecycle}->>'cause' in ('moderation', 'legal_removal'), false)`;
 
 /**
  * A public Round with something the audience may have: ready video or ranked

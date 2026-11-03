@@ -49,7 +49,11 @@ export const openRecordingJob = async (
 /** Capture ended: the worker may now read this many attempts. Only from `waiting`. */
 export const queueRecordingJob = async (
   tx: Tx,
-  input: { readonly recordingId: string; readonly attemptCount: number },
+  input: {
+    readonly recordingId: string;
+    readonly attemptCount: number;
+    readonly ceilingMs: number;
+  },
 ) => {
   await tx
     .update(jobs)
@@ -57,12 +61,46 @@ export const queueRecordingJob = async (
       ...stateColumns({
         status: 'queued',
         attemptCount: input.attemptCount,
+        ceilingMs: input.ceilingMs,
       }),
       dueAt: sql`clock_timestamp()`,
     })
     .where(
       and(eq(jobs.recordingId, input.recordingId), eq(jobs.status, 'waiting')),
     );
+};
+
+/**
+ * An operator asked for a failed build again. Its count starts over, and false
+ * means nothing could be queued: the sources are gone or going.
+ */
+export const requeueRecordingJob = async (
+  tx: Tx,
+  input: {
+    readonly recordingId: string;
+    readonly attemptCount: number;
+    readonly ceilingMs: number;
+  },
+): Promise<boolean> => {
+  const rows = await tx
+    .update(jobs)
+    .set({
+      ...stateColumns({
+        status: 'queued',
+        attemptCount: input.attemptCount,
+        ceilingMs: input.ceilingMs,
+      }),
+      failures: 0,
+      dueAt: sql`clock_timestamp()`,
+    })
+    .where(
+      and(
+        eq(jobs.recordingId, input.recordingId),
+        inArray(jobs.status, ['waiting', 'queued', 'built', 'failed']),
+      ),
+    )
+    .returning({ id: jobs.recordingId });
+  return rows.length === 1;
 };
 
 /** The next job with work: the oldest due whose lease is free. The epoch fences the last owner. */

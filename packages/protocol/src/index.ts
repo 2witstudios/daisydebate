@@ -518,6 +518,7 @@ export {
   recordingClasses,
   recordingEligibilitySchema,
   recordingFailureReasons,
+  recordingHiddenByModeration,
   recordingHoldPrefix,
   holdAttemptPrefix,
   recordingLifecycleSchema,
@@ -541,6 +542,8 @@ export {
   type RecordingTransition,
 } from './recording-lifecycle';
 export {
+  capturedMediaMs,
+  recordingBuildCeilingMs,
   recordingBuildDelayed,
   recordingBuildSteps,
   recordingPreparationOf,

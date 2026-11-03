@@ -24,14 +24,28 @@ const FIVE_MINUTES_MS = 5 * 60 * 1000;
 export const recordingProcessingBoundMs = (mediaMs: number): number =>
   Math.ceil(mediaMs / 2) + FIVE_MINUTES_MS;
 
+/**
+ * How long one run of a build may go on: three times the bound. Past it the run is
+ * stopped and counted as a failed attempt, which retries. Nothing is discarded.
+ */
+export const recordingBuildCeilingMs = (mediaMs: number): number =>
+  3 * recordingProcessingBoundMs(mediaMs);
+
+/** A finished capture's length: what a bound or ceiling is sized from. */
+export const capturedMediaMs = (capture: {
+  readonly startedAt: string;
+  readonly endedAt: string;
+}): number => Date.parse(capture.endedAt) - Date.parse(capture.startedAt);
+
 /** Whether a finished capture's build has run past its bound. */
 export const recordingBuildDelayed = (
   capture: { readonly startedAt: string; readonly endedAt: string },
   nowMs: number,
 ): boolean => {
   const endedAtMs = Date.parse(capture.endedAt);
-  const mediaMs = endedAtMs - Date.parse(capture.startedAt);
-  return nowMs - endedAtMs > recordingProcessingBoundMs(mediaMs);
+  return (
+    nowMs - endedAtMs > recordingProcessingBoundMs(capturedMediaMs(capture))
+  );
 };
 
 /** The steps of a build, in order. A remuxed single attempt skips `composing`. */
@@ -72,6 +86,8 @@ export const recordingJobStateSchema = z.discriminatedUnion('status', [
   z.strictObject({
     status: z.literal('queued'),
     attemptCount: z.int().positive(),
+    /** How long one run may go on, sized by the web from the capture's length. */
+    ceilingMs: z.int().positive().optional(),
     /** Absent until a worker holds it, and again after a run that failed. */
     progress: recordingBuildProgressSchema.optional(),
   }),

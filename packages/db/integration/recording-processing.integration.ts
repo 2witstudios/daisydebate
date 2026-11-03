@@ -136,7 +136,11 @@ test('a job is claimable once capture ended, by one worker at a time', async () 
       actual: await claimAt(worker, 'w1', FUTURE),
       expected: null,
     });
-    await store.queueJob({ recordingId: id, attemptCount: 2 });
+    await store.queueJob({
+      recordingId: id,
+      attemptCount: 2,
+      ceilingMs: 60_000,
+    });
     const claims = await Promise.all(
       Array.from({ length: 6 }, (_, n) => claimAt(worker, `w${n}`, FUTURE)),
     );
@@ -150,7 +154,7 @@ test('a job is claimable once capture ended, by one worker at a time', async () 
         won[0]?.state,
         won[0]?.leaseEpoch,
       ],
-      expected: [1, 'hold/b/', { status: 'queued', attemptCount: 2 }, 1],
+      expected: [1, 'hold/b/', { status: 'queued', attemptCount: 2, ceilingMs: 60_000 }, 1],
     });
   });
 });
@@ -159,7 +163,11 @@ test('a slower former owner can write nothing', async () => {
   await withStores(async ({ store, worker, newRecording, client }) => {
     const { id } = await newRecording();
     await store.openJob({ recordingId: id, holdPrefix: 'hold/b/' });
-    await store.queueJob({ recordingId: id, attemptCount: 1 });
+    await store.queueJob({
+      recordingId: id,
+      attemptCount: 1,
+      ceilingMs: 60_000,
+    });
     const first = await claimAt(worker, 'old', FUTURE);
     assert({
       given: 'a live lease',
@@ -226,7 +234,11 @@ test('a failed run comes due later and counts, and shutdown does not count', asy
   await withStores(async ({ store, worker, newRecording, client }) => {
     const { id } = await newRecording();
     await store.openJob({ recordingId: id, holdPrefix: 'hold/b/' });
-    await store.queueJob({ recordingId: id, attemptCount: 1 });
+    await store.queueJob({
+      recordingId: id,
+      attemptCount: 1,
+      ceilingMs: 60_000,
+    });
     await claimAt(worker, 'w', FUTURE);
     const failures = await worker.defer({
       recordingId: id,
@@ -267,7 +279,11 @@ test('a build reports how far it is, and only its current owner can say so', asy
   await withStores(async ({ store, worker, newRecording }) => {
     const { id } = await newRecording();
     await store.openJob({ recordingId: id, holdPrefix: 'hold/b/' });
-    await store.queueJob({ recordingId: id, attemptCount: 1 });
+    await store.queueJob({
+      recordingId: id,
+      attemptCount: 1,
+      ceilingMs: 60_000,
+    });
     const job = await claimAt(worker, 'w', FUTURE);
     const progress = { step: 'encoding', done: 1000, total: 2000 } as const;
     await worker.recordProgress({
@@ -286,7 +302,12 @@ test('a build reports how far it is, and only its current owner can say so', asy
       given: 'its owner reporting, and a former owner reporting after',
       should: 'keep the owner\u2019s figures, on the state the web reads',
       actual: await store.readJobState(id),
-      expected: { status: 'queued', attemptCount: 1, progress },
+      expected: {
+        status: 'queued',
+        attemptCount: 1,
+        ceilingMs: 60_000,
+        progress,
+      },
     });
     await worker.defer({
       recordingId: id,
@@ -299,7 +320,7 @@ test('a build reports how far it is, and only its current owner can say so', asy
       given: 'a run that failed and waits for its retry',
       should: 'not keep showing figures no run is at',
       actual: await store.readJobState(id),
-      expected: { status: 'queued', attemptCount: 1 },
+      expected: { status: 'queued', attemptCount: 1, ceilingMs: 60_000 },
     });
   });
 });
@@ -359,7 +380,11 @@ test('discarding fences a running build and is claimable itself', async () => {
   await withStores(async ({ store, worker, newRecording }) => {
     const { id } = await newRecording();
     await store.openJob({ recordingId: id, holdPrefix: 'hold/b/' });
-    await store.queueJob({ recordingId: id, attemptCount: 1 });
+    await store.queueJob({
+      recordingId: id,
+      attemptCount: 1,
+      ceilingMs: 60_000,
+    });
     await claimAt(worker, 'builder', FUTURE);
     await store.discardSources(id);
     assert({
@@ -467,7 +492,11 @@ test('the web sees only jobs it can answer, and what still uses their sources', 
       actual: (await listed())?.sourcesInUse,
       expected: false,
     });
-    await store.queueJob({ recordingId: id, attemptCount: 1 });
+    await store.queueJob({
+      recordingId: id,
+      attemptCount: 1,
+      ceilingMs: 60_000,
+    });
     assert({
       given: 'a queued job while processing',
       should: 'not list it: it waits for the worker',

@@ -3,6 +3,7 @@
 import {
   broadcastStopReasons,
   chatSlowModeSchema,
+  recordingLegalRemovalReasons,
   recordingTakedownReasons,
 } from '@daisy/protocol/content-moderation';
 import { idSchema } from '@daisy/protocol';
@@ -51,6 +52,17 @@ const requestSchema = z.discriminatedUnion('action', [
     ...target,
     expectedVersion,
   }),
+  z.strictObject({
+    action: z.literal('recording.legal_remove'),
+    ...target,
+    expectedVersion,
+    reason: z.enum(recordingLegalRemovalReasons),
+  }),
+  z.strictObject({
+    action: z.literal('recording.rebuild'),
+    ...target,
+    expectedVersion,
+  }),
   z.strictObject({ action: z.literal('chat_message.remove'), ...target }),
   z.strictObject({
     action: z.literal('account.audience_ban.update'),
@@ -65,9 +77,12 @@ export async function contentModerationAction(form: FormData): Promise<never> {
   if (!operator) redirect('/sign-in');
   const reportId = idSchema.safeParse(form.get('reportId'));
   const commandId = idSchema.safeParse(form.get('commandId'));
+  // A rebuild from the failed Recordings page has no report to go back to.
   const back = reportId.success
     ? `/content-moderation/${reportId.data}`
-    : '/content-moderation';
+    : form.get('action') === 'recording.rebuild'
+      ? '/content-moderation/failed-recordings'
+      : '/content-moderation';
   const { commands } = adminRuntime();
   if (!commands) redirect(`${back}?notice=unconfigured`);
   const fields = Object.fromEntries(

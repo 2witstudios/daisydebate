@@ -1,4 +1,5 @@
 import {
+  recordingHiddenByModeration,
   recordingPreparationOf,
   type RecordingJobState,
   type RecordingPreparation,
@@ -10,6 +11,7 @@ import {
   mayDownload,
   mayRequestRemoval,
   recordingMediaState,
+  permissionsAfterModeration,
   roundEvidencePermissions,
   type BroadcastRelease,
   type RecordingMediaState,
@@ -318,14 +320,20 @@ export const openRecordingHistory = async (
   const round = await inputs.readHistoryRound(input.roundId);
   if (round === null || round.completedAtMs === null)
     return { kind: 'unavailable' };
-  const permissions = roundEvidencePermissions(
+  const admitted = roundEvidencePermissions(
     round,
     await inputs.readBroadcastRelease(round.id),
     input.viewer,
     input.presentedLinkHash,
   );
-  if (!permissions.open) return { kind: 'unavailable' };
+  if (!admitted.open) return { kind: 'unavailable' };
   const record = await inputs.findRecordingByRound(round.id);
+  const permissions = permissionsAfterModeration(
+    admitted,
+    round,
+    input.viewer,
+    record !== null && recordingHiddenByModeration(record.lifecycle),
+  );
   const [transcript, ballots, subscribed] = await permittedReads(
     inputs,
     round.id,

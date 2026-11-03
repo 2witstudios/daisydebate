@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  recordingBuildCeilingMs,
   recordingBuildDelayed,
   recordingPreparationOf,
   recordingProcessingBoundMs,
@@ -34,6 +35,17 @@ describe('recordingProcessingBoundMs', () => {
         recordingProcessingBoundMs(1000),
       ],
       expected: [45 * MINUTE, 5 * MINUTE + 500],
+    });
+  });
+});
+
+describe('recordingBuildCeilingMs', () => {
+  test('is three times the bound', () => {
+    assert({
+      given: 'an 80 minute video, whose bound is 45 minutes',
+      should: 'stop a run at 135 minutes',
+      actual: recordingBuildCeilingMs(80 * MINUTE),
+      expected: 135 * MINUTE,
     });
   });
 });

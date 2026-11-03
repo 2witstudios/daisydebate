@@ -5,6 +5,7 @@ import {
   type StagePhaseFact,
   type StagePrivacyAction,
 } from '@daisy/debate-engine';
+import { capturedMediaMs, recordingBuildCeilingMs } from '@daisy/protocol';
 import type {
   RecordingJobState,
   RecordingLifecycle,
@@ -140,7 +141,11 @@ export const decideRecordingCapture = (
     : decideOwnPath(facts, facts.path);
 
 export type RecordingJobAnswer =
-  | { readonly type: 'queue'; readonly attemptCount: number }
+  | {
+      readonly type: 'queue';
+      readonly attemptCount: number;
+      readonly ceilingMs: number;
+    }
   | { readonly type: 'verify' }
   | {
       readonly type: 'fail';
@@ -171,6 +176,9 @@ export const answerRecordingJob = (input: {
         return {
           type: 'queue',
           attemptCount: lifecycle.capture.attempts.at(-1)?.attempt ?? 0,
+          ceilingMs: recordingBuildCeilingMs(
+            capturedMediaMs(lifecycle.capture),
+          ),
         };
       if (state.status === 'built') return { type: 'verify' };
       return state.status === 'failed'

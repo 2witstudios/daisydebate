@@ -32,6 +32,7 @@ const runOne = async (
     readonly build?: () => Promise<RecordingJobState>;
     readonly renew?: () => Promise<boolean>;
     readonly discardPage?: (prefix: string) => Promise<number>;
+    readonly now?: () => number;
   } = {},
 ) => {
   const calls = {
@@ -42,10 +43,11 @@ const runOne = async (
     builds: [] as unknown[],
     aborted: [] as boolean[],
   };
+  const signals: AbortSignal[] = [];
   let claimed = 0;
   await runWorker({
     owner: 'w',
-    now: () => NOW,
+    now: over.now ?? (() => NOW),
     sleep: () => new Promise((resolve) => setTimeout(resolve, 0)),
     stopped: () => claimed >= 2,
     report: (event) => calls.reported.push(event),
@@ -56,11 +58,8 @@ const runOne = async (
     discardPage: over.discardPage ?? (async () => 0),
     build: async (input, run) => {
       calls.builds.push(input);
-      try {
-        return await (over.build ?? (async () => built))();
-      } finally {
-        calls.aborted.push(run.signal.aborted);
-      }
+      signals.push(run.signal);
+      return (over.build ?? (async () => built))();
     },
     store: {
       recordProgress: async () => {},
@@ -79,6 +78,7 @@ const runOne = async (
       },
     } as never,
   });
+  calls.aborted.push(...signals.map((signal) => signal.aborted));
   return calls;
 };
 
@@ -256,6 +256,63 @@ describe('progressIsNews', () => {
         progressIsNews(last, 'encoding', 6000),
       ],
       expected: [true, true, false, true],
+    });
+  });
+});
+
+describe('a run past its ceiling', () => {
+  const slow = (failures: number) => ({
+    ...queued,
+    failures,
+    state: { ...queued.state, ceilingMs: 1000 },
+  });
+  let clock = NOW;
+  const ticking = () => {
+    clock += 400;
+    return clock;
+  };
+  const forever = () => new Promise<RecordingJobState>(() => {});
+
+  test('is stopped, counted as a failed attempt, retried and alerted', async () => {
+    const calls = await runOne(slow(0), { build: forever, now: ticking });
+    assert({
+      given: 'a build that never returns, past its ceiling',
+      should: 'alert, fail the attempt with a retry, and discard nothing',
+      actual: [
+        calls.reported,
+        calls.deferred.length,
+        (calls.deferred[0] as { failed: boolean }).failed,
+        calls.finished,
+      ],
+      expected: [
+        ['recording.build_ceiling_exceeded', 'recording.processing_failed'],
+        1,
+        true,
+        [],
+      ],
+    });
+  });
+
+  test('on the last attempt ends as failed, with its alert', async () => {
+    const calls = await runOne(slow(4), { build: forever, now: ticking });
+    assert({
+      given: 'the same on its fifth failed run',
+      should: 'report failed and give up, which the alert names',
+      actual: [
+        calls.reported.includes('recording.processing_gave_up'),
+        (calls.finished[0] as { state: { status: string } }).state.status,
+      ],
+      expected: [true, 'failed'],
+    });
+  });
+
+  test('a run within its ceiling is left alone', async () => {
+    const calls = await runOne(slow(0), { now: () => NOW });
+    assert({
+      given: 'a build that finishes inside it',
+      should: 'alert nothing',
+      actual: calls.reported,
+      expected: [],
     });
   });
 });

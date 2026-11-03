@@ -11,6 +11,8 @@ import {
   contentReportsCursorSchema,
   contentReportsPageSchema,
   contentReportsQuerySchema,
+  rebuildableRecordingsSchema,
+  type RebuildableRecordings,
   type ContentModerationAction,
   type ContentModerationCommand,
   type ContentModerationCommandResult,
@@ -46,7 +48,14 @@ export type ContentModerationChange =
       readonly reason: ContentModerationCommand<'recording.takedown'>['reason'];
     }
   | {
-      readonly action: 'recording.restore' | 'recording.remove';
+      readonly action: 'recording.legal_remove';
+      readonly recordingId: string;
+      readonly expectedVersion: number;
+      readonly reason: ContentModerationCommand<'recording.legal_remove'>['reason'];
+    }
+  | {
+      readonly action:
+        'recording.restore' | 'recording.remove' | 'recording.rebuild';
       readonly recordingId: string;
       readonly expectedVersion: number;
     }
@@ -70,6 +79,9 @@ export type ContentModerationStore = {
   readonly readModerationReport: (
     reportId: string,
   ) => Promise<ContentReportDetail | null>;
+  readonly listRebuildableRecordings: () => Promise<
+    RebuildableRecordings['items']
+  >;
   /**
    * One transaction: the receipt first (the same digest replays, another
    * conflicts), then the change, then the commit deadline last (ADR 0079).
@@ -102,6 +114,9 @@ export type ContentModerationRoute =
   | 'takeDownRecording'
   | 'restoreRecording'
   | 'removeRecording'
+  | 'legallyRemoveRecording'
+  | 'rebuildRecording'
+  | 'listRebuildableRecordings'
   | 'removeChatMessage'
   | 'setAudienceBan';
 
@@ -112,7 +127,10 @@ type OperatorPrincipal = Extract<
 
 const requireCapability = (
   principal: AuthorizationPrincipal,
-  capability: ContentModerationAction | 'content_report.queue.read',
+  capability:
+    | ContentModerationAction
+    | 'content_report.queue.read'
+    | 'recording.rebuildable.read',
 ): OperatorPrincipal => {
   const decision = authorize({
     principal,
@@ -211,6 +229,32 @@ const commandOf = {
       body,
     ).expectedVersion,
   }),
+  legallyRemoveRecording: (
+    id: string,
+    body: Uint8Array,
+  ): ContentModerationChange => {
+    const { reason, expectedVersion } = parsedBody(
+      contentModerationCommands['recording.legal_remove'],
+      body,
+    );
+    return {
+      action: 'recording.legal_remove',
+      recordingId: id,
+      expectedVersion,
+      reason,
+    };
+  },
+  rebuildRecording: (
+    id: string,
+    body: Uint8Array,
+  ): ContentModerationChange => ({
+    action: 'recording.rebuild',
+    recordingId: id,
+    expectedVersion: parsedBody(
+      contentModerationCommands['recording.rebuild'],
+      body,
+    ).expectedVersion,
+  }),
   removeChatMessage: (id: string): ContentModerationChange => ({
     action: 'chat_message.remove',
     messageId: id,
@@ -283,6 +327,16 @@ async function readReport(
   return contentReportDetailSchema.parse(report);
 }
 
+async function listRebuildable(
+  deps: Deps,
+  principal: AuthorizationPrincipal,
+): Promise<RebuildableRecordings> {
+  requireCapability(principal, 'recording.rebuildable.read');
+  return rebuildableRecordingsSchema.parse({
+    items: await deps.store.listRebuildableRecordings(),
+  });
+}
+
 async function runCommand(
   deps: Deps,
   principal: AuthorizationPrincipal,
@@ -330,6 +384,8 @@ export function contentModerationRoute(
       return listReports(deps, principal, url);
     case 'readContentReport':
       return readReport(deps, principal, id!);
+    case 'listRebuildableRecordings':
+      return listRebuildable(deps, principal);
     default:
       return runCommand(
         deps,
