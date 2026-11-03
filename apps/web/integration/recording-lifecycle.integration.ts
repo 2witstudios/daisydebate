@@ -499,7 +499,7 @@ test('a Recording under an open report cannot be destroyed', async () => {
 });
 
 test('an old failed casual Recording under an open report stays', async () => {
-  await withReadyRecording(async ({ store, id, roundId, sql }) => {
+  await withReadyRecording(async ({ store, id, sql }) => {
     const reportId = createId();
     await sql`update recordings set status='failed',
         lifecycle=${JSON.stringify({ status: 'failed', reason: 'capture_failed', failedAt: at })}::text::jsonb,
