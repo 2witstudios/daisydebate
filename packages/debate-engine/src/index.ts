@@ -56,3 +56,4 @@ export { requireAttendanceDecision } from './attendance-decision';
 export { decideFormatSelection } from './format-selection';
 export { decideRoomResolution } from './room-resolution';
 export { hasOpenQuestioning } from './round-speaking';
+export { captureRule } from './capture-verdict';

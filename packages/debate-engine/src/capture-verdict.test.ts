@@ -1,12 +1,36 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  captureGaps,
-  hasCompleteCaptureCoverage,
-  type CaptureInterval,
-  type CoverageEdges,
-} from './capture-coverage';
+import { createCaptureRule, decideStreamCapture } from './capture-verdict';
+import type {
+  CaptureInterval,
+  CoverageEdges,
+  StreamCoverage,
+} from '@daisy/protocol';
 
 setupRitewayBun();
+const rule = createCaptureRule({ joinMs: 0, relayMs: 0 });
+const captureGaps = ({
+  observed,
+  ...coverage
+}: StreamCoverage & { readonly observed: readonly CaptureInterval[] }) =>
+  rule.gaps(coverage, observed);
+const hasCompleteCaptureCoverage = ({
+  observed,
+  storedChunks,
+  expectedChunks,
+  ...coverage
+}: StreamCoverage & {
+  readonly observed: readonly CaptureInterval[];
+  readonly storedChunks: number;
+  readonly expectedChunks: number;
+}) =>
+  decideStreamCapture({
+    ...coverage,
+    epoch: 1,
+    observations: observed.map((row) => ({ ...row, epoch: 1 })) as never,
+    chunks: { count: storedChunks, otherEpochChunks: 0 },
+    storedChunks,
+    expectedChunks,
+  }).state === 'complete';
 const range = (start: number, end: number | null): CaptureInterval => ({
   start,
   end,

@@ -1,4 +1,4 @@
-import { readRoundOpening } from '@daisy/debate-engine';
+import { captureRule, readRoundOpening } from '@daisy/debate-engine';
 import { roundWaitingOn } from '@daisy/debate-engine';
 import { composeRoundMemberDependencies } from './member-composition';
 import type { App } from '../../server/app';
@@ -25,6 +25,7 @@ export function composeRoundRoutes(app: App) {
       app.database.readRoundTranscript({
         caller,
         roundId,
+        captureRule,
         authorize: (round, account) =>
           canReadTranscript(caller, round, account),
       }),

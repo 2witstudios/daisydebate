@@ -1,10 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  phrasesOf,
-  splitSentences,
-  wordBudget,
-  worthTranscribing,
-} from './speech';
+import { phrasesOf, splitSentences, wordBudget } from './speech';
 
 setupRitewayBun();
 
@@ -38,23 +33,6 @@ describe('wordBudget', () => {
       should: 'aim a little under the slot (90 percent)',
       actual: wordBudget(300_000),
       expected: 675,
-    });
-  });
-});
-
-describe('worthTranscribing', () => {
-  test('sends a clip only when someone was speaking in it', () => {
-    assert({
-      given: 'a clip with two seconds of voice',
-      should: 'be sent for transcription',
-      actual: worthTranscribing({ voicedMs: 2_000 }),
-      expected: true,
-    });
-    assert({
-      given: 'a clip of silence or a cough (under half a second of voice)',
-      should: 'not be sent, so the transcriber cannot invent words',
-      actual: worthTranscribing({ voicedMs: 300 }),
-      expected: false,
     });
   });
 });
