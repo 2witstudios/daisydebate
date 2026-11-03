@@ -190,3 +190,33 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
     });
   });
 });
+
+test('a seated debater who is no longer eligible is not offered the strike', async () => {
+  await withRoomRuntime(async (f) => {
+    const view = await f.assemble(
+      await drawRoomOverrides(f, { kind: 'host', resolutions: lines }),
+    );
+    const { roundRef } = (
+      await f.command(f.host, view, { type: 'start-round' })
+    ).view;
+    const roundId = roundRef!.id;
+    const canStrike = async () =>
+      (
+        await f.store.readLaunchedRound(
+          roundId,
+          f.guest,
+          () => true,
+          readRoundOpening,
+          roundWaitingOn,
+        )
+      ).opening?.canStrike;
+    const eligible = await canStrike();
+    await f.sql`update users set deleted_at = statement_timestamp() where id = ${f.guest.userId}`;
+    assert({
+      given: 'the debater on turn, before and after their account ends',
+      should: 'offer the strike only while the command would take it',
+      actual: [eligible, await canStrike()],
+      expected: [true, false],
+    });
+  });
+});
