@@ -40,7 +40,7 @@ export function startMessagingFileMaintenance(input: {
           maxItems,
           remove: input.remove,
         });
-        return { delivered: acknowledged, retried: 0, owed: 0 };
+        return { deleted: acknowledged, retried: 0, owed: 0 };
       },
     }),
     timers: input.timers,

@@ -46,14 +46,10 @@ export const ALERT_THRESHOLDS = {
   networkDeniedCount: 300,
 } as const;
 
-export type AlertSnapshot = {
+/** Every marker was read, so every condition can be evaluated. */
+type ReadAlertSnapshot = {
   readonly nowIso: string;
-  /**
-   * Whether the Redis-backed markers below were read. `unreachable` leaves
-   * them at their empty values, which `evaluateAlerts` then ignores
-   * (ISSUE-191).
-   */
-  readonly redisState: 'read' | 'unreachable';
+  readonly redisState: 'read';
   readonly storageUnavailableSinceIso: string | null;
   readonly limiterUnavailableSinceIso: string | null;
   readonly deliveryConsecutiveFailures: number;
@@ -80,6 +76,18 @@ export type AlertSnapshot = {
     readonly windowMinutes: number;
   };
 };
+
+/**
+ * Redis could not be read, so no marker exists to judge: only what this
+ * process saw itself remains (ISSUE-191).
+ */
+type UnreadAlertSnapshot = {
+  readonly nowIso: string;
+  readonly redisState: 'unreachable';
+  readonly limiterUnavailableSinceIso: string | null;
+};
+
+export type AlertSnapshot = ReadAlertSnapshot | UnreadAlertSnapshot;
 
 const WORKER_ALERT_IDS = {
   observation_purges: 'observation_purges_missed',
@@ -124,7 +132,7 @@ const elapsedMs = (sinceIso: string, nowIso: string): number =>
   Date.parse(nowIso) - Date.parse(sinceIso);
 
 const checkStorageUnavailable = (
-  snapshot: AlertSnapshot,
+  snapshot: ReadAlertSnapshot,
 ): AlertCondition | undefined =>
   snapshot.storageUnavailableSinceIso !== null &&
   elapsedMs(snapshot.storageUnavailableSinceIso, snapshot.nowIso) >=
@@ -137,7 +145,7 @@ const checkStorageUnavailable = (
     : undefined;
 
 const checkLimiterUnavailable = (
-  snapshot: AlertSnapshot,
+  snapshot: Pick<AlertSnapshot, 'nowIso' | 'limiterUnavailableSinceIso'>,
 ): AlertCondition | undefined =>
   snapshot.limiterUnavailableSinceIso !== null &&
   elapsedMs(snapshot.limiterUnavailableSinceIso, snapshot.nowIso) >=
@@ -150,7 +158,7 @@ const checkLimiterUnavailable = (
     : undefined;
 
 const checkDeliveryFailures = (
-  snapshot: AlertSnapshot,
+  snapshot: ReadAlertSnapshot,
 ): AlertCondition | undefined =>
   snapshot.deliveryConsecutiveFailures >=
   ALERT_THRESHOLDS.consecutiveDeliveryFailures
@@ -162,7 +170,7 @@ const checkDeliveryFailures = (
     : undefined;
 
 const checkAuth5xxRate = (
-  snapshot: AlertSnapshot,
+  snapshot: ReadAlertSnapshot,
 ): AlertCondition | undefined => {
   const { total, serverErrors, windowMinutes } = snapshot.authRequests;
   if (
@@ -178,7 +186,7 @@ const checkAuth5xxRate = (
 };
 
 const checkCleanupMissed = (
-  snapshot: AlertSnapshot,
+  snapshot: ReadAlertSnapshot,
 ): AlertCondition | undefined =>
   snapshot.retentionLastSuccessIso === null ||
   elapsedMs(snapshot.retentionLastSuccessIso, snapshot.nowIso) >=
@@ -194,7 +202,9 @@ const checkCleanupMissed = (
     : undefined;
 
 /** ISSUE-1007: each running worker against its own marker and threshold. */
-const missedWorkers = (snapshot: AlertSnapshot): readonly AlertCondition[] =>
+const missedWorkers = (
+  snapshot: ReadAlertSnapshot,
+): readonly AlertCondition[] =>
   snapshot.workers
     .filter(
       ({ lastSuccessIso, missedAfterMs }) =>
@@ -210,7 +220,9 @@ const missedWorkers = (snapshot: AlertSnapshot): readonly AlertCondition[] =>
       runbook: runbook(WORKER_ALERT_IDS[name]),
     }));
 
-const checkMailShed = (snapshot: AlertSnapshot): AlertCondition | undefined =>
+const checkMailShed = (
+  snapshot: ReadAlertSnapshot,
+): AlertCondition | undefined =>
   snapshot.mailShed.count >= ALERT_THRESHOLDS.mailShedCount
     ? {
         id: 'mail_shed',
@@ -220,7 +232,7 @@ const checkMailShed = (snapshot: AlertSnapshot): AlertCondition | undefined =>
     : undefined;
 
 const checkNetworkLimited = (
-  snapshot: AlertSnapshot,
+  snapshot: ReadAlertSnapshot,
 ): AlertCondition | undefined =>
   snapshot.networkDenied.count >= ALERT_THRESHOLDS.networkDeniedCount
     ? {
@@ -230,7 +242,7 @@ const checkNetworkLimited = (
       }
     : undefined;
 
-type AlertCheck = (snapshot: AlertSnapshot) => AlertCondition | undefined;
+type AlertCheck = (snapshot: ReadAlertSnapshot) => AlertCondition | undefined;
 
 const ALERT_CHECKS: readonly AlertCheck[] = [
   checkStorageUnavailable,
@@ -241,9 +253,6 @@ const ALERT_CHECKS: readonly AlertCheck[] = [
   checkMailShed,
   checkNetworkLimited,
 ];
-
-/** The one check whose state this process keeps without Redis (ISSUE-191). */
-const IN_PROCESS_CHECKS: readonly AlertCheck[] = [checkLimiterUnavailable];
 
 const OBSERVATION_PURGES_MISSED_MS = 15 * MINUTE_MS;
 const WORKER_MISSED_FLOOR_MS = 2 * 60 * MINUTE_MS;
@@ -281,15 +290,14 @@ export const runningWorkers = (input: {
 export function evaluateAlerts(
   snapshot: AlertSnapshot,
 ): readonly AlertCondition[] {
-  const checks =
-    snapshot.redisState === 'read' ? ALERT_CHECKS : IN_PROCESS_CHECKS;
+  const fired = (conditions: readonly (AlertCondition | undefined)[]) =>
+    conditions.filter(
+      (condition): condition is AlertCondition => condition !== undefined,
+    );
+  if (snapshot.redisState === 'unreachable')
+    return fired([checkLimiterUnavailable(snapshot)]);
   return [
-    ...checks
-      .map((check) => check(snapshot))
-      .filter(
-        (condition): condition is AlertCondition => condition !== undefined,
-      ),
-    // An unread Redis leaves `workers` empty, so this adds nothing then.
+    ...fired(ALERT_CHECKS.map((check) => check(snapshot))),
     ...missedWorkers(snapshot),
   ];
 }
@@ -366,20 +374,7 @@ export async function readAlertSnapshot({
     return {
       nowIso,
       redisState: 'unreachable',
-      storageUnavailableSinceIso: null,
       limiterUnavailableSinceIso: localLimiterSince,
-      deliveryConsecutiveFailures: 0,
-      authRequests: { total: 0, serverErrors: 0, windowMinutes },
-      retentionLastSuccessIso: null,
-      workers: [],
-      mailShed: {
-        count: 0,
-        windowMinutes: ALERT_THRESHOLDS.mailShedWindowMinutes,
-      },
-      networkDenied: {
-        count: 0,
-        windowMinutes: ALERT_THRESHOLDS.networkDeniedWindowMinutes,
-      },
     };
   }
 }
@@ -392,7 +387,7 @@ async function readRedisMarkers(
   nowIso: string,
   windowMinutes: number,
   workers: readonly RunningWorker[],
-): Promise<AlertSnapshot> {
+): Promise<ReadAlertSnapshot> {
   const currentBucket = Math.floor(Date.parse(nowIso) / MINUTE_MS);
   const trailing = (minutes: number) =>
     Array.from({ length: minutes }, (_, index) => currentBucket - index);

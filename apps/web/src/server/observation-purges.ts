@@ -36,7 +36,7 @@ export function startObservationPurges(input: {
           { now, limit: OBSERVATION_PURGE_BATCH },
           { purge: async () => void (await input.purgeAll()) },
         );
-        return { delivered: succeeded, retried, owed: await input.owed() };
+        return { deleted: succeeded, retried, owed: await input.owed() };
       },
     }),
     timers: input.timers,

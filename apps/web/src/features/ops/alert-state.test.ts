@@ -3,7 +3,6 @@ import {
   ALERT_THRESHOLDS,
   evaluateAlerts,
   readAlertSnapshot,
-  type AlertSnapshot,
   runningWorkers,
   workerSuccessKey,
 } from './alert-state';
@@ -13,7 +12,7 @@ setupRitewayBun();
 
 const NOW = '2026-09-25T12:00:00.000Z';
 
-const baseSnapshot: AlertSnapshot = emptySnapshot(NOW);
+const baseSnapshot = emptySnapshot(NOW);
 
 describe('evaluateAlerts (AUTH-7.7)', () => {
   test('a healthy snapshot with a recent sweep fires no conditions', () => {

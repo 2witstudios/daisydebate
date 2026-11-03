@@ -98,7 +98,7 @@ export function startPrivacyJobs(input: {
       logger: input.logger,
       pass: async (now) => {
         const jobs = await input.due({ now, limit: PRIVACY_JOBS_BATCH });
-        let delivered = 0;
+        let deleted = 0;
         let retried = 0;
         for (const job of jobs) {
           const outcome = await input.deliver(
@@ -106,10 +106,10 @@ export function startPrivacyJobs(input: {
             now,
             privacyJobRetryAt(now, job.attempts),
           );
-          if (outcome === 'succeeded') delivered += 1;
+          if (outcome === 'succeeded') deleted += 1;
           if (outcome === 'retry') retried += 1;
         }
-        return { delivered, retried, owed: await input.owed() };
+        return { deleted, retried, owed: await input.owed() };
       },
     }),
     timers: input.timers,

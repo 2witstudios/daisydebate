@@ -40,11 +40,11 @@ export const privateGroupsOffered = (): boolean =>
 export const requestIdentity = async (): Promise<Identity> =>
   (await requestSession()).identity;
 
-/** Public adapter config only; management credentials never enter a rendered prop. */
 /** Browser capture's attributes for this render's `<html>` (ISSUE-1008). */
 export const requestBrowserCapture = () =>
   browserCaptureAttributes(processApp().config);
 
+/** Public adapter config only; management credentials never enter a rendered prop. */
 export const requestAnalytics = cache(async () => {
   const app = processApp();
   const config = analyticsConfiguration(app.config);

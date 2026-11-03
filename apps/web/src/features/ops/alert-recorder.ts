@@ -8,8 +8,8 @@ const MINUTE_MS = 60_000;
 const UNAVAILABLE_MARK_TTL_SECONDS = 180;
 /** A quiet hour resets the consecutive-failure count; no legitimate retry cadence needs longer. */
 const DELIVERY_FAILURE_WINDOW_SECONDS = 60 * 60;
-/** Long-lived on purpose: refreshed only by an actual successful run, so a multi-hour outage stays visible (ADR: see docs/decisions). */
-const RETENTION_SUCCESS_TTL_SECONDS = 30 * 24 * 60 * 60;
+/** How long a retention run's or worker's success marker lasts. Long-lived on purpose: refreshed only by an actual success, so a multi-hour outage stays visible (ADR 0042, ADR 0101). */
+const SUCCESS_MARKER_TTL_SECONDS = 30 * 24 * 60 * 60;
 /** Outlives the 10-minute read windows `alert-state.ts` sums over. */
 const HTTP_BUCKET_TTL_SECONDS = 11 * 60;
 
@@ -169,7 +169,7 @@ export function createAlertRecorder({
             redis.setEphemeral(
               'alert-retention-last-success',
               clock.now(),
-              RETENTION_SUCCESS_TTL_SECONDS,
+              SUCCESS_MARKER_TTL_SECONDS,
             ),
           );
           return;
@@ -179,7 +179,7 @@ export function createAlertRecorder({
               redis.setEphemeral(
                 workerSuccessKey(fields.operation),
                 clock.now(),
-                RETENTION_SUCCESS_TTL_SECONDS,
+                SUCCESS_MARKER_TTL_SECONDS,
               ),
             );
           return;

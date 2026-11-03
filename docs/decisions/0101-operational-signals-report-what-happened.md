@@ -60,5 +60,9 @@ auth.
   intent: a required deletion is unpaid.
 - The histogram can reach one series per operation name per bucket. That is bounded
   by the list, and nothing scrapes it yet.
+- A render that fails before the root layout's `<html>` reaches the browser leaves
+  browser capture uninitialised, because `global-error` renders its own document
+  without the attributes. The server tracker still reports that failure. This is
+  from reading the code, not a run; ISSUE-1042 tracks it.
 - The owner still activates Sentry (PRIV-H). The browser proof uses an intercepted
   origin, not a live project.

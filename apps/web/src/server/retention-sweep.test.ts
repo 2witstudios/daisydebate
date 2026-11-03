@@ -7,7 +7,7 @@ setupRitewayBun();
 
 // ISSUE-8 AC5: the sweep's run behaviour is tested here; the production
 // target list is retention-targets.test.ts and the schedule wrapper is
-// retention-schedule.test.ts, each once.
+// run-schedule.test.ts, each once.
 const now = '2026-09-20T12:00:00.000Z';
 
 type Logged = { event: string; fields: unknown };

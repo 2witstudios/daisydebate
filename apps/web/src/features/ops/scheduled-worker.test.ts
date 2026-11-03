@@ -27,25 +27,25 @@ describe('workerOutcome', () => {
     assert({
       given: 'a pass that retried a job',
       should: 'be failed, even if it delivered others',
-      actual: workerOutcome({ delivered: 3, retried: 1, owed: 1 }),
+      actual: workerOutcome({ deleted: 3, retried: 1, owed: 1 }),
       expected: 'failed',
     });
     assert({
       given: 'an idle pass while an earlier job sits in backoff',
       should: 'be waiting, not healthy',
-      actual: workerOutcome({ delivered: 0, retried: 0, owed: 1 }),
+      actual: workerOutcome({ deleted: 0, retried: 0, owed: 1 }),
       expected: 'waiting',
     });
     assert({
       given: 'a pass that delivered another job while one sits in backoff',
       should: 'be waiting, not healthy',
-      actual: workerOutcome({ delivered: 2, retried: 0, owed: 1 }),
+      actual: workerOutcome({ deleted: 2, retried: 0, owed: 1 }),
       expected: 'waiting',
     });
     assert({
       given: 'an idle pass that owes nothing',
       should: 'be healthy',
-      actual: workerOutcome({ delivered: 0, retried: 0, owed: 0 }),
+      actual: workerOutcome({ deleted: 0, retried: 0, owed: 0 }),
       expected: 'healthy',
     });
   });
@@ -57,7 +57,7 @@ describe('createScheduledWorker', () => {
       given: 'a pass that owes nothing',
       should: 'log completed',
       actual: await eventsOf(async () => ({
-        delivered: 1,
+        deleted: 1,
         retried: 0,
         owed: 0,
       })),
@@ -67,7 +67,7 @@ describe('createScheduledWorker', () => {
       given: 'a pass that retried every job',
       should: 'log failed and never completed',
       actual: await eventsOf(async () => ({
-        delivered: 0,
+        deleted: 0,
         retried: 2,
         owed: 2,
       })),
@@ -77,7 +77,7 @@ describe('createScheduledWorker', () => {
       given: 'an idle pass with a job in backoff',
       should: 'log nothing, so the alert marker is not refreshed',
       actual: await eventsOf(async () => ({
-        delivered: 0,
+        deleted: 0,
         retried: 0,
         owed: 1,
       })),
@@ -97,7 +97,7 @@ describe('createScheduledWorker', () => {
     const { logger, logged } = createEventRecorder();
     await createScheduledWorker({
       name: 'observation_purges',
-      pass: async () => ({ delivered: 1, retried: 2, owed: 2 }),
+      pass: async () => ({ deleted: 1, retried: 2, owed: 2 }),
       clock: fixedClock(NOW),
       logger,
     }).run();
@@ -108,6 +108,7 @@ describe('createScheduledWorker', () => {
       expected: {
         operation: 'observation_purges',
         errorCode: 'INFRASTRUCTURE',
+        deleted: 1,
         pending: 2,
       },
     });

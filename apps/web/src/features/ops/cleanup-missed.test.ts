@@ -57,7 +57,7 @@ const world = () => {
         name,
         clock,
         logger,
-        pass: async () => ({ delivered: 0, retried: 0, owed: 0 }),
+        pass: async () => ({ deleted: 0, retried: 0, owed: 0 }),
       }),
   );
   return {

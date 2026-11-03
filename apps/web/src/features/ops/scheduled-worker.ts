@@ -15,11 +15,12 @@ export const isScheduledWorker = (
   (SCHEDULED_WORKERS as readonly unknown[]).includes(value);
 
 /**
- * What one pass did and what it still owes. `owed` counts jobs that failed
- * and sit in backoff, including any this pass just retried.
+ * What one pass did and what it still owes. Each worker delivers a deletion,
+ * so `deleted` counts the ones confirmed. `owed` counts jobs that failed and
+ * sit in backoff, including any this pass just retried.
  */
 export type WorkerPass = {
-  readonly delivered: number;
+  readonly deleted: number;
   readonly retried: number;
   readonly owed: number;
 };
@@ -39,8 +40,8 @@ export const workerOutcome = (pass: WorkerPass): WorkerOutcome => {
 /**
  * One run of one worker. Only a healthy pass logs `worker.run.completed`, the
  * event its alert marker reads; a failed pass or a thrown one logs
- * `worker.run.failed`; a waiting pass logs nothing. A stable error code and a
- * count only, never subjects or the error.
+ * `worker.run.failed`; a waiting pass logs nothing. A stable error code and
+ * counts only, never subjects or the error.
  */
 export function createScheduledWorker({
   name,
@@ -53,7 +54,10 @@ export function createScheduledWorker({
   readonly clock: Clock;
   readonly logger: Logger;
 }) {
-  const failed = (fields: { readonly pending?: number } = {}) =>
+  const failed = (
+    fields:
+      { readonly deleted: number; readonly pending: number } | object = {},
+  ) =>
     logger.log(
       'worker.run.failed',
       { operation: name, errorCode: 'INFRASTRUCTURE', ...fields },
@@ -69,11 +73,12 @@ export function createScheduledWorker({
         return;
       }
       const outcome = workerOutcome(result);
-      if (outcome === 'failed') failed({ pending: result.owed });
+      if (outcome === 'failed')
+        failed({ deleted: result.deleted, pending: result.owed });
       if (outcome === 'healthy')
         logger.log(
           'worker.run.completed',
-          { operation: name },
+          { operation: name, deleted: result.deleted },
           'Scheduled worker run completed',
         );
     },
