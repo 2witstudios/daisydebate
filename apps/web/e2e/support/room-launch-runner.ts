@@ -9,10 +9,11 @@ import { prepareLaunchBrowserImage } from './launch-browser-image';
 /** All certificate/container/server/browser work runs within the machine queue. */
 export async function runLaunchProof(
   proof: {
-    readonly config: string;
+    /** A proof built on this harness names its own config; the last --config wins. */
+    readonly config?: string;
     readonly extraPorts?: readonly number[];
     readonly udpPorts?: readonly number[];
-  } = { config: 'e2e/support/room-launch-config.ts' },
+  } = {},
 ) {
   const checkout = resolve(import.meta.dir, '../../../..');
   const slot = requireLaunchSlot(checkout, process.env);
@@ -60,7 +61,8 @@ export async function runLaunchProof(
         'node_modules/@playwright/test/cli.js',
         'test',
         '--config',
-        proof.config,
+        'e2e/support/room-launch-config.ts',
+        ...(proof.config ? ['--config', proof.config] : []),
         ...Bun.argv.slice(2),
       ],
       browserDriverOptions(checkout, env),
