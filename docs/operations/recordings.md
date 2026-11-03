@@ -94,7 +94,8 @@ built.
 ## Coverage
 
 `media.gaps` states what the video does not hold, and the player lists it. Today only
-capture restarts are recorded (`capture_restart`). A private phase shows as the stage's
+capture restarts are recorded (`capture_restart`), and so is media left out because
+the control plane was gone (`control_lapse`, ADR 0099). A private phase shows as the stage's
 slate in the video and is not listed as a gap.
 
 ## Takedown

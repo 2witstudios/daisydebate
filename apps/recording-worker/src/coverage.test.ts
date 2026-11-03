@@ -84,3 +84,23 @@ describe('coverageOf', () => {
     });
   });
 });
+
+test('a stretch a lapse touches is stated as that, and any other as a restart', () => {
+  const piece = (attempt: number, startedAtMs: number) => ({
+    attempt,
+    path: `/${attempt}`,
+    startedAtMs,
+    durationMs: 10_000,
+    hasAudio: true,
+  });
+  const reasons = coverageOf(
+    [piece(1, 0), piece(1, 40_000), piece(2, 80_000)],
+    [{ fromMs: 12_000, toMs: 35_000 }],
+  )?.gaps.map((gap) => gap.reason);
+  assert({
+    given: 'two stretches missing, one holding a lapse',
+    should: 'name each for what it is, in order',
+    actual: reasons,
+    expected: ['control_lapse', 'capture_restart'],
+  });
+});

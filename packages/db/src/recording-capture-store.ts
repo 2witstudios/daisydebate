@@ -1,6 +1,18 @@
-import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  getTableColumns,
+  gt,
+  inArray,
+  isNull,
+  lte,
+  or,
+  sql,
+} from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRoom } from './broadcast-operations';
+import { controlHeartbeat, heartbeatStale } from './control-heartbeat';
 import { readEntitlementGrants } from './entitlement-grants';
 import {
   discardRecordingSources,
@@ -134,7 +146,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
   }) {
     const rows = await database
       .update(captures)
-      .set({ reconcileLeaseUntil: input.until })
+      .set({ reconcileLeaseUntil: input.until, ...controlHeartbeat(captures) })
       .where(
         and(
           eq(captures.recordingId, input.recordingId),
@@ -188,6 +200,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         revocationFailures: 0,
         stageCredentialHash: input.stageCredentialHash,
         egressStartedAt: input.now,
+        ...controlHeartbeat(captures),
       })
       .where(
         and(
@@ -238,7 +251,10 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
   /** What the stage page reads for a Recording's own Egress; null for any other id. */
   async readStage(recordingId: string) {
     const [capture] = await database
-      .select()
+      .select({
+        ...getTableColumns(captures),
+        heartbeatStale: heartbeatStale(captures),
+      })
       .from(captures)
       .where(eq(captures.recordingId, recordingId));
     if (!capture) return null;
@@ -263,6 +279,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         stageCredentialHash: capture.stageCredentialHash,
         observerRevokedAt: capture.observerRevokedAt,
         completedAt: capture.endedAt,
+        heartbeatStale: capture.heartbeatStale,
         stoppedAt: null,
       },
       round,

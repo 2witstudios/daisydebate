@@ -8,7 +8,10 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { broadcastReleasePolicySchema } from '@daisy/protocol';
+import {
+  broadcastReleasePolicySchema,
+  controlLapseRecordSchema,
+} from '@daisy/protocol';
 import {
   createdAtColumn,
   jsonbColumn,
@@ -62,6 +65,12 @@ export const broadcasts = pgTable(
     feedWithdrawnAt: timestampColumn('feed_withdrawn_at'),
     /** One web instance reconciles a Broadcast at a time, so one Egress starts. */
     reconcileLeaseUntil: timestampColumn('reconcile_lease_until'),
+    /** When the control plane last reached this Broadcast, by the database's clock. */
+    controlHeartbeatAt: timestampColumn('control_heartbeat_at'),
+    /** Every stretch with no heartbeat: media captured in one is never published. */
+    controlLapses: jsonbColumn('control_lapses', controlLapseRecordSchema)
+      .notNull()
+      .default({ lapses: [] }),
     leaseEpoch: integer('lease_epoch').notNull().default(0),
     leaseOwner: text('lease_owner'),
     leaseUntil: timestampColumn('lease_until'),
@@ -85,6 +94,7 @@ export const broadcasts = pgTable(
       sql`${table.deliveryPath} in ('owned_hls')`,
     ),
     jsonbIsObject('broadcasts', table.releasePolicy),
+    jsonbIsObject('broadcasts', table.controlLapses),
     check(
       'broadcasts_release_policy_check',
       sql`${table.releasePolicy}->>'kind' in ('delay','round_end','at')`,

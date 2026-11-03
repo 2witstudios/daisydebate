@@ -178,8 +178,7 @@ export function createMediaReconcileRun(
     for (const entry of known) {
       const desired = seatGrants(state, entry.participantId, input.nextId);
       if (
-        !entry.grants.publish.includes('microphone') ||
-        desired.publish.includes('microphone')
+        entry.grants.publish.every((source) => desired.publish.includes(source))
       )
         continue;
       const grants = {

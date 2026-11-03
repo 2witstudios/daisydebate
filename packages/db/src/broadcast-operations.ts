@@ -12,6 +12,7 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
+import { controlHeartbeat } from './control-heartbeat';
 import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { mediaSessions } from './schema/media-sessions';
@@ -264,6 +265,7 @@ export const recordEgressStarted = async (
       revocationFailures: 0,
       stageCredentialHash: input.stageCredentialHash,
       egressStartedAt: input.now,
+      ...controlHeartbeat(broadcasts),
     })
     .where(
       and(
@@ -402,14 +404,20 @@ export const readBroadcastRoom = async (tx: Tx, roundId: string) => {
   return session?.roomName ?? null;
 };
 
-/** True for the one instance that may reconcile this Broadcast until the lease ends. */
+/**
+ * True for the one instance that may reconcile this Broadcast until the lease
+ * ends. A claim is also the control plane's heartbeat for it.
+ */
 export const claimBroadcastReconcile = async (
   tx: Tx,
   input: { readonly id: string; readonly now: Date; readonly until: Date },
 ): Promise<boolean> => {
   const rows = await tx
     .update(broadcasts)
-    .set({ reconcileLeaseUntil: input.until })
+    .set({
+      reconcileLeaseUntil: input.until,
+      ...controlHeartbeat(broadcasts),
+    })
     .where(
       and(
         eq(broadcasts.id, input.id),
@@ -442,6 +450,26 @@ export const readBroadcastEgress = async (tx: Tx, id: string) => {
   return row ?? null;
 };
 
+/** Whether a Broadcast's observer may still be subscribed to this Round. */
+export const readBroadcastObserverHeld = async (
+  tx: Tx,
+  input: { readonly roundId: string },
+): Promise<boolean> => {
+  const [broadcast] = await tx
+    .select({ id: broadcasts.id })
+    .from(broadcasts)
+    .where(
+      and(
+        eq(broadcasts.roundId, input.roundId),
+        isNotNull(broadcasts.egressId),
+        isNull(broadcasts.stoppedAt),
+        isNull(broadcasts.completedAt),
+        isNull(broadcasts.observerRevokedAt),
+      ),
+    );
+  return broadcast !== undefined;
+};
+
 /**
  * Whether private conversation must wait for this Round's observer. Held for as
  * long as an open Broadcast's observer may still be subscribed, with no timer: an
@@ -452,23 +480,7 @@ export const readConversationHeld = async (
   tx: Tx,
   input: { readonly roundId: string },
 ): Promise<boolean> => {
-  const [broadcast] = await tx
-    .select({
-      revokedAt: broadcasts.observerRevokedAt,
-      stoppedAt: broadcasts.stoppedAt,
-      completedAt: broadcasts.completedAt,
-      egressId: broadcasts.egressId,
-    })
-    .from(broadcasts)
-    .where(eq(broadcasts.roundId, input.roundId));
-  if (
-    broadcast !== undefined &&
-    broadcast.egressId !== null &&
-    broadcast.stoppedAt === null &&
-    broadcast.completedAt === null &&
-    broadcast.revokedAt === null
-  )
-    return true;
+  if (await readBroadcastObserverHeld(tx, input)) return true;
   // A Recording with no Broadcast runs the same observer under the same rule.
   const [own] = await tx
     .select({ id: recordingCaptures.recordingId })

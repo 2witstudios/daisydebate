@@ -57,6 +57,7 @@ export const seatGrants = (
     | 'participants'
     | 'withdrawn'
     | 'conversationHeld'
+    | 'cameraHeld'
   >,
   participantId: string,
   nextId: () => string,
@@ -80,6 +81,7 @@ export const seatGrants = (
       }),
     finalSegmentEndedAt: snapshot.finalSegmentEndedAt,
     conversationHeld: snapshot.conversationHeld,
+    cameraHeld: snapshot.cameraHeld,
   });
 
 const HELD_ALERT_MS = 30_000;

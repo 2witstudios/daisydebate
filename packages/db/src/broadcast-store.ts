@@ -1,5 +1,5 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { eq } from 'drizzle-orm';
+import { eq, getTableColumns } from 'drizzle-orm';
 import type { BroadcastReleasePolicy } from '@daisy/protocol';
 import {
   claimBroadcastReconcile,
@@ -17,6 +17,7 @@ import {
   recordObserverRevoked,
   recordRevocationFailed,
 } from './broadcast-operations';
+import { heartbeatStale } from './control-heartbeat';
 import { launchedRoundRows } from './room-read-operations';
 import { hydrateRoundRows } from './round-hydration';
 import { broadcasts } from './schema/broadcasts';
@@ -47,7 +48,10 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
   /** Everything the stage burns in. Read-only, and it locks nothing. */
   async readStage(id: string) {
     const [broadcast] = await database
-      .select()
+      .select({
+        ...getTableColumns(broadcasts),
+        heartbeatStale: heartbeatStale(broadcasts),
+      })
       .from(broadcasts)
       .where(eq(broadcasts.id, id));
     if (!broadcast) return null;
@@ -78,6 +82,17 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
           : [{ ...seat, label: person.label, kind: person.kind }];
       }),
     };
+  },
+  /** What says whether a Round expects a Broadcast, before its row exists. */
+  async readCapturePlan(roundId: string) {
+    const [row] = await database
+      .select({
+        competitionType: rounds.competitionType,
+        capture: rounds.capture,
+      })
+      .from(rounds)
+      .where(eq(rounds.id, roundId));
+    return row ?? null;
   },
   async readRound(roundId: string) {
     const round = await hydrateRoundRows(database, roundId);

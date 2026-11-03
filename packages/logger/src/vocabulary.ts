@@ -80,6 +80,7 @@ export const eventRegistry = {
   'broadcast.complete_failed': 'error',
   'broadcast.egress.start_lost': 'warn',
   'broadcast.release_delayed': 'error',
+  'broadcast.release_lapsed': 'error',
   'stage.stray_egress_stopped': 'warn',
   'stage.stray_sweep_failed': 'error',
   'media.capture.lease_reinstated': 'warn',

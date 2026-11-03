@@ -1,6 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -10,6 +11,8 @@ import {
 import { createRecordingCaptureStore } from '../src/recording-capture-store';
 import { recordingOperations } from '../src/recording-operations';
 import { createRecordingWorkerStore } from '../src/recording-worker-store';
+import { recordingCaptures } from '../src/schema/recording-captures';
+import { recordingProcessingJobs } from '../src/schema/recording-processing-jobs';
 import { withFixture } from './constraint-helpers';
 
 setupRitewayBun();
@@ -150,7 +153,12 @@ test('a job is claimable once capture ended, by one worker at a time', async () 
         won[0]?.state,
         won[0]?.leaseEpoch,
       ],
-      expected: [1, 'hold/b/', { status: 'queued', attemptCount: 2 }, 1],
+      expected: [
+        1,
+        'hold/b/',
+        { status: 'queued', attemptCount: 2, controlLapses: [] },
+        1,
+      ],
     });
   });
 });
@@ -381,6 +389,39 @@ test('the web sees only jobs it can answer, and what still uses their sources', 
       should: 'not list it: it waits for the worker',
       actual: await listed(),
       expected: undefined,
+    });
+  });
+});
+
+test('a queued build carries the lapses of its capture, and an own heartbeat writes them', async () => {
+  await withStores(async ({ store, db, newRecording }) => {
+    const { id, roundId } = await newRecording();
+    await store.openOwn({ recordingId: id, roundId });
+    await store.claimOwn({ recordingId: id, now: NOW, until: NOW });
+    const firstBeat = await db
+      .select({ at: recordingCaptures.controlHeartbeatAt })
+      .from(recordingCaptures)
+      .where(eq(recordingCaptures.recordingId, id));
+    await db
+      .update(recordingCaptures)
+      .set({
+        controlHeartbeatAt: new Date(Date.now() - 30_000),
+        reconcileLeaseUntil: null,
+      })
+      .where(eq(recordingCaptures.recordingId, id));
+    await store.claimOwn({ recordingId: id, now: NOW, until: NOW });
+    await store.openJob({ recordingId: id, holdPrefix: `h/${id}/` });
+    await store.queueJob({ recordingId: id, attemptCount: 1 });
+    const [job] = await db
+      .select({ state: recordingProcessingJobs.state })
+      .from(recordingProcessingJobs)
+      .where(eq(recordingProcessingJobs.recordingId, id));
+    const state = job?.state as { controlLapses?: readonly unknown[] };
+    assert({
+      given: 'an own capture whose heartbeat came back after 30 s, then queued',
+      should: 'hand that lapse to the worker through the job',
+      actual: [firstBeat[0]?.at instanceof Date, state.controlLapses?.length],
+      expected: [true, 1],
     });
   });
 });

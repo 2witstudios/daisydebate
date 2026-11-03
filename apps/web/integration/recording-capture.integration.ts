@@ -185,7 +185,7 @@ test('a Broadcast with a crash becomes one Recording spanning both attempts', as
         expected: [
           record?.id,
           `hold/${broadcastId}/`,
-          { status: 'queued', attemptCount: 2 },
+          { status: 'queued', attemptCount: 2, controlLapses: [] },
         ],
       });
 

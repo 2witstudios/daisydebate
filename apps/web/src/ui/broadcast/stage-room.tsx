@@ -7,9 +7,11 @@ import {
   subscribesTo,
   type StageParticipant,
 } from './stage-subscriptions';
+import { stageWatchStart, watchedStage } from './stage-watch';
 import { StageView, type StageLink, type StageSnapshot } from './stage-view';
 
 const POLL_MS = 1000;
+const READ_TIMEOUT_MS = 3000;
 const SITE_LINK = 'daisydebate.com';
 
 type StageAnswer = StageSnapshot & {
@@ -19,6 +21,7 @@ type StageAnswer = StageSnapshot & {
   readonly room: { readonly url: string; readonly token: string } | null;
 };
 
+/** Fills its seat, so the 540p top layer reaches the frame close to one to one. */
 function StageTile({ track }: { readonly track: RemoteTrack | undefined }) {
   const video = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -53,14 +56,32 @@ export function StageRoom(props: {
   );
   const roomRef = useRef<Room | null>(null);
   const started = useRef(false);
+  const ended = useRef(false);
+  const watch = useRef(stageWatchStart);
   const identities = useRef<readonly string[]>([]);
   useEffect(() => {
     const read = async () => {
+      if (ended.current) return;
+      // A web tier that is gone may never answer, so a read cannot wait for it.
       const answer = await fetch(`/api/stage/${props.captureId}`, {
         headers: { 'x-stage-credential': props.credential },
         cache: 'no-store',
-      });
-      if (!answer.ok) return;
+        signal: AbortSignal.timeout(READ_TIMEOUT_MS),
+      }).catch(() => null);
+      watch.current = watchedStage(
+        watch.current,
+        answer?.status ?? null,
+        performance.now(),
+      );
+      if (watch.current.ended) {
+        ended.current = true;
+        // Egress stops on exactly this line. Nothing else can stop it with the web gone.
+        // eslint-disable-next-line no-console
+        console.log('END_RECORDING');
+        void roomRef.current?.disconnect();
+        return;
+      }
+      if (!answer?.ok) return;
       const next = (await answer.json()) as StageAnswer;
       setStage(next);
       identities.current = next.debaterIdentities;

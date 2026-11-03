@@ -814,6 +814,15 @@ config in the `EGRESS_CONFIG_BODY` secret and writes to the private Tigris bucke
 `daisy-debate-staging-broadcast`, created with `fly storage create`. Stop the
 machine when idle: it has no proxy to auto-stop it.
 
+**Web restarts stop capture (hold).** A Broadcast's or own Recording's stage page ends
+its own Egress once the stage route has refused or failed for about 10 s, and media
+captured after the last control-plane heartbeat is never published (ADR 0099). So a
+web restart of 10 s or more during a live Round costs its audience a gap and its
+Recording a stated gap. On staging, which runs one web machine, treat a web deploy as
+part of the deployment hold: wait for live Rounds to end or accept the gap. Production
+needs rolling web machines, so that a deploy never leaves the sweep down for 10 s and
+never stops a Broadcast.
+
 **Official feed.** The web app reads `BROADCAST_PUBLIC_ORIGIN`, the public bucket's
 read origin (`https://<bucket>.t3.tigrisfiles.io`). The value is not secret, but
 `fly.toml` does not name it and the workflow passes no `--env`, so it has to be set
@@ -860,11 +869,11 @@ drops every Round on it. No instance kill has been run for any app in this table
 live Round: a gate in the workflow is a deploy-rail change and needs human sign-off.
 The hold is this procedure.
 
-| Deploy                                         | Effect on a live Round                                                                                                    | When it happens                                                                       |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| LiveKit                                        | Ends every live call. A running Broadcast loses its source, and viewers see the slate                                     | A main merge that changes `infra/livekit` or `fly.livekit.toml`; **every manual run** |
-| Web, realtime, capture worker                  | Machines restart, with one machine each (`--ha=false`). The effect on a Broadcast has not been measured                   | Every deploy                                                                          |
-| Egress, encoder, Recording worker, media Redis | Not in the workflow. Stopping an Egress leaves a gap; an encoder resumes from its durable cursor; LiveKit needs the Redis | Only by hand                                                                          |
+| Deploy                                         | Effect on a live Round                                                                                                                                    | When it happens                                                                       |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| LiveKit                                        | Ends every live call. A running Broadcast loses its source, and viewers see the slate                                                                     | A main merge that changes `infra/livekit` or `fly.livekit.toml`; **every manual run** |
+| Web, realtime, capture worker                  | Machines restart, with one machine each (`--ha=false`). A web restart of 10 s or more ends a running Broadcast's Egress and costs it a stated gap (below) | Every deploy                                                                          |
+| Egress, encoder, Recording worker, media Redis | Not in the workflow. Stopping an Egress leaves a gap; an encoder resumes from its durable cursor; LiveKit needs the Redis                                 | Only by hand                                                                          |
 
 Before a manual run, a merge that changes LiveKit, or a by-hand deploy of any row:
 

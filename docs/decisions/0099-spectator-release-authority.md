@@ -74,24 +74,64 @@ and a file. Room Composite is rejected: deleting its room ends it, or leaves it
 active and writing silence. Daisy stops the Egress, and the reconciler stops any
 whose Round is terminal.
 
+**Stage quality (owner, 2026-11-03).** On a Round expecting a Broadcast, a browser
+reporting at least 4 cores captures 540p, which adds a top simulcast layer over 180p
+and 360p. Every other seat keeps its 360p baseline. The layer is there for the stage:
+dynacast sends it only while a subscriber asks for it, and congestion control and
+Chrome's CPU adaptation drop the highest layer first, so audio and the lower layers
+keep their place. Under 960 wide (a 4:3 camera) the SDK keeps only 180p below the
+capture, so 360p is not available there. The admission's `camera` value is a hint about
+quality and decides no authority. If it cannot be read, the seat captures the baseline.
+
 **Privacy boundary.** Revoking the observer's subscribe permission on the server
 is the boundary; the page slate is appearance only. If revocation cannot be
 confirmed, the Egress stops. The criterion is zero leak measured at the production
-sweep's timing (point guard, 2026-11-03), not a lead on a rig. Where a speech end is
-scheduled, the sweep revokes 2 s ahead, which is its 1 s period, a late pass and
-the call. A private phase with no schedule, prep or an early yield, is revoked
-after it opens: its microphones close by grant, and conversation stays held until
-the revocation lands.
+sweep's timing (point guard, 2026-11-03), not a lead on a rig. The sweep revokes at
+the speech end, so every word of the last speech is kept: one value in
+`stage-capture.ts` restores a lead if the measurement ever needs one. That is safe
+because a private phase's microphones stay closed until the revocation lands, and on
+a Round with a Broadcast its cameras do too, whether the phase was scheduled or opened
+with no warning (prep, an early yield). They reopen once the observer is revoked, and
+a public phase keeps its cameras. A Recording's own observer holds conversation, not
+cameras.
 
-**When the sweep dies.** Nothing on a timer revokes for it, so the observer stays
-subscribed. What bounds that is the hold, not a duration: while the observer may be
-subscribed, conversation stays closed however long that lasts, and speech ends by
-grant, so no private talk exists to reach it. Cameras stay published in a private
-phase and are not held. The stage lets go of every track when it reads a private
-phase, as a second layer that needs the stage route alive. The media reconciler
-raises `broadcast.conversation_held_long` past 30 s. If the whole web tier is down,
-grants stop changing too, and the microphone open at that moment stays open until
-it returns. That case has no bound in code.
+**When the sweep dies.** While the observer may be subscribed, the hold stays, however
+long that lasts, and the media reconciler raises `broadcast.conversation_held_long`
+past 30 s. The stage also lets go of every track when it reads a private phase, as a
+second layer that needs the stage route alive.
+
+**When the control plane is gone: the guarantee.** Media captured after the last
+heartbeat is never published, even if the web tier returns. Each reconcile claim
+writes `control_heartbeat_at` by the database's clock, in the same update that appends
+to `control_lapses` when the last heartbeat is 10 s old or more. So a returning web
+instance records the lapse itself, no watcher has to be alive, and no restart can
+forget one. The release step holds anything the heartbeat has not passed, and removes
+anything touching a lapse before it counts, so what is removed leaves no hole in the
+public sequence and is not released after the heartbeat resumes. A segment straddling
+either boundary goes whole, so the precision is one segment (about 4 s) on each side,
+plus 1 s for Egress's clock and the database's to disagree, always toward leaving
+media out. A gap under 10 s is not a lapse: media waits and then goes out.
+
+The public playlist marks a discontinuity at the gap. The Daisy player covers the
+video with a slate after 5 s stalled, which is the whole of a gap on a delay policy,
+and for 4 s when hls.js sees capture time jump, as on a hold released in one burst.
+A native (Safari) player gets only the stall slate. A streaming tool carrying the
+official feed gets no slate: it holds the last frame and then resumes.
+
+A Recording reads the same record. The web copies `control_lapses` from the Broadcast
+or the own capture into the job when it queues the build, because the Recording
+worker's role reaches its jobs alone, and by then capture has ended and a returning
+control plane has already written any lapse. The build skips the whole file of an
+attempt that a lapse touches, joins the runs of segments outside it, and states the
+stretch as a `control_lapse` gap. An own capture keeps its own heartbeat and lapses
+in the same way, with no worker role involved.
+
+**Ending the Egress.** That rule is the guarantee; ending the Egress only limits the
+window. The stage page logs `END_RECORDING`, which Egress stops on, when the stage
+route refuses on a stale heartbeat (410) or has failed for about 10 s. No process holds
+a LiveKit credential for this. A control plane that returns finds the Egress complete
+and starts the next attempt the normal way. A web restart of 10 s or more therefore
+costs a running Broadcast a gap (see the deployment hold in `deploy-staging.md`).
 
 **Stray Egress.** The first start recorded for a generation wins. A loser's
 credential is never stored, so the stage refuses it, it never signals Egress to

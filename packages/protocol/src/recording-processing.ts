@@ -1,3 +1,4 @@
+import { controlLapsesSchema } from './control-lapse';
 import { z } from 'zod';
 import { recordingFailureReasons, recordingMediaSchema } from './recording';
 
@@ -24,6 +25,8 @@ export const recordingJobStateSchema = z.discriminatedUnion('status', [
   z.strictObject({
     status: z.literal('queued'),
     attemptCount: z.int().positive(),
+    /** Stretches with no control plane: media captured in one is never built. */
+    controlLapses: controlLapsesSchema,
   }),
   z.strictObject({
     status: z.literal('built'),

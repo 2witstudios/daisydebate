@@ -1,4 +1,7 @@
-import { readConversationHeld } from './broadcast-operations';
+import {
+  readBroadcastObserverHeld,
+  readConversationHeld,
+} from './broadcast-operations';
 import { rotateRevokedMediaSession } from './media-session-rotation';
 import {
   readMediaBotLeases,
@@ -120,6 +123,7 @@ export function createMediaReconcileStore(input: {
         readonly admits: ParticipantAdmission;
         readonly authorize: (context: {
           readonly conversationHeld: boolean;
+          readonly cameraHeld: boolean;
           readonly round: RoundHydration;
           readonly participants: RoundCommandAuthority['participants'];
           /** Bot seats that may hear, floor or not (ISSUE-764). */
@@ -168,6 +172,9 @@ export function createMediaReconcileStore(input: {
         }
         request.authorize({
           conversationHeld: await readConversationHeld(tx, {
+            roundId: session.roundId,
+          }),
+          cameraHeld: await readBroadcastObserverHeld(tx, {
             roundId: session.roundId,
           }),
           bindings: await tx

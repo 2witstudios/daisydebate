@@ -39,8 +39,12 @@ const edges = {
   now: Date.now,
   sleep: Bun.sleep,
   stopped: () => stopping,
-  report: (event: 'broadcast.release_failed' | 'broadcast.withdrawal_failed') =>
-    logger.log(event, {}, 'Broadcast worker failure'),
+  report: (
+    event:
+      | 'broadcast.release_failed'
+      | 'broadcast.withdrawal_failed'
+      | 'broadcast.release_lapsed',
+  ) => logger.log(event, {}, 'Broadcast worker'),
 };
 await Promise.all([
   runFeedWithdrawals({ ...edges, owner: createId() }),
