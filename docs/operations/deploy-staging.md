@@ -842,6 +842,25 @@ part of the deployment hold: wait for live Rounds to end or accept the gap. Prod
 needs rolling web machines, so that a deploy never leaves the sweep down for 10 s and
 never stops a Broadcast.
 
+**Turning the pipeline on.** `deploy-staging.yml` deploys Egress, the Broadcast worker and
+the Recording worker after the migration, each with its own app-scoped token. Before the
+first such deploy, once:
+
+1. Create the three tokens with `fly tokens create deploy -a <app>` and store them as the
+   repository secrets `FLY_EGRESS_API_TOKEN`, `FLY_BROADCAST_WORKER_API_TOKEN` and
+   `FLY_RECORDING_WORKER_API_TOKEN`, never printing them.
+2. The migration creates the logins `daisy_broadcast_worker` and `daisy_recording_worker`
+   with no password. Set each one from the staging database, and store the matching URL as
+   the secret `BROADCAST_WORKER_DATABASE_URL` or `RECORDING_WORKER_DATABASE_URL`. A worker
+   refuses to start without its URL, so its deploy fails until this is done.
+3. On `daisy-debate-staging-encoder`, set `BROADCAST_STORAGE_ENDPOINT` and the
+   `BROADCAST_HOLD_*` and `BROADCAST_PUBLIC_*` secrets. On
+   `daisy-debate-staging-recorder`, set `RECORDING_HOLD_*`; `fly storage create` already
+   gave it `RECORDING_BUCKET_*`. On `daisy-debate-staging`, set the `RECORDING_BUCKET_*`
+   secrets for signed playback.
+4. Set each bucket's CORS: the public bucket `GET` and `HEAD` from any origin, the
+   Recording bucket `GET` and `HEAD` from the app's origin.
+
 **Official feed.** The web app reads `BROADCAST_PUBLIC_ORIGIN`, the public bucket's
 read origin (`https://<bucket>.t3.tigrisfiles.io`). The value is not secret, but
 `fly.toml` does not name it and the workflow passes no `--env`, so it has to be set

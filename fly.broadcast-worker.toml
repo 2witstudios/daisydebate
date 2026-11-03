@@ -9,7 +9,7 @@ kill_timeout = 30
 
 [build]
   dockerfile = "apps/web/Dockerfile"
-  target = "broadcast-worker"
+  build-target = "broadcast-worker"
 
 [[vm]]
   size = "performance-4x"
