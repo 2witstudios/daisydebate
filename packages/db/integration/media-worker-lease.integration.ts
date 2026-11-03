@@ -2,6 +2,7 @@ import { captureRule } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { AppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { mediaCaptureOperations } from '../src/media-capture';
 import { withBoundedRound } from './bounded-transaction.test-support';
@@ -150,9 +151,9 @@ test('internal capture token admission requires a fresh exact lease and safe non
           'say expired, which its worker may retry, not stale, which is final',
         actual: await store.verifyMediaWorkerLease(scope, 'mint').then(
           () => 'admitted',
-          (error: Error) => error.message,
+          (error: AppError) => error.reason,
         ),
-        expected: 'Capture worker lease expired',
+        expected: 'lease-expired',
       });
       const fresh = await store.claimMediaWorkerLease({
         roundId,

@@ -29,13 +29,20 @@ export const roundCommandEnvelopeSchema = z.strictObject({
   ]),
 });
 export type RoundCommandEnvelope = z.infer<typeof roundCommandEnvelopeSchema>;
-export type RoundRefusal =
-  | 'not-found'
-  | 'not-authorized'
-  | 'not-seated'
-  | 'stale-version'
-  | 'command-conflict'
-  | 'illegal-command';
+/** The closed vocabulary a Round command or ballot refusal answers with. */
+export const roundRefusalSchema = z.enum([
+  'not-found',
+  'not-authorized',
+  'not-seated',
+  'stale-version',
+  'command-conflict',
+  'illegal-command',
+  'freeze-not-ready',
+  'ballot-already-submitted',
+  'round-decided',
+  'attendance-unsettled',
+]);
+export type RoundRefusal = z.infer<typeof roundRefusalSchema>;
 export type RoundCommandReceipt = {
   readonly commandId: string;
   readonly roundId: string;

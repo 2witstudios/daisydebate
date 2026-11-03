@@ -9,16 +9,13 @@ import {
 } from '../../features/analytics/client-adapter';
 import { pageArea } from '../../features/analytics/events';
 import type { Consent } from '../../features/analytics/consent';
+import type { Capture } from '../../features/analytics/viewer-analytics';
 import { watchConsent } from '../../features/analytics/consent-sync';
 
 /** Root lifecycle binding; never passes browser locations or participant content to capture. */
-export function AnalyticsClient(props: {
-  readonly consent: Consent;
-  readonly keyValue: string | null;
-  readonly host: string | null;
-  readonly userId: string | null;
-  readonly needsAdoption: boolean;
-}) {
+export function AnalyticsClient(
+  props: Capture & { readonly consent: Consent },
+) {
   const pathname = usePathname();
   const router = useRouter();
   useEffect(() => {

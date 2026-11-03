@@ -9,7 +9,7 @@ import {
   type LockedRoundTickInput,
 } from './round-clock-transaction';
 import { writeSpeakingProjection } from './round-speaking-writer';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import {
   roundCommandEnvelopeSchema,
   idSchema,
@@ -122,7 +122,7 @@ export const roundCommandOperations = ({
           input.envelope.command.type !== 'strike_resolution' &&
           current.version !== input.envelope.expectedVersion
         )
-          throw createAppError('CONFLICT', 'stale-version');
+          throw createRefusal('CONFLICT', 'stale-version');
         const projection = input.buildProjection(context);
         const changed = await writeProjectionWithPhaseSignal(
           tx,

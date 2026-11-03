@@ -1,3 +1,4 @@
+import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { resolveIdentity, type Identity } from '@daisy/auth';
 import { hasSessionCookie } from '../features/auth/sessions/session-cookie';
 import type { AuthServer } from '../features/auth/server';
@@ -5,7 +6,7 @@ import type { AuthServer } from '../features/auth/server';
 /** The slice of the composed auth server a session read needs. */
 export type SessionReader = Pick<
   AuthServer,
-  | 'instance'
+  | 'readSession'
   | 'clock'
   | 'logger'
   | 'getActorByUserId'
@@ -42,7 +43,7 @@ export async function resolveSession(
   readonly identity: Identity;
   readonly sessionExpiresAt: string | null;
 }> {
-  const { instance, clock, logger } = auth;
+  const { readSession, clock, logger } = auth;
   const cookie = requestHeaders.get('cookie');
   let expiresAt: string | null = null;
   const identity = await resolveIdentity({
@@ -51,13 +52,11 @@ export async function resolveSession(
     readParticipation: auth.getParticipationByUserId,
     cookie: hasSessionCookie(requestHeaders) ? cookie : null,
     now: () => clock.now(),
+    isTemporary: isTemporaryRefusal,
     readSession: async (header) => {
-      const found = await instance.api.getSession({
-        // A server Principal read: the rate-limit gate does not budget it
-        // (features/auth/abuse/rate-limit.ts, isServerPrincipalRead).
-        headers: new Headers({ cookie: header }),
-        query: { disableRefresh: true },
-      });
+      // A server Principal read: the rate-limit gate does not budget it
+      // (features/auth/abuse/rate-limit.ts, isServerPrincipalRead).
+      const found = await readSession(new Headers({ cookie: header }));
       if (!found) return null;
       const { user, session } = found;
       expiresAt = new Date(session.expiresAt).toISOString();

@@ -205,8 +205,7 @@ test('actual append seal and finalizer contention freezes one truthful committed
         lateRefused:
           isConflict(late) &&
           // The freeze fence refuses before the sealed-stream check could.
-          (late as PromiseRejectedResult).reason.message ===
-            'Capture admission is closed',
+          (late as PromiseRejectedResult).reason.reason === 'capture-closed',
         unchanged:
           JSON.stringify(await f.store.readFrozenRoundTranscript(roundId)) ===
           before,

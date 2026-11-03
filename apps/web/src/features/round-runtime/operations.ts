@@ -7,7 +7,7 @@ import {
 import { roundTickProjection } from '../round-finalization/operations';
 import type { Database } from '@daisy/db';
 import type { LockedRoundCommandContext } from '@daisy/db/rounds';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError, isAppError, createRefusal } from '@daisy/errors';
 import {
   roundCommandEnvelopeSchema,
   type RoundCommandEnvelope,
@@ -40,7 +40,7 @@ export function createRoundRuntimeOperations(input: {
           command: envelope.command,
           authority,
         });
-        if (!result.ok) throw createAppError('AUTHORIZATION', result.refusal);
+        if (!result.ok) throw createRefusal('AUTHORIZATION', result.refusal);
         return result;
       };
       return input.store.executeRoundCommand({
@@ -105,7 +105,12 @@ export function createRoundRuntimeOperations(input: {
               isAppError(error) &&
               (error.code === 'CONFLICT' || error.code === 'INVARIANT')
             )
-              throw createAppError('CONFLICT', 'illegal-command', error);
+              throw createRefusal(
+                'CONFLICT',
+                'illegal-command',
+                undefined,
+                error,
+              );
             throw error;
           }
         },

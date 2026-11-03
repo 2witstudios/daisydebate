@@ -3,6 +3,7 @@ import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import {
+  attendanceRefusalSchema,
   idSchema,
   type AttendanceEnvelope,
   type AttendanceReceipt,
@@ -65,14 +66,11 @@ export function createAttendanceHandler(deps: HandlerDeps) {
           );
           return Response.json(receipt);
         } catch (error) {
-          const refused = refusalResponse(error, requestId, [
-            'attendance-terminal',
-            'attendance-finalized',
-            'attendance-segment',
-            'attendance-window-closed',
-            'attendance-too-early',
-            'command-conflict',
-          ]);
+          const refused = refusalResponse(
+            error,
+            requestId,
+            attendanceRefusalSchema.options,
+          );
           if (refused) return refused;
           throw error;
         }

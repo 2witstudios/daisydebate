@@ -151,6 +151,15 @@ export function parseRoomCleanupEvidence(stdout: string): RoomCleanupEvidence {
   }
 }
 
+/** Cleanup that may still finish, so the caller polls it again. */
+class RoomCleanupPending extends Error {}
+const cleanupFailure = (reason: string) => {
+  const message = `Room account cleanup ${reason}`;
+  return reason === 'pending'
+    ? new RoomCleanupPending(message)
+    : new Error(message);
+};
+
 function cleanupWorker(
   action: 'inspect' | 'clean',
   accounts: readonly RoomAccountOwnership[],
@@ -165,9 +174,7 @@ function cleanupWorker(
       },
       (error, stdout, stderr) => {
         if (error) {
-          return reject(
-            new Error(`Room account cleanup ${cleanupFailureReason(stderr)}`),
-          );
+          return reject(cleanupFailure(cleanupFailureReason(stderr)));
         }
         try {
           const evidence = parseRoomCleanupEvidence(stdout);
@@ -228,11 +235,7 @@ export async function createRoomAccounts(
               evidence = await cleanupWorker('clean', accounts);
               return true;
             } catch (error) {
-              if (
-                error instanceof Error &&
-                error.message === 'Room account cleanup pending'
-              )
-                return false;
+              if (error instanceof RoomCleanupPending) return false;
               failure = error;
               return true;
             }

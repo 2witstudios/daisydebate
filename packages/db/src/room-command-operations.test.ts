@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { AppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import type { FormatSelectionFacts } from '@daisy/protocol';
 import { foundationDefinition, oneOnOneSettings } from './reference-formats';
@@ -315,7 +316,7 @@ test('a Room that moves under a command retries from fresh facts, then refuses a
   });
   const refusal = await database
     .executeRoomCommand(startInput)
-    .catch((error: Error) => error.message);
+    .catch((error: AppError) => error.reason);
   assert({
     given: 'three stale attempts, twice',
     should:

@@ -1,6 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import type { RoundCommandEnvelope } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { AppError } from '@daisy/errors';
 import { caller, launched, now } from '../room-runtime/operations.test-support';
 import { lockedRound as context, seat } from './locked-round.test-support';
 import { createRoundRuntimeOperations } from './operations';
@@ -66,12 +67,12 @@ test('an engine refusal of a seated command surfaces as an illegal command', asy
     )
     .then(
       () => null,
-      (caught: unknown) => caught as Error & { code: string },
+      (caught: unknown) => caught as AppError,
     );
   assert({
     given: 'the seated member yielding before the Round started',
     should: 'refuse as a conflict naming the illegal command',
-    actual: error && [error.code, error.message],
+    actual: error && [error.code, error.reason],
     expected: ['CONFLICT', 'illegal-command'],
   });
 });

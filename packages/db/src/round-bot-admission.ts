@@ -1,5 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockAuthorizationActors } from './authorization';
@@ -206,12 +206,12 @@ export function createRoundBotAdmission(input: {
       exceptRoundId: target.roundId,
     });
     if (status.refusal)
-      throw createAppError(
-        'CONFLICT',
-        status.refusal === 'capacity'
-          ? 'bots-busy'
-          : `Bot admission refused: ${status.refusal}`,
-      );
+      throw status.refusal === 'capacity'
+        ? createRefusal('CONFLICT', 'bots-busy')
+        : createAppError(
+            'CONFLICT',
+            `Bot admission refused: ${status.refusal}`,
+          );
     const id = input.nextId();
     await tx
       .insert(usageReservations)
@@ -231,7 +231,7 @@ export function createRoundBotAdmission(input: {
       input.busyCap,
     );
     // The room refusal the Launch answers with (roomRefusalSchema).
-    if (refusal) throw createAppError('CONFLICT', 'bots-busy');
+    if (refusal) throw createRefusal('CONFLICT', 'bots-busy');
   };
   return {
     lock: lockBotAdmission,

@@ -1,4 +1,5 @@
 import { assert } from 'riteway/bun';
+import type { RefusalReason } from '@daisy/protocol';
 import { isAppError, type ErrorCode } from './index';
 
 /**
@@ -24,7 +25,7 @@ const rejectionFrom = (error: unknown): Rejection => {
     : { code: error.code, invariantId: error.invariantId };
 };
 
-/** How `actual` settled, with the app error's message when it was one. */
+/** How `actual` settled, with the app error's reason and message when it was one. */
 async function settle(actual: () => unknown) {
   try {
     await actual();
@@ -32,7 +33,9 @@ async function settle(actual: () => unknown) {
   } catch (error) {
     return {
       rejection: rejectionFrom(error),
-      ...(isAppError(error) ? { message: error.message } : {}),
+      ...(isAppError(error)
+        ? { message: error.message, reason: error.reason }
+        : {}),
     };
   }
 }
@@ -44,7 +47,8 @@ export async function rejectionOf(actual: () => unknown): Promise<Rejection> {
 
 /**
  * Asserts that `actual` throws or rejects with an app error of `code`, and,
- * when named, of exactly `message` (for a refusal a caller maps by message).
+ * when named, of exactly `reason` (the refusal a caller branches on) or
+ * `message` (internal text no behaviour reads).
  */
 export async function assertRejects({
   given,
@@ -52,6 +56,7 @@ export async function assertRejects({
   actual,
   code,
   invariantId,
+  reason,
   message,
 }: {
   readonly given: string;
@@ -59,19 +64,22 @@ export async function assertRejects({
   readonly actual: () => unknown;
   readonly code: ErrorCode;
   readonly invariantId?: string;
+  readonly reason?: RefusalReason;
   readonly message?: string;
 }): Promise<void> {
   const settled = await settle(actual);
   assert({
     given,
     should,
-    actual:
-      message === undefined
-        ? settled.rejection
-        : { ...settled.rejection, message: settled.message },
+    actual: {
+      ...settled.rejection,
+      ...(reason === undefined ? {} : { reason: settled.reason }),
+      ...(message === undefined ? {} : { message: settled.message }),
+    },
     expected: {
       code,
       ...(invariantId === undefined ? {} : { invariantId }),
+      ...(reason === undefined ? {} : { reason }),
       ...(message === undefined ? {} : { message }),
     },
   });

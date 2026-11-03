@@ -21,6 +21,23 @@ export async function requireAccess(
   path: string,
   searchParams: Promise<SearchParams>,
 ): Promise<Identity> {
+  const access = await accessOrTemporary(path, searchParams);
+  // An outage renders the error boundary (retryable), never a sign-out.
+  if (access.kind === 'temporary') throw createAppError('INFRASTRUCTURE');
+  return access.identity;
+}
+
+/**
+ * The same guard for a page that answers a temporary refusal itself, as a live
+ * Round's room does. A failure that may not pass still throws.
+ */
+export async function accessOrTemporary(
+  path: string,
+  searchParams: Promise<SearchParams>,
+): Promise<
+  | { readonly kind: 'allowed'; readonly identity: Identity }
+  | { readonly kind: 'temporary' }
+> {
   const requirement = requirementFor(path);
   // A page outside every guarded area calling the guard is a wiring error.
   if (requirement === null) throw createAppError('INTERNAL');
@@ -30,8 +47,10 @@ export async function requireAccess(
     path: requestedPath(path, await searchParams),
     requirement,
   });
-  // An outage renders the error boundary (retryable), never a sign-out.
-  if (decision.kind === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  if (decision.kind === 'unavailable') {
+    if (decision.temporary) return { kind: 'temporary' };
+    throw createAppError('INFRASTRUCTURE');
+  }
   if (decision.kind === 'redirect') redirect(decision.to);
-  return identity;
+  return { kind: 'allowed', identity };
 }

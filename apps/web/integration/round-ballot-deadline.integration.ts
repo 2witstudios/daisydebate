@@ -141,8 +141,8 @@ test('a judge who never rules is recorded as no ruling at the persisted deadline
       'affirmative',
     ).then(
       () => 'accepted',
-      (error: { code?: string; message?: string }) =>
-        `${error.code} ${error.message}`,
+      (error: { code?: string; reason?: string }) =>
+        `${error.code} ${error.reason}`,
     );
     await maintainWith(f, 2, (finalize) => Promise.all(finalize(roundId)));
     const done = (await f.store.getRound(roundId))!;

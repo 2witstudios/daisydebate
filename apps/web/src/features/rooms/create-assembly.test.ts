@@ -76,6 +76,7 @@ test('invalid create selections refuse before transport; server refusals never b
   };
   for (const response of [
     new Response(null, { status: 403 }),
+    Response.json({ refusal: 'command-conflict' }, { status: 409 }),
     new Response(null, { status: 409 }),
     new Response(null, { status: 429 }),
     new Response(null, { status: 400 }),
@@ -107,6 +108,7 @@ test('invalid create selections refuse before transport; server refusals never b
       [
         { kind: 'refused', reason: 'forbidden' },
         { kind: 'refused', reason: 'replayed' },
+        { kind: 'refused', reason: 'settings' },
         { kind: 'refused', reason: 'rate-limited' },
         { kind: 'refused', reason: 'settings' },
         { kind: 'unavailable' },

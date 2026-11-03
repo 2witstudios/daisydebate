@@ -25,6 +25,10 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
     guardCalls.push({ path, searchParams });
     return { state: 'anonymous' };
   },
+  accessOrTemporary: async (path: string, searchParams: unknown) => {
+    guardCalls.push({ path, searchParams });
+    return { kind: 'allowed', identity: { state: 'anonymous' } };
+  },
 }));
 // Public pages that only read who is asking (the watch pages, the
 // leaderboard, which pins the viewer's line, and the Tournaments index) get
@@ -41,13 +45,17 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestOptionalAnswersAdmitted: async () => false,
   requestOnboardingAnswers: async () => null,
   requestAnalytics: async () => ({
-    consent: {
-      version: 1,
-      necessary: 'granted',
-      analytics: 'unanswered',
-      replay: 'unanswered',
+    choice: {
+      kind: 'known',
+      consent: {
+        version: 1,
+        necessary: 'granted',
+        analytics: 'unanswered',
+        replay: 'unanswered',
+      },
     },
     available: { analytics: false, replay: false },
+    capture: null,
   }),
 }));
 // The settings screen's client component is not under test here; loading it
