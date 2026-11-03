@@ -1,4 +1,5 @@
-import type { DebateRole, RoundView } from '@daisy/protocol';
+import { dueAfterStops } from '@daisy/protocol';
+import type { ClockStop, DebateRole, RoundView } from '@daisy/protocol';
 import type {
   ResolutionDrawState,
   RoundOpening,
@@ -25,9 +26,9 @@ export type OpeningStep =
   | { readonly step: 'complete'; readonly at: string };
 
 /** Where the opening stands as stored, before any time has been settled. */
-export function openingStep(opening: RoundOpening): OpeningStep {
-  const { draw, prepMs, startedAt } = opening;
-  const turn = draw && turnOf(draw);
+export function openingStep(opening: RoundOpening, nowMs: number): OpeningStep {
+  const { draw, prepMs, startedAt, stops } = opening;
+  const turn = draw && turnOf(draw, stops, nowMs);
   if (turn) return { step: 'strike', turn };
   const anchor = (draw && survivorOf(draw)?.at) ?? startedAt;
   return prepMs === null
@@ -35,7 +36,9 @@ export function openingStep(opening: RoundOpening): OpeningStep {
     : {
         step: 'prep',
         startedAt: anchor,
-        endsAt: new Date(Date.parse(anchor) + prepMs).toISOString(),
+        endsAt: new Date(
+          dueAfterStops(Date.parse(anchor), prepMs, stops, nowMs),
+        ).toISOString(),
       };
 }
 
@@ -51,9 +54,9 @@ export function settleOpening(
   now: string,
 ): { readonly opening: RoundOpening; readonly step: OpeningStep } {
   const settled = opening.draw
-    ? { ...opening, draw: settleDraw(opening.draw, seed, now) }
+    ? { ...opening, draw: settleDraw(opening.draw, seed, now, opening.stops) }
     : opening;
-  const step = openingStep(settled);
+  const step = openingStep(settled, Date.parse(now));
   return {
     opening: settled,
     step:
@@ -100,7 +103,11 @@ const mayStrike = (
   );
 
 export type StrikeRefusal =
-  'not-seated' | 'strike-conflict' | 'strike-unavailable' | 'not-your-turn';
+  | 'not-seated'
+  | 'strike-conflict'
+  | 'strike-unavailable'
+  | 'not-your-turn'
+  | 'platform-incident';
 
 /**
  * A debater's strike on the settled opening. The ordinal names the turn the
@@ -127,11 +134,18 @@ export function strikeOpening(
       (seat.role === 'affirmative' || seat.role === 'negative'),
   );
   if (!debater) return refuse('not-seated');
+  const nowMs = Date.parse(strike.now);
+  if (
+    opening.stops.some(
+      (stop) => stop.to === null || Date.parse(stop.to) > nowMs,
+    )
+  )
+    return refuse('platform-incident');
   const { draw } = opening;
   if (!draw) return refuse('strike-unavailable');
   if (revealed(draw) || strike.ordinal !== draw.strikes.length)
     return refuse('strike-conflict');
-  const step = openingStep(opening);
+  const step = openingStep(opening, nowMs);
   if (step.step !== 'strike' || !mayStrike(step, seats, actorId))
     return refuse('not-your-turn');
   if (!standingPositions(draw).includes(strike.position))
@@ -167,8 +181,9 @@ const projectDraw = (
   debater: boolean,
   actorId: string | null,
   now: string,
+  stops: readonly ClockStop[],
 ): NonNullable<OpeningView['draw']> => {
-  const open = turnOf(draw);
+  const open = turnOf(draw, stops, Date.parse(now));
   const turn = open && {
     ordinal: open.ordinal,
     side: open.side,
@@ -245,7 +260,8 @@ export function projectOpening(
                 ),
               }
             : step,
-      draw: draw && projectDraw(draw, debater, viewerActorId, now),
+      draw:
+        draw && projectDraw(draw, debater, viewerActorId, now, opening.stops),
       canStrike:
         viewerActorId !== null && mayStrike(step, seats, viewerActorId),
     },

@@ -18,6 +18,7 @@ const state = {
     startedAt: at(0).toISOString(),
     endedAt: null,
     durationMs: 60_000,
+    returnedMs: 0,
   },
   intervals: [
     {

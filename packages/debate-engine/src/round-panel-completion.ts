@@ -1,3 +1,4 @@
+import { roundIncidentPolicy } from '@daisy/protocol';
 import { createInvariantError } from '@daisy/errors';
 import type {
   DebateSide,
@@ -29,23 +30,44 @@ export type PanelDecision =
     };
 
 type Completeness = { readonly completeness: 'complete' | 'incomplete' };
+/** What a freeze measured of its capture; a null gap was never measured. */
+type FrozenCapture = {
+  readonly gapMs: number | null;
+  readonly expectedMs: number;
+  /** A stream states lost audio. A silent seat also falls short, and is no incident. */
+  readonly platformLostAudio: boolean;
+};
 /**
- * Who may rule on a frozen transcript (DEC-208). An AI judge never decides from
- * a transcript frozen incomplete, which only a media, capture or speech-to-text
- * gap produces, so no AI judging is dispatched. A ballot deadline exists only
+ * Whether a frozen Round's capture is good enough for an AI judge: a small gap
+ * is judged and stated. A gap that was never measured cannot be proven small.
+ */
+const captureWithinLimit = (capture: FrozenCapture): boolean =>
+  capture.gapMs !== null &&
+  capture.expectedMs > 0 &&
+  capture.gapMs / capture.expectedMs <= roundIncidentPolicy.maxCaptureGapShare;
+
+/**
+ * Who may rule on a frozen transcript (DEC-208, ADR 0110). An AI judge rules
+ * unless capture fell below the limit, and then an AI-only Round ends as a
+ * platform incident: a human judge heard it live. A ballot deadline exists only
  * for a human judge to rule by: with none, nobody waits on it. An AI seat is
  * bounded by its own budget instead (DEC-275).
  */
 export function freezeJudgingPlan(
   input: Completeness & {
+    readonly capture: FrozenCapture;
     /** Whether any judge seat is a human, who heard the Round live. */
     readonly humanJudges: boolean;
     readonly ballotDeadlineMs: number;
     readonly aiJudgingBudgetMs: number;
   },
 ) {
+  const judgeable =
+    input.completeness !== 'incomplete' || captureWithinLimit(input.capture);
   return {
-    dispatchAiJudges: input.completeness !== 'incomplete',
+    dispatchAiJudges: judgeable,
+    endsAsPlatformIncident:
+      !judgeable && !input.humanJudges && input.capture.platformLostAudio,
     ballotDeadlineMs: input.humanJudges ? input.ballotDeadlineMs : null,
     aiJudgingBudgetMs: input.aiJudgingBudgetMs,
   };

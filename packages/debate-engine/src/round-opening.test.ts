@@ -24,14 +24,14 @@ const windowMs = (draw: ResolutionDrawState) => draw.manifest.strikeWindowMs;
 const opening = (
   draw: ResolutionDrawState | null,
   prepMs: number | null,
-): RoundOpening => ({ startedAt: STARTED_AT, draw, prepMs });
+): RoundOpening => ({ startedAt: STARTED_AT, draw, prepMs, stops: [] });
 
 describe('openingStep', () => {
   test('a Round with neither step opens at Start round', () => {
     assert({
       given: 'no draw and no prep',
       should: 'be complete at the Start round instant',
-      actual: openingStep(opening(null, null)),
+      actual: openingStep(opening(null, null), Date.parse(STARTED_AT)),
       expected: { step: 'complete', at: STARTED_AT },
     });
   });
@@ -40,7 +40,7 @@ describe('openingStep', () => {
     assert({
       given: 'prep and no draw',
       should: 'prep from Start round for its full length',
-      actual: openingStep(opening(null, PREP_MS)),
+      actual: openingStep(opening(null, PREP_MS), Date.parse(STARTED_AT)),
       expected: {
         step: 'prep',
         startedAt: STARTED_AT,
@@ -50,7 +50,10 @@ describe('openingStep', () => {
   });
 
   test('an unrevealed draw is the strike step whatever prep follows', () => {
-    const step = openingStep(opening(humanDraw(), PREP_MS));
+    const step = openingStep(
+      opening(humanDraw(), PREP_MS),
+      Date.parse(STARTED_AT),
+    );
     assert({
       given: 'a draw with no strikes yet',
       should: 'be on the first strike turn',

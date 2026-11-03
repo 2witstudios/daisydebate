@@ -1,3 +1,4 @@
+import { clockStopsOf, runningMs } from '@daisy/protocol';
 import type {
   DebateSide,
   RoundCommand,
@@ -86,7 +87,11 @@ const startPrep = (c: CommandContext): void => {
 const startSpeech = (c: CommandContext): void => {
   const active = c.on.checkpoint().active_prep!;
   const side = active.side;
-  const elapsed = c.now - Date.parse(active.started_at);
+  const elapsed = runningMs(
+    Date.parse(active.started_at),
+    c.now,
+    clockStopsOf(c.on.checkpoint()),
+  );
   const budget = c.rules.inRoundPrep?.budgetMsPerSide ?? 0;
   c.on.setPrepConsumed(
     side,

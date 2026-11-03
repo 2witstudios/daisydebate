@@ -93,8 +93,11 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
       hidden: false,
       capture: false,
     };
+  // A platform incident holds every microphone: the clock is not running.
   const microphone =
-    position.prep === null && (conversational(position) || speakingNow(input));
+    position.incident.phase === 'none' &&
+    position.prep === null &&
+    (conversational(position) || speakingNow(input));
   return {
     publish: publishSources(seat.kind === 'human', microphone),
     subscribe: seat.kind === 'human',

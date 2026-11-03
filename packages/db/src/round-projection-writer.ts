@@ -48,7 +48,8 @@ const projectionChanged = (
   if (
     addedStrikes > 0 ||
     projection.segmentInserts.length > 0 ||
-    projection.segmentCloses.length > 0
+    projection.segmentCloses.length > 0 ||
+    (projection.segmentReturns?.length ?? 0) > 0
   )
     return true;
   if (projected === null) return false;
@@ -271,6 +272,13 @@ async function writeProjection(
         and(eq(roundSegments.id, close.id), eq(roundSegments.roundId, roundId)),
       );
   }
+  for (const back of projection.segmentReturns ?? [])
+    await tx
+      .update(roundSegments)
+      .set({ returnedMs: back.returnedMs })
+      .where(
+        and(eq(roundSegments.id, back.id), eq(roundSegments.roundId, roundId)),
+      );
   for (const insert of projection.segmentInserts) {
     try {
       await tx.insert(roundSegments).values({

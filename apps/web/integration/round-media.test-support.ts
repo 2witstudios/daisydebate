@@ -53,6 +53,7 @@ export const mediaDependencies = (
   wait: () => Bun.sleep(10),
   now: () => performance.now(),
   // Every recover call is a pass; recovery-due tests choose their own heartbeat.
+  observeIncident: async () => undefined,
   recoveryHeartbeatMs: 0,
 });
 export const withMediaRound = (

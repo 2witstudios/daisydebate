@@ -19,6 +19,8 @@ describe('round runtime hydration', () => {
         prep_consumed_ms: { affirmative: 30_000, negative: 0 },
         active_prep: { side: 'affirmative', started_at: at(945_000) },
         floor: null,
+        incident: { phase: 'none' },
+        clock_stops: [],
       },
       segments: [
         {
@@ -29,6 +31,7 @@ describe('round runtime hydration', () => {
           startedAt: at(10_000),
           endedAt: at(310_000),
           durationMs: 300_000,
+          returnedMs: 0,
         },
         {
           id: 'segment-2',
@@ -38,6 +41,7 @@ describe('round runtime hydration', () => {
           startedAt: at(320_000),
           endedAt: at(440_000),
           durationMs: 120_000,
+          returnedMs: 0,
         },
         {
           id: 'segment-3',
@@ -47,6 +51,7 @@ describe('round runtime hydration', () => {
           startedAt: at(450_000),
           endedAt: at(810_000),
           durationMs: 360_000,
+          returnedMs: 0,
         },
         {
           id: 'segment-4',
@@ -56,6 +61,7 @@ describe('round runtime hydration', () => {
           startedAt: at(820_000),
           endedAt: at(940_000),
           durationMs: 120_000,
+          returnedMs: 0,
         },
       ],
     });
@@ -91,6 +97,7 @@ describe('round runtime hydration', () => {
             startedAt: at(10_000),
             endedAt: at(310_000),
             durationMs: 299_000,
+            returnedMs: 0,
           },
         ],
       });
@@ -113,6 +120,7 @@ describe('round runtime hydration', () => {
             startedAt: at(10_000),
             endedAt: at(130_000),
             durationMs: 120_000,
+            returnedMs: 0,
           },
         ],
       });
@@ -135,6 +143,7 @@ describe('round runtime hydration', () => {
             startedAt: at(10_000),
             endedAt: at(310_000),
             durationMs: 300_000,
+            returnedMs: 0,
           },
         ],
       });
@@ -161,6 +170,7 @@ describe('round runtime hydration', () => {
             startedAt: at(10_000),
             endedAt: null,
             durationMs: 300_000,
+            returnedMs: 0,
           },
           {
             id: 'segment-2',
@@ -170,6 +180,7 @@ describe('round runtime hydration', () => {
             startedAt: at(310_000),
             endedAt: null,
             durationMs: 120_000,
+            returnedMs: 0,
           },
         ],
       });

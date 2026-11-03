@@ -14,6 +14,7 @@ export type RoundReceiptView = Pick<
   | 'participants'
   | 'outcome'
   | 'panelRuling'
+  | 'endedByPlatformIncident'
 > & {
   readonly resolutionAudit?: RoundView['resolutionAudit'];
   readonly config: Pick<RoundView['config'], 'preRoundPrep'>;
@@ -35,17 +36,19 @@ const statusLabel: Readonly<Record<RoundView['status'], string>> = {
  * judges, or judges who did not rule by the deadline (DEC-201).
  */
 const resultText = (round: RoundReceiptView) =>
-  round.outcome
-    ? resultLabel[round.outcome]
-    : round.panelRuling === 'transcript-incomplete'
-      ? 'Transcript incomplete'
-      : round.panelRuling === 'judging-failed'
-        ? 'AI judge could not rule'
-        : round.panelRuling === 'judges-split'
-          ? 'Judges split'
-          : round.participants.some((seat) => seat.role === 'judge')
-            ? 'Judges did not rule'
-            : 'Unjudged';
+  round.endedByPlatformIncident
+    ? 'Ended by a Daisy server failure. No result, no rating and no charge.'
+    : round.outcome
+      ? resultLabel[round.outcome]
+      : round.panelRuling === 'transcript-incomplete'
+        ? 'Transcript incomplete'
+        : round.panelRuling === 'judging-failed'
+          ? 'AI judge could not rule'
+          : round.panelRuling === 'judges-split'
+            ? 'Judges split'
+            : round.participants.some((seat) => seat.role === 'judge')
+              ? 'Judges did not rule'
+              : 'Unjudged';
 const resultLabel: Readonly<Record<NonNullable<RoundView['outcome']>, string>> =
   {
     affirmative: 'Affirmative won',
@@ -110,7 +113,9 @@ export function RoundReceipt({
         <h1 className="font-display text-2xl font-semibold text-ink">
           Round result
         </h1>
-        {round.outcome || round.status === 'completed' ? (
+        {round.outcome ||
+        round.status === 'completed' ||
+        round.endedByPlatformIncident ? (
           <p className="text-lg font-strong text-ink">
             Result · {resultText(round)}
           </p>

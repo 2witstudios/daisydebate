@@ -5,6 +5,9 @@
  * added in the same change as its first consumer (knip's
  * `includeEntryExports` fails an export nobody imports).
  */
+export { segmentDueAtMs, speakingEndMs } from './segment-end';
+export { dueAfterStops, runningMs } from './clock-stops';
+export type { ClockStop } from './clock-stops';
 export {
   idSchema,
   debateSides,
@@ -64,6 +67,7 @@ export type {
   RoundCommand,
   SegmentInsert,
   SegmentClose,
+  SegmentReturn,
   RoundEffect,
   RoundProjection,
   RoundSpeakingChange,
@@ -77,12 +81,16 @@ export {
   roundStageSchema,
   runtimeCheckpointSchema,
   emptyRuntimeCheckpoint,
+  clockStopsOf,
+  platformIncidentCauses,
 } from './round';
 export type {
   CompetitionType,
   RoundStatus,
   RoundStage,
   RuntimeCheckpoint,
+  RoundIncident,
+  PlatformIncidentCause,
 } from './round';
 export {
   judgingAttemptCategories,
@@ -468,9 +476,13 @@ export {
 } from './attendance';
 export { attendanceRoundReadSchema } from './attendance';
 export { roundRecordSchema, type RoundRecord } from './round-view';
+export { frozenCaptureGapsSchema } from './capture-gap';
+export type { FrozenCaptureGaps } from './capture-gap';
 export { roundMediaPolicy } from './round-media-policy';
+export { roundIncidentPolicy } from './round-incident-policy';
 export {
   capturePartialReasons,
+  partialReasonsStateLoss,
   capturePartialReasonSchema,
   type CaptureFacts,
   type CaptureGap,

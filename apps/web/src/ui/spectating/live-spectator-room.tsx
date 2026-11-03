@@ -19,6 +19,7 @@ import { useLiveRoundView } from '../debate-room/use-live-round-view';
 import { useRoundEndedRoute } from '../debate-room/use-round-ended';
 import { useSecond } from '../debate-room/use-second';
 import { useRoundTime } from '../debate-room/use-round-time';
+import { RoundIncidentBanner } from '../debate-room/round-incident-banner';
 import { RoundTimeNotice } from '../debate-room/round-time-notice';
 import { initialsOf } from '../../lib/initials';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
@@ -203,6 +204,7 @@ export function LiveSpectatorRoom(props: {
       <OpeningStatus view={view} nowMs={now} />
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       <RoundTimeNotice roundTime={roundTime} />
+      <RoundIncidentBanner checkpoint={view.checkpoint} nowMs={now} />
       {note ? <p role="status">{note}</p> : null}
       <ul
         aria-label="Debaters"

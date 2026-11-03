@@ -10,6 +10,7 @@ const scheduled: RoundReceiptView = {
   status: 'opening',
   outcome: null,
   panelRuling: null,
+  endedByPlatformIncident: false,
   topic: '<Frozen topic>',
   config: { preRoundPrep: { enabled: true, durationMs: 45000 } },
   rules: {
@@ -178,6 +179,7 @@ test('a Round closed on an incomplete transcript says so instead of blaming the 
         ...judged,
         outcome: null,
         panelRuling: 'transcript-incomplete',
+        endedByPlatformIncident: false,
       }}
     />,
   );
@@ -318,5 +320,29 @@ test('a Round abandoned at the attendance cutoff blames nobody', () => {
       html.includes('Judges did not rule'),
     ],
     expected: [true, false, false],
+  });
+});
+
+test('a Round the platform ended states the cause', () => {
+  const html = renderToStaticMarkup(
+    <RoundReceipt
+      round={{
+        ...judged,
+        status: 'abandoned',
+        outcome: null,
+        panelRuling: null,
+        endedByPlatformIncident: true,
+      }}
+    />,
+  );
+  assert({
+    given: 'a Round ended by a platform incident',
+    should: 'say the server failed, and that nothing counts or is charged',
+    actual: [
+      html.includes('Daisy server failure'),
+      html.includes('No result, no rating and no charge'),
+      html.includes('Judges did not rule'),
+    ],
+    expected: [true, true, false],
   });
 });

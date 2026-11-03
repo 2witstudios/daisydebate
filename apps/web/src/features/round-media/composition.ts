@@ -12,6 +12,7 @@ import {
   withTimeout,
   type ErrorReporter,
 } from '@daisy/observability';
+import { createRoundIncidentObserver } from '../round-incidents/observe';
 import { createMediaWorkerTokenBroker } from './worker-token';
 import { mediaRuntime } from './projection';
 import type { MediaOperationInput } from './operation-context';
@@ -78,6 +79,12 @@ export function createRoundMediaRuntime(
       nextId: () => app.ids.next(),
       reporter,
       logger: app.logger,
+      observeIncident: createRoundIncidentObserver({
+        store: app.database.roundIncidents,
+        reporter,
+        logger: app.logger,
+        nextId: () => app.ids.next(),
+      }),
       deadline: (work) => withTimeout(work, 2_000),
       wait: () => Bun.sleep(25),
       now: () => Date.parse(app.clock.now()),

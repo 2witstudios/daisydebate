@@ -144,6 +144,8 @@ export function createMediaWorld(
           prep_consumed_ms: { affirmative: 0, negative: 0 },
           active_prep: null,
           floor: null,
+          incident: { phase: 'none' },
+          clock_stops: [],
         },
         segments: [],
       },
@@ -327,6 +329,7 @@ export function createMediaWorld(
   } as unknown as Store;
   const media = createMediaVendor({ journal, rooms, connected, fail });
   const input: MediaOperationInput = {
+    observeIncident: async () => undefined,
     recoveryHeartbeatMs: 0,
     priority,
     store,

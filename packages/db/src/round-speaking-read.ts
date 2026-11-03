@@ -63,7 +63,7 @@ export const roundSpeakingRead = ({
             sql`${roundSpeakingIntervals.startedAt} <= ${new Date(before)}`,
             sql`(${roundSpeakingIntervals.endedAt} is null or ${roundSpeakingIntervals.endedAt} > ${new Date(after)})`,
             sql`${roundSegments.startedAt} <= ${new Date(before)}`,
-            sql`${new Date(after)} < least(coalesce(${roundSegments.endedAt}, 'infinity'::timestamptz), ${roundSegments.startedAt} + ${roundSegments.durationMs} * interval '1 millisecond')`,
+            sql`${new Date(after)} < least(coalesce(${roundSegments.endedAt}, 'infinity'::timestamptz), ${roundSegments.dueAt})`,
           ),
         )
         .limit(1);

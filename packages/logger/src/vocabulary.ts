@@ -36,6 +36,8 @@ export const eventRegistry = {
   'round.media.unsafe': 'error',
   'round.media.room_retired': 'warn',
   'round.media.node_health': 'warn',
+  'round.incident.opened': 'error',
+  'round.incident.ended': 'error',
   'round.media.reconcile_deferred': 'warn',
   'round.media.request_deferred': 'info',
   'round.media.fairness_degraded': 'warn',

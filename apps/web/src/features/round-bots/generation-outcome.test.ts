@@ -25,7 +25,9 @@ async function settlementOf(
       finishRoundBotGeneration: async (_scope, _execution, outcome, usage) => {
         settled.push([outcome, usage.characters]);
       },
-      verifyRoundBotPublication: async () => {},
+      verifyRoundBotPublication: async () => ({
+        segmentDueAt: '2026-10-23T10:01:00.000Z',
+      }),
     },
     voice: () => createOpenRouter({ apiKey: 'key', fetch }),
     withProvider: (_signal, work) => work(),

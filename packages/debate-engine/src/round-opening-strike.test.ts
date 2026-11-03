@@ -135,7 +135,7 @@ describe('strikes', () => {
       actual: [
         settled.draw!.manifest.controllers,
         settled.draw!.strikes.map((s) => [s.kind, s.at]),
-        openingStep(settled).step,
+        openingStep(settled, Date.parse(edges.now)).step,
       ],
       expected: [
         { affirmative: 'human', negative: 'automatic' },

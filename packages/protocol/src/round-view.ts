@@ -116,6 +116,8 @@ export const roundViewSchema = z.strictObject({
   outcome: roundOutcomeSchema.nullable(),
   /** The panel completion's ruling, from its durable receipt; null for any other completion. */
   panelRuling: panelRulingSchema.nullable(),
+  /** The platform ended this Round: no outcome, no rating, no penalty, no charge. */
+  endedByPlatformIncident: z.boolean(),
   /** What a played Round is waiting on; null until its speeches end. */
   waitingOn: roundWaitingOnSchema.nullable(),
   /** The frozen transcript's completeness; null until it freezes. */
@@ -136,6 +138,7 @@ export const roundViewSchema = z.strictObject({
         startedAt: instant,
         endedAt: instant.nullable(),
         durationMs: z.int().positive(),
+        returnedMs: z.int().nonnegative(),
       }),
     )
     .refine(

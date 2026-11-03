@@ -75,6 +75,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'round_judging_attempts.diagnostic',
         'round_judging_jobs.pending_ballot',
         'round_resolution_draws.manifest',
+        'round_transcript_freezes.capture_gaps',
         'rounds.resolution_evidence',
         'rounds.room_config_snapshot',
         'rounds.rules_snapshot',

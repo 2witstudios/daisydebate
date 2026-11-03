@@ -1,0 +1,2 @@
+ALTER TABLE "media_sessions" ADD COLUMN "vendor_unreachable_since" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "media_sessions" ADD COLUMN "room_saw_capture" boolean DEFAULT false NOT NULL;

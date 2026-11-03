@@ -159,6 +159,7 @@ function cutStream(
         endedAtMs:
           segment.endedAt === null ? null : Date.parse(segment.endedAt),
         durationMs: segment.durationMs,
+        returnedMs: segment.returnedMs,
       },
     ],
     intervals: state.intervals.map((i) => ({

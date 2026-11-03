@@ -1,7 +1,12 @@
 import type { ResolutionDrawState } from './resolution-draw';
 import type { DebateRole, DebateSide, RoundOutcome } from './primitives';
 import type { SegmentType } from './format';
-import type { RoundStage, RoundStatus, RuntimeCheckpoint } from './round';
+import type {
+  RoundIncident,
+  RoundStage,
+  RoundStatus,
+  RuntimeCheckpoint,
+} from './round';
 
 /**
  * The round runtime contract (ADR 0058 §4) between `@daisy/db`, which
@@ -29,6 +34,8 @@ export type HydratedSegment = {
   readonly startedAt: string;
   readonly endedAt: string | null;
   readonly durationMs: number;
+  /** Airtime a platform incident gave back; the duration stays the rule's. */
+  readonly returnedMs: number;
 };
 
 /** One `round_participants` row, hydrated. */
@@ -60,6 +67,12 @@ export type SegmentInsert = {
 export type SegmentClose = {
   readonly id: string;
   readonly endedAt: string;
+};
+
+/** A speech's new total of returned airtime, for the caller to write onto its row. */
+export type SegmentReturn = {
+  readonly id: string;
+  readonly returnedMs: number;
 };
 
 /** What a command or a tick did, for outbox fan-out and AI wake. */
@@ -125,6 +138,7 @@ export type RoundProjection = {
   } | null;
   readonly segmentInserts: readonly SegmentInsert[];
   readonly segmentCloses: readonly SegmentClose[];
+  readonly segmentReturns?: readonly SegmentReturn[];
   readonly effects: readonly RoundEffect[];
 };
 
@@ -161,4 +175,6 @@ export type RoundPosition = {
   } | null;
   /** Remaining budget per side; null when the format has no in-round prep. */
   readonly prepBudgetRemainingMs: Readonly<Record<DebateSide, number>> | null;
+  /** A platform incident's hold on the clock, for every viewer alike. */
+  readonly incident: RoundIncident;
 };

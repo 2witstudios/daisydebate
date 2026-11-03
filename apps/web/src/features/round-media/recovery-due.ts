@@ -1,6 +1,6 @@
 import { mediaWindowClosed } from '@daisy/debate-engine/media-window';
 import type { RoundStatus } from '@daisy/protocol';
-import { floorBoundaries, type FloorClock } from './floor-clock';
+import { dueAt, floorBoundaries, type FloorClock } from './floor-clock';
 
 /**
  * How many Rounds one process recovers at once. A pass runs its transactions one
@@ -42,13 +42,7 @@ const boundaryPassed = (session: RecoverySession, lastPassMs: number) => {
   const { lastSegment, countdownMs } = session.clock;
   // Time alone can pass a speech's end and then its countdown with nothing committed.
   const afterOpenSpeech =
-    lastSegment?.endedAt === null
-      ? [
-          Date.parse(lastSegment.startedAt) +
-            lastSegment.durationMs +
-            countdownMs,
-        ]
-      : [];
+    lastSegment?.endedAt === null ? [dueAt(lastSegment) + countdownMs] : [];
   return [...floorBoundaries(session.clock), ...afterOpenSpeech].some(
     (at) => at > lastPassMs && at <= nowMs,
   );

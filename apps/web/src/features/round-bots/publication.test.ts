@@ -57,6 +57,9 @@ function harness(
           throw createRefusal('CONFLICT', 'bot-room-changed');
         }
         if (window) events.push(room === 'room' ? 'credit' : 'credit-no-room');
+        return {
+          segmentDueAt: new Date(1_792_000_000_000 + 3_600_000).toISOString(),
+        };
       },
     } as never,
     botToken: async () => ({
