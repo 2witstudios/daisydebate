@@ -19,6 +19,7 @@ test('the floor is due at the latest committed change, never a future one', () =
     startedAt: at(5_000),
     endedAt: at(8_000),
     durationMs: 60_000,
+    returnedMs: 0,
   });
   assert({
     given: 'a yield committed, its countdown still running',

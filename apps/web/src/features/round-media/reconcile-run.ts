@@ -400,7 +400,8 @@ export function createMediaReconcileRun(
           known,
           // Only a real failure before any read means the vendor was not reached.
           observation ?? { kind: failure ? 'unreachable' : 'unread' },
-          Boolean(finished.retired),
+          finished.fate.kind === 'rotate' &&
+            finished.fate.cause !== 'seat-revoked',
         );
     }
     if (failure) {
