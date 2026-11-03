@@ -142,6 +142,8 @@ export type LiveConnection = {
   readonly sound: 'allowed' | 'blocked';
   /** A mute change this connection is carrying out. */
   readonly changingMicrophone: boolean;
+  /** A blip: `resuming` until the SDK's short budget answers, or a drop ends this link. */
+  readonly transport: 'steady' | 'resuming';
   readonly reads: LiveReads;
   readonly apply: RunningApply | null;
 };

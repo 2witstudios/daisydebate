@@ -16,16 +16,17 @@ subscribe and hidden booleans, and capture=false. Other mutations have empty
 payloads. Capture-agent authorization is a separate server scope.
 
 Intent is immutable. Settlement records one known succeeded/failed outcome with
-its PostgreSQL timestamp. A provider answer is known (ISSUE-464): success, or a
+its PostgreSQL timestamp, or `superseded` when its room was retired with the outcome
+still unknown ([ADR 0110](../decisions/0110-disposable-vendor-room.md)). A provider answer is known (ISSUE-464): success, or a
 definite LiveKit refusal (a 4xx other than a 408 or `deadline_exceeded` timeout, which may have applied and stays unknown). Not found on a delete proves the room is absent
 and settles succeeded; any other definite refusal settles failed without making
 the session unsafe. Only a network failure, timeout or provider fault leaves the
-outcome unknown; unknown operations remain pending across crashes without an
-expiry that invents success or failure. Pending intent cannot be directly
+outcome unknown; unknown operations remain pending across crashes until their room is retired, and
+nothing invents success or failure. Pending intent cannot be directly
 deleted while its session exists. Owning Round/session erasure cascades normally.
-Unsafe state cannot be cleared while pending intent exists. Clearing it after
-settlement additionally requires actual verified vendor cleanup in the adapter;
-the database does not claim that verification from a timestamp or a failed call.
+Unsafe state clears only through retirement: observed absence, or uncertainty 6 s old
+by the database clock. Either gives the session a fresh room name, so a late write can
+reach only a name no token uses.
 A clean recovery of a Round that is still open also clears the room deletion
 request, so the unsafe episode ends and capture discovery resumes (ISSUE-465);
 a terminal Round keeps it.
@@ -54,15 +55,13 @@ debater) also holds its microphone captured but unpublished between turns, so
 a grant costs a publish rather than a device open. The track ends when the
 seat's grants close, on disconnect or at a terminal stop (ISSUE-572).
 
-Cleanup first calls `prepareMediaAbsenceProof` under the current session owner
-and epoch. It returns no proof while any intent is pending. Otherwise it records
-the settled immutable-intent count with that fence. Only after that transaction
-commits may the provider absence observation run. `finishMediaReconcile` accepts
-the proof only if its session, owner, epoch and mutation count still match and
-no intent is pending. An absence observed before a late creation settles cannot
-be reused after settlement; another run must clean up and observe absence anew.
-These proof fields are transient witnesses, not stored credentials or new
-columns. Provider I/O remains outside every database transaction.
+Cleanup first calls `prepareMediaAbsenceProof` under the current session owner and
+epoch, which records the immutable-intent count with that fence. Only after that
+transaction commits may the provider absence observation run.
+`finishMediaReconcile` accepts the proof only if its session, owner, epoch and mutation
+count still match. A room on a dead node stays listed by LiveKit, so an unreachable or
+stale room retires by age instead. Provider I/O remains outside every database
+transaction.
 
 These fields contain no personal transcript or credentials. Timestamps, counters,
 kind, outcome and strict permission payload have privacy category none. Session,

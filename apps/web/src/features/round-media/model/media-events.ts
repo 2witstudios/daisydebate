@@ -48,7 +48,10 @@ export type RoomEvent =
   | { readonly type: 'mute-applied'; readonly muted: boolean }
   | { readonly type: 'mute-abandoned' }
   | { readonly type: 'mute-failed'; readonly kind: DeviceFailureKind }
-  | { readonly type: 'playback-changed'; readonly allowed: boolean };
+  | { readonly type: 'playback-changed'; readonly allowed: boolean }
+  /** The SDK is resuming this connection after a blip; tracks and connection stay. */
+  | { readonly type: 'transport-resuming' }
+  | { readonly type: 'transport-resumed' };
 
 export type MediaEvent =
   | { readonly type: 'tab-changed'; readonly owns: boolean | null }

@@ -16,7 +16,7 @@ import {
   stubSdk,
 } from './livekit-room.test-support';
 import { admission } from '../media-fixtures.test-support';
-import { createLiveKitRoom } from './livekit-room';
+import { createLiveKitRoom, resumeDelayMs } from './livekit-room';
 import type { RoomEvent as MediaRoomEvent } from '../model/media-events';
 setupRitewayBun();
 
@@ -76,6 +76,36 @@ test('an unexpected disconnect ends every captured track', async () => {
     should: 'end it, since LiveKit skips a room already disconnected',
     actual: stub.captured.filter((track) => !track.ended).length,
     expected: 0,
+  });
+});
+
+test('a blip keeps every captured track; only a drop ends them', async () => {
+  const stub = stubSdk();
+  const { transport } = createBrowserMediaTransport(events, stub.sdk);
+  await transport.connect(admission);
+  void transport.apply(publish(['camera']));
+  await settle();
+  stub.fire(RoomEvent.Reconnecting);
+  stub.fire(RoomEvent.Reconnected);
+  assert({
+    given: 'the SDK resuming the connection after a signal blip',
+    should: 'leave the captured camera running',
+    actual: stub.captured.filter((track) => track.ended).length,
+    expected: 0,
+  });
+});
+
+test('a connection tries to resume only inside its short budget', () => {
+  assert({
+    given: 'each retry inside the budget, and one past it',
+    should: 'retry quickly, then give up to the one recovery loop',
+    actual: [
+      resumeDelayMs({ retryCount: 0, elapsedMs: 0 }),
+      resumeDelayMs({ retryCount: 1, elapsedMs: 10 }),
+      resumeDelayMs({ retryCount: 9, elapsedMs: 4_999 }),
+      resumeDelayMs({ retryCount: 2, elapsedMs: 5_000 }),
+    ],
+    expected: [0, 300, 1_500, null],
   });
 });
 
