@@ -15,7 +15,7 @@ import type {
 import type { RosterCursor, RosterRow } from '@daisy/db/presence-roster';
 import { ratingStanding } from '../ratings/standing';
 import { requireMemberActor } from '../access/actor';
-import { displayStatus, isAround } from './status';
+import { displayStatus } from './status';
 
 /** One page of the list. A browser asks for more as the viewer scrolls. */
 export const ROSTER_PAGE = 50;
@@ -31,6 +31,7 @@ export type OnlineRosterDependencies = {
     scope: { readonly userId: string; readonly actorId: string },
     input: {
       readonly onlineActorIds: readonly string[];
+      readonly now: string;
       readonly filter: OnlineFilter;
       readonly query: string | null;
       readonly after: RosterCursor | null;
@@ -38,7 +39,11 @@ export type OnlineRosterDependencies = {
     },
   ) => Promise<{
     readonly rows: readonly RosterRow[];
-    readonly counts: { readonly everyone: number; readonly friends: number };
+    readonly counts: {
+      readonly everyone: number;
+      readonly friends: number;
+      readonly online: number;
+    };
     readonly self: {
       readonly chosen: RosterRow['chosen'];
       readonly placement: RosterRow['placement'];
@@ -80,7 +85,12 @@ export const shownLadders = (
 /** An opaque keyset position; a tampered one is a refusal, never a probe. */
 export const encodeRosterCursor = (cursor: RosterCursor): string =>
   Buffer.from(
-    JSON.stringify([cursor.friend, cursor.username, cursor.actorId]),
+    JSON.stringify([
+      cursor.friend,
+      cursor.online,
+      cursor.username,
+      cursor.actorId,
+    ]),
     'utf8',
   ).toString('base64url');
 
@@ -94,13 +104,19 @@ export function decodeRosterCursor(
     );
     if (
       Array.isArray(parsed) &&
-      parsed.length === 3 &&
+      parsed.length === 4 &&
       typeof parsed[0] === 'boolean' &&
-      typeof parsed[1] === 'string' &&
+      typeof parsed[1] === 'boolean' &&
       typeof parsed[2] === 'string' &&
-      /^[a-z0-9]{24}$/.test(parsed[2])
+      typeof parsed[3] === 'string' &&
+      /^[a-z0-9]{24}$/.test(parsed[3])
     )
-      return { friend: parsed[0], username: parsed[1], actorId: parsed[2] };
+      return {
+        friend: parsed[0],
+        online: parsed[1],
+        username: parsed[2],
+        actorId: parsed[3],
+      };
   } catch {
     // Falls through to the refusal.
   }
@@ -117,10 +133,11 @@ const relationOf = (
 };
 
 /**
- * Who is online, as this member may see them (ADR 0103): lease ids from Redis,
- * then one SQL read that drops anyone appearing offline and any blocked pair.
- * A row whose lease lapsed since the scan drops out here. Presence grants
- * nothing, and everything on a row is already public on a profile or a ladder.
+ * Everyone, as this member may see them (ADR 0105): one SQL read that drops any
+ * blocked pair, with lease ids from Redis saying who is online. A member
+ * appearing offline or whose lease lapsed since the scan shows as offline.
+ * Presence grants nothing, and everything on a row is already public on a
+ * profile or a ladder.
  */
 export async function readOnlineRoster(
   principal: AuthorizationPrincipal,
@@ -135,10 +152,12 @@ export async function readOnlineRoster(
   await dependencies.limit(actorId);
   const after = decodeRosterCursor(input.cursor);
   const onlineActorIds = await dependencies.onlineActorIds();
+  const now = dependencies.now();
   const page = await dependencies.page(
     { userId, actorId },
     {
       onlineActorIds,
+      now,
       filter: input.filter,
       query: input.query,
       after,
@@ -153,7 +172,6 @@ export async function readOnlineRoster(
     dependencies.blinded(actorId),
   ]);
   const hidden = new Set(blinded);
-  const now = dependencies.now();
   const visibilityOf = new Map(cards.visibility.map((v) => [v.actorId, v]));
   const members: OnlineMember[] = [];
   for (const row of rows) {
@@ -162,7 +180,6 @@ export async function readOnlineRoster(
       activity: activity.get(row.actorId) ?? null,
       placement: row.placement,
     });
-    if (!isAround(status)) continue;
     const record = tallyRecord(
       cards.records
         .filter((group) => group.actorId === row.actorId)
@@ -205,6 +222,7 @@ export async function readOnlineRoster(
       page.rows.length > ROSTER_PAGE && last
         ? encodeRosterCursor({
             friend: last.friend,
+            online: last.online,
             username: last.username,
             actorId: last.actorId,
           })

@@ -11,10 +11,10 @@ import { origin, resetRateLimits, signUpMember } from './accounts';
  */
 /** The rail, opened: a 1280px window starts it collapsed, and the choice sticks. */
 const openRail = async (page: Page) => {
-  const rail = page.getByRole('complementary', { name: "Who's online" });
-  await rail.getByRole('button', { name: 'Expand online list' }).click();
+  const rail = page.getByRole('complementary', { name: 'People' });
+  await rail.getByRole('button', { name: 'Expand people list' }).click();
   await expect(
-    rail.getByRole('button', { name: 'Collapse online list' }),
+    rail.getByRole('button', { name: 'Collapse people list' }),
   ).toBeVisible();
   return rail;
 };
@@ -210,7 +210,7 @@ export function testWhoIsOnline() {
           .first(),
       ).toBeVisible({ timeout: 30_000 });
 
-      // Appear offline takes them off the list.
+      // Appear offline shows them as offline, like anyone who has left.
       await challenged
         .getByLabel(/^Your account/)
         .first()
@@ -220,9 +220,18 @@ export function testWhoIsOnline() {
         .first()
         .getByRole('button', { name: 'Appear offline' })
         .click();
-      await expect(rail.getByText(`@${b}`, { exact: true })).toHaveCount(0, {
-        timeout: 45_000,
-      });
+      await expect(
+        rail.getByRole('link', { name: new RegExp(`^@${b}, Offline`) }),
+      ).toBeVisible({ timeout: 45_000 });
+
+      // Someone offline can be messaged, not challenged.
+      await rail.getByRole('link', { name: `Actions for @${b}` }).click();
+      await expect(
+        dialog.getByRole('button', { name: 'Challenge', exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        dialog.getByRole('button', { name: 'Message', exact: true }),
+      ).toBeVisible();
     } finally {
       await Promise.all([first.close(), second.close()]);
     }

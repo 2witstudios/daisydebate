@@ -34,7 +34,7 @@ test('a roster row always shows at least one rating', () => {
     version: 1,
     members: [{ ...member, ratings }],
     nextCursor: null,
-    counts: { everyone: 1, friends: 0 },
+    counts: { everyone: 1, friends: 0, online: 1 },
     self: 'online',
   });
   assert({

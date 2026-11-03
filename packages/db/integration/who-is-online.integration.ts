@@ -21,6 +21,7 @@ import { reportsPrivacyAdopter } from '../src/reports/privacy';
 import { moderationPrivacyAdopter } from '../src/moderation/privacy';
 import { moderationOperations } from '../src/moderation/store';
 import { moderationReactions } from '../src/moderation-composition';
+import { admitParticipants } from '../src/beta-access-testing';
 import { createMessagingTestFixture } from '../src/testing';
 import { withFixture } from './constraint-helpers';
 import {
@@ -57,8 +58,10 @@ const page = (
     ctx.me,
     {
       onlineActorIds: [ctx.me.actorId, ctx.them.actorId],
+      now: ctx.now,
       filter: 'all',
-      query: null,
+      // Other suites' members share this database: read only this fixture's.
+      query: ctx.them.userId,
       after: null,
       limit: 10,
       ...over,
@@ -66,11 +69,14 @@ const page = (
     unfenced,
   );
 
-test('the roster leaves out the reader, anyone appearing offline and a blocked pair', async () => {
+test('the roster lists everyone, online or not, except the reader and a blocked pair', async () => {
   const ctx = await open();
   try {
-    const seen = async () => (await page(ctx)).rows.map((row) => row.actorId);
+    const seen = async () =>
+      (await page(ctx)).rows.map((row) => [row.actorId, row.online]);
+    const reader = await page(ctx, { query: ctx.me.userId });
     const open_ = await seen();
+    const unleased = await page(ctx, { onlineActorIds: [] });
     await writeChosenStatus(
       ctx.database,
       ctx.them,
@@ -105,27 +111,147 @@ test('the roster leaves out the reader, anyone appearing offline and a blocked p
     const blocked = await page(ctx);
     assert({
       given:
-        'the other member online, then appearing offline, Busy, then blocking the reader',
+        'the other member online, with no lease, appearing offline, Busy, then blocking the reader',
       should:
-        'list them, hide them, list them as Busy, then hide them both ways',
+        'never list the reader; list them online, offline, offline, Busy, then hide them both ways',
       actual: [
+        reader.rows,
         open_,
+        unleased.rows.map((row) => [row.actorId, row.online]),
         offline,
-        busy.rows.map((row) => row.chosen),
+        busy.rows.map((row) => [row.chosen, row.online]),
         blocked.rows,
-        blocked.counts,
       ],
       expected: [
-        [ctx.them.actorId],
         [],
-        ['busy'],
+        [[ctx.them.actorId, true]],
+        [[ctx.them.actorId, false]],
+        [[ctx.them.actorId, false]],
+        [['busy', true]],
         [],
-        { everyone: 0, friends: 0 },
       ],
     });
   } finally {
     await ctx.cleanup();
     await ctx.client.close();
+  }
+});
+
+test('the roster counts, and orders friends, then online, then by name, across pages', async () => {
+  const ctx = await open();
+  const others = [createId(), createId()].map((id) => ({
+    userId: id,
+    actorId: createId(),
+    username: `${ctx.me.userId.slice(0, 12)}${id.slice(0, 8)}`,
+  }));
+  try {
+    for (const other of others) {
+      await ctx.client.unsafe(
+        'insert into users(id,username,email_verified) values($1,$2,true)',
+        [other.userId, other.username],
+      );
+      await ctx.client.unsafe(
+        "insert into actors(id,kind,user_id) values($1,'human',$2)",
+        [other.actorId, other.userId],
+      );
+    }
+    await admitParticipants(
+      ctx.client,
+      others.map((other) => other.userId),
+    );
+    const [first, second] = [...others].sort((a, b) =>
+      a.username < b.username ? -1 : 1,
+    );
+    const base = {
+      onlineActorIds: [second!.actorId],
+      query: ctx.me.userId.slice(0, 12),
+    };
+    const before = await page(ctx, base);
+    const one = await page(ctx, { ...base, limit: 1 });
+    const cursor = one.rows[0]!;
+    const two = await page(ctx, {
+      ...base,
+      limit: 1,
+      after: {
+        friend: cursor.friend,
+        online: cursor.online,
+        username: cursor.username,
+        actorId: cursor.actorId,
+      },
+    });
+    assert({
+      given: 'two named members, the later name online and the earlier not',
+      should:
+        'list the online one first, page without repeating, and count one more online',
+      actual: [
+        before.rows.map((row) => row.actorId).slice(0, 2),
+        two.rows.map((row) => row.actorId),
+        before.counts.online >= 1,
+        before.counts.everyone >= 2,
+      ],
+      expected: [
+        [second!.actorId, first!.actorId],
+        [first!.actorId],
+        true,
+        true,
+      ],
+    });
+  } finally {
+    for (const other of others) {
+      await ctx.client.unsafe('delete from actors where id = $1', [
+        other.actorId,
+      ]);
+      await ctx.client.unsafe(
+        'delete from account_beta_access where user_id = $1',
+        [other.userId],
+      );
+      await ctx.client.unsafe('delete from users where id = $1', [
+        other.userId,
+      ]);
+    }
+    await ctx.cleanup();
+    await ctx.client.close();
+  }
+});
+
+test('the roster leaves out a member who could not sign in', async () => {
+  const listed = async (ctx: Awaited<ReturnType<typeof open>>) =>
+    (await page(ctx)).rows.length;
+  const withdrawn = await open();
+  const banned = await open();
+  const closed = await open();
+  try {
+    const admitted = await listed(withdrawn);
+    await withdrawn.client.unsafe(
+      "update account_beta_access set state = 'revoked' where user_id = $1",
+      [withdrawn.them.userId],
+    );
+    await banned.client.unsafe(
+      `insert into moderation_actions (id, user_id, kind, starts_at, operator_ref)
+       values ($1, $2, 'ban', $3, 'test')`,
+      [createId(), banned.them.userId, banned.now],
+    );
+    await closed.client.unsafe(
+      'update users set deleted_at = now() where id = $1',
+      [closed.them.userId],
+    );
+    assert({
+      given:
+        'an admitted member, then one withdrawn from the beta, one banned and one closed',
+      should: 'list only the admitted member',
+      actual: [
+        admitted,
+        await listed(withdrawn),
+        await listed(banned),
+        await listed(closed),
+      ],
+      expected: [1, 0, 0, 0],
+    });
+  } finally {
+    for (const ctx of [withdrawn, banned, closed]) {
+      await ctx.cleanup();
+      await ctx.client.close();
+    }
   }
 });
 

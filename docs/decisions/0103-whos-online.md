@@ -1,6 +1,7 @@
 # 0103: Who's online
 
 Status: accepted (owner, 2026-11-02; [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/fxua745ix0t7e81oohvp8z5u)).
+§1 is superseded and §3 amended by [ADR 0105](0105-the-people-list.md).
 Supersedes [ADR 0072](0072-friendships-and-presence.md) §7 (who may see presence),
 §8 (challenge) and its presence-setting consequence. Builds on
 [ADR 0033](0033-presence-and-adjudication.md), [ADR 0043](0043-no-admin-surface-in-participant-app.md),

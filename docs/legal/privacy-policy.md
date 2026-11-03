@@ -62,7 +62,7 @@ Public to anyone, signed in or not, from the moment you choose a username (even 
 
 Debates whose host made them unlisted or private appear only on your own view of your profile. Other people in a debate see your username, your side and what you say in it, and any signed-in member can open a public or unlisted debate’s room and read what was said there.
 
-Other signed-in members see whether you are online, away, busy, in a room or in a round, unless you appear offline or have blocked them. Your card shows your record and your Freestyle rating, and your Policy and Value ratings if you turn them on; ladders show them regardless. Never shown to other members: your email address, birth month, sessions, IP address and onboarding answers.
+Other signed-in members see your username in the list of members, whether or not you are online, unless you have blocked them or they have blocked you. They also see whether you are online, away, busy, in a room or in a round; if you appear offline, you show as offline. Your card shows your record and your Freestyle rating, and your Policy and Value ratings if you turn them on; ladders show them regardless. Never shown to other members: your email address, birth month, sessions, IP address and onboarding answers.
 
 People who run Daisy can see the beta access list (username, request and decision dates) through a separate, private administration app, so that they can approve testers. It does not show email addresses. They also see reports members file there: who reported whom, the reason and where it was made, never a copy of any conversation. A report's outcome can be a warning, a suspension or a ban.
 

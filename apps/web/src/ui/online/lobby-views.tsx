@@ -11,7 +11,7 @@ const seg =
 /** How many are online, for the switch's label. */
 export function OnlineCount() {
   const { roster } = useOnline();
-  return <>{roster.counts.everyone}</>;
+  return <>{roster.counts.online}</>;
 }
 
 /**

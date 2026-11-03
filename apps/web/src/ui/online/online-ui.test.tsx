@@ -54,7 +54,7 @@ const roster = (members: readonly OnlineMember[]): OnlineRoster => ({
   version: 1,
   members: [...members],
   nextCursor: null,
-  counts: { everyone: members.length, friends: 0 },
+  counts: { everyone: members.length + 7, friends: 3, online: members.length },
   self: 'online',
 });
 const inProvider = (children: unknown, members: readonly OnlineMember[]) =>
@@ -101,8 +101,47 @@ describe('the online rail', () => {
     [
       person(),
       person({ username: 'bea', relation: 'friends', status: 'round' }),
+      person({ username: 'cy', status: 'offline' }),
     ],
   );
+  test('the tabs and heading keep their word and number apart', () => {
+    const tabs = html.match(/<button[^>]*aria-pressed[^>]*>/g) ?? [];
+    assert({
+      given: 'the All and Friends tabs',
+      should: 'space each word from its count on the spacing scale',
+      actual: [
+        tabs.length,
+        tabs.every((button) => /\bgap-2\b/.test(button)),
+        /gap-\d+\.5/.test(html),
+      ],
+      expected: [2, true, false],
+    });
+    assert({
+      given: 'three people online among ten listed',
+      should:
+        'count all listed on All and name the online count in the heading',
+      actual: [
+        html.includes('>10</span>'),
+        html.includes('>3</span>'),
+        /People.*3(<!-- -->)? online/.test(html),
+      ],
+      expected: [true, true, true],
+    });
+  });
+  test('offline people sit below those online', () => {
+    assert({
+      given: 'a friend in a Round, a stranger online and a stranger offline',
+      should: 'section Friends, then Online, then Offline, naming each',
+      actual: [
+        html.indexOf('@bea') < html.indexOf('>Online<'),
+        html.indexOf('>Online<') < html.indexOf('@ada'),
+        html.indexOf('@ada') < html.indexOf('>Offline<'),
+        html.indexOf('>Offline<') < html.indexOf('@cy'),
+        html.includes('aria-label="@cy, Offline,'),
+      ],
+      expected: [true, true, true, true, true],
+    });
+  });
   test('a row works before any script', () => {
     assert({
       given: 'the server-rendered rail',

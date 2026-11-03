@@ -107,10 +107,11 @@ export function OnlineProvider({
   const [socketUrl, setSocketUrl] = useState(initialSocketUrl);
   const lastRead = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const shown = useRef({ filter, query, count: roster.counts.everyone });
+  // The read floor scales with who is online, not with everyone listed (ADR 0105).
+  const shown = useRef({ filter, query, count: roster.counts.online });
   useEffect(() => {
-    shown.current = { filter, query, count: roster.counts.everyone };
-  }, [filter, query, roster.counts.everyone]);
+    shown.current = { filter, query, count: roster.counts.online };
+  }, [filter, query, roster.counts.online]);
 
   // A re-read walks as many pages as the viewer loaded, so a ring never
   // snatches the list out from under someone who scrolled.

@@ -34,7 +34,7 @@ const empty = {
   version: 1 as const,
   members: [],
   nextCursor: null,
-  counts: { everyone: 0, friends: 0 },
+  counts: { everyone: 0, friends: 0, online: 0 },
   self: 'online' as const,
 };
 const noChallenges = {

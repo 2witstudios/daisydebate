@@ -63,7 +63,7 @@ const onlineMemberSchema = z.strictObject({
 });
 export type OnlineMember = z.infer<typeof onlineMemberSchema>;
 
-/** Whom an online read lists: everyone, or the reader's friends. */
+/** Whom the people list shows: everyone, or the reader's friends. */
 const onlineFilters = ['all', 'friends'] as const;
 export type OnlineFilter = (typeof onlineFilters)[number];
 
@@ -73,12 +73,12 @@ export const onlineQuerySchema = z.strictObject({
   cursor: z.string().max(256).optional(),
 });
 
-/** One page of who is online, friends first, for this viewer (ADR 0103). */
+/** One page of the people list, friends first, for this viewer (ADR 0105). */
 export const onlineRosterSchema = z.strictObject({
   version: z.literal(1),
   members: z.array(onlineMemberSchema).max(100),
   nextCursor: z.string().nullable(),
-  counts: z.strictObject({ everyone: count, friends: count }),
+  counts: z.strictObject({ everyone: count, friends: count, online: count }),
   /** The viewer's own status now, so their avatar is never a guess. */
   self: z.enum(memberStatuses),
 });

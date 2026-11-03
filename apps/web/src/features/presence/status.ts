@@ -21,6 +21,3 @@ export function displayStatus(input: {
   if (input.chosen === 'busy') return 'busy';
   return input.activity === 'active' ? 'online' : 'away';
 }
-
-/** Whether a status counts as around: everything but offline. */
-export const isAround = (status: MemberStatus): boolean => status !== 'offline';

@@ -2,12 +2,30 @@ import { expect, openPage, test } from './support/fixtures';
 import { origin, resetRateLimits, signUpMember } from './support/accounts';
 
 /**
- * The online list's forms with JavaScript off (ADR 0103). The live journeys
+ * The people list's forms with JavaScript off (ADR 0103). The live journeys
  * need a real realtime service, so they run in the realtime proof
  * (support/whos-online-live.ts, from messaging-realtime.e2e.ts).
  */
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
+});
+
+test('the people list is only for members', async ({ browser }) => {
+  const context = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    const page = await openPage(context, 'a signed-out visitor');
+    await page.goto('/leaderboard');
+    await expect(
+      page.getByRole('complementary', { name: 'People' }),
+    ).toHaveCount(0);
+    const read = await context.request.get('/api/online');
+    expect(read.status()).toBe(401);
+  } finally {
+    await context.close();
+  }
 });
 
 test('a row reaches its actions with JavaScript off', async ({ browser }) => {

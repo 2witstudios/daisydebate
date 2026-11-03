@@ -28,6 +28,7 @@ const row = (actorId: string, username: string, overrides = {}) => ({
   chosen: 'online' as const,
   placement: null,
   friend: false,
+  online: true,
   requesterActorId: null,
   friendshipState: null,
   ...overrides,
@@ -50,7 +51,7 @@ const deps = (
       row(ada, 'ada', { friend: true, friendshipState: 'accepted' }),
       row(bea, 'bea'),
     ],
-    counts: { everyone: 2, friends: 1 },
+    counts: { everyone: 2, friends: 1, online: 2 },
     self: { chosen: 'busy', placement: null },
   }),
   cards: async () => ({ visibility: [], ratings: [], records: [] }),
@@ -101,8 +102,31 @@ describe('readOnlineRoster', () => {
           ['bea', 'away', 'none'],
         ],
         self: 'busy',
-        counts: { everyone: 2, friends: 1 },
+        counts: { everyone: 2, friends: 1, online: 2 },
       },
+    });
+  });
+
+  test('an offline member stays on the list', async () => {
+    const roster = await read({
+      activity: async () => new Map([[me, 'active' as const]]),
+      page: async () => ({
+        rows: [
+          row(ada, 'ada', { online: false }),
+          row(bea, 'bea', { online: false, chosen: 'appearing_offline' }),
+        ],
+        counts: { everyone: 2, friends: 0, online: 0 },
+        self: { chosen: 'online', placement: null },
+      }),
+    });
+    assert({
+      given: 'a member with no lease and one appearing offline',
+      should: 'list both as offline, with nothing telling them apart',
+      actual: roster.members.map((m) => [m.username, m.status]),
+      expected: [
+        ['ada', 'offline'],
+        ['bea', 'offline'],
+      ],
     });
   });
 
@@ -113,7 +137,7 @@ describe('readOnlineRoster', () => {
           row(ada, 'ada', { placement: 'round' }),
           row(bea, 'bea', { placement: 'room', chosen: 'busy' }),
         ],
-        counts: { everyone: 2, friends: 0 },
+        counts: { everyone: 2, friends: 0, online: 2 },
         self: { chosen: 'online', placement: 'room' },
       }),
     });
@@ -125,7 +149,7 @@ describe('readOnlineRoster', () => {
     });
   });
 
-  test('a lease that lapsed since the scan drops out', async () => {
+  test('a lease that lapsed since the scan reads as offline', async () => {
     const roster = await read({
       activity: async () =>
         new Map([
@@ -136,9 +160,12 @@ describe('readOnlineRoster', () => {
     });
     assert({
       given: 'a member whose lease went between the two reads',
-      should: 'leave them off the page',
-      actual: roster.members.map((m) => m.username),
-      expected: ['bea'],
+      should: 'keep them on the page as offline',
+      actual: roster.members.map((m) => [m.username, m.status]),
+      expected: [
+        ['ada', 'offline'],
+        ['bea', 'online'],
+      ],
     });
   });
 
@@ -242,7 +269,7 @@ describe('readOnlineRoster', () => {
         new Map(ids.map((id) => [id, 'active' as const])),
       page: async () => ({
         rows,
-        counts: { everyone: rows.length, friends: 0 },
+        counts: { everyone: rows.length, friends: 0, online: rows.length },
         self: { chosen: 'online', placement: null },
       }),
     });
@@ -253,7 +280,12 @@ describe('readOnlineRoster', () => {
       actual: [roster.members.length, decodeRosterCursor(roster.nextCursor!)],
       expected: [
         ROSTER_PAGE,
-        { friend: false, username: last.username, actorId: last.actorId },
+        {
+          friend: false,
+          online: true,
+          username: last.username,
+          actorId: last.actorId,
+        },
       ],
     });
   });
@@ -280,7 +312,12 @@ describe('readOnlineRoster', () => {
 
 describe('roster cursors', () => {
   test('round trip, and refuse anything tampered', async () => {
-    const cursor = { friend: true, username: 'ada', actorId: ada };
+    const cursor = {
+      friend: true,
+      online: false,
+      username: 'ada',
+      actorId: ada,
+    };
     assert({
       given: 'an encoded position',
       should: 'decode to itself',

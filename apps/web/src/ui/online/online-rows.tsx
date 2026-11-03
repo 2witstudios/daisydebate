@@ -170,7 +170,12 @@ function PersonRow({
         }}
         className="flex min-h-nav-target min-w-0 flex-1 flex-col justify-center no-underline hover:no-underline"
       >
-        <span className="truncate text-sm leading-tight font-semibold text-ink">
+        <span
+          className={cn(
+            'truncate text-sm leading-tight font-semibold',
+            member.status === 'offline' ? 'text-ink-muted' : 'text-ink',
+          )}
+        >
           @{member.username}
         </span>
         <span className="truncate text-xs leading-tight text-ink-muted">
@@ -200,7 +205,7 @@ function PersonRow({
 const headClass =
   'px-3 pt-2 pb-1 text-xs font-bold tracking-wide text-ink-muted uppercase';
 
-/** The list: friends first, then everyone, as one scrolling column. */
+/** The list: friends, then others online, then others offline, as one column. */
 export function PersonList({
   overlay,
   className,
@@ -211,6 +216,8 @@ export function PersonList({
   const { roster, loadMore, filter } = useOnline();
   const friends = roster.members.filter((m) => m.relation === 'friends');
   const others = roster.members.filter((m) => m.relation !== 'friends');
+  const online = others.filter((m) => m.status !== 'offline');
+  const offline = others.filter((m) => m.status === 'offline');
   const section = (title: string, members: readonly OnlineMember[]) =>
     members.length === 0 ? null : (
       <>
@@ -231,7 +238,8 @@ export function PersonList({
   return (
     <ul className={cn('flex list-none flex-col overflow-y-auto', className)}>
       {section('Friends', friends)}
-      {filter === 'all' ? section('Everyone', others) : null}
+      {filter === 'all' ? section('Online', online) : null}
+      {filter === 'all' ? section('Offline', offline) : null}
       {roster.members.length === 0 ? (
         <li>
           <p role="status" className="px-3 py-6 text-center font-semibold">
