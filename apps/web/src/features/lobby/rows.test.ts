@@ -66,7 +66,7 @@ describe('lobbyRow', () => {
       ],
       expected: [
         { verb: 'Spectate', href: `/rooms/${id('a')}`, primary: false },
-        { verb: 'Watch', href: `/rounds/${id('c')}`, primary: false },
+        { verb: 'Watch', href: `/watch/${id('c')}`, primary: false },
         { verb: 'Return to room', href: `/rooms/${id('a')}`, primary: true },
         {
           verb: 'Return to room',
@@ -74,6 +74,25 @@ describe('lobbyRow', () => {
           primary: true,
         },
       ],
+    });
+  });
+
+  test('a live Round that is not public keeps its own page', () => {
+    const round = { id: id('c'), status: 'active' } as const;
+    const watching = (visibility: 'unlisted' | 'private') =>
+      lobbyRow(now, entry({ status: 'started', roundRef: round, visibility }))
+        .action.href;
+    assert({
+      given: 'the seatless host of an unlisted and of a private Round',
+      should: 'send them where they are let in, not to a public page that refuses',
+      actual: [watching('unlisted'), watching('private')],
+      expected: [`/rounds/${id('c')}`, `/rounds/${id('c')}`],
+    });
+    assert({
+      given: 'a started Room whose Round the listing did not carry',
+      should: 'lead to the live listing, never to the Room',
+      actual: lobbyRow(now, entry({ status: 'started' })).action.href,
+      expected: '/watch',
     });
   });
 

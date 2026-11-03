@@ -1,6 +1,7 @@
 'use client';
 import { roundEntry } from '../../../features/rooms/round-entry';
 import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
+import { roundLinkOf } from '../../../features/room-runtime/round-link';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -87,6 +88,7 @@ export function RoomLive(props: Props) {
     'id' | 'roundRef'
   > | null>(() => roundEntry(seedView, props.actorId, null).terminal);
   const entry = roundEntry(syncedView, props.actorId, terminalRound);
+  const roundLink = roundLinkOf(syncedView, props.actorId);
   if (entry.terminal !== terminalRound) setTerminalRound(entry.terminal);
   const view = useMemo(
     () => ({ ...syncedView, roundRef: entry.roundRef }),
@@ -151,11 +153,8 @@ export function RoomLive(props: Props) {
           Create a new room
         </Link>
       ) : null}
-      {view.roundRef ? (
-        <MediaPageLink
-          href={`/rounds/${view.roundRef.id}`}
-          className="self-start"
-        >
+      {roundLink ? (
+        <MediaPageLink href={roundLink} className="self-start">
           View the round
         </MediaPageLink>
       ) : null}
