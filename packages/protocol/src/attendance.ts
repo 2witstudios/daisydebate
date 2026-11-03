@@ -75,30 +75,47 @@ export const availabilityRecoveryPolicy = {
   maxSampleGapMs: 2000,
 } as const;
 
+/** One stored decision, in the shape its evidence allows. */
+const attendanceAdjudicationFactSchema = z.discriminatedUnion('evidence', [
+  z.object({
+    segmentId: z.string(),
+    evidence: z.literal('settled_availability'),
+    decision: z.enum(['attended', 'none', 'forfeit', 'abandoned']),
+    effectiveDeadline: z.string(),
+    settledHorizon: z.string(),
+  }),
+  z.object({
+    segmentId: z.string(),
+    evidence: z.literal('on_time_receipt'),
+    decision: z.literal('attended'),
+    receiptParticipantId: z.string(),
+  }),
+  z.object({
+    segmentId: z.string(),
+    evidence: z.literal('resolution_cutoff'),
+    decision: z.literal('abandoned'),
+  }),
+]);
+
 /** What the attendance ledger holds for one Round, read for the engine's settlement rule. */
-export type AttendanceLedgerFacts = {
-  readonly ruleSegments: readonly {
-    readonly key: string;
-    readonly type: string;
-  }[];
-  readonly speeches: readonly {
-    readonly id: string;
-    readonly rulesSegmentKey: string | null;
-    readonly startedAt: string;
-  }[];
-  readonly adjudications: readonly {
-    readonly segmentId: string;
-    readonly decision: string;
-    readonly evidence: string;
-    readonly effectiveDeadline: string | null;
-    readonly settledHorizon: string | null;
-    readonly receiptParticipantId: string | null;
-  }[];
-  readonly receipts: readonly {
-    readonly segmentId: string;
-    readonly participantId: string;
-    readonly receivedAt: string;
-  }[];
+export const attendanceLedgerFactsSchema = z.object({
+  ruleSegments: z.array(z.object({ key: z.string(), type: z.string() })),
+  speeches: z.array(
+    z.object({
+      id: z.string(),
+      rulesSegmentKey: z.string().nullable(),
+      startedAt: z.string(),
+    }),
+  ),
+  adjudications: z.array(attendanceAdjudicationFactSchema),
+  receipts: z.array(
+    z.object({
+      segmentId: z.string(),
+      participantId: z.string(),
+      receivedAt: z.string(),
+    }),
+  ),
   /** An uncertain check-in writer holds every attendance decision. */
-  readonly pendingWriter: boolean;
-};
+  pendingWriter: z.boolean(),
+});
+export type AttendanceLedgerFacts = z.infer<typeof attendanceLedgerFactsSchema>;
