@@ -14,7 +14,7 @@ import {
   type RoundCommandRefusal,
 } from './round-command-legality';
 import type { RoundStore } from './round-ecs-store';
-import type { ClockChange } from './round-clock';
+import type { ClockChange } from './round-clock-transition';
 import { interrupt, yieldFloor } from './round-floor';
 import { invariant, refuse } from './round-refusals';
 

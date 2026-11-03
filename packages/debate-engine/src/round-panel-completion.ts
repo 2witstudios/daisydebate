@@ -1,4 +1,4 @@
-import { roundIncidentPolicy } from '@daisy/protocol';
+import { captureWithinLimit } from '@daisy/protocol';
 import { createInvariantError } from '@daisy/errors';
 import type {
   DebateSide,
@@ -37,15 +37,6 @@ type FrozenCapture = {
   /** A stream states lost audio. A silent seat also falls short, and is no incident. */
   readonly platformLostAudio: boolean;
 };
-/**
- * Whether a frozen Round's capture is good enough for an AI judge: a small gap
- * is judged and stated. A gap that was never measured cannot be proven small.
- */
-const captureWithinLimit = (capture: FrozenCapture): boolean =>
-  capture.gapMs !== null &&
-  capture.expectedMs > 0 &&
-  capture.gapMs / capture.expectedMs <= roundIncidentPolicy.maxCaptureGapShare;
-
 /**
  * Who may rule on a frozen transcript (DEC-208, ADR 0110). An AI judge rules
  * unless capture fell below the limit, and then an AI-only Round ends as a

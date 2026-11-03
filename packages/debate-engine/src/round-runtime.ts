@@ -16,18 +16,18 @@ import {
   type HydratedSegment,
   type RoundParticipantSeat,
   type RoundPosition,
+  type RoundIncidentChange,
   type RoundProjection,
   type SegmentInsert,
   type SegmentClose,
   type RoundRules,
   type RuntimeCheckpoint,
 } from '@daisy/protocol';
+import { advanceRoundClock, openClockSegment } from './round-clock';
 import {
-  advanceRoundClock,
-  openClockSegment,
   closeClockSegment,
   type ClockTransition,
-} from './round-clock';
+} from './round-clock-transition';
 import { closedCount, normalizeRoundClock } from './round-clock-state';
 import { debateSideOf } from './round-command-legality';
 import {
@@ -182,6 +182,15 @@ export function createRoundRuntime(input: {
           ]
         : [],
     );
+    const incidentChanges = into.changes.flatMap(
+      (change): RoundIncidentChange[] =>
+        change.kind !== 'incident'
+          ? []
+          : change.change.kind === 'opened'
+            ? // The runtime's id source names every row it projects.
+              [{ ...change.change, id: input.nextSegmentId() }]
+            : [change.change],
+    );
     const finalClose = into.changes.find(
       (change) =>
         change.kind === 'close' &&
@@ -214,6 +223,7 @@ export function createRoundRuntime(input: {
       segmentInserts,
       segmentCloses,
       ...(segmentReturns.length > 0 ? { segmentReturns } : {}),
+      ...(incidentChanges.length > 0 ? { incidentChanges } : {}),
       effects: into.effects,
     };
   };

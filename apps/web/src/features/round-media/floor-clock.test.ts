@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { floorDueAt, type FloorClock } from './floor-clock';
+import { floorBoundaries, floorDueAt, type FloorClock } from './floor-clock';
 
 setupRitewayBun();
 
@@ -10,6 +10,8 @@ const clock = (lastSegment: FloorClock['lastSegment']): FloorClock => ({
   segmentTotal: 3,
   prepBudgetMs: null,
   activePrep: null,
+  stops: [],
+  hold: null,
   segmentCount: 1,
   lastSegment,
 });
@@ -55,5 +57,40 @@ test('the floor is due at the latest committed change, never a future one', () =
       100,
     ),
     expected: null,
+  });
+});
+
+test('a hold moves every wait', () => {
+  const stop = { from: at(5_000), to: at(65_000) };
+  const gap: FloorClock = {
+    ...clock(null),
+    segmentCount: 0,
+    countdownMs: 10_000,
+  };
+  assert({
+    given: 'a countdown a closed hold interrupted',
+    should: 'be due that much later',
+    actual: floorBoundaries({ ...gap, stops: [stop] }),
+    expected: [70_000],
+  });
+  assert({
+    given: 'prep a closed hold interrupted',
+    should: 'be due that much later',
+    actual: floorBoundaries({
+      ...gap,
+      stops: [stop],
+      prepBudgetMs: 20_000,
+      activePrep: { startedAt: at(0), consumedMs: 0 },
+    }),
+    expected: [80_000],
+  });
+  assert({
+    given: 'a Round held, then counting down to resume',
+    should: 'have no boundary, then only the countdown end',
+    actual: [
+      floorBoundaries({ ...gap, hold: { resumesAt: null } }),
+      floorBoundaries({ ...gap, hold: { resumesAt: at(90_000) } }),
+    ],
+    expected: [[], [90_000]],
   });
 });

@@ -13,9 +13,9 @@ export async function readRoundIncidentRate(
     select
       (select count(*)::int from round_incidents
         where detected_at >= ${period.from} and detected_at < ${period.until}) as incidents,
-      (select count(*)::int from round_incidents
-        where detected_at >= ${period.from} and detected_at < ${period.until}
-          and ended_at is not null) as ended_rounds,
+      (select count(*)::int from rounds
+        where platform_ending is not null and completed_at >= ${period.from}
+          and completed_at < ${period.until}) as ended_rounds,
       (select coalesce(sum(extract(epoch from
           least(coalesce(completed_at, clock_timestamp()), ${period.until}::timestamptz)
           - greatest(started_at, ${period.from}::timestamptz))), 0)::float8 / 3600

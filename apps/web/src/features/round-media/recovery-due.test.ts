@@ -27,6 +27,8 @@ const idle = (over: Partial<RecoverySession> = {}): RecoverySession => ({
     segmentTotal: 4,
     prepBudgetMs: null,
     activePrep: null,
+    stops: [],
+    hold: null,
     segmentCount: 1,
     lastSegment: {
       startedAt: at(0),

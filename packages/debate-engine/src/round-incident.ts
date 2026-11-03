@@ -8,7 +8,10 @@ import {
   debateHasEnded,
   type ClockState,
 } from './round-clock-state';
-import { closeClockSegment, type ClockTransition } from './round-clock';
+import {
+  closeClockSegment,
+  type ClockTransition,
+} from './round-clock-transition';
 
 /**
  * A platform incident (ADR 0110): the server saw the media platform fail and
@@ -73,10 +76,20 @@ const pause = (
       cause: event.cause,
       resume_point: pointMs === null ? null : iso(pointMs),
     }),
-    changes:
-      open !== undefined && pointMs !== null
-        ? [{ kind: 'stop', sequence: open.sequence, atMs: pointMs }]
-        : [],
+    changes: [
+      ...(open !== undefined && pointMs !== null
+        ? [{ kind: 'stop' as const, sequence: open.sequence, atMs: pointMs }]
+        : []),
+      {
+        kind: 'incident',
+        change: {
+          kind: 'opened',
+          since: iso(event.atMs),
+          cause: event.cause,
+          resumePoint: pointMs === null ? null : iso(pointMs),
+        },
+      },
+    ],
   };
 };
 
@@ -138,7 +151,13 @@ const end = (
         ],
       },
     },
-    changes: closed.changes,
+    changes: [
+      ...closed.changes,
+      {
+        kind: 'incident',
+        change: { kind: 'ended', at: iso(event.atMs) },
+      },
+    ],
   };
 };
 
@@ -216,17 +235,29 @@ export const resumeIfDue = (
         clock_stops: [...stops, { from: incident.since, to: incident.until }],
       },
     },
-    changes:
-      open !== undefined && returned !== null
+    changes: [
+      ...(open !== undefined && returned !== null
         ? [
             {
-              kind: 'resume',
+              kind: 'resume' as const,
               sequence: open.sequence,
               atMs: untilMs,
               returnedMs: returned,
               holder: state.checkpoint.floor?.holder_participant_id ?? null,
             },
           ]
-        : [],
+        : []),
+      {
+        kind: 'incident',
+        change: {
+          kind: 'resumed',
+          at: incident.until,
+          returnedMs:
+            returned === null
+              ? 0
+              : untilMs - Date.parse(incident.resume_point!),
+        },
+      },
+    ],
   };
 };

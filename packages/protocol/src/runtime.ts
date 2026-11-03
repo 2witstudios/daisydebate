@@ -2,6 +2,7 @@ import type { ResolutionDrawState } from './resolution-draw';
 import type { DebateRole, DebateSide, RoundOutcome } from './primitives';
 import type { SegmentType } from './format';
 import type {
+  PlatformIncidentCause,
   RoundIncident,
   RoundStage,
   RoundStatus,
@@ -111,6 +112,22 @@ export type RoundSpeakingChange =
       readonly participantIds: readonly string[];
     };
 
+/** What happened to a platform incident in this revision; its row only records this. */
+export type RoundIncidentChange =
+  | {
+      readonly kind: 'opened';
+      readonly id: string;
+      readonly since: string;
+      readonly cause: PlatformIncidentCause;
+      readonly resumePoint: string | null;
+    }
+  | {
+      readonly kind: 'resumed';
+      readonly at: string;
+      readonly returnedMs: number;
+    }
+  | { readonly kind: 'ended'; readonly at: string };
+
 /** The durable writes that materialize the runtime's state. */
 export type RoundProjection = {
   /** Exact finalizer inputs, never reselected later from mutable ballot state. */
@@ -139,6 +156,7 @@ export type RoundProjection = {
   readonly segmentInserts: readonly SegmentInsert[];
   readonly segmentCloses: readonly SegmentClose[];
   readonly segmentReturns?: readonly SegmentReturn[];
+  readonly incidentChanges?: readonly RoundIncidentChange[];
   readonly effects: readonly RoundEffect[];
 };
 

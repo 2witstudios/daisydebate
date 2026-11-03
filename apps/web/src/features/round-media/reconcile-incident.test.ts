@@ -1,13 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundMediaOperations } from './operations';
 import { createMediaWorld } from './media-world.test-support';
-import type { RoundIncidentEvidence } from '../round-incidents/observe';
+import type { MediaPassReport } from './operation-context';
 setupRitewayBun();
 
 /** A live Round with an admitted seat, and every pass's evidence recorded. */
 const live = async () => {
   const world = createMediaWorld({ status: 'active' });
-  const seen: RoundIncidentEvidence[] = [];
+  const seen: MediaPassReport[] = [];
   const operations = createRoundMediaOperations({
     ...world.input,
     observeIncident: async (evidence) => {
@@ -30,15 +30,14 @@ test('a pass tells the incident hook what it read of the room', async () => {
   assert({
     given: 'a pass that listed one seat and no capture agent',
     should: 'report the room as read, with no retirement',
-    actual: seen.map(({ observation, roomRetired }) => ({
+    actual: seen.map(({ observation, known }) => ({
       observation,
-      roomRetired,
+      roomRetired: known.roomRetired,
     })),
     expected: [
       {
         observation: {
           kind: 'room',
-          empty: false,
           captureListed: false,
           seatsListed: false,
           speakerHeard: null,

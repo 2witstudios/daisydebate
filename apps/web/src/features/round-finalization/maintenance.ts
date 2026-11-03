@@ -78,6 +78,8 @@ export function createRoundMaintenanceOperations(input: {
   readonly ratingFailed: (roundId: string, error: unknown) => void;
   /** An AI judge's job ended at completion, with no worker there to report it. */
   readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
+  /** A freeze ended this Round as a platform incident; called once, for the operator. */
+  readonly platformEnded?: (roundId: string) => void;
   readonly ids: IdGenerator;
   readonly evaluate: (roundId: string) => Promise<AttendanceEvaluation>;
   /**
@@ -139,6 +141,7 @@ export function createRoundMaintenanceOperations(input: {
         captureRule,
       });
       if (result.status !== 'frozen') return result;
+      if (result.platformEnded) input.platformEnded?.(roundId);
       try {
         await input.store.completePanelRound({
           instanceId: input.instanceId,

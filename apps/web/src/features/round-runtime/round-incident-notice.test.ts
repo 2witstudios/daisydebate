@@ -6,7 +6,7 @@ setupRitewayBun();
 const since = '2026-11-03T10:00:00.000Z';
 const fields = {
   since,
-  cause: 'room_emptied',
+  cause: 'room_retired',
   resume_point: null,
 } as const;
 const HELD =

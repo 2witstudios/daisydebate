@@ -69,6 +69,7 @@ export type {
   SegmentClose,
   SegmentReturn,
   RoundEffect,
+  RoundIncidentChange,
   RoundProjection,
   RoundSpeakingChange,
   RoundPosition,
@@ -83,6 +84,7 @@ export {
   emptyRuntimeCheckpoint,
   clockStopsOf,
   platformIncidentCauses,
+  roundPlatformEndings,
 } from './round';
 export type {
   CompetitionType,
@@ -91,6 +93,7 @@ export type {
   RuntimeCheckpoint,
   RoundIncident,
   PlatformIncidentCause,
+  RoundPlatformEnding,
 } from './round';
 export {
   judgingAttemptCategories,
@@ -479,7 +482,10 @@ export { roundRecordSchema, type RoundRecord } from './round-view';
 export { frozenCaptureGapsSchema } from './capture-gap';
 export type { FrozenCaptureGaps } from './capture-gap';
 export { roundMediaPolicy } from './round-media-policy';
-export { roundIncidentPolicy } from './round-incident-policy';
+export {
+  captureWithinLimit,
+  roundIncidentPolicy,
+} from './round-incident-policy';
 export {
   capturePartialReasons,
   partialReasonsStateLoss,
@@ -502,4 +508,8 @@ export {
   sealReply,
   tokenReply,
 } from './capture-worker-replies';
-export type { MediaRoomFacts, MediaRoomFate } from './media-room-fate';
+export type {
+  MediaRoomFacts,
+  MediaRoomFate,
+  MediaRoomRead,
+} from './media-room-fate';

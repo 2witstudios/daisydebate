@@ -5,36 +5,34 @@ import {
   type MediaObservation,
 } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
-import type { Database } from '@daisy/db';
+import type { Database, RoundHydration } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
-import { roundIncidentPolicy, type RoundIncident } from '@daisy/protocol';
+import { roundIncidentPolicy } from '@daisy/protocol';
+import type { MediaPassReport } from '../round-media/operation-context';
 
 type Store = Pick<Database['roundIncidents'], 'observeRoundIncident'>;
 
-/** What the recovery pass hands over: its own vendor evidence and nothing a browser said. */
-export type RoundIncidentEvidence = {
-  readonly roundId: string;
-  readonly observation: MediaObservation;
-  readonly roomRetired: boolean;
-  /** Read from the pass's snapshot, so a healthy Round costs no Round lock. */
-  readonly known: {
-    readonly incident: RoundIncident;
-    readonly status: string;
-    readonly sawCapture: boolean;
-    readonly unreachableSince: string | null;
-  };
-  readonly nowMs: number;
-};
-
 const watchOf = (observation: MediaObservation) => ({
   unreachable: observation.kind === 'unreachable',
-  captureListed: observation.kind === 'room' ? observation.captureListed : null,
+  roomRead: observation.kind === 'room',
 });
 
+/** The Round as it stands now, with any resume already due applied. */
+const runtimeOf = (round: RoundHydration, nextId: () => string) =>
+  createRoundRuntime({
+    round,
+    rules: round.rules,
+    participants: round.participants,
+    checkpoint: round.checkpoint,
+    segments: round.segments,
+    nextSegmentId: nextId,
+  });
+
 /**
- * The hook a recovery pass calls with what it saw. It never throws into the
- * pass: a failure here is reported, and the next pass observes again.
+ * The hook a recovery pass calls with what it saw. It never throws into the pass: a
+ * failure here is reported and the next pass observes again, with a retirement still
+ * waiting on the session.
  */
 export function createRoundIncidentObserver(input: {
   readonly store: Store;
@@ -42,15 +40,16 @@ export function createRoundIncidentObserver(input: {
   readonly logger: Logger;
   readonly nextId: () => string;
 }) {
-  const observe = async (evidence: RoundIncidentEvidence) => {
-    const { roundId, observation, roomRetired } = evidence;
+  const observe = async (evidence: MediaPassReport) => {
+    const { roundId, observation } = evidence;
     const outcome = await input.store.observeRoundIncident({
       roundId,
       watch: watchOf(observation),
+      settle: (round, now) => runtimeOf(round, input.nextId).tick(now),
       decide: async ({
         round,
         now,
-        sawCapture,
+        roomRetired,
         unreachableSince,
         confirmedUntil,
       }) => {
@@ -60,20 +59,12 @@ export function createRoundIncidentObserver(input: {
           nowMs,
           observation,
           roomRetired,
-          sawCapture,
           unreachableSinceMs:
             unreachableSince === null ? null : Date.parse(unreachableSince),
           captureExpected: round.status === 'active',
         });
         if (decision === null) return null;
-        const runtime = createRoundRuntime({
-          round,
-          rules: round.rules,
-          participants: round.participants,
-          checkpoint: round.checkpoint,
-          segments: round.segments,
-          nextSegmentId: input.nextId,
-        });
+        const runtime = runtimeOf(round, input.nextId);
         switch (decision.kind) {
           case 'pause': {
             const confirmed = await confirmedUntil();
@@ -125,16 +116,15 @@ export function createRoundIncidentObserver(input: {
         'A platform incident ended this Round',
       );
   };
-  return async (evidence: RoundIncidentEvidence): Promise<void> => {
-    const { known, observation, roomRetired, nowMs } = evidence;
+  return async (evidence: MediaPassReport): Promise<void> => {
+    const { known, observation, nowMs } = evidence;
     if (known.status !== 'active' && known.status !== 'opening') return;
     if (
       !observationMatters({
         incident: known.incident,
         nowMs,
         observation,
-        roomRetired,
-        sawCapture: known.sawCapture,
+        roomRetired: known.roomRetired,
         unreachableSinceMs:
           known.unreachableSince === null
             ? null

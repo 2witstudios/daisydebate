@@ -27,17 +27,15 @@ const evidence = (over = {}) => ({
   roundId: 'round',
   observation: {
     kind: 'room',
-    empty: true,
     captureListed: false,
     seatsListed: false,
     speakerHeard: null,
   } as const,
-  roomRetired: false,
   nowMs: 1,
   known: {
     incident: { phase: 'none' } as const,
     status: 'active',
-    sawCapture: true,
+    roomRetired: true,
     unreachableSince: null,
   },
   ...over,
@@ -68,10 +66,15 @@ test('what costs no transaction', async () => {
     evidence({
       observation: {
         kind: 'room',
-        empty: false,
         captureListed: true,
         seatsListed: true,
         speakerHeard: null,
+      },
+      known: {
+        incident: { phase: 'none' },
+        status: 'active',
+        roomRetired: false,
+        unreachableSince: null,
       },
     }),
   );
@@ -81,7 +84,7 @@ test('what costs no transaction', async () => {
       known: {
         incident: { phase: 'none' },
         status: 'completed',
-        sawCapture: true,
+        roomRetired: true,
         unreachableSince: null,
       },
     }),

@@ -322,16 +322,26 @@ export function createMediaReconcileStore(input: {
           .update(mediaSessions)
           .set({
             ...fields,
-            // A fresh room has been seen by nobody.
+            // The one writer of the room watch. A fresh room has been seen by nobody.
             ...(roomName
-              ? { roomName, roomOccupiedSid: null, roomSawCapture: false }
-              : request.seen
-                ? {
-                    roomOccupiedSid: request.seen.empty
-                      ? null
-                      : request.seen.sid,
-                  }
-                : {}),
+              ? {
+                  roomName,
+                  roomOccupiedSid: null,
+                  roomSawCapture: false,
+                  ...(fate.kind === 'rotate' && fate.cause !== 'seat-revoked'
+                    ? { roomRetiredAt: now }
+                    : {}),
+                }
+              : request.seen?.kind === 'absent'
+                ? { roomOccupiedSid: null, roomSawCapture: false }
+                : request.seen
+                  ? {
+                      roomOccupiedSid: request.seen.empty
+                        ? null
+                        : request.seen.sid,
+                      roomSawCapture: request.seen.captureListed,
+                    }
+                  : {}),
           })
           .where(eq(mediaSessions.id, session.id));
         return { ...result, fate };

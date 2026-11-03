@@ -128,7 +128,7 @@ async function lockedBallotContext(
     await readLockedFrozenRoundTranscript(tx, input.roundId),
     input.envelope.freezeRevision,
   );
-  requireAgentBallotCapture(input.principal, frozen.completeness);
+  requireAgentBallotCapture(input.principal, frozen);
   const context = { ...fresh, frozen };
   input.authorize(context);
   requireJudgingRun(

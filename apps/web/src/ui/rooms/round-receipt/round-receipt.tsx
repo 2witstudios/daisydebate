@@ -14,7 +14,7 @@ export type RoundReceiptView = Pick<
   | 'participants'
   | 'outcome'
   | 'panelRuling'
-  | 'endedByPlatformIncident'
+  | 'platformEnding'
 > & {
   readonly resolutionAudit?: RoundView['resolutionAudit'];
   readonly config: Pick<RoundView['config'], 'preRoundPrep'>;
@@ -36,7 +36,7 @@ const statusLabel: Readonly<Record<RoundView['status'], string>> = {
  * judges, or judges who did not rule by the deadline (DEC-201).
  */
 const resultText = (round: RoundReceiptView) =>
-  round.endedByPlatformIncident
+  round.platformEnding
     ? 'Ended by a Daisy server failure. No result, no rating and no charge.'
     : round.outcome
       ? resultLabel[round.outcome]
@@ -115,7 +115,7 @@ export function RoundReceipt({
         </h1>
         {round.outcome ||
         round.status === 'completed' ||
-        round.endedByPlatformIncident ? (
+        round.platformEnding ? (
           <p className="text-lg font-strong text-ink">
             Result · {resultText(round)}
           </p>

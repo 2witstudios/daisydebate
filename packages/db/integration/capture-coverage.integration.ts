@@ -58,6 +58,7 @@ test('worker-shaped observations seal a fully captured stream complete and a dro
 async function sealObserved(
   capture: Awaited<ReturnType<typeof historicalCapture>>,
   observed: readonly (readonly [number, number])[],
+  framesLost = false,
 ) {
   const { store, lease, stream, clip, start } = capture;
   const at = (ms: number) => new Date(start.getTime() + ms).toISOString();
@@ -81,7 +82,7 @@ async function sealObserved(
     await store.sealCapturedStream({
       ...stream,
       expectedChunkCount: 1,
-      framesLost: false,
+      framesLost,
     })
   ).state;
 }
@@ -185,7 +186,11 @@ test('a bot stream is required only over its credited publication windows (DEC-2
   });
 });
 
-test('a freeze can say how much speech a Round lost', async () => {
+const shortfallOf = async (
+  observed: readonly (readonly [number, number])[],
+  framesLost: boolean,
+) => {
+  let shortfall: Awaited<ReturnType<typeof readCaptureShortfall>> | null = null;
   await withBoundedRound(async (fixture, transaction, roundId) => {
     const capture = await historicalCapture(
       fixture,
@@ -195,29 +200,56 @@ test('a freeze can say how much speech a Round lost', async () => {
       60_000,
       { durationMs: 5190 },
     );
-    await sealObserved(capture, [
+    await sealObserved(capture, observed, framesLost);
+    shortfall = await transaction((tx) =>
+      readCaptureShortfall(tx as never, roundId, captureRule),
+    );
+  });
+  return shortfall!;
+};
+
+test('a freeze can say how much speech the platform lost', async () => {
+  const { captureGapMs, expectedSpeechMs, captureGaps, platformLostAudio } =
+    await shortfallOf(
+      [
+        [1934, 3000],
+        [3100, 5164],
+      ],
+      true,
+    );
+  assert({
+    given: 'a sealed stream that lost frames, with a 100 ms dropout',
+    should: 'measure that loss, and state where it was in the speech',
+    actual: {
+      captureGapMs,
+      expectedSpeechMs,
+      platformLostAudio,
+      gaps: captureGaps.gaps.map(({ fromOffsetMs, untilOffsetMs }) => [
+        fromOffsetMs,
+        untilOffsetMs,
+      ]),
+    },
+    expected: {
+      captureGapMs: 100,
+      expectedSpeechMs: 5190,
+      platformLostAudio: true,
+      gaps: [[3000, 3100]],
+    },
+  });
+});
+
+test('a seat that went quiet is no loss of the platform', async () => {
+  const { captureGapMs, captureGaps, platformLostAudio } = await shortfallOf(
+    [
       [1934, 3000],
       [3100, 5164],
-    ]);
-    const { captureGapMs, expectedSpeechMs, captureGaps } = await transaction(
-      (tx) => readCaptureShortfall(tx as never, roundId, captureRule),
-    );
-    assert({
-      given: 'a sealed stream with a 100 ms dropout',
-      should: 'measure that loss, and state where it was in the speech',
-      actual: {
-        captureGapMs,
-        hasExpectedSpeech: expectedSpeechMs > 0,
-        gaps: captureGaps.gaps.map(({ fromOffsetMs, untilOffsetMs }) => [
-          fromOffsetMs,
-          untilOffsetMs,
-        ]),
-      },
-      expected: {
-        captureGapMs: 100,
-        hasExpectedSpeech: true,
-        gaps: [[3000, 3100]],
-      },
-    });
+    ],
+    false,
+  );
+  assert({
+    given: 'a coverage gap alone, with nothing lost by the platform',
+    should: 'state nothing, and measure zero',
+    actual: { captureGapMs, gaps: captureGaps.gaps, platformLostAudio },
+    expected: { captureGapMs: 0, gaps: [], platformLostAudio: false },
   });
 });

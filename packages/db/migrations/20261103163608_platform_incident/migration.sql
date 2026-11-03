@@ -19,7 +19,7 @@ CREATE TABLE "round_incidents" (
 );
 --> statement-breakpoint
 ALTER TABLE "round_segments" ADD COLUMN "returned_ms" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE "round_segments" ADD COLUMN "due_at" timestamp with time zone GENERATED ALWAYS AS (round_segment_due_at("round_segments"."started_at", "round_segments"."duration_ms", "round_segments"."returned_ms")) STORED;--> statement-breakpoint
+ALTER TABLE "round_segments" ADD COLUMN "due_at" timestamp with time zone GENERATED ALWAYS AS (round_segment_due_at("round_segments"."started_at", "round_segments"."duration_ms", "round_segments"."returned_ms")) STORED NOT NULL;--> statement-breakpoint
 ALTER TABLE "rounds" ALTER COLUMN "runtime_state" SET DEFAULT '{"version":1,"prep_consumed_ms":{"affirmative":0,"negative":0},"active_prep":null,"floor":null,"incident":{"phase":"none"},"clock_stops":[]}';--> statement-breakpoint
 CREATE UNIQUE INDEX "round_incidents_single_open" ON "round_incidents" ("round_id") WHERE "resumed_at" is null and "ended_at" is null;--> statement-breakpoint
 CREATE INDEX "round_incidents_round_idx" ON "round_incidents" ("round_id");--> statement-breakpoint

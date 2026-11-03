@@ -1,5 +1,10 @@
 import { mediaWindowEndsAt } from '@daisy/debate-engine/media-window';
-import { segmentDueAtMs } from '@daisy/protocol';
+import {
+  dueAfterStops,
+  segmentDueAtMs,
+  type ClockStop,
+  type RoundIncident,
+} from '@daisy/protocol';
 
 /** What a Round's clock boundaries are read from, in the browser's view or a server row. */
 export type FloorClock = {
@@ -11,6 +16,10 @@ export type FloorClock = {
     readonly startedAt: string;
     readonly consumedMs: number;
   } | null;
+  /** Spans the clock did not run, closed: every wait is due that much later. */
+  readonly stops: readonly ClockStop[];
+  /** A platform incident holds the clock: only its countdown's end moves anything. */
+  readonly hold: { readonly resumesAt: string | null } | null;
   readonly segmentCount: number;
   readonly lastSegment: {
     readonly startedAt: string;
@@ -41,11 +50,14 @@ type ClockedRound = {
       readonly side: string;
     } | null;
     readonly prep_consumed_ms: Readonly<Record<string, number>>;
+    readonly clock_stops: readonly ClockStop[];
+    readonly incident: RoundIncident;
   } | null;
   readonly segments: readonly NonNullable<FloorClock['lastSegment']>[];
 };
 export const floorClockOf = (round: ClockedRound): FloorClock => {
   const prep = round.checkpoint?.active_prep;
+  const incident = round.checkpoint?.incident ?? { phase: 'none' as const };
   return {
     startedAt: round.startedAt,
     countdownMs: round.rules.countdownMs,
@@ -57,15 +69,25 @@ export const floorClockOf = (round: ClockedRound): FloorClock => {
           consumedMs: round.checkpoint!.prep_consumed_ms[prep.side] ?? 0,
         }
       : null,
+    stops: round.checkpoint?.clock_stops ?? [],
+    hold:
+      incident.phase === 'none'
+        ? null
+        : { resumesAt: incident.phase === 'resuming' ? incident.until : null },
     segmentCount: round.segments.length,
     lastSegment: round.segments.at(-1) ?? null,
   };
 };
+/** The stops are all closed here: an open one has no boundary until it ends. */
+const dueThroughStops = (clock: FloorClock, anchorMs: number, waitMs: number) =>
+  dueAfterStops(anchorMs, waitMs, clock.stops, anchorMs);
 const gapBoundaries = (clock: FloorClock): number[] => {
   if (clock.activePrep || clock.segmentCount >= clock.segmentTotal) return [];
   const anchor =
     clock.segmentCount === 0 ? clock.startedAt : clock.lastSegment?.endedAt;
-  return anchor ? [Date.parse(anchor) + clock.countdownMs] : [];
+  return anchor
+    ? [dueThroughStops(clock, Date.parse(anchor), clock.countdownMs)]
+    : [];
 };
 const mediaCloseBoundaries = ({
   lastSegment,
@@ -79,11 +101,19 @@ const mediaCloseBoundaries = ({
 export function floorBoundaries(clock: FloorClock): number[] {
   const last = clock.lastSegment;
   const prep = clock.activePrep;
+  if (clock.hold)
+    return clock.hold.resumesAt ? [Date.parse(clock.hold.resumesAt)] : [];
   return [
     ...gapBoundaries(clock),
     ...(last?.endedAt === null ? [dueAt(last)] : []),
     ...(prep && clock.prepBudgetMs !== null
-      ? [Date.parse(prep.startedAt) + clock.prepBudgetMs - prep.consumedMs]
+      ? [
+          dueThroughStops(
+            clock,
+            Date.parse(prep.startedAt),
+            clock.prepBudgetMs - prep.consumedMs,
+          ),
+        ]
       : []),
     ...mediaCloseBoundaries(clock),
   ].filter(Number.isFinite);

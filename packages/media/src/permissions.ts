@@ -1,5 +1,9 @@
 import { TrackSource } from 'livekit-server-sdk';
-import { participantSchema, type MediaPermissions } from './contracts';
+import {
+  AGENT_PARTICIPANT_KIND,
+  participantSchema,
+  type MediaPermissions,
+} from './contracts';
 import type { z } from 'zod';
 
 const trackSources = {
@@ -37,6 +41,7 @@ export function publicationPermission(
   if (allowed(TrackSource.MICROPHONE)) publish.push('microphone');
   return {
     identity: participant.identity,
+    capture: participant.kind === AGENT_PARTICIPANT_KIND,
     /** The published microphone, for asking whether capture hears it. */
     microphoneTrack:
       participant.tracks.find(

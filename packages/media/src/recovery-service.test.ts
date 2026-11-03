@@ -52,6 +52,7 @@ test('recovery reads the exact room and projects scoped publication permissions'
     actual: participant,
     expected: {
       identity,
+      capture: false,
       microphoneTrack: null,
       grants: {
         publish: ['microphone'],

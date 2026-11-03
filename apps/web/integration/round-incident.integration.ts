@@ -22,7 +22,6 @@ type Fixture = Parameters<Parameters<typeof withMediaRound>[0]>[0];
 const room = (over: Partial<Extract<MediaObservation, { kind: 'room' }>>) =>
   ({
     kind: 'room',
-    empty: false,
     captureListed: true,
     seatsListed: true,
     speakerHeard: null,
@@ -51,18 +50,20 @@ const liveSpeech = async (f: Fixture) => {
     await observer({
       roundId: f.roundId,
       observation,
-      roomRetired: false,
       nowMs: Date.now(),
       known: {
         incident: { phase: 'paused' } as never,
         status: round!.status,
-        sawCapture: false,
+        roomRetired: true,
         unreachableSince: null,
       },
     });
   };
   return { alerts, observe };
 };
+/** What a recovery pass commits when it leaves a lost room. */
+const retireRoom = (f: Fixture) =>
+  f.sql`update media_sessions set room_retired_at = clock_timestamp() where round_id=${f.roundId}`;
 const checkpointOf = async (f: Fixture) => {
   const [row] =
     await f.sql`select status, outcome, final_segment_ended_at, runtime_state from rounds where id=${f.roundId}`;
@@ -77,7 +78,7 @@ const segmentOf = async (f: Fixture) => {
 };
 /** The countdown's own end, moved to the past: no test sleeps through a real countdown. */
 const finishCountdown = (f: Fixture) =>
-  f.sql`update rounds set runtime_state = jsonb_set(runtime_state, '{incident,until}', to_jsonb(to_char((clock_timestamp() - interval '1 second') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))) where id=${f.roundId}`;
+  f.sql`update rounds set runtime_state = jsonb_set(runtime_state, '{incident,until}', to_jsonb(to_char((clock_timestamp() - interval '1 millisecond') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))) where id=${f.roundId}`;
 /** The pause's start, moved past the bound. */
 const passBound = (f: Fixture) =>
   f.sql`update rounds set runtime_state = jsonb_set(runtime_state, '{incident,since}', to_jsonb(to_char((clock_timestamp() - interval '10 minutes') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))) where id=${f.roundId}`;
@@ -87,8 +88,8 @@ test('a node outage pauses a live speech, and recovery gives its time back', asy
     const { alerts, observe } = await liveSpeech(f);
     const before = await segmentOf(f);
     await observe(room({}));
-    await observe(room({ empty: true, captureListed: false }));
-    await observe(room({ empty: true, captureListed: false }));
+    await retireRoom(f);
+    await observe(room({ captureListed: false }));
     const held = await checkpointOf(f);
     const intervals =
       await f.sql`select count(*)::int as open from round_speaking_intervals where round_id=${f.roundId} and ended_at is null`;
@@ -105,7 +106,7 @@ test('a node outage pauses a live speech, and recovery gives its time back', asy
       },
       expected: {
         phase: 'paused',
-        cause: 'room_emptied',
+        cause: 'room_retired',
         status: 'active',
         open: 0,
         alerts: 1,
@@ -168,7 +169,8 @@ test('no recovery within the bound ends the Round with no outcome', async () => 
   await withMediaRound(async (f) => {
     const { alerts, observe } = await liveSpeech(f);
     await observe(room({}));
-    await observe(room({ empty: true, captureListed: false }));
+    await retireRoom(f);
+    await observe(room({ captureListed: false }));
     await passBound(f);
     await observe({ kind: 'unreachable' });
     const ended = await checkpointOf(f);
@@ -193,7 +195,7 @@ test('no recovery within the bound ends the Round with no outcome', async () => 
             readRoundOpening,
             roundWaitingOn,
           )
-        )?.endedByPlatformIncident,
+        )?.platformEnding,
       },
       expected: {
         status: 'abandoned',
@@ -204,7 +206,7 @@ test('no recovery within the bound ends the Round with no outcome', async () => 
         phase: 'none',
         speechClosed: true,
         alerts: 1,
-        receipt: true,
+        receipt: 'recovery_bound',
       },
     });
   });
@@ -229,7 +231,8 @@ test('a speech resumes from the last confirmed audio', async () => {
         at,
       });
       await observe(room({}));
-      await observe(room({ empty: true, captureListed: false }));
+      await retireRoom(f);
+      await observe(room({ captureListed: false }));
       const { runtime_state: state } = await checkpointOf(f);
       actual = {
         confirmedMs: Date.parse(state.incident.resume_point),
@@ -249,13 +252,136 @@ test('a speech resumes from the last confirmed audio', async () => {
     expected: human.expectedMs,
   });
   const bot = await pointOf(async (f, { segment, seat, at }) => {
-    await f.sql`insert into round_bot_publication_windows(id, round_id, segment_id, round_participant_id, credited_from, credited_until) values (${createId()}, ${f.roundId}, ${segment}, ${seat}, ${new Date(at.getTime() - 100)}, ${at})`;
+    await f.sql`insert into round_bot_publication_windows(id, round_id, segment_id, round_participant_id, credited_from, credited_until) values (${createId()}, ${f.roundId}, ${segment}, ${seat}, ${new Date(at.getTime() - 100)}, ${new Date(at.getTime() + 5_000)})`;
+    await f.sql`insert into transcript_segments(round_id, segment_id, round_participant_id) values (${f.roundId}, ${segment}, ${seat})`;
+    await f.sql`insert into transcript_observations(id, round_id, segment_id, round_participant_id, track_id, worker_epoch, observed_from, observed_until) values (${createId()}, ${f.roundId}, ${segment}, ${seat}, 'track', 1, ${new Date(at.getTime() - 100)}, ${at})`;
   });
   assert({
-    given: 'a bot holder credited up to an instant',
-    should: 'resume from credited_until',
+    given: 'a bot holder credited past what capture heard',
+    should: 'resume from what capture heard: a credit confirms nothing',
     actual: bot.confirmedMs,
     expected: bot.expectedMs,
+  });
+});
+
+test('ending one incident leaves an earlier one as it was', async () => {
+  await withMediaRound(async (f) => {
+    const { observe } = await liveSpeech(f);
+    await observe(room({}));
+    await retireRoom(f);
+    await observe(room({ captureListed: false }));
+    await observe(room({}));
+    await finishCountdown(f);
+    await f.mediaOperations.reconcile(f.roundId).catch(() => undefined);
+    const [first] = await incidentsOf(f);
+    await retireRoom(f);
+    await observe(room({ captureListed: false }));
+    await passBound(f);
+    await observe({ kind: 'unreachable' });
+    const rows = await incidentsOf(f);
+    const { platform_ending: ending } = (
+      await f.sql`select platform_ending from rounds where id=${f.roundId}`
+    )[0]!;
+    assert({
+      given: 'a resumed incident, then a second that reaches the bound',
+      should:
+        'keep the first as resumed with its airtime, and end only the second',
+      actual: {
+        rows: rows.length,
+        firstResumed: rows[0]!.resumed_at !== null,
+        firstReturned: rows[0]!.returned_ms === first!.returned_ms,
+        firstEnded: rows[0]!.ended_at,
+        secondEnded: rows[1]!.ended_at !== null,
+        ending,
+      },
+      expected: {
+        rows: 2,
+        firstResumed: true,
+        firstReturned: true,
+        firstEnded: null,
+        secondEnded: true,
+        ending: 'recovery_bound',
+      },
+    });
+  });
+});
+
+test('a retirement outlives a failed observation', async () => {
+  await withMediaRound(async (f) => {
+    const { alerts, observe } = await liveSpeech(f);
+    await observe(room({}));
+    await retireRoom(f);
+    const failing = createRoundIncidentObserver({
+      store: {
+        observeRoundIncident: async () => {
+          throw new Error('lane refused');
+        },
+      } as never,
+      reporter: { capture: () => undefined } as never,
+      logger: createLogger({
+        service: 'round-incident-proof',
+        level: 'silent',
+      }),
+      nextId: createId,
+    });
+    await failing({
+      roundId: f.roundId,
+      observation: room({}),
+      nowMs: Date.now(),
+      known: {
+        incident: { phase: 'none' },
+        status: 'active',
+        roomRetired: true,
+        unreachableSince: null,
+      },
+    });
+    await observe(room({}));
+    const [session] =
+      await f.sql`select room_retired_at from media_sessions where round_id=${f.roundId}`;
+    assert({
+      given: 'the observation failing in the pass that retired the room',
+      should:
+        'still pause and alert on the next pass, whose read is healthy, and clear the mark',
+      actual: {
+        phase: (await checkpointOf(f)).runtime_state.incident.phase,
+        alerts: alerts.length,
+        mark: session!.room_retired_at,
+      },
+      expected: { phase: 'paused', alerts: 1, mark: null },
+    });
+  });
+});
+
+test('a failure after the countdown ended, before any tick, settles the resume first', async () => {
+  await withMediaRound(async (f) => {
+    const { alerts, observe } = await liveSpeech(f);
+    await observe(room({}));
+    await retireRoom(f);
+    await observe(room({ captureListed: false }));
+    await observe(room({}));
+    await finishCountdown(f);
+    await retireRoom(f);
+    await observe(room({ captureListed: false }));
+    const rows = await incidentsOf(f);
+    const after = await segmentOf(f);
+    assert({
+      given: 'a due resume nobody has ticked, and a new failure',
+      should: 'resume the first incident, open a second, and alert for each',
+      actual: {
+        phase: (await checkpointOf(f)).runtime_state.incident.phase,
+        rows: rows.length,
+        firstResumed: rows[0]!.resumed_at !== null,
+        returned: Number(after.returned_ms) > 0,
+        alerts: alerts.length,
+      },
+      expected: {
+        phase: 'paused',
+        rows: 2,
+        firstResumed: true,
+        returned: true,
+        alerts: 2,
+      },
+    });
   });
 });
 
@@ -263,7 +389,8 @@ test('attendance holds while an incident is open', async () => {
   await withMediaRound(async (f) => {
     const { observe } = await liveSpeech(f);
     await observe(room({}));
-    await observe(room({ empty: true, captureListed: false }));
+    await retireRoom(f);
+    await observe(room({ captureListed: false }));
     const instanceId = createId();
     await f.store.renewServiceInstance({ instanceId, role: 'web' });
     const outcome = await f.store.evaluateRoundAttendance({
@@ -307,7 +434,8 @@ test('a platform-ended Round charges nothing, once', async () => {
     // Spent and counted: a billable call was really served in this Round.
     await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, counted_at) values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round', clock_timestamp())`;
     await observe(room({}));
-    await observe(room({ empty: true, captureListed: false }));
+    await retireRoom(f);
+    await observe(room({ captureListed: false }));
     await passBound(f);
     await observe({ kind: 'unreachable' });
     const [first] =
@@ -333,7 +461,8 @@ test('the incident rate reads round_incidents and capture coverage reads the fre
   await withMediaRound(async (f) => {
     const { observe } = await liveSpeech(f);
     await observe(room({}));
-    await observe(room({ empty: true, captureListed: false }));
+    await retireRoom(f);
+    await observe(room({ captureListed: false }));
     const from = new Date(Date.now() - 86_400_000);
     const until = new Date(Date.now() + 60_000);
     const rate = await readRoundIncidentRate(f.sql, { from, until });
@@ -360,7 +489,8 @@ test('a reservation never counted needs no refund when the platform ends the Rou
     const id = createId();
     await f.sql`insert into usage_reservations(id, actor_id, round_id, kind) values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round')`;
     await observe(room({}));
-    await observe(room({ empty: true, captureListed: false }));
+    await retireRoom(f);
+    await observe(room({ captureListed: false }));
     await passBound(f);
     await observe({ kind: 'unreachable' });
     const [row] =

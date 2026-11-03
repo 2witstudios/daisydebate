@@ -18,6 +18,7 @@ test('a definite LiveKit not-found settles the vendor mutation instead of wedgin
           ? [
               {
                 identity: ghost,
+                capture: false,
                 grants: {
                   publish: ['microphone' as const],
                   subscribe: true,

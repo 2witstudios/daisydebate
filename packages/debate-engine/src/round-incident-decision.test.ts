@@ -13,7 +13,7 @@ const since = new Date(SINCE).toISOString();
 const paused: RoundIncident = {
   phase: 'paused',
   since,
-  cause: 'room_emptied',
+  cause: 'room_retired',
   resume_point: null,
 };
 const resuming: RoundIncident = {
@@ -26,7 +26,6 @@ const room = (
 ) =>
   ({
     kind: 'room',
-    empty: false,
     captureListed: true,
     seatsListed: true,
     speakerHeard: null,
@@ -37,7 +36,6 @@ const facts = (over: Partial<IncidentFacts>): IncidentFacts => ({
   nowMs: SINCE,
   observation: room(),
   roomRetired: false,
-  sawCapture: true,
   unreachableSinceMs: null,
   captureExpected: true,
   ...over,
@@ -51,19 +49,6 @@ test('what server evidence means', () => {
     [
       'one seat dropping while capture and the other seat remain',
       { observation: room({ seatsListed: false }) },
-      null,
-    ],
-    [
-      'a room that empties having held the capture agent',
-      { observation: room({ empty: true, captureListed: false }) },
-      { kind: 'pause', cause: 'room_emptied' },
-    ],
-    [
-      'a room empty that never held the capture agent',
-      {
-        observation: room({ empty: true, captureListed: false }),
-        sawCapture: false,
-      },
       null,
     ],
     [
@@ -162,16 +147,16 @@ test('what server evidence means', () => {
       {
         incident: resuming,
         nowMs: SINCE + 49_000,
-        observation: room({ empty: true, captureListed: false }),
+        roomRetired: true,
       },
-      { kind: 'pause', cause: 'room_emptied' },
+      { kind: 'pause', cause: 'room_retired' },
     ],
     [
       'a second failure in the countdown past the bound',
       {
         incident: resuming,
         nowMs: SINCE + recoveryBoundMs,
-        observation: room({ empty: true, captureListed: false }),
+        roomRetired: true,
       },
       { kind: 'end' },
     ],
@@ -196,15 +181,13 @@ test('the bound leaves room for the seats and the countdown', () => {
 
 test('an ordinary pass costs no Round lock', () => {
   const table: readonly [string, Partial<IncidentFacts>, boolean][] = [
-    ['a healthy Round with capture, as last seen', {}, false],
+    ['a healthy Round', {}, false],
     ['a pass that read nothing', { observation: { kind: 'unread' } }, false],
-    ['capture newly listed', { sawCapture: false }, true],
     [
-      'capture newly gone',
+      'capture gone but no failure yet',
       { observation: room({ captureListed: false }) },
-      true,
+      false,
     ],
-    ['an empty room', { observation: room({ empty: true }) }, true],
     ['the vendor failing', { observation: { kind: 'unreachable' } }, true],
     ['the vendor back', { unreachableSinceMs: SINCE - 1 }, true],
     ['a retirement', { roomRetired: true }, true],
@@ -228,7 +211,6 @@ test('the Round waits for capture to hear the speaker before it counts down', ()
       resumePoint: null,
     },
     roomRetired: false,
-    sawCapture: true,
     unreachableSinceMs: null,
     captureExpected: true,
   };
@@ -238,7 +220,6 @@ test('the Round waits for capture to hear the speaker before it counts down', ()
       nowMs: 1_000_000 + heldMs,
       observation: {
         kind: 'room',
-        empty: false,
         captureListed: true,
         seatsListed: true,
         speakerHeard,

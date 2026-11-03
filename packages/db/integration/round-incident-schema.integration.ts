@@ -61,7 +61,7 @@ test('round_incidents holds one open incident and one ending', async () => {
       fixture.insert('round_incidents', {
         id,
         round_id: roundId,
-        cause: 'room_emptied',
+        cause: 'room_retired',
         detected_at: started,
       });
     const first = createId();

@@ -171,7 +171,7 @@ describe('runtime checkpoint', () => {
       incident: {
         phase: 'resuming',
         since: '2026-01-01T00:04:40.000Z',
-        cause: 'room_emptied',
+        cause: 'room_retired',
         resume_point: null,
         until: '2026-01-01T00:04:50.000Z',
       },

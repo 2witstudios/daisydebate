@@ -53,7 +53,7 @@ const pause = (atMs: number, confirmedUntilMs: number | null) =>
   ({
     kind: 'pause',
     atMs: Date.parse(roundAt(atMs)),
-    cause: 'room_emptied',
+    cause: 'room_retired',
     confirmedUntilMs:
       confirmedUntilMs === null ? null : Date.parse(roundAt(confirmedUntilMs)),
   }) as const;
@@ -79,7 +79,7 @@ test('pausing a live speech', () => {
       incident: {
         phase: 'paused',
         since: roundAt(40_000),
-        cause: 'room_emptied',
+        cause: 'room_retired',
         resume_point: roundAt(37_000),
       },
       speaking: [
@@ -306,7 +306,7 @@ test('a second failure in the countdown keeps the first resume point', () => {
     expected: {
       phase: 'paused',
       since: roundAt(40_000),
-      cause: 'room_emptied',
+      cause: 'room_retired',
       resume_point: roundAt(37_000),
     },
   });
@@ -573,5 +573,44 @@ test('opening strikes and prep obey the same stop', () => {
       },
     ),
     expected: { ok: false, refusal: 'platform-incident' },
+  });
+});
+
+test('the runtime says what happened to an incident, for its row', () => {
+  const runtime = runtimeOf([speech()]);
+  const opened = runtime.applyIncident(pause(40_000, 37_000));
+  runtime.applyIncident(beginResume(50_000));
+  const held = runtime.applyIncident(pause(51_000, 51_000));
+  runtime.applyIncident(beginResume(52_000));
+  const until = 52_000 + 5 * secondMs;
+  const resumed = runtime.tick(roundAt(until));
+  assert({
+    given: 'a hold, a failure in its countdown, and its resume',
+    should: 'state the opening and the resume, and nothing for the second hold',
+    actual: [
+      opened.incidentChanges?.map(({ kind }) => kind),
+      held.incidentChanges,
+      resumed.incidentChanges,
+    ],
+    expected: [
+      ['opened'],
+      undefined,
+      [
+        {
+          kind: 'resumed',
+          at: roundAt(until),
+          returnedMs: until - 37_000,
+        },
+      ],
+    ],
+  });
+  const ending = runtimeOf([speech()]);
+  ending.applyIncident(pause(40_000, 37_000));
+  const ended = ending.applyIncident({ kind: 'end', atMs: 90_000 });
+  assert({
+    given: 'a hold that reaches the bound',
+    should: 'state only its end',
+    actual: ended.incidentChanges?.map(({ kind }) => kind),
+    expected: ['ended'],
   });
 });

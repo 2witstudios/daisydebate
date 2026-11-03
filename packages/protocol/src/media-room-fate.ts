@@ -16,17 +16,26 @@ export type MediaRoomFacts = {
   /** The last pass that read the room saw the capture agent in it. */
   readonly sawCapture: boolean;
   /** What this pass read of the room; null if it read nothing. */
-  readonly seen: {
-    /** LiveKit's id for the room now, or null when it is absent. */
-    readonly sid: string | null;
-    readonly empty: boolean;
-    /**
-     * The room's node answered a call only it can serve; null when not asked. A dead
-     * node's room still reads as occupied, under the same id, through a surviving node.
-     */
-    readonly answered: boolean | null;
-  } | null;
+  readonly seen: MediaRoomRead | null;
 };
+
+/** One pass's read of the room: it was absent, or it stood like this. */
+export type MediaRoomRead =
+  | { readonly kind: 'absent' }
+  | {
+      readonly kind: 'read';
+      /** LiveKit's id for the room now. */
+      readonly sid: string | null;
+      readonly empty: boolean;
+      /** The capture agent is listed. */
+      readonly captureListed: boolean;
+      /**
+       * The room's node answered a call only it can serve; null when not asked or the
+       * asking itself failed. A dead node's room still reads as occupied, under the same
+       * id, through a surviving node.
+       */
+      readonly answered: boolean | null;
+    };
 
 /** What happens to the room. Each variant is one outcome, with nothing left to derive. */
 export type MediaRoomFate =

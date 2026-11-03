@@ -31,7 +31,7 @@ export const launched: LaunchedRound = {
   completedAt: null,
   outcome: null,
   panelRuling: null,
-  endedByPlatformIncident: false,
+  platformEnding: null,
   transcriptCompleteness: null,
   resolutionAudit: null,
   checkpoint: emptyRuntimeCheckpoint,

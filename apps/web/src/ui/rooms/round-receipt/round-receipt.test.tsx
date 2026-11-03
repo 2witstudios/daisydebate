@@ -10,7 +10,7 @@ const scheduled: RoundReceiptView = {
   status: 'opening',
   outcome: null,
   panelRuling: null,
-  endedByPlatformIncident: false,
+  platformEnding: null,
   topic: '<Frozen topic>',
   config: { preRoundPrep: { enabled: true, durationMs: 45000 } },
   rules: {
@@ -179,7 +179,7 @@ test('a Round closed on an incomplete transcript says so instead of blaming the 
         ...judged,
         outcome: null,
         panelRuling: 'transcript-incomplete',
-        endedByPlatformIncident: false,
+        platformEnding: null,
       }}
     />,
   );
@@ -331,7 +331,7 @@ test('a Round the platform ended states the cause', () => {
         status: 'abandoned',
         outcome: null,
         panelRuling: null,
-        endedByPlatformIncident: true,
+        platformEnding: 'recovery_bound',
       }}
     />,
   );

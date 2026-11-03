@@ -1,12 +1,6 @@
 import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
 
 /**
- * The one decision (ADR 0110). Observed absence settles it at once. Otherwise uncertainty
- * older than the bound moves an open Round to a fresh room with the node still silent,
- * because a late outcome can then reach only the old room. A terminal session waits for
- * proof, since ending it stops every later delete attempt.
- */
-/**
  * The node holding an occupied room has gone. LiveKit has no room migration, and for
  * many seconds a surviving node still lists the room as it was, occupied, under the same
  * id. A seat whose signal runs through a survivor hears nothing for about 15 s. So the
@@ -17,13 +11,20 @@ import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
 export const mediaRoomLost = (
   facts: Pick<MediaRoomFacts, 'lastOccupiedSid' | 'sawCapture' | 'seen'>,
 ): boolean => {
-  const { seen, lastOccupiedSid } = facts;
+  const { seen, lastOccupiedSid, sawCapture } = facts;
   if (seen === null) return false;
+  if (seen.kind === 'absent') return lastOccupiedSid !== null || sawCapture;
   if (lastOccupiedSid !== null && seen.sid !== lastOccupiedSid) return true;
   if (lastOccupiedSid !== null && seen.answered === false) return true;
-  return seen.empty && facts.sawCapture;
+  return seen.empty && sawCapture;
 };
 
+/**
+ * The one decision (ADR 0110). Observed absence settles it at once. Otherwise uncertainty
+ * older than the bound moves an open Round to a fresh room with the node still silent,
+ * because a late outcome can then reach only the old room. A terminal session waits for
+ * proof, since ending it stops every later delete attempt.
+ */
 export const mediaRoomFate =
   (retireAfterMs: number) =>
   (facts: MediaRoomFacts): MediaRoomFate => {

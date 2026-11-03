@@ -1,4 +1,3 @@
-import { roundIncidents } from './schema/round-incidents';
 import {
   currentRoomTopic,
   withOpening,
@@ -107,19 +106,7 @@ export async function launchedRoundRows(
     startedAt: row.startedAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
     outcome: row.outcome,
-    endedByPlatformIncident:
-      (
-        await tx
-          .select({ id: roundIncidents.id })
-          .from(roundIncidents)
-          .where(
-            and(
-              eq(roundIncidents.roundId, roundId),
-              isNotNull(roundIncidents.endedAt),
-            ),
-          )
-          .limit(1)
-      ).length > 0,
+    platformEnding: row.platformEnding,
     panelRuling: recordedPanelRuling(
       await tx
         .select()

@@ -1,4 +1,5 @@
 import { createAppError, createRefusal } from '@daisy/errors';
+import { captureWithinLimit } from '@daisy/protocol';
 import type {
   RoundBallotEnvelope,
   RoundBallotReceipt,
@@ -6,14 +7,26 @@ import type {
 } from '@daisy/protocol';
 
 /**
- * An AI judge never rules on an incomplete transcript (DEC-208): a job is never
- * queued for one, and this holds if one ever is, since rating trusts the ballot.
+ * An AI judge rules only on what can be judged (DEC-208, ADR 0110): a complete transcript,
+ * or one whose stated gap is within the limit. A job is never queued for anything else,
+ * and this holds if one ever is, since rating trusts the ballot.
  */
 export function requireAgentBallotCapture(
   principal: RoundCommandPrincipal,
-  completeness: string,
+  frozen: {
+    readonly completeness: string;
+    readonly captureGapMs: number | null;
+    readonly expectedSpeechMs: number;
+  },
 ): void {
-  if (principal.kind === 'agent' && completeness !== 'complete')
+  if (
+    principal.kind === 'agent' &&
+    frozen.completeness !== 'complete' &&
+    !captureWithinLimit({
+      gapMs: frozen.captureGapMs,
+      expectedMs: frozen.expectedSpeechMs,
+    })
+  )
     throw createAppError(
       'INVARIANT',
       'An AI judge cannot rule on an incomplete transcript',

@@ -100,7 +100,7 @@ describe('media room service boundary', () => {
       given: 'a vendor participant with personal metadata',
       should: 'return only its identity and permissions',
       actual: Object.keys(participants[0]!),
-      expected: ['identity', 'tracks', 'permission'],
+      expected: ['identity', 'kind', 'tracks', 'permission'],
     });
   });
 

@@ -75,6 +75,16 @@ const activeSession = (row: ActiveSessionRow) => {
             consumedMs: row.runtime_state.prep_consumed_ms[prep.side],
           }
         : null,
+      stops: row.runtime_state.clock_stops,
+      hold:
+        row.runtime_state.incident.phase === 'none'
+          ? null
+          : {
+              resumesAt:
+                row.runtime_state.incident.phase === 'resuming'
+                  ? row.runtime_state.incident.until
+                  : null,
+            },
       segmentCount: row.last_sequence === null ? 0 : row.last_sequence + 1,
       lastSegment:
         row.last_started_at &&

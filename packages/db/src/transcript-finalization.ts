@@ -1,4 +1,3 @@
-import { createId } from '@paralleldrive/cuid2';
 import { readCaptureShortfall } from './capture-shortfall';
 import { refundPlatformEndedLocked } from './round-bot-admission';
 import type { CaptureRule } from '@daisy/protocol';
@@ -76,7 +75,6 @@ async function planFrozenJudging(
     readonly expectedMs: number;
     readonly platformLostAudio: boolean;
   },
-  nextIncidentId: () => string,
 ) {
   const [judges] =
     (await tx.execute(sql`select exists(select 1 from round_participants p join actors a on a.id=p.actor_id
@@ -89,9 +87,9 @@ async function planFrozenJudging(
     capture,
   });
   if (plan.endsAsPlatformIncident) {
-    const frozenAt = sql`(select frozen_at from round_transcript_freezes where round_id=${request.roundId})`;
-    await tx.execute(sql`insert into round_incidents (id,round_id,cause,detected_at,ended_at)
-      values (${nextIncidentId()},${request.roundId},'capture_below_limit',${frozenAt},${frozenAt})`);
+    await tx.execute(
+      sql`update rounds set platform_ending='capture_shortfall' where id=${request.roundId}`,
+    );
     await refundPlatformEndedLocked(tx, request.roundId);
   }
   if (plan.ballotDeadlineMs !== null) {
@@ -104,7 +102,7 @@ async function planFrozenJudging(
       sql`update rounds set ballot_deadline_at=(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.ballotDeadlineMs}*interval '1 millisecond' where id=${request.roundId}`,
     );
   }
-  if (!plan.dispatchAiJudges) return;
+  if (!plan.dispatchAiJudges) return plan.endsAsPlatformIncident;
   if (
     !Number.isSafeInteger(plan.aiJudgingBudgetMs) ||
     plan.aiJudgingBudgetMs < 1
@@ -115,6 +113,7 @@ async function planFrozenJudging(
     select ${request.roundId},1,p.id,'queued',0,(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.aiJudgingBudgetMs}*interval '1 millisecond' from round_participants p join actors a on a.id=p.actor_id join ai_judge_profiles j on j.actor_id=a.id
     where p.round_id=${request.roundId} and p.role='judge' and a.kind='bot'
     on conflict (round_id,judge_participant_id) do nothing`);
+  return false;
 }
 /** Existing Round/lease/stream operation; a service consumer can recheck its lease after waits. */
 export async function finalizeLockedRoundTranscript(
@@ -125,7 +124,12 @@ export async function finalizeLockedRoundTranscript(
   const clock = await executeLockedRoundTick(tx, request);
   await assertCurrent();
   const existing = await readTranscriptFreeze(tx, request.roundId);
-  if (existing) return { status: 'frozen' as const, freeze: existing };
+  if (existing)
+    return {
+      status: 'frozen' as const,
+      platformEnded: false,
+      freeze: existing,
+    };
   const [round] = await tx
     .select({ status: rounds.status })
     .from(rounds)
@@ -170,17 +174,11 @@ export async function finalizeLockedRoundTranscript(
       captureGaps: shortfall.captureGaps,
     })
     .returning();
-  await planFrozenJudging(
-    tx,
-    request,
-    state,
-    {
-      gapMs: shortfall.captureGapMs,
-      expectedMs: shortfall.expectedSpeechMs,
-      platformLostAudio: shortfall.platformLostAudio,
-    },
-    createId,
-  );
+  const platformEnded = await planFrozenJudging(tx, request, state, {
+    gapMs: shortfall.captureGapMs,
+    expectedMs: shortfall.expectedSpeechMs,
+    platformLostAudio: shortfall.platformLostAudio,
+  });
   await appendTranscriptChanged(tx, request.roundId, revision + 1);
   // What the Round waits on changes here, so the room must read it: a new version
   // and a ring, as with any other change the server records.
@@ -192,6 +190,8 @@ export async function finalizeLockedRoundTranscript(
   await appendRoundPhaseChanged(tx, request.roundId, version + 1);
   return {
     status: 'frozen' as const,
+    /** This freeze ended the Round as a platform incident: the caller alerts, once. */
+    platformEnded,
     freeze: { ...freeze!, frozenAt: freeze!.frozenAt.toISOString() },
   };
 }

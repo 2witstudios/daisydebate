@@ -4,7 +4,7 @@ import type {
   RoundSpeakingChange,
   RoundProjection,
 } from '@daisy/protocol';
-import type { ClockChange } from './round-clock';
+import type { ClockChange } from './round-clock-transition';
 
 /** Open questioning grants speaking permission without transferring the scheduled floor. */
 export const hasOpenQuestioning = (rules: RoundRules): boolean =>
@@ -62,21 +62,27 @@ export function speakingChangesOf(input: {
       holder,
     ),
   });
-  const result: RoundSpeakingChange[] = input.changes.map((change) => {
-    switch (change.kind) {
-      case 'open':
-        return opened(change.row.sequence, change.row.startedAtMs, null);
-      case 'resume':
-        return opened(change.sequence, change.atMs, change.holder);
-      case 'close':
-      case 'stop':
-        return {
-          kind: 'close',
-          segmentId: input.segmentIds.get(change.sequence)!,
-          at: new Date(change.atMs).toISOString(),
-        };
-    }
-  });
+  const result: RoundSpeakingChange[] = input.changes.flatMap(
+    (change): RoundSpeakingChange[] => {
+      switch (change.kind) {
+        case 'open':
+          return [opened(change.row.sequence, change.row.startedAtMs, null)];
+        case 'resume':
+          return [opened(change.sequence, change.atMs, change.holder)];
+        case 'close':
+        case 'stop':
+          return [
+            {
+              kind: 'close',
+              segmentId: input.segmentIds.get(change.sequence)!,
+              at: new Date(change.atMs).toISOString(),
+            },
+          ];
+        case 'incident':
+          return [];
+      }
+    },
+  );
   const floor = input.floorChange;
   if (floor && !sharesSpeaking(input.rules, floor.sequence)) {
     const segmentId = input.segmentIds.get(floor.sequence)!;

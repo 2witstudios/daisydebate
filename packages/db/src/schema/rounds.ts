@@ -10,6 +10,8 @@ import {
   roundStatusSchema,
   runtimeCheckpointSchema,
   roundOutcomeSchema,
+  roundPlatformEndings,
+  type RoundPlatformEnding,
   type RoundOutcome,
   type RoundStage,
   type RoundStatus,
@@ -116,6 +118,8 @@ export const rounds = pgTable(
     runtimeState: jsonbColumn('runtime_state', runtimeCheckpointSchema)
       .notNull()
       .default(emptyRuntimeCheckpoint),
+    /** The platform ended this Round: it gives no outcome, rating, penalty or charge. */
+    platformEnding: text('platform_ending').$type<RoundPlatformEnding>(),
     finalSegmentEndedAt: timestampColumn('final_segment_ended_at'),
     transcriptAdmissionCutoff: timestampColumn('transcript_admission_cutoff'),
     /** Set once at the transcript freeze from the injected policy; judges rule before it (DEC-201, DEC-207). */
@@ -166,6 +170,10 @@ export const rounds = pgTable(
         table.formatVersion,
       ),
       versionPositive('rounds', table.version),
+      check(
+        'rounds_platform_ending_check',
+        sql`${table.platformEnding} is null or ${oneOf(table.platformEnding, roundPlatformEndings)}`,
+      ),
       check(
         'rounds_transcript_cutoff_check',
         sql`(${table.finalSegmentEndedAt} is null and ${table.transcriptAdmissionCutoff} is null) or (${table.finalSegmentEndedAt} is not null and ${table.transcriptAdmissionCutoff} is not null and ${table.transcriptAdmissionCutoff} = ${table.finalSegmentEndedAt} + interval '120 seconds')`,

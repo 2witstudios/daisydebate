@@ -15,8 +15,6 @@ export type MediaObservation =
   | { readonly kind: 'unread' }
   | {
       readonly kind: 'room';
-      /** Nobody at all is listed: seats, judges and the capture agent. */
-      readonly empty: boolean;
       /** The hidden capture agent is listed. */
       readonly captureListed: boolean;
       /** Every seated human debater is listed. */
@@ -32,10 +30,8 @@ export type IncidentFacts = {
   readonly incident: RoundIncident;
   readonly nowMs: number;
   readonly observation: MediaObservation;
-  /** This pass retired an uncertain room. A revoked seat's rotation is not this. */
+  /** A pass retired an uncertain room and no incident has taken it up yet. A revoked seat's rotation is not this. */
   readonly roomRetired: boolean;
-  /** The last pass saw the capture agent, so an empty list now means loss. */
-  readonly sawCapture: boolean;
   /** When the vendor first went unreachable, or null if it has answered since. */
   readonly unreachableSinceMs: number | null;
   /** A Round in its opening has no capture to wait for. */
@@ -51,17 +47,11 @@ export type IncidentDecision =
 /** The one reading of server evidence as a failure; a planned drain produces none. */
 const failureCause = (facts: IncidentFacts): PlatformIncidentCause | null => {
   if (facts.roomRetired) return 'room_retired';
-  if (
-    facts.observation.kind === 'unreachable' &&
+  return facts.observation.kind === 'unreachable' &&
     facts.unreachableSinceMs !== null &&
     facts.nowMs - facts.unreachableSinceMs >=
       roundIncidentPolicy.vendorUnreachableMs
-  )
-    return 'vendor_unreachable';
-  return facts.observation.kind === 'room' &&
-    facts.observation.empty &&
-    facts.sawCapture
-    ? 'room_emptied'
+    ? 'vendor_unreachable'
     : null;
 };
 
@@ -140,10 +130,5 @@ export const observationMatters = (facts: IncidentFacts): boolean => {
   const { observation } = facts;
   if (facts.incident.phase !== 'none' || facts.roomRetired) return true;
   if (observation.kind === 'unreachable') return true;
-  if (observation.kind === 'unread') return facts.unreachableSinceMs !== null;
-  return (
-    facts.unreachableSinceMs !== null ||
-    observation.empty ||
-    observation.captureListed !== facts.sawCapture
-  );
+  return facts.unreachableSinceMs !== null;
 };

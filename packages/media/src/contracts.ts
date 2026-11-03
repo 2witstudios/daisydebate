@@ -39,8 +39,13 @@ export const configSchema = z.strictObject({
 });
 export type MediaConfig = z.infer<typeof configSchema>;
 
+/** LiveKit's ParticipantInfo.Kind for an agent; the server SDK does not export the enum. */
+export const AGENT_PARTICIPANT_KIND = 4;
+
 export const participantSchema = z.object({
   identity: idSchema,
+  /** What the participant's token says it is: only capture's token says agent. */
+  kind: z.number().default(0),
   tracks: z
     .array(z.object({ sid: z.string(), source: z.enum(TrackSource) }))
     .default([]),

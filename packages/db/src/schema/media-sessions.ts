@@ -47,6 +47,8 @@ export const mediaSessions = pgTable(
     deletionRequestedAt: timestampColumn('deletion_requested_at'),
     /** When a pass first failed to reach the vendor; a pass that reads it clears this. */
     vendorUnreachableSince: timestampColumn('vendor_unreachable_since'),
+    /** A pass retired a lost or uncertain room; the incident feature takes this up. */
+    roomRetiredAt: timestampColumn('room_retired_at'),
     /** The last pass that read the room saw the capture agent in it. */
     roomSawCapture: boolean('room_saw_capture').notNull().default(false),
     /** LiveKit's id for the room when last occupied: a new id means the node was lost. */

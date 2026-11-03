@@ -33,11 +33,18 @@ export type RoundStage = (typeof roundStages)[number];
 export const platformIncidentCauses = [
   'vendor_unreachable',
   'room_retired',
-  'room_emptied',
-  /** No pause: the debate finished, having lost more speech than can be judged. */
-  'capture_below_limit',
 ] as const;
 export const platformIncidentCauseSchema = z.enum(platformIncidentCauses);
+
+/**
+ * Why the platform, not the debate, ended a Round: it never recovered within the bound,
+ * or the debate finished having lost more speech than can be judged.
+ */
+export const roundPlatformEndings = [
+  'recovery_bound',
+  'capture_shortfall',
+] as const;
+export type RoundPlatformEnding = (typeof roundPlatformEndings)[number];
 export type PlatformIncidentCause = (typeof platformIncidentCauses)[number];
 
 const incidentFields = {
