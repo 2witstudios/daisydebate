@@ -20,7 +20,7 @@ const safetyReasons = [
 const reviewReasons = ['result_dispute', 'integrity_concern'] as const;
 const feedbackReason = 'abusive_feedback';
 
-const reportReasons = [
+export const reportReasons = [
   ...safetyReasons,
   ...reviewReasons,
   feedbackReason,
