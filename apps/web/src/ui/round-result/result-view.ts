@@ -105,6 +105,7 @@ export function transcriptSections(
   const sections = sectionsOf(view.round, transcript.utterances);
   const placeless = transcript.partialStreams.filter(
     (stream) =>
+      statesLoss(stream.reasons) &&
       !transcript.gaps.some(
         (gap) =>
           gap.segmentId === stream.segmentId &&
@@ -166,6 +167,12 @@ const gapRow = (
   fromOffsetMs: gap.fromOffsetMs,
   untilOffsetMs: gap.untilOffsetMs,
 });
+
+/** Only these reasons speak to missing audio; others can mean nothing was said. */
+const statesLoss = (reasons: readonly string[]) =>
+  reasons.some(
+    (reason) => reason === 'frames-lost' || reason === 'session-interrupted',
+  );
 
 const lossRow = (
   round: TranscriptRound,
@@ -240,7 +247,12 @@ export function liveTranscriptSections(
         ),
       ),
       losses: streams
-        .filter((stream) => stream.state === 'partial' && !stream.gaps.length)
+        .filter(
+          (stream) =>
+            stream.state === 'partial' &&
+            !stream.gaps.length &&
+            statesLoss(stream.partialReasons ?? []),
+        )
         .map((stream) => lossRow(view.round, stream)),
     };
   });
