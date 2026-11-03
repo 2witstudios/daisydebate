@@ -44,7 +44,7 @@ const livekit: MediaSdk = {
       disconnectOnPageLeave: false,
     }),
   capture: createLocalTracks,
-  cores: () => globalThis.navigator?.hardwareConcurrency,
+  cores: () => navigator.hardwareConcurrency,
 };
 
 /** A track to attach to an element: what it says about itself is the model's to read. */
