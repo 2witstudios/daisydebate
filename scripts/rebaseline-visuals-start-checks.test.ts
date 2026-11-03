@@ -2,7 +2,7 @@ import { setDefaultTimeout } from 'bun:test';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { type Job, runStep, workflow } from './rebaseline-visuals-workflow';
+import { type Job, runStep, workflow } from './rebaseline-visuals.test-support';
 
 setupRitewayBun();
 // A full wait runs 24 passes of real jq, which a loaded machine stretches.
@@ -13,10 +13,10 @@ setDefaultTimeout(30_000);
  * `failOnce` fails the first call of that kind, as a transient API error does.
  * Returns the exit status and each run the step asked GitHub to approve.
  */
-const runApprove = (
+const approveRun = (
   pulls: unknown[],
   runs: unknown[],
-  failOnce?: 'pulls' | 'runs' | 'approve',
+  failOnce?: 'pulls' | 'runs' | 'approve' | 'every approve',
   pushed = true,
 ) => {
   const step = workflow.jobs['start-checks']!.steps.find(
@@ -26,9 +26,11 @@ const runApprove = (
     step,
     (dir) => {
       const fail = (kind: string) =>
-        failOnce === kind
-          ? `[ -e '${dir}/failed' ] || { touch '${dir}/failed'; exit 1; }; `
-          : '';
+        failOnce === `every ${kind}`
+          ? 'exit 1; '
+          : failOnce === kind
+            ? `[ -e '${dir}/failed' ] || { touch '${dir}/failed'; exit 1; }; `
+            : '';
       writeFileSync(join(dir, 'calls'), '');
       return {
         stubs: {
@@ -53,9 +55,19 @@ esac`,
         .split('\n')
         .filter((call) => call.startsWith('api --method POST'))
         .map((call) => call.match(/runs\/(\d+)\/approve/)?.[1]),
+      listings: readFileSync(join(dir, 'calls'), 'utf8')
+        .split('\n')
+        .filter((call) => call.includes('/runs?per_page=')).length,
     }),
   );
 };
+
+const runApprove = (...args: Parameters<typeof approveRun>) => {
+  const { ok, approved } = approveRun(...args);
+  return { ok, approved };
+};
+
+const openPull = (sha = 'a'.repeat(40)) => [{ head: { sha } }];
 
 const prRun = (
   id: number,
@@ -98,7 +110,7 @@ describe('Rebaseline visuals start-checks', () => {
     assert({
       given: 'CI held at the head',
       should: 'approve it and finish',
-      actual: runApprove([{ number: 1 }], [held(11)]),
+      actual: runApprove(openPull(), [held(11)]),
       expected: { ok: true, approved: ['11'] },
     });
   });
@@ -107,7 +119,7 @@ describe('Rebaseline visuals start-checks', () => {
     assert({
       given: 'CI running at the head, as after a person pushed it',
       should: 'finish without approving anything',
-      actual: runApprove([{ number: 1 }], [prRun(11, 'in_progress', null)]),
+      actual: runApprove(openPull(), [prRun(11, 'in_progress', null)]),
       expected: { ok: true, approved: [] },
     });
   });
@@ -117,7 +129,7 @@ describe('Rebaseline visuals start-checks', () => {
       assert({
         given: `CI ${status} for the whole wait and never held`,
         should: 'keep watching, then finish without approving anything',
-        actual: runApprove([{ number: 1 }], [prRun(11, status, null)]),
+        actual: runApprove(openPull(), [prRun(11, status, null)]),
         expected: { ok: true, approved: [] },
       });
     });
@@ -127,7 +139,7 @@ describe('Rebaseline visuals start-checks', () => {
     assert({
       given: 'CI held only at some other pull request head',
       should: 'never approve that run, and fail when its own never appears',
-      actual: runApprove([{ number: 1 }], [held(11, 'b'.repeat(40))]),
+      actual: runApprove(openPull(), [held(11, 'b'.repeat(40))]),
       expected: { ok: false, approved: [] },
     });
   });
@@ -143,7 +155,49 @@ describe('Rebaseline visuals start-checks', () => {
     assert({
       given: 'CI held for a fork pull request at the head commit',
       should: 'never approve the fork run past GitHub first-time approval',
-      actual: runApprove([{ number: 1 }], [fork], undefined, false),
+      actual: runApprove(openPull(), [fork], undefined, false),
+      expected: { ok: true, approved: [] },
+    });
+  });
+
+  test('a held run at a head the branch has moved past', () => {
+    assert({
+      given: 'CI held at the commit while the pull request head is newer',
+      should:
+        'approve nothing, so that run cannot cancel the new head CI, and finish',
+      actual: runApprove(openPull('b'.repeat(40)), [held(11)]),
+      expected: { ok: true, approved: [] },
+    });
+  });
+
+  test('every approval refused', () => {
+    assert({
+      given: 'GitHub refusing every approval of a held run',
+      should: 'fail rather than end green with CI held',
+      actual: runApprove(openPull(), [held(11)], 'every approve').ok,
+      expected: false,
+    });
+  });
+
+  test('a CI run that has finished', () => {
+    assert({
+      given: 'a completed CI run at the head',
+      should: 'stop at once without approving anything',
+      actual: approveRun(openPull(), [prRun(11, 'completed', 'success')]),
+      expected: { ok: true, approved: [], listings: 1 },
+    });
+  });
+
+  test('a held run from another event', () => {
+    assert({
+      given: 'a held run at the head from a non pull_request event',
+      should: 'not approve it',
+      actual: runApprove(
+        openPull(),
+        [{ ...held(11), event: 'push' }],
+        undefined,
+        false,
+      ),
       expected: { ok: true, approved: [] },
     });
   });
@@ -161,7 +215,7 @@ describe('Rebaseline visuals start-checks', () => {
     assert({
       given: 'a pushed head on a pull request with no CI run, as in a conflict',
       should: 'fail rather than report the checks as started',
-      actual: runApprove([{ number: 1 }], []).ok,
+      actual: runApprove(openPull(), []).ok,
       expected: false,
     });
   });
@@ -170,7 +224,7 @@ describe('Rebaseline visuals start-checks', () => {
     assert({
       given: 'nothing committed and no CI run at the head in the recent runs',
       should: 'finish, since nothing new was pushed for CI to run on',
-      actual: runApprove([{ number: 1 }], [], undefined, false),
+      actual: runApprove(openPull(), [], undefined, false),
       expected: { ok: true, approved: [] },
     });
   });
@@ -179,7 +233,7 @@ describe('Rebaseline visuals start-checks', () => {
     assert({
       given: 'nothing committed and CI held, as after a cancelled dispatch',
       should: 'approve the stranded run',
-      actual: runApprove([{ number: 1 }], [held(11)], undefined, false),
+      actual: runApprove(openPull(), [held(11)], undefined, false),
       expected: { ok: true, approved: ['11'] },
     });
   });
@@ -190,9 +244,9 @@ describe('Rebaseline visuals start-checks', () => {
       given: 'one failed pull request lookup, run listing or approval',
       should: 'retry and approve the held run',
       actual: [
-        runApprove([{ number: 1 }], runs, 'pulls'),
-        runApprove([{ number: 1 }], runs, 'runs'),
-        runApprove([{ number: 1 }], runs, 'approve'),
+        runApprove(openPull(), runs, 'pulls'),
+        runApprove(openPull(), runs, 'runs'),
+        runApprove(openPull(), runs, 'approve'),
       ],
       expected: [
         { ok: true, approved: ['11'] },

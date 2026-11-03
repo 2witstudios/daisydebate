@@ -34,7 +34,7 @@ export const workflow = Bun.YAML.parse(read(path)) as Workflow;
 
 /**
  * Runs one workflow step's script with stub commands first on its PATH, over a
- * scratch folder that `setup` fills and `read` reads back.
+ * scratch folder that `setup` fills and `readBack` reads.
  */
 export const runStep = <T>(
   step: Step,
@@ -42,7 +42,7 @@ export const runStep = <T>(
     stubs: Record<string, string>;
     env: Record<string, string>;
   },
-  read: (dir: string) => T,
+  readBack: (dir: string) => T,
 ) => {
   const dir = mkdtempSync(join(tmpdir(), 'rebaseline-step-'));
   try {
@@ -58,7 +58,7 @@ export const runStep = <T>(
         ...env,
       },
     });
-    return { ok: run.exitCode === 0, ...read(dir) };
+    return { ok: run.exitCode === 0, ...readBack(dir) };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

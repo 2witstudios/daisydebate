@@ -16,7 +16,7 @@ import {
   runStep,
   type Workflow,
   workflow,
-} from './rebaseline-visuals-workflow';
+} from './rebaseline-visuals.test-support';
 
 setupRitewayBun();
 
