@@ -1,7 +1,10 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { followingOf, watchViewer } from '../../../features/watch/round-source';
+import {
+  followingOf,
+  watchViewer,
+} from '../../../features/watch/sample-source.test-support';
 import { FollowingTab } from './following-tab';
 
 setupRitewayBun();
@@ -21,9 +24,24 @@ describe('FollowingTab', () => {
         html.includes('Live now in Quarterfinal practice'),
         html.includes('href="/watch/quarterfinal-practice"'),
         html.includes('href="/recordings/semifinal-rehearsal"'),
-        html.includes('href="?did=Clear+history"'),
+        html.includes('Clear history'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true, false],
+    });
+  });
+
+  test('nothing followed or watched', () => {
+    const html = renderToString(
+      h(FollowingTab, {
+        following: { people: [], history: [] },
+        signInHref: '/sign-in',
+      }),
+    );
+    assert({
+      given: 'a member with no follows or history',
+      should: 'say so in each section',
+      actual: [html.includes('Nobody yet.'), html.includes('Nothing yet.')],
+      expected: [true, true],
     });
   });
 

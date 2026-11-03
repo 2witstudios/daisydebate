@@ -1,4 +1,4 @@
-import type { WatchRound, WatchViewer } from './round';
+import type { WatchRound } from './round';
 import {
   durationLabel,
   modeLabel,
@@ -50,7 +50,6 @@ type Input = {
   readonly round: WatchRound & {
     readonly state: Extract<WatchRound['state'], { status: 'ended' }>;
   };
-  readonly viewer: WatchViewer;
   readonly query: ReplayQuery;
   readonly table: ReplayTimetable;
   readonly density: readonly number[];
@@ -59,7 +58,7 @@ type Input = {
 
 /** The replay of a recording a viewer may open. Pure. */
 export function buildReplayView(input: Input): ReplayView {
-  const { round, viewer, query, table, context } = input;
+  const { round, query, table, context } = input;
   const ctx = replayContext(round, query, table);
   const { recording, ballots } = round.state;
   return {
@@ -77,7 +76,7 @@ export function buildReplayView(input: Input): ReplayView {
     density: input.density,
     transcript: buildTranscript(ctx),
     result: buildResult(round, ballots, context.season),
-    share: buildShare(round, viewer, query),
+    share: buildShare(round),
     details: buildDetails(round, context.season, ctx.total, recording.endedAt),
   };
 }

@@ -9,14 +9,9 @@ import { Badge } from '../../components/badge/badge';
 import { Icon } from '../../components/icon/icon';
 import { StatusLine } from '../../components/status-line/status-line';
 import { ActionLink } from '../action-link/action-link';
-import {
-  ChatComposer,
-  ChatMessages,
-  Reactions,
-} from '../spectator-social/spectator-social';
+import { ChatMessages, Reactions } from '../spectator-social/spectator-social';
 import { Matchup } from './matchup';
 import { PhaseTimeline } from './phase-timeline';
-import { ReportDialog } from './report-dialog';
 import { SpeechList } from './speech-list';
 import { PaneTabs } from '../pane-tabs/pane-tabs';
 import { SpectateStage } from './spectate-stage';
@@ -70,7 +65,7 @@ function Banners({ view }: SpectateProps) {
   );
 }
 
-/** Breadcrumb, title, status and audience; Report and Leave on the right. */
+/** Breadcrumb, title, status and audience; Leave on the right. */
 function Header({ view }: SpectateProps) {
   return (
     <header className="flex flex-wrap items-start justify-between gap-3">
@@ -119,15 +114,6 @@ function Header({ view }: SpectateProps) {
       </div>
       <div className="flex items-center">
         <Link
-          href={spectateHref(view.id, {
-            ...view.query,
-            report: { kind: 'debate' },
-          })}
-          className="flex min-h-room-target items-center px-3 text-base font-strong text-ink-muted"
-        >
-          Report
-        </Link>
-        <Link
           href={watchRoutes.hub}
           className="flex min-h-room-target items-center px-3 text-base font-strong text-ink-muted"
         >
@@ -138,7 +124,7 @@ function Header({ view }: SpectateProps) {
   );
 }
 
-/** Transcript or chat, chosen by `?pane=`, over the chat composer. */
+/** Transcript or chat, chosen by `?pane=`. */
 function LiveColumn({ view }: SpectateProps) {
   const active = view.query.pane;
   return (
@@ -154,7 +140,6 @@ function LiveColumn({ view }: SpectateProps) {
           href: spectateHref(view.id, {
             ...view.query,
             pane: pane.id,
-            report: null,
           }),
           active: active === pane.id,
         }))}
@@ -168,16 +153,15 @@ function LiveColumn({ view }: SpectateProps) {
               reactions={view.social.reactions}
               open={view.social.open}
             />
-            <ChatMessages
-              id={view.id}
-              query={view.query}
-              messages={view.social.messages}
-              open={view.social.open}
-            />
+            <ChatMessages messages={view.social.messages} />
           </>
         )}
       </div>
-      <ChatComposer chatRules={view.social.chatRules} open={view.social.open} />
+      {view.social.open ? null : (
+        <p className="border-t border-border p-3 text-sm text-ink-muted">
+          Chat closed
+        </p>
+      )}
     </aside>
   );
 }
@@ -185,8 +169,7 @@ function LiveColumn({ view }: SpectateProps) {
 /**
  * The spectator view of a Round, live or just ended: the speaker large with
  * the other debater inset, the phase timeline and the seats, beside the
- * transcript and chat. Everything here is sample state except the running
- * clock; chat and reactions are inert.
+ * transcript and chat, which the audience reads.
  */
 export function Spectate({ view }: SpectateProps) {
   return (
@@ -199,21 +182,6 @@ export function Spectate({ view }: SpectateProps) {
         <Matchup view={view} />
       </div>
       <LiveColumn view={view} />
-      {view.query.report !== null && view.reportTarget !== null ? (
-        <ReportDialog
-          id={view.id}
-          query={view.query}
-          target={view.reportTarget}
-        />
-      ) : null}
-      {view.reportSent ? (
-        <div
-          role="status"
-          className="fixed right-4 bottom-4 z-50 rounded-md bg-surface-raised p-4 text-base text-ink shadow-3"
-        >
-          Report sent
-        </div>
-      ) : null}
     </div>
   );
 }

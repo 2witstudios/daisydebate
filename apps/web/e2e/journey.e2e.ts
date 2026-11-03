@@ -171,8 +171,8 @@ test('return destinations are validated and spectator routes stay public', async
   page,
   request,
 }) => {
-  await page.goto('/watch');
-  await expect(page).toHaveURL(/\/watch$/);
+  await page.goto('/leaderboard');
+  await expect(page).toHaveURL(/\/leaderboard$/);
 
   await page.goto('/sign-in?next=%2F%2Fevil.example%2Fpath');
   const email = freshEmail();

@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import type { RoundPerson, RoundSnapshot } from './round';
 
 const groups: readonly {
@@ -20,25 +19,10 @@ function personName(round: RoundSnapshot, person: RoundPerson) {
   return person.name;
 }
 
-/** What the round keeps: live while the speeches run, kept once they end. */
-function keptRows(round: RoundSnapshot) {
-  const after = round.phase === 'judging';
-  return [
-    {
-      term: 'Recording',
-      value: round.recording ? (after ? 'Saved' : 'On') : 'Off',
-      live: round.recording && !after,
-    },
-    ...(after && round.recording
-      ? [{ term: 'This room now', value: 'Not recorded', live: false }]
-      : []),
-  ];
-}
-
 const stakesLabel = (stakes: NonNullable<RoundSnapshot['stakes']>) =>
   `+${stakes.win} / −${stakes.loss}`;
 
-/** Who is in the round, and what the round is keeping. */
+/** Who is in the round, and what the ranked result stakes. */
 export function RoomDetails({ round }: { readonly round: RoundSnapshot }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
@@ -84,20 +68,12 @@ export function RoomDetails({ round }: { readonly round: RoundSnapshot }) {
           </section>
         );
       })}
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border px-2 pt-4 text-sm">
-        {keptRows(round).map((row) => (
-          <Fragment key={row.term}>
-            <dt className="text-ink-muted">{row.term}</dt>
-            <dd className={row.live ? 'text-live' : undefined}>{row.value}</dd>
-          </Fragment>
-        ))}
-        {round.stakes ? (
-          <>
-            <dt className="text-ink-muted">Stakes</dt>
-            <dd className="tabular-nums">{stakesLabel(round.stakes)}</dd>
-          </>
-        ) : null}
-      </dl>
+      {round.stakes ? (
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border px-2 pt-4 text-sm">
+          <dt className="text-ink-muted">Stakes</dt>
+          <dd className="tabular-nums">{stakesLabel(round.stakes)}</dd>
+        </dl>
+      ) : null}
     </div>
   );
 }

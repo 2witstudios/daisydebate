@@ -83,7 +83,6 @@ describe('liveRoundOf before the start', () => {
         clock: room?.clock,
         prepMs: room?.prepMs,
         micLive: room?.micLive,
-        recording: room?.recording,
       },
       expected: {
         phase: 'waiting',
@@ -94,7 +93,6 @@ describe('liveRoundOf before the start', () => {
         },
         prepMs: { aff: 240_000, neg: 240_000 },
         micLive: false,
-        recording: false,
       },
     });
   });

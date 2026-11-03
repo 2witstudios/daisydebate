@@ -10,35 +10,19 @@ setupRitewayBun();
 describe('parseSpectateQuery', () => {
   test('defaults and valid values', () => {
     assert({
-      given: 'no parameters, then a pane and a Round report',
-      should: 'default to the transcript with no dialog, then read them',
-      actual: [
-        parseSpectateQuery({}),
-        parseSpectateQuery({ pane: 'chat', report: 'debate' }),
-        parseSpectateQuery({ report: 'message:c4' }),
-      ],
-      expected: [
-        defaultSpectateQuery,
-        { pane: 'chat', report: { kind: 'debate' } },
-        { pane: 'transcript', report: { kind: 'message', id: 'c4' } },
-      ],
+      given: 'no parameters, then a pane',
+      should: 'default to the transcript, then read it',
+      actual: [parseSpectateQuery({}), parseSpectateQuery({ pane: 'chat' })],
+      expected: [defaultSpectateQuery, { pane: 'chat' }],
     });
   });
 
   test('untrusted values', () => {
     assert({
-      given: 'an unknown pane and malformed report subjects',
-      should: 'fall back to the defaults and open no dialog',
-      actual: [
-        parseSpectateQuery({ pane: 'admin' }),
-        parseSpectateQuery({ report: 'message:<script>' }),
-        parseSpectateQuery({ report: 'other' }),
-      ],
-      expected: [
-        defaultSpectateQuery,
-        defaultSpectateQuery,
-        defaultSpectateQuery,
-      ],
+      given: 'an unknown pane',
+      should: 'fall back to the default',
+      actual: parseSpectateQuery({ pane: 'admin' }),
+      expected: defaultSpectateQuery,
     });
   });
 });
@@ -50,17 +34,9 @@ describe('spectateHref', () => {
       should: 'build the shortest live URL',
       actual: [
         spectateHref('top', defaultSpectateQuery),
-        spectateHref('top', {
-          pane: 'chat',
-          report: { kind: 'message', id: 'c4' },
-        }),
-        spectateHref('top', { pane: 'transcript', report: { kind: 'debate' } }),
+        spectateHref('top', { pane: 'chat' }),
       ],
-      expected: [
-        '/watch/top',
-        '/watch/top?pane=chat&report=message%3Ac4',
-        '/watch/top?report=debate',
-      ],
+      expected: ['/watch/top', '/watch/top?pane=chat'],
     });
   });
 });

@@ -64,20 +64,20 @@ describe('BracketPage, single elimination', () => {
     });
   });
 
-  test('by round lists every match with watch and recording links', () => {
+  test('by round lists every match with no Watch or Recording link', () => {
     const html = render('harvest-cup', 'rounds');
     assert({
       given: 'the by-round view',
       should:
-        'list eight matches, watch live ones and link recordings for done ones',
+        'list eight matches without generic links for rounds it cannot resolve',
       actual: [
         html.match(/<li class="[^"]*border-t/g)?.length,
         html.includes('@debater-c won'),
-        /href="\/watch"[^>]*>Watch</.test(html),
-        /href="\/recordings"[^>]*>Recording</.test(html),
+        html.includes('href="/watch"'),
+        html.includes('href="/recordings"'),
         html.includes('Not started'),
       ],
-      expected: [7, true, true, true, true],
+      expected: [7, true, false, false, true],
     });
   });
 

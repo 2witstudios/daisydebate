@@ -167,9 +167,6 @@ export function Mine({ data }: { readonly data: ResultsData }) {
             View certificate
           </LinkButton>
           <SampleButton label="Copy link to results" />
-          <LinkButton href="/recordings" variant="ghost">
-            Watch my rounds
-          </LinkButton>
         </div>
       </section>
       <section className={card}>

@@ -105,7 +105,7 @@ const notifications = {
 
 /**
  * Notifications, once its launch flag is set; until then the nav leaves it
- * out rather than linking a page of sample data.
+ * out rather than linking an empty page.
  */
 export const notificationsDestination = (
   config: PlaceLaunchConfig = launchedPlaces,

@@ -1,3 +1,4 @@
+import { sampleWatchSource } from '../../../features/watch/sample-source.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -11,7 +12,12 @@ import { LiveTab } from './live-tab';
 setupRitewayBun();
 
 const render = (query = defaultLiveQuery, listing?: LiveHubListing) =>
-  renderToString(h(LiveTab, { query, listing: listing ?? listLive(query) }));
+  renderToString(
+    h(LiveTab, {
+      query,
+      listing: listing ?? listLive(query, sampleWatchSource),
+    }),
+  );
 
 describe('LiveTab', () => {
   test('the default list', () => {
@@ -69,15 +75,15 @@ describe('LiveTab', () => {
     const html = render(defaultLiveQuery, empty);
     assert({
       given: 'no live Rounds at all',
-      should: 'explain, offer a working notify, the archive and the lobby',
+      should: 'explain, and offer the archive and the lobby',
       actual: [
         html.includes('Nothing live right now'),
-        html.includes('href="?did=Notify+me"'),
+        html.includes('?did='),
         html.includes('href="/recordings"'),
         html.includes('href="/lobby"'),
         html.includes('role="search"'),
       ],
-      expected: [true, true, true, true, false],
+      expected: [true, false, true, true, false],
     });
   });
 });

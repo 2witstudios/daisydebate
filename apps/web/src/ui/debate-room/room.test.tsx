@@ -60,17 +60,17 @@ describe('DebateRoom', () => {
   test('the round bar', () => {
     const html = render('opponent-speaking', 'casual');
     assert({
-      given: 'a casual round with a human judge, recording',
+      given: 'a casual round with a human judge',
       should:
-        'show the kind, the live speech as the current step, the anonymous judge, Recording and Leave round',
+        'show the kind, the live speech as the current step, the anonymous judge and Leave round, and claim no recording',
       actual: [
         html.includes('Casual'),
         html.includes('aria-current="step"'),
         html.includes('>Judge present<'),
-        html.includes('● Recording'),
         html.includes('Leave round'),
+        html.includes('Recording'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true, false],
     });
   });
 
@@ -223,16 +223,6 @@ describe('DebateRoom', () => {
         html.includes('>AI ballot<'),
       ],
       expected: [true, true, false],
-    });
-  });
-
-  test('the recording after the last speech', () => {
-    const html = render('judging', 'casual');
-    assert({
-      given: 'the judging window of a recorded round',
-      should: 'mark the recording stopped',
-      actual: [html.includes('>Recording stopped<'), html.includes('● Rec')],
-      expected: [true, false],
     });
   });
 

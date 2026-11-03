@@ -1,3 +1,4 @@
+import { sampleWatchSource } from './sample-source.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { countHub } from './list-live';
 
@@ -8,7 +9,7 @@ describe('countHub', () => {
     assert({
       given: 'the sample Rounds',
       should: 'count the listed live ones and the replayable public archive',
-      actual: countHub(),
+      actual: countHub(sampleWatchSource),
       expected: { live: 8, recordings: 6 },
     });
   });

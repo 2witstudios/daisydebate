@@ -19,7 +19,6 @@ type ChatMessage = {
 export type SpectatorSocial = {
   readonly reactions: readonly Reaction[];
   readonly messages: readonly ChatMessage[];
-  readonly chatRules: string;
 };
 
 /** One person the viewer follows, and what they are doing. */

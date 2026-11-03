@@ -1,7 +1,10 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from '../../../features/watch/round-source';
+import {
+  sampleWatchSource,
+  watchViewer,
+} from '../../../features/watch/sample-source.test-support';
 import {
   openSpectate,
   type SpectateScreen,
@@ -16,37 +19,13 @@ const html = (id: string, signedIn = true): string => {
     id,
     watchViewer(signedIn),
     defaultSpectateQuery,
+    sampleWatchSource,
   );
   if (screen.kind === 'watch') throw new Error('not a refusal');
   return renderToString(h(SpectateRefusal, { screen }));
 };
 
 describe('SpectateRefusal', () => {
-  test('signed out sends the visitor to sign in and back', () => {
-    const page = html('top-of-the-ladder', false);
-    assert({
-      given: 'an anonymous viewer at a public live Round',
-      should: 'explain, tease the Round and link to sign-in with next',
-      actual: [
-        page.includes('Sign in to watch live debates'),
-        page.includes('Top of the ladder'),
-        page.includes('href="/sign-in?next=%2Fwatch%2Ftop-of-the-ladder"'),
-        page.includes('open to everyone'),
-      ],
-      expected: [true, true, true, false],
-    });
-  });
-
-  test('signed out at a private Round tells nothing about it', () => {
-    const page = html('closed-door', false);
-    assert({
-      given: 'an anonymous viewer at a private Round',
-      should: 'show no teaser',
-      actual: [page.includes('Closed door'), page.includes('Sign in to watch')],
-      expected: [false, true],
-    });
-  });
-
   test('private and missing read the same', () => {
     assert({
       given: 'a private Round and an unknown id',

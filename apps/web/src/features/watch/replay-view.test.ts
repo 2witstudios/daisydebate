@@ -1,12 +1,13 @@
+import { sampleWatchSource } from './sample-source.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from './round-source';
+import { watchViewer } from './sample-source.test-support';
 import { openReplay } from './open-replay';
 import { defaultReplayQuery, type ReplayQuery } from './replay-query';
 
 setupRitewayBun();
 
 const viewOf = (id: string, query: ReplayQuery = defaultReplayQuery) => {
-  const screen = openReplay(id, watchViewer(true), query);
+  const screen = openReplay(id, watchViewer(true), query, sampleWatchSource);
   if (screen.kind !== 'watch') throw new Error(`not watchable: ${screen.kind}`);
   return screen.view;
 };
@@ -192,85 +193,25 @@ describe('the replay result', () => {
   });
 });
 
-describe('the visibility manager', () => {
+describe('the share panel', () => {
   test('the visibility text matches who can open the replay', () => {
-    const unlisted = viewOf('fast-rounds').share;
-    const options = viewOf('fast-rounds', {
-      ...defaultReplayQuery,
-      manage: true,
-    }).share.options;
-    const privateOne = viewOf('practice-with-a-friend').share;
     assert({
-      given: 'an unlisted and a private recording, and the manager options',
-      should: 'say unlisted needs an account and private includes the judges',
+      given: 'a public, an unlisted and a private recording',
+      should: 'say who can replay each, and link it',
       actual: [
-        unlisted.description,
-        privateOne.description,
-        options.map((option) => option.text),
+        viewOf('semifinal-rehearsal').share.description,
+        viewOf('fast-rounds').share,
+        viewOf('practice-with-a-friend').share.description,
       ],
       expected: [
-        'Anyone signed in with the link can replay it.',
+        'Anyone can replay it.',
+        {
+          visibility: 'Unlisted',
+          description: 'Anyone with the link can replay it.',
+          linkPath: '/recordings/fast-rounds',
+        },
         'Only the debaters and judges can replay it.',
-        [
-          'Listed in the archive',
-          'Signed-in link holders only',
-          'Debaters and judges only. Not for ranked debates.',
-        ],
       ],
-    });
-  });
-
-  test('only the people seated manage; ranked cannot go private', () => {
-    const mine = viewOf('fast-rounds', {
-      ...defaultReplayQuery,
-      manage: true,
-      vis: 'public',
-    }).share;
-    const theirs = viewOf('semifinal-rehearsal', {
-      ...defaultReplayQuery,
-      manage: true,
-    }).share;
-    assert({
-      given:
-        "my unlisted ranked recording and someone else's public one, manager open",
-      should:
-        'open it for mine with a draft, lock Private, and never for theirs',
-      actual: [
-        mine.canManage,
-        mine.manageOpen,
-        mine.options.map(
-          (option) => `${option.value}:${option.checked}:${option.locked}`,
-        ),
-        mine.unchanged,
-        theirs.canManage,
-        theirs.manageOpen,
-      ],
-      expected: [
-        true,
-        true,
-        ['public:true:false', 'unlisted:false:false', 'private:false:true'],
-        false,
-        false,
-        false,
-      ],
-    });
-  });
-
-  test('the draft defaults to the current visibility', () => {
-    const share = viewOf('practice-with-a-friend', {
-      ...defaultReplayQuery,
-      manage: true,
-    }).share;
-    assert({
-      given: 'a private casual recording with no draft',
-      should: 'check Private, be unchanged and allow Private',
-      actual: [
-        share.visibility,
-        share.unchanged,
-        share.options.find((option) => option.checked)?.value,
-        share.options.find((option) => option.value === 'private')?.locked,
-      ],
-      expected: ['Private', true, 'private', false],
     });
   });
 });

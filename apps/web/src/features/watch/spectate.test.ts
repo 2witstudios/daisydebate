@@ -25,17 +25,20 @@ const round = (over: Partial<WatchRound> = {}): WatchRound => ({
 const member = (handle: string): WatchViewer => ({
   signedIn: true,
   handle,
-  rating: 1400,
 });
 const nobody: WatchViewer = { signedIn: false };
 
 describe('decideSpectate', () => {
-  test('signed out', () => {
+  test('a visitor needs no account', () => {
     assert({
-      given: 'an anonymous viewer, for a real Round and for a missing one',
-      should: 'answer signed-out either way, revealing nothing',
-      actual: [decideSpectate(round(), nobody), decideSpectate(null, nobody)],
-      expected: ['signed-out', 'signed-out'],
+      given: 'an anonymous viewer, for a public Round, a private one and none',
+      should: 'watch the public one and answer unavailable for the others',
+      actual: [
+        decideSpectate(round(), nobody),
+        decideSpectate(round({ visibility: 'private' }), nobody),
+        decideSpectate(null, nobody),
+      ],
+      expected: ['watch', 'unavailable', 'unavailable'],
     });
   });
 

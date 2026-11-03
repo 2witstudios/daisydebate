@@ -113,7 +113,7 @@ describe('eventFlow', () => {
   test('live, won and lost', () => {
     assert({
       given: 'in debate, a win and a loss',
-      should: 'offer the room, the bracket and recordings, or the next event',
+      should: 'offer the room, the bracket or the next event',
       actual: [
         ctas('live'),
         ctas('won'),
@@ -123,13 +123,9 @@ describe('eventFlow', () => {
       ],
       expected: [
         ['Return to room -> /tournaments/mine/harvest-cup/room/semifinal-1'],
-        [
-          'See the bracket -> /tournaments/harvest-cup/bracket',
-          'Watch the recording -> /recordings',
-        ],
+        ['See the bracket -> /tournaments/harvest-cup/bracket'],
         [
           'Watch the final -> /tournaments/harvest-cup/bracket',
-          'Watch your recording -> /recordings',
           'Find the next event -> /tournaments',
         ],
         true,

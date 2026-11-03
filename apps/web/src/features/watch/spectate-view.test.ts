@@ -4,7 +4,7 @@ import {
   roundSchedule,
   findRound,
   spectatorSocial,
-} from './round-source';
+} from './sample-source.test-support';
 import { defaultSpectateQuery, type SpectateQuery } from './spectate-query';
 import { buildSpectateView } from './spectate-view';
 
@@ -15,7 +15,6 @@ const viewOf = (
   query: SpectateQuery = defaultSpectateQuery,
   extra: {
     connection?: 'connected' | 'reconnecting';
-    reportSent?: boolean;
   } = {},
 ) => {
   const round = findRound(id);
@@ -98,25 +97,6 @@ describe('buildSpectateView: a live Round', () => {
         true,
         '0:00',
       ],
-    });
-  });
-
-  test('the report dialog subject', () => {
-    assert({
-      given: 'a report open on the Round and on a chat message',
-      should: 'name what is reported',
-      actual: [
-        viewOf('top-of-the-ladder', {
-          pane: 'transcript',
-          report: { kind: 'debate' },
-        }).reportTarget,
-        viewOf('top-of-the-ladder', {
-          pane: 'transcript',
-          report: { kind: 'message', id: 'c1' },
-        }).reportTarget,
-        view.reportTarget,
-      ],
-      expected: ['the debate', 'a message from @spectator-one', null],
     });
   });
 

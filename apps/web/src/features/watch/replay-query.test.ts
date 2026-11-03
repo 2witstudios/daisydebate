@@ -20,8 +20,6 @@ describe('parseReplayQuery', () => {
           q: ' gap ',
           speed: '2',
           pane: 'share',
-          manage: '1',
-          vis: 'unlisted',
         }),
       ],
       expected: [
@@ -31,8 +29,6 @@ describe('parseReplayQuery', () => {
           q: 'gap',
           speed: '2',
           pane: 'share',
-          manage: true,
-          vis: 'unlisted',
         },
       ],
     });
@@ -49,8 +45,6 @@ describe('parseReplayQuery', () => {
         parseReplayQuery({
           speed: '9',
           pane: 'admin',
-          manage: 'yes',
-          vis: 'secret',
         }),
       ],
       expected: [
@@ -74,14 +68,12 @@ describe('replayQueryHref', () => {
         replayQueryHref('a', {
           ...defaultReplayQuery,
           pane: 'share',
-          manage: true,
-          vis: 'private',
         }),
       ],
       expected: [
         '/recordings/a',
         '/recordings/a?t=0',
-        '/recordings/a?pane=share&manage=1&vis=private',
+        '/recordings/a?pane=share',
       ],
     });
   });
@@ -91,15 +83,15 @@ describe('replayHiddenFields', () => {
   test('keeps the state the form does not edit', () => {
     assert({
       given:
-        'a query with a search, speed and open manager, and a form editing t and speed',
-      should: 'carry the search and the manager only',
+        'a query with a search, speed and pane, and a form editing t and speed',
+      should: 'carry the search and the pane only',
       actual: replayHiddenFields(
-        { ...defaultReplayQuery, t: 5, q: 'gap', speed: '2', manage: true },
+        { ...defaultReplayQuery, t: 5, q: 'gap', speed: '2', pane: 'share' },
         ['t', 'speed'],
       ),
       expected: [
         ['q', 'gap'],
-        ['manage', '1'],
+        ['pane', 'share'],
       ],
     });
   });

@@ -1,9 +1,9 @@
 import type { SearchParams } from '../access/decision';
-import { sampleNotifications } from '../../ui/mock/notifications';
 import {
   notificationRows,
   parseNotificationsQuery,
   unreadCount,
+  type NotificationItem,
   type NotificationRow,
   type NotificationsQuery,
 } from './notifications';
@@ -15,15 +15,18 @@ export type NotificationsListing = {
 };
 
 /**
- * The notifications page's one data seam: the viewer's notifications. Today
- * it reads samples and the address says what has been read; the stored
- * notifications replace this function and nothing else.
+ * The notifications page's one data seam: what the viewer's stored
+ * notifications hold. Nothing stores one yet (WATCH-12), so the list is empty
+ * and the launch flag keeps the place out of navigation.
  */
-export function getNotifications(params: SearchParams): NotificationsListing {
+export function getNotifications(
+  params: SearchParams,
+  items: readonly NotificationItem[] = [],
+): NotificationsListing {
   const query = parseNotificationsQuery(params);
   return {
     query,
-    rows: notificationRows(sampleNotifications, query),
-    unread: query.allRead ? 0 : unreadCount(sampleNotifications),
+    rows: notificationRows(items, query),
+    unread: unreadCount(items),
   };
 }

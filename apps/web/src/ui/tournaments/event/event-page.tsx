@@ -98,9 +98,6 @@ export function EventPage({ screen, tournament, finalAt }: EventPageProps) {
                   <span className="text-sm font-strong text-ink">
                     {round.result}
                   </span>
-                  <LinkButton href="/recordings" variant="ghost">
-                    Recording
-                  </LinkButton>
                 </li>
               ))}
             </ul>

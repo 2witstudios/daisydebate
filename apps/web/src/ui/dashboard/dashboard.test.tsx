@@ -3,7 +3,6 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Dashboard } from './dashboard';
 import { HeroBanner } from './hero-banner/hero-banner';
 import { tiles } from './tiles';
-import { tournament } from '../mock/tournament';
 import { initialLinkForm } from '../auth/request-link';
 import { occurrences, renderInStore } from '../test-support/render-in-store';
 
@@ -58,8 +57,8 @@ describe('Dashboard', () => {
       actual: [
         occurrences(html, 'Coming soon'),
         html.includes('href="/coming-soon/tournaments"'),
-        html.includes(tournament.name),
-        html.includes('Live Now'),
+        html.includes('Global Debate Championship'),
+        html.includes('watching'),
       ],
       expected: [5, true, false, false],
     });

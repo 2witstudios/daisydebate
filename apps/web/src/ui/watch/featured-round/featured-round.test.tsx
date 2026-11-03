@@ -1,3 +1,4 @@
+import { sampleWatchSource } from '../../../features/watch/sample-source.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -9,7 +10,7 @@ setupRitewayBun();
 
 describe('FeaturedDebate', () => {
   test('the featured card', () => {
-    const card = listLive(defaultLiveQuery).featured;
+    const card = listLive(defaultLiveQuery, sampleWatchSource).featured;
     if (!card) throw new Error('sample missing');
     const html = renderToString(h(FeaturedRound, { card, delaySeconds: 30 }));
     assert({

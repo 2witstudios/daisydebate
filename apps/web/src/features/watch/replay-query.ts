@@ -1,13 +1,11 @@
 import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
-import type { Visibility } from './round';
 import { MAX_SEARCH_LENGTH } from './live-query';
 import { replayHref } from './routes';
 
 const speeds = ['1', '1.5', '2'] as const;
 /** The phone shows one pane at a time; desktop shows them together. */
 const panes = ['transcript', 'result', 'share'] as const;
-const visibilities = ['public', 'unlisted', 'private'] as const;
 
 export type ReplaySpeed = (typeof speeds)[number];
 export type ReplayPane = (typeof panes)[number];
@@ -18,10 +16,6 @@ export type ReplayQuery = {
   readonly q: string;
   readonly speed: ReplaySpeed;
   readonly pane: ReplayPane;
-  /** Whether the visibility manager is open. */
-  readonly manage: boolean;
-  /** The visibility chosen in the manager, before any save. */
-  readonly vis: Visibility | null;
 };
 
 export const defaultReplayQuery: ReplayQuery = {
@@ -29,8 +23,6 @@ export const defaultReplayQuery: ReplayQuery = {
   q: '',
   speed: '1',
   pane: 'transcript',
-  manage: false,
-  vis: null,
 };
 
 const first = (value: string | readonly string[] | undefined) =>
@@ -49,11 +41,6 @@ const schema = z.object({
     .catch(defaultReplayQuery.q),
   speed: z.enum(speeds).catch(defaultReplayQuery.speed),
   pane: z.enum(panes).catch(defaultReplayQuery.pane),
-  manage: z
-    .enum(['1'])
-    .transform(() => true)
-    .catch(defaultReplayQuery.manage),
-  vis: z.enum(visibilities).nullable().catch(defaultReplayQuery.vis),
 });
 
 /** Reads the replay's URL state; bad or missing values become defaults. */
@@ -63,8 +50,6 @@ export const parseReplayQuery = (params: SearchParams): ReplayQuery =>
     q: first(params['q']),
     speed: first(params['speed']),
     pane: first(params['pane']),
-    manage: first(params['manage']),
-    vis: first(params['vis']) ?? null,
   });
 
 const encoders: {
@@ -74,8 +59,6 @@ const encoders: {
   q: (value) => value,
   speed: (value) => value,
   pane: (value) => value,
-  manage: (value) => (value ? '1' : null),
-  vis: (value) => value,
 };
 
 /** The replay URL for a Round and query, with only non-default values. */

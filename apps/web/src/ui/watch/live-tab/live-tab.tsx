@@ -8,7 +8,6 @@ import { watchRoutes } from '../../../features/watch/routes';
 import { ActionLink } from '../action-link/action-link';
 import { FilterForm } from '../filter-form/filter-form';
 import { FeaturedRound } from '../featured-round/featured-round';
-import { InertButton } from '../inert-button/inert-button';
 import { LiveCard } from '../live-card/live-card';
 import { StateCard } from '../state-card/state-card';
 
@@ -52,9 +51,6 @@ export function LiveTab({ query, listing }: LiveTabProps) {
         title="Nothing live right now"
         actions={
           <>
-            <InertButton action="notify" variant="primary">
-              Tell me when ranked debates start
-            </InertButton>
             <ActionLink href={watchRoutes.recordings}>
               Browse recordings
             </ActionLink>

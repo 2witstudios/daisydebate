@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { liveHref, replayHref, signInToWatchHref } from './routes';
+import { liveHref, replayHref } from './routes';
 
 setupRitewayBun();
 
@@ -29,15 +29,6 @@ describe('watch routes', () => {
       should: 'encode it into one segment',
       actual: liveHref('a/b c'),
       expected: '/watch/a%2Fb%20c',
-    });
-  });
-
-  test('signing in returns to the live view', () => {
-    assert({
-      given: 'a Round id',
-      should: 'sign in with that live view as the next destination',
-      actual: signInToWatchHref('top'),
-      expected: '/sign-in?next=%2Fwatch%2Ftop',
     });
   });
 });

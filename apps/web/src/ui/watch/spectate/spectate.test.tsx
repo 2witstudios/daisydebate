@@ -1,7 +1,8 @@
+import { sampleWatchSource } from '../../../features/watch/sample-source.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from '../../../features/watch/round-source';
+import { watchViewer } from '../../../features/watch/sample-source.test-support';
 import { openSpectate } from '../../../features/watch/open-spectate';
 import {
   defaultSpectateQuery,
@@ -16,7 +17,7 @@ const view = (
   id: string,
   query: SpectateQuery = defaultSpectateQuery,
 ): SpectateView => {
-  const screen = openSpectate(id, watchViewer(true), query);
+  const screen = openSpectate(id, watchViewer(true), query, sampleWatchSource);
   if (screen.kind !== 'watch') throw new Error('not watchable');
   return screen.view;
 };
@@ -49,44 +50,35 @@ describe('Spectate: live', () => {
       actual: [
         html.includes('aria-label="@debater-a, speaking"'),
         html.includes('aria-label="@debater-b"'),
-        html.includes('Follow both'),
         html.includes('Copy link'),
         html.includes('S3 · now'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true],
     });
   });
 
-  test('every action is a link or a sample action, none disabled', () => {
-    const chat = render(
-      view('top-of-the-ladder', { pane: 'chat', report: null }),
-    );
+  test('offers no control that does nothing', () => {
+    const chat = render(view('top-of-the-ladder', { pane: 'chat' }));
     assert({
       given: 'the live view',
-      should:
-        'link Leave to the hub and Report to its dialog; chat, reactions and follow answer as sample actions',
+      should: 'link Leave to the hub, with no inert action in any pane',
       actual: [
-        html.includes('href="/watch?report=debate"') ||
-          html.includes('href="/watch/top-of-the-ladder?report=debate"'),
         html.includes('href="/watch"'),
-        /<input id="chat-draft"/.test(html) &&
-          !/<input id="chat-draft"[^>]*disabled/.test(html),
-        (chat.match(/href="\?did=/g) ?? []).length >= 6 &&
-          !chat.includes('disabled=""'),
-        html.includes('role="dialog"'),
+        html.includes('?did='),
+        chat.includes('?did='),
+        html.includes('Report'),
+        chat.includes('chat-draft'),
+        html.includes('Follow both'),
       ],
-      expected: [true, true, true, true, false],
+      expected: [true, false, false, false, false, false],
     });
   });
 
   test('the live column pane comes from the URL', () => {
-    const chat = render(
-      view('top-of-the-ladder', { pane: 'chat', report: null }),
-    );
+    const chat = render(view('top-of-the-ladder', { pane: 'chat' }));
     assert({
       given: 'the transcript by default, then the chat pane selected',
-      should:
-        'show one pane at a time with its tab current, the composer under both',
+      should: 'show one pane at a time with its tab current',
       actual: [
         html.includes('Speech transcript'),
         html.includes('Chat messages'),
@@ -95,61 +87,8 @@ describe('Spectate: live', () => {
         chat.includes('Speech transcript'),
         chat.includes('Chat messages'),
         /aria-current="page"[^>]*>Chat/.test(chat),
-        html.includes('chat-draft') && chat.includes('chat-draft'),
       ],
-      expected: [true, false, true, true, false, true, true, true],
-    });
-  });
-});
-
-describe('Spectate: report dialog', () => {
-  test('open from the URL', () => {
-    const html = render(
-      view('top-of-the-ladder', {
-        pane: 'transcript',
-        report: { kind: 'debate' },
-      }),
-    );
-    assert({
-      given: 'a report open on the Round',
-      should:
-        'show the dialog with reasons, a Cancel link and a Send that answers as a sample action',
-      actual: [
-        html.includes('role="dialog"'),
-        html.includes('Report the debate'),
-        html.includes('Second account or arranged result'),
-        /href="\/watch\/top-of-the-ladder"[^>]*>Cancel/.test(html),
-        html.includes('href="?did=Send+report"'),
-      ],
-      expected: [true, true, true, true, true],
-    });
-  });
-
-  test('a message report names its author', () => {
-    const html = render(
-      view('top-of-the-ladder', {
-        pane: 'chat',
-        report: { kind: 'message', id: 'c2' },
-      }),
-    );
-    assert({
-      given: 'a report open on a chat message',
-      should: 'name the author and keep the pane on Cancel',
-      actual: [
-        html.includes('Report a message from @spectator-two'),
-        html.includes('href="/watch/top-of-the-ladder?pane=chat"'),
-      ],
-      expected: [true, true],
-    });
-  });
-
-  test('after a report was sent', () => {
-    const html = render({ ...view('top-of-the-ladder'), reportSent: true });
-    assert({
-      given: 'a sent report',
-      should: 'confirm it',
-      actual: html.includes('Report sent'),
-      expected: true,
+      expected: [true, false, true, true, false, true, true],
     });
   });
 });
@@ -177,7 +116,7 @@ describe('Spectate: connection lost', () => {
 describe('Spectate: ended', () => {
   test('ballots pending', () => {
     const html = render(view('evening-round'));
-    const chat = render(view('evening-round', { pane: 'chat', report: null }));
+    const chat = render(view('evening-round', { pane: 'chat' }));
     assert({
       given: 'an ended Round waiting on ballots',
       should:

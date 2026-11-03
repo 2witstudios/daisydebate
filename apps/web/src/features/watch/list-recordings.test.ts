@@ -1,5 +1,6 @@
+import { sampleWatchSource } from './sample-source.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from './round-source';
+import { watchViewer } from './sample-source.test-support';
 import { listRecordings } from './list-recordings';
 import {
   defaultRecordingsQuery,
@@ -10,7 +11,7 @@ setupRitewayBun();
 
 const member = watchViewer(true);
 const ids = (query: RecordingsQuery) =>
-  listRecordings(query, member).rows.map((row) => row.id);
+  listRecordings(query, member, sampleWatchSource).rows.map((row) => row.id);
 
 describe('listRecordings over the sample Rounds', () => {
   test('the public archive, newest first', () => {
@@ -80,9 +81,14 @@ describe('listRecordings over the sample Rounds', () => {
     const { rows } = listRecordings(
       { ...defaultRecordingsQuery, scope: 'mine' },
       member,
+      sampleWatchSource,
     );
     const practice = rows[0];
-    const pending = listRecordings(defaultRecordingsQuery, member).rows[1];
+    const pending = listRecordings(
+      defaultRecordingsQuery,
+      member,
+      sampleWatchSource,
+    ).rows[1];
     assert({
       given: 'my private practice and a public pending recording',
       should:
@@ -117,9 +123,16 @@ describe('listRecordings over the sample Rounds', () => {
       given: 'a search matching nothing',
       should: 'list nothing but count the scope',
       actual: [
-        listRecordings({ ...defaultRecordingsQuery, q: 'zzz' }, member).rows
-          .length,
-        listRecordings({ ...defaultRecordingsQuery, q: 'zzz' }, member).inScope,
+        listRecordings(
+          { ...defaultRecordingsQuery, q: 'zzz' },
+          member,
+          sampleWatchSource,
+        ).rows.length,
+        listRecordings(
+          { ...defaultRecordingsQuery, q: 'zzz' },
+          member,
+          sampleWatchSource,
+        ).inScope,
       ],
       expected: [0, 6],
     });

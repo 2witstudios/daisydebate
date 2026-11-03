@@ -7,7 +7,9 @@ type LaunchConfig = Readonly<Record<DestinationSlug, boolean>>;
  * Which destinations are open. Flip one to `true` when its real screens ship:
  * the nav then lists it, every link into it reaches the live route, and its
  * explainer redirects there. Until then the nav leaves it out and every link
- * into it goes to its explainer, never to sample data. Seasons is the exception:
+ * into it goes to its explainer, never to sample data. A destination's own
+ * routes enforce this with `redirectUnlessLaunched`; Watch does, and other
+ * closed destinations that still serve samples are ISSUE-1041. Seasons is the exception:
  * a tile for a public page under the Leaderboard, so its flag changes only the
  * tile and the explainer redirect.
  */
@@ -26,9 +28,9 @@ export const launched: LaunchConfig = {
 export type PlaceLaunchConfig = Readonly<Record<'notifications', boolean>>;
 
 /**
- * Which of a member's own places are open. Notifications read sample data
- * until stored notifications ship (ISSUE-634); flip it then, and the rail
- * and the phone's More sheet list it again.
+ * Which of a member's own places are open. Nothing stores a notification
+ * until WATCH-12 (ISSUE-634); flip it then, and the rail and the phone's More
+ * sheet list it again.
  */
 export const launchedPlaces: PlaceLaunchConfig = { notifications: false };
 

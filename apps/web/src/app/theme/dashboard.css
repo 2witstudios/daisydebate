@@ -7,7 +7,6 @@
   --spacing-hero-content: 660px;
   --spacing-quote-card-min: 148px;
   --spacing-teaser-min: 160px;
-  --spacing-tournament-min: 252px;
   --spacing-tournament-body: 58%;
   --spacing-tournament-art: 42%;
   --spacing-tile-footer-min: 22px;
@@ -46,10 +45,6 @@
 
 @utility grid-cols-dash-lower {
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-}
-
-@utility grid-cols-live-matchup {
-  grid-template-columns: 1fr auto 1fr;
 }
 
 @utility object-hero-photo {

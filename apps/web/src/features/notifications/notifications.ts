@@ -1,10 +1,7 @@
 import type { SearchParams } from '../access/decision';
-import type { MockNotification } from '../../ui/mock/notifications';
 
 export type NotificationsQuery = {
   readonly unreadOnly: boolean;
-  /** Every notification marked read, as the viewer asked. */
-  readonly allRead: boolean;
 };
 
 const first = (value: string | readonly string[] | undefined) =>
@@ -14,19 +11,24 @@ export const parseNotificationsQuery = (
   params: SearchParams,
 ): NotificationsQuery => ({
   unreadOnly: first(params['show']) === 'unread',
-  allRead: first(params['read']) === 'all',
 });
 
 /** The address for a query; defaults are left out. */
-export function notificationsHref(query: NotificationsQuery): string {
-  const params = new URLSearchParams();
-  if (query.unreadOnly) params.set('show', 'unread');
-  if (query.allRead) params.set('read', 'all');
-  const text = params.toString();
-  return text === '' ? '/notifications' : `/notifications?${text}`;
-}
+export const notificationsHref = (query: NotificationsQuery): string =>
+  query.unreadOnly ? '/notifications?show=unread' : '/notifications';
 
-export type NotificationRow = MockNotification & {
+/** One notification as the viewer's list reads it. */
+export type NotificationItem = {
+  readonly id: string;
+  readonly text: string;
+  /** Where the notification leads. */
+  readonly href: string;
+  /** Minutes before now. */
+  readonly minutesAgo: number;
+  readonly unread: boolean;
+};
+
+export type NotificationRow = NotificationItem & {
   /** Minutes in words: `12 minutes ago`. */
   readonly when: string;
 };
@@ -41,19 +43,14 @@ const ago = (minutes: number): string => {
   return `${value} ${unit}${value === 1 ? '' : 's'} ago`;
 };
 
-/** The rows to show for a query, each read once everything is marked read. */
-export function notificationRows(
-  items: readonly MockNotification[],
+/** The rows to show for a query. */
+export const notificationRows = (
+  items: readonly NotificationItem[],
   query: NotificationsQuery,
-): readonly NotificationRow[] {
-  return items
-    .map((item) => ({
-      ...item,
-      unread: item.unread && !query.allRead,
-      when: ago(item.minutesAgo),
-    }))
+): readonly NotificationRow[] =>
+  items
+    .map((item) => ({ ...item, when: ago(item.minutesAgo) }))
     .filter((row) => !query.unreadOnly || row.unread);
-}
 
-export const unreadCount = (items: readonly MockNotification[]): number =>
+export const unreadCount = (items: readonly NotificationItem[]): number =>
   items.filter((item) => item.unread).length;
