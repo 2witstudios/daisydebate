@@ -190,6 +190,7 @@ export const rounds = pgTable(
       jsonbIsObject('rounds', table.resolutionEvidence),
       jsonbIsObject('rounds', table.runtimeState),
       jsonbIsObject('rounds', table.rulesSnapshot),
+      jsonbIsObject('rounds', table.capture),
       check(
         'rounds_completed_after_started',
         notBefore(table.completedAt, table.startedAt),

@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "e76e7321-7007-4ac9-a795-588ee121b6f3",
+  "id": "94f8d680-89e1-43c8-a378-8baad563e2f0",
   "prevIds": [
     "a839bd4a-b6c0-43a6-b853-9a6b033f718a"
   ],
@@ -23028,6 +23028,13 @@
       "table": "rooms"
     },
     {
+      "value": "jsonb_typeof(\"capture\") = 'object'",
+      "name": "rooms_capture_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
       "value": "jsonb_typeof(\"report\") = 'object'",
       "name": "round_analyses_report_is_object",
       "entityType": "checks",
@@ -23401,6 +23408,13 @@
     {
       "value": "jsonb_typeof(\"rules_snapshot\") = 'object'",
       "name": "rounds_rules_snapshot_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "value": "jsonb_typeof(\"capture\") = 'object'",
+      "name": "rounds_capture_is_object",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"

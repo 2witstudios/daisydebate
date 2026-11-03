@@ -185,6 +185,7 @@ export const rooms = pgTable(
     jsonbIsObject('rooms', table.config),
     jsonbIsObject('rooms', table.executionPlan),
     jsonbIsObject('rooms', table.rulesSnapshot),
+    jsonbIsObject('rooms', table.capture),
   ],
 );
 

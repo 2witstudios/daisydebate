@@ -125,7 +125,7 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
           code: 'CONFLICT',
         });
     }
-    const revealed = await f.operations.roundView(f.outsider, roundId);
+    const revealed = await f.operations.roundView(f.guest, roundId);
     const survivor = revealed.topic!;
     const [round] = await f.sql`select resolution, status, started_at,
       room_config_snapshot, resolution_evidence

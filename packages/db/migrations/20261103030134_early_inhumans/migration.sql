@@ -129,6 +129,8 @@ ALTER TABLE "content_reports" ADD CONSTRAINT "content_reports_reporter_user_id_u
 ALTER TABLE "recordings" ADD CONSTRAINT "recordings_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "spectator_fact_releases" ADD CONSTRAINT "spectator_fact_releases_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_ranked_public_check" CHECK ("competition_type" <> 'ranked' or "visibility" = 'public');--> statement-breakpoint
+ALTER TABLE "rooms" ADD CONSTRAINT "rooms_capture_is_object" CHECK (jsonb_typeof("capture") = 'object');--> statement-breakpoint
+ALTER TABLE "rounds" ADD CONSTRAINT "rounds_capture_is_object" CHECK (jsonb_typeof("capture") = 'object');--> statement-breakpoint
 ALTER TABLE "account_entitlement_grants" DROP CONSTRAINT "account_entitlement_grants_entitlement_check", ADD CONSTRAINT "account_entitlement_grants_entitlement_check" CHECK ("entitlement" in ('round_analysis', 'ai_rounds', 'casual_ai_judge', 'casual_capture'));
 --> statement-breakpoint
 -- WATCH-16 and WATCH-8: beta approval grants these until billing exists, so every
