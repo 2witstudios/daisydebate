@@ -21,7 +21,7 @@
     "./messaging": "./src/messaging/index.ts",
     "./contacts": "./src/contacts/index.ts",
     "./friends": "./src/friends/index.ts",
-    "./presence-roster": "./src/presence/roster.ts",
+    "./presence-people-list": "./src/presence/people-list.ts",
     "./challenges": "./src/challenges/index.ts",
     "./reports": "./src/reports/index.ts",
     "./account-age": "./src/account-age.ts",

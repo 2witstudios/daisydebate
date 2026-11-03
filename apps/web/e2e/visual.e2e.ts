@@ -127,11 +127,15 @@ for (const screen of shellScreens) {
           await page.waitForLoadState('networkidle');
           await pinDynamicText(page, member.username, 'visual-member');
         }
-        // The rail's avatar still derives from the random name.
+        // The rail's avatar still derives from the random name, and the people
+        // list shows whoever else is in the database (ADR 0105).
         await matchesBaseline(
           page,
           `${screen.name}-${theme}-${viewport.name}.png`,
-          [page.locator('summary[aria-label^="Your account, "]')],
+          [
+            page.locator('summary[aria-label^="Your account, "]'),
+            page.locator('aside[aria-label="People"]'),
+          ],
         );
       } finally {
         await page.context().close();

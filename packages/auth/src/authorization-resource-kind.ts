@@ -14,7 +14,7 @@ export function validResourceKind(
     'channel.inbox.read': 'messaging_collection',
     'social.friend.list': 'friend_collection',
     'social.challenge.list': 'challenge_collection',
-    'social.online.list': 'online_roster',
+    'social.people.list': 'people_list',
     'social.rating_visibility.read': 'rating_visibility',
     'social.rating_visibility.update': 'rating_visibility',
     'social.moderation_notice.read': 'moderation_notice',

@@ -10,7 +10,7 @@ import { Avatar } from '../components/avatar/avatar';
 import { Icon } from '../components/icon/icon';
 import { presenceDotClass } from '../components/presence-dot/presence-dot-class';
 import { useFormAction, type FormAction } from '../form-action/form-action';
-import { useOptionalOnline } from './online-provider';
+import { useOptionalPeople } from './people-provider';
 
 const labels: Readonly<Record<ChosenStatus, string>> = {
   online: 'Online',
@@ -26,12 +26,12 @@ export function SelfAvatar({
   readonly username: string;
   readonly size?: 'sm' | 'md';
 }) {
-  const online = useOptionalOnline();
+  const people = useOptionalPeople();
   return (
     <Avatar
       name={username}
       size={size}
-      {...(online ? { presence: online.roster.self } : {})}
+      {...(people ? { presence: people.list.self } : {})}
     />
   );
 }
@@ -80,7 +80,7 @@ export function StatusForm({
   readonly action: FormAction<PresenceFormState>;
   readonly chosen: ChosenStatus;
 }) {
-  const online = useOptionalOnline();
+  const people = useOptionalPeople();
   const [answer, post, pending] = useFormAction(
     action,
     {},
@@ -88,8 +88,8 @@ export function StatusForm({
   );
   const current = answer.status ?? chosen;
   useEffect(() => {
-    if (answer.status) online?.refresh();
-    // Refresh once per answer; `online` changes with every roster read.
+    if (answer.status) people?.refresh();
+    // Refresh once per answer; `people` changes with every list read.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answer]);
   return (

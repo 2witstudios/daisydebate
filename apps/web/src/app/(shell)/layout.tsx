@@ -4,18 +4,18 @@ import { cookies } from 'next/headers';
 import { SampleActionNotice } from '../../ui/components/sample-action/sample-action-notice';
 import { AppShell } from '../../ui/layout/app-shell/app-shell';
 import {
-  ONLINE_RAIL_COOKIE,
-  parseOnlineRail,
+  PEOPLE_RAIL_COOKIE,
+  parsePeopleRail,
   parseRailPreference,
   RAIL_COOKIE,
 } from '../../ui/layout/app-shell/rail-preference';
 import { UiStoreProvider } from '../../ui/store/store';
-import { OnlineShell } from './online/online-shell';
-import { setStatusAction } from './online/actions';
-import { StatusForm } from '../../ui/online/status-form';
+import { PeopleShell } from './people/people-shell';
+import { setStatusAction } from './people/actions';
+import { StatusForm } from '../../ui/people/status-form';
 import { acknowledgeNoticeAction } from './moderation/actions';
 import { readModerationNotices } from './moderation/read-notices';
-import { readChosenStatus } from './online/read-online';
+import { readChosenStatus } from './people/read-people';
 import { ModerationNotices } from '../../ui/moderation/moderation-notices';
 import { shellAccount } from '../../lib/shell-account';
 import {
@@ -48,11 +48,11 @@ export default async function ShellLayout({
     identity.state === 'member' ? await requestActiveRoom() : null;
   const jar = await cookies();
   const rail = parseRailPreference(jar.get(RAIL_COOKIE)?.value);
-  const onlineRail = parseOnlineRail(jar.get(ONLINE_RAIL_COOKIE)?.value);
-  const online =
+  const peopleRail = parsePeopleRail(jar.get(PEOPLE_RAIL_COOKIE)?.value);
+  const people =
     identity.state === 'member'
-      ? await OnlineShell({
-          preference: onlineRail,
+      ? await PeopleShell({
+          preference: peopleRail,
           activeRoomId: activeRoom?.id ?? null,
         })
       : null;
@@ -83,7 +83,7 @@ export default async function ShellLayout({
         rail={rail}
         ratings={ratings}
         toggleRail={toggleRail}
-        online={online}
+        people={people}
         statusControl={
           chosen ? (
             <StatusForm action={setStatusAction} chosen={chosen} />

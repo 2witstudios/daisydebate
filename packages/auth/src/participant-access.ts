@@ -10,6 +10,9 @@ const bandsAtFloor: Record<AgeFloor, readonly AgeBand[]> = {
   13: ['13-15', '16-17', 'adult'],
   16: ['16-17', 'adult'],
 };
+/** The bands the account floor admits now, for a read that filters in SQL. */
+export const ADMITTED_AGE_BANDS: readonly AgeBand[] =
+  bandsAtFloor[ACCOUNT_AGE_FLOOR];
 /**
  * The one participant admission rule (ADR 0075): an approved beta account
  * under no suspension or ban (ADR 0103) whose durable age record meets the
@@ -31,7 +34,7 @@ export function participantAccess(
 }
 /** Whether a durable age band meets the account floor; no record never does. */
 export function ageAdmitted(band: AgeBand | null): boolean {
-  return band !== null && bandsAtFloor[ACCOUNT_AGE_FLOOR].includes(band);
+  return band !== null && ADMITTED_AGE_BANDS.includes(band);
 }
 /**
  * ADR 0075: a member who is not, or no longer, admitted can always withdraw

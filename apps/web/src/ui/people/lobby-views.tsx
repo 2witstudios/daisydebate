@@ -3,30 +3,30 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { cn } from '../cn';
-import { useOnline } from './online-provider';
+import { usePeople } from './people-provider';
 
 const seg =
   'flex min-h-nav-target flex-1 items-center justify-center rounded-sm text-md font-semibold text-ink-muted no-underline hover:no-underline aria-[current=page]:bg-surface-raised aria-[current=page]:text-ink';
 
 /** How many are online, for the switch's label. */
 export function OnlineCount() {
-  const { roster } = useOnline();
-  return <>{roster.counts.everyone}</>;
+  const { list } = usePeople();
+  return <>{list.counts.online}</>;
 }
 
 /**
- * The phone's Rooms and Online switch (ADR 0103). Plain links, so it works
+ * The phone's Rooms and People switch (ADR 0105). Plain links, so it works
  * without script; from a tablet up the rail holds the list and this is hidden.
  */
 export function LobbyViews({
   view,
   rooms,
-  online,
+  people,
   onlineCount,
 }: {
-  readonly view: 'rooms' | 'online';
+  readonly view: 'rooms' | 'people';
   readonly rooms: ReactNode;
-  readonly online: ReactNode;
+  readonly people: ReactNode;
   readonly onlineCount: ReactNode;
 }) {
   return (
@@ -44,23 +44,23 @@ export function LobbyViews({
         </Link>
         <Link
           href="/lobby"
-          aria-current={view === 'online' ? 'page' : undefined}
+          aria-current={view === 'people' ? 'page' : undefined}
           className={seg}
         >
-          Online {onlineCount}
+          People · {onlineCount} online
         </Link>
       </nav>
-      <div className={cn(view === 'online' && 'max-narrow:hidden')}>
+      <div className={cn(view === 'people' && 'max-narrow:hidden')}>
         {rooms}
       </div>
       <div
         className={cn(
           'hidden px-4 pt-4',
-          view === 'online' && 'max-narrow:block',
+          view === 'people' && 'max-narrow:block',
         )}
       >
         <h1 className="mb-3 font-display text-2xl font-semibold">Lobby</h1>
-        {online}
+        {people}
       </div>
     </>
   );

@@ -2,13 +2,13 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { OnlineMember, OnlineRoster } from '@daisy/protocol';
+import type { Person, PeopleList } from '@daisy/protocol';
 import { ratingsLabel, ratingText } from './member-card';
 import { ChallengeProvider } from '../challenges/challenge-provider';
 import { LobbyViews } from './lobby-views';
-import { OnlineProvider } from './online-provider';
-import { OnlineRail } from './online-rail';
-import { rowDetail } from './online-rows';
+import { PeopleProvider } from './people-provider';
+import { PeopleRail } from './people-rail';
+import { rowDetail } from './people-rows';
 import { canBeChallenged } from './person-menu';
 import { StatusForm } from './status-form';
 
@@ -39,7 +39,7 @@ const actions = {
   report: action,
   block: action,
 };
-const person = (over: Partial<OnlineMember> = {}): OnlineMember => ({
+const person = (over: Partial<Person> = {}): Person => ({
   username: 'ada',
   status: 'online',
   relation: 'none',
@@ -50,20 +50,20 @@ const person = (over: Partial<OnlineMember> = {}): OnlineMember => ({
   losses: 1,
   ...over,
 });
-const roster = (members: readonly OnlineMember[]): OnlineRoster => ({
+const list = (people: readonly Person[]): PeopleList => ({
   version: 1,
-  members: [...members],
+  people: [...people],
   nextCursor: null,
-  counts: { everyone: members.length, friends: 0 },
+  counts: { everyone: people.length + 7, friends: 3, online: people.length },
   self: 'online',
 });
-const inProvider = (children: unknown, members: readonly OnlineMember[]) =>
+const inProvider = (children: unknown, people: readonly Person[]) =>
   renderToString(
     h(
       AppRouterContext,
       { value: router },
-      h(OnlineProvider, {
-        initialRoster: roster(members),
+      h(PeopleProvider, {
+        initialList: list(people),
         socketUrl: null,
         children: h(ChallengeProvider, {
           initialChallenges: {
@@ -90,9 +90,9 @@ const inProvider = (children: unknown, members: readonly OnlineMember[]) =>
     ),
   );
 
-describe('the online rail', () => {
+describe('the people rail', () => {
   const html = inProvider(
-    h(OnlineRail, {
+    h(PeopleRail, {
       preference: 'auto',
       actions,
       setRail: async () => {},
@@ -101,8 +101,47 @@ describe('the online rail', () => {
     [
       person(),
       person({ username: 'bea', relation: 'friends', status: 'round' }),
+      person({ username: 'cy', status: 'offline' }),
     ],
   );
+  test('the tabs and heading keep their word and number apart', () => {
+    const tabs = html.match(/<button[^>]*aria-pressed[^>]*>/g) ?? [];
+    assert({
+      given: 'the All and Friends tabs',
+      should: 'space each word from its count on the spacing scale',
+      actual: [
+        tabs.length,
+        tabs.every((button) => /\bgap-2\b/.test(button)),
+        /gap-\d+\.5/.test(html),
+      ],
+      expected: [2, true, false],
+    });
+    assert({
+      given: 'three people online among ten listed',
+      should:
+        'count all listed on All and name the online count in the heading',
+      actual: [
+        html.includes('>10</span>'),
+        html.includes('>3</span>'),
+        /People.*3(<!-- -->)? online/.test(html),
+      ],
+      expected: [true, true, true],
+    });
+  });
+  test('offline people sit below those online', () => {
+    assert({
+      given: 'a friend in a Round, a stranger online and a stranger offline',
+      should: 'section Friends, then Online, then Offline, naming each',
+      actual: [
+        html.indexOf('@bea') < html.indexOf('>Online<'),
+        html.indexOf('>Online<') < html.indexOf('@ada'),
+        html.indexOf('@ada') < html.indexOf('>Offline<'),
+        html.indexOf('>Offline<') < html.indexOf('@cy'),
+        html.includes('aria-label="@cy, Offline,'),
+      ],
+      expected: [true, true, true, true, true],
+    });
+  });
   test('a row works before any script', () => {
     assert({
       given: 'the server-rendered rail',
@@ -151,10 +190,10 @@ describe('the online rail', () => {
   });
 });
 
-describe('the online rail with no one to list', () => {
+describe('the people rail with no one to list', () => {
   test('the empty notice stays a list item', () => {
     const html = inProvider(
-      h(OnlineRail, {
+      h(PeopleRail, {
         preference: 'auto',
         actions,
         setRail: async () => {},
@@ -163,7 +202,7 @@ describe('the online rail with no one to list', () => {
       [],
     );
     assert({
-      given: 'no one on the roster',
+      given: 'no one on the list',
       should: 'announce it inside a real list item, so the list stays valid',
       actual: [
         /<li[^>]*role="status"/.test(html),
@@ -229,10 +268,10 @@ describe('canBeChallenged', () => {
     assert({
       given: 'each status a row can show',
       should: 'allow online and away only',
-      actual: (['online', 'away', 'busy', 'room', 'round'] as const).map(
-        (status) => canBeChallenged(person({ status })),
-      ),
-      expected: [true, true, false, false, false],
+      actual: (
+        ['online', 'away', 'busy', 'room', 'round', 'offline'] as const
+      ).map((status) => canBeChallenged(person({ status }))),
+      expected: [true, true, false, false, false, false],
     });
   });
 });
@@ -255,21 +294,38 @@ describe('StatusForm', () => {
 });
 
 describe('LobbyViews', () => {
-  test('the phone’s Online view still names the page', () => {
+  test('the phone’s switch names everyone and counts who is online', () => {
     const html = renderToString(
       h(LobbyViews, {
-        view: 'online',
+        view: 'people',
         rooms: h('p', null, 'rooms'),
-        online: h('p', null, 'online'),
+        people: h('p', null, 'people'),
+        onlineCount: 3,
+      }),
+    );
+    assert({
+      given: 'three people online',
+      should: 'label the switch People, stating the count as online',
+      actual: /People · (<!-- -->)?3(<!-- -->)? online/.test(html),
+      expected: true,
+    });
+  });
+
+  test('the phone’s People view still names the page', () => {
+    const html = renderToString(
+      h(LobbyViews, {
+        view: 'people',
+        rooms: h('p', null, 'rooms'),
+        people: h('p', null, 'people'),
         onlineCount: null,
       }),
     );
     assert({
-      given: 'the Lobby opened on its Online view',
+      given: 'the Lobby opened on its People view',
       should: 'keep the Lobby heading above the list',
       actual:
         html.indexOf('>Lobby</h1>') > -1 &&
-        html.indexOf('>Lobby</h1>') < html.indexOf('<p>online</p>'),
+        html.indexOf('>Lobby</h1>') < html.indexOf('<p>people</p>'),
       expected: true,
     });
   });

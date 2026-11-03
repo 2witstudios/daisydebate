@@ -245,9 +245,9 @@ type ChallengeCollectionAuthorizationFact = {
   readonly kind: 'challenge_collection';
   readonly actorId: string;
 };
-/** The online list as this member may read it (ADR 0103). */
-type OnlineRosterAuthorizationFact = {
-  readonly kind: 'online_roster';
+/** The people list as this member may read it (ADR 0105). */
+type PeopleListAuthorizationFact = {
+  readonly kind: 'people_list';
   readonly actorId: string;
 };
 /** A member's own rating visibility choice (ADR 0103). */
@@ -285,7 +285,7 @@ export type AuthorizationInput = {
     | MessagingCollectionAuthorizationFact
     | FriendCollectionAuthorizationFact
     | ChallengeCollectionAuthorizationFact
-    | OnlineRosterAuthorizationFact
+    | PeopleListAuthorizationFact
     | RatingVisibilityAuthorizationFact
     | ModerationNoticeAuthorizationFact
     | PresenceSettingAuthorizationFact

@@ -9,18 +9,18 @@ import {
 import { post, text } from '../form-post';
 import { processRoute } from '../../../server/process-app';
 import {
-  isOnlineRailChoice,
-  ONLINE_RAIL_COOKIE,
+  isPeopleRailChoice,
+  PEOPLE_RAIL_COOKIE,
   RAIL_COOKIE_OPTIONS,
 } from '../../../ui/layout/app-shell/rail-preference';
 
 const routes = { status: processRoute((all) => all.presence.set) };
 
 /** The rail's open or collapsed choice; a native POST, remembered per member. */
-export async function setOnlineRail(form: FormData): Promise<void> {
+export async function setPeopleRail(form: FormData): Promise<void> {
   const choice = form.get('rail');
-  if (!isOnlineRailChoice(choice)) return;
-  (await cookies()).set(ONLINE_RAIL_COOKIE, choice, RAIL_COOKIE_OPTIONS);
+  if (!isPeopleRailChoice(choice)) return;
+  (await cookies()).set(PEOPLE_RAIL_COOKIE, choice, RAIL_COOKIE_OPTIONS);
 }
 
 /** The member's own status, from the account menu. */

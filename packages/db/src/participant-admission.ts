@@ -1,6 +1,9 @@
+import type { AgeBand } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import type { RoundCommandAuthority } from '@daisy/protocol';
+import { sql, type SQL } from 'drizzle-orm';
 import type { lockAuthorizationActors } from './authorization';
+import { restrictionInForce } from './moderation/in-force';
 
 /** A human principal's own access facts, read under the account fence. */
 export type PrincipalAccess = NonNullable<
@@ -12,6 +15,26 @@ export type PrincipalAccess = NonNullable<
  * `@daisy/auth`; the caller injects it, so this adapter decides nothing.
  */
 export type ParticipantAdmission = (access: PrincipalAccess) => boolean;
+
+/**
+ * ADR 0075's facts, for a query over many accounts: the account named by
+ * `userId` is approved, unrestricted at `at`, and in a band the caller's rule
+ * admits. The grandfathered cohort was approved with no age check, so approval
+ * never stands for age. A missing or invalid age record matches no band. The
+ * band stays inside the predicate: this read returns no age data.
+ */
+export const admittedParticipant = (
+  userId: SQL,
+  at: Date,
+  admittedAgeBands: readonly AgeBand[],
+) => sql`(
+  exists (select 1 from account_beta_access access
+    where access.user_id = ${userId} and access.state = 'approved')
+  and not ${restrictionInForce(userId, at)}
+  and (select public.daisy_age_band(age.birth_month, age.version, age.recorded_at, ${at}::timestamptz)
+    from account_age age where age.user_id = ${userId})
+    = any(string_to_array(${admittedAgeBands.join(',')}, ','))
+)`;
 
 type FencedAccounts = Awaited<ReturnType<typeof lockAuthorizationActors>>;
 

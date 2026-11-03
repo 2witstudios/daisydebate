@@ -5,34 +5,34 @@ import { Avatar } from '../components/avatar/avatar';
 import { statusLabels } from '../components/presence-dot/status-labels';
 import { Icon } from '../components/icon/icon';
 import { cn } from '../cn';
-import type { OnlineRailPreference } from '../layout/app-shell/rail-preference';
+import type { PeopleRailPreference } from '../layout/app-shell/rail-preference';
 import { ChallengeCards, FollowAccepted } from '../challenges/challenge-cards';
 import { ratingsLabel } from './member-card';
-import { useOnline } from './online-provider';
-import { PersonList, usePersonOverlay } from './online-rows';
+import { usePeople } from './people-provider';
+import { PersonList, usePersonOverlay } from './people-rows';
 import type { PersonActions } from './person-actions';
 
-const fullClass: Readonly<Record<OnlineRailPreference, string>> = {
-  open: 'online-full-open',
+const fullClass: Readonly<Record<PeopleRailPreference, string>> = {
+  open: 'people-full-open',
   mini: 'hidden',
-  auto: 'online-full-auto',
+  auto: 'people-full-auto',
 };
-const miniClass: Readonly<Record<OnlineRailPreference, string>> = {
-  open: 'online-mini-open',
+const miniClass: Readonly<Record<PeopleRailPreference, string>> = {
+  open: 'people-mini-open',
   mini: 'flex',
-  auto: 'online-mini-auto',
+  auto: 'people-mini-auto',
 };
 
 const tab =
-  'inline-flex min-h-10 items-center gap-1.5 rounded-sm px-3 text-sm font-semibold text-ink-muted hover:bg-surface-overlay hover:text-ink aria-pressed:bg-accent-soft aria-pressed:text-ink';
+  'inline-flex min-h-10 items-center gap-2 rounded-sm px-3 text-sm font-semibold text-ink-muted hover:bg-surface-overlay hover:text-ink aria-pressed:bg-accent-soft aria-pressed:text-ink';
 
-/** The list's search and tabs, shared with the phone's Online view. */
-function OnlineControls() {
-  const { query, setQuery, filter, setFilter, roster } = useOnline();
+/** The list's search and tabs, shared with the phone's view. */
+function PeopleControls() {
+  const { query, setQuery, filter, setFilter, list } = usePeople();
   return (
     <>
       <label className="flex">
-        <span className="sr-only">Search people online</span>
+        <span className="sr-only">Search people</span>
         <input
           type="search"
           placeholder="Search"
@@ -48,9 +48,9 @@ function OnlineControls() {
           onClick={() => setFilter('all')}
           className={tab}
         >
-          All{' '}
-          <span className="font-book text-ink-faint">
-            {roster.counts.everyone}
+          All
+          <span className="font-book text-ink-faint tabular-nums">
+            {list.counts.everyone}
           </span>
         </button>
         <button
@@ -59,9 +59,9 @@ function OnlineControls() {
           onClick={() => setFilter('friends')}
           className={tab}
         >
-          Friends{' '}
-          <span className="font-book text-ink-faint">
-            {roster.counts.friends}
+          Friends
+          <span className="font-book text-ink-faint tabular-nums">
+            {list.counts.friends}
           </span>
         </button>
       </div>
@@ -94,32 +94,32 @@ function RailToggle({
 }
 
 /**
- * Who's online, on every page (ADR 0103): open beside the page, or collapsed to
+ * Everyone, on every page (ADR 0105): open beside the page, or collapsed to
  * avatars with friends first. Below 1101px it stays collapsed and on a phone it
- * gives way to the Lobby's Online view. Filling the whole column keeps it flush
+ * gives way to the Lobby's People view. Filling the whole column keeps it flush
  * to the right edge, mirroring the left rail.
  */
-export function OnlineRail({
+export function PeopleRail({
   preference,
   actions,
   setRail,
   activeRoomId,
 }: {
-  readonly preference: OnlineRailPreference;
+  readonly preference: PeopleRailPreference;
   readonly actions: PersonActions;
   readonly setRail: (form: FormData) => Promise<void>;
   readonly activeRoomId: string | null;
 }) {
-  const { roster } = useOnline();
+  const { list } = usePeople();
   const aside = useRef<HTMLElement>(null);
   const overlay = usePersonOverlay(aside, actions);
-  const friends = roster.members.filter((m) => m.relation === 'friends');
-  const others = roster.members.filter((m) => m.relation !== 'friends');
+  const friends = list.people.filter((m) => m.relation === 'friends');
+  const others = list.people.filter((m) => m.relation !== 'friends');
   return (
     <aside
       ref={aside}
-      aria-label="Who's online"
-      className="sticky top-0 z-10 h-dvh self-start border-l border-border bg-surface area-online max-narrow:hidden"
+      aria-label="People"
+      className="sticky top-0 z-10 h-dvh self-start border-l border-border bg-surface area-people max-narrow:hidden"
     >
       <div className={cn('h-full flex-col', fullClass[preference])}>
         <ChallengeCards
@@ -130,18 +130,18 @@ export function OnlineRail({
         <div className="flex flex-col gap-2 border-b border-border px-3 pt-3 pb-2">
           <div className="flex items-center justify-between gap-2">
             <h2 className="flex items-baseline gap-2 font-display text-xl leading-tight font-semibold">
-              Online{' '}
-              <span className="text-sm font-semibold text-ink-muted">
-                {roster.counts.everyone}
+              People
+              <span className="text-sm font-semibold text-ink-muted tabular-nums">
+                {list.counts.online} online
               </span>
             </h2>
             <RailToggle
               to="mini"
               action={setRail}
-              label="Collapse online list"
+              label="Collapse people list"
             />
           </div>
-          <OnlineControls />
+          <PeopleControls />
         </div>
         <PersonList overlay={overlay} className="min-h-0 flex-1 pb-1" />
       </div>
@@ -151,10 +151,10 @@ export function OnlineRail({
           miniClass[preference],
         )}
       >
-        <RailToggle to="open" action={setRail} label="Expand online list" />
+        <RailToggle to="open" action={setRail} label="Expand people list" />
         <p className="text-xs font-bold text-online">
           <span className="sr-only">Online </span>
-          {roster.counts.everyone}
+          {list.counts.online}
         </p>
         <ul className="flex min-h-0 w-full flex-1 list-none flex-col items-center overflow-y-auto">
           {[...friends, ...others].map((member, index) => (
@@ -200,19 +200,19 @@ export function OnlineRail({
 }
 
 /**
- * The phone's Online view, in the Lobby, with the same menu as a sheet. Its
+ * The phone's people list, in the Lobby, with the same menu as a sheet. Its
  * challenge cards sit on every page through `PhoneChallengeCards`.
  */
-export function OnlinePanel({ actions }: { readonly actions: PersonActions }) {
+export function PeoplePanel({ actions }: { readonly actions: PersonActions }) {
   const panel = useRef<HTMLElement>(null);
   const overlay = usePersonOverlay(panel, actions);
   return (
     <section
       ref={panel}
-      aria-label="Who's online"
+      aria-label="People"
       className="relative flex flex-col gap-3"
     >
-      <OnlineControls />
+      <PeopleControls />
       <PersonList overlay={overlay} className="-mx-4" />
       {overlay.overlay}
     </section>

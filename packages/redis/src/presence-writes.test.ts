@@ -51,7 +51,7 @@ describe('presence lease upsert', () => {
           `test:v1:presence:conn:conn1`,
           `test:v1:presence:actor:${actorId}`,
           'test:v1:presence:online',
-          'test:v1:presence:roster-revision',
+          'test:v1:presence:online-revision',
         ],
         rest: [actorId, 'active', 'inst1', '60000', 'conn1'],
       },
@@ -219,7 +219,7 @@ describe('presence lease delete', () => {
         'test:v1:presence:conn:conn1',
         `test:v1:presence:actor:${actorId}`,
         'test:v1:presence:online',
-        'test:v1:presence:roster-revision',
+        'test:v1:presence:online-revision',
         'conn1',
         actorId,
       ],
@@ -241,13 +241,13 @@ describe('presence lease delete', () => {
   });
 });
 
-describe('the roster revision (ADR 0103)', () => {
+describe('the online revision (ADR 0103)', () => {
   test('reads as a number, zero before any lease', async () => {
     const { redis } = createTestRedis();
     assert({
       given: 'no lease has ever been written',
       should: 'read zero',
-      actual: await redis.readRosterRevision(),
+      actual: await redis.readOnlineRevision(),
       expected: 0,
     });
   });

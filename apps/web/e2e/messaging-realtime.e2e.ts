@@ -1,5 +1,5 @@
 import { testMessagingUnknownCommit } from './support/messaging-unknown-commit';
-import { testWhoIsOnline } from './support/whos-online-live';
+import { testPeopleList } from './support/people-list-live';
 import { testMessagingHistoryCompletion } from './support/messaging-history-completion';
 import { testMessagingNavigationOverlap } from './support/messaging-navigation-overlap';
 import { testEditCompletionWindow } from './support/messaging-completion-window';
@@ -32,7 +32,7 @@ const isBareInboxBell = (topic: string, payload: unknown) =>
     JSON.stringify({ kind: 'messaging.inbox.changed' });
 
 testMessageControlFocus();
-testWhoIsOnline();
+testPeopleList();
 testMessagingNavigationOverlap();
 testEditCompletionWindow();
 testMessagingHistoryCompletion();

@@ -23,7 +23,7 @@ import { friendAction } from '../../friends/actions';
 import { blockAction } from '../../contacts/actions';
 import { reportAction } from '../../reports/actions';
 import { sendChallengeAction } from '../../challenges/actions';
-import { ProfilePersonActions } from '../../../../ui/online/profile-person-actions';
+import { ProfilePersonActions } from '../../../../ui/people/profile-person-actions';
 import { readFriends } from '../../friends/read-friends';
 import { MessageUserButton } from '../../../../ui/messaging/message-user-button';
 import { createConversationAction } from '../../messages/new/actions';

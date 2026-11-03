@@ -134,7 +134,7 @@ export async function serveRealtime({
     },
   });
   const onlineRing = createOnlineRing({
-    readRevision: resources.redis.readRosterRevision,
+    readRevision: resources.redis.readOnlineRevision,
     ring: delivery.registry.ringOnline,
     timers: scheduler,
   });

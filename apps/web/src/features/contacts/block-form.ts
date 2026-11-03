@@ -33,7 +33,7 @@ export function blockFormUnavailable(input: FormData): BlockFormState {
   };
 }
 
-/** The online list's one-button block: its answer, and whether to close. */
+/** The people list's one-button block: its answer, and whether to close. */
 export type PersonBlockState = {
   readonly done?: boolean;
   readonly notice?: string;

@@ -58,7 +58,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
       { message: 'Typing hints require a channel topic' },
     ),
   }),
-  /** The online list may have changed: re-read it (ADR 0103). Names nobody. */
+  /** The people list may have changed: re-read it (ADR 0103). Names nobody. */
   z.strictObject({
     ...envelope,
     type: z.literal('online_changed'),

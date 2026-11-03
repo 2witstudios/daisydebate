@@ -7,7 +7,7 @@ import {
   navFlyoutLinkClass,
   navItemClass,
 } from '../../../../components/nav-item/nav-item-class';
-import { SelfAvatar } from '../../../../online/status-form';
+import { SelfAvatar } from '../../../../people/status-form';
 import { cn } from '../../../../cn';
 import type { ShellAccount, ShellRatings } from '../../account';
 import { profileHref, wayIn } from '../destinations';

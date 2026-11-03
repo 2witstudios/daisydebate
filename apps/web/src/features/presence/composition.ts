@@ -5,15 +5,15 @@ import type { App } from '../../server/app';
 import { consumeOrThrow } from '../../server/rate-limit';
 import { memberHttpBoundary } from '../../server/member-boundary';
 import { createPresenceHandlers } from './handlers';
-import { ROSTER_ACTORS_MAX } from '@daisy/db/presence-roster';
-import { readOnlineRoster } from './online';
+import { ONLINE_LEASES_MAX } from '@daisy/db/presence-people-list';
+import { readPeopleList } from './people-list';
 import { cachedScan } from './online-scan';
 import { readChosen, setChosenStatus } from './setting';
 
 /** Status changes per member per minute, Presence's own budget. */
 const PRESENCE_RULE = { windowSeconds: 60, max: 30 } as const;
-/** Online list reads per member per minute: rings, scrolling and a search box. */
-const ONLINE_RULE = { windowSeconds: 60, max: 240 } as const;
+/** People list reads per member per minute: rings, scrolling and a search box. */
+const PEOPLE_LIST_RULE = { windowSeconds: 60, max: 240 } as const;
 
 /** The decision over the member's own presence setting, on their locked account. */
 const ownSetting =
@@ -37,14 +37,14 @@ const ownList =
   async ({ scope, account }) =>
     requireAuthorization({
       principal,
-      capability: 'social.online.list',
-      resource: { kind: 'online_roster', actorId: scope.actorId },
+      capability: 'social.people.list',
+      resource: { kind: 'people_list', actorId: scope.actorId },
       context: { account },
     });
 
 export function composePresenceRoutes(app: App) {
   const onlineActorIds = cachedScan(
-    () => app.redis.readOnlineActorIds(ROSTER_ACTORS_MAX),
+    () => app.redis.readOnlineActorIds(ONLINE_LEASES_MAX),
     () => Date.parse(app.clock.now()),
   );
   return createPresenceHandlers({
@@ -70,15 +70,15 @@ export function composePresenceRoutes(app: App) {
             ownSetting(principal, 'social.presence.read'),
           ),
       }),
-    online: (principal, input) =>
-      readOnlineRoster(principal, input, {
+    people: (principal, input) =>
+      readPeopleList(principal, input, {
         now: () => app.clock.now(),
         limit: (actorId) =>
-          consumeOrThrow(app.limiter, `online:${actorId}`, ONLINE_RULE),
+          consumeOrThrow(app.limiter, `people:${actorId}`, PEOPLE_LIST_RULE),
         onlineActorIds,
         activity: (actorIds) => app.redis.readActorsPresence(actorIds),
         page: (scope, page) =>
-          app.database.readRosterPage(scope, page, ownList(principal)),
+          app.database.readPeopleListPage(scope, page, ownList(principal)),
         cards: (actorIds) => app.database.readMemberCards(actorIds),
         blinded: (actorId) => app.database.readRatingBlindings(actorId),
       }),

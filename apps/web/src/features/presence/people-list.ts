@@ -1,10 +1,14 @@
-import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import {
+  ADMITTED_AGE_BANDS,
+  type AuthorizationPrincipal,
+} from '@daisy/auth/authorization';
+import type { AgeBand } from '@daisy/auth';
 import { tallyRecord } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type {
-  OnlineFilter,
-  OnlineMember,
-  OnlineRoster,
+  PeopleFilter,
+  Person,
+  PeopleList,
   PresenceActivity,
   RatingLadder,
   RatingState,
@@ -12,15 +16,18 @@ import type {
   RoundOutcome,
   DebateRole,
 } from '@daisy/protocol';
-import type { RosterCursor, RosterRow } from '@daisy/db/presence-roster';
+import type {
+  PeopleListCursor,
+  PersonRow,
+} from '@daisy/db/presence-people-list';
 import { ratingStanding } from '../ratings/standing';
 import { requireMemberActor } from '../access/actor';
-import { displayStatus, isAround } from './status';
+import { displayStatus } from './status';
 
 /** One page of the list. A browser asks for more as the viewer scrolls. */
-export const ROSTER_PAGE = 50;
+export const PEOPLE_PAGE = 50;
 
-export type OnlineRosterDependencies = {
+export type PeopleListDependencies = {
   readonly now: () => string;
   readonly limit: (actorId: string) => Promise<void>;
   readonly onlineActorIds: () => Promise<readonly string[]>;
@@ -31,17 +38,23 @@ export type OnlineRosterDependencies = {
     scope: { readonly userId: string; readonly actorId: string },
     input: {
       readonly onlineActorIds: readonly string[];
-      readonly filter: OnlineFilter;
+      readonly admittedAgeBands: readonly AgeBand[];
+      readonly now: string;
+      readonly filter: PeopleFilter;
       readonly query: string | null;
-      readonly after: RosterCursor | null;
+      readonly after: PeopleListCursor | null;
       readonly limit: number;
     },
   ) => Promise<{
-    readonly rows: readonly RosterRow[];
-    readonly counts: { readonly everyone: number; readonly friends: number };
+    readonly rows: readonly PersonRow[];
+    readonly counts: {
+      readonly everyone: number;
+      readonly friends: number;
+      readonly online: number;
+    };
     readonly self: {
-      readonly chosen: RosterRow['chosen'];
-      readonly placement: RosterRow['placement'];
+      readonly chosen: PersonRow['chosen'];
+      readonly placement: PersonRow['placement'];
     };
   }>;
   readonly cards: (actorIds: readonly string[]) => Promise<{
@@ -78,15 +91,20 @@ export const shownLadders = (
 ];
 
 /** An opaque keyset position; a tampered one is a refusal, never a probe. */
-export const encodeRosterCursor = (cursor: RosterCursor): string =>
+export const encodePeopleListCursor = (cursor: PeopleListCursor): string =>
   Buffer.from(
-    JSON.stringify([cursor.friend, cursor.username, cursor.actorId]),
+    JSON.stringify([
+      cursor.friend,
+      cursor.online,
+      cursor.username,
+      cursor.actorId,
+    ]),
     'utf8',
   ).toString('base64url');
 
-export function decodeRosterCursor(
+export function decodePeopleListCursor(
   value: string | undefined,
-): RosterCursor | null {
+): PeopleListCursor | null {
   if (value === undefined) return null;
   try {
     const parsed: unknown = JSON.parse(
@@ -94,58 +112,65 @@ export function decodeRosterCursor(
     );
     if (
       Array.isArray(parsed) &&
-      parsed.length === 3 &&
+      parsed.length === 4 &&
       typeof parsed[0] === 'boolean' &&
-      typeof parsed[1] === 'string' &&
+      typeof parsed[1] === 'boolean' &&
       typeof parsed[2] === 'string' &&
-      /^[a-z0-9]{24}$/.test(parsed[2])
+      typeof parsed[3] === 'string' &&
+      /^[a-z0-9]{24}$/.test(parsed[3])
     )
-      return { friend: parsed[0], username: parsed[1], actorId: parsed[2] };
+      return {
+        friend: parsed[0],
+        online: parsed[1],
+        username: parsed[2],
+        actorId: parsed[3],
+      };
   } catch {
     // Falls through to the refusal.
   }
   throw createAppError('VALIDATION');
 }
 
-const relationOf = (
-  row: RosterRow,
-  viewer: string,
-): OnlineMember['relation'] => {
+const relationOf = (row: PersonRow, viewer: string): Person['relation'] => {
   if (row.friendshipState === 'accepted') return 'friends';
   if (row.friendshipState !== 'pending') return 'none';
   return row.requesterActorId === viewer ? 'outgoing' : 'incoming';
 };
 
 /**
- * Who is online, as this member may see them (ADR 0103): lease ids from Redis,
- * then one SQL read that drops anyone appearing offline and any blocked pair.
- * A row whose lease lapsed since the scan drops out here. Presence grants
- * nothing, and everything on a row is already public on a profile or a ladder.
+ * Everyone, as this member may see them (ADR 0105): one SQL read that drops any
+ * blocked pair, with lease ids from Redis saying who is online. A member
+ * appearing offline or whose lease lapsed since the scan shows as offline.
+ * Presence grants nothing, and everything on a row is already public on a
+ * profile or a ladder.
  */
-export async function readOnlineRoster(
+export async function readPeopleList(
   principal: AuthorizationPrincipal,
   input: {
-    readonly filter: OnlineFilter;
+    readonly filter: PeopleFilter;
     readonly query: string | null;
     readonly cursor: string | undefined;
   },
-  dependencies: OnlineRosterDependencies,
-): Promise<Omit<OnlineRoster, 'version'>> {
+  dependencies: PeopleListDependencies,
+): Promise<Omit<PeopleList, 'version'>> {
   const { actorId, userId } = requireMemberActor(principal);
   await dependencies.limit(actorId);
-  const after = decodeRosterCursor(input.cursor);
+  const after = decodePeopleListCursor(input.cursor);
   const onlineActorIds = await dependencies.onlineActorIds();
+  const now = dependencies.now();
   const page = await dependencies.page(
     { userId, actorId },
     {
       onlineActorIds,
+      admittedAgeBands: ADMITTED_AGE_BANDS,
+      now,
       filter: input.filter,
       query: input.query,
       after,
-      limit: ROSTER_PAGE + 1,
+      limit: PEOPLE_PAGE + 1,
     },
   );
-  const rows = page.rows.slice(0, ROSTER_PAGE);
+  const rows = page.rows.slice(0, PEOPLE_PAGE);
   const ids = rows.map((row) => row.actorId);
   const [activity, cards, blinded] = await Promise.all([
     dependencies.activity([...ids, actorId]),
@@ -153,16 +178,14 @@ export async function readOnlineRoster(
     dependencies.blinded(actorId),
   ]);
   const hidden = new Set(blinded);
-  const now = dependencies.now();
   const visibilityOf = new Map(cards.visibility.map((v) => [v.actorId, v]));
-  const members: OnlineMember[] = [];
+  const people: Person[] = [];
   for (const row of rows) {
     const status = displayStatus({
       chosen: row.chosen,
       activity: activity.get(row.actorId) ?? null,
       placement: row.placement,
     });
-    if (!isAround(status)) continue;
     const record = tallyRecord(
       cards.records
         .filter((group) => group.actorId === row.actorId)
@@ -173,7 +196,7 @@ export async function readOnlineRoster(
           rounds: group.rounds,
         })),
     );
-    members.push({
+    people.push({
       username: row.username,
       status,
       relation: relationOf(row, actorId),
@@ -200,11 +223,12 @@ export async function readOnlineRoster(
   }
   const last = rows.at(-1);
   return {
-    members,
+    people,
     nextCursor:
-      page.rows.length > ROSTER_PAGE && last
-        ? encodeRosterCursor({
+      page.rows.length > PEOPLE_PAGE && last
+        ? encodePeopleListCursor({
             friend: last.friend,
+            online: last.online,
             username: last.username,
             actorId: last.actorId,
           })

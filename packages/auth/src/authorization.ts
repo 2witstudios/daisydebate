@@ -29,6 +29,7 @@ import type {
   AuthorizationDecision,
 } from './authorization-facts';
 export {
+  ADMITTED_AGE_BANDS,
   admitsPrincipalAccess,
   ageAdmitted,
   participantAccess,
@@ -264,7 +265,7 @@ function resolveMemberResource(
     case 'messaging_collection':
     case 'friend_collection':
     case 'challenge_collection':
-    case 'online_roster':
+    case 'people_list':
     case 'rating_visibility':
     case 'moderation_notice':
     case 'presence_setting':
