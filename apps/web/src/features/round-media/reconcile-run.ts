@@ -321,7 +321,7 @@ export function createMediaReconcileRun(
       if (finished.retired)
         input.logger.log(
           'round.media.room_retired',
-          { roundId: claim.roundId, reason: finished.retired },
+          { roundId: claim.roundId, cause: finished.retired },
           'An uncertain room was left for a fresh one',
         );
     }

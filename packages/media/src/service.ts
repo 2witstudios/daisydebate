@@ -114,7 +114,21 @@ export function createMediaService({
     },
     async deleteRoom(room: string) {
       const name = parseMedia(idSchema, room);
-      await operation(() => client.deleteRoom(name));
+      await operation(async () => {
+        try {
+          await client.deleteRoom(name);
+        } catch (error) {
+          // A room on a dead node stays listed and cannot be deleted until a create
+          // moves it to a live one, so its delete is a create and a delete (ADR 0110).
+          if (
+            !(error instanceof ServerError) ||
+            (error.status >= 400 && error.status < 500)
+          )
+            throw error;
+          await client.createRoom({ name });
+          await client.deleteRoom(name);
+        }
+      });
     },
     async permissions(room: string, identity: string, input: MediaPermissions) {
       const name = parseMedia(idSchema, room);

@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { isRoundMediaHref, mediaDocumentStale } from './browser-policy';
+import {
+  isRoundMediaHref,
+  mediaDocumentStale,
+  roundMediaOrigins,
+} from './browser-policy';
 setupRitewayBun();
 
 describe('isRoundMediaHref', () => {
@@ -68,5 +72,18 @@ describe('mediaDocumentStale', () => {
       ],
       expected: [false, false, false],
     });
+  });
+});
+
+test('every node in the list may be connected to from a media page', () => {
+  assert({
+    given: 'two nodes',
+    should: 'allow both, in order',
+    actual: roundMediaOrigins(
+      '/rounds/abc',
+      'wss://a.invalid,wss://b.invalid',
+      false,
+    ).filter((origin) => origin.startsWith('wss:')),
+    expected: ['wss://a.invalid', 'wss://b.invalid'],
   });
 });
