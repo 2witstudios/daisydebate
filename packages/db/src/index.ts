@@ -1,3 +1,4 @@
+import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
 import {
@@ -186,7 +187,7 @@ export function createDatabase({
       botPublication,
     }),
     ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
-    ...roundAnalysisReads({ database }),
+    ...namedLaneOperations(roundAnalysisReads({ database })),
     mediaSessions: createMediaSessionStore({
       database,
       run: transcriptTransaction,

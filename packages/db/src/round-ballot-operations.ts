@@ -1,3 +1,4 @@
+import { namedLaneOperations } from './lane-operation';
 import type { JudgingPanelFacts } from '@daisy/protocol';
 import { readJudgingPanelFacts } from './judging-panel-read';
 import { roundBallotReads } from './round-ballot-reads';
@@ -277,7 +278,7 @@ export const roundBallotOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  ...roundBallotReads({ database }),
+  ...namedLaneOperations(roundBallotReads({ database })),
   executeRoundBallot: (input: LockedRoundBallotInput) =>
     instrumented(eventSink, 'executeRoundBallot', () =>
       database.transaction((tx) => executeLockedRoundBallot(tx, input)),
