@@ -66,6 +66,33 @@ the real form and emailed link, with mail captured rather than delivered. A huma
 ballot through the browser form set the outcome. A visitor's browser played the
 Recording from its own bucket with no failed requests.
 
+## Private speech at the public edge
+
+Twenty-two real Rounds on 2026-11-03, with a beep and a screen flash on a fixed grid
+through every phase: ten that ran to their scheduled end, six where a speaker yielded,
+and six with prep and a cross-examination. Each public feed was decoded and every beep
+and flash placed against the Round's committed times. The rig ran a head before the
+day's review fixes. Those change when a ranked result, a follower's notification and a
+Recording's statement can leave, not how media is cut or released.
+
+| Measure                               | Result                     |
+| ------------------------------------- | -------------------------- |
+| Private audio in the public feed      | 0 in all 22                |
+| Private video in the public feed      | 0 in all 22                |
+| Egress stamp offset, audio            | 87 to 815 ms, median 800   |
+| Egress stamp offset, video            | 25 to 815 ms, median 759   |
+| Lost at the start of the first speech | Median 3.0 s, 2 runs 21 s  |
+| Lost at the start of a later segment  | 0.65 to 1.48 s, median 0.8 |
+| Lost at the end of a segment          | 0.23 to 1.2 s, median 1.0  |
+
+Twenty-two clean runs bound the leak rate; they do not make it zero. The margin carries
+stamp offsets up to the ones above, so an offset beyond them is the case to watch.
+The 21 s first-speech loss is the stage reaching air late on two runs, and the Recording
+states it as a late start. Two prep runs carried one flash in a countdown, which is
+neither public nor private and not a leak. The speech after prep was still open when its
+run was measured, so its start and end loss are not in the table. Three casual
+withdrawals were checked and each left no hold objects.
+
 ## Takedown with no free slot
 
 With the worker's only release slot held by a live Round, a stopped feed's public
