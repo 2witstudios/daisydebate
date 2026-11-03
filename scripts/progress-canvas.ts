@@ -69,11 +69,20 @@ const text = (html: string): string =>
     .replace(/\s+/g, ' ')
     .trim();
 
-/** Every Score block on one area page; a malformed block throws. */
-export function parseScoreBlocks(
+type ScorePage = { readonly id: string; readonly title: string };
+
+export type ScoreBlock = {
+  readonly name: string;
+  readonly pageId: string;
+  readonly where: string;
+  readonly fields: ReadonlyMap<string, string>;
+};
+
+/** The named field rows of every Score block in a source; a bad heading or table throws. */
+export function readScoreBlocks(
   html: string,
-  page: { readonly id: string; readonly title: string },
-): readonly Area[] {
+  page: ScorePage,
+): readonly ScoreBlock[] {
   // Each h3 on its own, so a heading never runs into the next one.
   const headings = [
     ...html.matchAll(/<h3[^>]*>((?:(?!<\/h3>)[\s\S])*)<\/h3>/g),
@@ -99,45 +108,65 @@ export function parseScoreBlocks(
         .filter((cells) => cells.length >= 2)
         .map((cells) => [text(cells[0][1]), text(cells[1][1])] as const),
     );
-    const category = fields.get('Category') ?? '';
-    if (!CATEGORIES.some((known) => known.name === category))
-      throw new Error(`${where}: unknown Category "${category}"`);
-    const scores = DIMENSIONS.map((dimension) => {
-      const value = fields.get(dimension) ?? '';
-      if (value === 'n/a') return undefined;
-      if (!/^\d{1,3}$/.test(value) || Number(value) > 100)
-        throw new Error(
-          `${where}: ${dimension} must be 0-100 or n/a, not "${value}"`,
-        );
-      return Number(value);
-    });
-    if (scores.every((score) => score === undefined))
-      throw new Error(`${where}: needs at least one scored dimension`);
-    return {
-      name,
-      pageId: page.id,
-      category,
-      subtitle: fields.get('Subtitle') ?? '',
-      scores,
-      status: fields.get('Status') ?? '',
-      tag: fields.get('Tag') || undefined,
-    };
+    return { name, pageId: page.id, where, fields };
   });
 }
 
-const mean = (values: readonly number[]): number =>
+/** One Score block as an area of the given categories; a bad value throws. */
+export function scoreBlockArea(
+  { name, pageId, where, fields }: ScoreBlock,
+  categories: readonly string[],
+): Area {
+  const category = fields.get('Category') ?? '';
+  if (!categories.includes(category))
+    throw new Error(`${where}: unknown Category "${category}"`);
+  const scores = DIMENSIONS.map((dimension) => {
+    const value = fields.get(dimension) ?? '';
+    if (value === 'n/a') return undefined;
+    if (!/^\d{1,3}$/.test(value) || Number(value) > 100)
+      throw new Error(
+        `${where}: ${dimension} must be 0-100 or n/a, not "${value}"`,
+      );
+    return Number(value);
+  });
+  if (scores.every((score) => score === undefined))
+    throw new Error(`${where}: needs at least one scored dimension`);
+  return {
+    name,
+    pageId,
+    category,
+    subtitle: fields.get('Subtitle') ?? '',
+    scores,
+    status: fields.get('Status') ?? '',
+    tag: fields.get('Tag') || undefined,
+  };
+}
+
+/** Every Score block on one area page; a malformed block throws. */
+export const parseScoreBlocks = (
+  html: string,
+  page: ScorePage,
+): readonly Area[] =>
+  readScoreBlocks(html, page).map((block) =>
+    scoreBlockArea(
+      block,
+      CATEGORIES.map(({ name }) => name),
+    ),
+  );
+
+export const mean = (values: readonly number[]): number =>
   Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 
-const overall = (area: Area): number =>
+export const overall = (area: Area): number =>
   mean(area.scores.filter((score): score is number => score !== undefined));
 
-const bar = (value: number): string => {
+export const bar = (value: number): string => {
   const band = value < 40 ? 'lo' : value < 66 ? 'mid' : 'hi';
   return `<div class="bar ${band}"><i style="width:${value}%"></i><span>${value}%</span></div>`;
 };
 
-const NOW_START = '<!-- now:start -->';
-const NOW_END = '<!-- now:end -->';
+export const NOW_START = '<!-- now:start -->';
+export const NOW_END = '<!-- now:end -->';
 
 /** The canvas without its Now section or trailing whitespace: what the scores decide. */
 const scoresOnly = (canvas: string): string => {
@@ -150,12 +179,12 @@ const scoresOnly = (canvas: string): string => {
   return cut.trimEnd();
 };
 
-const NA = '<span style="color:var(--muted);font-size:12px">n/a</span>';
+export const NA = '<span style="color:var(--muted);font-size:12px">n/a</span>';
 
 const pageUrl = (id: string) =>
   `https://pagespace.ai/dashboard/${DAISY_DEBATE_DRIVE_ID}/${id}`;
 
-const STYLE = `<style>
+export const STYLE = `<style>
 :root{--bg:#f6f1e7;--card:#fffdf8;--ink:#2b2a26;--muted:#77736a;--line:#e4dccb;--g:#3f7a4a;--y:#c9962b;--r:#b5533c;--track:#ece5d6}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;padding:24px 16px}
@@ -264,6 +293,46 @@ export type ProgressDeps = {
   readonly out: (text: string) => void;
 };
 
+type CanvasIo = {
+  readonly canvas: () => string;
+  readonly write: (before: string, after: string) => void;
+  readonly out: (text: string) => void;
+};
+
+/**
+ * Brings one generated canvas in line with its render. A dry run exits 1 only
+ * when something outside the Now section drifted; --apply writes.
+ */
+export function syncCanvas(
+  deps: CanvasIo,
+  render: {
+    readonly name: string;
+    readonly sources: string;
+    readonly command: string;
+    readonly desired: string;
+  },
+  apply: boolean,
+): number {
+  const { name, sources, command, desired } = render;
+  const current = deps.canvas();
+  if (current.trimEnd() === desired.trimEnd()) {
+    deps.out(`${name} in sync with ${sources}\n`);
+    return 0;
+  }
+  const scoresDrifted = scoresOnly(current) !== scoresOnly(desired);
+  if (!apply) {
+    deps.out(
+      scoresDrifted
+        ? `${name} drifted from ${sources}; run ${command} --apply\n`
+        : `${name} scores in sync with ${sources}; the Now section is out of date (run --apply to refresh it)\n`,
+    );
+    return scoresDrifted ? 1 : 0;
+  }
+  deps.write(current, desired);
+  deps.out(`${name} updated from ${sources}\n`);
+  return 0;
+}
+
 export function runProgressSync(deps: ProgressDeps, apply: boolean): number {
   const areas = deps
     .areaPages()
@@ -286,44 +355,68 @@ export function runProgressSync(deps: ProgressDeps, apply: boolean): number {
     );
     return 1;
   }
-  const desired = renderStatus(areas, deps.openPrs());
-  const current = deps.canvas();
-  if (current.trimEnd() === desired.trimEnd()) {
-    deps.out(`Project Status in sync with ${areas.length} areas\n`);
-    return 0;
-  }
-  const scoresDrifted = scoresOnly(current) !== scoresOnly(desired);
-  if (!apply) {
-    deps.out(
-      scoresDrifted
-        ? `Project Status drifted from ${areas.length} areas; run bun progress:sync --apply\n`
-        : `Project Status scores in sync with ${areas.length} areas; the Now section is out of date (run --apply to refresh it)\n`,
-    );
-    return scoresDrifted ? 1 : 0;
-  }
-  deps.write(current, desired);
-  deps.out(`Project Status updated from ${areas.length} areas\n`);
-  return 0;
+  return syncCanvas(
+    deps,
+    {
+      name: 'Project Status',
+      sources: `${areas.length} areas`,
+      command: 'bun progress:sync',
+      desired: renderStatus(areas, deps.openPrs()),
+    },
+    apply,
+  );
+}
+
+/**
+ * The live pagespace and gh edge of a generated canvas. PageSpace can answer
+ * "Network request failed" for a while, so every call retries before failing.
+ */
+export function liveCanvasEdge() {
+  const attempt = (command: readonly string[]) =>
+    Bun.spawnSync([...command], { stdout: 'pipe', stderr: 'inherit' });
+  const retried = (command: readonly string[]) => {
+    let result = attempt(command);
+    for (let retry = 0; retry < 5 && result.exitCode !== 0; retry += 1) {
+      Bun.sleepSync(3000);
+      result = attempt(command);
+    }
+    return result;
+  };
+  const run = (command: readonly string[]): string => {
+    const result = retried(command);
+    if (result.exitCode !== 0)
+      throw new Error(`${command.slice(0, 3).join(' ')} failed`);
+    return result.stdout.toString();
+  };
+  const pagespace = <T>(argv: readonly string[]): T =>
+    JSON.parse(run(['pagespace', ...argv, '--json'])) as T;
+  const read = (id: string) =>
+    pagespace<{ content: string }>(['pages', 'read', id]).content;
+  const board = {
+    ...liveBoardDeps(),
+    pagespace: (args: readonly string[]) => {
+      const result = retried(['pagespace', ...args]);
+      return { code: result.exitCode, stdout: result.stdout.toString() };
+    },
+  };
+  return {
+    run,
+    pagespace,
+    read,
+    /** The board writer checks the content hash and refuses with a reason. */
+    write: (pageId: string, name: string, before: string, after: string) => {
+      writePage(board, pageId, before, after);
+      if (read(pageId).trimEnd() !== after.trimEnd())
+        throw new Error(`${name} readback differs from the render`);
+    },
+  };
 }
 
 if (import.meta.main) {
   const args = process.argv.slice(2);
   if (args.some((arg) => arg !== '--apply'))
     throw new Error('usage: bun progress:sync [--apply]');
-  const board = liveBoardDeps();
-  const run = (command: string[]): string => {
-    const result = Bun.spawnSync(command, {
-      stdout: 'pipe',
-      stderr: 'inherit',
-    });
-    if (result.exitCode !== 0)
-      throw new Error(`${command.slice(0, 3).join(' ')} failed`);
-    return result.stdout.toString();
-  };
-  const pagespace = <T>(argv: string[]): T =>
-    JSON.parse(run(['pagespace', ...argv, '--json'])) as T;
-  const read = (id: string) =>
-    pagespace<{ content: string }>(['pages', 'read', id]).content;
+  const { run, pagespace, read, write } = liveCanvasEdge();
   process.exitCode = runProgressSync(
     {
       areaPages: () => {
@@ -361,12 +454,8 @@ if (import.meta.main) {
           ]),
         ) as OpenPr[],
       canvas: () => read(PROJECT_STATUS_ID),
-      write: (before, after) => {
-        // The board writer checks the content hash and refuses with a reason.
-        writePage(board, PROJECT_STATUS_ID, before, after);
-        if (read(PROJECT_STATUS_ID).trimEnd() !== after.trimEnd())
-          throw new Error('Project Status readback differs from the render');
-      },
+      write: (before, after) =>
+        write(PROJECT_STATUS_ID, 'Project Status', before, after),
       out: (text) => process.stdout.write(text),
     },
     args.includes('--apply'),
