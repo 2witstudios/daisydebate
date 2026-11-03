@@ -27,14 +27,12 @@ export const mediaDocumentStale = (
 
 export function roundMediaOrigins(
   path: string,
-  endpoint: string | null | undefined,
+  endpoints: readonly string[],
   development: boolean,
 ): readonly string[] {
-  if (!isRoundMediaPage(path) || !endpoint) return [];
+  if (!isRoundMediaPage(path)) return [];
   // Every node in the list: a Round may be sent to any of them.
-  return endpoint
-    .split(',')
-    .flatMap((entry) => nodeOrigins(entry, development));
+  return endpoints.flatMap((entry) => nodeOrigins(entry, development));
 }
 
 function nodeOrigins(

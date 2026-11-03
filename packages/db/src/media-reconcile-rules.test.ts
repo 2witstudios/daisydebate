@@ -2,13 +2,11 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   MEDIA_RECONCILE_LEASE_MS,
-  MEDIA_ROOM_RETIRE_AFTER_MS,
   reconcileClaim,
   reconcileCompletion,
   reconcileLive,
   requireMutationAdmissible,
   requireReconcileLease,
-  decideRoom,
 } from './media-reconcile-rules';
 
 setupRitewayBun();
@@ -194,19 +192,19 @@ test('completion releases the lease and ends only a cleaned terminal session', (
       reconcileCompletion(session, now, {
         terminal: false,
         unresolved: false,
-        decision: { kind: 'keep' },
+        fate: { kind: 'keep' },
         clean: true,
       }),
       reconcileCompletion(session, now, {
         terminal: true,
         unresolved: false,
-        decision: { kind: 'keep' },
+        fate: { kind: 'keep' },
         clean: true,
       }),
       reconcileCompletion(session, now, {
         terminal: true,
         unresolved: false,
-        decision: { kind: 'retire', cause: 'absent', uncertain: false },
+        fate: { kind: 'end' },
         clean: true,
       }),
       reconcileCompletion(
@@ -215,14 +213,14 @@ test('completion releases the lease and ends only a cleaned terminal session', (
         {
           terminal: true,
           unresolved: false,
-          decision: { kind: 'retire', cause: 'absent', uncertain: false },
+          fate: { kind: 'end' },
           clean: true,
         },
       ),
       reconcileCompletion({ ...session, deletionRequestedAt: at(-5) }, now, {
         terminal: false,
         unresolved: false,
-        decision: { kind: 'retire', cause: 'absent', uncertain: false },
+        fate: { kind: 'clear' },
         clean: true,
       }),
     ],
@@ -273,7 +271,7 @@ test('a never-unsafe session is safe only without unresolved mutations', () => {
         reconcileCompletion(session, now, {
           terminal: false,
           unresolved,
-          decision: { kind: 'keep' },
+          fate: { kind: 'keep' },
           clean: true,
         }).result,
     ),
@@ -294,7 +292,7 @@ test('a completion records whether the pass finished its work', () => {
   const outcome = {
     terminal: false,
     unresolved: false,
-    decision: { kind: 'keep' } as const,
+    fate: { kind: 'keep' } as const,
   };
   assert({
     given: 'a pass that did not finish, then one that did',
@@ -305,61 +303,5 @@ test('a completion records whether the pass finished its work', () => {
           .reconcileLastPassClean,
     ),
     expected: [false, true],
-  });
-});
-
-test('a room is retired on observed absence, or once uncertainty outlasts the bound', () => {
-  const quiet = {
-    now,
-    terminal: false,
-    absenceProven: false,
-    unsafeAt: null,
-    oldestPendingAt: null,
-  };
-  const keep = { kind: 'keep' };
-  assert({
-    given:
-      'nothing uncertain; proven absence, sound and uncertain; uncertainty under the bound, at it, and older on the unsafe mark; a terminal session past it, then proven absent',
-    should:
-      'keep a sound room, retire an absent one at once, wait out a blip, retire a silent one, and hold a terminal session for proof',
-    actual: [
-      decideRoom(quiet),
-      decideRoom({ ...quiet, absenceProven: true }),
-      decideRoom({ ...quiet, absenceProven: true, oldestPendingAt: at(-1) }),
-      decideRoom({
-        ...quiet,
-        oldestPendingAt: at(1 - MEDIA_ROOM_RETIRE_AFTER_MS),
-      }),
-      decideRoom({
-        ...quiet,
-        oldestPendingAt: at(-MEDIA_ROOM_RETIRE_AFTER_MS),
-      }),
-      decideRoom({
-        ...quiet,
-        unsafeAt: at(-MEDIA_ROOM_RETIRE_AFTER_MS),
-        oldestPendingAt: at(-1),
-      }),
-      decideRoom({
-        ...quiet,
-        terminal: true,
-        unsafeAt: at(-MEDIA_ROOM_RETIRE_AFTER_MS),
-      }),
-      decideRoom({
-        ...quiet,
-        terminal: true,
-        absenceProven: true,
-        unsafeAt: at(-1),
-      }),
-    ],
-    expected: [
-      keep,
-      { kind: 'retire', cause: 'absent', uncertain: false },
-      { kind: 'retire', cause: 'absent', uncertain: true },
-      keep,
-      { kind: 'retire', cause: 'unreachable', uncertain: true },
-      { kind: 'retire', cause: 'unreachable', uncertain: true },
-      keep,
-      { kind: 'retire', cause: 'absent', uncertain: true },
-    ],
   });
 });

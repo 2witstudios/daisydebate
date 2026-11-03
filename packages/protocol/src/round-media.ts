@@ -17,7 +17,7 @@ export const roundMediaStateSchema = z.strictObject({
   roundId: idSchema,
   state: z.enum(['ready', 'ended', 'unavailable']),
   /** The session's current vendor room, which its token already names (ADR 0110). */
-  room: idSchema,
+  mediaRoomName: idSchema,
   grants: roundMediaGrantsSchema,
   peers: z.array(
     z.strictObject({

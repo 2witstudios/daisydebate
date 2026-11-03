@@ -36,7 +36,7 @@ export const liveLink = (
   phase: 'live',
   connection: 1,
   identity: 'seat',
-  room: snapshot.room,
+  mediaRoomName: snapshot.mediaRoomName,
   establishment: {
     stage: 'established',
     media: answerWith([]),

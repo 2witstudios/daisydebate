@@ -1,3 +1,4 @@
+import type { MediaRoomRule } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type { MediaSnapshot } from './projection';
 import {
@@ -229,32 +230,36 @@ export function createMediaWorld(
     }),
     finishMediaReconcile: async (request: {
       absenceProof: { mutationHorizon: number } | null;
+      roomFate: MediaRoomRule;
     }) => {
       served = running;
       leaseOwner = options.reclaimedAfterFinish ? 'recovery-worker' : null;
-      const cleaned = request.absenceProof?.mutationHorizon === mutations;
       const terminal = ['completed', 'abandoned'].includes(status);
+      const kept = bindings.filter((binding) =>
+        eligible.get(binding.roundParticipantId),
+      );
+      const fate = request.roomFate({
+        nowMs: 0,
+        terminal,
+        ended: endedAt !== null,
+        absenceProven: request.absenceProof?.mutationHorizon === mutations,
+        seatRevoked: kept.length !== bindings.length,
+        uncertainSinceMs: unsafeAt !== null || pending.size > 0 ? 0 : null,
+      });
       const uncertain = unsafeAt !== null || pending.size > 0;
-      let retired: 'absent' | null = null;
-      if (cleaned) {
+      if (fate.kind !== 'keep') {
         pending.clear();
         unsafeAt = null;
-        if (terminal) endedAt ??= now;
-        else {
-          const kept = bindings.filter((binding) =>
-            eligible.get(binding.roundParticipantId),
-          );
-          if (kept.length !== bindings.length || uncertain) {
-            bindings.splice(0, bindings.length, ...kept);
-            roomName = nextId();
-            retired = uncertain ? 'absent' : null;
-          }
-        }
+      }
+      if (fate.kind === 'end') endedAt ??= now;
+      if (fate.kind === 'rotate') {
+        bindings.splice(0, bindings.length, ...kept);
+        roomName = nextId();
       }
       return {
-        safe: cleaned || !uncertain,
-        ended: cleaned && terminal,
-        retired,
+        safe: fate.kind !== 'keep' || !uncertain,
+        ended: fate.kind === 'end',
+        fate,
       };
     },
     ensureBinding: async (input: { caller: Caller }) => {

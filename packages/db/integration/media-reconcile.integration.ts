@@ -1,4 +1,4 @@
-import { mediaWindowClosed } from '@daisy/debate-engine';
+import { mediaRoomFate, mediaWindowClosed } from '@daisy/debate-engine';
 import type { MediaReconcileFence } from '../src/media-reconcile-contracts';
 import { mediaTestHuman } from './media-session.test-support';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
@@ -58,6 +58,7 @@ test('durable reconcile claims serve only the request horizon they actually star
         owner: createId(),
       });
       await store.finishMediaReconcile({
+        roomFate: mediaRoomFate(6_000),
         mediaWindowClosed,
         ...claim.fence,
         absenceProof: await store.prepareMediaAbsenceProof(claim.fence),
@@ -148,6 +149,7 @@ test('a verified absence retires the room, and a late acknowledgement cannot rew
         code: 'INFRASTRUCTURE',
       });
       const result = await restarted.finishMediaReconcile({
+        roomFate: mediaRoomFate(6_000),
         mediaWindowClosed,
         ...recovery.fence,
         absenceProof: await restarted.prepareMediaAbsenceProof(recovery.fence),
@@ -161,14 +163,21 @@ test('a verified absence retires the room, and a late acknowledgement cannot rew
         actual: [
           result.safe,
           result.ended,
-          result.retired,
+          result.fate,
           signed,
           (await restarted.mediaReconcileProgress(binding.sessionId)).endedAt,
           (
             await fixture.sql`select room_name from media_sessions where id=${binding.sessionId}`
           )[0]!.room_name !== binding.roomName,
         ],
-        expected: [true, false, 'absent', false, null, true],
+        expected: [
+          true,
+          false,
+          { kind: 'rotate', cause: 'absent' },
+          false,
+          null,
+          true,
+        ],
       });
       await restarted.settleMediaMutation(intent, 'succeeded');
       assert({
@@ -211,6 +220,7 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       });
       await store.settleMediaMutation(intent, 'succeeded');
       const result = await store.finishMediaReconcile({
+        roomFate: mediaRoomFate(6_000),
         mediaWindowClosed,
         ...claim.fence,
         absenceProof: proof,
@@ -233,6 +243,7 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       const current = await store.prepareMediaAbsenceProof(next.fence);
       if (!current) throw new Error('Mutation horizon missing');
       const refused = await store.finishMediaReconcile({
+        roomFate: mediaRoomFate(6_000),
         mediaWindowClosed,
         ...next.fence,
         absenceProof: { ...current, owner: claim.fence.owner },

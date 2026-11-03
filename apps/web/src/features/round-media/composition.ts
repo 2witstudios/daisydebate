@@ -53,10 +53,10 @@ export function createRoundMediaRuntime(
       apiKey,
       apiSecret,
       fetch,
-      healthChanged: (count, healthy) =>
+      healthChanged: (nodeIndex, healthy) =>
         app.logger.log(
           'round.media.node_health',
-          { count, cause: healthy ? 'up' : 'down' },
+          { nodeIndex, cause: healthy ? 'up' : 'down' },
           'A media node changed health',
         ),
     });

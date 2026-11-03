@@ -143,7 +143,7 @@ export type LiveConnection = {
   /** A mute change this connection is carrying out. */
   readonly changingMicrophone: boolean;
   /** The vendor room this connection joined. */
-  readonly room: string;
+  readonly mediaRoomName: string;
   /** A blip: `resuming` until the SDK's short budget answers, or a drop ends this link. */
   readonly transport: 'steady' | 'resuming';
   readonly reads: LiveReads;
@@ -165,7 +165,7 @@ export type MediaLink =
       readonly phase: 'connecting';
       readonly connection: number;
       readonly identity: string;
-      readonly room: string;
+      readonly mediaRoomName: string;
       readonly reconnecting: boolean;
     }
   | LiveConnection

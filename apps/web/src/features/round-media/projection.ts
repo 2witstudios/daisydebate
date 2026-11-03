@@ -109,7 +109,7 @@ export function projectMedia(
     version: 1,
     roundId: snapshot.round.id,
     state,
-    room: snapshot.session.roomName,
+    mediaRoomName: snapshot.session.roomName,
     grants:
       state === 'ready' && snapshot.caller
         ? {

@@ -30,6 +30,9 @@ type RoomService = Pick<
   | 'updateParticipant'
 >;
 
+/** How long one vendor call may take before the SDK gives up on it. */
+export const MEDIA_CALL_TIMEOUT_MS = 5_000;
+
 /**
  * A 4xx LiveKit response is a definite refusal (not found, or otherwise refused). A
  * timeout (408 or deadline_exceeded) may still have applied, so it stays unknown, like a
@@ -41,6 +44,9 @@ const definiteRefusal = (error: unknown): error is ServerError =>
   error.status < 500 &&
   error.status !== 408 &&
   error.code !== 'deadline_exceeded';
+
+/** What round media asks of a vendor, through one node or a list of them. */
+export type MediaVendor = ReturnType<typeof createMediaService>;
 
 /** All credentials are injected; the SDK's environment fallback is never used. */
 export function createMediaService({
@@ -54,7 +60,7 @@ export function createMediaService({
   const client =
     rooms ??
     new RoomServiceClient(settings.url, settings.apiKey, settings.apiSecret, {
-      requestTimeout: 5,
+      requestTimeout: MEDIA_CALL_TIMEOUT_MS / 1_000,
       failover: false,
     });
   const operation = async <T>(work: () => Promise<T>) => {

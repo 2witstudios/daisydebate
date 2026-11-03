@@ -369,7 +369,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         version: response.version,
         roundId: response.roundId,
         state: response.state,
-        room: response.room,
+        mediaRoomName: response.mediaRoomName,
         grants: response.grants,
         peers: response.peers,
         identity: response.identity,

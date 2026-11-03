@@ -3,6 +3,12 @@ export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
 export { mediaGrants, changedMediaGrants } from './media-grants';
 export { mediaWindowClosed } from './media-window';
+export {
+  mediaRoomFate,
+  type MediaRoomFacts,
+  type MediaRoomFate,
+  type MediaRoomRule,
+} from './media-room-fate';
 export type { RoundMediaGrants } from './media-grants';
 export type { RoundCommand, RoundPosition } from '@daisy/protocol';
 export { resolveRoomConfiguration } from './resolve-room-configuration';

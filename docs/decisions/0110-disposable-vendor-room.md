@@ -57,6 +57,11 @@ wrong. Any node reaches any room through LiveKit's Redis.
 **A blip is not a drop.** The browser SDK resumes the same connection for up to 5 s with
 its tracks. Past that it is a drop and joins the one recovery loop.
 
+**Where the rule lives.** `mediaRoomFate` in `@daisy/debate-engine` is the one decision, with
+one outcome per variant: keep, end, rotate with its cause, or clear. The store supplies
+PostgreSQL's time and the rows, and applies the result. The bound is one vendor call's
+timeout from `@daisy/media` plus 1 s, derived where the rule is composed.
+
 ## Consequences
 
 - A lost call now costs one rejoin, not the Round's media.

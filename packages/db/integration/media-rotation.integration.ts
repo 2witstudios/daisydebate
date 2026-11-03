@@ -1,4 +1,4 @@
-import { mediaWindowClosed } from '@daisy/debate-engine';
+import { mediaRoomFate, mediaWindowClosed } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -80,6 +80,7 @@ for (const failure of [
             : {}),
         };
         await store.finishMediaReconcile({
+          roomFate: mediaRoomFate(6_000),
           mediaWindowClosed,
           ...claim.fence,
           absenceProof,

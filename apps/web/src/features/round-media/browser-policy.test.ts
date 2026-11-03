@@ -81,7 +81,7 @@ test('every node in the list may be connected to from a media page', () => {
     should: 'allow both, in order',
     actual: roundMediaOrigins(
       '/rounds/abc',
-      'wss://a.invalid,wss://b.invalid',
+      ['wss://a.invalid', 'wss://b.invalid'],
       false,
     ).filter((origin) => origin.startsWith('wss:')),
     expected: ['wss://a.invalid', 'wss://b.invalid'],

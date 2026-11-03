@@ -5,36 +5,48 @@ import { mediaId } from './media-session-authority';
 import { mediaParticipants } from './schema/media-sessions';
 import { mediaWorkerLeases } from './schema/transcript-segments';
 
-/**
- * Drops revoked human seats from the media session and fences its worker
- * lease; returns the next vendor room name, so the session moves to a fresh
- * LiveKit room. Called only under the locked owner and epoch, once the pass has
- * decided to retire the room (`decideRoom`).
- */
-export async function rotateMediaRoom(
+/** Bound human seats that have lost their place, by round participant. */
+export async function revokedBoundSeats(
   tx: BoundedTransactionContext,
   sessionId: string,
   participants: RoundCommandAuthority['participants'],
-  now: Date,
-  nextId: () => string,
-  /** The room's state is unknown, so it is left behind even with every seat eligible. */
-  uncertain: boolean,
 ) {
   const revoked = participants
     .filter((seat) => seat.kind === 'human' && !seat.eligible)
     .map((seat) => seat.id);
-  const removed = revoked.length
-    ? await tx
-        .delete(mediaParticipants)
-        .where(
-          and(
-            eq(mediaParticipants.sessionId, sessionId),
-            inArray(mediaParticipants.roundParticipantId, revoked),
-          ),
-        )
-        .returning({ id: mediaParticipants.id })
-    : [];
-  if (!removed.length && !uncertain) return undefined;
+  if (!revoked.length) return [];
+  const bound = await tx
+    .select({ seat: mediaParticipants.roundParticipantId })
+    .from(mediaParticipants)
+    .where(
+      and(
+        eq(mediaParticipants.sessionId, sessionId),
+        inArray(mediaParticipants.roundParticipantId, revoked),
+      ),
+    );
+  return bound.map(({ seat }) => seat);
+}
+
+/**
+ * Moves the session to a fresh LiveKit room: drops the given revoked seats, fences the
+ * worker lease and returns the next room name. Called once the pass's room fate says to.
+ */
+export async function rotateMediaRoom(
+  tx: BoundedTransactionContext,
+  sessionId: string,
+  revoked: readonly string[],
+  now: Date,
+  nextId: () => string,
+) {
+  if (revoked.length)
+    await tx
+      .delete(mediaParticipants)
+      .where(
+        and(
+          eq(mediaParticipants.sessionId, sessionId),
+          inArray(mediaParticipants.roundParticipantId, [...revoked]),
+        ),
+      );
   await tx
     .update(mediaWorkerLeases)
     .set({

@@ -204,6 +204,8 @@ export function createBotPublisher(input: {
           return { sentAtMs, receivedAtMs, serverNowMs, precisionMs: 1 };
         },
         authorizeWindow: async (window) => {
+          // A publisher is always opened first, so this only refuses a broken order.
+          if (room === undefined) throw createAppError('CONFLICT');
           await input.store.verifyRoundBotPublication(
             job.scope,
             job.token,

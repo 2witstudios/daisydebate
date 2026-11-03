@@ -1,3 +1,4 @@
+import type { MediaRoomFate } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type {
   MediaReconcileFence,
@@ -97,57 +98,9 @@ export function requireMutationAdmissible(
 }
 
 /**
- * How long an unknown vendor outcome holds a room: past the 5 s the adapter waits on one
- * call, so a live node's blip has answered. It is not a bound on the provider: a delete's
- * reclaim can make three calls, so a late create can still leave an empty room under the
- * retired name, which closes itself by `empty_timeout`.
- */
-export const MEDIA_ROOM_RETIRE_AFTER_MS = 6_000;
-
-/** What this pass decided about the session's vendor room (ADR 0110). */
-export type RoomDecision =
-  | { readonly kind: 'keep' }
-  | {
-      readonly kind: 'retire';
-      /** `unreachable` retires a room that may still be live. */
-      readonly cause: 'absent' | 'unreachable';
-      /** Its state was unknown, so it is left behind even with every seat eligible. */
-      readonly uncertain: boolean;
-    };
-
-/**
- * The one decision. Observed absence retires at once. Otherwise uncertainty older than
- * the bound retires an open Round's room with the node still silent, because a late
- * outcome can reach only the retired room, never the one the session now uses. A terminal session waits for proof, since
- * ending it stops every later delete attempt.
- */
-export function decideRoom(input: {
-  readonly now: Date;
-  readonly terminal: boolean;
-  readonly absenceProven: boolean;
-  readonly unsafeAt: Date | null;
-  readonly oldestPendingAt: Date | null;
-}): RoomDecision {
-  const since = [input.unsafeAt, input.oldestPendingAt].flatMap((at) =>
-    at ? [at.getTime()] : [],
-  );
-  const uncertain = since.length > 0;
-  if (input.absenceProven)
-    return { kind: 'retire', cause: 'absent', uncertain };
-  if (
-    uncertain &&
-    !input.terminal &&
-    input.now.getTime() - Math.min(...since) >= MEDIA_ROOM_RETIRE_AFTER_MS
-  )
-    return { kind: 'retire', cause: 'unreachable', uncertain };
-  return { kind: 'keep' };
-}
-
-/**
- * Release the lease and serve the running version. A terminal session requests
- * deletion and ends only when its room is retired, which for it means proven absent.
- * Retiring an open Round's room also clears the deletion request, ending the unsafe
- * episode so capture discovery resumes (ISSUE-465).
+ * Release the lease and serve the running version, applying the pass's room fate. A
+ * terminal session requests deletion. Any fate but `keep` ends the unsafe episode, and
+ * on an open Round clears the deletion request so capture discovery resumes (ISSUE-465).
  */
 export function reconcileCompletion(
   session: {
@@ -161,13 +114,13 @@ export function reconcileCompletion(
     readonly terminal: boolean;
     /** Vendor work still pending after this pass's decision. */
     readonly unresolved: boolean;
-    readonly decision: RoomDecision;
+    readonly fate: MediaRoomFate;
     /** The pass finished its work; a failed one leaves the Round due to the tick. */
     readonly clean: boolean;
   },
 ) {
-  const { terminal, unresolved, decision, clean } = outcome;
-  const retired = decision.kind === 'retire';
+  const { terminal, unresolved, fate, clean } = outcome;
+  const settled = fate.kind !== 'keep';
   return {
     fields: {
       reconcileOwner: null,
@@ -175,21 +128,18 @@ export function reconcileCompletion(
       reconcileCompletedAt: now,
       reconcileLastPassClean: clean,
       reconcileServedVersion: session.reconcileRunningVersion,
-      ...(retired
-        ? {
-            unsafeAt: null,
-            ...(terminal
-              ? { endedAt: session.endedAt ?? now }
-              : { deletionRequestedAt: null }),
-          }
+      ...(settled ? { unsafeAt: null } : {}),
+      ...(fate.kind === 'end' ? { endedAt: session.endedAt ?? now } : {}),
+      ...(fate.kind === 'rotate' || fate.kind === 'clear'
+        ? { deletionRequestedAt: null }
         : {}),
       ...(terminal
         ? { deletionRequestedAt: session.deletionRequestedAt ?? now }
         : {}),
     },
     result: {
-      safe: !unresolved && (session.unsafeAt === null || retired),
-      ended: terminal && retired,
+      safe: !unresolved && (session.unsafeAt === null || settled),
+      ended: fate.kind === 'end',
     },
   };
 }

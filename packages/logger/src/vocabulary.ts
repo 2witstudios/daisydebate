@@ -147,6 +147,7 @@ export const loggableFields = {
   silentClips: 'count',
   audibleClips: 'count',
   port: 'count',
+  nodeIndex: 'count',
   deleted: 'count',
   batches: 'count',
   closeCode: 'count',

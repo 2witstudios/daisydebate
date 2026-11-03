@@ -30,7 +30,8 @@ export type ProxySettings = {
   /** `PUBLIC_APP_URL`. */
   readonly publicAppUrl: string;
   readonly websocketEndpoint?: string | null;
-  readonly mediaPublicUrl?: string | null;
+  /** Every LiveKit node's public URL. */
+  readonly mediaPublicUrls?: readonly string[];
   /**
    * The configured Sentry ingest origin (ADR 0037): the browser capture may
    * connect only there, and only when `NEXT_PUBLIC_SENTRY_DSN` is set, so
@@ -119,7 +120,7 @@ function contentSecurityPolicy(
   const { development } = settings;
   const mediaOrigins = roundMediaOrigins(
     pathname,
-    settings.mediaPublicUrl,
+    settings.mediaPublicUrls ?? [],
     development,
   );
   const posthog = posthogSources(settings.analyticsHost);

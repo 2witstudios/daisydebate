@@ -139,7 +139,7 @@ export const reduceReadAnswered = (
   if (answer.state === 'ended') return finish(state, [{ type: 'forget-mute' }]);
   // Not ready, or the session has left this room: a fresh admission decides, and refuses
   // if the seat has lost its authority. Nobody should need to press Retry for an outage.
-  if (answer.state !== 'ready' || answer.room !== live.room)
+  if (answer.state !== 'ready' || answer.mediaRoomName !== live.mediaRoomName)
     return prepend(
       [{ type: 'refresh-view' }],
       release(state, 'transient', ctx),

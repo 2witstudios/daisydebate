@@ -1,6 +1,6 @@
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import type { Database } from '@daisy/db';
-import type { MediaNodes } from '@daisy/media';
+import type { MediaNodes, MediaVendor } from '@daisy/media';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import type { createRoundMediaOperations } from './operations';
 import { createAppError, createRefusal } from '@daisy/errors';
@@ -16,7 +16,7 @@ type AuthenticatedWorker = ReturnType<
 export function createMediaWorkerTokenBroker(input: {
   readonly sessions: Database['mediaSessions'];
   readonly capture: Capture;
-  readonly media: Omit<MediaNodes, 'urlsFor' | 'probe' | 'size'>;
+  readonly media: MediaVendor;
   readonly urlsFor: MediaNodes['urlsFor'];
   readonly nextId: () => string;
   readonly deadline: <T>(work: Promise<T>) => Promise<T>;

@@ -71,6 +71,7 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `silentClips`            | count |
 | `audibleClips`           | count |
 | `port`                   | count |
+| `nodeIndex`              | count |
 | `deleted`                | count |
 | `batches`                | count |
 | `closeCode`              | count |

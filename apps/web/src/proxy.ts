@@ -1,3 +1,4 @@
+import { mediaEndpointsOf } from '@daisy/config';
 import { analyticsConfiguration } from './features/analytics/config';
 import type { NextRequest } from 'next/server';
 import { handleProxy } from './server/proxy-handler';
@@ -9,7 +10,9 @@ export function proxy(request: NextRequest) {
     foundationProofEnabled: app.config.FOUNDATION_PROOF_ENABLED,
     publicAppUrl: app.config.PUBLIC_APP_URL,
     websocketEndpoint: app.websocketEndpoint,
-    mediaPublicUrl: app.config.LIVEKIT_PUBLIC_URL ?? null,
+    mediaPublicUrls: app.config.LIVEKIT_PUBLIC_URL
+      ? mediaEndpointsOf(app.config.LIVEKIT_PUBLIC_URL)
+      : [],
     // ADR 0037: the browser's capture origin, present only when the client
     // DSN is configured; absent otherwise, so the CSP names no vendor host.
     sentryEndpoint: app.config.NEXT_PUBLIC_SENTRY_DSN

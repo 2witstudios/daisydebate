@@ -18,7 +18,7 @@ test('a drop mid-mute cannot lock the mute control on the next connection', () =
     admission: {
       roundId: 'r',
       identity: 'seat',
-      room: 'm'.repeat(24),
+      mediaRoomName: 'm'.repeat(24),
       url: 'wss://x',
       token: 't',
     } as never,

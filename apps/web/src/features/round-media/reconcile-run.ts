@@ -1,6 +1,8 @@
 import { createAppError, isRefusal } from '@daisy/errors';
+import { MEDIA_CALL_TIMEOUT_MS } from '@daisy/media';
 import {
   changedMediaGrants,
+  mediaRoomFate,
   mediaWindowClosed,
   type RoundMediaGrants,
 } from '@daisy/debate-engine';
@@ -37,6 +39,8 @@ const differs = (
     [{ identity, grants: current }],
     [{ identity, grants: desired }],
   ).length > 0;
+/** Past one vendor call's own timeout, so a live node's blip has answered. */
+const roomFate = mediaRoomFate(MEDIA_CALL_TIMEOUT_MS + 1_000);
 const needsCleanup = (state: MediaSnapshot, claim: Claim) =>
   Boolean(
     claim.unsafe ||
@@ -316,12 +320,13 @@ export function createMediaReconcileRun(
         ...claim.fence,
         absenceProof,
         clean,
+        roomFate,
       });
-      if (finished.retired)
+      if (finished.fate.kind === 'rotate')
         input.logger.log(
           'round.media.room_retired',
-          { roundId: claim.roundId, cause: finished.retired },
-          'An uncertain room was left for a fresh one',
+          { roundId: claim.roundId, cause: finished.fate.cause },
+          'The session left its room for a fresh one',
         );
     }
     if (failure) {

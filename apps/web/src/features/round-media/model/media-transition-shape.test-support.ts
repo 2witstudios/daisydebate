@@ -75,6 +75,7 @@ const EVERY_TIMER_CANCELLED = [
   'cancel:admission-retry',
   'cancel:read-retry',
   'cancel:read-budget',
+  'cancel:resume-budget',
   'cancel:read-let-finish',
   'cancel:capture-patience',
   'cancel:recovery',

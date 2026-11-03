@@ -57,7 +57,7 @@ test('a conflict ends the connection; an unavailable state or a retired room rej
         throw mediaFailure(409);
       }),
       await after(() => ({ ...snapshot, state: 'unavailable' })),
-      await after(() => ({ ...snapshot, room: 'n'.repeat(24) })),
+      await after(() => ({ ...snapshot, mediaRoomName: 'n'.repeat(24) })),
     ],
     expected: [
       ['unavailable', 1, 0],
