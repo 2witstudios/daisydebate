@@ -86,7 +86,10 @@ test('bounded clips choose latest observed low-energy frame in final five second
       frame(10 + i * 10, i === 5699),
     ),
   });
-  const first = result.clips[0]!;
+  const first = result.clips[0] as Extract<
+    (typeof result.clips)[number],
+    { kind: 'audible' }
+  >;
   const view = new DataView(
     first.wav.buffer,
     first.wav.byteOffset,
@@ -261,10 +264,11 @@ test('a pause after speech cuts the clip; silence alone never does', () => {
     given:
       'leading silence, speech, a 600 ms pause and more speech, in 250 ms batches',
     should:
-      'cut once the pause reaches 500 ms, keeping the leading silence with the first words, and flush the rest at the end',
+      'cut the silence before the 500 ms pre-roll on its own, cut again once the pause reaches 500 ms, and flush the rest at the end',
     actual: cutInBatches(silent, 330).clips,
     expected: [
-      [10, 2200],
+      [10, 200],
+      [210, 2000],
       [2210, 1100],
     ],
   });
@@ -279,5 +283,127 @@ test('sixty seconds of unbroken speech across batches cuts at the hard bound', (
       [10, 60000],
       [60010, 1000],
     ],
+  });
+});
+
+const kinds = (silentAt: (index: number) => boolean, count: number) =>
+  cutCaptureClips({
+    ...scope,
+    segments: [segment],
+    intervals: [grant],
+    frames: Array.from({ length: count }, (_, i) =>
+      frame(10 + i * 10, silentAt(i)),
+    ),
+    final: true,
+  }).clips.map((c) => [
+    c.kind,
+    c.startOffsetMs,
+    c.durationMs,
+    c.kind === 'audible' ? c.wav.byteLength : null,
+  ]);
+
+test('a clip with too little voice has no audio to send', () => {
+  assert({
+    given: 'sixty seconds of digital silence',
+    should: 'cut a silent clip with no audio',
+    actual: kinds(() => true, 6000),
+    expected: [['silent', 10, 60000, null]],
+  });
+  assert({
+    given: 'a click of 90 ms in silence, below the voiced line',
+    should: 'cut no audible clip',
+    actual: kinds((i) => i >= 9, 100).map(([kind]) => kind),
+    expected: ['silent', 'silent'],
+  });
+  assert({
+    given: 'a one-word answer of 360 ms, as a short "No." measures',
+    should: 'be audible, so a real answer is never erased',
+    actual: kinds((i) => i >= 36, 60).map(([kind]) => kind),
+    expected: ['audible'],
+  });
+  assert({
+    given: 'exactly 100 ms of voice',
+    should: 'be audible',
+    actual: kinds((i) => i >= 10, 60).map(([kind]) => kind),
+    expected: ['audible'],
+  });
+});
+
+test('long silence before speech is not sent with the speech', () => {
+  assert({
+    given: 'fifty seconds of silence, then two seconds of speech',
+    should:
+      'cut the silence as its own clip and keep 500 ms of pre-roll so soft first words survive',
+    actual: kinds((i) => i < 5000, 5200),
+    expected: [
+      ['silent', 10, 49500, null],
+      ['audible', 49510, 2500, 80044],
+    ],
+  });
+  assert({
+    given: 'silence shorter than the pre-roll before speech',
+    should: 'stay one clip',
+    actual: kinds((i) => i < 30, 130),
+    expected: [['audible', 10, 1300, 41644]],
+  });
+});
+
+test('a word split by a missing frame keeps its larger piece', () => {
+  const pieces = cutCaptureClips({
+    ...scope,
+    segments: [segment],
+    intervals: [grant],
+    frames: Array.from({ length: 37 }, (_, i) => i)
+      .filter((i) => i !== 19)
+      .map((i) => frame(10 + i * 10)),
+    final: true,
+  }).clips.map((c) => c.kind);
+  assert({
+    given: 'a 370 ms word with one frame missing from its middle',
+    should: 'send both pieces, each at least half the word',
+    actual: pieces,
+    expected: ['audible', 'audible'],
+  });
+});
+
+test('the tail of long speech cut at the bound is never recorded as silence', () => {
+  const dip = 5991;
+  const count = 6100;
+  const inPieces = (size: number) => {
+    const out: ReturnType<typeof cutCaptureClips>['clips'] = [];
+    let carry: ReturnType<typeof cutCaptureClips>['carry'] = null;
+    for (let at = 0; at < count; at += size) {
+      const result = cutCaptureClips({
+        ...scope,
+        segments: [segment],
+        intervals: [grant],
+        frames: Array.from({ length: Math.min(size, count - at) }, (_, i) =>
+          frame(10 + (at + i) * 10, at + i === dip || at + i >= 6010),
+        ),
+        carry,
+        final: at + size >= count,
+      });
+      carry = result.carry;
+      out.push(...result.clips);
+    }
+    return out.map((c) => [c.kind, c.startOffsetMs, c.durationMs]);
+  };
+  const expected = [
+    ['audible', 10, 59920],
+    ['audible', 59930, 680],
+    ['silent', 60610, 400],
+  ];
+  assert({
+    given:
+      'a minute of speech, a dip 90 ms before the bound, then under 200 ms more voice and a pause',
+    should: 'keep the words after the bound audible',
+    actual: inPieces(6100),
+    expected,
+  });
+  assert({
+    given: 'the same audio in 250 ms batches',
+    should: 'decide the same',
+    actual: inPieces(25),
+    expected,
   });
 });
