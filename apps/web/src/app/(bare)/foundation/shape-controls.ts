@@ -1,5 +1,5 @@
-import { markGeometry } from '../../../ui/brand/brand-geometry';
-import type { PetalShape } from '../../../ui/brand/petal';
+import { markGeometry } from '../../../features/brand/brand-geometry';
+import type { PetalShape } from '../../../features/brand/petal';
 
 export type ShapeControl = {
   readonly key: keyof PetalShape;

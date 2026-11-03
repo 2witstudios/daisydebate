@@ -109,10 +109,6 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/judge/page.tsx': () => import('../../app/(shell)/judge/page'),
     '(shell)/judge/ballot/[roundId]/page.tsx': () =>
       import('../../app/(shell)/judge/ballot/[roundId]/page'),
-    '(shell)/judge/rating/page.tsx': () =>
-      import('../../app/(shell)/judge/rating/page'),
-    '(shell)/judge/resources/page.tsx': () =>
-      import('../../app/(shell)/judge/resources/page'),
     '(shell)/judge/waiting/page.tsx': () =>
       import('../../app/(shell)/judge/waiting/page'),
     '(shell)/lobby/page.tsx': () => import('../../app/(shell)/lobby/page'),

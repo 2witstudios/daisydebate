@@ -8,15 +8,21 @@ import {
 import { getBrief } from '../../../features/prep/briefs/get-brief';
 import { getShare } from '../../../features/prep/teams/get-team';
 import { ReviewPage } from './review-page';
+import { samplePrepSource } from '../../mock/prep-source';
 
 setupRitewayBun();
 
 const render = (id: string, params: Record<string, string> = {}) => {
-  const brief = getBrief(id);
+  const brief = getBrief(samplePrepSource, id);
   if (brief === undefined) throw new Error(`no sample ${id}`);
   return renderToString(
     h(ReviewPage, {
-      view: reviewView(brief, getShare(id), parseReviewQuery(params)),
+      view: reviewView(
+        samplePrepSource,
+        brief,
+        getShare(samplePrepSource, id),
+        parseReviewQuery(params),
+      ),
     }),
   );
 };

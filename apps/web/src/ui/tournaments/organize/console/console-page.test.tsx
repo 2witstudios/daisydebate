@@ -8,11 +8,12 @@ import {
 import { consoleView } from '../../../../features/tournaments/console-view';
 import { getConsole } from '../../../../features/tournaments/get-console';
 import { ConsolePage, ConsoleUnavailable } from './console-page';
+import { sampleTournamentSource } from '../../../mock/tournament-source';
 
 setupRitewayBun();
 
 const render = (id: string, query: Partial<ConsoleQuery> = {}) => {
-  const data = getConsole(id);
+  const data = getConsole(sampleTournamentSource, id);
   if (!data) throw new Error(`no console ${id}`);
   return renderToString(
     h(ConsolePage, {

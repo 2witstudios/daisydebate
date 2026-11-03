@@ -1,4 +1,4 @@
-import '../../ui/debate-room/zod-jitless';
+import '../../lib/zod-jitless';
 import { z } from 'zod';
 import { mayResumeTab, type ResumeOwnership } from './resume';
 

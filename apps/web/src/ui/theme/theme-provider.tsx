@@ -22,7 +22,7 @@ import {
   parseThemePreference,
   themeColorFor,
   type ThemePreference,
-} from './theme-preference';
+} from '../../features/theme/theme-preference';
 
 type ThemeContextValue = {
   readonly preference: ThemePreference;

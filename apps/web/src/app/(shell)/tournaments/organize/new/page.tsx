@@ -8,6 +8,7 @@ import {
 import { getDraft } from '../../../../../features/tournaments/get-draft';
 import { requireAccess } from '../../../../../lib/access';
 import { CreatePage } from '../../../../../ui/tournaments/organize/create-page';
+import { sampleTournamentSource } from '../../../../../ui/mock/tournament-source';
 
 export const metadata: Metadata = { title: 'Create a tournament' };
 
@@ -22,7 +23,7 @@ export default async function CreateRoute({
   return (
     <CreatePage
       query={parseWizardQuery(params)}
-      draft={applyEdits(getDraft(), edits)}
+      draft={applyEdits(getDraft(sampleTournamentSource), edits)}
       edits={edits}
     />
   );

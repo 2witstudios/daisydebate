@@ -60,7 +60,7 @@ read on the forest-black page.
 - `--gold` becomes brass in light (`#7e5c12`) and butter in dark
   (`#f0cf7a`), for honours. `--live`, `--online` and `--tier-diamond` are
   retuned for contrast on the new surfaces.
-- The browser chrome colours in `ui/theme/theme-preference.ts` mirror the
+- The browser chrome colours in `features/theme/theme-preference.ts` mirror the
   `--background` pair, pinned by a test.
 
 **Contrast.** `apps/web/src/app/palette-contrast.test.ts` resolves every
@@ -73,7 +73,7 @@ is declared there. The mark itself is decorative: sage on cream is below
 ### 2. The petal primitive
 
 One pure function draws every petal: `petalPath(shape, placement)` in
-`apps/web/src/ui/brand/petal.ts`. The petal is a teardrop of four cubic
+`apps/web/src/features/brand/petal.ts`. The petal is a teardrop of four cubic
 Béziers. Each side runs from the tip to the widest point, then a
 quarter-ellipse closes the rounded outer bulb. Four parameters shape it:
 
@@ -93,7 +93,7 @@ petal rotations; `opposingPetals` places two petals tip to tip, each the
 other turned half a circle.
 
 Every tunable number lives in **one constants module**,
-`apps/web/src/ui/brand/brand-geometry.ts`, and every brand renderer reads it.
+`apps/web/src/features/brand/brand-geometry.ts`, and every brand renderer reads it.
 The committed values are length 8.4, width 4.1, bulb 0.58 and tip
 sharpness 0.2, in a 24-unit drawing. The disc radius is 2.6 and the petal
 tips sit 2.7 from the centre, so a ring of the surface shows between the

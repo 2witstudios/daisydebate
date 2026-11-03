@@ -2,8 +2,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { ShareCanvas, shareFormats } from './share-canvas';
 import { RasterMark } from './raster-mark';
-import { bloomPetals } from './petal';
-import { markGeometry, petalShape, tileGeometry } from './brand-geometry';
+import { bloomPetals } from '../../features/brand/petal';
+import {
+  markGeometry,
+  petalShape,
+  tileGeometry,
+} from '../../features/brand/brand-geometry';
 
 setupRitewayBun();
 

@@ -5,6 +5,7 @@ import { getTournament } from '../../../../../../features/tournaments/get-tourna
 import { withdrawScreen } from '../../../../../../features/tournaments/withdraw';
 import { requireAccess } from '../../../../../../lib/access';
 import { WithdrawPage } from '../../../../../../ui/tournaments/withdraw/withdraw-page';
+import { sampleTournamentSource } from '../../../../../../ui/mock/tournament-source';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -16,7 +17,7 @@ export const metadata: Metadata = { title: 'Withdraw' };
 export default async function WithdrawRoute({ params, searchParams }: Props) {
   const { id } = await params;
   await requireAccess(`/tournaments/enter/${id}/withdraw`, searchParams);
-  const view = getTournament(id, true);
+  const view = getTournament(sampleTournamentSource, id, true);
   if (!view) notFound();
   return (
     <WithdrawPage screen={withdrawScreen(view)} tournament={view.tournament} />

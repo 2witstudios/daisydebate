@@ -2,11 +2,17 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { parseReviewQuery, reviewHref, reviewView } from './brief-review';
 import { requireBrief } from './brief.test-support';
 import { getShare } from '../teams/get-team';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
 const view = (id: string, params: Record<string, string> = {}) =>
-  reviewView(requireBrief(id), getShare(id), parseReviewQuery(params));
+  reviewView(
+    samplePrepSource,
+    requireBrief(id),
+    getShare(samplePrepSource, id),
+    parseReviewQuery(params),
+  );
 
 describe('parseReviewQuery', () => {
   test('defaults and values', () => {

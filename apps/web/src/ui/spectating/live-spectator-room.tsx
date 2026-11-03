@@ -1,5 +1,5 @@
 'use client';
-import '../debate-room/zod-jitless';
+import '../../lib/zod-jitless';
 import { OpeningStatus } from '../debate-room/opening-strike';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import Link from 'next/link';

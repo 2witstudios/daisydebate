@@ -5,16 +5,14 @@ import { signUpMember } from './support/accounts';
 const publicTitles: Record<string, string> = {
   '/': 'Daisy Debate',
   '/leaderboard': 'Leaderboard',
-  '/tournaments': 'Tournaments',
 };
-// Participant areas (and Settings) need an account (AUTH-4.5, ISSUE-167: /prep and /train too).
+// Participant areas (and Settings) need an account (AUTH-4.5, ISSUE-167: /train too).
 const guardedTitles: Record<string, string> = {
   '/play': 'Play',
   '/ranked': 'Ranked debate',
   '/lobby': 'Lobby',
   '/judge': 'Judge',
   '/settings': 'Settings',
-  '/prep': 'Prep',
   '/train': 'Train',
 };
 
@@ -26,7 +24,8 @@ const expectShell = async (page: Page, route: string, title: string) => {
       ? new RegExp(`^${title}$`)
       : new RegExp(`^${title} · Daisy Debate$`),
   );
-  await expect(page.locator('main h1')).toHaveText(
+  // The Lobby holds a second h1 for the phone's Online view, display:none here.
+  await expect(page.locator('main h1:visible')).toHaveText(
     route === '/' ? 'The arena for competitive debate' : title,
   );
 };
@@ -69,6 +68,27 @@ test('guarded areas send visitors to sign-in and render for a member', async ({
     await expectShell(page, route, title);
 });
 
+test('a closed destination answers every address with its explainer', async ({
+  request,
+}) => {
+  const closed: Record<string, string> = {
+    '/tournaments': 'tournaments',
+    '/tournaments/organize': 'tournaments',
+    '/tournaments/mine/any/certificate': 'tournaments',
+    '/prep': 'prep',
+    '/prep/cards/any': 'prep',
+    '/watch': 'watch',
+    '/recordings': 'watch',
+  };
+  for (const [route, slug] of Object.entries(closed)) {
+    const response = await request.get(route, { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+    expect(new URL(response.headers()['location'] ?? '').pathname).toBe(
+      `/coming-soon/${slug}`,
+    );
+  }
+});
+
 test('a profile shows the real member, their record and history', async ({
   page,
 }) => {
@@ -85,7 +105,7 @@ test('a profile shows the real member, their record and history', async ({
     page.getByText('You have no completed rounds yet.'),
   ).toBeVisible();
   await expect(
-    page.getByRole('link', { name: 'Edit profile' }),
+    page.locator('main').getByRole('link', { name: 'Settings', exact: true }),
   ).toHaveAttribute('href', '/settings');
   await expect(page.locator('main').getByText(/\b(rating|elo)\b/i)).toHaveCount(
     0,

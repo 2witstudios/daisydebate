@@ -3,10 +3,14 @@ import { briefOutline } from './brief-document';
 import { briefEditorView } from './brief-editor';
 import { listBriefEvidence } from './brief-evidence';
 import { requireBrief } from './brief.test-support';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
-const evidence = listBriefEvidence('2026-09-30T12:00:00.000Z');
+const evidence = listBriefEvidence(
+  samplePrepSource,
+  '2026-09-30T12:00:00.000Z',
+);
 const view = (id: string) =>
   briefEditorView(requireBrief(id), evidence, 160, 300);
 

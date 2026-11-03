@@ -8,6 +8,7 @@ import {
   ResultsPage,
   ResultsUnpublished,
 } from '../../../../../ui/tournaments/results/results-page';
+import { sampleTournamentSource } from '../../../../../ui/mock/tournament-source';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -20,7 +21,7 @@ export const metadata: Metadata = { title: 'Results' };
 export default async function ResultsRoute({ params, searchParams }: Props) {
   const { id } = await params;
   const signedIn = (await requestIdentity()).state === 'member';
-  const read = getResults(id, signedIn);
+  const read = getResults(sampleTournamentSource, id, signedIn);
   if (read.kind === 'not-found') notFound();
   if (read.kind === 'unpublished')
     return <ResultsUnpublished name={read.tournament.name} id={id} />;

@@ -7,7 +7,7 @@ import { prose } from './ui/prose-class';
 import {
   parseThemePreference,
   preferenceFromCookies,
-} from '../ui/theme/theme-preference';
+} from '../features/theme/theme-preference';
 import './globals.css';
 
 /**

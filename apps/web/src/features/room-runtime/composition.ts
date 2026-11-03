@@ -85,8 +85,6 @@ export function composeRoomRoutes(app: App) {
       run(request, (h) => h.read(request, roomId)),
     commands: (request: Request, roomId: string) =>
       run(request, (h) => h.commands(request, roomId)),
-    roundRef: (request: Request, roomId: string) =>
-      run(request, (h) => h.roundRef(request, roomId)),
     roundRead: (request: Request, roundId: string) =>
       run(request, (h) => h.roundRead(request, roundId)),
   };

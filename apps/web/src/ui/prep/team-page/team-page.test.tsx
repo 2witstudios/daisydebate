@@ -4,11 +4,12 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getTeam } from '../../../features/prep/teams/get-team';
 import { teamView, type TeamTab } from '../../../features/prep/teams/team-view';
 import { TeamPage } from './team-page';
+import { samplePrepSource } from '../../mock/prep-source';
 
 setupRitewayBun();
 
 const render = (tab: TeamTab) => {
-  const team = getTeam('sample-team');
+  const team = getTeam(samplePrepSource, 'sample-team');
   if (team === undefined) throw new Error('missing sample');
   return renderToString(h(TeamPage, { view: teamView(team, { tab }) }));
 };

@@ -1,6 +1,6 @@
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Icon } from '../icon/icon';
-import type { ThemePreference } from '../../theme/theme-preference';
+import type { ThemePreference } from '../../../features/theme/theme-preference';
 import { optionClass, switcherClass } from './theme-switcher-class';
 
 const options = [

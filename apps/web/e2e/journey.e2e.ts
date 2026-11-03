@@ -167,7 +167,7 @@ test('declining the passkey offer after onboarding from a protected page other t
   await skipOnboarding(page, /\/ranked$/);
 });
 
-test('return destinations are validated and spectator routes stay public', async ({
+test('return destinations are validated and public routes stay public', async ({
   page,
   request,
 }) => {

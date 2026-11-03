@@ -9,7 +9,7 @@ change, open the brand sheet on `/foundation` with
 
 ## Where the pieces live
 
-- Geometry: `apps/web/src/ui/brand/`. `petal.ts` holds the pure
+- Geometry: `apps/web/src/features/brand/`. `petal.ts` holds the pure
   `petalPath`, `bloom` and `opposingPetals`, and `brand-geometry.ts` holds
   every tunable number. Change a number only there, and check it on the
   brand sheet in both schemes.

@@ -9,11 +9,12 @@ import { getBracket } from '../../../features/tournaments/get-bracket';
 import { NOW } from '../../../features/tournaments/tournament.test-support';
 import { sampleTournaments } from '../../mock/tournaments';
 import { BracketPage, NotPosted } from './bracket-page';
+import { sampleTournamentSource } from '../../mock/tournament-source';
 
 setupRitewayBun();
 
 const render = (id: string, view?: BracketView, signedIn = true) => {
-  const read = getBracket(id, signedIn, NOW);
+  const read = getBracket(sampleTournamentSource, id, signedIn, NOW);
   if (read.kind !== 'bracket') throw new Error('no bracket');
   return renderToString(
     h(BracketPage, {

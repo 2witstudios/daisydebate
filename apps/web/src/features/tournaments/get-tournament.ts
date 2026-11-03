@@ -1,11 +1,4 @@
 import {
-  sampleDescription,
-  sampleEntries,
-  sampleRoster,
-  sampleTournaments,
-  sampleViewer,
-} from '../../ui/mock/tournaments';
-import {
   registrationState,
   type Entry,
   type RegistrationState,
@@ -13,6 +6,7 @@ import {
 } from './entry';
 import { recognitionFor, type Recognition } from './recognition';
 import { scheduleFor, type ScheduleItem } from './schedule';
+import type { TournamentSource } from './source';
 import type { Tournament } from './tournament';
 
 export type Entrant = {
@@ -41,13 +35,14 @@ const DAY_MS = 86_400_000;
  * null for an unknown id. The backend read replaces this function only.
  */
 export function getTournament(
+  source: TournamentSource,
   id: string,
   signedIn: boolean,
 ): TournamentView | null {
-  const tournament = sampleTournaments.find((item) => item.id === id);
+  const tournament = source.tournaments.find((item) => item.id === id);
   if (!tournament) return null;
-  const viewer = signedIn ? sampleViewer : null;
-  const entry = viewer ? (sampleEntries[id] ?? null) : null;
+  const viewer = signedIn ? source.viewer : null;
+  const entry = viewer ? (source.entries[id] ?? null) : null;
   const opened = Date.parse(
     tournament.registrationOpensAt ?? tournament.startsAt,
   );
@@ -56,10 +51,10 @@ export function getTournament(
     tournament,
     entry,
     state: registrationState(tournament, viewer, entry),
-    description: sampleDescription(tournament.name),
+    description: source.description(tournament.name),
     schedule: scheduleFor(tournament),
     recognition: recognitionFor(tournament.structure),
-    entrants: sampleRoster.slice(0, tournament.entered).map((who, index) => ({
+    entrants: source.roster.slice(0, tournament.entered).map((who, index) => ({
       ...who,
       registeredAt: new Date(opened + (index % 5) * DAY_MS).toISOString(),
     })),

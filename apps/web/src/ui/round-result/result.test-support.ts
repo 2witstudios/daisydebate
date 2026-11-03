@@ -1,5 +1,5 @@
 import type { RoundBallotRead } from '@daisy/protocol';
-import { sampleJudgeBallot } from '../mock/judge';
+import { sampleJudgeBallot } from '../mock/judge.test-support';
 import { aff, neg, ran, rules } from '../debate-room/live-round.test-support';
 
 const played = ran(2, true);

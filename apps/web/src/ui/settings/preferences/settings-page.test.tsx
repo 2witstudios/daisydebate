@@ -2,8 +2,6 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
-import { initialFormState } from '../../../features/forms/form-state';
-import { getPreferences } from '../../../features/settings/preferences';
 import { ThemeProvider } from '../../theme/theme-provider';
 
 setupRitewayBun();
@@ -12,10 +10,8 @@ setupRitewayBun();
 await mockNextRouter();
 const { SettingsPage } = await import('./settings-page');
 
-const action = async () => initialFormState;
 const render = (
   username: string | null,
-  saved: 'profile' | 'notifications' | null = null,
   onboarding: Parameters<typeof SettingsPage>[0]['onboarding'] = null,
   dataRightsNotices: Parameters<typeof SettingsPage>[0]['dataRightsNotices'] = {
     exportData: null,
@@ -27,11 +23,7 @@ const render = (
       initialPreference: 'system',
       children: h(SettingsPage, {
         username,
-        preferences: getPreferences(),
-        saved,
         dataRightsNotices,
-        profileAction: action,
-        notificationsAction: action,
         analytics: {
           choice: {
             kind: 'known',
@@ -55,7 +47,7 @@ describe('SettingsPage', () => {
     assert({
       given: 'a signed-in member',
       should:
-        'show one h1, the five sections, five real forms and a link to their profile',
+        'show one h1, the four sections, three real forms and a link to their profile',
       actual: [
         html.match(/<h1 /g)?.length,
         html.match(/<section id=/g)?.length,
@@ -69,12 +61,12 @@ describe('SettingsPage', () => {
           html.includes('name="confirm"'),
         ],
       ],
-      expected: [1, 5, 5, true, true, [true, true, true]],
+      expected: [1, 4, 3, true, true, [true, true, true]],
     });
   });
 
   test('the data-rights notices are fixed sentences', () => {
-    const html = render('debater-a', null, null, {
+    const html = render('debater-a', null, {
       exportData: 'rate-limited',
       erase: 'confirm',
     });
@@ -107,13 +99,17 @@ describe('SettingsPage', () => {
     });
   });
 
-  test('a saved section', () => {
-    const html = render('debater-a', 'profile');
+  test('nothing claims to be saved without a write', () => {
+    const html = render('debater-a');
     assert({
-      given: 'a profile form that was just saved',
-      should: 'confirm it as a status',
-      actual: [html.includes('Profile saved.'), html.includes('role="status"')],
-      expected: [true, true],
+      given: 'Settings with no stored profile or email preferences',
+      should: 'offer no form that discards its post and no saved notice',
+      actual: [
+        html.includes('name="bio"'),
+        html.includes('name="newsletter"'),
+        html.includes('saved.'),
+      ],
+      expected: [false, false, false],
     });
   });
 
@@ -161,7 +157,7 @@ describe('onboarding answers in Settings (ISSUE-324)', () => {
       experience: '/onboarding/experience?next=%2Fsettings',
       topics: '/onboarding/topics?next=%2Fsettings',
     };
-    const shown = render('ada', null, { answers, editHrefs });
+    const shown = render('ada', { answers, editHrefs });
     const hidden = render('ada');
     assert({
       given:

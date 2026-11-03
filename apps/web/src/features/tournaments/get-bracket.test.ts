@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getBracket } from './get-bracket';
 import { NOW } from './tournament.test-support';
+import { sampleTournamentSource } from '../../ui/mock/tournament-source';
 
 setupRitewayBun();
 
@@ -10,9 +11,9 @@ describe('getBracket', () => {
       given: 'a live tournament, one not started and an unknown id',
       should: 'return bracket, not-posted and not-found',
       actual: [
-        getBracket('harvest-cup', true, NOW).kind,
-        getBracket('autumn-open', true, NOW).kind,
-        getBracket('nope', true, NOW).kind,
+        getBracket(sampleTournamentSource, 'harvest-cup', true, NOW).kind,
+        getBracket(sampleTournamentSource, 'autumn-open', true, NOW).kind,
+        getBracket(sampleTournamentSource, 'nope', true, NOW).kind,
       ],
       expected: ['bracket', 'not-posted', 'not-found'],
     });
@@ -20,7 +21,12 @@ describe('getBracket', () => {
 
   test('the viewer handle comes only when signed in', () => {
     const read = (signedIn: boolean) => {
-      const result = getBracket('harvest-cup', signedIn, NOW);
+      const result = getBracket(
+        sampleTournamentSource,
+        'harvest-cup',
+        signedIn,
+        NOW,
+      );
       return result.kind === 'bracket' ? result.viewerHandle : 'x';
     };
     assert({

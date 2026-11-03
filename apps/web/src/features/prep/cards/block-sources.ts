@@ -1,5 +1,6 @@
 import { readWords, currentVersion } from './card';
 import { getBrief } from '../briefs/get-brief';
+import type { PrepSource } from '../source';
 import { getCard } from './get-card';
 import {
   defaultLibraryQuery,
@@ -22,11 +23,13 @@ export type BlockSource = {
  * that match a search. It reads the library seam, so it moves with it.
  */
 export function findBlockSources(
+  source: PrepSource,
   q: string,
   now: string,
   pace: number,
 ): readonly BlockSource[] {
   const { rows } = listLibrary(
+    source,
     {
       ...defaultLibraryQuery,
       q: q.trim().slice(0, MAX_FIELD_LENGTH),
@@ -36,7 +39,7 @@ export function findBlockSources(
   );
   return rows.flatMap((row): readonly BlockSource[] => {
     if (row.kind === 'brief') {
-      const brief = getBrief(row.id);
+      const brief = getBrief(source, row.id);
       return brief === undefined
         ? []
         : [
@@ -49,7 +52,7 @@ export function findBlockSources(
           ];
     }
     if (row.kind === 'card') {
-      const card = getCard(row.id);
+      const card = getCard(source, row.id);
       return card === undefined
         ? []
         : [

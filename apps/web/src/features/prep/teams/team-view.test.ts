@@ -1,11 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getTeam } from './get-team';
 import { parseTeamQuery, teamHref, teamView } from './team-view';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
 const team = (() => {
-  const found = getTeam('sample-team');
+  const found = getTeam(samplePrepSource, 'sample-team');
   if (found === undefined) throw new Error('missing sample');
   return found;
 })();

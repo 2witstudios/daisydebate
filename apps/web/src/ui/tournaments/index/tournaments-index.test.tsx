@@ -7,12 +7,16 @@ import {
   type TournamentsQuery,
 } from '../../../features/tournaments/query';
 import { TournamentsIndex } from './tournaments-index';
+import { sampleTournamentSource } from '../../mock/tournament-source';
 
 setupRitewayBun();
 
 const render = (query: TournamentsQuery, signedIn = true) =>
   renderToString(
-    h(TournamentsIndex, { listing: listTournaments(query, signedIn), query }),
+    h(TournamentsIndex, {
+      listing: listTournaments(sampleTournamentSource, query, signedIn),
+      query,
+    }),
   );
 
 describe('TournamentsIndex', () => {

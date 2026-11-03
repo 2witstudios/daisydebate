@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getEvent } from './get-event';
 import { NOW } from './tournament.test-support';
+import { sampleTournamentSource } from '../../ui/mock/tournament-source';
 
 setupRitewayBun();
 
@@ -11,9 +12,9 @@ describe('getEvent', () => {
         'Harvest Cup, an entered but not competing tournament, and an unknown id',
       should: 'return the event only for Harvest Cup',
       actual: [
-        getEvent('harvest-cup', NOW)?.tournament.name,
-        getEvent('autumn-open', NOW),
-        getEvent('nope', NOW),
+        getEvent(sampleTournamentSource, 'harvest-cup', NOW)?.tournament.name,
+        getEvent(sampleTournamentSource, 'autumn-open', NOW),
+        getEvent(sampleTournamentSource, 'nope', NOW),
       ],
       expected: ['Harvest Cup', null, null],
     });

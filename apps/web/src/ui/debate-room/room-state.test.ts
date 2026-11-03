@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sampleRound } from '../mock/debate-room';
+import { sampleRound } from '../mock/debate-room.test-support';
 import {
   initialRoomState,
   pageToneOf,

@@ -79,8 +79,6 @@ export function createRoundMaintenanceOperations(input: {
   readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
   readonly ids: IdGenerator;
   readonly evaluate: (roundId: string) => Promise<AttendanceEvaluation>;
-  /** Injected policy: how long after the freeze judges may rule (DEC-201). */
-  readonly ballotDeadlineMs?: number;
   /**
    * The public check-in probe's Round (ATTENDANCE_PUBLIC_PROBE), or null. It
    * is synthetic and must stay active for its receipt to stay valid, so
@@ -88,9 +86,7 @@ export function createRoundMaintenanceOperations(input: {
    */
   readonly probeRoundId: string | null;
 }) {
-  const planJudging = judgingPlan(
-    input.ballotDeadlineMs ?? judgingPolicy.humanBallotWindowMs,
-  );
+  const planJudging = judgingPlan(judgingPolicy.humanBallotWindowMs);
   const buildProjection = roundTickProjection(() => input.ids.next());
   const ratings = createRatingSweep({
     database: input.store,

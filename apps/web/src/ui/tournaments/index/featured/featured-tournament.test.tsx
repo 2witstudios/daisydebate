@@ -6,11 +6,16 @@ import { defaultQuery } from '../../../../features/tournaments/query';
 import { FeaturedTournament } from './featured-tournament';
 import { stageColourClasses } from '../../../test-support/stage-palette';
 import { buttonClass } from '../../../components/button/button-class';
+import { sampleTournamentSource } from '../../../mock/tournament-source';
 
 setupRitewayBun();
 
 const render = (signedIn: boolean) => {
-  const row = listTournaments(defaultQuery, signedIn).featured;
+  const row = listTournaments(
+    sampleTournamentSource,
+    defaultQuery,
+    signedIn,
+  ).featured;
   return row ? renderToString(h(FeaturedTournament, { row, signedIn })) : '';
 };
 

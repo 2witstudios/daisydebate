@@ -1,11 +1,11 @@
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
-import { readingPace } from '../../../../features/prep/cards/get-card';
 import { roomPanelView } from '../../../../features/prep/room-panel';
 import { parseRoomPanelQuery } from '../../../../features/prep/room-panel-query';
 import { requireAccess } from '../../../../lib/access';
 import { InDebatePage } from '../../../../ui/prep/in-debate-page/in-debate-page';
+import { samplePrepSource } from '../../../../ui/mock/prep-source';
 
 export const metadata: Metadata = { title: 'Your prep in a debate' };
 
@@ -20,7 +20,12 @@ export default async function InDebateRoute({
   const query = parseRoomPanelQuery(await searchParams);
   return (
     <InDebatePage
-      view={roomPanelView(query, readingPace(), now)}
+      view={roomPanelView(
+        samplePrepSource,
+        query,
+        samplePrepSource.readingPace,
+        now,
+      )}
       loadedAt={now.slice(11, 16)}
     />
   );

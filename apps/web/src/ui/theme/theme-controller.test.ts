@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createThemeController, createTransition } from './theme-controller';
-import type { ThemePreference } from './theme-preference';
+import type { ThemePreference } from '../../features/theme/theme-preference';
 
 setupRitewayBun();
 
