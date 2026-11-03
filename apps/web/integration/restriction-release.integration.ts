@@ -60,7 +60,7 @@ const banOn = async (f: Fixture, subject: Member, commandId: string) => {
   const reportId = createId();
   const reporter = await f.member();
   await f.sql`insert into reports(id,reporter_actor_id,subject_actor_id,reason,surface,created_at)
-    values(${reportId},${reporter.actorId},${subject.actorId},'hate','online',clock_timestamp())`;
+    values(${reportId},${reporter.actorId},${subject.actorId},'hate','people',clock_timestamp())`;
   const now = Date.now();
   await f.store.resolveReport({
     commandId,
