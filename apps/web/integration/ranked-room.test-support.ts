@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
+import { CONTENT_WAIVER_VERSION } from '../src/features/legal/agreements';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import type { Ballot, RatingLadder } from '@daisy/protocol';
@@ -19,6 +20,12 @@ export async function readyRankedRoom(
 ) {
   const [preset] =
     await f.sql`select format_version,version from format_presets where format_id=${ladder} and superseded_at is null`;
+  for (const member of [f.host, f.guest, f.outsider])
+    await f.store.signContentWaiver({
+      id: createId(),
+      userId: member.userId,
+      version: CONTENT_WAIVER_VERSION,
+    });
   let room = await f.assemble({
     resolution:
       ladder === 'freestyle'

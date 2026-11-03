@@ -1,5 +1,6 @@
 import { BotAdmissionNotice } from './bot-admission-notice';
 import { AssemblyCommandForm } from './assembly-command-form';
+import { ContentWaiverForm } from './content-waiver-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import { isNamedSeat, type RoomView } from '@daisy/protocol';
@@ -33,6 +34,7 @@ type Props = {
   readonly actorId: string;
   readonly local: LocalReadiness;
   readonly action: FormAction<RoomFormState>;
+  readonly waiverAction: FormAction<RoomFormState>;
   readonly commandIds: Readonly<Record<Control, string>>;
 };
 
@@ -98,6 +100,7 @@ export function ReadyControl({
   actorId,
   local,
   action,
+  waiverAction,
   commandIds,
 }: Props) {
   const ready = readinessControl(view, actorId, local);
@@ -108,6 +111,9 @@ export function ReadyControl({
   const isReady = ready.type === 'unready' && !local.unreadyPending;
   return (
     <div className="flex flex-wrap items-center justify-end gap-3">
+      {ready.type === 'ready' && view.contentWaiver === 'unsigned' ? (
+        <ContentWaiverForm action={waiverAction} />
+      ) : null}
       {ready.type === 'ready' && view.captureNotice ? (
         <p role="note" className="w-full text-sm text-ink-muted">
           {view.captureNotice.text}

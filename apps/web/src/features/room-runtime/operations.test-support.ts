@@ -125,6 +125,7 @@ export function makeOperations(
     databaseNow: async () => now,
     readRoundBotAdmissionStatus: async () => null,
     readOwnEntitlementGrants: async () => [],
+    readContentWaiverStanding: async () => 'signed',
     listRoomCatalogSources: async (
       _caller: typeof caller,
       authorize: (fact: AccountAuthorizationFact) => boolean,

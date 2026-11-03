@@ -1,3 +1,4 @@
+import { agreementSignaturePrivacyAdopter } from '../agreement-signatures';
 import { analyticsConsentPrivacyAdopter } from '../analytics-consent';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { accountTermsPrivacyAdopter } from '../age-step';
@@ -30,6 +31,7 @@ export const subjectRightsAdoption = (
   analyticsConsentPrivacyAdopter,
   accountAgePrivacyAdopter,
   accountTermsPrivacyAdopter,
+  agreementSignaturePrivacyAdopter,
   betaAccessPrivacyAdopter,
   entitlementGrantPrivacyAdopter,
   roundTranscriptPrivacyAdopter,

@@ -98,6 +98,7 @@ test('the subject-rights composition runs every feature step exactly once', asyn
       'after-close:analytics-consent',
       'after-close:account-age',
       'after-close:account-terms',
+      'after-close:agreement-signatures',
       'after-close:beta-access',
       'after-close:entitlement-grants',
       'after-close:round-transcript',

@@ -62,6 +62,8 @@ import { provisionalRetentionOperations } from './provisional-retention';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
+import { agreementSignatureOperations } from './agreement-signatures';
+export type { ContentWaiverStanding } from './agreement-signatures';
 import { roomCommandOperations } from './room-command-operations';
 import { roomCommandTransaction } from './room-command-transaction';
 import { roundCommandOperations } from './round-command-operations';
@@ -298,6 +300,7 @@ export function createDatabase({
         readOutboxCatchup(control, topic, since, through, limit),
       ),
     ...formatOperations({ database: audience, eventSink }),
+    ...agreementSignatureOperations({ database: control, eventSink }),
     ...roomCommandOperations({
       database,
       botAdmission: admission,

@@ -2,6 +2,7 @@ import { AssemblyCommandForm } from './assembly-command-form';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { findElements, byText } from '../../test-support/find-elements';
 import { StartControl, ReadyControl } from './assembly-readiness';
+import { ContentWaiverForm } from './content-waiver-form';
 
 setupRitewayBun();
 const base = {
@@ -41,6 +42,7 @@ const props = {
   actorId: 'viewer',
   local: { devicesPassed: false, unreadyPending: false },
   action,
+  waiverAction: action,
   commandIds: {
     ready: 'ready-id',
     unready: 'unready-id',
@@ -49,6 +51,20 @@ const props = {
 };
 
 describe('native room readiness and Start round controls', () => {
+  test('an unsigned member is offered the waiver form in place', () => {
+    const offered = (contentWaiver: 'signed' | 'unsigned') =>
+      findElements(
+        ReadyControl({ ...props, view: { ...base, contentWaiver } }),
+        (element) => element.type === ContentWaiverForm,
+      ).length;
+    assert({
+      given: 'an unsigned and a signed member',
+      should: 'offer the form only to the unsigned one',
+      actual: [offered('unsigned'), offered('signed')],
+      expected: [1, 0],
+    });
+  });
+
   test('a captured Round shows its notice and Ready states it', () => {
     const notice = { version: 'ranked-draft-1', text: 'Exact notice words.' };
     const ready = ReadyControl({

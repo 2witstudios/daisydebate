@@ -1,5 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { captureNoticeRefusal, roomCaptureNotice } from './ready-agreements';
+import {
+  captureNoticeRefusal,
+  contentWaiverRefusal,
+  requiredContentWaiver,
+  roomCaptureNotice,
+} from './ready-agreements';
 
 setupRitewayBun();
 
@@ -8,6 +13,29 @@ const casual = { competitionType: 'casual' as const };
 const version = roomCaptureNotice(ranked)!.version;
 
 describe('Ready agreements', () => {
+  test('only ranked needs the waiver', () => {
+    assert({
+      given: 'a ranked and a casual Room',
+      should: 'require the current waiver on ranked alone',
+      actual: [requiredContentWaiver(ranked), requiredContentWaiver(casual)],
+      expected: ['draft-1', null],
+    });
+  });
+
+  test('where a member stands on the waiver decides Ready', () => {
+    assert({
+      given: 'signed, unsigned, no season, and no waiver needed',
+      should: 'refuse only unsigned and no season',
+      actual: [
+        contentWaiverRefusal('signed'),
+        contentWaiverRefusal('unsigned'),
+        contentWaiverRefusal('no-active-season'),
+        contentWaiverRefusal(null),
+      ],
+      expected: [null, 'content-waiver-required', 'ranked-unavailable', null],
+    });
+  });
+
   test('the notice a Room shows', () => {
     assert({
       given: 'a ranked and a casual Room with no opt-in',

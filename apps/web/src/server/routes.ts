@@ -10,6 +10,7 @@ import { composeMessagingRoutes } from '../features/messaging/composition';
 import { composeFriendRoutes } from '../features/friends/composition';
 import { composePresenceRoutes } from '../features/presence/composition';
 import { composeContactRoutes } from '../features/contacts/composition';
+import { composeAgreementRoutes } from '../features/agreements/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
   createListSessionsHandler,
@@ -94,6 +95,7 @@ export function createRoutes(app: App) {
       POST: createSignOutFormHandler({ logger, origin, signOut: auth.POST }),
     },
     privacy: composeDataRightsRoutes(app),
+    agreements: composeAgreementRoutes(app),
     confirm: createConfirmHandlers({
       auth: confirmAuth,
       logger,

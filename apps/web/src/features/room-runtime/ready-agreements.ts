@@ -1,5 +1,10 @@
+import type { ContentWaiverStanding } from '@daisy/db';
 import type { RoomAssemblyState, RoomRefusal } from '@daisy/protocol';
-import { roundCaptureNotice, type RoundCapture } from '../legal/agreements';
+import {
+  CONTENT_WAIVER_VERSION,
+  roundCaptureNotice,
+  type RoundCapture,
+} from '../legal/agreements';
 
 type CompetitionFact = Pick<RoomAssemblyState, 'competitionType'>;
 
@@ -26,3 +31,20 @@ export const captureNoticeRefusal = (
   roomCaptureNotice(room)?.version === noticeVersion
     ? null
     : 'capture-notice-changed';
+
+/** The waiver version Ready on this Room needs; only ranked needs one. */
+export const requiredContentWaiver = (room: CompetitionFact) =>
+  room.competitionType === 'ranked' ? CONTENT_WAIVER_VERSION : null;
+
+/** Unsigned is refused; with no season open, ranked play is unavailable. */
+export const contentWaiverRefusal = (
+  standing: ContentWaiverStanding | null,
+): Extract<
+  RoomRefusal,
+  'content-waiver-required' | 'ranked-unavailable'
+> | null =>
+  standing === 'unsigned'
+    ? 'content-waiver-required'
+    : standing === 'no-active-season'
+      ? 'ranked-unavailable'
+      : null;

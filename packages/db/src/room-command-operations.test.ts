@@ -142,6 +142,7 @@ const startInput: Parameters<
   targetActorId: null,
   formatTuple: null,
   roundId,
+  readyAgreements: () => null,
   prepare: async () => (state) => ({
     ok: true,
     mutation: {

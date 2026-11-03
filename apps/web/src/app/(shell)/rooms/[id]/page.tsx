@@ -11,6 +11,7 @@ import { roomTemplates } from '../../play/actions';
 import {
   roomAssembly,
   roomConsentIntent,
+  signContentWaiverAction,
   roomCommandAction,
   submitRoomFormAction,
   saveRoomSettingsAction,
@@ -57,6 +58,7 @@ export default async function RoomRoute({
         socketUrl={result.socketUrl}
         refusal={refusalOf(await searchParams)}
         commandAction={roomCommandAction.bind(null, id)}
+        waiverAction={signContentWaiverAction.bind(null, id)}
         detailsAction={submitRoomFormAction.bind(null, id)}
         settingsAction={saveRoomSettingsAction.bind(null, id)}
         read={roomAssembly.bind(null, id)}

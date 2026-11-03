@@ -9,7 +9,7 @@ import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
 import { canReadRound } from '../round-runtime/reads';
-import { roomCaptureNotice } from './ready-agreements';
+import { requiredContentWaiver, roomCaptureNotice } from './ready-agreements';
 import type { Database } from '@daisy/db';
 import {
   activeRoomMembers,
@@ -52,6 +52,7 @@ export type Store = Pick<
   | 'listRoomPage'
   | 'executeRoomCommand'
   | 'readActiveRoomFacts'
+  | 'readContentWaiverStanding'
 >;
 type Redis = Pick<
   ReturnType<typeof createRedis>,
@@ -112,6 +113,27 @@ export function createRoomRuntimeOperations({
       return { available: false, readyActorIds: [], validUntil: null };
     }
   };
+  /** Only a seated human on an open ranked Room stands on the waiver. */
+  const viewerContentWaiver = async (
+    state: RoomAssemblyState,
+    caller: Caller,
+  ) => {
+    const version = requiredContentWaiver(state);
+    if (
+      !version ||
+      state.status === 'started' ||
+      state.status === 'closed' ||
+      !state.participants.some(
+        (p) => p.actorId === caller.actorId && p.kind === 'human',
+      )
+    )
+      return null;
+    const standing = await store.readContentWaiverStanding(
+      caller.userId,
+      version,
+    );
+    return standing === 'no-active-season' ? null : standing;
+  };
   const view = async (caller: Caller, roomId: string) => {
     const facts = await store.readRoomAssemblyFacts(
       roomId,
@@ -138,6 +160,7 @@ export function createRoomRuntimeOperations({
             betaGrantsPremium,
           ),
       ),
+      contentWaiver: await viewerContentWaiver(state, caller),
       captureNotice: roomCaptureNotice(state),
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),

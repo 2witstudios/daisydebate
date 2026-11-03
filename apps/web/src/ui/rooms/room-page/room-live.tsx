@@ -56,6 +56,7 @@ type Props = {
   /** A native post was refused and returned here with the notice and its reason. */
   readonly refusal: { readonly reason: RoomRefusal | null } | null;
   readonly commandAction: FormAction<RoomFormState>;
+  readonly waiverAction: FormAction<RoomFormState>;
   readonly detailsAction: FormAction<RoomFormState>;
   readonly settingsAction: FormAction<RoomFormState>;
   readonly read: () => Promise<RoomRead>;
@@ -173,6 +174,7 @@ export function RoomLive(props: Props) {
         view={view}
         actorId={props.actorId}
         read={read}
+        waiverAction={props.waiverAction}
         send={props.send}
         action={props.commandAction}
         commandIds={ids.readiness}

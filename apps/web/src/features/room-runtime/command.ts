@@ -11,7 +11,12 @@ import type {
 } from '@daisy/protocol';
 import { can, capabilityOf, digest } from './authority';
 import { hostHoldsCasualAiJudge } from './ai-judge-seating';
-import { captureNoticeRefusal } from './ready-agreements';
+import {
+  captureNoticeRefusal,
+  contentWaiverRefusal,
+  requiredContentWaiver,
+  roomCaptureNotice,
+} from './ready-agreements';
 export function roomCommandOperation({
   store,
   redis,
@@ -69,6 +74,16 @@ export function roomCommandOperation({
           : null,
       roundId: ids.next(),
       seatsBotDebater: castSeatsBotDebater,
+      readyAgreements: (state) => {
+        const notice = roomCaptureNotice(state);
+        const contentWaiverVersion = requiredContentWaiver(state);
+        return notice || contentWaiverVersion
+          ? {
+              contentWaiverVersion,
+              notice: notice && { id: ids.next(), version: notice.version },
+            }
+          : null;
+      },
       authorizeRead: (state, account) =>
         can(caller, 'room.read', account, state),
       prepare: async (raw, preparedAt, account, preparedSeed) => {
@@ -116,6 +131,7 @@ export function roomCommandOperation({
           formatFacts,
           resolutionPublication,
           grants,
+          contentWaiver,
         ) => {
           if (!can(caller, capabilityOf(command), account, raw))
             throw createAppError('AUTHORIZATION');
@@ -162,7 +178,9 @@ export function roomCommandOperation({
             },
           );
           if (outcome.ok && command.type === 'ready') {
-            const refusal = captureNoticeRefusal(state, command.noticeVersion);
+            const refusal =
+              contentWaiverRefusal(contentWaiver) ??
+              captureNoticeRefusal(state, command.noticeVersion);
             if (refusal) throw createAppError('CONFLICT', refusal);
           }
           // Unready replaces the durable fence even during Redis loss; the old lease no longer matches.

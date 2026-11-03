@@ -120,6 +120,7 @@ test('direct domain Launch safety refusal cannot persist a Round or freeze', asy
             roundId: createId(),
             seatsBotDebater: castSeatsBotDebater,
             authorizeRead: () => true,
+            readyAgreements: () => null,
             prepare: async () => (room, now) =>
               executeRoomCommand(
                 {

@@ -161,6 +161,7 @@ test('a ranked AI judge seat is free: a host holding no grant at all seats it', 
         expected: [true, 'free'],
       });
     } finally {
+      await f.sql`delete from agreement_signatures where season_id=${seasonId}`;
       await f.sql`delete from seasons where id=${seasonId}`;
     }
   });

@@ -1,3 +1,4 @@
+import { CONTENT_WAIVER_VERSION } from '../../src/features/legal/agreements';
 import { foundationChoice, humanRoundSelection } from './human-round-selection';
 import type { APIRequestContext, BrowserContext } from '@playwright/test';
 import {
@@ -123,6 +124,14 @@ export async function readyOwnSeat(
   );
   if (!participant || !('consentVersion' in participant))
     throw new Error('Own actual consent missing');
+  if (own.contentWaiver === 'unsigned')
+    expect(
+      (
+        await member.context.request.post('/api/agreements/content-waiver', {
+          data: { version: CONTENT_WAIVER_VERSION, accepted: 'yes' },
+        })
+      ).status(),
+    ).toBe(200);
   return roomCommand(member.context.request, own, {
     type: 'ready',
     expectedConsentVersion: participant.consentVersion,

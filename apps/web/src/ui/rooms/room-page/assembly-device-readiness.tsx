@@ -34,6 +34,7 @@ type Props = {
   readonly view: RoomView;
   readonly actorId: string;
   readonly action: FormAction<RoomFormState>;
+  readonly waiverAction: FormAction<RoomFormState>;
   readonly send: (form: FormData) => ReturnType<typeof submitAssembly>;
   readonly read: () => Promise<RoomRead>;
   readonly commandIds: Parameters<typeof ReadyControl>[0]['commandIds'];

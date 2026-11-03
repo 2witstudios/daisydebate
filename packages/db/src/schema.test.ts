@@ -1,6 +1,7 @@
 import { getTableColumns } from 'drizzle-orm';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { actors } from './schema/actors';
+import { agreementSignatures } from './schema/agreement-signatures';
 import { formatPresets } from './schema/format-presets';
 import { formatRevisions } from './schema/format-revisions';
 import { formats } from './schema/formats';
@@ -13,6 +14,18 @@ import { schemaRules as rules } from './schema.test-support';
 setupRitewayBun();
 
 describe('competitive schema rules', () => {
+  test('an agreement signature is one row per scope, its kind and scope checked', () => {
+    assert({
+      given: 'the agreement_signatures table',
+      should: 'declare its kind and scope CHECKs',
+      actual: rules(agreementSignatures).checks,
+      expected: [
+        'agreement_signatures_agreement_check',
+        'agreement_signatures_scope_check',
+      ],
+    });
+  });
+
   test('users and actors carry the tombstone and identity rules', () => {
     assert({
       given: 'the users and actors tables',
