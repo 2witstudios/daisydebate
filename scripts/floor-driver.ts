@@ -115,6 +115,7 @@ const loop = async (seats: (typeof pairs)[number]) => {
   }
 };
 const browserMs: number[] = [];
+let browserMissed = 0;
 const control = controlPair
   ? driveRound({
       seats: controlPair,
@@ -133,7 +134,7 @@ const control = controlPair
       shouldStop: enough,
       deadline: (ms) => browserMs.push(ms),
       miss: () => {
-        missed += 1;
+        browserMissed += 1;
       },
     })
   : null;
@@ -179,6 +180,7 @@ const report = {
   control: controlPair
     ? {
         failure: controlFailure,
+        browserMissed,
         ...compareControl({
           driverMs: samplesMs,
           browserMs,
