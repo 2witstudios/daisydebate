@@ -18,6 +18,28 @@ const room = 'r'.repeat(24);
 const identity = 'i'.repeat(24);
 
 describe('media room service boundary', () => {
+  test('the Broadcast observer in a Room never breaks debate media', async () => {
+    const service = createMediaService({
+      config,
+      rooms: {
+        listParticipants: async () => [
+          new ParticipantInfo({
+            identity: 'stage-observer',
+            permission: { hidden: true, canSubscribe: true },
+          }),
+          new ParticipantInfo({ identity, permission: { canPublish: true } }),
+        ],
+      } as unknown as Parameters<typeof createMediaService>[0]['rooms'],
+    });
+    assert({
+      given: 'a Room holding the hidden stage observer and a debater',
+      should: 'read the debater alone, so a Broadcast cannot defer mic grants',
+      actual: (await service.publicationPermissions(room)).map(
+        (participant) => participant.identity,
+      ),
+      expected: [identity],
+    });
+  });
   test('existing rooms are unchanged, permissions are explicit and teardown is scoped', async () => {
     const calls: unknown[] = [];
     let exists = false;
