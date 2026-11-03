@@ -79,6 +79,7 @@ export type RoundCommandAuthority = {
   readonly principalAccess: {
     readonly beta: BetaAccessState | null;
     readonly ageBand: 'under-13' | '13-15' | '16-17' | 'adult' | null;
+    readonly restricted: boolean;
   } | null;
   readonly participants: readonly (RoundParticipantSeat & {
     readonly kind: 'human' | 'bot';

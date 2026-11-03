@@ -24,7 +24,7 @@ import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { aiSeatFits } from './seat-eligibility';
 import { roomCommands } from './schema/room-commands';
-import { rooms, roomParticipants } from './schema/rooms';
+import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
 import { rounds } from './schema/rounds';
 
 import { formats } from './schema/formats';
@@ -204,10 +204,18 @@ const hydrateRoom = async (
     })
     .from(rounds)
     .where(eq(rounds.roomId, row.id));
+  const seatHolds = await tx
+    .select({ actorId: roomSeatHolds.actorId, until: roomSeatHolds.until })
+    .from(roomSeatHolds)
+    .where(eq(roomSeatHolds.roomId, row.id));
   return {
     id: row.id,
     version: row.version,
     changeVersion: row.changeVersion,
+    seatHolds: seatHolds.map((hold) => ({
+      actorId: hold.actorId,
+      until: new Date(hold.until).toISOString(),
+    })),
     title: row.title,
     // A draw Room's resolution is its Round's, once revealed.
     topic: round?.resolution ?? row.topic,

@@ -12,6 +12,7 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   foreignKey,
+  primaryKey,
   index,
   integer,
   pgTable,
@@ -214,6 +215,29 @@ export const roomParticipants = pgTable(
       'room_participants_readiness_version_nonnegative',
       sql`${table.readinessVersion} >= 0`,
     ),
+  ],
+);
+
+/**
+ * A debater seat kept for a named member until `until` (ADR 0103): both
+ * sides of a challenge, while the room is public and either may be on the way.
+ * It reserves, never seats: the member still takes the seat themselves, and an
+ * old row holds nothing.
+ */
+export const roomSeatHolds = pgTable(
+  'room_seat_holds',
+  {
+    roomId: text('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+    actorId: text('actor_id')
+      .notNull()
+      .references(() => actors.id, { onDelete: 'cascade' }),
+    until: timestampColumn('until').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.roomId, table.actorId] }),
+    index('room_seat_holds_actor_idx').on(table.actorId),
   ],
 );
 

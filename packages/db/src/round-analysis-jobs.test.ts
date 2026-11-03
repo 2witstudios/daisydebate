@@ -43,6 +43,7 @@ const accountRow = {
   betaState: 'approved',
   betaRevision: 1,
   ageBand: 'adult',
+  restricted: false,
 };
 const token = 't'.repeat(43);
 const jobsWith = (answers: unknown[]) => {

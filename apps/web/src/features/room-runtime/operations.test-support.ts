@@ -26,6 +26,7 @@ export const account: AccountAuthorizationFact = {
   member: true,
   beta: { state: 'approved' as const, revision: 1 },
   ageBand: 'adult' as const,
+  restricted: false,
   erased: false,
   revision: 1,
 };
@@ -47,6 +48,7 @@ export const state: RoomAssemblyState = {
   visibility: 'public',
   hostActorId: caller.actorId,
   hostLabel: 'Member',
+  seatHolds: [],
   status: 'assembling',
   formatId: 'one-on-one',
   formatVersion: 1,

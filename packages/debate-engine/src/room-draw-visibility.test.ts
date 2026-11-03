@@ -87,7 +87,14 @@ describe('who sees which resolution, stage by stage', () => {
       actual: [
         viewers.map((viewer) =>
           distinctLines(
-            JSON.stringify(projectRoom(assembling, viewer, consent)),
+            JSON.stringify(
+              projectRoom(
+                assembling,
+                viewer,
+                consent,
+                '2026-11-02T12:00:00.000Z',
+              ),
+            ),
             SENTINEL,
           ),
         ),

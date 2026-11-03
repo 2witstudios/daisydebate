@@ -88,7 +88,7 @@ describe('Room assembly authority', () => {
       consent,
       edges,
     );
-    const view = projectRoom(room, 'host', consent);
+    const view = projectRoom(room, 'host', consent, '2026-11-02T12:00:00.000Z');
     assert({
       given: 'complete cast and current consent',
       should:

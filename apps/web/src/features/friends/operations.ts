@@ -2,16 +2,12 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { DiscoverActor } from '../account/username-discovery';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { SocialRequestLimits } from '@daisy/db';
-import type {
-  FriendChallengeRow,
-  FriendshipRow,
-  FriendStore,
-} from '@daisy/db/friends';
+import type { FriendshipRow, FriendStore } from '@daisy/db/friends';
 import { createAppError, isAppError } from '@daisy/errors';
 import type {
   FriendCommandResult,
   FriendList,
-  FriendPresence,
+  MemberStatus,
   PresenceActivity,
 } from '@daisy/protocol';
 
@@ -22,6 +18,7 @@ import {
   type FriendshipRefusal,
 } from './friendship';
 import { requireMemberActor } from '../access/actor';
+import { displayStatus } from '../presence/status';
 
 export type FriendCapability = 'social.friend.request' | 'social.friend.end';
 
@@ -114,27 +111,19 @@ export type FriendReadDependencies = {
     readonly userId: string;
     readonly actorId: string;
   }) => Promise<readonly FriendshipRow[]>;
-  /** Friends' challenges waiting for the reader, behind the same decision. */
-  readonly challenges: (scope: {
-    readonly userId: string;
-    readonly actorId: string;
-  }) => Promise<readonly FriendChallengeRow[]>;
   /** Each actor's presence; only friends are ever asked about. */
   readonly presence: (
     actorIds: readonly string[],
-  ) => Promise<ReadonlyMap<string, FriendPresence>>;
+  ) => Promise<ReadonlyMap<string, PresenceActivity | null>>;
 };
 
-/** What a friend sees of a live lease: active is online, idle is away. */
-export const friendPresenceOf = (
-  activity: PresenceActivity | null,
-): FriendPresence =>
-  activity === 'active' ? 'online' : activity === 'idle' ? 'away' : 'offline';
-
-const presenceRank: Record<FriendPresence, number> = {
+const statusRank: Record<MemberStatus, number> = {
   online: 0,
-  away: 1,
-  offline: 2,
+  busy: 1,
+  room: 2,
+  round: 3,
+  away: 4,
+  offline: 5,
 };
 
 /** How many of a friend list's friends the badge counts: away is still here. */
@@ -147,17 +136,16 @@ export async function readFriendList(
   dependencies: FriendReadDependencies,
 ): Promise<Omit<FriendList, 'version'>> {
   const { actorId, userId } = requireMemberActor(principal);
-  const [rows, challenges] = await Promise.all([
-    dependencies.list({ userId, actorId }),
-    dependencies.challenges({ userId, actorId }),
-  ]);
+  const rows = await dependencies.list({ userId, actorId });
   const accepted = rows.filter((row) => row.state === 'accepted');
-  // A friend who hides their status is offline to everyone (ADR 0072): their
+  // A friend appearing offline is offline to everyone (ADR 0103): their
   // leases are never even read.
-  const visible = accepted.filter((row) => !row.otherHidden);
-  const presence = visible.length
+  const visible = accepted.filter(
+    (row) => row.otherChosen !== 'appearing_offline',
+  );
+  const activity = visible.length
     ? await dependencies.presence(visible.map((row) => row.otherActorId))
-    : new Map<string, FriendPresence>();
+    : new Map<string, PresenceActivity | null>();
   const pending = (incoming: boolean) =>
     rows
       .filter(
@@ -170,22 +158,18 @@ export async function readFriendList(
     friends: accepted
       .map((row) => ({
         username: row.username,
-        presence: row.otherHidden
-          ? ('offline' as const)
-          : (presence.get(row.otherActorId) ?? 'offline'),
+        presence: displayStatus({
+          chosen: row.otherChosen,
+          activity: activity.get(row.otherActorId) ?? null,
+          placement: row.otherPlacement,
+        }),
       }))
       .sort(
         (a, b) =>
-          presenceRank[a.presence] - presenceRank[b.presence] ||
+          statusRank[a.presence] - statusRank[b.presence] ||
           a.username.localeCompare(b.username),
       ),
     incoming: pending(true),
     outgoing: pending(false),
-    challenges: challenges.map(({ username, roomId, title, challengedAt }) => ({
-      username,
-      roomId,
-      title,
-      challengedAt,
-    })),
   };
 }

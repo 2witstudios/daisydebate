@@ -117,7 +117,12 @@ export function createRoomRuntimeOperations({
     const consent = await consentOf(state, await store.databaseNow());
     const now = await store.databaseNow();
     return {
-      ...projectRoom(state, caller.actorId, currentRoomConsent(consent, now)),
+      ...projectRoom(
+        state,
+        caller.actorId,
+        currentRoomConsent(consent, now),
+        now,
+      ),
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
       ),
@@ -219,6 +224,7 @@ export function createRoomRuntimeOperations({
         kind: publication.kind,
       },
       selection: recheck,
+      ...(body.holdSeatsFor ? { holdSeatsFor: body.holdSeatsFor } : {}),
       cast: cast.length
         ? {
             seats: cast.map((seat) => ({

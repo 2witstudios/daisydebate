@@ -11,6 +11,7 @@ const input: AuthorizationInput = {
       member: true,
       beta: { state: 'approved', revision: 1 },
       ageBand: 'adult',
+      restricted: false,
       erased: false,
       revision: 1,
     },

@@ -71,8 +71,10 @@ test('a started Room takes no further Ready, edit or close', () => {
     given: 'the started Room',
     should: 'offer no readiness or start capability',
     actual: [
-      projectRoom(room, 'host', consent).capabilities.canReady,
-      projectRoom(room, 'host', consent).capabilities.canStart,
+      projectRoom(room, 'host', consent, '2026-11-02T12:00:00.000Z')
+        .capabilities.canReady,
+      projectRoom(room, 'host', consent, '2026-11-02T12:00:00.000Z')
+        .capabilities.canStart,
     ],
     expected: [false, false],
   });

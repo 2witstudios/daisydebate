@@ -13,6 +13,7 @@ const row: AuthorizationAccountRow = {
   betaState: 'approved',
   betaRevision: 1,
   ageBand: 'adult',
+  restricted: false,
 };
 describe('durable account authorization projection', () => {
   test('member projects validated minimal producer facts', () => {
@@ -26,6 +27,7 @@ describe('durable account authorization projection', () => {
         member: true,
         beta: { state: 'approved' as const, revision: 1 },
         ageBand: 'adult' as const,
+        restricted: false,
         erased: false,
         revision: 1,
       },

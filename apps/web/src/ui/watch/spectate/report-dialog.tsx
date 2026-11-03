@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { reportReasons } from '../../../features/watch/report';
+import { reportReasonLabels, reportReasons } from '@daisy/protocol';
 import type { SpectateQuery } from '../../../features/watch/spectate-query';
 import { spectateHref } from '../../../features/watch/spectate-query';
 import { buttonClass } from '../../components/button/button-class';
@@ -42,16 +42,16 @@ export function ReportDialog({ id, query, target }: ReportDialogProps) {
           <legend className="mb-1 text-sm font-strong text-ink">Reason</legend>
           {reportReasons.map((reason, index) => (
             <label
-              key={reason.id}
+              key={reason}
               className="flex items-center gap-2 text-base text-ink"
             >
               <input
                 type="radio"
                 name="report-reason"
-                value={reason.id}
+                value={reason}
                 defaultChecked={index === 0}
               />
-              {reason.label}
+              {reportReasonLabels[reason]}
             </label>
           ))}
         </fieldset>

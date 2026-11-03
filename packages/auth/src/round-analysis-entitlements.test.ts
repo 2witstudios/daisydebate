@@ -199,7 +199,7 @@ test('premium entitlement cannot replace durable participant admission', () => {
         ],
       },
       context: {
-        account: { ...account, ageBand: null },
+        account: { ...account, ageBand: null, restricted: false },
         entitlements: { roundAnalysis: true },
       },
     }).allow,

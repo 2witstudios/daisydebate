@@ -24,6 +24,7 @@ const account = {
   betaState: 'approved',
   betaRevision: 1,
   ageBand: 'adult',
+  restricted: false,
 };
 /** The checked fact the session reader returns for that row. */
 const accountFact = {
@@ -33,6 +34,7 @@ const accountFact = {
   revision: 2,
   beta: { state: 'approved' as const, revision: 1 },
   ageBand: 'adult' as const,
+  restricted: false,
 };
 const peer = {
   userId: 'v'.repeat(24),
@@ -41,6 +43,7 @@ const peer = {
   betaState: 'approved',
   betaRevision: 1,
   ageBand: 'adult',
+  restricted: false,
   erased: false,
   revision: 3,
 };

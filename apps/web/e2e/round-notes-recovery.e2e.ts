@@ -810,8 +810,9 @@ test('after a lost exit save, conflict state stays true through typing, Restore 
 test('account switch purges old-principal recovery across tabs without revealing it to the next member', async ({
   roundFiles,
 }) => {
-  const { page, documentId, stranger } = roundFiles;
+  const { page, roundId, documentId, stranger } = roundFiles;
   await roundFiles.finishRound();
+  await openNotes(page, roundId);
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'Private notes from the former account');
   await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
@@ -899,6 +900,58 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
     .toContain('語');
   expect((await serverDocument(page, roundId, documentId)).html).toContain(
     '界',
+  );
+});
+
+test('typing straight through the Round closing: every word the editor showed is offered on the result page the Room moves to', async ({
+  roundFiles,
+}) => {
+  const { page, documentId } = roundFiles;
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  await page.getByRole('textbox', { name: untitled }).focus();
+  // What a person last saw in the Room's editor. The observer stops when that
+  // editor goes, since the result page's own textboxes must not count.
+  await page.evaluate(() => {
+    const observer = new MutationObserver(() => {
+      const shown = document.querySelector('[contenteditable="true"].room-doc');
+      if (shown) Reflect.set(window, '__lastShown', shown.textContent);
+      else observer.disconnect();
+    });
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+  });
+  const typeUntilTheRoomLeaves = async () => {
+    for (let word = 0; page.url().endsWith('/room') && word < 200; word += 1)
+      await page.keyboard.insertText(`word${word} `);
+  };
+  const closeTheRound = async () => {
+    await roundFiles.forfeitRound();
+    // Coming back to the tab reads at once, so the Room's own move has no wait
+    // on a doorbell, which carries no delivery guarantee.
+    await page.evaluate(() =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+  };
+  await Promise.all([typeUntilTheRoomLeaves(), closeTheRound()]);
+  await expect(page).toHaveURL(`${origin}/rounds/${roundFiles.roundId}`);
+  const files = page.getByRole('region', { name: 'Your files' });
+  await expect(
+    files.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
+  ).toBeVisible();
+  const shown = String(
+    await page.evaluate(() => Reflect.get(window, '__lastShown')),
+  );
+  const words = shown.match(/word\d+ /g) ?? [];
+  expect(words.length).toBeGreaterThan(0);
+  const draft = await draftFor(page, documentId);
+  expect(draft).not.toBeNull();
+  for (const word of words) expect(draft.recovery.html).toContain(word);
+  await files.getByText('Compare recovered and server copies').click();
+  await expect(page.getByLabel('Recovered copy of Untitled')).toContainText(
+    words.at(-1)!.trim(),
   );
 });
 

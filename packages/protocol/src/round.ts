@@ -12,7 +12,7 @@ export type CompetitionType = (typeof competitionTypes)[number];
 /**
  * The round lifecycle. `opening` runs from Start round to the countdown:
  * rules are frozen, any strike and pre-round prep run, and the speech clock
- * has not started (ADR 0100). `abandoned` keeps `started_at` nullable.
+ * has not started (ADR 0104). `abandoned` keeps `started_at` nullable.
  */
 export const roundStatuses = [
   'opening',

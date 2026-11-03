@@ -22,6 +22,7 @@ const account: AccountAuthorizationFact = {
   member: true,
   beta: { state: 'approved' as const, revision: 1 },
   ageBand: 'adult' as const,
+  restricted: false,
   erased: false,
   revision: 2,
 };

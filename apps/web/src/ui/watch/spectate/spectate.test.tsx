@@ -117,11 +117,12 @@ describe('Spectate: report dialog', () => {
       actual: [
         html.includes('role="dialog"'),
         html.includes('Report the debate'),
+        html.includes('Hate speech'),
         html.includes('Second account or arranged result'),
         /href="\/watch\/top-of-the-ladder"[^>]*>Cancel/.test(html),
         html.includes('href="?did=Send+report"'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true, true, true],
     });
   });
 

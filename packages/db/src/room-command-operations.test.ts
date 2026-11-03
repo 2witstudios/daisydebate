@@ -235,10 +235,12 @@ const attemptRows = (prepared: number, locked: number) => {
     [],
     [accountRow()],
     ...before.slice(4, 11),
+    [], // no seat holds
     [],
     before[12]!,
     ...after.slice(0, 3),
     ...after.slice(4, 11),
+    [], // no seat holds
   ];
 };
 /** A whole accepted start at `changeVersion`, through its receipt. */

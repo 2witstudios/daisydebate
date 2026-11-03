@@ -1,4 +1,8 @@
-/** Optional media recovery has its own500ms cadence and never waits behind generation/control. */
+/**
+ * Optional media recovery has its own 500 ms cadence and never waits behind
+ * generation or control. A tick never waits for the one before it: `recover`
+ * decides what each tick starts, so a slow Round holds only itself (ISSUE-972).
+ */
 export function startRoundMediaRecovery(input: {
   readonly recover: () => Promise<unknown>;
   readonly failed: () => void;
@@ -7,18 +11,19 @@ export function startRoundMediaRecovery(input: {
     tick: () => void,
   ) => { readonly stop: () => void };
 }) {
-  let stopped = false,
-    pending: Promise<void> | null = null;
+  let stopped = false;
+  const running = new Set<Promise<void>>();
   const run = () => {
-    if (stopped || pending) return pending ?? Promise.resolve();
-    pending = Promise.resolve()
+    if (stopped) return Promise.resolve();
+    const tick: Promise<void> = Promise.resolve()
       .then(input.recover)
       .then(() => {})
       .catch(input.failed)
       .finally(() => {
-        pending = null;
+        running.delete(tick);
       });
-    return pending;
+    running.add(tick);
+    return tick;
   };
   const timer = input.every(500, () => {
     void run();
@@ -29,7 +34,7 @@ export function startRoundMediaRecovery(input: {
     async stop() {
       stopped = true;
       timer.stop();
-      await pending;
+      await Promise.all(running);
     },
   };
 }

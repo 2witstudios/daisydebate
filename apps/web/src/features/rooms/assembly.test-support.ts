@@ -122,6 +122,7 @@ export const assemblySnapshot = {
   config: freezeRoomConfig(unequalTemplate.preset.config),
   executionPlan: freezeRoomExecutionPlan(compiled.roomPlan),
   authoredDrawSource: null,
+  debaterSeatsHeldFromViewer: 0,
   rules: compiled.rules,
   participants: [],
   readiness: { available: true, version: 3, readyActorIds: [] },

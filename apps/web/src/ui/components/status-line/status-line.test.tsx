@@ -41,7 +41,7 @@ describe('PresenceDot', () => {
     assert({
       given: 'a presence dot',
       should: 'name the presence without an unrelated live-region role',
-      actual: [html.includes('role="img"'), html.includes('away')],
+      actual: [html.includes('role="img"'), html.includes('Away')],
       expected: [true, true],
     });
   });

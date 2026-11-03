@@ -1,6 +1,7 @@
 import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { ProvisionalLinkPurposes } from '@daisy/db';
+import { MODERATION_RECORD_RETENTION_MS } from '../features/moderation/retention';
 
 const DAY_MS = 86_400_000;
 
@@ -52,6 +53,15 @@ export function retentionTargets({
   readonly provisionalLinks: ProvisionalLinkPurposes;
   readonly database: {
     readonly purgeExpiredVerifications: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredChallenges: (batch: {
+      readonly now: string;
+      readonly limit: number;
+    }) => Promise<number>;
+    readonly purgeErasedModeration: (batch: Batch) => Promise<number>;
+    readonly purgeClosedReports: (batch: {
+      readonly now: string;
+      readonly limit: number;
+    }) => Promise<number>;
     readonly purgeExpiredOutboxEvents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredEmailDeliveryEvents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredEmailDeliveries: (batch: Batch) => Promise<number>;
@@ -220,6 +230,33 @@ export function retentionTargets({
       purge: ({ now, limit }) =>
         database.purgeExpiredSocialRequests({
           before: cutoff(now, DAY_MS),
+          limit,
+        }),
+    },
+    /** Offers past their time; the list already ignores them (ADR 0103). */
+    {
+      name: 'retention.challenges',
+      batchSize: 1000,
+      maxBatches: 50,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredChallenges({ now: cutoff(now, 0), limit }),
+    },
+    /** Closed reports past their proposed evidence retention (DEC-298). */
+    {
+      name: 'retention.reports',
+      batchSize: 1000,
+      maxBatches: 50,
+      purge: ({ now, limit }) =>
+        database.purgeClosedReports({ now: cutoff(now, 0), limit }),
+    },
+    /** An erased account's sanctions past their proposed retention. */
+    {
+      name: 'retention.moderation',
+      batchSize: 1000,
+      maxBatches: 50,
+      purge: ({ now, limit }) =>
+        database.purgeErasedModeration({
+          before: cutoff(now, MODERATION_RECORD_RETENTION_MS),
           limit,
         }),
     },

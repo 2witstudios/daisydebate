@@ -63,7 +63,7 @@ export type RoundWaitingFacts =
     };
 
 /**
- * A Round's opening as one viewer reads it (ADR 0100). `complete` means every
+ * A Round's opening as one viewer reads it (ADR 0104). `complete` means every
  * step has run and the Round is about to become active. The draw stays visible
  * through prep, so a debater can see how the resolution was chosen.
  */

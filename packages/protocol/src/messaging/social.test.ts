@@ -34,7 +34,7 @@ test('DM requests carry no caller-supplied identity or eligibility', () => {
     [{ introduction: ' ' }, false],
     [{ recipientActorId: 'invalid' }, false],
     [{ senderActorId: actorId }, false],
-    [{ ageBand: 'adult' }, false],
+    [{ ageBand: 'adult', restricted: false }, false],
     [{ friend: true }, false],
   ] as const)
     assert({

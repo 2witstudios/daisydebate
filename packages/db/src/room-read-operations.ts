@@ -158,6 +158,16 @@ export const roomReadOperations = ({
       }),
     );
   },
+  /** Whether the picker's catalog offers this format: a read for another concept. */
+  async formatInCatalog(formatId: string): Promise<boolean> {
+    return instrumented(eventSink, 'formatInCatalog', async () => {
+      const [row] = await database
+        .select({ id: formats.id })
+        .from(formats)
+        .where(and(eq(formats.id, formatId), isNotNull(formats.catalogRole)));
+      return row !== undefined;
+    });
+  },
   /**
    * The picker's catalog (FMT-1): every format with a catalog role, at its
    * current revision and canonical (current) preset. A listed format with

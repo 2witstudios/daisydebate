@@ -6,6 +6,8 @@ import {
   betaAccessStates,
 } from './beta-access';
 import { idSchema } from './primitives';
+import { reportOutcomes, reportReasons, reportSurfaces } from './reports';
+import { moderationKinds } from './moderation';
 
 /**
  * The signed internal operator API, version 1 (ADR 0079): the portable
@@ -54,6 +56,26 @@ export const operatorRoutes = {
   setBetaAccess: {
     method: 'PUT',
     path: /^\/operator\/v1\/accounts\/([a-z0-9]{24})\/beta-access$/,
+    query: [],
+  },
+  listReports: {
+    method: 'GET',
+    path: /^\/operator\/v1\/reports$/,
+    query: ['cursor', 'limit'],
+  },
+  resolveReport: {
+    method: 'PUT',
+    path: /^\/operator\/v1\/reports\/([a-z0-9]{24})\/resolution$/,
+    query: [],
+  },
+  listRestrictions: {
+    method: 'GET',
+    path: /^\/operator\/v1\/moderation$/,
+    query: ['cursor', 'limit'],
+  },
+  liftModeration: {
+    method: 'PUT',
+    path: /^\/operator\/v1\/moderation\/([a-z0-9]{24})\/lift$/,
     query: [],
   },
   readCommand: {
@@ -119,6 +141,94 @@ export const betaAccessCommandSchema = z.strictObject({
   adminAuditHead: z.string().regex(/^[0-9a-f]{64}$/),
 });
 
+/** The operator's report queue (ADR 0103), oldest open report first. */
+export const operatorReportsQuerySchema = z.strictObject({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.string().max(256).optional(),
+});
+export const operatorReportsCursorSchema = z.strictObject({
+  v: z.literal(1),
+  createdAt: z.iso.datetime(),
+  id: idSchema,
+});
+const operatorReportSchema = z.strictObject({
+  id: idSchema,
+  reporter: z.string().nullable(),
+  subject: z.string().nullable(),
+  subjectUserId: idSchema,
+  reason: z.enum(reportReasons),
+  surface: z.enum(reportSurfaces),
+  createdAt: z.iso.datetime(),
+  reportsOnSubject: z.number().int().positive(),
+});
+export const operatorReportsPageSchema = z.strictObject({
+  items: z.array(operatorReportSchema).max(100),
+  nextCursor: z.string().max(256).nullable(),
+});
+
+const restrictionKinds = moderationKinds.filter((kind) => kind !== 'warning');
+const operatorRestrictionSchema = z.strictObject({
+  id: idSchema,
+  userId: idSchema,
+  username: z.string().nullable(),
+  kind: z.enum(restrictionKinds as ['suspension', 'ban']),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime().nullable(),
+});
+export const operatorRestrictionsSchema = z.strictObject({
+  items: z.array(operatorRestrictionSchema).max(100),
+  nextCursor: z.string().max(256).nullable(),
+});
+export const operatorRestrictionsQuerySchema = z.strictObject({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.string().max(256).optional(),
+});
+export const operatorRestrictionsCursorSchema = z.strictObject({
+  v: z.literal(1),
+  startsAt: z.iso.datetime(),
+  id: idSchema,
+});
+
+export const reportResolveCommandAction = 'report.resolve';
+export const moderationLiftCommandAction = 'moderation.lift';
+/** A suspension runs at most a year: anything longer is a ban. */
+export const moderationSuspensionMaxDays = 365;
+
+const reportResolveCommand = {
+  v: z.literal(1),
+  commandId: idSchema,
+  adminAuditHead: z.string().regex(/^[0-9a-f]{64}$/),
+};
+export const reportResolveCommandSchema = z.discriminatedUnion('outcome', [
+  z.strictObject({
+    ...reportResolveCommand,
+    outcome: z.enum(['dismissed', 'warned', 'banned']),
+  }),
+  z.strictObject({
+    ...reportResolveCommand,
+    outcome: z.literal('suspended'),
+    suspendDays: z.number().int().min(1).max(moderationSuspensionMaxDays),
+  }),
+]);
+export type ReportResolveCommand = z.infer<typeof reportResolveCommandSchema>;
+export const reportResolveResultSchema = z.strictObject({
+  commandId: idSchema,
+  reportId: idSchema,
+  outcome: z.enum(reportOutcomes),
+});
+export type ReportResolveResult = z.infer<typeof reportResolveResultSchema>;
+
+export const moderationLiftCommandSchema = z.strictObject({
+  v: z.literal(1),
+  commandId: idSchema,
+  adminAuditHead: z.string().regex(/^[0-9a-f]{64}$/),
+});
+export const moderationLiftResultSchema = z.strictObject({
+  commandId: idSchema,
+  actionId: idSchema,
+});
+export type ModerationLiftResult = z.infer<typeof moderationLiftResultSchema>;
+
 /**
  * `GET /operator/v1/commands/{id}`: a command's stored result, for the admin
  * app to reconcile a response it never received. Discriminated by the
@@ -126,11 +236,21 @@ export const betaAccessCommandSchema = z.strictObject({
  */
 export const operatorCommandStateSchema = z.discriminatedUnion('action', [
   betaAccessCommandStateSchema,
+  z.strictObject({
+    action: z.literal(reportResolveCommandAction),
+    result: reportResolveResultSchema,
+  }),
+  z.strictObject({
+    action: z.literal(moderationLiftCommandAction),
+    result: moderationLiftResultSchema,
+  }),
 ]);
 
 /** What a receipt stores: the result of whichever action it records. */
 export const operatorCommandResultSchema = z.union([
   betaAccessCommandResultSchema,
+  reportResolveResultSchema,
+  moderationLiftResultSchema,
 ]);
 
 /**
@@ -141,6 +261,14 @@ export const operatorCommandReceiptSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal(betaAccessCommandAction),
     result: betaAccessCommandResultSchema,
+  }),
+  z.strictObject({
+    action: z.literal(reportResolveCommandAction),
+    result: reportResolveResultSchema,
+  }),
+  z.strictObject({
+    action: z.literal(moderationLiftCommandAction),
+    result: moderationLiftResultSchema,
   }),
 ]);
 export type OperatorCommandState = z.infer<typeof operatorCommandStateSchema>;

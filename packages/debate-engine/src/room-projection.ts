@@ -1,3 +1,4 @@
+import { debaterSeatsHeldFrom } from './room-edit-transitions';
 import { formatStanding } from './format-standing';
 import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
 import { freezeRoomConfig, freezeRoomExecutionPlan } from '@daisy/protocol';
@@ -49,6 +50,7 @@ export function projectRoom(
   room: RoomAssemblyState,
   actorId: string,
   consent: RoomConsent,
+  now: string,
 ): RoomView {
   const blocker = startBlocker(room, consent);
   const hidden = hiddenJudges(room, actorId);
@@ -141,6 +143,10 @@ export function projectRoom(
       version: room.version,
       readyActorIds: consent.readyActorIds.filter((id) => !hidden.has(id)),
     },
+    debaterSeatsHeldFromViewer:
+      room.status === 'assembling' || room.status === 'ready'
+        ? debaterSeatsHeldFrom(room, actorId, now)
+        : 0,
     capabilities: roomCapabilities(room, actorId, blocker),
     startRefusal: blocker,
     roundRef: room.roundRef,
