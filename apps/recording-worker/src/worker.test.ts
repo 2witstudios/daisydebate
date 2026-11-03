@@ -55,6 +55,7 @@ const runOne = async (
     removeWorkDir: async (path) => {
       calls.removed.push(path);
     },
+    strip: async () => {},
     discardPage: over.discardPage ?? (async () => 0),
     build: async (input, run) => {
       calls.builds.push(input);
@@ -236,6 +237,7 @@ describe('a run that died with its process', () => {
       report: () => {},
       workDirOf: () => '/work',
       removeWorkDir: async () => {},
+      strip: async () => {},
       discardPage: async () => 0,
       build: async () => built,
       store: {
@@ -268,6 +270,7 @@ describe('a claimed discard', () => {
     const pages = [1000, 3, 0];
     const asked: string[] = [];
     const calls = await runOne(discarding, {
+      strip: async () => {},
       discardPage: async (prefix) => {
         asked.push(prefix);
         return pages.shift() ?? 0;
@@ -285,6 +288,7 @@ describe('a claimed discard', () => {
   });
   test('a storage failure retries and never claims it settled', async () => {
     const calls = await runOne(discarding, {
+      strip: async () => {},
       discardPage: async () => {
         throw new Error('outage');
       },
@@ -393,5 +397,55 @@ describe('a run past its ceiling', () => {
       actual: calls.reported,
       expected: [],
     });
+  });
+});
+
+test('a failed Recording is stripped by what history proved, and says it is done', async () => {
+  const stripped: unknown[] = [];
+  const finished: unknown[] = [];
+  let claims = 0;
+  const intervals = [{ fromMs: 1, toMs: 2 }];
+  await runWorker({
+    owner: 'w',
+    now: () => 1000,
+    sleep: async () => {},
+    stopped: () => claims >= 2,
+    report: () => {},
+    build: async () => {
+      throw new Error('never');
+    },
+    discardPage: async () => 0,
+    strip: async (prefix, kept) => {
+      stripped.push([prefix, kept]);
+    },
+    workDirOf: () => '/w',
+    removeWorkDir: async () => {},
+    store: {
+      claim: async () => {
+        claims += 1;
+        return claims === 1
+          ? {
+              recordingId: 'r',
+              holdPrefix: 'hold/b/',
+              status: 'stripping',
+              leaseEpoch: 1,
+              failures: 0,
+              state: { status: 'stripping', publicIntervals: intervals },
+            }
+          : null;
+      },
+      finish: async (input: { state: unknown }) => {
+        finished.push((input.state as { status: string }).status);
+        return true;
+      },
+      defer: async () => null,
+      renew: async () => true,
+    } as never,
+  } as never);
+  assert({
+    given: 'a job told to strip',
+    should: 'cut the hold to those intervals, then record it stripped',
+    actual: [stripped, finished],
+    expected: [[['hold/b/', intervals]], ['stripped']],
   });
 });

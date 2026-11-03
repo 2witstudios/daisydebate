@@ -112,6 +112,9 @@ describe('Deleting a long feed', () => {
         },
         recordWithdrawn: async () => {},
         complete: async () => {},
+        recordingKeepsHold: async () => true,
+        discardHoldPage: async () => 0,
+        nowMs: () => NOW,
       },
     );
     assert({

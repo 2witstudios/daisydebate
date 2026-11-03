@@ -81,7 +81,7 @@ export const runWorker = async (deps: {
       let lapsedSaid = false;
       let passedThroughMs = 0;
       let skipped = job.releaseSkips.clips;
-      let failing: { readonly clipMs: number; attempts: number } | null = null;
+      const clipFailures = new Map<number, number>();
       let leaseUntilMs = deps.now() + LEASE_MS;
       let leaseEnded = false;
       let finished = false;
@@ -268,11 +268,9 @@ export const runWorker = async (deps: {
             deps.report('broadcast.release_failed');
             const clipMs = attempting;
             if (error instanceof UnreadableClip && clipMs !== null) {
-              failing =
-                failing?.clipMs === clipMs
-                  ? { clipMs, attempts: failing.attempts + 1 }
-                  : { clipMs, attempts: 1 };
-              if (failing.attempts >= CLIP_ATTEMPTS) {
+              const attempts = (clipFailures.get(clipMs) ?? 0) + 1;
+              clipFailures.set(clipMs, attempts);
+              if (attempts >= CLIP_ATTEMPTS) {
                 await store.recordSkipped({
                   id: job.id,
                   owner: deps.owner,
@@ -280,10 +278,8 @@ export const runWorker = async (deps: {
                   capturedAtMs: clipMs,
                 });
                 skipped = [...skipped, clipMs];
-                failing = null;
                 deps.report('broadcast.clip_skipped');
-              } else
-                await deps.sleep(CLIP_RETRY_MS * 2 ** (failing.attempts - 1));
+              } else await deps.sleep(CLIP_RETRY_MS * 2 ** (attempts - 1));
             } else await deps.sleep(IDLE_MS);
           }
         } finally {
