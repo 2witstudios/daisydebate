@@ -122,6 +122,11 @@ belongs to a committed segment by its foreign key, and one on a segment still op
 past the last heartbeat waits, like the media beside it. Results, ballots and ratings
 are not captured from any interval and keep following the watermark.
 
+Settled time with nothing public in it moves the watermark as it comes due, publishing
+nothing, so a long prep or judging does not read as a stalled release. Only time past
+the last heartbeat stands still, and that is what `release_delayed` and the audience's
+interrupted state are for.
+
 The public playlist marks a discontinuity at each gap. The Daisy player covers the
 video with a slate after 5 s stalled, and for 4 s when hls.js sees capture time jump
 over 12 s. A native (Safari) player gets only the stall slate. A streaming tool

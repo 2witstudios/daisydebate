@@ -17,6 +17,7 @@ test('a database failure does not end the slot', async () => {
     scratch: noScratch,
     objects: {} as never,
     store: {
+      recordPassed: async () => true,
       readPublicHistory: async () => [
         { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
       ],
@@ -58,6 +59,7 @@ test('a failed release step keeps the job instead of waiting out its own lease',
       },
     } as never,
     store: {
+      recordPassed: async () => true,
       readPublicHistory: async () => [
         { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
       ],
@@ -121,6 +123,7 @@ test('what a step put on disk goes with the step, whatever became of it', async 
       },
     } as never,
     store: {
+      recordPassed: async () => true,
       readPublicHistory: async () => [
         { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
       ],
@@ -170,6 +173,7 @@ test('media past the last heartbeat is said once, and the slot stays with the jo
       },
     } as never,
     store: {
+      recordPassed: async () => true,
       readPublicHistory: async () => [
         { startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 },
       ],

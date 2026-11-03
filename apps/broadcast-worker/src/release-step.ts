@@ -41,6 +41,8 @@ export type ReleasePorts = {
     seq: number,
     mediaEndMs: number,
   ) => Promise<boolean>;
+  /** Settled time with nothing public in it has come due: no media, only the timeline. */
+  readonly recordPassed: (throughMs: number) => Promise<boolean>;
   /** Every held segment is out, so the timeline reaches the end of the media. */
   readonly recordEnded: (mediaEndMs: number) => Promise<boolean>;
   /** This attempt's hold is empty and a later attempt exists: move to it. */
@@ -66,6 +68,8 @@ export type ReleaseInput = {
   readonly heartbeatMs: number | null;
   /** What committed history proves public: nothing outside this is ever released. */
   readonly publicIntervals: readonly PublicInterval[];
+  /** The durable watermark as last read, so a pass with nothing new writes nothing. */
+  readonly releasedThroughMs: number | null;
 };
 
 export type ReleaseResult =
@@ -189,13 +193,27 @@ export const releaseStep = async (
   const held = publicClips(settled, input.publicIntervals);
   const entry = held[input.holdCursor];
   const unsettled = entries[settled.length];
-  if (!entry && unsettled) {
-    const due = segmentDue(input.policy, unsettled, {
+  // Due settled time before the next clip holds nothing to release, or the watermark
+  // would sit still through a long prep and read as a stalled Broadcast.
+  const due = (one: HoldEntry) =>
+    segmentDue(input.policy, one, {
       nowMs: input.nowMs,
       roundEndedAtMs: input.roundEndedAtMs,
     });
-    return due ? { kind: 'lapsed' } : { kind: 'waiting' };
+  const lastDue = settled.filter(due).at(-1);
+  if (lastDue && !(entry && due({ ...entry.source, ...entry }))) {
+    const through = Math.min(
+      lastDue.capturedAtMs + lastDue.durationMs,
+      entry?.capturedAtMs ?? Number.POSITIVE_INFINITY,
+    );
+    if (
+      through > (input.releasedThroughMs ?? 0) &&
+      !(await ports.recordPassed(through))
+    )
+      return { kind: 'fenced' };
   }
+  if (!entry && unsettled)
+    return due(unsettled) ? { kind: 'lapsed' } : { kind: 'waiting' };
   if (!entry) {
     if (input.laterAttemptStartedMs !== null)
       return input.nowMs >= input.laterAttemptStartedMs + HOLD_SETTLE_MS

@@ -67,6 +67,7 @@ export const runWorker = async (deps: {
       let facts = job;
       let renewedAt = deps.now();
       let lapsedSaid = false;
+      let passedThroughMs = 0;
       while (!deps.stopped() && facts.completedAt === null) {
         let encoded = false;
         // A failed step keeps the job: dropping it waits out this worker's own lease.
@@ -105,6 +106,10 @@ export const runWorker = async (deps: {
               roundEndedAtMs: facts.finalMediaEndAt?.getTime() ?? null,
               finalMediaEndMs: facts.finalMediaEndAt?.getTime() ?? null,
               heartbeatMs: facts.controlHeartbeatAt?.getTime() ?? null,
+              releasedThroughMs: Math.max(
+                facts.releasedThroughAt?.getTime() ?? 0,
+                passedThroughMs,
+              ),
               publicIntervals: publicIntervals(
                 await store.readPublicHistory(job.id),
                 facts.controlHeartbeatAt?.getTime() ?? null,
@@ -156,6 +161,16 @@ export const runWorker = async (deps: {
                   segment,
                   mediaEnd: new Date(mediaEndMs),
                 }),
+              recordPassed: async (throughMs) => {
+                const held = await store.recordPassed({
+                  id: job.id,
+                  owner: deps.owner,
+                  epoch: job.leaseEpoch,
+                  through: new Date(throughMs),
+                });
+                passedThroughMs = throughMs;
+                return held;
+              },
               recordEnded: (mediaEndMs) =>
                 store.recordEnded({
                   id: job.id,

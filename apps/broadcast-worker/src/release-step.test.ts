@@ -41,6 +41,10 @@ const world = (over: Partial<ReleasePorts> = {}) => {
       log.push('advanced');
       return true;
     },
+    recordPassed: async (through) => {
+      log.push(`passed ${through - start}`);
+      return true;
+    },
     recordEnded: async (end) => {
       log.push(`ended ${end - start}`);
       return true;
@@ -63,6 +67,7 @@ const input = (
   finalMediaEndMs: null,
   heartbeatMs: start + 1_000_000,
   publicIntervals: [{ fromMs: start - 1000, toMs: start + 1_000_000 }],
+  releasedThroughMs: null,
   ...over,
 });
 
@@ -78,6 +83,44 @@ describe('only what history proves public', () => {
       should: 'say lapsed and publish nothing',
       actual: [answer.kind, log],
       expected: ['lapsed', []],
+    });
+  });
+  test('settled time with nothing public moves the timeline, and publishes nothing', async () => {
+    const { ports, log } = world();
+    const answer = await releaseStep(
+      input({ publicIntervals: [], nowMs: start + 200_000 }),
+      ports,
+    );
+    const { ports: later, log: laterLog } = world();
+    await releaseStep(
+      input({
+        publicIntervals: [],
+        nowMs: start + 200_000,
+        releasedThroughMs: start + 12_000,
+      }),
+      later,
+    );
+    assert({
+      given: 'three due segments with no public interval, then already passed',
+      should: 'move the watermark past them once, with no media at all',
+      actual: [answer.kind, log, laterLog],
+      expected: ['waiting', ['passed 12000'], []],
+    });
+  });
+  test('the watermark stops at the next clip, and waits for it', async () => {
+    const { ports, log } = world();
+    await releaseStep(
+      input({
+        publicIntervals: [{ fromMs: start + 6_000, toMs: start + 8_000 }],
+        nowMs: start + 4_000 + 60_000,
+      }),
+      ports,
+    );
+    assert({
+      given: 'a due segment outside, then a clip in the next one not yet due',
+      should: 'pass only what is due, and publish nothing',
+      actual: log,
+      expected: ['passed 4000'],
     });
   });
   test('a segment no interval touches leaves no hole in the sequence', async () => {
@@ -326,6 +369,7 @@ describe('releaseStep', () => {
       nextSegment: 3,
       holdCursor: 3,
       laterAttemptStartedMs: later,
+      releasedThroughMs: start + 12_000,
     };
     const settling = await releaseStep(
       input({ ...drained, nowMs: later + 9_999 }),

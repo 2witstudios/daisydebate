@@ -220,6 +220,30 @@ export const recordHoldAdvanced = async (
   return rows.length > 0;
 };
 
+/**
+ * Time history has settled as not public has passed with nothing to release: the
+ * timeline moves on, so a long prep or judging reads as what it is, not as a stalled
+ * release. It publishes nothing, and it never recedes.
+ */
+export const recordNotPublicPassed = async (
+  tx: Tx,
+  input: {
+    readonly id: string;
+    readonly owner: string;
+    readonly epoch: number;
+    readonly through: Date;
+  },
+): Promise<boolean> => {
+  const rows = await tx
+    .update(broadcasts)
+    .set({
+      releasedThroughAt: sql`greatest(${broadcasts.releasedThroughAt}, ${input.through.toISOString()}::timestamptz)`,
+    })
+    .where(held(input.id, input.owner, input.epoch))
+    .returning({ id: broadcasts.id });
+  return rows.length > 0;
+};
+
 /** Every held segment is out: the timeline reaches the end of the media. */
 export const recordMediaEndReleased = async (
   tx: Tx,
