@@ -41,8 +41,8 @@ test('idle bot control records actual opponent-speech attendance despite refused
           undefined,
           'retiredroom0000000000000',
         )
-        .catch((error: Error) => error.message),
-      expected: 'Bot media room changed',
+        .catch((error: { reason?: string }) => error.reason),
+      expected: 'bot-room-changed',
     });
     const receipts = await control(claim).pulse();
     const [stored] =

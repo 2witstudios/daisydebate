@@ -152,8 +152,20 @@ test('an unknown real vendor outcome is fenced by retirement, and its late settl
   await withMediaRound(async (f) => {
     const delayed = delayedMediaCreation();
     const reporter: unknown[] = [];
+    const lateSettlement = Promise.withResolvers<void>();
+    const deps = mediaDependencies(
+      f,
+      createMediaService({ config: delayed.config }),
+    );
     const operations = createRoundMediaOperations({
-      ...mediaDependencies(f, createMediaService({ config: delayed.config })),
+      ...deps,
+      store: {
+        ...deps.store,
+        settleMediaMutation: async (...args) => {
+          await deps.store.settleMediaMutation(...args);
+          lateSettlement.resolve();
+        },
+      },
       reporter: {
         capture: (error) => {
           reporter.push(error);
@@ -192,7 +204,7 @@ test('an unknown real vendor outcome is fenced by retirement, and its late settl
         expected: [false, true, null, null, 'superseded', 1],
       });
       delayed.release();
-      await Bun.sleep(100);
+      await lateSettlement.promise;
       const [settled] =
         await f.sql`select outcome from media_vendor_mutations where session_id=${first!.id} and kind='create' order by dispatched_at limit 1`;
       assert({

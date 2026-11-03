@@ -1,5 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
 import { createBotGenerationOperations } from './bot-generation';
 export { isFinalBotSpeechRefusal } from './bot-generation-rules';
@@ -154,7 +154,7 @@ export function createBotPublicationOperations(input: {
             sql`select 1 from media_sessions where round_id=${scope.roundId} and room_name=${room} limit 1`,
           );
           if (named.length !== 1)
-            throw createAppError('CONFLICT', 'Bot media room changed');
+            throw createRefusal('CONFLICT', 'bot-room-changed');
         }
         await requireBotSpeakingWindow(tx, scope, window);
         if (window)

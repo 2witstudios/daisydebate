@@ -43,7 +43,8 @@ stay refused as ADR 0053 requires. A terminal session ends only on observed abse
 attempt, and the reclaiming delete can reach a stale room. The Round itself is already
 over and does not wait for this.
 
-**What stays behind.** An empty late-created room closes itself by `empty_timeout`. A
+**What stays behind.** The 6 s does not bound the provider: a reclaiming delete can make three calls of 5 s, so
+a late create can still appear under the retired name. An empty late-created room closes itself by `empty_timeout`. A
 client still in a retired room on a partitioned node can talk only to others there: no
 capture, judge or floor reaches it.
 

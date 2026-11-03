@@ -341,6 +341,9 @@ test('a signal blip resumes the same connection with its tracks, says so, and ne
       });
       return seen;
     });
+    const reread = source.waitForRequest((request) =>
+      new URL(request.url()).pathname.endsWith('/media/reconcile'),
+    );
     await source.evaluate(() => {
       const { daisySignal } = window as never as { daisySignal: WebSocket[] };
       daisySignal.at(-1)!.close();
@@ -354,6 +357,7 @@ test('a signal blip resumes the same connection with its tracks, says so, and ne
         { timeout: 5_000 },
       )
       .toBe(true);
+    await reread;
     await expectConnected(source);
     await expectPeerCamera(peer);
     expect(await camera.evaluate((track) => track.readyState)).toBe('live');

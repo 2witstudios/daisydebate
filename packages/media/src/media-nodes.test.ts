@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMediaNodes } from './media-nodes';
 import type { createMediaService } from './service';
@@ -40,12 +41,17 @@ test('a read moves past a node that faults; a definite answer stands', async () 
     ['a.invalid', 'b.invalid'],
   );
   const answer = await service.exists('room');
-  const refused = await service.participants('room').catch((e) => e.code);
+  await assertRejects({
+    given: 'node A refusing a read',
+    should: 'keep the refusal rather than ask node B',
+    code: 'NOT_FOUND',
+    actual: () => service.participants('room'),
+  });
   assert({
     given: 'node A faulting on one read and refusing another',
-    should: 'answer from B for the fault, and keep the refusal',
-    actual: [answer, refused, asked],
-    expected: [true, 'NOT_FOUND', ['a', 'b', 'a']],
+    should: 'answer from B for the fault, and ask only A for the other',
+    actual: [answer, asked],
+    expected: [true, ['a', 'b', 'a']],
   });
 });
 

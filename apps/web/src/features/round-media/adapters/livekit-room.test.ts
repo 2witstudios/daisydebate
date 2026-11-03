@@ -901,3 +901,25 @@ test('a device lost while its publish ran is reported once it lands', async () =
     expected: ['published', 'track-ended'],
   });
 });
+
+test('the SDK saying a signal resume began reports a blip', async () => {
+  const stub = stubSdk();
+  const said: string[] = [];
+  const room = createLiveKitRoom(
+    {
+      report: (event) => said.push(event.type),
+      handles: () => undefined,
+      checkedDevices: () => ({ state: 'available', choices: {} }),
+    },
+    stub.sdk,
+  );
+  await room.connect(admission);
+  stub.fire(RoomEvent.SignalReconnecting);
+  stub.fire(RoomEvent.Reconnected);
+  assert({
+    given: 'an ordinary signal resume',
+    should: 'say it began and that it landed',
+    actual: said.filter((type) => type.startsWith('transport')),
+    expected: ['transport-resuming', 'transport-resumed'],
+  });
+});

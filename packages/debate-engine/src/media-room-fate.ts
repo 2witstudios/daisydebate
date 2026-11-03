@@ -1,4 +1,4 @@
-import type { MediaRoomRule } from '@daisy/protocol';
+import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
 
 /**
  * The one decision (ADR 0110). Observed absence settles it at once. Otherwise uncertainty
@@ -7,8 +7,8 @@ import type { MediaRoomRule } from '@daisy/protocol';
  * proof, since ending it stops every later delete attempt.
  */
 export const mediaRoomFate =
-  (retireAfterMs: number): MediaRoomRule =>
-  (facts) => {
+  (retireAfterMs: number) =>
+  (facts: MediaRoomFacts): MediaRoomFate => {
     const uncertain = facts.uncertainSinceMs !== null;
     if (facts.absenceProven) {
       if (facts.terminal) return { kind: 'end' };

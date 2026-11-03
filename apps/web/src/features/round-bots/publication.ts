@@ -5,7 +5,7 @@ import {
 import { createPacedAudioWriter } from '@daisy/media/publication';
 import type { Database } from '@daisy/db';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 
 type Publication = Awaited<ReturnType<typeof createAudioPublication>>;
 /** One synthesized bot phrase, bound to its publication scope and token. */
@@ -48,6 +48,8 @@ function wholeFrames(pcm: Int16Array) {
  */
 function createClaimPublication(input: {
   readonly open: (signal: AbortSignal) => Promise<Publication>;
+  /** Its session left the room it joined, so it hears nobody however well it runs. */
+  readonly roomLeft: () => boolean;
 }) {
   let current: Promise<Publication> | null = null;
   let closed = false;
@@ -87,7 +89,7 @@ function createClaimPublication(input: {
             return live(open());
           })
         : await live(open());
-      if (publication.usable()) return publication;
+      if (publication.usable() && !input.roomLeft()) return publication;
       await publication.close();
       if (closed) throw createAppError('CONFLICT');
       return live(open());
@@ -143,11 +145,14 @@ export function createBotPublisher(input: {
       }
     };
     let room: string | undefined;
+    let roomLeft = false;
     const publication = createClaimPublication({
+      roomLeft: () => roomLeft,
       open: async (signal) => {
         await input.store.verifyRoundBotPublication(claim.scope, claim.token);
         const grant = await input.botToken(claim.scope, claim.token);
         room = grant.roomName;
+        roomLeft = false;
         const native = await input.connect({
           url: grant.url,
           token: grant.token,
@@ -206,15 +211,21 @@ export function createBotPublisher(input: {
         authorizeWindow: async (window) => {
           // A publisher is always opened first, so this only refuses a broken order.
           if (room === undefined) throw createAppError('CONFLICT');
-          await input.store.verifyRoundBotPublication(
-            job.scope,
-            job.token,
-            {
-              beforeMs: Date.parse(window.before),
-              afterMs: Date.parse(window.after),
-            },
-            room,
-          );
+          try {
+            await input.store.verifyRoundBotPublication(
+              job.scope,
+              job.token,
+              {
+                beforeMs: Date.parse(window.before),
+                afterMs: Date.parse(window.after),
+              },
+              room,
+            );
+          } catch (error) {
+            // The next attempt joins the session's fresh room (ADR 0110).
+            roomLeft = isAppError(error) && error.reason === 'bot-room-changed';
+            throw error;
+          }
           return true;
         },
         // Resume follows what was heard, not what was credited (ISSUE-431-r7),

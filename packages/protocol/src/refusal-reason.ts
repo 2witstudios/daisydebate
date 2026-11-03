@@ -9,7 +9,7 @@ import type { RoundRefusal } from './round-command';
  */
 type RoundCompletionRefusal = 'panel-ineligible';
 /** Expected media backpressure: a retryable 503 that needs no one to look. */
-type RoundMediaRefusal = 'media-deferred';
+type RoundMediaRefusal = 'media-deferred' | 'bot-room-changed';
 
 /**
  * Every word an `AppError` may carry as its `reason`: code branches on these

@@ -25,5 +25,3 @@ export type MediaRoomFate =
     }
   /** The room is proven gone and nothing requires a new one yet. */
   | { readonly kind: 'clear' };
-
-export type MediaRoomRule = (facts: MediaRoomFacts) => MediaRoomFate;

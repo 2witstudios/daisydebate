@@ -1,5 +1,5 @@
 import { revokedBoundSeats, rotateMediaRoom } from './media-session-rotation';
-import type { MediaRoomRule } from '@daisy/protocol';
+import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
 import {
   readMediaBotLeases,
   mediaHearingSeats,
@@ -257,7 +257,7 @@ export function createMediaReconcileStore(input: {
         readonly absenceProof: MediaAbsenceProof | null;
         readonly clean: boolean;
         readonly mediaWindowClosed: MediaWindowRule;
-        readonly roomFate: MediaRoomRule;
+        readonly roomFate: (facts: MediaRoomFacts) => MediaRoomFate;
       },
     ) {
       return withFence(request, async (tx, session, now) => {

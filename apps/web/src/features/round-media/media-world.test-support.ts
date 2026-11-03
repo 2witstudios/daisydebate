@@ -1,4 +1,4 @@
-import type { MediaRoomRule } from '@daisy/protocol';
+import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { MediaSnapshot } from './projection';
 import {
@@ -230,7 +230,7 @@ export function createMediaWorld(
     }),
     finishMediaReconcile: async (request: {
       absenceProof: { mutationHorizon: number } | null;
-      roomFate: MediaRoomRule;
+      roomFate: (facts: MediaRoomFacts) => MediaRoomFate;
     }) => {
       served = running;
       leaseOwner = options.reclaimedAfterFinish ? 'recovery-worker' : null;

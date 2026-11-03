@@ -39,7 +39,11 @@ const differs = (
     [{ identity, grants: current }],
     [{ identity, grants: desired }],
   ).length > 0;
-/** Past one vendor call's own timeout, so a live node's blip has answered. */
+/**
+ * Past one vendor call's own timeout, so a live node's blip has answered. It does not
+ * bound the provider: a reclaiming delete can make three calls, so a late create can still
+ * leave an empty room under the old name, which closes itself by `empty_timeout`.
+ */
 const roomFate = mediaRoomFate(MEDIA_CALL_TIMEOUT_MS + 1_000);
 const needsCleanup = (state: MediaSnapshot, claim: Claim) =>
   Boolean(
