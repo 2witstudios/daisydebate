@@ -28,14 +28,13 @@ import { RatingVisibilityForm } from '../../../ui/settings/preferences/rating-vi
 export const metadata: Metadata = { title: 'Settings' };
 
 /** The member's stored notification choices and their watch history. */
-async function audienceSections(userId: string, saved: boolean) {
+async function audienceSections(userId: string) {
   const { preferences, history } = await requestAudienceSettings(userId);
   return {
     notifications: (
       <NotificationPreferencesForm
         action={saveNotificationPreferencesAction}
         preferences={preferences}
-        saved={saved}
       />
     ),
     watchHistory: (
@@ -72,10 +71,7 @@ export default async function SettingsRoute({
   return (
     <SettingsPage
       {...('principal' in identity && identity.principal.kind === 'user'
-        ? await audienceSections(
-            identity.principal.userId,
-            query['notifications'] === 'saved',
-          )
+        ? await audienceSections(identity.principal.userId)
         : {})}
       username={claimedUsername(identity)}
       dataRightsNotices={parseDataRightsQuery(query)}

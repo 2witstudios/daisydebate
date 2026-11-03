@@ -733,3 +733,43 @@ test('stored preferences read back as saved', async () => {
     });
   });
 });
+
+test('a seat reads as what its Round is, and no seat reads as none', async () => {
+  await withEnv(async (env) => {
+    const roundId = await env.audienceRound('public', {
+      competition_type: 'ranked',
+      format_id: 'freestyle',
+      preset_version: 1,
+      ladder_id: 'freestyle',
+      status: 'completed',
+      outcome: 'affirmative',
+      started_at: at(0),
+      completed_at: at(1),
+    });
+    const debater = await member(env.f);
+    await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
+    await env.client`insert into broadcasts (id,round_id,release_policy,debaters_read_chat)
+      values (${createId()},${roundId},${{ kind: 'delay', seconds: 60 }},true)`;
+    assert({
+      given: 'a ranked seat whose Broadcast wrongly says debaters may read',
+      should:
+        'report the facts for the feature’s rule, and nothing for a stranger',
+      actual: [
+        await env.snapshot.readAudienceSeat({
+          roundId,
+          actorId: debater.actorId,
+        }),
+        await env.snapshot.readAudienceSeat({ roundId, actorId: createId() }),
+      ],
+      expected: [
+        {
+          role: 'affirmative',
+          competitionType: 'ranked',
+          roundEnded: true,
+          debatersReadChat: true,
+        },
+        null,
+      ],
+    });
+  });
+});

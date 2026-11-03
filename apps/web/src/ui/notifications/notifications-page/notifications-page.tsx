@@ -9,11 +9,8 @@ import { PageHeader } from '../../components/page-header/page-header';
 import { Panel } from '../../components/panel/panel';
 import { TabLinks } from '../../components/tab-links/tab-links';
 import { ReadingPage } from '../../components/reading-page/reading-page';
-import { Button } from '../../components/button/button';
-import {
-  ActionForm,
-  type FormStateAction,
-} from '../../form-action/action-form';
+import type { FormStateAction } from '../../form-action/action-form';
+import { MarkReadButton } from './mark-read-button';
 
 type NotificationsPageProps = {
   readonly query: NotificationsQuery;
@@ -56,13 +53,7 @@ export function NotificationsPage({
         ]}
       />
       {unread > 0 ? (
-        <ActionForm action={markAllRead} label="Mark all as read">
-          {({ pending }) => (
-            <Button type="submit" variant="secondary" disabled={pending}>
-              Mark all as read
-            </Button>
-          )}
-        </ActionForm>
+        <MarkReadButton action={markAllRead} label="Mark all as read" />
       ) : null}
       <Panel title={query.unreadOnly ? 'Unread' : 'Recent'}>
         {rows.length === 0 ? (
@@ -81,17 +72,10 @@ export function NotificationsPage({
                   {row.unread ? <Badge tone="accent">New</Badge> : null}
                   {row.when}
                   {row.unread ? (
-                    <ActionForm action={markRead(row.id)} label="Mark as read">
-                      {({ pending }) => (
-                        <Button
-                          type="submit"
-                          variant="secondary"
-                          disabled={pending}
-                        >
-                          Mark as read
-                        </Button>
-                      )}
-                    </ActionForm>
+                    <MarkReadButton
+                      action={markRead(row.id)}
+                      label="Mark as read"
+                    />
                   ) : null}
                 </span>
               </li>

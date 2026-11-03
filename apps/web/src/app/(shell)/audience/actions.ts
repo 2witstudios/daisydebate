@@ -14,9 +14,10 @@ import {
   CHAT_POST_FAILED,
   chatRefusalText,
 } from '../../../features/messaging/spectator-chat/form';
-import { moveOn } from '../../../server/form-action';
+import { stayOn } from '../../../server/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
+import type { NotificationPreferencesState } from '../../../ui/notifications/notification-preferences-form';
 import { post } from '../form-post';
 
 const routes = {
@@ -69,7 +70,9 @@ export async function postSpectatorChatAction(
   } catch {
     return refused(form, CHAT_POST_FAILED);
   }
-  return { values: {}, ...moveOn(incoming, backTo(target.returnTo)) };
+  const to = backTo(target.returnTo);
+  revalidatePath(to);
+  return { values: {}, ...stayOn(incoming, to) };
 }
 
 /** Sends one reaction; the pressed button names which. */
@@ -90,7 +93,9 @@ export async function reactToRoundAction(
   } catch {
     return refused(form, 'That reaction did not go through. Try again.');
   }
-  return { values: {}, ...moveOn(incoming, backTo(target.returnTo)) };
+  const to = backTo(target.returnTo);
+  revalidatePath(to);
+  return { values: {}, ...stayOn(incoming, to) };
 }
 
 /** Follows or stops following a debater. */
@@ -117,7 +122,7 @@ export async function setDebaterFollowAction(
   }
   const to = backTo(target.returnTo);
   revalidatePath(to);
-  return { values: {}, ...moveOn(incoming, to) };
+  return { values: {}, ...stayOn(incoming, to) };
 }
 
 const updateHistory = async (
@@ -133,7 +138,7 @@ const updateHistory = async (
     return failed;
   }
   revalidatePath('/settings');
-  return { values: {}, ...moveOn(incoming, '/settings#watch-history') };
+  return { values: {}, ...stayOn(incoming, '/settings#watch-history') };
 };
 
 export async function forgetWatchedAction(
@@ -161,7 +166,7 @@ const markRead = async (body: unknown, form: FormData): Promise<FormState> => {
     return failed;
   }
   revalidatePath('/notifications');
-  return { values: {}, ...moveOn(incoming, '/notifications') };
+  return { values: {}, ...stayOn(incoming, '/notifications') };
 };
 
 export async function markNotificationReadAction(
@@ -181,11 +186,9 @@ export async function markAllNotificationsReadAction(
 
 /** Stores what the member chose; Settings then reads it back (ISSUE-1045). */
 export async function saveNotificationPreferencesAction(
-  _previous: FormState,
+  _previous: NotificationPreferencesState,
   form: FormData,
-): Promise<FormState> {
-  const incoming = new Headers(await headers());
-  const failed = refused(form, 'Could not save. Try again.');
+): Promise<NotificationPreferencesState> {
   try {
     const response = await post(
       routes.preferences,
@@ -196,15 +199,12 @@ export async function saveNotificationPreferencesAction(
         recording_ready: form.get('recording_ready') === 'on',
       },
     );
-    if (!response.ok) return failed;
+    if (!response.ok) return { notice: 'Could not save. Try again.' };
   } catch {
-    return failed;
+    return { notice: 'Could not save. Try again.' };
   }
   revalidatePath('/settings');
-  return {
-    values: {},
-    ...moveOn(incoming, '/settings?notifications=saved#notifications'),
-  };
+  return { notice: 'Saved.' };
 }
 
 /** Reports a chat message through /api/content-reports, then comes back. */
