@@ -103,7 +103,9 @@ membership. Every terminal state frees its members:
   judge answers `assign-seat` from either as a member not in the Room does. So
   neither can remove or replace a human judge; closing the Room is their answer
   to a stuck judge seat. A closed Room's
-  status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone.
+  status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone. A started
+  Room also reads `closed` to anyone outside it, with no drawn resolution, so the
+  Room read never says a Round began before the spectator timeline does (WATCH-6).
 - **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, the Room maintenance
   sweep (its own worker, apart from Round maintenance) closes an open Room
   with no accepted command for that long, by database time.

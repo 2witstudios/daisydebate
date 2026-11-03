@@ -263,6 +263,78 @@ describe('projectRoom format (FMT-1)', () => {
   });
 });
 
+describe('projectRoom for someone outside a started Room (WATCH-6)', () => {
+  const now = '2026-01-01T00:00:00.000Z';
+  const started = {
+    ...room,
+    status: 'started' as const,
+    roundRef: { id: 'round', status: 'active' as const },
+  };
+  const drawn = {
+    ...started,
+    topic: 'The drawn resolution',
+    config: {
+      ...started.config,
+      resolutionDraw: {
+        enabled: true as const,
+        source: { kind: 'bank' as const, count: 5 },
+      },
+    },
+  } as unknown as typeof started;
+  const noConsent = { available: true, readyActorIds: [] };
+  const closedBase = { ...room, status: 'closed' as const };
+
+  test('reads like any other closed Room', () => {
+    const outsider = projectRoom(started, 'outsider', noConsent, now);
+    assert({
+      given: 'a started public Room read by someone with no seat',
+      should:
+        'answer closed, as an expired or cancelled Room does, so nothing says it started',
+      actual: outsider,
+      expected: projectRoom(closedBase, 'outsider', noConsent, now),
+    });
+  });
+
+  test('never carries a drawn resolution', () => {
+    const outsider = projectRoom(drawn, 'outsider', noConsent, now);
+    assert({
+      given: 'a started draw Room read by someone with no seat',
+      should: 'carry no resolution, which the spectator timeline releases',
+      actual: [outsider.topic, JSON.stringify(outsider).includes('drawn res')],
+      expected: [null, false],
+    });
+  });
+
+  test('keeps a resolution known before the Round', () => {
+    assert({
+      given: 'a started Room with no draw, read by someone with no seat',
+      should: 'keep the topic it showed during assembly',
+      actual: projectRoom(
+        { ...started, topic: 'Authored' },
+        'outsider',
+        noConsent,
+        now,
+      ).topic,
+      expected: 'Authored',
+    });
+  });
+
+  test('tells its seats and host the truth', () => {
+    assert({
+      given: 'the same draw Room read by a seat and by its host',
+      should: 'say started and carry the resolution',
+      actual: ['judge-actor', drawn.hostActorId].map((viewer) => {
+        const seen = projectRoom(drawn, viewer, noConsent, now);
+        return [seen.status, seen.topic];
+      }),
+      expected: [
+        ['started', 'The drawn resolution'],
+        ['started', 'The drawn resolution'],
+      ],
+    });
+  });
+});
+
 describe('projectRoom round reference', () => {
   const started = {
     ...room,
