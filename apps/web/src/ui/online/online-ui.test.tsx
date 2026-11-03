@@ -5,6 +5,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { OnlineMember, OnlineRoster } from '@daisy/protocol';
 import { ratingsLabel, ratingText } from './member-card';
 import { ChallengeProvider } from '../challenges/challenge-provider';
+import { LobbyViews } from './lobby-views';
 import { OnlineProvider } from './online-provider';
 import { OnlineRail } from './online-rail';
 import { rowDetail } from './online-rows';
@@ -224,6 +225,27 @@ describe('StatusForm', () => {
         html.includes('Appear offline'),
       ],
       expected: [true, true, true, true],
+    });
+  });
+});
+
+describe('LobbyViews', () => {
+  test('the phone’s Online view still names the page', () => {
+    const html = renderToString(
+      h(LobbyViews, {
+        view: 'online',
+        rooms: h('p', null, 'rooms'),
+        online: h('p', null, 'online'),
+        onlineCount: null,
+      }),
+    );
+    assert({
+      given: 'the Lobby opened on its Online view',
+      should: 'keep the Lobby heading above the list',
+      actual:
+        html.indexOf('>Lobby</h1>') > -1 &&
+        html.indexOf('>Lobby</h1>') < html.indexOf('<p>online</p>'),
+      expected: true,
     });
   });
 });

@@ -59,6 +59,7 @@ export function LobbyViews({
           view === 'online' && 'max-narrow:block',
         )}
       >
+        <h1 className="mb-3 font-display text-2xl font-semibold">Lobby</h1>
         {online}
       </div>
     </>
