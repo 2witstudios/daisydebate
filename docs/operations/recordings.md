@@ -71,7 +71,7 @@ from recording_processing_jobs where status <> 'settled' order by updated_at;
 ## What it needs to run
 
 - A `recording-worker` app (`fly.recording-worker.toml`), its database login
-  `daisy_recording_worker` (the migration creates the role with no password), and
+  `daisy_recording_worker` (the operator creates the role before the merge, deploy-staging), and
   `RECORDING_WORKER_DATABASE_URL`.
 - `RECORDING_HOLD_ENDPOINT`, `_BUCKET`, `_KEY` and `_SECRET`: a credential for the hold
   bucket that can read, list and delete. `RECORDING_BUCKET_*`: one that can write the
