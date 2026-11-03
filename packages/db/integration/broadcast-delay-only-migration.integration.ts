@@ -26,12 +26,7 @@ test(
     await scratch.migrate((folder) => folder < migration);
     const sql = new SQL(scratch.url, { max: 1 });
     try {
-      const seeded: {
-        held: string;
-        scheduled: string;
-        delayed: string;
-        room: string;
-      } = await withFixture(scratch.url, async (f) => {
+      await withFixture(scratch.url, async (f) => {
         const capture = (release: unknown) =>
           JSON.stringify({
             broadcast: { release, debatersReadChat: true },
@@ -53,53 +48,54 @@ test(
         await open(delayed, { kind: 'delay', seconds: 10 });
         await sql`update rounds set capture=${capture({ kind: 'round_end' })}::text::jsonb where id=${held}`;
         await sql`update rooms set capture=${capture({ kind: 'at', atMs: 1 })}::text::jsonb where id=${room}`;
-        return { held, scheduled, delayed, room };
-      });
-      await scratch.migrate((folder) => folder <= migration);
-      const policy = async (roundId: string) =>
-        (
-          await sql<
-            { release_policy: unknown }[]
-          >`select release_policy from broadcasts where round_id=${roundId}`
-        )[0]?.release_policy;
-      assert({
-        given: 'a hold for the end, a set time and a delay',
-        should: 'turn the first two into the longest delay, and keep the third',
-        actual: [
-          await policy(seeded.held),
-          await policy(seeded.scheduled),
-          await policy(seeded.delayed),
-        ],
-        expected: [longest, longest, { kind: 'delay', seconds: 10 }],
-      });
-      assert({
-        given: 'the choice a Round and a Room stored',
-        should: 'rewrite the release and keep the rest of the choice',
-        actual: [
+        const seeded = { held, scheduled, delayed, room };
+        await scratch.migrate((folder) => folder <= migration);
+        const policy = async (roundId: string) =>
           (
             await sql<
-              { capture: unknown }[]
-            >`select capture from rounds where id=${seeded.held}`
-          )[0]?.capture,
-          (
-            await sql<
-              { capture: unknown }[]
-            >`select capture from rooms where id=${seeded.room}`
-          )[0]?.capture,
-        ],
-        expected: Array(2).fill({
-          broadcast: { release: longest, debatersReadChat: true },
-          recording: false,
-        }),
-      });
-      assert({
-        given: 'the migrated check',
-        should: 'refuse any release but a delay',
-        actual: await rejectedBy(
-          () =>
-            sql`update broadcasts set release_policy='{"kind":"round_end"}'::jsonb where round_id=${seeded.delayed}`,
-        ),
-        expected: check,
+              { release_policy: unknown }[]
+            >`select release_policy from broadcasts where round_id=${roundId}`
+          )[0]?.release_policy;
+        assert({
+          given: 'a hold for the end, a set time and a delay',
+          should:
+            'turn the first two into the longest delay, and keep the third',
+          actual: [
+            await policy(seeded.held),
+            await policy(seeded.scheduled),
+            await policy(seeded.delayed),
+          ],
+          expected: [longest, longest, { kind: 'delay', seconds: 10 }],
+        });
+        assert({
+          given: 'the choice a Round and a Room stored',
+          should: 'rewrite the release and keep the rest of the choice',
+          actual: [
+            (
+              await sql<
+                { capture: unknown }[]
+              >`select capture from rounds where id=${seeded.held}`
+            )[0]?.capture,
+            (
+              await sql<
+                { capture: unknown }[]
+              >`select capture from rooms where id=${seeded.room}`
+            )[0]?.capture,
+          ],
+          expected: Array(2).fill({
+            broadcast: { release: longest, debatersReadChat: true },
+            recording: false,
+          }),
+        });
+        assert({
+          given: 'the migrated check',
+          should: 'refuse any release but a delay',
+          actual: await rejectedBy(
+            () =>
+              sql`update broadcasts set release_policy='{"kind":"round_end"}'::jsonb where round_id=${seeded.delayed}`,
+          ),
+          expected: check,
+        });
       });
     } finally {
       await sql.close();
