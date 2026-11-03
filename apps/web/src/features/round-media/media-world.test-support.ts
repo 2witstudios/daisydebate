@@ -1,4 +1,4 @@
-import type { MediaRoomRule } from '@daisy/debate-engine';
+import type { MediaRoomRule } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { MediaSnapshot } from './projection';
 import {

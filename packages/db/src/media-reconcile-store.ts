@@ -1,5 +1,5 @@
 import { revokedBoundSeats, rotateMediaRoom } from './media-session-rotation';
-import type { MediaRoomRule } from '@daisy/debate-engine';
+import type { MediaRoomRule } from '@daisy/protocol';
 import {
   readMediaBotLeases,
   mediaHearingSeats,

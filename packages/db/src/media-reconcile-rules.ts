@@ -1,4 +1,4 @@
-import type { MediaRoomFate } from '@daisy/debate-engine';
+import type { MediaRoomFate } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type {
   MediaReconcileFence,
