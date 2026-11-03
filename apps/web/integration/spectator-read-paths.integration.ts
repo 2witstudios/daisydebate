@@ -212,7 +212,7 @@ test('every public and member read holds a ranked outcome until release', async 
           captions: held.timeline.captions,
         },
         expected: {
-          stage: { kind: 'slate', phase: 'unreleased' },
+          stage: { kind: 'slate', moment: 'unreleased' },
           result: null,
           captions: [],
         },

@@ -18,7 +18,7 @@ const timeline: SpectatorTimeline = {
     { side: 'affirmative', kind: 'human', label: 'ana' },
     { side: 'negative', kind: 'bot', label: null },
   ],
-  stage: { kind: 'slate', phase: 'unreleased' },
+  stage: { kind: 'slate', moment: 'unreleased' },
   result: null,
   captions: [],
   releasedThrough: null,
@@ -52,6 +52,29 @@ describe('SpectatorFacts', () => {
     });
   });
 
+  test('a slate says what the video says, not that nothing is happening', () => {
+    const says = (
+      moment: 'before_first_speech' | 'between_speeches' | 'speeches_over',
+    ) =>
+      /aria-live="polite"[^>]*>([^<]*)</.exec(
+        html({ stage: { kind: 'slate', moment } }),
+      )?.[1];
+    assert({
+      given: 'each moment a slate can stand for',
+      should: 'announce it in words',
+      actual: [
+        says('before_first_speech'),
+        says('between_speeches'),
+        says('speeches_over'),
+      ],
+      expected: [
+        'The first speech is still to come.',
+        'Preparation or a break: the next speech is coming.',
+        'The speeches are over. The result comes next.',
+      ],
+    });
+  });
+
   test('repeats the facts in the video as text', () => {
     const page = html({
       resolution: 'A resolution',
@@ -80,19 +103,29 @@ describe('SpectatorFacts', () => {
   });
 
   test('what a slate on the video says', () => {
-    const said = (phase: 'unreleased' | 'starting' | 'between' | 'judging') =>
-      stageSentence({ kind: 'slate', phase });
+    const said = (
+      moment:
+        | 'unreleased'
+        | 'before_first_speech'
+        | 'between_speeches'
+        | 'speeches_over',
+    ) => stageSentence({ kind: 'slate', moment });
     assert({
       given: 'each slate the released video can show',
-      should: 'say it in words, as the burned-in slate does',
-      actual: (['unreleased', 'starting', 'between', 'judging'] as const).map(
-        said,
-      ),
+      should: 'say what released facts can tell, and name nothing they cannot',
+      actual: (
+        [
+          'unreleased',
+          'before_first_speech',
+          'between_speeches',
+          'speeches_over',
+        ] as const
+      ).map(said),
       expected: [
         'Nothing is on stage right now.',
-        'The first speech is coming up.',
-        'Next speech soon.',
-        'Judges are deciding.',
+        'The first speech is still to come.',
+        'Preparation or a break: the next speech is coming.',
+        'The speeches are over. The result comes next.',
       ],
     });
   });

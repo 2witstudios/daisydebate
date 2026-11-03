@@ -270,7 +270,7 @@ test.describe('watching with no account', () => {
     await expectPlaying(page);
     await advance(round.roundId, 'slate');
     await expect(
-      page.getByText('The stage returns when the next speech starts.'),
+      page.getByText('The video is showing a slate. Nobody is speaking.'),
     ).toBeVisible();
     await expect(page.locator('video')).toBeVisible();
     await advance(round.roundId, 'interrupt');

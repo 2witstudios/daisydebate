@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import type { RecordingHistoryScreen } from '../../../features/recording/history';
 import { watchRoutes } from '../../../features/watch/routes';
 import { Badge } from '../../components/badge/badge';
@@ -13,6 +14,8 @@ export type RecordingHistoryProps = {
   readonly screen: History;
   /** A fixed notice key from the removal form, already validated. */
   readonly notice: keyof typeof removalNotices | null;
+  /** The account's report control; a visitor has none. */
+  readonly report?: ReactNode;
 };
 
 export const removalNotices = {
@@ -158,7 +161,11 @@ function Removal({
  * and result where this viewer may read them, and what they may do with it. Each
  * panel appears only on its own permission.
  */
-export function RecordingHistory({ screen, notice }: RecordingHistoryProps) {
+export function RecordingHistory({
+  screen,
+  notice,
+  report,
+}: RecordingHistoryProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-4 px-6 pt-5 pb-8 max-compact:px-4">
       <nav aria-label="Breadcrumb" className="text-sm text-ink-muted">
@@ -214,6 +221,7 @@ export function RecordingHistory({ screen, notice }: RecordingHistoryProps) {
           {screen.removal ? (
             <Removal roundId={screen.roundId} removal={screen.removal} />
           ) : null}
+          {report}
         </div>
       </div>
     </div>

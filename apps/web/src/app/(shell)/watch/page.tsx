@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { redirectUnlessLaunched } from '../../../features/coming-soon/launch-gate';
 import type { SearchParams } from '../../../features/access/decision';
+import { accountOf } from '../../../features/access/account-of';
 import { signInHref } from '../../../features/access/decision';
 import { hubHref, parseLiveQuery } from '../../../features/watch/live-query';
 import {
+  requestFollowing,
   requestHubCounts,
   requestIdentity,
   requestLiveListing,
@@ -22,14 +24,12 @@ export default async function WatchPage({
 }) {
   redirectUnlessLaunched('watch');
   const query = parseLiveQuery(await searchParams);
-  const identity = await requestIdentity();
+  const account = accountOf(await requestIdentity());
   return (
     <WatchHub active={query.tab} counts={await requestHubCounts()}>
       {query.tab === 'following' ? (
         <FollowingTab
-          following={
-            identity.state === 'member' ? { people: [], history: [] } : null
-          }
+          following={account ? await requestFollowing(account.userId) : null}
           signInHref={signInHref(hubHref(query))}
         />
       ) : (

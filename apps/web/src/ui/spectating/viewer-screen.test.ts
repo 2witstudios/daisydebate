@@ -90,7 +90,7 @@ describe('viewerScreenOf', () => {
     assert({
       given: 'a slate on air',
       should: 'keep playing, since the video carries the slate, and say so',
-      actual: screen({ stage: { kind: 'slate', phase: 'unreleased' } }),
+      actual: screen({ stage: { kind: 'slate', moment: 'unreleased' } }),
       expected: { kind: 'player', stream, notice: 'slate' },
     });
     assert({
@@ -124,7 +124,7 @@ describe('viewerScreenOf', () => {
       given: 'a Broadcast starting',
       should: 'say so',
       actual: screen({
-        stage: { kind: 'slate', phase: 'unreleased' },
+        stage: { kind: 'slate', moment: 'unreleased' },
         broadcast: { state: 'starting' },
       }),
       expected: { kind: 'starting' },

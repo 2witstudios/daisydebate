@@ -32,6 +32,20 @@ describe('Submitting a report', () => {
     });
   });
 
+  test('it posts to the content report route, not the People one', async () => {
+    let url = '';
+    await submitReport(async (to) => {
+      url = to;
+      return new Response('{}');
+    }, form());
+    assert({
+      given: 'a report of a Round, a Recording or a chat message',
+      should: 'name /api/content-reports',
+      actual: url,
+      expected: '/api/content-reports',
+    });
+  });
+
   test('each response has one answer', async () => {
     const respond = (status: number) => async () =>
       new Response('{}', { status });

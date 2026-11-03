@@ -211,8 +211,8 @@ export async function saveNotificationPreferencesAction(
   return { notice: 'Saved.' };
 }
 
-/** Reports a chat message through /api/content-reports, then comes back. */
-export async function reportChatMessageAction(
+/** Files what the page's form names through /api/content-reports, then comes back. */
+export async function reportFromPageAction(
   returnTo: string,
   form: FormData,
 ): Promise<never> {

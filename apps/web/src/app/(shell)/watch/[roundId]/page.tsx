@@ -5,7 +5,13 @@ import {
   reportNotice,
 } from '../../../../features/content-moderation/submit-report';
 import { redirectUnlessLaunched } from '../../../../features/coming-soon/launch-gate';
-import { requestWatchRound } from '../../../../lib/request-session';
+import { accountOf } from '../../../../features/access/account-of';
+import {
+  requestIdentity,
+  requestWatchRound,
+} from '../../../../lib/request-session';
+import { ReportForm } from '../../../../ui/content-moderation/report-form';
+import { reportFromPageAction } from '../../audience/actions';
 import { RoundAudience } from '../../audience/round-audience';
 import { BroadcastViewer } from '../../../../ui/spectating/broadcast-viewer';
 import { SpectateRefusal } from '../../../../ui/watch/spectate-refusal/spectate-refusal';
@@ -28,6 +34,8 @@ export default async function WatchRoundPage({
   const { roundId } = await params;
   const timeline = await requestWatchRound(roundId);
   const reported = reportNotice((await searchParams)['report']);
+  const returnTo = `/watch/${encodeURIComponent(roundId)}`;
+  const account = accountOf(await requestIdentity());
   return timeline ? (
     <BroadcastViewer initial={timeline}>
       {reported ? (
@@ -35,10 +43,15 @@ export default async function WatchRoundPage({
           {reportAnswerText(reported)}
         </p>
       ) : null}
-      <RoundAudience
-        roundId={roundId}
-        returnTo={`/watch/${encodeURIComponent(roundId)}`}
-      />
+      <RoundAudience roundId={roundId} returnTo={returnTo} />
+      {account ? (
+        <ReportForm
+          targetKind="round"
+          targetId={timeline.roundId}
+          label="Report this round"
+          action={reportFromPageAction.bind(null, returnTo)}
+        />
+      ) : null}
     </BroadcastViewer>
   ) : (
     <div className="px-6 pt-8 pb-8 max-compact:px-4">

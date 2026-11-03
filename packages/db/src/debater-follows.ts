@@ -96,6 +96,7 @@ export const debaterFollowOperations = ({
             join actors a on a.id=f.debater_actor_id
             join users u on u.id=a.user_id and u.deleted_at is null
             where f.follower_user_id=${input.followerUserId}
+              and not ${blockedBetween(input.followerUserId, sql`f.debater_actor_id`)}
             order by lower(u.username) limit ${input.limit}`,
         )
       ).map((row) => row.username),

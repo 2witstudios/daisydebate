@@ -41,11 +41,11 @@ const pastLastSpeech = (read: StageFacts, key: string) =>
 /** A slate says only what the horizon has passed, so it is never ahead of the feed. */
 const slateBefore = (read: StageFacts): SpectatorTimeline['stage'] => ({
   kind: 'slate',
-  phase:
+  moment:
     read.horizonMs !== null &&
     read.round.startedAt !== null &&
     read.round.startedAt.getTime() + SPECTATOR_MARGIN_MS <= read.horizonMs
-      ? 'starting'
+      ? 'before_first_speech'
       : 'unreleased',
 });
 
@@ -61,7 +61,9 @@ export const releasedStage = (read: StageFacts): SpectatorTimeline['stage'] => {
   if (segment.endedAt && segment.endedAt.getTime() <= shownAt)
     return {
       kind: 'slate',
-      phase: pastLastSpeech(read, segment.key) ? 'judging' : 'between',
+      moment: pastLastSpeech(read, segment.key)
+        ? 'speeches_over'
+        : 'between_speeches',
     };
   return {
     kind: 'floor',

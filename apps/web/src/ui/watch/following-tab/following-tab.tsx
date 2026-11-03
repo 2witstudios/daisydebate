@@ -1,9 +1,5 @@
-import type { Following } from '../../../features/watch/social';
-import {
-  liveHref,
-  replayHref,
-  watchRoutes,
-} from '../../../features/watch/routes';
+import type { Following } from '../../../features/watch/following';
+import { liveHref, watchRoutes } from '../../../features/watch/routes';
 import { ActionLink } from '../action-link/action-link';
 import { StateCard } from '../state-card/state-card';
 import { Avatar } from '../../components/avatar/avatar';
@@ -51,7 +47,7 @@ export function FollowingTab({ following, signInHref }: FollowingTabProps) {
                   <span className="text-sm text-ink-muted">
                     {person.live
                       ? `Live now in ${person.live.title}`
-                      : person.lastRound}
+                      : 'Not live now'}
                   </span>
                 </div>
                 <ActionLink
@@ -81,9 +77,11 @@ export function FollowingTab({ following, signInHref }: FollowingTabProps) {
                   <span className="truncate text-base font-strong text-ink">
                     {item.title}
                   </span>
-                  <span className="text-sm text-ink-muted">{item.note}</span>
+                  <span className="text-sm text-ink-muted">
+                    {`Watched ${item.watchedOn}`}
+                  </span>
                 </div>
-                <ActionLink href={replayHref(item.id)}>Resume</ActionLink>
+                <ActionLink href={liveHref(item.id)}>Open</ActionLink>
               </li>
             ))}
           </ul>

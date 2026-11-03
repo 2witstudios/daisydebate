@@ -68,7 +68,7 @@ describe('projectSpectatorTimeline', () => {
       given: 'a live Round with no released media',
       should: 'show a slate, no resolution and no result',
       actual: [view.stage, view.resolution, view.result],
-      expected: [{ kind: 'slate', phase: 'unreleased' }, null, null],
+      expected: [{ kind: 'slate', moment: 'unreleased' }, null, null],
     });
   });
 
@@ -158,7 +158,7 @@ describe('projectSpectatorTimeline', () => {
           ],
         }),
       ).stage,
-      expected: { kind: 'slate', phase: 'judging' },
+      expected: { kind: 'slate', moment: 'speeches_over' },
     });
   });
 
@@ -178,7 +178,7 @@ describe('projectSpectatorTimeline', () => {
     } as unknown as Read['round']['rules'];
     const phaseOf = (over: Partial<Read>) => {
       const stage = projectSpectatorTimeline(read(over, { rules })).stage;
-      return stage.kind === 'slate' ? stage.phase : stage.kind;
+      return stage.kind === 'slate' ? stage.moment : stage.kind;
     };
     assert({
       given: 'nothing released at all',
@@ -196,7 +196,7 @@ describe('projectSpectatorTimeline', () => {
       given: 'the start released and no speech yet',
       should: 'say the first speech is coming',
       actual: phaseOf({ horizonMs: horizon(started), segments: [] }),
-      expected: 'starting',
+      expected: 'before_first_speech',
     });
     assert({
       given: 'a released speech ended with another still to come',
@@ -205,7 +205,7 @@ describe('projectSpectatorTimeline', () => {
         horizonMs: horizon(ended),
         segments: [speech('1AC', ended)],
       }),
-      expected: 'between',
+      expected: 'between_speeches',
     });
     assert({
       given: 'the last released speech of the format ended',
@@ -214,7 +214,7 @@ describe('projectSpectatorTimeline', () => {
         horizonMs: horizon(ended),
         segments: [speech('1NC', ended)],
       }),
-      expected: 'judging',
+      expected: 'speeches_over',
     });
   });
 
