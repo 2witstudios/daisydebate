@@ -66,7 +66,9 @@ const input = (
   roundEndedAtMs: null,
   finalMediaEndMs: null,
   heartbeatMs: start + 1_000_000,
-  stage: [{ kind: 'speech', fromMs: start - 1000, toMs: start + 1_000_000 }],
+  stage: [
+    { kind: 'speech' as const, fromMs: start - 1000, toMs: start + 1_000_000 },
+  ],
   releasedThroughMs: null,
   ...over,
 });
@@ -151,7 +153,13 @@ describe('only what history proves public', () => {
     const { ports, log } = world();
     await releaseStep(
       input({
-        stage: [{ kind: 'speech', fromMs: start + 6_000, toMs: start + 8_000 }],
+        stage: [
+          {
+            kind: 'speech' as const,
+            fromMs: start + 6_000,
+            toMs: start + 8_000,
+          },
+        ],
         nowMs: start + 4_000 + 60_000,
       }),
       ports,
@@ -168,7 +176,11 @@ describe('only what history proves public', () => {
     const answer = await releaseStep(
       input({
         stage: [
-          { kind: 'speech', fromMs: start + 4_000, toMs: start + 100_000 },
+          {
+            kind: 'speech' as const,
+            fromMs: start + 4_000,
+            toMs: start + 100_000,
+          },
         ],
         nowMs: start + 200_000,
       }),
@@ -185,7 +197,13 @@ describe('only what history proves public', () => {
     const { ports, log } = world();
     const answer = await releaseStep(
       input({
-        stage: [{ kind: 'speech', fromMs: start + 1_500, toMs: start + 3_000 }],
+        stage: [
+          {
+            kind: 'speech' as const,
+            fromMs: start + 1_500,
+            toMs: start + 3_000,
+          },
+        ],
         nowMs: start + 200_000,
       }),
       ports,
@@ -210,8 +228,12 @@ describe('only what history proves public', () => {
         nextSegment: 1,
         attemptIndex: 0,
         stage: [
-          { kind: 'speech', fromMs: start, toMs: start + 4_000 },
-          { kind: 'speech', fromMs: start + 8_000, toMs: start + 12_000 },
+          { kind: 'speech' as const, fromMs: start, toMs: start + 4_000 },
+          {
+            kind: 'speech' as const,
+            fromMs: start + 8_000,
+            toMs: start + 12_000,
+          },
         ],
         nowMs: start + 200_000,
       }),
