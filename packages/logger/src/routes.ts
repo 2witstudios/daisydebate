@@ -248,6 +248,7 @@ export const logRoutes: ReadonlySet<string> = new Set([
   '/api/recordings/[recordingId]/removal',
   '/api/recordings/[recordingId]/playback/[...path]',
   '/content-moderation',
+  '/content-moderation/failed-recordings',
   '/content-moderation/[reportId]',
   '/content-waiver',
   '/content-policy',
