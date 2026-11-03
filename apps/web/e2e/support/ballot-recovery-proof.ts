@@ -66,17 +66,22 @@ export async function proveBallotRecovery(
   // The last judge's ballot ends a debated Round; a debater can no longer
   // forfeit it. The panel splits, so the Round is not the negative's: a retry
   // that overwrote the outcome with its own negative vote fails the check below.
+  // A split ends on maintenance's next pass, so the page is read until it has.
   await submitJudgeBallot(fixtures.members[3]!, roundId, {
     winner: fixtures.affirmative,
     reason: 'The affirmative carried the decisive clash.',
   });
-  await page.getByRole('link', { name: 'Refresh Round', exact: true }).click();
-  await expect(
-    page.getByText(
-      'This Round has ended. Your original submission can still be retried.',
-      { exact: true },
-    ),
-  ).toBeVisible();
+  await expect(async () => {
+    await page
+      .getByRole('link', { name: 'Refresh Round', exact: true })
+      .click();
+    await expect(
+      page.getByText(
+        'This Round has ended. Your original submission can still be retried.',
+        { exact: true },
+      ),
+    ).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
   await expect(
     retry.getByRole('button', { name: 'Retry original ballot', exact: true }),
   ).toBeEnabled();
