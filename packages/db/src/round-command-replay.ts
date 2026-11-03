@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 
 /** The identity a stored Round command row is bound to. */
@@ -22,7 +22,7 @@ export function requireSameCommand(
     previous.payloadDigest !== expected.payloadDigest ||
     previous.type !== expected.type
   )
-    throw createAppError('CONFLICT', 'command-conflict');
+    throw createRefusal('CONFLICT', 'command-conflict');
 }
 
 /** A Round write names a cuid2 Round, a schema-valid envelope and a SHA3-256 hex digest. */

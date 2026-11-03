@@ -1,4 +1,4 @@
-import type { cutCaptureClips } from '@daisy/media/clips';
+import type { cutCaptureClips } from './capture-clips';
 import { flushClipCarry, type ClipCarries } from './capture-batch';
 
 /** The common cleanup budget: the drain and the fallback seal together. */

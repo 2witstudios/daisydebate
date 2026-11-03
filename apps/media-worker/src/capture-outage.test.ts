@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { signedCaptureClient } from './capture-client.test-support';
 import { createTrackClocks } from '@daisy/media/observation';
@@ -210,6 +210,7 @@ const heldClip = {
   before: at(1000),
   after: at(2000),
   clipKey: 'k',
+  kind: 'audible',
   wav: new Uint8Array(4),
   bytes: 4,
 } as unknown as QueuedClip;
@@ -386,7 +387,7 @@ test('a new track past the calibration age is refused: the recorded limit', () =
 
 test('a refused write ends the consumer rather than being retried', async () => {
   const { finished, events } = await consumeOne({
-    append: [createAppError('CONFLICT', 'Capture worker lease expired')],
+    append: [createRefusal('CONFLICT', 'lease-expired')],
     observe: [],
   });
   await assertRejects({

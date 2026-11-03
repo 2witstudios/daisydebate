@@ -1,10 +1,6 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { captureDigest } from './capture-input';
-import {
-  hasCompleteCaptureCoverage,
-  type CaptureInterval,
-  type CoverageEdges,
-} from './capture-coverage';
+import type { CaptureInterval } from '@daisy/protocol';
 
 type SegmentTiming = {
   readonly startedAt: Date;
@@ -152,61 +148,12 @@ export function sealAction(
     !timeline.segmentEnded ||
     timeline.required.some((grant) => grant.end === null)
   )
-    throw createAppError('CONFLICT', 'Capture timeline is still open');
+    throw createRefusal(
+      'CONFLICT',
+      'timeline-open',
+      'Capture timeline is still open',
+    );
   return 'seal';
-}
-
-/**
- * Complete only with this epoch's own evidence, every stored chunk counted and
- * full coverage of the authority windows (DEC-218); a new worker cannot recover
- * old PCM.
- */
-export function sealState(input: {
-  readonly interrupted?: boolean;
-  /** The sealing process held frames it then had to drop. */
-  readonly framesLost?: boolean;
-  readonly epoch: number;
-  readonly observations: readonly {
-    readonly start: Date;
-    readonly end: Date;
-    readonly epoch: number;
-  }[];
-  readonly chunks:
-    { readonly count: number; readonly otherEpochChunks: number } | undefined;
-  readonly storedChunks: number;
-  readonly expectedChunks: number;
-  readonly authority: readonly CaptureInterval[];
-  readonly tolerance: CoverageEdges;
-  /** A bot's grant it did not use: with no evidence of speech, nothing was owed. */
-  readonly grantUnused?: boolean;
-}): 'complete' | 'partial' {
-  const observed = input.observations.map((row) => ({
-    start: row.start.getTime(),
-    end: row.end.getTime(),
-  }));
-  const complete =
-    !input.interrupted &&
-    !input.framesLost &&
-    input.chunks?.otherEpochChunks === 0 &&
-    input.observations.every((row) => row.epoch === input.epoch) &&
-    input.storedChunks === input.chunks.count &&
-    hasCompleteCaptureCoverage({
-      authority: input.authority,
-      observed,
-      tolerance: input.tolerance,
-      storedChunks: input.storedChunks,
-      expectedChunks: input.expectedChunks,
-    });
-  const nothingOwed =
-    input.grantUnused === true &&
-    !input.interrupted &&
-    !input.framesLost &&
-    input.observations.length === 0 &&
-    input.chunks?.count === 0 &&
-    input.chunks.otherEpochChunks === 0 &&
-    input.storedChunks === 0 &&
-    input.expectedChunks === 0;
-  return complete || nothingOwed ? 'complete' : 'partial';
 }
 
 /** Capture closes at freeze, at the admission cutoff, or at a terminal Round without one. */
@@ -227,5 +174,9 @@ export function captureAdmissionClosed(input: {
 
 export function requireLiveCaptureLease(expiresAt: Date, now: Date): void {
   if (expiresAt <= now)
-    throw createAppError('CONFLICT', 'Capture worker lease expired');
+    throw createRefusal(
+      'CONFLICT',
+      'lease-expired',
+      'Capture worker lease expired',
+    );
 }

@@ -4,7 +4,7 @@ import type {
   LockedRoundBallotInput,
   LockedRoundBallotContext,
 } from '@daisy/db/round-ballot';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import {
   roundBallotEnvelopeSchema,
   type RoundBallotEnvelope,
@@ -37,7 +37,7 @@ export function prepareRoundBallotSubmission(
           : null,
       },
     });
-    if (!result.ok) throw createAppError('AUTHORIZATION', result.refusal);
+    if (!result.ok) throw createRefusal('AUTHORIZATION', result.refusal);
   };
   return {
     roundId: input.roundId,
