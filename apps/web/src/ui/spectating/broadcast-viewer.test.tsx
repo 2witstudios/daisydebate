@@ -42,6 +42,27 @@ const render = (over: Partial<SpectatorTimeline>) =>
 const ended = { kind: 'ended' } as const;
 
 describe('BroadcastViewer', () => {
+  test('Stream this Round sits beside a playing Broadcast, and nowhere else', () => {
+    const stream = {
+      path: 'owned_hls',
+      manifestUrl: 'https://feed.daisy.invalid/live/b/master.m3u8',
+    } as const;
+    const shown = (over: Partial<SpectatorTimeline>) =>
+      render(over).includes('Stream this Round');
+    assert({
+      given: 'on air with a floor, then stopped',
+      should: 'offer the panel with the feed, then not',
+      actual: [
+        shown({ broadcast: { state: 'on_air', stream } }),
+        render({ broadcast: { state: 'on_air', stream } }).includes(
+          stream.manifestUrl,
+        ),
+        shown({ broadcast: { state: 'stopped' } }),
+      ],
+      expected: [true, true, false],
+    });
+  });
+
   test('each state says what is so, with no player where nothing can play', () => {
     const cases: readonly (readonly [Partial<SpectatorTimeline>, string])[] = [
       [{ stage: { kind: 'upcoming' } }, 'This debate has not started'],

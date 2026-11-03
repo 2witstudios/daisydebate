@@ -4,7 +4,6 @@ import {
   type WorkerTimers,
 } from '../../lib/worker-timers';
 import type { App } from '../../server/app';
-import { offeredFeedUrl } from './official-feed';
 import { newStageCredential } from './stage-access';
 import { createStageRoute } from './stage-route';
 import { createFactLogSweep } from '../spectating/fact-log-sweep';
@@ -73,12 +72,3 @@ export const composeBroadcastStage = (app: App) => {
     nextId: () => app.ids.next(),
   });
 };
-
-/** The official feed a viewer page may offer for this Round, or null. */
-export const composeOfficialFeed =
-  (app: App) =>
-  async (roundId: string): Promise<string | null> =>
-    offeredFeedUrl(
-      app.config.BROADCAST_PUBLIC_ORIGIN,
-      await app.database.broadcasts.officialFeedFacts(roundId),
-    );

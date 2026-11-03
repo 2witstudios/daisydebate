@@ -1,6 +1,7 @@
 import type { BroadcastStream, SpectatorTimeline } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  streamableFeedOf,
   viewerScreenOf,
   viewerSettled,
   type ViewerPlayback,
@@ -36,6 +37,47 @@ const timeline = (over: Partial<SpectatorTimeline>): SpectatorTimeline => ({
 const fresh: ViewerPlayback = { stream: null, finished: false, failed: false };
 const screen = (over: Partial<SpectatorTimeline>, playback = fresh) =>
   viewerScreenOf(timeline(over), playback);
+
+describe('streamableFeedOf', () => {
+  test('a streamer is offered the feed the audience plays, while it plays', () => {
+    const url = stream.manifestUrl;
+    assert({
+      given: 'on air, and interrupted with released media',
+      should: 'offer the audience stream',
+      actual: [
+        streamableFeedOf(timeline({})),
+        streamableFeedOf(
+          timeline({ broadcast: { state: 'interrupted', stream } }),
+        ),
+      ],
+      expected: [url, url],
+    });
+  });
+
+  test('nothing is offered where there is no feed to stream', () => {
+    assert({
+      given:
+        'no Broadcast, starting, held, interrupted with nothing released, stopped, failed, ended, and not started',
+      should: 'offer none',
+      actual: [
+        { state: 'none' },
+        { state: 'starting' },
+        { state: 'held', releasesAt: null },
+        { state: 'interrupted', stream: null },
+        { state: 'stopped' },
+        { state: 'failed' },
+        { state: 'ended' },
+      ]
+        .map((broadcast) =>
+          streamableFeedOf(
+            timeline({ broadcast } as Partial<SpectatorTimeline>),
+          ),
+        )
+        .concat(streamableFeedOf(timeline({ stage: { kind: 'upcoming' } }))),
+      expected: Array.from({ length: 8 }, () => null),
+    });
+  });
+});
 
 describe('viewerScreenOf', () => {
   test('on air', () => {
