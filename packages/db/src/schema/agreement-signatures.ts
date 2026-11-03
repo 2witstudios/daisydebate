@@ -16,8 +16,9 @@ export const agreementKinds = [
 ] as const;
 
 /**
- * What a member agreed to: account, agreement, version, scope and time
- * (WATCH-15). A row is evidence, so it is never updated, and erasure keeps it
+ * What a member agreed to: account, agreement, version, the exact words, scope
+ * and time (WATCH-9, WATCH-15). The words are on the row because source moves
+ * on and a superseded text must still be readable. A row is evidence, so it is never updated, and erasure keeps it
  * with the ranked content it stands behind (docs/operations/compliance.md).
  */
 export const agreementSignatures = pgTable(
@@ -29,6 +30,7 @@ export const agreementSignatures = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     agreement: text('agreement').notNull(),
     version: text('version').notNull(),
+    words: text('words').notNull(),
     seasonId: text('season_id').references(() => seasons.id, {
       onDelete: 'restrict',
     }),

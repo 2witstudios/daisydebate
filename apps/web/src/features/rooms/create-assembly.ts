@@ -49,6 +49,9 @@ export async function createAssembly(
     ...(form.getAll('holdSeatFor').length
       ? { holdSeatsFor: form.getAll('holdSeatFor') }
       : {}),
+    ...(field(form, 'noticeVersion')
+      ? { noticeVersion: field(form, 'noticeVersion') }
+      : {}),
   });
   if (!parsed.success) return { kind: 'invalid' };
   try {

@@ -90,6 +90,8 @@ const refusalLines: Readonly<Record<RoomCreateRefusal, string>> = {
   settings: 'Practice couldn’t start. Try again.',
   'ranked-unavailable': 'Practice couldn’t start. Try again.',
   'ai-judge-premium': aiJudgePremiumText,
+  // Practice is casual and states no notice, so nothing reaches a person here.
+  'notice-changed': 'Practice couldn’t start. Try again.',
 };
 
 /**

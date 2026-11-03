@@ -78,6 +78,15 @@ NOBYPASSRLS`). Create `daisy_web`, `daisy_realtime` and
    Multi-instance safety relies on PostgreSQL for truth and Redis for
    coordination; sticky sessions are not part of any design.
 
+## Search indexing
+
+The web app answers every request with `X-Robots-Tag: noindex, nofollow`, and every
+page with the same robots meta, unless `SEARCH_INDEXING=open`. Staging never sets
+it (`fly.toml` leaves it unset, and it is closed by default). Production sets it
+only when it is meant to be found; a page's own noindex still holds then. There is
+deliberately no disallowing `robots.txt`: a crawler refused the page never reads
+the noindex.
+
 ## Realtime service
 
 `apps/realtime` (`bun run start`, `NODE_ENV=production`) connects with

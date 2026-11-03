@@ -450,3 +450,40 @@ test('PostHog CSP admits only a configured regional origin', () => {
     expected: [false, false],
   });
 });
+
+describe('proxy search indexing', () => {
+  const request = (path: string, headers: Record<string, string> = {}) =>
+    new NextRequest(`https://daisy.invalid${path}`, { headers });
+  const robots = (path: string, overrides: Partial<ProxySettings>) =>
+    proxy(request(path), overrides).headers.get('x-robots-tag');
+
+  test('a closed deployment refuses indexing on every answer the proxy gives', () => {
+    const closed = { searchIndexing: 'closed' } as const;
+    assert({
+      given: 'a public page, a sign-in redirect and a foundation 404',
+      should: 'carry noindex on each',
+      actual: ['/', '/settings', '/foundation'].map((path) =>
+        robots(path, closed),
+      ),
+      expected: Array(3).fill('noindex, nofollow'),
+    });
+  });
+
+  test('an open deployment adds nothing', () => {
+    assert({
+      given: 'a deployment configured open',
+      should: 'leave the header off',
+      actual: robots('/', { searchIndexing: 'open' }),
+      expected: null,
+    });
+  });
+
+  test('settings that say nothing are closed', () => {
+    assert({
+      given: 'no indexing setting',
+      should: 'refuse indexing',
+      actual: robots('/', {}),
+      expected: 'noindex, nofollow',
+    });
+  });
+});

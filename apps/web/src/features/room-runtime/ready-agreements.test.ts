@@ -6,6 +6,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   captureNoticeRefusal,
   contentWaiverRefusal,
+  createNoticeOf,
   requiredContentWaiver,
   roomCaptureNotice,
 } from './ready-agreements';
@@ -89,6 +90,32 @@ describe('Ready agreements', () => {
         captureNoticeRefusal(casual, version),
       ],
       expected: [null, 'capture-notice-changed'],
+    });
+  });
+});
+
+describe('the notice a create form showed', () => {
+  test('is recorded only when it is the one served now', () => {
+    const notice = roundCaptureNotice('ranked')!;
+    assert({
+      given: 'a ranked create stating the current, a stale and no notice',
+      should: 'show the first, refuse the second, claim nothing for the third',
+      actual: [
+        createNoticeOf('ranked', notice.version),
+        createNoticeOf('ranked', 'ranked-draft-0'),
+        createNoticeOf('ranked', undefined),
+      ],
+      expected: [
+        { kind: 'shown', notice },
+        { kind: 'stale' },
+        { kind: 'none' },
+      ],
+    });
+    assert({
+      given: 'a casual create stating a notice no casual form shows',
+      should: 'refuse it',
+      actual: createNoticeOf('casual', notice.version),
+      expected: { kind: 'stale' },
     });
   });
 });

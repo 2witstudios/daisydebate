@@ -1,5 +1,6 @@
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
+import { agreementWords, contentWaiverDocument } from '../legal/agreements';
 import { createContentWaiverHandler } from './content-waiver-handler';
 
 /** The agreement routes: a member's signature, recorded with its version. */
@@ -17,6 +18,7 @@ export function composeAgreementRoutes(app: App) {
             id: app.ids.next(),
             userId,
             version,
+            words: agreementWords(contentWaiverDocument),
           }),
       }),
     },

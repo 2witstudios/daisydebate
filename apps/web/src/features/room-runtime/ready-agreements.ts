@@ -4,6 +4,7 @@ import {
   CONTENT_WAIVER_VERSION,
   roundCaptureNotice,
   type RoundCapture,
+  type RoundCaptureNotice,
 } from '../legal/agreements';
 
 type CompetitionFact = Pick<RoomAssemblyState, 'competitionType'>;
@@ -33,6 +34,25 @@ export const captureNoticeRefusal = (
   roomCaptureNotice(room)?.version === noticeVersion
     ? null
     : 'capture-notice-changed';
+
+/**
+ * The notice a create form showed, to record with the Room. A ranked host may
+ * never take a seat, so no Ready would ever record it (WATCH-5). A create with
+ * no form states none and is recorded as reading nothing; a stale form is refused.
+ */
+export const createNoticeOf = (
+  competitionType: RoomAssemblyState['competitionType'],
+  noticeVersion: string | undefined,
+):
+  | { readonly kind: 'none' }
+  | { readonly kind: 'stale' }
+  | { readonly kind: 'shown'; readonly notice: RoundCaptureNotice } => {
+  if (noticeVersion === undefined) return { kind: 'none' };
+  const notice = roomCaptureNotice({ competitionType, capture: null });
+  return notice?.version === noticeVersion
+    ? { kind: 'shown', notice }
+    : { kind: 'stale' };
+};
 
 /** The waiver version Ready on this Room needs; only ranked needs one. */
 export const requiredContentWaiver = (room: CompetitionFact) =>

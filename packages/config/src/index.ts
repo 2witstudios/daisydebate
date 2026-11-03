@@ -108,6 +108,8 @@ const serverFields = {
     .default('false')
     .transform((value) => value === 'true'),
   PUBLIC_APP_URL: z.url(),
+  /** Search engines stay out unless a deployment opens itself: staging never does. */
+  SEARCH_INDEXING: z.enum(['open', 'closed']).default('closed'),
   /**
    * ADR 0075: where the owner's beta request digest goes. Personal data, so
    * it is set in the deploy's secret store, never committed; absent, owed

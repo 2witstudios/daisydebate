@@ -83,7 +83,11 @@ export function roomCommandOperation({
         return notice || contentWaiverVersion
           ? {
               contentWaiverVersion,
-              notice: notice && { id: ids.next(), version: notice.version },
+              notice: notice && {
+                id: ids.next(),
+                version: notice.version,
+                words: notice.text,
+              },
             }
           : null;
       },

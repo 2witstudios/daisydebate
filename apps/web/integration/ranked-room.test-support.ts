@@ -2,7 +2,11 @@ import { judgingJobRules, ratingAwaited } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { createId } from '@paralleldrive/cuid2';
-import { CONTENT_WAIVER_VERSION } from '../src/features/legal/agreements';
+import {
+  agreementWords,
+  contentWaiverDocument,
+  CONTENT_WAIVER_VERSION,
+} from '../src/features/legal/agreements';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import type { Ballot, RatingLadder } from '@daisy/protocol';
@@ -27,6 +31,7 @@ export async function readyRankedRoom(
       id: createId(),
       userId: member.userId,
       version: CONTENT_WAIVER_VERSION,
+      words: agreementWords(contentWaiverDocument),
     });
   let room = await f.assemble({
     resolution:
