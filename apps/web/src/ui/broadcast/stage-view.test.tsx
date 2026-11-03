@@ -47,7 +47,7 @@ test('a slate hides the tiles', () => {
     actual: [
       render({ phase: 'prep', clock: null, seats }).includes('Preparation'),
       render({ phase: 'prep', clock: null, seats }).includes(
-        'visibility:hidden',
+        'invisible',
       ),
     ],
     expected: [true, true],

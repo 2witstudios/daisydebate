@@ -35,8 +35,8 @@ export function StageView(props: {
   const { snapshot } = props;
   const live = snapshot.phase === 'speech';
   return (
-    <main className="font-sans text-white grid h-[720px] w-[1280px] grid-rows-[64px_1fr_48px] overflow-hidden bg-[#14130f]">
-      <header className="flex items-center justify-between px-6 text-[28px]">
+    <main className="broadcast-stage">
+      <header className="broadcast-stage-clock">
         <span>
           {live
             ? snapshot.clock?.label
@@ -50,20 +50,16 @@ export function StageView(props: {
         <div className={`flex h-full ${live ? 'visible' : 'invisible'}`}>
           {props.tiles}
         </div>
-        <ul className="absolute inset-x-0 bottom-2 m-0 flex list-none p-0">
+        <ul className="broadcast-stage-seats">
           {snapshot.seats.map((seat) => (
-            <li
-              key={seat.side}
-              data-floor={seat.floor}
-              className={`flex-1 text-center text-2xl ${seat.floor ? 'font-bold' : 'font-normal'}`}
-            >
+            <li key={seat.side} data-floor={seat.floor}>
               {seat.label}
               {seat.floor ? ' · speaking' : ''}
             </li>
           ))}
         </ul>
       </section>
-      <footer className="bg-black flex items-center justify-between px-6 text-xl">
+      <footer className="broadcast-stage-brand">
         <span>Daisy Debate</span>
         <span>{props.siteLink}</span>
       </footer>
