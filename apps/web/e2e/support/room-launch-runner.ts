@@ -7,7 +7,14 @@ import { createLaunchBrowserContainer } from './launch-browser-container';
 import { prepareLaunchBrowserImage } from './launch-browser-image';
 
 /** All certificate/container/server/browser work runs within the machine queue. */
-export async function runLaunchProof() {
+export async function runLaunchProof(
+  proof: {
+    /** A proof built on this harness names its own config; the last --config wins. */
+    readonly config?: string;
+    readonly extraPorts?: readonly number[];
+    readonly udpPorts?: readonly number[];
+  } = {},
+) {
   const checkout = resolve(import.meta.dir, '../../../..');
   const slot = requireLaunchSlot(checkout, process.env);
   await admitLaunchCheckout(checkout, slot.database);
@@ -24,13 +31,17 @@ export async function runLaunchProof() {
       image: image.id,
       ca: certificates.ca,
       ports: [
-        slot.port + 1,
-        slot.port + 2,
-        slot.port + 3,
-        slot.port + 4,
-        slot.port + 6,
-        7881,
+        ...new Set([
+          slot.port + 1,
+          slot.port + 2,
+          slot.port + 3,
+          slot.port + 4,
+          slot.port + 6,
+          7881,
+          ...(proof.extraPorts ?? []),
+        ]),
       ],
+      ...(proof.udpPorts ? { udpPorts: proof.udpPorts } : {}),
     });
     const env = {
       ...process.env,
@@ -51,6 +62,7 @@ export async function runLaunchProof() {
         'test',
         '--config',
         'e2e/support/room-launch-config.ts',
+        ...(proof.config ? ['--config', proof.config] : []),
         ...Bun.argv.slice(2),
       ],
       browserDriverOptions(checkout, env),

@@ -32,6 +32,7 @@ describe('isolated Launch browser container', () => {
         env: [
           'DAISY_BROWSER_NETWORK=forwarded',
           'DAISY_BROWSER_FORWARD_PORTS=[13012,13013]',
+          'DAISY_BROWSER_FORWARD_UDP_PORTS=[7882]',
           'NODE_EXTRA_CA_CERTS=/fixture/ca.crt',
         ],
       },
@@ -56,6 +57,7 @@ describe('isolated Launch browser container', () => {
         env: [
           'DAISY_BROWSER_NETWORK=host',
           'DAISY_BROWSER_FORWARD_PORTS=[]',
+          'DAISY_BROWSER_FORWARD_UDP_PORTS=[]',
           'NODE_EXTRA_CA_CERTS=/fixture/ca.crt',
         ],
         image: true,
