@@ -189,7 +189,8 @@ test('stored consent is read only for a signed-in viewer on a keyed deployment',
   assert({
     given:
       'a member, a signed-out viewer, a refused identity, no key, and a member whose read is refused',
-    should: 'read for the member alone, and answer each with its own whole view',
+    should:
+      'read for the member alone, and answer each with its own whole view',
     actual: { reads, views },
     expected: {
       reads: ['user1'],

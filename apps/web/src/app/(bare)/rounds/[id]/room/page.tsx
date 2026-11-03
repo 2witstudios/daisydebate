@@ -35,16 +35,26 @@ import { LiveSpectatorRoom } from '../../../../../ui/spectating/live-spectator-r
 
 export const metadata: Metadata = { title: 'Round' };
 
+type TranscriptPlacement = 'card' | 'sidebar';
+
 const transcriptOf = (
   id: string,
   text: Awaited<ReturnType<typeof readPersistedTranscript>>,
   socketUrl: string | null,
+  placement: TranscriptPlacement,
 ) =>
   text.kind === 'found' ? (
-    <LiveTranscript key={id} seed={text.value} socketUrl={socketUrl} />
+    <LiveTranscript
+      key={id}
+      seed={text.value}
+      socketUrl={socketUrl}
+      placement={placement}
+    />
   ) : text.kind === 'unavailable' ? (
     // Refusals read as missing; only an outage, never a denial, says this.
-    <p role="status">Transcript unavailable. Reload to try again.</p>
+    <p role="status" className="p-4 text-sm">
+      Transcript unavailable. Reload to try again.
+    </p>
   ) : null;
 
 const reconnecting = () => {
@@ -129,14 +139,15 @@ export default async function RoundRoomPage({
   if (result.kind === 'missing') notFound();
   if (result.kind === 'unavailable' && result.temporary) return reconnecting();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
-  const transcript = transcriptOf(id, text, result.socketUrl);
+  const transcriptIn = (placement: TranscriptPlacement) =>
+    transcriptOf(id, text, result.socketUrl, placement);
   if (!isLiveDebater(result.round, actorId))
     return watchingRoom(
       id,
       result.round,
       actorId,
       result.socketUrl,
-      transcript,
+      transcriptIn('card'),
     );
   const here = `/rounds/${id}/room`;
   return (
@@ -156,7 +167,7 @@ export default async function RoundRoomPage({
             />
           </>
         }
-        transcript={transcript}
+        transcript={transcriptIn('sidebar')}
         commandAction={roundCommandAction.bind(null, id)}
         commandIds={roundCommandIds(() => systemId.next())}
         view={result.round}

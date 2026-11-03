@@ -45,7 +45,7 @@ describe('liveRoundOf before the start', () => {
         'seat you and the bot opposite, and list the judge without a name',
       actual: {
         self: room?.self,
-        opponent: [room?.opponent.side, room?.opponent.bot],
+        opponent: room?.opponent.side,
         judge: room?.judge,
         ballots: room?.ballots,
         names: room?.people.map((p) => `${p.role}:${p.name}:${p.bot}`),
@@ -58,9 +58,8 @@ describe('liveRoundOf before the start', () => {
           initials: 'SR',
           side: 'aff',
           rating: null,
-          bot: null,
         },
-        opponent: ['neg', { level: null }],
+        opponent: 'neg',
         judge: 'human',
         ballots: { judge: 'human', ai: null },
         names: [
@@ -84,7 +83,6 @@ describe('liveRoundOf before the start', () => {
         clock: room?.clock,
         prepMs: room?.prepMs,
         micLive: room?.micLive,
-        voiceLevel: room?.voiceLevel,
         recording: room?.recording,
       },
       expected: {
@@ -96,7 +94,6 @@ describe('liveRoundOf before the start', () => {
         },
         prepMs: { aff: 240_000, neg: 240_000 },
         micLive: false,
-        voiceLevel: 0,
         recording: false,
       },
     });
@@ -105,13 +102,16 @@ describe('liveRoundOf before the start', () => {
   test('ranked and casual', () => {
     assert({
       given: 'the same round, ranked and then casual',
-      should: 'give the ranked round no agents and the casual round one',
+      should: 'offer the same assistant in both',
       actual: [
-        liveRoundOf({ ...view, competitionType: 'ranked' }, aff.actorId, origin)
-          ?.agents.length,
+        liveRoundOf(
+          { ...view, competitionType: 'ranked' },
+          aff.actorId,
+          origin,
+        )?.agents.map((a) => a.title),
         room?.agents.map((a) => a.title),
       ],
-      expected: [0, ['Assistant']],
+      expected: [['Assistant'], ['Assistant']],
     });
   });
 

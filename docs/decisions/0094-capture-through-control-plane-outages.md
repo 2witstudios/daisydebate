@@ -25,12 +25,11 @@ gb29cv50qy6pi4p6mjt5ujoo shows a 17.755 s gap across epochs during such a deploy
 3. A stream seals complete only if the sealing process lost no frames it held.
    Contiguity comes from frames actually held, never from the lease.
 4. A planned worker replacement costs start-up time, not start-up plus expiry: a
-   stopping session releases its lease. The staging rail holds the worker deploy
-   while an active Round's session has a fresh lease, for at most 45 minutes,
-   then deploys anyway and the gap is recorded honestly. A check that fails three
-   times running, or the step failing, never stops the deploy. Web deploys first,
-   so web and an older worker can overlap for that long: a capture contract
-   change must tolerate that (CCAP-10).
+   stopping session releases its lease. The staging rail deploys the worker
+   without waiting, and a speech under way records its gap honestly (owner,
+   DEC-304: staging has no users and the fastest deploy is the best deploy).
+   Web deploys first, so web and an older worker overlap during a deploy: a
+   capture contract change must tolerate that.
 5. A partial stream reports its gaps from durable evidence on each read.
 6. The live transcript reads its HTTP route, not a server action. The reply
    declares a contract version and the browser parses only the fields it renders,
@@ -44,8 +43,7 @@ gb29cv50qy6pi4p6mjt5ujoo shows a 17.755 s gap across epochs during such a deploy
 Rejected: a longer lease, which lengthens the gap after every crash; a new epoch
 in the same process, which seals partial by rule although the same process heard
 the audio; and a gapless overlap handover, which needs a standby listener, a
-successor lease, a schema change and a rail change, for a benefit the hold mostly
-gives. Reconsider the handover if the hold's deploy delay hurts.
+successor lease, a schema change and a rail change.
 
 ## Consequences
 
@@ -54,3 +52,9 @@ memory and is dropped on commit or end, so nothing about retention changes. An
 outage that spans a speech boundary still loses that speech's opening, and a
 track first heard more than 30 s after the last answered read is refused until a
 read answers. Late audio past `CAPTURE_STT_LAG_MS` on a closed session is lost.
+
+## Future intent
+
+Once real users speak in Rounds, a worker deploy during their speech costs them
+a complete seal, so decide then whether to wait for live capture or build the
+overlap handover. Neither exists in code today.

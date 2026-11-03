@@ -30,7 +30,7 @@ Process {
 4. Status: move each delivered task to In Review (`bun board:status <taskPageId> in_review` when present). Add the PR to each task's Related pages and to the plan.
 5. Reviewers: spawn both into your own worktree and note their agent ids:
    `pu spawn --agent claude -w <your worktree id> "/review <PR url>"`
-   `pu spawn --agent claude -w <your worktree id> "/code-review <PR url>"`
+   `pu spawn --agent claude -w <your worktree id> "/code-review --comment <PR url>"`
    They are read-only and post PR comments. Kill each one (`pu kill --agent <id>`) once it has posted.
 6. Channel: one message asking the architecture reviewer for a pass and telling the point guard the PR is open:
    `pagespace channels send <Delivery channel id> "<slice> (<agent id>): PR <url> open for <CODES>; @<architecture reviewer> architecture pass please; PR loop starting."`

@@ -149,6 +149,10 @@ export async function requestLadder(input: {
   });
 }
 
+/** The current published resolutions, Formats' output, read as they stand. */
+export const requestPublishedResolutions = () =>
+  processApp().database.listPublishedResolutions();
+
 export async function requestMemberStandings(username: string) {
   const identity = await requestIdentity();
   if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');

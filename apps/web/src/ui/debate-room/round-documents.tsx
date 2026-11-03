@@ -1,10 +1,9 @@
 'use client';
 
 import { useReducer } from 'react';
-import { buildTree } from '../../features/debate-room/workspace';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { DocumentPane } from './document-pane';
-import { DrawerFiles } from './drawer-files';
+import { FileTree } from './file-tree';
 import {
   initialPersistedWorkspace,
   reducePersistedWorkspace,
@@ -44,11 +43,10 @@ function RoundWorkspace({
       dispatch({ type: 'palette/close' });
       return;
     }
-    if (choice.folder === 'club') return;
     try {
       dispatch({
         type: 'doc/add',
-        document: await sync.create(choice.folder, choice.templateId),
+        document: await sync.create(),
       });
     } catch {
       setProblem('That file was not created. Try again.');
@@ -57,18 +55,17 @@ function RoundWorkspace({
 
   return (
     <section
-      aria-label="Your Round files"
+      aria-label="Your files"
       className="mx-auto flex w-full max-w-dash-column flex-col gap-3 px-6 pb-8"
     >
       <h2 className="text-lg font-bold">Your files</h2>
       {(problem ?? notice) ? <p role="alert">{problem ?? notice}</p> : null}
       <div className="flex room-workspace border-t border-border max-narrow:flex-col">
-        <div className="flex w-round-drawer shrink-0 flex-col border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
-          <DrawerFiles
-            tree={buildTree(state.documents, null)}
+        <div className="flex w-round-files shrink-0 flex-col border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
+          <FileTree
+            documents={state.documents}
             active={state.tabs.active}
             dispatch={dispatch}
-            transcript={null}
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col bg-surface-raised">
