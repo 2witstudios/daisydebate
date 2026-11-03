@@ -83,9 +83,7 @@ export function TranscriptFollow({
         aria-label="Transcript lines"
         role="group"
         onScroll={(event) => follow.scrolled(event.currentTarget)}
-        // A browser moving the position to keep content steady is not a reader.
-        style={{ overflowAnchor: 'none' }}
-        className="min-h-0 flex-1 overflow-y-auto px-4 pb-4"
+        className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 overflow-anchor-none"
       >
         {children}
       </div>
