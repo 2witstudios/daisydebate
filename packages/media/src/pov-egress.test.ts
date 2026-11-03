@@ -21,7 +21,12 @@ const config = {
 };
 
 type Calls = {
-  started: [string, string, EncodedOutputs, ParticipantEgressOptions?][];
+  started: [
+    string,
+    string,
+    EncodedOutputs,
+    ParticipantEgressOptions | undefined,
+  ][];
   updated: unknown[][];
 };
 

@@ -352,7 +352,7 @@ test('a takedown through the operator command leaves no new read, within the bou
       recordingId: id,
     };
     await openPlayback(deps, { ...viewer, path: ['720p', 'seg.ts'] });
-    await openDownload(deps, viewer);
+    await openDownload(deps, { ...viewer, choice: { kind: 'composite' } });
     assert({
       given: 'the reads a viewer may already hold when the takedown lands',
       should: 'each last no longer than the delivery bound',
