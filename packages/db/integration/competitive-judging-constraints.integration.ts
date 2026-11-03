@@ -28,7 +28,6 @@ const ballot = (
   winner: 'affirmative',
   scores: { affirmative: allAt(3), negative: allAt(2) },
   reason: 'Stronger evidence',
-  status: 'submitted',
   submitted_at: at,
   ...overrides,
 });

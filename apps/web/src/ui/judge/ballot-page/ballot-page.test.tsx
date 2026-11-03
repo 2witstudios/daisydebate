@@ -53,7 +53,6 @@ const render = (state: 'waiting' | 'open' | 'submitted') =>
                 ...input,
                 own: {
                   participantId: judge.id,
-                  status: 'submitted',
                   ballot: sampleJudgeBallot,
                   freezeRevision: 1,
                 },

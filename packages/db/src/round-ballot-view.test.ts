@@ -26,7 +26,6 @@ const row = (
     reason: 'Clearer weighing.',
     feedback,
     citations,
-    status: 'submitted',
   }) as unknown as Row;
 const body = {
   rubricVersion: 'speaker-10@1',
@@ -88,7 +87,6 @@ test('judges see their own ballot and the frozen input, others’ only after com
       open: {
         own: {
           participantId: 'judge-h',
-          status: 'submitted',
           ballot: body,
           freezeRevision: 1,
         },
@@ -105,8 +103,8 @@ test('judges see their own ballot and the frozen input, others’ only after com
         own: null,
         freeze: null,
         ballots: [
-          { status: 'submitted', judge: 'human', ballot: body },
-          { status: 'submitted', judge: 'ai', ballot: body },
+          { judge: 'human', ballot: body },
+          { judge: 'ai', ballot: body },
         ],
       },
     },
@@ -116,7 +114,7 @@ test('judges see their own ballot and the frozen input, others’ only after com
 test('a judge who has not submitted sees an empty own ballot', () => {
   assert({
     given: 'a seated judge with no stored ballot',
-    should: 'report the seat with no status, ballot or revision',
+    should: 'report the seat with no ballot or revision',
     actual: ballotReadView({
       status: 'active',
       ownSeatId: 'judge-h',
@@ -127,7 +125,6 @@ test('a judge who has not submitted sees an empty own ballot', () => {
     }).own,
     expected: {
       participantId: 'judge-h',
-      status: null,
       ballot: null,
       freezeRevision: null,
     },

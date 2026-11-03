@@ -19,7 +19,8 @@ export const debateSideSchema = z.enum(debateSides);
 export type DebateSide = (typeof debateSides)[number];
 
 /** How a Round ended for its sides: a side won, or nobody did. Abandonment is a status, not an outcome. */
-export const roundOutcomeSchema = z.enum([...debateSides, 'draw']);
+/** A side. A tie has no outcome: the outcome is null (DEC-277). */
+export const roundOutcomeSchema = z.enum(debateSides);
 export type RoundOutcome = z.infer<typeof roundOutcomeSchema>;
 
 /**

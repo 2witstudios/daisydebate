@@ -59,7 +59,6 @@ export function ballotReadView(input: {
     own: input.ownSeatId
       ? {
           participantId: input.ownSeatId,
-          status: own?.status ?? null,
           ballot: own ? ballotBody(own) : null,
           freezeRevision: own?.freezeRevision ?? null,
         }
@@ -78,7 +77,6 @@ export function ballotReadView(input: {
         ? input.rows.map((row) => {
             const ballot = ballotBody(row);
             return {
-              status: row.status,
               judge: input.aiJudgeSeatIds.has(row.judgeParticipantId)
                 ? ('ai' as const)
                 : ('human' as const),

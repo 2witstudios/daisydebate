@@ -27,7 +27,6 @@ export function recordResult(
 ): RecordResult | null {
   if (round.status !== 'completed' || role === 'judge') return null;
   if (round.outcome === null) return 'no-ruling';
-  if (round.outcome === 'draw') return 'draw';
   return round.outcome === role ? 'win' : 'loss';
 }
 
@@ -45,10 +44,8 @@ export function tallyRecord(
         return { ...record, wins: record.wins + group.rounds };
       if (result === 'loss')
         return { ...record, losses: record.losses + group.rounds };
-      if (result === 'draw')
-        return { ...record, draws: record.draws + group.rounds };
       return record;
     },
-    { wins: 0, losses: 0, draws: 0 },
+    { wins: 0, losses: 0 },
   );
 }
