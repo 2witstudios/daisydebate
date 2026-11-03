@@ -150,7 +150,11 @@ run `bun slot:up`. It is idempotent:
 - starts the shared stack (`docker compose up -d --wait`) only when it is
   unreachable, so it never recreates a running stack;
 - prunes orphans: the databases and Redis keys of worktrees that
-  `git worktree list` no longer shows;
+  `git worktree list` no longer shows. Only the repository recorded as the
+  stack's owner prunes, and only it uses the main slot. A copy or a fresh
+  `git init` prunes nothing and is refused the main slot. The first checkout with
+  an origin records the owner; after moving the repository, run
+  `bun scripts/slot.ts claim`;
 - creates this checkout's dev, test and e2e databases if missing, migrates
   all three with this branch's migrations, and provisions the loopback-only
   `daisy_e2e` login as a member of the baseline's `daisy_web` runtime role

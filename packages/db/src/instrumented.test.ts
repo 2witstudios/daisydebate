@@ -221,3 +221,56 @@ test('a refusal is reported once, by whichever boundary reaches it first', () =>
     expected: [{ operation: 'readFoo', cause: 'competitive', running: 1 }],
   });
 });
+
+test('nested stores and what a factory returns hold under their own names', async () => {
+  const read = async () => currentLaneOperation();
+  const named = namedLaneOperations({
+    maintenance: { run: read },
+    friendStore: () => ({ withContacts: read }),
+  });
+  assert({
+    given: 'an object of operations and a factory of them',
+    should: 'name each member by its path',
+    actual: [
+      await named.maintenance.run(),
+      await named.friendStore().withContacts(),
+    ],
+    expected: ['maintenance.run', 'friendStore.withContacts'],
+  });
+});
+
+test('a lazy query through a named operation keeps its name', async () => {
+  const lazy = {
+    then: (resolve: (operation: string) => void) =>
+      resolve(currentLaneOperation()),
+  };
+  const named = namedLaneOperations({ readFoo: () => lazy });
+  assert({
+    given: 'an operation returning a thenable that runs when awaited',
+    should: 'read that operation as the current one',
+    actual: await named.readFoo(),
+    expected: 'readFoo',
+  });
+});
+
+test('naming changes no plain value or sync return', () => {
+  const view = { kind: 'view', rows: [1] };
+  const when = new Date(0);
+  const fn = Object.assign(() => view, { label: 'kept' });
+  const named = namedLaneOperations({
+    view: fn,
+    when: () => when,
+    constant: 7,
+  });
+  assert({
+    given: 'data returned synchronously, a class instance and a constant',
+    should: 'return the same values, keep function properties',
+    actual: [
+      named.view() === view,
+      named.when() === when,
+      named.constant,
+      named.view.label,
+    ],
+    expected: [true, true, 7, 'kept'],
+  });
+});

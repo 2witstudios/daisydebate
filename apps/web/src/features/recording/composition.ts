@@ -14,6 +14,7 @@ import {
 import { stageEgressOf } from '../stage-capture/composition';
 import { newStageCredential } from '../stage-capture/stage-access';
 import { createRecordingCapturePort } from './capture-port';
+import { holdsRecordingDownload } from './download-entitlement';
 import { createRecordingCaptureSweep } from './capture-sweep';
 import type { RecordingRound } from './audience';
 import { createRecordingHandlers } from './handlers';
@@ -45,10 +46,7 @@ const asRound = (round: RoundRow): HistoryRound & RecordingRound => ({
   })),
 });
 
-/**
- * The named read-only inputs, in one place. A download takes WATCH-8's
- * subscription entitlement, granted to beta testers until billing exists.
- */
+/** The named read-only inputs, in one place. */
 const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
   const readHistoryRound = async (roundId: string) => {
     const round = await app.database.readRecordingRound(roundId);
@@ -67,11 +65,10 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
     readTranscript: (roundId) =>
       app.database.readRecordingTranscript(roundId, captureRule),
     readBallots: app.database.readRecordingBallots,
-    holdsRecordingDownload: async (userId) =>
-      holdsCasualCapture(
-        await app.database.recordingCaptures.readAccountGrants(userId),
-        app.config.PREMIUM_BETA_GRANT,
-      ),
+    holdsRecordingDownload: holdsRecordingDownload({
+      readGrants: app.database.recordingCaptures.readAccountGrants,
+      betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
+    }),
     findRecordingByRound: store.findByRound,
   };
 };

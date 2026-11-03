@@ -300,6 +300,50 @@ test('a corrupt whole file falls back to its segments', async () => {
   });
 }, 120_000);
 
+test('an attempt with no audio joins with silence, so the video stays whole', async () => {
+  const { hold, recordings, ports } = await setup('silent');
+  await holdSegments(join(hold, 'hold/b/1'), T0, 8);
+  await holdSegments(join(hold, 'hold/b/2'), T0 + 8000, 8);
+  await ffmpeg(
+    '-f',
+    'lavfi',
+    '-i',
+    'color=c=green:s=1280x720:r=30:d=8',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'ultrafast',
+    join(hold, 'hold/b/2/full.mp4'),
+  );
+  const state = await buildRecording(ports, {
+    recordingId: 'rec',
+    holdPrefix: 'hold/b/',
+    attemptCount: 2,
+  });
+  const streams = await runCommand(new AbortController().signal)([
+    'ffprobe',
+    '-v',
+    'error',
+    '-show_entries',
+    'stream=codec_type',
+    '-of',
+    'csv=p=0',
+    join(recordings, 'recordings/rec/video.mp4'),
+  ]);
+  assert({
+    given: 'one attempt with sound and one without',
+    should: 'build one video with one audio stream throughout',
+    actual: [
+      state.status,
+      streams.trim().split('\n').sort(),
+      Math.abs(
+        (await durationOf(join(recordings, 'recordings/rec/video.mp4'))) - 16,
+      ) < 1,
+    ],
+    expected: ['built', ['audio', 'video'], true],
+  });
+}, 120_000);
+
 test('capture that left nothing reports no media', async () => {
   const { ports } = await setup('empty');
   assert({
