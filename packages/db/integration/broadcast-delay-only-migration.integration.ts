@@ -12,7 +12,7 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const migration = '20261103173009_puzzling_malcolm_colcord';
+const migration = '20261103180615_lush_jean_grey';
 const check = 'broadcasts_release_policy_check';
 const longest = { kind: 'delay', seconds: 86_400 };
 const scratch = scratchDatabase(url, 'delayonly');
