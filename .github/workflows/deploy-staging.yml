@@ -88,6 +88,9 @@ jobs:
         deploy.realtime=${{ steps.realtime.outcome }}
         deploy.deploy=${{ steps.deploy.outcome }}
         deploy.media-worker=${{ steps.media-worker.outcome }}
+        deploy.egress=${{ steps.egress.outcome }}
+        deploy.broadcast-worker=${{ steps.broadcast-worker.outcome }}
+        deploy.recording-worker=${{ steps.recording-worker.outcome }}
         deploy.clickhouse=${{ steps.clickhouse.outcome }}
         deploy.log-shipper=${{ steps.log-shipper.outcome }}
         deploy.admin-migrate=${{ steps.admin-migrate.outcome }}
@@ -178,6 +181,46 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_MEDIA_WORKER_API_TOKEN }}
         run: >-
           flyctl deploy -c fly.media-worker.toml --local-only --ha=false
+          --build-arg APP_VERSION="${DEPLOY_SHA::7}"
+          --build-arg GIT_COMMIT="$DEPLOY_SHA"
+      - id: egress
+        name: Deploy Egress
+        # ADR 0099: a pinned image, like LiveKit, so a main push redeploys it
+        # only when its config changed: a redeploy ends a running Broadcast's
+        # capture, which then restarts with a stated gap. Its token deploys
+        # only that app.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_EGRESS_API_TOKEN }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          deployed="$(flyctl machines list -a daisy-debate-staging-egress --json | jq -r '.[0].config.env.EGRESS_SOURCE_COMMIT // empty')"
+          if [ "$MANUAL" != true ] && [ -n "$deployed" ] \
+            && git cat-file -e "$deployed^{commit}" 2>/dev/null \
+            && git diff --quiet "$deployed" HEAD -- fly.egress.toml; then
+            echo "Egress unchanged since $deployed; not redeployed"
+            exit 0
+          fi
+          flyctl deploy -c fly.egress.toml --local-only --ha=false \
+            --env EGRESS_SOURCE_COMMIT="$DEPLOY_SHA"
+      - id: broadcast-worker
+        name: Deploy the Broadcast worker
+        # ADR 0099: holds and releases media, after the migration its role
+        # needs. A restart resumes from the durable cursor. Its token deploys
+        # only that app.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_BROADCAST_WORKER_API_TOKEN }}
+        run: >-
+          flyctl deploy -c fly.broadcast-worker.toml --local-only --ha=false --no-public-ips
+          --build-arg APP_VERSION="${DEPLOY_SHA::7}"
+          --build-arg GIT_COMMIT="$DEPLOY_SHA"
+      - id: recording-worker
+        name: Deploy the Recording worker
+        # ADR 0107: builds finished Recordings from the hold; a build it was
+        # running is retried under its lease. Its token deploys only that app.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_RECORDING_WORKER_API_TOKEN }}
+        run: >-
+          flyctl deploy -c fly.recording-worker.toml --local-only --ha=false --no-public-ips
           --build-arg APP_VERSION="${DEPLOY_SHA::7}"
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: clickhouse

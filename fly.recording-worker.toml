@@ -11,7 +11,7 @@ kill_timeout = 30
 
 [build]
   dockerfile = "apps/web/Dockerfile"
-  target = "recording-worker"
+  build-target = "recording-worker"
 
 [[vm]]
   size = "performance-4x"
