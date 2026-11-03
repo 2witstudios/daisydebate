@@ -52,9 +52,23 @@ const spoken = async (word: string) => {
   return (await readFile(path)).toString('base64');
 };
 
-type Line = { readonly label: string; readonly wav: string };
+type Line = {
+  readonly key: string;
+  readonly shows: string;
+  readonly wav: string;
+};
 
-/** The seat's microphone plays each of its lines when its own clock shows that label. */
+/** What the speaker's own clock reads once their segment's clock runs. */
+const clockLabel = (segment: { type: string; key: string; label: string }) =>
+  segment.type === 'cross_ex'
+    ? 'Cross-examination · You ask'
+    : `${segment.key} · ${segment.label}`;
+
+/**
+ * The seat's microphone plays each of its lines when its own clock shows that label. It
+ * unmutes the moment that is offered, as a seat in a format with open questioning starts
+ * muted.
+ */
 const installSpeaker = (page: Page, lines: readonly Line[]) =>
   page.addInitScript((given: readonly Line[]) => {
     const onsets: Record<string, number> = {};
@@ -65,17 +79,17 @@ const installSpeaker = (page: Page, lines: readonly Line[]) =>
     const audio = new AudioContext();
     const output = audio.createMediaStreamDestination();
     const buffers = new Map<string, Promise<AudioBuffer>>(
-      given.map(({ label, wav }) => [
-        label,
+      given.map(({ key, wav }) => [
+        key,
         audio.decodeAudioData(
           Uint8Array.from(atob(wav), (c) => c.charCodeAt(0)).buffer,
         ),
       ]),
     );
-    const speak = async (label: string) => {
-      const buffer = await buffers.get(label);
-      if (!buffer || onsets[label]) return;
-      onsets[label] = Date.now();
+    const speak = async (key: string) => {
+      const buffer = await buffers.get(key);
+      if (!buffer || onsets[key]) return;
+      onsets[key] = Date.now();
       const source = audio.createBufferSource();
       source.buffer = buffer;
       source.connect(output);
@@ -98,22 +112,12 @@ const installSpeaker = (page: Page, lines: readonly Line[]) =>
       const shown = document
         .querySelector('[role="timer"]')
         ?.getAttribute('aria-label');
-      for (const { label } of given)
-        if (shown?.startsWith(`${label} `)) void speak(label);
+      for (const { key, shows } of given)
+        if (shown?.startsWith(`${shows} `)) void speak(key);
+      for (const button of document.querySelectorAll('button'))
+        if (button.textContent?.trim() === 'Unmute microphone') button.click();
     }, 20);
   }, lines);
-
-const unmuteWhenOffered = async (page: Page) => {
-  const unmute = page.getByRole('button', {
-    name: 'Unmute microphone',
-    exact: true,
-  });
-  await unmute
-    .click({ timeout: 30_000 })
-    .catch((error: unknown) =>
-      console.warn('no unmute offered', String(error).slice(0, 80)),
-    );
-};
 
 const firstWordOf = (text: string) =>
   text
@@ -149,14 +153,14 @@ for (let index = 0; index < ROUNDS; index += 1)
               segments
                 .filter((segment) => segment.side === role)
                 .map(async (segment) => ({
-                  label: segment.label,
+                  key: segment.key,
+                  shows: clockLabel(segment),
                   wav: await spoken(OPENING_WORDS[segment.key]!),
                 })),
             ),
           );
           await page.goto(`/rounds/${round.id}/room`);
           await expectConnected(page);
-          await unmuteWhenOffered(page);
           return { role, member, id: own.id, page };
         }),
       );
@@ -234,7 +238,7 @@ for (let index = 0; index < ROUNDS; index += 1)
               row.segmentId === segment.id && row.participantId === seat.id,
           )
           .map((row) => Date.parse(row.from));
-        const onset = onsets[rule.label] ?? null;
+        const onset = onsets[rule.key] ?? null;
         const clockAt = segment.startedAt
           ? Date.parse(segment.startedAt)
           : null;
