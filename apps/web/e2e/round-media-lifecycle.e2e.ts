@@ -18,6 +18,7 @@ import {
   startAdmittedRound,
 } from './support/human-ballot-round';
 import { humanRoundSelection } from './support/human-round-selection';
+import { settleLeftRounds } from './support/settle-left-round';
 import {
   MEDIA_POLL,
   afterHydration,
@@ -30,8 +31,8 @@ import {
 test('closing an account leaves no live Round behind it', async ({
   browser,
 }) => {
-  const accounts = await createRoomLaunchAccounts(browser, 2);
   const observer = await createRoomLaunchAccounts(browser, 1);
+  const accounts = await createRoomLaunchAccounts(browser, 2);
   try {
     const round = await createHumanBallotRound(accounts.members, 0);
     await accounts.closeContexts();
@@ -196,6 +197,7 @@ test('actual sign-out and emailed sign-in return to the authorized live Round', 
       path: test.info().outputPath('signed-in-round-recovery.png'),
     });
   } finally {
+    await settleLeftRounds(accounts.members);
     await closeSettledLaunchContexts(accounts);
   }
 });

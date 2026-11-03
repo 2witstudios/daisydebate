@@ -35,14 +35,16 @@ export async function forfeitOwnSeat(
 /**
  * A test that leaves its Round live leaves it running for minutes: each one
  * holds capture, attendance and recovery work on the competitive lane that the
- * next test's setup is then refused for (ISSUE-1191, ISSUE-1194). This never
- * fails a test: a Round it cannot settle costs load, not correctness.
+ * next test's setup is then refused for (ISSUE-1217). This never fails a test:
+ * a Round it cannot settle costs load, not correctness, and says so in the run's
+ * output, so a settling that stops working does not hide as refusals later.
  */
-export async function settleLeftRound(member: {
+async function settleLeftRound(member: {
   readonly context: BrowserContext;
   readonly username: string;
 }) {
   const { request } = member.context;
+  let unsettled: unknown;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     try {
       const roundId = await leftRoundId(request);
@@ -55,9 +57,18 @@ export async function settleLeftRound(member: {
             (seat.role === 'affirmative' || seat.role === 'negative'),
         );
       return;
-    } catch {
+    } catch (error) {
+      unsettled = error;
       if (attempt < ATTEMPTS)
         await new Promise((done) => setTimeout(done, REFUSED_PAUSE_MS));
     }
   }
+  process.stderr.write(`Left Round not settled: ${String(unsettled)}\n`);
+}
+
+/** One at a time: one forfeit ends the Round, and the next member then finds none. */
+export async function settleLeftRounds(
+  members: readonly Parameters<typeof settleLeftRound>[0][],
+) {
+  for (const member of members) await settleLeftRound(member);
 }
