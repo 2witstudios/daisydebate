@@ -58,6 +58,7 @@ export const eventRegistry = {
   'media.capture.session_ended': 'info',
   'media.capture.token_deferred': 'info',
   'realtime.outbox.actor_missing': 'warn',
+  'round.restriction.forfeit_failed': 'error',
   'realtime.outbox.drain_failed': 'error',
   'realtime.outbox.delivery_lag_estimated': 'info',
   'realtime.delivery.backlog': 'info',

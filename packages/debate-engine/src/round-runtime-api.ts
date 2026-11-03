@@ -11,6 +11,8 @@ import type {
 export type RoundRuntime = {
   /** The derived position at `now`; a pure read. */
   readonly position: (now: string) => RoundPosition;
+  /** Whether every segment has closed by `now`, the clock advanced first. */
+  readonly debateOverAt: (now: string) => boolean;
   /** Applies one legal command and returns the writes to persist. */
   readonly execute: (input: {
     readonly command: RoundCommand;
