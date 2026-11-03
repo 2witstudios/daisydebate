@@ -69,7 +69,7 @@ export async function acceptChallengeAction(
   form: FormData,
 ): Promise<ChallengeFormState> {
   const identity = await requestIdentity();
-  if (identity.state !== 'member' || !identity.principal.actorId)
+  if (identity.state !== 'member')
     return { notice: challengeRefusal('accept', 404) };
   const incoming = new Headers(await headers());
   const challengeId = text(form, 'challengeId');

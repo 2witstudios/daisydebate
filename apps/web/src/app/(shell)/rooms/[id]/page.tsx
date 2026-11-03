@@ -34,8 +34,7 @@ export default async function RoomRoute({
   const { id } = await params;
   const identity = await requireAccess(`/rooms/${id}`, searchParams);
   if (!idSchema.safeParse(id).success) notFound();
-  if (identity.state !== 'member' || identity.principal.actorId === null)
-    throw createAppError('AUTHORIZATION');
+  if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
   const [result, catalog] = await Promise.all([
     roomAssembly(id),
     roomTemplates(),

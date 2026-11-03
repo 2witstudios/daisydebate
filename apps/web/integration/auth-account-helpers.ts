@@ -122,6 +122,7 @@ export function createAccountFlows(testApp?: TestApp) {
 export const identityUserId = (identity: Identity): string | null =>
   identity.state === 'member' ||
   identity.state === 'waitlisted' ||
+  identity.state === 'restricted' ||
   identity.state === 'provisional'
     ? identity.principal.userId
     : null;

@@ -23,7 +23,6 @@ const dependencies = (identity: Identity = member) => ({
   limiter: () => ({
     consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
   }),
-  getActorByUserId: async () => ({ id }),
   store: { setEphemeral: async () => {}, get: async () => null },
   catalog: async () =>
     Response.json({ choices: [unequalTemplate], resolutions: [], bots: [] }),

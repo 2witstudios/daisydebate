@@ -29,12 +29,6 @@ export default async function BetaPage({
   );
   if (identity.state === 'provisional') redirect(onboardingHref(destination));
   if (identity.state === 'member') redirect(destination);
-  if (identity.reason === 'restricted')
-    redirect(
-      (await searchParams).signOut === 'failed'
-        ? '/restricted?signOut=failed'
-        : '/restricted',
-    );
   return (
     <BetaWaiting
       username={identity.username}

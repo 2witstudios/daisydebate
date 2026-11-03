@@ -1,17 +1,10 @@
 import { idSchema } from '@daisy/protocol';
 import { z } from 'zod';
-import type { Logger } from '@daisy/logger';
-import type { ErrorReporter } from '@daisy/observability';
+import { parseValidated, readJson } from '../../../server/http';
 import {
-  handleOperation,
-  parseValidated,
-  readJson,
-  requireSameOrigin,
-} from '../../../server/http';
-import {
-  requireMember,
-  type MemberGateDependencies,
-} from '../../../server/member-gate';
+  runMemberRoute,
+  type BudgetedMemberBoundary,
+} from '../../../server/member-boundary';
 import {
   conflictRevision,
   type DebateDocumentOperations,
@@ -20,11 +13,7 @@ import {
 import { DOCUMENT_MAX_BYTES } from '../../documents/normalize-html';
 
 /** Document routes bind their authenticated principal at the HTTP boundary. */
-type Dependencies = MemberGateDependencies & {
-  readonly logger: Logger;
-  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
-  readonly reporter: ErrorReporter;
-  readonly origin: () => string;
+type Dependencies = BudgetedMemberBoundary & {
   readonly operations: () => DebateDocumentOperations;
 };
 
@@ -59,14 +48,6 @@ const SAVE_BODY_BYTES = DOCUMENT_MAX_BYTES * 2 + 1_024;
  * are private user content: they never reach a log line.
  */
 export function createDebateRoomDocumentHandlers(dependencies: Dependencies) {
-  const principalOf = (
-    request: Request,
-    rule: keyof typeof rules,
-  ): Promise<DocumentPrincipal> =>
-    requireMember(dependencies, request, {
-      bucket: `debate-room:${rule}`,
-      rule: rules[rule],
-    });
   const post =
     <T>(
       name: keyof typeof rules,
@@ -75,20 +56,20 @@ export function createDebateRoomDocumentHandlers(dependencies: Dependencies) {
       run: (principal: DocumentPrincipal, body: T) => Promise<Response>,
     ) =>
     (request: Request) =>
-      handleOperation(
-        dependencies.logger,
+      runMemberRoute(
+        dependencies,
         request,
-        `debate_room.documents.${name}`,
-        async () => {
-          requireSameOrigin(request, dependencies.origin());
-          const principal = await principalOf(request, name);
-          const body = parseValidated(
-            schema,
-            await readJson(request, maxBytes),
-          );
-          return run(principal, body);
+        {
+          name: `debate_room.documents.${name}`,
+          readOnly: false,
+          bucket: `debate-room:${name}`,
+          rule: rules[name],
         },
-        dependencies.reporter,
+        async (principal) =>
+          run(
+            principal,
+            parseValidated(schema, await readJson(request, maxBytes)),
+          ),
       );
   const ops = () => dependencies.operations();
   return {

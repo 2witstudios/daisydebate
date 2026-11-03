@@ -5,7 +5,7 @@ import type { App } from '../../../server/app';
 import { unavailableMessagingHandler } from '../handler-boundary';
 import { messagingFileDependencies } from './composition';
 import { createMessagingFileHandlers } from './handlers';
-import { memberHttpBoundary } from '../../../server/member-handler';
+import { memberHttpBoundary } from '../../../server/member-boundary';
 /** Absence of explicit storage/scanner/policy remains unavailable at every mounted edge. */
 export function composeMessagingFileRoutes(app: App) {
   const configured = () => {

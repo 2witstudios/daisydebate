@@ -7,8 +7,8 @@ import { parseValidated, readJson } from '../../server/http';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import {
   memberHttpBoundary,
-  runMemberHandler,
-} from '../../server/member-handler';
+  runEvaluatedRoute,
+} from '../../server/member-boundary';
 import { requireMemberActor } from '../access/actor';
 
 type Scope = { readonly actorId: string; readonly userId: string };
@@ -42,7 +42,7 @@ export function composeRetainedConversationRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   return {
     list: (request: Request) =>
-      runMemberHandler(boundary, request, {
+      runEvaluatedRoute(boundary, request, {
         name: 'messaging.retained.list',
         readOnly: true,
         readInput: async () => null,
@@ -59,7 +59,7 @@ export function composeRetainedConversationRoutes(app: App) {
         },
       }),
     read: (request: Request, channelId: string) =>
-      runMemberHandler(boundary, request, {
+      runEvaluatedRoute(boundary, request, {
         name: 'messaging.retained.read',
         readOnly: true,
         readInput: async () => channelId,
@@ -77,7 +77,7 @@ export function composeRetainedConversationRoutes(app: App) {
         },
       }),
     remove: (request: Request) =>
-      runMemberHandler(boundary, request, {
+      runEvaluatedRoute(boundary, request, {
         name: 'messaging.retained.delete',
         readOnly: false,
         readInput: () => readJson(request, policy.maxBodyBytes),
