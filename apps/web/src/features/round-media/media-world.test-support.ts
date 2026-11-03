@@ -123,6 +123,8 @@ export function createMediaWorld(
     if (actorId !== undefined && !caller) throw createAppError('AUTHORIZATION');
     return {
       session: {
+        roomOccupiedSid: null,
+        roomSawCapture: false,
         id: sessionId,
         roundId,
         roomName,
@@ -247,6 +249,9 @@ export function createMediaWorld(
         absenceProven: request.absenceProof?.mutationHorizon === mutations,
         seatRevoked: kept.length !== bindings.length,
         uncertainSinceMs: unsafeAt !== null || pending.size > 0 ? 0 : null,
+        lastOccupiedSid: null,
+        sawCapture: false,
+        seen: null,
       });
       const uncertain = unsafeAt !== null || pending.size > 0;
       if (fate.kind !== 'keep') {

@@ -11,6 +11,16 @@ export type MediaRoomFacts = {
   readonly seatRevoked: boolean;
   /** When the room's state became unknown, or null when it is known. */
   readonly uncertainSinceMs: number | null;
+  /** LiveKit's id for the room as it stood when last occupied, or null. */
+  readonly lastOccupiedSid: string | null;
+  /** The last pass that read the room saw the capture agent in it. */
+  readonly sawCapture: boolean;
+  /** What this pass read of the room; null if it read nothing. */
+  readonly seen: {
+    /** LiveKit's id for the room now, or null when it is absent. */
+    readonly sid: string | null;
+    readonly empty: boolean;
+  } | null;
 };
 
 /** What happens to the room. Each variant is one outcome, with nothing left to derive. */
@@ -21,7 +31,7 @@ export type MediaRoomFate =
   /** The session moves to a fresh room, with its remaining seats. */
   | {
       readonly kind: 'rotate';
-      readonly cause: 'absent' | 'unreachable' | 'seat-revoked';
+      readonly cause: 'absent' | 'unreachable' | 'seat-revoked' | 'lost';
     }
   /** The room is proven gone and nothing requires a new one yet. */
   | { readonly kind: 'clear' };

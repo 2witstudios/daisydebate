@@ -13,6 +13,9 @@ const sound = {
   absenceProven: false,
   seatRevoked: false,
   uncertainSinceMs: null,
+  lastOccupiedSid: null,
+  sawCapture: false,
+  seen: null,
 };
 
 test('a room is settled by observed absence, or by uncertainty outlasting the bound', () => {

@@ -124,6 +124,7 @@ export function observeFloor(input: MediaOperationInput) {
     media: {
       ...input.media,
       exists: (room) => timed(room, () => input.media.exists(room)),
+      roomSid: (room) => timed(room, () => input.media.roomSid(room)),
       createRoom: (room) => timed(room, () => input.media.createRoom(room)),
       deleteRoom: (room) => timed(room, () => input.media.deleteRoom(room)),
       publicationPermissions: (room) =>

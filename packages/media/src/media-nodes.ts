@@ -81,6 +81,7 @@ export function createMediaNodes(input: {
   };
   return {
     exists: (room: string) => read((service) => service.exists(room)),
+    roomSid: (room: string) => read((service) => service.roomSid(room)),
     publicationPermissions: (room: string) =>
       read((service) => service.publicationPermissions(room)),
     participants: (room: string) =>

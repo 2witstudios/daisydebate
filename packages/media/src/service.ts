@@ -92,6 +92,16 @@ export function createMediaService({
         (await client.listRooms([name])).some((room) => room.name === name),
       );
     },
+    /** LiveKit's id for the room, which changes if it is rebuilt on another node. */
+    async roomSid(room: string) {
+      const name = parseMedia(idSchema, room);
+      return operation(async () => {
+        const found = (await client.listRooms([name])).find(
+          (entry) => entry.name === name,
+        );
+        return found ? found.sid || name : null;
+      });
+    },
     async publicationPermissions(room: string) {
       return (await participants(room)).map(publicationPermission);
     },

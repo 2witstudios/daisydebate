@@ -53,6 +53,7 @@ test('a capture token for a safe live session is issued while a foreign reconcil
     const granted = await broker.captureToken(scope, principal);
     await sessions.finishMediaReconcile({
       roomFate: mediaRoomFate(6_000),
+      seen: null,
       mediaWindowClosed,
       ...fence,
       absenceProof: null,

@@ -49,6 +49,8 @@ export const mediaSessions = pgTable(
     vendorUnreachableSince: timestampColumn('vendor_unreachable_since'),
     /** The last pass that read the room saw the capture agent in it. */
     roomSawCapture: boolean('room_saw_capture').notNull().default(false),
+    /** LiveKit's id for the room when last occupied: a new id means the node was lost. */
+    roomOccupiedSid: text('room_occupied_sid'),
   },
   (table) => [
     uniqueIndex('media_sessions_round_unique').on(table.roundId),

@@ -1,0 +1,1 @@
+ALTER TABLE "media_sessions" ADD COLUMN "room_occupied_sid" text;

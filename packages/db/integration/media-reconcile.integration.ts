@@ -59,6 +59,7 @@ test('durable reconcile claims serve only the request horizon they actually star
       });
       await store.finishMediaReconcile({
         roomFate: mediaRoomFate(6_000),
+        seen: null,
         mediaWindowClosed,
         ...claim.fence,
         absenceProof: await store.prepareMediaAbsenceProof(claim.fence),
@@ -150,6 +151,7 @@ test('a verified absence retires the room, and a late acknowledgement cannot rew
       });
       const result = await restarted.finishMediaReconcile({
         roomFate: mediaRoomFate(6_000),
+        seen: null,
         mediaWindowClosed,
         ...recovery.fence,
         absenceProof: await restarted.prepareMediaAbsenceProof(recovery.fence),
@@ -221,6 +223,7 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       await store.settleMediaMutation(intent, 'succeeded');
       const result = await store.finishMediaReconcile({
         roomFate: mediaRoomFate(6_000),
+        seen: null,
         mediaWindowClosed,
         ...claim.fence,
         absenceProof: proof,
@@ -244,6 +247,7 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       if (!current) throw new Error('Mutation horizon missing');
       const refused = await store.finishMediaReconcile({
         roomFate: mediaRoomFate(6_000),
+        seen: null,
         mediaWindowClosed,
         ...next.fence,
         absenceProof: { ...current, owner: claim.fence.owner },

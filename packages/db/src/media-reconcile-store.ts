@@ -258,6 +258,8 @@ export function createMediaReconcileStore(input: {
         readonly clean: boolean;
         readonly mediaWindowClosed: MediaWindowRule;
         readonly roomFate: (facts: MediaRoomFacts) => MediaRoomFate;
+        /** What this pass read of the room; null if it read nothing. */
+        readonly seen: MediaRoomFacts['seen'];
       },
     ) {
       return withFence(request, async (tx, session, now) => {
@@ -292,6 +294,9 @@ export function createMediaReconcileStore(input: {
             dispatched.length + known.length
               ? Math.min(...dispatched, ...known)
               : null,
+          lastOccupiedSid: session.roomOccupiedSid,
+          sawCapture: session.roomSawCapture,
+          seen: request.seen,
         });
         if (fate.kind !== 'keep' && outstanding.length)
           await tx
@@ -315,7 +320,19 @@ export function createMediaReconcileStore(input: {
         });
         await tx
           .update(mediaSessions)
-          .set({ ...fields, ...(roomName ? { roomName } : {}) })
+          .set({
+            ...fields,
+            // A fresh room has been seen by nobody.
+            ...(roomName
+              ? { roomName, roomOccupiedSid: null, roomSawCapture: false }
+              : request.seen
+                ? {
+                    roomOccupiedSid: request.seen.empty
+                      ? null
+                      : request.seen.sid,
+                  }
+                : {}),
+          })
           .where(eq(mediaSessions.id, session.id));
         return { ...result, fate };
       });

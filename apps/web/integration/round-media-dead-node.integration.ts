@@ -153,3 +153,40 @@ test('an unreachable node costs nothing: admission reads through a healthy one a
     });
   });
 });
+
+test('a room rebuilt under a connected seat is left for a fresh one, at once', async () => {
+  await withMediaRound(async (f) => {
+    const operations = createRoundMediaOperations(mediaDependencies(f));
+    const seat = new Room();
+    try {
+      const admitted = await operations.session(f.roundId, f.host.actorId);
+      await seat.connect('ws://127.0.0.1:7880', admitted.token, {
+        autoSubscribe: false,
+        dynacast: false,
+      });
+      await operations.reconcile(f.roundId);
+      const [occupied] =
+        await f.sql`select id,room_name,room_occupied_sid from media_sessions where round_id=${f.roundId}`;
+      // What a node's death looks like from here: the same name, a new LiveKit room.
+      await f.media.deleteRoom(String(occupied!.room_name));
+      await f.media.createRoom(String(occupied!.room_name));
+      await operations.reconcile(f.roundId).catch(() => undefined);
+      const [after] =
+        await f.sql`select room_name,room_occupied_sid,unsafe_at from media_sessions where id=${occupied!.id}`;
+      assert({
+        given: 'a room occupied at one pass and rebuilt by the next',
+        should: 'read the loss and move the session to a fresh room, safely',
+        actual: [
+          occupied!.room_occupied_sid !== null,
+          after!.room_name !== occupied!.room_name,
+          after!.room_occupied_sid,
+          after!.unsafe_at,
+        ],
+        expected: [true, true, null, null],
+      });
+      await f.media.deleteRoom(String(occupied!.room_name));
+    } finally {
+      await seat.disconnect();
+    }
+  });
+}, 40_000);
