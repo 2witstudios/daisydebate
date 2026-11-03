@@ -187,7 +187,8 @@ describe('projectSpectatorTimeline', () => {
     assert({
       given: 'the first of two speeches ended on the released video',
       should: 'say the next speech is coming, whatever the Round does live',
-      actual: projectSpectatorTimeline(read(firstEnded, twoSpeeches)).stage,
+      actual: projectSpectatorTimeline(read(firstEnded, twoSpeeches as never))
+        .stage,
       expected: { kind: 'slate', moment: 'between_speeches' },
     });
   });
