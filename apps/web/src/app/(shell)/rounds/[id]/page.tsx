@@ -7,9 +7,10 @@ import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
 import type { SearchParams } from '../../../../features/access/decision';
-import { requireAccess } from '../../../../lib/access';
+import { accessOrTemporary } from '../../../../lib/access';
 import { isLiveDebater } from '../../../../ui/debate-room/live-round';
 import { RoundDocuments } from '../../../../ui/debate-room/round-documents';
+import { reconnectingRoundPage } from '../../../../ui/debate-room/round-reconnecting';
 import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
 import { RoundResult } from '../../../../ui/round-result/round-result';
 import {
@@ -18,8 +19,9 @@ import {
   resultRetryOf,
 } from '../../../../ui/round-result/result-part';
 import { drawReconnectDelaySeconds } from '../../../../ui/debate-room/reconnect-delay';
-import { RoundRoomReconnecting } from '../../../../ui/debate-room/round-room-reconnecting';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
+import { isTemporaryRefusal } from '@daisy/db/capacity';
+import { temporarilyRefused } from '../../../../server/temporary-read';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
 import { readPersistedRound, readPersistedRoundAnalysis } from './actions';
@@ -60,12 +62,13 @@ export default async function RoundPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { id } = await params;
-  const identity = await requireAccess(`/rounds/${id}`, searchParams);
+  const access = await accessOrTemporary(`/rounds/${id}`, searchParams);
+  if (access.kind === 'temporary') return reconnectingRoundPage();
+  const { identity } = access;
   if (!idSchema.safeParse(id).success) notFound();
   const result = await readPersistedRound(id);
   if (result.kind === 'missing') notFound();
-  if (result.kind === 'unavailable' && result.temporary)
-    return <RoundRoomReconnecting retrySeconds={drawReconnectDelaySeconds()} />;
+  if (temporarilyRefused(result)) return reconnectingRoundPage();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   if (
     identity.state === 'member' &&
@@ -90,12 +93,20 @@ export default async function RoundPage({
     completedBallots(result.round, identity.state === 'member'),
     ownAnalysis(result.round, debater),
   ]);
+  // Ratings are this page's content: refused, they must not read as none.
+  const ratings = await requestRoundRatings(result.round).catch(
+    (error: unknown) => {
+      if (isTemporaryRefusal(error)) return 'refused' as const;
+      throw error;
+    },
+  );
+  if (ratings === 'refused') return reconnectingRoundPage();
   const retry = resultRetryOf([ballots, analysis, transcript]);
   return (
     <>
       <MediaDocument />
       <RoundReceipt round={result.round}>
-        <RoundRatings view={await requestRoundRatings(result.round)} />
+        <RoundRatings view={ratings} />
         {retry ? (
           <ResultUnavailable
             retrySeconds={
