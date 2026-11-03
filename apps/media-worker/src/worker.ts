@@ -52,7 +52,7 @@ export async function startMediaWorker(input: {
   }
   const supervisor = createCaptureSupervisor({
     maxSessions: config!.MEDIA_WORKER_MAX_SESSIONS,
-    // Back within SFU-2's 30 s, and 1, 2, 4 and 8 s also outlast a room being recreated.
+    // The wait after an exit; detection and reconnection are not bounded here.
     retryMs: { initial: 1000, max: 8000 },
     heldMs: 30000,
     nowMs: performance.now,

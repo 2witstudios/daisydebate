@@ -124,3 +124,16 @@ test('a node whose public route fails is not offered, even with its API up', asy
     expected: Array(3).fill('wss://b.public'),
   });
 });
+
+test('a read reaches a node the last probe called down, once the healthy ones fault', async () => {
+  const service = fixture({ exists: down }, { exists: async () => true }, [
+    'a.invalid',
+  ]);
+  await service.probe();
+  assert({
+    given: 'A healthy by the probe but faulting, and B called down but back',
+    should: 'still answer from B',
+    actual: await service.exists('room'),
+    expected: true,
+  });
+});

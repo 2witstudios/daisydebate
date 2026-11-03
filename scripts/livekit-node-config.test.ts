@@ -43,7 +43,21 @@ test('a bad node refuses rather than writing a wrong config', () => {
     actual: [
       refused({ app: 'a b', nodeIp: '203.0.113.7', size: 'performance-1x' }),
       refused({ app: 'a', nodeIp: 'nope', size: 'performance-1x' }),
+      refused({ app: 'a', nodeIp: '999.1.1.1', size: 'performance-1x' }),
+      refused({ app: 'a', nodeIp: '203.0.113.7', size: 'x"\ny' }),
+      refused({
+        app: 'a',
+        nodeIp: '203.0.113.7',
+        size: 'performance-1x',
+        memory: '$&',
+      }),
     ],
-    expected: ['Invalid app name', 'Invalid node address'],
+    expected: [
+      'Invalid app name',
+      'Invalid node address',
+      'Invalid node address',
+      'Invalid machine size',
+      'Invalid machine memory',
+    ],
   });
 });

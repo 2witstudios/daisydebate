@@ -30,9 +30,11 @@ uncertain, the session retires it and takes a fresh opaque name. Seats and ident
 stay. Capture leases bump their epoch, so capture relaunches into the new room.
 
 **A retirement fences uncertainty; it does not resolve it.** An intent still pending
-settles as `superseded`, which claims nothing about what the vendor did. A late write
-can then reach only a name that no token uses. A late acknowledgement cannot rewrite
-that outcome.
+settles as `superseded`, which claims nothing about what the vendor did. Every token
+issued from then on names the fresh room, so a late write can reach only the retired room
+and never the room the session now uses. The retired room is not sealed: a token issued
+before the rotation stays valid for up to 60 s, and on a partitioned node a client can stay
+connected there. A late acknowledgement cannot rewrite the outcome.
 
 **When.** At once on observed absence, or once uncertainty is 6 s old by the PostgreSQL
 clock: the 5 s the adapter waits on one call, plus 1 s. Restart still clears nothing,

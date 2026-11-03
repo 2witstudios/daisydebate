@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createMediaService } from '@daisy/media';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
@@ -42,9 +43,12 @@ for (const terminal of [false, true])
       });
       try {
         // The retiring request answers the retryable 503; the browser's next one joins.
-        await operations
-          .session(f.roundId, f.host.actorId)
-          .catch(() => undefined);
+        await assertRejects({
+          given: 'the request whose pass retires the room',
+          should: 'refuse retryably, with no token for the retired room',
+          code: 'INFRASTRUCTURE',
+          actual: () => operations.session(f.roundId, f.host.actorId),
+        });
         const [session] =
           await f.sql`select id,room_name,unsafe_at,ended_at from media_sessions where round_id=${f.roundId}`;
         assert({

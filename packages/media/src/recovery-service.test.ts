@@ -63,37 +63,41 @@ test('recovery reads the exact room and projects scoped publication permissions'
   });
 });
 
-test('a room stranded on a dead node is reclaimed, then deleted', async () => {
-  const calls: string[] = [];
-  let stranded = true;
-  const service = createMediaService({
-    config: {
-      url: 'http://127.0.0.1:7880',
-      apiKey: 'key',
-      apiSecret: 'secret',
-    },
-    rooms: {
-      createRoom: async () => {
-        calls.push('create');
-        stranded = false;
+for (const [status, code] of [
+  [503, 'unavailable'],
+  [408, 'deadline_exceeded'],
+] as const)
+  test(`a room stranded on a dead node is reclaimed, then deleted: ${status}`, async () => {
+    const calls: string[] = [];
+    let stranded = true;
+    const service = createMediaService({
+      config: {
+        url: 'http://127.0.0.1:7880',
+        apiKey: 'key',
+        apiSecret: 'secret',
       },
-      deleteRoom: async () => {
-        calls.push('delete');
-        if (stranded)
-          throw new ServerError(
-            'no response',
-            'no response',
-            503,
-            'unavailable',
-          );
-      },
-    } as never,
+      rooms: {
+        createRoom: async () => {
+          calls.push('create');
+          stranded = false;
+        },
+        deleteRoom: async () => {
+          calls.push('delete');
+          if (stranded)
+            throw new ServerError(
+              'no response',
+              'no response',
+              503,
+              'unavailable',
+            );
+        },
+      } as never,
+    });
+    await service.deleteRoom('r4nd0mr00mnam3r4nd0mr00m');
+    assert({
+      given: "LiveKit's answer for a room held by a dead node",
+      should: 'move it to a live node, then delete it',
+      actual: calls,
+      expected: ['delete', 'create', 'delete'],
+    });
   });
-  await service.deleteRoom('r4nd0mr00mnam3r4nd0mr00m');
-  assert({
-    given: "LiveKit's answer for a room held by a dead node",
-    should: 'move it to a live node, then delete it',
-    actual: calls,
-    expected: ['delete', 'create', 'delete'],
-  });
-});

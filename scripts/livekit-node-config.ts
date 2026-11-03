@@ -22,8 +22,14 @@ const required = (text: string, pattern: RegExp, name: string) => {
 /** Pure: the staging config is the template, so a node cannot drift from it. */
 export function renderLiveKitNode(base: string, node: LiveKitNode): string {
   if (!/^[a-z0-9-]+$/.test(node.app)) throw new Error('Invalid app name');
-  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(node.nodeIp))
+  if (
+    !/^\d{1,3}(\.\d{1,3}){3}$/.test(node.nodeIp) ||
+    node.nodeIp.split('.').some((octet) => Number(octet) > 255)
+  )
     throw new Error('Invalid node address');
+  if (!/^[a-z0-9-]+$/.test(node.size)) throw new Error('Invalid machine size');
+  if (node.memory !== undefined && !/^\d+(mb|gb)$/.test(node.memory))
+    throw new Error('Invalid machine memory');
   const patterns = {
     app: /^app = ".*"$/m,
     address: /^(\s*)LIVEKIT_NODE_IP = ".*"$/m,
@@ -32,12 +38,14 @@ export function renderLiveKitNode(base: string, node: LiveKitNode): string {
   required(base, patterns.app, 'app');
   required(base, patterns.address, 'LIVEKIT_NODE_IP');
   required(base, patterns.size, 'size');
+  const memoryLine = /^(\s*)memory = ".*"$/m;
+  required(base, memoryLine, 'memory');
   const placed = base
     .replace(patterns.app, `app = "${node.app}"`)
     .replace(patterns.address, `$1LIVEKIT_NODE_IP = "${node.nodeIp}"`)
     .replace(patterns.size, `$1size = "${node.size}"`);
   return node.memory
-    ? placed.replace(/^(\s*)memory = ".*"$/m, `$1memory = "${node.memory}"`)
+    ? placed.replace(memoryLine, `$1memory = "${node.memory}"`)
     : placed.replace(/^\s*memory = ".*"\n/m, '');
 }
 

@@ -30,6 +30,18 @@ type RoomService = Pick<
   | 'updateParticipant'
 >;
 
+/**
+ * A 4xx LiveKit response is a definite refusal (not found, or otherwise refused). A
+ * timeout (408 or deadline_exceeded) may still have applied, so it stays unknown, like a
+ * network failure or 5xx.
+ */
+const definiteRefusal = (error: unknown): error is ServerError =>
+  error instanceof ServerError &&
+  error.status >= 400 &&
+  error.status < 500 &&
+  error.status !== 408 &&
+  error.code !== 'deadline_exceeded';
+
 /** All credentials are injected; the SDK's environment fallback is never used. */
 export function createMediaService({
   config,
@@ -45,22 +57,11 @@ export function createMediaService({
       requestTimeout: 5,
       failover: false,
     });
-  /**
-   * A 4xx LiveKit response is a definite refusal (not found, or otherwise
-   * refused). A timeout (408 or deadline_exceeded) may still have applied, so
-   * it stays unknown, like a network failure or 5xx.
-   */
   const operation = async <T>(work: () => Promise<T>) => {
     try {
       return await work();
     } catch (error) {
-      if (
-        error instanceof ServerError &&
-        error.status >= 400 &&
-        error.status < 500 &&
-        error.status !== 408 &&
-        error.code !== 'deadline_exceeded'
-      )
+      if (definiteRefusal(error))
         throw createAppError(
           error.status === 404 || error.code === 'not_found'
             ? 'NOT_FOUND'
@@ -120,10 +121,7 @@ export function createMediaService({
         } catch (error) {
           // A room on a dead node stays listed and cannot be deleted until a create
           // moves it to a live one, so its delete is a create and a delete (ADR 0110).
-          if (
-            !(error instanceof ServerError) ||
-            (error.status >= 400 && error.status < 500)
-          )
+          if (!(error instanceof ServerError) || definiteRefusal(error))
             throw error;
           await client.createRoom({ name });
           await client.deleteRoom(name);

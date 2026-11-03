@@ -65,7 +65,11 @@ export function createMediaNodes(input: {
   const preferred = () => services[inOrder()[0]!]!;
   const read = async <T>(work: (service: NodeService) => Promise<T>) => {
     let failure: unknown;
-    for (const index of inOrder())
+    // A probe can be stale: the rest are asked once the healthy ones have faulted.
+    const healthyFirst = [
+      ...new Set([...inOrder(), ...services.map((_, index) => index)]),
+    ];
+    for (const index of healthyFirst)
       try {
         return await work(services[index]!);
       } catch (error) {

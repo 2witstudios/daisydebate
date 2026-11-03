@@ -299,9 +299,8 @@ test('a signal blip resumes the same connection with its tracks, says so, and ne
     // setOffline leaves live sockets up for a long while, so the blip is made directly.
     await source.addInitScript(() => {
       const Native = window.WebSocket;
-      const held = ((
-        window as never as { daisySignal: WebSocket[] }
-      ).daisySignal = []);
+      const held: WebSocket[] = [];
+      (window as never as { daisySignal: WebSocket[] }).daisySignal = held;
       window.WebSocket = new Proxy(Native, {
         construct(target, args: [string, string?]) {
           const socket = new target(...args);

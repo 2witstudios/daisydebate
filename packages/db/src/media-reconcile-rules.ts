@@ -118,7 +118,7 @@ export type RoomDecision =
 /**
  * The one decision. Observed absence retires at once. Otherwise uncertainty older than
  * the bound retires an open Round's room with the node still silent, because a late
- * outcome can only reach a name no token uses. A terminal session waits for proof, since
+ * outcome can reach only the retired room, never the one the session now uses. A terminal session waits for proof, since
  * ending it stops every later delete attempt.
  */
 export function decideRoom(input: {
