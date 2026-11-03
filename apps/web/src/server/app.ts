@@ -43,6 +43,7 @@ import {
   dec251ContactsPolicy,
   tightenContactsPolicy,
 } from '../features/contacts/request-policy';
+import { recordingObjectStore } from '../features/recording/tigris-object-store';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
 import { createRequestNetwork } from './request-network';
 
@@ -225,6 +226,8 @@ export function createApp({
     messagingFiles: messagingFiles
       ? parseMessagingFileLimits(messagingFiles, policy)
       : null,
+    /** The private Recording bucket; a deployment without it refuses every object. */
+    recordingObjects: recordingObjectStore(env),
     clock,
     ids,
     logger,
