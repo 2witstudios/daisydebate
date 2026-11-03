@@ -107,7 +107,7 @@ test('a permission call lost to a dying node never strands the session', async (
         should: 'admit the same seat identity into the fresh room',
         actual: [
           back.identity,
-          (tokenClaims(back.token) as { video: { room: string } }).video.room,
+          tokenClaims(back.token).video.room,
         ],
         expected: [admitted.identity, retired!.room_name],
       });
