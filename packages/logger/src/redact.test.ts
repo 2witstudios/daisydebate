@@ -122,6 +122,8 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       clientIdHash: 'a'.repeat(64),
       durationMs: 12,
       status: 429,
+      silentClips: 2,
+      audibleClips: 1,
       port: 3000,
       deleted: 0,
       batches: 3,

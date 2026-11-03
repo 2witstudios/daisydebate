@@ -217,3 +217,31 @@ test("a stream whose frames stop ends its clip after a pause, not at its segment
     expected: { early: [], paused: [[1010, 250]], left: 0 },
   });
 });
+
+test('an empty carry holds its run of speech until a pause has passed', () => {
+  const key = JSON.stringify(['g'.repeat(24), 'p'.repeat(24)]);
+  const carries: ClipCarries = new Map([
+    [
+      key,
+      {
+        frames: [],
+        lastNominal: 1000,
+        run: {
+          grant: 'grant',
+          trackId: 'track',
+          voicedMs: 300,
+          lastVoicedMs: 1000,
+        },
+      },
+    ],
+  ]);
+  flushQuietCarries(carries, 'r'.repeat(24), 1200);
+  const held = carries.has(key);
+  flushQuietCarries(carries, 'r'.repeat(24), 1510);
+  assert({
+    given: 'a bound cut that emptied the carry, then frames stopping',
+    should: 'keep the run for frames still arriving, and end it after a pause',
+    actual: [held, carries.has(key)],
+    expected: [true, false],
+  });
+});

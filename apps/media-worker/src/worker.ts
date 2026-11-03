@@ -1,3 +1,4 @@
+import { readCaptureSummary } from './capture-summary';
 import { systemId } from '@daisy/clock';
 import { readMediaWorkerConfig, type MediaWorkerConfig } from '@daisy/config';
 import { createMediaWorkerDatabase } from '@daisy/db/media-worker';
@@ -74,6 +75,15 @@ export async function startMediaWorker(input: {
           stdin: 'ignore',
           stdout: 'ignore',
           stderr: 'ignore',
+          ipc: (message) => {
+            const summary = readCaptureSummary(message);
+            if (summary)
+              logger.log(
+                'media.capture.session_ended',
+                { sessionId: scope.sessionId, ...summary },
+                'Capture session ended',
+              );
+          },
           env: {
             PUBLIC_APP_URL: config!.PUBLIC_APP_URL,
             MEDIA_WORKER_SECRET: config!.MEDIA_WORKER_SECRET,

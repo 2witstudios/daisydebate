@@ -29,13 +29,16 @@ ends at a pause, at the sixty-second bound, at a split above, or at the final
 flush: the call made with `final: true` when the stream's segment has ended and
 it is due to seal, which emits what remains (VIDEO-4.1-r7).
 
-A clip with under 100 ms of frames above the low-energy line is `silent`: it holds
-no audio, so it cannot reach speech-to-text, and it still counts as observed
-coverage. Speech-to-text models can invent words from silence and noise. Every
-other clip is `audible` and carries its WAV. The line measures energy, not speech,
-so noise above it is still sent. Any cut can split a word, and a word split in two
-keeps a piece of at least half its length, so a word of 200 ms or more always
-reaches speech-to-text at least in part. Silence before speech beyond a 500 ms pre-roll is
+A clip with no frame above the low-energy line, or one from a run of speech with
+under 100 ms of voice in total, is `silent`: it holds no audio, so it cannot reach
+speech-to-text, and it still counts as observed coverage. Speech-to-text models can
+invent words from silence and noise. Every other clip is `audible` and carries its
+WAV. A run is the voice since the last real pause on one grant and track, so
+missing frames split a clip but not a run, and every fragment holding voice is sent.
+The real limit: a run under 100 ms, ended by a pause, is dropped whatever it was.
+The line measures energy, not speech, so noise above it is still sent, a click just
+before a missing frame is sent, and a speaker wholly below it is recorded as silent
+(ISSUE-1050). Silence before speech beyond a 500 ms pre-roll is
 cut as its own clip, so it never travels with the words after it.
 
 A pause is 500 ms (`CLIP_PAUSE_MS`) of consecutive low-energy frames after at
