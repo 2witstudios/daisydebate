@@ -233,8 +233,10 @@ export function PersonList({
       {section('Friends', friends)}
       {filter === 'all' ? section('Everyone', others) : null}
       {roster.members.length === 0 ? (
-        <li role="status" className="px-3 py-6 text-center font-semibold">
-          No one matches
+        <li>
+          <p role="status" className="px-3 py-6 text-center font-semibold">
+            No one matches
+          </p>
         </li>
       ) : null}
       {roster.nextCursor ? (

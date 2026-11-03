@@ -151,6 +151,31 @@ describe('the online rail', () => {
   });
 });
 
+describe('the online rail with no one to list', () => {
+  test('the empty notice stays a list item', () => {
+    const html = inProvider(
+      h(OnlineRail, {
+        preference: 'auto',
+        actions,
+        setRail: async () => {},
+        activeRoomId: null,
+      }),
+      [],
+    );
+    assert({
+      given: 'no one on the roster',
+      should: 'announce it inside a real list item, so the list stays valid',
+      actual: [
+        /<li[^>]*role="status"/.test(html),
+        /<li[^>]*><p[^>]*role="status"[^>]*>No one matches<\/p><\/li>/.test(
+          html,
+        ),
+      ],
+      expected: [false, true],
+    });
+  });
+});
+
 describe('row words', () => {
   test('a sent offer or request reads over the status', () => {
     assert({
