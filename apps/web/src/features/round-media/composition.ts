@@ -5,7 +5,7 @@ import {
 } from './admission-priority';
 import type { App } from '../../server/app';
 import { createAppError } from '@daisy/errors';
-import { plannedBroadcast, plannedRecording } from '@daisy/debate-engine';
+import { plannedRecording } from '@daisy/debate-engine';
 import { createMediaService } from '@daisy/media';
 import {
   noopErrorReporter,
@@ -57,18 +57,15 @@ export function createRoundMediaRuntime(
       publicUrl,
       workerUrl: worker.toString(),
       nextId: () => app.ids.next(),
+      // POVs ask for 540p. A Broadcast's stage alone does not yet (ADR 0099).
       cameraProfile: async (roundId) => {
-        const broadcasts = app.config.BROADCAST_CAPTURE === 'on';
-        const povs =
-          app.config.RECORDING_CAPTURE === 'on' &&
-          app.config.RECORDING_POV_CAPTURE === 'on';
-        if (!broadcasts && !povs) return 'standard';
+        if (
+          app.config.RECORDING_CAPTURE !== 'on' ||
+          app.config.RECORDING_POV_CAPTURE !== 'on'
+        )
+          return 'standard';
         const plan = await app.database.broadcasts.readCapturePlan(roundId);
-        return plan &&
-          ((broadcasts && plannedBroadcast(plan)) ||
-            (povs && plannedRecording(plan)))
-          ? 'captured'
-          : 'standard';
+        return plan && plannedRecording(plan) ? 'captured' : 'standard';
       },
       reporter,
       logger: app.logger,

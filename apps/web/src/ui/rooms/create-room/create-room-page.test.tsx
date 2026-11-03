@@ -64,7 +64,7 @@ test('the ranked create form explains why it is public and states the notice it 
     actual: [
       ranked.includes('Ranked Rounds are always public, broadcast'),
       ranked.includes(notice.text),
-      /name="noticeVersion"[^>]*value="ranked-draft-1"/.test(ranked),
+      /name="noticeVersion"[^>]*value="ranked-draft-2"/.test(ranked),
     ],
     expected: [true, true, true],
   });

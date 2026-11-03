@@ -50,10 +50,10 @@ describe('agreements', () => {
         optedIn: digest(roundCaptureNotice('opted-in')).slice(0, 16),
       },
       expected: {
-        waiver: ['draft-3', '26fdba58a4c4d9c1'],
+        waiver: ['draft-4', 'b4de703568c9fc3f'],
         policy: ['draft-3', '9995635043e09c3e'],
-        ranked: 'aa20970794be07a1',
-        optedIn: 'f5a46abec416c6cb',
+        ranked: 'f3cda4a29f5e1823',
+        optedIn: 'efb0856e0ee8bf92',
       },
     });
   });

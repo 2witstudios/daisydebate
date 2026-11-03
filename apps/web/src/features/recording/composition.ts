@@ -158,12 +158,7 @@ export const startPovCapture = (app: App, timers: WorkerTimers) => {
     LIVEKIT_API_KEY: apiKey,
     LIVEKIT_API_SECRET: apiSecret,
   } = app.config;
-  if (
-    app.config.RECORDING_CAPTURE !== 'on' ||
-    !url ||
-    !apiKey ||
-    !apiSecret
-  )
+  if (app.config.RECORDING_CAPTURE !== 'on' || !url || !apiKey || !apiSecret)
     return null;
   // One LiveKit today. Every call already names its room, so more only change this.
   const egress = createPovEgress({ config: { url, apiKey, apiSecret } });

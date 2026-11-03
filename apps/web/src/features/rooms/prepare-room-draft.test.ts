@@ -171,7 +171,7 @@ test('a ranked submission is always public', () => {
     title: 'A ranked room',
     visibility: 'unlisted',
     ranked: 'on',
-    noticeVersion: 'ranked-draft-1',
+    noticeVersion: 'ranked-draft-2',
     valueResolutionId: 'published',
     intent: 'create',
   }).forEach(([key, text]) => form.set(key, text));

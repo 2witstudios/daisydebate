@@ -30,7 +30,7 @@ export const contentWaiverDocument: LegalDocument = {
       id: 'in-round-content',
       heading: 'In-round content',
       paragraphs: [
-        'Daisy owns what is said and shown in a ranked round, including its video and transcript. That video includes each debater's own camera and voice as separate files, which any subscriber who may watch the round can download. It stays after you close your account, because ranked season rounds are qualifying artifacts for tournaments.',
+        "Daisy owns what is said and shown in a ranked round, including its video and transcript. That video includes each debater's own camera and voice as separate files, which any subscriber who may watch the round can download. It stays after you close your account, because ranked season rounds are qualifying artifacts for tournaments.",
       ],
     },
     {
@@ -138,11 +138,11 @@ const notices: Readonly<
 > = {
   ranked: {
     version: 'ranked-draft-2',
-    text: 'This ranked round is public, broadcast with a delay and recorded. Its video, including each debater's own camera and voice as separate files, stays after you close your account, and you cannot remove it; moderation can still take it down. A subscriber can download a recording and those files, and a copy outside Daisy is beyond erasure and takedown.',
+    text: "This ranked round is public, broadcast with a delay and recorded. Its video, including each debater's own camera and voice as separate files, stays after you close your account, and you cannot remove it; moderation can still take it down. A subscriber can download a recording and those files, and a copy outside Daisy is beyond erasure and takedown.",
   },
   'opted-in': {
     version: 'casual-draft-2',
-    text: 'The host chose to broadcast or record this round. A recording includes each debater's own camera and voice as separate files. A casual recording ends when any participant removes it, and the whole recording goes, those files with it. A subscriber can download a recording and those files, and a copy outside Daisy is beyond erasure and takedown.',
+    text: "The host chose to broadcast or record this round. A recording includes each debater's own camera and voice as separate files. A casual recording ends when any participant removes it, and the whole recording goes, those files with it. A subscriber can download a recording and those files, and a copy outside Daisy is beyond erasure and takedown.",
   },
 };
 
