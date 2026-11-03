@@ -1,15 +1,15 @@
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
-import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
+import {
+  factReleasedSql,
+  roundAliasR as round,
+  type SpectatorClock,
+} from './spectator-release-sql';
 
 type Tx = Pick<BoundedTransactionContext, 'execute'>;
 
-const round = {
-  id: sql`r.id`,
-  status: sql`r.status`,
-  competitionType: sql`r.competition_type`,
-  completedAt: sql`r.completed_at`,
-};
+const margin = sql.raw(`interval '${SPECTATOR_MARGIN_MS} milliseconds'`);
 
 /**
  * Appends every fact of a Round the timeline has now passed and no row records
@@ -47,10 +47,18 @@ export async function recordFactReleases(
         where r.id=${input.roundId} and r.competition_type='ranked' and u.complete
           and ${released(sql`u.created_at`)}
     )
-    insert into spectator_fact_releases (round_id, kind, fact_id, captured_at, released_at, watermark_at)
+    insert into spectator_fact_releases (round_id, kind, fact_id, captured_at, released_at, watermark_at, basis)
     select ${input.roundId}, f.kind, f.fact_id, f.captured_at, ${input.clock.now}::timestamptz,
-      (select b.released_through_at from broadcasts b where b.round_id=${input.roundId})
+      b.released_through_at,
+      case
+        when b.released_through_at >= f.captured_at + ${margin} then 'watermark'
+        when b.id is not null then 'broadcast_ended'
+        when r.competition_type = 'ranked' then 'clock_fallback'
+        else 'no_broadcast'
+      end
     from facts f
+    join rounds r on r.id = ${input.roundId}
+    left join broadcasts b on b.round_id = ${input.roundId}
     on conflict (round_id, kind, fact_id) do nothing
     returning fact_id`);
   return (rows as unknown as unknown[]).length;
@@ -75,3 +83,24 @@ export async function readRoundsAwaitingFactLog(
     order by r.id limit ${input.limit}`);
   return (rows as unknown as { id: string }[]).map((row) => row.id);
 }
+
+/** Records the log for every Round that may have a fact to record; a sweep's pass. */
+export const spectatorFactLogOperations = ({
+  database,
+}: {
+  readonly database: Tx;
+}) => ({
+  async sweepSpectatorFactLog(input: {
+    readonly clock: SpectatorClock;
+    readonly endedWithinHours: number;
+    readonly limit: number;
+  }): Promise<number> {
+    const roundIds = await readRoundsAwaitingFactLog(database, input);
+    const recorded = await Promise.all(
+      roundIds.map((roundId) =>
+        recordFactReleases(database, { roundId, clock: input.clock }),
+      ),
+    );
+    return recorded.reduce((sum, count) => sum + count, 0);
+  },
+});

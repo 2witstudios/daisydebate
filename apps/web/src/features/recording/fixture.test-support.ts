@@ -64,7 +64,11 @@ export const deps = (
     objects: objects.store,
     inputs: {
       readRound: async () => over.round ?? round,
-      readBroadcastRelease: async () => ({ kind: 'none' }) as const,
+      readBroadcastRelease: async () =>
+        ({
+          releasedThroughMs: Number.MAX_SAFE_INTEGER,
+          stopped: false,
+        }) as const,
       holdsRecordingDownload: async () => over.subscribed ?? true,
     },
   };

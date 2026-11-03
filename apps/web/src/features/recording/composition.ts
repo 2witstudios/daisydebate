@@ -1,3 +1,4 @@
+import { spectatorClockAt } from '../spectating/spectator-clock';
 import { captureRule } from '@daisy/debate-engine';
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
@@ -42,7 +43,11 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
   return {
     readRound: readHistoryRound,
     readHistoryRound,
-    readBroadcastRelease: app.database.readRecordingBroadcastRelease,
+    readBroadcastRelease: (roundId) =>
+      app.database.readRecordingBroadcastRelease(
+        roundId,
+        spectatorClockAt(app.clock.now()),
+      ),
     readFloorIntervals: app.database.readRecordingFloorIntervals,
     readTranscript: (roundId) =>
       app.database.readRecordingTranscript(roundId, captureRule),

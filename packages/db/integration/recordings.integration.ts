@@ -17,6 +17,11 @@ import { rejectedBy, withFixture } from './constraint-helpers';
 import { exportThenErase, withPrivacySubject } from './privacy.test-support';
 
 setupRitewayBun();
+
+const clock = {
+  now: new Date('2036-01-01T00:00:00.000Z').toISOString(),
+  rankedDelaySeconds: 60,
+};
 const { databaseUrl } = requireTestServices(process.env);
 
 const at = '2026-11-02T10:00:00.000Z';
@@ -374,7 +379,7 @@ test('the archive pages, filters and holds back what is not released', async () 
             ...query,
           },
           viewerActorId,
-          marginMs: 5000,
+          clock,
           limit,
         });
       const ids = (page: Awaited<ReturnType<typeof list>>) =>
@@ -449,15 +454,14 @@ test('the archive pages, filters and holds back what is not released', async () 
       assert({
         given: 'the public count',
         should: 'count at least what the public list shows here',
-        actual:
-          (await archive.countPublicRecordingArchive({ marginMs: 5000 })) >= 2,
+        actual: (await archive.countPublicRecordingArchive({ clock })) >= 2,
         expected: true,
       });
       assert({
         given: 'a held Round read as a named input',
         should: 'report its Broadcast watermark, not a clock',
-        actual: await reads.readRecordingBroadcastRelease(held),
-        expected: { kind: 'open', releasedThroughMs: null },
+        actual: await reads.readRecordingBroadcastRelease(held, clock),
+        expected: { releasedThroughMs: null, stopped: false },
       });
     },
   );
@@ -472,9 +476,9 @@ test('the Round inputs read only public ballot fields', async () => {
       actual: [
         await reads.readRecordingBallots(roundId),
         await reads.readRecordingTranscript(roundId, captureRule),
-        await reads.readRecordingBroadcastRelease(roundId),
+        await reads.readRecordingBroadcastRelease(roundId, clock),
       ],
-      expected: [[], null, { kind: 'none' }],
+      expected: [[], null, { releasedThroughMs: null, stopped: false }],
     });
     assert({
       given: 'a Round that does not exist',

@@ -12,6 +12,19 @@ export const spectatorFactKinds = [
 ] as const;
 
 /**
+ * Why a fact left. `watermark`: released media passed it. `clock_fallback`: a
+ * ranked Round with no Broadcast, at completion plus the ranked delay.
+ * `broadcast_ended`: a stopped or finished Broadcast, by its policy.
+ * `no_broadcast`: a casual Round with no audience delay to keep.
+ */
+export const spectatorReleaseBases = [
+  'watermark',
+  'clock_fallback',
+  'broadcast_ended',
+  'no_broadcast',
+] as const;
+
+/**
  * Append-only: what was public about a Round and when, so it can be audited
  * (BCAST-5). One row per fact, written when the timeline first passed it and
  * never changed; a trigger refuses any update, and any delete except with the
@@ -29,6 +42,9 @@ export const spectatorFactReleases = pgTable(
     capturedAt: timestampColumn('captured_at').notNull(),
     releasedAt: timestampColumn('released_at').notNull(),
     watermarkAt: timestampColumn('watermark_at'),
+    basis: text('basis')
+      .$type<(typeof spectatorReleaseBases)[number]>()
+      .notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.roundId, table.kind, table.factId] }),
@@ -39,6 +55,10 @@ export const spectatorFactReleases = pgTable(
     check(
       'spectator_fact_releases_kind_check',
       oneOf(table.kind, spectatorFactKinds),
+    ),
+    check(
+      'spectator_fact_releases_basis_check',
+      oneOf(table.basis, spectatorReleaseBases),
     ),
     check(
       'spectator_fact_releases_after_capture_check',

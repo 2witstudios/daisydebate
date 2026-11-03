@@ -9,6 +9,14 @@ export type ReleaseRound = {
   readonly completedAt: SQL | unknown;
 };
 
+/** The Round under the alias `r`, for raw reads. */
+export const roundAliasR: ReleaseRound = {
+  id: sql`r.id`,
+  status: sql`r.status`,
+  competitionType: sql`r.competition_type`,
+  completedAt: sql`r.completed_at`,
+};
+
 const margin = sql.raw(`interval '${SPECTATOR_MARGIN_MS} milliseconds'`);
 
 /**

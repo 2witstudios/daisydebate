@@ -4,6 +4,11 @@ import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { mediaSessions } from './schema/media-sessions';
 import { rounds } from './schema/rounds';
+import {
+  roundAliasR,
+  spectatorHorizonSql,
+  type SpectatorClock,
+} from './spectator-release-sql';
 
 type Tx = BoundedTransactionContext;
 
@@ -201,26 +206,29 @@ export const listOpenBroadcasts = (tx: Tx, limit: number) =>
     .limit(limit);
 
 /**
- * What the Broadcast has released, for features that hold facts back until it
- * has: no Broadcast at all, the watermark, or complete.
+ * How far the audience's timeline has reached for this Round, and whether its
+ * Broadcast was stopped. One rule with every other read: `spectatorHorizonSql`.
  */
 export const readBroadcastRelease = async (
-  reader: Pick<Tx, 'select'>,
+  reader: Pick<BoundedTransactionContext, 'execute'>,
   roundId: string,
+  clock: SpectatorClock,
 ) => {
-  const [row] = await reader
-    .select({
-      at: broadcasts.releasedThroughAt,
-      completedAt: broadcasts.completedAt,
-    })
-    .from(broadcasts)
-    .where(eq(broadcasts.roundId, roundId));
-  if (!row) return { kind: 'none' } as const;
-  if (row.completedAt) return { kind: 'completed' } as const;
+  const rows = await reader.execute(sql`
+    select ${spectatorHorizonSql(roundAliasR, clock)} as horizon,
+      exists (select 1 from broadcasts b where b.round_id = r.id and b.stopped_at is not null) as stopped
+    from rounds r where r.id = ${roundId}`);
+  const [row] = rows as unknown as {
+    readonly horizon: Date | string | null;
+    readonly stopped: boolean;
+  }[];
   return {
-    kind: 'open',
-    releasedThroughMs: row.at?.getTime() ?? null,
-  } as const;
+    releasedThroughMs:
+      row?.horizon === null || row?.horizon === undefined
+        ? null
+        : new Date(row.horizon).getTime(),
+    stopped: row?.stopped ?? false,
+  };
 };
 
 /** Ranked Rounds still running with no Broadcast yet. Read-only; takes no Round lock. */

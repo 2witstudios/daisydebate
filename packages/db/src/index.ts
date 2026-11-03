@@ -92,6 +92,7 @@ import { standingsOperations } from './standings';
 import { spectatorTimelineReads } from './spectator-timeline-reads';
 import { memberProfileReadOperations } from './member-profile-reads';
 import { recordingArchiveReadOperations } from './recording-archive-reads';
+import { spectatorFactLogOperations } from './spectator-fact-log';
 import { recordingOperations } from './recording-operations';
 import { recordingRoundReadOperations } from './recording-round-reads';
 import type { RateDebateInput } from './rating-facts';
@@ -368,6 +369,7 @@ export function createDatabase({
     ...spectatorTimelineReads({ database: audience, eventSink }),
     ...recordingRoundReadOperations({ database: audience }),
     ...recordingArchiveReadOperations({ database: audience }),
+    ...spectatorFactLogOperations({ database: control }),
     ...recordingOperations({ database: control }),
     /**
      * Rates a completed round with the caller's domain decision (ADR 0055,

@@ -56,13 +56,14 @@ const withEndedRound = async (
   }
 };
 const rows = (sql: SQL, roundId: string) =>
-  sql`select kind, fact_id, captured_at, released_at, watermark_at from spectator_fact_releases where round_id=${roundId}` as Promise<
+  sql`select kind, fact_id, captured_at, released_at, watermark_at, basis from spectator_fact_releases where round_id=${roundId}` as Promise<
     {
       kind: string;
       fact_id: string;
       captured_at: Date;
       released_at: Date;
       watermark_at: Date | null;
+      basis: string;
     }[]
   >;
 
@@ -89,6 +90,7 @@ test('a fact is logged once it left, with both times, and the first release stan
         r.captured_at.toISOString(),
         r.released_at.toISOString(),
         r.watermark_at?.toISOString(),
+        r.basis,
       ]),
       expected: [
         [
@@ -96,6 +98,7 @@ test('a fact is logged once it left, with both times, and the first release stan
           ended.toISOString(),
           far.toISOString(),
           passed.toISOString(),
+          'watermark',
         ],
       ],
     });
@@ -167,6 +170,34 @@ test('the sweep finds Rounds with an audience, ended inside its window', async (
         (await found(1, after(ended, 3_700_000))).includes(roundId),
       ],
       expected: [true, false],
+    });
+  });
+});
+
+test('a ranked Round with no Broadcast leaves by the clock, and the log says so', async () => {
+  await withEndedRound(async ({ db, sql, roundId }) => {
+    assert({
+      given: 'no Broadcast, before completion plus the ranked delay',
+      should: 'log nothing',
+      actual: await recordFactReleases(db, {
+        roundId,
+        clock: clockAt(after(ended, 1000 * delay - 1)),
+      }),
+      expected: 0,
+    });
+    await recordFactReleases(db, {
+      roundId,
+      clock: clockAt(after(ended, 1000 * delay)),
+    });
+    assert({
+      given: 'the ranked delay passed with no Broadcast',
+      should: 'log it as a clock fallback, with no watermark',
+      actual: (await rows(sql, roundId)).map((r) => [
+        r.kind,
+        r.basis,
+        r.watermark_at,
+      ]),
+      expected: [['result', 'clock_fallback', null]],
     });
   });
 });

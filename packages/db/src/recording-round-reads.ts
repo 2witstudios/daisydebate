@@ -2,6 +2,7 @@ import type { CaptureRule, DebateRole, RatedOutcome } from '@daisy/protocol';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
+import type { SpectatorClock } from './spectator-release-sql';
 import { historyRows } from './member-history-rows';
 import { audienceTranscript } from './round-ballot-reads';
 import { readTranscriptFreeze } from './frozen-transcript';
@@ -96,8 +97,8 @@ export const recordingRoundReadOperations = ({
     });
   },
 
-  readRecordingBroadcastRelease: (roundId: string) =>
-    readBroadcastRelease(database, roundId),
+  readRecordingBroadcastRelease: (roundId: string, clock: SpectatorClock) =>
+    readBroadcastRelease(database, roundId, clock),
 
   /** The frozen transcript with its revision and honest coverage; null before one. */
   async readRecordingTranscript(roundId: string, captureRule: CaptureRule) {

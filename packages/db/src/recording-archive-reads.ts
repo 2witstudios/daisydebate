@@ -8,6 +8,11 @@ import { roundParticipants } from './schema/round-participants';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
+import {
+  factReleasedSql,
+  spectatorHorizonSql,
+  type SpectatorClock,
+} from './spectator-release-sql';
 
 export type ArchiveInput = {
   readonly query: {
@@ -18,7 +23,7 @@ export type ArchiveInput = {
     readonly before: string;
   };
   readonly viewerActorId: string | null;
-  readonly marginMs: number;
+  readonly clock: SpectatorClock;
   readonly limit: number;
 };
 
@@ -28,16 +33,19 @@ const visibility = sql<
 
 const hasTranscript = sql<boolean>`exists (select 1 from ${roundTranscriptFreezes} where ${roundTranscriptFreezes.roundId} = ${rounds.id})`;
 
-/** The audience may know of the Round: its Broadcast released past its end, or it has none. */
-const released = (marginMs: number) =>
-  sql`(${broadcasts.id} is null or ${broadcasts.completedAt} is not null or ${broadcasts.releasedThroughAt} >= ${rounds.completedAt} + (${marginMs} * interval '1 millisecond'))`;
+const roundColumns = {
+  id: rounds.id,
+  status: rounds.status,
+  competitionType: rounds.competitionType,
+  completedAt: rounds.completedAt,
+};
 
 /** A public Round with something the audience may have: ready video or ranked text. */
-const publicScope = (marginMs: number) =>
+const publicScope = (clock: SpectatorClock) =>
   and(
     sql`${visibility} = 'public'`,
-    released(marginMs),
-    sql`(${recordings.status} = 'ready' or (${rounds.competitionType} = 'ranked' and ${hasTranscript}))`,
+    factReleasedSql(rounds.completedAt, roundColumns, clock),
+    sql`((${recordings.status} = 'ready' and ${broadcasts.stoppedAt} is null) or (${rounds.competitionType} = 'ranked' and ${hasTranscript}))`,
   );
 
 const seatedScope = (actorId: string | null) =>
@@ -103,9 +111,10 @@ export const recordingArchiveReadOperations = ({
           status: recordings.status,
           durationMs,
           hasTranscript,
-          broadcastId: broadcasts.id,
-          broadcastCompletedAt: broadcasts.completedAt,
-          releasedThroughAt: broadcasts.releasedThroughAt,
+          horizon: sql<
+            Date | string | null
+          >`${spectatorHorizonSql(roundColumns, input.clock)}`,
+          stopped: sql<boolean>`${broadcasts.stoppedAt} is not null`,
         })
         .from(rounds)
         .leftJoin(rooms, eq(rooms.id, rounds.roomId))
@@ -116,7 +125,7 @@ export const recordingArchiveReadOperations = ({
             eq(rounds.status, 'completed'),
             query.scope === 'mine'
               ? seatedScope(input.viewerActorId)
-              : publicScope(input.marginMs),
+              : publicScope(input.clock),
             query.mode === 'any'
               ? undefined
               : eq(rounds.competitionType, query.mode),
@@ -165,27 +174,24 @@ export const recordingArchiveReadOperations = ({
           debaters: (named[index]?.seats ?? [])
             .filter((seat) => seat.role !== 'judge')
             .map((seat) => ({ role: seat.role as string, label: seat.label })),
-          release: !row.broadcastId
-            ? ({ kind: 'none' } as const)
-            : row.broadcastCompletedAt
-              ? ({ kind: 'completed' } as const)
-              : ({
-                  kind: 'open',
-                  releasedThroughMs: row.releasedThroughAt?.getTime() ?? null,
-                } as const),
+          release: {
+            releasedThroughMs:
+              row.horizon === null ? null : new Date(row.horizon).getTime(),
+            stopped: row.stopped === true,
+          },
         })),
       };
     });
   },
 
-  async countPublicRecordingArchive(input: { readonly marginMs: number }) {
+  async countPublicRecordingArchive(input: { readonly clock: SpectatorClock }) {
     const [row] = await database
       .select({ count: sql<number>`count(*)::int` })
       .from(rounds)
       .leftJoin(rooms, eq(rooms.id, rounds.roomId))
       .leftJoin(recordings, eq(recordings.roundId, rounds.id))
       .leftJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
-      .where(and(eq(rounds.status, 'completed'), publicScope(input.marginMs)));
+      .where(and(eq(rounds.status, 'completed'), publicScope(input.clock)));
     return row?.count ?? 0;
   },
 });

@@ -14,14 +14,14 @@ export type RecordingViewer =
     };
 
 /**
- * The Round's Broadcast as a named, read-only input. A Round with no Broadcast
- * has no audience delay. One with a Broadcast releases only with its media: the
- * watermark, never the clock.
+ * The audience's timeline for this Round as a named, read-only input: how far it
+ * has reached, by the one server rule, and whether its Broadcast was stopped. A
+ * stop is final and withholds the media; what follows the delay still leaves.
  */
-export type BroadcastRelease =
-  | { readonly kind: 'none' }
-  | { readonly kind: 'open'; readonly releasedThroughMs: number | null }
-  | { readonly kind: 'completed' };
+export type BroadcastRelease = {
+  readonly releasedThroughMs: number | null;
+  readonly stopped: boolean;
+};
 
 /** The Round as a named, read-only input. */
 export type RecordingRound = {
@@ -44,13 +44,11 @@ const insider = (round: RecordingRound, viewer: RecordingViewer): boolean =>
 const releasedToAudience = (
   round: RecordingRound,
   release: BroadcastRelease,
-): boolean => {
-  if (round.completedAtMs === null) return false;
-  if (release.kind === 'none' || release.kind === 'completed') return true;
-  return factReleased(round.completedAtMs, release.releasedThroughMs, {
+): boolean =>
+  round.completedAtMs !== null &&
+  factReleased(round.completedAtMs, release.releasedThroughMs, {
     marginMs: SPECTATOR_MARGIN_MS,
   });
-};
 
 /**
  * What this viewer may know of a finished Round. Each permission stands alone:
@@ -85,7 +83,12 @@ export const roundEvidencePermissions = (
   if (round.visibility === 'private') return NOTHING;
   if (!releasedToAudience(round, release)) return NOTHING;
   const ranked = round.competitionType === 'ranked';
-  return { open: true, media: true, transcript: ranked, result: ranked };
+  return {
+    open: true,
+    media: !release.stopped,
+    transcript: ranked,
+    result: ranked,
+  };
 };
 
 /** What a viewer who may see the media finds; nothing is ever fabricated. */

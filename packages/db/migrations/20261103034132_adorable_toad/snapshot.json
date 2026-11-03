@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "94f8d680-89e1-43c8-a378-8baad563e2f0",
+  "id": "d8278e84-484e-4241-9c97-56bfd50100d2",
   "prevIds": [
     "a839bd4a-b6c0-43a6-b853-9a6b033f718a"
   ],
@@ -10510,6 +10510,19 @@
       "generated": null,
       "identity": null,
       "name": "watermark_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "spectator_fact_releases"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "basis",
       "entityType": "columns",
       "schema": "public",
       "table": "spectator_fact_releases"
@@ -23513,6 +23526,13 @@
     {
       "value": "\"kind\" in ('stage', 'result', 'ballot', 'rating', 'caption')",
       "name": "spectator_fact_releases_kind_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "spectator_fact_releases"
+    },
+    {
+      "value": "\"basis\" in ('watermark', 'clock_fallback', 'broadcast_ended', 'no_broadcast')",
+      "name": "spectator_fact_releases_basis_check",
       "entityType": "checks",
       "schema": "public",
       "table": "spectator_fact_releases"

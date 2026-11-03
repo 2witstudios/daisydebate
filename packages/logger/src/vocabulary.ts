@@ -56,6 +56,7 @@ export const eventRegistry = {
   'broadcast.release_failed': 'error',
   'broadcast.conversation_held_long': 'error',
   'broadcast.reconcile_failed': 'error',
+  'spectator.fact_log_failed': 'error',
   'broadcast.egress.start_failed': 'error',
   'broadcast.egress.stop_failed': 'error',
   'broadcast.egress.stopped_unconfirmed': 'error',

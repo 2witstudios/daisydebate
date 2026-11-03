@@ -101,8 +101,10 @@ CREATE TABLE "spectator_fact_releases" (
 	"captured_at" timestamp with time zone NOT NULL,
 	"released_at" timestamp with time zone NOT NULL,
 	"watermark_at" timestamp with time zone,
+	"basis" text NOT NULL,
 	CONSTRAINT "spectator_fact_releases_pkey" PRIMARY KEY("round_id","kind","fact_id"),
 	CONSTRAINT "spectator_fact_releases_kind_check" CHECK ("kind" in ('stage', 'result', 'ballot', 'rating', 'caption')),
+	CONSTRAINT "spectator_fact_releases_basis_check" CHECK ("basis" in ('watermark', 'clock_fallback', 'broadcast_ended', 'no_broadcast')),
 	CONSTRAINT "spectator_fact_releases_after_capture_check" CHECK ("released_at" >= "captured_at")
 );
 --> statement-breakpoint

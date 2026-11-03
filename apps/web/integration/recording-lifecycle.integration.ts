@@ -1,3 +1,4 @@
+import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -76,7 +77,11 @@ const withReadyRecording = (
           }
         );
       },
-      readBroadcastRelease: database.readRecordingBroadcastRelease,
+      readBroadcastRelease: (roundId: string) =>
+        database.readRecordingBroadcastRelease(
+          roundId,
+          spectatorClockAt(new Date().toISOString()),
+        ),
       readFloorIntervals: database.readRecordingFloorIntervals,
       holdsRecordingDownload: async () => true,
     };

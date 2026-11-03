@@ -13,7 +13,7 @@ const row: ArchiveRound = {
   hostActorId: 'host',
   completedAtMs: nowMs,
   seatedActorIds: ['aff', 'neg'],
-  release: { kind: 'completed' },
+  release: { releasedThroughMs: Number.MAX_SAFE_INTEGER, stopped: false },
   status: 'ready',
   durationMs: 1_800_000,
   hasTranscript: true,
@@ -61,7 +61,7 @@ describe('archiveEntries', () => {
     assert({
       given: 'a ranked Round behind the watermark',
       should: 'drop the row',
-      actual: entries({ release: { kind: 'open', releasedThroughMs: null } }),
+      actual: entries({ release: { releasedThroughMs: null, stopped: false } }),
       expected: [],
     });
     const [casual] = entries({ competitionType: 'casual' });

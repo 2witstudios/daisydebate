@@ -77,7 +77,11 @@ const open = (
   const calls: string[] = [];
   const inputs: HistoryInputs = {
     readHistoryRound: async () => ({ ...round, ...over.round }),
-    readBroadcastRelease: async () => over.release ?? { kind: 'completed' },
+    readBroadcastRelease: async () =>
+      over.release ?? {
+        releasedThroughMs: Number.MAX_SAFE_INTEGER,
+        stopped: false,
+      },
     readTranscript:
       over.transcript ??
       (async () => {
@@ -210,7 +214,7 @@ describe('permissions', () => {
       expected: [true, 'Negative wins', true],
     });
     const { screen } = await open({
-      release: { kind: 'open', releasedThroughMs: null },
+      release: { releasedThroughMs: null, stopped: false },
     });
     assert({
       given: 'a ranked Round the watermark has not passed',

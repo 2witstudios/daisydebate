@@ -1,4 +1,5 @@
 import type { CompetitionType, RecordingStatus } from '@daisy/protocol';
+import type { spectatorClockAt } from '../spectating/spectator-clock';
 import { replayHref } from '../watch/routes';
 import type { RecordingsQuery } from './archive-query';
 import {
@@ -41,11 +42,11 @@ export type RecordingArchiveStore = {
   readonly listArchive: (input: {
     readonly query: RecordingsQuery;
     readonly viewerActorId: string | null;
-    readonly marginMs: number;
+    readonly clock: ReturnType<typeof spectatorClockAt>;
     readonly limit: number;
   }) => Promise<ArchivePage>;
   readonly countPublicArchive: (input: {
-    readonly marginMs: number;
+    readonly clock: ReturnType<typeof spectatorClockAt>;
   }) => Promise<number>;
 };
 

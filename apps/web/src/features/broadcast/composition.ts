@@ -6,9 +6,11 @@ import {
 import type { App } from '../../server/app';
 import { newStageCredential } from './stage-access';
 import { createStageRoute } from './stage-route';
+import { createFactLogSweep } from '../spectating/fact-log-sweep';
 import { createBroadcastSweep } from './sweep';
 
 const SWEEP_EVERY_MS = 1000;
+const FACT_LOG_EVERY_MS = 15_000;
 
 const egressOf = (app: App) => {
   const {
@@ -37,12 +39,24 @@ export const startBroadcastSweep = (app: App, timers: WorkerTimers) => {
       `${app.config.PUBLIC_APP_URL}/stage/${id}?c=${encodeURIComponent(credential)}`,
     report: log,
   });
-  return startSingleFlightWorker({
+  const factLog = startSingleFlightWorker({
+    run: createFactLogSweep({
+      store: app.database,
+      now: () => app.clock.now(),
+    }),
+    everyMs: FACT_LOG_EVERY_MS,
+    timers,
+    failed: () => log('spectator.fact_log_failed'),
+  });
+  const reconcile = startSingleFlightWorker({
     run: sweep,
     everyMs: SWEEP_EVERY_MS,
     timers,
     failed: () => log('broadcast.reconcile_failed'),
   });
+  return {
+    stop: () => Promise.all([factLog.stop(), reconcile.stop()]),
+  };
 };
 
 export const composeBroadcastStage = (app: App) => {

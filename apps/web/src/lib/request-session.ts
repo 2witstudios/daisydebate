@@ -11,14 +11,11 @@ import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
-import {
-  SPECTATOR_MARGIN_MS,
-  type MatchHistoryQuery,
-  type MemberProfile,
-} from '@daisy/protocol';
+import { type MatchHistoryQuery, type MemberProfile } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
+import { spectatorClockAt } from '../features/spectating/spectator-clock';
 import { readSpectatorTimeline } from '../features/spectating/read-timeline';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
@@ -52,15 +49,17 @@ export const readRecordingArchive = async (
   query: RecordingsQuery,
   viewer: RecordingViewer,
 ) => {
-  const { archive } = recordingReads(processApp());
+  const app = processApp();
+  const { archive } = recordingReads(app);
+  const clock = spectatorClockAt(app.clock.now());
   const [page, publicCount] = await Promise.all([
     archive.listArchive({
       query,
       viewerActorId: viewer.kind === 'account' ? viewer.actorId : null,
-      marginMs: SPECTATOR_MARGIN_MS,
+      clock,
       limit: ARCHIVE_PAGE_SIZE,
     }),
-    archive.countPublicArchive({ marginMs: SPECTATOR_MARGIN_MS }),
+    archive.countPublicArchive({ clock }),
   ]);
   return { page, publicCount };
 };

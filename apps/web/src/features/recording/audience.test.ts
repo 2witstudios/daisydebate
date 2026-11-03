@@ -31,16 +31,16 @@ const nothing = {
   result: false,
 };
 const everything = { open: true, media: true, transcript: true, result: true };
-const passed = { kind: 'open', releasedThroughMs: 200_000 } as const;
+const passed = { releasedThroughMs: 200_000, stopped: false } as const;
 
 describe('roundEvidencePermissions', () => {
-  test('follows the released media, never the clock', () => {
+  test('follows the audience timeline', () => {
     assert({
       given: 'a ranked Round whose watermark has not passed its end',
       should: 'not admit the audience at all',
       actual: roundEvidencePermissions(
         round,
-        { kind: 'open', releasedThroughMs: 100_000 },
+        { releasedThroughMs: 100_000, stopped: false },
         visitor,
       ),
       expected: nothing,
@@ -50,7 +50,7 @@ describe('roundEvidencePermissions', () => {
       should: 'not admit the audience',
       actual: roundEvidencePermissions(
         round,
-        { kind: 'open', releasedThroughMs: null },
+        { releasedThroughMs: null, stopped: false },
         account('stranger'),
       ),
       expected: nothing,
@@ -66,10 +66,26 @@ describe('roundEvidencePermissions', () => {
       should: 'not hold its own evidence back',
       actual: roundEvidencePermissions(
         round,
-        { kind: 'open', releasedThroughMs: null },
+        { releasedThroughMs: null, stopped: false },
         account('aff'),
       ),
       expected: everything,
+    });
+  });
+
+  test('a stop withholds the media and nothing else', () => {
+    assert({
+      given: 'a stopped ranked Broadcast past its end, and its seat',
+      should: 'withhold the video from the audience, and never from the seat',
+      actual: [
+        roundEvidencePermissions(round, { ...passed, stopped: true }, visitor),
+        roundEvidencePermissions(
+          round,
+          { ...passed, stopped: true },
+          account('aff'),
+        ).media,
+      ],
+      expected: [{ ...everything, media: false }, true],
     });
   });
 
@@ -78,17 +94,13 @@ describe('roundEvidencePermissions', () => {
     assert({
       given: 'a public casual Round and a stranger',
       should: 'allow the video but neither transcript nor result',
-      actual: roundEvidencePermissions(casual, { kind: 'none' }, visitor),
+      actual: roundEvidencePermissions(casual, passed, visitor),
       expected: { open: true, media: true, transcript: false, result: false },
     });
     assert({
       given: 'a seatless host',
       should: 'allow the video and result but not a transcript of others',
-      actual: roundEvidencePermissions(
-        casual,
-        { kind: 'none' },
-        account('host'),
-      ),
+      actual: roundEvidencePermissions(casual, passed, account('host')),
       expected: { open: true, media: true, transcript: false, result: true },
     });
     assert({
@@ -96,7 +108,7 @@ describe('roundEvidencePermissions', () => {
       should: 'answer as if it did not exist',
       actual: roundEvidencePermissions(
         { ...casual, visibility: 'private' },
-        { kind: 'none' },
+        passed,
         account('stranger'),
       ),
       expected: nothing,
@@ -106,7 +118,7 @@ describe('roundEvidencePermissions', () => {
       should: 'admit them',
       actual: roundEvidencePermissions(
         { ...casual, visibility: 'unlisted' },
-        { kind: 'none' },
+        passed,
         visitor,
       ).media,
       expected: true,
@@ -116,7 +128,7 @@ describe('roundEvidencePermissions', () => {
       should: 'give anyone nothing here',
       actual: roundEvidencePermissions(
         { ...round, completedAtMs: null },
-        { kind: 'none' },
+        passed,
         account('aff'),
       ),
       expected: nothing,
