@@ -344,12 +344,11 @@ export const openRecordingHistory = async (
     input.viewer,
   );
   // The result stands; the ballots carry the judges' words, which go with the footage.
-    const ballots =
-      readBallots &&
-      moderationHidesText(round, input.viewer, hiddenByModeration)
-        ? []
-        : readBallots;
-    const state = recordingMediaState(record?.lifecycle.status ?? null);
+  const ballots =
+    readBallots && moderationHidesText(round, input.viewer, hiddenByModeration)
+      ? []
+      : readBallots;
+  const state = recordingMediaState(record?.lifecycle.status ?? null);
   // A public Round with neither video nor anything this viewer may read is not
   // offered: a stranger learns nothing from its page.
   if (state === 'not_recorded' && transcript === null && ballots === null)
