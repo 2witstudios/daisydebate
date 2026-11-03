@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "2388def5-de83-4256-8fda-25c05912634b",
+  "id": "1cc77326-3922-4ef5-a1a1-35a253aa5a99",
   "prevIds": [
-    "363787d1-3897-4357-9649-a181b35a6c61"
+    "27c0ba7f-486d-4bab-ab09-08a7161ed9c1"
   ],
   "ddl": [
     {
@@ -24183,7 +24183,7 @@
       "table": "reports"
     },
     {
-      "value": "\"surface\" in ('online', 'profile', 'watch')",
+      "value": "\"surface\" in ('people', 'profile', 'watch')",
       "name": "reports_surface_check",
       "entityType": "checks",
       "schema": "public",
