@@ -2,12 +2,14 @@ import { broadcastLivePrefix, officialFeedPath } from '@daisy/protocol';
 import { RENDITIONS } from './hold-manifest';
 
 /**
- * A finished Broadcast's public objects stay this long after completion, so a
- * viewer can finish the last segments. It is shorter than OBS's wait before it
- * reopens an ended feed (about 15 s after the end, measured on OBS 32.1.2), so
- * a streamer's Media Source finds nothing to play again.
+ * A finished Broadcast's public objects stay this long after completion, for its
+ * viewers: one completes about 62 s after media ends and real viewers sit 70 to
+ * 75 s behind, so they reach the end about 13 s after completion, and one who
+ * stalled needs longer. A streamer's OBS reopens the ended feed in that time and
+ * replays the last 24 s until this passes, so Stream this Round says to stop the
+ * source when the Round ends.
  */
-export const FEED_END_GRACE_MS = 10_000;
+export const FEED_END_GRACE_MS = 60_000;
 
 /**
  * Every public object a Broadcast can have, manifests first so no player is told
@@ -39,7 +41,7 @@ type FinishedJob = {
 /**
  * The feed ends: an operator stopped this Broadcast (WATCH-7), or it completed
  * and its grace passed. Either way nothing public stays, so a finished feed
- * cannot replay and a later takedown has no public copy left behind. A stopped
+ * stops replaying and a later takedown has no public copy left behind. A stopped
  * Broadcast completes only once the reconciler has recorded that the Egress is
  * gone, because a completed Broadcast is reconciled no more. Safe to repeat:
  * deleting what is already gone is not an error.

@@ -86,9 +86,10 @@ DEC-303 targets.
 
 **Official feed.** The public master playlist is the official feed, for players
 and for streamers (Stream this Round). It ends with the Broadcast: a stop withdraws
-every public object at once, and a completed Broadcast's are withdrawn 10 s after
-completion. OBS reopens an ended address on a loop and would otherwise put the
-last 24 s back on air for as long as the source stays up, and a later takedown
+every public object at once, and a completed Broadcast's are withdrawn 60 s after
+completion, which viewers need to reach the end (real viewers finish about 13 s
+after completion). OBS reopens an ended address on a loop and would otherwise put
+the last 24 s back on air for as long as the source stays up, and a later takedown
 would leave a public copy behind. Afterwards the Recording is the only copy.
 
 ## Evidence

@@ -11,7 +11,7 @@ test('a finished Broadcast is withdrawn, not released again', async () => {
   let claimed = 0;
   await runWorker({
     owner: 'w',
-    now: () => 60_000,
+    now: () => 120_000,
     sleep: async () => {},
     stopped: () => claimed >= 2,
     report: () => {},
@@ -52,7 +52,7 @@ test('a finished Broadcast is withdrawn, not released again', async () => {
       withdrawn,
     ],
     expected: [
-      new Date(60_000 - FEED_END_GRACE_MS),
+      new Date(120_000 - FEED_END_GRACE_MS),
       'live/b/master.m3u8',
       true,
       ['b'],

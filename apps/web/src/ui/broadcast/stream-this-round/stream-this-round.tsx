@@ -38,8 +38,9 @@ export function StreamThisRound({
         <p className="text-sm text-ink-muted">
           Any tool that can play an HLS address can use the same URL. If the
           Round has not reached the feed yet, OBS shows nothing and keeps
-          trying. When the feed ends, OBS shows nothing, so end your stream or
-          switch scenes.
+          trying. When the Round ends, stop the source or switch scenes: OBS
+          replays the last few seconds for up to a minute after the feed ends,
+          then shows nothing.
         </p>
         {mode === 'ranked' ? (
           <p className="text-sm text-ink-muted">
