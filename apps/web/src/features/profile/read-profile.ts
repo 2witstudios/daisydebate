@@ -124,7 +124,7 @@ export async function readProfile(
     windowSeconds: 60,
   });
   const caller =
-    identity.state === 'member' && identity.principal.actorId !== null
+    identity.state === 'member'
       ? {
           userId: identity.principal.userId,
           actorId: identity.principal.actorId,

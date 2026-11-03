@@ -104,18 +104,25 @@ export const inPreRoundPrep = (input: {
     input.now,
   ).step.step === 'prep';
 
-/** One viewer's opening for a Round read; every seat counts as eligible to read. */
+/**
+ * One viewer's opening for a Round read. Only the viewer's own seat can offer
+ * a strike, so only the viewer's eligibility is read, by the rule the command
+ * applies.
+ */
 export const readRoundOpening = (
   opening: { readonly state: RoundOpening; readonly seed: string | null },
   seats: readonly Omit<OpeningSeat, 'eligible'>[],
-  viewerActorId: string,
+  viewer: { readonly actorId: string; readonly eligible: boolean },
   now: string,
 ) =>
   projectOpening(
     opening.state,
     opening.seed === null ? null : bytesOf(opening.seed),
-    seats.map((seat) => ({ ...seat, eligible: true })),
-    viewerActorId,
+    seats.map((seat) => ({
+      ...seat,
+      eligible: seat.actorId === viewer.actorId && viewer.eligible,
+    })),
+    viewer.actorId,
     now,
   );
 

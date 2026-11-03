@@ -7,7 +7,7 @@ import { handleOperation, readJson } from '../../server/http';
 import {
   memberHttpBoundary,
   type MemberBoundary,
-} from '../../server/member-handler';
+} from '../../server/member-boundary';
 export type MessagingHandlerPort<T> = {
   readonly boundary: MemberBoundary;
   readonly maxBodyBytes: number;
