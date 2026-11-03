@@ -5,8 +5,14 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   claimBroadcast,
+  completeBroadcast,
+  listOpenBroadcasts,
   openBroadcast,
   readReleasedThrough,
+  recordFinalMediaEnd,
+  recordObserverRestored,
+  recordObserverRevoked,
+  recordRevocationFailed,
   recordSegmentReleased,
 } from '../src/broadcast-operations';
 import { withFixture } from './constraint-helpers';
@@ -155,6 +161,42 @@ test('the cursor only moves forward and the watermark never recedes', async () =
         (await readReleasedThrough(db, roundId))?.toISOString(),
       ],
       expected: [false, true, false, true, later.toISOString()],
+    });
+  });
+});
+
+test('reconcile records are idempotent and a revocation resets its failures', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      releasePolicy: policy,
+    });
+    const read = async () =>
+      (await listOpenBroadcasts(db, 1000)).find((b) => b.id === open.id);
+    await recordRevocationFailed(db, open.id);
+    await recordRevocationFailed(db, open.id);
+    const failures = (await read())!.revocationFailures;
+    await recordObserverRevoked(db, { id: open.id, now });
+    const revoked = await read();
+    await recordObserverRestored(db, open.id);
+    await recordFinalMediaEnd(db, { id: open.id, at: now });
+    await recordFinalMediaEnd(db, { id: open.id, at: later });
+    const ended = await read();
+    await completeBroadcast(db, { id: open.id, at: later });
+    assert({
+      given: 'two failures, a revocation, a restore, two ends and a completion',
+      should:
+        'count failures, reset them on revocation, keep the first end, and drop off the open list',
+      actual: [
+        failures,
+        revoked!.revocationFailures,
+        revoked!.observerRevokedAt?.toISOString(),
+        ended!.observerRevokedAt,
+        ended!.finalMediaEndAt?.toISOString(),
+        await read(),
+      ],
+      expected: [2, 0, now.toISOString(), null, now.toISOString(), undefined],
     });
   });
 });

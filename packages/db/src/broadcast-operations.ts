@@ -109,3 +109,64 @@ export const readReleasedThrough = async (tx: Tx, roundId: string) => {
     .where(eq(broadcasts.roundId, roundId));
   return row?.at ?? null;
 };
+
+/** Records the running Egress; the reconcile pass reads its state from LiveKit. */
+export const recordEgressStarted = (
+  tx: Tx,
+  input: { readonly id: string; readonly egressId: string; readonly now: Date },
+) =>
+  tx
+    .update(broadcasts)
+    .set({ egressId: input.egressId, egressStartedAt: input.now })
+    .where(eq(broadcasts.id, input.id));
+
+export const recordObserverRevoked = (
+  tx: Tx,
+  input: { readonly id: string; readonly now: Date },
+) =>
+  tx
+    .update(broadcasts)
+    .set({ observerRevokedAt: input.now, revocationFailures: 0 })
+    .where(eq(broadcasts.id, input.id));
+
+export const recordRevocationFailed = (tx: Tx, id: string) =>
+  tx
+    .update(broadcasts)
+    .set({ revocationFailures: sql`${broadcasts.revocationFailures} + 1` })
+    .where(eq(broadcasts.id, id));
+
+export const recordObserverRestored = (tx: Tx, id: string) =>
+  tx
+    .update(broadcasts)
+    .set({ observerRevokedAt: null, revocationFailures: 0 })
+    .where(eq(broadcasts.id, id));
+
+/** The first recorded end stands, so a repeated stop cannot move completion. */
+export const recordFinalMediaEnd = (
+  tx: Tx,
+  input: { readonly id: string; readonly at: Date },
+) =>
+  tx
+    .update(broadcasts)
+    .set({ finalMediaEndAt: input.at })
+    .where(
+      and(eq(broadcasts.id, input.id), isNull(broadcasts.finalMediaEndAt)),
+    );
+
+export const completeBroadcast = (
+  tx: Tx,
+  input: { readonly id: string; readonly at: Date },
+) =>
+  tx
+    .update(broadcasts)
+    .set({ completedAt: input.at, leaseOwner: null, leaseUntil: null })
+    .where(and(eq(broadcasts.id, input.id), isNull(broadcasts.completedAt)));
+
+/** Every open Broadcast's reconcile facts, oldest first. */
+export const listOpenBroadcasts = (tx: Tx, limit: number) =>
+  tx
+    .select()
+    .from(broadcasts)
+    .where(isNull(broadcasts.completedAt))
+    .orderBy(asc(broadcasts.createdAt))
+    .limit(limit);
