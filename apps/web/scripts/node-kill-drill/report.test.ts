@@ -57,7 +57,9 @@ const sample = (overrides: Partial<DrillSample> = {}): DrillSample => ({
   roundStatus: 'completed',
   roundMs: 1_800_000,
   incidents: null,
+  killSentAt: '2026-11-03T18:33:39.000Z',
   unsafeSeen: false,
+  unsafeAfter60s: false,
   nodeBackMs: 40_000,
   nodeStartedBy: 'drill',
   errors: [],
@@ -181,8 +183,8 @@ test('each bar can fail', () => {
     ['a penalty never read', { penalties: null }, 'noAttendancePenalty'],
     ['a Round still active', { roundStatus: 'active' }, 'roundCompletes'],
     [
-      'an unsafe session',
-      { unsafeSeen: true },
+      'a session still unsafe after a minute',
+      { unsafeAfter60s: true },
       'neverUnsafeOrUnrecoveredAfter60s',
     ],
     [
@@ -198,6 +200,16 @@ test('each bar can fail', () => {
       actual: barsOf([sample(overrides)])[bar],
       expected: 'fail',
     });
+});
+
+test('a session unsafe for a moment', () => {
+  assert({
+    given: 'a session unsafe during recovery and clear within a minute',
+    should: 'keep the fact without failing the 60 s bar',
+    actual: barsOf([sample({ unsafeSeen: true })])
+      .neverUnsafeOrUnrecoveredAfter60s,
+    expected: 'pass',
+  });
 });
 
 test('a kill that did not run', () => {

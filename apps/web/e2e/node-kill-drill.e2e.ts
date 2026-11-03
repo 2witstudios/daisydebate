@@ -72,6 +72,7 @@ const WATCH_MIN_MS = 45_000;
 const WATCH_MAX_MS = 75_000;
 /** One node has no survivor: give the platform this long to restart it first. */
 const PLATFORM_RESTART_MS = 120_000;
+const UNSAFE_BAR_MS = 60_000;
 const NEXT_SPEECH_MS = 15_000;
 const SEAL_LIMIT_MS = 180_000;
 
@@ -298,7 +299,9 @@ const emptySample = (index: number, moment: DrillMoment): DrillSample => ({
   roundStatus: null,
   roundMs: 0,
   incidents: null,
+  killSentAt: null,
   unsafeSeen: null,
+  unsafeAfter60s: null,
   nodeBackMs: null,
   nodeStartedBy: null,
   errors: [],
@@ -376,13 +379,20 @@ async function drillOneKill(
     await killNode(target, node);
     const killCommandMs = Date.now() - killMs;
     nodeWatch = watchNodeReturn(target, node, killMs);
-    draft = { ...draft, killed: true, node: node.app, killCommandMs };
+    draft = {
+      ...draft,
+      killed: true,
+      node: node.app,
+      killCommandMs,
+      killSentAt: new Date(killMs).toISOString(),
+    };
     const floorMoved =
       sample.moment === 'floor-change'
         ? retrying(10_000, () => endOpenSpeech(accounts.members, round.id))
         : null;
 
     let unsafeSeen = false;
+    let unsafeNow = false;
     const elapsed = () => Date.now() - killMs;
     const allBack = () =>
       watches.every(
@@ -397,12 +407,15 @@ async function drillOneKill(
     const watchFrom = Date.now();
     while (
       Date.now() - watchFrom < WATCH_MIN_MS ||
+      (unsafeNow && elapsed() < UNSAFE_BAR_MS + 5000) ||
       (Date.now() - watchFrom < WATCH_MAX_MS && !(allBack() && captureSeen))
     ) {
       try {
         const evidence = await drillEvidence(round.id);
-        if (evidence.sessions.some((session) => session.unsafeAt !== null))
-          unsafeSeen = true;
+        unsafeNow = evidence.sessions.some(
+          (session) => session.unsafeAt !== null,
+        );
+        if (unsafeNow) unsafeSeen = true;
         captureSeen = captureBackAfter(observedIn(evidence), killMs) !== null;
       } catch {
         // The read is only a progress check; the final read is the record.
@@ -495,6 +508,10 @@ async function drillOneKill(
           unsafeSeen:
             unsafeSeen ||
             evidence.sessions.some((session) => session.unsafeAt !== null),
+          unsafeAfter60s:
+            (unsafeNow && elapsed() >= UNSAFE_BAR_MS) ||
+            (Date.now() - killMs >= UNSAFE_BAR_MS &&
+              evidence.sessions.some((session) => session.unsafeAt !== null)),
           nodeBackMs: nodeWatch.backMs(),
           nodeStartedBy:
             nodeWatch.backMs() === null

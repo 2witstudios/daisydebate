@@ -170,23 +170,48 @@ test('captureCoverage', () => {
 
 test('captureBackAfter', () => {
   assert({
-    given: 'observations before and after the kill',
-    should: 'time the first that began after it',
+    given: 'windows running on past the kill, then a hole',
+    should: 'time the end of the hole, not the first window after the kill',
     actual: captureBackAfter(
       [
-        { start: 500, end: 1500 },
+        { start: 0, end: 1000 },
+        { start: 1000, end: 2000 },
+        { start: 2000, end: 3000 },
         { start: 9000, end: 10_000 },
-        { start: 7000, end: 8000 },
+      ],
+      1500,
+    ),
+    expected: 7500,
+  });
+  assert({
+    given: 'a hole that ended before the kill',
+    should: 'not count it',
+    actual: captureBackAfter(
+      [
+        { start: 0, end: 1000 },
+        { start: 5000, end: 9000 },
+      ],
+      6000,
+    ),
+    expected: 0,
+  });
+  assert({
+    given: 'nothing observed after the kill',
+    should: 'report no recovery',
+    actual: captureBackAfter([{ start: 500, end: 1500 }], 2000),
+    expected: null,
+  });
+  assert({
+    given: 'windows out of order',
+    should: 'read them in time order',
+    actual: captureBackAfter(
+      [
+        { start: 9000, end: 10_000 },
+        { start: 0, end: 3000 },
       ],
       1000,
     ),
-    expected: 6000,
-  });
-  assert({
-    given: 'none after the kill',
-    should: 'report no recovery',
-    actual: captureBackAfter([{ start: 500, end: 1500 }], 1000),
-    expected: null,
+    expected: 8000,
   });
 });
 

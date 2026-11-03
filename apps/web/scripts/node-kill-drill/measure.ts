@@ -125,15 +125,30 @@ export function captureCoverage(
   };
 }
 
-/** From the kill to the first audio observed that began after it. */
+/** Adjacent observed windows touch; a stretch this long unobserved is a real hole. */
+const CAPTURE_HOLE_MS = 1000;
+
+/**
+ * From the kill to the end of the first hole in capture that reaches past it.
+ * A window that merely began after the kill proves nothing: audio already in
+ * flight is still observed as the node dies. No hole yet, with audio observed
+ * after the kill, reads 0; nothing observed after it reads as no recovery.
+ */
 export function captureBackAfter(
   observed: readonly Interval[],
   killMs: number,
 ): number | null {
-  const after = observed
-    .filter((window) => window.start >= killMs)
-    .map((window) => window.start);
-  return after.length ? Math.min(...after) - killMs : null;
+  let end: number | null = null;
+  for (const window of [...observed].sort((a, b) => a.start - b.start)) {
+    if (
+      end !== null &&
+      window.start - end >= CAPTURE_HOLE_MS &&
+      window.start > killMs
+    )
+      return window.start - killMs;
+    end = Math.max(end ?? window.end, window.end);
+  }
+  return end !== null && end > killMs ? 0 : null;
 }
 
 const HOUR_MS = 3_600_000;

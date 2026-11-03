@@ -1,3 +1,4 @@
+import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol';
 import { z } from 'zod';
 import { incidentRate, percentile } from './measure';
 
@@ -44,7 +45,10 @@ export const drillSampleSchema = z.strictObject({
   roundStatus: z.string().nullable(),
   roundMs: z.number(),
   incidents: z.number().nullable(),
+  killSentAt: z.string().nullable(),
   unsafeSeen: z.boolean().nullable(),
+  /** The spike's failure bar: still unsafe a minute after the kill. */
+  unsafeAfter60s: z.boolean().nullable(),
   nodeBackMs: z.number().nullable(),
   nodeStartedBy: z.enum(['platform', 'drill']).nullable(),
   errors: z.array(z.string()),
@@ -54,8 +58,9 @@ export type DrillSample = z.infer<typeof drillSampleSchema>;
 const SEAT_BACK_BAR_MS = 15_000;
 const CAPTURE_BACK_BAR_MS = 30_000;
 const UNRECOVERED_BAR_MS = 60_000;
-/** Below this a hole is rounding between adjacent observed windows, not a gap to state. */
-const HONEST_GAP_TOLERANCE_MS = 1000;
+/** What the capture rule itself allows a complete stream at its two edges (DEC-218, DEC-220). */
+const HONEST_GAP_TOLERANCE_MS =
+  CAPTURE_COVERAGE_TOLERANCE.joinMs + CAPTURE_COVERAGE_TOLERANCE.relayMs;
 
 type Verdict = 'pass' | 'fail' | 'not-run';
 const verdict = (ran: boolean, holds: boolean): Verdict =>
@@ -166,7 +171,7 @@ export function buildDrillReport(input: {
       ),
       neverUnsafeOrUnrecoveredAfter60s: verdict(
         ran,
-        killed.every((sample) => sample.unsafeSeen === false) &&
+        killed.every((sample) => sample.unsafeAfter60s === false) &&
           seatBack.every((back) => back !== null && back <= UNRECOVERED_BAR_MS),
       ),
     },
