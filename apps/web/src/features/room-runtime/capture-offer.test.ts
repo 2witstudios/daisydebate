@@ -64,3 +64,21 @@ describe('What the host is offered', () => {
     });
   });
 });
+
+test('a closed deployment offers no casual capture', async () => {
+  assert({
+    given: 'an open casual Room, its host holding the grant, capture closed',
+    should: 'say closed, whatever the host holds',
+    actual: await roomCaptureOffer(
+      {
+        hostActorId: 'host',
+        status: 'open',
+        competitionType: 'casual',
+      } as never,
+      'host',
+      async () => true,
+      false,
+    ),
+    expected: 'closed',
+  });
+});

@@ -47,6 +47,7 @@ export function composeRoomRoutes(app: App) {
         consentTtlMs: () => policy.consentTtlMs,
         aiSeats: () => app.aiSeats,
         betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
+        casualCaptureOpen: app.config.CASUAL_CAPTURE !== 'off',
         entropy: drawEntropy,
       }),
     });

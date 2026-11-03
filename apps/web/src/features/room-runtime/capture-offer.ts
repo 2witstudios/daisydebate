@@ -19,6 +19,7 @@ export async function roomCaptureOffer(
   state: Pick<RoomAssemblyState, 'hostActorId' | 'status' | 'competitionType'>,
   actorId: string,
   holds: () => Promise<boolean>,
+  open = true,
 ): Promise<RoomView['captureOffer']> {
   if (
     state.competitionType === 'ranked' ||
@@ -27,5 +28,6 @@ export async function roomCaptureOffer(
     state.status === 'closed'
   )
     return null;
+  if (!open) return 'closed';
   return (await holds()) ? 'included' : 'premium';
 }

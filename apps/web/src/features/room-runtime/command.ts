@@ -26,6 +26,7 @@ export function roomCommandOperation({
   ids,
   aiSeats,
   betaGrantsPremium,
+  casualCaptureOpen = true,
   consentTtlMs,
   eligible,
   consentOf,
@@ -37,6 +38,7 @@ export function roomCommandOperation({
   ids: IdGenerator;
   aiSeats: () => AiSeatAvailability;
   betaGrantsPremium: boolean;
+  casualCaptureOpen?: boolean;
   consentTtlMs: () => number;
   eligible: (state: RoomAssemblyState) => RoomAssemblyState;
   consentOf: (
@@ -162,6 +164,7 @@ export function roomCommandOperation({
                 state.hostActorId === caller.actorId &&
                 hostHoldsCasualAiJudge(grants, betaGrantsPremium),
               hostHoldsCasualCapture:
+                casualCaptureOpen &&
                 state.hostActorId === caller.actorId &&
                 hostHoldsCasualCapture(grants, betaGrantsPremium),
               formatFacts,

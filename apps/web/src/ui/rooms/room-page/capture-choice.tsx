@@ -10,6 +10,9 @@ import type { FormAction } from '../../form-action/form-action';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
 
+export const captureClosedText =
+  'Casual rounds can’t be broadcast or recorded yet. Ranked rounds always are.';
+
 export const capturePremiumText =
   'Broadcasting and recording a casual round come with a subscription.';
 
@@ -28,6 +31,12 @@ export function CaptureChoice({
   readonly action: FormAction<RoomFormState>;
 }) {
   if (view.captureOffer === null) return null;
+  if (view.captureOffer === 'closed')
+    return (
+      <p role="status" className="text-sm text-ink-muted">
+        {captureClosedText}
+      </p>
+    );
   if (view.captureOffer === 'premium')
     return (
       <>
