@@ -1,9 +1,12 @@
-import { roundPositionAt } from '@daisy/debate-engine/position';
+import {
+  roundCommandOptionsAt,
+  roundPositionAt,
+  type RoundCommandOption,
+} from '@daisy/debate-engine/position';
 import { startSpeechLabel } from '../debate-room/vocabulary';
 import {
   isNamedSeat,
   type RoundView,
-  type RoundSeat,
   type RoundPosition,
   type RoundCommandEnvelope,
 } from '@daisy/protocol';
@@ -14,93 +17,28 @@ export type RoundControlIntent = {
   readonly enabled: boolean;
   readonly confirm?: boolean;
 };
-const own = (
-  self: RoundSeat,
-  type: RoundControlIntent['type'],
-  label: string,
-  enabled = true,
-  confirm = false,
-): RoundControlIntent => ({
-  type,
-  label,
-  participantId: self.id,
-  enabled,
-  confirm,
-});
-function canPrep(view: RoundView, position: RoundPosition, self: RoundSeat) {
-  const next = position.nextSegment,
-    prep = view.rules.inRoundPrep;
-  if (!next || !prep) return false;
-  const segment = view.rules.segments[next.sequence]!;
-  if (
-    prep.expiresAtSegment !== null &&
-    view.rules.segments.findIndex((s) => s.key === prep.expiresAtSegment) <=
-      next.sequence
-  )
-    return false;
-  return (
-    segment.side === self.role &&
-    segment.slot === self.slot &&
-    prep.spendableBefore.includes(segment.type) &&
-    (position.prepBudgetRemainingMs?.[segment.side] ?? 0) > 0
-  );
-}
-function openIntents(
-  view: RoundView,
-  open: NonNullable<RoundPosition['openSegment']>,
-  self: RoundSeat,
-) {
-  const scheduled = view.rules.segments[open.sequence]!;
-  const holder =
-    open.floorParticipantId ??
-    view.participants
-      .filter(isNamedSeat)
-      .find((p) => p.role === scheduled.side && p.slot === scheduled.slot)?.id;
-  const result: RoundControlIntent[] = [];
-  if (holder === self.id)
-    result.push(
-      own(
-        self,
-        'yield',
-        'End speech',
-        view.rules.interaction.yield?.allowed === true,
-        true,
-      ),
-    );
-  const policy = view.rules.interaction.interruptions;
-  if (open.type !== 'cross_ex' && policy?.allowed === 'enabled')
-    result.push(
-      own(
-        self,
-        'interrupt',
-        'Interrupt',
-        holder !== self.id && open.remainingMs >= policy.minRemainingMs,
-      ),
-    );
-  return result;
-}
 /** "Start negative constructive": the speech by name, never its code. */
 const startLabel = (next: RoundPosition['nextSegment']) =>
   next ? startSpeechLabel(next.label) : 'Start speech';
-function activeIntents(
-  view: RoundView,
+/** The words on each command; what is offered and legal is the engine's. */
+const wording = (
+  type: RoundCommandOption['type'],
   position: RoundPosition,
-  self: RoundSeat,
-): readonly RoundControlIntent[] {
-  if (position.awaitingBallot) return [];
-  const forfeit = own(self, 'forfeit', 'Forfeit round', true, true);
-  if (position.prep?.side === self.role)
-    return [
-      own(self, 'start_speech', startLabel(position.nextSegment)),
-      forfeit,
-    ];
-  if (position.openSegment)
-    return [...openIntents(view, position.openSegment, self), forfeit];
-  return canPrep(view, position, self)
-    ? [own(self, 'start_prep', 'Take prep time'), forfeit]
-    : [forfeit];
-}
-/** Display hints only: every command rechecks locked authority and the engine. */
+): Pick<RoundControlIntent, 'label' | 'confirm'> => {
+  switch (type) {
+    case 'start_prep':
+      return { label: 'Take prep time', confirm: false };
+    case 'start_speech':
+      return { label: startLabel(position.nextSegment), confirm: false };
+    case 'yield':
+      return { label: 'End speech', confirm: true };
+    case 'interrupt':
+      return { label: 'Interrupt', confirm: false };
+    case 'forfeit':
+      return { label: 'Forfeit round', confirm: true };
+  }
+};
+/** The engine's options for this seat in words; a post still meets locked authority and the engine. */
 export function roundControlIntents(
   view: RoundView,
   actorId: string,
@@ -108,24 +46,31 @@ export function roundControlIntents(
 ): readonly RoundControlIntent[] {
   // The opening runs on its own; its only command is the strike on its own form.
   if (view.status === 'opening') return [];
-  const self = view.participants
-    .filter(isNamedSeat)
-    .find(
-      (p) => p.actorId === actorId && p.kind === 'human' && p.role !== 'judge',
-    );
+  const seats = view.participants.filter(isNamedSeat);
+  const self = seats.find(
+    (p) => p.actorId === actorId && p.kind === 'human' && p.role !== 'judge',
+  );
   if (!self) return [];
   if (view.status !== 'active' || view.checkpoint === null) return [];
-  const position = roundPositionAt({
+  const snapshot = {
     round: view,
     rules: view.rules,
     segments: view.segments,
     checkpoint: view.checkpoint,
     nowMs,
-  });
-  const intents = activeIntents(view, position, self);
-  return persistedPhase(view, position)
-    ? intents
-    : intents.map((intent) => ({ ...intent, enabled: false }));
+  };
+  const position = roundPositionAt(snapshot);
+  const current = persistedPhase(view, position);
+  return roundCommandOptionsAt({
+    ...snapshot,
+    participants: seats,
+    seat: self,
+  }).map((option) => ({
+    type: option.type,
+    participantId: self.id,
+    enabled: current && option.legal,
+    ...wording(option.type, position),
+  }));
 }
 
 /**

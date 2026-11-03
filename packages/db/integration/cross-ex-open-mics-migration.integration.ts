@@ -106,6 +106,12 @@ test(
 
       await scratch.migrate((folder) => folder <= migration);
       await scratch.migrate((folder) => folder <= migration);
+      // The frozen rule's later shape, so the rows parse under today's contract.
+      await scratch.migrate(
+        (folder) =>
+          folder <= migration ||
+          folder === '20261103021729_round_stage_and_interruption_rule',
+      );
 
       const revisions =
         await f.sql`select definition from format_revisions order by format_id, version`;

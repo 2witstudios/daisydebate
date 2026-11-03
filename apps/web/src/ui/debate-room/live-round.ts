@@ -84,7 +84,7 @@ function phaseOf(
   side: DebateSide,
 ): RoundPhase {
   if (position.status !== 'active') return 'waiting';
-  if (position.awaitingBallot) return 'judging';
+  if (position.stage === 'awaiting_ballot') return 'judging';
   if (position.stage === 'prep')
     return position.prep?.side === side ? 'prep' : 'waiting';
   const open = position.openSegment;
@@ -132,7 +132,7 @@ function clockOf(
 
 /** The lit speech: the one open, else the one prep or the countdown leads to. */
 function liveIndexOf(view: RoundView, position: RoundPosition): number {
-  if (position.awaitingBallot) return view.rules.segments.length;
+  if (position.stage === 'awaiting_ballot') return view.rules.segments.length;
   if (position.openSegment) return position.openSegment.sequence;
   if (position.status !== 'active') return -1;
   return position.nextSegment?.sequence ?? -1;

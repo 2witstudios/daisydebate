@@ -8,6 +8,7 @@ import type {
 } from '@daisy/protocol';
 import { aiSeatStanding } from './judging-job-rules';
 import { debateInvariantIds } from './invariant-ids';
+import { completedLifecycle } from './round-clock-state';
 import { debateIsOver, type CommandContext } from './round-commands';
 import { deriveRoundOutcome, participatingRulings } from './round-outcome';
 
@@ -199,7 +200,6 @@ const isClosedActiveRound = (
 ) =>
   c.rules.seats.judge === judgeSeatIds.length &&
   c.on.lifecycle().status === 'active' &&
-  c.on.lifecycle().outcome === null &&
   c.on.openRow() === undefined &&
   debateIsOver(c);
 
@@ -238,11 +238,9 @@ export function applyPanelCompletion(
       'Panel completion follows the actual final end',
     );
   c.on.endPrep();
-  c.on.setLifecycle({
-    status: 'completed',
-    outcome: decision.outcome,
-    completedAtMs: c.now,
-  });
+  c.on.setLifecycle(
+    completedLifecycle(c.on.lifecycle(), decision.outcome, c.now),
+  );
   c.into.effects.push({
     kind: 'round_completed',
     outcome: decision.outcome,

@@ -137,7 +137,8 @@ export function ruleRows(rules: {
   readonly countdownMs: number;
   readonly interruptions: {
     readonly mode: Mode;
-    readonly minRemainingMs: number;
+    /** The protected end, which only an enabled mode has. */
+    readonly minRemainingMs?: number;
   } | null;
   readonly yielding: {
     readonly allowed: boolean;
@@ -160,11 +161,11 @@ export function ruleRows(rules: {
     ],
     ['Countdown before each speech', clockDuration(rules.countdownMs)],
     ['Interruptions', interruptionLabel[interruptions?.mode ?? 'disabled']],
-    ...(interruptions && interruptions.mode !== 'disabled'
+    ...(interruptions?.mode === 'enabled'
       ? [
           [
             'Protected end of each speech',
-            clockDuration(interruptions.minRemainingMs),
+            clockDuration(interruptions.minRemainingMs ?? 0),
           ] as const,
         ]
       : []),

@@ -269,7 +269,7 @@ export const fixtureRules = (definition: FormatDefinition) => ({
   })),
   inRoundPrep: null,
   countdownMs: 0,
-  interaction: { yield: null, interruptions: null },
+  interaction: { yield: null, interruptions: { allowed: 'disabled' } },
 });
 
 /** Draw bounds a draw-capable format fixture declares (FMT-7). */

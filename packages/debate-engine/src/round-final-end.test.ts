@@ -18,14 +18,14 @@ test('the final actual segment closes at its own elapsed deadline while Round aw
       final: projection.finalSegmentEndedAt,
       close: projection.segmentCloses.at(-1)?.endedAt,
       status: projection.round?.status,
-      awaiting: world.position(at(total + 120_000)).awaitingBallot,
+      stage: world.position(at(total + 120_000)).stage,
       open: world.position(at(total + 120_000)).openSegment,
     },
     expected: {
       final: at(total),
       close: at(total),
       status: 'active',
-      awaiting: true,
+      stage: 'awaiting_ballot',
       open: null,
     },
   });
@@ -52,9 +52,9 @@ test('accepted early final yield anchors actual end independently of the origina
     actual: {
       final: ended.finalSegmentEndedAt,
       status: ended.round?.status,
-      awaiting: world.position(at(early)).awaitingBallot,
+      stage: world.position(at(early)).stage,
     },
-    expected: { final: at(early), status: 'active', awaiting: true },
+    expected: { final: at(early), status: 'active', stage: 'awaiting_ballot' },
   });
 });
 

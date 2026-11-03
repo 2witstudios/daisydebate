@@ -25,7 +25,7 @@ const awaitingBallot = (view: RoundView, nowMs: number) =>
     segments: view.segments,
     checkpoint: view.checkpoint,
     nowMs,
-  }).awaitingBallot;
+  }).stage === 'awaiting_ballot';
 
 /**
  * Leaving a live Round forfeits it: a debater's own opening Round, or an

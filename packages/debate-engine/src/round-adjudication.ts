@@ -6,6 +6,7 @@ import type {
 } from '@daisy/protocol';
 import { attendancePolicy } from './attendance';
 import { finalSpeechKey } from './attendance-order';
+import { abandonedLifecycle } from './round-clock-state';
 import {
   closePlayedRound,
   completeWith,
@@ -41,7 +42,7 @@ export function applyRoundAdjudication(
     )
       throw createAppError('INVARIANT');
     closePlayedRound(c);
-    c.on.setLifecycle({ status: 'abandoned', completedAtMs: c.now });
+    c.on.setLifecycle(abandonedLifecycle(c.on.lifecycle(), c.now));
     return;
   }
   requireSettledTime(c, input.decision.effectiveDeadlineMs, row);
@@ -56,7 +57,7 @@ export function applyRoundAdjudication(
     return completeWith(c, winner);
   }
   closePlayedRound(c);
-  c.on.setLifecycle({ status: 'abandoned', completedAtMs: c.now });
+  c.on.setLifecycle(abandonedLifecycle(c.on.lifecycle(), c.now));
 }
 
 function requireActualSpeech(

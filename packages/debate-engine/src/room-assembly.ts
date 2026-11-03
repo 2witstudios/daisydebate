@@ -20,40 +20,39 @@ import {
 } from './room-edit-transitions';
 import { ready, startRound, close } from './room-consent-transitions';
 import { topicInvariantHolds } from './resolution-draw';
-const roomTransitions = {
-  'update-config': updateConfig,
-  'update-format': updateConfig,
-  'select-format': selectFormat,
-  'update-details': updateDetails,
-  'claim-seat': claimSeat,
-  'assign-seat': claimSeat,
-  'leave-seat': leaveSeat,
-  'remove-seat': leaveSeat,
-  ready,
-  unready: ready,
-  'start-round': startRound,
-  close,
+type RoomCommandType = RoomCommand['type'];
+/** Who may run a Room command, whether it asks every seat to ready again, and what it does. */
+type RoomCommandPolicy<T extends RoomCommandType> = {
+  readonly authority: 'host' | 'member';
+  readonly edit: boolean;
+  readonly transition: (
+    room: RoomAssemblyState,
+    actorId: string,
+    command: Extract<RoomCommand, { type: T }>,
+    consent: RoomConsent,
+    edges: Edges,
+  ) => RoomMutationOutcome;
 };
-const hostCommands = new Set<RoomCommand['type']>([
-  'update-config',
-  'update-details',
-  'update-format',
-  'select-format',
-  'assign-seat',
-  'remove-seat',
-  'start-round',
-  'close',
-]);
-const editCommands = new Set<RoomCommand['type']>([
-  'update-config',
-  'update-format',
-  'select-format',
-  'update-details',
-  'claim-seat',
-  'assign-seat',
-  'leave-seat',
-  'remove-seat',
-]);
+/** Keyed by every command: a new one does not compile until all three are stated. */
+export type RoomCommandPolicies = {
+  readonly [T in RoomCommandType]: RoomCommandPolicy<T>;
+};
+const hostEdit = { authority: 'host', edit: true } as const;
+const memberEdit = { authority: 'member', edit: true } as const;
+const roomCommandPolicies: RoomCommandPolicies = {
+  'update-config': { ...hostEdit, transition: updateConfig },
+  'update-format': { ...hostEdit, transition: updateConfig },
+  'select-format': { ...hostEdit, transition: selectFormat },
+  'update-details': { ...hostEdit, transition: updateDetails },
+  'assign-seat': { ...hostEdit, transition: claimSeat },
+  'remove-seat': { ...hostEdit, transition: leaveSeat },
+  'claim-seat': { ...memberEdit, transition: claimSeat },
+  'leave-seat': { ...memberEdit, transition: leaveSeat },
+  ready: { authority: 'member', edit: false, transition: ready },
+  unready: { authority: 'member', edit: false, transition: ready },
+  'start-round': { authority: 'host', edit: false, transition: startRound },
+  close: { authority: 'host', edit: false, transition: close },
+};
 /** The refusal every command meets before its transition, or null. */
 function commandFence(
   room: RoomAssemblyState,
@@ -62,7 +61,10 @@ function commandFence(
 ): RoomRefusal | null {
   if (command.expectedVersion !== room.version) return 'version-conflict';
   if (!assemblyOpen(room)) return 'room-closed';
-  if (hostCommands.has(command.type) && room.hostActorId !== actorId)
+  if (
+    roomCommandPolicies[command.type].authority === 'host' &&
+    room.hostActorId !== actorId
+  )
     return 'host-required';
   return null;
 }
@@ -81,16 +83,11 @@ export function executeRoomCommand(
     ok: false,
     refusal,
   });
-  const edit = editCommands.has(command.type);
+  const { edit, transition } = roomCommandPolicies[
+    command.type
+  ] as RoomCommandPolicy<RoomCommandType>;
   const fenced = commandFence(room, actorId, command);
   if (fenced) return refuse(fenced);
-  const transition = roomTransitions[command.type] as (
-    room: RoomAssemblyState,
-    actorId: string,
-    command: RoomCommand,
-    consent: RoomConsent,
-    edges: Edges,
-  ) => RoomMutationOutcome;
   const outcome = transition(room, actorId, command, consent, edges);
   if (!outcome.ok) return outcome;
   let next = outcome.mutation.state;

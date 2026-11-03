@@ -31,7 +31,7 @@ type MediaGrantInput = {
   readonly inPreRoundPrep: boolean;
 };
 const withinJudgingWindow = (input: MediaGrantInput) => {
-  if (!input.position.awaitingBallot) return true;
+  if (input.position.stage !== 'awaiting_ballot') return true;
   const finalEnd = Date.parse(input.finalSegmentEndedAt ?? '');
   const now = Date.parse(input.now);
   return (
@@ -62,7 +62,7 @@ const publishSources = (
   ...(microphone ? ['microphone' as const] : []),
 ];
 const conversational = (position: RoundPosition) =>
-  position.awaitingBallot ||
+  position.stage === 'awaiting_ballot' ||
   (position.openSegment === null && position.nextSegment?.sequence === 0);
 
 /** Fresh authoritative seats and a server-ticked position; never a browser clock or timetable. */

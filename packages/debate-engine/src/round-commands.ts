@@ -4,10 +4,14 @@ import type {
   RoundParticipantSeat,
   RoundRules,
   RatedOutcome,
-  SegmentType,
   RoundEffect,
 } from '@daisy/protocol';
-import { debateInvariantIds } from './invariant-ids';
+import { completedLifecycle } from './round-clock-state';
+import {
+  roundCommandRefusal,
+  type RoundCommandFacts,
+  type RoundCommandRefusal,
+} from './round-command-legality';
 import type { RoundStore } from './round-ecs-store';
 import type { ClockChange } from './round-clock';
 import { interrupt, yieldFloor } from './round-floor';
@@ -45,7 +49,7 @@ export type CommandContext = {
   readonly closedCount: () => number;
   readonly seatOf: (actorId: string | null) => RoundParticipantSeat | null;
   readonly sideOf: (actorId: string | null) => DebateSide | null;
-  readonly floorHolder: (on: RoundStore) => RoundParticipantSeat | null;
+  readonly participants: readonly RoundParticipantSeat[];
   /** Seat completeness against `rules.seats`; a write-path invariant (ADR 0058 §8). */
   readonly assertSeatCompleteness: () => void;
   readonly openRowAt: (at: number) => void;
@@ -67,70 +71,11 @@ export const startRound = (c: CommandContext): void => {
 };
 
 /**
- * The segment the prepping side may spend prep before, or a named refusal:
- * it must exist, be the prepping side's own, sit inside the spendable
- * window, and not have passed the budget's expiry segment.
- */
-const spendableSegmentOf = (
-  c: CommandContext,
-  inRoundPrep: NonNullable<RoundRules['inRoundPrep']>,
-  side: DebateSide,
-): { readonly key: string; readonly type: SegmentType } => {
-  const sequence = c.closedCount();
-  const upcoming = c.rules.segments[sequence];
-  if (!upcoming)
-    invariant(
-      debateInvariantIds.prepRequiresSpendableSegment,
-      'No segment remains to prep for',
-    );
-  if (upcoming.side !== side)
-    invariant(
-      debateInvariantIds.prepRequiresSpendableSegment,
-      'Prep runs before the prepping side’s own segment',
-    );
-  if (!inRoundPrep.spendableBefore.includes(upcoming.type))
-    invariant(
-      debateInvariantIds.prepRequiresSpendableSegment,
-      `Prep is not spendable before a ${upcoming.type} segment`,
-    );
-  const expiresAt = inRoundPrep.expiresAtSegment;
-  if (
-    expiresAt !== null &&
-    c.rules.segments.findIndex((segment) => segment.key === expiresAt) <=
-      sequence
-  )
-    invariant(
-      debateInvariantIds.prepRequiresSpendableSegment,
-      `Prep expired at segment ${expiresAt}`,
-    );
-  return upcoming;
-};
-
-/**
  * Elective in-round prep: only a seated debater, only before their own
  * segment, only while the format's prep bounds and budget allow it.
  */
 const startPrep = (c: CommandContext): void => {
-  if (c.on.lifecycle().status !== 'active')
-    refuse('CONFLICT', 'Only an active round spends prep');
-  if (c.on.openRow() !== undefined)
-    refuse('CONFLICT', 'A segment is already live');
-  if (c.on.checkpoint().active_prep !== null)
-    refuse('CONFLICT', 'Prep is already running');
-  const { inRoundPrep } = c.rules;
-  if (inRoundPrep === null)
-    invariant(
-      debateInvariantIds.prepRequiresCapability,
-      'The resolved rules have no in-round prep',
-    );
-  const side = c.sideOf(c.actorId);
-  if (side === null) refuse('CONFLICT', 'Prep belongs to a seated debater');
-  spendableSegmentOf(c, inRoundPrep, side);
-  if (c.on.checkpoint().prep_consumed_ms[side] >= inRoundPrep.budgetMsPerSide)
-    invariant(
-      debateInvariantIds.prepRequiresBudget,
-      'The side’s prep budget is spent',
-    );
+  const side = c.sideOf(c.actorId)!;
   // Prep supersedes the rest of the countdown: the gap anchor hands over to
   // the prep clock anchored now.
   c.on.startPrep({ side, startedAtMs: c.now });
@@ -139,15 +84,8 @@ const startPrep = (c: CommandContext): void => {
 
 /** A speech opens out of the prepping side's prep, folding elapsed into it. */
 const startSpeech = (c: CommandContext): void => {
-  const active = c.on.checkpoint().active_prep;
-  if (active === null)
-    invariant(
-      debateInvariantIds.startSpeechRequiresPrep,
-      'A speech opens out of the prepping side’s prep',
-    );
-  const side = c.sideOf(c.actorId);
-  if (side === null || side !== active.side)
-    refuse('CONFLICT', 'Only the prepping side ends its own prep');
+  const active = c.on.checkpoint().active_prep!;
+  const side = active.side;
   const elapsed = c.now - Date.parse(active.started_at);
   const budget = c.rules.inRoundPrep?.budgetMsPerSide ?? 0;
   c.on.setPrepConsumed(
@@ -172,10 +110,7 @@ export const debateIsOver = (c: CommandContext): boolean =>
  * first, so a segment that ran out with no tick persisted counts as closed.
  */
 const forfeit = (c: CommandContext): void => {
-  if (debateIsOver(c))
-    refuse('CONFLICT', 'The debate is over; there is nothing to forfeit');
-  const side = c.sideOf(c.actorId);
-  if (side === null) refuse('CONFLICT', 'A seated debater forfeits');
+  const side = c.sideOf(c.actorId)!;
   // A forfeit in the opening stands as a result, with no resolution before a
   // reveal; the record needs a start, so the Round starts and ends here.
   if (c.on.lifecycle().status === 'opening') startRound(c);
@@ -197,17 +132,30 @@ export const completeWith = (
   c: CommandContext,
   outcome: RatedOutcome,
 ): void => {
-  c.on.setLifecycle({
-    status: 'completed',
-    outcome,
-    completedAtMs: c.now,
-  });
+  c.on.setLifecycle(completedLifecycle(c.on.lifecycle(), outcome, c.now));
   c.into.effects.push({
     kind: 'round_completed',
     outcome,
     at: iso(c.now),
   });
 };
+
+const factsOf = (c: CommandContext): RoundCommandFacts => ({
+  rules: c.rules,
+  state: {
+    lifecycle: c.on.lifecycle(),
+    checkpoint: c.on.checkpoint(),
+    rows: c.on.rows(),
+  },
+  participants: c.participants,
+  seat: c.seatOf(c.actorId),
+  nowMs: c.now,
+});
+
+const raise = (refusal: RoundCommandRefusal): never =>
+  refusal.kind === 'conflict'
+    ? refuse('CONFLICT', refusal.message)
+    : invariant(refusal.id, refusal.message);
 
 /**
  * Applies one legal command, or throws. A refusal leaves the store untouched
@@ -218,14 +166,8 @@ export const applyRoundCommand = (
   c: CommandContext,
   command: RoundCommand,
 ): void => {
-  const status = c.on.lifecycle().status;
-  if (status === 'completed')
-    invariant(
-      debateInvariantIds.completedIsTerminal,
-      'Completed rounds are terminal',
-    );
-  if (status === 'abandoned')
-    refuse('CONFLICT', 'An abandoned round takes no commands');
+  const refusal = roundCommandRefusal(factsOf(c), command.type);
+  if (refusal !== null) raise(refusal);
   switch (command.type) {
     case 'start_prep':
       return startPrep(c);

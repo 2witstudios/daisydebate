@@ -103,7 +103,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
       ],
       inRoundPrep: null,
       countdownMs: 731,
-      interaction: { yield: null, interruptions: null },
+      interaction: { yield: null, interruptions: { allowed: 'disabled' } },
     },
     viewerIsHost: false,
     checkpoint: emptyRuntimeCheckpoint,

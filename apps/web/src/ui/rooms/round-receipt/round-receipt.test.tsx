@@ -17,7 +17,7 @@ const scheduled: RoundReceiptView = {
     inRoundPrep: null,
     interaction: {
       yield: null,
-      interruptions: null,
+      interruptions: { allowed: 'disabled' },
     },
     segments: [
       {

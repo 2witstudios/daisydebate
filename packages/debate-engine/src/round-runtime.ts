@@ -211,28 +211,6 @@ export function createRoundRuntime(input: {
       : null;
   };
 
-  /**
-   * Who may act right now: the floor holder after an accepted interruption,
-   * else the open segment's scheduled seat.
-   */
-  const floorHolderSeat = (on: RoundStore): RoundParticipantSeat | null => {
-    const open = on.openRow();
-    if (open === undefined) return null;
-    const floor = on.checkpoint().floor;
-    if (floor !== null)
-      return (
-        input.participants.find(
-          (seat) => seat.id === floor.holder_participant_id,
-        ) ?? null
-      );
-    const expected = rules.segments[open.sequence]!;
-    return (
-      input.participants.find(
-        (seat) => seat.role === expected.side && seat.slot === expected.slot,
-      ) ?? null
-    );
-  };
-
   const assertSeatCompleteness = (): void => {
     for (const role of Object.keys(rules.seats) as DebateRole[]) {
       const wanted = rules.seats[role];
@@ -262,7 +240,7 @@ export function createRoundRuntime(input: {
     closedCount: () => closedCount(capture(on)),
     seatOf,
     sideOf,
-    floorHolder: floorHolderSeat,
+    participants: input.participants,
     assertSeatCompleteness,
     openRowAt: (at) =>
       transitionOn(on, into, openClockSegment(capture(on), rules, at)),
@@ -274,11 +252,7 @@ export function createRoundRuntime(input: {
     const lifecycle = on.lifecycle();
     return {
       status: lifecycle.status,
-      currentStage: stageOf(
-        capture(on),
-        lifecycle.status,
-        rules.segments.length,
-      ),
+      currentStage: stageOf(capture(on), rules.segments.length),
       ...lifecycleStampsOf(lifecycle),
       checkpoint: on.checkpoint(),
     };

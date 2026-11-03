@@ -98,7 +98,7 @@ describe('round rules', () => {
     countdownMs: 0,
     interaction: {
       yield: null,
-      interruptions: null,
+      interruptions: { allowed: 'disabled' },
     },
   };
 

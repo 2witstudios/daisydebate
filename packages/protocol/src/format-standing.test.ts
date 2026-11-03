@@ -27,7 +27,7 @@ describe('formatStandingSchema', () => {
             {
               kind: 'interruptions',
               from: { allowed: 'enabled', minRemainingMs: 30_000 },
-              to: null,
+              to: { allowed: 'disabled' },
             },
             {
               kind: 'yield',

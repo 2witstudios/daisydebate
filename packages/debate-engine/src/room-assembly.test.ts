@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { executeRoomCommand, projectRoom } from './room-assembly';
+import {
+  executeRoomCommand,
+  projectRoom,
+  type RoomCommandPolicies,
+} from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 
 setupRitewayBun();
@@ -193,5 +197,16 @@ test('a host close closes the room and prevents further commands', () => {
     should: 'close it and refuse every later command',
     actual: [closed.ok && closed.mutation.state.status, afterClose],
     expected: ['closed', { ok: false, refusal: 'room-closed' }],
+  });
+});
+
+test('a Room command states its authority and edit class', () => {
+  // @ts-expect-error A command missing from the table does not compile.
+  const missing: RoomCommandPolicies = {};
+  assert({
+    given: 'a policy table that names no commands',
+    should: 'be a compile error, so nothing reaches here but an empty object',
+    actual: missing,
+    expected: {},
   });
 });
