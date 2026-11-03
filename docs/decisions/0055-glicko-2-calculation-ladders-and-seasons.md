@@ -165,4 +165,5 @@ with one derived statement of how a Round ended, and holds no rule. The answer
 is unchanged: a forfeit rates on any capture, and a ballot rates only on a
 complete capture while ISSUE-911 is open (DEC-285). A null outcome is unrated
 with a reason (DEC-277). Until DEC-111 resolves there is one season: opening a
-season is refused while any season exists, and the rollover command is removed.
+season is refused while any season exists, closing one is refused, and the
+rollover command is removed. The close refusal comes out when rollover lands.

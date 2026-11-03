@@ -182,7 +182,7 @@ async function main() {
         console.log(line(await seasons.openSeason(command.season)));
         return;
       case 'close':
-        console.log(line(await seasons.closeSeason(command)));
+        console.log(line(await seasons.closeSeason()));
     }
   });
 }
