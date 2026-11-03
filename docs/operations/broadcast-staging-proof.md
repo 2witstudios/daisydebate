@@ -75,7 +75,8 @@ feed had four objects, so a long feed takes longer: deletes run 32 at a time.
 
 ## Bucket keys
 
-Listing each way on 2026-11-03: the Recording key cannot list the hold bucket, and
-neither the hold key nor the public key can list the Recording bucket. The Recording
-key can write only its own bucket, but it can list the public bucket (ISSUE-1222).
-Anonymous listing of the public bucket is refused.
+Checked each way on 2026-11-03. A visitor is refused listing all three buckets, and
+reading a hold object directly (403). The Recording key cannot list the hold bucket.
+Neither the hold key nor the public key can list the Recording bucket. The public key
+cannot list the hold bucket. The Recording key can write only its own bucket. Both
+the Recording key and the hold key can list the public bucket, which is ISSUE-1222.
