@@ -349,7 +349,7 @@ describe('an evidence hold on a taken-down casual Recording', () => {
       cause: 'participant_request',
       requestedAt: later,
     },
-  };
+  } as const;
 
   test('erasure under an open report owes the removal and keeps the media', () => {
     assert({
