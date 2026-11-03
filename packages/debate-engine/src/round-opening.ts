@@ -63,6 +63,19 @@ export function settleOpening(
   };
 }
 
+/** The line a draw has narrowed to, once it has. */
+const drawnTopic = (draw: RoundOpening['draw']): string | null =>
+  (draw && survivorOf(draw)?.item.text) ?? null;
+
+/** What an opening's resolution is at `now`, for any viewer: its reveal is public. */
+export function settledOpeningTopic(
+  opening: RoundOpening,
+  seed: Uint8Array | null,
+  now: string,
+): string | null {
+  return drawnTopic(settleOpening(opening, seed, now).opening.draw);
+}
+
 /** A seat as the opening reads it. */
 export type OpeningSeat = {
   readonly actorId: string;
@@ -218,7 +231,7 @@ export function projectOpening(
   );
   const draw = opening.draw;
   return {
-    topic: (draw && survivorOf(draw)?.item.text) ?? null,
+    topic: drawnTopic(draw),
     view: {
       step:
         step.step === 'strike'
