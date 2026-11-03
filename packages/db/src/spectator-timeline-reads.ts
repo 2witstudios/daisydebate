@@ -112,6 +112,7 @@ export const spectatorTimelineReads = ({
           const shared = {
             round: { ...round, competitionType },
             hasBroadcast: broadcast !== undefined,
+            broadcastStopped: Boolean(broadcast?.stoppedAt),
             releasedThroughAt: broadcast?.releasedThroughAt ?? null,
             seats,
             horizonMs,

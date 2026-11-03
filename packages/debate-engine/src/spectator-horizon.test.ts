@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { factReleased, RANKED_DELAY_SECONDS } from './broadcast-release';
 import {
   spectatorHorizon,
+  spectatorTimelineHorizon,
   type SpectatorHorizonFacts,
 } from './spectator-horizon';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
@@ -181,5 +182,46 @@ describe('spectatorHorizon', () => {
       actual: visible(now - delayMs, { roundTerminal: true, broadcast: null }),
       expected: true,
     });
+  });
+});
+
+describe('spectatorTimelineHorizon', () => {
+  test('a stop ends the timeline where the watermark stood', () => {
+    const stopped = { ...open, stoppedAtMs: now };
+    assert({
+      given: 'a stopped Broadcast, long after by the clock',
+      should: 'stay at its watermark, so no fact appears after the stop',
+      actual: spectatorTimelineHorizon(
+        facts({ nowMs: now * 2, roundTerminal: true, broadcast: stopped }),
+      ),
+      expected: open.releasedThroughMs,
+    });
+    assert({
+      given: 'a Broadcast stopped before any media left',
+      should: 'release nothing, ever',
+      actual: spectatorTimelineHorizon(
+        facts({
+          nowMs: now * 2,
+          roundTerminal: true,
+          broadcast: { ...stopped, releasedThroughMs: null },
+        }),
+      ),
+      expected: null,
+    });
+  });
+
+  test('anything but a stop reads the shared horizon', () => {
+    const completed = { ...open, completedAtMs: now };
+    for (const over of [
+      {},
+      { broadcast: null, roundTerminal: true },
+      { broadcast: completed, roundTerminal: true },
+    ])
+      assert({
+        given: 'no stop',
+        should: 'equal the shared horizon',
+        actual: spectatorTimelineHorizon(facts(over)),
+        expected: spectatorHorizon(facts(over)),
+      });
   });
 });

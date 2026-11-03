@@ -1,4 +1,4 @@
-import { spectatorHorizon } from '@daisy/debate-engine';
+import { spectatorTimelineHorizon } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
 import { idSchema, type SpectatorTimeline } from '@daisy/protocol';
 import { projectSpectatorTimeline } from './timeline';
@@ -18,7 +18,7 @@ export async function readSpectatorTimeline(
   const nowMs = Date.parse(input.now);
   const read = await store.readSpectatorTimeline({
     roundId: input.roundId,
-    horizonOf: (facts) => spectatorHorizon({ ...facts, nowMs }),
+    horizonOf: (facts) => spectatorTimelineHorizon({ ...facts, nowMs }),
   });
   return read && projectSpectatorTimeline(read);
 }

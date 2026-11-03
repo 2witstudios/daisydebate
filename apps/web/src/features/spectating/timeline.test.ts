@@ -27,6 +27,7 @@ const read = (over: Partial<Read>, round: Partial<Read['round']> = {}): Read =>
       ...round,
     },
     hasBroadcast: true,
+    broadcastStopped: false,
     releasedThroughAt: null,
     seats: [],
     horizonMs: null,
@@ -48,6 +49,30 @@ describe('projectSpectatorTimeline', () => {
       should: 'show a slate, no resolution and no result',
       actual: [view.stage, view.resolution, view.result],
       expected: [{ kind: 'slate' }, null, null],
+    });
+  });
+
+  test('a stopped Broadcast has ended for its audience', () => {
+    const view = projectSpectatorTimeline(
+      read({
+        broadcastStopped: true,
+        horizonMs: horizon(started, 30_000),
+        segments: [
+          {
+            type: 'speech',
+            key: '1AC',
+            startedAt: started,
+            endedAt: null,
+            durationMs: 100_000,
+          },
+        ],
+      }),
+    );
+    assert({
+      given: 'a stop during a speech the watermark had reached',
+      should: 'show it ended, with no result',
+      actual: [view.stage, view.result],
+      expected: [{ kind: 'ended' }, null],
     });
   });
 

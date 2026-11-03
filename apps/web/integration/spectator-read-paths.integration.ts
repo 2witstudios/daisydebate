@@ -219,6 +219,24 @@ test('every public and member read holds a ranked outcome until release', async 
         completedAt.getTime() + SPECTATOR_MARGIN_MS,
       )} where round_id=${roundId}`;
       const out = await reads();
+      await f.sql`update broadcasts set released_through_at=${completedAt}, stopped_at=${completedAt}, stop_reason='test' where round_id=${roundId}`;
+      const stopped = await reads();
+      assert({
+        given:
+          'a stopped Broadcast short of the outcome, long after by the clock',
+        should:
+          'end the timeline with no result, while the competitive record still stands',
+        actual: {
+          stage: stopped.timeline.stage,
+          result: stopped.timeline.result,
+          ladderEntries: stopped.ladderEntries,
+        },
+        expected: {
+          stage: { kind: 'ended' },
+          result: null,
+          ladderEntries: 1,
+        },
+      });
       await f.sql`update rounds set visibility='unlisted' where id=${roundId}`;
       const unlisted = await timelineResponse();
       await f.sql`update rounds set visibility='private' where id=${roundId}`;

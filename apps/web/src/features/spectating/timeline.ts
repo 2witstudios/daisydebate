@@ -11,7 +11,7 @@ const sideOf = (role: string): readonly DebateSide[] =>
 
 const stageOf = (read: SpectatorTimelineRead): SpectatorTimeline['stage'] => {
   if (read.round.status === 'scheduled') return { kind: 'upcoming' };
-  if (read.outcomeReleased) return { kind: 'ended' };
+  if (read.outcomeReleased || read.broadcastStopped) return { kind: 'ended' };
   const segment = read.segments[0];
   if (!segment || read.horizonMs === null) return { kind: 'slate' };
   const shownAt = read.horizonMs - SPECTATOR_MARGIN_MS;

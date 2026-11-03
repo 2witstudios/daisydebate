@@ -32,8 +32,12 @@ integration suite holds the two equal. A fact leaves once the horizon has passed
 its capture time by the margin:
 
 - An open Broadcast: its watermark alone, never the clock.
-- A completed or stopped Broadcast: no more media will come, so what it held
-  leaves behind the Broadcast's own release policy.
+- A completed Broadcast: no more media will come, so what it held leaves behind
+  the Broadcast's own release policy.
+- A stopped Broadcast: the spectator timeline has ended. It shows as ended, stays
+  at the watermark the stop left, and no fact appears after the stop. The
+  competitive record does not end with the video, so standings, a listed rating
+  and a public profile treat a stop as they treat completion.
 - No Broadcast, Round still live: nothing is released, on any Round.
 - No Broadcast, Round ended: a casual Round has nothing holding it. A ranked Round
   is always meant to have a Broadcast, so this is a capture failure or capture not

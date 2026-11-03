@@ -36,7 +36,7 @@ const finishedFloor = (
 };
 
 /**
- * How far the audience's timeline has reached: `factReleased` compares a fact's
+ * How far the audience's knowledge has reached: `factReleased` compares a fact's
  * capture time with this. An open Broadcast is its durable watermark alone. A
  * finished one will release no more media, so what it held leaves behind its
  * own delay. With no Broadcast live facts stay private; an ended casual Round
@@ -59,3 +59,15 @@ export const spectatorHorizon = (
   if (floor === null) return broadcast.releasedThroughMs;
   return Math.max(broadcast.releasedThroughMs ?? floor, floor);
 };
+
+/**
+ * How far the spectator timeline itself may go. A stop ends it: the watermark
+ * stands where the stop left it, so no fact appears afterwards. The competitive
+ * record does not end with the video, so list reads keep `spectatorHorizon`.
+ */
+export const spectatorTimelineHorizon = (
+  facts: SpectatorHorizonFacts,
+): number | null =>
+  facts.broadcast?.stoppedAtMs != null
+    ? facts.broadcast.releasedThroughMs
+    : spectatorHorizon(facts);
