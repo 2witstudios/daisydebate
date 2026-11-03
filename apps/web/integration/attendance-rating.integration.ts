@@ -46,7 +46,7 @@ test('existing rating feature rediscovers only committed ranked RT forfeits and 
             outcome: committed?.outcome,
             ledger: ledger.length,
             rediscover: (await f.store.readRatingCandidates({ limit: 100 }))
-              .filter(({ facts }) => ratingAwaited(facts))
+              .filter(({ facts }) => facts !== null && ratingAwaited(facts))
               .map(({ roundId }) => roundId),
           },
           expected: {

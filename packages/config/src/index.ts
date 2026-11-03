@@ -126,6 +126,11 @@ const serverFields = {
    * Unset, merging or deploying this code captures nothing.
    */
   BROADCAST_CAPTURE: z.literal('on').optional(),
+  /**
+   * The public bucket's read origin. Not a secret: every feed URL names it.
+   * Unset, no Round offers an official feed.
+   */
+  BROADCAST_PUBLIC_ORIGIN: mediaEndpoint(/^https?$/).optional(),
   // AIDB: OpenRouter for AI debates (chat, TTS, STT). Optional: without it
   // AI debates are unavailable and nothing calls out.
   OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),

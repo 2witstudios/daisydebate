@@ -34,6 +34,7 @@ CREATE TABLE "broadcasts" (
 	"stopped_at" timestamp with time zone,
 	"stop_reason" text,
 	"completed_at" timestamp with time zone,
+	"feed_withdrawn_at" timestamp with time zone,
 	"reconcile_lease_until" timestamp with time zone,
 	"lease_epoch" integer DEFAULT 0 NOT NULL,
 	"lease_owner" text,
@@ -120,6 +121,7 @@ CREATE INDEX "agreement_signatures_season_idx" ON "agreement_signatures" ("seaso
 CREATE INDEX "agreement_signatures_room_idx" ON "agreement_signatures" ("room_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "broadcasts_round_unique" ON "broadcasts" ("round_id");--> statement-breakpoint
 CREATE INDEX "broadcasts_open_idx" ON "broadcasts" ("created_at") WHERE "completed_at" is null;--> statement-breakpoint
+CREATE INDEX "broadcasts_feed_up_idx" ON "broadcasts" ("created_at") WHERE "feed_withdrawn_at" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "content_reports_once_unique" ON "content_reports" ("reporter_user_id","target_kind","target_id");--> statement-breakpoint
 CREATE INDEX "content_reports_queue_idx" ON "content_reports" ("queue","status","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE UNIQUE INDEX "recordings_round_unique" ON "recordings" ("round_id");--> statement-breakpoint

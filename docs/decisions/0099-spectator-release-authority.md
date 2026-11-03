@@ -84,6 +84,14 @@ Daisy's. Per-object public access is not used for the hold, because one wrong
 flag would publish held media early. A CDN is added only if Tigris misses the
 DEC-303 targets.
 
+**Official feed.** The public master playlist is the official feed, for players
+and for streamers (Stream this Round). It ends with the Broadcast: a stop withdraws
+every public object at once, and a completed Broadcast's are withdrawn 60 s after
+completion, which viewers need to reach the end (real viewers finish about 13 s
+after completion). OBS reopens an ended address on a loop and would otherwise put
+the last 24 s back on air for as long as the source stays up, and a later takedown
+would leave a public copy behind. Afterwards the Recording is the only copy.
+
 ## Evidence
 
 Staging, BCAST-1: revoking 500 ms before a private marker left no marker audio in

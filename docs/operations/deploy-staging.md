@@ -814,6 +814,10 @@ config in the `EGRESS_CONFIG_BODY` secret and writes to the private Tigris bucke
 `daisy-debate-staging-broadcast`, created with `fly storage create`. Stop the
 machine when idle: it has no proxy to auto-stop it.
 
+**Official feed.** The web app reads `BROADCAST_PUBLIC_ORIGIN`, the public bucket's
+read origin (`https://<bucket>.t3.tigrisfiles.io`), from `fly.toml`. It is not a
+secret. Unset, no Round offers Stream this Round.
+
 The public broadcast bucket needs a CORS rule, or every browser player fails
 with `manifestLoadError`: allow `GET` and `HEAD` from any origin, nothing else.
 Objects there are public by design, and only the release step writes them. A

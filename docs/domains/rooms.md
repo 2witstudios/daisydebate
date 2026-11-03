@@ -207,6 +207,10 @@ broadcast. A change asks every seat to Ready again, and each seat is told the
 opted-in notice and the exact choice before Ready. Launch freezes the choice on
 the Round. Ranked needs no grant and holds no choice: it is always captured.
 
+A seated human judge reads their own ballot. Once the Round has completed they
+read the others only if its audience may: every signed-in member on a public or
+unlisted Round, nobody without a seat on a private one.
+
 An AI judge never rules on a transcript frozen incomplete (DEC-208). No AI
 job is queued for such a freeze. With no human judge, the Round completes at
 the freeze with no outcome, and its result reads "Transcript incomplete".

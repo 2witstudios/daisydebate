@@ -8,6 +8,7 @@ import {
   listOpenBroadcasts,
   openBroadcast,
   readConversationHeld,
+  readOfficialFeedFacts,
   readBroadcastRoom,
   recordEgressStarted,
   recordFinalMediaEnd,
@@ -36,6 +37,8 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
     readConversationHeld(database, { roundId }),
   claimReconcile: (input: Parameters<typeof claimBroadcastReconcile>[1]) =>
     claimBroadcastReconcile(database, input),
+  officialFeedFacts: (roundId: string) =>
+    readOfficialFeedFacts(database, { roundId }),
   /** Everything the stage burns in. Read-only, and it locks nothing. */
   async readStage(id: string) {
     const [broadcast] = await database
