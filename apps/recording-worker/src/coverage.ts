@@ -1,3 +1,5 @@
+import type { ControlLapse } from '@daisy/protocol';
+
 /** One Egress attempt whose media could be read, with its place in real time. */
 export type CapturedPiece = {
   readonly attempt: number;
@@ -18,7 +20,7 @@ export type Coverage = {
   readonly gaps: readonly {
     readonly startMs: number;
     readonly endMs: number;
-    readonly reason: 'capture_restart';
+    readonly reason: 'capture_restart' | 'control_lapse';
   }[];
 };
 
@@ -34,6 +36,7 @@ const SHORTEST_GAP_MS = 250;
  */
 export const coverageOf = (
   pieces: readonly CapturedPiece[],
+  lapses: readonly ControlLapse[] = [],
 ): Coverage | null => {
   const ordered = [...pieces].sort((x, y) => x.attempt - y.attempt);
   const [first] = ordered;
@@ -47,7 +50,13 @@ export const coverageOf = (
       gaps.push({
         startMs: cursorMs,
         endMs: realMs,
-        reason: 'capture_restart',
+        // Touching a lapse is reason enough: it is why this stretch is not here.
+        reason: lapses.some(
+          ({ fromMs, toMs }) =>
+            fromMs < piece.startedAtMs && toMs > first.startedAtMs + cursorMs,
+        )
+          ? 'control_lapse'
+          : 'capture_restart',
       });
       parts.push({ kind: 'gap', durationMs: realMs - cursorMs });
       cursorMs = realMs;

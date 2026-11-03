@@ -1,3 +1,10 @@
+export {
+  controlLapseRecordSchema,
+  controlLapsesSchema,
+  coveredByHeartbeat,
+  outsideControlLapses,
+  type ControlLapse,
+} from './control-lapse';
 /**
  * Named re-exports, not `export *` (AGENTS.md: explicit exports, no
  * barrels). This is `@daisy/protocol`'s only public entry point: every

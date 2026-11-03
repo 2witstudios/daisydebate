@@ -1,5 +1,6 @@
 import type { createRecordingWorkerStore } from '@daisy/db/recording-worker';
 import type {
+  ControlLapse,
   RecordingBuildProgress,
   RecordingJobState,
 } from '@daisy/protocol';
@@ -75,6 +76,7 @@ export const runWorker = async (deps: {
       readonly recordingId: string;
       readonly holdPrefix: string;
       readonly attemptCount: number;
+      readonly controlLapses: readonly ControlLapse[];
     },
     run: {
       readonly workDir: string;
@@ -187,6 +189,7 @@ export const runWorker = async (deps: {
   const runBuild = async (
     job: Claimed,
     attemptCount: number,
+    controlLapses: readonly ControlLapse[],
     ceilingMs?: number,
   ) => {
     const workDir = deps.workDirOf(job.recordingId, owner);
@@ -198,6 +201,7 @@ export const runWorker = async (deps: {
             recordingId: job.recordingId,
             holdPrefix: job.holdPrefix,
             attemptCount,
+            controlLapses,
           },
           { workDir, signal: lease.signal, progress: progressWriter(job) },
         ),
@@ -257,7 +261,7 @@ export const runWorker = async (deps: {
     const { state } = job;
     await (
       state.status === 'queued'
-        ? runBuild(job, state.attemptCount, state.ceilingMs)
+        ? runBuild(job, state.attemptCount, state.controlLapses, state.ceilingMs)
         : runDiscard(job)
     ).catch(() => deps.report('recording.processing_failed'));
   }

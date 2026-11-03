@@ -195,7 +195,12 @@ test('a Broadcast with a crash becomes one Recording spanning both attempts', as
           record?.id,
           `hold/${broadcastId}/`,
           // A 60 s capture: its bound is 5.5 minutes, so one run may take 16.5.
-          { status: 'queued', attemptCount: 2, ceilingMs: 990_000 },
+          {
+            status: 'queued',
+            attemptCount: 2,
+            ceilingMs: 990_000,
+            controlLapses: [],
+          },
         ],
       });
 

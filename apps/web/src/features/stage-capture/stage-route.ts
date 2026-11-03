@@ -12,6 +12,8 @@ type StageStore = {
       readonly observerRevokedAt: Date | null;
       readonly completedAt: Date | null;
       readonly stoppedAt: Date | null;
+      /** No control plane has reached this capture lately: nothing can revoke it. */
+      readonly heartbeatStale: boolean;
     };
     readonly round: Parameters<typeof createRoundRuntime>[0]['round'] &
       Pick<
@@ -22,6 +24,9 @@ type StageStore = {
     readonly seats: Parameters<typeof stageSnapshot>[0]['seats'];
   } | null>;
 };
+
+/** Told to the stage page alone: end this Egress now. */
+const STAGE_ENDS_STATUS = 410;
 
 const refuse = () =>
   Response.json(null, {
@@ -56,6 +61,12 @@ export const createStageRoute =
       )
     )
       return refuse();
+    // Only someone holding the credential learns this: the stage ends its own Egress.
+    if (read.capture.heartbeatStale)
+      return Response.json(null, {
+        status: STAGE_ENDS_STATUS,
+        headers: { 'cache-control': 'no-store' },
+      });
     const position = createRoundRuntime({
       ...read.round,
       round: read.round,

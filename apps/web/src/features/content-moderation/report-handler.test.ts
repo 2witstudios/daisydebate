@@ -48,7 +48,7 @@ const post = async ({
     logger: silentLogger,
     reporter: noopErrorReporter,
     origin: () => origin,
-    identify: async () => ({ state, principal }) as never,
+    identify: async () => ({ state, username: 'sam', principal }) as never,
     limiter: () =>
       ({
         consume: async () => ({ allowed: !limited, retryAfterSeconds: 1 }),
@@ -105,7 +105,7 @@ describe('POST /api/content-reports', () => {
   });
 
   test('any signed-in account may report, within the limit', async () => {
-    const answer = await post({ state: 'pending' });
+    const answer = await post({ state: 'waitlisted' });
     assert({
       given: 'an account not yet admitted',
       should: 'file the report, since interaction needs only an account',

@@ -20,7 +20,7 @@ type AudienceRefusal =
   | 'chat-banned'
   | 'chat-live-room'
   | 'chat-slow-mode'
-  | 'chat-needs-username'
+  | 'audience-needs-username'
   | 'reactions-unavailable'
   | 'reactions-closed'
   | 'reactions-banned'

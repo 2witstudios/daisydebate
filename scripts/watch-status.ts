@@ -47,6 +47,7 @@ const CATEGORIES = [
 ] as const;
 
 const CHANGES_MARK = '<!-- changes -->';
+const STANDING_MARK = '<!-- standing -->';
 const REFERENCE_MARK = '<!-- reference -->';
 const UNPLACED_MARK = '<!-- unplaced -->';
 
@@ -301,19 +302,23 @@ const LEGEND = `<div class="legend"><span><b>Features</b> fleshed out</span><spa
 type WatchArea = { readonly area: Area; readonly codes: readonly string[] };
 
 function readSource(source: string) {
+  const standingAt = source.indexOf(STANDING_MARK);
   const changesAt = source.indexOf(CHANGES_MARK);
   const referenceAt = source.indexOf(REFERENCE_MARK);
-  if (changesAt < 0 || referenceAt < changesAt)
+  if (standingAt < 0 || changesAt < standingAt || referenceAt < changesAt)
     throw new Error(
-      `Watch Status source needs the ${CHANGES_MARK} and ${REFERENCE_MARK} markers`,
+      `Watch Status source needs the ${STANDING_MARK}, ${CHANGES_MARK} and ${REFERENCE_MARK} markers`,
     );
+  const standing = source
+    .slice(standingAt + STANDING_MARK.length, changesAt)
+    .trim();
   const changes = source
     .slice(changesAt + CHANGES_MARK.length, referenceAt)
     .trim();
   const reference = source.slice(referenceAt + REFERENCE_MARK.length).trim();
 
   const areas: readonly WatchArea[] = readScoreBlocks(
-    source.slice(0, changesAt),
+    source.slice(0, standingAt),
     SOURCE_PAGE,
   ).map((block) => ({
     area: scoreBlockArea(block, CATEGORIES),
@@ -322,11 +327,11 @@ function readSource(source: string) {
 
   const named = new Set([
     ...areas.flatMap(({ codes }) => codes),
-    ...[...`${changes}\n${reference}`.matchAll(TASK_TAG)].map(
+    ...[...`${standing}\n${changes}\n${reference}`.matchAll(TASK_TAG)].map(
       ([, code]) => code,
     ),
   ]);
-  return { areas, changes, reference, named };
+  return { areas, standing, changes, reference, named };
 }
 
 /** Every task code the authored source names. */
@@ -340,7 +345,7 @@ export function renderWatchStatus(
   board: WatchBoard,
   pr: WatchPr,
 ): string {
-  const { areas, changes, reference, named } = readSource(source);
+  const { areas, standing, changes, reference, named } = readSource(source);
   const byCode = new Map(board.tasks.map((task) => [task.code, task]));
   const missing = [...named].filter((code) => !byCode.has(code)).sort();
   if (missing.length)
@@ -393,6 +398,7 @@ ${STATUS_STYLE}
 ${LEGEND}
 <div class="overall big"><table><tr><td class="name">Watch overall<small>average of ${areas.length} areas</small></td><td>${bar(whole)}</td><td class="note">Furthest from done: ${escape(lowest.join(', '))}. ${changeCount} changes needed outside Watch itself.</td></tr></table></div>
 ${nowSection(leaves, pr, chips)}
+${withChips(standing)}
 ${decisionsSection(named, leaves, board.tasks, chips)}
 <h1 style="font-size:20px;margin:22px 0 10px">Watch capabilities</h1>
 ${categories.join('\n')}

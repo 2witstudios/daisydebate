@@ -578,6 +578,7 @@ test('a failed ranked Recording rebuilds, and an evidence hold yields only to a 
               status: 'queued',
               attemptCount: 2,
               ceilingMs: 135 * 60_000,
+              controlLapses: [],
             },
           },
         ],

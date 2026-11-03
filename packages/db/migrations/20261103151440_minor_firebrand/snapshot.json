@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "97c9c230-fd6e-4266-8ebc-20cecbdafd61",
+  "id": "3023df18-5f1e-4e91-a20c-e081f5002aee",
   "prevIds": [
     "aac0910e-0c95-4008-bbe7-57e859bca3ce"
   ],
@@ -219,12 +219,6 @@
     {
       "isRlsEnabled": false,
       "name": "media_participants",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "media_room_rotations",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2438,19 +2432,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "feed_withdrawal_requested_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "broadcasts"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "feed_withdrawn_at",
       "entityType": "columns",
       "schema": "public",
@@ -2465,6 +2446,32 @@
       "generated": null,
       "identity": null,
       "name": "reconcile_lease_until",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "control_heartbeat_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{\"lapses\":[]}'",
+      "generated": null,
+      "identity": null,
+      "name": "control_lapses",
       "entityType": "columns",
       "schema": "public",
       "table": "broadcasts"
@@ -4223,45 +4230,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "media_participants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "media_room_rotations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "media_room_rotations"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "rotated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "media_room_rotations"
     },
     {
       "type": "text",
@@ -7417,6 +7385,32 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "control_heartbeat_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recording_captures"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{\"lapses\":[]}'",
+      "generated": null,
+      "identity": null,
+      "name": "control_lapses",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "recording_captures"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "ended_at",
       "entityType": "columns",
       "schema": "public",
@@ -7535,19 +7529,6 @@
       "generated": null,
       "identity": null,
       "name": "lease_until",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "recording_processing_jobs"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "delay_alerted_at",
       "entityType": "columns",
       "schema": "public",
       "table": "recording_processing_jobs"
@@ -13642,27 +13623,6 @@
           "opclass": null
         }
       ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "media_room_rotations_round_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "media_room_rotations"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
       "isUnique": true,
       "where": null,
       "with": "",
@@ -18950,23 +18910,6 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "media_room_rotations_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "media_room_rotations"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
       "name": "media_sessions_round_id_rounds_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -22246,16 +22189,6 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "media_room_rotations_pkey",
-      "schema": "public",
-      "table": "media_room_rotations",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "media_sessions_pkey",
       "schema": "public",
       "table": "media_sessions",
@@ -23207,6 +23140,13 @@
     {
       "value": "jsonb_typeof(\"release_policy\") = 'object'",
       "name": "broadcasts_release_policy_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "value": "jsonb_typeof(\"control_lapses\") = 'object'",
+      "name": "broadcasts_control_lapses_is_object",
       "entityType": "checks",
       "schema": "public",
       "table": "broadcasts"
@@ -24253,6 +24193,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "seasons"
+    },
+    {
+      "value": "jsonb_typeof(\"control_lapses\") = 'object'",
+      "name": "recording_captures_control_lapses_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "recording_captures"
     },
     {
       "value": "\"egress_generation\" >= 0 and \"revocation_failures\" >= 0",

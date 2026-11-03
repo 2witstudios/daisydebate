@@ -4,9 +4,12 @@ import {
   type BuiltRecordingMedia,
   type RecordingBuildProgress,
   type RecordingJobState,
+  outsideControlLapses,
+  type ControlLapse,
 } from '@daisy/protocol';
 import {
   attemptSource,
+  runsOutsideLapses,
   HOLD_PLAYLIST,
   segmentsSource,
   WHOLE_FILE,
@@ -123,18 +126,43 @@ const joinedSegments = async (
 /** One attempt's media as a local file, or null when it left nothing readable. */
 const readAttempt = async (
   ports: BuildPorts,
+  lapses: readonly ControlLapse[],
   holdPrefix: string,
   attempt: number,
-): Promise<CapturedPiece | null> => {
+): Promise<readonly CapturedPiece[]> => {
   const prefix = holdAttemptPrefix(holdPrefix, attempt);
   const entries = parseHoldPlaylist(
     await ports.hold.readText(`${prefix}${HOLD_PLAYLIST}`),
   );
   const names = new Set(await ports.hold.listNames(prefix));
-  const source = attemptSource(entries, names);
-  if (source.kind === 'absent') return null;
   const dir = `${ports.workDir}/attempt-${attempt}`;
   await ports.files.makeDir(dir);
+  if (outsideControlLapses(entries, lapses).length < entries.length) {
+    const pieces: CapturedPiece[] = [];
+    let run = 0;
+    for (const part of runsOutsideLapses(entries, names, lapses)) {
+      if (part.kind !== 'segments') continue;
+      const runDir = `${dir}/run-${(run += 1)}`;
+      await ports.files.makeDir(runDir);
+      const { output, found } = await joinedSegments(
+        ports,
+        prefix,
+        runDir,
+        part,
+      );
+      if (found)
+        pieces.push({
+          attempt,
+          path: output,
+          startedAtMs: part.startedAtMs,
+          durationMs: found.durationMs,
+          hasAudio: found.hasAudio,
+        });
+    }
+    return pieces;
+  }
+  const source = attemptSource(entries, names);
+  if (source.kind === 'absent') return [];
   if (source.kind === 'whole_file') {
     const path = `${dir}/${WHOLE_FILE}`;
     const found = await readableWholeFile(
@@ -143,26 +171,30 @@ const readAttempt = async (
       path,
     );
     if (found)
-      return {
-        attempt,
-        path,
-        startedAtMs: source.startedAtMs,
-        durationMs: found.durationMs,
-        hasAudio: found.hasAudio,
-      };
+      return [
+        {
+          attempt,
+          path,
+          startedAtMs: source.startedAtMs,
+          durationMs: found.durationMs,
+          hasAudio: found.hasAudio,
+        },
+      ];
   }
   const segments = segmentsSource(entries, names);
-  if (segments.kind !== 'segments') return null;
+  if (segments.kind !== 'segments') return [];
   const { output, found } = await joinedSegments(ports, prefix, dir, segments);
   return found
-    ? {
-        attempt,
-        path: output,
-        startedAtMs: segments.startedAtMs,
-        durationMs: found.durationMs,
-        hasAudio: found.hasAudio,
-      }
-    : null;
+    ? [
+        {
+          attempt,
+          path: output,
+          startedAtMs: segments.startedAtMs,
+          durationMs: found.durationMs,
+          hasAudio: found.hasAudio,
+        },
+      ]
+    : [];
 };
 
 /** ffmpeg's own count of what it has written, held to the length it is writing. */
@@ -219,6 +251,7 @@ export const buildRecording = async (
     readonly recordingId: string;
     readonly holdPrefix: string;
     readonly attemptCount: number;
+    readonly controlLapses: readonly ControlLapse[];
   },
 ): Promise<RecordingJobState> => {
   const pieces: CapturedPiece[] = [];
@@ -228,10 +261,11 @@ export const buildRecording = async (
       done: attempt - 1,
       total: job.attemptCount,
     });
-    const piece = await readAttempt(ports, job.holdPrefix, attempt);
-    if (piece) pieces.push(piece);
+    pieces.push(
+      ...(await readAttempt(ports, job.controlLapses, job.holdPrefix, attempt)),
+    );
   }
-  const coverage = coverageOf(pieces);
+  const coverage = coverageOf(pieces, job.controlLapses);
   if (coverage === null)
     return { status: 'failed', reason: 'no_media', failedAt: ports.now() };
 

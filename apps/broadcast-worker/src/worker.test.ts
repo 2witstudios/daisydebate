@@ -68,6 +68,8 @@ test('a failed release step keeps the job instead of waiting out its own lease',
           stoppedAt: null,
           completedAt: null,
           streamEndedAt: null,
+          controlHeartbeatAt: new Date(800_000),
+          controlLapses: { lapses: [] },
           finalMediaEndAt: new Date(0),
           releasePolicy: { kind: 'delay', seconds: 60 },
         };
@@ -123,6 +125,8 @@ test('what a step put on disk goes with the step, whatever became of it', async 
         egressStartedAt: new Date(0),
         leaseEpoch: 1,
         feedKey: 'k',
+        controlHeartbeatAt: new Date(800_000),
+        controlLapses: { lapses: [] },
         stoppedAt: null,
         completedAt: null,
         streamEndedAt: null,
@@ -136,5 +140,52 @@ test('what a step put on disk goes with the step, whatever became of it', async 
     should: 'report it, and clear the disk on claim and after the step',
     actual: [cleared, reports],
     expected: [['b', 'b'], ['broadcast.release_failed']],
+  });
+});
+
+test('media past the last heartbeat is said once, and the slot stays with the job', async () => {
+  let reads = 0;
+  const reports: string[] = [];
+  await runWorker({
+    owner: 'w',
+    now: () => 900_000,
+    sleep: async () => {},
+    stopped: () => reads >= 3,
+    report: (event: string) => {
+      reports.push(event);
+    },
+    scratch: noScratch,
+    objects: {
+      putManifest: async () => {},
+      readHoldText: async () => {
+        reads += 1;
+        return '#EXTM3U\n#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:00:00.000Z\n#EXTINF:4.0,\ns_0.ts\n';
+      },
+    } as never,
+    store: {
+      claim: async () => ({
+        id: 'b',
+        nextSegment: 0,
+        holdCursor: 0,
+        releasedGeneration: 1,
+        egressGeneration: 1,
+        egressStartedAt: new Date(0),
+        leaseEpoch: 1,
+        feedKey: 'k',
+        controlHeartbeatAt: new Date(1000),
+        controlLapses: { lapses: [] },
+        stoppedAt: null,
+        completedAt: null,
+        streamEndedAt: null,
+        finalMediaEndAt: null,
+        releasePolicy: { kind: 'delay', seconds: 60 },
+      }),
+    } as never,
+  });
+  assert({
+    given: 'three passes over a due segment past a stale heartbeat',
+    should: 'report it once and release nothing',
+    actual: reports,
+    expected: ['broadcast.release_lapsed'],
   });
 });

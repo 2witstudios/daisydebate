@@ -13,7 +13,7 @@ export const chatRefusalText: Readonly<Record<string, string>> = {
   'chat-banned': 'You cannot post to spectator chat.',
   'chat-live-room': LIVE_ROOM_CHAT_TEXT,
   'chat-slow-mode': 'Slow mode is on. Wait a moment and post again.',
-  'chat-needs-username': 'Choose a username before you post.',
+  'audience-needs-username': 'Choose a username before you post.',
   'account-restricted': RESTRICTED_AUDIENCE_TEXT,
 };
 

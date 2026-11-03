@@ -6,7 +6,13 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { timestampColumn, createdAtColumn } from './columns';
+import { controlLapseRecordSchema } from '@daisy/protocol';
+import {
+  createdAtColumn,
+  jsonbColumn,
+  jsonbIsObject,
+  timestampColumn,
+} from './columns';
 import { recordings } from './recordings';
 import { rounds } from './rounds';
 
@@ -35,12 +41,19 @@ export const recordingCaptures = pgTable(
     revocationFailures: integer('revocation_failures').notNull().default(0),
     /** One web instance reconciles a capture at a time, so one Egress starts. */
     reconcileLeaseUntil: timestampColumn('reconcile_lease_until'),
+    /** When the control plane last reached this capture, by the database's clock. */
+    controlHeartbeatAt: timestampColumn('control_heartbeat_at'),
+    /** Every stretch with no heartbeat: media captured in one is never built. */
+    controlLapses: jsonbColumn('control_lapses', controlLapseRecordSchema)
+      .notNull()
+      .default({ lapses: [] }),
     /** No Egress runs and none will: the stage refuses and the observer is gone. */
     endedAt: timestampColumn('ended_at'),
     createdAt: createdAtColumn(),
   },
   (table) => [
     uniqueIndex('recording_captures_round_unique').on(table.roundId),
+    jsonbIsObject('recording_captures', table.controlLapses),
     check(
       'recording_captures_counters_check',
       sql`${table.egressGeneration} >= 0 and ${table.revocationFailures} >= 0`,

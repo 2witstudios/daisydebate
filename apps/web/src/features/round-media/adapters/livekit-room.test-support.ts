@@ -159,6 +159,7 @@ export function stubSdk(
       );
     },
     sdk: {
+      cores: () => 8,
       room: () => room,
       capture: async (options_: { audio: boolean; video: unknown }) => {
         captures.push(options_);

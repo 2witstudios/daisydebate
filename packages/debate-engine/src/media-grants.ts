@@ -4,8 +4,10 @@ import type {
   RoundRules,
 } from '@daisy/protocol';
 import { conversational } from '@daisy/protocol';
+import { broadcastPhase } from './broadcast-phase';
 import { mediaWindowClosed } from './media-window';
 import { speakingParticipants } from './round-speaking';
+import { phasePrivateAt } from './stage-capture';
 
 export type RoundMediaGrants = {
   readonly publish: readonly ('camera' | 'microphone')[];
@@ -32,8 +34,11 @@ type MediaGrantInput = {
   /**
    * Read-only input from the Broadcast: its observer has not yet been revoked,
    * so private conversation must wait. Speech is unaffected (ADR 0099).
+   * Covers a Recording's own observer as well as a Broadcast's.
    */
   readonly conversationHeld?: boolean;
+  /** A Broadcast's observer alone: a private phase's cameras wait for that one. */
+  readonly cameraHeld?: boolean;
   /** Pre-round prep is private: nobody publishes, and media reopens at the countdown. */
   readonly inPreRoundPrep: boolean;
 };
@@ -66,11 +71,20 @@ const speakingNow = (input: MediaGrantInput) => {
     ).includes(input.participantId)
   );
 };
+/** Closed only while a private phase's video could still reach a Broadcast. */
+const cameraOpen = (input: MediaGrantInput) =>
+  !(
+    input.cameraHeld === true &&
+    phasePrivateAt(
+      broadcastPhase(input.position, input.rules.segments.length - 1),
+      Date.parse(input.now),
+    )
+  );
 const publishSources = (
-  human: boolean,
+  camera: boolean,
   microphone: boolean,
 ): RoundMediaGrants['publish'] => [
-  ...(human ? ['camera' as const] : []),
+  ...(camera ? ['camera' as const] : []),
   ...(microphone ? ['microphone' as const] : []),
 ];
 
@@ -101,7 +115,10 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
     ((conversational(position) && input.conversationHeld !== true) ||
       speakingNow(input));
   return {
-    publish: publishSources(seat.kind === 'human', microphone),
+    publish: publishSources(
+      seat.kind === 'human' && cameraOpen(input),
+      microphone,
+    ),
     subscribe: seat.kind === 'human',
     hidden: false,
     capture: false,

@@ -328,3 +328,61 @@ describe('pre-round prep', () => {
     });
   });
 });
+
+describe('a Broadcast observer holds cameras', () => {
+  const heldGrants = (
+    world: ReturnType<typeof runtimeWorld>,
+    now: string,
+    held: { conversationHeld?: boolean; cameraHeld?: boolean },
+  ) =>
+    mediaGrants({
+      participants: seats,
+      participantId: seats[0]!.id,
+      rules: oneOnOneRules(),
+      position: world.position(now),
+      now,
+      finalSegmentEndedAt: now,
+      inPreRoundPrep: false,
+      ...held,
+    }).publish;
+  const both = { conversationHeld: true, cameraHeld: true };
+  test('a public speech keeps its camera while the observer watches', () => {
+    const world = runtimeWorld();
+    world.activate({ at: roundAt(0), now: roundAt(0) });
+    world.tick(roundAt(10_000));
+    assert({
+      given: 'a speech with a Broadcast observer subscribed',
+      should: 'publish camera and microphone: this is what it is there to see',
+      actual: heldGrants(world, roundAt(10_000), both),
+      expected: ['camera', 'microphone'],
+    });
+  });
+  test('prep closes cameras only while held, then reopens them', () => {
+    const world = runtimeWorld();
+    world.activate({ at: roundAt(0), now: roundAt(0) });
+    world.execute({
+      command: { type: 'start_prep' },
+      actorId: seats[0]!.actorId,
+      now: roundAt(0),
+    });
+    assert({
+      given: 'prep with the Broadcast observer subscribed, then revoked',
+      should: 'publish nothing, then the camera again',
+      actual: [
+        heldGrants(world, roundAt(1), both),
+        heldGrants(world, roundAt(1), { conversationHeld: false }),
+      ],
+      expected: [[], ['camera']],
+    });
+  });
+  test('a Recording’s own observer holds conversation, not cameras', () => {
+    assert({
+      given: 'a private opening held by an own-capture observer alone',
+      should: 'leave the camera and hold the microphone',
+      actual: heldGrants(runtimeWorld(), roundAt(0), {
+        conversationHeld: true,
+      }),
+      expected: ['camera'],
+    });
+  });
+});

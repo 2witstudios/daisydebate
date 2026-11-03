@@ -26,6 +26,8 @@ type StreamEvents = {
   readonly onReady: () => void;
   /** No more of this stream can be played, after the engine's own recovery. */
   readonly onFailed: () => void;
+  /** hls.js alone can tell: a native player only shows the stall before it. */
+  readonly onCaptureJump?: () => void;
 };
 
 /** Detaches a stream from its video and frees everything it held. */
@@ -45,6 +47,18 @@ const HLS_WORKER_URL = new URL(
   '../../../node_modules/hls.js/dist/hls.worker.js',
   import.meta.url,
 ).href;
+
+/** A segment is about 4 s: further apart than this in capture time, media is missing. */
+const CAPTURE_JUMP_MS = 12_000;
+
+/** Whether playback just moved across a stretch that was never published. */
+export const capturedJumped = (
+  previousMs: number | null,
+  nextMs: number | null,
+): boolean =>
+  previousMs !== null &&
+  nextMs !== null &&
+  nextMs - previousMs > CAPTURE_JUMP_MS;
 
 const attachNative = (
   video: HTMLVideoElement,
@@ -89,6 +103,13 @@ const attachHlsJs = (
         else hls.startLoad();
       });
       hls.on(Hls.Events.MANIFEST_PARSED, () => events.onReady());
+      let lastCapturedMs: number | null = null;
+      hls.on(Hls.Events.FRAG_CHANGED, (_, { frag }) => {
+        const capturedMs = frag.programDateTime;
+        if (capturedJumped(lastCapturedMs, capturedMs))
+          events.onCaptureJump?.();
+        lastCapturedMs = capturedMs;
+      });
       hls.loadSource(manifestUrl);
       hls.attachMedia(video);
       destroy = () => hls.destroy();

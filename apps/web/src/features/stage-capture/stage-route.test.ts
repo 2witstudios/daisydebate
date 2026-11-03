@@ -19,6 +19,7 @@ const route = (over: object = {}, revokedAt: Date | null = null) => {
             observerRevokedAt: revokedAt,
             completedAt: null,
             stoppedAt: null,
+            heartbeatStale: false,
             ...over,
           },
           round: {
@@ -60,6 +61,19 @@ describe('stage route', () => {
       should: 'answer 404 and mint no token',
       actual: [answers.map((a) => a.status), minted],
       expected: [[404, 404], []],
+    });
+  });
+  test('a stale heartbeat tells the stage to end, and only its own stage', async () => {
+    const { run, minted } = route({ heartbeatStale: true });
+    const [held, stranger] = await Promise.all([
+      run(ask(secret), 'b'),
+      run(ask('wrong'), 'b'),
+    ]);
+    assert({
+      given: 'no control plane lately, with the credential and without',
+      should: 'say 410 to the credential alone, minting nothing',
+      actual: [held.status, stranger.status, minted],
+      expected: [410, 404, []],
     });
   });
   test('a stopped or completed Broadcast refuses even the right credential', async () => {
