@@ -445,8 +445,8 @@ no gap still says why. The live read schema does not require them, because nothi
 renders them yet (ISSUE-1026). The completed Round's transcript read carries the
 same gaps. A stream can
 be Partial with no gap to show: a lost tail inside the close tolerance, or a clean
-handover at a new epoch with contiguous observations. It then says Partial
-without saying where (ISSUE-944 tracks showing that). A gap is
+handover at a new epoch with contiguous observations. It then says part of the
+speech was lost, without saying where. A gap is
 never stored and never implies what was said.
 
 ## Capture through a control-plane outage
