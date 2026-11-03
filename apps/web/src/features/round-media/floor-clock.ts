@@ -17,6 +17,40 @@ export type FloorClock = {
     readonly durationMs: number;
   } | null;
 };
+/** A Round as the browser's view and a server snapshot both carry it. */
+type ClockedRound = {
+  readonly startedAt: string | null;
+  readonly rules: {
+    readonly countdownMs: number;
+    readonly segments: readonly unknown[];
+    readonly inRoundPrep?: { readonly budgetMsPerSide: number } | null;
+  };
+  readonly checkpoint: {
+    readonly active_prep: {
+      readonly started_at: string;
+      readonly side: string;
+    } | null;
+    readonly prep_consumed_ms: Readonly<Record<string, number>>;
+  } | null;
+  readonly segments: readonly NonNullable<FloorClock['lastSegment']>[];
+};
+export const floorClockOf = (round: ClockedRound): FloorClock => {
+  const prep = round.checkpoint?.active_prep;
+  return {
+    startedAt: round.startedAt,
+    countdownMs: round.rules.countdownMs,
+    segmentTotal: round.rules.segments.length,
+    prepBudgetMs: round.rules.inRoundPrep?.budgetMsPerSide ?? null,
+    activePrep: prep
+      ? {
+          startedAt: prep.started_at,
+          consumedMs: round.checkpoint!.prep_consumed_ms[prep.side] ?? 0,
+        }
+      : null,
+    segmentCount: round.segments.length,
+    lastSegment: round.segments.at(-1) ?? null,
+  };
+};
 const gapBoundaries = (clock: FloorClock): number[] => {
   if (clock.activePrep || clock.segmentCount >= clock.segmentTotal) return [];
   const anchor =
@@ -45,4 +79,22 @@ export function floorBoundaries(clock: FloorClock): number[] {
       : []),
     ...mediaCloseBoundaries(clock),
   ].filter(Number.isFinite);
+}
+/**
+ * The committed instant the floor last changed, at or before `nowMs`: a clock
+ * boundary that has passed, or the last segment's own start or end (a yield
+ * commits an end ahead of its boundary). Null before anything has happened.
+ */
+export function floorDueAt(clock: FloorClock, nowMs: number): number | null {
+  const last = clock.lastSegment;
+  const passed = [
+    ...floorBoundaries(clock),
+    ...(last
+      ? [
+          Date.parse(last.startedAt),
+          ...(last.endedAt ? [Date.parse(last.endedAt)] : []),
+        ]
+      : []),
+  ].filter((at) => at <= nowMs);
+  return passed.length ? Math.max(...passed) : null;
 }
