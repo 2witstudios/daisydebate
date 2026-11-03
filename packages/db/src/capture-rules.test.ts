@@ -7,7 +7,6 @@ import {
   requireLiveCaptureLease,
   requireObservationWindow,
   sealAction,
-  sealState,
 } from './capture-rules';
 
 setupRitewayBun();
@@ -181,62 +180,6 @@ test('seals retry identically, never undercount and wait for a closed timeline',
     });
 });
 
-test('a seal is complete only with this epoch’s full evidence', () => {
-  const evidence = {
-    epoch: 2,
-    observations: [
-      { start: new Date(t0), end: new Date(t0 + 10_000), epoch: 2 },
-    ],
-    chunks: { count: 2, otherEpochChunks: 0 },
-    storedChunks: 2,
-    expectedChunks: 2,
-    authority: grant,
-    tolerance: { openMs: 2_000, closeMs: 0 },
-  };
-  const joined = (from: number, until = t0 + 10_000) => [
-    { start: new Date(t0 + from), end: new Date(until), epoch: 2 },
-  ];
-  assert({
-    given:
-      'full coverage, each missing piece of evidence in turn, then a first frame at and past the join tolerance and a gap after a late join',
-    should:
-      'seal complete only for the full evidence from the first frame within the tolerance (DEC-218)',
-    actual: [
-      sealState(evidence),
-      sealState({ ...evidence, chunks: undefined }),
-      sealState({ ...evidence, chunks: { count: 2, otherEpochChunks: 1 } }),
-      sealState({
-        ...evidence,
-        observations: [{ ...evidence.observations[0]!, epoch: 1 }],
-      }),
-      sealState({ ...evidence, storedChunks: 3 }),
-      sealState({
-        ...evidence,
-        observations: [
-          { ...evidence.observations[0]!, end: new Date(t0 + 9_000) },
-        ],
-      }),
-      sealState({ ...evidence, observations: joined(2_000) }),
-      sealState({ ...evidence, observations: joined(2_001) }),
-      sealState({
-        ...evidence,
-        observations: [...joined(1_000, t0 + 5_000), ...joined(5_010)],
-      }),
-    ],
-    expected: [
-      'complete',
-      'partial',
-      'partial',
-      'partial',
-      'partial',
-      'partial',
-      'complete',
-      'partial',
-      'partial',
-    ],
-  });
-});
-
 test('capture admission closes at freeze, cutoff or a terminal Round', async () => {
   const at = iso(0);
   assert({
@@ -294,46 +237,5 @@ test('capture admission closes at freeze, cutoff or a terminal Round', async () 
     should: 'refuse the worker',
     actual: () => requireLiveCaptureLease(new Date(t0), new Date(t0)),
     code: 'CONFLICT',
-  });
-});
-
-test('a bot grant it did not use seals complete only with no evidence of speech (ISSUE-965)', () => {
-  const silent = {
-    epoch: 1,
-    observations: [],
-    chunks: { count: 0, otherEpochChunks: 0 },
-    storedChunks: 0,
-    expectedChunks: 0,
-    authority: [],
-    tolerance: { openMs: 0, closeMs: 0 },
-    grantUnused: true,
-  };
-  const heard = {
-    start: new Date(1000),
-    end: new Date(1100),
-    epoch: 1,
-  };
-  assert({
-    given:
-      'an unused grant with no evidence, a grant that is owed, then interruption, lost frames, an observation, a stored chunk and an expected chunk',
-    should: 'seal only the first complete',
-    actual: [
-      sealState(silent),
-      sealState({ ...silent, grantUnused: false }),
-      sealState({ ...silent, interrupted: true }),
-      sealState({ ...silent, framesLost: true }),
-      sealState({ ...silent, observations: [heard] }),
-      sealState({ ...silent, storedChunks: 1 }),
-      sealState({ ...silent, expectedChunks: 1 }),
-    ],
-    expected: [
-      'complete',
-      'partial',
-      'partial',
-      'partial',
-      'partial',
-      'partial',
-      'partial',
-    ],
   });
 });

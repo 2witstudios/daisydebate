@@ -11,6 +11,7 @@ import {
   type ClipCarries,
 } from './capture-batch';
 import type { consumeCaptureClips, QueuedClip } from './capture-consumer';
+import type { CutClip } from './capture-clips';
 import { createHeardReporter, reportHeardTracks } from './capture-heard';
 import { createStreamTracker } from './capture-streams';
 import { closeCaptureSession, gracefulStop } from './capture-drain';
@@ -90,6 +91,7 @@ async function captureSession(
     stagedFrames: 0,
     droppedFrames: 0,
     transcribedClips: 0,
+    silentClips: 0,
     appendedChunks: 0,
     sealedStreams: 0,
   };
@@ -123,8 +125,12 @@ async function captureSession(
   });
   const carries: ClipCarries = new Map();
   const heard = createHeardReporter({ heard: input.client.heard });
-  const enqueue = (clip: QueuedClip | Omit<QueuedClip, 'bytes'>) => {
-    const queued = { ...clip, bytes: clip.wav.byteLength };
+  const enqueue = (clip: CutClip) => {
+    if (clip.kind === 'silent') stats.silentClips++;
+    const queued: QueuedClip = {
+      ...clip,
+      bytes: clip.kind === 'audible' ? clip.wav.byteLength : 0,
+    };
     streams.queued(queued);
     for (const discarded of queue.push(queued)) {
       streams.settled(discarded);

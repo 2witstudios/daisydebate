@@ -61,13 +61,17 @@ widths. Measured on `origin/main`:
 - UI pull requests outside the core no longer touch baselines; one inside
   it runs `gh workflow run rebaseline-visuals.yml -f target=<pr>` instead
   of a local Linux browser server and an artifact download.
-- A push made with the workflow token does not start CI (GitHub's rule
-  against recursive runs), so the branch's next push, or a close and
-  reopen of the pull request, runs the gates on the rebaselined head.
+- A push made with the workflow token leaves the pull request's new CI run
+  waiting for approval (GitHub's rule against recursive runs). The workflow's
+  last job approves the run held at that commit. It holds `actions: write` and
+  `pull-requests: read` and runs nothing from the branch, so no write token sits
+  beside branch code and no human has to click. A GitHub App token on the push
+  would avoid the hold, at the cost of a new secret; this job is the no-secret
+  choice, and that token is the alternative if the job proves fragile.
 - The bot commit moves the pull request head; rebaseline before reviewers
   start, so their comments refer to the head that merges.
 - Visual coverage of the removed surfaces is gone by choice; their
   behavior, accessibility and contrast remain covered by the E2E, axe and
   palette suites.
-- `scripts/rebaseline-visuals.test.ts` pins the workflow's trigger,
+- `scripts/rebaseline-visuals*.test.ts` pin the workflow's trigger,
   permissions, credential separation and target refusals.

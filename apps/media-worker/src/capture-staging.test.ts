@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { cutCaptureClips } from '@daisy/media/clips';
+import { cutCaptureClips } from './capture-clips';
 import { createCaptureStaging, type StagedFrame } from './capture-staging';
 import type { CaptureClient } from './capture-history';
 setupRitewayBun();

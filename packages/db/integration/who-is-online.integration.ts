@@ -738,7 +738,7 @@ test('moderation: a ban has no end, the sweep counts from erasure, and impossibl
   }
 });
 
-const migration = '20261102232501_who_is_online';
+const migration = '20261103001929_who_is_online';
 const scratch = scratchDatabase(databaseUrl, 'whoonline');
 afterAll(() => scratch.drop());
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { capturePartialReasonSchema } from './capture-verdict';
 import { ballotSchema } from './ballot';
 import { idSchema } from './primitives';
 import { roundViewSchema } from './round-view';
@@ -52,6 +53,14 @@ export const roundBallotReadSchema = z.strictObject({
           roundParticipantId: idSchema,
           fromOffsetMs: z.int().nonnegative(),
           untilOffsetMs: z.int().nonnegative(),
+        }),
+      ),
+      /** Every partial stream and why, including one with no gaps. */
+      partialStreams: z.array(
+        z.strictObject({
+          segmentId: idSchema,
+          roundParticipantId: idSchema,
+          reasons: z.array(capturePartialReasonSchema).min(1),
         }),
       ),
     })
