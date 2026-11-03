@@ -1,4 +1,5 @@
 import { isAppError } from '@daisy/errors';
+import type { JudgingTerminalReason } from '@daisy/protocol';
 import type { WorkerTimers } from '../../lib/worker-timers';
 type Target = { readonly roundId: string; readonly judgeParticipantId: string };
 type Found = Target & { readonly holdsBallot?: boolean };
@@ -24,7 +25,10 @@ export function startRoundJudgingService<C extends Claim>(input: {
     readonly renewRoundJudgingJob: (
       scope: C['scope'],
       token: string,
-    ) => Promise<unknown>;
+    ) => Promise<
+      | { readonly kind: 'renewed' }
+      | { readonly kind: 'ended'; readonly reason: JudgingTerminalReason }
+    >;
     readonly verifyRoundJudgingJob: (
       scope: C['scope'],
       token: string,
@@ -41,8 +45,8 @@ export function startRoundJudgingService<C extends Claim>(input: {
     readonly renewMs: number;
   };
   readonly timers: WorkerTimers;
-  /** A renewal found the job out of budget and ended it. */
-  readonly outOfBudget?: () => void;
+  /** A renewal found the job over and ended it, for this reason. */
+  readonly jobEnded?: (reason: JudgingTerminalReason) => void;
   /** `stage` names the work that failed: execute, scan or renew. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
@@ -145,14 +149,14 @@ export function startRoundJudgingService<C extends Claim>(input: {
       [...entries.values()].map(async (entry) => {
         if (entry.abort.signal.aborted) return;
         try {
-          // Null: the budget ran out and the job has ended (DEC-275). Cancel the call.
           const renewed = await input.store.renewRoundJudgingJob(
             entry.claim.scope,
             entry.claim.token,
           );
-          if (renewed === null) {
+          // The budget ran out and the job has ended (DEC-275). Cancel the call.
+          if (renewed.kind === 'ended') {
             release(entry);
-            input.outOfBudget?.();
+            input.jobEnded?.(renewed.reason);
           }
         } catch (error) {
           // A lease lost to completion or another claimant is a release, not

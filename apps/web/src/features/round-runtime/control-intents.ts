@@ -1,6 +1,5 @@
 import {
-  roundCommandOptionsAt,
-  roundPositionAt,
+  roundControlsAt,
   type RoundCommandOption,
 } from '@daisy/debate-engine/position';
 import { startSpeechLabel } from '../debate-room/vocabulary';
@@ -52,20 +51,17 @@ export function roundControlIntents(
   );
   if (!self) return [];
   if (view.status !== 'active' || view.checkpoint === null) return [];
-  const snapshot = {
+  const { position, options } = roundControlsAt({
     round: view,
     rules: view.rules,
     segments: view.segments,
     checkpoint: view.checkpoint,
     nowMs,
-  };
-  const position = roundPositionAt(snapshot);
-  const current = persistedPhase(view, position);
-  return roundCommandOptionsAt({
-    ...snapshot,
     participants: seats,
     seat: self,
-  }).map((option) => ({
+  });
+  const current = persistedPhase(view, position);
+  return options.map((option) => ({
     type: option.type,
     participantId: self.id,
     enabled: current && option.legal,
