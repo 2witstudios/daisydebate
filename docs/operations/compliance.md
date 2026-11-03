@@ -92,6 +92,11 @@ Erasure closes the account. It deletes everything in the classes marked
 - the `users` row id and the `actors` link to it, which the record needs;
 - the keyed email digests on delivery receipts and suppressions.
 
+It does not keep the member's transcript lines. Erasure deletes their own lines
+from every Round, ranked included, and discards every pending AI judgment of a
+Round they sat in, since it quotes them (DEC-223). The other debaters' lines
+stay, and the result, ballots and rating changes stay as the competitive record.
+
 A username is personal data (ICO guidance on identifiers), so keeping it is a
 decision under a lawful basis, not a claim that it is anonymous. The proposed
 basis is legitimate interest in an accurate competitive record that other
