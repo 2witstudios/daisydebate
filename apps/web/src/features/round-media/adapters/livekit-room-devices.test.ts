@@ -518,7 +518,7 @@ test('a capture with defaults reuses a healthy held track, and opens one only wh
 });
 
 test('a Round with a Broadcast captures its top layer once admitted, and others the baseline', async () => {
-  const heightOf = async (camera: 'standard' | 'broadcast') => {
+  const heightOf = async (camera: 'standard' | 'captured') => {
     const stub = stubSdk({ settles: true });
     const { transport } = createBrowserMediaTransport(events, stub.sdk);
     await transport.connect({ ...admission, camera });
@@ -531,7 +531,7 @@ test('a Round with a Broadcast captures its top layer once admitted, and others 
   assert({
     given: 'an admission saying broadcast, then one saying standard',
     should: 'capture 540p, then 360p',
-    actual: [await heightOf('broadcast'), await heightOf('standard')],
+    actual: [await heightOf('captured'), await heightOf('standard')],
     expected: [540, 360],
   });
 });

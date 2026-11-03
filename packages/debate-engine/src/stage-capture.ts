@@ -1,7 +1,7 @@
 /**
- * What any Egress of the stage page must obey, whoever runs it: a Broadcast or a
- * Recording with no Broadcast. The observer's permission is the privacy boundary;
- * the page's slate is only appearance.
+ * What any Egress in a Round's room must obey, whoever runs it: a Broadcast's stage,
+ * a Recording's own stage, or a debater's POV. Its subscribe permission is the
+ * privacy boundary; a stage page's slate is only appearance.
  */
 
 /**
@@ -43,7 +43,7 @@ export type StagePrivacyAction =
     };
 
 /** The next step of the privacy boundary, from observed facts alone. */
-export const stagePrivacyActions = (facts: {
+export const egressPrivacyActions = (facts: {
   readonly nowMs: number;
   readonly egress: StageEgressFact;
   readonly phase: StagePhaseFact;

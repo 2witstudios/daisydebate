@@ -11,11 +11,15 @@ import {
   startSingleFlightWorker,
   type WorkerTimers,
 } from '../../lib/worker-timers';
+import { createPovEgress } from '@daisy/media/pov';
+import { povCaptureIdOfPath } from '@daisy/protocol';
 import { stageEgressOf } from '../stage-capture/composition';
+import { createStrayEgressSweep } from '../stage-capture/stray-egress-sweep';
 import { newStageCredential } from '../stage-capture/stage-access';
 import { createRecordingCapturePort } from './capture-port';
 import { holdsRecordingDownload } from './download-entitlement';
 import { createRecordingCaptureSweep } from './capture-sweep';
+import { createPovCaptureSweep } from './pov-capture-sweep';
 import type { RecordingRound } from './audience';
 import { createRecordingHandlers } from './handlers';
 import type { HistoryInputs, HistoryRound } from './history';
@@ -137,6 +141,90 @@ export const startRecordingCapture = (app: App, timers: WorkerTimers) => {
       app.logger.log('recording.capture_failed', {}, 'Recording capture'),
   });
   return { stop: () => running.stop().then(sweep.settled) };
+};
+
+const STRAY_POV_SWEEP_EVERY_MS = 15_000;
+const STRAY_POV_CLAIM_MS = 800;
+
+/**
+ * Inert unless RECORDING_CAPTURE and RECORDING_POV_CAPTURE are both on, so merging
+ * never activates capture. A failure here reaches no composite and no Round.
+ */
+export const startPovCapture = (app: App, timers: WorkerTimers) => {
+  const {
+    LIVEKIT_URL: url,
+    LIVEKIT_API_KEY: apiKey,
+    LIVEKIT_API_SECRET: apiSecret,
+  } = app.config;
+  if (
+    app.config.RECORDING_CAPTURE !== 'on' ||
+    app.config.RECORDING_POV_CAPTURE !== 'on' ||
+    !url ||
+    !apiKey ||
+    !apiSecret
+  )
+    return null;
+  // One LiveKit today. Every call already names its room, so more only change this.
+  const egress = createPovEgress({ config: { url, apiKey, apiSecret } });
+  const store = app.database.recordingPovs;
+  const report = (event: Parameters<typeof app.logger.log>[0]) =>
+    app.logger.log(event, {}, 'Recording POV capture');
+  const sweep = createPovCaptureSweep({
+    store,
+    egressFor: () => egress,
+    phaseAt: (round, now) =>
+      broadcastPhase(
+        createRoundRuntime({
+          ...round,
+          round,
+          nextSegmentId: () => app.ids.next(),
+        }).position(now),
+        round.rules.segments.length - 1,
+      ),
+    now: () => Date.parse(app.clock.now()),
+    report,
+    passBudget: () => Bun.sleep(PASS_BUDGET_MS),
+  });
+  const running = startSingleFlightWorker({
+    run: sweep,
+    everyMs: CAPTURE_SWEEP_EVERY_MS,
+    timers,
+    failed: () => report('recording.pov_capture_failed'),
+  });
+  const povOf = (captureId: string) => {
+    const [recordingId = '', roundParticipantId = ''] = captureId.split('/');
+    return { recordingId, roundParticipantId };
+  };
+  const stray = startSingleFlightWorker({
+    run: createStrayEgressSweep({
+      listStages: async () =>
+        (await egress.listRunning()).flatMap(({ egressId, path }) => {
+          const captureId = povCaptureIdOfPath(path);
+          return captureId ? [{ egressId, captureId }] : [];
+        }),
+      stop: egress.stop,
+      owners: [
+        {
+          recordedEgress: (captureId) => store.readEgress(povOf(captureId)),
+          claim: (captureId) => {
+            const nowMs = Date.parse(app.clock.now());
+            return store.claim({
+              ...povOf(captureId),
+              now: new Date(nowMs),
+              until: new Date(nowMs + STRAY_POV_CLAIM_MS),
+            });
+          },
+        },
+      ],
+      report,
+    }),
+    everyMs: STRAY_POV_SWEEP_EVERY_MS,
+    timers,
+    failed: () => report('stage.stray_sweep_failed'),
+  });
+  return {
+    stop: () => Promise.all([running.stop().then(sweep.settled), stray.stop()]),
+  };
 };
 
 export const recordingReads = (app: App) => ({

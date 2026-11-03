@@ -543,6 +543,21 @@ export {
   type RecordingStatus,
 } from './recording';
 export {
+  povBuildSchema,
+  povCaptureId,
+  povCaptureIdOfPath,
+  povFileKinds,
+  povHoldPrefix,
+  povHoldRoot,
+  povObjectKey,
+  povQualities,
+  recordingPovSchema,
+  type PovBuild,
+  type PovFileKind,
+  type PovQuality,
+  type RecordingPov,
+} from './recording-pov';
+export {
   recordingObjectPrefix,
   transitionRecording,
   type RecordingEvent,

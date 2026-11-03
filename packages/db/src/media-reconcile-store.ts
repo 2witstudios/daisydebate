@@ -1,5 +1,5 @@
 import {
-  readBroadcastObserverHeld,
+  readCameraHeld,
   readConversationHeld,
 } from './broadcast-operations';
 import { rotateRevokedMediaSession } from './media-session-rotation';
@@ -174,7 +174,7 @@ export function createMediaReconcileStore(input: {
           conversationHeld: await readConversationHeld(tx, {
             roundId: session.roundId,
           }),
-          cameraHeld: await readBroadcastObserverHeld(tx, {
+          cameraHeld: await readCameraHeld(tx, {
             roundId: session.roundId,
           }),
           bindings: await tx

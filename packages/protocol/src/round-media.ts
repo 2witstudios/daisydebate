@@ -34,7 +34,7 @@ export const roundMediaAdmissionSchema = roundMediaStateSchema.safeExtend({
   token: z.string().min(1).max(16384),
   expiresAt: z.iso.datetime({ offset: true }),
   /** `broadcast` adds a top layer for the stage; a browser that cannot afford it stays standard. */
-  camera: z.enum(['standard', 'broadcast']),
+  camera: z.enum(['standard', 'captured']),
 });
 export type RoundMediaState = z.infer<typeof roundMediaStateSchema>;
 export type RoundMediaAdmission = z.infer<typeof roundMediaAdmissionSchema>;

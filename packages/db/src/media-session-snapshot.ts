@@ -17,7 +17,7 @@ import {
   type LockedRoundTickInput,
 } from './round-clock-transaction';
 import {
-  readBroadcastObserverHeld,
+  readCameraHeld,
   readConversationHeld,
 } from './broadcast-operations';
 import { hydrateRoundRows } from './round-hydration';
@@ -81,7 +81,7 @@ export async function lockedMediaSnapshot(
       ),
     );
   const conversationHeld = await readConversationHeld(tx, { roundId });
-  const cameraHeld = await readBroadcastObserverHeld(tx, { roundId });
+  const cameraHeld = await readCameraHeld(tx, { roundId });
   return {
     session,
     round,

@@ -1,7 +1,7 @@
 import type { BroadcastReleasePolicy } from '@daisy/protocol';
 import {
   runningEgress,
-  stagePrivacyActions,
+  egressPrivacyActions,
   type StageEgressFact,
   type StagePhaseFact,
 } from './stage-capture';
@@ -66,7 +66,7 @@ export const decideBroadcast = (
       ? [{ type: 'complete' }]
       : [];
   }
-  const privacy = stagePrivacyActions(facts);
+  const privacy = egressPrivacyActions(facts);
   if (privacy.length > 0 || live) return privacy;
   return [{ type: 'start-egress' }];
 };

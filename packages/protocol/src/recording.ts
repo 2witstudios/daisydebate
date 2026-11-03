@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { broadcastHoldPrefix } from './broadcast-hold';
 import { idSchema } from './primitives';
+import { recordingPovSchema } from './recording-pov';
 
 /**
  * A Recording: a retained playable video of a Round, with its own state and
@@ -107,6 +108,8 @@ export const recordingMediaSchema = z.strictObject({
   /** Absent when the video reaches the whole debate. */
   unrecorded: z.array(unrecordedSchema).max(2).optional(),
   speeches: z.array(speechSchema).max(100_000),
+  /** Each debater's own view, or why it is missing. Absent when none was captured. */
+  povs: z.array(recordingPovSchema).max(32).optional(),
 });
 export type RecordingMedia = z.infer<typeof recordingMediaSchema>;
 

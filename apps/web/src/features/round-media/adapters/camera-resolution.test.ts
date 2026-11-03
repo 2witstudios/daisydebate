@@ -10,9 +10,9 @@ test('540p only on a Broadcast, and only with the cores for it', () => {
     given: 'a Broadcast with cores, too few, an unknown count; then none',
     should: 'capture 540p only in the first',
     actual: [
-      cameraResolution('broadcast', 8),
-      cameraResolution('broadcast', 3),
-      cameraResolution('broadcast', undefined),
+      cameraResolution('captured', 8),
+      cameraResolution('captured', 3),
+      cameraResolution('captured', undefined),
       cameraResolution('standard', 16),
     ],
     expected: [

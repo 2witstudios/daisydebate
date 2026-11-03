@@ -195,6 +195,27 @@ describe('readiness', () => {
       expected: { kind: 'refused', reason: 'foreign_object' },
     });
     assert({
+      given: 'a POV naming an object outside the prefix',
+      should: 'refuse',
+      actual: apply(processing, {
+        type: 'media_verified',
+        media: {
+          ...media,
+          povs: [
+            {
+              status: 'built',
+              roundParticipantId: 'seatseatseatseatseatseat',
+              video: null,
+              audio: { key: 'public/audio.m4a', byteSize: 1 },
+              durationMs: 1000,
+              gaps: [],
+            },
+          ],
+        },
+      }),
+      expected: { kind: 'refused', reason: 'foreign_object' },
+    });
+    assert({
       given: 'a late failure from an ambiguous vendor once ready',
       should: 'keep the Recording ready',
       actual: apply(ready, {

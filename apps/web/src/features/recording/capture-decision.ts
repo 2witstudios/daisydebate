@@ -1,6 +1,6 @@
 import {
   runningEgress,
-  stagePrivacyActions,
+  egressPrivacyActions,
   type StageEgressFact,
   type StagePhaseFact,
   type StagePrivacyAction,
@@ -119,7 +119,7 @@ const decideOwnPath = (
     ];
   }
   const started = newAttempt(facts, { kind: 'own_capture' });
-  const privacy = stagePrivacyActions({ ...facts, ...path }).map(
+  const privacy = egressPrivacyActions({ ...facts, ...path }).map(
     (action): RecordingCaptureAction =>
       action.type === 'stop-egress'
         ? { type: 'stop-egress', id: action.id }

@@ -1,10 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { EgressStatus, ServerError } from 'livekit-server-sdk';
-import {
-  createBroadcastEgress,
-  egressFact,
-  stageCaptureId,
-} from './broadcast-egress';
+import { createBroadcastEgress, stageCaptureId } from './broadcast-egress';
+import { egressFact } from './egress-fact';
 
 setupRitewayBun();
 

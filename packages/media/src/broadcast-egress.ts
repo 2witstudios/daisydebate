@@ -1,12 +1,10 @@
 import {
   AccessToken,
   EgressClient,
-  EgressStatus,
   EncodedFileOutput,
   RoomServiceClient,
   SegmentedFileOutput,
   ServerError,
-  type EgressInfo,
 } from 'livekit-server-sdk';
 import {
   configSchema,
@@ -14,33 +12,10 @@ import {
   parseMedia,
   type MediaConfig,
 } from './contracts';
+import { egressFact, type EgressFact } from './egress-fact';
 
 /** Only for joining, and the stage asks every second, so an old one soon can't. */
 const OBSERVER_TTL_SECONDS = 60;
-
-export type BroadcastEgressFact =
-  | { readonly kind: 'none' }
-  | { readonly kind: 'starting' | 'active'; readonly id: string }
-  | { readonly kind: 'failed'; readonly id: string }
-  | { readonly kind: 'complete' };
-
-/** What the lifecycle decides on. Anything unrecognised counts as failed, never running. */
-export const egressFact = (
-  info: Pick<EgressInfo, 'egressId' | 'status'>,
-): BroadcastEgressFact => {
-  const id = info.egressId;
-  switch (info.status) {
-    case EgressStatus.EGRESS_STARTING:
-      return { kind: 'starting', id };
-    case EgressStatus.EGRESS_ACTIVE:
-    case EgressStatus.EGRESS_ENDING:
-      return { kind: 'active', id };
-    case EgressStatus.EGRESS_COMPLETE:
-      return { kind: 'complete' };
-    default:
-      return { kind: 'failed', id };
-  }
-};
 
 /**
  * The capture a stage URL belongs to, only under this deployment's own origin, so
@@ -110,7 +85,7 @@ export function createBroadcastEgress(deps: {
       await client.stopEgress(id);
     },
     /** A job LiveKit no longer lists is reported failed, so it cannot look alive. */
-    async read(id: string): Promise<BroadcastEgressFact> {
+    async read(id: string): Promise<EgressFact> {
       const [info] = await client.listEgress({ egressId: id });
       return info ? egressFact(info) : { kind: 'failed', id };
     },

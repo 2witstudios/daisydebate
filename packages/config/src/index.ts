@@ -134,6 +134,12 @@ const serverFields = {
    */
   RECORDING_CAPTURE: z.literal('on').optional(),
   /**
+   * ADR 0107: each debater's own capture runs only when this is exactly `on`, and
+   * only beside RECORDING_CAPTURE. Unset, no POV Egress starts and no Recording
+   * lists one. It needs the POV Egress pool (deploy-staging.md).
+   */
+  RECORDING_POV_CAPTURE: z.literal('on').optional(),
+  /**
    * Where signed Recording reads point. Not a secret: every signed URL names it.
    * The replay page's browser policy names it, and no other page's does.
    */

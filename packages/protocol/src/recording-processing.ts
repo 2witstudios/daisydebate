@@ -56,11 +56,13 @@ export const recordingBuildSteps = [
   'encoding',
   'uploading',
   'verifying',
+  'povs',
 ] as const;
 
 /**
  * How far a running build really is, in the step's own units: attempts read,
- * milliseconds of video encoded as ffmpeg reports them, files uploaded. Never a
+ * milliseconds of video encoded as ffmpeg reports them, files uploaded, debaters'
+ * views finished. Never a
  * percentage of the whole, which nothing measures.
  */
 const recordingBuildProgressSchema = z.strictObject({

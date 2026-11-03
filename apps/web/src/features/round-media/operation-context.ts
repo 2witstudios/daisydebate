@@ -31,5 +31,5 @@ export type MediaOperationInput = {
   /** Which camera a seat captures. Only a hint about quality: it decides no authority. */
   readonly cameraProfile?: (
     roundId: string,
-  ) => Promise<'standard' | 'broadcast'>;
+  ) => Promise<'standard' | 'captured'>;
 };

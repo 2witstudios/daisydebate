@@ -105,7 +105,7 @@ are at most hints, and no receiver is needed (point guard, 2026-11-03).
 
 **Two capture paths, one job.** A Round with a Broadcast reads that Broadcast's Egress. A
 casual Recording with no Broadcast runs its own, in `recording_captures`, and obeys the
-same privacy rule (`stagePrivacyActions`). The stage page and its credential are their own
+same privacy rule (`egressPrivacyActions`). The stage page and its credential are their own
 module (`features/stage-capture`) because both use them.
 
 **Processing is its own worker.** `apps/recording-worker` claims `recording_processing_jobs`

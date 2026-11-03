@@ -3,7 +3,10 @@ import { startRecordingDeletions } from './recording-deletions';
 import { startBroadcastSweep } from '../features/broadcast/composition';
 import { startStrayEgressSweep } from '../features/stage-capture/composition';
 import { startNotificationSweep } from '../features/spectating/audience-composition';
-import { startRecordingCapture } from '../features/recording/composition';
+import {
+  startPovCapture,
+  startRecordingCapture,
+} from '../features/recording/composition';
 import { recoveryFailureFields } from '../features/round-media/recovery-failure';
 import { mediaConfigured } from './round-worker-policy';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
@@ -227,6 +230,7 @@ const broadcastSweep = startBroadcastSweep(app, workerTimers);
 const strayEgressSweep = startStrayEgressSweep(app, workerTimers);
 const notificationSweep = startNotificationSweep(app, workerTimers);
 const recordingCapture = startRecordingCapture(app, workerTimers);
+const povCapture = startPovCapture(app, workerTimers);
 async function shutdown() {
   if (app.isDraining()) return;
   app.drain();
@@ -242,6 +246,7 @@ async function shutdown() {
   const strayEgressSweepStopped = strayEgressSweep?.stop();
   const notificationSweepStopped = notificationSweep.stop();
   const recordingCaptureStopped = recordingCapture?.stop();
+  const povCaptureStopped = povCapture?.stop();
   const availabilityStopped = availability.stop();
   const workersStopped = roundWorkers?.stop();
   const mediaRecoveryStopped = mediaRecovery?.stop();
@@ -276,6 +281,7 @@ async function shutdown() {
         strayEgressSweepStopped,
         notificationSweepStopped,
         recordingCaptureStopped,
+        povCaptureStopped,
         observationPurgesStopped,
         privacyJobsStopped,
         recordingDeletionsStopped,

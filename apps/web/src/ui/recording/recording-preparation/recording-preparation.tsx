@@ -22,6 +22,8 @@ const buildStepCopy = ({
       return `Saving the video: ${done} of ${total} files`;
     case 'verifying':
       return 'Checking the saved video';
+    case 'povs':
+      return `Preparing each debater's own video: ${done} of ${total}`;
   }
 };
 

@@ -16,6 +16,7 @@ import { controlHeartbeat } from './control-heartbeat';
 import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { mediaSessions } from './schema/media-sessions';
+import { readPovSubscribed } from './recording-pov-hold';
 import { recordingCaptures } from './schema/recording-captures';
 import { rounds } from './schema/rounds';
 import {
@@ -472,6 +473,16 @@ export const readBroadcastObserverHeld = async (
 };
 
 /**
+ * Whether a private phase's cameras must wait: a Broadcast's observer or a debater's
+ * POV could still receive them. A Recording's own stage shows no private video.
+ */
+export const readCameraHeld = async (
+  tx: Tx,
+  input: { readonly roundId: string },
+): Promise<boolean> =>
+  (await readBroadcastObserverHeld(tx, input)) || readPovSubscribed(tx, input);
+
+/**
  * Whether private conversation must wait for this Round's observer. Held for as
  * long as an open Broadcast's observer may still be subscribed, with no timer: an
  * unconfirmed revocation stops the Egress, and revoking an observer that has gone
@@ -481,7 +492,7 @@ export const readConversationHeld = async (
   tx: Tx,
   input: { readonly roundId: string },
 ): Promise<boolean> => {
-  if (await readBroadcastObserverHeld(tx, input)) return true;
+  if (await readCameraHeld(tx, input)) return true;
   // A Recording with no Broadcast runs the same observer under the same rule.
   const [own] = await tx
     .select({ id: recordingCaptures.recordingId })

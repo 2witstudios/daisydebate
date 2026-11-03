@@ -141,9 +141,15 @@ const mediaVerified = (
 ): RecordingTransition => {
   if (lifecycle.status === 'processing') {
     const prefix = recordingObjectPrefix(id);
+    const povKeys = (media.povs ?? []).flatMap((pov) =>
+      pov.status === 'built'
+        ? [pov.audio.key, ...(pov.video ? [pov.video.key] : [])]
+        : [],
+    );
     if (
-      !media.playlistKey.startsWith(prefix) ||
-      !media.downloadKey.startsWith(prefix)
+      ![media.playlistKey, media.downloadKey, ...povKeys].every((key) =>
+        key.startsWith(prefix),
+      )
     )
       return refused('foreign_object');
     return moved({ status: 'ready', capture: lifecycle.capture, media });

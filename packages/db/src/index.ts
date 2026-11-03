@@ -107,6 +107,7 @@ import { recordingArchiveReadOperations } from './recording-archive-reads';
 import { recordingModeration } from './recording-moderation';
 import { spectatorFactLogOperations } from './spectator-fact-log';
 import { createRecordingCaptureStore } from './recording-capture-store';
+import { createRecordingPovStore } from './recording-pov-store';
 import { recordingOperations } from './recording-operations';
 import { recordingRoundReadOperations } from './recording-round-reads';
 import { roundAudienceLinkOperations } from './round-audience-link';
@@ -215,6 +216,7 @@ export function createDatabase({
     ...roundAnalysisReads({ database }),
     broadcasts: createBroadcastStore(database),
     recordingCaptures: createRecordingCaptureStore(database),
+    recordingPovs: createRecordingPovStore(database),
     mediaSessions: namedLaneOperations(
       createMediaSessionStore({
         database,

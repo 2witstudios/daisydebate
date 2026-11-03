@@ -5,7 +5,7 @@ import {
 } from './admission-priority';
 import type { App } from '../../server/app';
 import { createAppError } from '@daisy/errors';
-import { plannedBroadcast } from '@daisy/debate-engine';
+import { plannedBroadcast, plannedRecording } from '@daisy/debate-engine';
 import { createMediaService } from '@daisy/media';
 import {
   noopErrorReporter,
@@ -58,9 +58,17 @@ export function createRoundMediaRuntime(
       workerUrl: worker.toString(),
       nextId: () => app.ids.next(),
       cameraProfile: async (roundId) => {
-        if (app.config.BROADCAST_CAPTURE !== 'on') return 'standard';
+        const broadcasts = app.config.BROADCAST_CAPTURE === 'on';
+        const povs =
+          app.config.RECORDING_CAPTURE === 'on' &&
+          app.config.RECORDING_POV_CAPTURE === 'on';
+        if (!broadcasts && !povs) return 'standard';
         const plan = await app.database.broadcasts.readCapturePlan(roundId);
-        return plan && plannedBroadcast(plan) ? 'broadcast' : 'standard';
+        return plan &&
+          ((broadcasts && plannedBroadcast(plan)) ||
+            (povs && plannedRecording(plan)))
+          ? 'captured'
+          : 'standard';
       },
       reporter,
       logger: app.logger,
