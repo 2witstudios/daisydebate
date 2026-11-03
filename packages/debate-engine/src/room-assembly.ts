@@ -18,15 +18,8 @@ import {
   claimSeat,
   leaveSeat,
 } from './room-edit-transitions';
-import {
-  ready,
-  finishPrep,
-  startRound,
-  close,
-} from './room-consent-transitions';
-import { startPreRound, strikeResolution } from './room-pre-round';
-import { preRoundBegun } from './pre-round-phase';
-import { settleRoom, topicInvariantHolds } from './resolution-draw';
+import { ready, startRound, close } from './room-consent-transitions';
+import { topicInvariantHolds } from './resolution-draw';
 const roomTransitions = {
   'update-config': updateConfig,
   'update-format': updateConfig,
@@ -38,9 +31,6 @@ const roomTransitions = {
   'remove-seat': leaveSeat,
   ready,
   unready: ready,
-  'start-pre-round': startPreRound,
-  'strike-resolution': strikeResolution,
-  'finish-prep': finishPrep,
   'start-round': startRound,
   close,
 };
@@ -51,8 +41,6 @@ const hostCommands = new Set<RoomCommand['type']>([
   'select-format',
   'assign-seat',
   'remove-seat',
-  'start-pre-round',
-  'finish-prep',
   'start-round',
   'close',
 ]);
@@ -71,21 +59,19 @@ function commandFence(
   room: RoomAssemblyState,
   actorId: string,
   command: RoomCommand,
-  edit: boolean,
 ): RoomRefusal | null {
   if (command.expectedVersion !== room.version) return 'version-conflict';
   if (!assemblyOpen(room)) return 'room-closed';
   if (hostCommands.has(command.type) && room.hostActorId !== actorId)
     return 'host-required';
-  return edit && preRoundBegun(room) ? 'prep-running' : null;
+  return null;
 }
 /**
- * Pure total transition. Due draw strikes settle first and are kept only
- * when the command is accepted; the adapter serializes the room and
- * publishes accepted effects atomically.
+ * Pure total transition; the adapter serializes the room and publishes
+ * accepted effects atomically.
  */
 export function executeRoomCommand(
-  stored: RoomAssemblyState,
+  room: RoomAssemblyState,
   actorId: string,
   command: RoomCommand,
   consent: RoomConsent,
@@ -96,9 +82,8 @@ export function executeRoomCommand(
     refusal,
   });
   const edit = editCommands.has(command.type);
-  const fenced = commandFence(stored, actorId, command, edit);
+  const fenced = commandFence(room, actorId, command);
   if (fenced) return refuse(fenced);
-  const room = settleRoom(stored, edges.drawSeed, edges.now);
   const transition = roomTransitions[command.type] as (
     room: RoomAssemblyState,
     actorId: string,
@@ -115,7 +100,7 @@ export function executeRoomCommand(
     spendsAiRound,
     seatsBotDebater,
     publishDefinition,
-    drawSecrets,
+    draw,
   } = outcome.mutation;
   if (edit) next = afterEdit(room, next);
   if (assemblyOpen(next)) next = { ...next, status: assembledStatus(next) };
@@ -134,7 +119,7 @@ export function executeRoomCommand(
       spendsAiRound,
       seatsBotDebater,
       publishDefinition,
-      drawSecrets,
+      draw,
       members: activeRoomMembers(next),
     },
   };
@@ -157,7 +142,7 @@ const afterEdit = (
 });
 
 /**
- * Privacy erasure of a seated player before any pre-round: their seats go
+ * Privacy erasure of a seated player before Start round: their seats go
  * as if they had left, under the erasure's authority instead of a command.
  */
 export const eraseSeats = (

@@ -1,4 +1,6 @@
 'use server';
+
+import { systemId } from '@daisy/clock';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import {
@@ -56,4 +58,13 @@ export async function createConversationAction(
     return kept;
   }
   return { ...kept, notice: '', ...moveOn(incoming, next) };
+}
+
+/** Opens a conversation from the menu, minting its request here: a row has none. */
+export async function messagePersonAction(
+  previous: CreationFormState,
+  form: FormData,
+): Promise<CreationFormState> {
+  form.set('requestId', systemId.next());
+  return createConversationAction('dm', previous, form);
 }

@@ -262,7 +262,8 @@ export function createRoundAnalysisJobs(input: {
           .select({ resolution: rounds.resolution })
           .from(rounds)
           .where(eq(rounds.id, seat.roundId));
-        if (!round) throw createAppError('INVARIANT');
+        // Analysis follows a frozen, played Round, which always has a resolution.
+        if (!round?.resolution) throw createAppError('INVARIANT');
         const participants = await tx
           .select({
             id: roundParticipants.id,

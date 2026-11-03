@@ -69,7 +69,7 @@ async function withDurableContext<T>(operation: () => Promise<T>): Promise<T> {
 
 export type ProofRound = {
   readonly id: string;
-  readonly resolution: string;
+  readonly resolution: string | null;
   readonly format: string;
   readonly formatVersion: number;
   readonly rules: RoundRules;
@@ -78,7 +78,7 @@ export type ProofRound = {
 
 /**
  * Resolves the proof round through the one compiler and freezes it as a
- * scheduled casual round — the canonical foundation rules, unmodified
+ * casual round — the canonical foundation rules, unmodified
  * (ADR 0030), resolved exactly as a room would resolve them.
  */
 export async function createProofDebate(
@@ -118,7 +118,7 @@ export async function createProofDebate(
     format: format.id,
     formatVersion: format.version,
     rules: resolved.rules,
-    status: 'scheduled',
+    status: 'opening',
   };
 }
 

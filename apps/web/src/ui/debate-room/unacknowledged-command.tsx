@@ -8,6 +8,8 @@ const fields = new Set([
   'type',
   'participantId',
   'confirmed',
+  'ordinal',
+  'position',
   // Form state, not envelope: the retry posts exactly what was sent (ISSUE-838).
   'segment',
 ]);

@@ -22,6 +22,7 @@ const account = (actorId: string, userId: string) => ({
   betaState: 'approved',
   betaRevision: 1,
   ageBand: 'adult',
+  restricted: false,
 });
 const dmFact = (channelId: string, other: string) => ({
   kind: 'channel',

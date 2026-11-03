@@ -49,7 +49,7 @@ test('discovery work is independent of historical Room and Round volume', async 
           format_id: formatId,
           room_config_snapshot: validConfig,
           visibility: 'public',
-          status: i === 4 ? 'abandoned' : 'scheduled',
+          status: i === 4 ? 'abandoned' : 'opening',
           ...(i === 4 ? { completed_at: new Date('2026-01-01') } : {}),
         });
     }
@@ -72,7 +72,7 @@ test('discovery work is independent of historical Room and Round volume', async 
       await f.sql`insert into rooms(id,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,config,execution_plan,rules_snapshot,status)
         select x,${caller.actorId},${token},${token},'public',${formatId},1,'casual',${validConfig}::jsonb,'{}'::jsonb,${validRules}::jsonb,case when right(x,1) in ('0','2','4','6','8') then 'assembling' else 'started' end from unnest(${liveArray}::text[]) x`;
       await f.sql`insert into rounds(id,room_id,resolution,competition_type,format_id,format_version,rules_snapshot,status,room_config_snapshot,visibility)
-        select 'y'||substr(x,2),x,${token},'casual',${formatId},1,${validRules}::jsonb,'scheduled',${validConfig}::jsonb,'public' from unnest(${liveArray}::text[]) x where right(x,1) in ('1','3','5','7','9')`;
+        select 'y'||substr(x,2),x,${token},'casual',${formatId},1,${validRules}::jsonb,'opening',${validConfig}::jsonb,'public' from unnest(${liveArray}::text[]) x where right(x,1) in ('1','3','5','7','9')`;
       await f.sql`analyze rooms`;
       await f.sql`analyze rounds`;
       const queries: { query: string; params: unknown[] }[] = [];
@@ -117,7 +117,7 @@ test('discovery work is independent of historical Room and Round volume', async 
         expected: [
           ids.slice(0, 2),
           ids.slice(2, 4),
-          ['scheduled', 'scheduled'],
+          ['opening', 'opening'],
           ids[1],
           ids[3],
         ],

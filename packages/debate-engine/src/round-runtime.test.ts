@@ -30,14 +30,14 @@ describe('round runtime lifecycle', () => {
       invariantId: 'debate.rules.speech-covers-grace',
     });
   });
-  test('starts a scheduled round into the countdown with the clock anchored', () => {
+  test('starts a new round into the countdown with the clock anchored', () => {
     const world = runtimeWorld();
     assert({
-      given: 'a scheduled round before its start',
+      given: 'a new round before its start',
       should: 'show no stage and the first segment as next',
       actual: world.position(at(0)),
       expected: {
-        status: 'scheduled',
+        status: 'opening',
         stage: null,
         startedAt: null,
         completedAt: null,
@@ -56,11 +56,7 @@ describe('round runtime lifecycle', () => {
         awaitingBallot: false,
       },
     });
-    const projection = world.execute({
-      command: { type: 'start' },
-      actorId: null,
-      now: at(0),
-    });
+    const projection = world.activate({ at: at(0), now: at(0) });
     assert({
       given: 'the start command',
       should: 'activate the round into the countdown with ten seconds left',
@@ -97,7 +93,7 @@ describe('round runtime lifecycle', () => {
 
   test('opens the first segment when the countdown elapses, and closes it at time', () => {
     const world = runtimeWorld();
-    world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+    world.activate({ at: at(0), now: at(0) });
     const quiet = world.tick(at(9_999));
     assert({
       given: 'a tick one millisecond before the countdown ends',
@@ -161,12 +157,7 @@ describe('round runtime lifecycle', () => {
     await assertRejects({
       given: 'a round missing its negative seat',
       should: 'refuse with the seat-completeness invariant',
-      actual: () =>
-        world.execute({
-          command: { type: 'start' },
-          actorId: null,
-          now: at(0),
-        }),
+      actual: () => world.activate({ at: at(0), now: at(0) }),
       code: 'INVARIANT',
       invariantId: 'round.seats.complete',
     });

@@ -7,7 +7,11 @@ import {
 import { driverEdges } from '../resource-sync/driver.test-support';
 import { round } from '../room-runtime/operations.test-support';
 import type { RoundRead } from './read-round';
-import { createRoundSyncDriver, seedRoundSync } from './round-sync-driver';
+import {
+  createRoundSyncDriver,
+  openingDeadline,
+  seedRoundSync,
+} from './round-sync-driver';
 
 setupRitewayBun();
 
@@ -67,6 +71,66 @@ describe('round sync driver', () => {
         log: [`subscribe ${buildRoundTopic(round.id)}`, 'connect', 'read'],
         held: [3, 'completed'],
       },
+    });
+  });
+});
+
+describe('openingDeadline', () => {
+  const turn = {
+    ordinal: 0,
+    side: 'negative',
+    dueAt: '2026-10-12T00:01:00.000Z',
+    remainingMs: 15_000,
+  } as const;
+  const draw = {
+    visibility: 'progress',
+    drawSize: 3,
+    strikes: [],
+    turn,
+    revealedAt: null,
+  } as const;
+  const deadline = (opening: RoundView['opening']) =>
+    openingDeadline(seedRoundSync(at(2, { opening }), 1000));
+
+  test('a strike and prep are read again when their time runs out', () => {
+    assert({
+      given: 'a strike with 15 s left and prep with 60 s left, read at 1000',
+      should: 'read exactly when each runs out',
+      actual: [
+        deadline({ step: { step: 'strike' }, draw, canStrike: false }),
+        deadline({
+          step: {
+            step: 'prep',
+            startedAt: '2026-10-12T00:00:00.000Z',
+            endsAt: '2026-10-12T00:01:00.000Z',
+            remainingMs: 60_000,
+          },
+          draw: null,
+          canStrike: false,
+        }),
+      ],
+      expected: [16_000, 61_000],
+    });
+  });
+
+  test('anything else has no deadline, and a read at zero schedules none', () => {
+    assert({
+      given: 'no opening, a completed opening and a turn with no time left',
+      should: 'schedule no read',
+      actual: [
+        deadline(null),
+        deadline({
+          step: { step: 'complete', at: '2026-10-12T00:00:00.000Z' },
+          draw: null,
+          canStrike: false,
+        }),
+        deadline({
+          step: { step: 'strike' },
+          draw: { ...draw, turn: { ...turn, remainingMs: 0 } },
+          canStrike: false,
+        }),
+      ],
+      expected: [null, null, null],
     });
   });
 });

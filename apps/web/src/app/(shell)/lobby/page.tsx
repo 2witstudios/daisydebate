@@ -8,6 +8,9 @@ import { Lobby } from '../../../ui/lobby/lobby';
 import { roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';
 import { ResumeRound } from '../../../ui/active-room/resume-round';
+import { LobbyViews, OnlineCount } from '../../../ui/online/lobby-views';
+import { OnlinePanel } from '../../../ui/online/online-rail';
+import { personActions } from '../online/online-shell';
 
 export const metadata: Metadata = { title: 'Lobby' };
 export default async function LobbyPage({
@@ -26,7 +29,7 @@ export default async function LobbyPage({
   ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const now = Date.parse(systemClock.now());
-  return (
+  const rooms = (
     <>
       <ResumeRound room={activeRoom} actorId={actorId} />
       <Lobby
@@ -38,5 +41,16 @@ export default async function LobbyPage({
         now={now}
       />
     </>
+  );
+  // A phone has no rail: the Lobby's switch holds the online list instead.
+  return identity.state === 'member' ? (
+    <LobbyViews
+      view={(await searchParams).view === 'rooms' ? 'rooms' : 'online'}
+      rooms={rooms}
+      online={<OnlinePanel actions={personActions} />}
+      onlineCount={<OnlineCount />}
+    />
+  ) : (
+    rooms
   );
 }

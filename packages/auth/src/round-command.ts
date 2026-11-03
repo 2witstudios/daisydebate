@@ -28,14 +28,6 @@ export function bindRoundCommandPrincipal(input: {
     !roundPrincipalAdmitted(principal, authority.principalAccess, command.type)
   )
     return { ok: false, refusal: 'not-authorized' };
-  if (command.type === 'start') {
-    if (
-      principal.kind !== 'human' ||
-      principal.actorId !== authority.hostActorId
-    )
-      return { ok: false, refusal: 'not-authorized' };
-    return { ok: true, actorId: null, participantId: null };
-  }
   const seat = authority.participants.find(
     (p) => p.id === command.participantId,
   );

@@ -10,7 +10,6 @@ import { createLogger } from '@daisy/logger';
 import { noopErrorReporter, withTimeout } from '@daisy/observability';
 import { createCaptureHeardRelay } from '../src/features/media-capture/heard-relay';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
-import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
@@ -190,19 +189,6 @@ export async function startCaptureSpeech(
   fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
 ) {
   const round = (await fixture.store.getRound(fixture.roundId))!;
-  await createRoundRuntimeOperations({
-    store: fixture.store,
-    nextSegmentId: createId,
-  }).command(
-    { kind: 'human', actorId: fixture.host.actorId },
-    fixture.roundId,
-    {
-      version: 1,
-      commandId: createId(),
-      expectedVersion: round.version,
-      command: { type: 'start' },
-    },
-  );
   await fixture.sql`update rounds set started_at=clock_timestamp()-${round.rules.countdownMs + 1000}*interval '1 millisecond' where id=${fixture.roundId}`;
 }
 /**

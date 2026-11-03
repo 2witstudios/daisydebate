@@ -26,7 +26,6 @@ const render = (relation: 'none' | 'friends' | 'incoming' | 'outgoing') =>
         username: 'ada',
         relation,
         friendAction: action,
-        challengeAction: action,
       }),
     ),
   );
@@ -46,7 +45,7 @@ test('ProfileFriendActions', () => {
     ),
     expected: [
       ['Add friend @ada', 'request'],
-      ['Challenge @ada', 'challenge'],
+      [undefined, undefined],
       ['Accept friend request @ada', 'accept'],
       ['Cancel friend request @ada', 'cancel'],
     ],

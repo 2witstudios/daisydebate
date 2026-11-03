@@ -4,7 +4,7 @@ import {
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   type withRoomRuntime,
 } from './round-runtime.test-support';
 import { botAdmissionForTests } from './bot-admission.test-support';
@@ -36,7 +36,7 @@ async function controlledSpeech(
     })
   ).view;
   room = await f.seatBotOpponent(room, bot.actorId);
-  const { roundId, operations } = await startRuntimeRound(f, room);
+  const { roundId, operations } = await launchRuntimeRound(f, room);
   await operations.tick(roundId);
   const target = (await f.store.scanRoundBotWorkers(64)).find(
     (candidate) => candidate.roundId === roundId,

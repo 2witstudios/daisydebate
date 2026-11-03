@@ -52,5 +52,6 @@ export const subjectFact = (
   revision: 1,
   beta: { state: 'approved' as const, revision: 1 },
   ageBand: 'adult' as 'adult' | null,
+  restricted: false,
   ...overrides,
 });

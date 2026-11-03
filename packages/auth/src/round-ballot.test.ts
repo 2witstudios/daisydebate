@@ -8,7 +8,7 @@ setupRitewayBun();
 const authority: RoundBallotAuthority = {
   roundId: 'round',
   // An admitted participant (ADR 0075).
-  principalAccess: { beta: 'approved', ageBand: 'adult' },
+  principalAccess: { beta: 'approved', ageBand: 'adult', restricted: false },
   participants: [
     {
       id: 'human',
@@ -122,7 +122,11 @@ test('a judge without participant access cannot cast a ballot (ADR 0075)', () =>
       judgeParticipantId: 'human',
       authority: {
         ...authority,
-        principalAccess: { beta: 'revoked', ageBand: 'adult' },
+        principalAccess: {
+          beta: 'revoked',
+          ageBand: 'adult',
+          restricted: false,
+        },
       },
     }).ok,
     expected: false,

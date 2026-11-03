@@ -27,6 +27,8 @@ type MediaGrantInput = {
   readonly position: RoundPosition;
   readonly now: string;
   readonly finalSegmentEndedAt: string | null;
+  /** Pre-round prep is private: nobody publishes, and media reopens at the countdown. */
+  readonly inPreRoundPrep: boolean;
 };
 const withinJudgingWindow = (input: MediaGrantInput) => {
   if (!input.position.awaitingBallot) return true;
@@ -72,12 +74,19 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
   if (
     !seat?.eligible ||
     !Number.isFinite(Date.parse(input.now)) ||
-    !['scheduled', 'active'].includes(position.status) ||
+    !['opening', 'active'].includes(position.status) ||
     !withinJudgingWindow(input)
   )
     return denied(seat?.role === 'judge');
   if (seat.role === 'judge')
     return { publish: [], subscribe: true, hidden: true, capture: false };
+  if (input.inPreRoundPrep)
+    return {
+      publish: [],
+      subscribe: seat.kind === 'human',
+      hidden: false,
+      capture: false,
+    };
   const microphone =
     position.prep === null && (conversational(position) || speakingNow(input));
   return {

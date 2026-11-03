@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
 import { Icon } from '../../../../components/icon/icon';
@@ -76,6 +77,8 @@ export type RailProps = {
   readonly account: ShellAccount;
   /** The viewer's saved rail width, resolved per request (ADR 0091). */
   readonly rail: RailPreference;
+  /** The member's own status control, for the account menu. */
+  readonly statusControl?: ReactNode;
   /** A member's ratings for the account menu; null for anyone else. */
   readonly ratings: Promise<ShellRatings> | null;
   /** The server action the toggle form posts; it flips the saved choice. */
@@ -97,7 +100,13 @@ export type RailProps = {
  * sticks to the viewport at every height, so it never scrolls with the page.
  * Gives way to the tab bar on a phone.
  */
-export function Rail({ account, rail, ratings, toggleRail }: RailProps) {
+export function Rail({
+  account,
+  rail,
+  ratings,
+  toggleRail,
+  statusControl,
+}: RailProps) {
   const extended = rail === 'extended';
   const group = cn(
     'flex list-none flex-col gap-1',
@@ -154,6 +163,7 @@ export function Rail({ account, rail, ratings, toggleRail }: RailProps) {
             account={account}
             extended={extended}
             ratings={ratings}
+            statusControl={statusControl}
           />
         </div>
       </nav>

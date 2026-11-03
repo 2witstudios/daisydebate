@@ -18,6 +18,7 @@ export async function signedMessagingAuth(actorId: string, email: string) {
       getParticipationByUserId: async () => ({
         betaState: 'approved',
         ageBand: 'adult',
+        restricted: false,
       }),
     },
     tables,

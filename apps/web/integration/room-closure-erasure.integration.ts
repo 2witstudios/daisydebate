@@ -36,9 +36,8 @@ const footprint = async (f: Fixture, roomId: string) => {
     r.status, r.topic, r.change_version,
     r.config::text || r.execution_plan::text as config,
     (select count(*)::int from room_participants p where p.room_id = r.id) seats,
-    (select string_agg(i.text, '|' order by i.position) from room_resolution_draw_items i join room_resolution_draws d on d.id = i.draw_id where d.room_id = r.id) items,
-    (select count(*)::int from room_resolution_draw_inputs n join room_resolution_draws d on d.id = n.draw_id where d.room_id = r.id) room_inputs,
-    (select count(*)::int from room_resolution_draws d where d.room_id = r.id) draws,
+    (select count(*)::int from round_resolution_draws d join rounds o on o.id = d.round_id where o.room_id = r.id) draws,
+    (select count(*)::int from round_resolution_draw_items i join round_resolution_draws d on d.id = i.draw_id join rounds o on o.id = d.round_id where o.room_id = r.id) items,
     (select resolution from rounds where room_id = r.id) round_resolution,
     (select count(*)::int from round_resolution_draw_texts t join rounds o on o.id = t.round_id where o.room_id = r.id) round_texts,
     (select count(*)::int from round_draw_private_inputs t join rounds o on o.id = t.round_id where o.room_id = r.id) round_inputs,
@@ -66,7 +65,6 @@ const copies = (row: Awaited<ReturnType<typeof footprint>>) => ({
   topic: row?.topic,
   items: row?.items,
   draws: row?.draws,
-  roomInputs: row?.room_inputs,
   roundResolution: row?.round_resolution,
   roundTexts: row?.round_texts,
   roundInputs: row?.round_inputs,
@@ -81,11 +79,11 @@ test('closing the host-list author closes their open Rooms and keeps every line 
     const [r, s, l] = after;
     assert({
       given:
-        'the author of a ready, a mid-strike and a launched host-list draw',
+        'the author of a ready, a mid-strike and a revealed host-list draw',
       should:
-        'close the open Rooms and leave the launched one started (ADR 0087)',
+        'close the open Room and leave the started ones with their Rounds (ADR 0087)',
       actual: [r?.status, s?.status, l?.status, after.every(holds)],
-      expected: ['closed', 'closed', 'started', true],
+      expected: ['closed', 'started', 'started', true],
     });
     assert({
       given: 'every Room and Round copy of the draw',
@@ -97,12 +95,12 @@ test('closing the host-list author closes their open Rooms and keeps every line 
   });
 });
 
-test('closing a seated player frees their seats only before any pre-round and keeps the draw', async () => {
+test('closing a seated player frees their seats only before Start round and keeps the draw', async () => {
   await withRoomRuntime(async (f) => {
     const { before, after } = await closedAtEachStage(f, 'guest');
     assert({
-      given: 'the Negative of a ready, a mid-strike and a launched draw',
-      should: 'remove the unbegun seat and keep begun seats',
+      given: 'the Negative of a ready, a mid-strike and a revealed draw',
+      should: 'remove the seat before Start round and keep seats after it',
       actual: after.map((row) => [row?.seats, row?.status]),
       expected: [
         [1, 'assembling'],

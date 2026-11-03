@@ -1,31 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assemblySnapshot } from './assembly.test-support';
 import { createLocalCommandAction } from './local-command-action';
 
 setupRitewayBun();
 const scenarios = [
   {
-    type: 'start-round',
-    passed: false,
-    pending: false,
-    committed: true,
-    forwarded: ['start-round'],
-    consent: [],
-    error: false,
-  },
-  {
-    type: 'start-pre-round',
+    type: 'update-config',
     passed: false,
     pending: true,
-    forwarded: ['start-pre-round'],
-    consent: [],
-    error: false,
-  },
-  {
-    type: 'finish-prep',
-    passed: false,
-    pending: true,
-    forwarded: ['finish-prep'],
+    forwarded: ['update-config'],
     consent: [],
     error: false,
   },
@@ -85,14 +67,6 @@ for (const scenario of scenarios) {
     const action = createLocalCommandAction(
       {
         readSnapshot: () => ({
-          view: {
-            ...assemblySnapshot,
-            prep: {
-              ...assemblySnapshot.prep,
-              startedAt:
-                'committed' in scenario ? '2026-10-09T00:00:00.000Z' : null,
-            },
-          },
           devicesPassed: scenario.passed,
           pending: scenario.pending,
         }),

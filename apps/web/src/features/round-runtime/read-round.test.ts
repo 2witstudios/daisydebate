@@ -46,6 +46,7 @@ test('Round receipt validates the ID before dispatch and uses the canonical GET'
 test('Round receipt accepts only the requested persisted identity and legal frozen rules', async () => {
   const id = 'c'.repeat(24);
   const frozen = {
+    opening: null,
     id,
     roomId: 'd'.repeat(24),
     version: 1,
@@ -57,7 +58,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
     waitingOn: null,
     transcriptCompleteness: null,
     resolutionAudit: null,
-    status: 'scheduled',
+    status: 'opening',
     ladderId: null,
     competitionType: 'casual',
     topic: 'Frozen launch topic',

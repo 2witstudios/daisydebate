@@ -12,6 +12,7 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   foreignKey,
+  primaryKey,
   index,
   integer,
   pgTable,
@@ -39,11 +40,9 @@ import { publishedResolutions } from './published-resolutions';
 /**
  * The durable pre-competition aggregate (ADR 0058 §5a). The Room holds its
  * whole configuration surface, the versions it pinned at resolution, the
- * already-resolved rules the startRound freeze copies, and its own
- * pre-round prep anchor — a running clock with no row behind it, the same
- * reason a Round holds `active_prep`. Persisting it does not make it
- * competitive state: no Round reads a Room, no rating depends on one, and
- * nothing in a Round's history would change if Rooms were deleted.
+ * already-resolved rules the startRound freeze copies. It is not competitive
+ * state: no Round reads a Room, no rating depends on one, and nothing in a
+ * Round's history would change if Rooms were deleted.
  */
 export const rooms = pgTable(
   'rooms',
@@ -87,10 +86,6 @@ export const rooms = pgTable(
     ).notNull(),
     /** RoundRules, resolved and frozen here. */
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),
-    /** The pre-round prep clock anchor. */
-    prepStartedAt: timestampColumn('prep_started_at'),
-    /** Survives a crash mid-prep. */
-    prepRemainingMs: integer('prep_remaining_ms'),
     status: text('status').$type<(typeof roomStatuses)[number]>().notNull(),
     /**
      * The last accepted participant command: the durable idle anchor
@@ -220,6 +215,29 @@ export const roomParticipants = pgTable(
       'room_participants_readiness_version_nonnegative',
       sql`${table.readinessVersion} >= 0`,
     ),
+  ],
+);
+
+/**
+ * A debater seat kept for a named member until `until` (ADR 0103): both
+ * sides of a challenge, while the room is public and either may be on the way.
+ * It reserves, never seats: the member still takes the seat themselves, and an
+ * old row holds nothing.
+ */
+export const roomSeatHolds = pgTable(
+  'room_seat_holds',
+  {
+    roomId: text('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+    actorId: text('actor_id')
+      .notNull()
+      .references(() => actors.id, { onDelete: 'cascade' }),
+    until: timestampColumn('until').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.roomId, table.actorId] }),
+    index('room_seat_holds_actor_idx').on(table.actorId),
   ],
 );
 

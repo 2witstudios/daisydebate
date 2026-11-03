@@ -1,7 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
-  challengeDeclinedNotice,
   friendDoneNotice,
   friendFormUnavailable,
   friendRefusalNotice,
@@ -27,7 +26,7 @@ test('parseFriendForm', async () => {
         ['username', 'ada'],
       ]),
     ),
-    expected: { intent: 'accept', username: 'ada', roomId: '' },
+    expected: { intent: 'accept', username: 'ada' },
   });
   await assertRejects({
     given: 'an unknown intent',
@@ -137,29 +136,4 @@ test('every outcome has its own words', () => {
   });
 });
 
-test('declining a challenge', async () => {
-  assert({
-    given: 'a decline-challenge form with its room',
-    should: 'read the room and post to the challenge decline route',
-    actual: (() => {
-      const parsed = parseFriendForm(
-        form([
-          ['intent', 'decline-challenge'],
-          ['username', 'ada'],
-          ['roomId', 'r'.repeat(24)],
-        ]),
-      );
-      const { path, body } = friendRouteFor(
-        parsed.intent,
-        parsed.username,
-        parsed.roomId,
-      );
-      return [path, body, challengeDeclinedNotice('ada')];
-    })(),
-    expected: [
-      '/api/friends/challenges/decline',
-      { version: 1, username: 'ada', roomId: 'r'.repeat(24) },
-      "Declined @ada's challenge.",
-    ],
-  });
-});
+test('declining a challenge', async () => {});

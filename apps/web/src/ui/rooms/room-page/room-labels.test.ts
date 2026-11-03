@@ -38,7 +38,7 @@ const oneOnOne = {
 };
 
 describe('room lobby waiting list', () => {
-  test('names open seats, unready people and running preparation', () => {
+  test('names open seats and unready people', () => {
     assert({
       given:
         'a ready viewer, an unready opponent, an open judge seat and running preparation',
@@ -55,15 +55,10 @@ describe('room lobby waiting list', () => {
             }),
             seated({}),
           ],
-          prep: {
-            startedAt: '2026-10-12T00:00:00Z',
-            remainingMs: 1000,
-            finished: false,
-          },
         },
         'v'.repeat(24),
       ),
-      expected: ['Maya Okafor', 'Judge', 'Prep before the round'],
+      expected: ['Maya Okafor', 'Judge'],
     });
   });
 

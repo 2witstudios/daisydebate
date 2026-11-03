@@ -1,4 +1,8 @@
-import { captureRule, roundWaitingOn } from '@daisy/debate-engine';
+import {
+  captureRule,
+  readRoundOpening,
+  roundWaitingOn,
+} from '@daisy/debate-engine';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
 import {
   canReadRound,
@@ -13,7 +17,7 @@ import {
 import { ballotCategories, type Ballot } from '@daisy/protocol';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   type withRoomRuntime,
 } from './round-runtime.test-support';
 type RoomFixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
@@ -131,7 +135,7 @@ export async function frozenBotJudgeRound(
   captured: boolean,
 ) {
   const { room } = await readyBotJudgedRoom(f);
-  const { roundId } = await startRuntimeRound(f, room);
+  const { roundId } = await launchRuntimeRound(f, room);
   await playOut(f, roundId, captured);
   const finalized = await finalizeAsWeb(f, roundId);
   if (
@@ -160,6 +164,7 @@ export const readBallotAs = (
   roundId: string,
 ) =>
   f.store.readRoundBallot({
+    readOpening: readRoundOpening,
     decideWaitingOn: roundWaitingOn,
     captureRule,
     caller,

@@ -26,7 +26,7 @@ For each signed-in session, the browser user agent, so you can recognise and end
 
 What you do in debates: the rooms you host or join, your side, the arguments you write, the results, ballots and written reasons, and the AI feedback on your rounds. When a round uses live audio, a written transcript of what each debater said.
 
-Documents you create in a debate room, the friends you add and whether you show as online, and the record of your beta access (when you asked and when it was approved or withdrawn).
+Documents you create in a debate room, the friends you add, the challenges you send and receive, the status you choose, reports you file or that name you, and the record of your beta access (when you asked and when it was approved or withdrawn).
 
 Records that an email was sent and delivered or bounced. These hold a keyed one-way hash of the address, not the address itself.
 
@@ -62,9 +62,9 @@ Public to anyone, signed in or not, from the moment you choose a username (even 
 
 Debates whose host made them unlisted or private appear only on your own view of your profile. Other people in a debate see your username, your side and what you say in it, and any signed-in member can open a public or unlisted debate’s room and read what was said there.
 
-Your friends see whether you are online, away or offline, unless you hide your presence. Never shown to other members: your email address, birth month, sessions, IP address and onboarding answers.
+Other signed-in members see whether you are online, away, busy, in a room or in a round, unless you appear offline or have blocked them. Your card shows your record and your Freestyle rating, and your Policy and Value ratings if you turn them on; ladders show them regardless. Never shown to other members: your email address, birth month, sessions, IP address and onboarding answers.
 
-People who run Daisy can see the beta access list (username, request and decision dates) through a separate, private administration app, so that they can approve testers. It does not show email addresses.
+People who run Daisy can see the beta access list (username, request and decision dates) through a separate, private administration app, so that they can approve testers. It does not show email addresses. They also see reports members file there: who reported whom, the reason and where it was made, never a copy of any conversation. A report's outcome can be a warning, a suspension or a ban.
 
 ## Service providers and international transfers
 
@@ -82,7 +82,7 @@ These providers are based in the United States, so your data is transferred to a
 
 ## How long we keep it
 
-Your account data (email, username, birth month, onboarding answers, terms acceptance, friends and debate record) is kept while your account exists.
+Your account data (email, username, birth month, onboarding answers, terms acceptance, friends and debate record) is kept while your account exists. Reports are kept while open and [COUNSEL: confirm: 12 months] after they close, and a moderation action is kept with the account. If you close your account, reports and moderation actions about it stay for that same period, and your name comes off reports you filed.
 
 A sign-in session lasts up to 7 days of inactivity and its record is deleted 24 hours after it expires, or straight away when you sign it out. Sign-in links expire after 5 minutes and are deleted within a day.
 
@@ -115,6 +115,8 @@ Age-refusal cookie: set only when sign-up is refused for age, as described above
 Theme cookie: remembers whether you chose the light, dark or system theme. Lasts one year.
 
 Note-erasing cookie: set when you confirm closing your account, so the next page can erase the note copies kept in this browser. Lasts 60 seconds and holds no name, email or identifier.
+
+For as long as a tab stays open, your browser keeps the ids of challenge rooms that tab has already taken you to, so it does not take you back.
 
 Your browser also keeps copies of your private Round notes in its local storage, not in a cookie, so unsaved work can be recovered. Each copy is deleted seven days after it was saved, or sooner when you sign out, close your account from this browser, or another account signs in here. If your session simply expires the copies stay in this browser, hidden, until you return or they expire. [COUNSEL: confirm this description and the retention for a shared computer; the owner's decision is DEC-290.]
 

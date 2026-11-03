@@ -46,8 +46,5 @@ export const newRoomValues = (
   config: room.config,
   executionPlan: room.executionPlan,
   rulesSnapshot: room.rules,
-  prepRemainingMs: room.executionPlan.preRoundPrep.enabled
-    ? room.executionPlan.preRoundPrep.durationMs
-    : null,
   status,
 });

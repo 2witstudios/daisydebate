@@ -16,12 +16,6 @@ export const commandUnavailable = (form: FormData): FormState =>
 
 const refusalWords: Partial<Record<RoomRefusal, string>> = {
   'version-conflict': 'The room changed. Review the latest room and try again.',
-  'strike-conflict':
-    'Someone struck first, or time ran out. Here is the draw now.',
-  // Also returned to an ineligible striker or a seat on an all-bot side.
-  'not-your-turn': 'You can’t strike on this turn.',
-  // Also returned when the Room has no draw at all.
-  'strike-unavailable': 'That resolution can’t be struck now.',
   'format-unavailable':
     'That format is no longer offered. Choose from the list now.',
   'illegal-config':

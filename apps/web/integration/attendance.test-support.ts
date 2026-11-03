@@ -2,7 +2,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { createRoundRuntime } from '@daisy/debate-engine';
 import {
   withRoomRuntime,
-  startRuntimeRound,
+  launchRuntimeRound,
 } from './round-runtime.test-support';
 import { foundationSelection } from './foundation-selection.test-support';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
@@ -30,7 +30,7 @@ export const withAttendanceRound = (
         },
       },
     });
-    const { roundId } = await startRuntimeRound(f, room);
+    const { roundId } = await launchRuntimeRound(f, room);
     await f.store.executeRoundTick({
       roundId,
       buildProjection: ({ round, now }) =>

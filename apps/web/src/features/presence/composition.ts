@@ -5,10 +5,15 @@ import type { App } from '../../server/app';
 import { consumeOrThrow } from '../../server/rate-limit';
 import { memberHttpBoundary } from '../../server/member-handler';
 import { createPresenceHandlers } from './handlers';
-import { readPresenceSetting, setPresenceHidden } from './setting';
+import { ROSTER_ACTORS_MAX } from '@daisy/db/presence-roster';
+import { readOnlineRoster } from './online';
+import { cachedScan } from './online-scan';
+import { readChosen, setChosenStatus } from './setting';
 
-/** Visibility toggles per member per minute, Presence's own budget. */
+/** Status changes per member per minute, Presence's own budget. */
 const PRESENCE_RULE = { windowSeconds: 60, max: 30 } as const;
+/** Online list reads per member per minute: rings, scrolling and a search box. */
+const ONLINE_RULE = { windowSeconds: 60, max: 240 } as const;
 
 /** The decision over the member's own presence setting, on their locked account. */
 const ownSetting =
@@ -24,28 +29,58 @@ const ownSetting =
       context: { account },
     });
 
+/** The decision over the member's own view of the list, on their locked account. */
+const ownList =
+  (
+    principal: AuthorizationPrincipal,
+  ): OwnCollectionFence<{ readonly actorId: string }> =>
+  async ({ scope, account }) =>
+    requireAuthorization({
+      principal,
+      capability: 'social.online.list',
+      resource: { kind: 'online_roster', actorId: scope.actorId },
+      context: { account },
+    });
+
 export function composePresenceRoutes(app: App) {
+  const onlineActorIds = cachedScan(
+    () => app.redis.readOnlineActorIds(ROSTER_ACTORS_MAX),
+    () => Date.parse(app.clock.now()),
+  );
   return createPresenceHandlers({
     boundary: memberHttpBoundary(app),
-    set: (principal, hidden) =>
-      setPresenceHidden(principal, hidden, {
+    websocketEndpoint: app.websocketEndpoint,
+    set: (principal, status) =>
+      setChosenStatus(principal, status, {
         clock: app.clock,
         limit: (actorId) =>
           consumeOrThrow(app.limiter, `presence:${actorId}`, PRESENCE_RULE),
         write: (scope, input) =>
-          app.database.writePresenceHidden(
+          app.database.writeChosenStatus(
             scope,
             input,
             ownSetting(principal, 'social.presence.update'),
           ),
       }),
     read: (principal) =>
-      readPresenceSetting(principal, {
+      readChosen(principal, {
         read: (scope) =>
-          app.database.readPresenceHidden(
+          app.database.readChosenStatus(
             scope,
             ownSetting(principal, 'social.presence.read'),
           ),
+      }),
+    online: (principal, input) =>
+      readOnlineRoster(principal, input, {
+        now: () => app.clock.now(),
+        limit: (actorId) =>
+          consumeOrThrow(app.limiter, `online:${actorId}`, ONLINE_RULE),
+        onlineActorIds,
+        activity: (actorIds) => app.redis.readActorsPresence(actorIds),
+        page: (scope, page) =>
+          app.database.readRosterPage(scope, page, ownList(principal)),
+        cards: (actorIds) => app.database.readMemberCards(actorIds),
+        blinded: (actorId) => app.database.readRatingBlindings(actorId),
       }),
   });
 }

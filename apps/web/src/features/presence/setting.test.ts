@@ -1,82 +1,89 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { fixedClock } from '@daisy/clock';
-import { readPresenceSetting, setPresenceHidden } from './setting';
+import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import { readChosen, setChosenStatus } from './setting';
 
 setupRitewayBun();
 
-const principal = {
-  kind: 'user' as const,
-  userId: 'u'.repeat(24),
-  actorId: 'a'.repeat(24),
-};
-const now = '2026-10-26T18:00:00.000Z';
+const actorId = 'a'.repeat(24);
+const userId = 'b'.repeat(24);
+const member = {
+  kind: 'user',
+  userId,
+  actorId,
+  sessionId: 'c'.repeat(24),
+} as unknown as AuthorizationPrincipal;
 
-test('setPresenceHidden', async () => {
-  const writes: unknown[] = [];
-  const limited: string[] = [];
-  const answer = await setPresenceHidden(principal, true, {
-    clock: fixedClock(now),
-    limit: async (actorId) => {
-      limited.push(actorId);
-    },
-    write: async (scope, input) => {
-      writes.push([scope, input]);
-      return input.hidden;
-    },
-  });
-  assert({
-    given: 'a member choosing to hide',
-    should: 'rate-limit them and write their own choice at the clock time',
-    actual: [answer, limited, writes],
-    expected: [
-      { hidden: true },
-      [principal.actorId],
-      [
-        [
-          { userId: principal.userId, actorId: principal.actorId },
-          { hidden: true, now },
+describe('setChosenStatus', () => {
+  test('writes the choice for the acting member, after the limit', async () => {
+    const seen: unknown[] = [];
+    const answer = await setChosenStatus(member, 'busy', {
+      clock: fixedClock('2026-11-02T00:00:00.000Z'),
+      limit: async (id) => {
+        seen.push(['limit', id]);
+      },
+      write: async (scope, input) => {
+        seen.push(['write', scope, input]);
+        return input.status;
+      },
+    });
+    assert({
+      given: 'a member choosing Busy',
+      should: 'spend the limit, then write their own row',
+      actual: { answer, seen },
+      expected: {
+        answer: { status: 'busy' },
+        seen: [
+          ['limit', actorId],
+          [
+            'write',
+            { userId, actorId },
+            { status: 'busy', now: '2026-11-02T00:00:00.000Z' },
+          ],
         ],
-      ],
-    ],
+      },
+    });
   });
-  await assertRejects({
-    given: 'a visitor',
-    should: 'refuse as authentication',
-    actual: () =>
-      setPresenceHidden({ kind: 'anonymous' }, true, {
-        clock: fixedClock(now),
-        limit: async () => {},
-        write: async () => true,
-      }),
-    code: 'AUTHENTICATION',
+
+  test('a signed-out principal writes nothing', async () => {
+    let writes = 0;
+    await assertRejects({
+      given: 'no member actor',
+      should: 'refuse',
+      code: 'AUTHENTICATION',
+      actual: () =>
+        setChosenStatus(
+          { kind: 'anonymous' } as unknown as AuthorizationPrincipal,
+          'online',
+          {
+            clock: fixedClock('2026-11-02T00:00:00.000Z'),
+            limit: async () => {},
+            write: async (_scope, input) => {
+              writes += 1;
+              return input.status;
+            },
+          },
+        ),
+    });
+    assert({
+      given: 'the refusal',
+      should: 'write nothing',
+      actual: writes,
+      expected: 0,
+    });
   });
 });
 
-test('readPresenceSetting', async () => {
-  const scopes: unknown[] = [];
-  assert({
-    given: 'a member reading their own setting',
-    should: 'read only their own scope and answer their choice',
-    actual: [
-      await readPresenceSetting(principal, {
-        read: async (scope) => {
-          scopes.push(scope);
-          return true;
-        },
+describe('readChosen', () => {
+  test('reads the acting member', async () => {
+    assert({
+      given: 'a stored choice',
+      should: 'answer it',
+      actual: await readChosen(member, {
+        read: async () => 'appearing_offline',
       }),
-      scopes,
-    ],
-    expected: [
-      { hidden: true },
-      [{ userId: principal.userId, actorId: principal.actorId }],
-    ],
-  });
-  await assertRejects({
-    given: 'a visitor',
-    should: 'refuse as authentication',
-    actual: () =>
-      readPresenceSetting({ kind: 'anonymous' }, { read: async () => true }),
-    code: 'AUTHENTICATION',
+      expected: { status: 'appearing_offline' },
+    });
   });
 });

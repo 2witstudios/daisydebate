@@ -15,6 +15,8 @@ export type AuthorizationAccountRow = {
   readonly betaRevision: number | null;
   /** ADR 0075: the account's age band now, from its durable age record; null without one. */
   readonly ageBand: string | null;
+  /** ADR 0103: a suspension or ban is in force. */
+  readonly restricted: boolean;
 };
 const ageBands = ['under-13', '13-15', '16-17', 'adult'] as const;
 function validBeta(row: AuthorizationAccountRow) {
@@ -42,6 +44,7 @@ function validMembership(row: AuthorizationAccountRow): boolean {
   return (
     typeof row.member === 'boolean' &&
     typeof row.erased === 'boolean' &&
+    typeof row.restricted === 'boolean' &&
     Number.isSafeInteger(row.revision) &&
     row.revision >= 1 &&
     !(row.member && (row.actorId === null || row.erased))
@@ -63,5 +66,6 @@ export function authorizationAccountFact(row: AuthorizationAccountRow | null) {
     revision: row.revision,
     beta,
     ageBand,
+    restricted: row.restricted,
   };
 }

@@ -145,14 +145,16 @@ describe('Tailwind theme (ADR 0028)', () => {
         'keep the mini track unconditional and apply the extended track from the token only at >=1101px',
       actual: [
         unconditional('.grid-shell')?.declarations['grid-template-columns'],
+        unconditional('.grid-shell')?.declarations['--shell-left'],
         rules.find((rule) => rule.selector === '.grid-shell-extended')?.media,
         rules.find((rule) => rule.selector === '.grid-shell-extended')
-          ?.declarations['grid-template-columns'],
+          ?.declarations['--shell-left'],
       ],
       expected: [
-        'var(--spacing-nav-rail) minmax(0, 1fr)',
+        'var(--shell-left) minmax(0, 1fr) var(--shell-right)',
+        'var(--spacing-nav-rail)',
         '(width >= 1101px)',
-        'var(--spacing-nav-rail-extended) minmax(0, 1fr)',
+        'var(--spacing-nav-rail-extended)',
       ],
     });
   });

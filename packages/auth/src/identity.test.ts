@@ -28,7 +28,11 @@ const resolveWith = (
     cookie,
     readSession: async () => found,
     readActor: async (userId) => ({ id: 'actor1', userId }),
-    readParticipation: async () => ({ betaState: beta, ageBand }),
+    readParticipation: async () => ({
+      betaState: beta,
+      ageBand,
+      restricted: false,
+    }),
     now,
   });
 
@@ -125,6 +129,7 @@ describe('resolveIdentity', () => {
         readParticipation: async () => ({
           betaState: 'approved',
           ageBand: 'adult',
+          restricted: false,
         }),
         now,
       }),
@@ -153,6 +158,7 @@ describe('resolveIdentity', () => {
       readParticipation: async () => ({
         betaState: 'approved',
         ageBand: 'adult',
+        restricted: false,
       }),
       cookie: null,
       readSession: async () => {
@@ -175,6 +181,7 @@ describe('resolveIdentity', () => {
       readParticipation: async () => ({
         betaState: 'approved',
         ageBand: 'adult',
+        restricted: false,
       }),
       cookie: 'c=1',
       readSession: async () => {
@@ -218,6 +225,7 @@ describe('resolveIdentity', () => {
         readParticipation: async () => ({
           betaState: 'approved',
           ageBand: 'adult',
+          restricted: false,
         }),
         now,
       }),
@@ -268,6 +276,7 @@ describe('resolveIdentity temporary failures', () => {
         readParticipation: async () => ({
           betaState: 'approved',
           ageBand: 'adult',
+          restricted: false,
         }),
         isTemporary: (error) => error === refusal,
         ...over,

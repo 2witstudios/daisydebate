@@ -4,7 +4,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { withSeasons } from '@daisy/db/seasons';
 import { buildRoundTopic } from '@daisy/protocol';
 import { recoverRatedResults } from './rated-room.test-support';
-import { roundWaitingOn, judgingJobRules } from '@daisy/debate-engine';
+import {
+  readRoundOpening,
+  roundWaitingOn,
+  judgingJobRules,
+} from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -23,7 +27,7 @@ import {
   finalizeByMaintenance,
 } from './round-maintenance.test-support';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 import { botAdmissionForTests } from './bot-admission.test-support';
@@ -46,6 +50,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
         roundId,
         f.host,
         () => true,
+        readRoundOpening,
         roundWaitingOn,
       );
       const [receipt] =
@@ -105,7 +110,7 @@ test('a mixed panel on an incomplete freeze completes once its human judge rules
       })
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
-    const { roundId } = await startRuntimeRound(f, room);
+    const { roundId } = await launchRuntimeRound(f, room);
     await playOut(f, roundId, false);
     const frozen = await finalizeAsWeb(f, roundId);
     await seedSettledAttendanceLedger(f, roundId);
@@ -165,7 +170,13 @@ test('a failed AI judge ends a rated Round honestly: no human countdown, no winn
     const { roundId } = await frozenBotJudgeRound(f, true);
     await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
     const seen = () =>
-      f.store.readLaunchedRound(roundId, f.host, () => true, roundWaitingOn);
+      f.store.readLaunchedRound(
+        roundId,
+        f.host,
+        () => true,
+        readRoundOpening,
+        roundWaitingOn,
+      );
     const processing = await seen();
     const [row] =
       await f.sql`select ballot_deadline_at from rounds where id=${roundId}`;
@@ -227,7 +238,7 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
       })
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
-    const { roundId } = await startRuntimeRound(f, room);
+    const { roundId } = await launchRuntimeRound(f, room);
     await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
     await playOut(f, roundId, true);
     await finalizeAsWeb(f, roundId);
@@ -238,7 +249,13 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
       );
       await f.sql`update round_judging_jobs set status='failed',terminal_reason='attempts_exhausted' where round_id=${roundId}`;
       const seen = () =>
-        f.store.readLaunchedRound(roundId, f.host, () => true, roundWaitingOn);
+        f.store.readLaunchedRound(
+          roundId,
+          f.host,
+          () => true,
+          readRoundOpening,
+          roundWaitingOn,
+        );
       const waiting = await seen();
       const [{ deadline }] =
         await f.sql`select to_char(ballot_deadline_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as deadline from rounds where id=${roundId}`;
@@ -294,7 +311,7 @@ test('the freeze gives the room a new version and a ring, so the window reaches 
       })
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
-    const { roundId } = await startRuntimeRound(f, room);
+    const { roundId } = await launchRuntimeRound(f, room);
     await playOut(f, roundId, true);
     const before = (await f.store.getRound(roundId))!.version;
     await finalizeAsWeb(f, roundId);
@@ -305,6 +322,7 @@ test('the freeze gives the room a new version and a ring, so the window reaches 
       roundId,
       f.host,
       () => true,
+      readRoundOpening,
       roundWaitingOn,
     );
     assert({

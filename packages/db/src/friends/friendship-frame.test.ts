@@ -101,7 +101,7 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
   assert({
     given: 'a request, an acceptance and a removal',
     should:
-      'fence each write, spend the request on the ledger, clear declines on acceptance, and end the pair’s challenges with the friendship',
+      'fence each write, spend the request on the ledger, clear declines on acceptance, and leave challenges alone when a friendship ends',
     actual: [fences, tables(queries), queries[1]?.params.at(-2)],
     expected: [
       3,
@@ -112,7 +112,6 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
         'delete social_request_declines',
         'update friendships',
         'delete friendships',
-        'delete friend_challenges',
       ],
       true,
     ],
@@ -149,9 +148,9 @@ test('declining a friend request counts toward the DEC-251 decline block; cancel
   });
 });
 
-test('Friends’ block reaction deletes the pair’s friendship and challenges; an unblock touches neither', async () => {
+test('Friends’ block reaction deletes the pair’s friendship; an unblock leaves it', async () => {
   const run = async (blocked: boolean) => {
-    const { client, queries } = fakeSql([[], []]);
+    const { client, queries } = fakeSql([[]]);
     await friendContactReactions.onBlock(drizzle({ client }), pair, blocked);
     return queries.map(
       (query) => query.query.match(/delete from "?([a-z_]+)/)?.[1],
@@ -159,8 +158,8 @@ test('Friends’ block reaction deletes the pair’s friendship and challenges; 
   };
   assert({
     given: 'a block and then an unblock',
-    should: 'delete the friendship and its challenges only on the block',
+    should: 'delete the friendship only on the block',
     actual: [await run(true), await run(false)],
-    expected: [['friendships', 'friend_challenges'], []],
+    expected: [['friendships'], []],
   });
 });

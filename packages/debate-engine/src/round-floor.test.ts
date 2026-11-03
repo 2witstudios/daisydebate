@@ -19,7 +19,7 @@ test("an opponent's interrupt and yield never ends the scheduled speech (DEC-203
   });
   if (!outcome.ok) throw new Error(outcome.refusal.message);
   const world = runtime({ rules: outcome.rules });
-  world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+  world.activate({ at: at(0), now: at(0) });
   world.tick(at(20_000)); // AC live, affirmative speaking
   const before = world.position(at(22_000)).openSegment;
   world.execute({

@@ -24,9 +24,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
       transaction,
       nextId: createId,
       buildProjection: () => {
-        throw new Error(
-          'A scheduled Round must not invent a running projection',
-        );
+        throw new Error('A new Round must not invent a running projection');
       },
     });
     try {
@@ -177,7 +175,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
           }),
       });
       await fixture.sql.unsafe(
-        "update rounds set status='abandoned',completed_at=clock_timestamp() where id=$1",
+        "update rounds set status='abandoned',current_stage=null,completed_at=clock_timestamp() where id=$1",
         [roundId],
       );
       await assertRejects({

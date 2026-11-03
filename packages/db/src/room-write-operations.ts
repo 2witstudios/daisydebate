@@ -64,7 +64,6 @@ type CommandInput = {
     state: RoomAssemblyState,
     now: string,
     account: Account,
-    drawSeed: string | null,
   ) => Promise<
     (
       state: RoomAssemblyState,
@@ -78,10 +77,8 @@ type CommandInput = {
   >;
 };
 
-/** The draw facts a command executes with: the seed, and new-draw facts. */
-type RoomDrawFacts = Awaited<ReturnType<typeof drawStartFacts>> & {
-  readonly seed: string | null;
-};
+/** The new-draw facts a Start round executes with. */
+type RoomDrawFacts = Awaited<ReturnType<typeof drawStartFacts>>;
 
 export const roomWriteOperations = ({
   transaction,
@@ -144,7 +141,7 @@ async function executeOnce(
     .where(eq(rooms.id, input.roomId))
     .for('update');
   if (!row) throw createAppError('NOT_FOUND');
-  const { state, drawSeed } = await roomFacts(tx, row);
+  const { state } = await roomFacts(tx, row);
   if (!input.authorizeRead(state, account)) throw createAppError('NOT_FOUND');
   if (state.participants.some((p) => !fencedActors.includes(p.actorId)))
     throw new RoomMoved('Cast changed while acquiring authority');
@@ -175,7 +172,7 @@ async function executeOnce(
     now,
     target,
     account,
-    await drawFacts(tx, input.type, state, drawSeed),
+    await drawFacts(tx, input.type, state),
     formatFacts,
     publication,
   );
@@ -188,7 +185,6 @@ async function executeOnce(
     input.roundId,
     now,
     true,
-    storedStrikes(state),
   );
   await reserveBotFreeze(
     tx,
@@ -216,20 +212,15 @@ async function executeOnce(
   return receipt;
 }
 
-/** The seed, plus new-draw facts only for `start-pre-round`. */
+/** New-draw facts, only for a Start round on a draw Room. */
 const drawFacts = async (
   tx: Tx,
   type: string,
   state: RoomAssemblyState,
-  seed: string | null,
-): Promise<RoomDrawFacts> => ({
-  seed,
-  ...(type === 'start-pre-round'
+): Promise<RoomDrawFacts> =>
+  type === 'start-round' && state.executionPlan.resolutionDraw.enabled
     ? await drawStartFacts(tx, state)
-    : { bank: null, exclusions: [] }),
-});
-const storedStrikes = (state: RoomAssemblyState) =>
-  state.resolutionDraw?.strikes.length ?? 0;
+    : { bank: null, exclusions: [] };
 
 const refusalCode = (refusal: RoomRefusal) =>
   refusal === 'host-required'
@@ -251,7 +242,7 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
     .from(rooms)
     .where(eq(rooms.id, input.roomId));
   if (!preparationRow) throw createAppError('NOT_FOUND');
-  const { state: prepared, drawSeed } = await roomFacts(tx, preparationRow);
+  const { state: prepared } = await roomFacts(tx, preparationRow);
   if (!input.authorizeRead(prepared, preparationAccount))
     throw createAppError('NOT_FOUND');
   if (input.caller.actorId !== input.actorId)
@@ -268,7 +259,6 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
     prepared,
     await transactionNow(tx),
     preparationAccount,
-    drawSeed,
   );
   return { prepared, execute } as const;
 }

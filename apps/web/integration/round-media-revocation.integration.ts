@@ -12,7 +12,7 @@ import {
 } from './round-media.test-support';
 import { assembleJudgedRoom } from './round-judging.test-support';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 setupRitewayBun();
@@ -57,7 +57,7 @@ test('canonical revocation rotates actual self-hosted admission and capture with
           'ready',
         )
       ).view;
-    const { roundId } = await startRuntimeRound(f, room);
+    const { roundId } = await launchRuntimeRound(f, room);
     const deps = mediaDependencies(f);
     const operations = createRoundMediaOperations(deps);
     const [debater, admitted] = [

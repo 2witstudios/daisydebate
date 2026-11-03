@@ -1,5 +1,8 @@
 'use client';
 import './zod-jitless';
+import { useSecond } from './use-second';
+import { OpeningStatus } from './opening-strike';
+import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import Link from 'next/link';
 import { useCallback, useMemo, type ReactNode } from 'react';
 import { useRoundTime } from './use-round-time';
@@ -50,6 +53,7 @@ export function LiveJudgeRoom({
   });
   const refresh = useCallback(() => driver?.signal(), [driver]);
   const view = synced.value;
+  const now = useSecond(renderedAtMs, roundTime);
   const tab = useRoundMediaTab(actorId, view);
   const media = useMemo(
     () =>
@@ -79,8 +83,11 @@ export function LiveJudgeRoom({
         >
           Resolution
         </h2>
-        <p className="font-display text-xl wrap-anywhere">{view.topic}</p>
+        <p className="font-display text-xl wrap-anywhere">
+          {view.topic ?? drawnTopicLabel}
+        </p>
       </section>
+      <OpeningStatus view={view} nowMs={now} />
       <p>
         You can watch and listen. Your ballot opens once the speeches are over
         and the transcript is saved.

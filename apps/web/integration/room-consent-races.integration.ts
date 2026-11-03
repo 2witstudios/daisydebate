@@ -95,12 +95,12 @@ test('Start and Unready serialize on the same durable authority fence', async ()
         assert({
           given: `the serialized ${winner} wins`,
           should:
-            'preserve its complete durable snapshot and scheduled Round decision',
+            'preserve its complete durable snapshot and new Round decision',
           actual: [
             await f.snapshot(view.id),
             accepted.view.roundRef?.status ?? null,
           ],
-          expected: [before, winner === 'start' ? 'scheduled' : null],
+          expected: [before, winner === 'start' ? 'active' : null],
         });
       } finally {
         release();

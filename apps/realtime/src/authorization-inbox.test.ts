@@ -16,6 +16,7 @@ const account = {
   member: true,
   beta: { state: 'approved' as const, revision: 1 },
   ageBand: 'adult' as const,
+  restricted: false,
   erased: false,
   revision: 1,
 };
@@ -31,7 +32,7 @@ test('own inbox subscribes only through current canonical account authority', as
     { ...account, userId: 'v'.repeat(24) },
     // ADR 0075: a pending account, and an approved one with no age record.
     { ...account, beta: { state: 'pending' as const, revision: 1 } },
-    { ...account, ageBand: null },
+    { ...account, ageBand: null, restricted: false },
   ].map((account) => ({ account, actorId: principal.actorId, expiresAt }));
   cases.push(
     { account, actorId: 'b'.repeat(24), expiresAt },

@@ -69,6 +69,7 @@ test('a crowded channel expires only the globally selected reservation batch', a
     betaState: 'approved',
     betaRevision: 1,
     ageBand: 'adult',
+    restricted: false,
     erased: false,
     revision: 1,
   }));

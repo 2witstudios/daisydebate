@@ -1,3 +1,4 @@
+import { roundViewSchema, type RoundView } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import {
   buildRoundTopic,
@@ -76,8 +77,7 @@ export async function withHumanJudgeHttpRound(
   work: (context: {
     roundId: string;
     roomId: string;
-    started: Response;
-    startBody: unknown;
+    view: RoundView;
   }) => Promise<void>,
 ) {
   const { f, routes, headers, command } = h;
@@ -156,20 +156,17 @@ export async function withHumanJudgeHttpRound(
     }
     room = await command(host, room, { type: 'start-round' });
     roundId = room.roundRef!.id;
-    const started = await routes.rounds.commands(
-      f.jsonPost(
-        `/api/rounds/${roundId}/commands`,
-        {
-          version: 1,
-          commandId: createId(),
-          expectedVersion: 1,
-          command: { type: 'start' },
-        },
-        { cookie: host },
-      ),
-      roundId,
+    const view = roundViewSchema.parse(
+      await (
+        await routes.rounds.read(
+          new Request(`${f.origin}/api/rounds/${roundId}`, {
+            headers: headers(host),
+          }),
+          roundId,
+        )
+      ).json(),
     );
-    await work({ roundId, roomId, started, startBody: await started.json() });
+    await work({ roundId, roomId, view });
   } finally {
     if (roomId)
       await withSql(async (sql) => {

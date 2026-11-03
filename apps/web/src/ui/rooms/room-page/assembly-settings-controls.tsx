@@ -177,7 +177,7 @@ export function PreparationFields({
         <PrepToggle
           name="preRoundPrep"
           label="Prep before the round"
-          hint="Both sides prepare once everyone is seated, before the first speech."
+          hint="Both sides, before the first speech. It always runs in full."
           checked={preRoundPrep.enabled}
           state={state}
           disabled={disabled}

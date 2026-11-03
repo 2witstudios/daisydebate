@@ -28,7 +28,7 @@ const awaitingBallot = (view: RoundView, nowMs: number) =>
   }).awaitingBallot;
 
 /**
- * Leaving a live Round forfeits it: a debater's own scheduled Round, or an
+ * Leaving a live Round forfeits it: a debater's own opening Round, or an
  * active one while forfeit is a legal intent. After the last speech a
  * debater leaves freed, forfeiting nothing, since judging is the judge's
  * work and the Room released them when the debate ended (ADR 0070). A debater
@@ -47,7 +47,7 @@ export function leaveIntent(
     );
   if (seat === undefined) return { kind: 'navigate' };
   const forfeits =
-    view.status === 'scheduled' ||
+    view.status === 'opening' ||
     roundControlIntents(view, actorId, nowMs).some(
       (intent) => intent.type === 'forfeit' && intent.enabled,
     );

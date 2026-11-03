@@ -1,3 +1,4 @@
+import { loadRoundOpening, type StoredOpening } from './round-opening-read';
 import type {
   CompetitionType,
   DebateRole,
@@ -20,8 +21,11 @@ export type RoundHydration = {
   readonly competitionType: CompetitionType;
   readonly formatId: string;
   readonly formatVersion: number;
-  readonly resolution: string;
-  readonly status: 'scheduled' | 'active' | 'completed' | 'abandoned';
+  /** Null until a draw's reveal; never null on an active Round. */
+  readonly resolution: string | null;
+  /** The opening and its secret seed, only while the Round is in it. */
+  readonly opening: StoredOpening | null;
+  readonly status: 'opening' | 'active' | 'completed' | 'abandoned';
   readonly currentStage: 'countdown' | 'prep' | 'live' | null;
   /** When the Round was launched (its row's creation), on the database clock. */
   readonly launchedAt: string;
@@ -97,6 +101,7 @@ export async function hydrateRoundRows(
     .where(eq(roundParticipants.roundId, id));
   const segments = await segmentRows(tx, id);
   return {
+    opening: await loadRoundOpening(tx, row),
     id: row.id,
     competitionType: row.competitionType,
     formatId: row.formatId,

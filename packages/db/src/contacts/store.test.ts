@@ -18,6 +18,7 @@ const accounts = [
     betaState: 'approved',
     betaRevision: 1,
     ageBand: 'adult',
+    restricted: false,
     erased: false,
     revision: 2,
   },
@@ -30,6 +31,7 @@ const accounts = [
     betaState: 'approved',
     betaRevision: 1,
     ageBand: 'adult',
+    restricted: false,
   },
 ];
 const input = { actorId: high, userId, memberActorIds: [high, low] };
@@ -118,7 +120,7 @@ test('absent-DM block preserves direct counterpart binding and owns only its dir
       [low, high],
       true,
       true,
-      ['friendships', 'friend_challenges', 'messaging_dm_pairs'],
+      ['friendships', 'challenges', 'messaging_dm_pairs'],
       false,
     ],
   });

@@ -106,11 +106,8 @@ export function roundControlIntents(
   actorId: string,
   nowMs: number,
 ): readonly RoundControlIntent[] {
-  // Start is host-only, whatever seat the host holds.
-  if (view.status === 'scheduled')
-    return view.viewerIsHost
-      ? [{ type: 'start', label: 'Start round', enabled: true }]
-      : [];
+  // The opening runs on its own; its only command is the strike on its own form.
+  if (view.status === 'opening') return [];
   const self = view.participants
     .filter(isNamedSeat)
     .find(

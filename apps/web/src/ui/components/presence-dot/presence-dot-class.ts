@@ -1,4 +1,4 @@
-import type { FriendPresence as Presence } from '@daisy/protocol';
+import type { MemberStatus as Presence } from '@daisy/protocol';
 
 const base =
   'inline-block size-presence-dot rounded-round border-2 border-surface';
@@ -6,6 +6,9 @@ const base =
 const fills: Readonly<Record<Presence, string>> = {
   online: 'bg-online',
   away: 'bg-gold',
+  busy: 'bg-hue-clay',
+  room: 'bg-hue-teal',
+  round: 'bg-live',
   offline: 'bg-ink-faint',
 };
 

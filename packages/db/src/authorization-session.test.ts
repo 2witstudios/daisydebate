@@ -21,6 +21,7 @@ test('session authorization binds durable session, user, actor, erasure and expi
     betaState: 'approved',
     betaRevision: 1,
     ageBand: 'adult',
+    restricted: false,
   };
   const session = { userId, expiresAt: new Date('2026-10-09T00:01:00.000Z') };
   const cases = [

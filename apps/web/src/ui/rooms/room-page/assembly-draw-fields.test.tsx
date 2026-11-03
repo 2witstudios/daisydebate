@@ -30,6 +30,7 @@ const striking: RoomView = {
       source: { kind: 'host', count: 3 },
     },
   },
+  debaterSeatsHeldFromViewer: 0,
   authoredDrawSource: { resolutions: ['First line', 'Second line'] },
 };
 const render = (view: RoomView, error?: string) =>

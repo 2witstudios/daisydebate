@@ -118,6 +118,13 @@ export const iconPaths: Record<string, ReactNode> = {
       <path d="m13 9 3 3-3 3" />
     </>
   ),
+  /* The online rail's toggle: the panel with its divider on the right. */
+  panelRight: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M15 4v16" />
+    </>
+  ),
   chevronRight: <path d="m9 18 6-6-6-6" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
   calendar: (

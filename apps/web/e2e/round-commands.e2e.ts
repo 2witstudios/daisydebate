@@ -33,10 +33,6 @@ test('native Start affirmative constructive and enhanced round controls retain c
       return roundViewSchema.parse(await response.json());
     };
     await formPage.goto(path);
-    await formPage
-      .getByRole('button', { name: 'Start round', exact: true })
-      .click();
-    await expect(formPage).toHaveURL(path);
     expect((await read()).status).toBe('active');
     await formPage
       .getByRole('button', { name: 'Take prep time', exact: true })
