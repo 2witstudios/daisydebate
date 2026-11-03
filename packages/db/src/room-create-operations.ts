@@ -168,7 +168,7 @@ export const roomCreateOperations = ({
             .where(inArray(actors.id, [...heldActors]))
             .for('share');
           if (known.length !== heldActors.length)
-            throw createAppError('CONFLICT', 'illegal-config');
+            throw createRefusal('CONFLICT', 'illegal-config');
           const until = new Date(Date.parse(now) + ROOM_SEAT_HOLD_MS);
           await tx.insert(roomSeatHolds).values(
             heldActors.map((actorId) => ({

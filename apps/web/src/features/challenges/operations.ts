@@ -1,7 +1,7 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
 import type { ChallengeListRow, ChallengeStore } from '@daisy/db/challenges';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError, createRefusal, isAppError } from '@daisy/errors';
 import { ROOM_SEAT_HOLD_MS } from '@daisy/protocol';
 import type {
   RatingLadder,
@@ -84,7 +84,7 @@ export async function sendChallenge(
   await dependencies.limitSend(actorId);
   // Refused here, not at Accept: a default offer must be able to open its room.
   if (input.mode === 'ranked' && !(await dependencies.rankedOpen()))
-    throw createAppError('INVARIANT', 'ranked-unavailable');
+    throw createRefusal('INVARIANT', 'ranked-unavailable');
   if (!(await dependencies.formatOffered(input.format)))
     throw createAppError('VALIDATION');
   const otherActorId = await dependencies.discover(actorId, input.username);

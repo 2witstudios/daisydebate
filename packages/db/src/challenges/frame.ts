@@ -143,8 +143,7 @@ export function challengeFrame(
         readAvailability(owner, other),
       ]);
       // The caller's own room is theirs to know, and to leave.
-      if (mine.placement !== null)
-        throw createAppError('CONFLICT', 'challenge-placed');
+      if (mine.placement !== null) throw createAppError('CONFLICT');
       // One answer with a block, no such member and no lease: never which.
       if (theirs.placement !== null || theirs.chosen !== 'online')
         throw createAppError('NOT_FOUND');
