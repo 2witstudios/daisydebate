@@ -173,6 +173,7 @@ export default defineConfig({
         '**/round-media-source-isolation.e2e.ts',
         '**/round-media-lifecycle.e2e.ts',
         '**/node-kill-drill.e2e.ts',
+        '**/first-word.e2e.ts',
         '**/media-stage.e2e.ts',
         '**/debate-room.e2e.ts',
         '**/round-commands.e2e.ts',

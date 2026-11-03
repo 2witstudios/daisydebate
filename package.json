@@ -90,6 +90,7 @@
     "floor:local": "bun --env-file=.env scripts/heavy.ts bun apps/web/e2e/support/floor-local-stack.ts bun scripts/floor-driver.ts",
     "test:e2e:room-launch": "bun --env-file=.env apps/web/e2e/support/room-launch-runner.ts",
     "drill:node-kill": "bun --env-file=.env apps/web/e2e/support/node-kill-drill-runner.ts",
+    "drill:first-word": "bun --env-file=.env --cwd apps/web ../../scripts/heavy.ts bun e2e/support/first-word-queued.ts",
     "test:e2e:realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts room",
     "test:e2e:messaging-realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts messaging",
     "proof:round-judging": "bun scripts/heavy.ts bun scripts/prove-round-judging.ts",
