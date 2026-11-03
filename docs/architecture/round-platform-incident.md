@@ -36,12 +36,17 @@ A recovery pass hands what it read of the vendor to `observeIncident`
 (`apps/web/src/features/round-incidents/observe.ts`). A pure decision
 (`round-incident-decision.ts`) reads it under the Round lock:
 
-| Evidence                                                 | Means                       |
-| -------------------------------------------------------- | --------------------------- |
-| The pass retired an uncertain room                       | Pause, `room_retired`       |
-| The vendor unreachable past a short bound                | Pause, `vendor_unreachable` |
-| The platform back, and every seat back or the grace over | Begin the countdown         |
-| The recovery bound passed with the platform still down   | End the Round               |
+| Evidence                                                                                        | Means                       |
+| ----------------------------------------------------------------------------------------------- | --------------------------- |
+| A pass retired a lost or uncertain room, durably on the session until a decision takes it up    | Pause, `room_retired`       |
+| The vendor unreachable past a short bound                                                       | Pause, `vendor_unreachable` |
+| The platform back, every seat back and capture reporting the speaker's track, or the grace over | Begin the countdown         |
+| The recovery bound passed with the platform still down                                          | End the Round               |
+
+A held speaker's microphone stays open through the hold, so capture can confirm it on the
+new room before the countdown; no microphone opens for a countdown to a speech, and only
+speech inside a reopened interval is credited. The opponent can hear the holder during the
+hold, with the clock stopped. A resume already due settles before a new failure is decided.
 
 A healthy pass takes no Round lock. A planned drain produces none of this. One
 person's network loss cannot either, because capture and the other seat remain.
@@ -90,6 +95,8 @@ staying dead held under them; no drill has run on staging or reached the recover
 
 ## Known limits
 
+- A bot seat's audio sent into a dead room gets its airtime back but is not said again, so
+  it is lost from the room and the transcript (ISSUE-1304).
 - A speech that reaches its due instant before the outage is detected closes
   normally. Its lost audio stays a capture gap, not returned airtime.
 - With several speakers, as in cross-examination, the resume point is the latest
