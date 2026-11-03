@@ -17,6 +17,8 @@ export type RoundRatingsView = {
   readonly ladder: string;
   readonly season: string;
   readonly rows: readonly RoundRating[];
+  /** The ladder posted this Round's result. */
+  readonly rated: boolean;
   readonly pending: boolean;
 };
 
@@ -56,6 +58,7 @@ export async function readRoundRatings(
       ladder: round.ladderId,
       season: 'No active season',
       rows: [],
+      rated: false,
       pending: false,
     };
   const postings = published.postings.filter((c) => c.roundId === round.id);
@@ -67,6 +70,7 @@ export async function readRoundRatings(
       ladder: round.ladderId,
       season: 'No active season',
       rows: [],
+      rated: false,
       pending: false,
     };
   const summaries = published.summaries.filter((s) => s.seasonId === season.id);
@@ -107,6 +111,7 @@ export async function readRoundRatings(
   return {
     ladder: round.ladderId,
     season: season.name,
+    rated: postings.length > 0,
     pending:
       round.status === 'completed' &&
       round.outcome !== null &&

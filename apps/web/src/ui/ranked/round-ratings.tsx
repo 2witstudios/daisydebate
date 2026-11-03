@@ -18,6 +18,7 @@ export function RoundRatings({
       <h2 className="text-base font-bold">
         {view.ladder[0]!.toUpperCase() + view.ladder.slice(1)} · {view.season}
       </h2>
+      {view.rated ? <p>Rated</p> : null}
       {view.pending ? <p role="status">Rating update pending</p> : null}
       <dl className="flex flex-wrap gap-6">
         {view.rows.map((row) => (

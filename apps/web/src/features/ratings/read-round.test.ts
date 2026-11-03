@@ -66,6 +66,12 @@ test('a historical Round badge uses its posting rather than later established st
       [1600, true],
     ],
   });
+  assert({
+    given: 'a Round the ladder posted',
+    should: 'say it rated and that nothing is pending',
+    actual: [result?.rated, result?.pending],
+    expected: [true, false],
+  });
 });
 
 test('a decided Round is pending exactly when the rating writer would still rate it', async () => {
