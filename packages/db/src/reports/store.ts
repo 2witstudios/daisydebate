@@ -197,15 +197,11 @@ export const reportOperations = ({
     rules: RestrictionRules,
   ) => ModerationReactions;
 }) => ({
-  /** One keyset page of the open queue, oldest first. */
+  /** The oldest of the open queue. */
   listOperatorReports: (input: {
     readonly limit: number;
-    readonly after: { readonly createdAt: string; readonly id: string } | null;
   }): Promise<readonly OperatorReportRow[]> =>
     instrumented(eventSink, 'listOperatorReports', async () => {
-      const after = input.after
-        ? sql`and (r.created_at, r.id) > (${input.after.createdAt}::timestamptz, ${input.after.id})`
-        : sql``;
       const rows = (await database.execute(sql`
         select r.id, ru.username as reporter, su.username as subject,
           su.id as "subjectUserId", r.reason, r.surface, r.created_at as "createdAt",
@@ -215,7 +211,7 @@ export const reportOperations = ({
         left join users ru on ru.id = ra.user_id
         join actors sa on sa.id = r.subject_actor_id
         join users su on su.id = sa.user_id
-        where r.closed_at is null ${after}
+        where r.closed_at is null
         order by r.created_at, r.id
         limit ${input.limit}`)) as unknown as (Omit<
         OperatorReportRow,

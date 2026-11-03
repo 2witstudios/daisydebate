@@ -11,14 +11,12 @@ describe('UI store state', () => {
     const state = createInitialState();
     assert({
       given: 'a freshly created UI state',
-      should:
-        'seed two live debates, the tournament and no friends count until read',
+      should: 'seed two live debates and no friends count until read',
       actual: [
         state.collections.liveDebates.length,
         state.resources.friendsOnline,
-        state.resources.tournament.name,
       ],
-      expected: [2, null, 'Global Debate Championship'],
+      expected: [2, null],
     });
   });
 

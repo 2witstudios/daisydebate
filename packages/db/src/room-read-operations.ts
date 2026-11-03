@@ -99,6 +99,7 @@ export async function launchedRoundRows(
     topic: row.resolution,
     visibility: row.visibility,
     hostActorId: row.createdByActorId,
+    hostInherited: row.hostInherited,
     config: row.roomConfigSnapshot,
     rules: row.rulesSnapshot,
     participants,

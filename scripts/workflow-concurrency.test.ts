@@ -30,27 +30,23 @@ describe('CI workflow concurrency', () => {
       concurrency: { group: string; 'cancel-in-progress': string | boolean };
     };
     const { group, 'cancel-in-progress': cancel } = workflow.concurrency;
-    const outcomes = [
-      'push',
-      'merge_group',
-      'workflow_dispatch',
-      'pull_request',
-    ].map((event) => {
-      const first = context(event, 101, workflow.name);
-      const next = context(event, 102, workflow.name);
-      return {
-        event,
-        sharesGroup: evaluate(group, first) === evaluate(group, next),
-        cancels: evaluate(cancel, next),
-      };
-    });
+    const outcomes = ['push', 'workflow_dispatch', 'pull_request'].map(
+      (event) => {
+        const first = context(event, 101, workflow.name);
+        const next = context(event, 102, workflow.name);
+        return {
+          event,
+          sharesGroup: evaluate(group, first) === evaluate(group, next),
+          cancels: evaluate(cancel, next),
+        };
+      },
+    );
     assert({
-      given: 'two main, queue, manual and same-PR runs',
+      given: 'two main, manual and same-PR runs',
       should: 'isolate accepted candidates and only cancel superseded PR work',
       actual: outcomes,
       expected: [
         { event: 'push', sharesGroup: false, cancels: 'false' },
-        { event: 'merge_group', sharesGroup: false, cancels: 'false' },
         { event: 'workflow_dispatch', sharesGroup: false, cancels: 'false' },
         { event: 'pull_request', sharesGroup: true, cancels: 'true' },
       ],

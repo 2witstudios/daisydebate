@@ -227,6 +227,8 @@ export type RoomAssemblyState = {
   readonly publishedResolutionId: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
   readonly hostActorId: string;
+  /** The host took over from a restricted one, and names no human judge (DEC-331). */
+  readonly hostInherited: boolean;
   readonly hostLabel: string;
   readonly status: (typeof roomStatuses)[number];
   readonly formatId: string;

@@ -5,6 +5,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { readJudgingPanelFacts } from '../src/judging-panel-read';
+import { rejectedBy } from './constraint-helpers';
 import {
   syntheticPendingBallot,
   withJudgingJob,
@@ -458,6 +459,53 @@ test('a fresh attendance decision also gives a held ballot its chance', async ()
       should: 'read that decision, for the engine to bound the hold by',
       actual: [before, (await lastDecision()) !== null],
       expected: [null, true],
+    });
+  });
+});
+
+test('a failed job names its reason, and only a failed attempt names a category', async () => {
+  await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
+    for (let i = 0; i < 3; i++) {
+      const claim = await jobs.claim(target).catch(() => null);
+      if (!claim) break;
+      await jobs.beginModelCall(claim.scope, claim.token);
+      await expire(fixture, roundId);
+    }
+    assert({
+      given: 'a failed job with no reason, and a queued one with a reason',
+      should: 'refuse both',
+      actual: [
+        await rejectedBy(
+          () =>
+            fixture.sql`update round_judging_jobs set terminal_reason=null where round_id=${roundId}`,
+        ),
+        await rejectedBy(
+          () =>
+            fixture.sql`update round_judging_jobs set status='queued' where round_id=${roundId}`,
+        ),
+      ],
+      expected: [
+        'round_judging_jobs_terminal_reason_check',
+        'round_judging_jobs_terminal_reason_check',
+      ],
+    });
+    assert({
+      given: 'a failed attempt with no category, and a dispatch with one',
+      should: 'refuse both',
+      actual: [
+        await rejectedBy(
+          () =>
+            fixture.sql`update round_judging_attempts set outcome='failed',category=null where round_id=${roundId} and outcome='dispatched'`,
+        ),
+        await rejectedBy(
+          () =>
+            fixture.sql`update round_judging_attempts set category='timeout' where round_id=${roundId} and outcome='dispatched'`,
+        ),
+      ],
+      expected: [
+        'round_judging_attempts_outcome_check',
+        'round_judging_attempts_outcome_check',
+      ],
     });
   });
 });
