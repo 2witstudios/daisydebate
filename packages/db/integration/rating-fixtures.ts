@@ -27,7 +27,7 @@ const deltaFor = (outcome: string, side: string) =>
 
 /**
  * A stand-in for the engine's decision (`@daisy/debate-engine`'s
- * `ratingDecision`), which this adapter must not import: it rates whatever the
+ * `ratingDecision`), kept so these tests see the adapter alone: it rates whatever the
  * round's own construction made ranked, and moves the winner up ten points from
  * the loaded standing, so a test can see exactly which facts the adapter loaded
  * and what it wrote. Ratedness has one authority — `competition_type` — with

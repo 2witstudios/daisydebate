@@ -66,7 +66,7 @@ the effective deadline and settled horizon. `on_time_receipt` names the
 scheduled speaker's receipt inside the base window and carries neither, so no
 horizon is ever invented. `resolution_cutoff` ends a Round with no
 winner once `rounds.attendance_resolution_cutoff_at` passes. The table check
-keeps the three shapes exclusive and `unresolvedAttendance` reads all of them.
+keeps the three shapes exclusive and the engine's `attendanceSettled` reads all of them.
 
 `round_check_ins` retains one first stamp per Round/segment/participant, with a
 command ID scoped to the existing global `round_commands` receipt. Principal

@@ -81,8 +81,6 @@ export function createRoundMaintenanceOperations(input: {
   readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
   readonly ids: IdGenerator;
   readonly evaluate: (roundId: string) => Promise<AttendanceEvaluation>;
-  /** Injected policy: how long after the freeze judges may rule (DEC-201). */
-  readonly ballotDeadlineMs?: number;
   /** Injected policy, never defaulted: how long a launched Round may stay unstarted (DEC-214). */
   readonly startHorizonMs: number;
   /**
@@ -92,9 +90,7 @@ export function createRoundMaintenanceOperations(input: {
    */
   readonly probeRoundId: string | null;
 }) {
-  const planJudging = judgingPlan(
-    input.ballotDeadlineMs ?? judgingPolicy.humanBallotWindowMs,
-  );
+  const planJudging = judgingPlan(judgingPolicy.humanBallotWindowMs);
   const buildProjection = roundTickProjection(() => input.ids.next());
   const tickProjection = maintenanceTickProjection(
     () => input.ids.next(),
