@@ -22,6 +22,9 @@ describe('media room service boundary', () => {
     const calls: unknown[] = [];
     let exists = false;
     const rooms = {
+      updateRoomMetadata: async () => {
+        throw new Error('Not called here');
+      },
       listRooms: async (names?: string[]) => {
         calls.push(['list', names]);
         return exists ? [new Room({ name: room })] : [];
