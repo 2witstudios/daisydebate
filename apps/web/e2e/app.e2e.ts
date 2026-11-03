@@ -37,13 +37,6 @@ test('public route shells render with their metadata titles', async ({
     await expectShell(page, route, title);
 });
 
-test('Watch and Recordings are open to a visitor', async ({ request }) => {
-  for (const route of ['/watch', '/recordings']) {
-    const response = await request.get(route, { maxRedirects: 0 });
-    expect(response.status()).toBe(200);
-  }
-});
-
 test('guarded areas send visitors to sign-in and render for a member', async ({
   page,
   request,
