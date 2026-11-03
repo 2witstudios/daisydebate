@@ -246,8 +246,13 @@ export function createRoomRuntimeOperations({
       resolved,
       recheck,
     } = await resolveRoomSelection(body, store, ids);
-    const createNotice = createNoticeOf(competitionType, body.noticeVersion);
-    if (createNotice.kind === 'stale')
+    const createNotice = createNoticeOf(
+      competitionType,
+      body.noticeVersion,
+      (body.holdSeatsFor ?? []).includes(caller.actorId) ||
+        (body.cast ?? []).some((seat) => seat.actorId === caller.actorId),
+    );
+    if (createNotice.kind === 'refused')
       throw createRefusal('CONFLICT', 'capture-notice-changed');
     const resolutionSelection = body.resolution;
     const publication =

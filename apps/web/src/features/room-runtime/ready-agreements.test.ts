@@ -98,24 +98,34 @@ describe('the notice a create form showed', () => {
   test('is recorded only when it is the one served now', () => {
     const notice = roundCaptureNotice('ranked')!;
     assert({
-      given: 'a ranked create stating the current, a stale and no notice',
-      should: 'show the first, refuse the second, claim nothing for the third',
+      given:
+        'a ranked create stating the current notice, a stale one, none from a seatless host, and none from a seated host',
+      should:
+        'show the first, refuse the next two, and leave the last to its Ready',
       actual: [
-        createNoticeOf('ranked', notice.version),
-        createNoticeOf('ranked', 'ranked-draft-0'),
-        createNoticeOf('ranked', undefined),
+        createNoticeOf('ranked', notice.version, false),
+        createNoticeOf('ranked', 'ranked-draft-0', false),
+        createNoticeOf('ranked', undefined, false),
+        createNoticeOf('ranked', undefined, true),
       ],
       expected: [
         { kind: 'shown', notice },
-        { kind: 'stale' },
+        { kind: 'refused' },
+        { kind: 'refused' },
         { kind: 'none' },
       ],
     });
     assert({
       given: 'a casual create stating a notice no casual form shows',
       should: 'refuse it',
-      actual: createNoticeOf('casual', notice.version),
-      expected: { kind: 'stale' },
+      actual: createNoticeOf('casual', notice.version, false),
+      expected: { kind: 'refused' },
+    });
+    assert({
+      given: 'a casual create with no notice and no seat',
+      should: 'ask for nothing',
+      actual: createNoticeOf('casual', undefined, false),
+      expected: { kind: 'none' },
     });
   });
 });
