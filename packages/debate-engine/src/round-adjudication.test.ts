@@ -1,5 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
-import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { attendanceTimingPolicy } from '@daisy/protocol';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   emptyCheckpoint,
   oneOnOneRules,
@@ -29,6 +30,7 @@ const opened = () => {
   });
 };
 const decision = {
+  evidence: 'settled_availability' as const,
   decision: 'forfeit' as const,
   winner: 'negative' as const,
   effectiveDeadlineMs: Date.parse(roundAt(50_000)),
@@ -208,5 +210,84 @@ test('early, foreign, wrong-side and final-speech attendance decisions refuse at
         now: roundAt(sequence * 400_000 + 55_000),
       }),
     code: 'INVARIANT',
+  });
+});
+
+describe('a decision past the resolution cutoff', () => {
+  const rules = oneOnOneRules();
+  const finalEndAt = 4_000_000;
+  const played = () =>
+    runtimeWorld({
+      status: 'active',
+      rules,
+      segments: rules.segments.map((s, i) => ({
+        id: `row-${i}`,
+        sequence: i,
+        type: s.type,
+        rulesSegmentKey: s.key,
+        startedAt: roundAt(i * 400_000),
+        endedAt: roundAt(
+          i === rules.segments.length - 1 ? finalEndAt : (i + 1) * 400_000,
+        ),
+        durationMs: s.durationMs,
+      })),
+    });
+  const cutoffAtMs =
+    Date.parse(roundAt(finalEndAt)) + attendanceTimingPolicy.resolutionCutoffMs;
+  const ended = (
+    world: ReturnType<typeof played>,
+    atMs: number,
+    nowMs: number,
+  ) =>
+    world.adjudicate({
+      segmentId: 'row-0',
+      decision: {
+        evidence: 'resolution_cutoff',
+        decision: 'abandoned',
+        cutoffAtMs: atMs,
+      },
+      now: new Date(nowMs).toISOString(),
+    });
+
+  test('a Round abandons at the debate end plus the policy', () => {
+    assert({
+      given: 'a closed last segment and its true cutoff, passed',
+      should: 'abandon the Round with no winner',
+      actual: ended(played(), cutoffAtMs, cutoffAtMs).round?.status,
+      expected: 'abandoned',
+    });
+  });
+
+  test('a caller cannot end a Round on a cutoff of its own', async () => {
+    const world = played();
+    const before = world.position(roundAt(finalEndAt));
+    for (const [given, atMs, nowMs] of [
+      ['a cutoff earlier than the true one', 0, cutoffAtMs],
+      [
+        'a cutoff later than the true one',
+        played,
+        cutoffAtMs + 1,
+        cutoffAtMs + 1,
+      ],
+      ['a true cutoff not yet passed', cutoffAtMs, cutoffAtMs - 1],
+    ] as const)
+      await assertRejects({
+        given,
+        should: 'refuse the abandonment',
+        actual: () => ended(world, atMs, nowMs),
+        code: 'INVARIANT',
+      });
+    await assertRejects({
+      given: 'a Round mid-speech, with no closed end',
+      should: 'refuse the abandonment',
+      actual: () => ended(opened(), cutoffAtMs, cutoffAtMs),
+      code: 'INVARIANT',
+    });
+    assert({
+      given: 'all refused abandonments',
+      should: 'leave the hydrated runtime unchanged',
+      actual: world.position(roundAt(finalEndAt)),
+      expected: before,
+    });
   });
 });

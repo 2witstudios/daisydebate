@@ -73,6 +73,6 @@ export {
   finalSpeechKey,
   nextAttendanceSegment,
 } from './attendance-order';
-export type { RoundAdjudication } from './round-adjudication';
+export type { RoundEndingDecision } from './attendance';
 export { captureRule } from './capture-verdict';
 export { botGrantUnused } from './bot-grant';

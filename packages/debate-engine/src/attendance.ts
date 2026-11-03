@@ -62,7 +62,12 @@ export type AttendanceDecision =
     }
   | {
       readonly evidence: 'settled_availability';
-      readonly decision: 'attended' | 'none' | 'abandoned';
+      readonly decision: 'attended' | 'none';
+      readonly effectiveDeadlineMs: number;
+    }
+  | {
+      readonly evidence: 'settled_availability';
+      readonly decision: 'abandoned';
       readonly effectiveDeadlineMs: number;
     }
   | {
@@ -77,6 +82,11 @@ export type AttendanceDecision =
       readonly decision: 'abandoned';
       readonly cutoffAtMs: number;
     };
+/** The decisions that end a Round. */
+export type RoundEndingDecision = Extract<
+  AttendanceDecision,
+  { decision: 'forfeit' | 'abandoned' }
+>;
 type SettledDecision = Extract<
   AttendanceDecision,
   { evidence: 'settled_availability' }

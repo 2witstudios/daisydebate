@@ -34,8 +34,6 @@ export function nextAttendanceSegment<S extends OrderedSegment>(input: {
   );
 }
 
-const atMs = (at: string | null) => (at === null ? Number.NaN : Date.parse(at));
-
 /** Whether one adjudication still proves its window, on the evidence it names. */
 function adjudicationHolds(
   speech: AttendanceLedgerFacts['speeches'][number],
@@ -43,27 +41,30 @@ function adjudicationHolds(
   receipts: AttendanceLedgerFacts['receipts'],
   nowMs: number,
 ): boolean {
-  if (decided.decision === 'forfeit' || decided.decision === 'abandoned')
-    return false;
   const openedAtMs = Date.parse(speech.startedAt);
-  if (decided.evidence === 'settled_availability') {
-    const deadline = atMs(decided.effectiveDeadline);
-    return (
-      deadline >= openedAtMs + policy.graceMs &&
-      atMs(decided.settledHorizon) >= deadline + policy.finalizationBufferMs &&
-      deadline <= nowMs - policy.finalizationBufferMs
-    );
+  switch (decided.evidence) {
+    case 'resolution_cutoff':
+      return false;
+    case 'on_time_receipt':
+      return receipts.some(
+        (receipt) =>
+          receipt.segmentId === decided.segmentId &&
+          receipt.participantId === decided.receiptParticipantId &&
+          Date.parse(receipt.receivedAt) >= openedAtMs - policy.leadMs &&
+          Date.parse(receipt.receivedAt) <= openedAtMs + policy.graceMs,
+      );
+    case 'settled_availability': {
+      if (decided.decision === 'forfeit' || decided.decision === 'abandoned')
+        return false;
+      const deadline = Date.parse(decided.effectiveDeadline);
+      return (
+        deadline >= openedAtMs + policy.graceMs &&
+        Date.parse(decided.settledHorizon) >=
+          deadline + policy.finalizationBufferMs &&
+        deadline <= nowMs - policy.finalizationBufferMs
+      );
+    }
   }
-  return (
-    decided.evidence === 'on_time_receipt' &&
-    receipts.some(
-      (receipt) =>
-        receipt.segmentId === decided.segmentId &&
-        receipt.participantId === decided.receiptParticipantId &&
-        Date.parse(receipt.receivedAt) >= openedAtMs - policy.leadMs &&
-        Date.parse(receipt.receivedAt) <= openedAtMs + policy.graceMs,
-    )
-  );
 }
 
 /**

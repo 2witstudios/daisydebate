@@ -6,7 +6,10 @@ import {
 } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { attendanceLedgerColumns } from './attendance-settlement';
+import {
+  attendanceLedgerColumns,
+  attendanceLedgerFacts,
+} from './attendance-settlement';
 import { recordedEnding, recordedEndingJoins } from './recorded-ending';
 
 /**
@@ -22,7 +25,7 @@ export type RatingCandidate = {
 };
 
 type FactsRow = Omit<RatingEligibilityFacts, 'attendance'> &
-  AttendanceLedgerFacts & { readonly roundId: string };
+  Record<keyof AttendanceLedgerFacts, unknown> & { readonly roundId: string };
 
 const readCandidates = async (
   db: Execute,
@@ -50,13 +53,13 @@ const readCandidates = async (
       roundId,
       facts: {
         ...facts,
-        attendance: {
+        attendance: attendanceLedgerFacts({
           ruleSegments,
           speeches,
           adjudications,
           receipts,
           pendingWriter,
-        },
+        }),
       },
     }),
   );

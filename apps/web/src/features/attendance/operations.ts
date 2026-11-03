@@ -4,7 +4,7 @@ import {
   deriveOutageIntervals,
   adjudicateAttendance,
   nextAttendanceSegment,
-  type RoundAdjudication,
+  type RoundEndingDecision,
   onTimeSpeakerReceipt,
   requireAttendanceDecision,
   effectiveAttendanceDeadline,
@@ -104,7 +104,7 @@ function resolveAttendanceWindow(
   const decision = adjudicateAttendance(evidence);
   if (!decision) return null;
   requireAttendanceDecision(evidence, decision);
-  const projectionOf = (terminal: RoundAdjudication['decision']) =>
+  const projectionOf = (ending: RoundEndingDecision) =>
     createRoundRuntime({
       round: facts.round,
       rules: facts.round.rules,
@@ -112,7 +112,7 @@ function resolveAttendanceWindow(
       checkpoint: facts.round.checkpoint,
       segments: facts.round.segments,
       nextSegmentId,
-    }).adjudicate({ segmentId: target.id, decision: terminal, now: facts.now });
+    }).adjudicate({ segmentId: target.id, decision: ending, now: facts.now });
   if (decision.evidence === 'on_time_receipt')
     return {
       segmentId: target.id,
@@ -126,10 +126,7 @@ function resolveAttendanceWindow(
       segmentId: target.id,
       evidence: 'resolution_cutoff',
       decision: 'abandoned',
-      projection: projectionOf({
-        decision: 'abandoned',
-        cutoffAtMs: decision.cutoffAtMs,
-      }),
+      projection: projectionOf(decision),
     };
   const { effectiveDeadlineMs } = decision;
   return {
@@ -140,11 +137,9 @@ function resolveAttendanceWindow(
     // Non-null: the engine decided on settled evidence.
     settledHorizon: attendanceTimestamp(availability.settledHorizonMs!),
     projection:
-      decision.decision === 'forfeit'
+      decision.decision === 'forfeit' || decision.decision === 'abandoned'
         ? projectionOf(decision)
-        : decision.decision === 'abandoned'
-          ? projectionOf({ decision: 'abandoned', effectiveDeadlineMs })
-          : null,
+        : null,
   };
 }
 

@@ -10,7 +10,10 @@ import {
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import { emptyRuntimeCheckpoint } from '@daisy/protocol';
+import {
+  attendanceTimingPolicy,
+  emptyRuntimeCheckpoint,
+} from '@daisy/protocol';
 import { createAttendanceFeature } from './operations';
 setupRitewayBun();
 
@@ -212,10 +215,24 @@ test('unknown health forfeits nobody, and the persisted cutoff ends the Round wi
     }).instance.evaluate('round'),
     expected: null,
   });
+  const finalEndMs = openedAtMs + rules.segments.length * 1000;
+  const cutoffMs = finalEndMs + attendanceTimingPolicy.resolutionCutoffMs;
   const ended = (await feature({
     ...absent,
-    resolutionCutoffAt: iso(openedAtMs + 60000),
-    now: iso(openedAtMs + 60000),
+    round: {
+      ...facts().round,
+      segments: rules.segments.map((rule, sequence) => ({
+        id: sequence === 0 ? segment.id : `played-${sequence}`,
+        sequence,
+        type: rule.type,
+        rulesSegmentKey: rule.key,
+        startedAt: iso(openedAtMs + sequence * 1000),
+        endedAt: iso(openedAtMs + (sequence + 1) * 1000),
+        durationMs: rule.durationMs,
+      })),
+    },
+    resolutionCutoffAt: iso(cutoffMs),
+    now: iso(cutoffMs),
   }).instance.evaluate('round')) as {
     evidence: string;
     decision: string;
