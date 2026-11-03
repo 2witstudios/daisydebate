@@ -29,8 +29,13 @@ export const runWorker = async (deps: {
   readonly sleep: (ms: number) => Promise<void>;
   readonly stopped: () => boolean;
   readonly report: (event: 'broadcast.release_failed') => void;
+  /** Where one Broadcast's segments sit while encoding; emptied after each step. */
+  readonly scratch: {
+    readonly dir: (broadcastId: string) => string;
+    readonly clear: (broadcastId: string) => Promise<void>;
+  };
 }) => {
-  const { store, objects } = deps;
+  const { store, objects, scratch } = deps;
   while (!deps.stopped()) {
     // A database blip must not end this slot: report it and try again.
     const job = await store
@@ -48,7 +53,10 @@ export const runWorker = async (deps: {
       continue;
     }
     const live = broadcastLivePrefix(job.feedKey);
+    const dir = scratch.dir(job.id);
     try {
+      // A crashed owner's leftovers go first: the disk outlasts the process.
+      await scratch.clear(job.id);
       await objects.putManifest(`${live}master.m3u8`, masterPlaylist());
       let next = job.nextSegment;
       let cursor = job.holdCursor;
@@ -56,6 +64,7 @@ export const runWorker = async (deps: {
       let facts = job;
       let renewedAt = deps.now();
       while (!deps.stopped() && facts.completedAt === null) {
+        let encoded = false;
         // A failed step keeps the job: dropping it waits out this worker's own lease.
         try {
           if (deps.now() - renewedAt >= RENEW_MS) {
@@ -95,8 +104,9 @@ export const runWorker = async (deps: {
             {
               readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
               encode: async ({ name, capturedAtMs }) => {
-                const input = `/tmp/${job.id}-${name}`;
-                const output = (r: string) => `/tmp/${job.id}-${r}.ts`;
+                encoded = true;
+                const input = `${dir}/${name}`;
+                const output = (r: string) => `${dir}/${r}.ts`;
                 await objects.copyHoldToFile(`${hold}${name}`, input);
                 const code = await Bun.spawn(
                   [...encoderArgs(input, output, capturedAtMs)],
@@ -151,6 +161,11 @@ export const runWorker = async (deps: {
         } catch {
           deps.report('broadcast.release_failed');
           await deps.sleep(IDLE_MS);
+        } finally {
+          if (encoded)
+            await scratch
+              .clear(job.id)
+              .catch(() => deps.report('broadcast.release_failed'));
         }
       }
     } catch {

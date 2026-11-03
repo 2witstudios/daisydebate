@@ -1,6 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { EgressStatus, ServerError } from 'livekit-server-sdk';
-import { createBroadcastEgress, egressFact } from './broadcast-egress';
+import {
+  createBroadcastEgress,
+  egressFact,
+  stageCaptureId,
+} from './broadcast-egress';
 
 setupRitewayBun();
 
@@ -115,6 +119,61 @@ test('the observer is hidden, subscribe-only and revocable', async () => {
       data: false,
       hidden: true,
     },
+  });
+});
+
+test('only this deployment’s stage URLs name a capture', () => {
+  const origin = 'https://daisy.test';
+  assert({
+    given:
+      'its own stage URL, a bare one, another deployment’s, and another path',
+    should: 'name the capture only for its own',
+    actual: [
+      'https://daisy.test/stage/cap1?c=secret',
+      'https://daisy.test/stage/',
+      'https://other.test/stage/cap1?c=secret',
+      'https://daisy.test/rounds/cap1',
+    ].map((url) => stageCaptureId(url, origin)),
+    expected: ['cap1', null, null, null],
+  });
+});
+
+test('listing finds running stages, and nothing else', async () => {
+  const listed: unknown[] = [];
+  const egress = createBroadcastEgress({
+    config,
+    client: {
+      listEgress: async (options: unknown) => {
+        listed.push(options);
+        return [
+          {
+            egressId: 'EG_stage',
+            request: {
+              case: 'web',
+              value: { url: 'https://daisy.test/stage/cap1?c=s' },
+            },
+          },
+          {
+            egressId: 'EG_other',
+            request: { case: 'web', value: { url: 'https://other.test/x' } },
+          },
+          {
+            egressId: 'EG_room',
+            request: { case: 'roomComposite', value: {} },
+          },
+        ];
+      },
+    } as never,
+    rooms: {} as never,
+  });
+  assert({
+    given: 'a stage Egress, a foreign web Egress and a room composite',
+    should: 'ask for active ones and list only the stage',
+    actual: [await egress.listStages('https://daisy.test'), listed],
+    expected: [
+      [{ egressId: 'EG_stage', captureId: 'cap1' }],
+      [{ active: true }],
+    ],
   });
 });
 

@@ -38,6 +38,7 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
       stageCredentialHash: string;
     }) => {
       log.push(`recorded ${input.egressId} ${input.stageCredentialHash}`);
+      return true;
     },
     ...over,
   };
@@ -122,6 +123,22 @@ describe('createBroadcastSweep', () => {
       should: 'report it and still reach the second',
       actual: [reads, log],
       expected: [['bad', 'good'], ['report broadcast.reconcile_failed']],
+    });
+  });
+  test('a Broadcast past the release bound alerts once', async () => {
+    const lagging = open({
+      egressStartedAt: new Date(0),
+      releasedThroughAt: new Date(800_000),
+    });
+    const { deps, log } = world({ listOpen: async () => [lagging] });
+    const sweep = createBroadcastSweep(deps);
+    await sweep();
+    await sweep();
+    assert({
+      given: 'two passes over a Broadcast 200 s behind a 60 s delay',
+      should: 'report the crossing once',
+      actual: log,
+      expected: ['report broadcast.release_delayed'],
     });
   });
   test('an instance that loses the claim leaves the Broadcast alone', async () => {

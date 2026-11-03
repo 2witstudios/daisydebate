@@ -23,12 +23,19 @@ const facts = (over: Partial<BroadcastFacts> = {}): BroadcastFacts => ({
 const world = (over: Partial<ReconcilePorts> = {}) => {
   const log: string[] = [];
   const ports: ReconcilePorts = {
+    holdClaim: async () => {
+      log.push('hold');
+    },
+    releaseClaim: async () => {
+      log.push('release');
+    },
     startEgress: async () => {
       log.push('start');
       return 'EG_new';
     },
     recordEgressStarted: async (id) => {
       log.push(`recordStart ${id}`);
+      return true;
     },
     stopEgress: async (id) => {
       log.push(`stop ${id}`);
@@ -63,6 +70,22 @@ const world = (over: Partial<ReconcilePorts> = {}) => {
 };
 
 describe('reconcileStep', () => {
+  test('a start that lost its generation stops what it started', async () => {
+    const { ports, log } = world({ recordEgressStarted: async () => false });
+    await reconcileStep(facts({ egress: { kind: 'none' } }), ports);
+    assert({
+      given: 'another instance having recorded this generation first',
+      should: 'report it and stop the Egress it just started',
+      actual: log,
+      expected: [
+        'hold',
+        'start',
+        'report broadcast.egress.start_lost',
+        'stop EG_new',
+        'release',
+      ],
+    });
+  });
   test('starting an Egress records its id durably', async () => {
     const { ports, log } = world();
     await reconcileStep(facts(), ports);
@@ -70,7 +93,7 @@ describe('reconcileStep', () => {
       given: 'a live Round with no Egress',
       should: 'start one and record it',
       actual: log,
-      expected: ['start', 'recordStart EG_new'],
+      expected: ['hold', 'start', 'recordStart EG_new', 'release'],
     });
   });
   test('a failed revocation is recorded, so the next pass stops the Egress', async () => {
@@ -186,7 +209,10 @@ describe('reconcileStep', () => {
       should:
         'report and resolve, so the audience sees a slate and the next pass retries',
       actual: [outcome, log],
-      expected: ['resolved', ['report broadcast.egress.start_failed']],
+      expected: [
+        'resolved',
+        ['hold', 'report broadcast.egress.start_failed', 'release'],
+      ],
     });
   });
 });

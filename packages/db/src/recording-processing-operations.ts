@@ -6,6 +6,7 @@ import {
   and,
   asc,
   eq,
+  gt,
   inArray,
   isNull,
   lte,
@@ -175,7 +176,11 @@ export const deferRecordingRun = async (
  * job, a discard under way, and pairs that are waiting on someone else are left
  * out, so they cannot crowd out the jobs behind them.
  */
-export const listUnsettledRecordingJobs = (tx: Tx, limit: number) =>
+export const listUnsettledRecordingJobs = (
+  tx: Tx,
+  limit: number,
+  after: string | null = null,
+) =>
   tx
     .select({
       recordingId: jobs.recordingId,
@@ -205,9 +210,10 @@ export const listUnsettledRecordingJobs = (tx: Tx, limit: number) =>
         not(
           and(eq(jobs.status, 'queued'), eq(recordings.status, 'processing'))!,
         ),
+        after === null ? undefined : gt(jobs.recordingId, after),
       ),
     )
-    .orderBy(asc(jobs.updatedAt))
+    .orderBy(asc(jobs.recordingId))
     .limit(limit);
 
 /**

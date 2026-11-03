@@ -26,12 +26,6 @@ export const observerAccess = (capture: {
   readonly observerRevokedAt: Date | null;
 }) => ({ canSubscribe: capture.observerRevokedAt === null });
 
-/** A human judge's identity, camera and voice never reach the stage. */
-export const subscribesTo = (
-  debaterIdentities: readonly string[],
-  identity: string,
-) => debaterIdentities.includes(identity);
-
 type StagePosition = {
   readonly status: string;
   readonly stage: string | null;
@@ -48,9 +42,19 @@ type StagePosition = {
 type StageSeat = {
   readonly role: string;
   readonly label: string;
-  readonly identity: string;
+  readonly kind: 'human' | 'bot';
+  /** Null until this seat has joined media: its name still belongs on the stage. */
+  readonly identity: string | null;
   readonly participantId: string;
 };
+
+/** Affirmative on the left, whatever order the seats were read in. */
+const stageOrder = (a: StageSeat, b: StageSeat) =>
+  a.role === b.role
+    ? a.participantId.localeCompare(b.participantId)
+    : a.role === 'affirmative'
+      ? -1
+      : 1;
 
 const phaseOf = (position: StagePosition) => {
   if (position.prep) return 'prep' as const;
@@ -67,21 +71,25 @@ export const stageSnapshot = (input: {
   readonly seats: readonly StageSeat[];
 }) => {
   const open = input.position.openSegment;
-  const debaters = input.seats.filter(
-    (seat) => seat.role === 'affirmative' || seat.role === 'negative',
-  );
+  const debaters = input.seats
+    .filter((seat) => seat.role === 'affirmative' || seat.role === 'negative')
+    .sort(stageOrder);
   return {
     phase: phaseOf(input.position),
     clock: open ? { label: open.label, endsAt: open.endsAt } : null,
     seats: debaters.map((seat) => ({
       side: seat.role as 'affirmative' | 'negative',
       label: seat.label,
+      kind: seat.kind,
+      identity: seat.identity,
       floor:
         open !== null &&
         (open.floorParticipantId
           ? open.floorParticipantId === seat.participantId
           : open.side === seat.role),
     })),
-    debaterIdentities: debaters.map((seat) => seat.identity),
+    debaterIdentities: debaters.flatMap((seat) =>
+      seat.identity === null ? [] : [seat.identity],
+    ),
   };
 };

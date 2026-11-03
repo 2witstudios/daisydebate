@@ -6,6 +6,7 @@ import {
 
 type ReportedEvent =
   | 'broadcast.egress.start_failed'
+  | 'broadcast.egress.start_lost'
   | 'broadcast.egress.stop_failed'
   | 'broadcast.egress.stopped_unconfirmed'
   | 'broadcast.observer.restore_failed'
@@ -13,8 +14,12 @@ type ReportedEvent =
   | 'broadcast.complete_failed';
 
 export type ReconcilePorts = {
+  /** The claim outlasts a start, so no other instance starts another. */
+  readonly holdClaim: () => Promise<void>;
+  readonly releaseClaim: () => Promise<void>;
   readonly startEgress: () => Promise<string>;
-  readonly recordEgressStarted: (id: string) => Promise<void>;
+  /** False means another start won this generation. */
+  readonly recordEgressStarted: (id: string) => Promise<boolean>;
   readonly stopEgress: (id: string) => Promise<void>;
   readonly revokeObserver: () => Promise<void>;
   readonly recordRevoked: () => Promise<void>;
@@ -41,9 +46,15 @@ const run = (action: BroadcastAction, ports: ReconcilePorts) => {
   switch (action.type) {
     case 'start-egress':
       return attempt(
-        async () => ports.recordEgressStarted(await ports.startEgress()),
+        async () => {
+          await ports.holdClaim();
+          const id = await ports.startEgress();
+          if (await ports.recordEgressStarted(id)) return;
+          ports.report('broadcast.egress.start_lost');
+          await ports.stopEgress(id);
+        },
         () => ports.report('broadcast.egress.start_failed'),
-      );
+      ).finally(() => ports.releaseClaim());
     case 'stop-egress':
       return attempt(
         async () => {
