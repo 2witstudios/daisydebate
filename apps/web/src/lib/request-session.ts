@@ -232,6 +232,28 @@ export const requestLiveRoundsOf = (usernames: readonly string[]) =>
     now: processApp().clock.now(),
   });
 
+const FOLLOWING_ROWS = 50;
+const RECENTLY_WATCHED_ROWS = 10;
+
+/** The Following tab for one account: who it follows, who is live, what it watched. */
+export const requestFollowing = async (userId: string) => {
+  const { database, clock } = processApp();
+  const now = clock.now();
+  const [usernames, history] = await Promise.all([
+    database.listFollowedDebaters({
+      followerUserId: userId,
+      limit: FOLLOWING_ROWS,
+    }),
+    database.listWatchHistory({
+      userId,
+      clock: spectatorClockAt(now),
+      limit: RECENTLY_WATCHED_ROWS,
+    }),
+  ]);
+  const live = await liveRoundsOf(database, { usernames, now });
+  return followingOf({ usernames, live, history });
+};
+
 /** The numbers on the Watch tabs. */
 export const requestHubCounts = async (): Promise<HubCounts> => {
   const app = processApp();

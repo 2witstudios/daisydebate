@@ -17,14 +17,14 @@ describe('FollowingTab', () => {
                 id: 'quarterfinal-practice',
                 title: 'Quarterfinal practice',
               },
-              lastRound: null,
             },
+            { handle: 'lin', live: null },
           ],
           history: [
             {
               id: 'semifinal-rehearsal',
               title: 'Semifinal rehearsal',
-              note: 'Replay',
+              watchedOn: '2026-11-02',
             },
           ],
         },
@@ -33,14 +33,17 @@ describe('FollowingTab', () => {
     );
     assert({
       given: 'a member with follows and history',
-      should: 'link a live follow to its Round and history to replays',
+      should:
+        'link a live follow to its Round, say who is not live, and open what was watched on the page that serves it in any state',
       actual: [
         html.includes('Live now in Quarterfinal practice'),
         html.includes('href="/watch/quarterfinal-practice"'),
-        html.includes('href="/recordings/semifinal-rehearsal"'),
+        html.includes('Not live now'),
+        html.includes('href="/watch/semifinal-rehearsal"'),
+        html.includes('Watched 2026-11-02'),
         html.includes('Clear history'),
       ],
-      expected: [true, true, true, false],
+      expected: [true, true, true, true, true, false],
     });
   });
 
