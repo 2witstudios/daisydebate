@@ -52,11 +52,9 @@ test('media boundary refuses identity claims, foreign origins, anonymous callers
       reporter: noopErrorReporter,
       origin: () => origin,
       identify: async () => input.identity,
-      getActorByUserId: async () => ({ id }),
       limiter: () => ({
         consume: async () => ({ allowed: input.allowed, retryAfterSeconds: 1 }),
       }),
-      active: () => true,
       operations: () => ({
         read: async () => response,
         reconcile: async () => response,
@@ -98,12 +96,10 @@ const admittedMember = {
       state: 'member',
       principal: { userId: id, actorId: id },
     }) as never,
-  getActorByUserId: async () => ({ id }) as never,
   limiter: () =>
     ({
       consume: async () => ({ allowed: true, retryAfterSeconds: 1 }),
     }) as never,
-  active: () => true,
 };
 
 test('a deferred media request answers 503 without alerting anyone', async () => {

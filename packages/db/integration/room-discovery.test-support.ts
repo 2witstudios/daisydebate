@@ -32,6 +32,7 @@ async function discoveryFixture(f: Fixture) {
           () => true,
           () => true,
           () => hidden,
+          () => null,
         ),
       ),
   };

@@ -10,9 +10,9 @@ import {
 } from '@daisy/protocol';
 import { parseValidated, readJson } from '../../server/http';
 import {
-  runMemberHandler,
+  runEvaluatedRoute,
   type MemberBoundary,
-} from '../../server/member-handler';
+} from '../../server/member-boundary';
 
 const MAX_BODY_BYTES = 1024;
 type Answer = Promise<Omit<ChallengeResult, 'version'>>;
@@ -48,7 +48,7 @@ export function createChallengeHandlers(dependencies: {
     name: 'send' | 'accept' | 'decline' | 'cancel',
     run: (input: unknown, principal: AuthorizationPrincipal) => Answer,
   ) =>
-    runMemberHandler(dependencies.boundary, request, {
+    runEvaluatedRoute(dependencies.boundary, request, {
       name: `challenges.${name}`,
       readOnly: false,
       readInput: () => readJson(request, MAX_BODY_BYTES),
@@ -60,7 +60,7 @@ export function createChallengeHandlers(dependencies: {
     });
   return {
     list: (request: Request) =>
-      runMemberHandler(dependencies.boundary, request, {
+      runEvaluatedRoute(dependencies.boundary, request, {
         name: 'challenges.list',
         readOnly: true,
         readInput: async () => null,

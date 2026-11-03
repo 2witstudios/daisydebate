@@ -3,7 +3,7 @@ import { createRoomDraftHandler } from '../rooms/create-room-draft-handler';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
 import { handleOperation } from '../../server/http';
-import { identify } from '../../lib/identity';
+import { memberHttpBoundary } from '../../server/member-boundary';
 import { createRoomHandlers } from './handlers';
 import { createRoomRuntimeOperations } from './operations';
 import { drawEntropy } from './entropy';
@@ -35,13 +35,7 @@ export function composeRoomRoutes(app: App) {
       );
     const policy = app.roomPolicy;
     handlers ??= createRoomHandlers({
-      logger: app.logger,
-      reporter: app.reporter,
-      origin: () => app.auth().config.PUBLIC_APP_URL,
-      identify: (request) => identify(app.auth(), request.headers),
-      getActorByUserId: (userId) => app.database.getActorByUserId(userId),
-      limiter: () => app.limiter,
-      active: () => true,
+      ...memberHttpBoundary(app),
       maxBodyBytes: policy.maxBodyBytes,
       limits: policy.limits,
       websocketEndpoint: app.websocketEndpoint,
@@ -86,12 +80,7 @@ export function composeRoomRoutes(app: App) {
   return {
     ...routes,
     submitDraft: createRoomDraftHandler({
-      logger: app.logger,
-      reporter: app.reporter,
-      origin: () => app.auth().config.PUBLIC_APP_URL,
-      identify: (request) => identify(app.auth(), request.headers),
-      limiter: () => app.limiter,
-      getActorByUserId: (userId) => app.database.getActorByUserId(userId),
+      ...memberHttpBoundary(app),
       store: app.redis,
       catalog: routes.catalog,
       create: routes.create,

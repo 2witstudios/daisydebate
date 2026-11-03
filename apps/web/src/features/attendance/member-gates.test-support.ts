@@ -9,11 +9,9 @@ export const attendanceMemberGates = (
   logger: silentLogger,
   reporter: noopErrorReporter,
   origin: () => origin,
-  active: () => true,
   identify: async () => ({
     state: 'member' as const,
     username: 'Fixture',
     principal: { kind: 'user' as const, userId: actorId(), actorId: actorId() },
   }),
-  getActorByUserId: async () => ({ id: actorId() }),
 });

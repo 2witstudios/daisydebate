@@ -11,9 +11,12 @@ export const accountExitLink =
  */
 export function AccountExit({
   failed,
+  returnTo,
   children,
 }: {
   readonly failed: boolean;
+  /** The page a failed sign-out comes back to, with its notice. */
+  readonly returnTo: string;
   readonly children: React.ReactNode;
 }) {
   return (
@@ -29,7 +32,7 @@ export function AccountExit({
           Account settings
         </Link>
         <SignOutForm
-          next="/beta"
+          next={returnTo}
           className={`${accountExitLink} bg-transparent`}
         />
       </div>

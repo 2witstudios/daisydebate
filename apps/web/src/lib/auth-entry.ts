@@ -3,6 +3,7 @@ import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import {
   nextDestination,
+  restrictedHref,
   signInHref,
   type SearchParams,
 } from '../features/access/decision';
@@ -30,7 +31,8 @@ type SignedIn = Extract<
 /**
  * An onboarding page's entry: the validated destination and a signed-in
  * account. A session-store outage is a retryable error, not "signed out";
- * an anonymous visitor signs in first and comes back to `here`.
+ * an anonymous visitor signs in first and comes back to `here`; a restricted
+ * account has nothing to onboard into and goes to its own page.
  */
 export async function readOnboardingEntry(
   searchParams: Promise<SearchParams>,
@@ -39,5 +41,7 @@ export async function readOnboardingEntry(
   const { destination, identity } = await readAuthEntry(searchParams);
   if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
   if (identity.state === 'anonymous') redirect(signInHref(here(destination)));
+  if (identity.state === 'restricted')
+    redirect(restrictedHref(await searchParams));
   return { destination, identity };
 }

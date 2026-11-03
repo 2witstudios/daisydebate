@@ -109,6 +109,23 @@ describe('POST /api/account/onboarding gates', () => {
     });
   });
 
+  test('a restricted account has nothing to onboard into (ADR 0103)', async () => {
+    const { handler, saved } = handlerWith({
+      identity: {
+        state: 'restricted',
+        username: 'ada',
+        principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
+      },
+    });
+    const response = await handler(post(about));
+    assert({
+      given: 'a suspended account saving an onboarding answer',
+      should: 'refuse it and store nothing',
+      actual: [response.status, saved.length],
+      expected: [403, 0],
+    });
+  });
+
   test('another origin is refused', async () => {
     const { handler, saved } = handlerWith();
     assert({
@@ -192,29 +209,17 @@ describe('POST /api/account/onboarding answers', () => {
 
   test('optional answers without an admitted age store nothing (ISSUE-645)', async () => {
     const refused = handlerWith({ ageRefused: true });
-    const actorless = handlerWith({
-      identity: {
-        state: 'member',
-        username: 'ada',
-        principal: { kind: 'user', userId: 'user1', actorId: null },
-      },
-    });
     const statuses = [
       (await refused.handler(post(about))).status,
-      (await actorless.handler(post(about))).status,
       (await refused.handler(post({ step: 'finish' }))).status,
     ];
     assert({
       given:
-        'a member whose canonical age the adapter refuses, a member with no actor, then the refused member finishing',
+        'a member whose canonical age the adapter refuses, then that member finishing',
       should:
-        'refuse both answers with 403 and store nothing, while Finish still records completion',
-      actual: [
-        statuses,
-        refused.saved.length + actorless.saved.length,
-        refused.completed.length,
-      ],
-      expected: [[403, 403, 200], 0, 1],
+        'refuse the answer with 403 and store nothing, while Finish still records completion',
+      actual: [statuses, refused.saved.length, refused.completed.length],
+      expected: [[403, 200], 0, 1],
     });
   });
 

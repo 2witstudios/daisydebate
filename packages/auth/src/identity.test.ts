@@ -89,6 +89,37 @@ describe('resolveIdentity', () => {
     });
   });
 
+  test('a sanction in force outranks every other participation fact (ADR 0103)', async () => {
+    const restrictedWith = (betaState: BetaAccessState | null) =>
+      resolveIdentity({
+        cookie: 'c=1',
+        readSession: async () => session(),
+        readActor: async (userId) => ({ id: 'actor1', userId }),
+        readParticipation: async () => ({
+          betaState,
+          ageBand: 'adult',
+          restricted: true,
+        }),
+        now,
+      });
+    const username = session().username;
+    const expected = {
+      state: 'restricted',
+      username,
+      principal: { kind: 'user', userId: session().userId, actorId: 'actor1' },
+    };
+    assert({
+      given: 'a suspended or banned account, approved, revoked or never listed',
+      should: 'be restricted with its actor, never waitlisted',
+      actual: [
+        await restrictedWith('approved'),
+        await restrictedWith('revoked'),
+        await restrictedWith(null),
+      ],
+      expected: [expected, expected, expected],
+    });
+  });
+
   test('an unreadable beta access state fails closed', async () => {
     assert({
       given: 'a beta access store that throws',

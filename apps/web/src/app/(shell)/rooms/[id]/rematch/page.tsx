@@ -19,8 +19,7 @@ export default async function FreshRoomPage({
   const { id } = await params;
   const identity = await requireAccess(`/rooms/${id}/rematch`, searchParams);
   if (!idSchema.safeParse(id).success) notFound();
-  if (identity.state !== 'member' || identity.principal.actorId === null)
-    throw createAppError('AUTHORIZATION');
+  if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
   const source = await roomAssembly(id);
   if (source.kind === 'missing') notFound();
   if (source.kind !== 'found') throw createAppError('INFRASTRUCTURE');

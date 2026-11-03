@@ -13,7 +13,7 @@ import { requestMessagingDm } from './request';
 import { composeMessagingCreationOperation } from './creation-operation';
 import { decideMessagingDm } from './decide-request';
 import { readMessagingDmRequest } from './read-request';
-import { memberHttpBoundary } from '../../server/member-handler';
+import { memberHttpBoundary } from '../../server/member-boundary';
 export type MessagingSocialRuntimePolicy = {
   readonly bounds: MessagingSocialBounds;
   readonly creation: SocialCreationPolicy;

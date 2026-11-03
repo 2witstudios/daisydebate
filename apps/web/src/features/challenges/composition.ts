@@ -2,7 +2,7 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import type { App } from '../../server/app';
-import { memberHttpBoundary } from '../../server/member-handler';
+import { memberHttpBoundary } from '../../server/member-boundary';
 import { consumeOrThrow } from '../../server/rate-limit';
 import { appDiscoverActor } from '../account/username-discovery';
 import { requireMemberActor } from '../access/actor';
