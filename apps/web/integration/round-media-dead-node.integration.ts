@@ -184,7 +184,10 @@ test('a room rebuilt under a connected seat is left for a fresh one, at once', a
         ],
         expected: [true, true, null, null],
       });
-      await f.media.deleteRoom(String(occupied!.room_name));
+      // The pass already tried this, best effort, and may have finished.
+      await f.media
+        .deleteRoom(String(occupied!.room_name))
+        .catch(() => undefined);
     } finally {
       await seat.disconnect();
     }

@@ -248,9 +248,9 @@ test('a seat that went quiet is no loss of the platform', async () => {
   );
   assert({
     given: 'a coverage gap alone, with nothing lost by the platform',
-    should: 'state nothing, and measure zero',
+    should: 'state nothing as the platform fault, and still count it unheard',
     actual: { captureGapMs, gaps: captureGaps.gaps, platformLostAudio },
-    expected: { captureGapMs: 0, gaps: [], platformLostAudio: false },
+    expected: { captureGapMs: 100, gaps: [], platformLostAudio: false },
   });
 });
 

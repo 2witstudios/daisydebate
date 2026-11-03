@@ -42,14 +42,15 @@ export async function readCaptureShortfall(
       partialReasonsStateLoss(stream.partialReasons) ||
       stream.partialReasons.includes('other-worker-evidence'),
   );
-  const found = await closedStreamGaps(tx, roundId, lost, rule);
-  const gaps = lost.flatMap((stream) =>
-    (found.get(streamKey(stream)) ?? []).map((gap) => ({
-      segmentId: stream.segmentId,
-      roundParticipantId: stream.roundParticipantId,
-      ...gap,
-    })),
-  );
+  const found = await closedStreamGaps(tx, roundId, partial, rule);
+  const gapsOf = (streams: typeof partial) =>
+    streams.flatMap((stream) =>
+      (found.get(streamKey(stream)) ?? []).map((gap) => ({
+        segmentId: stream.segmentId,
+        roundParticipantId: stream.roundParticipantId,
+        ...gap,
+      })),
+    );
   // Zero gaps over valid windows measures zero. Only history with no windows has no measure.
   const unmeasured = partial.some((stream) =>
     stream.partialReasons.some(
@@ -60,10 +61,12 @@ export async function readCaptureShortfall(
   return {
     platformLostAudio: lost.length > 0,
     expectedSpeechMs,
-    captureGaps: { gaps },
+    // Stated as the platform's fault only where it was.
+    captureGaps: { gaps: gapsOf(lost) },
     captureGapMs: unmeasured
       ? null
-      : gaps.reduce(
+      : // Everything unheard counts against what a judge can rule on, a silent seat too.
+        gapsOf(partial).reduce(
           (total, gap) => total + gap.untilOffsetMs - gap.fromOffsetMs,
           0,
         ),
