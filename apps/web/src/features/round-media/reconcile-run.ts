@@ -80,7 +80,7 @@ export function createMediaReconcileRun(
         () => undefined,
       );
     }
-    // A late write after this read can only reach the name this proof retires (ADR 0108).
+    // A late write after this read can only reach the name this proof retires (ADR 0110).
     const proof = await input.store.prepareMediaAbsenceProof(claim.fence);
     if (!proof || (await input.deadline(input.media.exists(claim.roomName))))
       return null;

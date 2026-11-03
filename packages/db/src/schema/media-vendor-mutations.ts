@@ -36,7 +36,7 @@ export const mediaVendorMutations = pgTable(
       .notNull()
       .default(sql`statement_timestamp()`),
     settledAt: timestampColumn('settled_at'),
-    // `superseded`: its room was retired with the outcome still unknown (ADR 0108).
+    // `superseded`: its room was retired with the outcome still unknown (ADR 0110).
     outcome: text('outcome', { enum: ['succeeded', 'failed', 'superseded'] }),
     payload: jsonbColumn('payload', intentSchema).notNull(),
   },

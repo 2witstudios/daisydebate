@@ -8,7 +8,6 @@ import {
   withMediaRound,
   tokenClaims,
   delayedMediaCreation,
-  waitForMediaFact,
   mediaDependencies,
 } from './round-media.test-support';
 import { signedCaptureBroker } from './capture-token.test-support';

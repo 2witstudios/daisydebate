@@ -106,7 +106,7 @@ export const MEDIA_ROOM_RETIRE_AFTER_MS = 6_000;
  * Why a session stops naming its vendor room, or null while it keeps it. Observed
  * absence is enough at once. Otherwise uncertainty older than the bound retires
  * the room with the node still silent, because a late outcome can only reach a
- * name that no token uses any more (ADR 0108).
+ * name that no token uses any more (ADR 0110).
  */
 export function roomRetirement(input: {
   readonly now: Date;

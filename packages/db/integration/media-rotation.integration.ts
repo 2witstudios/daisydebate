@@ -24,7 +24,7 @@ for (const failure of [
   'debater',
   'terminal',
 ] as const) {
-  // A pending outcome no longer holds the room: observed absence retires it (ADR 0108).
+  // A pending outcome no longer holds the room: observed absence retires it (ADR 0110).
   const rotated = ['pending', 'none', 'erased', 'debater'].includes(failure);
   const role = failure === 'debater' ? 'negative' : 'judge';
   const expectedEpoch = rotated ? 2 : 1;
