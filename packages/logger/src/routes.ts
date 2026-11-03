@@ -250,6 +250,12 @@ const appRoutes = [
 const namedRoutes = ['/api/rounds/:id/media/reconcile'];
 
 export const logRoutes: ReadonlySet<string> = new Set([
+  '/api/reports',
+  '/api/recordings/[recordingId]/download',
+  '/api/recordings/[recordingId]/removal',
+  '/api/recordings/[recordingId]/playback/[...path]',
+  '/moderation',
+  '/moderation/[reportId]',
   '/content-waiver',
   '/content-policy',
   '/api/agreements/content-waiver',
