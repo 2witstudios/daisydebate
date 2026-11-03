@@ -28,7 +28,7 @@ type RoomCommandPolicy<T extends RoomCommandType> = {
   readonly transition: (
     room: RoomAssemblyState,
     actorId: string,
-    command: Extract<RoomCommand, { type: T }>,
+    command: RoomCommand & { readonly type: T },
     consent: RoomConsent,
     edges: Edges,
   ) => RoomMutationOutcome;
