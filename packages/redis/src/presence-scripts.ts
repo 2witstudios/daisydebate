@@ -224,15 +224,6 @@ end
 return result
 `);
 /**
- * How many actors are online now: the online set's members whose latest
- * lease has not expired, counted by score with no write. KEYS[1] online
- * zset.
- */
-export const countOnlinePresenceScript = defineScript(`
-${nowFromTime}
-return redis.call('ZCOUNT', KEYS[1], now, '+inf')
-`);
-/**
  * A bounded write-path sweep: removes up to ARGV[1] members of the online
  * set whose score is in the past. Trimming moved here, off the read path
  * (`readOnlinePresenceScript`), so a read never mutates state; the web

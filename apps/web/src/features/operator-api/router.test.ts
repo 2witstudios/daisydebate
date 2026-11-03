@@ -340,14 +340,15 @@ describe('the report routes (ADR 0103)', () => {
     reportsOnSubject: 2,
   };
   const head = 'a'.repeat(64);
-  test('lists the queue, with a cursor when there is more', async () => {
+  test('lists the queue', async () => {
+    const seen: unknown[] = [];
     const { handle } = api({
       store: {
         ...storeOf(),
-        listOperatorReports: async () => [
-          report,
-          { ...report, id: 's'.repeat(24) },
-        ],
+        listOperatorReports: async (input) => {
+          seen.push(input);
+          return [report];
+        },
       },
     });
     const response = await handle(
@@ -357,15 +358,11 @@ describe('the report routes (ADR 0103)', () => {
         query: [['limit', '1']],
       }),
     );
-    const page = (await response.json()) as {
-      items: unknown[];
-      nextCursor: string | null;
-    };
     assert({
-      given: 'more reports than the limit',
-      should: 'answer one and where the next page starts',
-      actual: [response.status, page.items, typeof page.nextCursor],
-      expected: [200, [report], 'string'],
+      given: 'an open report and a limit',
+      should: 'read with that limit and answer the report',
+      actual: [response.status, await response.json(), seen],
+      expected: [200, { items: [report] }, [{ limit: 1 }]],
     });
   });
   test('a decision carries its length, retention and digest', async () => {

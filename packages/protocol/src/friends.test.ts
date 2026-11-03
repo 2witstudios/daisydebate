@@ -62,7 +62,6 @@ test('friend reads', () => {
     actual: onlineCountsSchema.safeParse({
       version: 1,
       friendsOnline: -1,
-      membersOnline: 0,
     }).success,
     expected: false,
   });
