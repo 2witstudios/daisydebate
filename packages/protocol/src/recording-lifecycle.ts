@@ -43,7 +43,7 @@ export type RecordingEvent =
   | { readonly type: 'evidence_hold_ended' }
   | { readonly type: 'objects_gone'; readonly at: string };
 
-export type RecordingRefusal =
+type RecordingRefusal =
   | 'ranked_is_kept'
   | 'different_capture'
   | 'foreign_object'
