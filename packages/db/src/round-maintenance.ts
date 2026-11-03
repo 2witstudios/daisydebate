@@ -77,7 +77,7 @@ export function roundMaintenanceOperations(run: BoundedTransaction) {
       return run(async (tx) => {
         await requireCurrentWeb(tx, input.instanceId);
         const rows = await tx
-          .select({ id: rounds.id })
+          .select({ id: rounds.id, status: rounds.status })
           .from(rounds)
           .where(
             and(
@@ -89,6 +89,9 @@ export function roundMaintenanceOperations(run: BoundedTransaction) {
           .limit(input.limit);
         return {
           roundIds: rows.map((row) => row.id),
+          openingIds: rows
+            .filter((row) => row.status === 'opening')
+            .map((row) => row.id),
           afterId: rows.at(-1)?.id ?? null,
           exhausted: rows.length < input.limit,
         };

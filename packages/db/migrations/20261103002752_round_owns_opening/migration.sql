@@ -9,22 +9,22 @@ LOCK TABLE "rooms", "rounds" IN SHARE ROW EXCLUSIVE MODE;--> statement-breakpoin
 DELETE FROM "room_active_memberships" WHERE "room_id" IN (
   SELECT "room_id" FROM "rounds"
   WHERE "status" = 'scheduled' AND "room_id" IS NOT NULL
-    AND "created_at" <= statement_timestamp() - interval '15 minutes'
+    AND "created_at" <= transaction_timestamp() - interval '15 minutes'
 );--> statement-breakpoint
 UPDATE "rounds" SET
-  "status" = 'abandoned', "completed_at" = statement_timestamp(),
-  "version" = "version" + 1, "updated_at" = statement_timestamp()
-WHERE "status" = 'scheduled' AND ("room_id" IS NULL OR "created_at" <= statement_timestamp() - interval '15 minutes');--> statement-breakpoint
+  "status" = 'abandoned', "completed_at" = transaction_timestamp(),
+  "version" = "version" + 1, "updated_at" = transaction_timestamp()
+WHERE "status" = 'scheduled' AND ("room_id" IS NULL OR "created_at" <= transaction_timestamp() - interval '15 minutes');--> statement-breakpoint
 UPDATE "rounds" SET
-  "status" = 'active', "current_stage" = 'countdown', "started_at" = statement_timestamp(),
-  "version" = "version" + 1, "updated_at" = statement_timestamp()
+  "status" = 'active', "current_stage" = 'countdown', "started_at" = transaction_timestamp(),
+  "version" = "version" + 1, "updated_at" = transaction_timestamp()
 WHERE "status" = 'scheduled';--> statement-breakpoint
 DROP TRIGGER "rooms_topic_matches_draw" ON "rooms";--> statement-breakpoint
 -- An open Room that had begun a draw or prep starts over, with Ready cleared by
 -- the new version: a begun pre-round no longer exists to resume.
 UPDATE "rooms" SET
   "topic" = CASE WHEN coalesce("execution_plan"->'resolutionDraw'->>'enabled' = 'true', false) THEN NULL ELSE "topic" END,
-  "version" = "version" + 1, "change_version" = "change_version" + 1, "updated_at" = statement_timestamp()
+  "version" = "version" + 1, "change_version" = "change_version" + 1, "updated_at" = transaction_timestamp()
 WHERE "status" IN ('assembling', 'ready') AND (
   "prep_started_at" IS NOT NULL
   OR EXISTS (SELECT 1 FROM "room_resolution_draws" d WHERE d."room_id" = "rooms"."id")

@@ -142,6 +142,7 @@ export function createRoundMaintenanceOperations(input: {
         : (page.afterId ?? undefined);
       return {
         roundIds: page.roundIds.filter((id) => id !== input.probeRoundId),
+        openingIds: page.openingIds,
         cycleComplete: page.exhausted,
       };
     },

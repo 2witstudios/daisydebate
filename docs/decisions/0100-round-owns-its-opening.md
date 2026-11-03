@@ -64,8 +64,7 @@ resolution and close the Room with no result recorded.
 - One forward migration, with no expand and contract. `scheduled` Rounds past the
   old 15-minute horizon are abandoned and the rest become `active`; an open Room
   that had begun a draw or prep starts over with Ready cleared. The Room draw
-  tables are dropped, because launched Rounds already hold their evidence. It
-  needs a quiet deploy window.
+  tables are dropped, because launched Rounds already hold their evidence.
 - A prep-holding bot Round occupies a global capacity slot for the whole clock, so
   the busy cap must be sized for it.
 - Strike moves from the Room page to the Round room, with its form still working
