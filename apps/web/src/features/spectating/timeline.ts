@@ -80,9 +80,6 @@ export const releasedStage = (read: StageFacts): SpectatorTimeline['stage'] => {
 
 const ms = (value: Date | null) => value?.getTime() ?? null;
 
-const isTerminal = (status: string) =>
-  status === 'completed' || status === 'abandoned';
-
 /**
  * The audience's stream, from durable facts alone. Who may read this at all is
  * decided before it leaves (`admitAudience`): it names the feed's random key,
@@ -99,7 +96,6 @@ const standingOf = (
   const watermark = ms(broadcast.releasedThroughAt);
   if (broadcast.completedAt)
     return { state: watermark === null ? 'failed' : 'ended' };
-  const terminal = isTerminal(round.status);
   const since = watermark ?? ms(round.startedAt) ?? context.nowMs;
   const late =
     context.nowMs - broadcast.policy.seconds * 1000 - since >
