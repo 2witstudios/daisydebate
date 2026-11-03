@@ -164,7 +164,7 @@ describe('attachVersionDoorbell', () => {
       given:
         'a transient refusal, an accepted retry, then four transient refusals in a row, each followed by an authorized read',
       should:
-        'resubscribe after each read for the first three transient refusals in a row, then stop',
+        'resubscribe after each read for the first three transient refusals in a row, then not on the read an error triggers',
       actual: round.calls.filter((call) => call === `retry:${topic}`).length,
       expected: 4,
     });

@@ -1,7 +1,7 @@
 import type { ServerMessage } from '@daisy/protocol';
 import type { ConnectionStore } from './connection-store';
 
-/** Transient refusals in a row retried before the topic waits for a reconnect. */
+/** Transient refusals in a row retried at once, before retries slow to the reader's own pace. */
 const MAX_REFUSAL_RETRIES = 3;
 
 /** Doorbells invalidate a snapshot; they never carry content or authority. */
@@ -26,6 +26,8 @@ export function attachInvalidationTopic({
 }) {
   let resync = false;
   let refusals = 0;
+  // The read an error itself triggers does not resubscribe: the next one does.
+  let paced = false;
   const refresh = (frame: ServerMessage | null) => {
     invalidate();
     refetch(frame);
@@ -36,17 +38,18 @@ export function attachInvalidationTopic({
       refresh(frame);
     } else if (frame.type === 'subscribed') {
       refusals = 0;
+      paced = false;
       if (catchUpOnSubscribe) refresh(null);
     } else if (frame.type === 'error') {
       // INFRASTRUCTURE: the server could not decide authority for now; the
       // read this error triggers proves authority again, then the topic
-      // resubscribes. Any other refusal (AUTHORIZATION, RATE_LIMIT), and an
-      // exhausted retry budget, is final for this socket: a pending recovery
-      // is cancelled so a later snapshot never resubscribes (RT-2.5c-arch1).
-      const retry =
-        frame.code === 'INFRASTRUCTURE' && refusals < MAX_REFUSAL_RETRIES;
-      if (retry) refusals += 1;
-      resync = retry;
+      // resubscribes. Past the budget it keeps resubscribing at the rate of the
+      // reader's later reads (ISSUE-922). Any other refusal (AUTHORIZATION,
+      // RATE_LIMIT) is final for this socket: a pending recovery is cancelled
+      // so a later snapshot never resubscribes (RT-2.5c-arch1).
+      resync = frame.code === 'INFRASTRUCTURE';
+      if (resync && refusals < MAX_REFUSAL_RETRIES) refusals += 1;
+      else if (resync) paced = true;
     } else if (matches(frame)) refresh(frame);
   });
   const stopErrors = connection.onMessage((frame) => {
@@ -54,7 +57,8 @@ export function attachInvalidationTopic({
   });
   return {
     authorizedSnapshot() {
-      if (resync) {
+      if (paced) paced = false;
+      else if (resync) {
         resync = false;
         connection.resubscribeTopic(topic);
       }
