@@ -3,7 +3,7 @@ import { derivedMediaSource, speechTimeline } from './speech-timeline';
 
 setupRitewayBun();
 
-const capture = { startedAtMs: 1000, durationMs: 10_000 };
+const capture = { startedAtMs: 1000, durationMs: 10_000, gaps: [] };
 
 describe('speechTimeline', () => {
   test('places accepted floor turns in video time', () => {
@@ -24,6 +24,33 @@ describe('speechTimeline', () => {
         { roundParticipantId: 'b', startMs: 4000, endMs: 6000 },
         { roundParticipantId: 'c', startMs: 9000, endMs: 10_000 },
       ],
+    });
+  });
+});
+
+describe('speechTimeline across a capture gap', () => {
+  const gapped = { ...capture, gaps: [{ startMs: 3000, endMs: 5000 }] };
+  test('claims only what the video holds', () => {
+    assert({
+      given: 'a turn running through a gap',
+      should: 'split around it',
+      actual: speechTimeline(
+        [{ roundParticipantId: 'a', startedAtMs: 2000, endedAtMs: 8000 }],
+        gapped,
+      ),
+      expected: [
+        { roundParticipantId: 'a', startMs: 1000, endMs: 3000 },
+        { roundParticipantId: 'a', startMs: 5000, endMs: 7000 },
+      ],
+    });
+    assert({
+      given: 'a turn wholly inside a gap',
+      should: 'offer no marker for it',
+      actual: speechTimeline(
+        [{ roundParticipantId: 'a', startedAtMs: 4200, endedAtMs: 5500 }],
+        gapped,
+      ),
+      expected: [],
     });
   });
 });

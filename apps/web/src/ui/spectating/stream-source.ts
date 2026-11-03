@@ -109,7 +109,7 @@ export const browserHlsSupport = (video: HTMLVideoElement): HlsSupport => ({
 
 type Attach = (
   video: HTMLVideoElement,
-  stream: BroadcastStream,
+  stream: Pick<BroadcastStream, 'path' | 'manifestUrl'>,
   engine: StreamEngine,
   events: StreamEvents,
 ) => Detach;
@@ -122,6 +122,6 @@ const sources: Readonly<Record<BroadcastStream['path'], Attach>> = {
       : attachHlsJs(video, stream.manifestUrl, events),
 };
 
-/** Plays a Broadcast's recorded delivery path in a video. */
+/** Plays a stream's delivery path in a video. */
 export const attachStream: Attach = (video, stream, engine, events) =>
   sources[stream.path](video, stream, engine, events);

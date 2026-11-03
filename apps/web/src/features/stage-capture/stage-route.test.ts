@@ -14,7 +14,7 @@ const route = (over: object = {}, revokedAt: Date | null = null) => {
     run: createStageRoute({
       store: {
         readStage: async () => ({
-          broadcast: {
+          capture: {
             stageCredentialHash: credentialHash(secret),
             observerRevokedAt: revokedAt,
             completedAt: null,
@@ -44,7 +44,7 @@ const route = (over: object = {}, revokedAt: Date | null = null) => {
   };
 };
 const ask = (credential?: string) =>
-  new Request('https://d.test/api/broadcasts/b/stage', {
+  new Request('https://d.test/api/stage/b', {
     headers: credential ? { 'x-stage-credential': credential } : {},
   });
 

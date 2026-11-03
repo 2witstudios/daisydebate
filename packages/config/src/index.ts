@@ -127,6 +127,16 @@ const serverFields = {
    */
   BROADCAST_CAPTURE: z.literal('on').optional(),
   /**
+   * ADR 0107: Recording's capture sweep runs only when this is exactly `on`.
+   * Unset, no Round is requested a Recording and no Egress starts for one.
+   */
+  RECORDING_CAPTURE: z.literal('on').optional(),
+  /**
+   * Where signed Recording reads point. Not a secret: every signed URL names it.
+   * The replay page's browser policy names it, and no other page's does.
+   */
+  RECORDING_BUCKET_ENDPOINT: mediaEndpoint(/^https?$/).optional(),
+  /**
    * The public bucket's read origin. Not a secret: every feed URL names it.
    * Unset, no Round offers an official feed.
    */

@@ -7,7 +7,7 @@ import {
 
 type StageStore = {
   readonly readStage: (id: string) => Promise<{
-    readonly broadcast: {
+    readonly capture: {
       readonly stageCredentialHash: string | null;
       readonly observerRevokedAt: Date | null;
       readonly completedAt: Date | null;
@@ -31,7 +31,7 @@ const refuse = () =>
 
 /**
  * What the stage page needs and nothing more. Without the credential it answers
- * as if the Broadcast did not exist. The token follows the current revocation.
+ * as if the capture did not exist. The token follows the current revocation.
  */
 export const createStageRoute =
   (deps: {
@@ -48,11 +48,11 @@ export const createStageRoute =
     const read = await deps.store.readStage(id);
     if (
       !read ||
-      read.broadcast.completedAt !== null ||
-      read.broadcast.stoppedAt !== null ||
+      read.capture.completedAt !== null ||
+      read.capture.stoppedAt !== null ||
       !stageCredentialValid(
         request.headers.get('x-stage-credential'),
-        read.broadcast.stageCredentialHash,
+        read.capture.stageCredentialHash,
       )
     )
       return refuse();
@@ -70,7 +70,7 @@ export const createStageRoute =
               url: deps.livekitUrl,
               token: await deps.observerToken(
                 read.roomName,
-                observerAccess(read.broadcast),
+                observerAccess(read.capture),
               ),
             }
           : null,

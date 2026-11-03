@@ -1,0 +1,354 @@
+import {
+  broadcastPhase,
+  plannedBroadcast,
+  plannedRecording,
+  type PhasePosition,
+  type StageEgressFact,
+} from '@daisy/debate-engine';
+import {
+  holdAttemptPrefix,
+  recordingHoldPrefix,
+  type BuiltRecordingMedia,
+  type EntitlementGrant,
+  type RecordingSource,
+} from '@daisy/protocol';
+import type { createDatabase } from '@daisy/db';
+import {
+  answerRecordingJob,
+  decideRecordingCapture,
+  type RecordingCaptureAction,
+  type RecordingCaptureFacts,
+} from './capture-decision';
+import type { RecordingCapturePort } from './capture-port';
+
+type Store = Pick<
+  ReturnType<typeof createDatabase>['recordingCaptures'],
+  | 'discoverUnrecorded'
+  | 'listOpen'
+  | 'readRound'
+  | 'openOwn'
+  | 'claimOwn'
+  | 'recordOwnEgressStarted'
+  | 'recordOwnRevoked'
+  | 'recordOwnRevocationFailed'
+  | 'recordOwnRestored'
+  | 'closeOwn'
+  | 'openJob'
+  | 'queueJob'
+  | 'discardSources'
+  | 'listJobs'
+>;
+type Open = Awaited<ReturnType<Store['listOpen']>>[number];
+
+export type RecordingCaptureEvent =
+  | 'recording.capture_failed'
+  | 'recording.egress.start_failed'
+  | 'recording.egress.stop_failed'
+  | 'recording.observer.restore_failed';
+
+type Egress = {
+  readonly start: (input: {
+    readonly stageUrl: string;
+    readonly holdPrefix: string;
+    readonly segmentSeconds: number;
+  }) => Promise<string>;
+  readonly stop: (id: string) => Promise<void>;
+  readonly read: (id: string) => Promise<StageEgressFact>;
+  readonly revokeObserver: (room: string) => Promise<unknown>;
+  readonly restoreObserver: (room: string) => Promise<unknown>;
+};
+
+const SEGMENT_SECONDS = 4;
+const BATCH = 64;
+const RECONCILE_LEASE_MS = 800;
+const OWN_SOURCE: RecordingSource = { kind: 'own_capture' };
+
+const attemptOf = (
+  row: {
+    readonly egressId: string | null;
+    readonly attempt: number;
+    readonly egressStartedAt: Date | null;
+  },
+  nowMs: number,
+) =>
+  row.egressId && row.attempt > 0
+    ? {
+        attempt: row.attempt,
+        egressId: row.egressId,
+        startedAtMs: row.egressStartedAt?.getTime() ?? nowMs,
+      }
+    : null;
+
+const roundEnded = (status: string) =>
+  status === 'completed' || status === 'abandoned';
+
+/**
+ * One pass over every unfinished capture and every job with something to answer.
+ * Each report is idempotent, so a crash between two steps resolves itself on the
+ * next pass. A failure on one Recording never stops the others or reaches a Round.
+ */
+export const createRecordingCaptureSweep = (deps: {
+  readonly store: Store;
+  readonly port: RecordingCapturePort;
+  readonly egress: Egress;
+  readonly holdsCapture: (grants: readonly EntitlementGrant[]) => boolean;
+  /** Where the Round stands: read without a lock and without ticking it. */
+  readonly positionAt: (
+    round: NonNullable<Awaited<ReturnType<Store['readRound']>>>['round'],
+    now: string,
+  ) => PhasePosition;
+  readonly now: () => number;
+  /** CSPRNG secret; only its SHA3-256 hash is stored. */
+  readonly newCredential: () => {
+    readonly secret: string;
+    readonly hash: string;
+  };
+  readonly stageUrl: (recordingId: string, credential: string) => string;
+  readonly report: (event: RecordingCaptureEvent) => void;
+}) => {
+  const { store, port, egress } = deps;
+  const iso = (ms: number) => new Date(ms).toISOString();
+
+  const attempt = async (
+    work: () => Promise<unknown>,
+    failed: () => Promise<unknown> | void,
+  ) => {
+    try {
+      await work();
+    } catch {
+      await failed();
+    }
+  };
+
+  const onBroadcast = (open: Open) =>
+    plannedBroadcast({
+      competitionType: open.competitionType,
+      capture: open.roundCapture,
+    }) !== null;
+
+  const broadcastFacts = async (
+    open: Open,
+    nowMs: number,
+  ): Promise<RecordingCaptureFacts> => {
+    const { broadcast } = open;
+    const stopped = broadcast?.stoppedAt != null;
+    const ended = roundEnded(open.roundStatus);
+    return {
+      nowMs,
+      lifecycle: open.lifecycle,
+      roundEnded: ended,
+      path: {
+        kind: 'broadcast',
+        broadcastId: broadcast?.id ?? null,
+        latest: broadcast ? attemptOf(broadcast, nowMs) : null,
+        stopped,
+        // Only the end of capture depends on it, so LiveKit is asked only then.
+        egress:
+          broadcast?.egressId && (ended || stopped)
+            ? await egress.read(broadcast.egressId)
+            : { kind: 'none' },
+      },
+    };
+  };
+
+  const ownFacts = async (
+    open: Open,
+    nowMs: number,
+    own: NonNullable<Open['own']>,
+    position: PhasePosition,
+  ): Promise<RecordingCaptureFacts> => ({
+    nowMs,
+    lifecycle: open.lifecycle,
+    roundEnded: roundEnded(open.roundStatus),
+    path: {
+      kind: 'own',
+      latest: attemptOf(own, nowMs),
+      egress: own.egressId ? await egress.read(own.egressId) : { kind: 'none' },
+      phase: broadcastPhase(position),
+      observerSubscribed: own.observerRevokedAt === null,
+      revocationFailures: own.revocationFailures,
+    },
+  });
+
+  const reportStarted = async (
+    recordingId: string,
+    action: Extract<RecordingCaptureAction, { type: 'report-started' }>,
+  ) => {
+    // The job comes first: a Recording that has sources always knows where.
+    await store.openJob({
+      recordingId,
+      holdPrefix: recordingHoldPrefix(recordingId, action.source),
+    });
+    await port.captureStarted(recordingId, {
+      source: action.source,
+      attempt: action.attempt.attempt,
+      egressId: action.attempt.egressId,
+      at: iso(action.attempt.startedAtMs),
+    });
+  };
+
+  const runCommon = (
+    recordingId: string,
+    action: RecordingCaptureAction,
+    nowMs: number,
+  ) => {
+    switch (action.type) {
+      case 'report-started':
+        return reportStarted(recordingId, action);
+      case 'report-ended':
+        return port.captureEnded(recordingId, { at: iso(nowMs) });
+      case 'report-failed':
+        return port.failed(recordingId, {
+          reason: 'capture_failed',
+          at: iso(nowMs),
+        });
+      default:
+        return null;
+    }
+  };
+
+  const runOwn = (
+    open: Open,
+    own: NonNullable<Open['own']>,
+    room: string | null,
+    action: RecordingCaptureAction,
+    nowMs: number,
+  ) => {
+    const recordingId = open.id;
+    switch (action.type) {
+      case 'start-egress': {
+        const credential = deps.newCredential();
+        const generation = own.attempt + 1;
+        return attempt(
+          async () =>
+            store.recordOwnEgressStarted({
+              recordingId,
+              egressId: await egress.start({
+                stageUrl: deps.stageUrl(recordingId, credential.secret),
+                holdPrefix: holdAttemptPrefix(
+                  recordingHoldPrefix(recordingId, OWN_SOURCE),
+                  generation,
+                ),
+                segmentSeconds: SEGMENT_SECONDS,
+              }),
+              generation,
+              stageCredentialHash: credential.hash,
+              now: new Date(nowMs),
+            }),
+          () => deps.report('recording.egress.start_failed'),
+        );
+      }
+      case 'stop-egress':
+        return attempt(
+          () => egress.stop(action.id),
+          () => deps.report('recording.egress.stop_failed'),
+        );
+      case 'revoke-observer':
+        return attempt(
+          async () => {
+            if (room) await egress.revokeObserver(room);
+            await store.recordOwnRevoked({ recordingId, now: new Date(nowMs) });
+          },
+          () => store.recordOwnRevocationFailed(recordingId),
+        );
+      case 'restore-observer':
+        return attempt(
+          async () => {
+            if (room) await egress.restoreObserver(room);
+            await store.recordOwnRestored(recordingId);
+          },
+          () => deps.report('recording.observer.restore_failed'),
+        );
+      case 'close-own-capture':
+        return store.closeOwn({ recordingId, now: new Date(nowMs) });
+      default:
+        return runCommon(recordingId, action, nowMs);
+    }
+  };
+
+  const reconcileOwn = async (open: Open, nowMs: number) => {
+    await store.openOwn({ recordingId: open.id, roundId: open.roundId });
+    const mine = await store.claimOwn({
+      recordingId: open.id,
+      now: new Date(nowMs),
+      until: new Date(nowMs + RECONCILE_LEASE_MS),
+    });
+    if (!mine) return;
+    const read = await store.readRound(open.roundId);
+    if (!read) return;
+    const position = deps.positionAt(read.round, iso(nowMs));
+    const own = open.own ?? {
+      recordingId: open.id,
+      egressId: null,
+      attempt: 0,
+      egressStartedAt: null,
+      observerRevokedAt: null,
+      revocationFailures: 0,
+    };
+    const facts = await ownFacts(open, nowMs, own, position);
+    for (const action of decideRecordingCapture(facts))
+      await runOwn(open, own, read.roomName, action, nowMs);
+  };
+
+  const reconcile = async (open: Open) => {
+    const nowMs = deps.now();
+    if (!onBroadcast(open)) return reconcileOwn(open, nowMs);
+    const facts = await broadcastFacts(open, nowMs);
+    for (const action of decideRecordingCapture(facts))
+      await runCommon(open.id, action, nowMs);
+    return undefined;
+  };
+
+  const answerJob = async (
+    job: Awaited<ReturnType<Store['listJobs']>>[number],
+  ) => {
+    const answer = answerRecordingJob(job);
+    if (answer === null) return;
+    switch (answer.type) {
+      case 'queue':
+        await store.queueJob({
+          recordingId: job.recordingId,
+          attemptCount: answer.attemptCount,
+        });
+        return;
+      case 'verify':
+        if (job.state.status === 'built')
+          await port.mediaVerified(
+            job.recordingId,
+            job.state.media satisfies BuiltRecordingMedia,
+          );
+        return;
+      case 'fail':
+        await port.failed(job.recordingId, {
+          reason: answer.reason,
+          at: iso(deps.now()),
+        });
+        return;
+      case 'discard-sources':
+        await store.discardSources(job.recordingId);
+    }
+  };
+
+  const eachSafely = async <T>(
+    items: readonly T[],
+    work: (item: T) => Promise<unknown>,
+  ) => {
+    for (const item of items)
+      await work(item).catch(() => deps.report('recording.capture_failed'));
+  };
+
+  return async () => {
+    await eachSafely(await store.discoverUnrecorded(BATCH), async (round) => {
+      if (!plannedRecording(round)) return;
+      await port.request({
+        roundId: round.roundId,
+        competitionType: round.competitionType,
+        hostActorId: round.hostActorId,
+        hostOptedIn: round.capture?.recording === true,
+        hostHoldsRecording: deps.holdsCapture(round.hostGrants),
+      });
+    });
+    await eachSafely(await store.listOpen(BATCH), reconcile);
+    await eachSafely(await store.listJobs(BATCH), answerJob);
+  };
+};

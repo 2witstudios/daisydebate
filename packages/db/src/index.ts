@@ -96,6 +96,7 @@ import { liveBroadcastReads } from './live-broadcast-reads';
 import { memberProfileReadOperations } from './member-profile-reads';
 import { recordingArchiveReadOperations } from './recording-archive-reads';
 import { spectatorFactLogOperations } from './spectator-fact-log';
+import { createRecordingCaptureStore } from './recording-capture-store';
 import { recordingOperations } from './recording-operations';
 import { recordingRoundReadOperations } from './recording-round-reads';
 import type { RateDebateInput } from './rating-facts';
@@ -202,6 +203,7 @@ export function createDatabase({
     ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
     ...namedLaneOperations(roundAnalysisReads({ database })),
     broadcasts: createBroadcastStore(database),
+    recordingCaptures: createRecordingCaptureStore(database),
     mediaSessions: createMediaSessionStore({
       database,
       run: transcriptTransaction,

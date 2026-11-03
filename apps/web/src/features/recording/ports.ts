@@ -69,6 +69,8 @@ export type RecordingStore = {
     recordingId: string,
     input: { readonly retryAt: string; readonly failed: boolean },
   ) => Promise<void>;
+  /** Whether anything of this Recording may still wait in the hold bucket. */
+  readonly sourcesRemain: (recordingId: string) => Promise<boolean>;
   /** Failed Recordings older than `before`, whose partial objects can go. */
   readonly listFailedBefore: (input: {
     readonly before: string;

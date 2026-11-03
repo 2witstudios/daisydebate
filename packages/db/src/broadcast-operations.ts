@@ -1,8 +1,19 @@
 import type { BroadcastReleasePolicy } from '@daisy/protocol';
-import { and, asc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+  sql,
+} from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { mediaSessions } from './schema/media-sessions';
+import { recordingCaptures } from './schema/recording-captures';
 import { rounds } from './schema/rounds';
 import {
   roundAliasR,
@@ -381,7 +392,7 @@ export const readConversationHeld = async (
   tx: Tx,
   input: { readonly roundId: string },
 ): Promise<boolean> => {
-  const [row] = await tx
+  const [broadcast] = await tx
     .select({
       revokedAt: broadcasts.observerRevokedAt,
       stoppedAt: broadcasts.stoppedAt,
@@ -390,13 +401,27 @@ export const readConversationHeld = async (
     })
     .from(broadcasts)
     .where(eq(broadcasts.roundId, input.roundId));
-  return (
-    row !== undefined &&
-    row.egressId !== null &&
-    row.stoppedAt === null &&
-    row.completedAt === null &&
-    row.revokedAt === null
-  );
+  if (
+    broadcast !== undefined &&
+    broadcast.egressId !== null &&
+    broadcast.stoppedAt === null &&
+    broadcast.completedAt === null &&
+    broadcast.revokedAt === null
+  )
+    return true;
+  // A Recording with no Broadcast runs the same observer under the same rule.
+  const [own] = await tx
+    .select({ id: recordingCaptures.recordingId })
+    .from(recordingCaptures)
+    .where(
+      and(
+        eq(recordingCaptures.roundId, input.roundId),
+        isNull(recordingCaptures.endedAt),
+        isNull(recordingCaptures.observerRevokedAt),
+        isNotNull(recordingCaptures.egressId),
+      ),
+    );
+  return own !== undefined;
 };
 
 /**

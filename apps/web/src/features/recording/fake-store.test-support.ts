@@ -9,7 +9,10 @@ import type {
 /** An in-memory store with the real one's contract, for the feature's unit tests. */
 export const fakeRecordingStore = (
   seed: readonly RecordingRecord[] = [],
-  options: { readonly failedBefore?: readonly string[] } = {},
+  options: {
+    readonly failedBefore?: readonly string[];
+    readonly sourcesRemain?: readonly string[];
+  } = {},
 ) => {
   const rows = new Map(seed.map((record) => [record.id, record]));
   const due = new Map<string, number>();
@@ -56,6 +59,7 @@ export const fakeRecordingStore = (
       if (failed) due.set(id, (due.get(id) ?? 0) + 1);
       deferred.push({ id, retryAt });
     },
+    sourcesRemain: async (id) => (options.sourcesRemain ?? []).includes(id),
     listFailedBefore: async ({ limit }) =>
       (options.failedBefore ?? []).slice(0, limit),
   };

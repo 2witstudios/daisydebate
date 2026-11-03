@@ -129,10 +129,29 @@ describe('media state', () => {
       assert({
         given: `a Recording ${lifecycle?.status ?? 'that does not exist'}`,
         should: `show ${state} and offer playback only when ready`,
-        actual: [media.state, media.playlistHref !== null],
-        expected: [state, state === 'watch'],
+        actual: [media.state, media.state === 'watch' && media.playlistHref],
+        expected: [
+          state,
+          state === 'watch' && '/api/recordings/rec/playback/master.m3u8',
+        ],
       });
     }
+  });
+});
+
+describe('a Broadcast stopped before the Round ended', () => {
+  test('withholds the video while the rest of the record stays open', async () => {
+    const { media, downloadHref } = await history({
+      subscribed: true,
+      viewer: { kind: 'account', userId: 'u', actorId: 'stranger' },
+      release: { releasedThroughMs: Number.MAX_SAFE_INTEGER, stopped: true },
+    });
+    assert({
+      given: 'a ready Recording of a stopped Broadcast',
+      should: 'offer neither playback nor a download',
+      actual: [media.state, downloadHref],
+      expected: ['withheld', null],
+    });
   });
 });
 

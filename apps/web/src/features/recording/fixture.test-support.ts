@@ -7,6 +7,7 @@ export const at = '2026-11-02T10:00:00.000Z';
 export const nowMs = Date.parse(at);
 export const prefix = 'recordings/rec/';
 const media: RecordingMedia = {
+  capturedFrom: at,
   playlistKey: `${prefix}hls/master.m3u8`,
   downloadKey: `${prefix}video.mp4`,
   durationMs: 60_000,
@@ -18,10 +19,10 @@ const media: RecordingMedia = {
 export const ready = {
   status: 'ready' as const,
   capture: {
-    egressId: 'EG',
+    source: { kind: 'broadcast_hold' as const, broadcastId: 'broadcast' },
     startedAt: at,
+    attempts: [{ attempt: 1, egressId: 'EG', startedAt: at }],
     endedAt: at,
-    sourceKey: `${prefix}s`,
   },
   media,
 };

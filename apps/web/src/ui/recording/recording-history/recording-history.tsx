@@ -5,6 +5,7 @@ import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
 import { CopyLink } from '../../watch/copy-link/copy-link';
 import { StateCard } from '../../watch/state-card/state-card';
+import { RecordingPlayer } from '../recording-player/recording-player';
 
 type History = Extract<RecordingHistoryScreen, { kind: 'history' }>;
 
@@ -36,19 +37,11 @@ const mediaStates = {
   failed: ['alert', 'The video could not be saved'],
   not_recorded: ['play', 'This debate was not recorded'],
   removed: ['alert', 'This video is no longer available'],
+  withheld: ['alert', 'This video is being held back'],
 } as const;
 
 function Media({ media }: { media: History['media'] }) {
-  if (media.state === 'watch')
-    return (
-      <video
-        controls
-        preload="metadata"
-        src={media.playlistHref ?? undefined}
-        aria-label="Recording of this debate"
-        className="aspect-video w-full rounded-xl bg-surface-stage shadow-2"
-      />
-    );
+  if (media.state === 'watch') return <RecordingPlayer media={media} />;
   const [icon, title] = mediaStates[media.state];
   return <StateCard icon={icon} title={title} />;
 }

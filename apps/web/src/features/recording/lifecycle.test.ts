@@ -8,10 +8,15 @@ const at = '2026-11-02T10:00:00.000Z';
 const later = '2026-11-02T11:00:00.000Z';
 const id = 'r1';
 const prefix = `recordings/${id}/`;
-const sourceKey = `${prefix}source.mp4`;
-const capture = { egressId: 'EG_1', startedAt: at };
-const endedCapture = { ...capture, endedAt: later, sourceKey };
+const source = { kind: 'broadcast_hold', broadcastId: 'b1' } as const;
+const capture = {
+  source,
+  startedAt: at,
+  attempts: [{ attempt: 1, egressId: 'EG_1', startedAt: at }],
+};
+const endedCapture = { ...capture, endedAt: later };
 const media: RecordingMedia = {
+  capturedFrom: at,
   playlistKey: `${prefix}hls/master.m3u8`,
   downloadKey: `${prefix}video.mp4`,
   durationMs: 60_000,
@@ -43,7 +48,13 @@ const apply = (
 
 describe('capture', () => {
   test('moves forward once, whatever is repeated', () => {
-    const started = { type: 'capture_started', egressId: 'EG_1', at } as const;
+    const started = {
+      type: 'capture_started',
+      source,
+      attempt: 1,
+      egressId: 'EG_1',
+      at,
+    } as const;
     assert({
       given: 'a requested Recording whose capture starts',
       should: 'be capturing',
@@ -60,7 +71,7 @@ describe('capture', () => {
       expected: 'unchanged',
     });
     assert({
-      given: 'a second Egress reporting a start',
+      given: 'a different Egress claiming a number already taken',
       should: 'refuse rather than duplicate the artifact',
       actual: apply(
         { status: 'capturing', capture },
@@ -68,15 +79,19 @@ describe('capture', () => {
       ),
       expected: { kind: 'refused', reason: 'different_capture' },
     });
-    const ended = {
-      type: 'capture_ended',
-      egressId: 'EG_1',
-      sourceKey,
-      at: later,
-    } as const;
+    assert({
+      given: 'a capture reported from another source',
+      should: 'refuse, so two sources never share one timeline',
+      actual: apply(
+        { status: 'capturing', capture },
+        { ...started, source: { kind: 'own_capture' } },
+      ),
+      expected: { kind: 'refused', reason: 'different_capture' },
+    });
+    const ended = { type: 'capture_ended', at: later } as const;
     assert({
       given: 'capture ending',
-      should: 'move to processing with its source',
+      should: 'move to processing',
       actual: apply({ status: 'capturing', capture }, ended),
       expected: { kind: 'moved', next: processing },
     });
@@ -87,13 +102,57 @@ describe('capture', () => {
       expected: 'unchanged',
     });
     assert({
-      given: 'a source outside the Recording prefix',
-      should: 'refuse, or deletion could never reach it',
+      given: 'capture ending before it started',
+      should: 'refuse',
+      actual: apply({ status: 'requested' }, ended),
+      expected: { kind: 'refused', reason: 'out_of_order' },
+    });
+  });
+
+  test('spans every Egress attempt, in order', () => {
+    const second = {
+      type: 'capture_started',
+      source,
+      attempt: 2,
+      egressId: 'EG_2',
+      at: later,
+    } as const;
+    const restarted = {
+      ...capture,
+      attempts: [
+        ...capture.attempts,
+        { attempt: 2, egressId: 'EG_2', startedAt: later },
+      ],
+    };
+    assert({
+      given: 'a crash starting a new attempt',
+      should: 'keep the first start and add the attempt',
+      actual: apply({ status: 'capturing', capture }, second),
+      expected: {
+        kind: 'moved',
+        next: { status: 'capturing', capture: restarted },
+      },
+    });
+    assert({
+      given: 'that attempt reported again',
+      should: 'change nothing',
+      actual: apply({ status: 'capturing', capture: restarted }, second).kind,
+      expected: 'unchanged',
+    });
+    assert({
+      given: 'an attempt number lower than the last and not recorded',
+      should: 'refuse rather than reorder',
       actual: apply(
-        { status: 'capturing', capture },
-        { ...ended, sourceKey: 'elsewhere/source.mp4' },
+        {
+          status: 'capturing',
+          capture: {
+            ...capture,
+            attempts: [{ attempt: 3, egressId: 'EG_3', startedAt: at }],
+          },
+        },
+        second,
       ),
-      expected: { kind: 'refused', reason: 'foreign_object' },
+      expected: { kind: 'refused', reason: 'out_of_order' },
     });
   });
 });
@@ -230,6 +289,8 @@ describe('removal', () => {
       should: 'not bring it back',
       actual: apply(removing, {
         type: 'capture_started',
+        source,
+        attempt: 1,
         egressId: 'EG_1',
         at,
       }),

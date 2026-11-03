@@ -501,18 +501,31 @@ export {
   recordingClasses,
   recordingEligibilitySchema,
   recordingFailureReasons,
+  recordingHoldPrefix,
+  holdAttemptPrefix,
   recordingLifecycleSchema,
   recordingMediaSchema,
   recordingRemovalCauses,
+  recordingSourceSchema,
   recordingStatuses,
   type RecordingClass,
   type RecordingEligibility,
   type RecordingLifecycle,
   type RecordingMedia,
   type RecordingRemovalCause,
+  type RecordingSource,
   type RecordingSpeech,
   type RecordingStatus,
 } from './recording';
+export {
+  builtRecordingMediaSchema,
+  recordingJobStateSchema,
+  recordingJobStatuses,
+  type BuiltRecordingMedia,
+  type RecordingJobState,
+} from './recording-processing';
+export { broadcastHoldPrefix } from './broadcast-hold';
+export { parseHoldPlaylist, type HoldEntry } from './egress-hold-playlist';
 export {
   capturePartialReasons,
   capturePartialReasonSchema,

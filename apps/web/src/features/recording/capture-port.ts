@@ -1,8 +1,9 @@
 import { createAppError } from '@daisy/errors';
 import type {
+  BuiltRecordingMedia,
   CompetitionType,
   RecordingLifecycle,
-  RecordingMedia,
+  RecordingSource,
 } from '@daisy/protocol';
 import { captureEligibility } from './eligibility';
 import { transitionRecording, type RecordingEvent } from './lifecycle';
@@ -29,21 +30,23 @@ export type RecordingCapturePort = {
     readonly hostOptedIn: boolean;
     readonly hostHoldsRecording: boolean;
   }) => Promise<RecordingRecord | null>;
+  /** Each Egress attempt reports once it runs; a crash adds the next attempt. */
   readonly captureStarted: (
     recordingId: string,
-    report: { readonly egressId: string; readonly at: string },
-  ) => Promise<RecordingOutcome>;
-  readonly captureEnded: (
-    recordingId: string,
     report: {
+      readonly source: RecordingSource;
+      readonly attempt: number;
       readonly egressId: string;
-      readonly sourceKey: string;
       readonly at: string;
     },
   ) => Promise<RecordingOutcome>;
+  readonly captureEnded: (
+    recordingId: string,
+    report: { readonly at: string },
+  ) => Promise<RecordingOutcome>;
   readonly mediaVerified: (
     recordingId: string,
-    report: Omit<RecordingMedia, 'speeches'>,
+    report: BuiltRecordingMedia,
   ) => Promise<RecordingOutcome>;
   readonly failed: (
     recordingId: string,
@@ -84,24 +87,21 @@ export const createRecordingCapturePort = ({
         eligibility,
       });
     },
-    captureStarted: (recordingId, { egressId, at }) =>
-      report(recordingId, { type: 'capture_started', egressId, at }),
-    captureEnded: (recordingId, { egressId, sourceKey, at }) =>
-      report(recordingId, { type: 'capture_ended', egressId, sourceKey, at }),
+    captureStarted: (recordingId, started) =>
+      report(recordingId, { type: 'capture_started', ...started }),
+    captureEnded: (recordingId, { at }) =>
+      report(recordingId, { type: 'capture_ended', at }),
     mediaVerified: async (recordingId, media) => {
       const record = await store.find(recordingId);
       if (record === null) throw createAppError('NOT_FOUND');
-      const startedAt =
-        record.lifecycle.status === 'processing'
-          ? Date.parse(record.lifecycle.capture.startedAt)
-          : null;
       const speeches =
-        startedAt === null
-          ? []
-          : speechTimeline(await inputs.readFloorIntervals(record.roundId), {
-              startedAtMs: startedAt,
+        record.lifecycle.status === 'processing'
+          ? speechTimeline(await inputs.readFloorIntervals(record.roundId), {
+              startedAtMs: Date.parse(media.capturedFrom),
               durationMs: media.durationMs,
-            });
+              gaps: media.gaps,
+            })
+          : [];
       return report(recordingId, {
         type: 'media_verified',
         media: { ...media, speeches: [...speeches] },

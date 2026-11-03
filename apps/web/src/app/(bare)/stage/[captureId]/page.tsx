@@ -5,10 +5,10 @@ export default async function StagePage({
   params,
   searchParams,
 }: {
-  readonly params: Promise<{ broadcastId: string }>;
+  readonly params: Promise<{ captureId: string }>;
   readonly searchParams: Promise<{ c?: string }>;
 }) {
-  const { broadcastId } = await params;
+  const { captureId } = await params;
   const { c } = await searchParams;
-  return <StageRoom broadcastId={broadcastId} credential={c ?? ''} />;
+  return <StageRoom captureId={captureId} credential={c ?? ''} />;
 }

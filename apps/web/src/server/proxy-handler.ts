@@ -1,4 +1,5 @@
 import { roundMediaOrigins } from '../features/round-media/browser-policy';
+import { recordingPlaybackOrigin } from '../features/recording/browser-policy';
 import { broadcastPlaybackOrigin } from '../features/spectating/browser-policy';
 import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -34,6 +35,8 @@ export type ProxySettings = {
   readonly mediaPublicUrl?: string | null;
   /** `BROADCAST_PUBLIC_ORIGIN`: where a Broadcast's public feed is read. */
   readonly broadcastPublicOrigin?: string | null;
+  /** `RECORDING_BUCKET_ENDPOINT`: where a signed Recording read points. */
+  readonly recordingBucketOrigin?: string | null;
   /**
    * The configured Sentry ingest origin (ADR 0037): the browser capture may
    * connect only there, and only when `NEXT_PUBLIC_SENTRY_DSN` is set, so
@@ -126,10 +129,9 @@ function contentSecurityPolicy(
     development,
   );
   const posthog = posthogSources(settings.analyticsHost);
-  const feed = broadcastPlaybackOrigin(
-    pathname,
-    settings.broadcastPublicOrigin,
-  );
+  const feed =
+    broadcastPlaybackOrigin(pathname, settings.broadcastPublicOrigin) ??
+    recordingPlaybackOrigin(pathname, settings.recordingBucketOrigin);
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
@@ -143,8 +145,9 @@ function contentSecurityPolicy(
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    // Only the Round page plays a feed: hls.js reads it, hands the video a blob of
-    // Media Source, and transmuxes in its own same-origin worker file.
+    // Only the Round page and the replay page play a stream: hls.js reads it, hands
+    // the video a blob of Media Source, and transmuxes in its own same-origin worker
+    // file. Native HLS on iOS Safari follows the replay's redirect as media.
     ...(feed ? [`media-src 'self' blob: ${feed}`, "worker-src 'self'"] : []),
     `connect-src 'self'${feed ? ` ${feed}` : ''}${posthog.apiHost ? ` ${posthog.apiHost}` : ''}${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${settings.sentryEndpoint ? ` ${settings.sentryEndpoint}` : ''}${development ? ' ws:' : ''}`,
     ...(development ? [] : ['upgrade-insecure-requests']),

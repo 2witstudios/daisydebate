@@ -7,25 +7,50 @@ export type FloorInterval = {
   readonly endedAtMs: number | null;
 };
 
+type Span = { readonly startMs: number; readonly endMs: number };
+
+/** What of a span survives once the stretches no media covers are taken out. */
+const outsideGaps = (span: Span, gaps: readonly Span[]): readonly Span[] => {
+  const spans: Span[] = [];
+  let cursor = span.startMs;
+  for (const gap of [...gaps].sort((x, y) => x.startMs - y.startMs)) {
+    if (gap.endMs <= cursor || gap.startMs >= span.endMs) continue;
+    if (gap.startMs > cursor)
+      spans.push({ startMs: cursor, endMs: gap.startMs });
+    cursor = Math.max(cursor, gap.endMs);
+  }
+  if (cursor < span.endMs) spans.push({ startMs: cursor, endMs: span.endMs });
+  return spans;
+};
+
 /**
  * Who spoke when, in video time. Clipped to what the capture covers: a turn that
- * ended before capture began never appears, and one still open at the end of
- * capture runs to the end of the video.
+ * ended before capture began never appears, one still open at the end of capture
+ * runs to the end of the video, and a stretch inside a gap is not claimed, so
+ * no marker leads to a moment the video does not hold.
  */
 export const speechTimeline = (
   intervals: readonly FloorInterval[],
-  capture: { readonly startedAtMs: number; readonly durationMs: number },
+  capture: {
+    readonly startedAtMs: number;
+    readonly durationMs: number;
+    readonly gaps: readonly Span[];
+  },
 ): readonly RecordingSpeech[] =>
   intervals
-    .map((interval) => ({
-      roundParticipantId: interval.roundParticipantId,
-      startMs: Math.max(0, interval.startedAtMs - capture.startedAtMs),
-      endMs: Math.min(
-        capture.durationMs,
-        (interval.endedAtMs ?? capture.startedAtMs + capture.durationMs) -
-          capture.startedAtMs,
-      ),
-    }))
+    .flatMap(({ roundParticipantId, startedAtMs, endedAtMs }) =>
+      outsideGaps(
+        {
+          startMs: Math.max(0, startedAtMs - capture.startedAtMs),
+          endMs: Math.min(
+            capture.durationMs,
+            (endedAtMs ?? capture.startedAtMs + capture.durationMs) -
+              capture.startedAtMs,
+          ),
+        },
+        capture.gaps,
+      ).map((span) => ({ roundParticipantId, ...span })),
+    )
     .filter((speech) => speech.endMs > speech.startMs)
     .sort(
       (x, y) =>

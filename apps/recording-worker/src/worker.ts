@@ -1,0 +1,198 @@
+import type { createRecordingWorkerStore } from '@daisy/db/recording-worker';
+import type { RecordingJobState } from '@daisy/protocol';
+import { RecordingVerificationError } from './build-recording';
+
+const LEASE_MS = 60_000;
+const RENEW_MS = 15_000;
+const IDLE_MS = 2000;
+const FIRST_RETRY_MS = 60_000;
+const LONGEST_RETRY_MS = 60 * 60_000;
+/** After this many failed runs a build is reported failed; a discard never gives up. */
+const BUILD_ATTEMPTS = 5;
+
+type Store = ReturnType<typeof createRecordingWorkerStore>;
+type Claimed = NonNullable<Awaited<ReturnType<Store['claim']>>>;
+
+export type WorkerEvent =
+  | 'recording.processing_failed'
+  | 'recording.processing_gave_up'
+  | 'recording.source_discard_failed';
+
+export const retryDelayMs = (failures: number): number =>
+  Math.min(LONGEST_RETRY_MS, FIRST_RETRY_MS * 2 ** Math.max(0, failures - 1));
+
+/** What a build that threw means now: try again later, or say it could not be done. */
+export const afterBuildFailure = (
+  failures: number,
+  error: unknown,
+  at: string,
+): Extract<RecordingJobState, { status: 'failed' }> | null =>
+  failures < BUILD_ATTEMPTS
+    ? null
+    : {
+        status: 'failed',
+        reason:
+          error instanceof RecordingVerificationError
+            ? 'verification_failed'
+            : 'processing_failed',
+        failedAt: at,
+      };
+
+/**
+ * One slot: claims a job, keeps its lease while it runs, and writes the result
+ * only if it still owns the job in the state it read. A crash loses nothing: the
+ * lease runs out, another slot takes the job and repeats it to the same keys. A
+ * job the web moved to discarding stops the build it is running at the next renewal.
+ */
+export const runWorker = async (deps: {
+  readonly owner: string;
+  readonly store: Pick<Store, 'claim' | 'renew' | 'finish' | 'defer'>;
+  readonly build: (
+    job: {
+      readonly recordingId: string;
+      readonly holdPrefix: string;
+      readonly attemptCount: number;
+    },
+    run: {
+      readonly workDir: string;
+      readonly signal: AbortSignal;
+    },
+  ) => Promise<RecordingJobState>;
+  /** One bounded page of deletes; zero means the prefix lists empty. */
+  readonly discardPage: (prefix: string) => Promise<number>;
+  readonly workDirOf: (recordingId: string, owner: string) => string;
+  readonly removeWorkDir: (path: string) => Promise<void>;
+  readonly now: () => number;
+  readonly sleep: (ms: number) => Promise<void>;
+  readonly stopped: () => boolean;
+  readonly report: (event: WorkerEvent) => void;
+}) => {
+  const { store, owner } = deps;
+  const iso = () => new Date(deps.now()).toISOString();
+
+  /**
+   * Keeps the lease until released, and aborts the moment the job is no longer
+   * ours: fenced, moved to discarding, or this process stopping.
+   */
+  const holdLease = (job: Claimed) => {
+    const lost = new AbortController();
+    let released = false;
+    void (async () => {
+      while (!released) {
+        await deps.sleep(RENEW_MS);
+        if (released) return;
+        const ours =
+          !deps.stopped() &&
+          (await store
+            .renew({
+              recordingId: job.recordingId,
+              owner,
+              epoch: job.leaseEpoch,
+              expected: job.status,
+              leaseUntil: new Date(deps.now() + LEASE_MS),
+            })
+            // A blip is not a lost lease: the next renewal decides.
+            .catch(() => true));
+        if (!ours) {
+          lost.abort();
+          return;
+        }
+      }
+    })();
+    return {
+      signal: lost.signal,
+      release: () => {
+        released = true;
+      },
+    };
+  };
+
+  const finish = (job: Claimed, state: RecordingJobState) =>
+    store.finish({
+      recordingId: job.recordingId,
+      owner,
+      epoch: job.leaseEpoch,
+      expected: job.status,
+      state,
+    });
+
+  const defer = (job: Claimed, failed: boolean) =>
+    store.defer({
+      recordingId: job.recordingId,
+      owner,
+      epoch: job.leaseEpoch,
+      retryAt: new Date(
+        deps.now() + (failed ? retryDelayMs(job.failures + 1) : 0),
+      ),
+      failed,
+    });
+
+  const runBuild = async (job: Claimed, attemptCount: number) => {
+    const workDir = deps.workDirOf(job.recordingId, owner);
+    const lease = holdLease(job);
+    try {
+      const state = await deps.build(
+        {
+          recordingId: job.recordingId,
+          holdPrefix: job.holdPrefix,
+          attemptCount,
+        },
+        { workDir, signal: lease.signal },
+      );
+      await finish(job, state);
+    } catch (error) {
+      // A job taken away or a shutdown is nobody's failure: no backoff, no report.
+      if (lease.signal.aborted || deps.stopped()) {
+        await defer(job, false);
+        return;
+      }
+      deps.report('recording.processing_failed');
+      const gaveUp = afterBuildFailure(job.failures + 1, error, iso());
+      if (gaveUp) {
+        deps.report('recording.processing_gave_up');
+        await finish(job, gaveUp);
+      } else await defer(job, true);
+    } finally {
+      lease.release();
+      await deps.removeWorkDir(workDir);
+    }
+  };
+
+  const runDiscard = async (job: Claimed) => {
+    const lease = holdLease(job);
+    try {
+      while ((await deps.discardPage(job.holdPrefix)) > 0)
+        if (lease.signal.aborted) return;
+      await finish(job, { status: 'settled', settledAt: iso() });
+    } catch {
+      deps.report('recording.source_discard_failed');
+      await defer(job, true);
+    } finally {
+      lease.release();
+    }
+  };
+
+  while (!deps.stopped()) {
+    // A database blip must not end this slot: report it and try again.
+    const job = await store
+      .claim({
+        owner,
+        now: new Date(deps.now()),
+        leaseUntil: new Date(deps.now() + LEASE_MS),
+      })
+      .catch(() => {
+        deps.report('recording.processing_failed');
+        return null;
+      });
+    if (!job) {
+      await deps.sleep(IDLE_MS);
+      continue;
+    }
+    const { state } = job;
+    await (
+      state.status === 'queued'
+        ? runBuild(job, state.attemptCount)
+        : runDiscard(job)
+    ).catch(() => deps.report('recording.processing_failed'));
+  }
+};

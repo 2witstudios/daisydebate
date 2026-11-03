@@ -15,10 +15,87 @@ object and the sweep deletes nothing: intents wait, and are logged as failures.
 
 Creating the bucket and its secrets is a deploy-rail change with human sign-off.
 
+## Capture and processing
+
+A Round with a Broadcast is recorded from that Broadcast's Egress. A casual Round whose
+host opted into recording alone runs its own Egress of the same stage page, with the
+same observer revocation and the same microphone hold. `RECORDING_CAPTURE=on` turns on
+the capture sweep; unset, no Recording is requested and no Egress starts for one.
+
+Every Egress attempt writes under its own number in the private hold bucket:
+`hold/<broadcastId>/<attempt>/`, or `recording-hold/<recordingId>/<attempt>/` for an own
+capture. A crash starts the next attempt. The web's sweep (one pass a second) records
+each attempt, and ends capture once the Round is over or the Broadcast stopped and
+LiveKit reports no Egress running. There is no timer.
+
+`apps/recording-worker` then does the bulk work. It is its own app and role because a
+build would take cores from a live release, and because its login reaches
+`recording_processing_jobs` alone: it can claim to have built media, but only the web's
+capture port, under the row lock, can make a Recording ready. It:
+
+1. Reads every attempt in order. A clean Egress left `full.mp4`. A crashed one did not,
+   so its held segments are joined instead, and a segment missing ends that attempt.
+   `p.m3u8` gives each attempt its real start time, and an attempt with no timed playlist
+   has no honest place, so it is left out and becomes part of a gap.
+2. Writes one whole video to `recordings/<id>/video.mp4`, the download. One clean attempt
+   is that file, remuxed. Otherwise the attempts are joined with slate video for the real
+   length of each gap, so the file states the gap too. Video time follows real time.
+3. Builds 720p, 480p and 240p HLS from it under `recordings/<id>/hls/`, uploads
+   everything, and verifies against the bucket: every playlist finished and full length,
+   every segment present at its written size.
+4. Reports `built`. The web turns that into `ready` with the speech timeline, or refuses
+   it if the Recording was taken down or removed meanwhile.
+
+A run that fails comes due again after one minute, doubling to an hour. Five failed runs
+end the Recording as `failed`, with `processing_failed` or `verification_failed`. A run
+that dies holds a 60 second lease, renewed every 15; the next owner repeats it to the same
+keys with a higher epoch, and the old owner can no longer write. One slot uses every core
+it can; add machines rather than slots. A build's scratch space is about three times the
+video: `RECORDING_WORK_DIR` needs room for the longest Round times three.
+
+### Sources
+
+The job row exists from the first attempt, so a Recording removed mid-capture still knows
+what it left. The worker deletes `holdPrefix` once a Recording is `ready`, `removing` or
+`removed` and no Broadcast or own Egress may still use it; a scheduled Broadcast can hold
+them for hours. A Recording taken down keeps its sources, as evidence. A removal does not
+end as `removed` until they are gone.
+
+To find stuck work:
+
+```sql
+select recording_id, status, failures, due_at, lease_owner
+from recording_processing_jobs where status <> 'settled' order by updated_at;
+```
+
+## What it needs to run
+
+- A `recording-worker` app (`fly.recording-worker.toml`), its database login
+  `daisy_recording_worker` (the migration creates the role with no password), and
+  `RECORDING_WORKER_DATABASE_URL`.
+- `RECORDING_HOLD_ENDPOINT`, `_BUCKET`, `_KEY` and `_SECRET`: a credential for the hold
+  bucket that can read, list and delete. `RECORDING_BUCKET_*`: one that can write the
+  Recording bucket.
+- On the Recording bucket, CORS allowing `GET` from the app's origin. hls.js follows the
+  playback route's redirect to a signed read, so without it the replay page cannot play in
+  Chrome or Firefox. `RECORDING_BUCKET_ENDPOINT` must also be set on the web app, which is
+  what names the bucket in the replay page's browser policy.
+
 ## States
 
 `requested`, `capturing`, `processing`, `ready`, `failed`, `taken_down`, `removing`,
 `removed`. `recordings.lifecycle` is the whole state; `status` repeats its tag.
+
+A Broadcast stopped before its watermark passed the Round's end still builds its
+Recording, and the audience sees that video as held back (ISSUE-1094). Seats and
+insiders can still watch it; releasing it to the audience is an operator action not yet
+built.
+
+## Coverage
+
+`media.gaps` states what the video does not hold, and the player lists it. Today only
+capture restarts are recorded (`capture_restart`). A private phase shows as the stage's
+slate in the video and is not listed as a gap.
 
 ## Takedown
 
@@ -31,9 +108,9 @@ removes them. A Recording taken down while ready can be restored as it was.
 
 A participant's removal of a casual Recording, an account's erasure and a moderator's
 removal all write `removing`, a durable intent. The sweep runs every minute. It
-lists the Recording's prefix, deletes a bounded batch, and marks it `removed` only
-when the prefix lists empty and at least an hour has passed since the request, so
-a capture still writing cannot leave an object behind. Ranked Recordings cannot be
+lists the Recording's prefix, deletes a bounded batch, and marks it `removed` only when
+the prefix lists empty, its sources are gone from the hold bucket, and at least an hour
+has passed since the request, so a build still uploading cannot leave an object behind. Ranked Recordings cannot be
 removed by a participant or by erasure.
 
 ## When deletion is stuck

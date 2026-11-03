@@ -1,9 +1,11 @@
 import { releasedThrough, segmentDue } from '@daisy/debate-engine';
-import type { BroadcastReleasePolicy } from '@daisy/protocol';
+import {
+  parseHoldPlaylist,
+  type BroadcastReleasePolicy,
+  type HoldEntry,
+} from '@daisy/protocol';
 import {
   mediaPlaylist,
-  parseHoldPlaylist,
-  type HoldEntry,
   RENDITIONS,
   type ReleasedSegment,
 } from './hold-manifest';

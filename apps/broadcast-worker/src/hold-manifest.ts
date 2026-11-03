@@ -5,40 +5,10 @@ export const RENDITIONS = [
   { name: '240', width: 426, height: 240, videoBitrate: '400k' },
 ] as const;
 
-export type HoldEntry = {
-  readonly name: string;
-  readonly capturedAtMs: number;
-  readonly durationMs: number;
-};
-
 export type ReleasedSegment = {
   readonly seq: number;
   readonly capturedAtMs: number;
   readonly durationMs: number;
-};
-
-/**
- * Stops at the first entry without a capture time: the delay is counted from
- * it, so a segment whose age is unknown must never become due.
- */
-export const parseHoldPlaylist = (text: string): readonly HoldEntry[] => {
-  const entries: HoldEntry[] = [];
-  let capturedAtMs = Number.NaN;
-  let durationMs = Number.NaN;
-  for (const line of text.split('\n')) {
-    if (line.startsWith('#EXT-X-PROGRAM-DATE-TIME:'))
-      capturedAtMs = Date.parse(line.slice(25));
-    else if (line.startsWith('#EXTINF:'))
-      durationMs = Math.round(parseFloat(line.slice(8)) * 1000);
-    else if (line && !line.startsWith('#')) {
-      if (Number.isNaN(capturedAtMs) || Number.isNaN(durationMs))
-        return entries;
-      entries.push({ name: line.trim(), capturedAtMs, durationMs });
-      capturedAtMs = Number.NaN;
-      durationMs = Number.NaN;
-    }
-  }
-  return entries;
 };
 
 export const mediaPlaylist = (

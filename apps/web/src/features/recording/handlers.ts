@@ -45,9 +45,16 @@ const seeOther = (location: string) =>
 const playbackResponse = (answer: PlaybackAnswer): Response =>
   answer.kind === 'playlist'
     ? new Response(answer.text, {
-        headers: { 'content-type': 'application/vnd.apple.mpegurl' },
+        headers: {
+          'content-type': 'application/vnd.apple.mpegurl',
+          // Each read is authorized again, so a takedown reaches a playing viewer.
+          'cache-control': 'no-store',
+        },
       })
-    : new Response(null, { status: 302, headers: { location: answer.url } });
+    : new Response(null, {
+        status: 302,
+        headers: { location: answer.url, 'cache-control': 'no-store' },
+      });
 
 const readRemovalForm = async (request: Request) => {
   const body = await readBoundedBody(request, MAX_REMOVAL_FORM_BYTES);
