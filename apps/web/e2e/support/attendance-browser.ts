@@ -85,6 +85,7 @@ export const receiptFrom = async (
 export async function actualSpeech(
   request: APIRequestContext,
   roundId: string,
+  timeoutMs = 10_000,
 ) {
   let actual:
     Awaited<ReturnType<typeof readBallotRound>>['segments'][number] | undefined;
@@ -96,7 +97,7 @@ export async function actualSpeech(
         );
         return actual?.id ?? null;
       },
-      { timeout: 10_000 },
+      { timeout: timeoutMs },
     )
     .toEqual(expect.any(String));
   if (!actual) throw new Error('Actual speech opening missing');

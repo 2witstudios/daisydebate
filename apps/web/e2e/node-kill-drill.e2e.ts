@@ -25,7 +25,9 @@ import {
   readDrillTarget,
   type DrillMoment,
 } from '../scripts/node-kill-drill/target';
+import { oneOnOneSettings } from '@daisy/db/reference-formats';
 import { actualSpeech } from './support/attendance-browser';
+import { oneOnOneChoice } from './support/human-round-selection';
 import {
   ballotRoundCommand,
   readBallotRound,
@@ -76,6 +78,8 @@ const WATCH_MAX_MS = 75_000;
 const PLATFORM_RESTART_MS = 120_000;
 const UNSAFE_BAR_MS = 60_000;
 const NEXT_SPEECH_MS = 15_000;
+const LATER_SPEECH_MS = 5000;
+const PLAY_OUT_LIMIT_MS = 300_000;
 const SEAL_LIMIT_MS = 180_000;
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -192,7 +196,7 @@ const enableSound = async (page: Page) => {
   if (await button.isVisible()) await button.click();
 };
 
-/** Ends whichever speech is open, as its speaker, until none is left or time runs out. */
+/** The open speech's speaker yields; false while no speech is open to yield. */
 async function endOpenSpeech(members: readonly Member[], roundId: string) {
   const request = members[0]!.context.request;
   const view = await readBallotRound(request, roundId);
@@ -200,19 +204,46 @@ async function endOpenSpeech(members: readonly Member[], roundId: string) {
     (segment) => segment.type === 'speech' && segment.endedAt === null,
   );
   if (!open) return false;
-  // The proof format's two speeches: AC is the affirmative's, NC the negative's.
-  const role = open.rulesSegmentKey === 'AC' ? 'affirmative' : 'negative';
+  const side = oneOnOneChoice.definition.segments.find(
+    (segment) => segment.key === open.rulesSegmentKey,
+  )?.side;
   const speaker = view.participants.find(
-    (seat) => seat.role === role && 'id' in seat,
+    (seat) => seat.role === side && 'id' in seat,
   );
   if (!speaker || !('id' in speaker)) throw new Error('Speaker seat missing');
-  const member = members[role === 'affirmative' ? 0 : 1]!;
+  const member = members[side === 'affirmative' ? 0 : 1]!;
   await ballotRoundCommand(
     member.context.request,
     await readBallotRound(member.context.request, roundId),
     { type: 'yield', participantId: speaker.id },
   );
   return true;
+}
+
+/**
+ * Plays out the rest of the format: each speech is held long enough to be owed capture and
+ * then given up, and cross-examination runs its clock. Every floor change is measured.
+ */
+async function playOutRound(members: readonly Member[], roundId: string) {
+  const request = members[0]!.context.request;
+  const deadline = nowMs() + PLAY_OUT_LIMIT_MS;
+  let speechesHeld = 0;
+  let lastSpeech: string | null = null;
+  while (nowMs() < deadline) {
+    const view = await readBallotRound(request, roundId);
+    if (view.status === 'completed') return;
+    const open = view.segments.find(
+      (segment) => segment.type === 'speech' && segment.endedAt === null,
+    );
+    if (open && open.id !== lastSpeech) {
+      lastSpeech = open.id;
+      speechesHeld += 1;
+    }
+    const hold = speechesHeld === 1 ? NEXT_SPEECH_MS : LATER_SPEECH_MS;
+    if (open?.startedAt && nowMs() - Date.parse(open.startedAt) >= hold)
+      await endOpenSpeech(members, roundId).catch(() => false);
+    await pause(1000);
+  }
 }
 
 const retrying = async <T>(limitMs: number, act: () => Promise<T>) => {
@@ -334,6 +365,8 @@ async function drillOneKill(
   try {
     const { round, speaker, listener } = await grantedDebaters(
       accounts.members,
+      oneOnOneChoice,
+      oneOnOneSettings.speechTiming.countdownMs,
     );
     draft = { ...draft, roundId: round.id };
     const seats: readonly Seat[] = await Promise.all(
@@ -356,7 +389,11 @@ async function drillOneKill(
         return { name, member, participantId: own.id, page };
       }),
     );
-    const speech = await actualSpeech(speaker.context.request, round.id);
+    const speech = await actualSpeech(
+      speaker.context.request,
+      round.id,
+      60_000,
+    );
     const before = await Promise.all(
       seats.map((seat) => untilHealthy(seat, round.id)),
     );
@@ -448,12 +485,10 @@ async function drillOneKill(
       };
     });
 
-    // The Round goes on: the rest of this speech is given up, the next is held
-    // briefly so capture is owed after recovery, and then it ends.
+    // The Round goes on: the rest of this speech is given up, and the format plays out.
     if (sample.moment === 'mid-speech')
       await retrying(120_000, () => endOpenSpeech(accounts.members, round.id));
-    await pause(NEXT_SPEECH_MS);
-    await retrying(120_000, () => endOpenSpeech(accounts.members, round.id));
+    await playOutRound(accounts.members, round.id);
 
     await expect
       .poll(
