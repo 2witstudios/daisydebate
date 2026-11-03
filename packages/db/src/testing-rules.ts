@@ -30,6 +30,6 @@ export const validRules: RoundRules = {
   countdownMs: 10_000,
   interaction: {
     yield: null,
-    interruptions: { allowed: 'disabled' },
+    interruptions: { allowed: 'disabled' as const },
   },
 };

@@ -46,7 +46,7 @@ const round = {
     countdownMs: 10_000,
     interaction: {
       yield: null,
-      interruptions: { allowed: 'disabled' },
+      interruptions: { allowed: 'disabled' as const },
     },
   },
   checkpoint: emptyRuntimeCheckpoint,
