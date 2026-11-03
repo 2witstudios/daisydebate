@@ -40,17 +40,19 @@ export async function RoundAudience({
           kind: 'visitor',
           signInHref: `/sign-in?next=${encodeURIComponent(returnTo)}`,
         }
-      : principal.actorId === null || !claimedUsername(identity)
-        ? { kind: 'needs-username' }
-        : audience.inLiveRoom
-          ? { kind: 'live-room', react, reportMessage }
-          : {
-              kind: 'account',
-              requestId: systemId.next(),
-              postChat: postSpectatorChatAction.bind(null, target),
-              react,
-              reportMessage,
-            };
+      : identity.state === 'restricted'
+        ? { kind: 'restricted' }
+        : principal.actorId === null || !claimedUsername(identity)
+          ? { kind: 'needs-username' }
+          : audience.inLiveRoom
+            ? { kind: 'live-room', react, reportMessage }
+            : {
+                kind: 'account',
+                requestId: systemId.next(),
+                postChat: postSpectatorChatAction.bind(null, target),
+                react,
+                reportMessage,
+              };
   return (
     <>
       {audience.seated ? null : (

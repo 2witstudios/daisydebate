@@ -8,7 +8,10 @@ import Link from 'next/link';
 import type { FormStateAction } from '../form-action/action-form';
 import { ActionForm } from '../form-action/action-form';
 import { Button } from '../components/button/button';
-import { LIVE_ROOM_CHAT_TEXT } from '../../features/messaging/spectator-chat/form';
+import {
+  LIVE_ROOM_CHAT_TEXT,
+  RESTRICTED_AUDIENCE_TEXT,
+} from '../../features/messaging/spectator-chat/form';
 import { reactionLabels, viewerCountText } from './audience-copy';
 import { SpectatorChatList } from './spectator-chat-list';
 import { useAudienceSnapshot } from './use-audience-snapshot';
@@ -17,6 +20,8 @@ import { useAudienceSnapshot } from './use-audience-snapshot';
 export type AudienceViewer =
   | { readonly kind: 'visitor'; readonly signInHref: string }
   | { readonly kind: 'needs-username' }
+  /** A suspension or ban is in force: reads the audience and joins none of it. */
+  | { readonly kind: 'restricted' }
   | {
       readonly kind: 'account';
       readonly requestId: string;
@@ -171,6 +176,8 @@ export function AudiencePanel({
             <ChatComposer viewer={viewer} />
           ) : viewer.kind === 'live-room' ? (
             <p className="text-sm text-ink-muted">{LIVE_ROOM_CHAT_TEXT}</p>
+          ) : viewer.kind === 'restricted' ? (
+            <p className="text-sm text-ink-muted">{RESTRICTED_AUDIENCE_TEXT}</p>
           ) : viewer.kind === 'visitor' ? (
             <p className="text-sm text-ink-muted">
               <Link href={viewer.signInHref} className="underline">

@@ -3,7 +3,7 @@ import type { Database } from '@daisy/db';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { spectatorChatPostSchema } from '@daisy/protocol';
 import {
-  accountRoute,
+  audienceRoute,
   roundIdOf,
   type AccountRouteDeps,
 } from '../../../server/account-route';
@@ -28,7 +28,7 @@ export const createSpectatorChatRoute = (
   },
 ) => {
   return (request: Request) =>
-    accountRoute(
+    audienceRoute(
       deps,
       {
         operation: 'audience.chat',
