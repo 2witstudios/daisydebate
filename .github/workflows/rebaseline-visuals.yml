@@ -267,9 +267,10 @@ jobs:
       pull-requests: read
     steps:
       # Only CI at this commit, which is the head this workflow rendered or that
-      # plus baseline PNGs alone. GitHub's head_sha, branch and status filters
-      # all omitted a held CI run (run 41538127991), so read CI's recent runs
-      # unfiltered and match the commit here. A failed API call is one more try.
+      # plus baseline PNGs alone, and never a fork's run at the same commit.
+      # GitHub's head_sha, branch and status filters omitted held CI run
+      # 41539295130 for at least 10 minutes after the push, so read CI's recent
+      # runs unfiltered and match here. A failed API call is one more try.
       - name: Approve the held CI run at the head
         id: approve
         env:
@@ -284,21 +285,33 @@ jobs:
           if [ "$PUSHED" = true ]; then passes=24; fi
           undecided=false
           refused=false
+          moved=false
           pass=0
           while [ "$pass" -lt "$passes" ]; do
             pass=$((pass + 1))
             if [ "$pass" -gt 1 ]; then sleep 10; fi
             # By branch: a commit's own pull request link can lag its push, and
             # reading that as no pull request would leave CI held in silence.
-            if ! open=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:$BRANCH" | jq length); then
+            if ! pulls=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:$BRANCH"); then
               continue
             fi
-            if [ "$open" = 0 ]; then
+            if ! head=$(printf '%s' "$pulls" | jq -r '.[0].head.sha // "none"'); then
+              continue
+            fi
+            if [ "$head" = none ]; then
               echo "::notice::$BRANCH has no open pull request, so no CI runs for it"
               exit 0
             fi
+            # Approving an older head's run would cancel the newer head's CI
+            # through cancel-in-progress. A fresh push can also read as the old
+            # head for a moment, so look again rather than give up.
+            moved=false
+            if [ "$head" != "$SHA" ]; then
+              moved=true
+              continue
+            fi
             if ! runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?per_page=100" |
-              jq --arg sha "$SHA" '[.workflow_runs[] | select(.head_sha == $sha and .event == "pull_request")]'); then
+              jq --arg sha "$SHA" --arg repo "$GITHUB_REPOSITORY" '[.workflow_runs[] | select(.head_sha == $sha and .event == "pull_request" and .head_repository.full_name == $repo)]'); then
               continue
             fi
             held=$(printf '%s' "$runs" | jq -r '.[] | select(.conclusion == "action_required") | .id')
@@ -320,6 +333,10 @@ jobs:
             # Listed but not started: it may yet turn out held, so keep watching.
             if printf '%s' "$runs" | jq -e 'length > 0' > /dev/null; then undecided=true; fi
           done
+          if [ "$moved" = true ]; then
+            echo "::notice::$BRANCH moved past $SHA, so its new head's own push starts CI"
+            exit 0
+          fi
           if [ "$refused" = true ]; then
             echo "::error::GitHub refused to approve CI at $SHA"
             exit 1

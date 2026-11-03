@@ -36,6 +36,7 @@ export async function readLockedFrozenRoundTranscript(
       segmentId: transcriptSegments.segmentId,
       roundParticipantId: transcriptSegments.roundParticipantId,
       state: transcriptSegments.state,
+      partialReasons: transcriptSegments.partialReasons,
       chunkCount: transcriptSegments.chunkCount,
       sealedChunkCount: transcriptSegments.sealedChunkCount,
       sealedAt: transcriptSegments.sealedAt,

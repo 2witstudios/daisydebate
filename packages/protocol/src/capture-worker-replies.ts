@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { idSchema, roundStatusSchema, segmentTypes } from '@daisy/protocol';
+import { segmentTypes } from './format';
+import { idSchema } from './primitives';
+import { roundStatusSchema } from './round';
 const iso = z.iso.datetime({ precision: 3 });
 const version = z.number().int().nonnegative().max(2147483647);
 /** The non-judge seats a worker sees, with their bound media identities. */

@@ -4,8 +4,14 @@ import type { ErrorReporter } from '@daisy/observability';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
 import {
+  acknowledgedReply,
+  captureMutationReply,
   captureRefusalSchema,
+  captureStateReply,
   idSchema,
+  leaseReply,
+  sealReply,
+  tokenReply,
   type CaptureRefusal,
 } from '@daisy/protocol';
 import { z } from 'zod';
@@ -67,9 +73,11 @@ export function createMediaCaptureHandlers(input: {
           try {
             if (operation === 'token')
               return Response.json(
-                await input.token(
-                  parseValidated(captureScope, payload),
-                  principal,
+                tokenReply.parse(
+                  await input.token(
+                    parseValidated(captureScope, payload),
+                    principal,
+                  ),
                 ),
               );
             const relay = relays.get(String(operation));
@@ -96,18 +104,22 @@ export function createMediaCaptureHandlers(input: {
                   { durationMs: reinstatedAfterMs },
                   'Capture lease reinstated after an outage',
                 );
-              return Response.json(lease);
+              return Response.json(leaseReply.parse(lease));
             }
             const operations = {
-              release: capture.releaseMediaWorkerLease,
-              read: capture.readMediaCaptureState,
-              append: capture.appendCapturedTranscript,
-              observe: capture.observeCapturedStream,
-              seal: capture.sealCapturedStream,
-            };
-            const dispatch = operations[operation as keyof typeof operations];
-            if (!dispatch) throw createAppError('AUTHORIZATION');
-            return Response.json((await dispatch(payload)) ?? null);
+              release: [capture.releaseMediaWorkerLease, acknowledgedReply],
+              read: [capture.readMediaCaptureState, captureStateReply],
+              append: [capture.appendCapturedTranscript, captureMutationReply],
+              observe: [capture.observeCapturedStream, captureMutationReply],
+              seal: [capture.sealCapturedStream, sealReply],
+            } as const;
+            if (!Object.hasOwn(operations, String(operation)))
+              throw createAppError('AUTHORIZATION');
+            const route = operations[operation as keyof typeof operations];
+            const [dispatch, reply] = route;
+            return Response.json(
+              reply.parse((await dispatch(payload as never)) ?? null),
+            );
           } catch (error) {
             const refusal = namedCaptureRefusal(error, id);
             if (refusal) return refusal;

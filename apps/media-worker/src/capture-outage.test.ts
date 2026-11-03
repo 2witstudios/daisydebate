@@ -210,6 +210,7 @@ const heldClip = {
   before: at(1000),
   after: at(2000),
   clipKey: 'k',
+  kind: 'audible',
   wav: new Uint8Array(4),
   bytes: 4,
 } as unknown as QueuedClip;

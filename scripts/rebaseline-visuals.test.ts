@@ -1,5 +1,4 @@
 import {
-  chmodSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -11,32 +10,16 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  type Job,
+  read,
+  runStep,
+  type Workflow,
+  workflow,
+} from './rebaseline-visuals.test-support';
 
 setupRitewayBun();
 
-type Step = {
-  id?: string;
-  run?: string;
-  uses?: string;
-  env?: Record<string, string>;
-  with?: Record<string, unknown>;
-};
-type Job = {
-  'runs-on': string;
-  needs?: string | string[];
-  permissions?: Record<string, string>;
-  steps: Step[];
-};
-type Workflow = {
-  on: Record<string, { inputs?: Record<string, { required?: boolean }> }>;
-  permissions: Record<string, string>;
-  jobs: Record<string, Job>;
-};
-
-const path = '.github/workflows/rebaseline-visuals.yml';
-const read = (file: string) =>
-  readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-const workflow = Bun.YAML.parse(read(path)) as Workflow;
 const e2e = Bun.YAML.parse(read('.github/workflows/e2e.yml')) as Workflow;
 const jobText = (job: Job) => JSON.stringify(job);
 
@@ -134,213 +117,6 @@ describe('Rebaseline visuals workflow (ADR 0073)', () => {
         message: true,
         push: true,
       },
-    });
-  });
-});
-
-/**
- * Runs one workflow step's script with stub commands first on its PATH, over a
- * scratch folder that `setup` fills and `read` reads back.
- */
-const runStep = <T>(
-  step: Step,
-  setup: (dir: string) => {
-    stubs: Record<string, string>;
-    env: Record<string, string>;
-  },
-  read: (dir: string) => T,
-) => {
-  const dir = mkdtempSync(join(tmpdir(), 'rebaseline-step-'));
-  try {
-    const { stubs, env } = setup(dir);
-    for (const [name, script] of Object.entries(stubs)) {
-      writeFileSync(join(dir, name), `#!/bin/sh\n${script}\n`);
-      chmodSync(join(dir, name), 0o755);
-    }
-    const run = Bun.spawnSync(['bash', '-c', step.run!], {
-      env: {
-        PATH: `${dir}:${process.env.PATH}`,
-        GITHUB_REPOSITORY: 'owner/daisy',
-        ...env,
-      },
-    });
-    return { ok: run.exitCode === 0, ...read(dir) };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-};
-
-/**
- * Runs the approval step against a stub `gh` answering `pulls` and `runs`.
- * `failOnce` fails the first call of that kind, as a transient API error does.
- * Returns the exit status and each run the step asked GitHub to approve.
- */
-const runApprove = (
-  pulls: unknown[],
-  runs: unknown[],
-  failOnce?: 'pulls' | 'runs' | 'approve',
-  pushed = true,
-) => {
-  const step = workflow.jobs['start-checks']!.steps.find(
-    ({ id }) => id === 'approve',
-  )!;
-  return runStep(
-    step,
-    (dir) => {
-      const fail = (kind: string) =>
-        failOnce === kind
-          ? `[ -e '${dir}/failed' ] || { touch '${dir}/failed'; exit 1; }; `
-          : '';
-      writeFileSync(join(dir, 'calls'), '');
-      return {
-        stubs: {
-          gh: `echo "$*" >> '${dir}/calls'
-case "$*" in
-  *"/pulls?state=open&head=owner:pu/lobby") ${fail('pulls')}echo '${JSON.stringify(pulls)}' ;;
-  *"/actions/workflows/ci.yml/runs?per_page=100") ${fail('runs')}echo '${JSON.stringify({ workflow_runs: runs })}' ;;
-  *"/approve") ${fail('approve')}: ;;
-esac`,
-          sleep: ':',
-        },
-        env: {
-          GITHUB_REPOSITORY_OWNER: 'owner',
-          SHA: 'a'.repeat(40),
-          BRANCH: 'pu/lobby',
-          PUSHED: String(pushed),
-        },
-      };
-    },
-    (dir) => ({
-      approved: readFileSync(join(dir, 'calls'), 'utf8')
-        .split('\n')
-        .filter((call) => call.startsWith('api --method POST'))
-        .map((call) => call.match(/runs\/(\d+)\/approve/)?.[1]),
-    }),
-  );
-};
-
-const prRun = (
-  id: number,
-  status: string,
-  conclusion: string | null,
-  head_sha = 'a'.repeat(40),
-) => ({ id, status, conclusion, head_sha, event: 'pull_request' });
-const held = (id: number, head_sha?: string) =>
-  prRun(id, 'completed', 'action_required', head_sha);
-
-describe('Rebaseline visuals start-checks', () => {
-  test('the job that holds actions: write', () => {
-    const job = workflow.jobs['start-checks']!;
-    assert({
-      given: 'the start-checks job',
-      should:
-        'check out nothing and run on any resolved target, even when nothing was pushed',
-      actual: {
-        condition: (job as Job & { if?: string }).if,
-        uses: job.steps.flatMap((step) => (step.uses ? [step.uses] : [])),
-        head: job.steps[0]?.env?.SHA,
-      },
-      expected: {
-        condition: "${{ !cancelled() && needs.resolve.result == 'success' }}",
-        uses: [],
-        head: '${{ needs.commit.outputs.sha || needs.resolve.outputs.sha }}',
-      },
-    });
-  });
-
-  test('a CI run held at the head', () => {
-    assert({
-      given: 'CI held at the head',
-      should: 'approve it and finish',
-      actual: runApprove([{ number: 1 }], [held(11)]),
-      expected: { ok: true, approved: ['11'] },
-    });
-  });
-
-  test('a CI run already running', () => {
-    assert({
-      given: 'CI running at the head, as after a person pushed it',
-      should: 'finish without approving anything',
-      actual: runApprove([{ number: 1 }], [prRun(11, 'in_progress', null)]),
-      expected: { ok: true, approved: [] },
-    });
-  });
-
-  test('a CI run that has not started', () => {
-    const waiting = (status: string) =>
-      runApprove([{ number: 1 }], [prRun(11, status, null)]);
-    assert({
-      given: 'CI queued, requested or pending for the whole wait, never held',
-      should: 'keep watching, then finish without approving anything',
-      actual: [waiting('queued'), waiting('requested'), waiting('pending')],
-      expected: [
-        { ok: true, approved: [] },
-        { ok: true, approved: [] },
-        { ok: true, approved: [] },
-      ],
-    });
-  });
-
-  test('a held run at another commit', () => {
-    assert({
-      given: 'CI held only at some other pull request head',
-      should: 'never approve that run, and fail when its own never appears',
-      actual: runApprove([{ number: 1 }], [held(11, 'b'.repeat(40))]),
-      expected: { ok: false, approved: [] },
-    });
-  });
-
-  test('a branch with no pull request', () => {
-    assert({
-      given: 'a head on a branch with no open pull request',
-      should: 'finish without approving anything',
-      actual: runApprove([], []),
-      expected: { ok: true, approved: [] },
-    });
-  });
-
-  test('a pushed head whose CI never appears', () => {
-    assert({
-      given: 'a pushed head on a pull request with no CI run, as in a conflict',
-      should: 'fail rather than report the checks as started',
-      actual: runApprove([{ number: 1 }], []).ok,
-      expected: false,
-    });
-  });
-
-  test('an unpushed head past the listing', () => {
-    assert({
-      given: 'nothing committed and no CI run at the head in the recent runs',
-      should: 'finish, since nothing new was pushed for CI to run on',
-      actual: runApprove([{ number: 1 }], [], undefined, false),
-      expected: { ok: true, approved: [] },
-    });
-  });
-
-  test('a held run at an unpushed head', () => {
-    assert({
-      given: 'nothing committed and CI held, as after a cancelled dispatch',
-      should: 'approve the stranded run',
-      actual: runApprove([{ number: 1 }], [held(11)], undefined, false),
-      expected: { ok: true, approved: ['11'] },
-    });
-  });
-
-  test('transient API failures', () => {
-    const runs = [held(11)];
-    assert({
-      given: 'one failed pull request lookup, run listing or approval',
-      should: 'retry and approve the held run',
-      actual: [
-        runApprove([{ number: 1 }], runs, 'pulls'),
-        runApprove([{ number: 1 }], runs, 'runs'),
-        runApprove([{ number: 1 }], runs, 'approve'),
-      ],
-      expected: [
-        { ok: true, approved: ['11'] },
-        { ok: true, approved: ['11'] },
-        { ok: true, approved: ['11', '11'] },
-      ],
     });
   });
 });

@@ -414,3 +414,23 @@ export {
   analyticsConsentSchema,
   type AnalyticsConsent,
 } from './analytics-consent';
+export {
+  capturePartialReasons,
+  capturePartialReasonSchema,
+  type CaptureFacts,
+  type CaptureGap,
+  type CaptureInterval,
+  type CapturePartialReason,
+  type CaptureRule,
+  type CaptureVerdict,
+  type CoverageEdges,
+  type StreamCoverage,
+} from './capture-verdict';
+export {
+  acknowledgedReply,
+  captureMutationReply,
+  captureStateReply,
+  leaseReply,
+  sealReply,
+  tokenReply,
+} from './capture-worker-replies';

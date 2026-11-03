@@ -1,11 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql, type SQLWrapper } from 'drizzle-orm';
-import type {
-  CaptureTx,
-  CaptureStream,
-  CoverageTolerance,
-} from './media-capture-context';
-import type { CaptureInterval } from './capture-coverage';
+import type { CaptureTx, CaptureStream } from './media-capture-context';
+import type { CaptureInterval, CaptureRule } from '@daisy/protocol';
 import { actors } from './schema/actors';
 import { roundBotPublicationWindows } from './schema/round-bot-publications';
 import { roundParticipants } from './schema/round-participants';
@@ -87,17 +83,12 @@ export const botGrantUnused = (
         where unused_credit.round_id=${roundId} and unused_credit.segment_id=${segmentId}
           and unused_credit.round_participant_id=${roundParticipantId}))`;
 
-/**
- * What a seat's stream must cover for a 'complete' seal and how far its edges
- * may move (DEC-218, DEC-220): a human's speaking grants, joined within the
- * join tolerance; a bot's credited publication windows, joined within relay
- * latency. Silence outside a bot's windows is not speech.
- */
+/** A seat's kind and credited windows, read for the rule that decides from them. */
 export async function coverageAuthority(
   tx: Reader,
   input: StreamScope,
   grants: readonly CaptureInterval[],
-  tolerance: CoverageTolerance,
+  rule: CaptureRule,
 ) {
   const [seat] = await tx
     .select({ kind: actors.kind })
@@ -109,7 +100,7 @@ export async function coverageAuthority(
         eq(roundParticipants.roundId, input.roundId),
       ),
     );
-  if (seat?.kind !== 'bot') return coverageRule('human', grants, [], tolerance);
+  if (seat?.kind !== 'bot') return rule.coverage('human', grants, []);
   const windows = await tx
     .select({
       start: roundBotPublicationWindows.creditedFrom,
@@ -126,32 +117,14 @@ export async function coverageAuthority(
         ),
       ),
     );
-  return coverageRule('bot', grants, windows, tolerance);
-}
-/** The authority and edges for one seat's kind: the decision, with no reads. */
-export function coverageRule(
-  kind: 'human' | 'bot',
-  grants: readonly CaptureInterval[],
-  botWindows: readonly { readonly start: Date; readonly end: Date }[],
-  tolerance: CoverageTolerance,
-) {
-  if (kind !== 'bot')
-    return {
-      authority: grants,
-      tolerance: { openMs: tolerance.joinMs, closeMs: tolerance.relayMs },
-    };
-  return {
-    authority: botWindows.map((row) => ({
+  return rule.coverage(
+    'bot',
+    grants,
+    windows.map((row) => ({
       start: row.start.getTime(),
       end: row.end.getTime(),
     })),
-    tolerance: {
-      openMs: tolerance.relayMs,
-      closeMs: tolerance.relayMs,
-      // Only credited windows end at a cutoff the speaker cannot see (ISSUE-806).
-      terminalCloseMs: tolerance.relayMs,
-    },
-  };
+  );
 }
 export const transcriptRevision = async (
   tx: Pick<CaptureTx, 'select'>,
