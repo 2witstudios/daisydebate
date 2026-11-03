@@ -12,7 +12,11 @@ export {
   inflateDeviation,
   isProvisional,
 } from './rating';
-export { planRating, ratingEligibility } from './rating-decision';
+export {
+  planRating,
+  ratingAwaited,
+  ratingEligibility,
+} from './rating-decision';
 export {
   eraseSeats,
   executeRoomCommand,

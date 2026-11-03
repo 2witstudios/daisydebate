@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import {
   debateSides,
   type DebaterStanding,
@@ -15,8 +15,7 @@ import {
   ratedResult,
   ratingChangeRows,
 } from './rating-decisions';
-import { finalizedRatingInput } from './rating-finalization';
-import { assertRoundAttendanceSettled } from './attendance-settlement';
+import { readRatingFacts } from './rating-discovery';
 import { retryStale } from './retry-stale';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
@@ -138,7 +137,7 @@ async function writeProjection(
 
 async function rateOnce(
   tx: Tx,
-  { roundId, changeIds, decide, attendanceSettled }: RateDebateInput,
+  { roundId, changeIds, decide }: RateDebateInput,
 ): Promise<RateDebateResult> {
   const [round] = await tx
     .select()
@@ -147,34 +146,13 @@ async function rateOnce(
     .for('no key update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
   assertRatedRoundIntegrity(round);
-  const [rated] = await tx
-    .select({ id: ratingChanges.id })
-    .from(ratingChanges)
-    .where(eq(ratingChanges.roundId, roundId))
-    .limit(1);
-  const eligibility = decide.eligibility({
-    competitionType: round.competitionType,
-    ladderId: round.ladderId,
-    status: round.status,
-    outcome: round.outcome,
-    completedAt: round.completedAt?.toISOString() ?? null,
-    alreadyRated: rated !== undefined,
-  });
+  const facts = await readRatingFacts(tx, roundId);
+  if (!facts) throw createAppError('NOT_FOUND', 'No such round');
+  const eligibility = decide.eligibility(facts);
+  // A refusal, not a result: the sweep reports it and retries the Round.
+  if (eligibility.kind === 'attendance-unsettled')
+    throw createRefusal('CONFLICT', 'attendance-unsettled');
   if (eligibility.kind !== 'rated') return eligibility;
-  const [finalized] = await tx.execute(sql`select r.id from rounds r
-    where r.id=${roundId} and ${finalizedRatingInput}`);
-  if (!finalized)
-    throw createAppError('CONFLICT', 'Rating input is not finalized');
-  const [forfeit] =
-    await tx.execute(sql`select r.id from rounds r where r.id=${roundId}
-    and (exists(select 1 from round_attendance_adjudications a join round_finalizations z on z.round_id=a.round_id and z.command_id=a.command_id where a.round_id=r.id and a.decision='forfeit')
-      or exists(select 1 from round_commands c join round_finalizations z on z.round_id=c.round_id and z.command_id=c.command_id where c.round_id=r.id and c.type='forfeit'))`);
-  if (!forfeit)
-    await assertRoundAttendanceSettled(tx, {
-      roundId,
-      now: round.completedAt!.toISOString(),
-      attendanceSettled,
-    });
 
   const seats = await tx
     .select({

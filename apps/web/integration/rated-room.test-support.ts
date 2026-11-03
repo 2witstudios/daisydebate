@@ -59,16 +59,20 @@ export async function readyRatedRoom(
 
 /** Exercise duplicate delivery plus a fresh sweep over durable rating discovery. */
 export async function recoverRatedResults(f: Fixture) {
-  const sweep = () =>
-    createRatingSweep({
-      database: f.store,
-      ids: { next: createId },
-      onFailure: (_id, error) => {
-        throw error;
-      },
-    })({ limit: 64 });
-  await Promise.all([sweep(), sweep()]);
-  await sweep();
+  const sweep = createRatingSweep({
+    database: f.store,
+    ids: { next: createId },
+    onFailure: (_id, error) => {
+      throw error;
+    },
+  });
+  // Every page: candidates other suites left unrated also fill a page.
+  const sweepAll = async (afterId?: string): Promise<void> => {
+    const page = await sweep({ limit: 64, ...(afterId ? { afterId } : {}) });
+    if (!page.exhausted) await sweepAll(page.afterId);
+  };
+  await Promise.all([sweepAll(), sweepAll()]);
+  await sweepAll();
 }
 
 /**

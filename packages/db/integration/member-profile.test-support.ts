@@ -69,15 +69,17 @@ export const played = async (
   return { id, opponent };
 };
 
-export const forfeitCommand = (
+/** A forfeit as the writer commits it: the command and its finalization record. */
+export const forfeitCommand = async (
   fixture: Fixture,
   roundId: string,
   actorId: string,
-) =>
-  fixture.insert(
+) => {
+  const commandId = createId();
+  await fixture.insert(
     'round_commands',
     {
-      command_id: createId(),
+      command_id: commandId,
       round_id: roundId,
       actor_id: actorId,
       type: 'forfeit',
@@ -88,6 +90,12 @@ export const forfeitCommand = (
     },
     'command_id',
   );
+  await fixture.insert(
+    'round_finalizations',
+    { round_id: roundId, command_id: commandId, resulting_version: 2 },
+    'round_id',
+  );
+};
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
