@@ -25,7 +25,7 @@ import type { DrawBankSnapshot } from '@daisy/protocol/resolution-draw';
 const RECENT_ROUNDS = 20;
 
 /**
- * Facts a new draw reads, loaded only for `start-pre-round` on a draw Room:
+ * Facts a new draw reads, loaded only for a Start round on a draw Room:
  * the bank snapshot at its current revision and the bank entries the
  * seated humans recently debated. The engine decides exclusion with them.
  */

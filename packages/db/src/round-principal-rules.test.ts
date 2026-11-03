@@ -137,6 +137,7 @@ test('a human Round principal needs its own live member account', async () => {
     member,
     beta: { state: 'approved' as const, revision: 1 },
     ageBand: 'adult' as const,
+    restricted: false,
     erased,
     revision: 1,
   });
@@ -184,7 +185,7 @@ test('Round media stays open for live Rounds until thirty minutes after the fina
     given: 'scheduled, active and terminal Rounds around the final end',
     should: 'close for terminal Rounds and from exactly thirty minutes after',
     actual: [
-      mediaWindowClosed('scheduled', end, null),
+      mediaWindowClosed('opening', end, null),
       mediaWindowClosed('active', '2026-10-22T12:29:59.999Z', end),
       mediaWindowClosed('active', '2026-10-22T12:30:00.000Z', end),
       mediaWindowClosed('completed', end, null),

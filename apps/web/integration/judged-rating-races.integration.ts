@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { ratingAwaited } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rateCompletedRound } from '../src/features/ratings/rate-debate';
@@ -15,6 +16,7 @@ import {
   withWebInstances,
 } from './judged-rating.test-support';
 import {
+  awaitsRating,
   frozenRankedRound,
   recoverRankedResults,
 } from './ranked-room.test-support';
@@ -93,15 +95,17 @@ test('a posting queued behind the deciding ballot sees the committed finalizatio
         try {
           deciding = submit();
           await lockWaiters(f.sql, 1);
-          const earlySweep = await f.store.readUnratedRatingRounds({
-            limit: 64,
-          });
+          const earlySweep = (
+            await f.store.readRatingCandidates({ limit: 1000 })
+          )
+            .filter(({ facts }) => ratingAwaited(facts))
+            .map(({ roundId: id }) => id);
           assert({
             given: 'the deciding ballot still uncommitted',
             should: 'discover nothing to rate and await no rating',
             actual: {
               discovered: earlySweep.includes(roundId),
-              awaits: await f.store.readRoundAwaitsRating(roundId),
+              awaits: await awaitsRating(f, roundId),
             },
             expected: { discovered: false, awaits: false },
           });

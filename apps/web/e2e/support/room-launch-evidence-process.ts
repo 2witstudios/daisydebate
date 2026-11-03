@@ -5,11 +5,12 @@ if (import.meta.main) {
     throw new Error('Invalid proof Room identity');
   try {
     const evidence = await readLaunchDatabase(async (tx) => {
+      // A started Round's clock moves these columns on its own; a replay moves nothing.
       const [rows] = await tx`select
         (select row_to_json(r) from rooms r where id=${roomId}) room,
         (select coalesce(json_agg(p order by id),'[]'::json) from room_participants p where room_id=${roomId}) seats,
         (select coalesce(json_agg(c order by command_id),'[]'::json) from room_commands c where room_id=${roomId}) commands,
-        (select coalesce(json_agg(r order by id),'[]'::json) from rounds r where room_id=${roomId}) rounds,
+        (select coalesce(jsonb_agg(to_jsonb(r) - array['current_stage', 'runtime_state', 'version', 'updated_at'] order by id),'[]'::jsonb) from rounds r where room_id=${roomId}) rounds,
         (select coalesce(json_agg(p order by id),'[]'::json) from round_participants p where round_id in (select id from rounds where room_id=${roomId})) cast,
         (select coalesce(json_agg(json_build_object('seq',seq,'payload',payload) order by seq),'[]'::json) from outbox where topic=${`room:${roomId}`}) outbox`;
       const [counts] = await tx`select

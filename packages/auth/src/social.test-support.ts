@@ -8,6 +8,7 @@ export const adultAccount = (actorId: string, userId = actorId) => ({
     revision: 1,
     beta: { state: 'approved' as const, revision: 1 },
     ageBand: 'adult' as const,
+    restricted: false,
   },
   age: {
     state: 'known' as const,

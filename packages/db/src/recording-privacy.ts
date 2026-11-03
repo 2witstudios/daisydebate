@@ -5,7 +5,7 @@ const seatedRounds = (actorId: string) =>
   sql`select round_id from round_participants where actor_id=${actorId}`;
 
 /**
- * ADR 0103. Asking for erasure is asking for each casual Recording the subject
+ * ADR 0105. Asking for erasure is asking for each casual Recording the subject
  * sits in to go, whole, so this records that intent in the erasure's transaction
  * and the deletion sweep carries it out. Ranked Recordings are kept: they are
  * their own declared class, proposed until counsel reviews it (compliance.md).

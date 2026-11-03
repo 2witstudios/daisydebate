@@ -3,7 +3,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../lib/testing/mock-router';
 setupRitewayBun();
 mockNextRouter();
-const { CommandForm } = await import('./round-command-actions');
+const { answerFocusTarget, CommandForm, shownError } =
+  await import('./round-command-actions');
+const { roundCommandUnavailable, submitRoundForm } =
+  await import('../../features/round-runtime/command-form');
 
 const intent = {
   type: 'yield' as const,
@@ -53,6 +56,56 @@ test('a confirmation confirms the round the debater sees now (ISSUE-838)', () =>
       }),
     ],
     expected: ['3', '2'],
+  });
+});
+
+test('a refused strike says so only while the strike is open; a lost answer always does', async () => {
+  const id = 'a'.repeat(24);
+  const form = (type: string, fields: Record<string, string> = {}) => {
+    const posted = new FormData();
+    for (const [name, value] of Object.entries({
+      version: '1',
+      commandId: id,
+      expectedVersion: '3',
+      type,
+      participantId: id,
+      ...fields,
+    }))
+      posted.set(name, value);
+    return posted;
+  };
+  const strike = form('strike_resolution', { ordinal: '0', position: '1' });
+  const refusedBy = async (posted: FormData, status = 409) =>
+    submitRoundForm(async () => new Response('{}', { status }), id, posted);
+  const refused = await refusedBy(strike);
+  const yielded = await refusedBy(form('yield', { confirmed: 'true' }));
+  const forbidden = await refusedBy(strike, 403);
+  const lost = roundCommandUnavailable(strike);
+  const opening = (step: 'strike' | 'prep') =>
+    ({ opening: { step: { step } } }) as Parameters<typeof shownError>[1];
+  assert({
+    given:
+      'a refused strike on the strike step, in prep and in the debate; a refused yield; and a strike whose answer was lost',
+    should:
+      'show the strike refusal only on the strike step, and the others wherever the round is',
+    actual: [
+      shownError(refused, opening('strike')),
+      shownError(refused, opening('prep')),
+      shownError(refused, { opening: null }),
+      shownError(yielded, { opening: null }) === yielded.error,
+      shownError(lost, opening('prep')) === lost.error,
+      shownError(forbidden, opening('prep')),
+    ],
+    expected: [refused.error, undefined, undefined, true, true, undefined],
+  });
+  assert({
+    given: 'a refusal on the strike step, and the same refusal once prep runs',
+    should: 'focus the feedback only while it is shown',
+    actual: [
+      answerFocusTarget(refused, opening('strike'), 'feedback', 'control'),
+      answerFocusTarget(refused, opening('prep'), 'feedback', 'control'),
+    ],
+    expected: ['feedback', 'control-strike_resolution'],
   });
 });
 

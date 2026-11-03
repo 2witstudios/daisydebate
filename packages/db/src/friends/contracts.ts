@@ -6,17 +6,8 @@ type FriendshipPair = {
   readonly state: 'pending' | 'accepted';
   readonly requesterActorId: string;
 };
-/** One friendship or challenge command over a locked contact pair. */
+/** One friendship command over a locked contact pair. */
 export type FriendFrame = {
-  /** Records a challenge to the pair's other member for a room the caller hosts. */
-  readonly commitChallenge: (input: {
-    readonly roomId: string;
-    readonly now: string;
-  }) => Promise<{ readonly recorded: boolean }>;
-  /** Declines the pair's other member's challenge to the caller. */
-  readonly declineChallenge: (input: {
-    readonly roomId: string;
-  }) => Promise<void>;
   readonly readFriendship: () => Promise<{
     readonly otherActorId: string;
     readonly pair: FriendshipPair | null;

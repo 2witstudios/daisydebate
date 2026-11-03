@@ -32,7 +32,7 @@ describe('spectatorKindOf', () => {
       should: 'admit only the seatless host of a Round that has not ended',
       actual: [
         spectatorKindOf(hosted(ran(1))),
-        spectatorKindOf(hosted({ ...view, status: 'scheduled' })),
+        spectatorKindOf(hosted({ ...view, status: 'opening' })),
         spectatorKindOf(hosted({ ...view, status: 'completed' })),
         spectatorKindOf(hosted({ ...view, status: 'abandoned' })),
         spectatorKindOf({
@@ -161,8 +161,7 @@ describe('spectatorViewOf', () => {
 
   test('before the round starts, and an unreadable checkpoint', () => {
     assert({
-      given:
-        'a scheduled round, then an active one whose checkpoint is unreadable',
+      given: 'a new round, then an active one whose checkpoint is unreadable',
       should: 'show it starting with no clock, then waiting with nothing lit',
       actual: [
         [

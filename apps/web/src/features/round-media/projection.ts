@@ -1,4 +1,8 @@
-import { createRoundRuntime, mediaGrants } from '@daisy/debate-engine';
+import {
+  createRoundRuntime,
+  inPreRoundPrep,
+  mediaGrants,
+} from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
 import { conversational, type RoundMediaState } from '@daisy/protocol';
 
@@ -65,6 +69,13 @@ export const seatGrants = (
     rules: snapshot.round.rules,
     position: mediaRuntime(snapshot, nextId).position(snapshot.now),
     now: snapshot.now,
+    inPreRoundPrep:
+      snapshot.round.opening !== null &&
+      inPreRoundPrep({
+        opening: snapshot.round.opening.state,
+        seed: snapshot.round.opening.seed,
+        now: snapshot.now,
+      }),
     finalSegmentEndedAt: snapshot.finalSegmentEndedAt,
     conversationHeld: snapshot.conversationHeld,
   });

@@ -1,6 +1,7 @@
 # 0072: Friendships and who's online
 
-Status: accepted (owner GO for the MVP beta, 2026-10-26; ISSUE-607).
+Status: accepted (owner GO for the MVP beta, 2026-10-26; ISSUE-607). §7, §8 and
+the presence-setting consequence superseded by [ADR 0103](0103-whos-online.md).
 Builds on [ADR 0033](0033-presence-and-adjudication.md) §1 (presence
 leases), [ADR 0048](0048-authorization-core.md) (one pure decision point),
 [ADR 0060](0060-persistent-authorized-messaging-channels.md) and

@@ -8,6 +8,7 @@ import type {
   FormatDefinition,
   FormatSelectionFacts,
 } from '@daisy/protocol';
+import { ROOM_SEAT_HOLD_MS } from '@daisy/protocol';
 import {
   readFormatSelectionFacts,
   type SelectionTuple,
@@ -20,7 +21,8 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 
 import { rooms } from './schema/rooms';
-import { roomParticipants } from './schema/rooms';
+import { roomParticipants, roomSeatHolds } from './schema/rooms';
+import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { holdActiveRoomMembers } from './room-membership-persistence';
@@ -103,6 +105,8 @@ export const roomCreateOperations = ({
       readonly seats: readonly InitialCastSeat[];
       readonly apply: InitialCastApplier;
     } | null;
+    /** Members a debater seat stays held for (ADR 0103), the host included. */
+    readonly holdSeatsFor?: readonly string[];
   }): Promise<RoomCommandReceipt> {
     return instrumented(eventSink, 'createRoomCommand', () =>
       transaction(async (tx) => {
@@ -160,6 +164,24 @@ export const roomCreateOperations = ({
           createdAt: new Date(now),
           updatedAt: new Date(now),
         });
+        const heldActors = input.holdSeatsFor ?? [];
+        if (heldActors.length) {
+          const known = await tx
+            .select({ id: actors.id })
+            .from(actors)
+            .where(inArray(actors.id, [...heldActors]))
+            .for('share');
+          if (known.length !== heldActors.length)
+            throw createRefusal('CONFLICT', 'illegal-config');
+          const until = new Date(Date.parse(now) + ROOM_SEAT_HOLD_MS);
+          await tx.insert(roomSeatHolds).values(
+            heldActors.map((actorId) => ({
+              roomId: input.room.id,
+              actorId,
+              until,
+            })),
+          );
+        }
         // The initial cast applies through the injected assign-seat
         // authority against the canonical state of the inserted Room, so
         // the persisted version, status and receipt match the pure seat

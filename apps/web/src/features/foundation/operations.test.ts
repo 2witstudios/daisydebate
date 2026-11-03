@@ -35,12 +35,13 @@ const foundationFormat = {
 };
 
 const storedRound: RoundHydration = {
+  opening: null,
   id: 'd5e8f2a4c6b1k3m7n9p2r4t6',
   competitionType: 'casual' as const,
   formatId: 'foundation',
   formatVersion: 1,
   resolution: 'A representative resolution',
-  status: 'scheduled',
+  status: 'opening',
   currentStage: null,
   launchedAt: '2026-10-10T12:00:00.000Z',
   startedAt: null,
@@ -141,7 +142,7 @@ describe('foundation operation identity', () => {
       expected: {
         id: 'd5e8f2a4c6b1k3m7n9p2r4t6',
         format: 'foundation',
-        status: 'scheduled',
+        status: 'opening',
         segments: foundationDefinition.segments.length,
         persistedId: 'd5e8f2a4c6b1k3m7n9p2r4t6',
       },
@@ -170,7 +171,7 @@ describe('foundation debate retrieval', () => {
         id: storedRound.id,
         resolution: 'A representative resolution',
         rules: 2,
-        status: 'scheduled',
+        status: 'opening',
       },
     });
   });

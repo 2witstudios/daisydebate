@@ -158,7 +158,7 @@ const startInput: Parameters<
       spendsAiRound: false,
       seatsBotDebater: false,
       publishDefinition: false,
-      drawSecrets: null,
+      draw: null,
       members: [state.hostActorId],
     },
   }),
@@ -223,7 +223,7 @@ const startRows = (changeVersion = 1) => [
   [[readyRoom.id]], // the host's active membership is this Room's
   [],
   [],
-  [[2n, '42']], // Round phase signal for the frozen scheduled Round
+  [[2n, '42']], // Round phase signal for the frozen Round
   [],
   [], // command receipt insert follows the Round phase signal
   [[1n, '42']],
@@ -238,12 +238,12 @@ const attemptRows = (prepared: number, locked: number) => {
     [],
     [accountRow()],
     ...before.slice(4, 11),
-    [], // no draw
+    [], // no seat holds
     [],
     before[12]!,
     ...after.slice(0, 3),
     ...after.slice(4, 11),
-    [], // no draw
+    [], // no seat holds
   ];
 };
 /** A whole accepted start at `changeVersion`, through its receipt. */
@@ -279,7 +279,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
         commandId: 'c7a5d3f1h9j2k4m6n8p1r3t5',
         roomId: readyRoom.id,
         resultingVersion: 2,
-        roundRef: { id: roundId, status: 'scheduled' },
+        roundRef: { id: roundId, status: 'active' },
         replayed: false,
       },
       1,
@@ -354,6 +354,6 @@ test('a command that meets one stale attempt succeeds on fresh facts (PR #472 ra
       receipt.replayed,
       receipt.roundRef,
     ],
-    expected: [2, 1, false, { id: roundId, status: 'scheduled' }],
+    expected: [2, 1, false, { id: roundId, status: 'active' }],
   });
 });

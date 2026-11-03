@@ -1,3 +1,4 @@
+import { UNDRAWN_RESOLUTION } from './archive';
 import { resultHeadline } from './archive';
 import {
   mayDownload,
@@ -15,7 +16,7 @@ import type { RecordingRecord } from './ports';
 /** The Round as the history screen shows it, beyond what permissions need. */
 export type HistoryRound = RecordingRound & {
   readonly title: string | null;
-  readonly resolution: string;
+  readonly resolution: string | null;
   readonly outcome: string | null;
   readonly debaters: readonly {
     readonly roundParticipantId: string | null;
@@ -248,8 +249,8 @@ export const openRecordingHistory = async (
   return {
     kind: 'history',
     roundId: round.id,
-    title: round.title ?? round.resolution,
-    resolution: round.resolution,
+    title: round.title ?? round.resolution ?? UNDRAWN_RESOLUTION,
+    resolution: round.resolution ?? UNDRAWN_RESOLUTION,
     ranked: round.competitionType === 'ranked',
     date: new Date(round.completedAtMs).toISOString().slice(0, 10),
     visibility: round.visibility,

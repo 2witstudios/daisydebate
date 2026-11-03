@@ -13,6 +13,12 @@ export function validResourceKind(
     'channel.preferences.clear': 'channel_preference',
     'channel.inbox.read': 'messaging_collection',
     'social.friend.list': 'friend_collection',
+    'social.challenge.list': 'challenge_collection',
+    'social.online.list': 'online_roster',
+    'social.rating_visibility.read': 'rating_visibility',
+    'social.rating_visibility.update': 'rating_visibility',
+    'social.moderation_notice.read': 'moderation_notice',
+    'social.moderation_notice.acknowledge': 'moderation_notice',
     'social.presence.read': 'presence_setting',
     'social.presence.update': 'presence_setting',
     'channel.retained.read': 'messaging_collection',
@@ -21,13 +27,17 @@ export function validResourceKind(
     'channel.file.cleanup': 'pending_file',
     'account.collection.read': 'account_collection',
     'account.beta_access.update': 'account',
-    'report.queue.read': 'moderation',
-    'report.resolve': 'moderation',
-    'broadcast.stop': 'moderation',
-    'broadcast.chat_slow_mode.update': 'moderation',
-    'recording.takedown': 'moderation',
-    'chat_message.remove': 'moderation',
-    'account.audience_ban.update': 'moderation',
+    'content_report.queue.read': 'content_moderation',
+    'content_report.resolve': 'content_moderation',
+    'broadcast.stop': 'content_moderation',
+    'broadcast.chat_slow_mode.update': 'content_moderation',
+    'recording.takedown': 'content_moderation',
+    'chat_message.remove': 'content_moderation',
+    'account.audience_ban.update': 'content_moderation',
+    'report.collection.read': 'account_collection',
+    'report.resolve': 'account_collection',
+    'moderation.collection.read': 'account_collection',
+    'moderation.lift': 'account_collection',
   } as const;
   const kind = specialized[capability as keyof typeof specialized];
   if (kind) return resource.kind === kind;
@@ -35,6 +45,7 @@ export function validResourceKind(
     return resource.kind === 'group_invitation';
   if (
     capability === 'social.block' ||
+    capability === 'social.report' ||
     capability.startsWith('social.friend.') ||
     capability.startsWith('social.challenge.')
   )

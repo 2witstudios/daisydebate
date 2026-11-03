@@ -5,7 +5,7 @@ import { accountTermsPrivacyAdopter } from '../age-step';
 import { betaAccessPrivacyAdopter } from '../beta-access-privacy';
 import { competitiveRecordPrivacyAdopter } from '../competitive-record-privacy';
 import { entitlementGrantPrivacyAdopter } from '../entitlement-grants-privacy';
-import { moderationPrivacyAdopter } from '../moderation-privacy';
+import { contentModerationPrivacyAdopter } from '../content-moderation-privacy';
 import { onboardingPrivacyAdopter } from '../onboarding-privacy';
 import {
   createRoomAccountClosureAdopter,
@@ -36,7 +36,7 @@ export const subjectRightsAdoption = (
   agreementSignaturePrivacyAdopter,
   betaAccessPrivacyAdopter,
   entitlementGrantPrivacyAdopter,
-  moderationPrivacyAdopter,
+  contentModerationPrivacyAdopter,
   roundTranscriptPrivacyAdopter,
   roundAnalysisPrivacyAdopter,
   recordingPrivacyAdopter,

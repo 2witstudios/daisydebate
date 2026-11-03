@@ -103,10 +103,10 @@ async function watchingRoom(
       <LiveJudgeRoom
         actorId={actorId}
         view={room.round}
+        renderedAtMs={Date.parse(systemClock.now())}
         transcript={transcript}
         read={readPersistedJudgeRound.bind(null, id)}
         socketUrl={socketUrl}
-        renderedAtMs={Date.parse(systemClock.now())}
       />
     </>
   );

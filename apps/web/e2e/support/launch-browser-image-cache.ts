@@ -8,7 +8,10 @@ import {
   type LaunchImage,
 } from './launch-browser-image-policy';
 import type { createLaunchPreparationProcess } from './launch-browser-image-process';
-import { sha256Digest } from './launch-browser-image-values';
+import {
+  dockerFailureSummary,
+  sha256Digest,
+} from './launch-browser-image-values';
 
 type Owner = ReturnType<typeof createLaunchPreparationProcess>;
 
@@ -93,24 +96,43 @@ export async function restoreLaunchImageArchive(
   return restored ? { status: 'restored', id: restored } : rejected('identity');
 }
 
+type LaunchArchiveRefusal =
+  | {
+      readonly saved: false;
+      readonly reason: 'docker-save';
+      readonly detail: string;
+    }
+  | { readonly saved: false; readonly reason: 'empty-archive' };
+
+export const launchArchiveRefusalText = (refusal: LaunchArchiveRefusal) =>
+  refusal.reason === 'docker-save'
+    ? `${refusal.reason} (${refusal.detail})`
+    : refusal.reason;
+
 /** Publish the archive and its receipt together, or nothing at all. */
 export async function saveLaunchImageArchive(
   owner: Owner,
   image: LaunchImage,
   id: string,
   directory: string,
-): Promise<
-  { readonly saved: true } | { readonly saved: false; readonly reason: string }
-> {
+): Promise<{ readonly saved: true } | LaunchArchiveRefusal> {
   await mkdir(directory, { recursive: true });
   const temporary = join(directory, `image-${createId()}`);
   const paths = { archive: `${temporary}.tar`, receipt: `${temporary}.json` };
   try {
-    if (
-      (await owner.run(['image', 'save', '--output', paths.archive, image.tag]))
-        .code !== 0
-    )
-      return { saved: false, reason: 'docker-save' };
+    const save = await owner.run([
+      'image',
+      'save',
+      '--output',
+      paths.archive,
+      image.tag,
+    ]);
+    if (save.code !== 0)
+      return {
+        saved: false,
+        reason: 'docker-save',
+        detail: dockerFailureSummary(save.code, save.stderr),
+      };
     if (
       !(await exists(paths.archive)) ||
       (await stat(paths.archive)).size === 0
@@ -160,6 +182,7 @@ export async function cacheLaunchImage(
   directory: string,
 ) {
   const save = await saveLaunchImageArchive(owner, image, id, directory);
-  if (!save.saved) warnLaunchCache('cache-refused', image, save.reason);
+  if (!save.saved)
+    warnLaunchCache('cache-refused', image, launchArchiveRefusalText(save));
   return save;
 }

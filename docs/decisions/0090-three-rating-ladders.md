@@ -96,8 +96,8 @@ Widened RD >110 selects provisional beta display at full precision. The
 calibration table and deterministic boundary/inactivity proof live in the slice
 plan. This is delegated beta policy, not optimal empirical calibration or a
 claim of personal owner selection. DEC-266 remains open for owner confirmation.
-DEC-111's future rollover floor remains unresolved; rollover and prior-season
-carry-over refuse. Confirmed initial parameters and glicko2-v1 are unchanged.
+DEC-111's future season floor remains unresolved; a second season and
+prior-season carry-over refuse. Confirmed initial parameters and glicko2-v1 are unchanged.
 
 ## Terminal provenance and recovery
 

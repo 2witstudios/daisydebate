@@ -78,10 +78,10 @@ describe('projectSpectatorTimeline', () => {
 
   test('a Round that has not started', () => {
     assert({
-      given: 'a scheduled Round',
+      given: 'an opening Round',
       should: 'be upcoming',
       actual: projectSpectatorTimeline(
-        read({}, { status: 'scheduled', startedAt: null }),
+        read({}, { status: 'opening', startedAt: null }),
       ).stage,
       expected: { kind: 'upcoming' },
     });

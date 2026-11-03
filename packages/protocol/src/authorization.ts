@@ -6,7 +6,16 @@ const authorizationCapabilities = [
   'social.friend.end',
   'social.friend.list',
   'social.challenge.send',
+  'social.challenge.accept',
   'social.challenge.decline',
+  'social.challenge.cancel',
+  'social.challenge.list',
+  'social.online.list',
+  'social.report',
+  'social.rating_visibility.read',
+  'social.rating_visibility.update',
+  'social.moderation_notice.read',
+  'social.moderation_notice.acknowledge',
   'social.presence.read',
   'social.presence.update',
   'channel.retained.read',
@@ -29,7 +38,6 @@ const authorizationCapabilities = [
   'room.ready',
   'room.leave',
   /** A seated debater's strike; the engine decides whose turn it is. */
-  'room.strike',
   'channel.inbox.read',
   'channel.read',
   'channel.preferences.read',
@@ -59,14 +67,18 @@ const authorizationCapabilities = [
   // ADR 0079: the operator service's closed capabilities, never a user's.
   'account.collection.read',
   'account.beta_access.update',
-  // WATCH-7: operator moderation, recorded in ADR 0079.
-  'report.queue.read',
-  'report.resolve',
+  // WATCH-7: operator content moderation, recorded in ADR 0079.
+  'content_report.queue.read',
+  'content_report.resolve',
   'broadcast.stop',
   'broadcast.chat_slow_mode.update',
   'recording.takedown',
   'chat_message.remove',
   'account.audience_ban.update',
+  'report.collection.read',
+  'report.resolve',
+  'moderation.collection.read',
+  'moderation.lift',
 ] as const;
 export const authorizationCapabilitySchema = z.enum(authorizationCapabilities);
 export type AuthorizationCapability = z.infer<

@@ -117,7 +117,6 @@ async function endProbeSpeeches(
     });
     return roundViewSchema.parse(response.view);
   };
-  round = await command(members[0]!, round, { type: 'start' });
   for (let sequence = 0; sequence < 2; sequence++) {
     const deadline = performance.now() + 10000;
     while (!round.segments[sequence]) {

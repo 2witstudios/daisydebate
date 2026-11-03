@@ -1,8 +1,7 @@
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { rooms, roomParticipants } from './schema/rooms';
-import { roomResolutionDraws } from './schema/resolution-draws';
 import { appendRoomChanged, roomFacts, type Tx } from './room-command-facts';
 import { persistRoomMutation } from './room-mutation-persistence';
 import { roomIsOpen } from './room-open';
@@ -46,17 +45,10 @@ export const createRoomAccountClosureAdopter = (
       spendsAiRound: false,
       seatsBotDebater: false,
       publishDefinition: false,
-      drawSecrets: null,
+      draw: null,
       members: transitions.activeRoomMembers(state),
     };
-    await persistRoomMutation(
-      tx,
-      mutation,
-      '',
-      now,
-      false,
-      before.resolutionDraw?.strikes.length ?? 0,
-    );
+    await persistRoomMutation(tx, mutation, '', now, false);
     await appendRoomChanged(tx, state.id, state.changeVersion);
   };
 
@@ -77,19 +69,12 @@ export const createRoomAccountClosureAdopter = (
       .select({ id: roomParticipants.roomId })
       .from(roomParticipants)
       .where(eq(roomParticipants.actorId, actorId));
-    const unbegun = await tx
+    const open = await tx
       .select()
       .from(rooms)
-      .where(
-        and(
-          inArray(rooms.id, seatedRooms),
-          roomIsOpen(),
-          isNull(rooms.prepStartedAt),
-          sql`not exists (select 1 from ${roomResolutionDraws} d where d.room_id = ${rooms.id})`,
-        ),
-      )
+      .where(and(inArray(rooms.id, seatedRooms), roomIsOpen()))
       .for('update');
-    for (const row of unbegun) {
+    for (const row of open) {
       const { state } = await roomFacts(tx, row);
       if (!state.participants.some((p) => p.actorId === actorId)) continue;
       await persist(tx, state, transitions.eraseSeats(state, actorId), now);

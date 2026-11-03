@@ -164,7 +164,7 @@ const turnSchema = z
 /**
  * What a viewer sees of a draw. Seated debaters see every drawn text;
  * everyone else sees only progress. A revealed survivor reaches everyone
- * through the Room's topic, never through this field.
+ * through the Round's topic, never through this field.
  */
 export const resolutionDrawViewSchema = z.discriminatedUnion('visibility', [
   z.strictObject({
@@ -200,7 +200,6 @@ export const resolutionDrawViewSchema = z.discriminatedUnion('visibility', [
     revealedAt: timestamp.nullable(),
   }),
 ]);
-export type ResolutionDrawView = z.infer<typeof resolutionDrawViewSchema>;
 
 /** The bank filters a draw read: its revision and v1's fixed policy. */
 const bankSourceSchema = z.strictObject({
@@ -282,6 +281,19 @@ export type ResolutionDrawState = {
   readonly items: readonly ResolutionDrawItem[];
   readonly startedAt: string;
   readonly strikes: readonly ResolutionStrike[];
+};
+
+/**
+ * A Round's opening as stored (ADR 0104). Only the draw's strikes change;
+ * every other fact derives from these three, so a command, a read and a sweep
+ * cannot disagree about where it stands.
+ */
+export type RoundOpening = {
+  /** The Start round instant. */
+  readonly startedAt: string;
+  readonly draw: ResolutionDrawState | null;
+  /** Pre-round prep's full length, or null when the Round has none. */
+  readonly prepMs: number | null;
 };
 
 const hexSchema = z.string().regex(/^[0-9a-f]{64}$/);

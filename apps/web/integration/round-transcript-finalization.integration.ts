@@ -6,7 +6,7 @@ import { roundTickProjection } from '../src/features/round-finalization/operatio
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { openRoundCapture } from './round-media.test-support';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 
@@ -15,7 +15,7 @@ requireTestServices(process.env);
 
 test('silent human-only Round with no media session finalizes missing streams honestly after its actual cutoff', async () => {
   await withRoomRuntime(async (f) => {
-    const { roundId } = await startRuntimeRound(f, await f.assemble());
+    const { roundId } = await launchRuntimeRound(f, await f.assemble());
     await f.sql`update rounds set started_at=clock_timestamp()-interval '20 minutes' where id=${roundId}`;
     const result = await finalizeAsWeb(f, roundId);
     const freeze =
@@ -69,7 +69,7 @@ test('silent human-only Round with no media session finalizes missing streams ho
 
 test('late actual capture cannot bypass a missing cutoff after the scheduler has been paused', async () =>
   withRoomRuntime(async (f) => {
-    const { roundId } = await startRuntimeRound(f, await f.assemble());
+    const { roundId } = await launchRuntimeRound(f, await f.assemble());
     await f.sql`update rounds set started_at=clock_timestamp()-interval '20 minutes' where id=${roundId}`;
     const before = (await f.store.getRound(roundId))!;
     const segmentIds = before.rules.segments.map(() => createId());

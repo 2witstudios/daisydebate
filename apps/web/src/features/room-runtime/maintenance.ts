@@ -45,7 +45,6 @@ export const createRoomMaintenance =
               lastCommandAt: facts.lastCommandAt,
               now: facts.now,
               idleTimeoutMs,
-              drawSeed: facts.drawSeed,
             }),
         })
         .catch((error: unknown) => failed(error, 'maintain'));

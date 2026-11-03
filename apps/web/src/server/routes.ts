@@ -8,12 +8,16 @@ import { createRoundMediaHandlers } from '../features/round-media/handlers';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { composeRoundRoutes } from '../features/round-runtime/composition';
 import { composeMessagingRoutes } from '../features/messaging/composition';
+import { composeChallengeRoutes } from '../features/challenges/composition';
 import { composeFriendRoutes } from '../features/friends/composition';
+import { composeModerationRoutes } from '../features/moderation/composition';
+import { composeReportRoutes } from '../features/reports/composition';
+import { composeRatingVisibilityRoutes } from '../features/ratings/visibility-routes';
 import { composePresenceRoutes } from '../features/presence/composition';
 import { composeContactRoutes } from '../features/contacts/composition';
 import { composeAgreementRoutes } from '../features/agreements/composition';
 import { composeRecordingRoutes } from '../features/recording/composition';
-import { composeModerationRoutes } from '../features/moderation/composition';
+import { composeContentModerationRoutes } from '../features/content-moderation/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
   createListSessionsHandler,
@@ -88,6 +92,10 @@ export function createRoutes(app: App) {
     attendance: composeAttendanceRoutes(app, memberGates),
     messaging: composeMessagingRoutes(app),
     friends: composeFriendRoutes(app),
+    challenges: composeChallengeRoutes(app),
+    reports: composeReportRoutes(app),
+    moderation: composeModerationRoutes(app),
+    ratingVisibility: composeRatingVisibilityRoutes(app),
     presence: composePresenceRoutes(app),
     contacts: composeContactRoutes(app),
     spectatorTimeline: createSpectatorTimelineHandlers({
@@ -109,7 +117,7 @@ export function createRoutes(app: App) {
     privacy: composeDataRightsRoutes(app),
     agreements: composeAgreementRoutes(app),
     recordings: composeRecordingRoutes(app),
-    moderation: composeModerationRoutes(app),
+    contentModeration: composeContentModerationRoutes(app),
     confirm: createConfirmHandlers({
       auth: confirmAuth,
       logger,

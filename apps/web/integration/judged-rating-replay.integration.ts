@@ -2,7 +2,6 @@ import { requireTestServices } from '@daisy/config';
 import {
   planRating,
   rateDebate,
-  attendanceSettled,
   ratingEligibility,
   ratingPolicy,
 } from '@daisy/debate-engine';
@@ -18,6 +17,7 @@ import {
   withWebInstances,
 } from './judged-rating.test-support';
 import {
+  awaitsRating,
   cachedAiJudgingRuntime,
   frozenRankedRound,
   judgeWithCachedAi,
@@ -56,7 +56,7 @@ for (const judgeKind of ['human', 'ai'] as const)
               : await judgeWithCachedAi(f, roundId, ruling(outcome));
           const done = (await f.store.getRound(roundId))!;
           await withWebInstances(f, 2, async (instances) => {
-            const awaited = await f.store.readRoundAwaitsRating(roundId);
+            const awaited = await awaitsRating(f, roundId);
             await Promise.all(instances.map((i) => i.rateUnrated()));
             const first = await readLedger(f, roundId);
             const newcomer = { state: ratingPolicy.initial, lastRatedAt: null };
@@ -84,7 +84,7 @@ for (const judgeKind of ['human', 'ai'] as const)
                   row.volatility_after,
                 ]),
                 versions: await readVersions(f),
-                awaitsAfter: await f.store.readRoundAwaitsRating(roundId),
+                awaitsAfter: await awaitsRating(f, roundId),
               },
               expected: {
                 done: ['completed', outcome],
@@ -179,7 +179,6 @@ test('a posting that fails after its ledger insert leaves nothing and the next s
         actual: () =>
           f.store.rateRound({
             roundId,
-            attendanceSettled,
             changeIds: [createId(), createId()],
             decide: {
               eligibility: ratingEligibility,
@@ -202,7 +201,7 @@ test('a posting that fails after its ledger insert leaves nothing and the next s
         actual: {
           rows: (await readLedger(f, roundId)).length,
           versions: await readVersions(f),
-          awaits: await f.store.readRoundAwaitsRating(roundId),
+          awaits: await awaitsRating(f, roundId),
         },
         expected: { rows: 0, versions: [], awaits: true },
       });

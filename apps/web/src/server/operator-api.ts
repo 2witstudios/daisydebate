@@ -34,7 +34,7 @@ export async function startOperatorApi(app: App, reporter: ErrorReporter) {
     serve: ({ hostname, port, fetch }) =>
       Bun.serve({ hostname, port, fetch, maxRequestBodySize: 32 * 1024 }),
     handle: createOperatorApi({
-      moderation: app.database,
+      contentModeration: app.database,
       audience: config.OPERATOR_AUDIENCE!,
       keys,
       crypto: nodeOperatorCrypto,

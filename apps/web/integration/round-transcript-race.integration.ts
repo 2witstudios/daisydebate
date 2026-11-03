@@ -6,7 +6,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 import { openRoundCapture } from './round-media.test-support';
@@ -32,7 +32,7 @@ const isConflict = (result: PromiseSettledResult<unknown> | undefined) =>
 
 /** A played Round whose two historical speeches each hold one captured clip. */
 async function capturedRound(f: Fixture) {
-  const { roundId } = await startRuntimeRound(f, await f.assemble());
+  const { roundId } = await launchRuntimeRound(f, await f.assemble());
   const initial = (await f.store.getRound(roundId))!;
   const elapsed = initial.rules.segments.reduce(
     (sum, s) => sum + s.durationMs + initial.rules.countdownMs,

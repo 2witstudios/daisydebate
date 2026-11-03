@@ -1,87 +1,44 @@
-import {
-  moderationQueues,
-  reportReasons,
-  reportStatuses,
-  reportTargetKinds,
-} from '@daisy/protocol/moderation';
-import { debateSides } from '@daisy/protocol';
+import { moderationKinds } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAtColumn, oneOf, timestampColumn } from './columns';
+import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
+import { oneOf, timestampColumn } from './columns';
 import { users } from './users';
 
 /**
- * One account's report of a Round, a Recording, a chat message or abusive
- * ballot feedback (WATCH-7). Reasons are closed and there is no free text.
- * `reporterUserId` is for dedupe and export only, is never shown to an
- * operator, and erasure clears it while the report stands. `feedbackSide` says
- * whose feedback was reported, so the operator reads that side alone.
+ * What a reviewer did to an account (ADR 0103): a warning the member reads,
+ * a timed suspension or a ban. It outlives the report that caused it and names
+ * no report. Erasing the account keeps it through the proposed retention
+ * (DEC-298). A suspension or ban in force withdraws participant access; lifting
+ * it keeps the row for the record.
  */
-export const moderationReports = pgTable(
-  'moderation_reports',
+export const moderationActions = pgTable(
+  'moderation_actions',
   {
     id: text('id').primaryKey(),
-    reporterUserId: text('reporter_user_id').references(() => users.id, {
-      onDelete: 'set null',
-    }),
-    targetKind: text('target_kind').notNull(),
-    targetId: text('target_id').notNull(),
-    feedbackSide: text('feedback_side'),
-    reason: text('reason').notNull(),
-    queue: text('queue').notNull(),
-    status: text('status').notNull().default('open'),
-    resolvedAt: timestampColumn('resolved_at'),
-    resolvedByRef: text('resolved_by_ref'),
-    createdAt: createdAtColumn(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    startsAt: timestampColumn('starts_at').notNull(),
+    endsAt: timestampColumn('ends_at'),
+    liftedAt: timestampColumn('lifted_at'),
+    acknowledgedAt: timestampColumn('acknowledged_at'),
+    operatorRef: text('operator_ref').notNull(),
   },
   (table) => [
-    uniqueIndex('moderation_reports_once_unique').on(
-      table.reporterUserId,
-      table.targetKind,
-      table.targetId,
-    ),
-    index('moderation_reports_queue_idx').on(
-      table.queue,
-      table.status,
-      table.createdAt.desc(),
-      table.id.desc(),
+    index('moderation_actions_user_idx').on(table.userId, table.startsAt),
+    check('moderation_actions_kind_check', oneOf(table.kind, moderationKinds)),
+    check(
+      'moderation_actions_ends_check',
+      sql`(${table.kind} = 'suspension') = (${table.endsAt} is not null)`,
     ),
     check(
-      'moderation_reports_target_kind_check',
-      oneOf(table.targetKind, reportTargetKinds),
+      'moderation_actions_lifted_check',
+      sql`${table.liftedAt} is null or ${table.kind} in ('suspension', 'ban')`,
     ),
     check(
-      'moderation_reports_reason_check',
-      oneOf(table.reason, reportReasons),
-    ),
-    check(
-      'moderation_reports_queue_check',
-      oneOf(table.queue, moderationQueues),
-    ),
-    check(
-      'moderation_reports_status_check',
-      oneOf(table.status, reportStatuses),
-    ),
-    check(
-      'moderation_reports_feedback_side_check',
-      sql`(${table.targetKind} = 'ballot_feedback') = (${table.feedbackSide} is not null) and (${table.feedbackSide} is null or ${oneOf(table.feedbackSide, debateSides)})`,
-    ),
-    check(
-      'moderation_reports_resolution_check',
-      sql`(${table.status} = 'open') = (${table.resolvedAt} is null) and (${table.resolvedAt} is null) = (${table.resolvedByRef} is null)`,
+      'moderation_actions_acknowledged_check',
+      sql`${table.acknowledgedAt} is null or ${table.kind} = 'warning'`,
     ),
   ],
 );
-
-/**
- * An account banned from audience interaction (WATCH-7): posting to spectator
- * chat, and whatever else needs `decideChatPost`. A row is the ban; lifting
- * deletes it, and the operator receipts keep the history.
- */
-export const audienceBans = pgTable('audience_bans', {
-  userId: text('user_id')
-    .primaryKey()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  bannedByRef: text('banned_by_ref').notNull(),
-  createdAt: createdAtColumn(),
-});

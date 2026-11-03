@@ -15,10 +15,8 @@ import {
 import { createAppError, isAppError, createRefusal } from '@daisy/errors';
 import { judgingPolicy, type JudgingTerminalReason } from '@daisy/protocol';
 import { createRatingSweep } from '../ratings/sweep';
-import { maintenanceTickProjection, roundTickProjection } from './operations';
+import { roundTickProjection } from './operations';
 
-/** A Round not started 15 minutes after Launch is abandoned (DEC-214). */
-export const ROUND_START_HORIZON_MS = 15 * 60_000;
 type JudgingPlanner = Parameters<
   Database['finalizeDueRoundTranscript']
 >[0]['planJudging'];
@@ -71,7 +69,7 @@ export function createRoundMaintenanceOperations(input: {
     | 'readRoundMaintenanceCandidates'
     | 'tickDueRound'
     | 'finalizeDueRoundTranscript'
-    | 'readUnratedRatingRounds'
+    | 'readRatingCandidates'
     | 'rateRound'
     | 'completePanelRound'
   >;
@@ -83,8 +81,6 @@ export function createRoundMaintenanceOperations(input: {
   readonly evaluate: (roundId: string) => Promise<AttendanceEvaluation>;
   /** Injected policy: how long after the freeze judges may rule (DEC-201). */
   readonly ballotDeadlineMs?: number;
-  /** Injected policy, never defaulted: how long a launched Round may stay unstarted (DEC-214). */
-  readonly startHorizonMs: number;
   /**
    * The public check-in probe's Round (ATTENDANCE_PUBLIC_PROBE), or null. It
    * is synthetic and must stay active for its receipt to stay valid, so
@@ -96,10 +92,6 @@ export function createRoundMaintenanceOperations(input: {
     input.ballotDeadlineMs ?? judgingPolicy.humanBallotWindowMs,
   );
   const buildProjection = roundTickProjection(() => input.ids.next());
-  const tickProjection = maintenanceTickProjection(
-    () => input.ids.next(),
-    input.startHorizonMs,
-  );
   const ratings = createRatingSweep({
     database: input.store,
     ids: input.ids,
@@ -113,7 +105,6 @@ export function createRoundMaintenanceOperations(input: {
       const page = await input.store.readRoundMaintenanceCandidates({
         instanceId: input.instanceId,
         limit: 64,
-        startHorizonMs: input.startHorizonMs,
         ...(discoveryAfterId ? { afterId: discoveryAfterId } : {}),
       });
       if (
@@ -129,6 +120,7 @@ export function createRoundMaintenanceOperations(input: {
         : (page.afterId ?? undefined);
       return {
         roundIds: page.roundIds.filter((id) => id !== input.probeRoundId),
+        openingIds: page.openingIds,
         cycleComplete: page.exhausted,
       };
     },
@@ -136,7 +128,8 @@ export function createRoundMaintenanceOperations(input: {
       input.store.tickDueRound({
         instanceId: input.instanceId,
         roundId,
-        buildProjection: tickProjection,
+        runsOpening: true,
+        buildProjection,
       }),
     evaluate: input.evaluate,
     async finalize(roundId: string) {

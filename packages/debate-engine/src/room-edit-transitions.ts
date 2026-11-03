@@ -51,10 +51,6 @@ export const updateConfig = (
     topic,
     publishedResolutionId:
       topic === room.topic ? room.publishedResolutionId : null,
-    prepStartedAt: null,
-    prepRemainingMs: resolved.roomPlan.preRoundPrep.enabled
-      ? resolved.roomPlan.preRoundPrep.durationMs
-      : null,
   };
   return acceptedRoomMutation(next, { publishDefinition });
 };
@@ -123,10 +119,6 @@ export const selectFormat = (
     executionPlan: roomPlan,
     topic,
     publishedResolutionId: fixedStandard ? publication!.id : null,
-    prepStartedAt: null,
-    prepRemainingMs: roomPlan.preRoundPrep.enabled
-      ? roomPlan.preRoundPrep.durationMs
-      : null,
   });
 };
 export const updateDetails = (
@@ -199,6 +191,38 @@ const wrongSeatForAi = (
 ) =>
   target.kind === 'bot' &&
   target.seatRole !== (role === 'judge' ? 'judge' : 'debater');
+/**
+ * How many free debater seats `actorId` may not take at `now`: one for each
+ * named member who has neither arrived in a debater seat nor run out of time
+ * (ADR 0103). A judge seat is never held.
+ */
+export const debaterSeatsHeldFrom = (
+  room: Pick<RoomAssemblyState, 'seatHolds' | 'participants'>,
+  actorId: string,
+  now: string,
+): number => {
+  const seated = (id: string) =>
+    room.participants.some((p) => p.actorId === id && p.role !== 'judge');
+  return room.seatHolds.filter(
+    (hold) =>
+      hold.actorId !== actorId &&
+      Date.parse(hold.until) > Date.parse(now) &&
+      !seated(hold.actorId),
+  ).length;
+};
+/** Whether `targetId` taking a free debater seat would use one held for another. */
+const takesHeldSeat = (
+  room: RoomAssemblyState,
+  targetId: string,
+  now: string,
+): boolean => {
+  const debaters = room.participants.filter(
+    (p) => p.role !== 'judge' && p.actorId !== targetId,
+  ).length;
+  const free =
+    room.rules.seats.affirmative + room.rules.seats.negative - debaters;
+  return free <= debaterSeatsHeldFrom(room, targetId, now);
+};
 const seatAdmission = (
   room: RoomAssemblyState,
   actorId: string,
@@ -243,6 +267,7 @@ export const claimSeat = (
     return refuse('ai-judge-premium');
   if (
     command.slot >= room.rules.seats[command.role] ||
+    (command.role !== 'judge' && takesHeldSeat(room, targetId, edges.now)) ||
     room.participants.some(
       (p) =>
         p.role === command.role &&

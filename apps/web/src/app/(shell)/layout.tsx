@@ -4,10 +4,19 @@ import { cookies } from 'next/headers';
 import { SampleActionNotice } from '../../ui/components/sample-action/sample-action-notice';
 import { AppShell } from '../../ui/layout/app-shell/app-shell';
 import {
+  ONLINE_RAIL_COOKIE,
+  parseOnlineRail,
   parseRailPreference,
   RAIL_COOKIE,
 } from '../../ui/layout/app-shell/rail-preference';
 import { UiStoreProvider } from '../../ui/store/store';
+import { OnlineShell } from './online/online-shell';
+import { setStatusAction } from './online/actions';
+import { StatusForm } from '../../ui/online/status-form';
+import { acknowledgeNoticeAction } from './moderation/actions';
+import { readModerationNotices } from './moderation/read-notices';
+import { readChosenStatus } from './online/read-online';
+import { ModerationNotices } from '../../ui/moderation/moderation-notices';
 import { shellAccount } from '../../lib/shell-account';
 import {
   requestIdentity,
@@ -37,7 +46,20 @@ export default async function ShellLayout({
   const identity = await requestIdentity();
   const activeRoom =
     identity.state === 'member' ? await requestActiveRoom() : null;
-  const rail = parseRailPreference((await cookies()).get(RAIL_COOKIE)?.value);
+  const jar = await cookies();
+  const rail = parseRailPreference(jar.get(RAIL_COOKIE)?.value);
+  const onlineRail = parseOnlineRail(jar.get(ONLINE_RAIL_COOKIE)?.value);
+  const online =
+    identity.state === 'member'
+      ? await OnlineShell({
+          preference: onlineRail,
+          activeRoomId: activeRoom?.id ?? null,
+        })
+      : null;
+  const [chosen, notices] =
+    identity.state === 'member'
+      ? await Promise.all([readChosenStatus(), readModerationNotices()])
+      : [null, []];
   const ratings: Promise<ShellRatings> | null =
     identity.state === 'member'
       ? requestMemberStandings(identity.username).then(
@@ -58,7 +80,17 @@ export default async function ShellLayout({
         rail={rail}
         ratings={ratings}
         toggleRail={toggleRail}
+        online={online}
+        statusControl={
+          chosen ? (
+            <StatusForm action={setStatusAction} chosen={chosen} />
+          ) : undefined
+        }
       >
+        <ModerationNotices
+          notices={notices}
+          acknowledge={acknowledgeNoticeAction}
+        />
         <Suspense fallback={null}>
           <SampleActionNotice />
         </Suspense>

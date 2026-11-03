@@ -14,7 +14,7 @@ test('accepted Launch returns only the persisted Round destination', () => {
   form.set('type', 'start-round');
   const view = {
     ...assemblySnapshot,
-    roundRef: { id: 'r'.repeat(24), status: 'scheduled' as const },
+    roundRef: { id: 'r'.repeat(24), status: 'opening' as const },
   };
   assert({
     given: 'a canonical accepted Launch with a persisted Round reference',
@@ -139,28 +139,25 @@ test('native Room details and settings answers clear an inherited setup fragment
   });
 });
 
-test('a refused strike or format choice says why, with and without JavaScript (PR #472 review)', () => {
+test('a refused format choice says why, with and without JavaScript (PR #472 review)', () => {
   const form = new FormData();
-  form.set('type', 'strike-resolution');
+  form.set('type', 'select-format');
   const answer = (hydrated: boolean) =>
     commandAnswer(
-      { kind: 'refused', reason: 'strike-conflict' },
+      { kind: 'refused', reason: 'format-unavailable' },
       assemblySnapshot.id,
       form,
       { hydrated, move: (next) => ({ next }) },
     );
   assert({
     given:
-      'a stale strike posted by a hydrated page and by a native form, and each strike and format refusal',
+      'a stale format choice posted by a hydrated page and by a native form, and each and format refusal',
     should:
       'show its reason in place, carry it back to the page in the closed vocabulary, and word each in the room’s terms',
     actual: {
       hydrated: answer(true).error,
       native: answer(false).next,
       words: [
-        'strike-conflict',
-        'not-your-turn',
-        'strike-unavailable',
         'format-unavailable',
         'illegal-config',
         'not-ready',
@@ -171,12 +168,9 @@ test('a refused strike or format choice says why, with and without JavaScript (P
       ].map((reason) => commandRefusalText(reason as never)),
     },
     expected: {
-      hydrated: 'Someone struck first, or time ran out. Here is the draw now.',
-      native: `/rooms/${assemblySnapshot.id}?notice=command-refused&reason=strike-conflict#`,
+      hydrated: 'That format is no longer offered. Choose from the list now.',
+      native: `/rooms/${assemblySnapshot.id}?notice=command-refused&reason=format-unavailable#`,
       words: [
-        'Someone struck first, or time ran out. Here is the draw now.',
-        'You can’t strike on this turn.',
-        'That resolution can’t be struck now.',
         'That format is no longer offered. Choose from the list now.',
         'Those settings don’t fit this format: a set resolution needs one written in; a strike takes none.',
         'Everyone seated must be Ready first.',

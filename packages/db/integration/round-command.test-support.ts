@@ -31,7 +31,10 @@ export const withAuthoredRound = (
 export const authoredRoundCommand = (
   author: { readonly roundId: string; readonly actorId: string },
   expectedVersion: number,
-  command: RoundCommandEnvelope['command'] = { type: 'start' },
+  command: RoundCommandEnvelope['command'] = {
+    type: 'yield',
+    participantId: createId(),
+  },
   commandId = createId(),
 ) => ({
   roundId: author.roundId,

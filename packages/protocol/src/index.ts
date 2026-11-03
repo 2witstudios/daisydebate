@@ -50,15 +50,15 @@ export {
 export type { RoomConfig, RoomExecutionPlan } from './room';
 export {
   chatSlowModeSchema,
-  MODERATION_DELIVERY_BOUND_MS,
+  CONTENT_MODERATION_DELIVERY_BOUND_MS,
+  contentReportCreateSchema,
   reasonsForTarget,
-  reportCreateSchema,
-} from './moderation';
+} from './content-moderation';
 export type {
-  ReportCreate,
-  ReportReason,
-  ReportTargetKind,
-} from './moderation';
+  ContentReportCreate,
+  ContentReportReason,
+  ContentReportTargetKind,
+} from './content-moderation';
 export { roomCaptureSchema } from './room-capture';
 export type { RoomCapture } from './room-capture';
 export { formatSettingsSchema } from './format-settings';
@@ -135,10 +135,12 @@ export type {
   RatingPlanFacts,
   RatingState,
   RatingUnrated,
+  RecordedEnding,
 } from './ratings';
 export {
   parseTopic,
   buildUserInboxTopic,
+  ONLINE_TOPIC,
   buildRoundTopic,
   buildChannelTopic,
   buildRoomTopic,
@@ -191,6 +193,7 @@ export {
 export type { PresenceActivity } from './realtime';
 
 export {
+  ROOM_SEAT_HOLD_MS,
   roomCreateSchema,
   roomCommandSchema,
   roomStatuses,
@@ -233,6 +236,7 @@ export type {
 } from './messaging/social';
 export type {
   RoomAssemblyState,
+  RoomSeatHold,
   RoomConsent,
   RoomMutationOutcome,
   RoomCastChoice,
@@ -371,28 +375,59 @@ export {
 } from './member-profile';
 
 export {
-  challengeCommandResultSchema,
   friendCommandResultSchema,
   friendCommandSchemas,
   friendListSchema,
-  friendPresences,
   friendshipStates,
   onlineCountsSchema,
 } from './friends';
 export {
+  chosenStatuses,
+  memberStatuses,
+  onlineQuerySchema,
+  onlineRosterSchema,
   presenceSettingResultSchema,
   presenceSettingSchema,
+  ratingVisibilitySchema,
 } from './presence-setting';
+export type {
+  ChosenStatus,
+  MemberPlacement,
+  MemberStatus,
+  OnlineFilter,
+  OnlineMember,
+  OnlineRoster,
+  RatingVisibility,
+} from './presence-setting';
+export {
+  challengeCommandSchemas,
+  challengeListSchema,
+  challengeResultSchema,
+} from './challenges';
+export type { ChallengeList, ChallengeResult } from './challenges';
+export {
+  moderationAcknowledgeSchema,
+  moderationKinds,
+  moderationNoticesSchema,
+} from './moderation';
+export type { ModerationNotice } from './moderation';
+export {
+  reportCommandSchema,
+  reportOutcomes,
+  reportReasonLabels,
+  reportReasons,
+  reportResultSchema,
+  reportSurfaces,
+} from './reports';
+export type { ReportOutcome, ReportReason, ReportSurface } from './reports';
 export {
   contactBlockResultSchema,
   contactBlockSchema,
   contactBlockUsernameSchema,
 } from './contacts';
 export type {
-  ChallengeCommandResult,
   FriendCommandResult,
   FriendList,
-  FriendPresence,
   FriendRelation,
   FriendshipState,
   OnlineCounts,

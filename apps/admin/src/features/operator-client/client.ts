@@ -5,17 +5,23 @@ import {
 } from '@daisy/auth/operator-signature';
 import { betaAccessCommandResultSchema } from '@daisy/protocol';
 import {
+  moderationLiftResultSchema,
   operatorAccountsPageSchema,
   operatorCommandStateSchema,
+  operatorReportsPageSchema,
+  operatorRestrictionsSchema,
+  reportResolveResultSchema,
   type betaAccessCommandSchema,
+  type moderationLiftCommandSchema,
+  type reportResolveCommandSchema,
 } from '@daisy/protocol/operator';
 import {
-  moderationCommandResultSchema,
-  moderationReportDetailSchema,
-  moderationReportsPageSchema,
-  type ModerationQueue,
-  type ModerationReport,
-} from '@daisy/protocol/moderation';
+  contentModerationCommandResultSchema,
+  contentReportDetailSchema,
+  contentReportsPageSchema,
+  type ContentModerationQueue,
+  type ContentReport,
+} from '@daisy/protocol/content-moderation';
 import { z } from 'zod';
 import { toBase64Url, type RandomBytes } from '../../auth/secrets';
 
@@ -177,6 +183,72 @@ export function createOperatorClient(deps: {
         },
         operatorAccountsPageSchema,
       ),
+    listReports: (
+      operatorRef: string,
+      page: { readonly limit: number; readonly cursor?: string },
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: '/operator/v1/reports',
+          query: [
+            ...(page.cursor === undefined
+              ? []
+              : [['cursor', page.cursor] as const]),
+            ['limit', String(page.limit)],
+          ],
+        },
+        operatorReportsPageSchema,
+      ),
+    resolveReport: (
+      operatorRef: string,
+      reportId: string,
+      command: z.infer<typeof reportResolveCommandSchema>,
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'PUT',
+          path: `/operator/v1/reports/${reportId}/resolution`,
+          query: [],
+          body: JSON.stringify(command),
+        },
+        reportResolveResultSchema,
+      ),
+    listRestrictions: (
+      operatorRef: string,
+      page: { readonly limit: number; readonly cursor?: string },
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: '/operator/v1/moderation',
+          query: [
+            ...(page.cursor === undefined
+              ? []
+              : [['cursor', page.cursor] as const]),
+            ['limit', String(page.limit)],
+          ],
+        },
+        operatorRestrictionsSchema,
+      ),
+    liftModeration: (
+      operatorRef: string,
+      actionId: string,
+      command: z.infer<typeof moderationLiftCommandSchema>,
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'PUT',
+          path: `/operator/v1/moderation/${actionId}/lift`,
+          query: [],
+          body: JSON.stringify(command),
+        },
+        moderationLiftResultSchema,
+      ),
     /** Signed at `signedAt`, which the caller recorded first (ADR 0077). */
     setBetaAccess: (
       operatorRef: string,
@@ -195,11 +267,11 @@ export function createOperatorClient(deps: {
         },
         betaAccessCommandResultSchema,
       ),
-    listReports: (
+    listContentReports: (
       operatorRef: string,
       page: {
-        readonly queue: ModerationQueue;
-        readonly status: ModerationReport['status'];
+        readonly queue: ContentModerationQueue;
+        readonly status: ContentReport['status'];
         readonly limit: number;
         readonly cursor?: string;
       },
@@ -208,7 +280,7 @@ export function createOperatorClient(deps: {
         operatorRef,
         {
           method: 'GET',
-          path: '/operator/v1/reports',
+          path: '/operator/v1/content-reports',
           query: [
             ['queue', page.queue],
             ['status', page.status],
@@ -218,24 +290,24 @@ export function createOperatorClient(deps: {
               : [['cursor', page.cursor] as const]),
           ],
         },
-        moderationReportsPageSchema,
+        contentReportsPageSchema,
       ),
-    readReport: (operatorRef: string, reportId: string) =>
+    readContentReport: (operatorRef: string, reportId: string) =>
       call(
         operatorRef,
         {
           method: 'GET',
-          path: `/operator/v1/reports/${reportId}`,
+          path: `/operator/v1/content-reports/${reportId}`,
           query: [],
         },
-        moderationReportDetailSchema,
+        contentReportDetailSchema,
       ),
-    /** One moderation command at its own path; the body is already closed. */
+    /** One content moderation command at its own path; the body is already closed. */
     moderate: (operatorRef: string, path: string, body: object) =>
       call(
         operatorRef,
         { method: 'PUT', path, query: [], body: JSON.stringify(body) },
-        moderationCommandResultSchema,
+        contentModerationCommandResultSchema,
       ),
     readCommand: (operatorRef: string, commandId: string) =>
       call(

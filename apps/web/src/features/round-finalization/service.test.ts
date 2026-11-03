@@ -531,6 +531,57 @@ test('a failing tick cannot stop a Round reaching its cutoff, and backs off too'
   await service.stop();
 });
 
+test('a Round in its opening only ticks: its tick backs off, and attendance waits for it to open', async () => {
+  const stages: string[] = [];
+  let ticks = 0,
+    evaluations = 0,
+    finalized = 0,
+    opening = true;
+  const { service, pulse, advance } = driven({
+    discover: async () => ({
+      ...page(['round']),
+      openingIds: opening ? ['round'] : [],
+    }),
+    tick: async () => {
+      ticks++;
+      if (opening) throw new Error('tick fault');
+    },
+    evaluate: async () => {
+      evaluations++;
+      return { kind: 'undecided' as const };
+    },
+    finalize: async () => {
+      finalized++;
+    },
+    failed: (_error, stage) => stages.push(stage),
+  });
+  await service.ready;
+  await flush();
+  await pulse();
+  await flush();
+  advance(1_000);
+  await pulse();
+  await flush();
+  assert({
+    given: 'a failing tick on a Round discovery reports as in its opening',
+    should:
+      'back off the tick and never ask attendance or finalize about the opening',
+    actual: { ticks, evaluations, finalized, stages },
+    expected: { ticks: 1, evaluations: 0, finalized: 0, stages: ['tick'] },
+  });
+  opening = false;
+  advance(60_000);
+  await pulse();
+  await flush();
+  assert({
+    given: 'the next discovery reporting the Round out of its opening',
+    should: 'maintain it in full straight away',
+    actual: { evaluations, finalized },
+    expected: { evaluations: 1, finalized: 1 },
+  });
+  await service.stop();
+});
+
 test('a Round that leaves discovery is forgotten: back again, it waits for nothing', async () => {
   const reads: string[] = [];
   let ids = ['gone', 'kept'];

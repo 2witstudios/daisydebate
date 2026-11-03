@@ -40,7 +40,7 @@ describe('liveRoundOf before the start', () => {
 
   test('the debaters and the anonymous judge', () => {
     assert({
-      given: 'a scheduled round against a bot with a human judge',
+      given: 'a new round against a bot with a human judge',
       should:
         'seat you and the bot opposite, and list the judge without a name',
       actual: {
@@ -72,7 +72,7 @@ describe('liveRoundOf before the start', () => {
     });
   });
 
-  test('a scheduled round', () => {
+  test('a new round', () => {
     assert({
       given: 'a round whose clock has not started',
       should:
@@ -190,6 +190,37 @@ describe('liveRoundOf during the round', () => {
         'Cross-examination · You answer',
         'Cross-examination · You ask',
       ],
+    });
+  });
+
+  test('pre-round prep', () => {
+    const endsAt = at(1_200_000);
+    const room = liveRoundOf(
+      {
+        ...view,
+        status: 'opening',
+        startedAt: null,
+        segments: [],
+        opening: {
+          step: {
+            step: 'prep',
+            startedAt: at(0),
+            endsAt,
+            remainingMs: 1_200_000,
+          },
+          draw: null,
+          canStrike: false,
+        },
+      },
+      aff.actorId,
+      origin + 200_000,
+    );
+    assert({
+      given: 'a debater 200 seconds into pre-round prep',
+      should:
+        'put them in prep on the time left, with no speech lit and the mic closed',
+      actual: [room?.phase, room?.liveIndex, room?.clock, room?.micLive],
+      expected: ['prep', -1, { label: 'Prep', remainingMs: 1_000_000 }, false],
     });
   });
 

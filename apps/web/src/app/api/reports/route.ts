@@ -1,4 +1,3 @@
 import { processRoute } from '../../../server/process-app';
-
 export const runtime = 'nodejs';
-export const POST = processRoute((routes) => routes.moderation.report.POST);
+export const POST = processRoute((routes) => routes.reports.file);

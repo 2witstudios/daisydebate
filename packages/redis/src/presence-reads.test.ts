@@ -64,7 +64,7 @@ describe('presence reads', () => {
       },
       expected: {
         evalCount: 1,
-        evalArgs: ['1', 'test:v1:presence:online', '100'],
+        evalArgs: ['1', 'test:v1:presence:online', '100', '0'],
         nowMs: 5000,
         actors: [
           { actorId: actor1, expiresAtMs: 9000 },

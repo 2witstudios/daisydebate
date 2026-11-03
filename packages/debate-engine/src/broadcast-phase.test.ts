@@ -43,14 +43,14 @@ describe('broadcastPhase', () => {
   });
   test('prep, the wait for a ballot and before the first segment are private', () => {
     assert({
-      given: 'prep, awaiting a ballot, and a scheduled Round',
+      given: 'prep, awaiting a ballot, and an opening Round',
       should: 'be private in each',
       actual: [
         broadcastPhase({ ...base, prep: { side: 'affirmative' } }),
         broadcastPhase({ ...base, awaitingBallot: true }),
         broadcastPhase({
           ...base,
-          status: 'scheduled',
+          status: 'opening',
           nextSegment: speechNext,
         }),
       ],

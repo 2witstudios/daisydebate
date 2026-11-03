@@ -150,7 +150,7 @@ describe('competition vocabulary', () => {
       given: 'the status vocabulary',
       should: 'be scheduled, active, completed and abandoned',
       actual: roundStatuses,
-      expected: ['scheduled', 'active', 'completed', 'abandoned'],
+      expected: ['opening', 'active', 'completed', 'abandoned'],
     });
   });
 });

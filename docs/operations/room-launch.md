@@ -116,8 +116,8 @@ Standalone Room/Round projection, catalog, bot, discovery and authority reads us
 The account/Room fence serializes Launch with Unready, erasure and cast
 changes. One transaction freezes topic, visibility, configuration, compiler
 rules and all human/bot/judge participant identities into one persisted
-Round. A unique Room reference enforces one Launch. The Round is
-**scheduled**, with no fabricated start clock. Active runtime, durable floor
+Round. A unique Room reference enforces one Start round. The Round is in its
+**opening** when it has a strike or prep to run, otherwise **active**. Active runtime, durable floor
 history, media grants/capture and judging producers are subsequent work.
 
 ## Proof and remaining adoption
@@ -162,7 +162,7 @@ warm adoption can be accepted.
 
 Authenticated discovery returns a lightweight page of Room metadata and the
 caller's seated flag. It includes assembling/ready Rooms and started Rooms
-whose frozen authoritative Round is scheduled or active. Abandoned Rooms and
+whose frozen authoritative Round is opening or active. Abandoned Rooms and
 completed/abandoned Rounds do not appear. Offering View Round requires both
 fresh Room and frozen Round authorization, including their respective host or
 creator, visibility and only the caller's relevant seats. The canonical

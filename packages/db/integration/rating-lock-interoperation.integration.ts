@@ -2,7 +2,6 @@ import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { withSeasons } from '../src/seasons';
 import { withRatings, ledgerOf } from './rating-fixtures';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -96,12 +95,9 @@ test('season closure waits for an in-flight posting, then later postings refuse 
     try {
       posting = rate(round.roundId);
       const ratingPid = await blockedBehind(fixture.sql, blocker.pid);
-      closing = withSeasons(url, (s) =>
-        s.closeSeason({
-          id: round.seasonId,
-          endsAt: new Date('2026-12-01T00:00:00.000Z'),
-        }),
-      );
+      // Direct, and started now: the operation refuses pending DEC-111.
+      closing =
+        fixture.sql`update seasons set status='closed', ends_at=${new Date('2026-12-01T00:00:00.000Z')} where id=${round.seasonId}`.execute();
       await blockedBehind(fixture.sql, ratingPid);
       blocker.release();
       const result = await posting;

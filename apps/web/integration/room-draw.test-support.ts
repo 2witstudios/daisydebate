@@ -1,4 +1,6 @@
-import type { RoomCreate, RoomView } from '@daisy/protocol';
+import { createId } from '@paralleldrive/cuid2';
+import { isNamedSeat, type RoomCreate } from '@daisy/protocol';
+import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { drawCapableBounds } from '@daisy/protocol/testing';
 import type { withRoomRuntime } from './room-runtime.test-support';
 
@@ -47,46 +49,70 @@ export const drawRoomOverrides = async (
 /** One strike of the first standing position by whoever is on turn. */
 export const strikeStanding = async (
   f: Fixture,
-  current: RoomView,
+  roundId: string,
   who: Caller,
   ordinal: number,
 ) => {
-  const draw = current.resolutionDraw;
+  const current = await f.operations.roundView(who, roundId);
+  const draw = current.opening?.draw;
   if (draw?.visibility !== 'debater') throw new Error('Debater view');
   const standing = draw.items.find(
     (item) => !draw.strikes.some((s) => s.position === item.position),
   )!;
-  const view = (
-    await f.command(who, current, {
-      type: 'strike-resolution',
+  await strikeCommand(f, roundId, who, ordinal, standing.position);
+  return {
+    view: await f.operations.roundView(who, roundId),
+    position: standing.position,
+  };
+};
+
+/** The strike command itself, through the shared Round operation. */
+export const strikeCommand = async (
+  f: Fixture,
+  roundId: string,
+  who: Caller,
+  ordinal: number,
+  position: number,
+) => {
+  const current = await f.operations.roundView(who, roundId);
+  const seat = current.participants
+    .filter(isNamedSeat)
+    .find((p) => p.actorId === who.actorId);
+  if (!seat) throw new Error('A seated striker');
+  return createRoundRuntimeOperations({
+    store: f.store,
+    nextSegmentId: createId,
+  }).command({ kind: 'human', actorId: who.actorId }, roundId, {
+    version: 1,
+    commandId: createId(),
+    expectedVersion: current.version,
+    command: {
+      type: 'strike_resolution',
+      participantId: seat.id,
       ordinal,
-      position: standing.position,
-    })
-  ).view;
-  return { view, position: standing.position };
+      position,
+    },
+  });
 };
 
 /** Strikes to the reveal, Negative first. */
-const strikeToReveal = async (
+export const strikeToReveal = async (
   f: Fixture,
-  view: RoomView,
+  roundId: string,
   cast: { readonly host: Caller; readonly guest: Caller },
-): Promise<RoomView> => {
-  let current = await f.operations.view(cast.guest, view.id);
-  const strikes = (current.resolutionDraw?.drawSize ?? 1) - 1;
+) => {
+  const opening = (await f.operations.roundView(cast.guest, roundId)).opening;
+  const strikes = (opening?.draw?.drawSize ?? 1) - 1;
   for (let ordinal = 0; ordinal < strikes; ordinal += 1)
-    current = (
-      await strikeStanding(
-        f,
-        current,
-        ordinal % 2 === 0 ? cast.guest : cast.host,
-        ordinal,
-      )
-    ).view;
-  return current;
+    await strikeStanding(
+      f,
+      roundId,
+      ordinal % 2 === 0 ? cast.guest : cast.host,
+      ordinal,
+    );
 };
 
-/** A ready draw Room for a fresh cast, optionally begun, revealed and launched. */
+/** A ready draw Room for a fresh cast, optionally started, and struck to its reveal. */
 export const drawRoomAt = async (
   f: Fixture,
   stage: 'ready' | 'striking' | 'launched',
@@ -95,13 +121,8 @@ export const drawRoomAt = async (
   const cast = await f.freshCast();
   let view = await f.assemble(await drawRoomOverrides(f, source), cast);
   if (stage === 'ready') return { cast, view };
-  view = (await f.command(cast.host, view, { type: 'start-pre-round' })).view;
+  view = (await f.command(cast.host, view, { type: 'start-round' })).view;
   if (stage === 'striking') return { cast, view };
-  view = await strikeToReveal(f, view, cast);
-  view = (
-    await f.command(cast.host, await f.operations.view(cast.host, view.id), {
-      type: 'start-round',
-    })
-  ).view;
-  return { cast, view };
+  await strikeToReveal(f, view.roundRef!.id, cast);
+  return { cast, view: await f.operations.view(cast.host, view.id) };
 };

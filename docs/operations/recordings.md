@@ -1,6 +1,6 @@
 # Recordings
 
-Operator runbook for Recordings ([ADR 0103](../decisions/0103-recording-and-retention.md)).
+Operator runbook for Recordings ([ADR 0105](../decisions/0105-recording-and-retention.md)).
 Retention and lawful basis are in [compliance](compliance.md), and are proposed
 until counsel reviews them.
 

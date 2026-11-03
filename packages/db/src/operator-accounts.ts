@@ -9,11 +9,13 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import {
-  moderationActions,
-  moderationCommandResultSchema,
-} from '@daisy/protocol/moderation';
+  contentModerationActions,
+  contentModerationCommandResultSchema,
+} from '@daisy/protocol/content-moderation';
 import {
+  moderationLiftCommandAction,
   operatorCommandStateSchema,
+  reportResolveCommandAction,
   type OperatorCommandState,
 } from '@daisy/protocol/operator';
 import {
@@ -26,6 +28,13 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 
 type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
 
+/** A command that owes nothing further reads back its stored result alone. */
+const storedOnly = async (
+  _database: Pick<Database, 'execute'>,
+  _commandId: string,
+  result: unknown,
+) => ({ result }) as Omit<OperatorCommandState, 'action'>;
+
 /** Each operator command action's owner completes its own readback. */
 const commandStateReaders = new Map<
   string,
@@ -36,16 +45,18 @@ const commandStateReaders = new Map<
   ) => Promise<Omit<OperatorCommandState, 'action'>>
 >([
   [betaAccessCommandAction, readBetaAccessCommandState],
-  // A moderation command's readback is its stored result and nothing else.
-  ...moderationActions.map(
+  // A content moderation command's readback is its stored result alone.
+  ...contentModerationActions.map(
     (action) =>
       [
         action,
         async (_database: unknown, _commandId: string, result: unknown) => ({
-          result: moderationCommandResultSchema.parse(result),
+          result: contentModerationCommandResultSchema.parse(result),
         }),
       ] as const,
   ),
+  [reportResolveCommandAction, storedOnly],
+  [moderationLiftCommandAction, storedOnly],
 ]);
 
 const instant = z

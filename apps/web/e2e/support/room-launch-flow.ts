@@ -249,8 +249,8 @@ export async function assertFrozenLaunch(view: RoomView) {
   const proof = await launchEvidence(view.id);
   expect(proof.frozen).toEqual([
     {
-      status: 'scheduled',
-      startedAt: null,
+      status: 'active',
+      startedAt: expect.any(String),
       topic: view.topic,
       config: view.config,
       rules: view.rules,

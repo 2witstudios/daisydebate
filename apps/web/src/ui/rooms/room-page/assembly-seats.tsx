@@ -48,6 +48,15 @@ function SeatCommand({
   );
 }
 
+/** Whether every free debater seat is held for someone other than this viewer. */
+const heldFromViewer = (view: Props['view'], role: Seat['role']) => {
+  if (role === 'judge' || view.debaterSeatsHeldFromViewer === 0) return false;
+  const debaters = view.participants.filter((p) => p.role !== 'judge').length;
+  const free =
+    view.rules.seats.affirmative + view.rules.seats.negative - debaters;
+  return free <= view.debaterSeatsHeldFromViewer;
+};
+
 /** An open seat: take it, invite someone, or (judge, host) seat an AI judge. */
 function OpenSeatActions({
   props,
@@ -65,7 +74,7 @@ function OpenSeatActions({
     : undefined;
   return (
     <div className="flex flex-wrap items-start justify-end gap-2">
-      {view.capabilities.canClaimSeat ? (
+      {view.capabilities.canClaimSeat && !heldFromViewer(view, seat.role) ? (
         <SeatCommand
           props={props}
           type="claim-seat"

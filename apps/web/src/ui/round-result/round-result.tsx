@@ -1,7 +1,7 @@
 import type { RoundBallotRead } from '@daisy/protocol';
 import { ballotDebaters } from '../../features/round-ballots/presentation';
 import { ballotEyebrowClass } from '../ballot/ballot-class';
-import { ReportForm } from '../moderation/report-form';
+import { ReportForm } from '../content-moderation/report-form';
 import { BallotSummary } from '../ballot/ballot-summary/ballot-summary';
 import { StoredBallotScores } from '../ballot/stored-ballot-scores';
 import { TranscriptContent } from './transcript-content';

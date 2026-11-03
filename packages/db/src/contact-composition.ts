@@ -1,3 +1,4 @@
+import { challengeContactReactions } from './challenges/frame';
 import type { ContactReactions } from './contacts/reactions';
 import { friendContactReactions } from './friends/contact-reactions';
 import { messagingContactReactions } from './messaging/contact-reactions';
@@ -8,7 +9,11 @@ import { messagingContactReactions } from './messaging/contact-reactions';
  * here, so Contacts itself names none of them.
  */
 export const contactReactions: ContactReactions = {
-  onBlock: [friendContactReactions.onBlock, messagingContactReactions.onBlock],
+  onBlock: [
+    friendContactReactions.onBlock,
+    challengeContactReactions.onBlock,
+    messagingContactReactions.onBlock,
+  ],
   relations: [
     friendContactReactions.relation,
     messagingContactReactions.relation,

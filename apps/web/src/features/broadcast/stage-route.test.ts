@@ -23,7 +23,7 @@ const route = (over: object = {}, revokedAt: Date | null = null) => {
           },
           round: {
             id: 'r',
-            status: 'scheduled',
+            status: 'opening',
             rules: { segments: [], seats: {} },
             participants: [],
             checkpoint: emptyRuntimeCheckpoint,

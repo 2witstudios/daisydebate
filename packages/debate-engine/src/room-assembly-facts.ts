@@ -1,3 +1,4 @@
+import { topicInvariantHolds } from './resolution-draw';
 import type {
   RoomAssemblyState,
   RoomConsent,
@@ -13,8 +14,7 @@ import {
 } from '@daisy/protocol';
 import { activeRoomMembers } from './room-membership';
 import type { FormatSelectionFacts } from './format-selection';
-import type { DrawStartFacts } from './pre-round-phase';
-import { preRoundBegun, preRoundPhase } from './pre-round-phase';
+import type { DrawStartFacts } from './room-draw-start';
 
 type Target = RoomParticipant & {
   readonly eligible: boolean;
@@ -39,9 +39,7 @@ export type Edges = {
   /** What the adapter loaded, under lock, for a select-format tuple (FMT-1). */
   readonly formatFacts?: FormatSelectionFacts | null;
   readonly resolutionPublication?: PublishedResolution | null;
-  /** The stored seed (hex) of the Room's draw, for settlement; null without one. */
-  readonly drawSeed: string | null;
-  /** Facts for a new draw, loaded only for `start-pre-round` on a draw Room. */
+  /** Facts for a new draw, loaded only for `start-round` on a draw Room. */
   readonly drawStart: DrawStartFacts | null;
 };
 export const assemblyOpen = (room: RoomAssemblyState) =>
@@ -60,7 +58,7 @@ export const complete = (room: RoomAssemblyState) =>
  * Why the seated cast can't go on yet, or null: every seat eligible, Ready
  * readable and every human Ready. The draw and Launch both wait on it.
  */
-export const castGate = (
+const castGate = (
   room: RoomAssemblyState,
   consent: RoomConsent,
 ): RoomRefusal | null => {
@@ -74,8 +72,6 @@ export const castGate = (
     )
   )
     return 'actor-ineligible';
-  // Persisted pre-round anchors certify the atomically validated start commitment.
-  if (preRoundBegun(room)) return null;
   if (!consent.available) return 'readiness-unavailable';
   return room.participants.some(
     (p) => p.kind === 'human' && !consent.readyActorIds.includes(p.actorId),
@@ -86,7 +82,6 @@ export const castGate = (
 export const startBlocker = (
   room: RoomAssemblyState,
   consent: RoomConsent,
-  now: string,
 ): RoomRefusal | null => {
   if (!assemblyOpen(room)) return 'room-closed';
   if (
@@ -97,8 +92,7 @@ export const startBlocker = (
   if (!complete(room)) return 'incomplete-cast';
   const cast = castGate(room, consent);
   if (cast) return cast;
-  if (preRoundPhase(room, now).phase !== 'satisfied') return 'prep-running';
-  if (room.topic === null) return 'illegal-config';
+  if (!topicInvariantHolds(room)) return 'illegal-config';
   return null;
 };
 
@@ -116,7 +110,7 @@ export const acceptedRoomMutation = (
     spendsAiRound: false,
     seatsBotDebater: false,
     publishDefinition: false,
-    drawSecrets: null,
+    draw: null,
     members: activeRoomMembers(state),
     ...overrides,
   },

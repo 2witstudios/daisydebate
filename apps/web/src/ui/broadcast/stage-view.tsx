@@ -35,27 +35,8 @@ export function StageView(props: {
   const { snapshot } = props;
   const live = snapshot.phase === 'speech';
   return (
-    <main
-      style={{
-        width: 1280,
-        height: 720,
-        display: 'grid',
-        gridTemplateRows: '64px 1fr 48px',
-        background: '#14130f',
-        color: '#fff',
-        fontFamily: 'sans-serif',
-        overflow: 'hidden',
-      }}
-    >
-      <header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0 24px',
-          fontSize: 28,
-        }}
-      >
+    <main className="grid h-[720px] w-[1280px] grid-rows-[64px_1fr_48px] overflow-hidden bg-[#14130f] font-sans text-white">
+      <header className="flex items-center justify-between px-6 text-[28px]">
         <span>
           {live
             ? snapshot.clock?.label
@@ -65,38 +46,16 @@ export function StageView(props: {
           <strong>{remaining(snapshot.clock.endsAt, props.nowMs)}</strong>
         ) : null}
       </header>
-      <section style={{ position: 'relative', minHeight: 0 }}>
-        <div
-          style={{
-            display: 'flex',
-            height: '100%',
-            visibility: live ? 'visible' : 'hidden',
-          }}
-        >
+      <section className="relative min-h-0">
+        <div className={`flex h-full ${live ? 'visible' : 'invisible'}`}>
           {props.tiles}
         </div>
-        <ul
-          style={{
-            position: 'absolute',
-            bottom: 8,
-            left: 0,
-            right: 0,
-            display: 'flex',
-            margin: 0,
-            padding: 0,
-            listStyle: 'none',
-          }}
-        >
+        <ul className="absolute inset-x-0 bottom-2 m-0 flex list-none p-0">
           {snapshot.seats.map((seat) => (
             <li
               key={seat.side}
               data-floor={seat.floor}
-              style={{
-                flex: 1,
-                textAlign: 'center',
-                fontSize: 24,
-                fontWeight: seat.floor ? 700 : 400,
-              }}
+              className={`flex-1 text-center text-2xl ${seat.floor ? 'font-bold' : 'font-normal'}`}
             >
               {seat.label}
               {seat.floor ? ' · speaking' : ''}
@@ -104,16 +63,7 @@ export function StageView(props: {
           ))}
         </ul>
       </section>
-      <footer
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0 24px',
-          fontSize: 20,
-          background: '#000',
-        }}
-      >
+      <footer className="flex items-center justify-between bg-black px-6 text-xl">
         <span>Daisy Debate</span>
         <span>{props.siteLink}</span>
       </footer>

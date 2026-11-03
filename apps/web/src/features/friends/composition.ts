@@ -4,16 +4,10 @@ import { consumeOrThrow } from '../../server/rate-limit';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 
 import { createFriendHandlers } from './handlers';
-import {
-  challengeRateLimit,
-  changeChallenge,
-  type ChallengeOperationDependencies,
-} from './challenge-operations';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import {
   changeFriendship,
   type FriendOperationDependencies,
-  friendPresenceOf,
   friendsOnlineOf,
   readFriendList,
   type FriendReadDependencies,
@@ -48,17 +42,7 @@ const friendReads = (
       scope,
       ownFence(principal, 'social.friend.list'),
     ),
-  challenges: (scope) =>
-    app.database.listFriendChallenges(
-      scope,
-      ownFence(principal, 'social.friend.list'),
-    ),
-  presence: async (actorIds) =>
-    new Map(
-      [...(await app.redis.readActorsPresence(actorIds))].map(
-        ([actorId, activity]) => [actorId, friendPresenceOf(activity)],
-      ),
-    ),
+  presence: (actorIds) => app.redis.readActorsPresence(actorIds),
 });
 
 /** The member's own friend list, for pages and the list route. */
@@ -80,23 +64,6 @@ const friendPorts = (
     app.database.friendStore(contactPairFence({ principal, capability })),
 });
 
-/** A challenge's ports: its own limiter bucket and capability fence. */
-const challengePorts = (
-  app: App,
-  principal: AuthorizationPrincipal,
-): ChallengeOperationDependencies => ({
-  clock: app.clock,
-  limit: (actorId) =>
-    consumeOrThrow(
-      app.limiter,
-      challengeRateLimit.key(actorId),
-      challengeRateLimit.rule,
-    ),
-  discover: appDiscoverActor(app),
-  store: (capability) =>
-    app.database.friendStore(contactPairFence({ principal, capability })),
-});
-
 export function composeFriendRoutes(app: App) {
   const list = composeFriendList(app);
   return createFriendHandlers({
@@ -107,13 +74,6 @@ export function composeFriendRoutes(app: App) {
         command,
         username,
         friendPorts(app, principal),
-      ),
-    challenge: (principal, command, input) =>
-      changeChallenge(
-        principal,
-        command,
-        input,
-        challengePorts(app, principal),
       ),
     list,
     websocketEndpoint: app.websocketEndpoint,

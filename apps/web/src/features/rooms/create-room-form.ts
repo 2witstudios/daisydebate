@@ -45,17 +45,22 @@ const assemblingRoomOf = (href: string) =>
 async function runHook(
   hook: BeforeMoveOn,
   roomId: string | undefined,
+  created: boolean,
 ): Promise<string | undefined> {
   if (!roomId) return undefined;
   try {
-    return (await hook(roomId)) ?? undefined;
+    return (await hook(roomId, created)) ?? undefined;
   } catch {
     // The Room's own invite link still reaches anyone the hook missed.
     return undefined;
   }
 }
 
-type BeforeMoveOn = (roomId: string) => Promise<string | void>;
+/** `created` tells a Room this call opened from one the member already held. */
+type BeforeMoveOn = (
+  roomId: string,
+  created: boolean,
+) => Promise<string | void>;
 
 /**
  * Normal creation and explicit rematch keep the same native/enhanced
@@ -80,13 +85,17 @@ export async function submitRoomCreation(
     submitted,
   );
   if (result.kind === 'created') {
-    const notice = await runHook(beforeMoveOn, result.roomId);
+    const notice = await runHook(beforeMoveOn, result.roomId, true);
     if (notice) return refused(submitted, notice);
     return { values: {}, ...moveOn(incoming, `/rooms/${result.roomId}`) };
   }
   // One active Room per user (ADR 0070): the answer is to go back to it.
   if (result.kind === 'active-room' && result.href) {
-    const notice = await runHook(beforeMoveOn, assemblingRoomOf(result.href));
+    const notice = await runHook(
+      beforeMoveOn,
+      assemblingRoomOf(result.href),
+      false,
+    );
     if (notice) return refused(submitted, notice);
     return { values: {}, ...moveOn(incoming, result.href) };
   }

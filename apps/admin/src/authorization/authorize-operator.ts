@@ -6,10 +6,13 @@
 export const operatorActions = [
   'accounts.read',
   'account.beta_access.update',
-  'moderation.read',
-  'moderation.update',
+  'content_moderation.read',
+  'content_moderation.update',
   'audit.read',
   'security.read',
+  'reports.read',
+  'report.resolve',
+  'moderation.lift',
 ] as const;
 export type OperatorAction = (typeof operatorActions)[number];
 
@@ -50,7 +53,9 @@ const roleActions: Readonly<
 
 const mutatingActions: ReadonlySet<OperatorAction> = new Set([
   'account.beta_access.update',
-  'moderation.update',
+  'content_moderation.update',
+  'report.resolve',
+  'moderation.lift',
 ]);
 
 export const requiresSecondApproval = (

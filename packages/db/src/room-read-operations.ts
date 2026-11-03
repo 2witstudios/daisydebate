@@ -1,3 +1,4 @@
+import { withOpening, type ReadOpening } from './round-opening-read';
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
 import type { SpectatorClock } from './spectator-release-sql';
 import type { roomCommandTransaction } from './room-command-transaction';
@@ -137,6 +138,7 @@ export const roomReadOperations = ({
     roundId: string,
     caller: Caller,
     authorize: (round: LaunchedRound, account: Account) => boolean,
+    readOpening: ReadOpening,
     /** The engine's decision, injected. Required: no read may report a played Round as waiting on nothing. */
     decideWaitingOn: (facts: RoundWaitingFacts) => RoundWaitingOn | null,
   ): Promise<RoundView> {
@@ -145,12 +147,28 @@ export const roomReadOperations = ({
         const account = await sharedAccount(tx, caller);
         const round = await launchedRoundRows(tx, roundId);
         if (!authorize(round, account)) throw createAppError('NOT_FOUND');
-        return {
-          ...roundViewFor(round, caller.actorId),
-          waitingOn: await readWaitingOn(tx, round, decideWaitingOn),
-        };
+        return withOpening(
+          tx,
+          round,
+          {
+            ...roundViewFor(round, caller.actorId),
+            waitingOn: await readWaitingOn(tx, round, decideWaitingOn),
+          },
+          caller.actorId,
+          readOpening,
+        );
       }),
     );
+  },
+  /** Whether the picker's catalog offers this format: a read for another concept. */
+  async formatInCatalog(formatId: string): Promise<boolean> {
+    return instrumented(eventSink, 'formatInCatalog', async () => {
+      const [row] = await database
+        .select({ id: formats.id })
+        .from(formats)
+        .where(and(eq(formats.id, formatId), isNotNull(formats.catalogRole)));
+      return row !== undefined;
+    });
   },
   /**
    * The picker's catalog (FMT-1): every format with a catalog role, at its
@@ -225,10 +243,7 @@ export const roomReadOperations = ({
     roomId: string,
     caller: Caller,
     authorize: AuthorizeRoom,
-  ): Promise<{
-    readonly state: RoomAssemblyState;
-    readonly drawSeed: string | null;
-  }> {
+  ): Promise<{ readonly state: RoomAssemblyState }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);

@@ -41,12 +41,20 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
       seen.add(nonce);
       return true;
     },
-    moderation: {
+    contentModeration: {
       listModerationReports: async () => [],
       readModerationReport: async () => null,
       runModerationCommand: async () => ({ v: 1, outcome: 'applied' }),
     },
     store: {
+      listOperatorReports: async () => [],
+      listOperatorRestrictions: async () => [],
+      resolveReport: async () => {
+        throw new Error('Unexpected report command');
+      },
+      liftModeration: async () => {
+        throw new Error('Unexpected lift');
+      },
       listOperatorAccounts: async (input) => {
         calls.lists.push(input);
         return [account, { ...account, userId: 'v'.repeat(24) }];

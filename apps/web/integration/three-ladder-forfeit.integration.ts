@@ -5,7 +5,7 @@ import { ratingLadders } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   withRoomRuntime,
-  startRuntimeRound,
+  launchRuntimeRound,
 } from './round-runtime.test-support';
 import {
   readyRankedRoom,
@@ -23,7 +23,7 @@ for (const ladder of ratingLadders)
         await withSeasons(databaseUrl, (s) =>
           s.activateBetaSeason({ id: seasonId }),
         );
-        const started = await startRuntimeRound(
+        const started = await launchRuntimeRound(
           f,
           await readyRankedRoom(f, ladder, 'human'),
         );
@@ -35,7 +35,7 @@ for (const ladder of ratingLadders)
           {
             version: 1,
             commandId,
-            expectedVersion: started.receipt.resultingVersion,
+            expectedVersion: (await f.store.getRound(roundId))!.version,
             command: {
               type: 'forfeit',
               participantId: (await f.store.getRound(

@@ -16,7 +16,7 @@ type PhaseFact =
 
 export type BroadcastFacts = {
   readonly nowMs: number;
-  readonly roundStatus: 'scheduled' | 'active' | 'completed' | 'abandoned';
+  readonly roundStatus: 'opening' | 'active' | 'completed' | 'abandoned';
   readonly roundEndedAtMs: number | null;
   readonly stoppedAtMs: number | null;
   readonly completedAtMs: number | null;

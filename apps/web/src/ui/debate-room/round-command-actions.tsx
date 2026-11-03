@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useId, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { isLiveDebater } from './live-round';
 import { UnacknowledgedCommand } from './unacknowledged-command';
@@ -87,6 +87,25 @@ export function CommandForm({
     </form>
   );
 }
+/** A refused strike means nothing once the strike is over; other answers stay. */
+export const shownError = (
+  answer: Pick<RoundFormState, 'values' | 'unacknowledged' | 'error'>,
+  view: Pick<RoundView, 'opening'>,
+) =>
+  answer.values.type === 'strike_resolution' &&
+  !answer.unacknowledged &&
+  view.opening?.step.step !== 'strike'
+    ? undefined
+    : answer.error;
+
+/** Where focus goes after an answer: what the answer shows, else its control. */
+export const answerFocusTarget = (
+  answer: Pick<RoundFormState, 'values' | 'unacknowledged' | 'error'>,
+  view: Pick<RoundView, 'opening'>,
+  feedback: string,
+  control: string,
+) => (shownError(answer, view) ? feedback : `${control}-${answer.values.type}`);
+
 /** Feedback survives a canonical revision that removes the submitted action. */
 export function RoundCommandActions({
   view,
@@ -97,8 +116,15 @@ export function RoundCommandActions({
   onAnswer,
   children,
 }: {
-  /** The command forms, and any answer about them for the frame to show. */
-  readonly children: (actions: ReactNode, feedback: ReactNode) => ReactNode;
+  /** The command forms, any answer about them for the frame to show, and the form the opening's strike posts through. */
+  readonly children: (
+    actions: ReactNode,
+    feedback: ReactNode,
+    form: {
+      readonly post: (form: FormData) => void;
+      readonly pending: boolean;
+    },
+  ) => ReactNode;
   readonly view: RoundView;
   readonly actorId: string;
   readonly nowMs: number;
@@ -122,9 +148,13 @@ export function RoundCommandActions({
     if (answer !== unanswered && (answer.view || answer.error))
       onAnswer(answer);
   }, [answer, onAnswer]);
+  // The feedback moves when the Round ends and the frame gives way, so an answer
+  // on screen is focused again in its new place.
+  const live = isLiveDebater(view, actorId);
+  const answered = useMemo(() => ({ answer, live }), [answer, live]);
   useFocusAfterAnswer(
-    answer,
-    answer.error ? feedback : `${control}-${answer.values.type}`,
+    answered,
+    answerFocusTarget(answer, view, feedback, control),
     !pending,
   );
   const actions = !answer.unacknowledged ? (
@@ -152,9 +182,10 @@ export function RoundCommandActions({
     actions,
     <>
       <div id={feedback} tabIndex={-1}>
-        <FormError error={answer.error} />
+        <FormError error={shownError(answer, view)} />
       </div>
       <UnacknowledgedCommand answer={answer} post={post} pending={pending} />
     </>,
+    { post, pending },
   );
 }

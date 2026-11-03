@@ -156,7 +156,7 @@ test('every jsonb column refuses a scalar written around the application (ISSUE-
         format_id: 'foundation',
         format_version: 1,
         rules_snapshot: scalar,
-        status: 'scheduled',
+        status: 'opening',
       }),
       definition: await fixture.rejectedBy(
         'format_revisions',

@@ -1,16 +1,17 @@
-import { judgingJobRules } from '@daisy/debate-engine';
+import { judgingJobRules, ratingAwaited } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
+import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { createId } from '@paralleldrive/cuid2';
 import { CONTENT_WAIVER_VERSION } from '../src/features/legal/agreements';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import type { Ballot, RatingLadder } from '@daisy/protocol';
 import type { withRoomRuntime } from './room-runtime.test-support';
-import { startRuntimeRound } from './round-runtime.test-support';
+import { launchRuntimeRound } from './round-runtime.test-support';
 import { everyoneReady, playOut } from './round-judging.test-support';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
-import { strikeStanding } from './room-draw.test-support';
+import { strikeToReveal } from './room-draw.test-support';
 import { botAdmissionForTests } from './bot-admission.test-support';
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 /** Canonical setup proof; only the test-owned prep anchor advances, never real time. */
@@ -67,41 +68,42 @@ export async function readyRankedRoom(
     room,
     judgeKind === 'human' ? [f.host, f.guest, f.outsider] : [f.host, f.guest],
   );
-  if (ladder === 'freestyle') {
-    room = (await f.command(f.host, room, { type: 'start-pre-round' })).view;
-    for (
-      let ordinal = 0;
-      ordinal < (room.resolutionDraw?.drawSize ?? 1) - 1;
-      ordinal++
-    ) {
-      const who = ordinal % 2 === 0 ? f.guest : f.host;
-      room = (
-        await strikeStanding(
-          f,
-          await f.operations.view(who, room.id),
-          who,
-          ordinal,
-        )
-      ).view;
-    }
-    await f.sql`update rooms set prep_started_at=clock_timestamp()-interval '21 minutes' where id=${room.id}`;
-    room = await f.operations.view(f.host, room.id);
-  }
   return room;
 }
 
 /** Exercise duplicate delivery plus a fresh sweep over durable rating discovery. */
 export async function recoverRankedResults(f: Fixture) {
-  const sweep = () =>
-    createRatingSweep({
-      database: f.store,
-      ids: { next: createId },
-      onFailure: (_id, error) => {
-        throw error;
-      },
-    })({ limit: 64 });
-  await Promise.all([sweep(), sweep()]);
-  await sweep();
+  const sweep = createRatingSweep({
+    database: f.store,
+    ids: { next: createId },
+    onFailure: (_id, error) => {
+      throw error;
+    },
+  });
+  // Every page: candidates other suites left unrated also fill a page.
+  const sweepAll = async (afterId?: string): Promise<void> => {
+    const page = await sweep({ limit: 64, ...(afterId ? { afterId } : {}) });
+    if (!page.exhausted) await sweepAll(page.afterId);
+  };
+  await Promise.all([sweepAll(), sweepAll()]);
+  await sweepAll();
+}
+
+/**
+ * A Freestyle Round's opening, run to its first speech's countdown: both
+ * debaters strike to the reveal, and its 20:00 prep is cut to a millisecond,
+ * the one fact a test may move without waiting for the clock.
+ */
+export async function runRankedOpening(f: Fixture, roundId: string) {
+  const [row] = await f.sql`select status from rounds where id=${roundId}`;
+  if (row?.status !== 'opening') return;
+  await strikeToReveal(f, roundId, { host: f.host, guest: f.guest });
+  await f.sql`update rounds set pre_round_prep_ms=1 where id=${roundId}`;
+  await f.store.executeRoundTick({
+    roundId,
+    runsOpening: true,
+    buildProjection: roundTickProjection(createId),
+  });
 }
 
 /** Runtime options for a Round whose AI judge serves a cached fixture ballot. */
@@ -123,7 +125,7 @@ export async function frozenRankedRound(
   judgeKind: 'human' | 'ai',
 ) {
   const room = await readyRankedRoom(f, ladder, judgeKind);
-  const { roundId } = await startRuntimeRound(f, room);
+  const { roundId } = await launchRuntimeRound(f, room);
   await playOut(f, roundId, true);
   const frozen = await finalizeAsWeb(f, roundId);
   if (frozen.status !== 'frozen' || frozen.freeze.completeness !== 'complete')
@@ -160,3 +162,12 @@ export async function judgeWithCachedAi(
   await judging.executeClaim(claim, new AbortController().signal);
   return { claim, judging };
 }
+
+/** Whether durable rating discovery still owes this Round a rating. */
+export const awaitsRating = async (
+  f: Pick<Fixture, 'store'>,
+  roundId: string,
+) => {
+  const facts = await f.store.readRatingFacts(roundId);
+  return facts !== null && ratingAwaited(facts);
+};

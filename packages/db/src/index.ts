@@ -1,7 +1,17 @@
 import { createBroadcastStore } from './broadcast-store';
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
+import {
+  challengeReadOperations,
+  createChallengeStore,
+} from './challenges/store';
 import { friendshipReadOperations } from './friends/reads';
+import { createReportStore, reportOperations } from './reports/store';
+import { moderationOperations } from './moderation/store';
+import { moderationReactions } from './moderation-composition';
+import { rosterOperations } from './presence/roster';
+import { memberCardOperations } from './member-cards';
+import { ratingVisibilityOperations } from './ratings-visibility';
 import { createFriendStore } from './friends/store';
 import { createContactStore } from './contacts/store';
 import { contactReactions } from './contact-composition';
@@ -33,10 +43,7 @@ import {
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
-import {
-  readRoundAwaitsRating,
-  readUnratedRatingRounds,
-} from './rating-discovery';
+import { readRatingCandidates, readRatingFacts } from './rating-discovery';
 import {
   deliverObservationPurges,
   owedObservationPurges,
@@ -61,7 +68,7 @@ import {
 import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { betaAccessOperations } from './beta-access';
-import { moderationOperations } from './moderation-operations';
+import { contentModerationOperations } from './content-moderation-operations';
 import { operatorAccountOperations } from './operator-accounts';
 import { provisionalRetentionOperations } from './provisional-retention';
 import { authOperations } from './auth-operations';
@@ -200,11 +207,9 @@ export function createDatabase({
       nextId: nextActorId,
     }),
     ...availabilityOperations(controlLane.client, dedicated),
-    readUnratedRatingRounds: (
-      input: Parameters<typeof readUnratedRatingRounds>[1],
-    ) => readUnratedRatingRounds(database, input),
-    readRoundAwaitsRating: (roundId: string) =>
-      readRoundAwaitsRating(database, roundId),
+    readRatingCandidates: (input: Parameters<typeof readRatingCandidates>[1]) =>
+      readRatingCandidates(database, input),
+    readRatingFacts: (roundId: string) => readRatingFacts(database, roundId),
     ...databaseHealthOperations({
       database: control,
       dedicated,
@@ -283,11 +288,21 @@ export function createDatabase({
     ...mailIntentOperations({ database: control, eventSink }),
     ...betaAccessOperations({ database: control, eventSink }),
     ...operatorAccountOperations({ database: control, eventSink }),
-    ...moderationOperations({ database: control, eventSink }),
+    ...contentModerationOperations({ database: control, eventSink }),
     ...actorOperations({ database: control, eventSink }),
     ...messagingOperations(social, contactReactions),
     ...friendshipReadOperations({ database: social, eventSink }),
     ...presenceSettingOperations({ database: social, eventSink }),
+    ...rosterOperations({ database: social, eventSink }),
+    ...ratingVisibilityOperations({ database: social, eventSink }),
+    ...memberCardOperations({ database: social, eventSink }),
+    ...challengeReadOperations({ database: social, eventSink }),
+    ...reportOperations({ database: control, eventSink, moderationReactions }),
+    ...moderationOperations({ database: control, eventSink }),
+    challengeStore: (authorize: ContactAuthorizationFence) =>
+      createChallengeStore({ database: social, authorize }),
+    reportStore: (authorize: ContactAuthorizationFence) =>
+      createReportStore({ database: social, authorize }),
     friendStore: (authorize: ContactAuthorizationFence) =>
       createFriendStore({
         database: social,

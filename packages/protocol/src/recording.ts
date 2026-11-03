@@ -3,7 +3,7 @@ import { idSchema } from './primitives';
 
 /**
  * A Recording: a retained playable video of a Round, with its own state and
- * lifetime (ADR 0103). It borrows nothing from Broadcast or the transcript. The
+ * lifetime (ADR 0105). It borrows nothing from Broadcast or the transcript. The
  * lifecycle is one value, so a Recording cannot be both ready and removed, or
  * ready with no media.
  */

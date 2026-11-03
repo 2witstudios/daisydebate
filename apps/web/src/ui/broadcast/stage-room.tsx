@@ -84,7 +84,7 @@ export function StageRoom(props: {
       snapshot={stage}
       nowMs={stage.nowMs}
       siteLink={SITE_LINK}
-      tiles={<div ref={tiles} style={{ display: 'flex', width: '100%' }} />}
+      tiles={<div ref={tiles} className="flex w-full" />}
     />
   ) : null;
 }

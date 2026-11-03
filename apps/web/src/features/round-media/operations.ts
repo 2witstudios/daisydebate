@@ -14,6 +14,7 @@ import {
 import { listenIdentity } from './listen-identity';
 import { cancelMediaWork } from './cancel-media-work';
 import { createMediaReconcileRun } from './reconcile-run';
+import { recoveryDue } from './recovery-due';
 import type {
   Store,
   Principal,
@@ -69,6 +70,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   const run = createMediaReconcileRun(input, buildProjection, snapshot);
   /** The reads each session's one polling loop is still serving. */
   const polls = new Map<string, Set<ServeWaiter>>();
+  /** The Rounds the recovery tick is reconciling here, one pass each at a time. */
+  const recovering = new Set<string>();
   const acquire = async (sessionId: string, limit?: AdmissionLimit) => {
     const owner = input.nextId();
     await input.priority(sessionId, 'enter', owner);
@@ -380,18 +383,32 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
           }));
     },
     reconcile,
+    /**
+     * Starts each Round this process is not already recovering and resolves when
+     * those finish. A tick does not wait for the last one, so one Round's slow
+     * pass never delays another's floor (ISSUE-972).
+     */
     async recoverActiveSessions() {
-      for (const session of await input.store.activeMediaSessions()) {
-        try {
-          await reconcile(session.roundId);
-        } catch (error) {
-          input.reporter.capture(error, {
-            requestId: input.nextId(),
-            route: '/api/rounds/:id/media/reconcile',
-            errorCode: 'INFRASTRUCTURE',
-          });
-        }
-      }
+      const due = recoveryDue(
+        await input.store.activeMediaSessions(),
+        recovering,
+      );
+      for (const session of due) recovering.add(session.roundId);
+      await Promise.all(
+        due.map(async (session) => {
+          try {
+            await reconcile(session.roundId);
+          } catch (error) {
+            input.reporter.capture(error, {
+              requestId: input.nextId(),
+              route: '/api/rounds/:id/media/reconcile',
+              errorCode: 'INFRASTRUCTURE',
+            });
+          } finally {
+            recovering.delete(session.roundId);
+          }
+        }),
+      );
     },
   };
 }

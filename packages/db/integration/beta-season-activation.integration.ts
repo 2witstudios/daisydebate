@@ -56,12 +56,7 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
       ],
       expected: [first, before],
     });
-    await withSeasons(url, (s) =>
-      s.closeSeason({
-        id: first.id,
-        endsAt: new Date(Date.parse(first.startsAt) + 1),
-      }),
-    );
+    await f.sql`update seasons set status='closed', ends_at=${new Date(Date.parse(first.startsAt) + 1)} where id=${first.id}`;
     const retried = await withSeasons(url, (s) =>
       s.activateBetaSeason({ id: createId() }),
     );

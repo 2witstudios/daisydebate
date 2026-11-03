@@ -6,7 +6,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 import { botAdmissionForTests } from './bot-admission.test-support';
@@ -38,7 +38,7 @@ for (const revoked of [false, true])
           room = (
             await f.consent(who, await f.operations.view(who, room.id), 'ready')
           ).view;
-        ({ roundId } = await startRuntimeRound(f, room));
+        ({ roundId } = await launchRuntimeRound(f, room));
         const round = (await f.store.getRound(roundId))!;
         if (revoked)
           await f.sql`delete from ai_judge_profiles where actor_id=${bots[1]!}`;

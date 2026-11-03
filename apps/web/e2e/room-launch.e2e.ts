@@ -139,7 +139,7 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
   }
 });
 
-test('native judge Ready and eligible stored bot debaters launch one frozen scheduled Round', async ({
+test('native judge Ready and eligible stored bot debaters start one frozen Round', async ({
   browser,
 }, info) => {
   const accounts = await createRoomLaunchAccounts(browser, 1);
@@ -192,8 +192,8 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       expect(receipt.status()).toBe(200);
       const round = roundViewSchema.parse(await receipt.json());
       expect(round).toMatchObject({
-        status: 'scheduled',
-        startedAt: null,
+        status: 'active',
+        startedAt: expect.any(String),
         topic: view.topic,
         config: view.config,
       });
@@ -210,14 +210,14 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       expect((await launchEvidence(view.id)).hash).toBe(proof.hash);
       await expect(judge).toHaveURL(`/rounds/${round.id}`);
       await expect(
-        judge.getByText('Round · Not started', { exact: true }),
+        judge.getByText('Round · In progress', { exact: true }),
       ).toBeVisible();
       await judge.goto(`/lobby?${new URLSearchParams({ q: view.title })}`);
       // The judge holds a seat, so the row leads back into the round room.
       await expect(
         judge.getByRole('link', { name: /^Return to room: / }),
       ).toHaveAttribute('href', `/rounds/${round.id}/room`);
-      await info.attach('scheduled-round-evidence', {
+      await info.attach('started-round-evidence', {
         body: JSON.stringify(proof),
         contentType: 'application/json',
       });
@@ -229,7 +229,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
   }
 });
 
-test('Train carries its chosen bot through the durable Room into one scheduled Round', async ({
+test('Train carries its chosen bot through the durable Room into one shared Round', async ({
   browser,
 }, info) => {
   test.setTimeout(240_000);
@@ -270,26 +270,29 @@ test('Train carries its chosen bot through the durable Room into one scheduled R
       slot: 0,
     });
     const readyAtReceipt = [...view.readiness.readyActorIds];
-    const startDraw = await page.request.post(`/api/rooms/${roomId}/commands`, {
-      headers: { origin },
-      data: {
-        type: 'start-pre-round',
-        commandId: createId(),
-        expectedVersion: view.version,
+    const startRound = await page.request.post(
+      `/api/rooms/${roomId}/commands`,
+      {
+        headers: { origin },
+        data: {
+          type: 'start-round',
+          commandId: createId(),
+          expectedVersion: view.version,
+        },
       },
-    });
-    const drawReceipt = (await startDraw.json()) as {
+    );
+    const startReceipt = (await startRound.json()) as {
       refusal?: string;
       view?: RoomView;
     };
-    if (startDraw.status() !== 200) {
+    if (startRound.status() !== 200) {
       const current = await reread(page.request, roomId);
       await info.attach('train-readiness-loss', {
         body: JSON.stringify({
           candidate: process.env.GIT_COMMIT,
           roomId,
-          status: startDraw.status(),
-          refusal: drawReceipt.refusal,
+          status: startRound.status(),
+          refusal: startReceipt.refusal,
           readyAtReceipt,
           readyAtStart: current.readiness.readyActorIds,
           roomVersion: current.version,
@@ -297,83 +300,72 @@ test('Train carries its chosen bot through the durable Room into one scheduled R
         contentType: 'application/json',
       });
       throw new Error(
-        `Train Round start refused after explicit Ready: ${drawReceipt.refusal ?? startDraw.status()}`,
+        `Train Round start refused after explicit Ready: ${startReceipt.refusal ?? startRound.status()}`,
       );
     }
-    view = roomViewSchema.parse(drawReceipt.view);
-    // The bot's automatic strike may race this browser's room resource. Drive
-    // only the existing, authority-checked strike command below, re-reading
-    // the authoritative draw before every host-controlled strike.
+    view = roomViewSchema.parse(startReceipt.view);
+    expect(view.roundRef).toMatchObject({ status: 'opening' });
+    const roundId = view.roundRef!.id;
+    const readRoundView = async () => {
+      const response = await page.request.get(`/api/rounds/${roundId}`);
+      expect(response.status()).toBe(200);
+      return roundViewSchema.parse(await response.json());
+    };
+    // The bot's automatic strike may race this read: drive only the
+    // authority-checked strike command, reading the draw before each one.
     for (let strike = 0; strike < 3; strike++) {
+      let round = await readRoundView();
       await expect(async () => {
-        view = await reread(page.request, roomId);
-        expect(
-          view.topic !== null ||
-            (view.resolutionDraw?.visibility === 'debater' &&
-              view.resolutionDraw.turn !== null &&
-              view.capabilities.canStrike),
-        ).toBe(true);
+        round = await readRoundView();
+        expect(round.topic !== null || round.opening?.canStrike === true).toBe(
+          true,
+        );
       }).toPass({ timeout: 30_000 });
-      if (view.topic !== null) break;
-      if (
-        view.resolutionDraw?.visibility !== 'debater' ||
-        !view.resolutionDraw.turn ||
-        !view.capabilities.canStrike
-      )
+      if (round.topic !== null) break;
+      const draw = round.opening?.draw;
+      if (draw?.visibility !== 'debater' || !draw.turn)
         throw new Error('Train host cannot read the active draw');
-      const draw = view.resolutionDraw;
-      const turn = draw.turn;
-      if (!turn) throw new Error('Train draw has no active turn');
-      const alreadyStruck = new Set(draw.strikes.map((item) => item.position));
+      const struck = new Set(draw.strikes.map((item) => item.position));
       const position = draw.items.find(
-        (item) => !alreadyStruck.has(item.position),
+        (item) => !struck.has(item.position),
       )?.position;
       if (position === undefined)
         throw new Error('Train draw has no available host strike');
       const response = await page.request.post(
-        `/api/rooms/${roomId}/commands`,
+        `/api/rounds/${roundId}/commands`,
         {
           headers: { origin },
           data: {
-            type: 'strike-resolution',
+            version: 1,
             commandId: createId(),
-            expectedVersion: view.version,
-            ordinal: turn.ordinal,
-            position,
+            expectedVersion: round.version,
+            command: {
+              type: 'strike_resolution',
+              participantId: round.participants
+                .filter(isNamedSeat)
+                .find((p) => p.role === 'affirmative')!.id,
+              ordinal: draw.turn.ordinal,
+              position,
+            },
           },
         },
       );
       expect(response.status()).toBe(200);
-      view = roomViewSchema.parse((await response.json()).view);
-      if (view.topic !== null) break;
     }
+    // With prep off, the last strike started the Round.
     await expect(async () => {
-      view = await reread(page.request, roomId);
-      expect(view.topic).not.toBeNull();
+      const round = await readRoundView();
+      expect(round.topic).not.toBeNull();
+      expect(round.status).toBe('active');
     }).toPass({ timeout: 30_000 });
-
-    await page
-      .getByRole('button', { name: 'Start round', exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/rounds\/[a-z0-9]{24}(?:\/room)?$/);
-    view = await reread(page.request, roomId);
-    expect(view.roundRef).toMatchObject({ status: 'scheduled' });
-    const roundId = view.roundRef!.id;
-    const roundResponse = await page.request.get(`/api/rounds/${roundId}`);
-    expect(roundResponse.status()).toBe(200);
-    expect(roundViewSchema.parse(await roundResponse.json())).toMatchObject({
-      id: roundId,
-      status: 'scheduled',
-      topic: view.topic,
-    });
     expect(seated(view, opponent!.actorId)?.role).toBe('negative');
 
     // The member still holds this Room. A repeated Train create returns to
-    // the same scheduled Round rather than opening another Room (ADR 0070).
+    // the same Round rather than opening another Room (ADR 0070).
     await page.goto(`/train?bot=${opponent!.actorId}`);
     await page.getByRole('button', { name: 'Start practice' }).click();
     await expect(page).toHaveURL(new RegExp(`/rounds/${roundId}(?:/room)?$`));
-    await info.attach('train-scheduled-round-evidence', {
+    await info.attach('train-started-round-evidence', {
       body: JSON.stringify({
         candidate: process.env.GIT_COMMIT,
         roomId,

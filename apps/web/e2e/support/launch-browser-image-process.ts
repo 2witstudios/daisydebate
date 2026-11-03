@@ -47,6 +47,7 @@ export function createLaunchPreparationProcess(budgetMs = 480000) {
     const pid = child.pid;
     if (pid) groups.add(pid);
     let stdout = '',
+      stderr = '',
       diagnostics = '',
       timedOut = false,
       oversized = false;
@@ -64,6 +65,7 @@ export function createLaunchPreparationProcess(budgetMs = 480000) {
     });
     child.stderr.on('data', (chunk: Buffer) => {
       progress(chunk);
+      stderr = (stderr + chunk.toString()).slice(-4096);
     });
     child.stdin.on('error', () => undefined);
     child.stdin.end(options.stdin);
@@ -90,7 +92,7 @@ export function createLaunchPreparationProcess(budgetMs = 480000) {
         throw new Error(
           `Launch image preparation interrupted or deadline exceeded (stage: ${stage ?? 'docker-command'}); rerun after checking Docker and upstream availability`,
         );
-      return { code, stdout };
+      return { code, stdout, stderr };
     } finally {
       clearTimeout(timer);
       if (pid) groups.delete(pid);

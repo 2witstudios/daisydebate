@@ -1,4 +1,8 @@
-import { captureRule, roundWaitingOn } from '@daisy/debate-engine';
+import {
+  captureRule,
+  readRoundOpening,
+  roundWaitingOn,
+} from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -6,7 +10,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import {
   withRoomRuntime,
-  startRuntimeRound,
+  launchRuntimeRound,
 } from './round-runtime.test-support';
 import { playOut } from './round-judging.test-support';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
@@ -30,7 +34,7 @@ test('round analysis discovery and claims use the seat account’s own entitleme
   await withRoomRuntime(
     async (f) => {
       const room = await f.assemble();
-      const { roundId } = await startRuntimeRound(f, room);
+      const { roundId } = await launchRuntimeRound(f, room);
       await playOut(f, roundId, false);
       await f.store.executeRoundTick({
         roundId,
@@ -132,6 +136,7 @@ test('round analysis discovery and claims use the seat account’s own entitleme
       await analyse(true);
       const ballotRead = () =>
         f.store.readRoundBallot({
+          readOpening: readRoundOpening,
           decideWaitingOn: roundWaitingOn,
           captureRule,
           roundId,

@@ -12,7 +12,7 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const migration = '20261103012431_messy_prism';
+const migration = '20261103022702_mushy_la_nuit';
 const check = 'account_entitlement_grants_entitlement_check';
 const scratch = scratchDatabase(url, 'casualaijudge');
 

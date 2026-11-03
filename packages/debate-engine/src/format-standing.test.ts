@@ -7,7 +7,7 @@ import type {
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { oneOnOneSettings } from './runtime.test-support';
 import { formatStanding, type StandingBasis } from './format-standing';
-import { drawRoom, drawSettings } from './room-pre-round.test-support';
+import { drawRoom, drawSettings } from './round-opening.test-support';
 
 setupRitewayBun();
 

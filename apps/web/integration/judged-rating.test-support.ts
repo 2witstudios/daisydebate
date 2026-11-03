@@ -16,7 +16,7 @@ import {
   ordinaryMaintenance,
 } from './round-maintenance.test-support';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   type withRoomRuntime,
 } from './round-runtime.test-support';
 
@@ -162,7 +162,7 @@ export const ballotCommand = async (
 /** A two-judge Round made ranked and frozen complete, as DEC-277's proof does. */
 export async function frozenRankedPanel(f: Fixture) {
   const { room, judges } = await readyTwoHumanJudgeRoom(f);
-  const { roundId } = await startRuntimeRound(f, room);
+  const { roundId } = await launchRuntimeRound(f, room);
   await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
   await playOut(f, roundId, true);
   const frozen = await finalizeAsWeb(f, roundId);

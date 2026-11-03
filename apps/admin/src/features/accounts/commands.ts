@@ -256,9 +256,7 @@ async function reconcileOne(
   viewerId: string,
 ): Promise<Reconciled> {
   const read = await deps.client.readCommand(viewerId, command.commandId);
-  if (read.kind === 'ok') {
-    // Only beta access opens a pending command, so the receipt is its own.
-    if (read.value.action !== betaAccessCommandAction) return { kind: 'open' };
+  if (read.kind === 'ok' && read.value.action === betaAccessCommandAction)
     return settledBy(
       await recordOutcome(deps, command, 'command.reconciled', {
         outcome: read.value.result.outcome,
@@ -266,7 +264,7 @@ async function reconcileOne(
         settled: true,
       }),
     );
-  }
+  if (read.kind === 'ok') return { kind: 'open' };
   if (read.kind === 'unknown') return { kind: 'unreachable' };
   return read.code === 'NOT_FOUND'
     ? resendOrAbandon(deps, command)

@@ -21,14 +21,14 @@ export const roundHoldsMembers = (round: {
   readonly status: RoundStatus;
   readonly debateEnded: boolean;
 }) =>
-  (round.status === 'scheduled' || round.status === 'active') &&
+  (round.status === 'opening' || round.status === 'active') &&
   !round.debateEnded;
 
 const phaseOf = (room: Holding): ActiveRoomPhase | null => {
   if (room.status === 'assembling' || room.status === 'ready')
     return room.status;
-  // A started Room with no Round yet is the Launch being frozen: the Round
-  // its adapter inserts in the same transaction is scheduled, so it is live.
+  // A started Room with no Round yet is the Start round being frozen: the
+  // Round its adapter inserts in the same transaction holds, so it is live.
   return room.status === 'started' &&
     (room.roundRef === null ||
       roundHoldsMembers({

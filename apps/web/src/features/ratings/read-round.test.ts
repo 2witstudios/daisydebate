@@ -20,7 +20,7 @@ test('a historical Round badge uses its posting rather than later established st
         },
       ],
       readRatingBlindings: async () => [],
-      readRoundAwaitsRating: async () => false,
+      readRatingFacts: async () => null,
       readStandings: async () => ({
         ratings: [aff, neg].map((p) => ({
           seasonId,
@@ -84,7 +84,25 @@ test('a decided Round is pending exactly when the rating writer would still rate
         ],
         readRatingBlindings: async () => [],
         readStandings: async () => ({ ratings: [], changes: [] }),
-        readRoundAwaitsRating: async () => awaits,
+        readRatingFacts: async () =>
+          awaits
+            ? {
+                competitionType: 'ranked',
+                ladderId: 'freestyle',
+                status: 'completed',
+                outcome: 'affirmative',
+                completedAt: at,
+                alreadyRated: false,
+                ending: 'forfeit',
+                attendance: {
+                  ruleSegments: [],
+                  speeches: [],
+                  adjudications: [],
+                  receipts: [],
+                  pendingWriter: false,
+                },
+              }
+            : null,
       } as never,
       {
         round: {

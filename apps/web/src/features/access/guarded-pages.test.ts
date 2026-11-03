@@ -39,6 +39,11 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestLadder: async () => null,
   requestRoundRatings: async () => null,
   requestSpectatorTimeline: async () => null,
+  readRecordingArchive: async () => ({
+    page: { rows: [], nextBefore: null },
+    publicCount: 0,
+  }),
+  readRecordingHistory: async () => ({ kind: 'not-found' }),
   requestMemberStandings: async () => [],
   privateGroupsOffered: () => false,
   // Settings reads the member's own onboarding answers (ISSUE-324); a

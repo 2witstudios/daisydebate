@@ -46,11 +46,11 @@ describe('starting and restarting', () => {
       expected: [[], []],
     });
   });
-  test('a scheduled Round starts early so it is live before the first speech', () => {
+  test('an opening Round starts early so it is live before the first speech', () => {
     assert({
-      given: 'a scheduled Round with no Egress',
+      given: 'an opening Round with no Egress',
       should: 'start one',
-      actual: decideBroadcast(facts({ roundStatus: 'scheduled' })),
+      actual: decideBroadcast(facts({ roundStatus: 'opening' })),
       expected: [{ type: 'start-egress' }],
     });
   });

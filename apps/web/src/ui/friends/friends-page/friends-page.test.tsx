@@ -18,14 +18,7 @@ const router = {
   replace: noop,
   prefetch: noop,
 };
-const render = (
-  list: Parameters<typeof FriendsPage>[0]['list'],
-  presence: Parameters<typeof FriendsPage>[0]['presence'] = h(
-    'p',
-    null,
-    'Presence control',
-  ),
-) =>
+const render = (list: Parameters<typeof FriendsPage>[0]['list']) =>
   renderInStore(
     h(
       AppRouterContext,
@@ -33,10 +26,8 @@ const render = (
       h(FriendsPage, {
         list,
         friendAction: action,
-        challengeAction: action,
         message: (username: string) =>
           h('button', { type: 'submit' }, `Message @${username}`),
-        presence,
       }),
     ),
   );
@@ -51,34 +42,22 @@ describe('FriendsPage', () => {
       ],
       incoming: [{ username: 'dan', requestedAt: at }],
       outgoing: [{ username: 'eve', requestedAt: at }],
-      challenges: [
-        {
-          username: 'ada',
-          roomId: 'r'.repeat(24),
-          title: '@ada vs @me',
-          challengedAt: at,
-        },
-      ],
     });
     assert({
       given: 'two friends, one incoming and one sent request',
       should:
-        'count who is online, show challenges then requests first, and offer each row its forms',
+        'count who is online, show requests first, and offer each row its forms',
       actual: [
         html.includes('>Friends</h1>'),
         html.includes('1 of 2 online'),
         html.indexOf('>Requests</h2>') < html.indexOf('>Your friends</h2>'),
         html.indexOf('@ada') < html.indexOf('@cat'),
         html.includes('aria-label="Accept @dan"'),
-        html.includes('aria-label="Challenge @ada"'),
         html.includes('Message @ada'),
         html.includes('Message @dan'),
         html.includes('aria-label="Remove @cat"'),
         html.includes('aria-label="Cancel @eve"'),
         html.includes('href="/profile/ada"'),
-        html.includes('href="/rooms/rrrrrrrrrrrrrrrrrrrrrrrr"'),
-        html.includes('aria-label="Decline @ada&#x27;s challenge"'),
-        html.indexOf('>Challenges</h2>') < html.indexOf('>Requests</h2>'),
         html.includes('Watch'),
       ],
       expected: [
@@ -88,11 +67,7 @@ describe('FriendsPage', () => {
         true,
         true,
         true,
-        true,
         false,
-        true,
-        true,
-        true,
         true,
         true,
         true,
@@ -107,19 +82,18 @@ describe('FriendsPage', () => {
       friends: [],
       incoming: [],
       outgoing: [],
-      challenges: [],
     });
     assert({
       given: 'an empty list',
       should:
-        'invite adding a friend by username with a native form, and show Presence’s own status control',
+        'invite adding a friend by username with a native form, and no status control: that lives in the account menu',
       actual: [
         html.includes('Add a friend by username'),
         html.includes('name="username"'),
         html.includes('>Your friends</h2>'),
         html.includes('Presence control'),
       ],
-      expected: [true, true, false, true],
+      expected: [true, true, false, false],
     });
   });
 

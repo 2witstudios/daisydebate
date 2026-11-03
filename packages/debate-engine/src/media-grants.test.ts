@@ -1,4 +1,4 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { mediaGrants } from './media-grants';
 import {
   oneOnOneRules,
@@ -25,6 +25,7 @@ const grants = (
     position: world.position(now),
     now,
     finalSegmentEndedAt: null,
+    inPreRoundPrep: false,
   });
 
 test('before the first segment grants conversation but hides judges', () => {
@@ -49,7 +50,7 @@ test('before the first segment grants conversation but hides judges', () => {
 
 test('actual speech opening closes the opponent microphone', () => {
   const world = runtimeWorld();
-  world.execute({ command: { type: 'start' }, actorId: null, now: roundAt(0) });
+  world.activate({ at: roundAt(0), now: roundAt(0) });
   world.tick(roundAt(10_000));
   assert({
     given: 'the actual first speech',
@@ -83,6 +84,7 @@ test('terminal and ineligible participants have no grants', () => {
       position: world.position(roundAt(0)),
       now: roundAt(0),
       finalSegmentEndedAt: null,
+      inPreRoundPrep: false,
     }).subscribe,
     expected: false,
   });
@@ -96,6 +98,7 @@ test('terminal and ineligible participants have no grants', () => {
       position: world.position(roundAt(0)),
       now: roundAt(0),
       finalSegmentEndedAt: null,
+      inPreRoundPrep: false,
     }),
     expected: { publish: [], subscribe: false, hidden: true, capture: false },
   });
@@ -103,7 +106,7 @@ test('terminal and ineligible participants have no grants', () => {
 
 test('prep and closed between-segment floor keep cameras without speech rights', () => {
   const world = runtimeWorld();
-  world.execute({ command: { type: 'start' }, actorId: null, now: roundAt(0) });
+  world.activate({ at: roundAt(0), now: roundAt(0) });
   world.tick(roundAt(10_000));
   world.execute({
     command: { type: 'yield' },
@@ -117,7 +120,7 @@ test('prep and closed between-segment floor keep cameras without speech rights',
     expected: ['camera'],
   });
   const prep = runtimeWorld();
-  prep.execute({ command: { type: 'start' }, actorId: null, now: roundAt(0) });
+  prep.activate({ at: roundAt(0), now: roundAt(0) });
   prep.execute({
     command: { type: 'start_prep' },
     actorId: seats[0]!.actorId,
@@ -151,7 +154,7 @@ test('cross-examination opens every debater microphone across legal custom seats
     },
   ];
   const world = runtimeWorld({ rules: interaction, participants });
-  world.execute({ command: { type: 'start' }, actorId: null, now: roundAt(0) });
+  world.activate({ at: roundAt(0), now: roundAt(0) });
   world.tick(roundAt(10_000));
   const position = world.position(roundAt(10_000));
   assert({
@@ -166,6 +169,7 @@ test('cross-examination opens every debater microphone across legal custom seats
           position,
           now: roundAt(10_000),
           finalSegmentEndedAt: null,
+          inPreRoundPrep: false,
         }).publish,
     ),
     expected: [
@@ -193,6 +197,7 @@ test('judging conversation uses actual final end and never the initial timetable
       position,
       now,
       finalSegmentEndedAt,
+      inPreRoundPrep: false,
     });
   assert({
     given: 'final actual close and 29 minutes 59 seconds',
@@ -254,6 +259,7 @@ test('competitive bot rights remain publish-only through reconciliation', () => 
       position: runtimeWorld().position(roundAt(0)),
       now: roundAt(0),
       finalSegmentEndedAt: null,
+      inPreRoundPrep: false,
     }),
     expected: {
       publish: ['microphone'],
@@ -280,6 +286,7 @@ test('conversation microphones wait for the audience observer to be revoked', ()
       position,
       now,
       finalSegmentEndedAt: roundAt(0),
+      inPreRoundPrep: false,
       ...(conversationHeld === undefined ? {} : { conversationHeld }),
     }).publish;
   assert({
@@ -298,5 +305,26 @@ test('conversation microphones wait for the audience observer to be revoked', ()
       ['camera', 'microphone'],
       ['camera', 'microphone'],
     ],
+  });
+});
+
+describe('pre-round prep', () => {
+  const openingGrants = (inPreRoundPrep: boolean) =>
+    mediaGrants({
+      participants: seats,
+      participantId: seats[0]!.id,
+      rules: oneOnOneRules(),
+      position: runtimeWorld().position(roundAt(0)),
+      now: roundAt(0),
+      finalSegmentEndedAt: null,
+      inPreRoundPrep,
+    }).publish;
+  test('every mic and camera closes, and reopens outside prep', () => {
+    assert({
+      given: 'an opening Round in pre-round prep, then outside it',
+      should: 'publish nothing in prep and the usual pre-speech media outside',
+      actual: [openingGrants(true), openingGrants(false)],
+      expected: [[], ['camera', 'microphone']],
+    });
   });
 });

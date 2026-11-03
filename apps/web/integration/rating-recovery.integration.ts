@@ -2,6 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { ratingAwaited } from '@daisy/debate-engine';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { inArena, minute } from './ratings-arena';
 import { testDatabaseUrl, withSql } from './fixtures';
@@ -91,7 +92,9 @@ test('real PostgreSQL recovery crosses full pages after unavailable season and r
           given:
             'later pages posted and a new database client restarts from the beginning',
           should: 'post every outcome exactly once with the real Glicko policy',
-          actual: await db.readUnratedRatingRounds({ limit: 10 }),
+          actual: (await db.readRatingCandidates({ limit: 10 })).filter(
+            ({ facts }) => ratingAwaited(facts),
+          ),
           expected: [],
         });
       } finally {

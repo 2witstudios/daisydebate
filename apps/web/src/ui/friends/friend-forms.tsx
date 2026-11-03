@@ -16,7 +16,6 @@ import {
   useFormAction,
   type FormAction,
 } from '../form-action/form-action';
-import { useMovedOn } from '../form-action/use-moved-on';
 import { DraftNotice } from '../messaging/draft-notice';
 
 type Action = FormAction<FriendFormState>;
@@ -57,8 +56,8 @@ export function AddFriendForm({ action }: { readonly action: Action }) {
 }
 
 /**
- * One button acting on one member: accept, decline, cancel, remove or
- * challenge. Its answer shows beside it; a challenge moves on to its room.
+ * One button acting on one member: accept, decline, cancel or remove. Its
+ * answer shows beside it.
  */
 export function FriendButtonForm({
   action,
@@ -66,16 +65,13 @@ export function FriendButtonForm({
   intent,
   label,
   variant = 'secondary',
-  roomId,
   accessibleName,
 }: {
   readonly action: Action;
   readonly username: string;
-  readonly intent: FriendIntent | 'challenge';
+  readonly intent: FriendIntent;
   readonly label: string;
   readonly variant?: 'primary' | 'secondary' | 'ghost';
-  /** The challenge's room, for declining it. */
-  readonly roomId?: string;
   /** The button's full name when `label @username` does not read right. */
   readonly accessibleName?: string;
 }) {
@@ -86,16 +82,14 @@ export function FriendButtonForm({
   );
   const noticeId = useId();
   useFocusAfterAnswer(answer, noticeId, !pending);
-  useMovedOn(answer.next);
   return (
     <form action={post} className="flex items-center gap-2">
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="username" value={username} />
-      {roomId ? <input type="hidden" name="roomId" value={roomId} /> : null}
       <Button
         type="submit"
         variant={variant}
-        disabled={pending || answer.next !== undefined}
+        disabled={pending}
         aria-label={accessibleName ?? `${label} @${username}`}
         className="px-3 py-2 text-sm"
       >

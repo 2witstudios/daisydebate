@@ -4,6 +4,7 @@ import { withSeasons } from '@daisy/db/seasons';
 import {
   captureRule,
   RANKED_DELAY_SECONDS,
+  readRoundOpening,
   roundWaitingOn,
 } from '@daisy/debate-engine';
 import { SPECTATOR_MARGIN_MS, spectatorTimelineSchema } from '@daisy/protocol';
@@ -190,6 +191,7 @@ test('every public and member read holds a ranked outcome until release', async 
         roundId,
         f.host,
         () => true,
+        readRoundOpening,
         roundWaitingOn,
       );
       assert({
@@ -216,6 +218,7 @@ test('every public and member read holds a ranked outcome until release', async 
               canReadRound(stranger, r, account as never),
             authorizeTranscript: () => false,
             decideWaitingOn: roundWaitingOn,
+            readOpening: readRoundOpening,
             captureRule,
           }),
         code: 'NOT_FOUND',

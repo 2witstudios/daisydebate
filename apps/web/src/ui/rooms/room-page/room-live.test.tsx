@@ -63,39 +63,11 @@ describe('RoomLive', () => {
         render({ reason: null }).includes(
           'The command was not acknowledged. Review the current room and try again.',
         ),
-        render({ reason: 'not-your-turn' }).includes(
-          'You can’t strike on this turn.',
+        render({ reason: 'version-conflict' }).includes(
+          'The room changed. Review the latest room and try again.',
         ),
       ],
       expected: [true, true],
-    });
-  });
-
-  test('the server render of a strike shows the turn’s real time left (PR #472 review)', () => {
-    const striking: RoomView = {
-      ...assemblySnapshot,
-      topic: null,
-      resolutionDraw: {
-        visibility: 'progress',
-        drawSize: 3,
-        strikes: [],
-        turn: {
-          ordinal: 0,
-          side: 'negative',
-          dueAt: '2026-10-12T00:01:00.000Z',
-          remainingMs: 60_000,
-        },
-        revealedAt: null,
-      },
-    };
-    const html = render(null, striking);
-    const timer = /role="timer"[^>]*>[\s\S]*?<\/p>/.exec(html)?.[0] ?? '';
-    assert({
-      given:
-        'a striking Room seeded with no client clock yet, as without scripts',
-      should: 'count down from the server read: one minute, not epoch-sized',
-      actual: [timer.includes('1:00'), /\d{4,}:\d{2}/.test(timer)],
-      expected: [true, false],
     });
   });
 });

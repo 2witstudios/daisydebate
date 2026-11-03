@@ -1,6 +1,6 @@
 import type { Database } from '@daisy/db';
 import type { RoundView } from '@daisy/protocol';
-import { rateDebate } from '@daisy/debate-engine';
+import { rateDebate, ratingAwaited } from '@daisy/debate-engine';
 import { ratingClassification, ratingStanding } from './standing';
 import { readRatingStandings } from './read';
 
@@ -20,6 +20,14 @@ export type RoundRatingsView = {
   readonly pending: boolean;
 };
 
+const roundAwaitsRating = async (
+  store: Pick<Database, 'readRatingFacts'>,
+  roundId: string,
+) => {
+  const facts = await store.readRatingFacts(roundId);
+  return facts !== null && ratingAwaited(facts);
+};
+
 /** Authorized Round read is the named input; the feature alone computes rating stakes. */
 export async function readRoundRatings(
   store: Pick<
@@ -27,7 +35,7 @@ export async function readRoundRatings(
     | 'listLadderSeasons'
     | 'readStandings'
     | 'readRatingBlindings'
-    | 'readRoundAwaitsRating'
+    | 'readRatingFacts'
   >,
   input: {
     readonly round: RoundView;
@@ -104,7 +112,7 @@ export async function readRoundRatings(
       round.status === 'completed' &&
       round.outcome !== null &&
       postings.length === 0 &&
-      (await store.readRoundAwaitsRating(round.id)),
+      (await roundAwaitsRating(store, round.id)),
     rows: seats.flatMap((seat) => {
       if (!('actorId' in seat)) return [];
       if (published.blindedActorIds.includes(seat.actorId))

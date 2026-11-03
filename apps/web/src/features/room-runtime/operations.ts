@@ -13,6 +13,7 @@ import { canReadRound } from '../round-runtime/reads';
 import { requiredContentWaiver, roomCaptureNotice } from './ready-agreements';
 import type { Database } from '@daisy/db';
 import {
+  readRoundOpening,
   activeRoomMembers,
   executeRoomCommand,
   hostIdentityHidden,
@@ -154,7 +155,6 @@ export function createRoomRuntimeOperations({
         caller.actorId,
         currentRoomConsent(consent, now),
         now,
-        facts.drawSeed,
       ),
       aiJudgeSeating: await roomAiJudgeSeating(
         state,
@@ -283,6 +283,7 @@ export function createRoomRuntimeOperations({
         kind: publication.kind,
       },
       selection: recheck,
+      ...(body.holdSeatsFor ? { holdSeatsFor: body.holdSeatsFor } : {}),
       cast: cast.length
         ? {
             seats: cast.map((seat) => ({
@@ -327,7 +328,6 @@ export function createRoomRuntimeOperations({
                         eligible: target.eligible && botsAvailable(),
                       }
                     : null,
-                  drawSeed: null,
                   drawStart: null,
                 },
               ),
@@ -366,6 +366,7 @@ export function createRoomRuntimeOperations({
         roundId,
         caller,
         (view, account) => canReadRound(caller, view, account),
+        readRoundOpening,
         roundWaitingOn,
       ),
     catalog,

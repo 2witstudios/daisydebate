@@ -239,7 +239,7 @@ export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
           eq(rounds.competitionType, 'ranked'),
           sql`jsonb_typeof(${rounds.capture} -> 'broadcast') = 'object'`,
         ),
-        inArray(rounds.status, ['scheduled', 'active']),
+        inArray(rounds.status, ['opening', 'active']),
         isNull(broadcasts.id),
       ),
     )

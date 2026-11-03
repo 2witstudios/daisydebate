@@ -2,13 +2,13 @@
 
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { submitReport } from '../../../../features/moderation/submit-report';
+import { submitReport } from '../../../../features/content-moderation/submit-report';
 import { readRoundReceipt } from '../../../../features/round-runtime/read-round';
 import { readRoundAnalysis } from '../../../../features/round-analysis/reads';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { processRoute } from '../../../../server/process-app';
 
-const report = processRoute((routes) => routes.moderation.report.POST);
+const report = processRoute((routes) => routes.contentModeration.report.POST);
 
 /**
  * A native post from this Round's page: the form names its target, and the

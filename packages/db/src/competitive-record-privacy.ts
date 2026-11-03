@@ -33,14 +33,19 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
           ${iso('created_at', 'created_at')}, ${iso('updated_at', 'updated_at')}
         from rooms where host_actor_id = ${subject.actorId} order by id`),
     ),
+    room_seat_holds: await rows(
+      tx.execute(
+        sql`select room_id, until from room_seat_holds where actor_id = ${subject.actorId} order by room_id`,
+      ),
+    ),
     room_participants: await rows(
       tx.execute(sql`select id, room_id, actor_id, role, slot
         from room_participants where actor_id = ${subject.actorId} order by id`),
     ),
-    room_resolution_strikes: await rows(
+    round_resolution_strikes: await rows(
       tx.execute(sql`select draw_id, ordinal, position, draw_size, side,
           kind, actor_id, command_id, ${iso('struck_at', 'struck_at')}
-        from room_resolution_strikes
+        from round_resolution_strikes
         where actor_id = ${subject.actorId} order by draw_id, ordinal`),
     ),
     round_participants: await rows(

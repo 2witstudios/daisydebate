@@ -4,14 +4,16 @@ import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
-import { presenceHiddenOf } from '../presence/settings';
+import type { ChosenStatus } from '@daisy/protocol';
+import { chosenStatusOf } from '../presence/settings';
+import type { MemberPlacement } from '@daisy/protocol';
+import { placementOf } from '../presence/roster';
 import {
   readOwnCollection,
   requireOwnScope,
   type OwnCollectionFence,
 } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import { roomIsOpen } from '../room-open';
 
 export type FriendshipRow = {
   readonly otherActorId: string;
@@ -19,8 +21,10 @@ export type FriendshipRow = {
   readonly state: 'pending' | 'accepted';
   readonly requesterActorId: string;
   readonly requestedAt: string;
-  /** Whether the counterpart hides their online status from friends. */
-  readonly otherHidden: boolean;
+  /** The status the counterpart chose. */
+  readonly otherChosen: ChosenStatus;
+  /** Where the counterpart's active Room has them. */
+  readonly otherPlacement: MemberPlacement;
 };
 
 /** The bound on one member's listed pairs: friends, then pending requests. */
@@ -48,57 +52,6 @@ export async function listFriendships(
   );
 }
 
-export type FriendChallengeRow = {
-  readonly roomId: string;
-  readonly username: string;
-  readonly title: string;
-  readonly challengedAt: string;
-};
-
-/**
- * The challenges waiting for one member (ADR 0072): from accepted, unblocked
- * friends, for rooms that still assemble, after `authorize` passes on the
- * reader's locked account. Newest first, bounded like the list.
- */
-export async function listFriendChallenges(
-  database: BunSQLDatabase,
-  scope: FriendshipListScope,
-  authorize: OwnCollectionFence<FriendshipListScope>,
-): Promise<readonly FriendChallengeRow[]> {
-  requireOwnScope(scope);
-  return readOwnCollection(database, scope, authorize, async (tx) => {
-    const rows = (await tx.execute(sql`
-      select c.room_id as "roomId", u.username, rooms.title,
-        c.created_at as "challengedAt"
-      from friend_challenges c
-      join rooms on rooms.id = c.room_id and ${roomIsOpen()}
-      join friendships f
-        on f.low_actor_id = least(c.challenger_actor_id, c.challenged_actor_id)
-        and f.high_actor_id = greatest(c.challenger_actor_id, c.challenged_actor_id)
-        and f.state = 'accepted'
-      join contact_pairs p
-        on p.low_actor_id = f.low_actor_id and p.high_actor_id = f.high_actor_id
-        and not p.low_blocks_high and not p.high_blocks_low
-      join actors a on a.id = c.challenger_actor_id
-      join users u on u.id = a.user_id
-        and u.deleted_at is null and u.username is not null
-      where c.challenged_actor_id = ${scope.actorId}
-      order by c.created_at desc
-      limit ${FRIENDSHIP_LIST_MAX}`)) as unknown as {
-      roomId: string;
-      username: string;
-      title: string;
-      challengedAt: Date | string;
-    }[];
-    return rows.map((row) => ({
-      roomId: row.roomId,
-      username: row.username,
-      title: row.title,
-      challengedAt: new Date(row.challengedAt).toISOString(),
-    }));
-  });
-}
-
 /** The database's friendship reads, instrumented like its other operations. */
 export const friendshipReadOperations = ({
   database,
@@ -115,14 +68,6 @@ export const friendshipReadOperations = ({
     instrumented(eventSink, 'listFriendships', () =>
       listFriendships(database, scope, authorize),
     ),
-  /** The challenges waiting for one member (ADR 0072). */
-  listFriendChallenges: (
-    scope: FriendshipListScope,
-    authorize: OwnCollectionFence<FriendshipListScope>,
-  ) =>
-    instrumented(eventSink, 'listFriendChallenges', () =>
-      listFriendChallenges(database, scope, authorize),
-    ),
 });
 
 async function readRows(
@@ -134,7 +79,8 @@ async function readRows(
     .select({
       otherActorId: other,
       username: users.username,
-      otherHidden: presenceHiddenOf(other),
+      otherChosen: chosenStatusOf(other),
+      otherPlacement: placementOf(other),
       state: friendships.state,
       requesterActorId: friendships.requesterActorId,
       requestedAt: friendships.requestedAt,
@@ -169,6 +115,7 @@ async function readRows(
     state: row.state as 'pending' | 'accepted',
     requesterActorId: row.requesterActorId,
     requestedAt: row.requestedAt.toISOString(),
-    otherHidden: row.otherHidden === true,
+    otherChosen: row.otherChosen,
+    otherPlacement: row.otherPlacement,
   }));
 }

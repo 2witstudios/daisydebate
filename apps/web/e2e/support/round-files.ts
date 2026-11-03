@@ -55,6 +55,9 @@ type RoundFiles = {
   readonly stranger: APIRequestContext;
   readonly roundId: string;
   readonly documentId: string;
+  /** Ends the Round on the server; the page finds out in its own time. */
+  readonly forfeitRound: () => Promise<void>;
+  /** Ends the Round and leaves the page on its result. */
   readonly finishRound: () => Promise<void>;
   readonly violations: Awaited<ReturnType<typeof watchCspViolations>>;
 };
@@ -118,13 +121,24 @@ export const test = base.extend<{
       await expect(
         page.getByRole('textbox', { name: 'Untitled', exact: true }),
       ).toBeVisible();
+      const forfeitRound = async () => {
+        await forfeitAsHost(accounts.members[0]!.context.request, roundId);
+        finished = true;
+      };
       await provide({
         page,
         roundId,
         documentId: document.id,
+        forfeitRound,
         finishRound: async () => {
-          await forfeitAsHost(accounts.members[0]!.context.request, roundId);
-          finished = true;
+          await forfeitRound();
+          // The forfeit answers before this page hears of it, and a doorbell has
+          // no delivery guarantee. Until then the Room can remove its editor at
+          // any moment, so a journey goes on from the result page (ISSUE-966).
+          await page.goto(`${origin}/rounds/${roundId}`);
+          await expect(
+            page.getByRole('heading', { name: 'Round result', exact: true }),
+          ).toBeVisible();
         },
         violations,
         stranger: accounts.members[1]!.context.request,
@@ -143,14 +157,14 @@ export const test = base.extend<{
 });
 
 /**
- * The host, seated as Affirmative 1, forfeits its fixture Round. A scheduled
- * Round becomes abandoned with its history kept, so it stops holding one of the
- * suite's shared bot Round slots (AI_ROUND_BUSY_CAP); left scheduled, every
- * Launch after the cap was refused and its fixture timed out (ISSUE-471-r1).
+ * The host, seated as Affirmative 1, forfeits its fixture Round, so it stops
+ * holding one of the suite's shared bot Round slots (AI_ROUND_BUSY_CAP); left
+ * live, every Start round after the cap was refused and its fixture timed out
+ * (ISSUE-471-r1).
  */
 async function forfeitAsHost(request: APIRequestContext, roundId: string) {
   const view = await readBallotRound(request, roundId);
-  if (view.status !== 'scheduled' && view.status !== 'active') return;
+  if (view.status !== 'opening' && view.status !== 'active') return;
   // A debate already over holds no slot, and the engine refuses its forfeit.
   if (
     view.segments.filter((s) => s.endedAt !== null).length ===

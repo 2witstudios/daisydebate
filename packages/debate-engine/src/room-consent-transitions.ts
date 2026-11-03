@@ -11,7 +11,7 @@ import type {
 } from '@daisy/protocol';
 
 import { startBlocker, type Edges } from './room-assembly-facts';
-import { preRoundBegun, prepFinished } from './pre-round-phase';
+import { startRoundDraw } from './room-draw-start';
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   ok: false,
   refusal,
@@ -23,7 +23,6 @@ export const ready = (
   consent: RoomConsent,
   _edges: Edges,
 ): RoomMutationOutcome => {
-  if (preRoundBegun(room)) return refuse('prep-running');
   let next = room;
   let consentEffect: Extract<
     RoomMutationOutcome,
@@ -56,20 +55,6 @@ export const ready = (
   };
   return acceptedRoomMutation(next, { consent: consentEffect });
 };
-export const finishPrep = (
-  room: RoomAssemblyState,
-  _actorId: string,
-  _command: Extract<RoomCommand, { type: 'finish-prep' }>,
-  _consent: RoomConsent,
-  edges: Edges,
-): RoomMutationOutcome => {
-  const next = room;
-  if (!room.executionPlan.preRoundPrep.enabled || room.prepStartedAt === null)
-    return refuse('prep-unavailable');
-  if (!prepFinished(room, edges.now)) return refuse('prep-running');
-  // Keep the original anchor: a completion acknowledgment cannot restart prep.
-  return acceptedRoomMutation(next);
-};
 export const startRound = (
   room: RoomAssemblyState,
   _actorId: string,
@@ -77,16 +62,20 @@ export const startRound = (
   consent: RoomConsent,
   edges: Edges,
 ): RoomMutationOutcome => {
-  let next = room;
-
-  const blocker = startBlocker(room, consent, edges.now);
+  const blocker = startBlocker(room, consent);
   if (blocker) return refuse(blocker);
   if (castHoldsUnadmittedAiJudge(room, edges.hostHoldsCasualAiJudge))
     return refuse('ai-judge-premium');
   if (captureUnadmitted(room, edges.hostHoldsCasualCapture))
     return refuse('capture-premium');
-  next = { ...room, status: 'started' };
+  const draw = room.executionPlan.resolutionDraw.enabled
+    ? startRoundDraw(room, edges)
+    : null;
+  if (room.executionPlan.resolutionDraw.enabled && !draw)
+    return refuse('draw-unavailable');
+  const next: RoomAssemblyState = { ...room, status: 'started' };
   return acceptedRoomMutation(next, {
+    draw,
     freeze: true,
     spendsAiRound: castSpendsAiRound(next),
     seatsBotDebater: castSeatsBotDebater(next),

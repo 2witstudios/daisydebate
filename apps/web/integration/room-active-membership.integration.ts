@@ -5,7 +5,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 setupRitewayBun();
@@ -201,7 +201,7 @@ test('maintenance closes a Room idle past the timeout and frees its members', as
 test('a live Round holds its members until it ends; the end frees them for a rematch', async () => {
   await withRoomRuntime(async (f) => {
     const room = await f.assemble();
-    const { roundId, operations } = await startRuntimeRound(f, room);
+    const { roundId, operations } = await launchRuntimeRound(f, room);
     const live = await f.operations.activeRoom(f.guest);
     await assertRejects({
       given: 'a debater in a live Round',

@@ -13,11 +13,23 @@ import type { Database } from '@daisy/db';
 import { createAppError, isAppError, type ErrorCode } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
+import { REPORT_EVIDENCE_RETENTION_MS } from '../reports/operations';
 import { boundedBody, json, refusal, transportRefusal } from './http';
-import { moderationRoute, type ModerationStore } from './moderation';
+import {
+  contentModerationRoute,
+  type ContentModerationStore,
+} from './content-moderation';
 import {
   betaAccessCommandSchema,
   matchOperatorRoute,
+  moderationLiftCommandSchema,
+  operatorReportsCursorSchema,
+  operatorReportsPageSchema,
+  operatorReportsQuerySchema,
+  operatorRestrictionsCursorSchema,
+  operatorRestrictionsQuerySchema,
+  operatorRestrictionsSchema,
+  reportResolveCommandSchema,
   operatorAccountsCursorSchema,
   operatorAccountsPageSchema,
   operatorAccountsQuerySchema,
@@ -36,19 +48,29 @@ const operatorService = {
   capabilities: [
     'account.collection.read',
     'account.beta_access.update',
-    'report.queue.read',
-    'report.resolve',
+    'content_report.queue.read',
+    'content_report.resolve',
     'broadcast.stop',
     'broadcast.chat_slow_mode.update',
     'recording.takedown',
     'chat_message.remove',
     'account.audience_ban.update',
+    'report.collection.read',
+    'report.resolve',
+    'moderation.collection.read',
+    'moderation.lift',
   ] as const satisfies readonly AuthorizationCapability[],
 };
 
 type Store = Pick<
   Database,
-  'listOperatorAccounts' | 'runBetaAccessCommand' | 'readOperatorCommand'
+  | 'listOperatorAccounts'
+  | 'runBetaAccessCommand'
+  | 'readOperatorCommand'
+  | 'listOperatorReports'
+  | 'listOperatorRestrictions'
+  | 'resolveReport'
+  | 'liftModeration'
 >;
 
 export type OperatorApiDependencies = {
@@ -64,7 +86,7 @@ export type OperatorApiDependencies = {
     readonly ttlSeconds: number;
   }) => Promise<boolean>;
   readonly store: Store;
-  readonly moderation: ModerationStore;
+  readonly contentModeration: ContentModerationStore;
   readonly nextId: () => string;
   readonly logger: Pick<Logger, 'log'>;
   /**
@@ -187,12 +209,20 @@ function dispatch(
       return listAccounts(deps, principal, url);
     case 'setBetaAccess':
       return setBetaAccess(deps, principal, route.id!, request);
+    case 'listReports':
+      return listReports(deps, principal, url);
+    case 'resolveReport':
+      return resolveReport(deps, principal, route.id!, request);
+    case 'listRestrictions':
+      return listRestrictions(deps, principal, url);
+    case 'liftModeration':
+      return liftModeration(deps, principal, route.id!, request);
     case 'readCommand':
       return readCommand(deps, principal, route.id!);
     default:
-      return moderationRoute(
+      return contentModerationRoute(
         {
-          store: deps.moderation,
+          store: deps.contentModeration,
           crypto: deps.crypto,
           nowMs: deps.nowMs,
           logger: deps.logger,
@@ -215,9 +245,9 @@ function requireCapability(
     principal,
     capability,
     resource:
-      capability === 'account.collection.read'
-        ? { kind: 'account_collection' }
-        : { kind: 'account' },
+      capability === 'account.beta_access.update'
+        ? { kind: 'account' }
+        : { kind: 'account_collection' },
     context: { account },
   });
   return decision.allow;
@@ -333,6 +363,193 @@ async function setBetaAccess(
       'Operator beta access command applied',
     );
   return outcome.result;
+}
+
+const parseBody = (body: Uint8Array): unknown => {
+  try {
+    return JSON.parse(new TextDecoder().decode(body));
+  } catch {
+    throw createAppError('VALIDATION');
+  }
+};
+
+/** The open report queue, oldest first (ADR 0103). */
+async function listReports(
+  deps: OperatorApiDependencies,
+  principal: AuthorizationPrincipal,
+  url: URL,
+) {
+  if (!requireCapability(principal, 'report.collection.read'))
+    throw createAppError('AUTHORIZATION');
+  const query = operatorReportsQuerySchema.safeParse(
+    Object.fromEntries(url.searchParams.entries()),
+  );
+  if (!query.success) throw createAppError('VALIDATION');
+  let after: { readonly createdAt: string; readonly id: string } | null = null;
+  if (query.data.cursor !== undefined) {
+    try {
+      const cursor = operatorReportsCursorSchema.parse(
+        JSON.parse(
+          Buffer.from(query.data.cursor, 'base64url').toString('utf8'),
+        ),
+      );
+      after = { createdAt: cursor.createdAt, id: cursor.id };
+    } catch {
+      throw createAppError('VALIDATION');
+    }
+  }
+  const rows = await deps.store.listOperatorReports({
+    limit: query.data.limit + 1,
+    after,
+  });
+  const items = rows.slice(0, query.data.limit);
+  const last = items.at(-1);
+  return operatorReportsPageSchema.parse({
+    items,
+    nextCursor:
+      rows.length > query.data.limit && last
+        ? encodeCursor({ v: 1, createdAt: last.createdAt, id: last.id })
+        : null,
+  });
+}
+
+/** Closes a report and applies its action, once per command (ADR 0103). */
+async function resolveReport(
+  deps: OperatorApiDependencies,
+  principal: AuthorizationPrincipal,
+  reportId: string,
+  {
+    body,
+    signedAtMs,
+  }: { readonly body: Uint8Array; readonly signedAtMs: number },
+) {
+  if (
+    principal.kind !== 'operator_service' ||
+    !requireCapability(principal, 'report.resolve')
+  )
+    throw createAppError('AUTHORIZATION');
+  const command = reportResolveCommandSchema.safeParse(parseBody(body));
+  if (!command.success) throw createAppError('VALIDATION');
+  const now = new Date(deps.nowMs());
+  const result = await deps.store.resolveReport({
+    commandId: command.data.commandId,
+    reportId,
+    serviceId: principal.serviceId,
+    operatorRef: principal.operatorRef,
+    resolution:
+      command.data.outcome === 'suspended'
+        ? {
+            outcome: 'suspended',
+            suspendUntil: new Date(
+              now.getTime() + command.data.suspendDays * 86_400_000,
+            ).toISOString(),
+          }
+        : { outcome: command.data.outcome },
+    requestDigest: deps.crypto.sha3Hex(
+      JSON.stringify([
+        principal.serviceId,
+        principal.operatorRef,
+        'report.resolve',
+        reportId,
+        command.data.outcome,
+        command.data.outcome === 'suspended' ? command.data.suspendDays : null,
+      ]),
+    ),
+    adminAuditHead: command.data.adminAuditHead,
+    now: now.toISOString(),
+    purgeAfter: new Date(
+      now.getTime() + REPORT_EVIDENCE_RETENTION_MS,
+    ).toISOString(),
+    nextId: deps.nextId,
+    live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,
+  });
+  deps.logger.log(
+    'operator.command.applied',
+    {
+      operation: 'operator.report_resolve',
+      requestId: command.data.commandId,
+      cause: command.data.outcome,
+    },
+    'Operator report command applied',
+  );
+  return result;
+}
+
+/** Suspensions and bans in force, for an operator to lift. */
+async function listRestrictions(
+  deps: OperatorApiDependencies,
+  principal: AuthorizationPrincipal,
+  url: URL,
+) {
+  if (!requireCapability(principal, 'moderation.collection.read'))
+    throw createAppError('AUTHORIZATION');
+  const query = operatorRestrictionsQuerySchema.safeParse(
+    Object.fromEntries(url.searchParams.entries()),
+  );
+  if (!query.success) throw createAppError('VALIDATION');
+  let after: { readonly startsAt: string; readonly id: string } | null = null;
+  if (query.data.cursor !== undefined) {
+    try {
+      const cursor = operatorRestrictionsCursorSchema.parse(
+        JSON.parse(
+          Buffer.from(query.data.cursor, 'base64url').toString('utf8'),
+        ),
+      );
+      after = { startsAt: cursor.startsAt, id: cursor.id };
+    } catch {
+      throw createAppError('VALIDATION');
+    }
+  }
+  const rows = await deps.store.listOperatorRestrictions({
+    now: new Date(deps.nowMs()).toISOString(),
+    limit: query.data.limit + 1,
+    after,
+  });
+  const items = rows.slice(0, query.data.limit);
+  const last = items.at(-1);
+  return operatorRestrictionsSchema.parse({
+    items,
+    nextCursor:
+      rows.length > query.data.limit && last
+        ? encodeCursor({ v: 1, startsAt: last.startsAt, id: last.id })
+        : null,
+  });
+}
+
+/** Lifts a suspension or ban; the record stays. */
+async function liftModeration(
+  deps: OperatorApiDependencies,
+  principal: AuthorizationPrincipal,
+  actionId: string,
+  {
+    body,
+    signedAtMs,
+  }: { readonly body: Uint8Array; readonly signedAtMs: number },
+) {
+  if (
+    principal.kind !== 'operator_service' ||
+    !requireCapability(principal, 'moderation.lift')
+  )
+    throw createAppError('AUTHORIZATION');
+  const command = moderationLiftCommandSchema.safeParse(parseBody(body));
+  if (!command.success) throw createAppError('VALIDATION');
+  return deps.store.liftModeration({
+    commandId: command.data.commandId,
+    actionId,
+    serviceId: principal.serviceId,
+    operatorRef: principal.operatorRef,
+    requestDigest: deps.crypto.sha3Hex(
+      JSON.stringify([
+        principal.serviceId,
+        principal.operatorRef,
+        'moderation.lift',
+        actionId,
+      ]),
+    ),
+    adminAuditHead: command.data.adminAuditHead,
+    now: new Date(deps.nowMs()).toISOString(),
+    live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,
+  });
 }
 
 async function readCommand(

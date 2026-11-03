@@ -76,7 +76,8 @@ export type RoundBallotRead = z.infer<typeof roundBallotReadSchema>;
 export const roundJudgeAssignmentsSchema = z.array(
   z.strictObject({
     roundId: idSchema,
-    resolution: z.string(),
+    /** Null until a draw's reveal, and for a Round that ended before it. */
+    resolution: z.string().nullable(),
     status: roundViewSchema.shape.status,
     outcome: roundViewSchema.shape.outcome,
     ballotStatus: ballotStatus.nullable(),

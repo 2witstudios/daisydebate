@@ -1,6 +1,8 @@
 import {
   judgingJobRules,
   RANKED_DELAY_SECONDS,
+  ratingAwaited,
+  readRoundOpening,
   roundWaitingOn,
 } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
@@ -11,7 +13,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ratingLadders } from '@daisy/protocol';
 import {
   withRoomRuntime,
-  startRuntimeRound,
+  launchRuntimeRound,
 } from './round-runtime.test-support';
 import {
   fixtureBallot,
@@ -21,6 +23,7 @@ import {
 import {
   readyRankedRoom,
   recoverRankedResults,
+  runRankedOpening,
 } from './ranked-room.test-support';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
@@ -45,7 +48,8 @@ for (const ladder of ratingLadders)
                 s.activateBetaSeason({ id: seasonId }),
               );
               const room = await readyRankedRoom(f, ladder, judgeKind);
-              ({ roundId } = await startRuntimeRound(f, room));
+              ({ roundId } = await launchRuntimeRound(f, room));
+              await runRankedOpening(f, roundId);
               await playOut(f, roundId, true);
               const frozen = await finalizeAsWeb(f, roundId);
               if (
@@ -92,9 +96,11 @@ for (const ladder of ratingLadders)
                   },
                 }).executeClaim(claim, new AbortController().signal);
               }
-              const candidates = await f.store.readUnratedRatingRounds({
-                limit: 64,
-              });
+              const candidates = (
+                await f.store.readRatingCandidates({ limit: 1000 })
+              )
+                .filter(({ facts }) => ratingAwaited(facts))
+                .map(({ roundId: id }) => id);
               await recoverRankedResults(f);
               const ledger =
                 await f.sql`select actor_id,ladder,season_id,rating_before,rating_after from rating_changes where round_id=${roundId}`;
@@ -114,6 +120,7 @@ for (const ladder of ratingLadders)
                 roundId,
                 f.host,
                 () => true,
+                readRoundOpening,
                 roundWaitingOn,
               );
               const display = await readRoundRatings(f.store, {
@@ -166,7 +173,9 @@ for (const ladder of ratingLadders)
                   entries: leaderboard?.data.entries.length,
                   pending: display?.pending,
                   deltas: display?.rows.every((r) => r.delta !== null),
-                  resolution: roundView.topic === room.topic,
+                  resolution:
+                    roundView.topic !== null &&
+                    (room.topic === null || roundView.topic === room.topic),
                 },
                 expected: {
                   discovered: true,

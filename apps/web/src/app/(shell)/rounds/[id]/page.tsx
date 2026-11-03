@@ -23,8 +23,8 @@ import {
 import {
   reportAnswerText,
   reportNotice,
-} from '../../../../features/moderation/submit-report';
-import { ReportForm } from '../../../../ui/moderation/report-form';
+} from '../../../../features/content-moderation/submit-report';
+import { ReportForm } from '../../../../ui/content-moderation/report-form';
 import { readPersistedTranscript } from './read-persisted-transcript';
 import { MediaDocument } from '../../../../ui/round-media/media-document';
 

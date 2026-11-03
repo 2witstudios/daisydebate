@@ -26,8 +26,8 @@ test('one reading of sides, seats, liveness and judge (ISSUE-672)', () => {
     actual: [
       sideName,
       view.participants.map(isSeat),
-      (['scheduled', 'active', 'completed', 'abandoned'] as const).map(
-        (status) => isLiveRound({ ...view, status }),
+      (['opening', 'active', 'completed', 'abandoned'] as const).map((status) =>
+        isLiveRound({ ...view, status }),
       ),
       judgeKindOf(view),
       judgeKindOf({

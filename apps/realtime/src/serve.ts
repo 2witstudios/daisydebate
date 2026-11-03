@@ -2,6 +2,7 @@ import { refuseSchemaAlteringRole } from '@daisy/db';
 import type { RealtimeApp } from './app';
 import { createRealtimeServer } from './server';
 import { createRealtimeDelivery } from './delivery';
+import { createOnlineRing } from './online-ring';
 import { createPresenceTracker } from './presence';
 import { startObservationRuntime } from './observation/runtime';
 import { actorsFencedBy } from './observation/controls';
@@ -132,6 +133,11 @@ export async function serveRealtime({
         throw new Error('Realtime recipient unavailable');
     },
   });
+  const onlineRing = createOnlineRing({
+    readRevision: resources.redis.readRosterRevision,
+    ring: delivery.registry.ringOnline,
+    timers: scheduler,
+  });
   let observing: ReturnType<typeof startObservationRuntime> | null = null;
   const drain = await startOutboxDrain({
     database: resources.database,
@@ -140,6 +146,7 @@ export async function serveRealtime({
       for (const actorId of actorsFencedBy(rows))
         observing?.node.fenceActor(actorId);
       delivery.registry.sink(rows);
+      onlineRing.observe(rows);
       sink?.(rows);
     },
     logger: resources.logger,
@@ -198,6 +205,7 @@ export async function serveRealtime({
       ...listenerTls(tls),
     });
   } catch (error) {
+    onlineRing.stop();
     observing?.close();
     await Promise.allSettled([drain.stop(), hintSubscription?.unlisten()]);
     throw error;
@@ -224,6 +232,7 @@ export async function serveRealtime({
     async close() {
       if (closed) return;
       closed = true;
+      onlineRing.stop();
       scheduler.clearInterval(validationTimer);
       observing?.close();
       delivery.registry.closeAll();

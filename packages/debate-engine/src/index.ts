@@ -32,7 +32,11 @@ export {
   inflateDeviation,
   isProvisional,
 } from './rating';
-export { planRating, ratingEligibility } from './rating-decision';
+export {
+  planRating,
+  ratingAwaited,
+  ratingEligibility,
+} from './rating-decision';
 export {
   eraseSeats,
   executeRoomCommand,
@@ -44,6 +48,13 @@ export { activeRoomMembers, projectActiveRoom } from './room-membership';
 /** Pure transitions the privacy erasure applies under its own authority. */
 export { closeRoom } from './room-consent-transitions';
 export { maintainRoom } from './room-expiry';
+export {
+  advanceOpening,
+  forfeitInOpening,
+  inPreRoundPrep,
+  readRoundOpening,
+  strikeInOpening,
+} from './round-opening-runtime';
 export { deriveRoundOutcome, participatingRulings } from './round-outcome';
 export { recordResult, tallyRecord } from './debate-record';
 export {
@@ -51,7 +62,6 @@ export {
   freezeJudgingPlan,
   judgingPanelOf,
 } from './round-panel-completion';
-export { decideStartHorizon } from './round-start-horizon';
 export { roundWaitingOn } from './round-waiting-on';
 export {
   attendancePolicy,

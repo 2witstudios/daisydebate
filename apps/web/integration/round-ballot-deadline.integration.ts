@@ -1,6 +1,7 @@
 import { decisionOf } from './attendance-evaluation.test-support';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
-import { judgingJobRules } from '@daisy/debate-engine';
+import { judgingJobRules, ratingAwaited } from '@daisy/debate-engine';
+import type { Database } from '@daisy/db';
 import { withSeasons } from '@daisy/db/seasons';
 import { recoverRankedResults } from './ranked-room.test-support';
 import { randomBytes } from 'node:crypto';
@@ -10,10 +11,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
-import {
-  createRoundMaintenanceOperations,
-  ROUND_START_HORIZON_MS,
-} from '../src/features/round-finalization/maintenance';
+import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import {
   fixtureBallot,
@@ -26,7 +24,7 @@ import {
   passBallotDeadline,
 } from './round-maintenance.test-support';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 
@@ -39,7 +37,7 @@ const ruling = (winner: Ballot['winner']) =>
 /** A frozen casual Round with two seated human judges and settled attendance. */
 async function frozenTwoJudgeRound(f: Fixture) {
   const { room, judges } = await readyTwoHumanJudgeRoom(f);
-  const { roundId } = await startRuntimeRound(f, room);
+  const { roundId } = await launchRuntimeRound(f, room);
   const initial = (await f.store.getRound(roundId))!;
   const elapsedMs = initial.rules.segments.reduce(
     (total, segment) => total + segment.durationMs + initial.rules.countdownMs,
@@ -69,7 +67,6 @@ async function maintainWith<T>(
       ratingFailed: (_id, error) => {
         throw error;
       },
-      startHorizonMs: ROUND_START_HORIZON_MS,
       probeRoundId: null,
       store: f.store,
       instanceId,
@@ -301,7 +298,7 @@ for (const [captured, postings] of [
     await withRoomRuntime(async (f) => {
       const seasonId = createId();
       const { room, judges } = await readyTwoHumanJudgeRoom(f);
-      const { roundId } = await startRuntimeRound(f, room);
+      const { roundId } = await launchRuntimeRound(f, room);
       const started = (await f.store.getRound(roundId))!;
       const seat = started.participants.find(
         (p) => p.actorId === judges[0]!.actorId,
@@ -320,7 +317,7 @@ for (const [captured, postings] of [
         await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
         const done = (await f.store.getRound(roundId))!;
         const [receipt] = await completions(f, roundId);
-        const awaited = await f.store.readRoundAwaitsRating(roundId);
+        const awaited = await awaitsRating(f, roundId);
         await recoverRankedResults(f);
         await recoverRankedResults(f);
         const ledger =
@@ -334,7 +331,7 @@ for (const [captured, postings] of [
             ruling: receipt?.result.ruling,
             awaited,
             postings: ledger.length,
-            awaitsAfter: await f.store.readRoundAwaitsRating(roundId),
+            awaitsAfter: await awaitsRating(f, roundId),
           },
           expected: {
             done: ['completed', 'negative'],
@@ -369,7 +366,6 @@ test('an AI job out of budget with no worker running is reported once, with the 
         ids: { next: createId },
         ratingFailed: () => {},
         evaluate: async () => ({ kind: 'undecided' as const }),
-        startHorizonMs: 60_000,
         probeRoundId: null,
         judgingEnded: (reason) => reported.push(reason),
       });
@@ -446,7 +442,6 @@ test('a held ballot dropped at its bound is reported once, with the reason', asy
       ids: { next: createId },
       ratingFailed: () => {},
       evaluate: async () => ({ kind: 'undecided' as const }),
-      startHorizonMs: 60_000,
       probeRoundId: null,
       judgingEnded: (reason) => reported.push(reason),
     });
@@ -567,10 +562,20 @@ async function proveFirstSpeakerAbsent(f: Fixture, roundId: string) {
   });
 }
 
+const awaitsRating = async (
+  f: {
+    readonly store: { readonly readRatingFacts: Database['readRatingFacts'] };
+  },
+  roundId: string,
+) => {
+  const facts = await f.store.readRatingFacts(roundId);
+  return facts !== null && ratingAwaited(facts);
+};
+
 test('a forfeit on an incomplete freeze still has a rating coming', async () => {
   await withRoomRuntime(async (f) => {
     const { room } = await readyTwoHumanJudgeRoom(f);
-    const { roundId } = await startRuntimeRound(f, room);
+    const { roundId } = await launchRuntimeRound(f, room);
     await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
     await playOut(f, roundId, false);
     if ((await finalizeAsWeb(f, roundId)).status !== 'frozen')
@@ -591,7 +596,7 @@ test('a forfeit on an incomplete freeze still has a rating coming', async () => 
         should: 'answer that the writer would still rate it',
         actual: {
           decision: decisionOf(decided),
-          awaits: await f.store.readRoundAwaitsRating(roundId),
+          awaits: await awaitsRating(f, roundId),
         },
         expected: { decision: 'forfeit', awaits: true },
       });

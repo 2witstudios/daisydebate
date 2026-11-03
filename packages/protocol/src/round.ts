@@ -10,12 +10,12 @@ export const competitionTypes = ['ranked', 'casual'] as const;
 export type CompetitionType = (typeof competitionTypes)[number];
 
 /**
- * The round lifecycle. `scheduled` is a legitimate round status: rules are
- * frozen and the clock has not started (ADR 0058). `abandoned` keeps
- * `started_at` nullable — a round may be abandoned before starting.
+ * The round lifecycle. `opening` runs from Start round to the countdown:
+ * rules are frozen, any strike and pre-round prep run, and the speech clock
+ * has not started (ADR 0104). `abandoned` keeps `started_at` nullable.
  */
 export const roundStatuses = [
-  'scheduled',
+  'opening',
   'active',
   'completed',
   'abandoned',

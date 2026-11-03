@@ -51,13 +51,8 @@ const conflictAnswer = (
     case 'incomplete-cast':
     case 'not-ready':
     case 'readiness-unavailable':
-    case 'prep-running':
-    case 'prep-unavailable':
     case 'consent-conflict':
     case 'draw-unavailable':
-    case 'strike-unavailable':
-    case 'strike-conflict':
-    case 'not-your-turn':
     case 'bots-busy':
     case 'capture-premium':
     case 'broadcast-private':

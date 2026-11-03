@@ -1,8 +1,16 @@
 import { assertRejects } from '@daisy/errors/testing';
-import type { DebaterStanding, RatingEligibilityFacts } from '@daisy/protocol';
+import type {
+  DebaterStanding,
+  RatingEligibility,
+  RatingEligibilityFacts,
+} from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { rateDebate, ratingPolicy } from './rating';
-import { planRating, ratingEligibility } from './rating-decision';
+import {
+  planRating,
+  ratingAwaited,
+  ratingEligibility,
+} from './rating-decision';
 
 setupRitewayBun();
 
@@ -15,6 +23,31 @@ const completed: RatingEligibilityFacts = {
   outcome: 'affirmative',
   completedAt: at,
   alreadyRated: false,
+  ending: 'judged-on-complete-capture',
+  attendance: {
+    ruleSegments: [],
+    speeches: [],
+    adjudications: [],
+    receipts: [],
+    pendingWriter: false,
+  },
+};
+
+/** One non-final speech with no adjudication: the ledger does not settle. */
+const unsettled: RatingEligibilityFacts['attendance'] = {
+  ...completed.attendance,
+  ruleSegments: [
+    { key: 'first', type: 'speech' },
+    { key: 'last', type: 'speech' },
+  ],
+  speeches: [{ id: 's1', rulesSegmentKey: 'first', startedAt: at }],
+};
+
+const rated: RatingEligibility = {
+  kind: 'rated',
+  ladder: 'freestyle',
+  outcome: 'affirmative',
+  occurredAt: at,
 };
 
 describe('ratingEligibility', () => {
@@ -128,6 +161,98 @@ const plan = (
     changeIds: ['change-aff', 'change-neg'],
     ...overrides,
   });
+
+describe('ratingEligibility over how the Round ended', () => {
+  test('a forfeit rates on any capture and needs no settled ledger', () => {
+    assert({
+      given: 'a forfeit whose attendance ledger does not settle',
+      should: 'rate it',
+      actual: ratingEligibility({
+        ...completed,
+        ending: 'forfeit',
+        attendance: unsettled,
+      }),
+      expected: rated,
+    });
+  });
+
+  test('a ballot rates only on a complete capture (DEC-285)', () => {
+    assert({
+      given: 'a ballot on a complete capture',
+      should: 'rate it',
+      actual: ratingEligibility(completed),
+      expected: rated,
+    });
+    assert({
+      given: 'a decisive ballot on an incomplete capture',
+      should: 'leave it unrated while ISSUE-911 is open',
+      actual: ratingEligibility({
+        ...completed,
+        ending: 'judged-on-incomplete-capture',
+      }),
+      expected: { kind: 'unrated', reason: 'incomplete-capture' },
+    });
+  });
+
+  test('every other ending is a typed reason', () => {
+    for (const [given, facts, reason] of [
+      ['a null outcome', { outcome: null }, 'no-result'],
+      ['no finalization record', { ending: 'unrecorded' }, 'ending-unrecorded'],
+      ['a finalization with no ballot', { ending: 'unjudged' }, 'unjudged'],
+      [
+        'a check-in writer still in doubt, even on a forfeit',
+        {
+          ending: 'forfeit',
+          attendance: { ...completed.attendance, pendingWriter: true },
+        },
+        'check-in-pending',
+      ],
+    ] as const)
+      assert({
+        given,
+        should: `leave it unrated: ${reason}`,
+        actual: ratingEligibility({ ...completed, ...facts }),
+        expected: { kind: 'unrated', reason },
+      });
+  });
+
+  test('a judged Round on an unsettled ledger is owed a rating, not given one', () => {
+    assert({
+      given: 'a ballot on a complete capture whose ledger does not settle',
+      should: 'say attendance is unsettled',
+      actual: ratingEligibility({ ...completed, attendance: unsettled }),
+      expected: { kind: 'attendance-unsettled' },
+    });
+  });
+});
+
+describe('ratingAwaited', () => {
+  test('is true only while a rating is still coming', () => {
+    assert({
+      given: 'facts for each answer',
+      should: 'await the rateable and the unsettled, nothing else',
+      actual: {
+        rateable: ratingAwaited(completed),
+        unsettled: ratingAwaited({ ...completed, attendance: unsettled }),
+        incomplete: ratingAwaited({
+          ...completed,
+          ending: 'judged-on-incomplete-capture',
+        }),
+        noResult: ratingAwaited({ ...completed, outcome: null }),
+        rated: ratingAwaited({ ...completed, alreadyRated: true }),
+        active: ratingAwaited({ ...completed, status: 'active' }),
+      },
+      expected: {
+        rateable: true,
+        unsettled: true,
+        incomplete: false,
+        noResult: false,
+        rated: false,
+        active: false,
+      },
+    });
+  });
+});
 
 describe('planRating', () => {
   test('plans both sides from the pure calculation', () => {

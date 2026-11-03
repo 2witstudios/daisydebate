@@ -10,7 +10,7 @@ const sideOf = (role: string): readonly DebateSide[] =>
   debateSides.filter((side) => side === role);
 
 const stageOf = (read: SpectatorTimelineRead): SpectatorTimeline['stage'] => {
-  if (read.round.status === 'scheduled') return { kind: 'upcoming' };
+  if (read.round.status === 'opening') return { kind: 'upcoming' };
   if (read.outcomeReleased || read.broadcastStopped) return { kind: 'ended' };
   const segment = read.segments[0];
   if (!segment || read.horizonMs === null) return { kind: 'slate' };

@@ -38,22 +38,6 @@ describe('parseSeasonCommand', () => {
         endsAt: new Date('2026-12-31T00:00:00Z'),
       },
     });
-    assert({
-      given: 'rollover with a name and a start',
-      should: 'open the next season at that start',
-      actual: parseSeasonCommand(
-        ['rollover', '--name', 'Season 2', '--starts', '2027-01-01T00:00:00Z'],
-        edge,
-      ),
-      expected: {
-        kind: 'rollover',
-        season: {
-          id,
-          name: 'Season 2',
-          startsAt: new Date('2027-01-01T00:00:00Z'),
-        },
-      },
-    });
   });
 
   test('refuses malformed input with usage', () => {
@@ -73,10 +57,7 @@ describe('parseSeasonCommand', () => {
       ],
       ['list given a name', ['list', '--name', 'S']],
       ['open given an id', ['open', '--name', 'S', '--id', id]],
-      [
-        'rollover given an end',
-        ['rollover', '--name', 'S', '--ends', '2027-01-01T00:00:00Z'],
-      ],
+      ['the removed rollover', ['rollover', '--name', 'S']],
       [
         'an impossible calendar date',
         ['open', '--name', 'S', '--starts', '2026-02-30T00:00:00Z'],

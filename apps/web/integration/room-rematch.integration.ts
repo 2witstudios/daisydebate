@@ -3,7 +3,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 setupRitewayBun();
@@ -22,7 +22,7 @@ test('a fresh Room after an actual result preserves the original aggregate and r
       visibility: 'public' as const,
       selection: f.foundationSelection,
     };
-    const { roundId, operations } = await startRuntimeRound(f, room);
+    const { roundId, operations } = await launchRuntimeRound(f, room);
     await assertRejects({
       given: 'an active original Round',
       should: 'refuse a rematch without creating another Room',

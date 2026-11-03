@@ -11,10 +11,14 @@ import {
   type RoundEvidencePermissions,
 } from './audience';
 
+/** What a Recording shows for a Round that ended before its topic was drawn. */
+export const UNDRAWN_RESOLUTION = 'No topic drawn';
+
 /** One finished Round the archive store found for a query. */
 export type ArchiveRound = RecordingRound & {
   readonly title: string | null;
-  readonly resolution: string;
+  /** Null when the Round ended in its opening, before a topic was drawn. */
+  readonly resolution: string | null;
   readonly competitionType: CompetitionType;
   readonly release: BroadcastRelease;
   readonly status: RecordingStatus | null;
@@ -112,7 +116,7 @@ export const archiveEntries = (
       {
         roundId: round.id,
         href: replayHref(round.id),
-        title: round.title ?? round.resolution,
+        title: round.title ?? round.resolution ?? UNDRAWN_RESOLUTION,
         ranked: round.competitionType === 'ranked',
         date: day(round.completedAtMs ?? 0),
         length:

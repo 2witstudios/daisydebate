@@ -14,6 +14,23 @@ import {
 
 setupRitewayBun();
 
+/** A store refusing everything a test does not name. */
+const storeOf = () => ({
+  listOperatorAccounts: async () => [],
+  runBetaAccessCommand: async () => {
+    throw createAppError('CONFLICT');
+  },
+  readOperatorCommand: async () => null,
+  listOperatorReports: async () => [],
+  listOperatorRestrictions: async () => [],
+  resolveReport: async () => {
+    throw createAppError('CONFLICT');
+  },
+  liftModeration: async () => {
+    throw createAppError('CONFLICT');
+  },
+});
+
 describe('the private operator API (ADR 0079)', () => {
   test('lists one keyset page with a cursor bound to its filter', async () => {
     const { handle, calls } = api();
@@ -149,6 +166,14 @@ describe('the private operator API (ADR 0079)', () => {
   test('malformed, oversize, unknown and conflicting requests map to their codes', async () => {
     const conflicting = api({
       store: {
+        listOperatorReports: async () => [],
+        listOperatorRestrictions: async () => [],
+        resolveReport: async () => {
+          throw new Error('Unexpected report command');
+        },
+        liftModeration: async () => {
+          throw new Error('Unexpected lift');
+        },
         listOperatorAccounts: async () => [],
         runBetaAccessCommand: async () => {
           throw createAppError('CONFLICT');
@@ -252,6 +277,14 @@ test('an unexpected handler failure reaches the error reporter; a refusal does n
   const broken = api({
     reporter,
     store: {
+      listOperatorReports: async () => [],
+      listOperatorRestrictions: async () => [],
+      resolveReport: async () => {
+        throw new Error('Unexpected report command');
+      },
+      liftModeration: async () => {
+        throw new Error('Unexpected lift');
+      },
       listOperatorAccounts: async () => {
         throw new Error('pool exhausted');
       },
@@ -292,5 +325,149 @@ test('an unexpected handler failure reaches the error reporter; a refusal does n
         ],
       ],
     },
+  });
+});
+
+describe('the report routes (ADR 0103)', () => {
+  const report = {
+    id: 'r'.repeat(24),
+    reporter: 'ada',
+    subject: 'bea',
+    subjectUserId: target,
+    reason: 'hate' as const,
+    surface: 'online' as const,
+    createdAt: '2026-11-02T00:00:00.000Z',
+    reportsOnSubject: 2,
+  };
+  const head = 'a'.repeat(64);
+  test('lists the queue, with a cursor when there is more', async () => {
+    const { handle } = api({
+      store: {
+        ...storeOf(),
+        listOperatorReports: async () => [
+          report,
+          { ...report, id: 's'.repeat(24) },
+        ],
+      },
+    });
+    const response = await handle(
+      signed({
+        method: 'GET',
+        path: '/operator/v1/reports',
+        query: [['limit', '1']],
+      }),
+    );
+    const page = (await response.json()) as {
+      items: unknown[];
+      nextCursor: string | null;
+    };
+    assert({
+      given: 'more reports than the limit',
+      should: 'answer one and where the next page starts',
+      actual: [response.status, page.items, typeof page.nextCursor],
+      expected: [200, [report], 'string'],
+    });
+  });
+  test('a decision carries its length, retention and digest', async () => {
+    const seen: Record<string, unknown>[] = [];
+    const { handle } = api({
+      store: {
+        ...storeOf(),
+        resolveReport: async (input) => {
+          seen.push(input as unknown as Record<string, unknown>);
+          return {
+            commandId: input.commandId,
+            reportId: input.reportId,
+            outcome: input.resolution.outcome,
+          };
+        },
+      },
+    });
+    const response = await handle(
+      signed({
+        method: 'PUT',
+        path: `/operator/v1/reports/${report.id}/resolution`,
+        body: JSON.stringify({
+          v: 1,
+          commandId: 'c'.repeat(24),
+          outcome: 'suspended',
+          suspendDays: 7,
+          adminAuditHead: head,
+        }),
+      }),
+    );
+    const input = seen[0]!;
+    const now = Date.parse(String(input['now']));
+    assert({
+      given: 'a seven-day suspension',
+      should: 'end it in a week and keep evidence for the proposed year',
+      actual: [
+        response.status,
+        input['operatorRef'],
+        Date.parse(
+          String(
+            (input['resolution'] as { suspendUntil: string }).suspendUntil,
+          ),
+        ) - now,
+        Date.parse(String(input['purgeAfter'])) - now,
+        /^[0-9a-f]{64}$/.test(String(input['requestDigest'])),
+      ],
+      expected: [200, 'o'.repeat(24), 7 * 86_400_000, 365 * 86_400_000, true],
+    });
+  });
+  test('a suspension needs a length, and nothing else has one', async () => {
+    const { handle } = api();
+    const put = (outcome: string, suspendDays?: number) =>
+      handle(
+        signed({
+          method: 'PUT',
+          path: `/operator/v1/reports/${report.id}/resolution`,
+          body: JSON.stringify({
+            v: 1,
+            commandId: 'c'.repeat(24),
+            outcome,
+            ...(suspendDays === undefined ? {} : { suspendDays }),
+            adminAuditHead: head,
+          }),
+        }),
+      );
+    assert({
+      given: 'a suspension with no days, and a dismissal with days',
+      should: 'refuse both',
+      actual: [
+        (await put('suspended')).status,
+        (await put('dismissed', 3)).status,
+      ],
+      expected: [400, 400],
+    });
+  });
+  test('lifting reaches the store by the action it names', async () => {
+    const lifted: string[] = [];
+    const { handle } = api({
+      store: {
+        ...storeOf(),
+        liftModeration: async (input) => {
+          lifted.push(input.actionId);
+          return { commandId: input.commandId, actionId: input.actionId };
+        },
+      },
+    });
+    const response = await handle(
+      signed({
+        method: 'PUT',
+        path: `/operator/v1/moderation/${report.id}/lift`,
+        body: JSON.stringify({
+          v: 1,
+          commandId: 'c'.repeat(24),
+          adminAuditHead: head,
+        }),
+      }),
+    );
+    assert({
+      given: 'a signed lift',
+      should: 'lift that action',
+      actual: [response.status, lifted],
+      expected: [200, [report.id]],
+    });
   });
 });

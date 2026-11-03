@@ -8,13 +8,13 @@ import type {
 type Resource = AuthorizationInput['resource'];
 type OperatorResource = Extract<
   Resource,
-  { kind: 'account' | 'account_collection' | 'moderation' }
+  { kind: 'account' | 'account_collection' | 'content_moderation' }
 >;
 
 /** WATCH-7: decided on holding them alone; each store checks its own target. */
-const moderationCapabilities: readonly AuthorizationCapability[] = [
-  'report.queue.read',
-  'report.resolve',
+const contentModerationCapabilities: readonly AuthorizationCapability[] = [
+  'content_report.queue.read',
+  'content_report.resolve',
   'broadcast.stop',
   'broadcast.chat_slow_mode.update',
   'recording.takedown',
@@ -26,7 +26,11 @@ const moderationCapabilities: readonly AuthorizationCapability[] = [
 const operatorCapabilities: readonly AuthorizationCapability[] = [
   'account.collection.read',
   'account.beta_access.update',
-  ...moderationCapabilities,
+  ...contentModerationCapabilities,
+  'report.collection.read',
+  'report.resolve',
+  'moderation.collection.read',
+  'moderation.lift',
 ];
 
 /** The resources only operator capabilities address. */
@@ -35,7 +39,7 @@ export const operatorResource = (
 ): resource is OperatorResource =>
   resource.kind === 'account' ||
   resource.kind === 'account_collection' ||
-  resource.kind === 'moderation';
+  resource.kind === 'content_moderation';
 
 /**
  * The operator service holds exactly its configured capabilities and
@@ -53,12 +57,20 @@ export function operatorDecision(
     !principal.capabilities.includes(capability)
   )
     return { allow: false, reason: 'missing-capability' };
-  if (
-    capability === 'account.collection.read' ||
-    moderationCapabilities.includes(capability)
-  )
+  if (contentModerationCapabilities.includes(capability))
     return { allow: true };
-  return context.account !== null && context.account.beta !== null
-    ? { allow: true }
-    : { allow: false, reason: 'denied' };
+  switch (capability) {
+    case 'account.beta_access.update':
+      return context.account !== null && context.account.beta !== null
+        ? { allow: true }
+        : { allow: false, reason: 'denied' };
+    case 'account.collection.read':
+    case 'report.collection.read':
+    case 'report.resolve':
+    case 'moderation.collection.read':
+    case 'moderation.lift':
+      return { allow: true };
+    default:
+      return { allow: false, reason: 'missing-capability' };
+  }
 }

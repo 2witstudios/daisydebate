@@ -132,11 +132,11 @@ describe('rounds (DATA-2.1)', () => {
           outcome: 'affirmative',
         }),
         scheduledWithStart: await attempt({
-          status: 'scheduled',
+          status: 'opening',
           started_at: at,
         }),
         scheduledWithStage: await attempt({
-          status: 'scheduled',
+          status: 'opening',
           current_stage: 'live',
         }),
         unknownStatus: await attempt({ status: 'paused' }),

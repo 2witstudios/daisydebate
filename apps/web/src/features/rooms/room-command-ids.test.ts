@@ -13,11 +13,10 @@ describe('roomCommandIds', () => {
       given:
         'a room declaring two affirmative, three negative and one judge seat',
       should:
-        'name the header (details, leave, close), readiness, prep, settings and capture forms, four intents per seat and the three format forms',
+        'name the header (details, leave, close), readiness, settings and capture forms, four intents per seat and the three format forms',
       actual: {
         header: built.header,
         readiness: built.readiness,
-        prep: built.prep,
         settings: built.settings,
         capture: built.capture,
         seats: built.seats.length,
@@ -27,7 +26,6 @@ describe('roomCommandIds', () => {
           built.header.leave,
           built.header.close,
           ...Object.values(built.readiness),
-          ...Object.values(built.prep),
           built.settings,
           built.capture,
           ...built.seats.flatMap((seat) => Object.values(seat)),
@@ -37,12 +35,11 @@ describe('roomCommandIds', () => {
       expected: {
         header: { details: 'c-1', leave: 'c-2', close: 'c-3' },
         readiness: { ready: 'c-4', unready: 'c-5', 'start-round': 'c-6' },
-        prep: { start: 'c-7', finish: 'c-8' },
-        settings: 'c-9',
-        capture: 'c-37',
+        settings: 'c-7',
+        capture: 'c-35',
         seats: 6,
-        format: { choose: 'c-34', reset: 'c-35', template: 'c-36' },
-        distinct: 10 + 6 * 4 + 3,
+        format: { choose: 'c-32', reset: 'c-33', template: 'c-34' },
+        distinct: 8 + 6 * 4 + 3,
       },
     });
   });

@@ -7,14 +7,15 @@ import type {
   RatingPlanFacts,
   RatingState,
 } from '@daisy/protocol';
+import { attendanceSettled } from './attendance-order';
 import { carryOver, rateDebate, postingInstant, ratingPolicy } from './rating';
 
 /**
  * The domain decisions behind rating one completed round (ADR 0055,
- * ADR 0058), as pure functions over facts the persistence adapter loads
- * from the round's frozen columns. The adapter locks, reads and writes;
- * every rule (who rates, on which ladder, from which starting state, to
- * which result) is decided here.
+ * ADR 0058), as pure functions over facts the persistence adapter loads.
+ * The adapter selects candidates, locks, reads and writes; every rule (who
+ * rates, on which ladder, from which starting state, to which result) is
+ * decided here.
  */
 
 /**
@@ -25,7 +26,10 @@ import { carryOver, rateDebate, postingInstant, ratingPolicy } from './rating';
  * preset, so this check re-decides nothing about the format; a mismatch
  * there is corruption and fails as an invariant in the adapter's
  * `assertRankedRoundIntegrity`, never as an unrated reason. A forfeit
- * carries a side outcome and rates like a judged result.
+ * carries a side outcome and rates like a judged result, on any capture and
+ * with no attendance settlement to wait for. A ballot rates only on a complete
+ * capture: DEC-285 holds that until the owner rules on ISSUE-911. A null
+ * outcome is a real ending with no result (DEC-277).
  */
 export function ratingEligibility(
   input: RatingEligibilityFacts,
@@ -39,13 +43,36 @@ export function ratingEligibility(
   if (input.ladderId === null)
     return { kind: 'unrated', reason: 'competition' };
   if (input.outcome === null || input.completedAt === null)
-    throw createAppError('CONFLICT', 'A completed round has no outcome');
+    return { kind: 'unrated', reason: 'no-result' };
+  if (input.ending === 'unrecorded')
+    return { kind: 'unrated', reason: 'ending-unrecorded' };
+  if (input.attendance.pendingWriter)
+    return { kind: 'unrated', reason: 'check-in-pending' };
+  if (input.ending === 'unjudged')
+    return { kind: 'unrated', reason: 'unjudged' };
+  if (input.ending === 'judged-on-incomplete-capture')
+    return { kind: 'unrated', reason: 'incomplete-capture' };
+  if (
+    input.ending === 'judged-on-complete-capture' &&
+    !attendanceSettled(input.attendance, Date.parse(input.completedAt))
+  )
+    return { kind: 'attendance-unsettled' };
   return {
     kind: 'rated',
     ladder: input.ladderId,
     outcome: input.outcome,
     occurredAt: input.completedAt,
   };
+}
+
+/**
+ * Whether a rating is due now. False while a check-in writer is in doubt: the
+ * Round is read again once that resolves.
+ */
+export function ratingAwaited(input: RatingEligibilityFacts): boolean {
+  if (input.status !== 'completed') return false;
+  const { kind } = ratingEligibility(input);
+  return kind === 'rated' || kind === 'attendance-unsettled';
 }
 
 /** This season's row, else the last season carried over, else a newcomer. */

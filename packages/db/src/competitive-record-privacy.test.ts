@@ -29,9 +29,10 @@ test('the competitive-record step erases nothing and reads only the subject rows
         'rating_changes',
         'ratings',
         'room_participants',
-        'room_resolution_strikes',
+        'room_seat_holds',
         'rooms',
         'round_participants',
+        'round_resolution_strikes',
         'rounds',
       ],
     ],
@@ -51,6 +52,6 @@ test('the competitive-record step erases nothing and reads only the subject rows
           !query.includes('users'),
       ),
     ],
-    expected: [8, true, false],
+    expected: [9, true, false],
   });
 });

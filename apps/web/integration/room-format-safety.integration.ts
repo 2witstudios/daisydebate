@@ -157,7 +157,6 @@ test('direct domain Launch safety refusal cannot persist a Round or freeze', asy
                   target: null,
                   hostHoldsCasualAiJudge: true,
                   hostHoldsCasualCapture: true,
-                  drawSeed: null,
                   drawStart: null,
                 },
               ),
