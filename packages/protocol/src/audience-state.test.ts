@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   audienceStatePath,
   pulseRateFor,
+  tabPulses,
   viewersFromSample,
   VIEWER_PULSES_PER_SECOND,
   VIEWER_PULSE_MS,
@@ -46,5 +47,20 @@ test('the path carries only the key', () => {
     should: 'name its object',
     actual: audienceStatePath('abc'),
     expected: 'state/abc.json',
+  });
+});
+
+test('a tab keeps its draw as the rate moves', () => {
+  assert({
+    given: 'one draw under falling rates',
+    should: 'pulse until the rate falls past it, and not before',
+    actual: [tabPulses(0.2, 1), tabPulses(0.2, 0.5), tabPulses(0.2, 0.1)],
+    expected: [true, true, false],
+  });
+  assert({
+    given: 'the highest draw at the full rate',
+    should: 'pulse: below the limit every tab counts',
+    actual: tabPulses(0.999_999, 1),
+    expected: true,
   });
 });

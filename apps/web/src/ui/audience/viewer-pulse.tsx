@@ -1,6 +1,6 @@
 'use client';
 import { createId } from '@paralleldrive/cuid2';
-import { VIEWER_PULSE_MS } from '@daisy/protocol';
+import { tabPulses, VIEWER_PULSE_MS } from '@daisy/protocol';
 import { useEffect, useRef } from 'react';
 import { usePublishedAudience } from '../spectating/published-state';
 
@@ -25,7 +25,7 @@ export function ViewerPulse({
     const token = createId();
     const draw = crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32;
     const pulse = () => {
-      if (draw >= rate.current) return;
+      if (!tabPulses(draw, rate.current)) return;
       void fetch(`/api/rounds/${encodeURIComponent(roundId)}/viewers`, {
         method: 'POST',
         credentials: unlisted ? 'same-origin' : 'omit',

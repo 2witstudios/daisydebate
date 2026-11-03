@@ -45,6 +45,9 @@ export const pulseRateFor = (viewers: number): number =>
     (VIEWER_PULSES_PER_SECOND * VIEWER_PULSE_MS) / 1000 / Math.max(viewers, 1),
   );
 
+/** Whether a tab that drew this, once, between 0 and 1, pulses at this rate. */
+export const tabPulses = (draw: number, rate: number): boolean => draw < rate;
+
 /** A sampled count scaled back up and rounded to what it can honestly say. */
 export const viewersFromSample = (sampled: number, rate: number): number => {
   const viewers = sampled / rate;

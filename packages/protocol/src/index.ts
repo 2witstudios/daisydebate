@@ -601,6 +601,7 @@ export {
   audienceStateSchema,
   latestViewerBucket,
   pulseRateFor,
+  tabPulses,
   VIEWER_BUCKET_MS,
   VIEWER_BUCKET_TTL_MS,
   viewerBucketOf,
