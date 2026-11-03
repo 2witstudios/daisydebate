@@ -62,6 +62,7 @@ export {
 export type { AttendanceDecision, AttendanceWindow } from './attendance';
 export {
   deriveOutageIntervals,
+  withClockStops,
   effectiveAttendanceDeadline,
 } from './availability';
 

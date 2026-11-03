@@ -242,3 +242,42 @@ test('a speech resumes from the last confirmed audio', async () => {
     expected: bot.expectedMs,
   });
 });
+
+test('attendance holds while an incident is open', async () => {
+  await withMediaRound(async (f) => {
+    const { observe } = await liveSpeech(f);
+    await observe(room({}));
+    await observe(room({ empty: true, captureListed: false }));
+    const instanceId = createId();
+    await f.store.renewServiceInstance({ instanceId, role: 'web' });
+    const outcome = await f.store.evaluateRoundAttendance({
+      roundId: f.roundId,
+      commandId: createId(),
+      instanceId,
+      nextWindow: () => {
+        throw new Error('A held Round must not look for a window');
+      },
+      judgingEndReason: () => {
+        throw new Error('A held Round ends no job');
+      },
+      resolveOnReceipts: () => {
+        throw new Error('A held Round must not decide');
+      },
+      resolve: () => {
+        throw new Error('A held Round must not decide');
+      },
+    } as never);
+    const [row] =
+      await f.sql`select count(*)::int as decided from round_attendance_adjudications where round_id=${f.roundId}`;
+    await f.sql`delete from service_instances where instance_id=${instanceId}`;
+    assert({
+      given: 'an attendance pass during an open incident',
+      should: 'hold, and write no immutable decision',
+      actual: { outcome, decided: row!.decided },
+      expected: {
+        outcome: { kind: 'held', reason: 'platform_incident' },
+        decided: 0,
+      },
+    });
+  });
+});

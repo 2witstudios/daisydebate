@@ -1,3 +1,4 @@
+import { emptyRuntimeCheckpoint } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   oneOnOneDefinition,
@@ -105,6 +106,7 @@ const receipt = (
 ) => {
   const facts = {
     round: {
+      checkpoint: emptyRuntimeCheckpoint,
       rules,
       participants,
       segments: [actual],
