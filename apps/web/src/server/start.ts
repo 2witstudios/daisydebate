@@ -1,3 +1,5 @@
+import { recordingPersistence } from '../features/recording/persistence';
+import { startRecordingDeletions } from './recording-deletions';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
 import { startRoomLifecycleMaintenance } from './room-maintenance';
@@ -209,6 +211,14 @@ const privacyJobs = startPrivacyJobs({
   logger: app.logger,
   timers: workerTimers,
 });
+const recordingDeletions = startRecordingDeletions({
+  store: recordingPersistence(),
+  objects: app.recordingObjects,
+  owner: app.ids.next(),
+  clock: app.clock,
+  logger: app.logger,
+  timers: workerTimers,
+});
 async function shutdown() {
   if (app.isDraining()) return;
   app.drain();
@@ -219,6 +229,7 @@ async function shutdown() {
   const filesStopped = fileMaintenance?.stop();
   const observationPurgesStopped = observationPurges.stop();
   const privacyJobsStopped = privacyJobs.stop();
+  const recordingDeletionsStopped = recordingDeletions.stop();
   const availabilityStopped = availability.stop();
   const workersStopped = roundWorkers?.stop();
   const mediaRecoveryStopped = mediaRecovery?.stop();
@@ -251,6 +262,7 @@ async function shutdown() {
         filesStopped,
         observationPurgesStopped,
         privacyJobsStopped,
+        recordingDeletionsStopped,
         availabilityStopped,
         workersStopped,
         mediaRecoveryStopped,

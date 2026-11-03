@@ -11,6 +11,7 @@ import { composeFriendRoutes } from '../features/friends/composition';
 import { composePresenceRoutes } from '../features/presence/composition';
 import { composeContactRoutes } from '../features/contacts/composition';
 import { composeAgreementRoutes } from '../features/agreements/composition';
+import { composeRecordingRoutes } from '../features/recording/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
   createListSessionsHandler,
@@ -96,6 +97,7 @@ export function createRoutes(app: App) {
     },
     privacy: composeDataRightsRoutes(app),
     agreements: composeAgreementRoutes(app),
+    recordings: composeRecordingRoutes(app),
     confirm: createConfirmHandlers({
       auth: confirmAuth,
       logger,

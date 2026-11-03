@@ -1,4 +1,4 @@
-import type { RecordingLifecycle, RecordingMedia } from '@daisy/protocol';
+import type { RecordingMedia } from '@daisy/protocol';
 import type { RecordingRound, RecordingViewer } from './audience';
 import { fakeObjectStore, fakeRecordingStore } from './fake-store.test-support';
 import type { RecordingRecord } from './ports';
@@ -15,8 +15,8 @@ const media: RecordingMedia = {
   gaps: [],
   speeches: [],
 };
-export const ready: RecordingLifecycle = {
-  status: 'ready',
+export const ready = {
+  status: 'ready' as const,
   capture: {
     egressId: 'EG',
     startedAt: at,

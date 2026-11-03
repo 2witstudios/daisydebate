@@ -5,7 +5,7 @@ import {
   isRecordingsFiltered,
   parseRecordingsQuery,
   recordingsHref,
-} from './recordings-query';
+} from './archive-query';
 
 setupRitewayBun();
 
@@ -31,7 +31,13 @@ describe('parseRecordingsQuery', () => {
       ],
       expected: [
         defaultRecordingsQuery,
-        { scope: 'mine', mode: 'casual', q: 'a', sort: 'longest' },
+        {
+          scope: 'mine',
+          mode: 'casual',
+          q: 'a',
+          sort: 'longest',
+          before: '',
+        },
         { ...defaultRecordingsQuery, mode: 'ranked', q: 'x'.repeat(80) },
       ],
     });
@@ -44,7 +50,8 @@ describe('recordings hrefs', () => {
       scope: 'mine',
       mode: 'ranked',
       q: 'a',
-      sort: 'rated',
+      sort: 'longest',
+      before: '',
     } as const;
     assert({
       given: 'default and filtered queries',
@@ -58,8 +65,8 @@ describe('recordings hrefs', () => {
       ],
       expected: [
         '/recordings',
-        '/recordings?scope=mine&mode=ranked&q=a&sort=rated',
-        '/recordings?scope=mine&sort=rated',
+        '/recordings?scope=mine&mode=ranked&q=a&sort=longest',
+        '/recordings?scope=mine&sort=longest',
         true,
         false,
       ],

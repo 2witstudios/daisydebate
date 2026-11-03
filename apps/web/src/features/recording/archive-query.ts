@@ -1,11 +1,12 @@
+import { idSchema } from '@daisy/protocol';
 import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
-import { MAX_SEARCH_LENGTH } from './live-query';
-import { watchRoutes } from './routes';
+import { MAX_SEARCH_LENGTH } from '../watch/live-query';
+import { watchRoutes } from '../watch/routes';
 
 const scopes = ['all', 'mine'] as const;
 const modes = ['any', 'ranked', 'casual'] as const;
-const sorts = ['newest', 'longest', 'rated'] as const;
+const sorts = ['newest', 'longest'] as const;
 
 /** `all` is the public archive; `mine` adds the viewer's unlisted and private. */
 type RecordingScope = (typeof scopes)[number];
@@ -15,6 +16,8 @@ export type RecordingsQuery = {
   readonly mode: (typeof modes)[number];
   readonly q: string;
   readonly sort: (typeof sorts)[number];
+  /** The Round the previous page ended on; empty on the first page. */
+  readonly before: string;
 };
 
 export const defaultRecordingsQuery: RecordingsQuery = {
@@ -22,6 +25,7 @@ export const defaultRecordingsQuery: RecordingsQuery = {
   mode: 'any',
   q: '',
   sort: 'newest',
+  before: '',
 };
 
 // Every field falls back to its default on any bad value.
@@ -33,6 +37,7 @@ const schema = z.object({
     .transform((value) => value.trim().slice(0, MAX_SEARCH_LENGTH).trim())
     .catch(defaultRecordingsQuery.q),
   sort: z.enum(sorts).catch(defaultRecordingsQuery.sort),
+  before: idSchema.catch(defaultRecordingsQuery.before),
 });
 
 const first = (value: string | readonly string[] | undefined) =>
@@ -45,6 +50,7 @@ export const parseRecordingsQuery = (params: SearchParams): RecordingsQuery =>
     mode: first(params['mode']),
     q: first(params['q']),
     sort: first(params['sort']),
+    before: first(params['before']),
   });
 
 /** The archive URL for a query, carrying only the non-default values. */
@@ -64,6 +70,7 @@ const withoutFilters = (query: RecordingsQuery): RecordingsQuery => ({
   ...query,
   mode: defaultRecordingsQuery.mode,
   q: defaultRecordingsQuery.q,
+  before: defaultRecordingsQuery.before,
 });
 
 /** Filters reset; the scope and sort stay. */
