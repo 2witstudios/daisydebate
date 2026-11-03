@@ -34,6 +34,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestIdentity: async () => ({ state: 'anonymous' }),
   requestLadder: async () => null,
   requestRoundRatings: async () => null,
+  requestSpectatorTimeline: async () => null,
   requestMemberStandings: async () => [],
   privateGroupsOffered: () => false,
   // Settings reads the member's own onboarding answers (ISSUE-324); a
