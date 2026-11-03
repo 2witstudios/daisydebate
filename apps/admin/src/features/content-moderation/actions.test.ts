@@ -16,7 +16,14 @@ const requests: readonly ContentModerationRequest[] = [
   { action: 'content_report.resolve', targetId, outcome: 'dismissed' },
   { action: 'broadcast.stop', targetId, reason: 'technical' },
   { action: 'broadcast.chat_slow_mode.update', targetId, seconds: 30 },
-  { action: 'recording.takedown', targetId, reason: 'legal_request' },
+  {
+    action: 'recording.takedown',
+    targetId,
+    expectedVersion: 3,
+    reason: 'legal_request',
+  },
+  { action: 'recording.restore', targetId, expectedVersion: 3 },
+  { action: 'recording.remove', targetId, expectedVersion: 3 },
   { action: 'chat_message.remove', targetId },
   { action: 'account.audience_ban.update', targetId, state: 'banned' },
 ];

@@ -73,6 +73,8 @@ const authorizationCapabilities = [
   'broadcast.stop',
   'broadcast.chat_slow_mode.update',
   'recording.takedown',
+  'recording.restore',
+  'recording.remove',
   'chat_message.remove',
   'account.audience_ban.update',
   'report.collection.read',

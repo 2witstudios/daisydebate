@@ -132,7 +132,13 @@ export type ContentModerationChange =
   | {
       readonly action: 'recording.takedown';
       readonly recordingId: string;
+      readonly expectedVersion: number;
       readonly reason: string;
+    }
+  | {
+      readonly action: 'recording.restore' | 'recording.remove';
+      readonly recordingId: string;
+      readonly expectedVersion: number;
     }
   | { readonly action: 'chat_message.remove'; readonly messageId: string }
   | {
@@ -227,6 +233,37 @@ const setAudienceBan = async (
   return changed(written.length, true);
 };
 
+/**
+ * A takedown also ends the Round's feed, in the same transaction: what is taken
+ * down must not keep playing to whoever is watching live. A restore does not start
+ * it again. The feed stops once, whichever command got there first.
+ */
+const takeDownRecording = async (
+  tx: Tx,
+  change: Extract<ContentModerationChange, { action: 'recording.takedown' }>,
+  now: Date,
+  ports: Ports,
+): Promise<ContentModerationOutcome> => {
+  const outcome = await ports.recordings.takeDown(tx, {
+    recordingId: change.recordingId,
+    expectedVersion: change.expectedVersion,
+    now,
+  });
+  if (outcome === null) return null;
+  const broadcastId = await ports.recordings.readBroadcastId(
+    tx,
+    change.recordingId,
+  );
+  const feed = broadcastId
+    ? await stopBroadcast(tx, {
+        id: broadcastId,
+        reason: change.reason,
+        now,
+      })
+    : null;
+  return feed === 'applied' ? 'applied' : outcome;
+};
+
 const applyChange = (
   tx: Tx,
   change: ContentModerationChange,
@@ -246,11 +283,11 @@ const applyChange = (
     case 'broadcast.chat_slow_mode.update':
       return setSlowMode(tx, change);
     case 'recording.takedown':
-      return ports.recordings.takeDown(tx, {
-        recordingId: change.recordingId,
-        reason: change.reason,
-        now,
-      });
+      return takeDownRecording(tx, change, now, ports);
+    case 'recording.restore':
+      return ports.recordings.restore(tx, change);
+    case 'recording.remove':
+      return ports.recordings.remove(tx, { ...change, now });
     case 'chat_message.remove':
       return ports.chat.remove(tx, { messageId: change.messageId, now });
     case 'account.audience_ban.update':
@@ -291,10 +328,16 @@ const subjectOf = async (
           }
         : null;
     }
-    case 'recording':
-      return (await ports.recordings.exists(tx, report.targetId))
-        ? { kind: 'recording', recordingId: report.targetId }
-        : null;
+    case 'recording': {
+      const recording = await ports.recordings.readSubject(tx, report.targetId);
+      return (
+        recording && {
+          kind: 'recording',
+          recordingId: report.targetId,
+          ...recording,
+        }
+      );
+    }
     case 'chat_message': {
       const message = await ports.chat.readSubject(tx, report.targetId);
       return (

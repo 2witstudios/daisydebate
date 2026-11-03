@@ -24,7 +24,13 @@ export type ContentModerationRequest =
   | {
       readonly action: 'recording.takedown';
       readonly targetId: string;
+      readonly expectedVersion: number;
       readonly reason: string;
+    }
+  | {
+      readonly action: 'recording.restore' | 'recording.remove';
+      readonly targetId: string;
+      readonly expectedVersion: number;
     }
   | { readonly action: 'chat_message.remove'; readonly targetId: string }
   | {
@@ -41,6 +47,8 @@ const paths: Readonly<Record<ContentModerationAction, (id: string) => string>> =
     'broadcast.chat_slow_mode.update': (id) =>
       `/operator/v1/broadcasts/${id}/chat-slow-mode`,
     'recording.takedown': (id) => `/operator/v1/recordings/${id}/takedown`,
+    'recording.restore': (id) => `/operator/v1/recordings/${id}/restoration`,
+    'recording.remove': (id) => `/operator/v1/recordings/${id}/removal`,
     'chat_message.remove': (id) => `/operator/v1/chat-messages/${id}/removal`,
     'account.audience_ban.update': (id) =>
       `/operator/v1/accounts/${id}/audience-ban`,

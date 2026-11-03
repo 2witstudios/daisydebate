@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { mayRequestRemoval, type RecordingViewer } from './audience';
-import { transitionRecording, type RecordingEvent } from './lifecycle';
+import { transitionRecording } from '@daisy/protocol';
 import type { RecordingInputs, RecordingRecord, RecordingStore } from './ports';
 
 /**
@@ -45,44 +45,5 @@ export const requestParticipantRemoval = async (
   if (applied.kind === 'stale') throw createAppError('CONFLICT');
   if (applied.transition.kind === 'refused')
     throw createAppError('AUTHORIZATION');
-  return applied.record;
-};
-
-/** What moderation may do. An operator's authority is checked at the admin API. */
-export type ModerationAction = 'take_down' | 'restore' | 'remove';
-
-const moderationEvent = (
-  action: ModerationAction,
-  now: string,
-): RecordingEvent => {
-  switch (action) {
-    case 'take_down':
-      return { type: 'taken_down', at: now };
-    case 'restore':
-      return { type: 'restored' };
-    case 'remove':
-      return { type: 'removal_requested', cause: 'moderation', at: now };
-  }
-};
-
-/** A versioned moderation decision on any Recording, ranked included. */
-export const applyModeration = async (
-  store: Pick<RecordingStore, 'apply'>,
-  input: {
-    readonly recordingId: string;
-    readonly action: ModerationAction;
-    readonly expectedVersion: number;
-    readonly now: string;
-  },
-): Promise<RecordingRecord> => {
-  const applied = await store.apply(
-    input.recordingId,
-    (current) =>
-      transitionRecording(current, moderationEvent(input.action, input.now)),
-    input.expectedVersion,
-  );
-  if (applied.kind === 'missing') throw createAppError('NOT_FOUND');
-  if (applied.kind === 'stale' || applied.transition.kind === 'refused')
-    throw createAppError('CONFLICT');
   return applied.record;
 };

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
+import { recordingStatuses } from './recording';
 
 /**
  * Reporting and moderation (WATCH-7): one report for a Round, a Recording, a
@@ -146,7 +147,15 @@ export const contentModerationSubjectSchema = z.discriminatedUnion('kind', [
     broadcastStopped: z.boolean(),
     chatSlowModeSeconds: chatSlowModeSchema,
   }),
-  z.strictObject({ kind: z.literal('recording'), recordingId: idSchema }),
+  z.strictObject({
+    kind: z.literal('recording'),
+    recordingId: idSchema,
+    status: z.enum(recordingStatuses),
+    /** What a command names, so a changed Recording is looked at again. */
+    version: z.int().positive(),
+    /** A restore would put it back: it was ready, and no erasure is owed. */
+    restorable: z.boolean(),
+  }),
   z.strictObject({
     kind: z.literal('chat_message'),
     messageId: idSchema,
@@ -190,6 +199,9 @@ export const recordingTakedownReasons = [
   'participant_safety',
 ] as const;
 
+/** The Recording's version the operator read: a changed one is refused. */
+const recordingVersion = z.int().positive();
+
 /** Each operator moderation action: its own typed resource (ADR 0079). */
 export const contentModerationCommands = {
   'content_report.resolve': z.strictObject({
@@ -206,7 +218,16 @@ export const contentModerationCommands = {
   }),
   'recording.takedown': z.strictObject({
     ...commandFields,
+    expectedVersion: recordingVersion,
     reason: z.enum(recordingTakedownReasons),
+  }),
+  'recording.restore': z.strictObject({
+    ...commandFields,
+    expectedVersion: recordingVersion,
+  }),
+  'recording.remove': z.strictObject({
+    ...commandFields,
+    expectedVersion: recordingVersion,
   }),
   'chat_message.remove': z.strictObject({ ...commandFields }),
   'account.audience_ban.update': z.strictObject({
@@ -238,6 +259,8 @@ export const contentModerationCommandStateSchema = z.strictObject({
     'broadcast.stop',
     'broadcast.chat_slow_mode.update',
     'recording.takedown',
+    'recording.restore',
+    'recording.remove',
     'chat_message.remove',
     'account.audience_ban.update',
   ] satisfies ContentModerationAction[]),
@@ -274,6 +297,16 @@ export const contentModerationOperatorRoutes = {
   takeDownRecording: {
     method: 'PUT',
     path: /^\/operator\/v1\/recordings\/([a-z0-9]{24})\/takedown$/,
+    query: [],
+  },
+  restoreRecording: {
+    method: 'PUT',
+    path: /^\/operator\/v1\/recordings\/([a-z0-9]{24})\/restoration$/,
+    query: [],
+  },
+  removeRecording: {
+    method: 'PUT',
+    path: /^\/operator\/v1\/recordings\/([a-z0-9]{24})\/removal$/,
     query: [],
   },
   removeChatMessage: {

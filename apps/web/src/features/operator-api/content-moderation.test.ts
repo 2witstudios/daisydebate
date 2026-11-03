@@ -48,6 +48,25 @@ const put = (path: string, body: object) =>
   signed({ method: 'PUT', path, body: JSON.stringify({ ...fields, ...body }) });
 
 describe('operator moderation (WATCH-7)', () => {
+  test('a Recording command that names no version is refused', async () => {
+    const { handle, changes } = withStore();
+    const answers = await Promise.all(
+      [
+        put(`/operator/v1/recordings/${id}/takedown`, {
+          reason: 'legal_request',
+        }),
+        put(`/operator/v1/recordings/${id}/restoration`, {}),
+        put(`/operator/v1/recordings/${id}/removal`, {}),
+      ].map(handle),
+    );
+    assert({
+      given: 'each Recording command without the version the operator read',
+      should: 'refuse it, and reach no store',
+      actual: [answers.map((answer) => answer.status), changes],
+      expected: [Array(3).fill(400), []],
+    });
+  });
+
   test('each command reaches the store as its own named change', async () => {
     const { handle, changes } = withStore();
     const answers = [
@@ -56,8 +75,17 @@ describe('operator moderation (WATCH-7)', () => {
       ),
       await handle(
         put(`/operator/v1/recordings/${id}/takedown`, {
+          expectedVersion: 3,
           reason: 'legal_request',
         }),
+      ),
+      await handle(
+        put(`/operator/v1/recordings/${id}/restoration`, {
+          expectedVersion: 4,
+        }),
+      ),
+      await handle(
+        put(`/operator/v1/recordings/${id}/removal`, { expectedVersion: 5 }),
       ),
       await handle(put(`/operator/v1/chat-messages/${id}/removal`, {})),
       await handle(
@@ -77,14 +105,17 @@ describe('operator moderation (WATCH-7)', () => {
       should: 'apply each with its target and its closed value',
       actual: [answers.map((answer) => answer.status), changes],
       expected: [
-        Array(6).fill(200),
+        Array(8).fill(200),
         [
           { action: 'broadcast.stop', broadcastId: id, reason: 'technical' },
           {
             action: 'recording.takedown',
             recordingId: id,
+            expectedVersion: 3,
             reason: 'legal_request',
           },
+          { action: 'recording.restore', recordingId: id, expectedVersion: 4 },
+          { action: 'recording.remove', recordingId: id, expectedVersion: 5 },
           { action: 'chat_message.remove', messageId: id },
           {
             action: 'account.audience_ban.update',

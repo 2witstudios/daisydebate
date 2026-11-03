@@ -118,15 +118,57 @@ function SubjectActions({
       );
     case 'recording':
       return (
-        <ActionForm
-          {...form}
-          action="recording.takedown"
-          targetId={subject.recordingId}
-          commandId={nextId()}
-        >
-          <ReasonSelect reasons={recordingTakedownReasons} />
-          <button type="submit">Take down recording</button>
-        </ActionForm>
+        <>
+          <p>Status: {subject.status}</p>
+          {subject.status === 'taken_down' ? (
+            <>
+              {subject.restorable ? (
+                <ActionForm
+                  {...form}
+                  action="recording.restore"
+                  targetId={subject.recordingId}
+                  commandId={nextId()}
+                >
+                  <input
+                    type="hidden"
+                    name="expectedVersion"
+                    value={subject.version}
+                  />
+                  <button type="submit">Restore recording</button>
+                </ActionForm>
+              ) : null}
+              <ActionForm
+                {...form}
+                action="recording.remove"
+                targetId={subject.recordingId}
+                commandId={nextId()}
+              >
+                <input
+                  type="hidden"
+                  name="expectedVersion"
+                  value={subject.version}
+                />
+                <button type="submit">Delete recording for good</button>
+              </ActionForm>
+            </>
+          ) : subject.status === 'removing' ||
+            subject.status === 'removed' ? null : (
+            <ActionForm
+              {...form}
+              action="recording.takedown"
+              targetId={subject.recordingId}
+              commandId={nextId()}
+            >
+              <input
+                type="hidden"
+                name="expectedVersion"
+                value={subject.version}
+              />
+              <ReasonSelect reasons={recordingTakedownReasons} />
+              <button type="submit">Take down recording</button>
+            </ActionForm>
+          )}
+        </>
       );
     case 'chat_message':
       return (

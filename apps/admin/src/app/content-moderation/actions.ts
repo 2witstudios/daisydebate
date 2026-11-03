@@ -18,6 +18,7 @@ import { adminRuntime } from '../../server/runtime';
  * again before anything is signed. The redirect carries a closed notice.
  */
 const target = { targetId: idSchema };
+const expectedVersion = z.coerce.number().int().positive();
 const requestSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('content_report.resolve'),
@@ -37,7 +38,18 @@ const requestSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('recording.takedown'),
     ...target,
+    expectedVersion,
     reason: z.enum(recordingTakedownReasons),
+  }),
+  z.strictObject({
+    action: z.literal('recording.restore'),
+    ...target,
+    expectedVersion,
+  }),
+  z.strictObject({
+    action: z.literal('recording.remove'),
+    ...target,
+    expectedVersion,
   }),
   z.strictObject({ action: z.literal('chat_message.remove'), ...target }),
   z.strictObject({

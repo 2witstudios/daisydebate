@@ -1,7 +1,13 @@
-import { recordingLifecycleSchema } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
+import {
+  recordingLifecycleSchema,
+  transitionRecording,
+  type RecordingTransition,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { RecordingModeration } from './content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
+import { moveRecording } from './recording-move';
 
 type ReportRow = {
   readonly competition_type: string;
@@ -12,11 +18,28 @@ type ReportRow = {
   readonly in_live_room: boolean;
 };
 
+type Moved = Awaited<ReturnType<typeof moveRecording<RecordingTransition>>>;
+
+/** A moved Recording answers as a command does; a version gone stale is refused. */
+const outcomeOf = (applied: Moved, whenRefused: 'unchanged' | 'conflict') => {
+  if (applied.kind === 'missing') return null;
+  if (applied.kind === 'stale') throw createAppError('CONFLICT');
+  switch (applied.transition.kind) {
+    case 'moved':
+      return 'applied';
+    case 'unchanged':
+      return 'unchanged';
+    case 'refused':
+      if (whenRefused === 'unchanged') return 'unchanged';
+      throw createAppError('CONFLICT');
+  }
+};
+
 /**
- * Moderation's reach into Recording (WATCH-7). A takedown runs in the command's
- * transaction under the row lock and keeps a ready Recording's media to restore,
- * the same move as `taken_down` in the Recording's lifecycle. Every read of it
- * then answers as removed. A removal already under way stands.
+ * Moderation's reach into Recording (WATCH-7, REC-1.5). Each runs in the command's
+ * transaction, through the Recording's one transition under its row lock. A
+ * takedown keeps a ready Recording's media to restore, and every read of it then
+ * answers as removed.
  */
 export const recordingModeration: RecordingModeration = {
   readReportFacts: async (tx, input) => {
@@ -41,33 +64,68 @@ export const recordingModeration: RecordingModeration = {
         }
       : null;
   },
-  exists: async (tx, recordingId) => {
-    const rows = await tx.execute(
-      sql`select 1 from recordings where id=${recordingId}`,
-    );
-    return (rows as unknown as unknown[]).length > 0;
-  },
-  takeDown: async (tx, input) => {
-    const rows = await tx.execute(
-      sql`select lifecycle from recordings where id=${input.recordingId} for update`,
-    );
-    const [row] = rows as unknown as { readonly lifecycle: unknown }[];
+  readSubject: async (tx, recordingId) => {
+    const [row] = (await tx.execute(
+      sql`select lifecycle, version from recordings where id=${recordingId}`,
+    )) as unknown as {
+      readonly lifecycle: unknown;
+      readonly version: number;
+    }[];
     if (!row) return null;
     const lifecycle = recordingLifecycleSchema.parse(row.lifecycle);
-    if (
-      lifecycle.status === 'taken_down' ||
-      lifecycle.status === 'removing' ||
-      lifecycle.status === 'removed'
-    )
-      return 'unchanged';
-    const next = recordingLifecycleSchema.parse({
-      status: 'taken_down',
-      takenDownAt: input.now.toISOString(),
-      held: lifecycle.status === 'ready' ? lifecycle : null,
-    });
-    await tx.execute(sql`update recordings set lifecycle=${JSON.stringify(next)}::text::jsonb,
-        status='taken_down', version=version+1, updated_at=clock_timestamp()
-      where id=${input.recordingId}`);
-    return 'applied';
+    return {
+      status: lifecycle.status,
+      version: row.version,
+      restorable:
+        lifecycle.status === 'taken_down' &&
+        lifecycle.held !== null &&
+        lifecycle.removalOwed === undefined,
+    };
+  },
+  takeDown: async (tx, input) =>
+    outcomeOf(
+      await moveRecording(
+        tx,
+        input.recordingId,
+        (record) =>
+          transitionRecording(record, {
+            type: 'taken_down',
+            at: input.now.toISOString(),
+          }),
+        input.expectedVersion,
+      ),
+      // A removal already under way stands.
+      'unchanged',
+    ),
+  restore: async (tx, input) =>
+    outcomeOf(
+      await moveRecording(
+        tx,
+        input.recordingId,
+        (record) => transitionRecording(record, { type: 'restored' }),
+        input.expectedVersion,
+      ),
+      'conflict',
+    ),
+  remove: async (tx, input) =>
+    outcomeOf(
+      await moveRecording(
+        tx,
+        input.recordingId,
+        (record) =>
+          transitionRecording(record, {
+            type: 'removal_requested',
+            cause: 'moderation',
+            at: input.now.toISOString(),
+          }),
+        input.expectedVersion,
+      ),
+      'conflict',
+    ),
+  readBroadcastId: async (tx, recordingId) => {
+    const [row] = (await tx.execute(sql`select b.id from broadcasts b
+      join recordings rec on rec.round_id=b.round_id
+      where rec.id=${recordingId}`)) as unknown as { readonly id: string }[];
+    return row?.id ?? null;
   },
 };

@@ -6,6 +6,7 @@ import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { audienceLinkHash } from '../src/features/audience-link/audience-link';
 import type { RecordingViewer } from '../src/features/recording/audience';
@@ -20,16 +21,18 @@ import { openRecordingHistory } from '../src/features/recording/history';
 import { recordingPersistence } from '../src/features/recording/persistence';
 import { openPlayback } from '../src/features/recording/playback';
 import type { RecordingInputs } from '../src/features/recording/ports';
-import {
-  applyModeration,
-  requestParticipantRemoval,
-} from '../src/features/recording/removal';
+import { requestParticipantRemoval } from '../src/features/recording/removal';
 import { launchRuntimeRound } from './round-runtime.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
 
+type RunModerationCommand = Parameters<
+  typeof recordingPersistence
+>[0]['database']['runModerationCommand'];
+
+const AUDIT_HEAD = 'b'.repeat(64);
 const at = '2026-11-02T10:00:00.000Z';
 const nowMs = Date.parse(at);
 
@@ -44,6 +47,10 @@ const withReadyRecording = (
     seat: RecordingViewer;
     stranger: RecordingViewer;
     keys: readonly string[];
+    /** A moderation command down the production path: the operator store's. */
+    moderate: (
+      change: Parameters<RunModerationCommand>[0]['change'],
+    ) => ReturnType<RunModerationCommand>;
   }) => Promise<void>,
 ) =>
   withRoomRuntime(async (f) => {
@@ -129,8 +136,19 @@ const withReadyRecording = (
         seat: { kind: 'account', userId: 'seat-user', actorId: seatActor },
         stranger: { kind: 'account', userId: 'other', actorId: createId() },
         keys: [`${prefix}hls/master.m3u8`, `${prefix}video.mp4`],
+        moderate: (change) =>
+          database.runModerationCommand({
+            commandId: createId(),
+            serviceId: 'daisy-admin',
+            operatorRef: 'o'.repeat(24),
+            requestDigest: 'd'.repeat(64),
+            adminAuditHead: AUDIT_HEAD,
+            live: () => true,
+            change,
+          }),
       });
     } finally {
+      await f.sql`delete from operator_command_receipts where admin_audit_head=${AUDIT_HEAD}`;
       await f.sql`delete from recordings where id=${id}`;
     }
   });
@@ -243,7 +261,7 @@ test('capture reports are idempotent against the real store', async () => {
 });
 
 test('racing removals and a takedown settle to one state, and every link goes stale', async () => {
-  await withReadyRecording(async ({ store, inputs, id, seat }) => {
+  await withReadyRecording(async ({ store, inputs, id, seat, moderate }) => {
     const objects = fakeObjectStore().store;
     const deps = { store, objects, inputs };
     const link = await openDownload(deps, {
@@ -262,11 +280,11 @@ test('racing removals and a takedown settle to one state, and every link goes st
         { store, inputs },
         { recordingId: id, expectedVersion: 4, viewer: seat, now: at },
       ),
-      applyModeration(store, {
+      moderate({
+        action: 'recording.takedown',
         recordingId: id,
-        action: 'take_down',
         expectedVersion: 4,
-        now: at,
+        reason: 'policy_violation',
       }),
     ]);
     assert({
@@ -303,6 +321,74 @@ test('racing removals and a takedown settle to one state, and every link goes st
           viewer: seat,
           presentedLinkHashOf: () => null,
         }),
+    });
+  });
+});
+
+test('a takedown through the operator command leaves no new read, within the bound', async () => {
+  await withReadyRecording(async ({ store, inputs, id, seat, moderate }) => {
+    const signed: number[] = [];
+    const fake = fakeObjectStore().store;
+    const deps = {
+      store,
+      inputs,
+      objects: {
+        ...fake,
+        signedRead: (key: string, options: { expiresInSeconds: number }) => {
+          signed.push(options.expiresInSeconds);
+          return fake.signedRead(key, options);
+        },
+      },
+    };
+    const viewer = {
+      viewer: seat,
+      presentedLinkHashOf: () => null,
+      recordingId: id,
+    };
+    await openPlayback(deps, { ...viewer, path: ['720p', 'seg.ts'] });
+    await openDownload(deps, viewer);
+    assert({
+      given: 'the reads a viewer may already hold when the takedown lands',
+      should: 'each last no longer than the delivery bound',
+      actual: signed.every(
+        (seconds) => seconds * 1000 <= CONTENT_MODERATION_DELIVERY_BOUND_MS,
+      ),
+      expected: true,
+    });
+    assert({
+      given: 'a takedown naming the current version',
+      should: 'apply',
+      actual: await moderate({
+        action: 'recording.takedown',
+        recordingId: id,
+        expectedVersion: 4,
+        reason: 'policy_violation',
+      }),
+      expected: { v: 1, outcome: 'applied' },
+    });
+    await assertRejects({
+      given: 'the very next segment request',
+      should: 'refuse, with no waiting on any cache',
+      code: 'NOT_FOUND',
+      actual: () => openPlayback(deps, { ...viewer, path: ['720p', 'seg.ts'] }),
+    });
+    await assertRejects({
+      given: 'a takedown naming the version it read before that',
+      should: 'refuse and change nothing',
+      code: 'CONFLICT',
+      actual: () =>
+        moderate({
+          action: 'recording.takedown',
+          recordingId: id,
+          expectedVersion: 4,
+          reason: 'policy_violation',
+        }),
+    });
+    assert({
+      given: 'the refused command',
+      should: 'leave the version where the takedown put it',
+      actual: (await store.find(id))?.version,
+      expected: 5,
     });
   });
 });

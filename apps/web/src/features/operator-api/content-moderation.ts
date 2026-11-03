@@ -42,7 +42,13 @@ export type ContentModerationChange =
   | {
       readonly action: 'recording.takedown';
       readonly recordingId: string;
+      readonly expectedVersion: number;
       readonly reason: ContentModerationCommand<'recording.takedown'>['reason'];
+    }
+  | {
+      readonly action: 'recording.restore' | 'recording.remove';
+      readonly recordingId: string;
+      readonly expectedVersion: number;
     }
   | { readonly action: 'chat_message.remove'; readonly messageId: string }
   | {
@@ -94,6 +100,8 @@ export type ContentModerationRoute =
   | 'stopBroadcast'
   | 'setChatSlowMode'
   | 'takeDownRecording'
+  | 'restoreRecording'
+  | 'removeRecording'
   | 'removeChatMessage'
   | 'setAudienceBan';
 
@@ -172,11 +180,36 @@ const commandOf = {
   takeDownRecording: (
     id: string,
     body: Uint8Array,
+  ): ContentModerationChange => {
+    const { reason, expectedVersion } = parsedBody(
+      contentModerationCommands['recording.takedown'],
+      body,
+    );
+    return {
+      action: 'recording.takedown',
+      recordingId: id,
+      expectedVersion,
+      reason,
+    };
+  },
+  restoreRecording: (
+    id: string,
+    body: Uint8Array,
   ): ContentModerationChange => ({
-    action: 'recording.takedown',
+    action: 'recording.restore',
     recordingId: id,
-    reason: parsedBody(contentModerationCommands['recording.takedown'], body)
-      .reason,
+    expectedVersion: parsedBody(
+      contentModerationCommands['recording.restore'],
+      body,
+    ).expectedVersion,
+  }),
+  removeRecording: (id: string, body: Uint8Array): ContentModerationChange => ({
+    action: 'recording.remove',
+    recordingId: id,
+    expectedVersion: parsedBody(
+      contentModerationCommands['recording.remove'],
+      body,
+    ).expectedVersion,
   }),
   removeChatMessage: (id: string): ContentModerationChange => ({
     action: 'chat_message.remove',

@@ -32,6 +32,8 @@ export function validResourceKind(
     'broadcast.stop': 'content_moderation',
     'broadcast.chat_slow_mode.update': 'content_moderation',
     'recording.takedown': 'content_moderation',
+    'recording.restore': 'content_moderation',
+    'recording.remove': 'content_moderation',
     'chat_message.remove': 'content_moderation',
     'account.audience_ban.update': 'content_moderation',
     'report.collection.read': 'account_collection',
