@@ -58,10 +58,7 @@ describe('media room service boundary', () => {
       | 'updateParticipant'
       | 'listParticipants'
     >;
-    const service = createMediaService({
-      config,
-      rooms: { updateRoomMetadata: async () => new Room(), ...rooms },
-    });
+    const service = createMediaService({ config, rooms });
     await service.createRoom(room);
     await service.createRoom(room);
     await service.permissions(room, identity, {
@@ -113,10 +110,7 @@ describe('media room service boundary', () => {
       },
     } as unknown as RoomServiceClient;
     try {
-      await createMediaService({
-        config,
-        rooms: { updateRoomMetadata: async () => new Room(), ...rooms },
-      }).deleteRoom(room);
+      await createMediaService({ config, rooms }).deleteRoom(room);
     } catch (error) {
       assert({
         given: 'a vendor exception containing private details',
@@ -164,10 +158,7 @@ describe('media room service boundary', () => {
       given: 'a malformed participant from the service',
       should: 'fail as infrastructure instead of returning invalid state',
       actual: () =>
-        createMediaService({
-          config,
-          rooms: { updateRoomMetadata: async () => new Room(), ...rooms },
-        }).participants(room),
+        createMediaService({ config, rooms }).participants(room),
       code: 'INFRASTRUCTURE',
     });
   });

@@ -35,12 +35,27 @@ if (import.meta.main) {
       const [table] = await tx.unsafe(
         `select to_regclass('public.round_incidents') is not null as present`,
       );
-      if (!table.present) return { ...row, incidents: null };
-      const [incidents] = await tx.unsafe(
-        `select count(*)::int as count from round_incidents where round_id=$1`,
+      if (!table.present)
+        return { ...row, incidents: null, resumePoints: [], returnedMs: 0 };
+      const incidents = await tx.unsafe(
+        `select to_char(resume_point at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "resumePoint",
+          returned_ms as "returnedMs"
+        from round_incidents where round_id=$1`,
         [roundId],
       );
-      return { ...row, incidents: incidents.count };
+      return {
+        ...row,
+        incidents: incidents.length,
+        resumePoints: incidents.flatMap(
+          (incident: { resumePoint: string | null }) =>
+            incident.resumePoint ? [incident.resumePoint] : [],
+        ),
+        returnedMs: incidents.reduce(
+          (sum: number, incident: { returnedMs: number }) =>
+            sum + incident.returnedMs,
+          0,
+        ),
+      };
     });
     process.stdout.write(JSON.stringify(result));
   } catch {

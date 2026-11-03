@@ -56,7 +56,9 @@ const sample = (overrides: Partial<DrillSample> = {}): DrillSample => ({
   penalties: 0,
   roundStatus: 'completed',
   roundMs: 1_800_000,
-  incidents: null,
+  incidents: 1,
+  returnedMs: 9000,
+  airtimeLostMs: 200,
   killSentAt: '2026-11-03T18:33:39.000Z',
   unsafeSeen: false,
   unsafeAfter60s: false,
@@ -80,12 +82,15 @@ test('a clean drill passes every bar', () => {
     given: 'recovery inside each bar, a partial seal with its gap, no penalty',
     should: 'pass all of them',
     actual: Object.values(barsOf([sample()])),
-    expected: Array(6).fill('pass'),
+    expected: Array(8).fill('pass'),
   });
 });
 
 test('summaries state their sample sizes', () => {
-  const result = report([sample(), sample({ index: 1 })]);
+  const result = report([
+    sample({ incidents: null }),
+    sample({ index: 1, incidents: null }),
+  ]);
   assert({
     given: 'two kills of two seats',
     should: 'report four seat samples and two capture samples',
@@ -179,6 +184,9 @@ test('each bar can fail', () => {
       },
       'sealedHonestly',
     ],
+    ['a kill with no incident', { incidents: 0 }, 'everyKillPausedTheRound'],
+    ['a table not there', { incidents: null }, 'everyKillPausedTheRound'],
+    ['speech not returned', { airtimeLostMs: 1_001 }, 'noAirtimeLost'],
     ['a forfeit', { penalties: 1 }, 'noAttendancePenalty'],
     ['a penalty never read', { penalties: null }, 'noAttendancePenalty'],
     ['a Round still active', { roundStatus: 'active' }, 'roundCompletes'],
@@ -238,7 +246,7 @@ test('a kill that did not run', () => {
 });
 
 test('drillReportTable', () => {
-  const table = drillReportTable(report([sample()]));
+  const table = drillReportTable(report([sample({ incidents: null })]));
   for (const line of [
     '1 of 1 kills ran',
     'n=2',

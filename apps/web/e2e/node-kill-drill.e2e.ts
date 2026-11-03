@@ -301,6 +301,8 @@ const emptySample = (index: number, moment: DrillMoment): DrillSample => ({
   roundStatus: null,
   roundMs: 0,
   incidents: null,
+  returnedMs: null,
+  airtimeLostMs: null,
   killSentAt: null,
   unsafeSeen: null,
   unsafeAfter60s: null,
@@ -508,6 +510,12 @@ async function drillOneKill(
           roundMs:
             first && last?.endedAt ? ms(last.endedAt) - ms(first.startedAt) : 0,
           incidents: evidence.incidents,
+          returnedMs: evidence.returnedMs,
+          // What the speaker said after the node died and did not get back: time from the
+          // kill to the point the Round resumed from. Null when no speech was held.
+          airtimeLostMs: evidence.resumePoints[0]
+            ? Math.max(0, ms(evidence.resumePoints[0]) - killMs)
+            : null,
           unsafeSeen:
             unsafeSeen ||
             evidence.sessions.some((session) => session.unsafeAt !== null),

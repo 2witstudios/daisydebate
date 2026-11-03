@@ -457,6 +457,32 @@ test('every microphone closes', () => {
   });
 });
 
+test("the speaker's microphone opens for the countdown, so it is ready when the clock restarts", () => {
+  const runtime = runtimeOf([speech()]);
+  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  runtime.applyIncident(pause(40_000, 37_000));
+  runtime.applyIncident(beginResume(50_000));
+  const now = roundAt(50_000 + 1_000);
+  assert({
+    given: 'the speaker during the resume countdown',
+    should: 'hold the microphone again',
+    actual: mediaGrants({
+      participants: oneOnOneSeats.map((row) => ({
+        ...row,
+        eligible: true,
+        kind: 'human' as const,
+      })),
+      participantId: seat.id,
+      rules,
+      position: runtime.position(now),
+      now,
+      finalSegmentEndedAt: null,
+      inPreRoundPrep: false,
+    }).publish,
+    expected: ['camera', 'microphone'],
+  });
+});
+
 test('hydration refuses an impossible hold', () => {
   const read = () =>
     normalizeRoundClock({

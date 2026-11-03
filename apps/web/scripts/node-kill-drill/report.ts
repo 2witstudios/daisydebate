@@ -45,6 +45,10 @@ export const drillSampleSchema = z.strictObject({
   roundStatus: z.string().nullable(),
   roundMs: z.number(),
   incidents: z.number().nullable(),
+  /** Airtime the incident gave back, in all. */
+  returnedMs: z.number().nullable(),
+  /** Speech after the kill that the resume point did not return. */
+  airtimeLostMs: z.number().nullable(),
   killSentAt: z.string().nullable(),
   unsafeSeen: z.boolean().nullable(),
   /** The spike's failure bar: still unsafe a minute after the kill. */
@@ -53,10 +57,17 @@ export const drillSampleSchema = z.strictObject({
   nodeStartedBy: z.enum(['platform', 'drill']).nullable(),
   errors: z.array(z.string()),
 });
+const killedAirtime = (report: {
+  readonly airtime: { readonly maxLostMs: number; readonly returnedMs: number };
+}) =>
+  `${seconds(report.airtime.returnedMs)} returned in all; at most ${seconds(report.airtime.maxLostMs)} lost after a kill.`;
+
 export type DrillSample = z.infer<typeof drillSampleSchema>;
 
 const SEAT_BACK_BAR_MS = 15_000;
 const CAPTURE_BACK_BAR_MS = 30_000;
+/** Detection cannot be instant, and the resume point is the last confirmed audio before it. */
+const AIRTIME_LOST_BAR_MS = 1_000;
 const UNRECOVERED_BAR_MS = 60_000;
 /** What the capture rule itself allows a complete stream at its two edges (DEC-218, DEC-220). */
 const HONEST_GAP_TOLERANCE_MS =
@@ -134,6 +145,16 @@ export function buildDrillReport(input: {
       coverage: owedMs ? observedMs / owedMs : null,
       missingOutsideOutageMs: missingOutside,
     },
+    airtime: {
+      returnedMs: killed.reduce(
+        (sum, sample) => sum + (sample.returnedMs ?? 0),
+        0,
+      ),
+      maxLostMs: Math.max(
+        0,
+        ...killed.map((sample) => sample.airtimeLostMs ?? 0),
+      ),
+    },
     incidents: {
       n: killed.length,
       count: incidents,
@@ -161,6 +182,16 @@ export function buildDrillReport(input: {
         ),
       ),
       sealedHonestly: verdict(streams.length > 0, streams.every(isHonest)),
+      everyKillPausedTheRound: verdict(
+        ran,
+        killed.every((sample) => (sample.incidents ?? 0) > 0),
+      ),
+      noAirtimeLost: verdict(
+        ran,
+        killed.every(
+          (sample) => (sample.airtimeLostMs ?? 0) <= AIRTIME_LOST_BAR_MS,
+        ),
+      ),
       noAttendancePenalty: verdict(
         ran,
         killed.every((sample) => sample.penalties === 0),
@@ -211,6 +242,7 @@ export function drillReportTable(report: DrillReport) {
     `Capture back: p95 ${seconds(report.captureBackMs.p95)}, max ${seconds(report.captureBackMs.max)}, n=${report.captureBackMs.n}, unrecovered ${report.captureBackMs.unrecovered}.`,
     `Capture coverage: ${percent(report.captureCoverage.coverage)} of ${seconds(report.captureCoverage.owedMs)} owed, n=${report.captureCoverage.n} Rounds; ${seconds(report.captureCoverage.missingOutsideOutageMs)} missing outside the outages.`,
     `Incidents: ${report.incidents.count ?? 'no table to read'}, over ${report.incidents.roundHours.toFixed(3)} Round-hours, rate ${report.incidents.per1000RoundHours?.toFixed(0) ?? 'none'} per 1,000 Round-hours, n=${report.incidents.n}.`,
+    `Airtime: ${killedAirtime(report)}`,
     `Direct UDP: ${report.udp.directUdpBeforeKill} of ${report.udp.n} seats before the kill, ${report.udp.directUdpAfterRecovery} of ${report.udp.recovered} recovered seats after.`,
     '',
     ...Object.entries(report.bars).map(

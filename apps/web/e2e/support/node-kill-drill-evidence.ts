@@ -38,6 +38,8 @@ const evidenceSchema = z.object({
   ),
   adjudications: z.array(z.object({ decision: z.string() })),
   incidents: z.number().nullable(),
+  resumePoints: z.array(z.string()),
+  returnedMs: z.number(),
 });
 export type DrillEvidence = z.infer<typeof evidenceSchema>;
 

@@ -93,9 +93,11 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
       hidden: false,
       capture: false,
     };
-  // A platform incident holds every microphone: the clock is not running.
+  // A platform incident holds every microphone: the clock is not running. The countdown
+  // opens the speaker's again, so publishing and capture are ready when the clock restarts;
+  // only speech inside the reopened interval is ever credited.
   const microphone =
-    position.incident.phase === 'none' &&
+    position.incident.phase !== 'paused' &&
     position.prep === null &&
     (conversational(position) || speakingNow(input));
   return {
