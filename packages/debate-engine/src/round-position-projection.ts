@@ -3,40 +3,41 @@ import type {
   RoundPosition,
   RoundRules,
   RoundStage,
-  RoundStatus,
   RuntimeCheckpoint,
 } from '@daisy/protocol';
 import { advanceRoundClock } from './round-clock';
 import {
   countdownAnchor,
+  debateHasEnded,
+  startedAtOf,
   type ClockState,
   type ClockSegment as StoreRow,
   type Lifecycle,
 } from './round-clock-state';
 export type { RoundPosition };
 const iso = (ms: number): string => new Date(ms).toISOString();
+const isoOrNull = (ms: number | null) => (ms === null ? null : iso(ms));
 
 /** The lifecycle columns a position and a projection both carry, as ISO. */
 export const lifecycleStampsOf = (lifecycle: Lifecycle) => ({
-  startedAt: lifecycle.startedAtMs === null ? null : iso(lifecycle.startedAtMs),
+  startedAt: isoOrNull(startedAtOf(lifecycle)),
   completedAt:
-    lifecycle.completedAtMs === null ? null : iso(lifecycle.completedAtMs),
-  outcome: lifecycle.outcome,
+    lifecycle.status === 'completed' || lifecycle.status === 'abandoned'
+      ? iso(lifecycle.completedAtMs)
+      : null,
+  outcome: lifecycle.status === 'completed' ? lifecycle.outcome : null,
 });
 
 /** The stage the round is in, derived from its store; null when not active. */
 export const stageOf = (
   on: ClockState,
-  status: RoundStatus,
   segmentCount: number,
 ): RoundStage | null => {
-  if (status !== 'active') return null;
+  if (on.lifecycle.status !== 'active') return null;
   if (on.rows.find((row) => row.endedAtMs === null) !== undefined)
     return 'live';
   if (on.checkpoint.active_prep !== null) return 'prep';
-  return on.rows.filter((row) => row.endedAtMs !== null).length === segmentCount
-    ? 'live'
-    : 'countdown';
+  return debateHasEnded(on, segmentCount) ? 'awaiting_ballot' : 'countdown';
 };
 
 /**
@@ -151,20 +152,6 @@ const prepBudgetOf = (
   return { affirmative: left('affirmative'), negative: left('negative') };
 };
 
-/** True while the final segment has spoken but the outcome is not in. */
-const awaitingBallotOf = (
-  status: RoundStatus,
-  open: StoreRow | undefined,
-  spoken: number,
-  segmentCount: number,
-  now: number,
-): boolean =>
-  status === 'active' &&
-  (spoken === segmentCount ||
-    (open !== undefined &&
-      open.sequence === segmentCount - 1 &&
-      now >= open.startedAtMs + open.durationMs));
-
 const roundPositionOf = (
   on: ClockState,
   now: number,
@@ -182,7 +169,7 @@ const roundPositionOf = (
   const upcoming = nextSegmentOf(open, startable, spoken, rules);
   return {
     status: lifecycle.status,
-    stage: stageOf(on, lifecycle.status, rules.segments.length),
+    stage: stageOf(on, rules.segments.length),
     ...lifecycleStampsOf(lifecycle),
     openSegment: openSegmentOf(
       open,
@@ -201,13 +188,6 @@ const roundPositionOf = (
     ),
     prep: prepOf(active, checkpoint, inRoundPrep?.budgetMsPerSide ?? 0, now),
     prepBudgetRemainingMs: prepBudgetOf(inRoundPrep, checkpoint, now),
-    awaitingBallot: awaitingBallotOf(
-      lifecycle.status,
-      open,
-      spoken,
-      rules.segments.length,
-      now,
-    ),
   };
 };
 

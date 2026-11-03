@@ -188,11 +188,7 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
   test.setTimeout(240_000);
   const { page, roundId } = roundFiles;
   const path = `/rounds/${roundId}/room`;
-  for (const name of [
-    'Start round',
-    'Take prep time',
-    'Start affirmative constructive',
-  ])
+  for (const name of ['Take prep time', 'Start affirmative constructive'])
     await page.getByRole('button', { name, exact: true }).click();
   const endSpeech = (seat: typeof page) =>
     seat.getByRole('button', { name: 'End speech', exact: true });

@@ -37,7 +37,7 @@ export type RoundStore = {
     readonly sequence: number;
     readonly endedAtMs: number;
   }) => void;
-  readonly setLifecycle: (lifecycle: Partial<Lifecycle>) => void;
+  readonly setLifecycle: (lifecycle: Lifecycle) => void;
   readonly setPrepConsumed: (side: DebateSide, ms: number) => void;
   readonly startPrep: (input: {
     readonly side: DebateSide;
@@ -106,12 +106,7 @@ const hydrate = (
       .sort((a, b) => a.sequence - b.sequence);
   return {
     rows: readRows,
-    lifecycle: () => ({
-      status: db.resources.status,
-      startedAtMs: db.resources.startedAtMs,
-      completedAtMs: db.resources.completedAtMs,
-      outcome: db.resources.outcome,
-    }),
+    lifecycle: () => db.resources.lifecycle,
     checkpoint: () => {
       const side = db.resources.activePrepSide;
       const prepStartedAtMs = db.resources.activePrepStartedAtMs;
@@ -146,15 +141,7 @@ const hydrate = (
         durationMs: row.durationMs,
       }),
     closeSegment: (input) => db.transactions.closeSegment(input),
-    setLifecycle: (lifecycle) => {
-      const current = {
-        status: db.resources.status,
-        startedAtMs: db.resources.startedAtMs,
-        completedAtMs: db.resources.completedAtMs,
-        outcome: db.resources.outcome,
-      };
-      db.transactions.setLifecycle({ ...current, ...lifecycle });
-    },
+    setLifecycle: (lifecycle) => db.transactions.setLifecycle(lifecycle),
     setPrepConsumed: (side, ms) =>
       db.transactions.setPrepConsumed({ side, ms }),
     startPrep: ({ side, startedAtMs }) =>

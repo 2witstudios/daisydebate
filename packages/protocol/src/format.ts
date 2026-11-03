@@ -92,6 +92,20 @@ export type SegmentType = (typeof segmentTypes)[number];
 const interruptionModes = ['disabled', 'enabled', 'open'] as const;
 export const interruptionModeSchema = z.enum(interruptionModes);
 
+/**
+ * The frozen interruption policy. Forbidden has one spelling, whether the
+ * format forbids interruptions or the settings declined them, and only an
+ * enabled policy has a protected end.
+ */
+export const interruptionRuleSchema = z.discriminatedUnion('allowed', [
+  z.strictObject({ allowed: z.literal('disabled') }),
+  z.strictObject({ allowed: z.literal('open') }),
+  z.strictObject({
+    allowed: z.literal('enabled'),
+    minRemainingMs: z.int().min(0),
+  }),
+]);
+
 /** An inclusive millisecond range a room's chosen value must land inside. */
 const boundSchema = z
   .strictObject({
@@ -305,12 +319,7 @@ export const roundRulesSchema = z
         .strictObject({ allowed: z.boolean(), returnsTime: z.boolean() })
         .nullable(),
       /** Another participant takes the floor during active control. */
-      interruptions: z
-        .strictObject({
-          allowed: interruptionModeSchema,
-          minRemainingMs: z.int().min(0),
-        })
-        .nullable(),
+      interruptions: interruptionRuleSchema,
     }),
   })
   .superRefine(validateSpeakingOpportunities);

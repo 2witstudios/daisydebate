@@ -163,3 +163,22 @@ test('a Room that strikes its resolution names how it is chosen (PR #472 review)
     expected: 'Resolution: chosen by strike before the round',
   });
 });
+
+test('a Room whose debate has ended reads as judging', () => {
+  assert({
+    given: 'a live Room whose Round awaits its ballot',
+    should: 'name the stage in the row',
+    actual: lobbyRow(
+      now,
+      entry({
+        status: 'started',
+        waitingSince: null,
+        live: {
+          stage: 'awaiting_ballot',
+          startedAt: '2026-10-26T11:50:00.000Z',
+        },
+      }),
+    ).facts,
+    expected: ['Judging'],
+  });
+});

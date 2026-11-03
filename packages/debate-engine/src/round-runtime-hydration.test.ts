@@ -188,12 +188,8 @@ describe('round runtime hydration', () => {
     assert({
       given: 'the final segment closed at its end with the outcome not yet in',
       should: 'report the round as awaiting its ballot',
-      actual: [
-        position.awaitingBallot,
-        position.stage,
-        position.openSegment?.key,
-      ],
-      expected: [true, 'live', undefined],
+      actual: [position.stage, position.openSegment?.key],
+      expected: ['awaiting_ballot', undefined],
     });
   });
 });

@@ -1,15 +1,12 @@
 import { z } from 'zod';
 import type { FormatDefinition } from './format';
 import type { FormatSettings } from './format-settings';
-import { interruptionModeSchema } from './format';
+import { interruptionRuleSchema } from './format';
 import { debateRoleSchema } from './primitives';
 import { frozenResolutionDrawSchema } from './resolution-draw';
 
 const msSchema = z.int().min(0);
 const keySchema = z.string().trim().min(1).max(8);
-const interruptionsSchema = z
-  .strictObject({ allowed: interruptionModeSchema, minRemainingMs: msSchema })
-  .nullable();
 const yieldSchema = z
   .strictObject({ allowed: z.boolean(), returnsTime: z.boolean() })
   .nullable();
@@ -56,8 +53,8 @@ const formatChangeSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({
     kind: z.literal('interruptions'),
-    from: interruptionsSchema,
-    to: interruptionsSchema,
+    from: interruptionRuleSchema,
+    to: interruptionRuleSchema,
   }),
   z.strictObject({
     kind: z.literal('yield'),

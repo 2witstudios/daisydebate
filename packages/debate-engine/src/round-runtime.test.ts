@@ -53,7 +53,6 @@ describe('round runtime lifecycle', () => {
         countdownRemainingMs: null,
         prep: null,
         prepBudgetRemainingMs: { affirmative: 240_000, negative: 240_000 },
-        awaitingBallot: false,
       },
     });
     const projection = world.activate({ at: at(0), now: at(0) });

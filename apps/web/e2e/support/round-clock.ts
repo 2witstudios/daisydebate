@@ -31,6 +31,8 @@ export async function displayDeltaMs(
     page.getByRole('timer').getAttribute('aria-label'),
     member.context.request.get(`/api/rounds/${roundId}`),
   ]);
+  // A refused read is an answer to ask again: capacity refused it unrun.
+  if (body.status() === 503) return Number.POSITIVE_INFINITY;
   const displayed = parseClock(aria);
   const latest = openSegmentRemaining(
     roundViewSchema.parse(await body.json()),

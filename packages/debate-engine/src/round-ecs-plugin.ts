@@ -2,7 +2,6 @@ import { Database } from '@adobe/data/ecs';
 import { Schema } from '@adobe/data/schema';
 import {
   debateSides,
-  roundStatuses,
   segmentTypes,
   type DebateSide,
   type RuntimeCheckpoint,
@@ -27,15 +26,7 @@ const plugin = Database.Plugin.create({
     durationMs: { type: 'number' },
   },
   resources: {
-    status: { enum: roundStatuses, default: 'opening' },
-    startedAtMs: { ...Schema.Nullable({ type: 'number' }), default: null },
-    completedAtMs: { ...Schema.Nullable({ type: 'number' }), default: null },
-    outcome: {
-      ...Schema.Nullable({
-        enum: ['affirmative', 'negative', 'draw'] as const,
-      }),
-      default: null,
-    },
+    lifecycle: { default: { status: 'opening' } as Lifecycle },
     prepConsumedAffirmativeMs: { type: 'number', default: 0 },
     prepConsumedNegativeMs: { type: 'number', default: 0 },
     activePrepSide: {
@@ -91,10 +82,7 @@ const plugin = Database.Plugin.create({
         store.update(entity, { endedAtMs: input.endedAtMs });
     },
     setLifecycle: (store, lifecycle: Lifecycle) => {
-      store.resources.status = lifecycle.status;
-      store.resources.startedAtMs = lifecycle.startedAtMs;
-      store.resources.completedAtMs = lifecycle.completedAtMs;
-      store.resources.outcome = lifecycle.outcome;
+      store.resources.lifecycle = lifecycle;
     },
     setCheckpoint: (store, checkpoint: RuntimeCheckpoint) => {
       store.resources.prepConsumedAffirmativeMs =

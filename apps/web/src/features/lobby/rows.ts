@@ -71,6 +71,7 @@ const stageLabels: Readonly<Record<RoundStage, string>> = {
   countdown: 'Starting',
   prep: 'Prep',
   live: 'Speeches',
+  awaiting_ballot: 'Judging',
 };
 
 const minuteMs = 60_000;
