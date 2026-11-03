@@ -2,7 +2,7 @@ import { ballotCategories } from '@daisy/protocol';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sampleBallotDebaters } from '../../mock/judge';
+import { sampleBallotDebaters } from '../../mock/judge.test-support';
 import { BallotFields } from './ballot-form';
 
 setupRitewayBun();

@@ -4,11 +4,10 @@ import type { SearchParams } from '../../../../../features/access/decision';
 import { parseCaseQuery } from '../../../../../features/prep/cases/case-query';
 import { caseView } from '../../../../../features/prep/cases/case-view';
 import { getCase } from '../../../../../features/prep/cases/get-case';
-import { speechLimitSeconds } from '../../../../../features/prep/briefs/get-brief';
-import { readingPace } from '../../../../../features/prep/cards/get-card';
 import { requireAccess } from '../../../../../lib/access';
 import { CasePage } from '../../../../../ui/prep/case-page/case-page';
 import { NotFoundPanel } from '../../../../../ui/prep/not-found/not-found-panel';
+import { samplePrepSource } from '../../../../../ui/mock/prep-source';
 
 export const metadata: Metadata = { title: 'Case' };
 
@@ -21,7 +20,7 @@ export default async function CaseRoute({
 }) {
   const { id } = await params;
   await requireAccess(`/prep/cases/${id}`, searchParams);
-  const found = getCase(id);
+  const found = getCase(samplePrepSource, id);
   if (found === undefined)
     return (
       <NotFoundPanel
@@ -34,10 +33,11 @@ export default async function CaseRoute({
   return (
     <CasePage
       view={caseView(
+        samplePrepSource,
         found,
         query,
-        readingPace(),
-        speechLimitSeconds(),
+        samplePrepSource.readingPace,
+        samplePrepSource.speechLimitSeconds,
         systemClock.now(),
       )}
     />

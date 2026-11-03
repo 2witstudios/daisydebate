@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Block, Speech } from './case';
 import { diffCases, wordDiff } from './case-diff';
 import { getCase } from './get-case';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
@@ -128,7 +129,7 @@ describe('diffCases', () => {
   });
 
   test('the sample case from v3 to the draft', () => {
-    const c = getCase('aff-rights');
+    const c = getCase(samplePrepSource, 'aff-rights');
     if (c === undefined || c.draft === null) throw new Error('missing sample');
     const v3 = c.versions.find((v) => v.version === 3);
     const diff = diffCases(v3?.speeches ?? [], c.draft.speeches);

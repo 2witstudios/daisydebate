@@ -1,5 +1,6 @@
 import {
   judgingJobRules,
+  ratingAwaited,
   readRoundOpening,
   roundWaitingOn,
 } from '@daisy/debate-engine';
@@ -94,9 +95,11 @@ for (const ladder of ratingLadders)
                   },
                 }).executeClaim(claim, new AbortController().signal);
               }
-              const candidates = await f.store.readUnratedRatingRounds({
-                limit: 64,
-              });
+              const candidates = (
+                await f.store.readRatingCandidates({ limit: 1000 })
+              )
+                .filter(({ facts }) => ratingAwaited(facts))
+                .map(({ roundId: id }) => id);
               await recoverRatedResults(f);
               const ledger =
                 await f.sql`select actor_id,ladder,season_id,rating_before,rating_after from rating_changes where round_id=${roundId}`;

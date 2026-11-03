@@ -2,7 +2,6 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fakeSql } from './index.test-support';
 import {
-  closeRefusal,
   withSeasons,
   type SeasonOperations,
   type SeasonRecord,
@@ -11,42 +10,6 @@ import {
 setupRitewayBun();
 
 const startsAt = new Date('2026-10-01T00:00:00.000Z');
-const later = new Date('2026-12-31T00:00:00.000Z');
-
-describe('closeRefusal', () => {
-  test('allows closing an active season after its start', () => {
-    assert({
-      given: 'an active season and an end after its start',
-      should: 'allow the close',
-      actual: closeRefusal({ status: 'active', startsAt }, later),
-      expected: null,
-    });
-  });
-
-  test('refuses everything else with the matching code', () => {
-    assert({
-      given: 'no season',
-      should: 'refuse as not found',
-      actual: closeRefusal(null, later),
-      expected: 'NOT_FOUND',
-    });
-    assert({
-      given: 'a scheduled or closed season',
-      should: 'refuse as a conflict',
-      actual: [
-        closeRefusal({ status: 'scheduled', startsAt }, later),
-        closeRefusal({ status: 'closed', startsAt }, later),
-      ],
-      expected: ['CONFLICT', 'CONFLICT'],
-    });
-    assert({
-      given: 'an end at or before the start',
-      should: 'refuse as invalid',
-      actual: closeRefusal({ status: 'active', startsAt }, startsAt),
-      expected: 'VALIDATION',
-    });
-  });
-});
 
 // Schema-definition column order; the driver returns rows positionally and
 // timestamptz values as Dates.
@@ -92,9 +55,6 @@ const scripted = <T>(
   };
 };
 
-const uniqueViolation = () =>
-  Object.assign(new Error('duplicate key'), { errno: '23505' });
-
 describe('season operations', () => {
   test('lists and opens seasons as records', async () => {
     assert({
@@ -109,74 +69,44 @@ describe('season operations', () => {
     assert({
       given: 'no active season',
       should: 'return the opened season',
-      actual: await scripted([[seasonRow('s2', 'active')]], (seasons) =>
+      actual: await scripted([[], [], [seasonRow('s2', 'active')]], (seasons) =>
         seasons.openSeason({ id: 's2', name: 'Season 1', startsAt }),
       ).result,
       expected: record('s2', 'active'),
     });
   });
 
-  test('maps a second active season to a conflict', async () => {
+  test('refuses to open a season while any season exists (DEC-111)', async () => {
+    const refused = scripted([[], [{ id: 's1' }]], (seasons) =>
+      seasons.openSeason({ id: 's3', name: 'Season 2', startsAt }),
+    );
     await assertRejects({
-      given: 'the single-active index refusing the insert',
+      given: 'an earlier season, active or closed',
       should: 'refuse as a conflict',
-      actual: () =>
-        scripted([uniqueViolation()], (seasons) =>
-          seasons.openSeason({ id: 's3', name: 'Season 1', startsAt }),
-        ).result,
+      actual: () => refused.result,
       code: 'CONFLICT',
     });
-  });
-
-  test('closes the locked active season and refuses without writing', async () => {
-    const closing = scripted(
-      [
-        [seasonRow('s1', 'active')],
-        [seasonRow('s1', 'closed', later.toISOString(), 2)],
-      ],
-      (seasons) => seasons.closeSeason({ id: 's1', endsAt: later }),
-    );
     assert({
-      given: 'the active season',
-      should: 'return it closed at the next version',
-      actual: await closing.result,
-      expected: record('s1', 'closed', later.toISOString(), 2),
-    });
-    const missing = scripted([[]], (seasons) =>
-      seasons.closeSeason({ id: 'nope', endsAt: later }),
-    );
-    await assertRejects({
-      given: 'no such season',
-      should: 'refuse as not found',
-      actual: () => missing.result,
-      code: 'NOT_FOUND',
-    });
-    assert({
-      given: 'a refused close',
-      should: 'stop after the locking read',
-      actual: missing.queries.filter(({ query }) => query.startsWith('update'))
+      given: 'a refused open',
+      should: 'insert nothing',
+      actual: refused.queries.filter(({ query }) => query.startsWith('insert'))
         .length,
       expected: 0,
     });
   });
 
-  test('refuses rollover while DEC111 carry-over remains unresolved', async () => {
-    const { result, queries } = scripted([], (seasons) =>
-      seasons.rolloverSeason({
-        closeId: 's1',
-        open: { id: 's2', name: 'Season 2', startsAt: later },
-      }),
-    );
+  test('refuses to close a season pending DEC-111, with no SQL', async () => {
+    const refused = scripted([], (seasons) => seasons.closeSeason());
     await assertRejects({
-      given: 'an attempted rollover before DEC111 resolution',
-      should: 'refuse without reading or mutating either season',
-      actual: () => result,
+      given: 'any attempt to close while DEC-111 is open',
+      should: 'refuse as a conflict',
+      actual: () => refused.result,
       code: 'CONFLICT',
     });
     assert({
-      given: 'the refused rollover',
+      given: 'the refused close',
       should: 'issue no SQL',
-      actual: queries.length,
+      actual: refused.queries.length,
       expected: 0,
     });
   });

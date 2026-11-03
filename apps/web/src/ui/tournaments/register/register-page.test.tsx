@@ -8,6 +8,7 @@ import {
   type RegisterQuery,
 } from '../../../features/tournaments/register-flow';
 import { RegisterPage } from './register-page';
+import { sampleTournamentSource } from '../../mock/tournament-source';
 
 setupRitewayBun();
 
@@ -16,7 +17,7 @@ const render = (
   query: Partial<RegisterQuery> = {},
   signedIn = true,
 ) => {
-  const view = getTournament(id, signedIn);
+  const view = getTournament(sampleTournamentSource, id, signedIn);
   if (!view) throw new Error(`no sample ${id}`);
   return renderToString(
     h(RegisterPage, {

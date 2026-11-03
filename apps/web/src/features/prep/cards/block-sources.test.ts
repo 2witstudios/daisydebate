@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { findBlockSources } from './block-sources';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
@@ -7,7 +8,7 @@ const now = '2026-09-30T12:00:00.000Z';
 
 describe('findBlockSources', () => {
   test('briefs and cards, never cases', () => {
-    const sources = findBlockSources('', now, 160);
+    const sources = findBlockSources(samplePrepSource, '', now, 160);
     assert({
       given: 'no search',
       should: 'list briefs and cards by title with their detail line',
@@ -25,7 +26,9 @@ describe('findBlockSources', () => {
     assert({
       given: 'a search for "pilot"',
       should: 'find the one card',
-      actual: findBlockSources('pilot', now, 160).map((s) => s.id),
+      actual: findBlockSources(samplePrepSource, 'pilot', now, 160).map(
+        (s) => s.id,
+      ),
       expected: ['pilot-results'],
     });
   });

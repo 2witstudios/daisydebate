@@ -1,11 +1,7 @@
-import {
-  sampleEntries,
-  sampleTournaments,
-  sampleViewer,
-} from '../../ui/mock/tournaments';
 import type { Entry, Viewer } from './entry';
 import { filterTournaments, tabCounts, type TabCounts } from './filter';
 import type { TournamentsQuery } from './query';
+import type { TournamentSource } from './source';
 import { statusOf, type Tournament } from './tournament';
 
 export type TournamentRow = {
@@ -31,18 +27,19 @@ export type TournamentsListing = {
 
 /**
  * The index's one data seam. It returns the tournaments for a query as seen
- * by the viewer (`signedIn` comes from the request's identity). Today it
- * reads sample data; the backend read that lists published tournaments and
- * the viewer's entries replaces this function and nothing else.
+ * by the viewer (`signedIn` comes from the request's identity). The backend
+ * read that lists published tournaments and the viewer's entries replaces
+ * this function and nothing else.
  */
 export function listTournaments(
+  source: TournamentSource,
   query: TournamentsQuery,
   signedIn: boolean,
 ): TournamentsListing {
-  const viewer = signedIn ? sampleViewer : null;
+  const viewer = signedIn ? source.viewer : null;
   const entryOf = (tournament: Tournament): Entry | null =>
-    viewer ? (sampleEntries[tournament.id] ?? null) : null;
-  const all = sampleTournaments.map((tournament) => ({
+    viewer ? (source.entries[tournament.id] ?? null) : null;
+  const all = source.tournaments.map((tournament) => ({
     tournament,
     entry: entryOf(tournament),
   }));
@@ -51,7 +48,7 @@ export function listTournaments(
   );
   const rank = (item: YourTournament) =>
     statusOf(item.tournament) === 'live' ? 0 : 1;
-  const tournaments = sampleTournaments;
+  const tournaments = source.tournaments;
   return {
     viewer,
     rows: filterTournaments(tournaments, query).map((tournament) => ({

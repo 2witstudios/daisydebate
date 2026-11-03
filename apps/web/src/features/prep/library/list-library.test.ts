@@ -1,12 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { listLibrary } from './list-library';
 import { defaultLibraryQuery, type LibraryQuery } from './library-query';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
 const now = '2026-09-30T12:00:00.000Z';
 const run = (over: Partial<LibraryQuery>) =>
-  listLibrary({ ...defaultLibraryQuery, ...over }, now);
+  listLibrary(samplePrepSource, { ...defaultLibraryQuery, ...over }, now);
 const titles = (over: Partial<LibraryQuery>) =>
   run(over).rows.map((row) => row.title);
 

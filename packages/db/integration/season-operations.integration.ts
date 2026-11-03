@@ -69,74 +69,44 @@ describe('season operations (RATE-1.2)', () => {
     });
   });
 
-  test('closes only an active season after its start', async () => {
-    await withFixture(url, async (fixture) => {
-      const id = tracked(fixture);
-      await withSeasons(url, async (seasons) => {
-        await seasons.openSeason({ id, name: 'Season 1', startsAt: october });
-        await assertRejects({
-          given: 'an end before the start',
-          should: 'refuse as invalid',
-          actual: () => seasons.closeSeason({ id, endsAt: october }),
-          code: 'VALIDATION',
-        });
-        const closed = await seasons.closeSeason({ id, endsAt: january });
-        assert({
-          given: 'an active season and a later end',
-          should: 'close it with that end and bump its version',
-          actual: [closed.status, closed.endsAt, closed.version],
-          expected: ['closed', january.toISOString(), 2],
-        });
-        await assertRejects({
-          given: 'a season that is already closed',
-          should: 'refuse as a conflict',
-          actual: () => seasons.closeSeason({ id, endsAt: january }),
-          code: 'CONFLICT',
-        });
-        await assertRejects({
-          given: 'an unknown season id',
-          should: 'refuse as not found',
-          actual: () =>
-            seasons.closeSeason({ id: createId(), endsAt: january }),
-          code: 'NOT_FOUND',
-        });
-      });
-    });
-  });
-
-  test('rollover refuses every next-season shape pending DEC-111 without changing any season', async () => {
+  test('refuses to close, and a season closed in the database still refuses another', async () => {
     await withFixture(url, async (fixture) => {
       const current = tracked(fixture);
+      const next = tracked(fixture);
       await withSeasons(url, async (seasons) => {
         await seasons.openSeason({
           id: current,
           name: 'Season 1',
           startsAt: october,
         });
+        const open = await seasons.listSeasons();
+        await assertRejects({
+          given: 'the active season and unresolved DEC-111',
+          should: 'refuse to close it',
+          actual: () => seasons.closeSeason(),
+          code: 'CONFLICT',
+        });
+        assert({
+          given: 'the refused close',
+          should: 'leave every season as it was',
+          actual: await seasons.listSeasons(),
+          expected: open,
+        });
+        await fixture.sql`update seasons set status='closed', ends_at=${january} where id=${current}`;
         const before = await seasons.listSeasons();
-        for (const [id, startsAt] of [
-          [tracked(fixture), january],
-          [tracked(fixture), new Date('2026-09-01T00:00:00Z')],
-          [current, january],
-        ] as const) {
-          await assertRejects({
-            given:
-              'unresolved DEC-111 with future, earlier or competing season ID',
-            should: 'refuse rollover before any close or insert',
-            actual: () =>
-              seasons.rolloverSeason({
-                closeId: current,
-                open: { id, name: 'Season 2', startsAt },
-              }),
-            code: 'CONFLICT',
-          });
-          assert({
-            given: 'a refused rollover',
-            should: 'preserve every original season field',
-            actual: await seasons.listSeasons(),
-            expected: before,
-          });
-        }
+        await assertRejects({
+          given: 'a closed earlier season and unresolved DEC-111',
+          should: 'refuse to open another',
+          actual: () =>
+            seasons.openSeason({ id: next, name: 'Two', startsAt: january }),
+          code: 'CONFLICT',
+        });
+        assert({
+          given: 'the refused open',
+          should: 'preserve every season as it was',
+          actual: await seasons.listSeasons(),
+          expected: before,
+        });
       });
     });
   });

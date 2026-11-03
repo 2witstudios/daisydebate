@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { petalShape } from '../../../ui/brand/brand-geometry';
-import type { PetalShape } from '../../../ui/brand/petal';
+import { petalShape } from '../../../features/brand/brand-geometry';
+import type { PetalShape } from '../../../features/brand/petal';
 import { cn } from '../../../ui/cn';
 import {
   DaisyMark,
@@ -103,8 +103,8 @@ export function BrandSheetView({
       <p className={prose.p}>
         The Daisy marks drawn from the petal primitive (ADR 0045), in both
         schemes. The sliders preview other petal shapes; what ships is{' '}
-        <code className={prose.code}>ui/brand/brand-geometry.ts</code>, and the
-        sheet opens on it.
+        <code className={prose.code}>features/brand/brand-geometry.ts</code>,
+        and the sheet opens on it.
       </p>
       <fieldset className="flex flex-wrap items-end gap-6 rounded-xl border border-border p-6">
         <legend className="px-2 text-sm font-semibold">Petal shape</legend>

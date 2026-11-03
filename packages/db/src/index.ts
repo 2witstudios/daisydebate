@@ -42,10 +42,7 @@ import {
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
-import {
-  readRoundAwaitsRating,
-  readUnratedRatingRounds,
-} from './rating-discovery';
+import { readRatingCandidates, readRatingFacts } from './rating-discovery';
 import {
   deliverObservationPurges,
   owedObservationPurges,
@@ -200,11 +197,9 @@ export function createDatabase({
       nextId: nextActorId,
     }),
     ...availabilityOperations(controlLane.client, dedicated),
-    readUnratedRatingRounds: (
-      input: Parameters<typeof readUnratedRatingRounds>[1],
-    ) => readUnratedRatingRounds(database, input),
-    readRoundAwaitsRating: (roundId: string) =>
-      readRoundAwaitsRating(database, roundId),
+    readRatingCandidates: (input: Parameters<typeof readRatingCandidates>[1]) =>
+      readRatingCandidates(database, input),
+    readRatingFacts: (roundId: string) => readRatingFacts(database, roundId),
     ...databaseHealthOperations({
       database: control,
       dedicated,

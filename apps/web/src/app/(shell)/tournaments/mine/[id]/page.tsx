@@ -11,6 +11,7 @@ import {
   EventPage,
   NotInEvent,
 } from '../../../../../ui/tournaments/event/event-page';
+import { sampleTournamentSource } from '../../../../../ui/mock/tournament-source';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -23,7 +24,7 @@ export default async function MyEventRoute({ params, searchParams }: Props) {
   const { id } = await params;
   await requireAccess(`/tournaments/mine/${id}`, searchParams);
   const now = systemClock.now();
-  const data = getEvent(id, now);
+  const data = getEvent(sampleTournamentSource, id, now);
   if (!data) return <NotInEvent tournament={null} />;
   const screen = eventFlow(data, parseEventMoment(await searchParams), now);
   return (

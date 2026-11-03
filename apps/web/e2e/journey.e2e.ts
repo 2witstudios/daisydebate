@@ -167,12 +167,12 @@ test('declining the passkey offer after onboarding from a protected page other t
   await skipOnboarding(page, /\/ranked$/);
 });
 
-test('return destinations are validated and spectator routes stay public', async ({
+test('return destinations are validated and public routes stay public', async ({
   page,
   request,
 }) => {
-  await page.goto('/watch');
-  await expect(page).toHaveURL(/\/watch$/);
+  await page.goto('/leaderboard');
+  await expect(page).toHaveURL(/\/leaderboard$/);
 
   await page.goto('/sign-in?next=%2F%2Fevil.example%2Fpath');
   const email = freshEmail();

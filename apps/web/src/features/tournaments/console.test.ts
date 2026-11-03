@@ -9,6 +9,7 @@ import {
   roundStateOf,
 } from './console';
 import { getConsole } from './get-console';
+import { sampleTournamentSource } from '../../ui/mock/tournament-source';
 
 setupRitewayBun();
 
@@ -150,8 +151,8 @@ describe('roundStateOf and getConsole', () => {
         roundStateOf(autumn, { tab: 'rounds', round: null }),
         roundStateOf(harvest, { tab: 'rounds', round: null }),
         roundStateOf(harvest, { tab: 'rounds', round: 'released' }),
-        getConsole('nope'),
-        getConsole('summer-invitational'),
+        getConsole(sampleTournamentSource, 'nope'),
+        getConsole(sampleTournamentSource, 'summer-invitational'),
       ],
       expected: ['setup', 'running', 'released', null, null],
     });

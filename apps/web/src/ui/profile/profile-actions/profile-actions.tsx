@@ -32,7 +32,7 @@ export function ProfileActions({
             'no-underline hover:no-underline',
           )}
         >
-          Edit profile
+          Settings
         </Link>
       ) : (
         children

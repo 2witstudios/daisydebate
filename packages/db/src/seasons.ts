@@ -1,17 +1,17 @@
 import { SQL } from 'bun';
-import { createAppError, type ErrorCode } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
 import { desc, eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { seasons } from './schema/ratings';
-import { isUniqueViolation } from './unique-violation';
 import { toSeasonRecord, type SeasonRecord } from './season-record';
 
 /**
- * Season operations for the `bun season` CLI (ADR 0055): a season is opened,
- * closed or rolled over from an operator's terminal, never from a route in
- * `apps/web` (ADR 0043). At most one season is active; the partial unique
- * index `seasons_single_active` is the arbiter.
+ * Season operations for the `bun season` CLI (ADR 0055): a season is opened
+ * from an operator's terminal, never from a route in `apps/web` (ADR 0043).
+ * There is one season, never closed, until DEC-111 decides how a debater
+ * carries into the next: a rating refuses on a prior season's standing, so a
+ * second season would stop rating every returning debater.
  */
 
 export type { SeasonRecord } from './season-record';
@@ -24,76 +24,25 @@ type NewSeason = {
 
 type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 
-/**
- * Why a season cannot be closed at `endsAt`, or null when it can. Pure: the
- * operation reads the row and asks this before it writes anything.
- */
-export function closeRefusal(
-  season: {
-    readonly status: SeasonRecord['status'];
-    readonly startsAt: Date;
-  } | null,
-  endsAt: Date,
-): Extract<ErrorCode, 'NOT_FOUND' | 'CONFLICT' | 'VALIDATION'> | null {
-  if (season === null) return 'NOT_FOUND';
-  if (season.status !== 'active') return 'CONFLICT';
-  if (endsAt.getTime() <= season.startsAt.getTime()) return 'VALIDATION';
-  return null;
-}
-
-const refusalMessages = {
-  NOT_FOUND: 'No such season',
-  CONFLICT: 'Only the active season can be closed',
-  VALIDATION: 'A season must end after it starts',
-} as const;
-
-async function close(
-  tx: Tx,
-  input: { readonly id: string; readonly endsAt: Date },
-): Promise<SeasonRecord> {
-  const [current] = await tx
-    .select()
-    .from(seasons)
-    .where(eq(seasons.id, input.id))
-    .for('update');
-  const refusal = closeRefusal(
-    current
-      ? {
-          status: current.status as SeasonRecord['status'],
-          startsAt: current.startsAt,
-        }
-      : null,
-    input.endsAt,
-  );
-  if (refusal) throw createAppError(refusal, refusalMessages[refusal]);
-  const [closed] = await tx
-    .update(seasons)
-    .set({
-      status: 'closed',
-      endsAt: input.endsAt,
-      updatedAt: sql`now()`,
-      version: sql`${seasons.version} + 1`,
-    })
-    .where(eq(seasons.id, input.id))
-    .returning();
-  if (!closed) throw createAppError('CONFLICT', 'The season changed');
-  return toSeasonRecord(closed);
-}
+/** Serializes opening and beta activation, each of which reads for any season. */
+const lockSeasonCreation = (tx: Tx) =>
+  tx.execute(sql`select pg_advisory_xact_lock(59091, 1)`);
 
 async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
-  try {
-    const [opened] = await tx
-      .insert(seasons)
-      .values({ ...input, status: 'active' })
-      .returning();
-    if (!opened)
-      throw createAppError('INTERNAL', 'Season insert returned no row');
-    return toSeasonRecord(opened);
-  } catch (error) {
-    if (isUniqueViolation(error))
-      throw createAppError('CONFLICT', 'A season is already active', error);
-    throw error;
-  }
+  await lockSeasonCreation(tx);
+  const [earlier] = await tx.select({ id: seasons.id }).from(seasons).limit(1);
+  if (earlier)
+    throw createAppError(
+      'CONFLICT',
+      'Another season requires DEC-111 resolution',
+    );
+  const [opened] = await tx
+    .insert(seasons)
+    .values({ ...input, status: 'active' })
+    .returning();
+  if (!opened)
+    throw createAppError('INTERNAL', 'Season insert returned no row');
+  return toSeasonRecord(opened);
 }
 
 const seasonOperations = (database: BunSQLDatabase) => ({
@@ -109,7 +58,7 @@ const seasonOperations = (database: BunSQLDatabase) => ({
   /** Explicit activation only. Retries preserve the first actual activation. */
   activateBetaSeason(input: { readonly id: string }): Promise<SeasonRecord> {
     return database.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(59091, 1)`);
+      await lockSeasonCreation(tx);
       const [existing] = await tx
         .select()
         .from(seasons)
@@ -144,21 +93,13 @@ const seasonOperations = (database: BunSQLDatabase) => ({
     return database.transaction((tx) => open(tx, input));
   },
 
-  closeSeason(input: {
-    readonly id: string;
-    readonly endsAt: Date;
-  }): Promise<SeasonRecord> {
-    return database.transaction((tx) => close(tx, input));
-  },
-
-  /** Closes the active season at the next one's start and opens it, atomically. */
-  rolloverSeason(input: {
-    readonly closeId: string;
-    readonly open: NewSeason;
-  }): Promise<{ closed: SeasonRecord; opened: SeasonRecord }> {
-    void input;
+  /** With no next season to open, closing the only one would strand rating. */
+  closeSeason(): Promise<never> {
     return Promise.reject(
-      createAppError('CONFLICT', 'Season rollover requires DEC-111 resolution'),
+      createAppError(
+        'CONFLICT',
+        'Closing a season requires DEC-111 resolution',
+      ),
     );
   },
 });

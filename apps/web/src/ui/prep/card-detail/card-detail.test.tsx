@@ -8,11 +8,12 @@ import {
 import { getCard } from '../../../features/prep/cards/get-card';
 import { CardDelete } from './card-delete';
 import { CardDetail } from './card-detail';
+import { samplePrepSource } from '../../mock/prep-source';
 
 setupRitewayBun();
 
 const card = (id: string) => {
-  const found = getCard(id);
+  const found = getCard(samplePrepSource, id);
   if (found === undefined) throw new Error(`no sample ${id}`);
   return found;
 };

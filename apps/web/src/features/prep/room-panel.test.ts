@@ -1,12 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { roomPanelView } from './room-panel';
 import { parseRoomPanelQuery } from './room-panel-query';
+import { samplePrepSource } from '../../ui/mock/prep-source';
 
 setupRitewayBun();
 
 const now = '2026-09-30T12:00:00.000Z';
 const view = (params: Record<string, string>) =>
-  roomPanelView(parseRoomPanelQuery(params), 160, now);
+  roomPanelView(samplePrepSource, parseRoomPanelQuery(params), 160, now);
 
 describe('roomPanelView', () => {
   test('before a case is chosen', () => {

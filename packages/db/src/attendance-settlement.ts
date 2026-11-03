@@ -14,12 +14,8 @@ const iso = (column: string) =>
     `to_char(${column} at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
   );
 
-/** Facts only: the Round's ledger, for the engine to say whether it settles. */
-export async function readAttendanceLedger(
-  tx: Pick<BunSQLDatabase, 'execute'>,
-  roundId: string,
-): Promise<AttendanceLedgerFacts> {
-  const [row] = (await tx.execute(sql`select
+/** The ledger's columns over the Round alias `r`, for any read of these facts. */
+export const attendanceLedgerColumns = sql`
     r.rules_snapshot->'segments' as "ruleSegments",
     coalesce((select json_agg(json_build_object('id',s.id,'rulesSegmentKey',s.rules_segment_key,'startedAt',${iso('s.started_at')}) order by s.sequence)
       from round_segments s where s.round_id=r.id and s.type='speech'),'[]'::json) as speeches,
@@ -28,7 +24,14 @@ export async function readAttendanceLedger(
       from round_attendance_adjudications a where a.round_id=r.id),'[]'::json) as adjudications,
     coalesce((select json_agg(json_build_object('segmentId',c.segment_id,'participantId',c.participant_id,'receivedAt',${iso('c.received_at')}))
       from round_check_ins c where c.round_id=r.id),'[]'::json) as receipts,
-    exists(select 1 from round_check_in_attempts p where p.round_id=r.id and p.state='pending') as "pendingWriter"
+    exists(select 1 from round_check_in_attempts p where p.round_id=r.id and p.state='pending') as "pendingWriter"`;
+
+/** Facts only: the Round's ledger, for the engine to say whether it settles. */
+export async function readAttendanceLedger(
+  tx: Pick<BunSQLDatabase, 'execute'>,
+  roundId: string,
+): Promise<AttendanceLedgerFacts> {
+  const [row] = (await tx.execute(sql`select ${attendanceLedgerColumns}
     from rounds r where r.id=${roundId}`)) as unknown as AttendanceLedgerFacts[];
   if (!row) throw createAppError('NOT_FOUND');
   return row;

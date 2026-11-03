@@ -8,6 +8,7 @@ import {
 } from '../../../../../features/tournaments/register-flow';
 import { requireAccess } from '../../../../../lib/access';
 import { RegisterPage } from '../../../../../ui/tournaments/register/register-page';
+import { sampleTournamentSource } from '../../../../../ui/mock/tournament-source';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -19,7 +20,7 @@ export const metadata: Metadata = { title: 'Register' };
 export default async function RegisterRoute({ params, searchParams }: Props) {
   const { id } = await params;
   await requireAccess(`/tournaments/enter/${id}`, searchParams);
-  const view = getTournament(id, true);
+  const view = getTournament(sampleTournamentSource, id, true);
   if (!view) notFound();
   return (
     <RegisterPage

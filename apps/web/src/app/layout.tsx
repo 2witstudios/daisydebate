@@ -13,7 +13,7 @@ import { ThemeProvider } from '../ui/theme/theme-provider';
 import {
   parseThemePreference,
   THEME_COOKIE,
-} from '../ui/theme/theme-preference';
+} from '../features/theme/theme-preference';
 import {
   requestIdentity,
   requestMetadataBase,

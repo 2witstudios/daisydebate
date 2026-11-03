@@ -1,11 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getOrganizeDashboard, phaseCounts } from './organize-dashboard';
+import { sampleTournamentSource } from '../../ui/mock/tournament-source';
 
 setupRitewayBun();
 
 describe('getOrganizeDashboard', () => {
   test('the sample organizer’s tournaments, counts and attention', () => {
-    const dashboard = getOrganizeDashboard();
+    const dashboard = getOrganizeDashboard(sampleTournamentSource);
     assert({
       given: 'the sample organizer',
       should: 'list four tournaments, count three phases and raise three items',
@@ -30,7 +31,7 @@ describe('getOrganizeDashboard', () => {
     assert({
       given: 'the four tournaments',
       should: 'open a console, manage, continue setup and view results',
-      actual: getOrganizeDashboard().tournaments.map(
+      actual: getOrganizeDashboard(sampleTournamentSource).tournaments.map(
         (item) => `${item.action.label} -> ${item.action.href}`,
       ),
       expected: [

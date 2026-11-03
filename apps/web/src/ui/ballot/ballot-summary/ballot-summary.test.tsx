@@ -1,7 +1,10 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sampleBallotDebaters, sampleJudgeBallot } from '../../mock/judge';
+import {
+  sampleBallotDebaters,
+  sampleJudgeBallot,
+} from '../../mock/judge.test-support';
 import { BallotSummary } from './ballot-summary';
 
 setupRitewayBun();

@@ -1,4 +1,5 @@
 import type { CompetitionType, RoundStatus } from './round';
+import type { AttendanceLedgerFacts } from './attendance';
 import type { DebateRole, RatingLadder } from './primitives';
 
 /**
@@ -17,7 +18,18 @@ export type RatingState = {
 
 export type RatedOutcome = 'affirmative' | 'negative' | 'draw';
 
-/** What eligibility is decided from, as the adapter loads it. Frozen columns only. */
+/**
+ * How a Round's finalization record says it ended: the one derived statement
+ * rating and history read. A forfeit outranks any ballot on record.
+ */
+export type RecordedEnding =
+  | 'unrecorded'
+  | 'forfeit'
+  | 'unjudged'
+  | 'judged-on-complete-capture'
+  | 'judged-on-incomplete-capture';
+
+/** What eligibility is decided from, as the adapter loads it. */
 export type RatingEligibilityFacts = {
   readonly competitionType: CompetitionType;
   /** The round's stored ladder, derived by CHECK; null when unrated. */
@@ -27,11 +39,20 @@ export type RatingEligibilityFacts = {
   readonly completedAt: string | null;
   /** Whether the ledger already holds a change for this round. */
   readonly alreadyRated: boolean;
+  readonly ending: RecordedEnding;
+  readonly attendance: AttendanceLedgerFacts;
 };
 
 export type RatingUnrated = {
   readonly kind: 'unrated';
-  readonly reason: 'competition' | 'abandoned';
+  readonly reason:
+    | 'competition'
+    | 'abandoned'
+    | 'no-result'
+    | 'ending-unrecorded'
+    | 'check-in-pending'
+    | 'unjudged'
+    | 'incomplete-capture';
 };
 
 export type RatingEligibility =
@@ -42,6 +63,8 @@ export type RatingEligibility =
       readonly occurredAt: string;
     }
   | { readonly kind: 'already-rated' }
+  /** A rating is still owed, but the attendance ledger does not settle yet. */
+  | { readonly kind: 'attendance-unsettled' }
   | RatingUnrated;
 
 /** What the ledger holds for one debater on this format and ladder. */

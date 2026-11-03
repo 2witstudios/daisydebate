@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { importSource } from './import-source';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
@@ -16,7 +17,7 @@ describe('importSource', () => {
         'https://example.org/scan.pdf',
         'https://example.org/[source-path]',
         'https://example.org/article',
-      ].map((url) => importSource(url).kind),
+      ].map((url) => importSource(samplePrepSource, url).kind),
       expected: [
         'idle',
         'invalid',
@@ -33,7 +34,10 @@ describe('importSource', () => {
     assert({
       given: 'the address of a saved card',
       should: 'point at that card',
-      actual: importSource('https://example.org/[source-path]'),
+      actual: importSource(
+        samplePrepSource,
+        'https://example.org/[source-path]',
+      ),
       expected: {
         kind: 'duplicate',
         cardId: 'cost-estimates',

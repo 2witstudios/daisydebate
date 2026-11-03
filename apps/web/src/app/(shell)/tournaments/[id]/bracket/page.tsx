@@ -10,6 +10,7 @@ import {
   BracketPage,
   NotPosted,
 } from '../../../../../ui/tournaments/bracket/bracket-page';
+import { sampleTournamentSource } from '../../../../../ui/mock/tournament-source';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -23,7 +24,7 @@ export default async function BracketRoute({ params, searchParams }: Props) {
   const { id } = await params;
   const now = systemClock.now();
   const signedIn = (await requestIdentity()).state === 'member';
-  const read = getBracket(id, signedIn, now);
+  const read = getBracket(sampleTournamentSource, id, signedIn, now);
   if (read.kind === 'not-found') notFound();
   if (read.kind === 'not-posted')
     return <NotPosted tournament={read.tournament} />;
@@ -35,7 +36,7 @@ export default async function BracketRoute({ params, searchParams }: Props) {
         read.data.tournament.structure,
       )}
       viewerHandle={read.viewerHandle}
-      myEvent={signedIn && getEvent(id, now) !== null}
+      myEvent={signedIn && getEvent(sampleTournamentSource, id, now) !== null}
     />
   );
 }

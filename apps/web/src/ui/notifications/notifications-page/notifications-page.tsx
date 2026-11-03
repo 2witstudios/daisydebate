@@ -16,7 +16,7 @@ type NotificationsPageProps = {
   readonly unread: number;
 };
 
-/** The viewer's notifications. Every control is a link to the next state. */
+/** The viewer's notifications. The filter is a link to the next state. */
 export function NotificationsPage({
   query,
   rows,
@@ -27,16 +27,6 @@ export function NotificationsPage({
       <PageHeader
         title="Notifications"
         lede={unread === 0 ? 'You are all caught up.' : `${unread} unread.`}
-        actions={
-          unread === 0 ? null : (
-            <Link
-              href={notificationsHref({ ...query, allRead: true })}
-              className="text-sm font-bold"
-            >
-              Mark all as read
-            </Link>
-          )
-        }
       />
       <TabLinks
         label="Filter notifications"
@@ -44,13 +34,13 @@ export function NotificationsPage({
           {
             id: 'all',
             label: 'All',
-            href: notificationsHref({ ...query, unreadOnly: false }),
+            href: notificationsHref({ unreadOnly: false }),
             selected: !query.unreadOnly,
           },
           {
             id: 'unread',
             label: 'Unread',
-            href: notificationsHref({ ...query, unreadOnly: true }),
+            href: notificationsHref({ unreadOnly: true }),
             selected: query.unreadOnly,
           },
         ]}

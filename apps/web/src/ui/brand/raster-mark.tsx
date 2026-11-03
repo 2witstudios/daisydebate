@@ -1,5 +1,9 @@
-import { bloomPetals } from './petal';
-import { markGeometry, petalShape, tileGeometry } from './brand-geometry';
+import { bloomPetals } from '../../features/brand/petal';
+import {
+  markGeometry,
+  petalShape,
+  tileGeometry,
+} from '../../features/brand/brand-geometry';
 import { rasterPalette } from './raster-palette';
 
 /** Same committed geometry as DaisyMark, with explicit fills for Satori. */

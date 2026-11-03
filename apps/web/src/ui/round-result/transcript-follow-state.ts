@@ -44,7 +44,9 @@ function afterScroll(state: FollowState, position: ScrollPosition): FollowStep {
   return {
     state: {
       following:
-        !movedUp(state, position) && (state.following || isNearEnd(position)),
+        !movedUp(state, position) &&
+        (state.following ||
+          (position.scrollTop > state.lastTop && isNearEnd(position))),
       lastTop: position.scrollTop,
     },
     pinToEnd: false,

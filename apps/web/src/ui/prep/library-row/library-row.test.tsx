@@ -4,11 +4,12 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { listLibrary } from '../../../features/prep/library/list-library';
 import { defaultLibraryQuery } from '../../../features/prep/library/library-query';
 import { LibraryList } from './library-row';
+import { samplePrepSource } from '../../mock/prep-source';
 
 setupRitewayBun();
 
 const now = '2026-09-30T12:00:00.000Z';
-const rows = listLibrary(defaultLibraryQuery, now).rows;
+const rows = listLibrary(samplePrepSource, defaultLibraryQuery, now).rows;
 
 describe('LibraryList', () => {
   test('rows open the preview, or the item on a phone', () => {
