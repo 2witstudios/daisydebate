@@ -122,8 +122,8 @@ describe('issuing a link', () => {
   test('the host gets the token once, and only its hash is stored', async () => {
     const { handlers, written, logged } = build();
     const response = await handlers.issue(issuing(), roundId);
-    const { href } = (await response.json()) as { href: string };
-    const issued = href.split('token=')[1]!;
+    const { url } = (await response.json()) as { url: string };
+    const issued = url.split('token=')[1]!;
     assert({
       given: 'the host of an unlisted Round',
       should: 'answer the link and store the SHA3-256 of its token alone',

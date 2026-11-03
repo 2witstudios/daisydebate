@@ -27,7 +27,7 @@ export default async function AudienceLinkPage({
   const hosted = await requestHostedAudienceLink(id, access.identity);
   if (hosted === null) notFound();
   return (
-    <div className="max-w-2xl mx-auto px-6 pt-8 pb-8 max-compact:px-4">
+    <div className="px-6 pt-8 pb-8 max-compact:px-4">
       <AudienceLinkPanel
         issued={hosted.issued}
         action={issueAudienceLinkAction.bind(null, id)}

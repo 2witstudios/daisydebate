@@ -117,12 +117,7 @@ test('an unlisted Round, by its link, on real Postgres', async () => {
         response.headers.get('Cache-Control'),
       ];
       const cookieOf = async (href: string) =>
-        (
-          await asMember(f.outsider).open(
-            new Request(`${origin}${href}`),
-            roundId,
-          )
-        ).headers
+        (await asMember(f.outsider).open(new Request(href), roundId)).headers
           .get('set-cookie')!
           .split(';')[0]!;
       const stored = async () =>
@@ -149,10 +144,10 @@ test('an unlisted Round, by its link, on real Postgres', async () => {
         expected: [404, null],
       });
 
-      const { href: firstHref } = (await (await issue(f.host)).json()) as {
-        href: string;
+      const { url: firstHref } = (await (await issue(f.host)).json()) as {
+        url: string;
       };
-      const token = new URL(firstHref, origin).searchParams.get('token')!;
+      const token = new URL(firstHref).searchParams.get('token')!;
       const row = await stored();
       assert({
         given: 'the host issuing a link',
@@ -201,8 +196,8 @@ test('an unlisted Round, by its link, on real Postgres', async () => {
         expected: missing,
       });
 
-      const { href: secondHref } = (await (await issue(f.host)).json()) as {
-        href: string;
+      const { url: secondHref } = (await (await issue(f.host)).json()) as {
+        url: string;
       };
       assert({
         given: 'the link replaced, within the snapshot memo’s interval',

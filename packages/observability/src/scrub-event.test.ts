@@ -227,7 +227,7 @@ describe('scrubEvent (ADR 0037)', () => {
 describe('scrubTransaction', () => {
   const token = 'tokentokentoken';
   const url = `https://daisy.example/watch/r1/link?token=${token}`;
-  const scrubbed = scrubTransaction({
+  const scrubbed: unknown = scrubTransaction({
     transaction: `GET /watch/r1/link?token=${token}`,
     request: { url, query_string: `token=${token}`, headers: { a: 'b' } },
     contexts: {

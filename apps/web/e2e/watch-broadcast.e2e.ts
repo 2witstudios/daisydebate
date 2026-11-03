@@ -421,8 +421,11 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
     ).toBeVisible();
 
     const visitor = await browser.newContext();
-    const watching = await visitor.newPage();
-    const bare = await browser.newPage();
+    const watching = await openPage(visitor, 'the link holder');
+    const bare = await openPage(
+      await browser.newContext(),
+      'a visitor with no link',
+    );
     await bare.goto(`/watch/${round.roundId}`);
     await expect(bare.getByText(REFUSED)).toBeVisible();
 
@@ -455,17 +458,17 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
 
     // A wrong link and a missing Round are one answer.
     const wrong = await browser.newContext();
-    const wrongPage = await wrong.newPage();
+    const wrongPage = await openPage(wrong, 'a wrong link');
     await wrongPage.goto(
       `/watch/${round.roundId}/link?token=${'A'.repeat(43)}`,
     );
-    const missingPage = await wrong.newPage();
+    const missingPage = await openPage(wrong, 'a missing Round');
     await missingPage.goto(`/watch/${createId()}`);
     expect(await wrongPage.locator('main').innerText()).toBe(
       await missingPage.locator('main').innerText(),
     );
     await wrong.close();
-    await bare.close();
+    await bare.context().close();
     await visitor.close();
   });
 
@@ -485,11 +488,14 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
     await advance(round.roundId, 'end');
     await advance(round.roundId, 'recording-ready');
     const recording = `/recordings/${round.roundId}`;
-    const stranger = await browser.newPage();
+    const stranger = await openPage(
+      await browser.newContext(),
+      'a visitor with no link',
+    );
     await stranger.goto(recording);
     await expect(stranger.getByText(REFUSED)).toBeVisible();
     const holder = await browser.newContext();
-    const holding = await holder.newPage();
+    const holding = await openPage(holder, 'the link holder');
     await holding.goto(link);
     await holding.goto(recording);
     await expect(holding.getByText(REFUSED)).toHaveCount(0);
@@ -499,7 +505,7 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
     await expect(
       holding.getByRole('region', { name: 'Sharing' }).getByRole('button'),
     ).toHaveCount(0);
-    await stranger.close();
+    await stranger.context().close();
     await holder.close();
   });
 });
@@ -521,7 +527,7 @@ test.describe('an unlisted Round by its link', () => {
     const token = new URL(link).searchParams.get('token')!;
 
     const visitor = await browser.newContext({ ignoreHTTPSErrors: true });
-    const watching = await visitor.newPage();
+    const watching = await openPage(visitor, 'the link holder');
     const carrying: string[] = [];
     const reads: string[] = [];
     watching.on('request', (sent) => {

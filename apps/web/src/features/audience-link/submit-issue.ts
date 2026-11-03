@@ -7,20 +7,20 @@ export type AudienceLinkAnswer =
   | { readonly kind: 'refused' }
   | { readonly kind: 'unavailable' };
 
-/** Posts the host's request to its route, and makes the link absolute to share. */
+/** Posts the host's request to its route, which alone decides and answers the link. */
 export async function submitIssue(
   fetch: FetchLike,
-  input: { readonly roundId: string; readonly origin: string },
+  roundId: string,
 ): Promise<AudienceLinkAnswer> {
   try {
     const response = await fetch(
-      `/api/rounds/${encodeURIComponent(input.roundId)}/audience-link`,
+      `/api/rounds/${encodeURIComponent(roundId)}/audience-link`,
       { method: 'POST' },
     );
     if (!response.ok)
       return { kind: response.status >= 500 ? 'unavailable' : 'refused' };
-    const { href } = (await response.json()) as { readonly href: string };
-    return { kind: 'issued', url: new URL(href, input.origin).href };
+    const { url } = (await response.json()) as { readonly url: string };
+    return { kind: 'issued', url };
   } catch {
     return { kind: 'unavailable' };
   }

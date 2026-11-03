@@ -3,40 +3,31 @@ import { submitIssue } from './submit-issue';
 
 setupRitewayBun();
 
-const input = { roundId: 'r1', origin: 'https://daisy.example' };
+const roundId = 'r1';
+const url = 'https://daisy.example/watch/r1/link?token=t';
+const answering = (status: number) => async () =>
+  new Response(null, { status });
 
 describe('submitIssue', () => {
-  test('a link comes back absolute, to share', async () => {
+  test('the link comes back from the route', async () => {
     assert({
       given: 'an issued link',
-      should: 'answer it against the public origin',
-      actual: await submitIssue(
-        async () => Response.json({ href: '/watch/r1/link?token=t' }),
-        input,
-      ),
-      expected: {
-        kind: 'issued',
-        url: 'https://daisy.example/watch/r1/link?token=t',
-      },
+      should: 'answer it as it came',
+      actual: await submitIssue(async () => Response.json({ url }), roundId),
+      expected: { kind: 'issued', url },
     });
   });
 
   test('a refusal and an outage are told apart', async () => {
     const down = await submitIssue(async () => {
       throw new Error('down');
-    }, input);
+    }, roundId);
     assert({
       given: 'a 404, a 500 and a failed call',
       should: 'answer refused, then unavailable twice',
       actual: [
-        await submitIssue(
-          async () => new Response(null, { status: 404 }),
-          input,
-        ),
-        await submitIssue(
-          async () => new Response(null, { status: 500 }),
-          input,
-        ),
+        await submitIssue(answering(404), roundId),
+        await submitIssue(answering(500), roundId),
         down,
       ],
       expected: [

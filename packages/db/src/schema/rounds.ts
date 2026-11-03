@@ -75,8 +75,6 @@ export const rounds = pgTable(
       onDelete: 'restrict',
     }),
     visibility: text('visibility').$type<'public' | 'unlisted' | 'private'>(),
-    /** SHA3-256 of an unlisted Round's current link; the token is never stored. */
-    audienceLinkHash: text('audience_link_hash'),
     /** Null until a draw's reveal; stays null if the Round ended before it. */
     resolution: text('resolution'),
     /** Pre-round prep's full length, or null when the Round has none. */
@@ -130,6 +128,8 @@ export const rounds = pgTable(
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
+    /** SHA3-256 of an unlisted Round's current link; the token is never stored. */
+    audienceLinkHash: text('audience_link_hash'),
   },
   (table) => {
     const opening = sql`${table.status} = 'opening' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;

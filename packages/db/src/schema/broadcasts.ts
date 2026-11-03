@@ -29,11 +29,6 @@ export const broadcasts = pgTable(
     roundId: text('round_id')
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
-    /**
-     * The random name of its public object tree, set at open. The bucket is
-     * public, so this, not the link, is what keeps an unlisted Broadcast unfound.
-     */
-    feedKey: text('feed_key').notNull(),
     /** Each Broadcast records its path, so a faster one can be added later. */
     deliveryPath: text('delivery_path').notNull().default('owned_hls'),
     releasePolicy: jsonbColumn(
@@ -71,6 +66,11 @@ export const broadcasts = pgTable(
     leaseOwner: text('lease_owner'),
     leaseUntil: timestampColumn('lease_until'),
     createdAt: createdAtColumn(),
+    /**
+     * The random name of its public object tree, set at open. The bucket is
+     * public, so this, not the link, is what keeps an unlisted Broadcast unfound.
+     */
+    feedKey: text('feed_key').notNull(),
   },
   (table) => [
     uniqueIndex('broadcasts_round_unique').on(table.roundId),

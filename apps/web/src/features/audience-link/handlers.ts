@@ -78,7 +78,9 @@ export const createAudienceLinkHandlers = (deps: {
           },
           { roundId, caller: { userId, actorId } },
         );
-        return Response.json({ href: audienceLinkHref(roundId, token) });
+        return Response.json({
+          url: new URL(audienceLinkHref(roundId, token), deps.origin()).href,
+        });
       },
       deps.reporter,
     ),

@@ -6,7 +6,7 @@ import {
   type AudienceLinkAnswer,
 } from '../../../../../features/audience-link/submit-issue';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
-import { processApp, processRoute } from '../../../../../server/process-app';
+import { processRoute } from '../../../../../server/process-app';
 
 const issue = processRoute(
   (routes) => (request) =>
@@ -23,8 +23,8 @@ const issue = processRoute(
 export async function issueAudienceLinkAction(
   roundId: string,
 ): Promise<AudienceLinkAnswer> {
-  return submitIssue(inProcessFetch(issue, new Headers(await headers())), {
+  return submitIssue(
+    inProcessFetch(issue, new Headers(await headers())),
     roundId,
-    origin: processApp().config.PUBLIC_APP_URL,
-  });
+  );
 }
