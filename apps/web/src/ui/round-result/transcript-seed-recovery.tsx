@@ -8,9 +8,15 @@ import {
 import { reconnectDelaySeconds } from '../debate-room/reconnect-delay';
 import { LiveTranscript, type TranscriptPlacement } from './live-transcript';
 
-const nextAskMs = () => {
+/** The failed-read pace a transcript with a seed already keeps. */
+const LONGEST_WAIT_MS = 30_000;
+
+const nextAskMs = (asked: number) => {
   const [entropy] = crypto.getRandomValues(new Uint8Array(1));
-  return reconnectDelaySeconds(entropy!) * 1000;
+  return Math.min(
+    reconnectDelaySeconds(entropy!) * 1000 * 2 ** asked,
+    LONGEST_WAIT_MS,
+  );
 };
 
 /** A room whose transcript seed was refused, asking again without reloading it. */
@@ -28,14 +34,33 @@ export function TranscriptSeedRecovery({
     () =>
       askForTranscriptSeed({
         read: () => readTranscript(window.fetch.bind(window), roundId),
-        schedule: (attempt) => {
-          const timer = window.setTimeout(attempt, nextAskMs());
+        schedule: (attempt, asked) => {
+          const timer = window.setTimeout(attempt, nextAskMs(asked));
           return () => window.clearTimeout(timer);
         },
         settled: setState,
       }),
     [roundId],
   );
+  return (
+    <TranscriptSeedAnswer
+      state={state}
+      socketUrl={socketUrl}
+      placement={placement}
+    />
+  );
+}
+
+/** One refusal, one wording: a sidebar panel is never left blank. */
+export function TranscriptSeedAnswer({
+  state,
+  socketUrl,
+  placement,
+}: {
+  readonly state: TranscriptSeed;
+  readonly socketUrl: string | null;
+  readonly placement: TranscriptPlacement;
+}) {
   if (state.kind === 'found')
     return (
       <LiveTranscript
@@ -44,7 +69,12 @@ export function TranscriptSeedRecovery({
         placement={placement}
       />
     );
-  if (state.kind === 'denied') return null;
+  if (state.kind === 'denied')
+    return placement === 'sidebar' ? (
+      <p role="status" className="p-4 text-sm text-ink-muted">
+        Transcript unavailable.
+      </p>
+    ) : null;
   return (
     <p role="status" className="p-4 text-sm">
       Transcript unavailable.
