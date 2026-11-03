@@ -1,3 +1,3 @@
 /** Single source for the clickwrap and the legal pages; bump on a material change. */
-export const TERMS_VERSION = 'draft-0.2';
-export const PRIVACY_VERSION = 'draft-0.1';
+export const TERMS_VERSION = 'draft-0.3';
+export const PRIVACY_VERSION = 'draft-0.2';

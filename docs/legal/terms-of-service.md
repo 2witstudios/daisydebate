@@ -14,11 +14,11 @@ Our privacy policy explains what we collect and why; it is part of how the servi
 
 ## Who can join
 
-You must be 16 or older to use Daisy during the beta. After the beta the minimum age will be 13. [OWNER: confirm the post-beta minimum age.] We ask your birth month and year at sign-up, and we refuse sign-up below the minimum age without keeping what you entered.
+You must be 16 or older to use Daisy.
 
 You must give your true birth month and year. An account created with a false age may be closed.
 
-One person holds one account. You sign in with an emailed link or a passkey, and you must keep your email account and devices secure. [COUNSEL: confirm whether members aged 13 to 17 need a parent or guardian’s agreement once the minimum age drops to 13.]
+One person holds one account. You sign in with an emailed link or a passkey, and you must keep your email account and devices secure.
 
 ## The beta and the waiting list
 
