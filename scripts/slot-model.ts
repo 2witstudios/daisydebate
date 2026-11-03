@@ -163,9 +163,19 @@ export const mainSlotRefusal = (
 export const mayPrune = (standing: StackStanding): boolean =>
   standing === 'owner';
 
+const STACK_OWNER_PREFIX = 'stack-owner=';
+
+/**
+ * The owner a database comment records, or null. Only a mark counts: `initdb`
+ * gives the `postgres` database a comment of its own.
+ */
+export const recordedStackOwner = (
+  comment: string | null | undefined,
+): string | null => (comment?.startsWith(STACK_OWNER_PREFIX) ? comment : null);
+
 /** The mark for a repository, by its main checkout's path. */
 export const stackOwnerMark = (mainCheckout: string): string =>
-  `stack-owner=${new Bun.CryptoHasher('sha3-256').update(mainCheckout).digest('hex')}`;
+  `${STACK_OWNER_PREFIX}${new Bun.CryptoHasher('sha3-256').update(mainCheckout).digest('hex')}`;
 
 /** Parses `git worktree list --porcelain`; prunable entries are gone. */
 export function parseWorktreeList(porcelain: string): {

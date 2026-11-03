@@ -7,6 +7,7 @@ import {
   deriveSlot,
   mainSlotRefusal,
   mayPrune,
+  recordedStackOwner,
   stackOwnerMark,
   stackStanding,
   worktreeSlot,
@@ -48,6 +49,37 @@ test('the mark fits what a database comment may hold', () => {
     should: 'match the slots comment rule and name no path',
     actual: [/^[a-z0-9 =-]{1,100}$/.test(owner), owner.includes('repo')],
     expected: [true, false],
+  });
+});
+
+describe('what a database comment records', () => {
+  const standing = (comment: string | null, hasOrigin: boolean) =>
+    stackStanding({
+      repository: repositoryAt('/repo', hasOrigin),
+      recordedOwner: recordedStackOwner(comment),
+    });
+  const initdbDefault = 'default administrative connection database';
+
+  test('the comment initdb gives postgres records no owner', () => {
+    assert({
+      given: 'that exact comment, on a repository with and without an origin',
+      should: 'be claimable with an origin and foreign without',
+      actual: [standing(initdbDefault, true), standing(initdbDefault, false)],
+      expected: ['claimable', 'foreign'],
+    });
+  });
+
+  test('only a mark is an owner', () => {
+    assert({
+      given: 'the owner mark, another mark and no comment',
+      should: 'stand as owner, foreign and claimable',
+      actual: [
+        standing(owner, true),
+        standing(stackOwnerMark('/elsewhere'), true),
+        standing(null, true),
+      ],
+      expected: ['owner', 'foreign', 'claimable'],
+    });
   });
 });
 

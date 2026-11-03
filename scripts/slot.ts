@@ -51,6 +51,7 @@ import {
   readEnvValue,
   rewriteEnv,
   slotEnvValues,
+  recordedStackOwner,
   stackOwnerMark,
   stackStanding,
   type Slot,
@@ -217,7 +218,7 @@ const readStanding = async (
   );
   return stackStanding({
     repository: checkout.repository,
-    recordedOwner: record?.comment ?? null,
+    recordedOwner: recordedStackOwner(record?.comment),
   });
 };
 
