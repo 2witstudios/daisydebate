@@ -35,13 +35,13 @@ test('authorizeOperator: roles', () => {
     given: 'an enabled owner',
     should: 'hold every action',
     actual: decide(owner),
-    expected: [true, true, true, true],
+    expected: operatorActions.map(() => true),
   });
   assert({
     given: 'the operator role, designed in with no actions yet',
     should: 'be denied every action',
     actual: decide({ ...owner, role: 'operator' }),
-    expected: [false, false, false, false],
+    expected: operatorActions.map(() => false),
   });
   assert({
     given: 'a disabled owner',
@@ -62,15 +62,15 @@ test('requiresSecondApproval', () => {
     actual: operatorActions.map((action) =>
       requiresSecondApproval(currentApprovalPolicy, action),
     ),
-    expected: [false, false, false, false],
+    expected: operatorActions.map(() => false),
   });
   assert({
     given: 'two-person approval switched on',
-    should: 'require it only for the mutating action',
+    should: 'require it only for the mutating actions',
     actual: operatorActions.map((action) =>
       requiresSecondApproval(twoPerson, action),
     ),
-    expected: [false, true, false, false],
+    expected: [false, true, false, true, false, false],
   });
 });
 
