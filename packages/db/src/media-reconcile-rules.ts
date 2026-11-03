@@ -1,3 +1,4 @@
+import type { MediaRoomFate } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type {
   MediaReconcileFence,
@@ -97,10 +98,9 @@ export function requireMutationAdmissible(
 }
 
 /**
- * Release the lease and serve the running version. A terminal session
- * requests deletion; only a matching absence proof clears unsafe and ends it.
- * A proven-clean recovery of an open Round also clears the room deletion
- * request, ending the unsafe episode so capture discovery resumes (ISSUE-465).
+ * Release the lease and serve the running version, applying the pass's room fate. A
+ * terminal session requests deletion. Any fate but `keep` ends the unsafe episode, and
+ * on an open Round clears the deletion request so capture discovery resumes (ISSUE-465).
  */
 export function reconcileCompletion(
   session: {
@@ -112,13 +112,15 @@ export function reconcileCompletion(
   now: Date,
   outcome: {
     readonly terminal: boolean;
+    /** Vendor work still pending after this pass's decision. */
     readonly unresolved: boolean;
-    readonly cleaned: boolean;
+    readonly fate: MediaRoomFate;
     /** The pass finished its work; a failed one leaves the Round due to the tick. */
     readonly clean: boolean;
   },
 ) {
-  const { terminal, unresolved, cleaned, clean } = outcome;
+  const { terminal, unresolved, fate, clean } = outcome;
+  const settled = fate.kind !== 'keep';
   return {
     fields: {
       reconcileOwner: null,
@@ -126,21 +128,18 @@ export function reconcileCompletion(
       reconcileCompletedAt: now,
       reconcileLastPassClean: clean,
       reconcileServedVersion: session.reconcileRunningVersion,
-      ...(cleaned
-        ? {
-            unsafeAt: null,
-            ...(terminal
-              ? { endedAt: session.endedAt ?? now }
-              : { deletionRequestedAt: null }),
-          }
+      ...(settled ? { unsafeAt: null } : {}),
+      ...(fate.kind === 'end' ? { endedAt: session.endedAt ?? now } : {}),
+      ...(fate.kind === 'rotate' || fate.kind === 'clear'
+        ? { deletionRequestedAt: null }
         : {}),
       ...(terminal
         ? { deletionRequestedAt: session.deletionRequestedAt ?? now }
         : {}),
     },
     result: {
-      safe: !unresolved && (session.unsafeAt === null || cleaned),
-      ended: terminal && cleaned,
+      safe: !unresolved && (session.unsafeAt === null || settled),
+      ended: fate.kind === 'end',
     },
   };
 }

@@ -15,6 +15,7 @@ const harness = (maxSessions = 2) => {
   const supervisor = createCaptureSupervisor({
     maxSessions,
     retryMs: { initial: 1000, max: 4000 },
+    heldMs: 30000,
     nowMs: () => now,
     nextWorkerId: () => `worker${++ids}`,
     discover: async (limit, excluded) => {
@@ -154,6 +155,7 @@ test("a terminal Round's capture process stops for good and is never relaunched"
   const supervisor = createCaptureSupervisor({
     maxSessions: 2,
     retryMs: { initial: 1000, max: 4000 },
+    heldMs: 30000,
     nowMs: () => 0,
     nextWorkerId: () => `worker${launches}`,
     discover: async () => offered,
@@ -216,5 +218,30 @@ test('a session already running never uses up the discovery page', async () => {
       launched: h.launched.map((scope) => scope.sessionId),
     },
     expected: { excludes: true, launched: ['a', 'b', 'c'] },
+  });
+});
+
+test('a capture that held for a while starts the pace again when it fails', async () => {
+  const h = harness();
+  h.offer('a');
+  await h.supervisor.tick();
+  await h.exit('worker1', 8);
+  h.advance(1000);
+  await h.supervisor.tick();
+  await h.exit('worker2', 8);
+  h.advance(2000);
+  await h.supervisor.tick();
+  h.advance(30000);
+  await h.exit('worker3', 8);
+  h.advance(999);
+  await h.supervisor.tick();
+  const before = h.launched.length;
+  h.advance(1);
+  await h.supervisor.tick();
+  assert({
+    given: 'a third process that held for 30 s, after two quick failures',
+    should: 'wait the first step of the pace, not the third',
+    actual: [before, h.launched.length],
+    expected: [3, 4],
   });
 });

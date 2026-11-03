@@ -1,6 +1,8 @@
 import { createAppError, isRefusal } from '@daisy/errors';
+import { MEDIA_CALL_TIMEOUT_MS } from '@daisy/media';
 import {
   changedMediaGrants,
+  mediaRoomFate,
   mediaWindowClosed,
   type RoundMediaGrants,
 } from '@daisy/debate-engine';
@@ -38,6 +40,12 @@ const differs = (
     [{ identity, grants: current }],
     [{ identity, grants: desired }],
   ).length > 0;
+/**
+ * Past one vendor call's own timeout, so a live node's blip has answered. It does not
+ * bound the provider: a reclaiming delete can make three calls, so a late create can still
+ * leave an empty room under the old name, which closes itself by `empty_timeout`.
+ */
+const roomFate = mediaRoomFate(MEDIA_CALL_TIMEOUT_MS + 1_000);
 const needsCleanup = (state: MediaSnapshot, claim: Claim) =>
   Boolean(
     claim.unsafe ||
@@ -98,11 +106,11 @@ export function createMediaReconcileRun(
         () => undefined,
       );
     }
-    // A pending mutation could apply after an absence read. It must settle BEFORE that read.
+    // A late write after this read reaches only the room this proof retires (ADR 0110).
     const proof = await input.store.prepareMediaAbsenceProof(claim.fence);
-    if (!proof || (await input.deadline(input.media.exists(claim.roomName))))
-      return null;
-    return proof;
+    return (await input.deadline(input.media.exists(claim.roomName)))
+      ? null
+      : proof;
   };
   /**
    * Creates the room for `admission`, or returns `{ refused }` when the
@@ -295,8 +303,7 @@ export function createMediaReconcileRun(
     admission?: Principal,
     whileHeld?: () => Promise<void>,
   ) => {
-    let absenceProof: Awaited<ReturnType<Store['prepareMediaAbsenceProof']>> =
-      null;
+    let absenceProof: Awaited<ReturnType<typeof removeRoom>> = null;
     let cleanupAttempted = false;
     let held: { readonly error: unknown } | null = null;
     let refusal: unknown;
@@ -329,12 +336,19 @@ export function createMediaReconcileRun(
         clean = false;
         failure ??= { error };
       }
-      await input.store.finishMediaReconcile({
+      const finished = await input.store.finishMediaReconcile({
         mediaWindowClosed,
         ...claim.fence,
         absenceProof,
         clean,
+        roomFate,
       });
+      if (finished.fate.kind === 'rotate')
+        input.logger.log(
+          'round.media.room_retired',
+          { roundId: claim.roundId, cause: finished.fate.cause },
+          'The session left its room for a fresh one',
+        );
     }
     if (failure) {
       deferred(failure.error);

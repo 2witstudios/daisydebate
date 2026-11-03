@@ -12,7 +12,12 @@ export type { RoundJudgingPolicy } from './judging-policy';
 export type { RoundAnalysisPolicy } from './round-analysis-policy';
 export type { MessagingPolicyOverride } from './messaging-policy';
 export type { ContactsPolicyOverride } from './contacts-policy';
-import { mediaEndpoint } from './media-endpoint';
+import {
+  mediaEndpoint,
+  mediaEndpointList,
+  mediaEndpointsOf,
+} from './media-endpoint';
+export { mediaEndpointsOf };
 import {
   deploymentIdentityFields,
   requireDeploymentIdentity,
@@ -118,8 +123,8 @@ const serverFields = {
   BETA_NOTIFY_EMAIL: z.email().optional(),
   ...operatorFields,
   REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
-  LIVEKIT_URL: mediaEndpoint(/^https?$/).optional(),
-  LIVEKIT_PUBLIC_URL: mediaEndpoint(/^wss?$/).optional(),
+  LIVEKIT_URL: mediaEndpointList(/^https?$/).optional(),
+  LIVEKIT_PUBLIC_URL: mediaEndpointList(/^wss?$/).optional(),
   LIVEKIT_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
   LIVEKIT_API_SECRET: secret(z.string().regex(/^\S+$/)).optional(),
   MEDIA_WORKER_SECRET: secret(mediaWorkerSecret).optional(),
@@ -186,6 +191,17 @@ const serverConfigSchema = z
   .superRefine((config, ctx) => {
     refineOperatorConfig(config, ctx);
     requireCompetitiveBudget(config, ctx);
+    if (
+      config.LIVEKIT_URL &&
+      config.LIVEKIT_PUBLIC_URL &&
+      mediaEndpointsOf(config.LIVEKIT_URL).length !==
+        mediaEndpointsOf(config.LIVEKIT_PUBLIC_URL).length
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LIVEKIT_PUBLIC_URL'],
+        message: 'LIVEKIT_URL and LIVEKIT_PUBLIC_URL must list the same nodes',
+      });
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     requireDeploymentIdentity(config, ctx);

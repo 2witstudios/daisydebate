@@ -1,3 +1,4 @@
+import { mediaEndpointsOf } from '@daisy/config';
 import { createBroadcastEgress } from '@daisy/media/broadcast';
 import {
   startSingleFlightWorker,
@@ -17,8 +18,12 @@ export const stageEgressOf = (app: App) => {
     LIVEKIT_API_KEY: apiKey,
     LIVEKIT_API_SECRET: apiSecret,
   } = app.config;
+  // Staging runs one LiveKit node. A list's first entry until Broadcast follows a
+  // room's node (ISSUE filed with the merge of multi-node media).
   return url && apiKey && apiSecret
-    ? createBroadcastEgress({ config: { url, apiKey, apiSecret } })
+    ? createBroadcastEgress({
+        config: { url: mediaEndpointsOf(url)[0]!, apiKey, apiSecret },
+      })
     : null;
 };
 
@@ -44,7 +49,7 @@ export const composeStage = (app: App) => {
         app.database.recordingCaptures.readStage(id),
     },
     observerToken: egress.observerToken,
-    livekitUrl: url,
+    livekitUrl: mediaEndpointsOf(url)[0]!,
     now: () => Date.parse(app.clock.now()),
     nextId: () => app.ids.next(),
   });

@@ -19,6 +19,7 @@ test('media boundary refuses identity claims, foreign origins, anonymous callers
     version: 1 as const,
     roundId: id,
     state: 'unavailable' as const,
+    mediaRoomName: 'm'.repeat(24),
     grants: {
       publish: [],
       subscribe: false,

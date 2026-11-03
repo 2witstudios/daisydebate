@@ -28,6 +28,7 @@ export function connectionOf(state: MediaState): MediaConnectionLabel {
     case 'live':
       if (link.establishment.stage === 'establishing')
         return link.establishment.reconnecting ? 'reconnecting' : 'connecting';
+      if (link.transport === 'resuming') return 'reconnecting';
       return link.establishment.freshness.status === 'stale'
         ? 'out-of-date'
         : 'live';
@@ -168,6 +169,8 @@ export function statusOf(state: MediaState): {
       retry: false,
     };
   }
+  if (live.transport === 'resuming')
+    return { message: connectingMessage.reconnecting, retry: false };
   const stale = live.establishment.freshness.status === 'stale';
   const missing = missingOf(live);
   const bad = illHealthOf(live);

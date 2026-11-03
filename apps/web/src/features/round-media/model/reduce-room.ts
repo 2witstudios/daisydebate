@@ -7,7 +7,9 @@ import type {
   Source,
   SourceState,
 } from './media-state';
+import { SOURCES } from './media-state';
 import {
+  cancel,
   moved,
   prepend,
   rejected,
@@ -41,6 +43,7 @@ const reduceConnected = (
     phase: 'live',
     connection: link.connection,
     identity: link.identity,
+    mediaRoomName: link.mediaRoomName,
     establishment: { stage: 'establishing', reconnecting: link.reconnecting },
     grants: [],
     permission: event.permission,
@@ -49,6 +52,7 @@ const reduceConnected = (
     peers: [],
     sound: 'allowed',
     changingMicrophone: false,
+    transport: 'steady',
     reads: { flight: null, next: 'wanted', supersededSinceAnswer: 0 },
     apply: null,
   };
@@ -255,6 +259,37 @@ export const reduceRoom = (
       return sound === link.sound
         ? rejected(state)
         : moved(withLive(state, { ...link, sound }));
+    }
+    case 'transport-resuming':
+      return link.transport === 'resuming'
+        ? rejected(state)
+        : {
+            state: withLive(state, { ...link, transport: 'resuming' }),
+            effects: [schedule('resume-budget', ctx.policy.resumeBudgetMs)],
+          };
+    case 'transport-resumed': {
+      if (link.transport === 'steady') return rejected(state);
+      // A refused renegotiation resumes too. The SDK removed that publication before
+      // rejecting, so nothing is stale now and no one should have to press Retry.
+      const sources = { ...link.sources };
+      for (const name of SOURCES)
+        if (sources[name].phase === 'stale-publication')
+          sources[name] = { phase: 'off' };
+      const converged = convergeSources(
+        { ...link, sources, transport: 'steady' },
+        desiredSources(link),
+        state.devices === 'defaults',
+        ctx.atMs,
+      );
+      // A grant may have moved while the signal was away: read it before trusting it.
+      return prepend(
+        [
+          cancel('resume-budget'),
+          { type: 'refresh-view' },
+          ...converged.effects,
+        ],
+        requestRead(state, converged.live),
+      );
     }
     default: {
       const unknown: never = event;

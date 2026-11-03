@@ -285,6 +285,99 @@ test('network loss during a live speech restores peer sound and video without Re
   }
 });
 
+test('a signal blip resumes the same connection with its tracks, says so, and needs no admission', async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const accounts = await createRoomLaunchAccounts(browser, 2);
+  try {
+    const { round, speaker, listener } = await grantedDebaters(
+      accounts.members,
+    );
+    const source = await openPage(speaker.context, 'blipping speaker');
+    const peer = await openPage(listener.context, 'watching opponent');
+    // setOffline leaves live sockets up for a long while, so the blip is made directly.
+    await source.addInitScript(() => {
+      const Native = window.WebSocket;
+      const held: WebSocket[] = [];
+      (window as never as { daisySignal: WebSocket[] }).daisySignal = held;
+      window.WebSocket = new Proxy(Native, {
+        construct(target, args: [string, string?]) {
+          const socket = new target(...args);
+          if (String(args[0]).includes('/rtc')) held.push(socket);
+          return socket;
+        },
+      });
+    });
+    await Promise.all([
+      source.goto(`/rounds/${round.id}/room`),
+      peer.goto(`/rounds/${round.id}/room`),
+    ]);
+    await Promise.all([expectConnected(source), expectConnected(peer)]);
+    await peer
+      .getByRole('button', { name: 'Enable sound', exact: true })
+      .click();
+    await expectPeerCamera(peer);
+    const camera = await source
+      .getByLabel('Your camera', { exact: true })
+      .evaluateHandle(
+        (node) =>
+          (
+            (node as HTMLVideoElement).srcObject as MediaStream
+          ).getVideoTracks()[0]!,
+      );
+    const admissions = countMediaAdmissions(source);
+    // A resume can finish in milliseconds, so the page records what its status said.
+    const said = await source.evaluateHandle(() => {
+      const seen = new Set<string>();
+      const look = () => {
+        for (const node of document.querySelectorAll('[role="status"]'))
+          seen.add(node.textContent ?? '');
+      };
+      new MutationObserver(look).observe(document.body, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      });
+      return seen;
+    });
+    const reread = source.waitForRequest((request) =>
+      new URL(request.url()).pathname.endsWith('/media/reconcile'),
+    );
+    await source.evaluate(() => {
+      const { daisySignal } = window as never as { daisySignal: WebSocket[] };
+      daisySignal.at(-1)!.close();
+    });
+    await expect
+      .poll(
+        () =>
+          said.evaluate((seen) =>
+            [...seen].some((text) => text.includes('Reconnecting camera')),
+          ),
+        { timeout: 5_000 },
+      )
+      .toBe(true);
+    await reread;
+    await expectConnected(source);
+    await expectPeerCamera(peer);
+    expect(await camera.evaluate((track) => track.readyState)).toBe('live');
+    expect(
+      await source
+        .getByLabel('Your camera', { exact: true })
+        .evaluate(
+          (node, held) =>
+            ((node as HTMLVideoElement).srcObject as MediaStream)
+              .getVideoTracks()
+              .includes(held),
+          camera,
+        ),
+    ).toBe(true);
+    expect(admissions()).toBe(0);
+  } finally {
+    await closeSettledLaunchContexts(accounts);
+  }
+});
+
 test('every admission stalling is bounded by its deadline, paced, and recovers without Retry', async ({
   browser,
 }) => {

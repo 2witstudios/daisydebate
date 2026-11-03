@@ -11,6 +11,7 @@ export const admission: RoundMediaAdmission = {
   version: 1,
   roundId,
   state: 'ready',
+  mediaRoomName: 'm'.repeat(24),
   grants: {
     publish: ['camera', 'microphone'],
     subscribe: true,
@@ -27,6 +28,7 @@ export const admission: RoundMediaAdmission = {
 export const snapshot = {
   version: admission.version,
   roundId,
+  mediaRoomName: admission.mediaRoomName,
   state: admission.state,
   grants: admission.grants,
   peers: admission.peers,

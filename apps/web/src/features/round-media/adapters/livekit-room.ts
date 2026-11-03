@@ -19,6 +19,24 @@ import type { ObservedTrack, Source } from '../model/media-state';
 import { preferenceFailureOf, sourceFailureOf } from '../source-failure';
 import { cameraResolution } from './camera-resolution';
 
+/** How long a connection may try to resume before it counts as a drop. */
+export const RESUME_BUDGET_MS = 5_000;
+const RESUME_DELAYS_MS = [0, 300, 1_000, 1_500];
+/**
+ * A blip resumes the same connection with its tracks. Past the budget the SDK gives up,
+ * and the drop joins the one recovery loop, so a dead node still rejoins within its bar.
+ */
+export const resumeDelayMs = ({
+  retryCount,
+  elapsedMs,
+}: {
+  readonly retryCount: number;
+  readonly elapsedMs: number;
+}): number | null =>
+  elapsedMs >= RESUME_BUDGET_MS
+    ? null
+    : (RESUME_DELAYS_MS[retryCount] ?? RESUME_DELAYS_MS.at(-1)!);
+
 /** The SDK surface used: livekit-client in the browser, a stub in tests. */
 export type MediaSdk = {
   readonly room: () => Room;
@@ -39,7 +57,7 @@ const livekit: MediaSdk = {
         simulcast: true,
         videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
       },
-      reconnectPolicy: { nextRetryDelayInMs: () => null },
+      reconnectPolicy: { nextRetryDelayInMs: resumeDelayMs },
       // The media mount owns page exit; an SDK disconnect here reads as an outage.
       disconnectOnPageLeave: false,
     }),
@@ -180,6 +198,14 @@ export function createLiveKitRoom(
     .on(RoomEvent.LocalTrackUnpublished, observe)
     .on(RoomEvent.ActiveSpeakersChanged, observe)
     .on(RoomEvent.AudioPlaybackStatusChanged, playback)
+    // A signal resume says SignalReconnecting; a full restart or the browser going
+    // offline says Reconnecting. The model ignores whichever comes second.
+    .on(RoomEvent.SignalReconnecting, () => say({ type: 'transport-resuming' }))
+    .on(RoomEvent.Reconnecting, () => say({ type: 'transport-resuming' }))
+    .on(RoomEvent.Reconnected, () => {
+      say({ type: 'transport-resumed' });
+      observe();
+    })
     .on(RoomEvent.Connected, peersMoved)
     .on(RoomEvent.ParticipantConnected, peersMoved)
     .on(RoomEvent.ParticipantDisconnected, peersMoved)

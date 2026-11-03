@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { readBrowserConfig, readServerConfig, secretConfigKeys } from './index';
+import {
+  mediaEndpointsOf,
+  readBrowserConfig,
+  readServerConfig,
+  secretConfigKeys,
+} from './index';
 setupRitewayBun();
 const baseline = {
   NODE_ENV: 'test',
@@ -70,12 +75,36 @@ test('internal media signing key is optional, canonical and redacted', () => {
     });
   }
 });
+test('a node list is one endpoint per node, and one entry is a valid list', () => {
+  const config = readServerConfig({
+    ...baseline,
+    ...media,
+    LIVEKIT_URL: 'https://a.invalid,https://b.invalid',
+    LIVEKIT_PUBLIC_URL: 'wss://a.invalid,wss://b.invalid',
+  });
+  assert({
+    given: 'two nodes, then a single node',
+    should: 'read them in order',
+    actual: [
+      mediaEndpointsOf(config.LIVEKIT_PUBLIC_URL!),
+      mediaEndpointsOf(media.LIVEKIT_URL),
+    ],
+    expected: [['wss://a.invalid', 'wss://b.invalid'], [media.LIVEKIT_URL]],
+  });
+});
 test('media configuration refuses invalid schemes and credential-bearing URLs safely', () => {
   for (const value of [
     { LIVEKIT_URL: 'private malformed endpoint' },
     { LIVEKIT_URL: 'file:///private' },
     { LIVEKIT_URL: 'http://private-secret@localhost:7880' },
     { LIVEKIT_PUBLIC_URL: 'http://localhost:7880' },
+    { LIVEKIT_URL: 'http://127.0.0.1:7880,file:///private' },
+    { LIVEKIT_URL: 'http://127.0.0.1:7880,' },
+    { LIVEKIT_URL: 'http://127.0.0.1:7880, http://127.0.0.1:7881' },
+    {
+      LIVEKIT_URL: 'http://127.0.0.1:7880,http://127.0.0.1:7881',
+      LIVEKIT_PUBLIC_URL: 'ws://localhost:7880',
+    },
     { LIVEKIT_API_SECRET: 'private secret' },
   ]) {
     let message = 'accepted';

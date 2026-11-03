@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { seatMicrophoneCaption } from './seat-caption';
-import { mediaStatus } from './media-state.test-support';
+import { connectionOf, statusOf } from './media-status';
+import { liveLink, mediaStatus, stateWith } from './media-state.test-support';
 
 setupRitewayBun();
 
@@ -167,5 +168,18 @@ test('a missing device offers Retry only while there is a connection to fix', ()
       mediaStatus('unavailable', ['camera'], { failure: 'refused' }).retry,
     ],
     expected: [true, false, false],
+  });
+});
+
+test('a connection resuming after a blip says so, and offers no Retry', () => {
+  const state = stateWith({ ...liveLink(), transport: 'resuming' });
+  assert({
+    given: 'a live connection the SDK is resuming',
+    should: 'read as reconnecting, whatever its grants say',
+    actual: [connectionOf(state), statusOf(state)],
+    expected: [
+      'reconnecting',
+      { message: 'Reconnecting camera and sound…', retry: false },
+    ],
   });
 });

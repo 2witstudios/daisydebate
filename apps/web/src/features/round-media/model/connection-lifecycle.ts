@@ -8,6 +8,7 @@ const CONNECTION_TIMERS = [
   'admission-retry',
   'read-retry',
   'read-budget',
+  'resume-budget',
   'read-let-finish',
   'capture-patience',
   'recovery',

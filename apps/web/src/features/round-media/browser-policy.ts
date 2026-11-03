@@ -30,10 +30,18 @@ const isStagePage = (path: string) => /^\/stage\/[^/]+$/.test(path);
 
 export function roundMediaOrigins(
   path: string,
-  endpoint: string | null | undefined,
+  endpoints: readonly string[],
   development: boolean,
 ): readonly string[] {
-  if (!(isRoundMediaPage(path) || isStagePage(path)) || !endpoint) return [];
+  if (!(isRoundMediaPage(path) || isStagePage(path))) return [];
+  // Every node in the list: a Round may be sent to any of them.
+  return endpoints.flatMap((entry) => nodeOrigins(entry, development));
+}
+
+function nodeOrigins(
+  endpoint: string,
+  development: boolean,
+): readonly string[] {
   try {
     const url = new URL(endpoint);
     if (

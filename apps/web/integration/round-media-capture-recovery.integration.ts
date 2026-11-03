@@ -1,4 +1,4 @@
-import { mediaWindowClosed } from '@daisy/debate-engine';
+import { mediaRoomFate, mediaWindowClosed } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -52,6 +52,7 @@ test('a capture token for a safe live session is issued while a foreign reconcil
     );
     const granted = await broker.captureToken(scope, principal);
     await sessions.finishMediaReconcile({
+      roomFate: mediaRoomFate(6_000),
       mediaWindowClosed,
       ...fence,
       absenceProof: null,

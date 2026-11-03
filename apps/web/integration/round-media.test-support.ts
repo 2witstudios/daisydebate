@@ -9,6 +9,7 @@ import { createMediaService } from '@daisy/media';
 import { createLogger } from '@daisy/logger';
 import { noopErrorReporter, withTimeout } from '@daisy/observability';
 import { createCaptureHeardRelay } from '../src/features/media-capture/heard-relay';
+import type { MediaOperationInput } from '../src/features/round-media/operation-context';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
 import { withRoomRuntime } from './room-runtime.test-support';
@@ -21,7 +22,9 @@ export const localMediaConfig = {
 };
 export const mediaDependencies = (
   fixture: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
-  media = createMediaService({ config: localMediaConfig }),
+  media: MediaOperationInput['media'] = createMediaService({
+    config: localMediaConfig,
+  }),
 ) => ({
   priority: createAdmissionPriority({
     deadline: (work) => withTimeout(work, MEDIA_ADMISSION_HINT_TIMEOUT_MS),
@@ -39,8 +42,10 @@ export const mediaDependencies = (
       })),
   },
   media,
-  publicUrl: 'wss://localhost.invalid',
-  workerUrl: 'ws://127.0.0.1:7880',
+  urlsFor: () => ({
+    publicUrl: 'wss://localhost.invalid',
+    workerUrl: 'ws://127.0.0.1:7880',
+  }),
   nextId: createId,
   reporter: noopErrorReporter,
   logger: createLogger({ service: 'round-media-proof', level: 'silent' }),
@@ -231,7 +236,7 @@ export function hearRoundTracks(
         const [session] =
           await f.sql`select room_name from media_sessions where round_id=${roundId}`;
         await room.connect(
-          deps.workerUrl,
+          deps.urlsFor().workerUrl,
           await deps.media.joinToken({
             room: session.room_name,
             identity: createId(),

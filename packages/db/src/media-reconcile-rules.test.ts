@@ -169,7 +169,7 @@ test('unresolved vendor state admits only teardown mutations', async () => {
     });
 });
 
-test('completion releases the lease and ends only a cleaned terminal session', () => {
+test('completion releases the lease and ends a session only on its fate', () => {
   const session = {
     reconcileRunningVersion: 7,
     endedAt: null,
@@ -185,37 +185,42 @@ test('completion releases the lease and ends only a cleaned terminal session', (
   };
   assert({
     given:
-      'live uncleaned, terminal uncleaned, terminal cleaned, an already-ended session and a live clean recovery',
+      'a live room kept, a terminal room kept, a terminal room ended, an already-ended session and a live clean recovery',
     should:
-      'serve the version, request deletion when terminal, clear unsafe or end only once cleaned, and end a live unsafe episode with its deletion request (ISSUE-465)',
+      'serve the version, request deletion when terminal, clear unsafe or end only on a settled fate, and end a live unsafe episode with its deletion request (ISSUE-465)',
     actual: [
       reconcileCompletion(session, now, {
         terminal: false,
         unresolved: false,
-        cleaned: false,
+        fate: { kind: 'keep' },
         clean: true,
       }),
       reconcileCompletion(session, now, {
         terminal: true,
         unresolved: false,
-        cleaned: false,
+        fate: { kind: 'keep' },
         clean: true,
       }),
       reconcileCompletion(session, now, {
         terminal: true,
         unresolved: false,
-        cleaned: true,
+        fate: { kind: 'end' },
         clean: true,
       }),
       reconcileCompletion(
         { ...session, endedAt: at(-2), deletionRequestedAt: at(-3) },
         now,
-        { terminal: true, unresolved: false, cleaned: true, clean: true },
+        {
+          terminal: true,
+          unresolved: false,
+          fate: { kind: 'end' },
+          clean: true,
+        },
       ),
       reconcileCompletion({ ...session, deletionRequestedAt: at(-5) }, now, {
         terminal: false,
         unresolved: false,
-        cleaned: true,
+        fate: { kind: 'clear' },
         clean: true,
       }),
     ],
@@ -266,7 +271,7 @@ test('a never-unsafe session is safe only without unresolved mutations', () => {
         reconcileCompletion(session, now, {
           terminal: false,
           unresolved,
-          cleaned: false,
+          fate: { kind: 'keep' },
           clean: true,
         }).result,
     ),
@@ -284,7 +289,11 @@ test('a completion records whether the pass finished its work', () => {
     deletionRequestedAt: null,
     unsafeAt: null,
   };
-  const outcome = { terminal: false, unresolved: false, cleaned: false };
+  const outcome = {
+    terminal: false,
+    unresolved: false,
+    fate: { kind: 'keep' } as const,
+  };
   assert({
     given: 'a pass that did not finish, then one that did',
     should: 'record each on the session for the recovery tick to read',

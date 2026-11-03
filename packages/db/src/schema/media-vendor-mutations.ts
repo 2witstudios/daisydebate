@@ -36,7 +36,8 @@ export const mediaVendorMutations = pgTable(
       .notNull()
       .default(sql`statement_timestamp()`),
     settledAt: timestampColumn('settled_at'),
-    outcome: text('outcome', { enum: ['succeeded', 'failed'] }),
+    // `superseded`: its room was retired with the outcome still unknown (ADR 0110).
+    outcome: text('outcome', { enum: ['succeeded', 'failed', 'superseded'] }),
     payload: jsonbColumn('payload', intentSchema).notNull(),
   },
   (table) => [
@@ -59,7 +60,7 @@ export const mediaVendorMutations = pgTable(
     ),
     check(
       'media_vendor_mutations_settlement_check',
-      sql`(${table.settledAt} is null) = (${table.outcome} is null) and (${table.outcome} is null or ${table.outcome} in ('succeeded','failed')) and (${table.settledAt} is null or ${table.settledAt} >= ${table.dispatchedAt})`,
+      sql`(${table.settledAt} is null) = (${table.outcome} is null) and (${table.outcome} is null or ${table.outcome} in ('succeeded','failed','superseded')) and (${table.settledAt} is null or ${table.settledAt} >= ${table.dispatchedAt})`,
     ),
     check(
       'media_vendor_mutations_payload_check',

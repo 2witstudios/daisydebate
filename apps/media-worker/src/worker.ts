@@ -52,7 +52,9 @@ export async function startMediaWorker(input: {
   }
   const supervisor = createCaptureSupervisor({
     maxSessions: config!.MEDIA_WORKER_MAX_SESSIONS,
-    retryMs: { initial: 1000, max: 30000 },
+    // The wait after an exit; detection and reconnection are not bounded here.
+    retryMs: { initial: 1000, max: 8000 },
+    heldMs: 30000,
     nowMs: performance.now,
     nextWorkerId: () => systemId.next(),
     discover: database.discoverCaptureSessions,

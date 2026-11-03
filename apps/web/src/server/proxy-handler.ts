@@ -40,7 +40,8 @@ export type ProxySettings = {
   /** `PUBLIC_APP_URL`. */
   readonly publicAppUrl: string;
   readonly websocketEndpoint?: string | null;
-  readonly mediaPublicUrl?: string | null;
+  /** Every LiveKit node's public URL. */
+  readonly mediaPublicUrls?: readonly string[];
   /** `BROADCAST_PUBLIC_ORIGIN`: where a Broadcast's public feed is read. */
   readonly broadcastPublicOrigin?: string | null;
   /** `RECORDING_BUCKET_ENDPOINT`: where a signed Recording read points. */
@@ -155,7 +156,7 @@ function contentSecurityPolicy(
   const { development } = settings;
   const mediaOrigins = roundMediaOrigins(
     pathname,
-    settings.mediaPublicUrl,
+    settings.mediaPublicUrls ?? [],
     development,
   );
   const posthog = posthogSources(settings.analyticsHost);

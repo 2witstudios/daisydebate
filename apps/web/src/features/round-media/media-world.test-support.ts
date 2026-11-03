@@ -1,3 +1,4 @@
+import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { MediaSnapshot } from './projection';
 import {
@@ -223,30 +224,43 @@ export function createMediaWorld(
     markMediaUnsafe: async () => {
       unsafeAt ??= now;
     },
-    prepareMediaAbsenceProof: async (fence: object) =>
-      pending.size ? null : { ...fence, settledMutationCount: mutations },
+    prepareMediaAbsenceProof: async (fence: object) => ({
+      ...fence,
+      mutationHorizon: mutations,
+    }),
     finishMediaReconcile: async (request: {
-      absenceProof: { settledMutationCount: number } | null;
+      absenceProof: { mutationHorizon: number } | null;
+      roomFate: (facts: MediaRoomFacts) => MediaRoomFate;
     }) => {
       served = running;
       leaseOwner = options.reclaimedAfterFinish ? 'recovery-worker' : null;
-      const cleaned =
-        pending.size === 0 &&
-        request.absenceProof?.settledMutationCount === mutations;
       const terminal = ['completed', 'abandoned'].includes(status);
-      if (cleaned) {
+      const kept = bindings.filter((binding) =>
+        eligible.get(binding.roundParticipantId),
+      );
+      const fate = request.roomFate({
+        nowMs: 0,
+        terminal,
+        ended: endedAt !== null,
+        absenceProven: request.absenceProof?.mutationHorizon === mutations,
+        seatRevoked: kept.length !== bindings.length,
+        uncertainSinceMs: unsafeAt !== null || pending.size > 0 ? 0 : null,
+      });
+      const uncertain = unsafeAt !== null || pending.size > 0;
+      if (fate.kind !== 'keep') {
+        pending.clear();
         unsafeAt = null;
-        if (terminal) endedAt ??= now;
-        else {
-          const kept = bindings.filter((binding) =>
-            eligible.get(binding.roundParticipantId),
-          );
-          if (kept.length !== bindings.length) {
-            bindings.splice(0, bindings.length, ...kept);
-            roomName = nextId();
-          }
-        }
       }
+      if (fate.kind === 'end') endedAt ??= now;
+      if (fate.kind === 'rotate') {
+        bindings.splice(0, bindings.length, ...kept);
+        roomName = nextId();
+      }
+      return {
+        safe: fate.kind !== 'keep' || !uncertain,
+        ended: fate.kind === 'end',
+        fate,
+      };
     },
     ensureBinding: async (input: { caller: Caller }) => {
       if (['completed', 'abandoned'].includes(status))
@@ -317,8 +331,10 @@ export function createMediaWorld(
     priority,
     store,
     media,
-    publicUrl: 'wss://media.daisy.invalid',
-    workerUrl: 'ws://worker.daisy.invalid',
+    urlsFor: () => ({
+      publicUrl: 'wss://media.daisy.invalid',
+      workerUrl: 'ws://worker.daisy.invalid',
+    }),
     nextId,
     reporter: { capture: (error: unknown) => void reported.push(error) },
     logger: {

@@ -17,6 +17,7 @@ import type { SourceFailureKind } from '../source-failure';
 export const testPolicy: MediaPolicy = {
   requestRetryDelaysMs: [500, 1_000, 2_000],
   readBudgetMs: 43_500,
+  resumeBudgetMs: 5_000,
 
   capturePatienceMs: 3_000,
   recoveryDelaysMs: [1_000, 2_000, 4_000, 8_000, 10_000],
@@ -35,6 +36,7 @@ export const liveLink = (
   phase: 'live',
   connection: 1,
   identity: 'seat',
+  mediaRoomName: snapshot.mediaRoomName,
   establishment: {
     stage: 'established',
     media: answerWith([]),
@@ -47,6 +49,7 @@ export const liveLink = (
   peers: [],
   sound: 'allowed',
   changingMicrophone: false,
+  transport: 'steady',
   reads: { flight: null, next: 'none', supersededSinceAnswer: 0 },
   apply: null,
   ...overrides,

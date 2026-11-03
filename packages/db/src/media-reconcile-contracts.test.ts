@@ -4,7 +4,7 @@ import { proofMatches } from './media-reconcile-contracts';
 setupRitewayBun();
 
 const fence = { sessionId: 'session', owner: 'worker', epoch: 2 };
-const proof = { ...fence, settledMutationCount: 3 };
+const proof = { ...fence, mutationHorizon: 3 };
 
 test('an absence proof counts only for its own fence and unchanged mutation horizon', () => {
   assert({

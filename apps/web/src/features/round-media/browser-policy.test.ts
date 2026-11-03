@@ -1,8 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   isRoundMediaHref,
-  roundMediaOrigins,
   mediaDocumentStale,
+  roundMediaOrigins,
 } from './browser-policy';
 setupRitewayBun();
 
@@ -75,6 +75,19 @@ describe('mediaDocumentStale', () => {
   });
 });
 
+test('every node in the list may be connected to from a media page', () => {
+  assert({
+    given: 'two nodes',
+    should: 'allow both, in order',
+    actual: roundMediaOrigins(
+      '/rounds/abc',
+      ['wss://a.invalid', 'wss://b.invalid'],
+      false,
+    ).filter((origin) => origin.startsWith('wss:')),
+    expected: ['wss://a.invalid', 'wss://b.invalid'],
+  });
+});
+
 describe('roundMediaOrigins', () => {
   test('the Broadcast stage reaches LiveKit, and gets no capture page status', () => {
     const endpoint = 'wss://livekit.daisy.invalid';
@@ -82,9 +95,9 @@ describe('roundMediaOrigins', () => {
       given: 'the stage page, a sub-path of it, and a page with no media',
       should: 'name LiveKit for the stage alone',
       actual: [
-        roundMediaOrigins('/stage/b1', endpoint, false),
-        roundMediaOrigins('/stage/b1/x', endpoint, false),
-        roundMediaOrigins('/watch/r1', endpoint, false),
+        roundMediaOrigins('/stage/b1', [endpoint], false),
+        roundMediaOrigins('/stage/b1/x', [endpoint], false),
+        roundMediaOrigins('/watch/r1', [endpoint], false),
       ],
       expected: [
         ['wss://livekit.daisy.invalid', 'https://livekit.daisy.invalid'],
