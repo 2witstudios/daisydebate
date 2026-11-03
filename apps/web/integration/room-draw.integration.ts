@@ -1,4 +1,4 @@
-import { readRoundOpening } from '@daisy/debate-engine';
+import { captureRule, readRoundOpening } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -82,6 +82,7 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
       authorize: () => true,
       authorizeTranscript: () => false,
       readOpening: readRoundOpening,
+      captureRule,
     });
     assert({
       given:
