@@ -66,7 +66,7 @@ test('a same-origin member export answers the JSON download (ISSUE-833)', async 
     expected: [
       [{ userId: 'u'.repeat(24), actorId: 'a'.repeat(24) }],
       200,
-      'application/json',
+      'application/octet-stream',
       `attachment; filename="daisy-export-${'u'.repeat(24)}.json"`,
     ],
   });
