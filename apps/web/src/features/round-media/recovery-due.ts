@@ -31,8 +31,8 @@ export type RecoverySession = {
   readonly unsafe: boolean;
   /** The last pass finished its work; a failed one leaves the Round due. */
   readonly lastPassClean: boolean;
-  /** A claim would succeed now: no live lease and past the minimum interval. */
-  readonly claimable: boolean;
+  /** What a claim would wait for now; null means it would succeed. */
+  readonly claimWait: 'lease' | 'interval' | null;
   readonly clock: FloorClock;
 };
 type RecoveryNeed = 'overdue' | 'floor' | 'repair' | 'heartbeat';
@@ -68,7 +68,7 @@ export const recoveryNeed = (
   heartbeatMs: number,
 ): RecoveryNeed | null => {
   // Starting now would only poll the lease with a transaction every 25 ms.
-  if (!session.claimable) return null;
+  if (session.claimWait !== null) return null;
   if (session.lastPassAt === null) return 'repair';
   const lastPassMs = Date.parse(session.lastPassAt);
   const sinceLastPassMs = Date.parse(session.now) - lastPassMs;
@@ -86,16 +86,7 @@ export const recoveryNeed = (
     return 'repair';
   return sinceLastPassMs >= heartbeatMs ? 'heartbeat' : null;
 };
-/**
- * Which sessions this tick starts, up to the free capacity. A session qualifies
- * with a need and no recovery running here. The order is: the Round overdue the
- * longest, then floors that must move, then the other overdue Rounds, oldest
- * first, then repairs, then heartbeats. So at most one overdue Round goes ahead
- * of a floor each tick, which keeps floors moving and still gives every overdue
- * Round its turn. With exactly one free slot and an overdue Round, that Round
- * takes the slot and a floor waits for the next tick.
- */
-export type FloorWait = 'leased' | 'running' | 'capacity';
+export type FloorWait = 'lease' | 'interval' | 'running' | 'capacity';
 /** Each Round with a floor due that this tick did not start, and what held it. */
 export const waitingFloors = (
   sessions: readonly RecoverySession[],
@@ -107,14 +98,19 @@ export const waitingFloors = (
 }[] =>
   sessions
     .filter((session) => floorDue(session) && !due.includes(session))
-    .map(({ roundId, claimable }) => ({
+    .map(({ roundId, claimWait }) => ({
       roundId,
-      cause: running.has(roundId)
-        ? 'running'
-        : claimable
-          ? 'capacity'
-          : 'leased',
+      cause: running.has(roundId) ? 'running' : (claimWait ?? 'capacity'),
     }));
+/**
+ * Which sessions this tick starts, up to the free capacity. A session qualifies
+ * with a need and no recovery running here. The order is: the Round overdue the
+ * longest, then floors that must move, then the other overdue Rounds, oldest
+ * first, then repairs, then heartbeats. So at most one overdue Round goes ahead
+ * of a floor each tick, which keeps floors moving and still gives every overdue
+ * Round its turn. With exactly one free slot and an overdue Round, that Round
+ * takes the slot and a floor waits for the next tick.
+ */
 export const recoveryDue = <S extends RecoverySession>(
   sessions: readonly S[],
   running: ReadonlySet<string>,

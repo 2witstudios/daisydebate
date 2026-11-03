@@ -61,8 +61,8 @@ test('a reconcile claim waits for a live owner and the minimum interval', () => 
         .kind,
     ],
     expected: [
-      { kind: 'wait', retryAt: at(10).toISOString() },
-      { kind: 'wait', retryAt: at(1).toISOString() },
+      { kind: 'wait', reason: 'lease', retryAt: at(10).toISOString() },
+      { kind: 'wait', reason: 'interval', retryAt: at(1).toISOString() },
       'claim',
     ],
   });

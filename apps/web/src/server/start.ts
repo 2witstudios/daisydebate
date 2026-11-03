@@ -1,4 +1,4 @@
-import { capacityRefusalFields } from '@daisy/db/capacity';
+import { recoveryFailureFields } from '../features/round-media/recovery-failure';
 import { mediaConfigured } from './round-worker-policy';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
@@ -80,7 +80,7 @@ const mediaRecovery = mediaRuntime
           {
             operation: 'round.media.recovery',
             errorCode: 'INFRASTRUCTURE',
-            ...capacityRefusalFields(error),
+            ...recoveryFailureFields(error),
           },
           'Media recovery remains pending',
         ),

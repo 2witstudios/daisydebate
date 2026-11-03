@@ -49,7 +49,7 @@ const activeSession = (row: ActiveSessionRow) => {
     finalSegmentEndedAt: row.final_segment_ended_at?.toISOString() ?? null,
     unsafe: row.unsafe_at !== null || row.deletion_requested_at !== null,
     lastPassClean: row.reconcile_last_pass_clean,
-    claimable:
+    claimWait: claimWaitOf(
       reconcileClaim(
         {
           reconcileOwner: row.reconcile_owner,
@@ -61,7 +61,8 @@ const activeSession = (row: ActiveSessionRow) => {
         },
         row.now,
         false,
-      ).kind === 'claim',
+      ),
+    ),
     clock: {
       startedAt: row.started_at?.toISOString() ?? null,
       countdownMs: row.countdown_ms,
@@ -214,3 +215,7 @@ export function createMediaReconcileClaims(deps: {
     },
   };
 }
+
+/** What a claim on this session would wait for; null means it would succeed. */
+const claimWaitOf = (claim: ReturnType<typeof reconcileClaim>) =>
+  claim.kind === 'wait' ? claim.reason : null;

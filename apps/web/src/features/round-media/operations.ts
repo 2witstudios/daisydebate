@@ -16,6 +16,7 @@ import { listenIdentity } from './listen-identity';
 import { cancelMediaWork } from './cancel-media-work';
 import { createMediaReconcileRun } from './reconcile-run';
 import { floorDue, recoveryDue, waitingFloors } from './recovery-due';
+import { recoveryFailureFields } from './recovery-failure';
 import type {
   Store,
   Principal,
@@ -400,19 +401,27 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       const sessions = await input.store.activeMediaSessions();
       const listMs = input.now() - tickedAt;
       const due = recoveryDue(sessions, recovering, input.recoveryHeartbeatMs);
+      if (sessions.some(floorDue))
+        input.logger.log(
+          'round.media.floor_tick',
+          { durationMs: listMs },
+          'A tick read its sessions with a floor due',
+        );
       for (const { roundId, cause } of waitingFloors(sessions, recovering, due))
         input.logger.log(
           'round.media.floor_waiting',
-          { roundId, cause, listMs },
+          { roundId, cause },
           'A due floor waits for a later tick',
         );
       for (const session of due) recovering.add(session.roundId);
       await Promise.all(
         due.map(async (session) => {
           const startedAt = input.now();
+          let failure: ReturnType<typeof recoveryFailureFields> | null = null;
           try {
             await reconcile(session.roundId);
           } catch (error) {
+            failure = recoveryFailureFields(error);
             input.reporter.capture(error, {
               requestId: input.nextId(),
               route: '/api/rounds/:id/media/reconcile',
@@ -425,10 +434,10 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
                 'round.media.floor_pass',
                 {
                   roundId: session.roundId,
-                  listMs,
                   durationMs: input.now() - startedAt,
+                  ...failure,
                 },
-                'A tick moved a due floor',
+                'A tick ran a pass for a due floor',
               );
           }
         }),

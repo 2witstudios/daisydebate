@@ -1,4 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createLogger } from '@daisy/logger';
+import { refuseCapacity } from '@daisy/db/testing';
 import { createRoundMediaOperations } from './operations';
 import type { MediaOperationInput } from './operation-context';
 setupRitewayBun();
@@ -16,7 +18,7 @@ const held = () => {
           roundId,
           now: '2026-01-01T00:00:00.000Z',
           lastPassAt: null,
-          claimable: true,
+          claimWait: null,
         })),
       requestMediaReconcile: async ({ roundId }: { roundId: string }) => {
         started.push(roundId);
@@ -26,6 +28,8 @@ const held = () => {
     },
     reporter: { capture: () => undefined },
     nextId: () => 'id',
+    now: () => 0,
+    logger: { log: () => undefined },
     recoveryHeartbeatMs: 0,
   } as unknown as MediaOperationInput);
   return { gate, started, operations };
@@ -54,5 +58,78 @@ test('recovery starts at most one pass per Round, up to the cap, across ticks', 
     should: 'free their slots for the next passes',
     actual: started.length,
     expected: 8,
+  });
+});
+
+/** One due floor and one floor under a lease, through the real logger's allowlist. */
+const logged = async (pass: () => Promise<unknown>) => {
+  let output = '';
+  const lines = () =>
+    output
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+  const floor = {
+    now: '2026-01-01T00:00:10.000Z',
+    lastPassAt: '2026-01-01T00:00:00.000Z',
+    roundChangedAt: '2026-01-01T00:00:05.000Z',
+    roundStatus: 'active',
+    finalSegmentEndedAt: null,
+    unsafe: false,
+    lastPassClean: true,
+    clock: { startedAt: null, countdownMs: 0, lastSegment: null },
+  };
+  let clock = 0;
+  const operations = createRoundMediaOperations({
+    store: {
+      activeMediaSessions: async () => [
+        { ...floor, roundId: 'free', claimWait: null },
+        { ...floor, roundId: 'held', claimWait: 'lease' },
+      ],
+      requestMediaReconcile: pass,
+    },
+    reporter: { capture: () => undefined },
+    nextId: () => 'id',
+    now: () => (clock += 7),
+    logger: createLogger({
+      service: 'test',
+      destination: {
+        write: (text) => {
+          output += text;
+        },
+      },
+    }),
+    recoveryHeartbeatMs: 2_000,
+  } as unknown as MediaOperationInput);
+  await operations.recoverActiveSessions();
+  return lines();
+};
+
+test('a tick logs what held a due floor and how its pass went', async () => {
+  const [tick, waiting, pass] = await logged(async () => {
+    throw refuseCapacity({ lane: 'competitive', reason: 'saturated' });
+  });
+  assert({
+    given: 'a tick with a floor due',
+    should: 'log how long its list read took',
+    actual: [tick?.event, tick?.durationMs],
+    expected: ['round.media.floor_tick', 7],
+  });
+  assert({
+    given: 'a floor under a lease',
+    should: 'name the lease',
+    actual: [waiting?.event, waiting?.roundId, waiting?.cause],
+    expected: ['round.media.floor_waiting', 'held', 'lease'],
+  });
+  assert({
+    given: 'a floor pass a lane refused',
+    should: 'log the refusal on the pass, with its duration',
+    actual: [pass?.event, pass?.roundId, pass?.cause, typeof pass?.durationMs],
+    expected: [
+      'round.media.floor_pass',
+      'free',
+      'competitive.saturated',
+      'number',
+    ],
   });
 });

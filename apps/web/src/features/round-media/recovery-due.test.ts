@@ -19,7 +19,7 @@ const idle = (over: Partial<RecoverySession> = {}): RecoverySession => ({
   roundStatus: 'active',
   finalSegmentEndedAt: null,
   unsafe: false,
-  claimable: true,
+  claimWait: null,
   lastPassClean: true,
   clock: {
     startedAt: at(0),
@@ -116,7 +116,7 @@ test('a Round no claim can start for costs no pass yet', () => {
     given: 'a floor that must move while a lease or the minimum interval holds',
     should: 'wait for a later tick instead of polling the lease',
     actual: recoveryNeed(
-      idle({ roundChangedAt: at(11), claimable: false }),
+      idle({ roundChangedAt: at(11), claimWait: 'lease' }),
       HEARTBEAT_MS,
     ),
     expected: null,
@@ -300,16 +300,19 @@ test('a tick spends its slots on floors first, then what is free', () => {
 });
 
 test('waitingFloors names what held each due floor this tick', () => {
-  const floor = (roundId: string, claimable = true) =>
-    idle({ roundId, claimable, roundChangedAt: at(10) });
+  const floor = (
+    roundId: string,
+    claimWait: RecoverySession['claimWait'] = null,
+  ) => idle({ roundId, claimWait, roundChangedAt: at(10) });
   const started = floor('started');
   assert({
     given:
-      'floors leased, running, out of capacity and started, and a quiet Round',
-    should: 'name the first three and leave the others out',
+      'floors under a lease, in the interval, running, out of capacity and started, and a quiet Round',
+    should: 'name the first four and leave the others out',
     actual: waitingFloors(
       [
-        floor('leased', false),
+        floor('leased', 'lease'),
+        floor('recent', 'interval'),
         floor('running'),
         floor('full'),
         started,
@@ -319,7 +322,8 @@ test('waitingFloors names what held each due floor this tick', () => {
       [started],
     ),
     expected: [
-      { roundId: 'leased', cause: 'leased' },
+      { roundId: 'leased', cause: 'lease' },
+      { roundId: 'recent', cause: 'interval' },
       { roundId: 'running', cause: 'running' },
       { roundId: 'full', cause: 'capacity' },
     ],
