@@ -237,5 +237,20 @@ test('capture admission closes at freeze, cutoff or a terminal Round', async () 
     should: 'refuse the worker',
     actual: () => requireLiveCaptureLease(new Date(t0), new Date(t0)),
     code: 'CONFLICT',
+    reason: 'lease-expired',
+  });
+});
+
+test('a seal refused for an open timeline names the word its worker resends on', async () => {
+  await assertRejects({
+    given: 'an open stream whose segment has not ended',
+    should: 'refuse as timeline-open, never a final refusal (VIDEO-4.1-r1)',
+    actual: () =>
+      sealAction({ state: 'open', chunkCount: 0, sealedChunkCount: null }, 0, {
+        segmentEnded: false,
+        required: [],
+      }),
+    code: 'CONFLICT',
+    reason: 'timeline-open',
   });
 });

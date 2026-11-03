@@ -1,3 +1,4 @@
+import { judgingJobRules } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -48,7 +49,7 @@ test('cached judging response retries actual shared completion without redispatc
                 new AbortController().signal,
               );
             } catch (error) {
-              if (isAppError(error)) refusals.push(error.message);
+              if (isAppError(error)) refusals.push(error.reason ?? error.code);
               throw error;
             }
           },
@@ -92,6 +93,8 @@ test('cached judging response retries actual shared completion without redispatc
         leaseMs: 60000,
         model: 'fixture-model',
         nextToken: () => randomBytes(32).toString('base64url'),
+        contractVersion: 'fixture-contract',
+        rules: judgingJobRules,
       },
     },
   );

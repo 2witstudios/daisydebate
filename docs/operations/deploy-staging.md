@@ -328,7 +328,7 @@ true` starts it again on the next request if it is ever found stopped.
   Check it at any time with `fly status -a daisy-debate-staging`: the one
   `app` machine is `started`, with 2 of 2 checks passing.
 - **The hourly retention sweep runs continuously.**
-  `apps/web/src/server/start.ts` starts `startRetentionSweep` (hourly
+  `apps/web/src/server/start.ts` starts the retention sweep (hourly
   `setInterval`, `runOnStart: true`) in-process, so expired verification,
   session, outbox and email rows and lapsed online-presence members are
   pruned every hour, and once more right after every deploy or restart.
@@ -693,8 +693,10 @@ fly deploy -a daisy-debate-staging --image <prior-image-ref>
 ```
 
 Rolling back the web image never rolls back the schema: migrations are
-forward-only and expand/contract, so the previous release still runs
-against the newer schema. Do not redeploy the migrator app to roll back.
+forward-only. Staging does not stage them as expand/contract while it has no
+users (DEC-304), so the previous release may not run against the newer schema;
+read the PR's migration before rolling back across one, and prefer rolling
+forward with a fix. Do not redeploy the migrator app to roll back.
 
 Verify: `fly releases -a daisy-debate-staging` shows the rollback as the
 newest release, and step 7's health checks pass again.

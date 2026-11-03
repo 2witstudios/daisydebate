@@ -252,3 +252,46 @@ test('the claimed username, approved or waiting (ISSUE-690)', () => {
     expected: ['ada', 'ada', 'ada', 'ada', null, null],
   });
 });
+
+describe('resolveIdentity temporary failures', () => {
+  test('only a failure the adapter calls temporary is marked', async () => {
+    const refusal = new Error('refused');
+    const fail = (error: Error) => async () => {
+      throw error;
+    };
+    const resolve = (over: object) =>
+      resolveIdentity({
+        cookie: 'c',
+        now,
+        readSession: async () => session(),
+        readActor: async (userId) => ({ id: 'actor1', userId }),
+        readParticipation: async () => ({
+          betaState: 'approved',
+          ageBand: 'adult',
+        }),
+        isTemporary: (error) => error === refusal,
+        ...over,
+      });
+    const unavailable = {
+      state: 'unavailable',
+      principal: { kind: 'anonymous' },
+    };
+    assert({
+      given:
+        'a refused session read, a refused actor read, a failed read and no actor row',
+      should: 'mark only the two refusals temporary, holding no exception',
+      actual: [
+        await resolve({ readSession: fail(refusal) }),
+        await resolve({ readActor: fail(refusal) }),
+        await resolve({ readActor: fail(new Error('bug')) }),
+        await resolve({ readActor: async () => null }),
+      ],
+      expected: [
+        { ...unavailable, temporary: true },
+        { ...unavailable, temporary: true },
+        unavailable,
+        unavailable,
+      ],
+    });
+  });
+});

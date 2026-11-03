@@ -1,3 +1,4 @@
+import type { OperationName } from '../ops/operation-names';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
@@ -17,7 +18,7 @@ type Context = {
 /** Both membership writes retain the same native HTTP identity/origin/error boundary. */
 export function messagingGroupCommandRoute(
   app: App,
-  name: string,
+  name: OperationName,
   operation: (
     input: unknown,
     principal: AuthorizationPrincipal,

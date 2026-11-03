@@ -84,12 +84,14 @@ export type {
 } from './round';
 export {
   judgingAttemptCategories,
+  judgingAttemptOutcomes,
   judgingAttemptDiagnosticSchema,
   judgingBallotFields,
   judgingFinishes,
   judgingRecordedIssueLimit,
   judgingTerminalReasons,
   type JudgingAttemptCategory,
+  type JudgingAttemptOutcome,
   type JudgingAttemptDiagnostic,
   type JudgingFinish,
   type JudgingIssueCode,
@@ -278,7 +280,13 @@ export {
   type MessagingReactionPolicy,
 } from './messaging/reactions';
 
-export { roundCommandEnvelopeSchema } from './round-command';
+export {
+  roundCommandEnvelopeSchema,
+  roundRefusalSchema,
+} from './round-command';
+export { captureRefusalSchema } from './capture-refusal';
+export type { CaptureRefusal } from './capture-refusal';
+export type { RefusalReason } from './refusal-reason';
 export type {
   RoundCommandAuthority,
   RoundCommandEnvelope,
@@ -302,6 +310,7 @@ export {
 } from './round-media';
 export type { RoundMediaState, RoundMediaAdmission } from './round-media';
 export {
+  attendanceRefusalSchema,
   attendanceTimingPolicy,
   availabilityRecoveryPolicy,
   attendanceEnvelopeSchema,
@@ -407,6 +416,19 @@ export {
   analyticsConsentSchema,
   type AnalyticsConsent,
 } from './analytics-consent';
+export { judgingPolicy } from './judging-policy';
+export type {
+  AiSeatStanding,
+  HeldBallotFacts,
+  JudgingJobFacts,
+  JudgingPanel,
+  JudgingPanelFacts,
+  PanelRuling,
+  RoundEnding,
+} from './round-panel-completion';
+export type { AttendanceLedgerFacts } from './attendance';
+export { attendanceRoundReadSchema } from './attendance';
+export { roundRecordSchema, type RoundRecord } from './round-view';
 export {
   capturePartialReasons,
   capturePartialReasonSchema,
@@ -416,6 +438,7 @@ export {
   type CapturePartialReason,
   type CaptureRule,
   type CaptureVerdict,
+  type SeatGrantFacts,
   type CoverageEdges,
   type StreamCoverage,
 } from './capture-verdict';

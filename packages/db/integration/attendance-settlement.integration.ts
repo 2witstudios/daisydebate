@@ -1,3 +1,4 @@
+import { attendanceSettled } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -39,7 +40,11 @@ test('judged completion cannot pass unresolved actual attendance or pending chec
             await tx.execute(
               sql`update rounds set version=version+1 where id=${roundId}`,
             );
-            await assertRoundAttendanceSettled(tx, { roundId, now });
+            await assertRoundAttendanceSettled(tx, {
+              roundId,
+              now,
+              attendanceSettled,
+            });
           }),
         code: 'CONFLICT',
       });
@@ -66,9 +71,9 @@ test('judged completion cannot pass unresolved actual attendance or pending chec
         },
         'command_id',
       );
-      await fixture.sql`insert into round_attendance_adjudications(round_id,segment_id,command_id,decision,effective_deadline,settled_horizon) values(${roundId},${segmentId},${commandId},'attended','2026-10-22T00:00:40Z','2026-10-22T00:00:45Z')`;
+      await fixture.sql`insert into round_attendance_adjudications(evidence,round_id,segment_id,command_id,decision,effective_deadline,settled_horizon) values('settled_availability',${roundId},${segmentId},${commandId},'attended','2026-10-22T00:00:40Z','2026-10-22T00:00:45Z')`;
       await db.transaction((tx) =>
-        assertRoundAttendanceSettled(tx, { roundId, now }),
+        assertRoundAttendanceSettled(tx, { roundId, now, attendanceSettled }),
       );
       const actorId = await fixture.actor();
       const attemptId = createId();
@@ -79,7 +84,11 @@ test('judged completion cannot pass unresolved actual attendance or pending chec
         should: 'still refuse judged completion',
         actual: () =>
           db.transaction((tx) =>
-            assertRoundAttendanceSettled(tx, { roundId, now }),
+            assertRoundAttendanceSettled(tx, {
+              roundId,
+              now,
+              attendanceSettled,
+            }),
           ),
         code: 'CONFLICT',
       });
@@ -158,7 +167,7 @@ test('settlement accepts a real on-time receipt and refuses a forged or mis-shap
     const db = drizzle({ client: fixture.sql });
     const settled = (roundId: string) =>
       db.transaction((tx) =>
-        assertRoundAttendanceSettled(tx, { roundId, now }),
+        assertRoundAttendanceSettled(tx, { roundId, now, attendanceSettled }),
       );
     const onTime = await onTimeFixture(fixture, '2026-10-22T00:00:01.000Z');
     const forged = await onTimeFixture(fixture, '2026-10-22T00:00:41.000Z');
@@ -201,7 +210,7 @@ test('settlement accepts a real on-time receipt and refuses a forged or mis-shap
             settled_horizon: shapes.opening,
           }),
           await shape({ evidence: 'on_time_receipt' }),
-          await shape({ evidence: 'infrastructure_unresolved' }),
+          await shape({ evidence: 'resolution_cutoff' }),
         ],
         expected: ['refused', 'refused', 'refused', 'refused'],
       });

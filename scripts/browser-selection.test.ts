@@ -43,13 +43,13 @@ describe('selectBrowserSpecs', () => {
     for (const event of ['push', 'schedule', 'workflow_dispatch'])
       assert({
         given: `a ${event} run`,
-        should: 'run all thirteen launch specs and every other non-native spec',
+        should: 'run all sixteen launch specs and every other non-native spec',
         actual: [
           plan(event).nativeSpecs.length,
           [...plan(event).specs, ...plan(event).excluded].sort(),
         ],
         expected: [
-          13,
+          16,
           discovered.filter((spec) => !nativeSpecs.includes(spec)),
         ],
       });

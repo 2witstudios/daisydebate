@@ -20,6 +20,8 @@ const input = {
     intervals: [],
   },
   finalized: false,
+  cutoffAtMs: null,
+  nowMs: 0,
   segmentType: 'speech' as const,
   checkIns: [{ participantId: 'a', receivedAtMs: 40000 }],
   botSeatIds: [] as readonly string[],

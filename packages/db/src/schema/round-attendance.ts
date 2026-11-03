@@ -74,11 +74,8 @@ export const roundAttendanceAdjudications = pgTable(
       .notNull(),
     /** Why this decision holds: settled history, an on-time receipt, or the cutoff. */
     evidence: text('evidence')
-      .$type<
-        'settled_availability' | 'on_time_receipt' | 'infrastructure_unresolved'
-      >()
-      .notNull()
-      .default('settled_availability'),
+      .$type<'settled_availability' | 'on_time_receipt' | 'resolution_cutoff'>()
+      .notNull(),
     effectiveDeadline: timestampColumn('effective_deadline'),
     settledHorizon: timestampColumn('settled_horizon'),
     /** The speaker whose on-time receipt proves attendance. */
@@ -89,7 +86,7 @@ export const roundAttendanceAdjudications = pgTable(
       'round_attendance_adjudications_evidence_check',
       sql`(${table.evidence} = 'settled_availability' and ${table.effectiveDeadline} is not null and ${table.settledHorizon} is not null and ${table.receiptParticipantId} is null)
         or (${table.evidence} = 'on_time_receipt' and ${table.decision} = 'attended' and ${table.effectiveDeadline} is null and ${table.settledHorizon} is null and ${table.receiptParticipantId} is not null)
-        or (${table.evidence} = 'infrastructure_unresolved' and ${table.decision} = 'abandoned' and ${table.effectiveDeadline} is null and ${table.settledHorizon} is null and ${table.receiptParticipantId} is null)`,
+        or (${table.evidence} = 'resolution_cutoff' and ${table.decision} = 'abandoned' and ${table.effectiveDeadline} is null and ${table.settledHorizon} is null and ${table.receiptParticipantId} is null)`,
     ),
     foreignKey({
       name: 'round_attendance_adjudications_receipt_fk',

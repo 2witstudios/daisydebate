@@ -30,13 +30,14 @@ import { createAuthRouteHandlers } from '../features/auth/handlers';
 import { createDebateRoomDocumentHandlers } from '../features/debate-room/documents/document-handlers';
 import { createDebateDocumentOperations } from '../features/debate-room/documents/document-operations';
 import { createProofHandlers } from '../features/foundation/handlers';
+import { runningWorkers } from '../features/ops/alert-state';
 import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
 import { identify } from '../lib/identity';
 import type { App } from './app';
 import { handleOperation } from './http';
-import { createReadinessHandler } from './readiness';
+import { createReadinessHandler } from '../features/ops/readiness';
 
 /**
  * Every route handler, built from one app. The Next route modules under
@@ -112,10 +113,7 @@ export function createRoutes(app: App) {
         listSessions: async (headers) =>
           app.auth().instance.api.listSessions({ headers }),
         currentSessionId: async (headers) => {
-          const found = await app.auth().instance.api.getSession({
-            headers,
-            query: { disableRefresh: true },
-          });
+          const found = await app.auth().readSession(headers);
           return found?.session.id ?? null;
         },
       }),
@@ -184,10 +182,7 @@ export function createRoutes(app: App) {
         origin,
         identify: (request) => identify(app.auth(), request.headers),
         sessionId: async (headers) => {
-          const found = await app.auth().instance.api.getSession({
-            headers,
-            query: { disableRefresh: true },
-          });
+          const found = await app.auth().readSession(headers);
           return found?.session.id ?? null;
         },
         limiter: () => app.limiter,
@@ -245,6 +240,10 @@ export function createRoutes(app: App) {
           redis: app.redis,
           local: app.localAlertState,
           clock: app.clock,
+          workers: runningWorkers({
+            fileMaintenanceIntervalMs:
+              app.messagingFiles?.maintenance?.intervalMs ?? null,
+          }),
           token: () => app.opsProbeToken(),
         }),
       },

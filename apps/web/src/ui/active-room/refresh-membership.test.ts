@@ -54,6 +54,7 @@ test('a previous location cannot replace the current location membership', async
         title: 'Old room',
         phase: 'assembling',
         role: 'host',
+        seated: false,
         href: `/rooms/${'m'.repeat(24)}`,
       },
     }),

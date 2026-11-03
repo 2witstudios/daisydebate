@@ -1,5 +1,16 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
+
+/** The closed vocabulary a check-in refusal answers with. */
+export const attendanceRefusalSchema = z.enum([
+  'attendance-terminal',
+  'attendance-finalized',
+  'attendance-segment',
+  'attendance-window-closed',
+  'attendance-too-early',
+  'command-conflict',
+]);
+export type AttendanceRefusal = z.infer<typeof attendanceRefusalSchema>;
 /** Actor/service identity is always bound server-side; no identity field is accepted. */
 export const attendanceEnvelopeSchema = z.strictObject({
   version: z.literal(1),
@@ -19,6 +30,19 @@ export const attendanceReceiptSchema = z.strictObject({
 });
 export type AttendanceReceipt = z.infer<typeof attendanceReceiptSchema>;
 
+/**
+ * Only what the check-in client reads of a Round. A tab open across a deploy
+ * keeps checking in through any change elsewhere in the Round view, so a present
+ * speaker is never forfeited by a skewed build (ISSUE-941).
+ */
+export const attendanceRoundReadSchema = z.looseObject({
+  id: idSchema,
+  status: z.string(),
+  segments: z
+    .array(z.looseObject({ id: idSchema, type: z.string() }))
+    .readonly(),
+});
+
 export const attendanceTimingPolicy = {
   heartbeatMs: 15000,
   reconnectBudgetMs: 10000,
@@ -37,11 +61,6 @@ export const attendanceTimingPolicy = {
    * retention, so it cannot race the evidence it waits for.
    */
   resolutionCutoffMs: 60 * 60_000,
-  /**
-   * How long a validated ballot a worker still holds keeps its Round waiting
-   * after attendance last settled, so a worker has its chance to submit it.
-   */
-  heldBallotGraceMs: 10 * 60_000,
 } as const;
 
 /**
@@ -55,3 +74,31 @@ export const availabilityRecoveryPolicy = {
   recoverySamples: 3,
   maxSampleGapMs: 2000,
 } as const;
+
+/** What the attendance ledger holds for one Round, read for the engine's settlement rule. */
+export type AttendanceLedgerFacts = {
+  readonly ruleSegments: readonly {
+    readonly key: string;
+    readonly type: string;
+  }[];
+  readonly speeches: readonly {
+    readonly id: string;
+    readonly rulesSegmentKey: string | null;
+    readonly startedAt: string;
+  }[];
+  readonly adjudications: readonly {
+    readonly segmentId: string;
+    readonly decision: string;
+    readonly evidence: string;
+    readonly effectiveDeadline: string | null;
+    readonly settledHorizon: string | null;
+    readonly receiptParticipantId: string | null;
+  }[];
+  readonly receipts: readonly {
+    readonly segmentId: string;
+    readonly participantId: string;
+    readonly receivedAt: string;
+  }[];
+  /** An uncertain check-in writer holds every attendance decision. */
+  readonly pendingWriter: boolean;
+};

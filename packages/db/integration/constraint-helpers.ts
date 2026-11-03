@@ -260,7 +260,16 @@ export class Fixture {
   }
 
   /** Commits a transcript freeze a ballot or judging job can name; erased with its Round. */
+  /** A Round freezes only after its final speech ended, so it holds that end and its cutoffs. */
   async freeze(roundId: string, revision = 1) {
+    await this.sql.unsafe(
+      `update rounds set final_segment_ended_at=ended.at,
+        transcript_admission_cutoff=ended.at+interval '120 seconds',
+        attendance_resolution_cutoff_at=ended.at+interval '60 minutes'
+        from (select date_trunc('milliseconds',clock_timestamp())-interval '1 minute' as at) ended
+        where id=$1 and final_segment_ended_at is null`,
+      [roundId],
+    );
     await this.sql.unsafe(
       // The frontier is the durable counter, as the ISSUE-505 guard requires.
       "insert into round_transcript_freezes(round_id,revision,frontier,completeness) values($1,$2,coalesce((select revision from round_transcripts where round_id=$1),0),'incomplete')",

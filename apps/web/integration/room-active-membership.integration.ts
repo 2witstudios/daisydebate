@@ -22,7 +22,7 @@ const refusal = (outcome: PromiseSettledResult<unknown>) =>
   outcome.status === 'fulfilled'
     ? 'accepted'
     : isAppError(outcome.reason)
-      ? outcome.reason.message
+      ? outcome.reason.reason
       : 'unexpected';
 
 test('a second create or join is refused while another Room holds the user, leaving every state unchanged', async () => {
@@ -66,6 +66,7 @@ test('a second create or join is refused while another Room holds the user, leav
           title: first.title,
           phase: 'assembling',
           role: 'host',
+          seated: false,
           href: `/rooms/${first.id}`,
         },
       ],
@@ -246,6 +247,7 @@ test('a live Round holds its members until it ends; the end frees them for a rem
             title: room.title,
             phase: 'live',
             role: 'debater',
+            seated: true,
             href: `/rounds/${roundId}/room`,
           },
           [],

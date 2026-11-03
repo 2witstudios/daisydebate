@@ -1,3 +1,4 @@
+import { botGrantUnused } from './bot-grant';
 import {
   CAPTURE_COVERAGE_TOLERANCE,
   type CaptureFacts,
@@ -199,6 +200,28 @@ export function decideStreamCapture(facts: CaptureFacts): CaptureVerdict {
     : { state: 'complete', gaps: [] };
 }
 
+/**
+ * A bot's credited windows separated by less than relay latency are one window
+ * for coverage (DEC-294): a publisher stall must not create a tiny window that
+ * has to hold a frame. A real hole stays, and still fails contiguity.
+ */
+function coalesceCreditedWindows(
+  windows: readonly Range[],
+  relayMs: number,
+): Range[] {
+  const merged: Range[] = [];
+  for (const window of [...windows].sort((a, b) => a.start - b.start)) {
+    const last = merged.at(-1);
+    if (last && window.start - last.end < relayMs)
+      merged[merged.length - 1] = {
+        start: last.start,
+        end: Math.max(last.end, window.end),
+      };
+    else merged.push(window);
+  }
+  return merged;
+}
+
 /** One rule for one tolerance, handed to the adapter as data it cannot change. */
 export function createCaptureRule(tolerance: {
   readonly joinMs: number;
@@ -206,12 +229,13 @@ export function createCaptureRule(tolerance: {
 }): CaptureRule {
   return {
     decideStreamCapture,
+    botGrantUnused,
     gaps: (coverage, observed) =>
       traverseCoverage({ ...coverage, observed }).gaps,
     coverage: (kind, grants, botWindows) =>
       kind === 'bot'
         ? {
-            authority: botWindows,
+            authority: coalesceCreditedWindows(botWindows, tolerance.relayMs),
             tolerance: {
               openMs: tolerance.relayMs,
               closeMs: tolerance.relayMs,

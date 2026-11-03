@@ -1,7 +1,10 @@
 'use client';
 
 import './zod-jitless';
+import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import { roundMediaSlot } from '../../features/round-media/media-session';
+import { clearAccountResumeRecords } from '../../features/rooms/resume-departure';
+import { useRoundMediaTab } from './use-round-media-tab';
 import { useRoundAttendance } from '../../features/attendance/use-round-attendance';
 import { createAttendanceReconnect } from '../../features/attendance/reconnect';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
@@ -90,9 +93,19 @@ export function LiveRoundRoom({
     () => liveRoundOf(view, actorId, now),
     [view, actorId, now],
   );
+  const [publication, setPublication] = useState<LocalPublication>(null);
+  const tab = useRoundMediaTab(actorId, view);
   const defaultMedia = useMemo(
-    () => roundMediaSlot(refresh, roundTime),
-    [refresh, roundTime],
+    () =>
+      roundMediaSlot({
+        onRefresh: refresh,
+        roundTime,
+        actorId,
+        tab,
+        onPublication: setPublication,
+        onAccountChanged: clearAccountResumeRecords,
+      }),
+    [refresh, roundTime, actorId, tab],
   );
   useRoundAttendance({ view, actorId, reconnect });
   const ids = useMemo(
@@ -124,7 +137,11 @@ export function LiveRoundRoom({
             participantId: intent.participantId,
           },
         }
-      : { ...leave, freed: intent.kind === 'freed' };
+      : {
+          ...leave,
+          freed: intent.kind === 'freed',
+          held: intent.kind === 'held',
+        };
   const notices = (
     <>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
@@ -158,6 +175,7 @@ export function LiveRoundRoom({
               </>
             }
             media={(mediaSlot ?? defaultMedia)(view)}
+            publication={publication}
             actions={actions}
             round={round}
             sync={sync}
@@ -169,7 +187,11 @@ export function LiveRoundRoom({
           <>
             {notices}
             {feedback}
-            <RoundEndedNotice roundId={view.id} />
+            <RoundEndedNotice
+              roundId={view.id}
+              actorId={actorId}
+              roomId={view.roomId}
+            />
           </>
         )
       }

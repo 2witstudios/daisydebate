@@ -7,7 +7,7 @@ setupRitewayBun();
 
 // ISSUE-8 AC5: the sweep's run behaviour is tested here; the production
 // target list is retention-targets.test.ts and the schedule wrapper is
-// retention-schedule.test.ts, each once.
+// run-schedule.test.ts, each once.
 const now = '2026-09-20T12:00:00.000Z';
 
 type Logged = { event: string; fields: unknown };
@@ -53,7 +53,7 @@ describe('retention sweep run', () => {
       given:
         'a first target with a backlog of 7 and a second with 2, batch size 3',
       should:
-        'call each target with the run’s clock and its batch size until a short batch, and log one completed event per target',
+        'call each target with the run’s clock and its batch size until a short batch, log one completed event per target, then one for the whole run',
       actual: {
         results,
         firstCalls: first.calls,
@@ -62,8 +62,20 @@ describe('retention sweep run', () => {
       },
       expected: {
         results: [
-          { operation: 'retention.first', ok: true, deleted: 7, batches: 3 },
-          { operation: 'retention.second', ok: true, deleted: 2, batches: 1 },
+          {
+            operation: 'retention.first',
+            ok: true,
+            drained: true,
+            deleted: 7,
+            batches: 3,
+          },
+          {
+            operation: 'retention.second',
+            ok: true,
+            drained: true,
+            deleted: 2,
+            batches: 1,
+          },
         ],
         firstCalls: Array(3).fill({ now, limit: 3 }),
         secondCalls: [{ now, limit: 3 }],
@@ -76,8 +88,28 @@ describe('retention sweep run', () => {
             'retention.sweep.completed',
             { operation: 'retention.second', deleted: 2, batches: 1 },
           ],
+          ['retention.run.completed', { deleted: 9 }],
         ],
       },
+    });
+  });
+
+  test('a target left full at its cap does not complete the run (ISSUE-1007)', async () => {
+    const endless = target('retention.endless', Array(10).fill(2), {
+      batchSize: 2,
+      maxBatches: 4,
+    });
+    const { logged, logger } = recorder();
+    await createRetentionSweep({
+      targets: [endless.spec],
+      clock: fixedClock(now),
+      logger,
+    }).run();
+    assert({
+      given: 'a run that stopped at its batch cap with due rows left',
+      should: 'log the target but never the completed run',
+      actual: logged.map(({ event }) => event),
+      expected: ['retention.sweep.completed'],
     });
   });
 
@@ -101,6 +133,7 @@ describe('retention sweep run', () => {
         result: {
           operation: 'retention.endless',
           ok: true,
+          drained: false,
           deleted: 8,
           batches: 4,
         },
@@ -132,8 +165,20 @@ describe('retention sweep run', () => {
       },
       expected: {
         results: [
-          { operation: 'retention.failing', ok: false, deleted: 3, batches: 1 },
-          { operation: 'retention.next', ok: true, deleted: 1, batches: 1 },
+          {
+            operation: 'retention.failing',
+            ok: false,
+            drained: false,
+            deleted: 3,
+            batches: 1,
+          },
+          {
+            operation: 'retention.next',
+            ok: true,
+            drained: true,
+            deleted: 1,
+            batches: 1,
+          },
         ],
         logged: [
           [
@@ -186,7 +231,13 @@ describe('retention sweep run', () => {
         calls: 1,
         laterCalls: 0,
         results: [
-          { operation: 'retention.stopped', ok: true, deleted: 3, batches: 1 },
+          {
+            operation: 'retention.stopped',
+            ok: true,
+            drained: false,
+            deleted: 3,
+            batches: 1,
+          },
         ],
         events: ['retention.sweep.completed'],
       },

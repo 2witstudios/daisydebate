@@ -42,12 +42,6 @@ export function BallotEntry(props: EntryProps) {
             : 'Other votes or attendance settlement are still pending.'}
         </p>
       );
-    case 'voided':
-      return (
-        <p role="status">
-          This ballot is voided. A replacement cannot be submitted.
-        </p>
-      );
     case 'open':
       return <OpenBallot {...props} />;
     case 'waiting':

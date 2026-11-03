@@ -2,7 +2,10 @@ import { roundDocumentPrincipal } from '../../../../../features/debate-room/docu
 import { requestRoundRatings } from '../../../../../lib/request-session';
 import { RoundRatings } from '../../../../../ui/ranked/round-ratings';
 import type { ReactNode } from 'react';
-import { LiveTranscript } from '../../../../../ui/round-result/live-transcript';
+import {
+  LiveTranscript,
+  type TranscriptPlacement,
+} from '../../../../../ui/round-result/live-transcript';
 import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[debateId]/actions';
 import { LiveJudgeRoom } from '../../../../../ui/debate-room/live-judge-room';
 import {
@@ -15,12 +18,15 @@ import { roundCommandIds } from '../../../../../features/round-runtime/command-i
 import { systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
+import { ratingsUnlessRefused } from '../../../../../features/ratings/ratings-unless-refused';
+import { reconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
-import { requireAccess } from '../../../../../lib/access';
+import { accessOrTemporary } from '../../../../../lib/access';
 import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
+import { RoundRoomReconnecting } from '../../../../../ui/debate-room/round-room-reconnecting';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
 import { readPersistedTranscript } from '../../../../(shell)/rounds/[id]/read-persisted-transcript';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
@@ -31,6 +37,33 @@ import {
 import { LiveSpectatorRoom } from '../../../../../ui/spectating/live-spectator-room';
 
 export const metadata: Metadata = { title: 'Round' };
+
+const transcriptOf = (
+  id: string,
+  text: Awaited<ReturnType<typeof readPersistedTranscript>>,
+  socketUrl: string | null,
+  placement: TranscriptPlacement,
+) =>
+  text.kind === 'found' ? (
+    <LiveTranscript
+      key={id}
+      seed={text.value}
+      socketUrl={socketUrl}
+      placement={placement}
+    />
+  ) : text.kind === 'unavailable' ? (
+    // Refusals read as missing; only an outage, never a denial, says this.
+    <p role="status" className="p-4 text-sm">
+      Transcript unavailable. Reload to try again.
+    </p>
+  ) : null;
+
+const reconnecting = () => {
+  const [entropy] = crypto.getRandomValues(new Uint8Array(1));
+  return (
+    <RoundRoomReconnecting retrySeconds={reconnectDelaySeconds(entropy!)} />
+  );
+};
 
 /**
  * A member without a seat: the assigned judge's live view, a seatless
@@ -44,7 +77,10 @@ async function watchingRoom(
   transcript: ReactNode,
 ) {
   const assigned = await readPersistedJudgeRound(id);
-  if (assigned.kind === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  if (assigned.kind === 'unavailable') {
+    if (assigned.temporary) return reconnecting();
+    throw createAppError('INFRASTRUCTURE');
+  }
   const room = watchingRoomOf({
     judgeRound: assigned.kind === 'found' ? assigned.round : null,
     audience: spectatorAudienceOf(round, actorId),
@@ -65,6 +101,7 @@ async function watchingRoom(
     <>
       <MediaDocument />
       <LiveJudgeRoom
+        actorId={actorId}
         view={room.round}
         transcript={transcript}
         read={readPersistedJudgeRound.bind(null, id)}
@@ -77,7 +114,9 @@ async function watchingRoom(
 
 /**
  * Fresh assigned members enter their own live view, a seatless host watches
- * as a spectator, and everyone else gets the receipt.
+ * as a spectator, and everyone else gets the receipt. A temporarily refused
+ * read never costs a speaker the room (ISSUE-927): the Round keeps running, so
+ * the page recovers by itself instead of waiting on the error boundary.
  */
 export default async function RoundRoomPage({
   params,
@@ -87,7 +126,9 @@ export default async function RoundRoomPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { id } = await params;
-  const identity = await requireAccess(`/rounds/${id}/room`, searchParams);
+  const access = await accessOrTemporary(`/rounds/${id}/room`, searchParams);
+  if (access.kind === 'temporary') return reconnecting();
+  const { identity } = access;
   if (!idSchema.safeParse(id).success) notFound();
   const principal = roundDocumentPrincipal(identity);
   if (principal === null) redirect(`/rounds/${id}`);
@@ -98,21 +139,10 @@ export default async function RoundRoomPage({
     readPersistedTranscript(id),
   ]);
   if (result.kind === 'missing') notFound();
+  if (result.kind === 'unavailable' && result.temporary) return reconnecting();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
-  const transcriptIn = (placement: 'card' | 'sidebar') =>
-    text.kind === 'found' ? (
-      <LiveTranscript
-        key={id}
-        seed={text.value}
-        socketUrl={result.socketUrl}
-        placement={placement}
-      />
-    ) : text.kind === 'unavailable' ? (
-      // Refusals read as missing; only an outage, never a denial, says this.
-      <p role="status" className="p-4 text-sm">
-        Transcript unavailable. Reload to try again.
-      </p>
-    ) : null;
+  const transcriptIn = (placement: TranscriptPlacement) =>
+    transcriptOf(id, text, result.socketUrl, placement);
   if (!isLiveDebater(result.round, actorId))
     return watchingRoom(
       id,
@@ -128,7 +158,11 @@ export default async function RoundRoomPage({
       <LiveRoundRoom
         attendanceSlot={
           <>
-            <RoundRatings view={await requestRoundRatings(result.round)} />
+            <RoundRatings
+              view={await ratingsUnlessRefused(() =>
+                requestRoundRatings(result.round),
+              )}
+            />
             <RoundNativeAttendance
               view={result.round}
               state={await readPersistedAttendance(id)}
@@ -149,6 +183,7 @@ export default async function RoundRoomPage({
           stayHref: here,
           confirmHref: `${here}?leave`,
           leaveHref: '/lobby',
+          left: { actorId, roundId: id, roomId: result.round.roomId },
         }}
         leaveAction={leaveRoundAction.bind(null, id)}
       />

@@ -1,5 +1,6 @@
+import type { OperationName } from '../features/ops/operation-names';
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
-import { isCapacityRefusal } from '@daisy/db/capacity';
+import { isCapacityRefusal, isTemporaryRefusal } from '@daisy/db/capacity';
 import {
   currentTraceId,
   extractTraceContext,
@@ -9,9 +10,16 @@ import {
   type ErrorReporter,
 } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
+import type { RefusalReason } from '@daisy/protocol';
 import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
+
+/** Plain data on an outage minted from an identity a refusal made unavailable. */
+const TEMPORARY_OUTAGE = { temporary: true } as const;
+const isTemporaryOutage = (error: unknown) =>
+  error instanceof Error &&
+  (error.cause as { temporary?: unknown } | undefined)?.temporary === true;
 
 /** An `Identity` once anonymous and unavailable are ruled out. */
 export type SignedInIdentity = Extract<
@@ -27,7 +35,12 @@ export type SignedInIdentity = Extract<
  * itself.
  */
 export function requireSignedIn(identity: Identity): SignedInIdentity {
-  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  if (identity.state === 'unavailable')
+    throw createAppError(
+      'INFRASTRUCTURE',
+      undefined,
+      identity.temporary ? TEMPORARY_OUTAGE : undefined,
+    );
   if (identity.state === 'anonymous') throw createAppError('AUTHENTICATION');
   return identity;
 }
@@ -50,7 +63,7 @@ export function parseValidated<T>(schema: ZodType<T>, input: unknown): T {
 export async function handleOperation(
   baseLogger: Logger,
   request: Request,
-  operation: string,
+  operation: OperationName,
   handler: (id: string, logger: Logger) => Promise<Response>,
   reporter: ErrorReporter = noopErrorReporter,
 ): Promise<Response> {
@@ -142,13 +155,23 @@ export async function handleOperation(
           }
         return Response.json(mapped.body, {
           status: mapped.status,
-          headers: { 'x-request-id': id, 'Cache-Control': 'no-store' },
+          headers: {
+            'x-request-id': id,
+            'Cache-Control': 'no-store',
+            ...retryAdvice(mapped.status, error),
+          },
         });
       }
     },
     extractTraceContext(request.headers),
   );
 }
+/** Only a temporary refusal's 503 is known to pass: the work never ran (ADR 0088). */
+const retryAdvice = (status: number, error: unknown) =>
+  status === 503 && (isTemporaryRefusal(error) || isTemporaryOutage(error))
+    ? { 'Retry-After': '1' }
+    : {};
+
 /**
  * A bounded transaction's recovery state and inner error code, as a log
  * code (`recovery_pending.INVARIANT`): which refusal a 503 replaced, never
@@ -284,12 +307,13 @@ export async function readJson(
 export function refusalResponse(
   error: unknown,
   requestId: string,
-  reasons: readonly string[],
+  reasons: readonly RefusalReason[],
 ): Response | null {
-  if (!isAppError(error) || !reasons.includes(error.message)) return null;
+  if (!isAppError(error) || !error.reason || !reasons.includes(error.reason))
+    return null;
   const mapped = toPublicError(error, requestId);
   return Response.json(
-    { ...mapped.body, refusal: error.message },
+    { ...mapped.body, refusal: error.reason },
     { status: mapped.status },
   );
 }

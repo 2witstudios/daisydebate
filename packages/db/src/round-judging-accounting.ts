@@ -1,9 +1,10 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { JudgingScope } from './round-judging-context';
 import { lockAgentAccounting, validAgentCounter } from './agent-accounting';
 import { agentRuns } from './schema/agent-runs';
+import { roundJudgingAttempts } from './schema/round-judging-jobs';
 
 /** Known response counters survive parse/lease/lifecycle rejection without granting result authority. */
 export function recordJudgingUsage(
@@ -33,8 +34,12 @@ export function recordJudgingUsage(
       },
     });
     if (execution.kind !== 'judging') throw createAppError('AUTHORIZATION');
-    const outcome = execution.configurationSnapshot.providerOutcome;
-    if (outcome === 'received') {
+    const [attempt] = await tx
+      .select()
+      .from(roundJudgingAttempts)
+      .where(eq(roundJudgingAttempts.agentRunId, execution.id))
+      .for('update');
+    if (attempt?.answeredAt) {
       if (
         execution.inputTokens !== usage.inputTokens ||
         execution.outputTokens !== usage.outputTokens
@@ -42,17 +47,12 @@ export function recordJudgingUsage(
         throw createAppError('CONFLICT', 'Judging usage already recorded');
       return;
     }
-    if (outcome !== 'unknown')
+    if (!attempt || attempt.category === 'provider_refused')
       throw createAppError('CONFLICT', 'Model call not dispatched');
+    await tx.update(agentRuns).set(usage).where(eq(agentRuns.id, execution.id));
     await tx
-      .update(agentRuns)
-      .set({
-        ...usage,
-        configurationSnapshot: {
-          ...execution.configurationSnapshot,
-          providerOutcome: 'received',
-        },
-      })
-      .where(eq(agentRuns.id, execution.id));
+      .update(roundJudgingAttempts)
+      .set({ answeredAt: sql`clock_timestamp()` })
+      .where(eq(roundJudgingAttempts.agentRunId, execution.id));
   });
 }

@@ -24,7 +24,12 @@ Each input reports `unchecked`, `checking`, `passed`, `denied` or `unavailable`,
 its generation, local selection/actual device identity and a safe reason.
 Both current checks must pass for `devicesPassed`. Never persist or transmit
 raw device IDs, snapshots containing them, captured media or permission errors.
-Device identity serves only local selection and disappearance checks.
+Device identity serves only local selection and disappearance checks. A
+passed device id survives the Room→Round hand-off in this tab's
+sessionStorage, scoped to the signed-in actor and the Room
+(`daisy:checked-devices:<roomId>:<actorId>`), so no other account or another
+tab reads it (ISSUE-879). An explicit Retry of a missing checked device
+forgets that kind for this actor's own key; all records die with the tab.
 
 A failed check is classified from the error name; the message is read only to
 recognise a system block and is never kept, shown or logged. `NotAllowedError`

@@ -55,9 +55,18 @@ export const judgingAttemptCategories = [
 ] as const;
 export type JudgingAttemptCategory = (typeof judgingAttemptCategories)[number];
 
+/** Where one provider dispatch stands. A crash after dispatch leaves it `dispatched`. */
+export const judgingAttemptOutcomes = [
+  'dispatched',
+  'succeeded',
+  'failed',
+] as const;
+export type JudgingAttemptOutcome = (typeof judgingAttemptOutcomes)[number];
+
 /** Why a judging job ended without a ballot. */
 export const judgingTerminalReasons = [
   'attempts_exhausted',
+  'ballot_discarded',
   'ballot_hold_ended',
   'generation_deadline',
   'provider_refused',
