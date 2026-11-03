@@ -114,3 +114,17 @@ export const acceptedRoomMutation = (
     ...overrides,
   },
 });
+
+/**
+ * Whether the host may name the Room's human judges: only a seatless host who
+ * did not inherit the Room. A seat gains nothing from hosting (WATCH-6), and an
+ * heir did not seat them (DEC-331).
+ */
+export const hostNamesJudges = (
+  room: Pick<
+    RoomAssemblyState,
+    'hostActorId' | 'hostInherited' | 'participants'
+  >,
+): boolean =>
+  !room.hostInherited &&
+  !room.participants.some((p) => p.actorId === room.hostActorId);

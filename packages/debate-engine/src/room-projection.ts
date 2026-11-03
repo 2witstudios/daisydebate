@@ -2,7 +2,11 @@ import { debaterSeatsHeldFrom } from './room-edit-transitions';
 import { formatStanding } from './format-standing';
 import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
 import { freezeRoomConfig, freezeRoomExecutionPlan } from '@daisy/protocol';
-import { assemblyOpen, startBlocker } from './room-assembly-facts';
+import {
+  assemblyOpen,
+  hostNamesJudges,
+  startBlocker,
+} from './room-assembly-facts';
 const participantReady = (
   p: Pick<
     RoomAssemblyState['participants'][number],
@@ -17,12 +21,13 @@ const participantReady = (
 };
 /**
  * The human judges this viewer may not name (DEC-98, DEC-174): every one,
- * unless the viewer is that judge or the host who seats them. A host who
+ * unless the viewer is that judge or a seatless host who seats them. A host
+ * who holds a seat gains nothing from hosting (WATCH-6), and a host who
  * inherited the Room names none (DEC-331).
  */
 const hiddenJudges = (room: RoomAssemblyState, actorId: string) =>
   new Set(
-    room.hostActorId === actorId && !room.hostInherited
+    room.hostActorId === actorId && hostNamesJudges(room)
       ? []
       : room.participants
           .filter(

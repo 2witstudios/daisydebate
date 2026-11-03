@@ -163,10 +163,11 @@ test('every public and member read holds a ranked outcome until release', async 
           losses,
         };
       };
-      const [{ role: ledgerRole }] = (await f.sql`select role from round_participants
+      const [{ role: ledgerRole }] =
+        (await f.sql`select role from round_participants
         where round_id=${roundId} and actor_id=${f.host.actorId}`) as [
-        { role: DebateRole },
-      ];
+          { role: DebateRole },
+        ];
       const emptyRecord = tallyRecord([]);
       const reads = async () => {
         const response = await timelineResponse();

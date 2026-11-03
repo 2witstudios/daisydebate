@@ -11,7 +11,11 @@ import { resolveRoomConfiguration } from './resolve-room-configuration';
 import { decideFormatSelection } from './format-selection';
 
 import { aiJudgeSeatAdmitted } from './ai-judge-seating';
-import { acceptedRoomMutation, type Edges } from './room-assembly-facts';
+import {
+  acceptedRoomMutation,
+  hostNamesJudges,
+  type Edges,
+} from './room-assembly-facts';
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   ok: false,
   refusal,
@@ -317,9 +321,10 @@ export const leaveSeat = (
 };
 
 /**
- * A host assigns only a human already in the Room. To a host who inherited it, a
- * seated human judge reads as not in the Room: any other answer, or a move to a
- * seat they can read, would name a judge hidden from them (DEC-331).
+ * A host assigns only a human already in the Room. To a host who may not name
+ * the judges, an heir or one holding a seat, a seated human judge reads as not in
+ * the Room: any other answer, or a move to a seat they can read, would name a
+ * judge hidden from them (DEC-331, WATCH-6).
  */
 const unassignableHuman = (
   room: RoomAssemblyState,
@@ -334,5 +339,5 @@ const unassignableHuman = (
   )
     return false;
   const seat = room.participants.find((p) => p.actorId === target.actorId);
-  return !seat || (room.hostInherited && seat.role === 'judge');
+  return !seat || (!hostNamesJudges(room) && seat.role === 'judge');
 };

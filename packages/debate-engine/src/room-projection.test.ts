@@ -59,14 +59,36 @@ describe('projectRoom judge anonymity (DEC-174)', () => {
     });
   });
 
-  test('the judge and the host', () => {
+  test('the judge and a seatless host', () => {
+    const seatless = {
+      ...room,
+      hostActorId: 'seatless-host',
+    };
     assert({
-      given: 'the same room read by the judge and by the host',
+      given: 'the same room read by the judge and by a seatless host',
       should: 'name the judge to both',
-      actual: ['judge-actor', 'host'].map(
-        (viewer) => 'label' in view(viewer).participants[2]!,
+      actual: ['judge-actor', 'seatless-host'].map(
+        (viewer) =>
+          'label' in
+          projectRoom(seatless, viewer, consent, '2026-11-02T12:00:00.000Z')
+            .participants[2]!,
       ),
       expected: [true, true],
+    });
+  });
+
+  test('a debater who hosts', () => {
+    const seen = view('host');
+    assert({
+      given: 'the room read by its host, who holds a debating seat',
+      should:
+        'carry no judge name, seat id or actor: hosting adds nothing to a seat (WATCH-6)',
+      actual: [
+        'anonymous' in seen.participants[2]!,
+        leaks(seen),
+        seen.readiness.readyActorIds.includes('judge-actor'),
+      ],
+      expected: [true, [], false],
     });
   });
 });
