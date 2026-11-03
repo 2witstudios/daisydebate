@@ -467,6 +467,7 @@ describe('projectSpectatorTimeline', () => {
       recordingJob: {
         status: 'queued',
         attemptCount: 1,
+        controlLapses: [],
         progress: { step: 'encoding', done: 60_000, total: 3_600_000 },
       },
     };

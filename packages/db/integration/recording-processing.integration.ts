@@ -160,7 +160,12 @@ test('a job is claimable once capture ended, by one worker at a time', async () 
       expected: [
         1,
         'hold/b/',
-        { status: 'queued', attemptCount: 2, ceilingMs: 60_000, controlLapses: [] },
+        {
+          status: 'queued',
+          attemptCount: 2,
+          ceilingMs: 60_000,
+          controlLapses: [],
+        },
         1,
       ],
     });
@@ -538,7 +543,11 @@ test('a queued build carries the lapses of its capture, and an own heartbeat wri
       .where(eq(recordingCaptures.recordingId, id));
     await store.claimOwn({ recordingId: id, now: NOW, until: NOW });
     await store.openJob({ recordingId: id, holdPrefix: `h/${id}/` });
-    await store.queueJob({ recordingId: id, attemptCount: 1 });
+    await store.queueJob({
+      recordingId: id,
+      attemptCount: 1,
+      ceilingMs: 60_000,
+    });
     const [job] = await db
       .select({ state: recordingProcessingJobs.state })
       .from(recordingProcessingJobs)

@@ -261,7 +261,12 @@ export const runWorker = async (deps: {
     const { state } = job;
     await (
       state.status === 'queued'
-        ? runBuild(job, state.attemptCount, state.controlLapses, state.ceilingMs)
+        ? runBuild(
+            job,
+            state.attemptCount,
+            state.controlLapses,
+            state.ceilingMs,
+          )
         : runDiscard(job)
     ).catch(() => deps.report('recording.processing_failed'));
   }

@@ -23,7 +23,11 @@ const capture = {
   endedAt: new Date(endedAtMs).toISOString(),
 };
 const processing = { status: 'processing', capture } as const;
-const progress = { step: 'encoding', done: 1000, total: 2000 } as const;
+const progress = {
+  step: 'encoding' as const,
+  done: 1000,
+  total: 2000,
+};
 
 describe('recordingProcessingBoundMs', () => {
   test('is half the media plus five minutes', () => {
@@ -65,7 +69,12 @@ describe('recordingBuildDelayed', () => {
 });
 
 describe('recordingPreparationOf', () => {
-  const queued = { status: 'queued', attemptCount: 1, progress } as const;
+  const queued = {
+    status: 'queued' as const,
+    attemptCount: 1,
+    controlLapses: [],
+    progress,
+  };
   test('says what is really happening, from the job', () => {
     assert({
       given:
@@ -75,7 +84,7 @@ describe('recordingPreparationOf', () => {
         recordingPreparationOf({ status: 'requested' }, null, endedAtMs),
         recordingPreparationOf(
           processing,
-          { status: 'queued', attemptCount: 1 },
+          { status: 'queued', attemptCount: 1, controlLapses: [] },
           endedAtMs,
         ),
         recordingPreparationOf(processing, queued, endedAtMs),
