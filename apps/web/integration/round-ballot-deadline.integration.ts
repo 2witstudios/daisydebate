@@ -1,6 +1,7 @@
 import { decisionOf } from './attendance-evaluation.test-support';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
-import { judgingJobRules } from '@daisy/debate-engine';
+import { judgingJobRules, ratingAwaited } from '@daisy/debate-engine';
+import type { Database } from '@daisy/db';
 import { withSeasons } from '@daisy/db/seasons';
 import { recoverRatedResults } from './rated-room.test-support';
 import { randomBytes } from 'node:crypto';
@@ -316,7 +317,7 @@ for (const [captured, postings] of [
         await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
         const done = (await f.store.getRound(roundId))!;
         const [receipt] = await completions(f, roundId);
-        const awaited = await f.store.readRoundAwaitsRating(roundId);
+        const awaited = await awaitsRating(f, roundId);
         await recoverRatedResults(f);
         await recoverRatedResults(f);
         const ledger =
@@ -330,7 +331,7 @@ for (const [captured, postings] of [
             ruling: receipt?.result.ruling,
             awaited,
             postings: ledger.length,
-            awaitsAfter: await f.store.readRoundAwaitsRating(roundId),
+            awaitsAfter: await awaitsRating(f, roundId),
           },
           expected: {
             done: ['completed', 'negative'],
@@ -561,6 +562,16 @@ async function proveFirstSpeakerAbsent(f: Fixture, roundId: string) {
   });
 }
 
+const awaitsRating = async (
+  f: {
+    readonly store: { readonly readRatingFacts: Database['readRatingFacts'] };
+  },
+  roundId: string,
+) => {
+  const facts = await f.store.readRatingFacts(roundId);
+  return facts !== null && ratingAwaited(facts);
+};
+
 test('a forfeit on an incomplete freeze still has a rating coming', async () => {
   await withRoomRuntime(async (f) => {
     const { room } = await readyTwoHumanJudgeRoom(f);
@@ -585,7 +596,7 @@ test('a forfeit on an incomplete freeze still has a rating coming', async () => 
         should: 'answer that the writer would still rate it',
         actual: {
           decision: decisionOf(decided),
-          awaits: await f.store.readRoundAwaitsRating(roundId),
+          awaits: await awaitsRating(f, roundId),
         },
         expected: { decision: 'forfeit', awaits: true },
       });
