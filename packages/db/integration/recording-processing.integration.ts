@@ -153,7 +153,12 @@ test('a job is claimable once capture ended, by one worker at a time', async () 
         won[0]?.state,
         won[0]?.leaseEpoch,
       ],
-      expected: [1, 'hold/b/', { status: 'queued', attemptCount: 2 }, 1],
+      expected: [
+        1,
+        'hold/b/',
+        { status: 'queued', attemptCount: 2, controlLapses: [] },
+        1,
+      ],
     });
   });
 });
