@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
+import { createAppError } from '@daisy/errors';
 import { rejectionOf } from '@daisy/errors/testing';
 import { requireMember } from './member-gate';
 
@@ -91,5 +92,26 @@ test('requireMember()', async () => {
       admitWaitlisted: true,
     }),
     expected: { userId: 'user', actorId: 'actor' },
+  });
+
+  const checked = gate(member);
+  assert({
+    given: 'a route that refuses before the budget',
+    should: 'spend nothing and read no actor',
+    actual: [
+      (
+        await rejectionOf(() =>
+          requireMember(checked.deps, request, {
+            bucket: 'b',
+            rule,
+            beforeBudget: () => {
+              throw createAppError('VALIDATION');
+            },
+          }),
+        )
+      ).code,
+      checked.events,
+    ],
+    expected: ['VALIDATION', []],
   });
 });

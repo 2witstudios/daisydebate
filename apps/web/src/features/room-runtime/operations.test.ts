@@ -54,6 +54,40 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
   });
 });
 
+test('a seated bot answers its own seat availability', async () => {
+  const seated = {
+    ...state,
+    participants: [
+      {
+        ...state.participants[0]!,
+        kind: 'bot' as const,
+        role: 'negative' as const,
+      },
+    ],
+  };
+  const eligibleWith = async (aiSeats: { debater: boolean; judge: boolean }) =>
+    (
+      await makeOperations(
+        {
+          readRoomAssemblyFacts: async () => ({
+            state: seated,
+            drawSeed: null,
+          }),
+        } as never,
+        aiSeats,
+      ).operations.view(caller, state.id)
+    ).participants.map((participant) => participant.eligible);
+  assert({
+    given: 'a bot debater seat where only the judge can run, then the reverse',
+    should: 'mark it ineligible, then eligible',
+    actual: [
+      await eligibleWith({ debater: false, judge: true }),
+      await eligibleWith({ debater: true, judge: false }),
+    ],
+    expected: [[false], [true]],
+  });
+});
+
 test('Room runtime distinguishes Redis consent loss', async () => {
   const base = makeOperations();
   const withUnavailableRedis = createRoomRuntimeOperations({
@@ -158,8 +192,11 @@ test('Room creation hands the initial cast to the create transaction through the
     eligible: true,
     seatRole: 'debater' as const,
   };
-  const create = async (cast: RoomCreate['cast'], botsAvailable = false) => {
-    const run = makeOperations({}, botsAvailable);
+  const create = async (
+    cast: RoomCreate['cast'],
+    aiSeats: boolean | { debater: boolean; judge: boolean } = false,
+  ) => {
+    const run = makeOperations({}, aiSeats);
     const error = await run.operations
       .create(caller, {
         commandId: 'c9n6p8r2t4v6x8z1k3b5c7d9',
@@ -266,6 +303,26 @@ test('Room creation hands the initial cast to the create transaction through the
       'refuse the whole create before the transaction and pass it nothing',
     actual: [duplicate.createInput(), duplicateError],
     expected: [null, 'CONFLICT'],
+  });
+  const seatedWith = async (aiSeats: { debater: boolean; judge: boolean }) => {
+    const split = await create(
+      [{ actorId: botActorId, role: 'negative', slot: 0 }],
+      aiSeats,
+    );
+    const input = split.run.createInput()?.cast;
+    const debater = input?.seats[0];
+    return debater
+      ? input?.apply({ ...state, participants: [] }, debater, botTarget, now).ok
+      : null;
+  };
+  assert({
+    given: 'a bot debater cast where only the other seat, or this one, can run',
+    should: 'seat it only where the debater seat can run',
+    actual: [
+      await seatedWith({ debater: false, judge: true }),
+      await seatedWith({ debater: true, judge: false }),
+    ],
+    expected: [false, true],
   });
 });
 

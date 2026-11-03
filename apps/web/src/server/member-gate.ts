@@ -20,17 +20,21 @@ type Gate = {
   readonly rule: RateRule;
   /** A waitlisted account may only withdraw (ADR 0075), so a route opts in. */
   readonly admitWaitlisted?: boolean;
+  /** Refuses what cannot proceed before it spends the member's budget. */
+  readonly beforeBudget?: () => void;
 };
 
 /**
- * Session, member, rate budget and current actor, in that order (ADR 0020).
- * A member identity has already read this actor, so an actor that is missing
- * or moved is a data fault, never a refusal of the caller.
+ * Session, member, rate budget and current actor, in that order (ADR 0020),
+ * for a route that acts as the member's actor at once. A route whose evaluator
+ * decides from the principal uses `runMemberHandler` instead. A member identity
+ * has already read this actor, so an actor that is missing or moved is a data
+ * fault, never a refusal of the caller.
  */
 export async function requireMember(
   dependencies: MemberGateDependencies,
   request: Request,
-  { bucket, rule, admitWaitlisted = false }: Gate,
+  { bucket, rule, admitWaitlisted = false, beforeBudget }: Gate,
 ): Promise<MemberCaller> {
   const identity = requireSignedIn(await dependencies.identify(request));
   if (
@@ -38,6 +42,7 @@ export async function requireMember(
     !(admitWaitlisted && identity.state === 'waitlisted')
   )
     throw createAppError('AUTHORIZATION');
+  beforeBudget?.();
   const { userId, actorId } = identity.principal;
   await consumeOrThrow(dependencies.limiter(), `${bucket}:${userId}`, rule);
   const actor = await dependencies.getActorByUserId(userId);

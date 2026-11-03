@@ -2,7 +2,7 @@ import type { Store, Caller } from './operations';
 import { aiSeatOf } from './ai-seat';
 import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
-import { castSpendsAiRound, executeRoomCommand } from '@daisy/debate-engine';
+import { castSeatsBotDebater, executeRoomCommand } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
@@ -66,7 +66,7 @@ export function roomCommandOperation({
             }
           : null,
       roundId: ids.next(),
-      spendsAiRound: castSpendsAiRound,
+      seatsBotDebater: castSeatsBotDebater,
       authorizeRead: (state, account) =>
         can(caller, 'room.read', account, state),
       prepare: async (raw, preparedAt, account) => {

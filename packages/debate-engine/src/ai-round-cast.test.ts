@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomParticipant } from '@daisy/protocol';
-import { castSpendsAiRound } from './ai-round-cast';
+import { castSeatsBotDebater } from './ai-round-cast';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 
@@ -46,13 +46,13 @@ const casts = [
   ],
 ] as const;
 
-test('castSpendsAiRound()', () => {
+test('castSeatsBotDebater()', () => {
   assert({
     given: 'bot-debater, mixed, AI-judge-only, human-only and ranked casts',
-    should: 'spend an allowance only when a bot debates outside ranked play',
+    should: 'answer true exactly when a bot debates, whatever the competition',
     actual: casts.map(([given, competitionType, participants]) => [
       given,
-      castSpendsAiRound({
+      castSeatsBotDebater({
         competitionType,
         participants: participants as never,
       }),
@@ -63,7 +63,7 @@ test('castSpendsAiRound()', () => {
       ['a bot debater and an AI judge', true],
       ['human debaters with only an AI judge', false],
       ['human debaters and a human judge', false],
-      ['a ranked Round with a bot debater', false],
+      ['a ranked Round with a bot debater', true],
     ],
   });
 });
@@ -107,7 +107,7 @@ test('a real Launch carries the cast consequence in its freeze', () => {
       return [
         given,
         result.ok && result.mutation.freeze,
-        result.ok && result.mutation.spendsAiRound,
+        result.ok && result.mutation.seatsBotDebater,
       ];
     }),
     expected: [

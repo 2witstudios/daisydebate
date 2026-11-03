@@ -132,7 +132,7 @@ const startInput: Parameters<
   ReturnType<typeof createTestDatabase>['database']['executeRoomCommand']
 >[0] = {
   caller,
-  spendsAiRound: () => false,
+  seatsBotDebater: () => false,
   authorizeRead: (candidate, fact) =>
     fact?.member === true && candidate.hostActorId === caller.actorId,
   roomId: readyRoom.id,
@@ -154,7 +154,7 @@ const startInput: Parameters<
       },
       consent: null,
       freeze: true,
-      spendsAiRound: false,
+      seatsBotDebater: false,
       publishDefinition: false,
       draw: null,
       members: [state.hostActorId],

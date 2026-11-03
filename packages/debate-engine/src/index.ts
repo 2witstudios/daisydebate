@@ -24,7 +24,7 @@ export {
   hostIdentityHidden,
   projectRoom,
 } from './room-assembly';
-export { castSpendsAiRound } from './ai-round-cast';
+export { castSeatsBotDebater } from './ai-round-cast';
 export { activeRoomMembers, projectActiveRoom } from './room-membership';
 /** Pure transitions the privacy erasure applies under its own authority. */
 export { closeRoom } from './room-consent-transitions';

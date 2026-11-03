@@ -42,16 +42,17 @@ export function createAttendanceHandler(deps: HandlerDeps) {
       async (requestId) => {
         if (!deps.active()) throw createAppError('NOT_FOUND');
         requireSameOrigin(request, deps.origin());
+        const roundId = () => parseValidated(idSchema, rawRoundId);
         const caller = await requireMember(deps, request, {
           bucket: 'attendance',
           rule: attendanceRate,
+          beforeBudget: roundId,
         });
-        const roundId = parseValidated(idSchema, rawRoundId);
         const { envelope } = await readAttendanceCommand(request);
         try {
           const receipt = await deps.checkIn(
             { kind: 'human', actorId: caller.actorId },
-            roundId,
+            roundId(),
             envelope,
           );
           return Response.json(receipt);

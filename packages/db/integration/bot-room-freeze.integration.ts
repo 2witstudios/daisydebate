@@ -90,7 +90,7 @@ const withBotRoom = (
       payloadDigest: 'a'.repeat(64),
       type: 'start-round',
       targetActorId: null,
-      spendsAiRound: () => botRole !== 'judge',
+      seatsBotDebater: () => botRole !== 'judge',
       formatTuple: null,
       authorizeRead: (state, account) =>
         account?.member === true && state.hostActorId === caller.actorId,
@@ -105,7 +105,7 @@ const withBotRoom = (
             changeVersion: state.changeVersion + 1,
           },
           freeze: true,
-          spendsAiRound: botRole !== 'judge',
+          seatsBotDebater: botRole !== 'judge',
           consent: null,
           publishDefinition: false,
           draw: null,

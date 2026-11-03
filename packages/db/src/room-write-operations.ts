@@ -58,8 +58,8 @@ type CommandInput = {
   /** The catalog tuple a select-format names; its facts load under this transaction (FMT-1). */
   readonly formatTuple: SelectionTuple | null;
   readonly roundId: string;
-  /** The engine's cast rule (castSpendsAiRound): only such a launch takes the bot-admission lock. */
-  readonly spendsAiRound: (state: RoomAssemblyState) => boolean;
+  /** The engine's cast rule: only a launch that seats a bot debater takes the bot-admission lock. */
+  readonly seatsBotDebater: (state: RoomAssemblyState) => boolean;
   readonly prepare: (
     state: RoomAssemblyState,
     now: string,
@@ -265,7 +265,7 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
 
 /** A Launch whose prepared cast seats a bot debater. */
 const botDebaterLaunch = (input: CommandInput, prepared: RoomAssemblyState) =>
-  input.type === 'start-round' && input.spendsAiRound(prepared);
+  input.type === 'start-round' && input.seatsBotDebater(prepared);
 
 /**
  * Serializes bot-debater launches fleet-wide, so concurrent freezes cannot
@@ -290,9 +290,9 @@ async function reserveBotFreeze(
   locked: boolean,
 ) {
   const state = mutation.state;
-  // The pure engine decides whether this cast spends an AI round and takes a
-  // bot-debater capacity slot (DEC-186, ADR 0058).
-  if (!mutation.freeze || !mutation.spendsAiRound) return;
+  // The pure engine decides whether this cast seats a bot debater; admission
+  // then takes both its consequences, allowance and capacity (ADR 0106).
+  if (!mutation.freeze || !mutation.seatsBotDebater) return;
   if (!admission)
     throw createAppError('INFRASTRUCTURE', 'Bot admission unavailable');
   if (!locked) throw createAppError('CONFLICT', 'Bot admission not serialized');

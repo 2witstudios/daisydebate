@@ -34,7 +34,6 @@ export type Caller = { readonly userId: string; readonly actorId: string };
 export type Store = Pick<
   Database,
   | 'readRoundBotAdmissionStatus'
-  | 'readLaunchedRound'
   | 'databaseNow'
   | 'listRoomCatalogSources'
   | 'listRoomBots'

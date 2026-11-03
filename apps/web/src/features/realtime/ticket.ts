@@ -70,9 +70,12 @@ export function createTicketHandler(dependencies: TicketDependencies) {
         const caller = await requireMember(dependencies, request, {
           bucket: 'realtime:ticket',
           rule: TICKET_RULE,
+          beforeBudget: () => {
+            if (dependencies.websocketEndpoint() === null)
+              throw createAppError('INFRASTRUCTURE');
+          },
         });
         const socketUrl = dependencies.websocketEndpoint();
-        if (socketUrl === null) throw createAppError('INFRASTRUCTURE');
         const sessionId = await dependencies.sessionId(request.headers);
         // The session read that produced the identity just succeeded; a null
         // here means it lapsed in the instant between the two reads.

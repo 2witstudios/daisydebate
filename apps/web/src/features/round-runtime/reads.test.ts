@@ -3,12 +3,8 @@ import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import { rejectionOf } from '@daisy/errors/testing';
 import type { LaunchedRound } from '@daisy/protocol';
-import {
-  account,
-  caller,
-  launched,
-  round,
-} from '../room-runtime/operations.test-support';
+import { account, caller } from '../room-runtime/operations.test-support';
+import { launched, round } from './round.test-support';
 import { roundViewReader } from './reads';
 
 setupRitewayBun();
