@@ -50,6 +50,8 @@ const facts = (
       status: 'active',
       version: 1,
       startedAt: iso(openedAtMs - rules.countdownMs),
+      completedAt: null,
+      outcome: null,
       rules,
       participants,
       checkpoint: emptyRuntimeCheckpoint,
