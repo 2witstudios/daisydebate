@@ -63,15 +63,7 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
         drawn.opening?.draw?.visibility,
         JSON.stringify(drawn).includes(rows.seed),
       ],
-      expected: [
-        5,
-        5,
-        1,
-        'opening',
-        null,
-        'debater',
-        false,
-      ],
+      expected: [5, 5, 1, 'opening', null, 'debater', false],
     });
     const ballotRead = await f.store.readRoundBallot({
       caller: f.outsider,
