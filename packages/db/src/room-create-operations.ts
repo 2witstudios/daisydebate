@@ -14,7 +14,7 @@ import {
 
 import { eq, inArray } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
 
@@ -126,7 +126,7 @@ export const roomCreateOperations = ({
             await readFormatSelectionFacts(tx, input.selection.tuple),
           )
         )
-          throw createAppError('CONFLICT', 'format-unavailable');
+          throw createRefusal('CONFLICT', 'format-unavailable');
         if (input.definition)
           await publishDefinition(
             tx,
@@ -145,14 +145,14 @@ export const roomCreateOperations = ({
             resolution.text !== input.room.topic ||
             resolution.id !== input.room.publishedResolutionId
           )
-            throw createAppError('CONFLICT', 'format-unavailable');
+            throw createRefusal('CONFLICT', 'format-unavailable');
         }
         if (input.room.competitionType === 'ranked') {
           const active = await tx.execute(
             sql`select id from seasons where status='active' for share`,
           );
           if (active.length !== 1)
-            throw createAppError('CONFLICT', 'ranked-unavailable');
+            throw createRefusal('CONFLICT', 'ranked-unavailable');
         }
         const now = await transactionNow(tx);
         await tx.insert(rooms).values({
@@ -254,7 +254,7 @@ const applyInitialCast = async (
 ): Promise<RoomAssemblyState> => {
   const seats = cast.seats;
   if (new Set(seats.map((seat) => seat.actorId)).size !== seats.length)
-    throw createAppError('CONFLICT', 'illegal-config');
+    throw createRefusal('CONFLICT', 'illegal-config');
   const fencedActors = [
     ...new Set([caller.actorId, ...seats.map((seat) => seat.actorId)]),
   ];
@@ -284,7 +284,7 @@ const applyInitialCast = async (
   for (const seat of seats) {
     const target = await actorFact(tx, seat.actorId);
     const outcome = cast.apply(assembled, seat, target, now);
-    if (!outcome.ok) throw createAppError('CONFLICT', outcome.refusal);
+    if (!outcome.ok) throw createRefusal('CONFLICT', outcome.refusal);
     assembled = outcome.mutation.state;
   }
   return assembled;

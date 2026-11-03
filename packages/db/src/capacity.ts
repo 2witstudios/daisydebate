@@ -8,5 +8,6 @@ export {
   capacityRefusalDetail,
   isReportedCapacityRefusal,
   isCapacityRefusal,
+  isTemporaryRefusal,
   markCapacityRefusalReported,
 } from './capacity-refusal';

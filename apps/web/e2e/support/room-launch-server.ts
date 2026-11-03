@@ -5,7 +5,10 @@ import {
   launchAppControlPath,
   callLaunchControl,
 } from './room-launch-settled';
-import { createLaunchControl } from './room-launch-control';
+import {
+  createLaunchControl,
+  type LaunchControlOperation,
+} from './room-launch-control';
 import { createSelfSignedTlsEdge } from './tls-edge';
 import { readLaunchTls } from './launch-certificates';
 import { requireLaunchSlot } from './room-launch-slot';
@@ -133,18 +136,19 @@ const capture = createLaunchProcess({
   ready: async () => true,
   readyEvent: 'server.ready',
 });
+const everyWeb = async (operation: LaunchControlOperation) => {
+  await Promise.all([
+    ...(web.running()
+      ? [callLaunchControl(launchAppControlPath(slot.id), operation)]
+      : []),
+    ...(peer.running()
+      ? [callLaunchControl(launchAppControlPath(slot.id, true), operation)]
+      : []),
+  ]);
+};
 const control = await createLaunchControl({
   path: launchControlPath(slot.id),
-  settled: async () => {
-    await Promise.all([
-      ...(web.running()
-        ? [callLaunchControl(launchAppControlPath(slot.id), 'settled')]
-        : []),
-      ...(peer.running()
-        ? [callLaunchControl(launchAppControlPath(slot.id, true), 'settled')]
-        : []),
-    ]);
-  },
+  settled: () => everyWeb('settled'),
   pending: () => 0,
   actions: {
     'block-check-in': async () => {
@@ -153,6 +157,10 @@ const control = await createLaunchControl({
     'restore-check-in': async () => {
       blocked = false;
     },
+    'refuse-round-reads': () => everyWeb('refuse-round-reads'),
+    'allow-round-reads': () => everyWeb('allow-round-reads'),
+    'refuse-identity-reads': () => everyWeb('refuse-identity-reads'),
+    'allow-identity-reads': () => everyWeb('allow-identity-reads'),
     'stop-realtime': realtime.stop,
     'start-realtime': realtime.start,
     'stop-web': web.stop,

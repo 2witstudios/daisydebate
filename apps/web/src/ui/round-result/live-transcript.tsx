@@ -13,6 +13,9 @@ import {
 } from './transcript-content';
 import { TranscriptFollow } from './transcript-follow';
 
+/** Where a Round's transcript sits on its page. */
+export type TranscriptPlacement = 'card' | 'sidebar';
+
 /**
  * Authorized data only: this component has no reader identity or seat
  * assumption. One driver holds a Round's transcript for as long as the page
@@ -28,7 +31,7 @@ export function LiveTranscript({
   readonly seed: LiveTranscriptRead;
   readonly socketUrl: string | null;
   /** A page card behind a disclosure, or always open in the Round sidebar. */
-  readonly placement?: 'card' | 'sidebar';
+  readonly placement?: TranscriptPlacement;
 }) {
   const roundId = seed.round.id;
   const [holder] = useState(() =>

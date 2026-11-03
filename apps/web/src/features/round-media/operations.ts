@@ -1,5 +1,5 @@
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError, isAppError, createRefusal } from '@daisy/errors';
 import {
   roundMediaAdmissionSchema,
   type RoundMediaState,
@@ -35,12 +35,11 @@ const callerOf = (actorId: string) => ({
  * outlast that deadline, and its client then retries while the pass finishes.
  */
 export const MEDIA_ADMISSION_WAIT_MS = 8_000;
-const MEDIA_DEFERRED = 'media-deferred';
 /** Expected backpressure: a retryable 503 that needs no one to look. */
 const mediaDeferred = (cause?: unknown) =>
-  createAppError('INFRASTRUCTURE', MEDIA_DEFERRED, cause);
+  createRefusal('INFRASTRUCTURE', 'media-deferred', undefined, cause);
 export const isMediaDeferred = (error: unknown) =>
-  isAppError(error) && error.message === MEDIA_DEFERRED;
+  isAppError(error) && error.reason === 'media-deferred';
 /** One read waiting until a pass has served its own version. */
 type ServeWaiter = {
   readonly version: number;

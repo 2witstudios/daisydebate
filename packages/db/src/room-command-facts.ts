@@ -9,7 +9,7 @@ import type {
 import { buildRoomTopic } from '@daisy/protocol';
 import { botDifficulties } from '@daisy/protocol';
 import { idSchema } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { authorizationAccountFact } from './authorization-account';
 import {
   lockAuthorizationActors,
@@ -270,7 +270,7 @@ export const replayReceipt = async (
     previous.payloadDigest !== payloadDigest ||
     (roomId !== undefined && previous.roomId !== roomId)
   )
-    throw createAppError('CONFLICT', 'command-conflict');
+    throw createRefusal('CONFLICT', 'command-conflict');
   return {
     ...(previous.result as Omit<RoomCommandReceipt, 'replayed'>),
     replayed: true,

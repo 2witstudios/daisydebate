@@ -3,7 +3,7 @@ import type { Database } from '@daisy/db';
 import type { createMediaService } from '@daisy/media';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import type { createRoundMediaOperations } from './operations';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { admissionRevoked, mediaEnded, mediaRuntime } from './projection';
 
 type Capture = ReturnType<Database['createMediaCaptureOperations']>;
@@ -52,7 +52,11 @@ export function createMediaWorkerTokenBroker(input: {
         // stops and is never relaunched (ISSUE-494, ISSUE-495). Its own
         // message, apart from a write refused during a temporary unsafe window.
         if (state.session.endedAt || mediaEnded(state))
-          throw createAppError('CONFLICT', 'Capture session has ended');
+          throw createRefusal(
+            'CONFLICT',
+            'capture-closed',
+            'Capture session has ended',
+          );
         return state;
       };
       const issue = async (state: Awaited<ReturnType<typeof read>>) => {

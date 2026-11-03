@@ -286,3 +286,23 @@ test('persisted Round destinations require a participant, including normalized d
     expected: ['participant', 'participant', null],
   });
 });
+
+test('a temporarily unavailable identity decides temporarily unavailable', () => {
+  const principal = { kind: 'anonymous' } as const;
+  const decide = (temporary: object) =>
+    decideAccess({
+      identity: { state: 'unavailable', principal, ...temporary },
+      path: '/lobby',
+      requirement: 'participant',
+    });
+  assert({
+    given:
+      'an identity a refusal made unavailable, and one otherwise unavailable',
+    should: 'keep the mark on the decision, and add none',
+    actual: [decide({ temporary: true }), decide({})],
+    expected: [
+      { kind: 'unavailable', temporary: true },
+      { kind: 'unavailable' },
+    ],
+  });
+});

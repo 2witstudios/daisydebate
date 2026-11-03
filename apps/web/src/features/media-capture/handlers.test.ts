@@ -1,4 +1,5 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
+import { captureRefusalSchema } from '@daisy/protocol';
 import { noopErrorReporter } from '@daisy/observability';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { silentLogger } from '../../server/test-loggers.test-support';
@@ -186,54 +187,81 @@ test('unsigned, undecodable or unknown capture calls never reach capture', async
   });
 });
 
+const refusedWith = (error: unknown) =>
+  fixture(async () => {
+    throw error;
+  }).handlers.handle(signed('seal', '{}'));
+const answered = async (error: unknown) => {
+  const response = await refusedWith(error);
+  return [response.status, (await response.json()).refusal];
+};
+const REWORDED = 'Any sentence a person may reword';
+
 test('only an open capture timeline is named as a retryable seal refusal', async () => {
-  const refused = (message: string) =>
-    fixture(async () => {
-      throw createAppError('CONFLICT', message);
-    }).handlers.handle(signed('seal', '{}'));
-  const open = await refused('Capture timeline is still open');
-  const below = await refused('Capture seal is below stored chunks');
   assert({
     given:
       'a seal refused while the timeline is open, and one below stored chunks',
     should:
       'answer 409 for both, naming only the open timeline so the worker retries it (VIDEO-4.1-r1)',
     actual: [
-      open.status,
-      (await open.json()).refusal,
-      below.status,
-      (await below.json()).refusal,
+      await answered(createRefusal('CONFLICT', 'timeline-open')),
+      await answered(
+        createAppError('CONFLICT', 'Capture seal is below stored chunks'),
+      ),
     ],
-    expected: [409, 'timeline-open', 409, undefined],
+    expected: [
+      [409, 'timeline-open'],
+      [409, undefined],
+    ],
   });
 });
 
-test('only an ended session or closed admission is named closed for good', async () => {
-  const refusal = async (message: string) => {
-    const response = await fixture(async () => {
-      throw createAppError('CONFLICT', message);
-    }).handlers.handle(signed('seal', '{}'));
-    return [response.status, (await response.json()).refusal];
-  };
+test('only a closed capture is named closed for good', async () => {
   assert({
     given:
-      'capture refused because its session has ended, its admission is closed, its session is only temporarily unsafe or being deleted, its lease expired, or a takeover moved it',
+      'capture closed for good, only temporarily unsafe, on an expired lease, or moved by a takeover',
     should:
-      'name the first two capture-closed (409), the temporary window capture-paused and an expired lease its worker may reinstate lease-expired (503, retried), never closed (ISSUE-494-r3), and leave a takeover final',
+      'name closed 409, and the temporary window and a lease its worker may reinstate 503, retried (ISSUE-494-r3), and leave a takeover final',
     actual: [
-      await refusal('Capture session has ended'),
-      await refusal('Capture admission is closed'),
-      await refusal('Capture session is closed'),
-      await refusal('Capture worker lease expired'),
-      await refusal('Capture worker lease is stale'),
+      await answered(createRefusal('CONFLICT', 'capture-closed')),
+      await answered(createRefusal('CONFLICT', 'capture-paused')),
+      await answered(createRefusal('CONFLICT', 'lease-expired')),
+      await answered(
+        createAppError('CONFLICT', 'Capture worker lease is stale'),
+      ),
     ],
     expected: [
-      [409, 'capture-closed'],
       [409, 'capture-closed'],
       [503, 'capture-paused'],
       [503, 'lease-expired'],
       [409, undefined],
     ],
+  });
+});
+
+test('a capture refusal follows its reason, whatever its message says (ISSUE-1010)', async () => {
+  assert({
+    given: 'every capture refusal, reworded',
+    should: 'answer exactly as before',
+    actual: await Promise.all(
+      captureRefusalSchema.options.map((reason) =>
+        answered(createRefusal('CONFLICT', reason, REWORDED)),
+      ),
+    ),
+    expected: [
+      [409, 'timeline-open'],
+      [409, 'capture-closed'],
+      [503, 'capture-paused'],
+      [503, 'lease-expired'],
+    ],
+  });
+  assert({
+    given: 'an old refusal sentence with no reason',
+    should: 'name nothing: the sentence alone means nothing',
+    actual: await answered(
+      createAppError('CONFLICT', 'Capture session is closed'),
+    ),
+    expected: [409, undefined],
   });
 });
 
@@ -267,7 +295,7 @@ test('a reinstated lease is measured and its reply keeps the worker contract', a
 
 test('a terminal token refusal ends native capture rather than restarting it', async () => {
   const f = fixture(undefined, async () => {
-    throw createAppError('CONFLICT', 'Capture session has ended');
+    throw createRefusal('CONFLICT', 'capture-closed');
   });
   const response = await f.handlers.handle(
     signed(
