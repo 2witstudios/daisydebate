@@ -35,6 +35,7 @@ const betaGrants = [
   'ai_rounds',
   'casual_ai_judge',
   'casual_capture',
+  'recording_download',
 ] as const;
 
 /**

@@ -10,6 +10,8 @@ export const entitlementKinds = [
   'casual_ai_judge',
   /** A casual host's broadcast and recording opt-ins (WATCH-8); ranked needs no grant. */
   'casual_capture',
+  /** Downloading a Recording: its own concept, not a host's capture opt-in. */
+  'recording_download',
 ] as const;
 type EntitlementKind = (typeof entitlementKinds)[number];
 

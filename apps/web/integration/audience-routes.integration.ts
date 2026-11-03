@@ -50,8 +50,8 @@ const onAirRound = async (f: Runtime, debatersReadChat = false) => {
   for (const seat of [f.host, f.guest])
     view = (await f.consent(seat, view, 'ready')).view;
   const { roundId } = await launchRuntimeRound(f, view);
-  await f.sql`insert into broadcasts (id,round_id,release_policy,debaters_read_chat)
-    values (${createId()},${roundId},${{ kind: 'delay', seconds: 60 }},${debatersReadChat})`;
+  await f.sql`insert into broadcasts (feed_key, id, round_id,release_policy,debaters_read_chat)
+    values (${createId()},${createId()},${roundId},${{ kind: 'delay', seconds: 60 }},${debatersReadChat})`;
   return roundId;
 };
 

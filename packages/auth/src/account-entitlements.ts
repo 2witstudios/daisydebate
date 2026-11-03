@@ -23,6 +23,7 @@ export function accountEntitlements(
     roundAnalysis: holds('round_analysis'),
     casualAiJudge: holds('casual_ai_judge'),
     casualCapture: holds('casual_capture'),
+    recordingDownload: holds('recording_download'),
   };
 }
 

@@ -3,7 +3,7 @@ import { holdsRecordingDownload } from './download-entitlement';
 
 setupRitewayBun();
 
-const beta = [{ entitlement: 'casual_capture', source: 'beta' }] as const;
+const beta = [{ entitlement: 'recording_download', source: 'beta' }] as const;
 const holds = (
   grants: readonly (typeof beta)[number][],
   betaGrantsPremium: boolean,

@@ -261,15 +261,15 @@ ALTER TABLE "messaging_channels" ADD CONSTRAINT "messaging_channels_round" CHECK
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_ranked_public_check" CHECK ("competition_type" <> 'ranked' or "visibility" = 'public');--> statement-breakpoint
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_capture_is_object" CHECK (jsonb_typeof("capture") = 'object');--> statement-breakpoint
 ALTER TABLE "rounds" ADD CONSTRAINT "rounds_capture_is_object" CHECK (jsonb_typeof("capture") = 'object');--> statement-breakpoint
-ALTER TABLE "account_entitlement_grants" DROP CONSTRAINT "account_entitlement_grants_entitlement_check", ADD CONSTRAINT "account_entitlement_grants_entitlement_check" CHECK ("entitlement" in ('round_analysis', 'ai_rounds', 'casual_ai_judge', 'casual_capture'));--> statement-breakpoint
+ALTER TABLE "account_entitlement_grants" DROP CONSTRAINT "account_entitlement_grants_entitlement_check", ADD CONSTRAINT "account_entitlement_grants_entitlement_check" CHECK ("entitlement" in ('round_analysis', 'ai_rounds', 'casual_ai_judge', 'casual_capture', 'recording_download'));--> statement-breakpoint
 ALTER TABLE "messaging_channels" DROP CONSTRAINT "messaging_channels_kind", ADD CONSTRAINT "messaging_channels_kind" CHECK ("kind" in ('dm', 'private_group', 'round_spectator'));--> statement-breakpoint
 ALTER TABLE "messaging_channels" DROP CONSTRAINT "messaging_channels_policy", ADD CONSTRAINT "messaging_channels_policy" CHECK ("policy_revision" > 0 and (("kind" = 'dm' and "policy_key" = 'social.dm') or ("kind" = 'private_group' and "policy_key" = 'social.private_group') or ("kind" = 'round_spectator' and "policy_key" = 'round.spectator')));
 --> statement-breakpoint
--- WATCH-16 and WATCH-8: beta approval grants these until billing exists, so every
+-- WATCH-16, WATCH-8 and WATCH-14: beta approval grants these until billing exists, so every
 -- account already approved holds them, as the beta access command now writes.
 INSERT INTO "account_entitlement_grants" ("user_id", "entitlement", "source")
 SELECT "user_id", kind, 'beta'
-FROM "account_beta_access", (VALUES ('casual_ai_judge'), ('casual_capture')) AS kinds(kind)
+FROM "account_beta_access", (VALUES ('casual_ai_judge'), ('casual_capture'), ('recording_download')) AS kinds(kind)
 WHERE "state" = 'approved';
 --> statement-breakpoint
 -- daisy_broadcast_worker: the hold worker's only credential (ADR 0099, BCAST-4).

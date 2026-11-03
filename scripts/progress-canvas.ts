@@ -460,4 +460,13 @@ if (import.meta.main) {
     },
     args.includes('--apply'),
   );
+  // The Watch Status canvas refreshes with Project Status (WATCH-13).
+  if (process.exitCode === 0 || process.exitCode === undefined)
+    process.exitCode = Bun.spawnSync(
+      ['bun', 'scripts/watch-status.ts', ...args],
+      {
+        stdout: 'inherit',
+        stderr: 'inherit',
+      },
+    ).exitCode;
 }

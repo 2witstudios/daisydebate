@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "002d7669-e942-4663-b595-6ca7f1b44581",
+  "id": "56d298fc-8529-490d-8908-45e446a326d6",
   "prevIds": [
     "363787d1-3897-4357-9649-a181b35a6c61"
   ],
@@ -23189,7 +23189,7 @@
       "table": "email_suppression"
     },
     {
-      "value": "\"entitlement\" in ('round_analysis', 'ai_rounds', 'casual_ai_judge', 'casual_capture')",
+      "value": "\"entitlement\" in ('round_analysis', 'ai_rounds', 'casual_ai_judge', 'casual_capture', 'recording_download')",
       "name": "account_entitlement_grants_entitlement_check",
       "entityType": "checks",
       "schema": "public",

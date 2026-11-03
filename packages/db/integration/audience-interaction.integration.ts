@@ -107,8 +107,8 @@ const broadcast = async (
     readonly slowMode?: number;
   } = {},
 ) => {
-  await client`insert into broadcasts (id,round_id,release_policy,released_through_at,completed_at,stopped_at,stop_reason,chat_slow_mode_seconds)
-    values (${createId()},${roundId},${{ kind: 'delay', seconds: 60 }},${columns.released ?? null},${columns.completed ?? null},${columns.stopped ?? null},${columns.stopped ? 'test' : null},${columns.slowMode ?? 0})`;
+  await client`insert into broadcasts (feed_key, id, round_id,release_policy,released_through_at,completed_at,stopped_at,stop_reason,chat_slow_mode_seconds)
+    values (${createId()},${createId()},${roundId},${{ kind: 'delay', seconds: 60 }},${columns.released ?? null},${columns.completed ?? null},${columns.stopped ?? null},${columns.stopped ? 'test' : null},${columns.slowMode ?? 0})`;
 };
 
 const planner =
@@ -748,8 +748,8 @@ test('a seat reads as what its Round is, and no seat reads as none', async () =>
     });
     const debater = await member(env.f);
     await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
-    await env.client`insert into broadcasts (id,round_id,release_policy,debaters_read_chat)
-      values (${createId()},${roundId},${{ kind: 'delay', seconds: 60 }},true)`;
+    await env.client`insert into broadcasts (feed_key, id, round_id,release_policy,debaters_read_chat)
+      values (${createId()},${createId()},${roundId},${{ kind: 'delay', seconds: 60 }},true)`;
     assert({
       given: 'a ranked seat whose Broadcast wrongly says debaters may read',
       should:

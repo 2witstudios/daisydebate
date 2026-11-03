@@ -119,8 +119,8 @@ test('a Broadcast with a crash becomes one Recording spanning both attempts', as
     try {
       const { roundId } = h;
       const broadcastId = createId();
-      await f.sql`insert into broadcasts (id, round_id, release_policy, egress_id, egress_generation, egress_started_at)
-        values (${broadcastId}, ${roundId}, ${JSON.stringify({ kind: 'delay', seconds: 60 })}::text::jsonb, 'EG_A', 1, ${iso(T0)}::timestamptz)`;
+      await f.sql`insert into broadcasts (feed_key, id, round_id, release_policy, egress_id, egress_generation, egress_started_at)
+        values (${createId()}, ${broadcastId}, ${roundId}, ${JSON.stringify({ kind: 'delay', seconds: 60 })}::text::jsonb, 'EG_A', 1, ${iso(T0)}::timestamptz)`;
       await h.sweep();
       await h.sweep();
       const first = await lifecycleOf(h.store, roundId);

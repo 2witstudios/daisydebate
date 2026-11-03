@@ -51,7 +51,7 @@ export async function admitParticipants(
   if (grants?.present)
     await sql`insert into account_entitlement_grants (user_id, entitlement, source)
       select id, entitlement, 'beta' from unnest(${ids}::text[]) as id
-      cross join unnest('{round_analysis,ai_rounds,casual_ai_judge,casual_capture}'::text[]) as entitlement
+      cross join unnest('{round_analysis,ai_rounds,casual_ai_judge,casual_capture,recording_download}'::text[]) as entitlement
       -- Only what this database's chain allows: an earlier folder allows fewer.
       where exists (
         select 1 from pg_constraint
