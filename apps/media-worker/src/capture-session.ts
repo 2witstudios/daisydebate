@@ -92,6 +92,7 @@ async function captureSession(
     droppedFrames: 0,
     transcribedClips: 0,
     silentClips: 0,
+    audibleClips: 0,
     appendedChunks: 0,
     sealedStreams: 0,
   };
@@ -127,6 +128,7 @@ async function captureSession(
   const heard = createHeardReporter({ heard: input.client.heard });
   const enqueue = (clip: CutClip) => {
     if (clip.kind === 'silent') stats.silentClips++;
+    else stats.audibleClips++;
     const queued: QueuedClip = {
       ...clip,
       bytes: clip.kind === 'audible' ? clip.wav.byteLength : 0,
