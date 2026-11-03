@@ -2,10 +2,7 @@ export { formatStanding } from './format-standing';
 export { broadcastPhase } from './broadcast-phase';
 export type { PhasePosition } from './broadcast-phase';
 export { decideBroadcast } from './broadcast-lifecycle';
-export {
-  runningEgress,
-  stagePrivacyActions,
-} from './stage-capture';
+export { runningEgress, stagePrivacyActions } from './stage-capture';
 export type {
   StageEgressFact,
   StagePhaseFact,
