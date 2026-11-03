@@ -14,6 +14,7 @@ import { createAppError, isAppError, type ErrorCode } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { boundedBody, json, refusal, transportRefusal } from './http';
+import { moderationRoute, type ModerationStore } from './moderation';
 import {
   betaAccessCommandSchema,
   matchOperatorRoute,
@@ -35,6 +36,13 @@ const operatorService = {
   capabilities: [
     'account.collection.read',
     'account.beta_access.update',
+    'report.queue.read',
+    'report.resolve',
+    'broadcast.stop',
+    'broadcast.chat_slow_mode.update',
+    'recording.takedown',
+    'chat_message.remove',
+    'account.audience_ban.update',
   ] as const satisfies readonly AuthorizationCapability[],
 };
 
@@ -56,6 +64,7 @@ export type OperatorApiDependencies = {
     readonly ttlSeconds: number;
   }) => Promise<boolean>;
   readonly store: Store;
+  readonly moderation: ModerationStore;
   readonly nextId: () => string;
   readonly logger: Pick<Logger, 'log'>;
   /**
@@ -180,6 +189,20 @@ function dispatch(
       return setBetaAccess(deps, principal, route.id!, request);
     case 'readCommand':
       return readCommand(deps, principal, route.id!);
+    default:
+      return moderationRoute(
+        {
+          store: deps.moderation,
+          crypto: deps.crypto,
+          nowMs: deps.nowMs,
+          logger: deps.logger,
+        },
+        principal,
+        route.route,
+        route.id,
+        url,
+        request,
+      );
   }
 }
 

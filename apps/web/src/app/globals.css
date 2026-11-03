@@ -320,3 +320,8 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* A browser moving a scroller to keep content steady is not a reader moving it. */
+@utility overflow-anchor-none {
+  overflow-anchor: none;
+}

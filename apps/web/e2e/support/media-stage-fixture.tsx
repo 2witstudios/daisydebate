@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { MediaStage } from '../../src/features/round-media/media-stage';
 import { view } from '../../src/ui/debate-room/live-round.test-support';
-import type { MediaTrack } from '../../src/features/round-media/browser-transport';
+import type { TrackHandle } from '../../src/features/round-media/adapters/livekit-room';
 const root = createRoot(document.getElementById('root')!);
 const calls: string[] = [];
 const sdk = (id: string) => ({
@@ -32,14 +32,24 @@ Object.assign(window, {
             media={media}
             connection="live"
             microphoneConfirmed
+            ownIdentity={null}
+            ownMuted={false}
+            remotePeers={[{ identity: 'peer', microphonePublished: false }]}
             tracks={[
               {
                 identity: 'peer',
                 source: 'camera',
                 local: false,
                 speaking,
+                muted: false,
+              },
+            ]}
+            handles={[
+              {
+                identity: 'peer',
+                source: 'camera',
                 track: tracks[index],
-              } as unknown as MediaTrack,
+              } as unknown as TrackHandle,
             ]}
           />,
         ),

@@ -1,3 +1,4 @@
+import type { AlertSnapshot } from '../src/features/ops/alert-state';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { App } from '../src/server/app';
@@ -25,23 +26,7 @@ const routeFor = (routes: Routes, method: string, path: string) => {
   return undefined;
 };
 
-type AlertSnapshotBody = {
-  readonly redisState: 'read' | 'unreachable';
-  readonly storageUnavailableSinceIso: string | null;
-  readonly limiterUnavailableSinceIso: string | null;
-  readonly deliveryConsecutiveFailures: number;
-  readonly authRequests: {
-    readonly total: number;
-    readonly serverErrors: number;
-    readonly windowMinutes: number;
-  };
-  readonly retentionLastSuccessIso: string | null;
-  readonly mailShed: { readonly count: number; readonly windowMinutes: number };
-  readonly networkDenied: {
-    readonly count: number;
-    readonly windowMinutes: number;
-  };
-};
+type ReadSnapshot = Extract<AlertSnapshot, { redisState: 'read' }>;
 
 export async function serveEdge({
   app,
@@ -102,12 +87,14 @@ export async function serveEdge({
     /** `/api/ops/metrics`' Prometheus text. */
     metricsText: async () => (await opsGet('/api/ops/metrics')).text(),
     /** `/api/ops/alerts`' snapshot. */
-    alertSnapshot: async () =>
-      (
-        (await (await opsGet('/api/ops/alerts')).json()) as {
-          snapshot: AlertSnapshotBody;
-        }
-      ).snapshot,
+    alertSnapshot: async (): Promise<ReadSnapshot> => {
+      const { snapshot } = (await (await opsGet('/api/ops/alerts')).json()) as {
+        snapshot: AlertSnapshot;
+      };
+      if (snapshot.redisState !== 'read')
+        throw new Error('Alert state unread: its markers do not exist');
+      return snapshot;
+    },
     /**
      * `/api/ops/alerts` as the probe sees it, whatever it answers: the
      * status, the fired condition ids and the snapshot.
@@ -118,7 +105,7 @@ export async function serveEdge({
       });
       const body = (await response.json()) as {
         conditions?: readonly { readonly id: string }[];
-        snapshot?: AlertSnapshotBody;
+        snapshot?: AlertSnapshot;
       };
       return {
         status: response.status,
@@ -141,7 +128,7 @@ export const sampleOf = (text: string, series: string) => {
 };
 
 /**
- * `auth_http_request_duration_ms` for one operation label: every bucket by
+ * `http_request_duration_ms` for one operation label: every bucket by
  * its `le`, the sum and the count; undefined when the label has no series.
  */
 export const latencyHistogramOf = (text: string, operation: string) => {
@@ -150,8 +137,7 @@ export const latencyHistogramOf = (text: string, operation: string) => {
     .split('\n')
     .filter(
       (line) =>
-        line.startsWith('auth_http_request_duration_ms_') &&
-        line.includes(label),
+        line.startsWith('http_request_duration_ms_') && line.includes(label),
     );
   if (lines.length === 0) return undefined;
   const buckets: Record<string, number> = {};
@@ -161,7 +147,7 @@ export const latencyHistogramOf = (text: string, operation: string) => {
   }
   return {
     buckets,
-    sum: sampleOf(text, `auth_http_request_duration_ms_sum${label}}`),
-    count: sampleOf(text, `auth_http_request_duration_ms_count${label}}`),
+    sum: sampleOf(text, `http_request_duration_ms_sum${label}}`),
+    count: sampleOf(text, `http_request_duration_ms_count${label}}`),
   };
 };

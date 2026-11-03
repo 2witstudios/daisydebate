@@ -1,3 +1,4 @@
+import type { JudgingTerminalReason } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { ErrorReporter } from '@daisy/observability';
 import { workerFailures } from './recoverable-failure';
@@ -23,7 +24,7 @@ export function startRoundCompetitiveMaintenance(input: {
     'round.judging',
     'Judging ended without a ballot',
   );
-  const judgingEnded = (reason: string) =>
+  const judgingEnded = (reason: JudgingTerminalReason) =>
     reportEnded(
       createAppError('INFRASTRUCTURE', `Judging ended: ${reason}`),
       'complete',

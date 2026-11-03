@@ -18,9 +18,10 @@ export const operatorCommandReceipts = pgTable(
     serviceId: text('service_id').notNull(),
     operatorRef: text('operator_ref').notNull(),
     action: text('action').notNull(),
-    targetUserId: text('target_user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+    /** The account a command targets; null when it targets something else. */
+    targetUserId: text('target_user_id').references(() => users.id, {
+      onDelete: 'cascade',
+    }),
     requestDigest: text('request_digest').notNull(),
     result: jsonbColumn('result', operatorCommandResultSchema).notNull(),
     adminAuditHead: text('admin_audit_head').notNull(),

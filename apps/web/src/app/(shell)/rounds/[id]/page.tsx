@@ -15,7 +15,16 @@ import { RoundResult } from '../../../../ui/round-result/round-result';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
-import { readPersistedRound, readPersistedRoundAnalysis } from './actions';
+import {
+  readPersistedRound,
+  readPersistedRoundAnalysis,
+  reportRoundAction,
+} from './actions';
+import {
+  reportAnswerText,
+  reportNotice,
+} from '../../../../features/moderation/submit-report';
+import { ReportForm } from '../../../../ui/moderation/report-form';
 import { readPersistedTranscript } from './read-persisted-transcript';
 import { MediaDocument } from '../../../../ui/round-media/media-document';
 
@@ -50,6 +59,8 @@ export default async function RoundPage({
 }) {
   const { id } = await params;
   const identity = await requireAccess(`/rounds/${id}`, searchParams);
+  const reported = reportNotice((await searchParams).report);
+  const reportFromRound = reportRoundAction.bind(null, id);
   if (!idSchema.safeParse(id).success) notFound();
   const result = await readPersistedRound(id);
   if (result.kind === 'missing') notFound();
@@ -83,9 +94,26 @@ export default async function RoundPage({
       <MediaDocument />
       <RoundReceipt round={result.round}>
         <RoundRatings view={await requestRoundRatings(result.round)} />
-        {ballots ? <RoundResult view={ballots} /> : null}
+        {ballots ? (
+          <RoundResult view={ballots} reportAction={reportFromRound} />
+        ) : null}
         {analysis ? (
           <RoundAnalysis view={analysis.view} lines={analysis.lines} />
+        ) : null}
+        {identity.state === 'member' ? (
+          <>
+            {reported ? (
+              <p role="status" className="text-sm text-ink-muted">
+                {reportAnswerText(reported)}
+              </p>
+            ) : null}
+            <ReportForm
+              targetKind="round"
+              targetId={result.round.id}
+              label="Report this round"
+              action={reportFromRound}
+            />
+          </>
         ) : null}
       </RoundReceipt>
       {ownsFiles && filePrincipal !== null ? (

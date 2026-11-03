@@ -8,7 +8,7 @@ import { captureObservationSchema, captureSealSchema } from './capture-input';
 import {
   captureHistory,
   advanceTranscriptRevision,
-  botGrantUnused,
+  readSeatGrants,
   coverageAuthority,
   transcriptRevision,
 } from './capture-history';
@@ -134,11 +134,17 @@ export async function sealCapturedStream(
         eq(transcriptObservations.roundParticipantId, input.roundParticipantId),
       ),
     );
-  const [{ unused } = { unused: false }] = (await tx.execute(
-    sql`select ${botGrantUnused(input.roundId, input.segmentId, input.roundParticipantId)} as unused`,
-  )) as unknown as { unused: boolean }[];
+  const [seatGrant] = await readSeatGrants(tx, input);
+  const coverage = await coverageAuthority(
+    tx,
+    input,
+    required,
+    dependencies.captureRule,
+  );
   const verdict = dependencies.captureRule.decideStreamCapture({
-    grantUnused: unused,
+    grantUnused:
+      seatGrant !== undefined &&
+      dependencies.captureRule.botGrantUnused(seatGrant.grant),
     interrupted: await captureSessionInterrupted(tx, input.sessionId, segment),
     framesLost: input.framesLost,
     epoch: input.epoch,
@@ -150,7 +156,20 @@ export async function sealCapturedStream(
     chunks,
     storedChunks: stream.chunkCount,
     expectedChunks: input.expectedChunkCount,
-    ...(await coverageAuthority(tx, input, required, dependencies.captureRule)),
+    ...coverage,
+  });
+  const captureStart = Math.min(
+    ...observations.map((row) => row.start.getTime()),
+  );
+  // Facts only, never text (DEC-294): enough to say why a stream sealed partial.
+  dependencies.sealed?.({
+    roundId: input.roundId,
+    sessionId: input.sessionId,
+    cause: verdict.state === 'partial' ? verdict.reasons[0] : 'complete',
+    windows: coverage.authority.length,
+    captureStartMs: Number.isFinite(captureStart)
+      ? Math.max(0, captureStart - segment.startedAt.getTime())
+      : null,
   });
   const mutationNow = await freshCaptureMutation(tx, input.roundId, context);
   await updateCaptureStream(tx, input, {

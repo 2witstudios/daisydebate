@@ -198,7 +198,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
     }
   });
 
-  test('a retention sweep during a database outage counts each failed target and records its successful one', async () => {
+  test('a retention run during a database outage counts each failed target and records no success until every target succeeds (ISSUE-1007)', async () => {
     const edge = await serveEdge({ app, routes, opsToken });
     const sweep = createRetentionSweep({
       targets: retentionTargets({
@@ -211,12 +211,14 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
     });
     try {
       const before = await edge.alertSnapshot();
-      const sweptFrom = systemClock.now();
       dbProxy.pause();
       const results = await sweep.run();
       const sweptTo = systemClock.now();
       const text = await edge.metricsText();
       const lastSuccess = (await edge.alertSnapshot()).retentionLastSuccessIso;
+      dbProxy.resume();
+      await sweep.run();
+      const recovered = (await edge.alertSnapshot()).retentionLastSuccessIso;
       const failed = results
         .filter((result) => !result.ok)
         .map((result) => result.operation);
@@ -224,7 +226,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
         given:
           "the real retention sweep over the app's logger while PostgreSQL is unreachable and Redis is not",
         should:
-          'count one retention_sweep_failures_total per database target and record the Redis target success on /api/ops/alerts',
+          'count one retention_sweep_failures_total per database target, record no success while the Redis target alone succeeds, and record one once a later run succeeds on every target',
         actual: {
           before: before.retentionLastSuccessIso,
           failed,
@@ -234,10 +236,8 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
               `retention_sweep_failures_total{operation="${operation}"}`,
             ),
           ),
-          lastSuccessWithinSweep:
-            lastSuccess !== null &&
-            lastSuccess >= sweptFrom &&
-            lastSuccess <= sweptTo,
+          lastSuccessDuringOutage: lastSuccess,
+          recoveredAfterOutage: recovered !== null && recovered >= sweptTo,
         },
         expected: {
           before: null,
@@ -261,7 +261,8 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.social_requests',
           ],
           failuresByTarget: Array.from({ length: 17 }, () => 1),
-          lastSuccessWithinSweep: true,
+          lastSuccessDuringOutage: null,
+          recoveredAfterOutage: true,
         },
       });
     } finally {

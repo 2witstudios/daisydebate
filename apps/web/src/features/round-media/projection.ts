@@ -45,7 +45,12 @@ export const admissionRevoked = (
 export const seatGrants = (
   snapshot: Pick<
     MediaSnapshot,
-    'round' | 'now' | 'finalSegmentEndedAt' | 'participants' | 'withdrawn'
+    | 'round'
+    | 'now'
+    | 'finalSegmentEndedAt'
+    | 'participants'
+    | 'withdrawn'
+    | 'conversationHeld'
   >,
   participantId: string,
   nextId: () => string,
@@ -61,6 +66,7 @@ export const seatGrants = (
     position: mediaRuntime(snapshot, nextId).position(snapshot.now),
     now: snapshot.now,
     finalSegmentEndedAt: snapshot.finalSegmentEndedAt,
+    conversationHeld: snapshot.conversationHeld,
   });
 
 export function projectMedia(

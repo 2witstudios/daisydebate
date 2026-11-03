@@ -4,9 +4,12 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  readConversationHeld,
+  recordEgressStarted,
   claimBroadcast,
   claimBroadcastReconcile,
   completeBroadcast,
+  discoverUnopenedBroadcastRounds,
   listOpenBroadcasts,
   openBroadcast,
   readReleasedThrough,
@@ -16,6 +19,7 @@ import {
   recordRevocationFailed,
   recordSegmentReleased,
   renewBroadcastLease,
+  stopBroadcast,
 } from '../src/broadcast-operations';
 import { withFixture } from './constraint-helpers';
 
@@ -262,5 +266,132 @@ test('one web instance reconciles a Broadcast at a time', async () => {
       actual: [racing.filter(Boolean).length, expired],
       expected: [1, true],
     });
+  });
+});
+
+test('conversation stays held until the observer is revoked, however long that takes', async () => {
+  await withOps(async (db, roundId) => {
+    const held = () => readConversationHeld(db, { roundId });
+    const none = await held();
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      releasePolicy: policy,
+    });
+    const noEgress = await held();
+    await recordEgressStarted(db, {
+      id: open.id,
+      egressId: 'EG',
+      stageCredentialHash: 'h',
+      now,
+    });
+    const observing = await held();
+    await recordObserverRevoked(db, { id: open.id, now });
+    const revoked = await held();
+    assert({
+      given:
+        'no Broadcast, no Egress, a subscribed observer with no time limit, then revoked',
+      should:
+        'never open the microphone while the observer may still receive it',
+      actual: [none, noEgress, observing, revoked],
+      expected: [false, false, true, false],
+    });
+  });
+});
+
+test('an operator stop stands once, and a missing Broadcast says so', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      releasePolicy: policy,
+    });
+    const first = await stopBroadcast(db, {
+      id: open.id,
+      reason: 'policy_violation',
+      now,
+    });
+    const repeat = await stopBroadcast(db, {
+      id: open.id,
+      reason: 'technical',
+      now: later,
+    });
+    const stored = (await listOpenBroadcasts(db, 100)).find(
+      (row) => row.id === open.id,
+    );
+    assert({
+      given: 'a stop, a repeat with another reason, and an unknown Broadcast',
+      should: 'apply once, keep the first stop, and answer null for the last',
+      actual: [
+        first,
+        repeat,
+        stored?.stopReason,
+        stored?.stoppedAt?.toISOString(),
+        await stopBroadcast(db, { id: createId(), reason: 'technical', now }),
+      ],
+      expected: [
+        'applied',
+        'unchanged',
+        'policy_violation',
+        now.toISOString(),
+        null,
+      ],
+    });
+  });
+});
+
+test('a completed Broadcast cannot be stopped', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      releasePolicy: policy,
+    });
+    await completeBroadcast(db, { id: open.id, at: now });
+    assert({
+      given: 'a Broadcast already complete',
+      should: 'leave it unchanged',
+      actual: await stopBroadcast(db, {
+        id: open.id,
+        reason: 'technical',
+        now,
+      }),
+      expected: 'unchanged',
+    });
+  });
+});
+
+test('discovery finds ranked Rounds and casual Rounds whose host chose a Broadcast', async () => {
+  await withFixture(databaseUrl, async (f) => {
+    const client = new SQL(databaseUrl, { max: 2 });
+    try {
+      const chosen = await f.round();
+      const recordedOnly = await f.round();
+      const nothing = await f.round();
+      await client`update rounds set competition_type='casual', ladder_id=null, capture=${JSON.stringify(
+        {
+          broadcast: {
+            release: { kind: 'round_end' },
+            debatersReadChat: true,
+          },
+          recording: false,
+        },
+      )}::text::jsonb where id=${chosen}`;
+      await client`update rounds set competition_type='casual', ladder_id=null, capture=${JSON.stringify(
+        { broadcast: null, recording: true },
+      )}::text::jsonb where id=${recordedOnly}`;
+      await client`update rounds set competition_type='casual', ladder_id=null, capture=null where id=${nothing}`;
+      const found = (
+        await discoverUnopenedBroadcastRounds(drizzle({ client }), 1000)
+      ).map((row) => row.roundId);
+      assert({
+        given: 'a casual Broadcast choice, a recording alone, and no choice',
+        should: 'discover only the Broadcast choice',
+        actual: [chosen, recordedOnly, nothing].map((id) => found.includes(id)),
+        expected: [true, false, false],
+      });
+    } finally {
+      await client.close();
+    }
   });
 });

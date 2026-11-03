@@ -93,8 +93,7 @@ export function judgingClockOf(
   status: RoundWaitingOn | null,
   nowMs: number,
 ): { readonly label: string; readonly remainingMs: number } | null {
-  if (status?.state !== 'human_window' || status.deadlineAt === null)
-    return null;
+  if (status?.state !== 'human_window') return null;
   return {
     label: 'Judging window',
     remainingMs: Math.max(0, Date.parse(status.deadlineAt) - nowMs),

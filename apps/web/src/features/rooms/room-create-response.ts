@@ -59,6 +59,8 @@ const conflictAnswer = (
     case 'strike-conflict':
     case 'not-your-turn':
     case 'bots-busy':
+    case 'capture-premium':
+    case 'broadcast-private':
     case 'content-waiver-required':
     case 'content-waiver-changed':
     case 'capture-notice-changed':

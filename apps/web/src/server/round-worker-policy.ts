@@ -1,3 +1,5 @@
+import { judgeContractVersion } from '@daisy/ai-voice';
+import { judgingJobRules } from '@daisy/debate-engine';
 import { aiRoundAllowance } from '@daisy/auth/authorization';
 import type { ServerConfig } from '@daisy/config';
 import type { createDatabase } from '@daisy/db';
@@ -31,6 +33,8 @@ export function roundWorkerDatabaseOptions(
             leaseMs: judging.leaseMs,
             model: judging.model,
             nextToken,
+            contractVersion: judgeContractVersion,
+            rules: judgingJobRules,
           },
         }
       : {}),

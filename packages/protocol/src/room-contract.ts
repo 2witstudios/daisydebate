@@ -14,6 +14,7 @@ import {
   type RoomExecutionPlan,
 } from './room';
 import type { DrawPrivateInputs, ResolutionDrawState } from './resolution-draw';
+import { roomCaptureSchema, type RoomCapture } from './room-capture';
 import { roomResolutionSelectionSchema } from './room-resolution';
 import {
   competitionTypes,
@@ -151,6 +152,12 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
     presetVersion: versionSchema,
     topic: textSchema.optional(),
   }),
+  /** The host's capture choice; nothing chosen clears it (WATCH-8). */
+  z.strictObject({
+    ...envelope,
+    type: z.literal('set-capture'),
+    capture: roomCaptureSchema,
+  }),
   z.strictObject({ ...envelope, type: z.literal('claim-seat'), ...seat }),
   z.strictObject({
     ...envelope,
@@ -255,6 +262,8 @@ export type RoomAssemblyState = {
   readonly competitionType: CompetitionType;
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;
+  /** The casual host's capture choice; null when nothing is chosen, and always on ranked. */
+  readonly capture: RoomCapture | null;
   readonly executionPlan: RoomExecutionPlan;
   readonly rules: RoundRules;
   readonly roundRef: RoomRoundRef | null;

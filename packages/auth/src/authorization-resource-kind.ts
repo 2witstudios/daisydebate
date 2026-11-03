@@ -21,6 +21,13 @@ export function validResourceKind(
     'channel.file.cleanup': 'pending_file',
     'account.collection.read': 'account_collection',
     'account.beta_access.update': 'account',
+    'report.queue.read': 'moderation',
+    'report.resolve': 'moderation',
+    'broadcast.stop': 'moderation',
+    'broadcast.chat_slow_mode.update': 'moderation',
+    'recording.takedown': 'moderation',
+    'chat_message.remove': 'moderation',
+    'account.audience_ban.update': 'moderation',
   } as const;
   const kind = specialized[capability as keyof typeof specialized];
   if (kind) return resource.kind === kind;

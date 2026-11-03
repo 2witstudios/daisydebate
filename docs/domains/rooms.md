@@ -197,6 +197,16 @@ beta-sourced grant counts. A host without it is offered a person, Train's
 practice Rounds included. The gate is on seating only: a ballot that exists is
 read the same with or without premium.
 
+A casual host can opt a Room into a Broadcast, with its release choice, and a
+Recording, as two separate choices (WATCH-8). The `set-capture` command refuses
+with `capture-premium` unless the host holds their own `casual_capture` grant,
+read under the host's account fence, and Launch rechecks it, so a host who lost
+the grant captures nothing. Beta approval writes the grant until billing exists.
+It is separate from `casual_ai_judge`. A private Room can record but not
+broadcast. A change asks every seat to Ready again, and each seat is told the
+opted-in notice and the exact choice before Ready. Launch freezes the choice on
+the Round. Ranked needs no grant and holds no choice: it is always captured.
+
 An AI judge never rules on a transcript frozen incomplete (DEC-208). No AI
 job is queued for such a freeze. With no human judge, the Round completes at
 the freeze with no outcome, and its result reads "Transcript incomplete".

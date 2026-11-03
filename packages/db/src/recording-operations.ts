@@ -1,0 +1,209 @@
+import {
+  recordingLifecycleSchema,
+  type RecordingClass,
+  type RecordingEligibility,
+  type RecordingLifecycle,
+  type RecordingStatus,
+} from '@daisy/protocol';
+import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { recordings } from './schema/recordings';
+
+type Row = typeof recordings.$inferSelect;
+
+export type StoredRecording = {
+  readonly id: string;
+  readonly roundId: string;
+  readonly class: RecordingClass;
+  readonly eligibility: RecordingEligibility;
+  readonly lifecycle: RecordingLifecycle;
+  readonly version: number;
+};
+
+/** The decision the feature runs under the lock; the store knows no rules. */
+type RecordingDecision =
+  | { readonly kind: 'moved'; readonly next: RecordingLifecycle }
+  | { readonly kind: 'unchanged' }
+  | { readonly kind: 'refused'; readonly reason: string };
+
+const stored = (row: Row): StoredRecording => ({
+  id: row.id,
+  roundId: row.roundId,
+  class: row.recordingClass,
+  eligibility: row.eligibility,
+  lifecycle: row.lifecycle,
+  version: row.version,
+});
+
+/** A row's lifecycle written with its tag, and a new deletion intent due at once. */
+const lifecycleColumns = (next: RecordingLifecycle) => ({
+  lifecycle: recordingLifecycleSchema.parse(next),
+  status: next.status as RecordingStatus,
+  version: sql`${recordings.version} + 1`,
+  updatedAt: sql`clock_timestamp()`,
+  ...(next.status === 'removing'
+    ? { deletionDueAt: new Date(next.requestedAt), deletionAttempts: 0 }
+    : {}),
+  ...(next.status === 'removed'
+    ? { deletionDueAt: null, leaseOwner: null, leaseUntil: null }
+    : {}),
+});
+
+/** The Recording's durable writes (ADR 0103): PostgreSQL is the one writer. */
+export const recordingOperations = ({
+  database,
+}: {
+  readonly database: BunSQLDatabase;
+}) => ({
+  /** One Recording per Round: a repeat returns the first, whoever asked. */
+  async requestRecording(input: {
+    readonly id: string;
+    readonly roundId: string;
+    readonly class: RecordingClass;
+    readonly eligibility: RecordingEligibility;
+  }): Promise<StoredRecording> {
+    await database
+      .insert(recordings)
+      .values({
+        id: input.id,
+        roundId: input.roundId,
+        recordingClass: input.class,
+        eligibility: input.eligibility,
+        status: 'requested',
+        lifecycle: { status: 'requested' },
+      })
+      .onConflictDoNothing({ target: recordings.roundId });
+    const [row] = await database
+      .select()
+      .from(recordings)
+      .where(eq(recordings.roundId, input.roundId));
+    return stored(row!);
+  },
+
+  async findRecording(id: string): Promise<StoredRecording | null> {
+    const [row] = await database
+      .select()
+      .from(recordings)
+      .where(eq(recordings.id, id));
+    return row ? stored(row) : null;
+  },
+
+  async findRecordingByRound(roundId: string): Promise<StoredRecording | null> {
+    const [row] = await database
+      .select()
+      .from(recordings)
+      .where(eq(recordings.roundId, roundId));
+    return row ? stored(row) : null;
+  },
+
+  /**
+   * Runs the caller's pure decision under the row lock, so racing operations
+   * serialize and each sees the last one's result. Only a move writes.
+   */
+  applyRecording<Decision extends RecordingDecision>(
+    id: string,
+    decide: (record: StoredRecording) => Decision,
+    expectedVersion?: number,
+  ) {
+    return database.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(recordings)
+        .where(eq(recordings.id, id))
+        .for('update');
+      if (!row) return { kind: 'missing' } as const;
+      const record = stored(row);
+      if (expectedVersion !== undefined && row.version !== expectedVersion)
+        return { kind: 'stale', record } as const;
+      const transition = decide(record);
+      if (transition.kind !== 'moved')
+        return { kind: 'decided', record, transition } as const;
+      const [updated] = await tx
+        .update(recordings)
+        .set(lifecycleColumns(transition.next))
+        .where(eq(recordings.id, id))
+        .returning();
+      return {
+        kind: 'decided',
+        record: stored(updated!),
+        transition,
+      } as const;
+    });
+  },
+
+  /** Due deletions, leased with SKIP LOCKED so two workers never share one. */
+  claimRecordingDeletions(input: {
+    readonly owner: string;
+    readonly now: string;
+    readonly leaseUntil: string;
+    readonly limit: number;
+  }) {
+    const at = new Date(input.now);
+    return database.transaction(async (tx) => {
+      const due = await tx
+        .select({ id: recordings.id })
+        .from(recordings)
+        .where(
+          and(
+            eq(recordings.status, 'removing'),
+            or(
+              isNull(recordings.deletionDueAt),
+              lte(recordings.deletionDueAt, at),
+            ),
+            or(isNull(recordings.leaseUntil), lte(recordings.leaseUntil, at)),
+          ),
+        )
+        .orderBy(asc(recordings.deletionDueAt), asc(recordings.id))
+        .limit(input.limit)
+        .for('update', { skipLocked: true });
+      const claims = [];
+      for (const { id } of due) {
+        const [row] = await tx
+          .update(recordings)
+          .set({
+            leaseOwner: input.owner,
+            leaseUntil: new Date(input.leaseUntil),
+          })
+          .where(eq(recordings.id, id))
+          .returning();
+        claims.push({ record: stored(row!), attempts: row!.deletionAttempts });
+      }
+      return claims;
+    });
+  },
+
+  async deferRecordingDeletion(
+    id: string,
+    input: { readonly retryAt: string; readonly failed: boolean },
+  ): Promise<void> {
+    await database
+      .update(recordings)
+      .set({
+        deletionDueAt: new Date(input.retryAt),
+        deletionAttempts: input.failed
+          ? sql`${recordings.deletionAttempts} + 1`
+          : 0,
+        leaseOwner: null,
+        leaseUntil: null,
+      })
+      .where(and(eq(recordings.id, id), eq(recordings.status, 'removing')));
+  },
+
+  async listFailedRecordingsBefore(input: {
+    readonly before: string;
+    readonly limit: number;
+  }): Promise<readonly string[]> {
+    const rows = await database
+      .select({ id: recordings.id })
+      .from(recordings)
+      .where(
+        and(
+          eq(recordings.status, 'failed'),
+          lte(recordings.updatedAt, new Date(input.before)),
+        ),
+      )
+      .orderBy(asc(recordings.updatedAt))
+      .limit(input.limit);
+    return rows.map((row) => row.id);
+  },
+});

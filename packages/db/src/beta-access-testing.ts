@@ -51,7 +51,7 @@ export async function admitParticipants(
   if (grants?.present)
     await sql`insert into account_entitlement_grants (user_id, entitlement, source)
       select id, entitlement, 'beta' from unnest(${ids}::text[]) as id
-      cross join unnest('{round_analysis,ai_rounds,casual_ai_judge}'::text[]) as entitlement
+      cross join unnest('{round_analysis,ai_rounds,casual_ai_judge,casual_capture}'::text[]) as entitlement
       on conflict do nothing`;
   await sql`insert into account_age (user_id, birth_month, version, recorded_at)
     select id, '2000-01', 1, coalesce(${recordedAt ?? null}::timestamptz, now())

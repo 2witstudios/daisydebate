@@ -102,3 +102,29 @@ test('receipt transport validates acknowledgements and bounds both discovery and
     },
   });
 });
+
+test('a tab from another build parses only what the attendance read uses (ISSUE-941)', async () => {
+  const read = (body: unknown) =>
+    createAttendanceHttpClient({
+      roundId: round.id,
+      timeout: () => new AbortController().signal,
+      fetch: async () => Response.json(body),
+    }).read();
+  const skewed = {
+    ...round,
+    addedByALaterBuild: true,
+    waitingOn: { state: 'a-state-this-build-never-saw' },
+  };
+  assert({
+    given: 'a Round view whose other fields this build cannot parse',
+    should: 'still adopt its segments, so the next speech gets a check-in',
+    actual: (await read(skewed))?.segments.length,
+    expected: round.segments.length,
+  });
+  assert({
+    given: 'a Round with no segment list',
+    should: 'refuse the read',
+    actual: await read({ id: round.id, status: round.status }),
+    expected: null,
+  });
+});

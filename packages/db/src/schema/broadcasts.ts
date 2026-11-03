@@ -37,6 +37,8 @@ export const broadcasts = pgTable(
     ).notNull(),
     /** Whether debaters may read this Broadcast's chat during the Round; off on ranked. */
     debatersReadChat: boolean('debaters_read_chat').notNull().default(false),
+    /** Slow mode's seconds between one account's chat posts; 0 is off (WATCH-7). */
+    chatSlowModeSeconds: integer('chat_slow_mode_seconds').notNull().default(0),
     /** SHA3-256 of the stage page's credential; the secret itself is never stored. */
     stageCredentialHash: text('stage_credential_hash'),
     egressId: text('egress_id'),
@@ -72,7 +74,7 @@ export const broadcasts = pgTable(
     ),
     check(
       'broadcasts_cursor_check',
-      sql`${table.nextSegment} >= 0 and ${table.revocationFailures} >= 0 and ${table.leaseEpoch} >= 0`,
+      sql`${table.nextSegment} >= 0 and ${table.revocationFailures} >= 0 and ${table.leaseEpoch} >= 0 and ${table.chatSlowModeSeconds} between 0 and 3600`,
     ),
     check(
       'broadcasts_lease_check',

@@ -4,7 +4,7 @@ import type { BroadcastReleasePolicy } from '@daisy/protocol';
 import {
   claimBroadcastReconcile,
   completeBroadcast,
-  discoverUnopenedRankedRounds,
+  discoverUnopenedBroadcastRounds,
   listOpenBroadcasts,
   openBroadcast,
   readBroadcastRoom,
@@ -23,8 +23,8 @@ import { rounds } from './schema/rounds';
 
 /** The Broadcast control plane's reads and writes. No Round lock anywhere (ADR 0099). */
 export const createBroadcastStore = (database: BunSQLDatabase) => ({
-  discoverUnopenedRanked: (limit: number) =>
-    discoverUnopenedRankedRounds(database, limit),
+  discoverUnopened: (limit: number) =>
+    discoverUnopenedBroadcastRounds(database, limit),
   open: (input: {
     readonly id: string;
     readonly roundId: string;

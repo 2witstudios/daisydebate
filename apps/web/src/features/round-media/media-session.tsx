@@ -1,47 +1,52 @@
 'use client';
 import '../../ui/debate-room/zod-jitless';
-import { readCheckedDevices } from '../video/device-selection';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { RoundView } from '@daisy/protocol';
+import { hasOpenQuestioning } from '@daisy/debate-engine';
+import { selectMediaAccount } from './account-signout-cleanup';
+import { subscribeBrowserPageEvents } from './adapters/browser-page-events';
+import { createLiveKitRoom } from './adapters/livekit-room';
 import { createRoundViewFollower } from './follow-round-view';
-import { roundTimeMediaClock } from './schedule-deadline';
-import { systemScheduler } from '../realtime/browser-adapters';
-import type { RoundTime } from '../round-runtime/round-time';
-import { useEffect, useRef, useState } from 'react';
-import type { RoundMediaState, RoundView } from '@daisy/protocol';
+import { MediaBar } from './media-bar';
 import {
-  createBrowserMediaTransport,
-  type MediaTrack,
-  type Source,
-} from './browser-transport';
+  clearMutePreference,
+  readMutePreference,
+  writeMutePreference,
+} from './media-preferences';
+import { createMediaRuntime } from './media-runtime';
+import { MediaStage } from './media-stage';
+import { initialMediaState, type MediaPolicy } from './model/media-state';
 import {
-  createMediaController,
-  type MediaConnectionState,
-} from './media-controller';
+  publicationOf,
+  type LocalPublication,
+} from './model/media-publication';
+import { stageOf, tabOf } from './model/media-status';
 import {
   createMediaRequest,
   MEDIA_READ_BUDGET_MS,
   MEDIA_RETRY_DELAYS_MS,
 } from './request-media';
-import { MediaStage } from './media-stage';
-import {
-  hasLiveTracks,
-  mediaStatus,
-  retryMissingDevices,
-  showConnection,
-} from './media-status';
-import { hasOpenQuestioning } from '@daisy/debate-engine';
 
-const pause = (ms: number, signal: AbortSignal) =>
-  new Promise<void>((done) => {
-    const timer = setTimeout(done, ms);
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer);
-        done();
-      },
-      { once: true },
-    );
-  });
+import { roundTimeMediaClock } from './schedule-deadline';
+import { systemScheduler } from '../realtime/browser-adapters';
+import type { RoundTime } from '../round-runtime/round-time';
+import { TabElsewhere } from '../rooms/tab-elsewhere';
+import {
+  clearCheckedDevices,
+  forgetCheckedDevices,
+  readCheckedDevices,
+} from '../video/device-selection';
+
+const MEDIA_POLICY: MediaPolicy = {
+  requestRetryDelaysMs: MEDIA_RETRY_DELAYS_MS,
+  readBudgetMs: MEDIA_READ_BUDGET_MS,
+
+  /** A prompt may stay open indefinitely; the connection does not wait for it. */
+  capturePatienceMs: 3_000,
+  recoveryDelaysMs: [1_000, 2_000, 4_000, 8_000, 10_000],
+  eventFloorMs: 5_000,
+};
+
 const requestMedia = createMediaRequest({
   fetch: (url, options) => fetch(url, options),
   scheduleDeadline: (expire, ms) => {
@@ -50,38 +55,123 @@ const requestMedia = createMediaRequest({
   },
 });
 
+const nativeMediaNotice = (
+  <noscript>
+    Live camera and sound require JavaScript. Round controls and judge forms
+    remain available.
+  </noscript>
+);
+
+/** Whether this tab may hold the Round's media; rooms owns the coordination. */
+export type RoundMediaTab = {
+  readonly owns: boolean | null;
+  readonly takeOver: () => void;
+  /** The session registers how to release local tracks synchronously. */
+  readonly onStepDown: (release: () => void) => () => void;
+};
+
+type SessionInput = {
+  readonly onRefresh: () => void;
+  readonly roundTime: RoundTime;
+  /** The signed-in member whose device choices are restored (ISSUE-879). */
+  readonly actorId: string;
+  readonly tab: RoundMediaTab;
+  readonly onPublication?: (value: LocalPublication) => void;
+  /** Another account was here before: its owner clears what it kept. */
+  readonly onAccountChanged: () => void;
+};
+
 /** Mount once per Round; changing projections never resets command or media lifetimes. */
 function RoundMediaSession({
   view,
   onRefresh,
   roundTime,
-}: {
-  readonly view: RoundView;
-  readonly onRefresh: () => void;
-  readonly roundTime: RoundTime;
-}) {
-  const poi = view.ladderId === null && hasOpenQuestioning(view.rules);
-  const [microphoneMuted, setMicrophoneMuted] = useState(poi);
-  const [changingMicrophone, setChangingMicrophone] = useState(false);
-  const muted = useRef(poi);
-  const microphone = useRef<((value: boolean) => Promise<void>) | null>(null);
-  const [connection, setConnection] =
-    useState<MediaConnectionState>('connecting');
-  const [media, setMedia] = useState<RoundMediaState | null>(null);
-  const [microphoneConfirmed, setMicrophoneConfirmed] = useState(true);
-  const [tracks, setTracks] = useState<readonly MediaTrack[]>([]);
-  /** Checked devices found gone; the transport keeps running (ISSUE-573). */
-  const [missing, setMissing] = useState<readonly Source[]>([]);
-  const controller = useRef<ReturnType<typeof createMediaController> | null>(
-    null,
-  );
-  const sound = useRef<(() => Promise<void>) | null>(null);
-  /** The latest accepted version, read when a Round mount's controller starts. */
-  const acceptedVersion = useRef(view.version);
+  actorId,
+  tab,
+  onPublication,
+  onAccountChanged,
+}: SessionInput & { readonly view: RoundView }) {
+  const { owns, onStepDown } = tab;
+  const questioning = view.ladderId === null && hasOpenQuestioning(view.rules);
   const refresh = useRef(onRefresh);
   useEffect(() => {
     refresh.current = onRefresh;
   }, [onRefresh]);
+  const [runtime] = useState(() =>
+    createMediaRuntime({
+      roundId: view.id,
+      initial: initialMediaState({
+        roundViewVersion: view.version,
+        microphoneMuted: questioning,
+      }),
+      policy: MEDIA_POLICY,
+      // Monotonic: elapsed time, and a clock step must not skew it.
+      now: () => performance.now(),
+      at: (ms, fire) => {
+        const timer = setTimeout(fire, ms);
+        return () => clearTimeout(timer);
+      },
+      api: {
+        admit: (id, signal) => requestMedia(id, 'session', signal),
+        reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),
+      },
+      openRoom: (hooks) =>
+        createLiveKitRoom({
+          ...hooks,
+          checkedDevices: () =>
+            readCheckedDevices(view.roomId, undefined, actorId),
+        }),
+      refreshView: () => refresh.current(),
+      mute: {
+        remember: (muted) => writeMutePreference(actorId, view.id, muted),
+        forget: () => clearMutePreference(actorId, view.id),
+      },
+      devices: {
+        forget: (sources) =>
+          forgetCheckedDevices(view.roomId, sources, undefined, actorId),
+        clear: () => clearCheckedDevices(view.roomId, undefined, actorId),
+      },
+    }),
+  );
+  const state = useSyncExternalStore(
+    runtime.subscribe,
+    runtime.state,
+    runtime.state,
+  );
+  const handles = useSyncExternalStore(
+    runtime.subscribe,
+    runtime.handles,
+    runtime.handles,
+  );
+  const { dispatch } = runtime;
+  useEffect(
+    () => onStepDown(() => dispatch({ type: 'tab-changed', owns: false })),
+    [dispatch, onStepDown],
+  );
+  /** The restore must precede the first claim so one truth reaches the transport. */
+  useEffect(() => {
+    if (selectMediaAccount(actorId)) onAccountChanged();
+    if (!questioning) return;
+    const prior = readMutePreference(actorId, view.id);
+    if (prior !== null) dispatch({ type: 'mute-restored', muted: prior });
+  }, [view.id, actorId, questioning, onAccountChanged, dispatch]);
+  useEffect(() => {
+    dispatch({ type: 'tab-changed', owns });
+    return () => dispatch({ type: 'tab-changed', owns: null });
+  }, [dispatch, owns]);
+  useEffect(
+    () =>
+      subscribeBrowserPageEvents({
+        online: window,
+        visibility: document,
+        isVisible: () => document.visibilityState === 'visible',
+        nudge: () => dispatch({ type: 'browser-nudged' }),
+        page: window,
+        leaving: () => dispatch({ type: 'page-left' }),
+        restored: () => dispatch({ type: 'frozen-page-restored' }),
+      }),
+    [dispatch],
+  );
   const [clock] = useState(() =>
     roundTimeMediaClock({ roundTime, scheduler: systemScheduler }),
   );
@@ -90,165 +180,65 @@ function RoundMediaSession({
     null,
   );
   useEffect(() => {
-    const mounted = createMediaController({
-      roundId: view.id,
-      initialRoundViewVersion: acceptedVersion.current,
-      api: {
-        admit: (id, signal) => requestMedia(id, 'session', signal),
-        reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),
-      },
-      changed: showConnection({ connection: setConnection, media: setMedia }),
-      received: (state) => {
-        setMedia(state);
-        setMicrophoneConfirmed(true);
-      },
-      superseded: () => setMicrophoneConfirmed(false),
-      retry: { delaysMs: MEDIA_RETRY_DELAYS_MS, wait: pause },
-      readBudget: {
-        // Monotonic: read age is elapsed time, and a clock step must not skew it.
-        now: () => performance.now(),
-        ms: MEDIA_READ_BUDGET_MS,
-        at: (ms, fire) => {
-          const timer = setTimeout(fire, ms);
-          return () => clearTimeout(timer);
-        },
-      },
-      transport: () => {
-        const browser = createBrowserMediaTransport({
-          microphoneMuted: muted.current,
-          devices: readCheckedDevices(view.roomId),
-          missing: (source) =>
-            setMissing((current) =>
-              current.includes(source) ? current : [...current, source],
-            ),
-          tracks: setTracks,
-          invalidated: () => {
-            refresh.current();
-            void mounted.reconcile({ kind: 'wake' });
-          },
-          reconnect: () => {
-            refresh.current();
-            void mounted.reconnect();
-          },
-        });
-        sound.current = browser.startAudio;
-        microphone.current = browser.setMicrophoneMuted;
-        return browser.transport;
-      },
-    });
-    controller.current = mounted;
-    void mounted.join();
-    return () => {
-      mounted.stop();
-      controller.current = null;
-      sound.current = null;
-      microphone.current = null;
-    };
-  }, [view.id, view.roomId]);
-  useEffect(() => {
-    if (controller.current?.state() === 'ended') return;
     if (view.status === 'completed' || view.status === 'abandoned') {
-      controller.current?.stop();
+      dispatch({ type: 'round-ended' });
       return;
     }
-    acceptedVersion.current = view.version;
     follower.current ??= createRoundViewFollower({
       clock,
-      reconcile: (event) => void controller.current?.reconcile(event),
+      reconcile: (read) => dispatch({ type: 'read-requested', read }),
       refresh: () => refresh.current(),
     });
     return follower.current(view);
-  }, [view, clock]);
-  const status = mediaStatus(connection, missing);
+  }, [view, clock, dispatch]);
+  /** The controls read this device's own capture truth as a named input. */
+  const report = useRef(onPublication);
+  useEffect(() => {
+    report.current = onPublication;
+  }, [onPublication]);
+  const publication = publicationOf(state);
+  useEffect(() => report.current?.(publication), [publication]);
+  useEffect(() => () => report.current?.(null), []);
+  const presence = tabOf(state);
+  if (presence !== 'owned')
+    return (
+      <section aria-label="Live camera and sound">
+        {presence === 'elsewhere' ? (
+          <TabElsewhere takeOver={tab.takeOver} />
+        ) : (
+          <p role="status">Checking this Round’s tab…</p>
+        )}
+        {nativeMediaNotice}
+      </section>
+    );
+  const stage = stageOf(state);
   return (
     <section aria-label="Live camera and sound">
       <MediaStage
-        connection={connection}
         view={view}
-        media={media}
-        microphoneConfirmed={microphoneConfirmed}
-        tracks={tracks}
+        media={stage.media}
+        microphoneConfirmed={stage.microphoneConfirmed}
+        tracks={stage.tracks}
+        handles={handles}
+        connection={stage.connection}
+        ownIdentity={stage.ownIdentity}
+        ownMuted={stage.ownMuted}
+        remotePeers={stage.remotePeers}
       />
-      <div
-        data-room-media="status"
-        className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2"
-      >
-        <p role="status" className="m-0 text-sm text-ink-muted">
-          {status.message}
-        </p>
-        {hasLiveTracks(connection) ? (
-          <button
-            type="button"
-            className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
-            onClick={() => {
-              void sound.current?.().catch(() => {
-                controller.current?.deviceFailed();
-                setConnection('device-blocked');
-              });
-            }}
-          >
-            Enable sound
-          </button>
-        ) : null}
-        {poi && media?.grants.publish.includes('camera') ? (
-          <button
-            type="button"
-            className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
-            disabled={
-              !hasLiveTracks(connection) ||
-              changingMicrophone ||
-              !media.grants.publish.includes('microphone')
-            }
-            aria-pressed={!microphoneMuted}
-            onClick={async () => {
-              const previous = muted.current;
-              muted.current = !previous;
-              setChangingMicrophone(true);
-              try {
-                await microphone.current?.(!previous);
-                setMicrophoneMuted(!previous);
-              } catch {
-                muted.current = previous;
-                controller.current?.deviceFailed();
-                setConnection('device-blocked');
-              } finally {
-                setChangingMicrophone(false);
-              }
-            }}
-          >
-            {microphoneMuted ? 'Unmute microphone' : 'Mute microphone'}
-          </button>
-        ) : null}
-        {status.retry ? (
-          <button
-            type="button"
-            className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
-            onClick={() => {
-              setMissing(retryMissingDevices(view.roomId, missing));
-              refresh.current();
-              void controller.current?.reconnect();
-            }}
-          >
-            Retry camera and sound
-          </button>
-        ) : null}
-      </div>
-      <noscript>
-        Live camera and sound require JavaScript. Round controls and judge forms
-        remain available.
-      </noscript>
+      <MediaBar state={state} dispatch={dispatch} questioning={questioning} />
+      {nativeMediaNotice}
     </section>
   );
 }
 
-export const roundMediaSlot = (onRefresh: () => void, roundTime: RoundTime) =>
+export const roundMediaSlot = (input: SessionInput) =>
   function RoundMediaSlot(view: RoundView) {
+    // Another account is another session: nothing in this one may carry over.
     return (
       <RoundMediaSession
-        key={view.id}
+        key={`${view.id}:${input.actorId}`}
         view={view}
-        onRefresh={onRefresh}
-        roundTime={roundTime}
+        {...input}
       />
     );
   };

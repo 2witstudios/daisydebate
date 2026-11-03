@@ -33,7 +33,10 @@ import { createResendWebhook } from '../features/mail/webhook';
 import { createSendMail } from '../features/mail/send-mail';
 import { deriveRecipientSubkey } from '../features/mail/recipient-key';
 import type { Deliver, MailPurpose } from '../features/mail/types';
-import { createAlertRecorder, withAlertRecording } from './alert-recorder';
+import {
+  createAlertRecorder,
+  withAlertRecording,
+} from '../features/ops/alert-recorder';
 import {
   parseMessagingFileLimits,
   parseMessagingPolicyLimits,
@@ -43,7 +46,11 @@ import {
   dec251ContactsPolicy,
   tightenContactsPolicy,
 } from '../features/contacts/request-policy';
-import { createMetricsStore, type MetricsStore } from './metrics-store';
+import {
+  createMetricsStore,
+  type MetricsStore,
+} from '../features/ops/metrics-store';
+import { recordingObjectStore } from '../features/recording/tigris-object-store';
 import { createRequestNetwork } from './request-network';
 
 export type AppDependencies = {
@@ -225,6 +232,8 @@ export function createApp({
     messagingFiles: messagingFiles
       ? parseMessagingFileLimits(messagingFiles, policy)
       : null,
+    /** The private Recording bucket; a deployment without it refuses every object. */
+    recordingObjects: recordingObjectStore(env),
     clock,
     ids,
     logger,

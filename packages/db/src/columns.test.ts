@@ -69,6 +69,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'room_commands.result',
         'room_resolution_draw_inputs.inputs',
         'room_resolution_draws.manifest',
+        'rooms.capture',
         'rooms.config',
         'rooms.execution_plan',
         'rooms.rules_snapshot',
@@ -77,6 +78,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'round_draw_private_inputs.inputs',
         'round_judging_attempts.diagnostic',
         'round_judging_jobs.pending_ballot',
+        'rounds.capture',
         'rounds.resolution_evidence',
         'rounds.room_config_snapshot',
         'rounds.rules_snapshot',
@@ -96,6 +98,9 @@ describe('jsonb columns (ISSUE-24)', () => {
         refusals:
           name === 'ballots.feedback' ||
           name === 'ballots.citations' ||
+          name === 'round_judging_attempts.diagnostic' ||
+          name === 'rooms.capture' ||
+          name === 'rounds.capture' ||
           name === 'round_analyses.report' ||
           name === 'round_judging_jobs.pending_ballot'
             ? ['VALIDATION', 'VALIDATION', 'VALIDATION', 'accepted']

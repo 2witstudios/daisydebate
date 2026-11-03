@@ -101,8 +101,10 @@ test('the subject-rights composition runs every feature step exactly once', asyn
       'after-close:agreement-signatures',
       'after-close:beta-access',
       'after-close:entitlement-grants',
+      'after-close:moderation',
       'after-close:round-transcript',
       'after-close:round-analysis',
+      'after-close:recording',
       'after-close:competitive-record',
     ],
   });

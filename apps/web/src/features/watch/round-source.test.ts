@@ -2,12 +2,8 @@ import { join } from 'node:path';
 import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { countHub, listLive } from './list-live';
-import { listRecordings } from './list-recordings';
 import { defaultLiveQuery } from './live-query';
-import { openReplay } from './open-replay';
 import { openSpectate } from './open-spectate';
-import { defaultRecordingsQuery } from './recordings-query';
-import { defaultReplayQuery } from './replay-query';
 import { watchSource } from './round-source';
 import { defaultSpectateQuery } from './spectate-query';
 
@@ -22,8 +18,6 @@ describe('watchSource', () => {
       should: 'list nothing, count nothing and open nothing',
       actual: {
         live: listLive(defaultLiveQuery, watchSource).total,
-        recordings: listRecordings(defaultRecordingsQuery, member, watchSource)
-          .inScope,
         counts: countHub(watchSource),
         spectate: openSpectate(
           'top-of-the-ladder',
@@ -31,20 +25,12 @@ describe('watchSource', () => {
           defaultSpectateQuery,
           watchSource,
         ).kind,
-        replay: openReplay(
-          'semifinal-rehearsal',
-          member,
-          defaultReplayQuery,
-          watchSource,
-        ).kind,
         following: watchSource.following(member),
       },
       expected: {
         live: 0,
-        recordings: 0,
         counts: { live: 0, recordings: 0 },
         spectate: 'unavailable',
-        replay: 'unavailable',
         following: { people: [], history: [] },
       },
     });
@@ -54,7 +40,9 @@ describe('watchSource', () => {
     const root = join(import.meta.dir, '../..');
     const sources = [
       'features/watch',
+      'features/recording',
       'ui/watch',
+      'ui/recording',
       'app/(shell)/watch',
       'app/(shell)/recordings',
     ]

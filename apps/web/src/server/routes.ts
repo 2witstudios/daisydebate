@@ -12,6 +12,8 @@ import { composeFriendRoutes } from '../features/friends/composition';
 import { composePresenceRoutes } from '../features/presence/composition';
 import { composeContactRoutes } from '../features/contacts/composition';
 import { composeAgreementRoutes } from '../features/agreements/composition';
+import { composeRecordingRoutes } from '../features/recording/composition';
+import { composeModerationRoutes } from '../features/moderation/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
   createListSessionsHandler,
@@ -32,6 +34,7 @@ import { createAuthRouteHandlers } from '../features/auth/handlers';
 import { createDebateRoomDocumentHandlers } from '../features/debate-room/documents/document-handlers';
 import { createDebateDocumentOperations } from '../features/debate-room/documents/document-operations';
 import { createProofHandlers } from '../features/foundation/handlers';
+import { runningWorkers } from '../features/ops/alert-state';
 import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
@@ -39,7 +42,7 @@ import { createSpectatorTimelineHandlers } from '../features/spectating/handlers
 import { identify } from '../lib/identity';
 import type { App } from './app';
 import { handleOperation } from './http';
-import { createReadinessHandler } from './readiness';
+import { createReadinessHandler } from '../features/ops/readiness';
 
 /**
  * Every route handler, built from one app. The Next route modules under
@@ -105,6 +108,8 @@ export function createRoutes(app: App) {
     },
     privacy: composeDataRightsRoutes(app),
     agreements: composeAgreementRoutes(app),
+    recordings: composeRecordingRoutes(app),
+    moderation: composeModerationRoutes(app),
     confirm: createConfirmHandlers({
       auth: confirmAuth,
       logger,
@@ -250,6 +255,10 @@ export function createRoutes(app: App) {
           redis: app.redis,
           local: app.localAlertState,
           clock: app.clock,
+          workers: runningWorkers({
+            fileMaintenanceIntervalMs:
+              app.messagingFiles?.maintenance?.intervalMs ?? null,
+          }),
           token: () => app.opsProbeToken(),
         }),
       },

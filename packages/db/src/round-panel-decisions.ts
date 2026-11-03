@@ -86,7 +86,7 @@ export function validatePanelReceipt(
   return receipt;
 }
 
-/** The ruling of the Round's unjudged completion receipt among its command rows, or null when it has none. */
+/** The ruling of the Round's panel completion receipt among its command rows, or null when it has none. */
 export function recordedPanelRuling(
   rows: readonly Pick<
     CommandRow,

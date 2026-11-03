@@ -18,14 +18,16 @@ export const completed: RoundBallotRead = {
     {
       status: 'submitted',
       judge: 'human',
+      reportableFeedbackId: 'f'.repeat(24),
       ballot: {
         ...sampleJudgeBallot,
         feedback: { affirmative: 'Weigh earlier.' },
       },
     },
     {
-      status: 'voided',
+      status: 'submitted',
       judge: 'ai',
+      reportableFeedbackId: null,
       ballot: { ...sampleJudgeBallot, feedback: {} },
     },
   ],

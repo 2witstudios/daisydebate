@@ -1,4 +1,4 @@
-import { createRoundRuntime, resolveReleasePolicy } from '@daisy/debate-engine';
+import { createRoundRuntime, plannedBroadcast } from '@daisy/debate-engine';
 import type { createDatabase } from '@daisy/db';
 import { reconcileFacts } from './reconcile-facts';
 import { reconcileStep, type ReconcilePorts } from './reconcile-step';
@@ -100,12 +100,15 @@ export const createBroadcastSweep = (deps: {
     );
   };
   return async () => {
-    for (const { roundId } of await deps.store.discoverUnopenedRanked(BATCH))
-      await deps.store.open({
-        id: deps.nextId(),
-        roundId,
-        releasePolicy: resolveReleasePolicy('ranked', null),
-      });
+    for (const round of await deps.store.discoverUnopened(BATCH)) {
+      const plan = plannedBroadcast(round);
+      if (plan)
+        await deps.store.open({
+          id: deps.nextId(),
+          roundId: round.roundId,
+          ...plan,
+        });
+    }
     for (const broadcast of await deps.store.listOpen(BATCH)) {
       const nowMs = deps.now();
       const mine = await deps.store.claimReconcile({

@@ -1,3 +1,4 @@
+import type { AttendanceSettledRule } from './attendance-settlement';
 import type {
   RatingEligibility,
   RatingEligibilityFacts,
@@ -39,4 +40,6 @@ export type RateDebateInput = {
   /** cuid2 ids for the two ledger rows, affirmative first. */
   readonly changeIds: readonly [string, string];
   readonly decide: RatingDecision;
+  /** The engine's settlement rule, for a rating no forfeit decided. */
+  readonly attendanceSettled: AttendanceSettledRule;
 };

@@ -5,7 +5,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import type { Fetch } from '../src/features/mail/resend-sender';
 import { createApp } from '../src/server/app';
-import { LATENCY_BUCKETS_MS } from '../src/server/metrics-store';
+import { LATENCY_BUCKETS_MS } from '../src/features/ops/metrics-store';
 import { createRoutes } from '../src/server/routes';
 import { createTestApp } from './fixtures';
 import { latencyHistogramOf, sampleOf, serveEdge } from './ops-edge';
@@ -83,7 +83,7 @@ const histogramFor = (durations: readonly number[]) => ({
 });
 
 /**
- * ISSUE-190: `auth_http_request_duration_ms` reads `operation` from the
+ * ISSUE-190: `http_request_duration_ms` reads `operation` from the
  * fields `handleOperation` binds on its request child, the same cause that
  * kept ISSUE-173's counters at zero. Each real auth request must land in the
  * histogram once, in the bucket its own logged duration falls in.
@@ -137,7 +137,7 @@ describe('ISSUE-190 auth request duration histogram', () => {
         given:
           'four real magic-link requests through the production server, three admitted with mail answered after 0, 150 and 300 ms and one rate limited',
         should:
-          'hold one observation per request in auth_http_request_duration_ms{operation="auth.request"}, bucketed and summed from each logged duration',
+          'hold one observation per request in http_request_duration_ms{operation="auth.request"}, bucketed and summed from each logged duration',
         actual: {
           statuses,
           count: histogram?.count,

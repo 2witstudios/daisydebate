@@ -230,6 +230,7 @@ const hydrateRoom = async (
     },
     basis,
     competitionType: row.competitionType,
+    capture: row.capture,
     definition: revision.definition,
     config: row.config,
     executionPlan: row.executionPlan,

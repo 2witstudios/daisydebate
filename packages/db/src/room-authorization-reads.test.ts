@@ -27,6 +27,7 @@ test('Room assembly read hydrates its pinned definition and current host label',
         topic: room.topic,
         formatId: room.formatId,
         config: room.config,
+        capture: null,
         executionPlan: room.executionPlan,
         rulesSnapshot: room.rules,
       }),
@@ -209,6 +210,7 @@ test('Round read returns only the stored receipt and current participant identit
       fact?.member === true &&
       candidate.hostActorId === caller.actorId &&
       candidate.status === 'scheduled',
+    () => null,
   );
 
   assert({

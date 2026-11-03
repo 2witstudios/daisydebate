@@ -134,6 +134,7 @@ describe('operator beta access commands (ADR 0079)', () => {
           approved: [
             ['ai_rounds', 'beta'],
             ['casual_ai_judge', 'beta'],
+            ['casual_capture', 'beta'],
             ['round_analysis', 'beta'],
           ],
           revoked: [],

@@ -43,8 +43,8 @@ worker, the browser, the recovery loop) (ISSUE-803).
 A floor change writes permissions in a fixed order: every stale microphone
 closes before any microphone opens. The closes use the snapshot the known
 publishers were read with, since nothing is written between that read and the
-closes. The opens rehydrate first. The browser transport
-(`features/round-media/browser-transport.ts`) holds published exactly the
+closes. The opens rehydrate first. The browser's media model
+(`features/round-media/model/reduce-sources.ts`) holds published exactly the
 sources its own LiveKit permission allows, once LiveKit has reported one; until
 then, the reconcile reply's grants decide. So a microphone opens on LiveKit's
 `ParticipantPermissionsChanged` instead of after the reconcile reply, and a

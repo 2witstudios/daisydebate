@@ -1,3 +1,5 @@
+import { attendanceSettled } from '@daisy/debate-engine';
+import { judgingJobRules } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
@@ -16,7 +18,7 @@ test('durable judging claims fence epochs and preserve one command across recove
   await withBoundedRound(async (fixture, run, roundId) => {
     const seat = await createBotSeat(fixture, roundId, 'judge');
     await judgingSponsor(fixture, roundId);
-    await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp() where id=${roundId}`;
+    await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp(),final_segment_ended_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute',transcript_admission_cutoff=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '120 seconds',attendance_resolution_cutoff_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '60 minutes' where id=${roundId}`;
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
     try {
@@ -26,6 +28,8 @@ test('durable judging claims fence epochs and preserve one command across recove
         nextToken: () => randomBytes(32).toString('base64url'),
         leaseMs: 30000,
         model: 'anthropic/claude-sonnet-5.5',
+        contractVersion: 'fixture-contract',
+        rules: judgingJobRules,
       });
       const target = { roundId, judgeParticipantId: seat.id };
       const attempts = await Promise.allSettled([
@@ -49,7 +53,9 @@ test('durable judging claims fence epochs and preserve one command across recove
       try {
         await holder`begin`;
         await holder`select pg_advisory_xact_lock(59003, 1)`;
-        dispatched = await jobs.beginModelCall(first.scope, first.token);
+        dispatched =
+          (await jobs.beginModelCall(first.scope, first.token)).kind ===
+          'dispatched';
       } finally {
         await holder`rollback`;
         holder.release();
@@ -110,6 +116,8 @@ test('durable judging claims fence epochs and preserve one command across recove
         actual: () => jobs.verify(first.scope, first.token),
         code: 'CONFLICT',
       });
+      const [oldAttempt] =
+        await fixture.sql`select outcome from round_judging_attempts where agent_run_id=${first.scope.agentRunId}`;
       const [oldRun] =
         await fixture.sql`select ended_at,configuration_snapshot,input_tokens,output_tokens from agent_runs where id=${first.scope.agentRunId}`;
       assert({
@@ -121,7 +129,7 @@ test('durable judging claims fence epochs and preserve one command across recove
           second.scope.commandId === first.scope.commandId,
           second.scope.agentRunId !== first.scope.agentRunId,
           oldRun!.ended_at !== null,
-          oldRun!.configuration_snapshot.providerOutcome,
+          oldAttempt!.outcome,
           JSON.stringify(oldRun!.configuration_snapshot).includes(first.token),
           second.frozen.revision,
           await fixture.count('ballots', 'round_id', roundId),
@@ -133,7 +141,7 @@ test('durable judging claims fence epochs and preserve one command across recove
           true,
           true,
           true,
-          'received',
+          'succeeded',
           false,
           1,
           0,
@@ -174,6 +182,7 @@ test('durable judging claims fence epochs and preserve one command across recove
             throw createAppError('AUTHORIZATION');
         },
         // This adapter component proof deliberately leaves the other actual judge pending.
+        attendanceSettled,
         buildProjection: () => null,
       };
       await assertRejects({

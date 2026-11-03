@@ -7,6 +7,7 @@ import {
   ratingLadders,
   roundRulesSchema,
   frozenRoomConfigSchema,
+  roomCaptureSchema,
   roundStageSchema,
   roundStatusSchema,
   runtimeCheckpointSchema,
@@ -30,6 +31,7 @@ import { actors } from './actors';
 import {
   createdAtColumn,
   jsonbColumn,
+  jsonbColumnNullable,
   jsonbIsObject,
   notBefore,
   oneOf,
@@ -96,6 +98,8 @@ export const rounds = pgTable(
       'room_config_snapshot',
       frozenRoomConfigSchema,
     ),
+    /** What every participant was told is captured, frozen at Launch (WATCH-8). */
+    capture: jsonbColumnNullable('capture', roomCaptureSchema),
     /** Proof metadata of the Room's draw, frozen at Launch; null without one. */
     resolutionEvidence: jsonbColumn(
       'resolution_evidence',
@@ -166,6 +170,10 @@ export const rounds = pgTable(
       check(
         'rounds_transcript_cutoff_check',
         sql`(${table.finalSegmentEndedAt} is null and ${table.transcriptAdmissionCutoff} is null) or (${table.finalSegmentEndedAt} is not null and ${table.transcriptAdmissionCutoff} is not null and ${table.transcriptAdmissionCutoff} = ${table.finalSegmentEndedAt} + interval '120 seconds')`,
+      ),
+      check(
+        'rounds_attendance_cutoff_check',
+        sql`(${table.finalSegmentEndedAt} is null and ${table.attendanceResolutionCutoffAt} is null) or (${table.finalSegmentEndedAt} is not null and ${table.attendanceResolutionCutoffAt} is not null and ${table.attendanceResolutionCutoffAt} = ${table.finalSegmentEndedAt} + interval '60 minutes')`,
       ),
       check(
         'rounds_visibility_check',

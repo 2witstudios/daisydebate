@@ -64,7 +64,7 @@ reads its session through the public `get-session` route once an hour
 An adjudication records why it holds (ADR 0095). `settled_availability` carries
 the effective deadline and settled horizon. `on_time_receipt` names the
 scheduled speaker's receipt inside the base window and carries neither, so no
-horizon is ever invented. `infrastructure_unresolved` ends a Round with no
+horizon is ever invented. `resolution_cutoff` ends a Round with no
 winner once `rounds.attendance_resolution_cutoff_at` passes. The table check
 keeps the three shapes exclusive and `unresolvedAttendance` reads all of them.
 

@@ -5,11 +5,13 @@ import { accountTermsPrivacyAdopter } from '../age-step';
 import { betaAccessPrivacyAdopter } from '../beta-access-privacy';
 import { competitiveRecordPrivacyAdopter } from '../competitive-record-privacy';
 import { entitlementGrantPrivacyAdopter } from '../entitlement-grants-privacy';
+import { moderationPrivacyAdopter } from '../moderation-privacy';
 import { onboardingPrivacyAdopter } from '../onboarding-privacy';
 import {
   createRoomAccountClosureAdopter,
   type RoomClosureTransitions,
 } from '../room-account-closure';
+import { recordingPrivacyAdopter } from '../recording-privacy';
 import { roundAnalysisPrivacyAdopter } from '../round-analysis-privacy';
 import { roundTranscriptPrivacyAdopter } from '../round-transcript-privacy';
 import { socialPrivacyAdoption } from '../social-privacy-composition';
@@ -34,8 +36,10 @@ export const subjectRightsAdoption = (
   agreementSignaturePrivacyAdopter,
   betaAccessPrivacyAdopter,
   entitlementGrantPrivacyAdopter,
+  moderationPrivacyAdopter,
   roundTranscriptPrivacyAdopter,
   roundAnalysisPrivacyAdopter,
+  recordingPrivacyAdopter,
   // The record reads last: it only reads, and erasure keeps it (DEC-261).
   competitiveRecordPrivacyAdopter,
 ];

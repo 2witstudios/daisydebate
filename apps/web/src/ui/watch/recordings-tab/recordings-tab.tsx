@@ -1,9 +1,10 @@
-import type { RecordingsHubListing } from '../../../features/watch/list-recordings';
+import type { ArchiveEntry } from '../../../features/recording/archive';
 import {
   clearRecordingFiltersHref,
   isRecordingsFiltered,
+  recordingsHref,
   type RecordingsQuery,
-} from '../../../features/watch/recordings-query';
+} from '../../../features/recording/archive-query';
 import { watchRoutes } from '../../../features/watch/routes';
 import { cn } from '../../cn';
 import { FilterForm } from '../filter-form/filter-form';
@@ -17,13 +18,16 @@ import { StateCard } from '../state-card/state-card';
 
 export type RecordingsTabProps = {
   readonly query: RecordingsQuery;
-  readonly listing: RecordingsHubListing;
+  readonly listing: {
+    readonly rows: readonly ArchiveEntry[];
+    /** The Round the next page continues after, or null on the last. */
+    readonly nextBefore: string | null;
+  };
 };
 
 const sortOptions = [
   ['newest', 'Newest'],
   ['longest', 'Longest'],
-  ['rated', 'Highest rated'],
 ] as const;
 
 function Filters({ query }: { query: RecordingsQuery }) {
@@ -50,8 +54,8 @@ function Filters({ query }: { query: RecordingsQuery }) {
   );
 }
 
-function Empty({ query, listing }: RecordingsTabProps) {
-  if (listing.inScope > 0)
+function Empty({ query }: { query: RecordingsQuery }) {
+  if (isRecordingsFiltered(query))
     return (
       <StateCard
         icon="search"
@@ -93,7 +97,7 @@ export function RecordingsTab({ query, listing }: RecordingsTabProps) {
     <div className="flex flex-col gap-4">
       <Filters query={query} />
       {listing.rows.length === 0 ? (
-        <Empty query={query} listing={listing} />
+        <Empty query={query} />
       ) : (
         <section
           aria-label="Recordings"
@@ -112,11 +116,18 @@ export function RecordingsTab({ query, listing }: RecordingsTabProps) {
           </div>
           <ul>
             {listing.rows.map((row) => (
-              <RecordingRow key={row.id} row={row} />
+              <RecordingRow key={row.roundId} row={row} />
             ))}
           </ul>
         </section>
       )}
+      {listing.nextBefore ? (
+        <ActionLink
+          href={recordingsHref({ ...query, before: listing.nextBefore })}
+        >
+          Older recordings
+        </ActionLink>
+      ) : null}
     </div>
   );
 }

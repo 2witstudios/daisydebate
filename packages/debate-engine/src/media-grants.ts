@@ -27,6 +27,11 @@ type MediaGrantInput = {
   readonly position: RoundPosition;
   readonly now: string;
   readonly finalSegmentEndedAt: string | null;
+  /**
+   * Read-only input from the Broadcast: its observer has not yet been revoked,
+   * so private conversation must wait. Speech is unaffected (ADR 0099).
+   */
+  readonly conversationHeld?: boolean;
 };
 const withinJudgingWindow = (input: MediaGrantInput) => {
   if (!input.position.awaitingBallot) return true;
@@ -79,7 +84,9 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
   if (seat.role === 'judge')
     return { publish: [], subscribe: true, hidden: true, capture: false };
   const microphone =
-    position.prep === null && (conversational(position) || speakingNow(input));
+    position.prep === null &&
+    ((conversational(position) && input.conversationHeld !== true) ||
+      speakingNow(input));
   return {
     publish: publishSources(seat.kind === 'human', microphone),
     subscribe: seat.kind === 'human',

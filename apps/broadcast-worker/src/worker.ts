@@ -3,6 +3,7 @@ import { encoderArgs } from './encoder';
 import { masterPlaylist, RENDITIONS } from './hold-manifest';
 import type { createObjects } from './objects';
 import { releaseStep } from './release-step';
+import { withdrawStopped } from './withdrawal';
 
 const LEASE_MS = 30_000;
 const RENEW_MS = 5_000;
@@ -34,6 +35,18 @@ export const runWorker = async (deps: {
       await deps.sleep(IDLE_MS);
       continue;
     }
+    const withdraw = (facts: typeof job) =>
+      withdrawStopped(facts, {
+        deletePublic: (key) => objects.deletePublic(key),
+        complete: async () => {
+          await store.complete({ id: job.id, at: new Date(deps.now()) });
+        },
+      });
+    if (job.stoppedAt !== null) {
+      await withdraw(job).catch(() => deps.report('broadcast.release_failed'));
+      await deps.sleep(IDLE_MS);
+      continue;
+    }
     const hold = `hold/${job.id}/`;
     const live = `live/${job.id}/`;
     try {
@@ -52,6 +65,10 @@ export const runWorker = async (deps: {
           if (!row) break;
           facts = row;
           renewedAt = deps.now();
+          if (facts.stoppedAt !== null) {
+            await withdraw(facts);
+            break;
+          }
         }
         const result = await releaseStep(
           {

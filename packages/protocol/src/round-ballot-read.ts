@@ -5,7 +5,7 @@ import { idSchema } from './primitives';
 import { roundViewSchema } from './round-view';
 import { roundUtteranceSchema } from './round-transcript';
 
-const ballotStatus = z.enum(['submitted', 'voided']);
+const ballotStatus = z.literal('submitted');
 
 /**
  * A caller's own judge seat is private; other judges' seats never accompany
@@ -36,6 +36,11 @@ export const roundBallotReadSchema = z.strictObject({
       status: ballotStatus,
       judge: z.enum(['human', 'ai']),
       ballot: ballotSchema,
+      /**
+       * This ballot's id when it carries feedback for the reader, who alone
+       * may report that feedback (WATCH-7). It names no judge. Null otherwise.
+       */
+      reportableFeedbackId: idSchema.nullable(),
     }),
   ),
   /**

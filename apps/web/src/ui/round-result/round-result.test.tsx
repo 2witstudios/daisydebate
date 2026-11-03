@@ -8,7 +8,9 @@ import { RoundResult } from './round-result';
 setupRitewayBun();
 
 test('a debater reads the decision and the transcript, each labelled, with no round analysis', () => {
-  const html = renderToStaticMarkup(<RoundResult view={completed} />);
+  const html = renderToStaticMarkup(
+    <RoundResult reportAction={() => {}} view={completed} />,
+  );
   assert({
     given: 'a completed Round read by its affirmative debater',
     should:
@@ -16,7 +18,6 @@ test('a debater reads the decision and the transcript, each labelled, with no ro
     actual: [
       'Official decision · Human judge',
       'Official decision · AI judge',
-      'This ballot was voided and does not count.',
       'Feedback for you from the human judge',
       'Weigh earlier.',
       'Show the transcript',
@@ -42,7 +43,10 @@ test('a debater reads the decision and the transcript, each labelled, with no ro
 
 test('a reader who did not debate sees only the decision', () => {
   const html = renderToStaticMarkup(
-    <RoundResult view={{ ...completed, transcript: null }} />,
+    <RoundResult
+      reportAction={() => {}}
+      view={{ ...completed, transcript: null }}
+    />,
   );
   assert({
     given: 'a completed Round read by a spectator',
@@ -63,11 +67,14 @@ test('a debater without the round analysis entitlement keeps the whole official 
       {
         status: 'submitted',
         judge: 'ai',
+        reportableFeedbackId: null,
         ballot: { ...sampleJudgeBallot, feedback: { affirmative: aiFeedback } },
       },
     ],
   };
-  const html = renderToStaticMarkup(<RoundResult view={view} />);
+  const html = renderToStaticMarkup(
+    <RoundResult reportAction={() => {}} view={view} />,
+  );
   assert({
     given:
       'a completed Round read by its affirmative debater with no round analysis entitlement',
@@ -81,5 +88,20 @@ test('a debater without the round analysis entitlement keeps the whole official 
       html.includes('Show the transcript'),
     ],
     expected: [true, true, true, true, true],
+  });
+});
+
+test('only feedback the reader may report offers a report', () => {
+  const html = renderToStaticMarkup(
+    <RoundResult reportAction={() => {}} view={completed} />,
+  );
+  assert({
+    given: 'one ballot with feedback for the reader and one voided without any',
+    should: 'offer exactly one report, naming that ballot and no judge',
+    actual: [
+      html.match(/Report this feedback/g)?.length,
+      html.includes(`name="targetId" value="${'f'.repeat(24)}"`),
+    ],
+    expected: [1, true],
   });
 });

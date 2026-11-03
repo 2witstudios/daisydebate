@@ -1,3 +1,4 @@
+import { browserCaptureAttributes } from '../features/telemetry/browser-capture';
 import { cookies } from 'next/headers';
 import { analyticsConfiguration } from '../features/analytics/config';
 import { CONSENT_COOKIE, parseConsent } from '../features/analytics/consent';
@@ -10,7 +11,11 @@ import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
-import type { MatchHistoryQuery, MemberProfile } from '@daisy/protocol';
+import {
+  SPECTATOR_MARGIN_MS,
+  type MatchHistoryQuery,
+  type MemberProfile,
+} from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
@@ -18,6 +23,11 @@ import { readSpectatorTimeline } from '../features/spectating/read-timeline';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
+import { ARCHIVE_PAGE_SIZE } from '../features/recording/archive';
+import type { RecordingsQuery } from '../features/recording/archive-query';
+import type { RecordingViewer } from '../features/recording/audience';
+import { recordingReads } from '../features/recording/composition';
+import { openRecordingHistory } from '../features/recording/history';
 import { resolveSession } from './identity';
 
 /**
@@ -37,9 +47,36 @@ const requestSession = cache(async () =>
 export const privateGroupsOffered = (): boolean =>
   processApp().messagingPolicy.privateGroups === 'isolated-test-fixture';
 
+/** One archive page for this viewer, and how many Recordings are public. */
+export const readRecordingArchive = async (
+  query: RecordingsQuery,
+  viewer: RecordingViewer,
+) => {
+  const { archive } = recordingReads(processApp());
+  const [page, publicCount] = await Promise.all([
+    archive.listArchive({
+      query,
+      viewerActorId: viewer.kind === 'account' ? viewer.actorId : null,
+      marginMs: SPECTATOR_MARGIN_MS,
+      limit: ARCHIVE_PAGE_SIZE,
+    }),
+    archive.countPublicArchive({ marginMs: SPECTATOR_MARGIN_MS }),
+  ]);
+  return { page, publicCount };
+};
+
+/** A finished Round's history screen for this viewer. */
+export const readRecordingHistory = (
+  input: Parameters<typeof openRecordingHistory>[1],
+) => openRecordingHistory(recordingReads(processApp()).inputs, input);
+
 /** Who is asking in this server-component render. */
 export const requestIdentity = async (): Promise<Identity> =>
   (await requestSession()).identity;
+
+/** Browser capture's attributes for this render's `<html>` (ISSUE-1008). */
+export const requestBrowserCapture = () =>
+  browserCaptureAttributes(processApp().config);
 
 /** Public adapter config only; management credentials never enter a rendered prop. */
 export const requestAnalytics = cache(async () => {

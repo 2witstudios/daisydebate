@@ -7,17 +7,19 @@ import {
 } from '../legal/agreements';
 
 type CompetitionFact = Pick<RoomAssemblyState, 'competitionType'>;
+type CaptureFacts = CompetitionFact & Pick<RoomAssemblyState, 'capture'>;
 
 /**
- * What this Room captures for its audience. Only ranked is always captured;
- * a casual host's broadcast and recording opt-ins answer `opted-in` once
- * WATCH-8 stores them.
+ * What this Room captures for its audience: ranked always; a casual Room when
+ * its host chose a broadcast or a recording (WATCH-8).
  */
-const roomCapture = (room: CompetitionFact): RoundCapture =>
-  room.competitionType === 'ranked' ? 'ranked' : 'none';
+const roomCapture = (room: CaptureFacts): RoundCapture => {
+  if (room.competitionType === 'ranked') return 'ranked';
+  return room.capture ? 'opted-in' : 'none';
+};
 
 /** The exact notice this Room shows before Ready (WATCH-5, WATCH-9). */
-export const roomCaptureNotice = (room: CompetitionFact) =>
+export const roomCaptureNotice = (room: CaptureFacts) =>
   roundCaptureNotice(roomCapture(room));
 
 /**
@@ -25,7 +27,7 @@ export const roomCaptureNotice = (room: CompetitionFact) =>
  * as having read words it never showed.
  */
 export const captureNoticeRefusal = (
-  room: CompetitionFact,
+  room: CaptureFacts,
   noticeVersion: string | undefined,
 ): Extract<RoomRefusal, 'capture-notice-changed'> | null =>
   roomCaptureNotice(room)?.version === noticeVersion

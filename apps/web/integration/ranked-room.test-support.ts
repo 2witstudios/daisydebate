@@ -1,3 +1,4 @@
+import { judgingJobRules } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
 import { CONTENT_WAIVER_VERSION } from '../src/features/legal/agreements';
@@ -110,6 +111,8 @@ export const cachedAiJudgingRuntime = {
     leaseMs: 60000,
     model: 'fixture-model',
     nextToken: () => randomBytes(32).toString('base64url'),
+    contractVersion: 'fixture-contract',
+    rules: judgingJobRules,
   },
 };
 

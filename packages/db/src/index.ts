@@ -37,8 +37,11 @@ import {
   readRoundAwaitsRating,
   readUnratedRatingRounds,
 } from './rating-discovery';
-import { deliverObservationPurges } from './observation-purge-jobs';
-import { duePrivacyJobs } from './privacy/vendor-jobs';
+import {
+  deliverObservationPurges,
+  owedObservationPurges,
+} from './observation-purge-jobs';
+import { duePrivacyJobs, owedPrivacyJobs } from './privacy/vendor-jobs';
 import { deliverPrivacyJob as deliverPrivacyJobImpl } from './privacy/vendor-jobs';
 import {
   erasePrivacySubject as runSubjectRightsErasure,
@@ -58,6 +61,7 @@ import {
 import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { betaAccessOperations } from './beta-access';
+import { moderationOperations } from './moderation-operations';
 import { operatorAccountOperations } from './operator-accounts';
 import { provisionalRetentionOperations } from './provisional-retention';
 import { authOperations } from './auth-operations';
@@ -80,6 +84,9 @@ import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
 import { spectatorTimelineReads } from './spectator-timeline-reads';
 import { memberProfileReadOperations } from './member-profile-reads';
+import { recordingArchiveReadOperations } from './recording-archive-reads';
+import { recordingOperations } from './recording-operations';
+import { recordingRoundReadOperations } from './recording-round-reads';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
@@ -226,6 +233,14 @@ export function createDatabase({
       instrumented(eventSink, 'deliverObservationPurges', () =>
         deliverObservationPurges(control, input, port),
       ),
+    owedObservationPurges: () =>
+      instrumented(eventSink, 'owedObservationPurges', () =>
+        owedObservationPurges(control),
+      ),
+    owedPrivacyJobs: () =>
+      instrumented(eventSink, 'owedPrivacyJobs', () =>
+        owedPrivacyJobs(control),
+      ),
     /** ISSUE-833: due vendor deletion jobs, read for the scheduled worker. */
     duePrivacyJobs: (input: Parameters<typeof duePrivacyJobs>[1]) =>
       instrumented(eventSink, 'duePrivacyJobs', () =>
@@ -268,6 +283,7 @@ export function createDatabase({
     ...mailIntentOperations({ database: control, eventSink }),
     ...betaAccessOperations({ database: control, eventSink }),
     ...operatorAccountOperations({ database: control, eventSink }),
+    ...moderationOperations({ database: control, eventSink }),
     ...actorOperations({ database: control, eventSink }),
     ...messagingOperations(social, contactReactions),
     ...friendshipReadOperations({ database: social, eventSink }),
@@ -335,6 +351,9 @@ export function createDatabase({
     ...standingsOperations({ database: audience, eventSink }),
     ...memberProfileReadOperations({ database: audience, eventSink }),
     ...spectatorTimelineReads({ database: audience, eventSink }),
+    ...recordingRoundReadOperations({ database: audience }),
+    ...recordingArchiveReadOperations({ database: audience }),
+    ...recordingOperations({ database: control }),
     /**
      * Rates a completed round with the caller's domain decision (ADR 0055,
      * ADR 0058); see `rateCompletedRound`. Its consumer is the ratings

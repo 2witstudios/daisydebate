@@ -200,15 +200,45 @@ export const listOpenBroadcasts = (tx: Tx, limit: number) =>
     .orderBy(asc(broadcasts.createdAt))
     .limit(limit);
 
+/**
+ * What the Broadcast has released, for features that hold facts back until it
+ * has: no Broadcast at all, the watermark, or complete.
+ */
+export const readBroadcastRelease = async (
+  reader: Pick<Tx, 'select'>,
+  roundId: string,
+) => {
+  const [row] = await reader
+    .select({
+      at: broadcasts.releasedThroughAt,
+      completedAt: broadcasts.completedAt,
+    })
+    .from(broadcasts)
+    .where(eq(broadcasts.roundId, roundId));
+  if (!row) return { kind: 'none' } as const;
+  if (row.completedAt) return { kind: 'completed' } as const;
+  return {
+    kind: 'open',
+    releasedThroughMs: row.at?.getTime() ?? null,
+  } as const;
+};
+
 /** Ranked Rounds still running with no Broadcast yet. Read-only; takes no Round lock. */
-export const discoverUnopenedRankedRounds = async (tx: Tx, limit: number) =>
+export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
   tx
-    .select({ roundId: rounds.id })
+    .select({
+      roundId: rounds.id,
+      competitionType: rounds.competitionType,
+      capture: rounds.capture,
+    })
     .from(rounds)
     .leftJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
     .where(
       and(
-        eq(rounds.competitionType, 'ranked'),
+        or(
+          eq(rounds.competitionType, 'ranked'),
+          sql`jsonb_typeof(${rounds.capture} -> 'broadcast') = 'object'`,
+        ),
         inArray(rounds.status, ['scheduled', 'active']),
         isNull(broadcasts.id),
       ),
@@ -243,4 +273,64 @@ export const claimBroadcastReconcile = async (
     )
     .returning({ id: broadcasts.id });
   return rows.length === 1;
+};
+
+/**
+ * Whether private conversation must wait for this Round's observer. Held for as
+ * long as an open Broadcast's observer may still be subscribed, with no timer: an
+ * unconfirmed revocation stops the Egress, and revoking an observer that has gone
+ * then confirms. A dead control plane costs conversation only, never speech.
+ */
+export const readConversationHeld = async (
+  tx: Tx,
+  input: { readonly roundId: string },
+): Promise<boolean> => {
+  const [row] = await tx
+    .select({
+      revokedAt: broadcasts.observerRevokedAt,
+      stoppedAt: broadcasts.stoppedAt,
+      completedAt: broadcasts.completedAt,
+      egressId: broadcasts.egressId,
+    })
+    .from(broadcasts)
+    .where(eq(broadcasts.roundId, input.roundId));
+  return (
+    row !== undefined &&
+    row.egressId !== null &&
+    row.stoppedAt === null &&
+    row.completedAt === null &&
+    row.revokedAt === null
+  );
+};
+
+/**
+ * An operator stops a Broadcast (WATCH-7). The reconciler then stops its
+ * Egress, and the stop stands: a repeat, or a Broadcast already complete, is
+ * `unchanged`. Null when there is no such Broadcast.
+ */
+export const stopBroadcast = async (
+  tx: Tx,
+  input: {
+    readonly id: string;
+    readonly reason: string;
+    readonly now: Date;
+  },
+): Promise<'applied' | 'unchanged' | null> => {
+  const stopped = await tx
+    .update(broadcasts)
+    .set({ stoppedAt: input.now, stopReason: input.reason })
+    .where(
+      and(
+        eq(broadcasts.id, input.id),
+        isNull(broadcasts.stoppedAt),
+        isNull(broadcasts.completedAt),
+      ),
+    )
+    .returning({ id: broadcasts.id });
+  if (stopped.length === 1) return 'applied';
+  const [found] = await tx
+    .select({ id: broadcasts.id })
+    .from(broadcasts)
+    .where(eq(broadcasts.id, input.id));
+  return found ? 'unchanged' : null;
 };

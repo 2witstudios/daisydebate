@@ -5,6 +5,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
 import {
   deliverObservationPurges,
+  owedObservationPurges,
   queueObservationPurge,
 } from '../src/observation-purge-jobs';
 
@@ -32,8 +33,10 @@ test('an erasure queues a durable observation purge that survives a Redis outage
   const database = drizzle({ client });
   const fixture = await createMessagingTestFixture(client);
   try {
+    const owedBefore = await owedObservationPurges(database);
     // The member's erasure (same messaging adopter path) queues the job.
     await fixture.eraseSubject(fixture.actorId);
+    const owedOnceQueued = await owedObservationPurges(database);
     const queued = await jobOf(client, fixture.userId);
     const queuedAt = queued?.retryAt.toISOString() ?? '';
     let purges = 0;
@@ -48,6 +51,7 @@ test('an erasure queues a durable observation purge that survives a Redis outage
       },
     );
     const afterOutage = await jobOf(client, fixture.userId);
+    const owedInBackoff = await owedObservationPurges(database);
     const early = await deliverObservationPurges(
       database,
       { now: queuedAt, limit: 16 },
@@ -68,6 +72,7 @@ test('an erasure queues a durable observation purge that survives a Redis outage
       },
     );
     const done = await jobOf(client, fixture.userId);
+    const owedAfterDelivery = await owedObservationPurges(database);
     const idle = await deliverObservationPurges(
       database,
       {
@@ -95,6 +100,8 @@ test('an erasure queues a durable observation purge that survives a Redis outage
         done: [done?.status, done?.attempts, done?.succeededAt !== null],
         idle,
         purges,
+        owedBeforeAnyAttempt: owedOnceQueued - owedBefore,
+        owedWhileRetrying: owedInBackoff - owedAfterDelivery,
       },
       expected: {
         queued: 'pending',
@@ -106,6 +113,8 @@ test('an erasure queues a durable observation purge that survives a Redis outage
         done: ['succeeded', 2, true],
         idle: { succeeded: 0, retried: 0 },
         purges: 2,
+        owedBeforeAnyAttempt: 1,
+        owedWhileRetrying: 1,
       },
     });
     // A later erasure of the same member re-arms the obligation.

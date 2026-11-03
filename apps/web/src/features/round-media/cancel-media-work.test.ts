@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { cancelMediaWork } from './cancel-media-work';
-import { trackedSignal } from './media-controller.test-support';
+import { trackedSignal } from './media-fixtures.test-support';
 setupRitewayBun();
 
 test('every settlement path removes its abort listener', async () => {

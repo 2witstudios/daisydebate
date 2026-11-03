@@ -15,9 +15,12 @@ test('a judging job that may buy no more calls never reaches the provider', asyn
         expectedVersion: 1,
         pendingBallot: null,
       }),
-      beginRoundJudgingModelCall: async () => false,
+      beginRoundJudgingModelCall: async () => ({
+        kind: 'ended' as const,
+        reason: 'attempts_exhausted' as const,
+      }),
       recordRoundJudgingUsage: async () => undefined,
-      saveRoundJudgingResult: async () => undefined,
+      saveRoundJudgingResult: async () => ({ kind: 'held' as const }),
       submitRoundJudgingResult: async () => {
         submitted++;
       },
@@ -50,7 +53,7 @@ function harness(complete: (request: unknown) => Promise<unknown>) {
     provider: 0,
     saved: 0,
     submitted: 0,
-    failures: [] as { category: string; definite: boolean; final: boolean }[],
+    failures: [] as { category: string; final: boolean }[],
     ended: [] as string[],
     usage: 0,
   };
@@ -61,7 +64,7 @@ function harness(complete: (request: unknown) => Promise<unknown>) {
         expectedVersion: 1,
         pendingBallot: null,
       }),
-      beginRoundJudgingModelCall: async () => true,
+      beginRoundJudgingModelCall: async () => ({ kind: 'dispatched' as const }),
       recordRoundJudgingUsage: async () => {
         log.usage++;
       },
@@ -70,20 +73,18 @@ function harness(complete: (request: unknown) => Promise<unknown>) {
         _token: unknown,
         input: {
           diagnostic: { category: string };
-          definite: boolean;
           final: boolean;
         },
       ) => {
         log.failures.push({
           category: input.diagnostic.category,
-          definite: input.definite,
           final: input.final,
         });
         return next;
       },
       saveRoundJudgingResult: async () => {
         log.saved++;
-        return true;
+        return { kind: 'held' as const };
       },
       submitRoundJudgingResult: async () => {
         log.submitted++;
@@ -140,9 +141,7 @@ test('a rejected answer is durable at once, with usage kept and nothing submitte
       provider: 1,
       saved: 0,
       submitted: 0,
-      failures: [
-        { category: 'schema_rejected', definite: false, final: false },
-      ],
+      failures: [{ category: 'schema_rejected', final: false }],
       ended: [],
       usage: 1,
     },
@@ -151,9 +150,9 @@ test('a rejected answer is durable at once, with usage kept and nothing submitte
   await operations.executeClaim(claim, new AbortController().signal);
   assert({
     given: 'the final permitted answer also rejected',
-    should: 'report the end once, on that call',
+    should: 'report the durable reason once, on that call',
     actual: log.ended,
-    expected: ['schema_rejected'],
+    expected: ['attempts_exhausted'],
   });
 });
 
@@ -170,7 +169,7 @@ test('provider failures are classified apart', async () => {
     given: 'the vendor refusing the request',
     should: 'record a definite refusal that buys nothing',
     actual: refused.log.failures,
-    expected: [{ category: 'provider_refused', definite: true, final: true }],
+    expected: [{ category: 'provider_refused', final: true }],
   });
   const uncertain = harness(async () => {
     throw new Error('socket lost');
@@ -180,7 +179,7 @@ test('provider failures are classified apart', async () => {
     given: 'an uncertain provider failure',
     should: 'stay counted as possibly served',
     actual: uncertain.log.failures,
-    expected: [{ category: 'provider_error', definite: false, final: false }],
+    expected: [{ category: 'provider_error', final: false }],
   });
   const timer = new AbortController();
   timer.abort(new DOMException('late', 'TimeoutError'));
@@ -253,7 +252,7 @@ test('a rate limit may retry, and a timeout during the call stays counted as pai
     given: 'a 429',
     should: 'buy nothing but stay retryable',
     actual: limited.log.failures,
-    expected: [{ category: 'provider_refused', definite: true, final: false }],
+    expected: [{ category: 'provider_refused', final: false }],
   });
   const clock = new AbortController();
   const late = harness(async () => {
@@ -265,6 +264,6 @@ test('a rate limit may retry, and a timeout during the call stays counted as pai
     given: 'the per-call timeout firing while the call runs',
     should: 'record a timeout that may have been served',
     actual: late.log.failures,
-    expected: [{ category: 'timeout', definite: false, final: false }],
+    expected: [{ category: 'timeout', final: false }],
   });
 });

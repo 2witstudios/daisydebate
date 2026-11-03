@@ -1,60 +1,52 @@
-import type { MediaConnectionState } from './media-controller';
+import type { RequestFailure } from './model/media-events';
 
-/** What a media failure means for the connection. Pure; effects stay in the controller. */
-
-/** The transport's error for a device the Room check passed that is now gone. */
-export const CHECKED_DEVICE_MISSING = 'CheckedDeviceMissingError';
+/** What a media failure means for the connection. Pure; what it causes is the model's to decide. */
 
 const transient = new WeakSet<object>();
 /**
- * A media request refused for now (a 503 under load, or the network): the
- * controller retries it before calling media unavailable (ISSUE-494).
+ * A media request that may succeed unchanged (a 429 or 5xx, or the network): the
+ * model retries it before calling media unavailable (ISSUE-494).
  */
 export function transientMediaFailure() {
   const failure = new Error('Media unavailable for now');
   transient.add(failure);
   return failure;
 }
-export const isTransientMediaFailure = (error: unknown) =>
-  typeof error === 'object' && error !== null && transient.has(error);
-/** The only answers that bear on whether this caller may keep its media. */
-const AUTHORITY_REFUSALS = [401, 403, 404, 409, 410];
-const REFUSED = 'MediaRefusedError';
-export const mediaRefusal = () => {
+/** Answers no attempt from this page can change; a new page may. */
+const FINAL_REFUSALS = [401, 403, 404, 410];
+const passesByItself = (status: number) =>
+  status === 408 || status === 429 || status >= 500;
+const endsConnection = new WeakSet<object>();
+const finalForPage = new WeakSet<object>();
+/** An answer about authority: it ends the connection, and a person may ask again. */
+const mediaRefusal = () => {
   const refusal = new Error('Media unavailable');
-  refusal.name = REFUSED;
+  endsConnection.add(refusal);
   return refusal;
 };
-export const isMediaRefusal = (error: unknown) =>
-  error instanceof Error && error.name === REFUSED;
+const finalMediaRefusal = () => {
+  const refusal = mediaRefusal();
+  finalForPage.add(refusal);
+  return refusal;
+};
 /**
- * The failure a non-OK media answer stands for: a 408 (the outcome is unknown)
- * or a 503 (refused for now) is transient and retried. Only an authority refusal
- * ends a live connection; any other status leaves its tracks up.
+ * The one classifier of a non-OK media answer. A 408, 429 or 5xx is transient and
+ * retried. Only a refusal ends a live connection; any other status (a 400, say)
+ * leaves its tracks up but will not pass by itself.
  */
 export function mediaFailure(status: number) {
-  if (status === 408 || status === 503) return transientMediaFailure();
-  return AUTHORITY_REFUSALS.includes(status)
-    ? mediaRefusal()
-    : new Error('Media unavailable');
+  if (passesByItself(status)) return transientMediaFailure();
+  if (FINAL_REFUSALS.includes(status)) return finalMediaRefusal();
+  return status === 409 ? mediaRefusal() : new Error('Media unavailable');
 }
 
-const deviceBlocked = (error: unknown) =>
-  error instanceof Error &&
-  [
-    'NotAllowedError',
-    'SecurityError',
-    'NotFoundError',
-    'NotReadableError',
-  ].includes(error.name);
-
-/** Whether a failure may pass by itself; a recovery owner reads this from `changed`. */
-export type MediaFailureKind = 'transient' | 'definite';
-export const failureKind = (error: unknown): MediaFailureKind =>
-  isTransientMediaFailure(error) ? 'transient' : 'definite';
-
-export const failureState = (error: unknown): MediaConnectionState => {
-  if (error instanceof Error && error.name === CHECKED_DEVICE_MISSING)
-    return 'device-missing';
-  return deviceBlocked(error) ? 'device-blocked' : 'unavailable';
+/**
+ * The kind the model reads. A reply that does not parse, or names another Round, is
+ * `definite`: retrying cannot help. Error names confer nothing.
+ */
+export const requestFailureOf = (error: unknown): RequestFailure => {
+  if (typeof error !== 'object' || error === null) return 'definite';
+  if (finalForPage.has(error)) return 'refused';
+  if (endsConnection.has(error)) return 'ending';
+  return transient.has(error) ? 'transient' : 'definite';
 };

@@ -63,9 +63,9 @@ test('a judged casual Round completes without a winner only once the database cl
       ],
       expected: [
         null,
-        'rounds_unjudged_participants_check',
-        'rounds_unjudged_participants_check',
-        'rounds_unjudged_participants_check',
+        'rounds_winnerless_completion_check',
+        'rounds_winnerless_completion_check',
+        'rounds_winnerless_completion_check',
         null,
         'rounds_ballot_deadline_immutable',
       ],
@@ -90,8 +90,8 @@ test('actual judge seats cannot bypass or follow unjudged completion', async () 
       should: 'refuse at commit both completion and later judge insertion',
       actual: [withJudge, added],
       expected: [
-        'rounds_unjudged_participants_check',
-        'rounds_unjudged_participants_check',
+        'rounds_winnerless_completion_check',
+        'rounds_winnerless_completion_check',
       ],
     });
     await f.sql`delete from rounds where id=${id}`;
@@ -160,7 +160,7 @@ test('concurrent judge admission cannot commit behind an unjudged completion', a
           await adding,
           await f.count('round_participants', 'round_id', roundId),
         ],
-        expected: ['rounds_unjudged_participants_check', 0],
+        expected: ['rounds_winnerless_completion_check', 0],
       });
     } finally {
       finish.resolve();

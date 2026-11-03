@@ -1,3 +1,5 @@
+import { recordingPersistence } from '../features/recording/persistence';
+import { startRecordingDeletions } from './recording-deletions';
 import { startBroadcastSweep } from '../features/broadcast/composition';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
@@ -6,6 +8,7 @@ import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { startRoundMediaRecovery } from './round-media-recovery';
 import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
+import { startRunSchedule } from './run-schedule';
 import { startObservationPurges } from './observation-purges';
 import { privacyJobPort, startPrivacyJobs } from './privacy-jobs';
 import { startRoundAvailability } from './round-availability';
@@ -25,11 +28,7 @@ import {
   processStartOptions,
   fetchPublicAttendanceProbe,
 } from './process-app';
-import {
-  createRetentionSweep,
-  retentionTargets,
-  startRetentionSweep,
-} from './retention-sweep';
+import { createRetentionSweep, retentionTargets } from './retention-sweep';
 import { startProductionServer } from './listen-first';
 import { SHUTDOWN_DRAIN_DEADLINE_MS } from './shutdown-budget';
 import { waitForHealthy } from './wait-for-healthy';
@@ -152,8 +151,8 @@ const roundWorkers = startRoundWorkers({
 // readiness already reports 503 correctly during that window (a live check
 // per request, never a boot flag) — this only stops the sweep from logging
 // a spurious retention.sweep.failed on every cold boot.
-const retention = startRetentionSweep({
-  sweep: createRetentionSweep({
+const retention = startRunSchedule({
+  work: createRetentionSweep({
     targets: retentionTargets({
       database: app.database,
       redis: app.redis,
@@ -192,6 +191,7 @@ const fileMaintenance = fileRuntime?.maintenance
 // recorded here, so no cached copy of erased content outlives its job.
 const observationPurges = startObservationPurges({
   deliver: app.database.deliverObservationPurges,
+  owed: () => app.database.owedObservationPurges(),
   purgeAll: () => app.redis.purgeAllObservations(),
   clock: app.clock,
   logger: app.logger,
@@ -201,11 +201,20 @@ const observationPurges = startObservationPurges({
 // retried with backoff and recorded, so no processor copy outlives its job.
 const privacyJobs = startPrivacyJobs({
   due: (batch) => app.database.duePrivacyJobs(batch),
+  owed: () => app.database.owedPrivacyJobs(),
   deliver: (job, now, retryAt) =>
     app.database.deliverPrivacyJob(
       { jobId: job.id, vendor: job.vendor, now, retryAt },
       privacyJobPort(app, job.vendor),
     ),
+  clock: app.clock,
+  logger: app.logger,
+  timers: workerTimers,
+});
+const recordingDeletions = startRecordingDeletions({
+  store: recordingPersistence(app),
+  objects: app.recordingObjects,
+  owner: app.ids.next(),
   clock: app.clock,
   logger: app.logger,
   timers: workerTimers,
@@ -221,6 +230,7 @@ async function shutdown() {
   const filesStopped = fileMaintenance?.stop();
   const observationPurgesStopped = observationPurges.stop();
   const privacyJobsStopped = privacyJobs.stop();
+  const recordingDeletionsStopped = recordingDeletions.stop();
   const broadcastSweepStopped = broadcastSweep?.stop();
   const availabilityStopped = availability.stop();
   const workersStopped = roundWorkers?.stop();
@@ -255,6 +265,7 @@ async function shutdown() {
         broadcastSweepStopped,
         observationPurgesStopped,
         privacyJobsStopped,
+        recordingDeletionsStopped,
         availabilityStopped,
         workersStopped,
         mediaRecoveryStopped,

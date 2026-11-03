@@ -1,0 +1,267 @@
+import { resultHeadline } from './archive';
+import {
+  mayDownload,
+  mayRequestRemoval,
+  recordingMediaState,
+  roundEvidencePermissions,
+  type BroadcastRelease,
+  type RecordingMediaState,
+  type RecordingRound,
+  type RecordingViewer,
+  type RoundEvidencePermissions,
+} from './audience';
+import type { RecordingRecord } from './ports';
+
+/** The Round as the history screen shows it, beyond what permissions need. */
+export type HistoryRound = RecordingRound & {
+  readonly title: string | null;
+  readonly resolution: string;
+  readonly outcome: string | null;
+  readonly debaters: readonly {
+    readonly roundParticipantId: string | null;
+    readonly role: string;
+    readonly label: string | null;
+  }[];
+};
+
+export type HistoryTranscript = {
+  readonly revision: number;
+  readonly completeness: 'complete' | 'incomplete';
+  readonly gaps: readonly unknown[];
+  readonly utterances: readonly {
+    readonly id: string;
+    readonly roundParticipantId: string;
+    readonly text: string;
+    readonly complete: boolean;
+  }[];
+};
+
+export type HistoryBallot = {
+  readonly winner: string;
+  readonly reason: string;
+  readonly scores: Readonly<
+    Record<string, Readonly<Record<string, number>> | undefined>
+  >;
+};
+
+export type HistoryInputs = {
+  readonly readHistoryRound: (roundId: string) => Promise<HistoryRound | null>;
+  readonly readBroadcastRelease: (roundId: string) => Promise<BroadcastRelease>;
+  readonly readTranscript: (
+    roundId: string,
+  ) => Promise<HistoryTranscript | null>;
+  readonly readBallots: (roundId: string) => Promise<readonly HistoryBallot[]>;
+  readonly holdsRecordingDownload: (userId: string) => Promise<boolean>;
+  readonly findRecordingByRound: (
+    roundId: string,
+  ) => Promise<RecordingRecord | null>;
+};
+
+type TranscriptPanel = {
+  readonly q: string;
+  readonly revision: number;
+  /** Null when coverage is whole; otherwise what is missing, plainly. */
+  readonly coverageNote: string | null;
+  readonly rows: readonly {
+    readonly id: string;
+    readonly turn: number;
+    readonly speaker: string;
+    readonly text: string;
+    readonly partial: boolean;
+  }[];
+};
+
+type ResultPanel = {
+  readonly headline: string;
+  readonly ballots: readonly {
+    readonly title: string;
+    readonly winner: string;
+    readonly scores: string;
+    readonly reason: string;
+  }[];
+};
+
+export type RecordingHistoryScreen =
+  | { readonly kind: 'unavailable' }
+  | {
+      readonly kind: 'history';
+      readonly roundId: string;
+      readonly title: string;
+      readonly resolution: string;
+      readonly ranked: boolean;
+      readonly date: string;
+      readonly visibility: RecordingRound['visibility'];
+      readonly media: {
+        readonly state: RecordingMediaState;
+        /** Only when ready and permitted: an authorized read, never a bucket URL. */
+        readonly playlistHref: string | null;
+      };
+      /** Null means no text history may be shown to this viewer, or none exists. */
+      readonly transcript: TranscriptPanel | null;
+      readonly result: ResultPanel | null;
+      readonly downloadHref: string | null;
+      readonly removal: {
+        readonly recordingId: string;
+        readonly version: number;
+      } | null;
+    };
+
+const sideName = (side: string): string =>
+  side === 'affirmative' ? 'Affirmative' : 'Negative';
+
+const coverageNote = (transcript: HistoryTranscript): string | null => {
+  if (transcript.completeness === 'complete' && transcript.gaps.length === 0)
+    return null;
+  return transcript.gaps.length > 0
+    ? `This transcript is partial: ${transcript.gaps.length} ${transcript.gaps.length === 1 ? 'stretch was' : 'stretches were'} not captured.`
+    : 'This transcript is partial: some speech was not captured.';
+};
+
+const speakerOf = (round: HistoryRound, participantId: string): string => {
+  const seat = round.debaters.find(
+    (debater) => debater.roundParticipantId === participantId,
+  );
+  if (!seat) return 'Speaker';
+  return seat.label === null ? sideName(seat.role) : `@${seat.label}`;
+};
+
+/** Actual turn order, numbered before any search so a match keeps its number. */
+const transcriptPanel = (
+  round: HistoryRound,
+  transcript: HistoryTranscript,
+  q: string,
+): TranscriptPanel => {
+  const needle = q.toLowerCase();
+  return {
+    q,
+    revision: transcript.revision,
+    coverageNote: coverageNote(transcript),
+    rows: transcript.utterances
+      .map((line, index) => ({
+        id: line.id,
+        turn: index + 1,
+        speaker: speakerOf(round, line.roundParticipantId),
+        text: line.text,
+        partial: !line.complete,
+      }))
+      .filter((row) =>
+        `${row.speaker} ${row.text}`.toLowerCase().includes(needle),
+      ),
+  };
+};
+
+const sideTotal = (ballot: HistoryBallot, side: string): number =>
+  Object.values(ballot.scores[side] ?? {}).reduce((sum, n) => sum + n, 0);
+
+/** Winner, scores and reason. Judges appear by number; feedback never reaches here. */
+const resultPanel = (
+  round: HistoryRound,
+  ballots: readonly HistoryBallot[],
+): ResultPanel => ({
+  headline: resultHeadline(round.outcome),
+  ballots: ballots.map((ballot, index) => ({
+    title: `Judge ${index + 1}`,
+    winner: sideName(ballot.winner),
+    scores: `Affirmative ${sideTotal(ballot, 'affirmative')}, Negative ${sideTotal(ballot, 'negative')}`,
+    reason: ballot.reason,
+  })),
+});
+
+const playlistHref = (record: RecordingRecord | null): string | null =>
+  record?.lifecycle.status === 'ready'
+    ? `/api/recordings/${record.id}/playback/${record.lifecycle.media.playlistKey.slice(record.lifecycle.media.playlistKey.lastIndexOf('/') + 1)}`
+    : null;
+
+/** What this viewer may do with the Recording, each on its own rule. */
+const recordingActions = (input: {
+  readonly record: RecordingRecord | null;
+  readonly round: HistoryRound;
+  readonly viewer: RecordingViewer;
+  readonly permissions: RoundEvidencePermissions;
+  readonly subscribed: boolean;
+}): Pick<
+  Extract<RecordingHistoryScreen, { kind: 'history' }>,
+  'downloadHref' | 'removal'
+> => {
+  const { record, round, viewer, permissions, subscribed } = input;
+  if (record === null) return { downloadHref: null, removal: null };
+  const status = record.lifecycle.status;
+  return {
+    downloadHref: mayDownload({ viewer, permissions, status, subscribed })
+      ? `/api/recordings/${record.id}/download`
+      : null,
+    removal: mayRequestRemoval({
+      recordingClass: record.class,
+      round,
+      viewer,
+      status,
+    })
+      ? { recordingId: record.id, version: record.version }
+      : null,
+  };
+};
+
+const permittedReads = (
+  inputs: HistoryInputs,
+  roundId: string,
+  permissions: RoundEvidencePermissions,
+  viewer: RecordingViewer,
+) =>
+  Promise.all([
+    permissions.transcript ? inputs.readTranscript(roundId) : null,
+    permissions.result ? inputs.readBallots(roundId) : null,
+    viewer.kind === 'account'
+      ? inputs.holdsRecordingDownload(viewer.userId)
+      : false,
+  ]);
+
+/** The history route's one driver: who is asking decides each panel on its own. */
+export const openRecordingHistory = async (
+  inputs: HistoryInputs,
+  input: {
+    readonly roundId: string;
+    readonly viewer: RecordingViewer;
+    readonly q: string;
+  },
+): Promise<RecordingHistoryScreen> => {
+  const round = await inputs.readHistoryRound(input.roundId);
+  if (round === null || round.completedAtMs === null)
+    return { kind: 'unavailable' };
+  const permissions = roundEvidencePermissions(
+    round,
+    await inputs.readBroadcastRelease(round.id),
+    input.viewer,
+  );
+  if (!permissions.open) return { kind: 'unavailable' };
+  const record = await inputs.findRecordingByRound(round.id);
+  const [transcript, ballots, subscribed] = await permittedReads(
+    inputs,
+    round.id,
+    permissions,
+    input.viewer,
+  );
+  const state = recordingMediaState(record?.lifecycle.status ?? null);
+  // A public Round with neither video nor anything this viewer may read is not
+  // offered: a stranger learns nothing from its page.
+  if (state === 'not_recorded' && transcript === null && ballots === null)
+    return { kind: 'unavailable' };
+  return {
+    kind: 'history',
+    roundId: round.id,
+    title: round.title ?? round.resolution,
+    resolution: round.resolution,
+    ranked: round.competitionType === 'ranked',
+    date: new Date(round.completedAtMs).toISOString().slice(0, 10),
+    visibility: round.visibility,
+    media: { state, playlistHref: playlistHref(record) },
+    transcript: transcript && transcriptPanel(round, transcript, input.q),
+    result: ballots && resultPanel(round, ballots),
+    ...recordingActions({
+      record,
+      round,
+      viewer: input.viewer,
+      permissions,
+      subscribed,
+    }),
+  };
+};
