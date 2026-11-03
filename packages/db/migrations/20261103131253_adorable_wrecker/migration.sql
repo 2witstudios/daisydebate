@@ -1,1 +1,0 @@
-ALTER TABLE "agreement_signatures" ADD COLUMN "words" text NOT NULL;

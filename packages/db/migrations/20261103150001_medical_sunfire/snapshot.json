@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ac9851ff-68f2-4402-b097-b9a098270bf6",
+  "id": "aac0910e-0c95-4008-bbe7-57e859bca3ce",
   "prevIds": [
-    "1cc77326-3922-4ef5-a1a1-35a253aa5a99"
+    "27c0ba7f-486d-4bab-ab09-08a7161ed9c1"
   ],
   "ddl": [
     {
@@ -645,6 +645,12 @@
     {
       "isRlsEnabled": false,
       "name": "service_instances",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "spectator_fact_log_open_rounds",
       "entityType": "tables",
       "schema": "public"
     },
@@ -11100,6 +11106,32 @@
       "name": "round_id",
       "entityType": "columns",
       "schema": "public",
+      "table": "spectator_fact_log_open_rounds"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "touched_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "spectator_fact_log_open_rounds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "spectator_fact_releases"
     },
     {
@@ -21240,6 +21272,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "name": "spectator_fact_log_open_rounds_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "spectator_fact_log_open_rounds"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "spectator_fact_releases_round_id_rounds_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -22581,6 +22630,16 @@
       "name": "service_instances_pkey",
       "schema": "public",
       "table": "service_instances",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "round_id"
+      ],
+      "nameExplicit": false,
+      "name": "spectator_fact_log_open_rounds_pkey",
+      "schema": "public",
+      "table": "spectator_fact_log_open_rounds",
       "entityType": "pks"
     },
     {
@@ -24973,7 +25032,7 @@
       "table": "service_instances"
     },
     {
-      "value": "\"kind\" in ('stage', 'result', 'ballot', 'rating', 'caption')",
+      "value": "\"kind\" in ('stage', 'resolution', 'result', 'ballot', 'rating', 'caption')",
       "name": "spectator_fact_releases_kind_check",
       "entityType": "checks",
       "schema": "public",
@@ -25134,5 +25193,7 @@
       "table": "utterances"
     }
   ],
-  "renames": []
+  "renames": [
+    "public.rounds.rounds_rated_ladder_check->public.rounds.rounds_ranked_ladder_check"
+  ]
 }
