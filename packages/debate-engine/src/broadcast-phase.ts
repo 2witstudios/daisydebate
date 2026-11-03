@@ -5,7 +5,7 @@ export type PhasePosition = {
   readonly openSegment: { readonly endsAt: string } | null;
   readonly nextSegment: { readonly type: string } | null;
   readonly prep: { readonly side: string } | null;
-  readonly awaitingBallot: boolean;
+  readonly stage: string | null;
 };
 
 /**
@@ -16,7 +16,11 @@ export type PhasePosition = {
 export const broadcastPhase = (
   position: PhasePosition,
 ): BroadcastFacts['phase'] => {
-  if (position.status !== 'active' || position.prep || position.awaitingBallot)
+  if (
+    position.status !== 'active' ||
+    position.prep ||
+    position.stage === 'awaiting_ballot'
+  )
     return { kind: 'private' };
   if (position.openSegment)
     return position.nextSegment

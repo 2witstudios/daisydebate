@@ -58,7 +58,7 @@ export const ready = (
 export const startRound = (
   room: RoomAssemblyState,
   _actorId: string,
-  _command: Extract<RoomCommand, { type: 'start-round' }>,
+  _command: Extract<RoomCommand, { type: 'start-round' | 'close' }>,
   consent: RoomConsent,
   edges: Edges,
 ): RoomMutationOutcome => {
@@ -84,7 +84,7 @@ export const startRound = (
 export const close = (
   room: RoomAssemblyState,
   _actorId: string,
-  _command: Extract<RoomCommand, { type: 'close' }>,
+  _command: Extract<RoomCommand, { type: 'start-round' | 'close' }>,
   _consent: RoomConsent,
   _edges: Edges,
 ): RoomMutationOutcome => {

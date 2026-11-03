@@ -140,7 +140,7 @@ function resolveInterruptions(
   const capability = definition.configurable.interaction.interruptions;
   if (config.interruptions === null)
     return capability === null
-      ? { ok: true, value: null }
+      ? { ok: true, value: { allowed: 'disabled' } }
       : stepRefused('invalid-choice', 'An interruption choice is required');
   if (capability === null)
     return stepRefused(
@@ -157,12 +157,13 @@ function resolveInterruptions(
       'out-of-range',
       `Interruption minimum remaining ${config.interruptions.minRemainingMs}ms is outside ${capability.minRemainingMs.min}-${capability.minRemainingMs.max}ms`,
     );
+  const { mode, minRemainingMs } = config.interruptions;
   return {
     ok: true,
-    value: {
-      allowed: config.interruptions.mode,
-      minRemainingMs: config.interruptions.minRemainingMs,
-    },
+    value:
+      mode === 'enabled'
+        ? { allowed: mode, minRemainingMs }
+        : { allowed: mode },
   };
 }
 

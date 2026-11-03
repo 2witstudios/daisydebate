@@ -162,16 +162,11 @@ export type RoundPosition = {
   } | null;
   /** Remaining budget per side; null when the format has no in-round prep. */
   readonly prepBudgetRemainingMs: Readonly<Record<DebateSide, number>> | null;
-  /** True while the final segment has spoken but the outcome is not in. */
-  readonly awaitingBallot: boolean;
 };
 
 /** Conversation microphones may open: before the first segment or awaiting a ballot. */
 export const conversational = (
-  position: Pick<
-    RoundPosition,
-    'awaitingBallot' | 'openSegment' | 'nextSegment'
-  >,
+  position: Pick<RoundPosition, 'stage' | 'openSegment' | 'nextSegment'>,
 ) =>
-  position.awaitingBallot ||
+  position.stage === 'awaiting_ballot' ||
   (position.openSegment === null && position.nextSegment?.sequence === 0);

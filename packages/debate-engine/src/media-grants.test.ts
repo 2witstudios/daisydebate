@@ -186,7 +186,7 @@ test('judging conversation uses actual final end and never the initial timetable
   const position = {
     ...world.position(roundAt(0)),
     status: 'active' as const,
-    awaitingBallot: true,
+    stage: 'awaiting_ballot' as const,
     nextSegment: null,
   };
   const derive = (now: string, finalSegmentEndedAt: string | null) =>
@@ -275,7 +275,7 @@ test('conversation microphones wait for the audience observer to be revoked', ()
   const position = {
     ...world.position(roundAt(0)),
     status: 'active' as const,
-    awaitingBallot: true,
+    stage: 'awaiting_ballot' as const,
     nextSegment: null,
   };
   const derive = (conversationHeld: boolean | undefined, now = roundAt(1000)) =>

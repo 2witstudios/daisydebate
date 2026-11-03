@@ -101,8 +101,9 @@ export const runtimeWorld = ({
       id: 'round-1',
       status,
       currentStage: null,
-      startedAt: status === 'active' ? roundAt(0) : null,
-      completedAt: null,
+      startedAt: status === 'opening' ? null : roundAt(0),
+      completedAt:
+        status === 'completed' || status === 'abandoned' ? roundAt(0) : null,
       outcome: null,
     },
     rules,

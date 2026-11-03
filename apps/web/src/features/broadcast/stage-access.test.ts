@@ -70,7 +70,7 @@ describe('stageSnapshot', () => {
   ];
   const position = {
     status: 'active',
-    awaitingBallot: false,
+    stage: null,
     prep: null,
     nextSegment: { type: 'speech' },
     openSegment: {
@@ -119,7 +119,11 @@ describe('stageSnapshot', () => {
           seats,
         }).phase,
         stageSnapshot({
-          position: { ...position, openSegment: null, awaitingBallot: true },
+          position: {
+            ...position,
+            openSegment: null,
+            stage: 'awaiting_ballot',
+          },
           seats,
         }).phase,
         stageSnapshot({

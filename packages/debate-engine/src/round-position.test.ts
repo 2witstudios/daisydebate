@@ -170,9 +170,9 @@ test('prep expiry opens directly and final segment closes awaiting ballot', () =
     actual: [
       final.openSegment?.sequence,
       final.openSegment?.remainingMs,
-      final.awaitingBallot,
+      final.stage,
     ],
-    expected: [undefined, undefined, true],
+    expected: [undefined, undefined, 'awaiting_ballot'],
   });
 });
 
@@ -187,7 +187,7 @@ test('active snapshots require a durable countdown origin', async () => {
         nowMs: origin,
       }),
     code: 'INVARIANT',
-    invariantId: 'round.segment.matches-rules',
+    invariantId: 'round.lifecycle.matches-status',
   });
 });
 

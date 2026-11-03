@@ -12,11 +12,62 @@ import {
 } from '@daisy/protocol';
 import { debateInvariantIds } from './invariant-ids';
 
-export type Lifecycle = {
-  readonly status: RoundStatus;
-  readonly startedAtMs: number | null;
-  readonly completedAtMs: number | null;
-  readonly outcome: RatedOutcome | null;
+/** Where a Round is in its life; each status holds only the instants it has. */
+export type Lifecycle =
+  | { readonly status: 'opening' }
+  | { readonly status: 'active'; readonly startedAtMs: number }
+  | {
+      readonly status: 'completed';
+      readonly startedAtMs: number;
+      readonly completedAtMs: number;
+      /** Null is a real ending that names no winner (DEC-277). */
+      readonly outcome: RatedOutcome | null;
+    }
+  | {
+      readonly status: 'abandoned';
+      /** Null when the Round was abandoned in its opening. */
+      readonly startedAtMs: number | null;
+      readonly completedAtMs: number;
+    };
+
+/** The instant a Round started, in the statuses that can have one. */
+export const startedAtOf = (lifecycle: Lifecycle): number | null =>
+  lifecycle.status === 'opening' ? null : lifecycle.startedAtMs;
+
+/** An active Round ends with a result; nothing else can complete. */
+export const completedLifecycle = (
+  lifecycle: Lifecycle,
+  outcome: RatedOutcome | null,
+  completedAtMs: number,
+): Lifecycle => {
+  if (lifecycle.status !== 'active')
+    throw createInvariantError(
+      debateInvariantIds.lifecycleMatchesStatus,
+      'Only an active round completes',
+    );
+  return {
+    status: 'completed',
+    startedAtMs: lifecycle.startedAtMs,
+    completedAtMs,
+    outcome,
+  };
+};
+
+/** Only a running Round is abandoned; an ended one keeps its ending. */
+export const abandonedLifecycle = (
+  lifecycle: Lifecycle,
+  completedAtMs: number,
+): Lifecycle => {
+  if (lifecycle.status === 'completed' || lifecycle.status === 'abandoned')
+    throw createInvariantError(
+      debateInvariantIds.lifecycleMatchesStatus,
+      'Only a running round is abandoned',
+    );
+  return {
+    status: 'abandoned',
+    startedAtMs: startedAtOf(lifecycle),
+    completedAtMs,
+  };
 };
 export type ClockSegment = {
   readonly sequence: number;
@@ -33,17 +84,69 @@ export type ClockState = {
 };
 export const closedCount = (state: ClockState): number =>
   state.rows.filter((row) => row.endedAtMs !== null).length;
+/** Every segment has closed: the debate is over and only its result is left. */
+export const debateHasEnded = (
+  state: ClockState,
+  segmentCount: number,
+): boolean => closedCount(state) === segmentCount;
 export const countdownAnchor = (state: ClockState): number => {
   const anchor =
     state.rows.filter((row) => row.endedAtMs !== null).at(-1)?.endedAtMs ??
-    state.lifecycle.startedAtMs;
+    startedAtOf(state.lifecycle);
   if (anchor === null)
     throw createInvariantError(
-      debateInvariantIds.segmentMatchesRules,
+      debateInvariantIds.lifecycleMatchesStatus,
       'An active round requires a start instant',
     );
   return anchor;
 };
+const instant = (iso: string | null): number | null =>
+  iso === null ? null : Date.parse(iso);
+
+const invalidLifecycle = (status: RoundStatus): never => {
+  throw createInvariantError(
+    debateInvariantIds.lifecycleMatchesStatus,
+    status === 'active'
+      ? 'An active round requires a start instant'
+      : `A ${status} round's durable lifecycle is not one its status can hold`,
+  );
+};
+
+const known = (ms: number | null): ms is number =>
+  ms !== null && Number.isFinite(ms);
+
+/** Durable columns to the one lifecycle they mean; any other combination is corruption. */
+const lifecycleOf = (
+  round: Pick<
+    HydratedRound,
+    'status' | 'startedAt' | 'completedAt' | 'outcome'
+  >,
+): Lifecycle => {
+  const { status, outcome } = round;
+  const startedAtMs = instant(round.startedAt);
+  const completedAtMs = instant(round.completedAt);
+  switch (status) {
+    case 'opening':
+      return startedAtMs === null && completedAtMs === null && outcome === null
+        ? { status }
+        : invalidLifecycle(status);
+    case 'active':
+      return known(startedAtMs) && completedAtMs === null && outcome === null
+        ? { status, startedAtMs }
+        : invalidLifecycle(status);
+    case 'completed':
+      return known(startedAtMs) && known(completedAtMs)
+        ? { status, startedAtMs, completedAtMs, outcome }
+        : invalidLifecycle(status);
+    case 'abandoned':
+      return (startedAtMs === null || known(startedAtMs)) &&
+        known(completedAtMs) &&
+        outcome === null
+        ? { status, startedAtMs, completedAtMs }
+        : invalidLifecycle(status);
+  }
+};
+
 const assertSegmentRules = (row: ClockSegment, rules: RoundRules): void => {
   const expected = rules.segments[row.sequence];
   if (
@@ -70,24 +173,7 @@ export const normalizeRoundClock = (input: {
   readonly checkpoint: unknown;
   readonly rules: RoundRules;
 }): ClockState => {
-  const lifecycle: Lifecycle = {
-    status: input.round.status,
-    startedAtMs:
-      input.round.startedAt === null ? null : Date.parse(input.round.startedAt),
-    completedAtMs:
-      input.round.completedAt === null
-        ? null
-        : Date.parse(input.round.completedAt),
-    outcome: input.round.outcome,
-  };
-  if (
-    lifecycle.status === 'active' &&
-    (lifecycle.startedAtMs === null || !Number.isFinite(lifecycle.startedAtMs))
-  )
-    throw createInvariantError(
-      debateInvariantIds.segmentMatchesRules,
-      'An active round requires a start instant',
-    );
+  const lifecycle = lifecycleOf(input.round);
   const rows = input.segments
     .map((segment) => ({
       sequence: segment.sequence,
@@ -107,7 +193,7 @@ export const normalizeRoundClock = (input: {
       );
     const preceding = rows[index - 1];
     const earliest =
-      preceding === undefined ? lifecycle.startedAtMs : preceding.endedAtMs;
+      preceding === undefined ? startedAtOf(lifecycle) : preceding.endedAtMs;
     if (
       earliest !== null &&
       earliest !== undefined &&

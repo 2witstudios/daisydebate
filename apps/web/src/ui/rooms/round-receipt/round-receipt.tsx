@@ -58,16 +58,20 @@ type Participant = RoundReceiptView['participants'][number];
 /** The frozen rules in the room's words. */
 const settingRows = (round: RoundReceiptView) => {
   const { interaction } = round.rules;
+  const { interruptions } = interaction;
   return ruleRows({
     preRoundPrepMs: round.config.preRoundPrep.enabled
       ? round.config.preRoundPrep.durationMs
       : null,
     prepPerSideMs: round.rules.inRoundPrep?.budgetMsPerSide ?? null,
     countdownMs: round.rules.countdownMs,
-    interruptions: interaction.interruptions && {
-      mode: interaction.interruptions.allowed,
-      minRemainingMs: interaction.interruptions.minRemainingMs,
-    },
+    interruptions:
+      interruptions.allowed === 'enabled'
+        ? {
+            mode: interruptions.allowed,
+            minRemainingMs: interruptions.minRemainingMs,
+          }
+        : { mode: interruptions.allowed },
     yielding: interaction.yield,
   });
 };

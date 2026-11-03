@@ -1,30 +1,6 @@
-import { debateInvariantIds } from './invariant-ids';
 import type { CommandContext } from './round-commands';
-import { invariant, refuse } from './round-refusals';
 
 const iso = (ms: number): string => new Date(ms).toISOString();
-
-const requireYield = (c: CommandContext) => {
-  const open = c.on.openRow();
-  if (open === undefined)
-    invariant(
-      debateInvariantIds.yieldRequiresFloor,
-      'Yielding requires a live segment',
-    );
-  const seat = c.seatOf(c.actorId);
-  const holder = c.floorHolder(c.on);
-  if (seat === null || holder === null || seat.id !== holder.id)
-    invariant(
-      debateInvariantIds.yieldRequiresFloor,
-      'Only the floor holder ends their own control',
-    );
-  if (c.rules.interaction.yield?.allowed !== true)
-    invariant(
-      debateInvariantIds.yieldRequiresFloor,
-      'The resolved rules forbid yielding',
-    );
-  return { open, seat, returnsTime: c.rules.interaction.yield.returnsTime };
-};
 
 /**
  * Only the floor holder yields (DEC-203). An interrupter hands the floor back
@@ -32,7 +8,9 @@ const requireYield = (c: CommandContext) => {
  * scheduled speaker's yield closes the segment, and unused time comes back.
  */
 export const yieldFloor = (c: CommandContext): void => {
-  const { open, seat, returnsTime } = requireYield(c);
+  const open = c.on.openRow()!;
+  const seat = c.seatOf(c.actorId)!;
+  const returnsTime = c.rules.interaction.yield?.returnsTime === true;
   const scheduled = c.rules.segments[open.sequence]!;
   if (seat.role !== scheduled.side || seat.slot !== scheduled.slot) {
     c.on.clearFloor();
@@ -52,39 +30,9 @@ export const yieldFloor = (c: CommandContext): void => {
   c.closeRowAt(open.sequence, c.now);
 };
 
-/** The floor moves only where the resolved policy permits it. */
-const requireInterruptWindow = (c: CommandContext) => {
-  const open = c.on.openRow();
-  const policy = c.rules.interaction.interruptions;
-  if (open === undefined || policy === null || policy.allowed === 'disabled')
-    invariant(
-      debateInvariantIds.interruptRequiresPolicy,
-      'The resolved rules forbid interruptions here',
-    );
-  if (open.type === 'cross_ex')
-    invariant(
-      debateInvariantIds.interruptRequiresPolicy,
-      'Nobody interrupts cross-examination: every debater already speaks',
-    );
-  const remaining = open.startedAtMs + open.durationMs - c.now;
-  if (remaining < policy.minRemainingMs)
-    invariant(
-      debateInvariantIds.interruptRequiresPolicy,
-      'Too little of the segment remains to interrupt',
-    );
-};
-
+/** Takes the floor; legality has already refused anything else. */
 export const interrupt = (c: CommandContext): void => {
-  requireInterruptWindow(c);
-  const seat = c.seatOf(c.actorId);
-  if (seat === null || c.sideOf(c.actorId) === null)
-    refuse('CONFLICT', 'Only a seated debater interrupts');
-  const holder = c.floorHolder(c.on);
-  if (holder !== null && holder.id === seat.id)
-    invariant(
-      debateInvariantIds.interruptRequiresPolicy,
-      'The floor holder cannot interrupt themselves',
-    );
+  const seat = c.seatOf(c.actorId)!;
   c.on.setFloor({ participantId: seat.id, grantedAtMs: c.now });
   c.into.floorChange = {
     sequence: c.on.openRow()!.sequence,

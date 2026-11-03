@@ -37,7 +37,7 @@ type MediaGrantInput = {
   readonly inPreRoundPrep: boolean;
 };
 const withinJudgingWindow = (input: MediaGrantInput) => {
-  if (!input.position.awaitingBallot) return true;
+  if (input.position.stage !== 'awaiting_ballot') return true;
   const finalEnd = Date.parse(input.finalSegmentEndedAt ?? '');
   const now = Date.parse(input.now);
   return (

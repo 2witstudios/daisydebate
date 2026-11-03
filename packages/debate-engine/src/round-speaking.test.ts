@@ -13,7 +13,7 @@ test('Custom POI permits both sides to speak without transferring the scheduled 
     ...rules,
     interaction: {
       ...rules.interaction,
-      interruptions: { allowed: 'open' as const, minRemainingMs: 0 },
+      interruptions: { allowed: 'open' as const },
     },
   };
   assert({
@@ -32,13 +32,12 @@ test('Custom POI permits both sides to speak without transferring the scheduled 
 });
 test('cross-examination keeps both microphones open and refuses every interruption', async () => {
   const modes = [
-    null,
-    { allowed: 'disabled' as const, minRemainingMs: 0 },
+    { allowed: 'disabled' as const },
     { allowed: 'enabled' as const, minRemainingMs: 0 },
-    { allowed: 'open' as const, minRemainingMs: 0 },
+    { allowed: 'open' as const },
   ];
   for (const interruptions of modes) {
-    const policy = interruptions?.allowed ?? 'no';
+    const policy = interruptions.allowed;
     const world = runtimeWorld({
       rules: { ...rules, interaction: { ...rules.interaction, interruptions } },
     });

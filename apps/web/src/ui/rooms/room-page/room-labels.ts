@@ -3,6 +3,7 @@ import {
   strikeSummary,
   roundLength,
   ruleRows,
+  type RuleRowInterruptions,
   shapeLabel,
 } from '../../../features/debate-room/vocabulary';
 import { roomStatusLabels } from '../../../features/rooms/status-labels';
@@ -175,6 +176,14 @@ function strikeRows(
 }
 
 /** The saved configuration as label/value rows, in the room's vocabulary. */
+const interruptionRow = (
+  settings: RoomView['config']['interruptions'],
+): RuleRowInterruptions => {
+  if (settings === null) return { mode: 'disabled' };
+  const { mode, minRemainingMs } = settings;
+  return mode === 'enabled' ? { mode, minRemainingMs } : { mode };
+};
+
 export function settingRows(
   view: Pick<RoomView, 'config'>,
 ): readonly (readonly [string, string])[] {
@@ -189,7 +198,7 @@ export function settingRows(
         ? config.inRoundPrep.budgetMsPerSide
         : null,
       countdownMs: config.speechTiming.countdownMs,
-      interruptions: config.interruptions,
+      interruptions: interruptionRow(config.interruptions),
       yielding: config.yielding,
     }),
   ];

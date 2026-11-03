@@ -25,7 +25,7 @@ test('reconcileFacts maps stored state to the decision input', () => {
       openSegment: null,
       nextSegment: null,
       prep: { side: 'affirmative' },
-      awaitingBallot: false,
+      stage: null,
     },
     egress: { kind: 'active', id: 'EG' },
   });

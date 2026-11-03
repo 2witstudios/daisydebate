@@ -82,6 +82,14 @@
       }
     },
     {
+      "id": "round.lifecycle.matches-status",
+      "check": "lifecycle-matches-status",
+      "testReference": {
+        "path": "packages/debate-engine/src/round-command-legality.test.ts",
+        "name": "refuse the corrupt lifecycle"
+      }
+    },
+    {
       "id": "round.status.completed.terminal",
       "check": "completed-is-terminal",
       "testReference": {

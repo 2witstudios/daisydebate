@@ -8,7 +8,7 @@ const base: PhasePosition = {
   openSegment: null,
   nextSegment: null,
   prep: null,
-  awaitingBallot: false,
+  stage: null,
 };
 const open = (endsAt: string) => ({ endsAt });
 const speechNext = { type: 'speech' } as const;
@@ -47,7 +47,7 @@ describe('broadcastPhase', () => {
       should: 'be private in each',
       actual: [
         broadcastPhase({ ...base, prep: { side: 'affirmative' } }),
-        broadcastPhase({ ...base, awaitingBallot: true }),
+        broadcastPhase({ ...base, stage: 'awaiting_ballot' }),
         broadcastPhase({
           ...base,
           status: 'opening',

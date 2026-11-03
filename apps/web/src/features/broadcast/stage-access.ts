@@ -34,7 +34,7 @@ export const subscribesTo = (
 
 type StagePosition = {
   readonly status: string;
-  readonly awaitingBallot: boolean;
+  readonly stage: string | null;
   readonly prep: { readonly side: string } | null;
   readonly nextSegment: { readonly type: string } | null;
   readonly openSegment: {
@@ -54,7 +54,7 @@ type StageSeat = {
 
 const phaseOf = (position: StagePosition) => {
   if (position.prep) return 'prep' as const;
-  if (position.awaitingBallot) return 'judging' as const;
+  if (position.stage === 'awaiting_ballot') return 'judging' as const;
   if (position.openSegment) return 'speech' as const;
   return position.status === 'active' && position.nextSegment
     ? ('between' as const)

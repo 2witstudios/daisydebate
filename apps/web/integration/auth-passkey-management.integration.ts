@@ -18,7 +18,7 @@ const foundationToRules = (
   })),
   inRoundPrep: null,
   countdownMs: 10_000,
-  interaction: { yield: null, interruptions: null },
+  interaction: { yield: null, interruptions: { allowed: 'disabled' as const } },
 });
 import { createDatabase } from '@daisy/db';
 import { buildUserInboxTopic } from '@daisy/protocol';

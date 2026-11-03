@@ -70,7 +70,7 @@ export function spectatorKindOf(view: RoundView): SpectatorKind | null {
 
 function stageOf(view: RoundView, position: RoundPosition): SpectatorStage {
   if (view.status === 'opening') return 'starting';
-  if (position.awaitingBallot) return 'judging';
+  if (position.stage === 'awaiting_ballot') return 'judging';
   if (position.openSegment)
     return position.openSegment.type === 'cross_ex' ? 'cross-ex' : 'speech';
   if (position.prep) return 'prep';
@@ -129,7 +129,7 @@ function speechState(
 /** The speech in progress, else the one coming up; every one before it is done. */
 function speechMarks(view: RoundView, position: RoundPosition | null) {
   if (!position) return { now: null, next: null, done: 0 };
-  if (position.awaitingBallot)
+  if (position.stage === 'awaiting_ballot')
     return { now: null, next: null, done: view.rules.segments.length };
   const open = position.openSegment;
   if (open)

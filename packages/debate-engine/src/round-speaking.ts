@@ -8,7 +8,7 @@ import type { ClockChange } from './round-clock';
 
 /** Open questioning grants speaking permission without transferring the scheduled floor. */
 export const hasOpenQuestioning = (rules: RoundRules): boolean =>
-  rules.interaction.interruptions?.allowed === 'open';
+  rules.interaction.interruptions.allowed === 'open';
 
 /** Everyone speaks in cross-examination and under open questioning; no one takes the floor. */
 const sharesSpeaking = (rules: RoundRules, sequence: number): boolean =>

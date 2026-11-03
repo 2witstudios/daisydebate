@@ -9,7 +9,7 @@ setupRitewayBun();
 test('conversational is the pre-Round wait and the wait for a ballot, never a speech', () => {
   const at = (over: object) =>
     conversational({
-      awaitingBallot: false,
+      stage: null,
       openSegment: null,
       nextSegment: null,
       ...over,
@@ -19,7 +19,7 @@ test('conversational is the pre-Round wait and the wait for a ballot, never a sp
       'awaiting a ballot, before the first segment, between segments, and in speech',
     should: 'open conversation only in the first two',
     actual: [
-      at({ awaitingBallot: true }),
+      at({ stage: 'awaiting_ballot' }),
       at({ nextSegment: { sequence: 0 } }),
       at({ nextSegment: { sequence: 3 } }),
       at({ openSegment: { key: 's' } }),

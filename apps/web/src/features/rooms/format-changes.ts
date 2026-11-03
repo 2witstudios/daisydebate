@@ -12,9 +12,6 @@ const clockOrOff = (ms: number | null) =>
   ms === null ? 'off' : clockDuration(ms);
 const onOff = (value: { readonly allowed: boolean } | null) =>
   value?.allowed ? 'on' : 'off';
-const interruptions = (
-  value: Extract<FormatChange, { kind: 'interruptions' }>['from'],
-) => interruptionLabel[value?.allowed ?? 'disabled'];
 const strikeOrOff = (
   draw: Extract<FormatChange, { kind: 'resolution-draw' }>['from'],
 ) => (draw.enabled ? strikeSummary(draw) : 'off');
@@ -47,7 +44,7 @@ const lines: Lines = {
   'pre-round-prep': (c) =>
     `Prep before the round ${clockOrOff(c.fromMs)} → ${clockOrOff(c.toMs)}`,
   interruptions: (c) =>
-    `Interruptions: ${interruptions(c.from)} → ${interruptions(c.to)}`,
+    `Interruptions: ${interruptionLabel[c.from.allowed]} → ${interruptionLabel[c.to.allowed]}`,
   yield: (c) => `Ending a speech early: ${onOff(c.from)} → ${onOff(c.to)}`,
   'resolution-draw': (c) =>
     `Resolution strike: ${strikeOrOff(c.from)} → ${strikeOrOff(c.to)}`,
