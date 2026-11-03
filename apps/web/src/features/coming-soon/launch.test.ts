@@ -70,7 +70,9 @@ describe('closedDestinationOf', () => {
   test('every page that reads sample data sits in a closed area', async () => {
     const app = join(import.meta.dir, '../../app');
     const open: string[] = [];
+    let scanned = 0;
     for await (const file of new Glob('**/page.tsx').scan(app)) {
+      scanned += 1;
       if (!(await Bun.file(join(app, file)).text()).includes('/ui/mock/'))
         continue;
       const route = file.replace(/\(.*?\)\//g, '').replace(/\/?page\.tsx$/, '');
@@ -79,8 +81,8 @@ describe('closedDestinationOf', () => {
     assert({
       given: 'the pages that pass sample data to a feature',
       should: 'all answer with an explainer under the launch config',
-      actual: open,
-      expected: [],
+      actual: { open, scannedPages: scanned > 0 },
+      expected: { open: [], scannedPages: true },
     });
   });
 

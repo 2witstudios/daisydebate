@@ -7,8 +7,8 @@
   --spacing-hero-content: 660px;
   --spacing-quote-card-min: 148px;
   --spacing-teaser-min: 160px;
-  --spacing-tournament-body: 58%;
-  --spacing-tournament-art: 42%;
+  --spacing-teaser-body: 58%;
+  --spacing-teaser-art: 42%;
   --spacing-tile-footer-min: 22px;
   --spacing-tile-nudge: 2px;
   --spacing-activity-icon: 28px;
@@ -59,7 +59,7 @@
   object-position: 50% 70%;
 }
 
-@utility object-tournament-art {
+@utility object-teaser-art {
   object-position: 50% 40%;
 }
 

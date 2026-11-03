@@ -25,14 +25,13 @@ describe('tile destinations', () => {
 
   test('have a live route ready for every destination that launches', () => {
     assert({
-      given:
-        'each destination flipped to launched, but the two with no screens',
-      should: 'have an app router page at its live route',
+      given: 'each destination flipped to launched',
+      should:
+        'have an app router page at its live route, but the two with no screens yet',
       actual: destinationSlugs
-        .filter((slug) => slug !== 'tournaments' && slug !== 'prep')
         .map(liveHref)
         .filter((href) => !routeExists(appDirectory, href)),
-      expected: [],
+      expected: ['/tournaments', '/prep'],
     });
   });
 
