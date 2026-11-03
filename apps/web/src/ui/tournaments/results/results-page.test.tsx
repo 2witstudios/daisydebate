@@ -10,6 +10,7 @@ import { Certificate } from '../certificate/certificate';
 import { CertificatePage } from '../certificate/certificate-page';
 import { stageColourClasses } from '../../test-support/stage-palette';
 import { ResultsPage, ResultsUnpublished } from './results-page';
+import { sampleTournamentSource } from '../../mock/tournament-source';
 
 setupRitewayBun();
 
@@ -18,7 +19,7 @@ const render = (
   query: Partial<ResultsQuery> = {},
   signedIn = true,
 ) => {
-  const read = getResults(id, signedIn);
+  const read = getResults(sampleTournamentSource, id, signedIn);
   if (read.kind !== 'results') throw new Error('no results');
   return renderToString(
     h(ResultsPage, {
@@ -148,7 +149,11 @@ describe('ResultsUnpublished', () => {
 
 describe('Certificate', () => {
   test('the certificate and its page', () => {
-    const read = getResults('summer-invitational', true);
+    const read = getResults(
+      sampleTournamentSource,
+      'summer-invitational',
+      true,
+    );
     if (read.kind !== 'results' || !read.data.mine)
       throw new Error('no result');
     const { tournament, mine } = read.data;

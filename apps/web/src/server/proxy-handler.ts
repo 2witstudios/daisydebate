@@ -4,6 +4,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { IdGenerator } from '@daisy/clock';
 import { isValidTraceparent } from '@daisy/observability';
 import { isGuardedPath, signInHref } from '../features/access/decision';
+import {
+  closedDestinationOf,
+  explainerHref,
+} from '../features/coming-soon/launch';
 import { returnableDestination } from '../features/auth/redirect';
 import { hasSessionCookie } from '../features/auth/sessions/session-cookie'; // A nonce never authorizes a `style="…"` attribute, and `next/image` always
 // server-renders one. Hash the exact strings it emits (`fill`, and the default)
@@ -60,6 +64,26 @@ function closedFoundation(
 }
 
 /**
+ * A redirect from the proxy. It must be absolute. Behind TLS termination the
+ * request's own origin is plain HTTP, and the Host header is caller-controlled,
+ * so the target is the validated configured public origin and nothing else.
+ */
+function edgeRedirect(
+  href: string,
+  policy: string,
+  requestId: string,
+  publicAppUrl: string,
+): NextResponse {
+  const response = NextResponse.redirect(
+    new URL(href, new URL(publicAppUrl).origin),
+  );
+  response.headers.set('Content-Security-Policy', policy);
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('x-request-id', requestId);
+  return response;
+}
+
+/**
  * Early hint only: a guarded request with no session cookie at all can never
  * pass, so skip the render. Whether a cookie is a live session is decided
  * per entrypoint (lib/access.ts), which rechecks the durable session.
@@ -73,16 +97,8 @@ function signInHint(
   const { pathname, search } = request.nextUrl;
   if (!isGuardedPath(pathname) || hasSessionCookie(request.headers))
     return null;
-  // Proxy redirects must be absolute. Behind TLS termination the request's
-  // own origin is plain HTTP, and the Host header is caller-controlled, so
-  // the target is the validated configured public origin and nothing else.
-  const origin = new URL(publicAppUrl).origin;
   const next = returnableDestination(`${pathname}${search}`);
-  const response = NextResponse.redirect(new URL(signInHref(next), origin));
-  response.headers.set('Content-Security-Policy', policy);
-  response.headers.set('Cache-Control', 'no-store');
-  response.headers.set('x-request-id', requestId);
-  return response;
+  return edgeRedirect(signInHref(next), policy, requestId, publicAppUrl);
 }
 
 function posthogSources(host: string | null | undefined) {
@@ -127,8 +143,8 @@ function contentSecurityPolicy(
 
 /**
  * Every request's first stop (bound in `proxy.ts`): the foundation gate,
- * the CSP nonce and policy, the early sign-in hint, and trusted
- * correlation headers.
+ * the CSP nonce and policy, the closed destination's explainer, the early
+ * sign-in hint, and trusted correlation headers.
  */
 export function handleProxy(request: NextRequest, settings: ProxySettings) {
   const requestId = settings.ids.next();
@@ -145,6 +161,14 @@ export function handleProxy(request: NextRequest, settings: ProxySettings) {
     crypto.getRandomValues(new Uint8Array(16)),
   ).toString('base64');
   const policy = contentSecurityPolicy(pathname, settings, nonce);
+  const closedDestination = closedDestinationOf(pathname);
+  if (closedDestination)
+    return edgeRedirect(
+      explainerHref(closedDestination),
+      policy,
+      requestId,
+      settings.publicAppUrl,
+    );
   const hint = signInHint(request, policy, requestId, settings.publicAppUrl);
   if (hint) return hint;
   const headers = new Headers(request.headers);

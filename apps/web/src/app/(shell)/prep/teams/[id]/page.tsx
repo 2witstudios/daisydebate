@@ -8,6 +8,7 @@ import {
 import { requireAccess } from '../../../../../lib/access';
 import { NotFoundPanel } from '../../../../../ui/prep/not-found/not-found-panel';
 import { TeamPage } from '../../../../../ui/prep/team-page/team-page';
+import { samplePrepSource } from '../../../../../ui/mock/prep-source';
 
 export const metadata: Metadata = { title: 'Team' };
 
@@ -20,7 +21,7 @@ export default async function TeamRoute({
 }) {
   const { id } = await params;
   await requireAccess(`/prep/teams/${id}`, searchParams);
-  const team = getTeam(id);
+  const team = getTeam(samplePrepSource, id);
   if (team === undefined)
     return (
       <NotFoundPanel what="team" backHref="/prep" backLabel="Back to Prep" />

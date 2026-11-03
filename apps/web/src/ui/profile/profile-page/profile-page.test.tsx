@@ -51,7 +51,7 @@ describe('ProfilePage', () => {
         html.includes('href="/profile/debater-b"'),
         html.includes('>Won<'),
         html.includes('AI judge'),
-        html.includes('Edit profile'),
+        html.includes('>Settings<'),
         /rating|elo/i.test(html),
       ],
       expected: [
@@ -80,10 +80,10 @@ describe('ProfilePage', () => {
     assert({
       given: 'the owner, with a private Round nobody ruled on',
       should:
-        'mark it as theirs, offer Edit profile, and show the Round as private with no ruling',
+        'mark it as theirs, offer Settings, and show the Round as private with no ruling',
       actual: [
         html.includes('>You<'),
-        html.includes('Edit profile'),
+        html.includes('>Settings<'),
         html.includes('>private<'),
         html.includes('>No ruling<'),
       ],

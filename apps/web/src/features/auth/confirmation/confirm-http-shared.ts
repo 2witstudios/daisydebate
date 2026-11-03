@@ -7,7 +7,7 @@ import {
   parseThemePreference,
   preferenceFromCookies,
   type ThemePreference,
-} from '../../../ui/theme/theme-preference';
+} from '../../theme/theme-preference';
 import { readBoundedBody } from '../../../server/bounded-body';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 

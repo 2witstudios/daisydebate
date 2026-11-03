@@ -1,8 +1,11 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { markGeometry, petalShape } from '../../brand/brand-geometry';
-import { petalPath } from '../../brand/petal';
+import {
+  markGeometry,
+  petalShape,
+} from '../../../features/brand/brand-geometry';
+import { petalPath } from '../../../features/brand/petal';
 import { DaisyLogo, DaisyMark, DaisyTile } from './daisy-mark';
 
 setupRitewayBun();

@@ -24,7 +24,6 @@ The authenticated routes are:
 | `POST /api/rooms`              | `RoomCreate` → `{ receipt, view }`                                                 |
 | `GET /api/rooms/:id`           | `RoomView`                                                                         |
 | `POST /api/rooms/:id/commands` | `RoomCommand` → `{ receipt, view }`                                                |
-| `GET /api/rooms/:id/round`     | The Room's current persisted `roundRef`                                            |
 | `GET /api/rounds/:id`          | `RoundView`                                                                        |
 
 Every entry executes the canonical handler's origin, session membership,

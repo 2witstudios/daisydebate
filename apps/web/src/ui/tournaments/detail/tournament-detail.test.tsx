@@ -7,6 +7,7 @@ import {
 } from '../../../features/tournaments/detail-query';
 import { getTournament } from '../../../features/tournaments/get-tournament';
 import { TournamentDetail } from './tournament-detail';
+import { sampleTournamentSource } from '../../mock/tournament-source';
 
 setupRitewayBun();
 
@@ -15,7 +16,7 @@ const render = (
   query: Partial<DetailQuery> = {},
   signedIn = true,
 ) => {
-  const view = getTournament(id, signedIn);
+  const view = getTournament(sampleTournamentSource, id, signedIn);
   if (!view) throw new Error(`no sample ${id}`);
   return renderToString(
     h(TournamentDetail, { view, query: { ...defaultDetailQuery, ...query } }),

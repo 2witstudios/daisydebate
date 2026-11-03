@@ -1,11 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { cardDetailView, cardHref, parseCardDetailQuery } from './card-detail';
 import { getCard } from './get-card';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
 const card = (() => {
-  const found = getCard('cost-estimates');
+  const found = getCard(samplePrepSource, 'cost-estimates');
   if (found === undefined) throw new Error('missing sample card');
   return found;
 })();

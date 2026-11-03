@@ -1,6 +1,5 @@
-import { sampleBracket } from '../../ui/mock/tournament-brackets';
-import { sampleTournaments } from '../../ui/mock/tournaments';
 import type { BracketData } from './bracket';
+import type { TournamentSource } from './source';
 import type { Tournament } from './tournament';
 
 export type BracketRead =
@@ -19,14 +18,19 @@ export type BracketRead =
  * function only.
  */
 export function getBracket(
+  source: TournamentSource,
   id: string,
   signedIn: boolean,
   now: string,
 ): BracketRead {
-  const tournament = sampleTournaments.find((item) => item.id === id);
+  const tournament = source.tournaments.find((item) => item.id === id);
   if (!tournament) return { kind: 'not-found' };
-  const data = sampleBracket(id, now);
+  const data = source.bracket(id, now);
   return data
-    ? { kind: 'bracket', data, viewerHandle: signedIn ? 'debater-a' : null }
+    ? {
+        kind: 'bracket',
+        data,
+        viewerHandle: signedIn ? source.viewer.handle : null,
+      }
     : { kind: 'not-posted', tournament };
 }

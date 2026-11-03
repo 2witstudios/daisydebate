@@ -4,13 +4,11 @@ import {
   cardDetailView,
   parseCardDetailQuery,
 } from '../../../../../features/prep/cards/card-detail';
-import {
-  getCard,
-  readingPace,
-} from '../../../../../features/prep/cards/get-card';
+import { getCard } from '../../../../../features/prep/cards/get-card';
 import { requireAccess } from '../../../../../lib/access';
 import { CardDetail } from '../../../../../ui/prep/card-detail/card-detail';
 import { NotFoundPanel } from '../../../../../ui/prep/not-found/not-found-panel';
+import { samplePrepSource } from '../../../../../ui/mock/prep-source';
 
 export const metadata: Metadata = { title: 'Evidence card' };
 
@@ -23,7 +21,7 @@ export default async function CardPage({
 }) {
   const { id } = await params;
   await requireAccess(`/prep/cards/${id}`, searchParams);
-  const card = getCard(id);
+  const card = getCard(samplePrepSource, id);
   if (card === undefined)
     return (
       <NotFoundPanel
@@ -33,5 +31,9 @@ export default async function CardPage({
       />
     );
   const query = parseCardDetailQuery(await searchParams);
-  return <CardDetail view={cardDetailView(card, query, readingPace())} />;
+  return (
+    <CardDetail
+      view={cardDetailView(card, query, samplePrepSource.readingPace)}
+    />
+  );
 }

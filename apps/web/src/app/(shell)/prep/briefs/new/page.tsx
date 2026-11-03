@@ -6,11 +6,10 @@ import { listBriefEvidence } from '../../../../../features/prep/briefs/brief-evi
 import {
   getBrief,
   NEW_BRIEF_ID,
-  speechLimitSeconds,
 } from '../../../../../features/prep/briefs/get-brief';
-import { readingPace } from '../../../../../features/prep/cards/get-card';
 import { requireAccess } from '../../../../../lib/access';
 import { BriefEditor } from '../../../../../ui/prep/brief-editor/brief-editor';
+import { samplePrepSource } from '../../../../../ui/mock/prep-source';
 
 export const metadata: Metadata = { title: 'New brief' };
 
@@ -21,15 +20,15 @@ export default async function NewBriefPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/prep/briefs/new', searchParams);
-  const brief = getBrief(NEW_BRIEF_ID);
+  const brief = getBrief(samplePrepSource, NEW_BRIEF_ID);
   if (brief === undefined) throw new Error('the blank brief is missing');
   return (
     <BriefEditor
       view={briefEditorView(
         brief,
-        listBriefEvidence(systemClock.now()),
-        readingPace(),
-        speechLimitSeconds(),
+        listBriefEvidence(samplePrepSource, systemClock.now()),
+        samplePrepSource.readingPace,
+        samplePrepSource.speechLimitSeconds,
       )}
     />
   );

@@ -3,13 +3,16 @@ import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getOrganizeDashboard } from '../../../features/tournaments/organize-dashboard';
 import { DashboardPage } from './dashboard-page';
+import { sampleTournamentSource } from '../../mock/tournament-source';
 
 setupRitewayBun();
 
 describe('DashboardPage', () => {
   test('counts, tournaments and attention', () => {
     const html = renderToString(
-      h(DashboardPage, { dashboard: getOrganizeDashboard() }),
+      h(DashboardPage, {
+        dashboard: getOrganizeDashboard(sampleTournamentSource),
+      }),
     );
     assert({
       given: 'the sample organizer',

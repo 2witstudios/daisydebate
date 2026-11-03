@@ -3,7 +3,7 @@ import { createElement as h } from 'react';
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { ThemeProvider, useThemePreference } from './theme-provider';
-import type { ThemePreference } from './theme-preference';
+import type { ThemePreference } from '../../features/theme/theme-preference';
 
 setupRitewayBun();
 

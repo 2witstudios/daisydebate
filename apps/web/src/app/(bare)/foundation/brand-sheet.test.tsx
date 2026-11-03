@@ -4,8 +4,11 @@ import type { ChangeEvent } from 'react';
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { markGeometry, petalShape } from '../../../ui/brand/brand-geometry';
-import { petalPath, type PetalShape } from '../../../ui/brand/petal';
+import {
+  markGeometry,
+  petalShape,
+} from '../../../features/brand/brand-geometry';
+import { petalPath, type PetalShape } from '../../../features/brand/petal';
 import { findElements } from '../../../ui/test-support/find-elements';
 import { BrandSheet, BrandSheetView } from './brand-sheet';
 

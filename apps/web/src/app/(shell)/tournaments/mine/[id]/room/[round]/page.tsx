@@ -9,6 +9,7 @@ import {
 } from '../../../../../../../features/tournaments/room';
 import { requireAccess } from '../../../../../../../lib/access';
 import { RoomPage } from '../../../../../../../ui/tournaments/event/room-page';
+import { sampleTournamentSource } from '../../../../../../../ui/mock/tournament-source';
 
 type Props = {
   params: Promise<{ id: string; round: string }>;
@@ -23,7 +24,7 @@ export default async function TournamentRoomRoute({
 }: Props) {
   const { id, round } = await params;
   await requireAccess(`/tournaments/mine/${id}/room/${round}`, searchParams);
-  const data = getEvent(id, systemClock.now());
+  const data = getEvent(sampleTournamentSource, id, systemClock.now());
   if (!data || data.pairing.roomSlug !== round) notFound();
   return (
     <RoomPage

@@ -5,8 +5,15 @@ export type ArchitectureException = {
   readonly expires: string;
 };
 
-export const architectureExceptionRegistry: readonly ArchitectureException[] =
-  [];
+export const architectureExceptionRegistry: readonly ArchitectureException[] = [
+  {
+    id: 'ISSUE-1005',
+    owner: 'watch',
+    reason:
+      'features/watch/debate-source.ts reads ui/mock until PR 553 deletes it; remove this entry and the rule allowance with it',
+    expires: '2026-12-01',
+  },
+];
 
 const markerPattern =
   /\/\/\s*architecture-exception:\s*([A-Z]+-\d+(?:\.\d+)*)/g;

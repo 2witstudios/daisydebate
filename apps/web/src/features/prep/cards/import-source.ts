@@ -1,3 +1,4 @@
+import type { PrepSource } from '../source';
 import { getCard } from './get-card';
 
 /** What happened when a link was given to the importer. */
@@ -31,7 +32,7 @@ const isLink = (value: string): boolean => /^https?:\/\/\S+$/i.test(value);
  * other link comes back fetched. The real (server-side, SSRF-safe) fetch
  * replaces this function and nothing else.
  */
-export function importSource(url: string): ImportOutcome {
+export function importSource(source: PrepSource, url: string): ImportOutcome {
   if (url === '') return { kind: 'idle' };
   if (!isLink(url)) return { kind: 'invalid' };
   const lower = url.toLowerCase();
@@ -39,7 +40,7 @@ export function importSource(url: string): ImportOutcome {
   if (lower.includes('login')) return { kind: 'login-wall', words: 120 };
   if (lower.includes('scan') && lower.endsWith('.pdf'))
     return { kind: 'scan-pdf' };
-  const saved = getCard('cost-estimates');
+  const saved = getCard(source, 'cost-estimates');
   if (saved !== undefined && url === saved.url)
     return {
       kind: 'duplicate',

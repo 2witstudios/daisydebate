@@ -1,6 +1,9 @@
 import { cn } from '../../cn';
-import { opposingGeometry, petalShape } from '../../brand/brand-geometry';
-import { opposingPetals, type PetalShape } from '../../brand/petal';
+import {
+  opposingGeometry,
+  petalShape,
+} from '../../../features/brand/brand-geometry';
+import { opposingPetals, type PetalShape } from '../../../features/brand/petal';
 
 const { width, height, gap, tilt, scale } = opposingGeometry;
 

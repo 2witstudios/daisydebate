@@ -1,10 +1,6 @@
 import type { Metadata } from 'next';
 import { claimedUsername } from '@daisy/auth';
 import type { SearchParams } from '../../../features/access/decision';
-import {
-  getPreferences,
-  parseSettingsQuery,
-} from '../../../features/settings/preferences';
 import { requireAccess } from '../../../lib/access';
 import { parseDataRightsQuery } from '../../../features/account/data-rights/notices';
 import {
@@ -15,11 +11,7 @@ import {
 } from '../../../lib/request-session';
 import { answerEditHrefs } from '../../../ui/onboarding/answer-summary/answer-summary';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
-import {
-  saveNotificationsAction,
-  saveProfileAction,
-  saveRatingVisibilityAction,
-} from './actions';
+import { saveRatingVisibilityAction } from './actions';
 import { ratingVisibilitySchema } from '@daisy/protocol';
 import { GET as readRatingVisibility } from '../../api/ratings/visibility/route';
 import { readOwnRoute } from '../friends/read-route';
@@ -49,11 +41,7 @@ export default async function SettingsRoute({
   return (
     <SettingsPage
       username={claimedUsername(identity)}
-      preferences={getPreferences()}
-      saved={parseSettingsQuery(query)}
       dataRightsNotices={parseDataRightsQuery(query)}
-      profileAction={saveProfileAction}
-      notificationsAction={saveNotificationsAction}
       analytics={await requestAnalytics()}
       ratingCard={
         visibility ? (

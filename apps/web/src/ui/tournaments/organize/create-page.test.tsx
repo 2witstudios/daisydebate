@@ -7,6 +7,7 @@ import {
   type WizardQuery,
 } from '../../../features/tournaments/create-wizard';
 import { CreatePage } from './create-page';
+import { sampleTournamentSource } from '../../mock/tournament-source';
 
 setupRitewayBun();
 
@@ -20,7 +21,11 @@ const render = (
   edits: Record<string, string> = {},
 ) =>
   renderToString(
-    h(CreatePage, { query: { ...base, ...query }, draft: getDraft(), edits }),
+    h(CreatePage, {
+      query: { ...base, ...query },
+      draft: getDraft(sampleTournamentSource),
+      edits,
+    }),
   );
 
 describe('CreatePage', () => {

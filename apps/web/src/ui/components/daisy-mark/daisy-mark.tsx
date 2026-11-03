@@ -3,8 +3,8 @@ import {
   markGeometry,
   petalShape,
   tileGeometry,
-} from '../../brand/brand-geometry';
-import { bloomPetals, type PetalShape } from '../../brand/petal';
+} from '../../../features/brand/brand-geometry';
+import { bloomPetals, type PetalShape } from '../../../features/brand/petal';
 import { markFills, type DaisyMarkVariant } from './daisy-mark-class';
 
 const { size: drawing, centre, discRadius } = markGeometry;

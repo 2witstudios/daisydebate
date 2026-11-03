@@ -46,13 +46,10 @@ POST /api/rooms/:roomId/commands     → claim-seat · leave-seat · ready ·
                                        unready · update-config (casual
                                        only) · start-prep ·
                                        finish-prep · start-round
-GET  /api/rooms/:roomId/round        → the Round ref once start-round ran
 
 GET  /api/rounds/:roundId            → RoundView
 POST /api/rounds/:roundId/commands   → start · start-prep · start-speech ·
                                        yield · interrupt · forfeit
-GET  /api/rounds/:roundId/participants         → seats
-GET  /api/rounds/:roundId/segments             → segment history
 GET  /api/rounds/:roundId/transcript           → Round-wide transcript snapshot
                                        (shared transcript audience policy)
 POST /api/rounds/:roundId/ballots    → submit a ballot (judge seats, one

@@ -92,30 +92,14 @@ test('the command route takes only the JSON envelope; no form-encoded side door 
 test('Round reads return only their slice of the viewer projection', async () => {
   const f = fixture();
   const get = (path: string) => new Request(`${origin}${path}`);
-  const [participants, segments, utterances, malformed] = await Promise.all([
-    f.handlers.participants(get(`/api/rounds/${id}/participants`), id),
-    f.handlers.segments(get(`/api/rounds/${id}/segments`), id),
+  const [utterances, malformed] = await Promise.all([
     f.handlers.transcript(get(`/api/rounds/${id}/transcript`), id),
     f.handlers.transcript(get('/api/rounds/x/transcript'), 'x'),
   ]);
   assert({
-    given:
-      'a member reading participants, segments, utterances and a malformed segment',
-    should:
-      'answer each with its versioned slice, pass validated ids through, and refuse the malformed id',
-    actual: [
-      await participants.json(),
-      await segments.json(),
-      await utterances.json(),
-      malformed.status,
-      f.calls(),
-    ],
-    expected: [
-      { roundId: id, version: 2, participants: [{ id: 'seat' }] },
-      { roundId: id, version: 2, segments: [{ id: 'segment' }] },
-      { roundId: id },
-      400,
-      0,
-    ],
+    given: 'a member reading utterances and a malformed segment',
+    should: 'pass the validated id through and refuse the malformed id',
+    actual: [await utterances.json(), malformed.status, f.calls()],
+    expected: [{ roundId: id }, 400, 0],
   });
 });

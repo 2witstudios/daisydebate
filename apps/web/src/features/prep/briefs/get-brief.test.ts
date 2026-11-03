@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleLibrary } from '../../../ui/mock/prep';
 import { getBrief } from './get-brief';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
@@ -10,9 +11,9 @@ describe('getBrief', () => {
       given: 'a known id, "new" and an unknown id',
       should: 'find the brief, a blank brief, and nothing',
       actual: [
-        getBrief('rights-framework')?.contentions.length,
-        getBrief('new')?.title,
-        getBrief('x'),
+        getBrief(samplePrepSource, 'rights-framework')?.contentions.length,
+        getBrief(samplePrepSource, 'new')?.title,
+        getBrief(samplePrepSource, 'x'),
       ],
       expected: [3, '', undefined],
     });
@@ -26,7 +27,7 @@ describe('getBrief', () => {
       actual: sampleLibrary('2026-09-30T12:00:00.000Z')
         .filter((item) => item.kind === 'brief')
         .filter((item) => {
-          const brief = getBrief(item.id);
+          const brief = getBrief(samplePrepSource, item.id);
           return (
             brief === undefined ||
             brief.title !== item.title ||

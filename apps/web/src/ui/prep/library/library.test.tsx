@@ -7,6 +7,7 @@ import {
 } from '../../../features/prep/library/library-query';
 import { listLibrary } from '../../../features/prep/library/list-library';
 import { Library } from './library';
+import { samplePrepSource } from '../../mock/prep-source';
 
 setupRitewayBun();
 
@@ -14,7 +15,7 @@ const now = '2026-09-30T12:00:00.000Z';
 const render = (over: Partial<LibraryQuery>) => {
   const query = { ...defaultLibraryQuery, ...over };
   return renderToString(
-    h(Library, { listing: listLibrary(query, now), query }),
+    h(Library, { listing: listLibrary(samplePrepSource, query, now), query }),
   );
 };
 

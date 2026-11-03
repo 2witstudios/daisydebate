@@ -4,6 +4,7 @@ import { getCard } from '../../../../../../features/prep/cards/get-card';
 import { requireAccess } from '../../../../../../lib/access';
 import { CardDelete } from '../../../../../../ui/prep/card-detail/card-delete';
 import { NotFoundPanel } from '../../../../../../ui/prep/not-found/not-found-panel';
+import { samplePrepSource } from '../../../../../../ui/mock/prep-source';
 
 export const metadata: Metadata = { title: 'Delete evidence card' };
 
@@ -16,7 +17,7 @@ export default async function DeleteCardPage({
 }) {
   const { id } = await params;
   await requireAccess(`/prep/cards/${id}/delete`, searchParams);
-  const card = getCard(id);
+  const card = getCard(samplePrepSource, id);
   if (card === undefined)
     return (
       <NotFoundPanel

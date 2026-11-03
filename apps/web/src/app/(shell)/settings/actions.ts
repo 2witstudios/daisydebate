@@ -1,37 +1,9 @@
 'use server';
 
 import { headers } from 'next/headers';
-import type { FormState } from '../../../features/forms/form-state';
-import {
-  parseNotificationsForm,
-  parseProfileForm,
-  savedHref,
-} from '../../../features/settings/preferences';
 import { inProcessFetch } from '../../../server/in-process-fetch';
-import { runMockForm } from '../../../server/mock-form-action';
 import { processRoute } from '../../../server/process-app';
 import type { RatingVisibilityState } from '../../../ui/settings/preferences/rating-visibility-form';
-
-/**
- * Each settings form posts to its own server action: it works before
- * hydration and without JavaScript. A saved form returns to its section;
- * nothing is kept until an account stores preferences.
- */
-export async function saveProfileAction(
-  _state: FormState,
-  form: unknown,
-): Promise<FormState> {
-  return runMockForm(form, parseProfileForm, () => savedHref('profile'));
-}
-
-export async function saveNotificationsAction(
-  _state: FormState,
-  form: unknown,
-): Promise<FormState> {
-  return runMockForm(form, parseNotificationsForm, () =>
-    savedHref('notifications'),
-  );
-}
 
 const ratingVisibilityRoute = processRoute((all) => all.ratingVisibility.write);
 

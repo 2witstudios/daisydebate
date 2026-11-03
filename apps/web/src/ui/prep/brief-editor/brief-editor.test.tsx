@@ -3,24 +3,22 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { briefEditorView } from '../../../features/prep/briefs/brief-editor';
 import { listBriefEvidence } from '../../../features/prep/briefs/brief-evidence';
-import {
-  getBrief,
-  speechLimitSeconds,
-} from '../../../features/prep/briefs/get-brief';
+import { getBrief } from '../../../features/prep/briefs/get-brief';
 import { BriefEditor } from './brief-editor';
+import { samplePrepSource } from '../../mock/prep-source';
 
 setupRitewayBun();
 
 const render = (id: string) => {
-  const brief = getBrief(id);
+  const brief = getBrief(samplePrepSource, id);
   if (brief === undefined) throw new Error(`no sample ${id}`);
   return renderToString(
     h(BriefEditor, {
       view: briefEditorView(
         brief,
-        listBriefEvidence('2026-09-30T12:00:00.000Z'),
+        listBriefEvidence(samplePrepSource, '2026-09-30T12:00:00.000Z'),
         160,
-        speechLimitSeconds(),
+        samplePrepSource.speechLimitSeconds,
       ),
     }),
   );
