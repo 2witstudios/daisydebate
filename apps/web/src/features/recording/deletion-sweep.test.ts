@@ -67,6 +67,7 @@ describe('runDeletionSweep', () => {
       objects: objects.store,
       owner: 'w',
       nowMs,
+      report: () => undefined,
     });
     assert({
       given: 'a removed Recording with POV files',
