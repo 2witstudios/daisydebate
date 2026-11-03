@@ -15,8 +15,8 @@ export const unavailableRead = (response: Response): UnavailableRead =>
     ? { kind: 'unavailable', temporary: true }
     : { kind: 'unavailable' };
 
-/** Whether any read's answer was a refusal asking again can help. */
-export const temporarilyRefused = (read: {
-  readonly kind: string;
-  readonly temporary?: true;
-}): boolean => read.kind === 'unavailable' && read.temporary === true;
+/** Whether a read's answer was a refusal asking again can help. */
+export const temporarilyRefused = <Read extends { readonly kind: string }>(
+  read: Read,
+): read is Read & UnavailableRead & { readonly temporary: true } =>
+  read.kind === 'unavailable' && 'temporary' in read && read.temporary === true;

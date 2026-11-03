@@ -216,9 +216,6 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
           // A Next page cannot choose a 5xx; it can stay uncacheable.
           expect(answer?.headers()['cache-control']).toContain('no-store');
           await expect(
-            seat.locator('meta[http-equiv="refresh"]'),
-          ).toHaveAttribute('content', /^[234]$/);
-          await expect(
             seat.getByRole('heading', {
               name: 'Reconnecting to the Round',
               exact: true,
@@ -226,6 +223,11 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
           ).toBeVisible();
           await expect(endSpeech(seat)).toHaveCount(0);
         }
+        // Script asks again in place; only a page with no script refreshes.
+        await expect(
+          formPage.locator('meta[http-equiv="refresh"]'),
+        ).toHaveAttribute('content', /^[234]$/);
+        await expect(page.locator('meta[http-equiv="refresh"]')).toHaveCount(0);
         // The Round's own page recovers the same way, and its redirect still applies.
         for (const seat of [receipt, scriptedReceipt]) {
           await seat.goto(`/rounds/${roundId}`);
@@ -244,6 +246,7 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
         await expect(endSpeech(seat)).toBeEnabled();
       await expect(scriptedReceipt).toHaveURL(new RegExp(`${path}$`));
     }
+    await scriptedReceipt.close();
     await endSpeech(formPage).click();
     await formPage
       .getByRole('button', { name: 'Confirm end speech', exact: true })

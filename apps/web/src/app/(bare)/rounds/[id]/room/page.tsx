@@ -136,8 +136,7 @@ export default async function RoundRoomPage({
     readPersistedTranscript(id),
   ]);
   if (result.kind === 'missing') notFound();
-  if (result.kind === 'unavailable' && result.temporary)
-    return reconnectingRoundPage();
+  if (temporarilyRefused(result)) return reconnectingRoundPage();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const transcriptIn = (placement: TranscriptPlacement) =>
     transcriptOf(id, text, result.socketUrl, placement);

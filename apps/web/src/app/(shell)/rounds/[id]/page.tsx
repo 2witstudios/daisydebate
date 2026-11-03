@@ -14,7 +14,7 @@ import { reconnectingRoundPage } from '../../../../ui/debate-room/round-reconnec
 import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
 import { RoundResult } from '../../../../ui/round-result/round-result';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
-import { ratingsUnlessRefused } from '../../../../features/ratings/ratings-unless-refused';
+import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { temporarilyRefused } from '../../../../server/temporary-read';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
@@ -53,12 +53,12 @@ export default async function RoundPage({
 }) {
   const { id } = await params;
   const access = await accessOrTemporary(`/rounds/${id}`, searchParams);
-  if (access.kind === 'temporary') return reconnectingRoundPage(true);
+  if (access.kind === 'temporary') return reconnectingRoundPage();
   const { identity } = access;
   if (!idSchema.safeParse(id).success) notFound();
   const result = await readPersistedRound(id);
   if (result.kind === 'missing') notFound();
-  if (temporarilyRefused(result)) return reconnectingRoundPage(true);
+  if (temporarilyRefused(result)) return reconnectingRoundPage();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   if (
     identity.state === 'member' &&
@@ -83,15 +83,19 @@ export default async function RoundPage({
     completedBallots(result.round, identity.state === 'member'),
     ownAnalysis(result.round, debater),
   ]);
+  // Ratings are this page's content: refused, they must not read as none.
+  const ratings = await requestRoundRatings(result.round).catch(
+    (error: unknown) => {
+      if (isTemporaryRefusal(error)) return 'refused' as const;
+      throw error;
+    },
+  );
+  if (ratings === 'refused') return reconnectingRoundPage();
   return (
     <>
       <MediaDocument />
       <RoundReceipt round={result.round}>
-        <RoundRatings
-          view={await ratingsUnlessRefused(() =>
-            requestRoundRatings(result.round),
-          )}
-        />
+        <RoundRatings view={ratings} />
         {ballots ? <RoundResult view={ballots} /> : null}
         {analysis ? (
           <RoundAnalysis view={analysis.view} lines={analysis.lines} />
