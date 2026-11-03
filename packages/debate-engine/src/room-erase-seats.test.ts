@@ -1,6 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { eraseSeats, releaseRestrictedMember } from './room-assembly';
-import { state } from './room-assembly.test-support';
+import {
+  eraseSeats,
+  projectRoom,
+  releaseRestrictedMember,
+} from './room-assembly';
+import type { RoomAssemblyState } from '@daisy/protocol';
+import { consent, state } from './room-assembly.test-support';
 
 setupRitewayBun();
 
@@ -129,5 +134,83 @@ test('the heir is the first eligible debater by side and slot, then a judge', ()
       seat('judge', 'judge', 0),
     ]),
     expected: 'judge',
+  });
+});
+
+test('a host who inherits a Room names no human judge, in the Room or after', () => {
+  const room = state();
+  const [hostSeat, other] = room.participants;
+  const judge = {
+    ...other!,
+    id: 'judge-seat',
+    actorId: 'judge',
+    label: 'Hidden judge',
+    role: 'judge' as const,
+    slot: 0,
+    kind: 'human' as const,
+  };
+  const withJudge = { ...room, participants: [hostSeat!, other!, judge] };
+  const now = '2026-11-03T12:00:00.000Z';
+  const judgeReady = { ...consent, readyActorIds: ['judge'] };
+  const seatFor = (viewer: RoomAssemblyState, actorId: string) =>
+    projectRoom(viewer, actorId, judgeReady, now).participants.find(
+      (p) => p.role === 'judge',
+    );
+  const inherited = releaseRestrictedMember(withJudge, 'host');
+  assert({
+    given: 'the original host, before any restriction',
+    should: 'name the judge they seated',
+    actual: seatFor(withJudge, 'host')?.anonymous,
+    expected: undefined,
+  });
+  assert({
+    given: 'a debater who inherits the Room',
+    should: 'become host and still see only that the seat is filled',
+    actual: [
+      inherited.hostActorId,
+      inherited.hostInherited,
+      seatFor(inherited, 'other'),
+    ],
+    expected: [
+      'other',
+      true,
+      {
+        role: 'judge',
+        kind: 'human',
+        slot: 0,
+        anonymous: true,
+        needsReady: true,
+        ready: 'ready',
+        eligible: judge.eligible,
+      },
+    ],
+  });
+  assert({
+    given: 'the readiness list an inherited host reads',
+    should: 'not name a ready judge',
+    actual: projectRoom(inherited, 'other', judgeReady, now).readiness
+      .readyActorIds,
+    expected: [],
+  });
+  assert({
+    given: 'a judge who claims a seat after the hand-off',
+    should: 'stay hidden from the inherited host too',
+    actual: seatFor(
+      {
+        ...inherited,
+        participants: [
+          ...inherited.participants,
+          { ...judge, id: 'late-seat', actorId: 'late', slot: 1 },
+        ],
+      },
+      'other',
+    )?.anonymous,
+    expected: true,
+  });
+  assert({
+    given: 'the judge reading their own seat under the inherited host',
+    should: 'name them to themselves',
+    actual: seatFor(inherited, 'judge')?.anonymous,
+    expected: undefined,
   });
 });

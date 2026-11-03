@@ -17,11 +17,12 @@ const participantReady = (
 };
 /**
  * The human judges this viewer may not name (DEC-98, DEC-174): every one,
- * unless the viewer is that judge or the host who seats them.
+ * unless the viewer is that judge or the host who seats them. A host who
+ * inherited the Room seated nobody, so they name none (DEC-331).
  */
 const hiddenJudges = (room: RoomAssemblyState, actorId: string) =>
   new Set(
-    room.hostActorId === actorId
+    room.hostActorId === actorId && !room.hostInherited
       ? []
       : room.participants
           .filter(

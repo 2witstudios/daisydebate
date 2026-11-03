@@ -14,6 +14,7 @@ export const launched: LaunchedRound = {
   topic: state.topic ?? '',
   visibility: 'private',
   hostActorId: caller.actorId,
+  hostInherited: false,
   config: freezeRoomConfig(oneOnOneRankedSettings),
   rules: state.rules,
   participants: [
@@ -36,7 +37,12 @@ export const launched: LaunchedRound = {
   segments: [],
 };
 /** The host's own reading of the launched Round. */
-export const round: RoundView = (({ hostActorId, ...viewed }) => {
+export const round: RoundView = (({
+  hostActorId,
+  hostInherited,
+  ...viewed
+}) => {
   void hostActorId;
+  void hostInherited;
   return { ...viewed, opening: null, waitingOn: null, viewerIsHost: true };
 })(launched);

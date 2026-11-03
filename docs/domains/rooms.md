@@ -79,7 +79,9 @@ membership. Every terminal state frees its members:
   Room to the first eligible human still seated, debaters by side and slot and
   then judges, who gets the whole idle time to act. A host-written resolution
   list is that member's own text and does not pass: the draw reads the bank. With
-  none left the Room closes. A closed Room's
+  none left the Room closes. An heir is host in every way but one: they seated
+  nobody, so no human judge is named to them, in the Room or the Round they start
+  (`host_inherited`, frozen on the Round). A closed Room's
   status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone.
 - **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, the Room maintenance
   sweep (its own worker, apart from Round maintenance) closes an open Room
