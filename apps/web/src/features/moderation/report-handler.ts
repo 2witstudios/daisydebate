@@ -1,5 +1,5 @@
 import type { Identity } from '@daisy/auth';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { reportCreateSchema, type ReportCreate } from '@daisy/protocol';
@@ -66,7 +66,11 @@ export function createReportHandler({
         if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
         const { userId, actorId } = identity.principal;
         if (actorId === null) throw createAppError('AUTHORIZATION');
-        await consumeOrThrow(limiter(), `moderation:report:${userId}`, REPORT_LIMIT);
+        await consumeOrThrow(
+          limiter(),
+          `moderation:report:${userId}`,
+          REPORT_LIMIT,
+        );
         const report = parseValidated(
           reportCreateSchema,
           await readJson(request, MAX_BODY_BYTES),
@@ -81,7 +85,7 @@ export function createReportHandler({
             }),
           );
           if (refusal === 'report-not-found') throw createAppError('NOT_FOUND');
-          if (refusal) throw createAppError('CONFLICT', refusal);
+          if (refusal) throw createRefusal('CONFLICT', refusal);
           await store.fileReport({
             id: nextId(),
             reporterUserId: userId,

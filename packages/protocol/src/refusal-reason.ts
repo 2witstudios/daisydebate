@@ -11,6 +11,11 @@ type RoundCompletionRefusal = 'panel-ineligible';
 /** Expected media backpressure: a retryable 503 that needs no one to look. */
 type RoundMediaRefusal = 'media-deferred';
 
+/** The waiver's words moved on after the form showed them (WATCH-15). */
+type ContentWaiverRefusal = 'content-waiver-changed';
+/** A report its reporter may not make (WATCH-7). */
+type ReportRefusal = 'report-not-eligible';
+
 /**
  * Every word an `AppError` may carry as its `reason`: code branches on these
  * closed words, never on a message, which stays free text for a person.
@@ -18,6 +23,8 @@ type RoundMediaRefusal = 'media-deferred';
 export type RefusalReason =
   | AttendanceRefusal
   | CaptureRefusal
+  | ContentWaiverRefusal
+  | ReportRefusal
   | RoomRefusal
   | RoundCompletionRefusal
   | RoundMediaRefusal

@@ -59,6 +59,10 @@ const conflictAnswer = (
     case 'strike-conflict':
     case 'not-your-turn':
     case 'bots-busy':
+    case 'capture-premium':
+    case 'broadcast-private':
+    case 'content-waiver-required':
+    case 'capture-notice-changed':
       return { kind: 'refused', reason: 'settings' };
   }
 };

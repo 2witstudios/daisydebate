@@ -1,7 +1,7 @@
 import type { Store, Caller } from './operations';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { castSeatsBotDebater, executeRoomCommand } from '@daisy/debate-engine';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
 import type {
@@ -186,7 +186,7 @@ export function roomCommandOperation({
             const refusal =
               contentWaiverRefusal(contentWaiver) ??
               captureNoticeRefusal(state, command.noticeVersion);
-            if (refusal) throw createAppError('CONFLICT', refusal);
+            if (refusal) throw createRefusal('CONFLICT', refusal);
           }
           // Unready replaces the durable fence even during Redis loss; the old lease no longer matches.
           return outcome;

@@ -1,5 +1,5 @@
 import type { Identity } from '@daisy/auth';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { z } from 'zod';
@@ -74,9 +74,9 @@ export function createContentWaiverHandler({
         );
         try {
           if (version !== CONTENT_WAIVER_VERSION)
-            throw createAppError('CONFLICT', 'content-waiver-changed');
+            throw createRefusal('CONFLICT', 'content-waiver-changed');
           if ((await sign(userId, version)) === 'no-active-season')
-            throw createAppError('CONFLICT', 'ranked-unavailable');
+            throw createRefusal('CONFLICT', 'ranked-unavailable');
           return Response.json({ signed: true });
         } catch (error) {
           const refused = refusalResponse(
