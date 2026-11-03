@@ -1,4 +1,8 @@
 import { idSchema, roundViewSchema, type RoundView } from '@daisy/protocol';
+import {
+  unavailableRead,
+  type UnavailableRead,
+} from '../../server/temporary-read';
 import { realtimeEndpointOf } from '../realtime/endpoint-header';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -9,7 +13,8 @@ type Read =
       /** Where the round's doorbell rings, when realtime is configured. */
       readonly socketUrl: string | null;
     }
-  | { readonly kind: 'missing' | 'unavailable' };
+  | { readonly kind: 'missing' }
+  | UnavailableRead;
 
 /** What a round read must answer for a consumer that needs only the round. */
 export type RoundRead =
@@ -24,7 +29,7 @@ export async function readRoundReceipt(
   try {
     const response = await fetch(`/api/rounds/${id}`, { method: 'GET' });
     if (response.status === 404) return { kind: 'missing' };
-    if (!response.ok) return { kind: 'unavailable' };
+    if (!response.ok) return unavailableRead(response);
     const parsed = roundViewSchema.safeParse(await response.json());
     return parsed.success && parsed.data.id === id
       ? {

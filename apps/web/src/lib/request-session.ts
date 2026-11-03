@@ -13,6 +13,7 @@ import { admitsOptionalAnswers } from '@daisy/auth/account-age';
 import type { MatchHistoryQuery, MemberProfile } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
+import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
@@ -42,40 +43,12 @@ export const requestIdentity = async (): Promise<Identity> =>
 /** Public adapter config only; management credentials never enter a rendered prop. */
 export const requestAnalytics = cache(async () => {
   const app = processApp();
-  const config = analyticsConfiguration(app.config);
-  const cookie = parseConsent((await cookies()).get(CONSENT_COOKIE)?.value);
-  if (!config.key)
-    return {
-      needsAdoption: false,
-      keyValue: null,
-      host: null,
-      userId: null,
-      consent: cookie,
-      available: config.available,
-    };
-  const identity = await requestIdentity();
-  const userId =
-    identity.state === 'anonymous' || identity.state === 'unavailable'
-      ? null
-      : identity.principal.userId;
-  const stored = userId
-    ? await app.database.readAnalyticsConsent(userId)
-    : null;
-  const consent = stored ?? cookie;
-  const needsAdoption = Boolean(
-    userId &&
-    (stored
-      ? JSON.stringify(stored) !== JSON.stringify(cookie)
-      : cookie.analytics !== 'unanswered' || cookie.replay !== 'unanswered'),
-  );
-  return {
-    needsAdoption,
-    keyValue: identity.state === 'unavailable' ? null : config.key,
-    host: config.host,
-    userId,
-    consent,
-    available: config.available,
-  };
+  return readViewerAnalytics({
+    config: analyticsConfiguration(app.config),
+    identity: await requestIdentity(),
+    cookie: parseConsent((await cookies()).get(CONSENT_COOKIE)?.value),
+    readConsent: (userId) => app.database.readAnalyticsConsent(userId),
+  });
 });
 
 /**
