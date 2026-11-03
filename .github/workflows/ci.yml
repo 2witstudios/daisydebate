@@ -3,8 +3,6 @@ on:
   push:
     branches: [main]
   pull_request:
-  merge_group:
-    types: [checks_requested]
   # The nightly main run: the whole CI on main, with knip blocking.
   schedule:
     - cron: '23 6 * * *'

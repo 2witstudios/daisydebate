@@ -57,10 +57,9 @@ describe('Dashboard', () => {
       actual: [
         occurrences(html, 'Coming soon'),
         html.includes('href="/coming-soon/tournaments"'),
-        html.includes('Global Debate Championship'),
-        html.includes('watching'),
+        html.includes('Live Now'),
       ],
-      expected: [5, true, false, false],
+      expected: [5, true, false],
     });
   });
 });

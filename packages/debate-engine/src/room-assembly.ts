@@ -210,6 +210,7 @@ export const releaseRestrictedMember = (
     ? {
         ...withoutHostList(freed),
         hostActorId: heir.actorId,
+        hostInherited: true,
         hostLabel: heir.label,
       }
     : closeRoom(freed);

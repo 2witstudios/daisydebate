@@ -98,6 +98,7 @@ export const roundRow = (record: {
   record.id,
   record.roomId,
   record.createdByActorId,
+  false,
   record.visibility ?? null,
   record.resolution,
   null,
@@ -147,6 +148,7 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
   const row = {
     id: 'r1o2o3m4i5d6e7n8t9i1f5y3',
     hostActorId: 'host-actor',
+    hostInherited: false,
     title: 'Proof room',
     topic: 'A motion',
     publishedResolutionId: null,
@@ -176,6 +178,7 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
   return [
     row.id,
     row.hostActorId,
+    row.hostInherited,
     row.title,
     row.topic,
     row.publishedResolutionId,

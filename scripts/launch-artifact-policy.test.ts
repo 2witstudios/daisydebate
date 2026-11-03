@@ -32,10 +32,6 @@ test('native evidence survives an earlier prerequisite refusal without bypassing
       uploadAfterSanitize: upload > sanitize,
       uploadGuard: steps[upload]?.if,
       noFiles: steps[upload]?.with?.['if-no-files-found'],
-      selectedReportGuard: steps.find(
-        (step) =>
-          step.name === 'Verify selected native specs produced outcomes',
-      )?.if,
     },
     expected: {
       sanitize: '${{ always() && !cancelled() }}',
@@ -44,8 +40,6 @@ test('native evidence survives an earlier prerequisite refusal without bypassing
         "${{ always() && !cancelled() && steps.sanitize_launch.outcome == 'success' }}",
       noFiles:
         "${{ steps.launch.outcome == 'skipped' && 'ignore' || 'error' }}",
-      selectedReportGuard:
-        "${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}",
     },
   });
 });

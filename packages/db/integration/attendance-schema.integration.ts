@@ -202,3 +202,48 @@ test('pending check-in markers and immutable facts keep global receipt and ownin
     }
   });
 });
+
+test('a Round whose final speech ended always holds its attendance cutoff (ISSUE-982)', async () => {
+  await withFixture(url, async (fixture) => {
+    const finalEnd = '2026-10-31T17:02:40.012Z';
+    const admission = new Date(Date.parse(finalEnd) + 120_000);
+    const cutoff = new Date(Date.parse(finalEnd) + 60 * 60_000);
+    const live = {
+      status: 'active',
+      current_stage: 'live',
+      started_at: new Date('2026-10-31T16:00:00.000Z'),
+    };
+    const played = await fixture.round({
+      ...live,
+      final_segment_ended_at: new Date(finalEnd),
+      transcript_admission_cutoff: admission,
+      attendance_resolution_cutoff_at: cutoff,
+    });
+    const speaking = await fixture.round(live);
+    const update = (set: string, id: string) =>
+      rejectedBy(() =>
+        fixture.sql.unsafe(`update rounds set ${set} where id=$1`, [id]),
+      );
+    assert({
+      given:
+        'a played Round losing its cutoff or holding one off the policy, a Round still speaking holding one, and a final end with none',
+      should: 'refuse each',
+      actual: [
+        await update('attendance_resolution_cutoff_at=null', played),
+        await update(
+          "attendance_resolution_cutoff_at=final_segment_ended_at+interval '1 minute'",
+          played,
+        ),
+        await update(
+          'attendance_resolution_cutoff_at=clock_timestamp()',
+          speaking,
+        ),
+        await update(
+          `final_segment_ended_at='${finalEnd}',transcript_admission_cutoff='${admission.toISOString()}'`,
+          speaking,
+        ),
+      ],
+      expected: Array(4).fill('rounds_attendance_cutoff_check'),
+    });
+  });
+});

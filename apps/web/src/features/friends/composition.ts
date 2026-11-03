@@ -78,14 +78,8 @@ export function composeFriendRoutes(app: App) {
     list,
     websocketEndpoint: app.websocketEndpoint,
     counts: async (principal) => {
-      const [{ friends }, membersOnline] = await Promise.all([
-        list(principal),
-        app.redis.countOnlinePresence(),
-      ]);
-      return {
-        friendsOnline: friendsOnlineOf(friends),
-        membersOnline,
-      };
+      const { friends } = await list(principal);
+      return { friendsOnline: friendsOnlineOf(friends) };
     },
   });
 }

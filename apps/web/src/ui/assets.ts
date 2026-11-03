@@ -3,7 +3,7 @@
  * the product (not a decorative asset): swap the path to replace the art.
  * Temporary photography is sourced under the Unsplash license.
  */
-export type ArtKey = 'heroAgon' | 'earthNight' | 'quoteRidge' | 'laurelArena';
+export type ArtKey = 'heroAgon' | 'quoteRidge' | 'laurelArena';
 
 export const art: Record<
   ArtKey,
@@ -20,12 +20,6 @@ export const art: Record<
     alt: 'Two figures in ancient Greek dress locked in an arm wrestle, with the Acropolis behind them',
     width: 1925,
     height: 817,
-  },
-  earthNight: {
-    src: '/images/earth-night.jpg',
-    alt: 'Earth at night seen from orbit, city lights glowing',
-    width: 1600,
-    height: 1065,
   },
   quoteRidge: {
     src: '/images/hero-ridge.jpg',

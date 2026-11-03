@@ -37,6 +37,7 @@ export const state = (): RoomAssemblyState => ({
   publishedResolutionId: null,
   visibility: 'public',
   hostActorId: 'host',
+  hostInherited: false,
   hostLabel: 'Host',
   seatHolds: [],
   status: 'ready',
