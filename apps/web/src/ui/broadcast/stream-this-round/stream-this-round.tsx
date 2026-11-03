@@ -3,7 +3,7 @@ import { Panel } from '../../components/panel/panel';
 import { FeedUrlField } from './feed-url-field';
 
 const steps = [
-  'In OBS, under Sources, choose + and then Media Source, and name it.',
+  'In OBS, under Sources, choose + and then Media (Media Source in older versions), and name it.',
   'Untick Local File.',
   'Paste the feed URL into Input, leave the other settings as they are, and choose OK.',
   'Right-click the source and choose Transform, then Fit to screen. Put your own camera or overlays above it in the list.',

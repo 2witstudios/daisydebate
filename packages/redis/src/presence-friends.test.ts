@@ -71,17 +71,3 @@ test('readActorsPresence bounds and validates its input', async () => {
     expected: [true, true, 0],
   });
 });
-
-test('countOnlinePresence counts the live online set', async () => {
-  const { redis, scriptEval, commands } = createTestRedis();
-  scriptEval(7);
-  assert({
-    given: 'seven live actors',
-    should: 'count them in one EVALSHA over the online key',
-    actual: [
-      await redis.countOnlinePresence(),
-      commands.find(({ command }) => command === 'EVALSHA')?.args.slice(1),
-    ],
-    expected: [7, ['1', 'test:v1:presence:online']],
-  });
-});

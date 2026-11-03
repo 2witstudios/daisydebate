@@ -44,7 +44,8 @@ export type RecordingCaptureEvent =
   | 'recording.capture_failed'
   | 'recording.egress.start_failed'
   | 'recording.egress.stop_failed'
-  | 'recording.observer.restore_failed';
+  | 'recording.observer.restore_failed'
+  | 'recording.observer.revoke_retry_failed';
 
 type Egress = {
   readonly start: (input: {
@@ -250,6 +251,13 @@ export const createRecordingCaptureSweep = (deps: {
             await store.recordOwnRevoked({ recordingId, now: new Date(nowMs) });
           },
           () => store.recordOwnRevocationFailed(recordingId),
+        );
+      case 'reassert-revocation':
+        return attempt(
+          async () => {
+            if (room) await egress.revokeObserver(room);
+          },
+          () => deps.report('recording.observer.revoke_retry_failed'),
         );
       case 'restore-observer':
         return attempt(

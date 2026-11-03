@@ -109,6 +109,24 @@ describe('reconcileStep', () => {
       expected: ['revoke', 'recordRevoked'],
     });
   });
+  test('a repeated revocation records nothing new', async () => {
+    const { ports, log } = world();
+    await reconcileStep(
+      facts({
+        egress: { kind: 'active', id: 'EG' },
+        phase: { kind: 'private' },
+        observerSubscribed: false,
+      }),
+      ports,
+    );
+    assert({
+      given: 'a private phase with the observer already revoked',
+      should: 'revoke again and leave the record as it was',
+      actual: log,
+      expected: ['revoke'],
+    });
+  });
+
   test('stopping for an unconfirmed revocation reports it', async () => {
     const { ports, log } = world();
     await reconcileStep(

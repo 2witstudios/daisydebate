@@ -25,6 +25,7 @@ export const reconcileFacts = (input: {
   readonly roundStatus: BroadcastFacts['roundStatus'];
   readonly roundEndedAt: Date | null;
   readonly position: PhasePosition;
+  readonly lastSequence: number;
   readonly egress: BroadcastFacts['egress'];
 }): BroadcastFacts => ({
   nowMs: input.nowMs,
@@ -33,7 +34,7 @@ export const reconcileFacts = (input: {
   stoppedAtMs: ms(input.broadcast.stoppedAt),
   completedAtMs: ms(input.broadcast.completedAt),
   egress: input.egress,
-  phase: broadcastPhase(input.position),
+  phase: broadcastPhase(input.position, input.lastSequence),
   observerSubscribed: input.broadcast.observerRevokedAt === null,
   revocationFailures: input.broadcast.revocationFailures,
   finalMediaEndMs: ms(input.broadcast.finalMediaEndAt),

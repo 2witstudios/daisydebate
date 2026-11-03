@@ -183,21 +183,13 @@ export function createOperatorClient(deps: {
         },
         operatorAccountsPageSchema,
       ),
-    listReports: (
-      operatorRef: string,
-      page: { readonly limit: number; readonly cursor?: string },
-    ) =>
+    listReports: (operatorRef: string, page: { readonly limit: number }) =>
       call(
         operatorRef,
         {
           method: 'GET',
           path: '/operator/v1/reports',
-          query: [
-            ...(page.cursor === undefined
-              ? []
-              : [['cursor', page.cursor] as const]),
-            ['limit', String(page.limit)],
-          ],
+          query: [['limit', String(page.limit)]],
         },
         operatorReportsPageSchema,
       ),

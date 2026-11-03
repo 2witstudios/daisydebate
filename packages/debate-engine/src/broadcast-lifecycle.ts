@@ -31,6 +31,8 @@ export type BroadcastAction =
   /** A stopped Broadcast's Egress is gone: no more media will come. */
   | { readonly type: 'record-media-ended' }
   | { readonly type: 'revoke-observer' }
+  /** Said again each pass: a stage joining just as it was revoked would miss it. */
+  | { readonly type: 'reassert-revocation' }
   | { readonly type: 'restore-observer' }
   | { readonly type: 'complete' };
 

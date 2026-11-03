@@ -250,6 +250,14 @@ describe('a Recording running its own Egress', () => {
       expected: [{ type: 'stop-egress', id: 'EG_1' }],
     });
     assert({
+      given: 'a revoked observer with the Egress still running',
+      should: 'say it again, in case a stage just rejoined',
+      actual: decideRecordingCapture(
+        onOwn({ phase: { kind: 'private' }, observerSubscribed: false }),
+      ),
+      expected: [{ type: 'reassert-revocation' }],
+    });
+    assert({
       given: 'the phase public again',
       should: 'restore',
       actual: decideRecordingCapture(onOwn({ observerSubscribed: false })),

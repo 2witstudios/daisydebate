@@ -15,7 +15,8 @@ import {
   type MediaConfig,
 } from './contracts';
 
-const OBSERVER_TTL_SECONDS = 4 * 60 * 60;
+/** Only for joining, and the stage asks every second, so an old one soon can't. */
+const OBSERVER_TTL_SECONDS = 60;
 
 export type BroadcastEgressFact =
   | { readonly kind: 'none' }

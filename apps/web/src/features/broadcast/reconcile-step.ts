@@ -9,6 +9,7 @@ type ReportedEvent =
   | 'broadcast.egress.stop_failed'
   | 'broadcast.egress.stopped_unconfirmed'
   | 'broadcast.observer.restore_failed'
+  | 'broadcast.observer.revoke_retry_failed'
   | 'broadcast.complete_failed';
 
 export type ReconcilePorts = {
@@ -66,6 +67,11 @@ const run = (action: BroadcastAction, ports: ReconcilePorts) => {
           await ports.recordRevoked();
         },
         () => ports.recordRevocationFailed(),
+      );
+    case 'reassert-revocation':
+      return attempt(
+        () => ports.revokeObserver(),
+        () => ports.report('broadcast.observer.revoke_retry_failed'),
       );
     case 'restore-observer':
       return attempt(

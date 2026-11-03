@@ -222,6 +222,7 @@ const hydrateRoom = async (
     publishedResolutionId: row.publishedResolutionId,
     visibility: row.visibility,
     hostActorId: row.hostActorId,
+    hostInherited: row.hostInherited,
     hostLabel: host?.label ?? '',
     status: row.status,
     formatId: row.formatId,

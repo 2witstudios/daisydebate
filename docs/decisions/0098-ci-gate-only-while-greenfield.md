@@ -27,7 +27,6 @@ every deploy cost more than it protected.
 - **Removed with the PR trigger.** The `scope` job, the Room Launch path filter,
   the spec ownership map and the merge-queue check that enabled affected
   selection (it never activated: the ruleset has no merge queue).
-  `scripts/affected-e2e.ts` became `scripts/browser-selection.ts`.
 
 ## Consequences
 

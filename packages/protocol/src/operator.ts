@@ -150,12 +150,6 @@ export const betaAccessCommandSchema = z.strictObject({
 /** The operator's report queue (ADR 0103), oldest open report first. */
 export const operatorReportsQuerySchema = z.strictObject({
   limit: z.coerce.number().int().min(1).max(100).default(50),
-  cursor: z.string().max(256).optional(),
-});
-export const operatorReportsCursorSchema = z.strictObject({
-  v: z.literal(1),
-  createdAt: z.iso.datetime(),
-  id: idSchema,
 });
 const operatorReportSchema = z.strictObject({
   id: idSchema,
@@ -169,7 +163,6 @@ const operatorReportSchema = z.strictObject({
 });
 export const operatorReportsPageSchema = z.strictObject({
   items: z.array(operatorReportSchema).max(100),
-  nextCursor: z.string().max(256).nullable(),
 });
 
 const restrictionKinds = moderationKinds.filter((kind) => kind !== 'warning');
