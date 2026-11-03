@@ -174,11 +174,16 @@ before going live that retrying cannot help, such as a reply that does not parse
 the tracks and shows `out-of-date`. `replaced` means LiveKit moved this seat to another
 connection; it sets no timer, and Retry takes the seat back.
 
+A blip is not a drop. The SDK resumes the same connection for up to 5 seconds, with its
+tracks and publications, and the seat reads as reconnecting without losing its video.
+On resuming, a read fetches whatever grant moved meanwhile. Past the 5 seconds the SDK
+gives up and it is a drop.
+
 Recovery is part of the one model, with one timer. A transient `out-of-date` sends a
 `wake` read on the same connection, with no admission. A transient `unavailable` is a
 released connection, so it admits again. That covers a media connection that fails after
 a good admission, unless LiveKit refused the token (401 or 403), and a first apply that
-hangs past the read budget. When LiveKit drops a connection, the model releases it at
+hangs past the read budget. When LiveKit drops a connection, past a blip's budget, the model releases it at
 once and reports it the same way, so nothing reads on a dead connection and there is one
 path back. If LiveKit says this seat connected elsewhere, this connection stops and says
 so, and Retry takes the seat back.

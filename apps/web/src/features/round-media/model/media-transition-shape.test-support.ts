@@ -58,6 +58,7 @@ const linkShape = (link: MediaLink): string => {
         `next:${reads.next}`,
         `apply:${apply ? (apply.next ? 'queued' : 'running') : 'none'}`,
         ...(link.changingMicrophone ? ['muting'] : []),
+        ...(link.transport === 'resuming' ? ['resuming'] : []),
       ].join(' ');
     }
   }

@@ -132,6 +132,13 @@ export const everyState = (): readonly (readonly [string, MediaState])[] => {
     ],
     ['live', at((d) => d.join())],
     [
+      'live resuming',
+      at((d) => {
+        d.join();
+        d.room({ type: 'transport-resuming' });
+      }),
+    ],
+    [
       'live publishing',
       at((d) => {
         d.join();
@@ -544,6 +551,8 @@ export const everyEvent = (
     room({ type: 'mute-abandoned' }),
     room({ type: 'mute-failed', kind: 'failure' }),
     room({ type: 'playback-changed', allowed: false }),
+    room({ type: 'transport-resuming' }),
+    room({ type: 'transport-resumed' }),
   ];
 };
 

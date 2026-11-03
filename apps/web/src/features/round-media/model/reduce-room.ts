@@ -49,6 +49,7 @@ const reduceConnected = (
     peers: [],
     sound: 'allowed',
     changingMicrophone: false,
+    transport: 'steady',
     reads: { flight: null, next: 'wanted', supersededSinceAnswer: 0 },
     apply: null,
   };
@@ -255,6 +256,18 @@ export const reduceRoom = (
       return sound === link.sound
         ? rejected(state)
         : moved(withLive(state, { ...link, sound }));
+    }
+    case 'transport-resuming':
+      return link.transport === 'resuming'
+        ? rejected(state)
+        : moved(withLive(state, { ...link, transport: 'resuming' }));
+    case 'transport-resumed': {
+      if (link.transport === 'steady') return rejected(state);
+      // A grant may have moved while the signal was away: read it before trusting it.
+      return prepend(
+        [{ type: 'refresh-view' }],
+        requestRead(state, { ...link, transport: 'steady' }),
+      );
     }
     default: {
       const unknown: never = event;

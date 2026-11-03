@@ -47,6 +47,7 @@ export const liveLink = (
   peers: [],
   sound: 'allowed',
   changingMicrophone: false,
+  transport: 'steady',
   reads: { flight: null, next: 'none', supersededSinceAnswer: 0 },
   apply: null,
   ...overrides,
