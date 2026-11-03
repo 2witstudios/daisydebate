@@ -478,7 +478,10 @@ export type {
   PanelRuling,
   RoundEnding,
 } from './round-panel-completion';
-export type { AttendanceLedgerFacts } from './attendance';
+export {
+  attendanceLedgerFactsSchema,
+  type AttendanceLedgerFacts,
+} from './attendance';
 export { attendanceRoundReadSchema } from './attendance';
 export { roundRecordSchema, type RoundRecord } from './round-view';
 export { roundMediaPolicy } from './round-media-policy';

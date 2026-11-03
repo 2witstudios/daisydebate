@@ -98,7 +98,7 @@ test('a posting queued behind the deciding ballot sees the committed finalizatio
           const earlySweep = (
             await f.store.readRatingCandidates({ limit: 1000 })
           )
-            .filter(({ facts }) => ratingAwaited(facts))
+            .filter(({ facts }) => facts !== null && ratingAwaited(facts))
             .map(({ roundId: id }) => id);
           assert({
             given: 'the deciding ballot still uncommitted',

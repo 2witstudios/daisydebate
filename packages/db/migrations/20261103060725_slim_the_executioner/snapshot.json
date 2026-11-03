@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "5d6e8ce0-44d0-4aaf-86f1-43101f96b5ad",
+  "id": "d77d8480-3123-48af-a48b-f65523644c0c",
   "prevIds": [
-    "89605b3f-e3d9-4bf1-a8ca-cfa2aab00e05"
+    "2ab218fa-7d67-4508-8c85-430956301942"
   ],
   "ddl": [
     {
@@ -23505,5 +23505,7 @@
       "table": "utterances"
     }
   ],
-  "renames": []
+  "renames": [
+    "public.rounds.rounds_rated_ladder_check->public.rounds.rounds_ranked_ladder_check"
+  ]
 }
