@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createRefusal } from '@daisy/errors';
 import type { RoundProjection } from '@daisy/protocol';
 import { bytesOf } from './draw-random';
 import { createRoundRuntime } from './round-runtime';
@@ -64,7 +64,7 @@ export function strikeInOpening(
     ...input.strike,
     now: input.now,
   });
-  if (!outcome.ok) throw createAppError('CONFLICT', outcome.refusal);
+  if (!outcome.ok) throw createRefusal('CONFLICT', outcome.refusal);
   return advanceOpening({ ...input, opening: outcome.opening });
 }
 

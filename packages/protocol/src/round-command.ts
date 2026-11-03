@@ -41,6 +41,9 @@ export const roundRefusalSchema = z.enum([
   'ballot-already-submitted',
   'round-decided',
   'attendance-unsettled',
+  'strike-conflict',
+  'strike-unavailable',
+  'not-your-turn',
 ]);
 export type RoundRefusal = z.infer<typeof roundRefusalSchema>;
 export type RoundCommandReceipt = {
