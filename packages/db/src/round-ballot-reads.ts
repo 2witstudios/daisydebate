@@ -149,6 +149,7 @@ export const roundBallotReads = ({
           status: round.status,
           ownSeatId: ownSeat?.id,
           viewerSide,
+          audienceMayRead: round.visibility !== 'private',
           aiJudgeSeatIds,
           rows,
           frozen,
