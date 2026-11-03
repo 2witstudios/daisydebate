@@ -24,6 +24,7 @@ test('judging renewal and discovery do not wait for a provider operation', async
       }),
       renewRoundJudgingJob: async () => {
         renewals++;
+        return { kind: 'renewed' };
       },
       verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
     },
@@ -88,7 +89,7 @@ test('a failed judging scan reports its stage', async () => {
       claimRoundJudgingJob: async () => {
         throw new Error('no claim expected');
       },
-      renewRoundJudgingJob: async () => {},
+      renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
       verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
     },
     execute: async () => {},
@@ -169,7 +170,7 @@ test('capacity refusal never consumes a judging lease and retry needs no lease e
         claims++;
         return { scope, token: 'reserved' };
       },
-      renewRoundJudgingJob: async () => {},
+      renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
       verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
     },
     execute: async () => {
@@ -225,7 +226,7 @@ test('claim failure and shutdown while claiming return the reserved provider slo
           claiming.resolve();
           return claimDone.promise;
         },
-        renewRoundJudgingJob: async () => {},
+        renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
         verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
       },
       execute: async () => {
@@ -274,7 +275,7 @@ test('a ballot waiting on attendance is no failure, whatever its message says (I
         scope: { roundId: 'round', judgeParticipantId: 'judge' },
         token: 'memory-only',
       }),
-      renewRoundJudgingJob: async () => undefined,
+      renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
       verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
     },
     execute: async () => {

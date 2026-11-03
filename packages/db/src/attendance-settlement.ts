@@ -1,5 +1,9 @@
 import { createAppError, createRefusal } from '@daisy/errors';
-import { idSchema, type AttendanceLedgerFacts } from '@daisy/protocol';
+import {
+  attendanceLedgerFactsSchema,
+  idSchema,
+  type AttendanceLedgerFacts,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 
@@ -26,15 +30,23 @@ export const attendanceLedgerColumns = sql`
       from round_check_ins c where c.round_id=r.id),'[]'::json) as receipts,
     exists(select 1 from round_check_in_attempts p where p.round_id=r.id and p.state='pending') as "pendingWriter"`;
 
+/** A ledger row as the engine's facts: a row outside its evidence's shape is corruption. */
+export const attendanceLedgerFacts = (row: unknown): AttendanceLedgerFacts => {
+  const parsed = attendanceLedgerFactsSchema.safeParse(row);
+  if (!parsed.success)
+    throw createAppError('INVARIANT', 'An attendance ledger row is corrupt');
+  return parsed.data;
+};
+
 /** Facts only: the Round's ledger, for the engine to say whether it settles. */
 export async function readAttendanceLedger(
   tx: Pick<BunSQLDatabase, 'execute'>,
   roundId: string,
 ): Promise<AttendanceLedgerFacts> {
-  const [row] = (await tx.execute(sql`select ${attendanceLedgerColumns}
-    from rounds r where r.id=${roundId}`)) as unknown as AttendanceLedgerFacts[];
+  const [row] = await tx.execute(sql`select ${attendanceLedgerColumns}
+    from rounds r where r.id=${roundId}`);
   if (!row) throw createAppError('NOT_FOUND');
-  return row;
+  return attendanceLedgerFacts(row);
 }
 
 /** Final ballot completion only. Caller keeps its canonical authorization and Round transaction fences. */

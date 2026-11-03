@@ -9,8 +9,9 @@ import { changeMessagingReaction, readMessagingReactions } from './reactions';
 import { messagingReactionFence } from './reaction-fence';
 import {
   memberHttpBoundary,
-  runMemberHandler,
-} from '../../server/member-handler';
+  runEvaluatedRoute,
+  type MemberBoundary,
+} from '../../server/member-boundary';
 
 /** Optional reaction policy never creates posting or cleanup authority. */
 export function composeMessagingReactionRoute(app: App) {
@@ -59,7 +60,7 @@ export function composeMessagingReactionRoute(app: App) {
   };
 }
 export function createMessagingReactionHandler(input: {
-  readonly boundary: ReturnType<typeof memberHttpBoundary>;
+  readonly boundary: MemberBoundary;
   readonly maxBodyBytes: number;
   readonly change: (
     value: unknown,
@@ -67,7 +68,7 @@ export function createMessagingReactionHandler(input: {
   ) => Promise<unknown>;
 }) {
   return (request: Request) =>
-    runMemberHandler(input.boundary, request, {
+    runEvaluatedRoute(input.boundary, request, {
       name: 'messaging.reaction.change',
       readOnly: false,
       readInput: () => readJson(request, input.maxBodyBytes),
@@ -86,7 +87,7 @@ export function readReactionQuery(
 }
 
 export function createMessagingReactionReader(input: {
-  readonly boundary: ReturnType<typeof memberHttpBoundary>;
+  readonly boundary: MemberBoundary;
   readonly websocketEndpoint: string | null;
   readonly read: (
     value: unknown,
@@ -94,7 +95,7 @@ export function createMessagingReactionReader(input: {
   ) => Promise<unknown>;
 }) {
   return (request: Request, channelId?: string) =>
-    runMemberHandler(input.boundary, request, {
+    runEvaluatedRoute(input.boundary, request, {
       name: 'messaging.reaction.read',
       readOnly: true,
       headers:

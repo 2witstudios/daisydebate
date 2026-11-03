@@ -24,7 +24,12 @@ export function createRatingSweep(deps: {
     readonly limit: number;
   }) => {
     const candidates = await deps.database.readRatingCandidates(input);
-    for (const { roundId, facts } of candidates) {
+    for (const candidate of candidates) {
+      const { roundId, facts } = candidate;
+      if (facts === null) {
+        deps.onFailure(roundId, candidate.unreadable);
+        continue;
+      }
       try {
         if (!ratingAwaited(facts)) continue;
         await rateCompletedRound(deps.database, roundId, deps.ids);

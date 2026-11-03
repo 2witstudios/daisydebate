@@ -19,6 +19,15 @@ type AccountFact = {
   readonly erased: boolean;
 } | null;
 
+/** A human seat needs a live member account. */
+export const humanSeatEligible = (
+  accounts: readonly AccountFact[],
+  actorId: string,
+) => {
+  const account = accounts.find((entry) => entry?.actorId === actorId);
+  return account?.member === true && !account.erased;
+};
+
 /**
  * One rule for every Round writer: a bot seat needs its canonical profile
  * for that kind of seat, a human seat a live member account, and an actor of
@@ -36,10 +45,9 @@ export function seatEligibility(
       kind: 'bot',
       eligible: actor.eligible && aiSeatFits(actor.seatRole, seat.role),
     };
-  const account = accounts.find((entry) => entry?.actorId === seat.actorId);
   return {
     kind: 'human',
-    eligible: account?.member === true && !account.erased,
+    eligible: humanSeatEligible(accounts, seat.actorId),
   };
 }
 

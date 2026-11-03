@@ -46,7 +46,7 @@ type OnboardingDependencies = {
 async function memberIds(
   identify: (request: Request) => Promise<Identity>,
   request: Request,
-): Promise<{ readonly userId: string; readonly actorId: string | null }> {
+): Promise<{ readonly userId: string; readonly actorId: string }> {
   const identity = requireSignedIn(await identify(request));
   if (identity.state !== 'member' && identity.state !== 'waitlisted')
     throw createAppError('AUTHORIZATION');
@@ -97,7 +97,6 @@ export function createOnboardingHandler(dependencies: OnboardingDependencies) {
         }
         const parsed = parseStepAnswers(body);
         if (!parsed.ok) throw createAppError('VALIDATION');
-        if (actorId === null) throw createAppError('AUTHORIZATION');
         await dependencies.save({
           userId,
           actorId,

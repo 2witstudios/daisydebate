@@ -4,6 +4,7 @@ import {
   advanceOpening,
   forfeitInOpening,
   inPreRoundPrep,
+  readRoundOpening,
   strikeInOpening,
 } from './round-opening-runtime';
 import { SEED, at, drawRoom, opened } from './round-opening.test-support';
@@ -249,5 +250,32 @@ test('inPreRoundPrep is true only while prep runs', () => {
       inPreRoundPrep({ opening, seed: null, now: at(1200) }),
     ],
     expected: [true, true, false],
+  });
+});
+
+describe('readRoundOpening', () => {
+  const canStrike = (eligible: boolean) => {
+    const world = opened();
+    return readRoundOpening(
+      { state: world.opening, seed: SEED },
+      world.seats,
+      { actorId: 'other', eligible },
+      edges.now,
+    ).view.canStrike;
+  };
+
+  test('the read offers a strike only when the command would take it', () => {
+    assert({
+      given: 'the debater on turn, eligible',
+      should: 'offer the strike',
+      actual: canStrike(true),
+      expected: true,
+    });
+    assert({
+      given: 'the debater on turn, no longer eligible',
+      should: 'not offer the strike the command would refuse',
+      actual: canStrike(false),
+      expected: false,
+    });
   });
 });

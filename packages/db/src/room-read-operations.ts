@@ -157,7 +157,7 @@ export const roomReadOperations = ({
             ...roundViewFor(round, caller.actorId),
             waitingOn: await readWaitingOn(tx, round, decideWaitingOn),
           },
-          caller.actorId,
+          { actorId: caller.actorId, account },
           readOpening,
         );
       }),

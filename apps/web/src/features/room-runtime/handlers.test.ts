@@ -22,9 +22,7 @@ const dependencies = (
   reporter: noopErrorReporter,
   origin: () => origin,
   identify: async () => identity,
-  getActorByUserId: async () => ({ id }),
   operations: operations as unknown as RoomRuntimeOperations,
-  active: () => true,
   maxBodyBytes: 4096,
   limiter: () => ({
     consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
@@ -212,6 +210,65 @@ test('a waitlisted account reaches the evaluator only through Room commands (ADR
     should:
       'hand the command to the operation, where the evaluator keeps only leaving, and refuse the read at the edge',
     actual: [command.status, commands, read.status],
+    expected: [200, 1, 403],
+  });
+});
+
+test('a Room list naming a query parameter twice is a validation refusal', async () => {
+  const handlers = createRoomHandlers(dependencies(member, {}));
+  const response = await handlers.list(
+    new Request(`${origin}/api/rooms?a=1&a=2`, { headers: { origin } }),
+  );
+  assert({
+    given: 'a member listing Rooms with a repeated parameter',
+    should: 'answer 400 rather than a server fault',
+    actual: response.status,
+    expected: 400,
+  });
+});
+
+test('a restricted account keeps its Room exit (ADR 0103)', async () => {
+  let commands = 0;
+  const handlers = createRoomHandlers(
+    dependencies(
+      {
+        state: 'restricted',
+        username: 'Member',
+        principal: { kind: 'user', userId: id, actorId: id },
+      },
+      {
+        command: async () => {
+          commands++;
+          return {} as never;
+        },
+        view: async () => ({ id }),
+      },
+    ),
+  );
+  const command = await handlers.commands(
+    new Request(`${origin}/api/rooms/${id}/commands`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        commandId: id,
+        expectedVersion: 1,
+        type: 'leave-seat',
+      }),
+    }),
+    id,
+  );
+  const created = await handlers.create(
+    new Request(`${origin}/api/rooms`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: '{}',
+    }),
+  );
+  assert({
+    given: 'a restricted account leaving a Room and creating one',
+    should:
+      'hand the command to the operation, where the evaluator keeps only leaving, and refuse creation at the edge',
+    actual: [command.status, commands, created.status],
     expected: [200, 1, 403],
   });
 });

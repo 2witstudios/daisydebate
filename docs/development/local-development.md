@@ -244,7 +244,9 @@ used. Main protection is enforced independently by GitHub.
 `ROOM_POLICY` is an optional JSON object read by `readServerConfig` and composed
 by the web server's ordinary `createApp`. When absent, canonical Room routes
 remain unavailable. A configured policy uses the existing authenticated routes,
-same-origin checks and per-member rate limiter; it does not bypass them.
+same-origin checks and per-member rate limiter; it does not bypass them. Round
+routes do not read it: their budgets are committed in
+`apps/web/src/features/round-runtime/round-policy.ts`.
 
 Every field but one is required, with no numeric defaults: `consentTtlMs`
 (milliseconds), `maxBodyBytes`, and `limits.create`, `limits.read`,

@@ -142,7 +142,7 @@ export const roundBallotReads = ({
           tx,
           round,
           { ...roundViewFor(round, input.caller.actorId), waitingOn },
-          input.caller.actorId,
+          { actorId: input.caller.actorId, account: currentAccount },
           input.readOpening,
         ),
         ...ballotReadView({

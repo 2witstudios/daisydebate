@@ -17,14 +17,15 @@ writer. Each stayed correct only while its copies agreed.
 
 ## Decision
 
-1. **One member gate for routes that act as the actor.** `requireMember` in
-   `apps/web/src/server/member-gate.ts` runs session, member, rate budget and
-   current actor. Each feature keeps its own bucket, rule and refusal vocabulary.
-   On these routes an actor that is missing or moved answers INFRASTRUCTURE: a
-   member identity has just read that actor, so the fault is in the data, not in
-   the caller's authority. `runMemberHandler` stays the separate boundary for
-   routes whose evaluator decides from the principal, waitlisted accounts
-   included; it reads no actor. Converging the two is ISSUE-1131.
+1. **One member boundary.** `apps/web/src/server/member-boundary.ts` runs same
+   origin, session, who may pass and, for a route that acts as the member's
+   actor (`runMemberRoute`), the feature's own bucket and rule. A route whose
+   evaluator decides from the principal uses `runEvaluatedRoute`, which waitlisted
+   and restricted accounts pass too. Each feature keeps its own refusal
+   vocabulary. The actor is read once a request, by identity resolution, and a
+   write under the account fence checks it again there; no route reads it
+   again. A missing actor resolves `unavailable`, so it answers INFRASTRUCTURE:
+   the fault is in the data, not in the caller's authority.
 2. **A Round read belongs to Rounds.** `GET /api/rounds/:id` is served by
    `round-runtime` from `roundViewReader`, with its own `round-member:view`
    budget. The Room feature neither serves nor composes it.

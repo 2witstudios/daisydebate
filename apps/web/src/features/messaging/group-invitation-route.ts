@@ -12,8 +12,8 @@ import {
 } from './group-invitation';
 import {
   memberHttpBoundary,
-  runMemberHandler,
-} from '../../server/member-handler';
+  runEvaluatedRoute,
+} from '../../server/member-boundary';
 /** Refusal and minimal reads do not depend on group admission approval. */
 export function composeMessagingGroupInvitationRoutes(app: App) {
   const run = (
@@ -23,7 +23,7 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
   ) => {
     const policy = app.messagingPolicy,
       social = policy.social;
-    return runMemberHandler(memberHttpBoundary(app), request, {
+    return runEvaluatedRoute(memberHttpBoundary(app), request, {
       name: `messaging.invitation.${mode}`,
       readOnly: mode === 'read',
       readInput:

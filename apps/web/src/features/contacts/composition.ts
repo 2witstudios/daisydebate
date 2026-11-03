@@ -1,7 +1,7 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { consumeWindowsOrThrow } from '../../server/rate-limit';
-import { memberHttpBoundary } from '../../server/member-handler';
+import { memberHttpBoundary } from '../../server/member-boundary';
 import { appDiscoverActor } from '../account/username-discovery';
 import { contactPairFence } from './authorization';
 import { blockContact, blockContactByUsername } from './block';

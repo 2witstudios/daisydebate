@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { roundPositionAt } from './round-position';
+import { roundControlsAt, roundPositionAt } from './round-position';
 import { advanceRoundClock } from './round-clock';
 import { normalizeRoundClock, type ClockState } from './round-clock-state';
 import { createRoundRuntime } from './round-runtime';
@@ -214,5 +214,25 @@ test('hydration rejects overlapping intervals before either reader advances', as
       }),
     code: 'INVARIANT',
     invariantId: 'round.segment.matches-rules',
+  });
+});
+
+test('one call derives position and options from one advanced state', () => {
+  const [seat] = oneOnOneSeats;
+  const controls = (now: number) =>
+    roundControlsAt({
+      ...snapshot,
+      participants: oneOnOneSeats,
+      seat: seat!,
+      nowMs: origin + now,
+    });
+  assert({
+    given: 'the instant the countdown ends, with no segment row stored',
+    should: 'read the position the clock advances to, and offer from it',
+    actual: [
+      controls(10_000).position,
+      controls(10_000).options.map((option) => option.type),
+    ],
+    expected: [read(10_000), ['yield', 'forfeit']],
   });
 });

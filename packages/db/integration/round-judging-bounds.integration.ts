@@ -229,9 +229,9 @@ test('the budget fences an active lease: renewal cancels, and a late answer gain
     await fixture.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
     assert({
       given: 'a renewal after the budget',
-      should: 'answer null so the worker cancels',
+      should: 'answer that the job ended, and why, so the worker cancels',
       actual: await jobs.renew(claim.scope, claim.token),
-      expected: null,
+      expected: { kind: 'ended', reason: 'generation_deadline' },
     });
     const [job] =
       await fixture.sql`select status,terminal_reason from round_judging_jobs where round_id=${roundId}`;
@@ -293,10 +293,10 @@ test('a held ballot outlives the budget, and a retry takes no new call', async (
       should:
         'keep the lease and the ballot: the budget bounds generation only',
       actual: {
-        renewed: renewed !== null,
+        renewed: renewed.kind,
         held: verified.pendingBallot !== null,
       },
-      expected: { renewed: true, held: true },
+      expected: { renewed: 'renewed', held: true },
     });
   });
 });
