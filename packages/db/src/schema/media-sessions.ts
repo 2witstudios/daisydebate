@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   foreignKey,
   index,
@@ -36,6 +37,10 @@ export const mediaSessions = pgTable(
     reconcileRequestedAt: timestampColumn('reconcile_requested_at'),
     reconcileStartedAt: timestampColumn('reconcile_started_at'),
     reconcileCompletedAt: timestampColumn('reconcile_completed_at'),
+    /** Whether the last pass finished its work; the recovery tick retries one that did not. */
+    reconcileLastPassClean: boolean('reconcile_last_pass_clean')
+      .notNull()
+      .default(true),
     reconcileLeaseUntil: timestampColumn('reconcile_lease_until'),
     reconcileOwner: text('reconcile_owner'),
     unsafeAt: timestampColumn('unsafe_at'),

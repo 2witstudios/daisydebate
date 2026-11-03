@@ -259,6 +259,7 @@ export function createMediaReconcileStore(input: {
     async finishMediaReconcile(
       request: MediaReconcileFence & {
         readonly absenceProof: MediaAbsenceProof | null;
+        readonly clean: boolean;
         readonly mediaWindowClosed: MediaWindowRule;
       },
     ) {
@@ -298,6 +299,7 @@ export function createMediaReconcileStore(input: {
           terminal,
           unresolved,
           cleaned,
+          clean: request.clean,
         });
         await tx
           .update(mediaSessions)

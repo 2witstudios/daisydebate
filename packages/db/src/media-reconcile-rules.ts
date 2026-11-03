@@ -112,14 +112,17 @@ export function reconcileCompletion(
     readonly terminal: boolean;
     readonly unresolved: boolean;
     readonly cleaned: boolean;
+    /** The pass finished its work; a failed one leaves the Round due to the tick. */
+    readonly clean: boolean;
   },
 ) {
-  const { terminal, unresolved, cleaned } = outcome;
+  const { terminal, unresolved, cleaned, clean } = outcome;
   return {
     fields: {
       reconcileOwner: null,
       reconcileLeaseUntil: null,
       reconcileCompletedAt: now,
+      reconcileLastPassClean: clean,
       reconcileServedVersion: session.reconcileRunningVersion,
       ...(cleaned
         ? {
