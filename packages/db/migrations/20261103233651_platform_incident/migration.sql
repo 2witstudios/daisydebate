@@ -26,7 +26,8 @@ CREATE TABLE "round_incidents" (
 );
 --> statement-breakpoint
 -- Rooms already rotated are history no incident should take up.
-ALTER TABLE "media_room_rotations" ADD COLUMN "cause" text NOT NULL DEFAULT 'seat-revoked', ALTER COLUMN "cause" DROP DEFAULT;--> statement-breakpoint
+ALTER TABLE "media_room_rotations" ADD COLUMN "cause" text NOT NULL DEFAULT 'seat-revoked';--> statement-breakpoint
+ALTER TABLE "media_room_rotations" ALTER COLUMN "cause" DROP DEFAULT;--> statement-breakpoint
 ALTER TABLE "media_sessions" ADD COLUMN "room_saw_capture" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "media_sessions" ADD COLUMN "room_occupied_sid" text;--> statement-breakpoint
 ALTER TABLE "round_segments" ADD COLUMN "returned_ms" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
