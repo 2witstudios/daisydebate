@@ -25,6 +25,11 @@ const screen: Extract<RecordingHistoryScreen, { kind: 'history' }> = {
   result: null,
   downloadHref: null,
   removal: null,
+  reportTarget: {
+    targetKind: 'recording',
+    targetId: 'rec',
+    label: 'Report this recording',
+  },
 };
 const render = (over: Partial<typeof screen> = {}) =>
   renderToString(

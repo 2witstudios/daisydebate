@@ -8,7 +8,7 @@ export async function submitReport(
   form: FormData,
 ): Promise<ReportSubmission> {
   try {
-    const response = await fetch('/api/reports', {
+    const response = await fetch('/api/content-reports', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
