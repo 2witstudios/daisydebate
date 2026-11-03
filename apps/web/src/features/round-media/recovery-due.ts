@@ -102,7 +102,8 @@ export const recoveryDue = <S extends RecoverySession>(
         !running.has(session.roundId) &&
         recoveryNeed(session, heartbeatMs) === need,
     );
-  const [longestOverdue, ...otherOverdue] = needing('overdue').toSorted(
+  // `filter` made this array, so sorting it in place touches nothing shared.
+  const [longestOverdue, ...otherOverdue] = needing('overdue').sort(
     (a, b) => Date.parse(a.lastPassAt!) - Date.parse(b.lastPassAt!),
   );
   return [
