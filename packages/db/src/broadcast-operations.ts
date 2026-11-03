@@ -205,6 +205,7 @@ export const recordEgressStarted = (
     .set({
       egressId: input.egressId,
       egressGeneration: input.generation,
+      revocationFailures: 0,
       stageCredentialHash: input.stageCredentialHash,
       egressStartedAt: input.now,
     })
