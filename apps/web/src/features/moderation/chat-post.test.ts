@@ -28,7 +28,10 @@ describe('Posting to spectator chat', () => {
         decideChatPost({ ...facts, slowModeSeconds: 10 }),
         decideChatPost({ ...facts, slowModeSeconds: 10, nowMs: 11_000 }),
       ],
-      expected: [{ kind: 'slow-mode', retryAfterMs: 9_000 }, { kind: 'allowed' }],
+      expected: [
+        { kind: 'slow-mode', retryAfterMs: 9_000 },
+        { kind: 'allowed' },
+      ],
     });
   });
 

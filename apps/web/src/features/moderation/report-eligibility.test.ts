@@ -6,7 +6,11 @@ setupRitewayBun();
 
 const id = 'a'.repeat(24);
 const round = (reason: 'harassment' | 'result_dispute' | 'integrity_concern') =>
-  ({ targetKind: 'round', targetId: id, reason }) as const satisfies ReportCreate;
+  ({
+    targetKind: 'round',
+    targetId: id,
+    reason,
+  }) as const satisfies ReportCreate;
 const feedback: ReportCreate = {
   targetKind: 'ballot_feedback',
   targetId: id,

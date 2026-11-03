@@ -64,9 +64,10 @@ export function createReportHandler({
       async (requestId) => {
         requireSameOrigin(request, origin());
         const identity = requireSignedIn(await identify(request));
-        if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
-        const { userId, actorId } = identity.principal;
-        if (actorId === null) throw createAppError('AUTHORIZATION');
+        // Interaction needs an account, not admission (owner rule); limits still apply.
+        const { userId, actorId: seatActor } = identity.principal;
+        // An account with no actor holds no seat: its user id matches none.
+        const actorId = seatActor ?? userId;
         await consumeOrThrow(
           limiter(),
           `moderation:report:${userId}`,

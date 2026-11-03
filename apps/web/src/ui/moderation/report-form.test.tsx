@@ -4,9 +4,7 @@ import { ReportForm } from './report-form';
 
 setupRitewayBun();
 
-const render = (
-  targetKind: 'round' | 'ballot_feedback',
-) =>
+const render = (targetKind: 'round' | 'ballot_feedback') =>
   renderToStaticMarkup(
     <ReportForm
       targetKind={targetKind}

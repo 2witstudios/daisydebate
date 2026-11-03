@@ -28,7 +28,12 @@ export function composeRoundRoutes(app: App) {
         },
         roundWaitingOn,
       );
-      return { ...view, viewerIsUndelayedObserver };
+      return {
+        ...view,
+        viewerIsUndelayedObserver,
+        conversationHeld:
+          await app.database.broadcasts.conversationHeld(roundId),
+      };
     },
     transcript: (caller, roundId) =>
       app.database.readRoundTranscript({

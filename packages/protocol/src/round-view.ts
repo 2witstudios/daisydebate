@@ -92,6 +92,8 @@ export const roundViewSchema = z.strictObject({
   viewerIsHost: z.boolean(),
   /** Set by the Round read from `round.observe.undelayed`; absent means no. */
   viewerIsUndelayedObserver: z.boolean().optional(),
+  /** The audience stream may still receive this Round, so conversation waits. */
+  conversationHeld: z.boolean().optional(),
   /** The draw's public envelope once the Round has ended; null otherwise. */
   resolutionAudit: resolutionAuditSchema.nullable(),
   /** Null when the stored checkpoint is unreadable: no live position, not an error. */

@@ -28,6 +28,7 @@ import { leaveIntent } from '../../features/round-runtime/leave-intent';
 import { RoundEndedNotice } from './round-ended';
 import { useSecond } from './use-second';
 import { useRoundTime } from './use-round-time';
+import { ConversationHeldNotice } from './conversation-held-notice';
 import { RoundTimeNotice } from './round-time-notice';
 
 /**
@@ -145,6 +146,7 @@ export function LiveRoundRoom({
   const notices = (
     <>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
+      <ConversationHeldNotice view={view} nowMs={now} />
       <RoundTimeNotice roundTime={roundTime} />
       {outcome ? (
         <p role="status" className="sr-only">

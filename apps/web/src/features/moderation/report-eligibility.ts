@@ -13,7 +13,10 @@ export type ReportTargetFacts =
       readonly reporterSeated: boolean;
     }
   | { readonly kind: 'chat_message'; readonly ownMessage: boolean }
-  | { readonly kind: 'ballot_feedback'; readonly feedbackIsForReporter: boolean };
+  | {
+      readonly kind: 'ballot_feedback';
+      readonly feedbackIsForReporter: boolean;
+    };
 
 export type ReportRefusal = 'report-not-found' | 'report-not-eligible';
 

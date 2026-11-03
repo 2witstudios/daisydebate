@@ -3,6 +3,7 @@ import type {
   RoundPosition,
   RoundRules,
 } from '@daisy/protocol';
+import { conversational } from '@daisy/protocol';
 import { speakingParticipants } from './round-speaking';
 
 export type RoundMediaGrants = {
@@ -64,9 +65,6 @@ const publishSources = (
   ...(human ? ['camera' as const] : []),
   ...(microphone ? ['microphone' as const] : []),
 ];
-const conversational = (position: RoundPosition) =>
-  position.awaitingBallot ||
-  (position.openSegment === null && position.nextSegment?.sequence === 0);
 
 /** Fresh authoritative seats and a server-ticked position; never a browser clock or timetable. */
 export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {

@@ -7,6 +7,7 @@ import {
   discoverUnopenedBroadcastRounds,
   listOpenBroadcasts,
   openBroadcast,
+  readConversationHeld,
   readBroadcastRoom,
   recordEgressStarted,
   recordFinalMediaEnd,
@@ -31,6 +32,8 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
     readonly releasePolicy: BroadcastReleasePolicy;
   }) => openBroadcast(database, input),
   listOpen: (limit: number) => listOpenBroadcasts(database, limit),
+  conversationHeld: (roundId: string) =>
+    readConversationHeld(database, { roundId }),
   claimReconcile: (input: Parameters<typeof claimBroadcastReconcile>[1]) =>
     claimBroadcastReconcile(database, input),
   /** Everything the stage burns in. Read-only, and it locks nothing. */

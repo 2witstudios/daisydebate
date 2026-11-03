@@ -483,3 +483,4 @@ export {
   sealReply,
   tokenReply,
 } from './capture-worker-replies';
+export { conversational } from './runtime';

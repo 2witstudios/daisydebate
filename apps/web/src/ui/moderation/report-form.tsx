@@ -1,7 +1,4 @@
-import {
-  reasonsForTarget,
-  type ReportTargetKind,
-} from '@daisy/protocol';
+import { reasonsForTarget, type ReportTargetKind } from '@daisy/protocol';
 import { reportReasonLabels } from '../../features/moderation/report-labels';
 
 /**

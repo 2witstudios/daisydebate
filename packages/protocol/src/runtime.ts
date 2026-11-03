@@ -161,3 +161,13 @@ export type RoundPosition = {
   /** True while the final segment has spoken but the outcome is not in. */
   readonly awaitingBallot: boolean;
 };
+
+/** Conversation microphones may open: before the first segment or awaiting a ballot. */
+export const conversational = (
+  position: Pick<
+    RoundPosition,
+    'awaitingBallot' | 'openSegment' | 'nextSegment'
+  >,
+) =>
+  position.awaitingBallot ||
+  (position.openSegment === null && position.nextSegment?.sequence === 0);

@@ -78,12 +78,13 @@ describe('POST /api/reports', () => {
     });
   });
 
-  test('anything but a member is refused', async () => {
+  test('any signed-in account may report, within the limit', async () => {
+    const answer = await post({ state: 'pending' });
     assert({
-      given: 'an account that is not a member',
-      should: 'refuse and file nothing',
-      actual: await post({ state: 'pending' }),
-      expected: { status: 403, filed: [] },
+      given: 'an account not yet admitted',
+      should: 'file the report, since interaction needs only an account',
+      actual: [answer.status, answer.filed.length],
+      expected: [200, 1],
     });
   });
 
