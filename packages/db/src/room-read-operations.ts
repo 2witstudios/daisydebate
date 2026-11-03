@@ -1,5 +1,5 @@
 import {
-  settledRoundTopic,
+  currentRoomTopic,
   withOpening,
   type ReadOpening,
   type ReadOpeningTopic,
@@ -262,12 +262,12 @@ export const roomReadOperations = ({
         if (!row) throw createAppError('NOT_FOUND');
         const facts = await roomFacts(tx, row);
         if (!authorize(facts.state, account)) throw createAppError('NOT_FOUND');
-        const { state } = facts;
-        const opening =
-          state.roundRef?.status === 'opening' ? state.roundRef.id : null;
-        const settled =
-          opening && (await settledRoundTopic(tx, opening, readTopic));
-        return settled ? { state: { ...state, topic: settled } } : facts;
+        return {
+          state: {
+            ...facts.state,
+            topic: await currentRoomTopic(tx, facts.state, readTopic),
+          },
+        };
       }),
     );
   },

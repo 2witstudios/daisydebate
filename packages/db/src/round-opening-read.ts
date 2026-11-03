@@ -66,16 +66,21 @@ export type ReadOpeningTopic = (
 ) => string | null;
 
 /**
- * The resolution a Round in its opening has settled to, before a tick stores
- * it (ISSUE-1127). The Room read and the Lobby read it here, so they answer as
- * the Round read does.
+ * The one answer to a Room's resolution: what is stored, or, while its Round is
+ * opening, what that opening has settled to before a tick stores it
+ * (ISSUE-1127). Only a Round still undecided costs a read of its opening.
  */
-export const settledRoundTopic = async (
+export const currentRoomTopic = async (
   tx: Tx,
-  roundId: string,
+  room: {
+    readonly topic: string | null;
+    readonly roundRef: { readonly id: string; readonly status: string } | null;
+  },
   readTopic: ReadOpeningTopic,
 ): Promise<string | null> => {
-  const settled = await openingNow(tx, roundId);
+  if (room.topic !== null || room.roundRef?.status !== 'opening')
+    return room.topic;
+  const settled = await openingNow(tx, room.roundRef.id);
   return settled && readTopic(settled.opening, settled.now);
 };
 
@@ -96,5 +101,5 @@ export const withOpening = async (
     viewerActorId,
     settled.now,
   );
-  return { ...view, opening: read.view, topic: read.topic ?? view.topic };
+  return { ...view, opening: read.view, topic: view.topic ?? read.topic };
 };

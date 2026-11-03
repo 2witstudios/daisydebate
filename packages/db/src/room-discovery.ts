@@ -13,7 +13,7 @@ import {
   type Tx,
 } from './room-command-facts';
 import { loadAuthorizationAccount } from './authorization';
-import { settledRoundTopic, type ReadOpeningTopic } from './round-opening-read';
+import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
 type Seat = {
   readonly actorId: string;
   readonly role: string;
@@ -217,17 +217,13 @@ export async function discoverRooms(
         ...r
       }) => r,
     );
-  // One at a time: a transaction runs one query. Only an opening Round costs a read.
+  // One at a time: a transaction runs one query.
   const rooms: typeof entries = [];
   for (const room of entries)
-    rooms.push(
-      room.topic === null && room.roundRef?.status === 'opening'
-        ? {
-            ...room,
-            topic: await settledRoundTopic(tx, room.roundRef.id, readTopic),
-          }
-        : room,
-    );
+    rooms.push({
+      ...room,
+      topic: await currentRoomTopic(tx, room, readTopic),
+    });
   return {
     rooms,
     nextCursor: more ? (rooms.at(-1)?.id ?? null) : null,

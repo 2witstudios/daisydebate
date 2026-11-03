@@ -100,7 +100,7 @@ test('a reveal no tick has stored reads the same from the Round, the Room and th
     await new Promise((resolve) =>
       setTimeout(resolve, AUTOMATIC_STRIKE_DELAY_MS + 250),
     );
-    const survivor = (await f.operations.roundView(f.outsider, roundId)).topic;
+    const survivor = (await f.roundView(f.outsider, roundId)).topic;
     const [stored] = await f.sql`
       select resolution from rounds where id = ${roundId}`;
     assert({
