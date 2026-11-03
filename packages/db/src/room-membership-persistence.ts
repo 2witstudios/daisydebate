@@ -1,7 +1,7 @@
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { ActiveRoomFacts } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
+import { createRefusal } from '@daisy/errors';
 import { roomActiveMemberships, roomParticipants, rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 
@@ -41,7 +41,7 @@ export async function holdActiveRoomMembers(
     .from(roomActiveMemberships)
     .where(inArray(roomActiveMemberships.actorId, members));
   if (held.length !== members.length || held.some((r) => r.roomId !== roomId))
-    throw createAppError('CONFLICT', 'active-room');
+    throw createRefusal('CONFLICT', 'active-room');
 }
 
 /** A Round that ends frees every member of its Room: no terminal state holds anyone. */

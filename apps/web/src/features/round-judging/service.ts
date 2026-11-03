@@ -15,9 +15,7 @@ type Entry<C> = {
 /** Submissions of a saved ballot tried in a row before the slot is released (ISSUE-463). */
 const MAX_SUBMISSION_REFUSALS = 3;
 const awaitingAttendance = (error: unknown) =>
-  isAppError(error) &&
-  error.code === 'CONFLICT' &&
-  error.message === 'attendance-unsettled';
+  isAppError(error) && error.reason === 'attendance-unsettled';
 /** Lease renewal never queues behind provider execution or attendance settlement. */
 export function startRoundJudgingService<C extends Claim>(input: {
   readonly store: {

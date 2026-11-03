@@ -1,11 +1,11 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { retryStale } from './retry-stale';
 
 setupRitewayBun();
 
-const exhausted = () => createAppError('CONFLICT', 'version-conflict');
+const exhausted = () => createRefusal('CONFLICT', 'version-conflict');
 
 test('stale work retries from fresh facts, then refuses', async () => {
   const stale = new Error('stale');

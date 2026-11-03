@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError } from '@daisy/errors';
+import { createRefusal } from '@daisy/errors';
 import { noopErrorReporter } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
 import { silentLogger } from '../../server/test-loggers.test-support';
@@ -127,7 +127,11 @@ test('a deferred media request answers 503 without alerting anyone', async () =>
     operations: () =>
       ({
         session: async () => {
-          throw createAppError('INFRASTRUCTURE', 'media-deferred');
+          throw createRefusal(
+            'INFRASTRUCTURE',
+            'media-deferred',
+            'Reworded sentence',
+          );
         },
       }) as never,
   });
