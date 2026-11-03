@@ -35,9 +35,12 @@ export async function readCaptureShortfall(
         eq(transcriptSegments.state, 'partial'),
       ),
     );
-  // A coverage gap alone can be a silent seat, never the platform's failure to state.
-  const lost = partial.filter((stream) =>
-    partialReasonsStateLoss(stream.partialReasons),
+  // A coverage gap alone can be a silent seat, never the platform's failure to state. A
+  // takeover's gap is the platform's: a worker died there.
+  const lost = partial.filter(
+    (stream) =>
+      partialReasonsStateLoss(stream.partialReasons) ||
+      stream.partialReasons.includes('other-worker-evidence'),
   );
   const found = await closedStreamGaps(tx, roundId, lost, rule);
   const gaps = lost.flatMap((stream) =>

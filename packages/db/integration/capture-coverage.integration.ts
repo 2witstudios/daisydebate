@@ -255,7 +255,7 @@ test('a seat that went quiet is no loss of the platform', async () => {
 });
 
 /** A worker dies part way through a stream, and its takeover seals the stream whole. */
-const takenOverShortfall = () => {
+const takenOverShortfall = (resumedAtMs = 3000) => {
   let result:
     | (Awaited<ReturnType<typeof readCaptureShortfall>> & {
         readonly sealed: string;
@@ -297,7 +297,7 @@ const takenOverShortfall = () => {
     await store.observeCapturedStream({
       ...next,
       trackId: createId(),
-      observedFrom: at(3000),
+      observedFrom: at(resumedAtMs),
       observedUntil: at(5164),
     });
     const sealed = await store.sealCapturedStream({
@@ -335,5 +335,19 @@ test('a capture takeover with no gap is judged', async () => {
       }).dispatchAiJudges,
     },
     expected: { sealed: 'partial', gapMs: 0, dispatch: true },
+  });
+});
+
+test("a takeover's gap is the platform's, and stated", async () => {
+  const shortfall = await takenOverShortfall(3400);
+  assert({
+    given: 'a stream relaunched mid-speech with 400 ms unheard',
+    should: 'measure it, state it, and call it lost audio',
+    actual: {
+      gapMs: shortfall.captureGapMs,
+      gaps: shortfall.captureGaps.gaps.length,
+      lost: shortfall.platformLostAudio,
+    },
+    expected: { gapMs: 400, gaps: 1, lost: true },
   });
 });
