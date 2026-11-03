@@ -73,7 +73,11 @@ type CommandInput = {
    */
   readonly readyAgreements: (state: RoomAssemblyState) => {
     readonly contentWaiverVersion: string | null;
-    readonly notice: { readonly id: string; readonly version: string } | null;
+    readonly notice: {
+      readonly id: string;
+      readonly version: string;
+      readonly words: string;
+    } | null;
   } | null;
   readonly prepare: (
     state: RoomAssemblyState,

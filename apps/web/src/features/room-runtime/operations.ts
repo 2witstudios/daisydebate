@@ -10,7 +10,11 @@ import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
-import { requiredContentWaiver, roomCaptureNotice } from './ready-agreements';
+import {
+  createNoticeOf,
+  requiredContentWaiver,
+  roomCaptureNotice,
+} from './ready-agreements';
 import type { Database } from '@daisy/db';
 import {
   readRoundOpeningTopic,
@@ -242,6 +246,9 @@ export function createRoomRuntimeOperations({
       resolved,
       recheck,
     } = await resolveRoomSelection(body, store, ids);
+    const createNotice = createNoticeOf(competitionType, body.noticeVersion);
+    if (createNotice.kind === 'stale')
+      throw createRefusal('CONFLICT', 'capture-notice-changed');
     const resolutionSelection = body.resolution;
     const publication =
       resolutionSelection.kind === 'policy' ||
@@ -285,6 +292,14 @@ export function createRoomRuntimeOperations({
       },
       selection: recheck,
       ...(body.holdSeatsFor ? { holdSeatsFor: body.holdSeatsFor } : {}),
+      notice:
+        createNotice.kind === 'shown'
+          ? {
+              id: ids.next(),
+              version: createNotice.notice.version,
+              words: createNotice.notice.text,
+            }
+          : null,
       cast: cast.length
         ? {
             seats: cast.map((seat) => ({

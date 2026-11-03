@@ -55,11 +55,13 @@ test('a signature records account, version, season and time, once', async () => 
         id: createId(),
         userId,
         version: 'draft-1',
+        words: 'The words of draft 1.',
       });
       await agreements.signContentWaiver({
         id: createId(),
         userId,
         version: 'draft-1',
+        words: 'The words of draft 1.',
       });
       const [row] = (await client.unsafe(
         `select agreement, version, season_id, room_id, signed_at is not null as timed
@@ -106,8 +108,8 @@ test('the scope follows the agreement', async () => {
       const insert = (agreement: string, season: unknown, room: unknown) =>
         client
           .unsafe(
-            `insert into agreement_signatures (id, user_id, agreement, version, season_id, room_id, signed_at)
-           values ($1, $2, $3, 'draft-1', $4, $5, now())`,
+            `insert into agreement_signatures (id, user_id, agreement, version, words, season_id, room_id, signed_at)
+           values ($1, $2, $3, 'draft-1', 'The words.', $4, $5, now())`,
             [createId(), userId, agreement, season, room],
           )
           .then(
@@ -137,6 +139,7 @@ test('erasure keeps the signature as evidence, and export returns it', async () 
         id: createId(),
         userId,
         version: 'draft-1',
+        words: 'The words of draft 1.',
       });
       const exported = await exportThenErase(database, { userId, actorId }, [
         agreementSignaturePrivacyAdopter,
