@@ -57,7 +57,10 @@ export type RecordingStore = {
   /** `apply` for a participant's removal; a move also ends the Round's open feed. */
   readonly applyParticipantRemoval: (
     recordingId: string,
-    decide: (record: RecordingRecord) => RecordingTransition,
+    decide: (
+      record: RecordingRecord,
+      underOpenReport: boolean,
+    ) => RecordingTransition,
     input: { readonly expectedVersion: number; readonly now: string },
   ) => Promise<RecordingApplied>;
   /** Up to `limit` due deletions, leased so two workers never share one. */

@@ -45,6 +45,7 @@ import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
 import { composeAudienceRoutes } from '../features/spectating/audience-composition';
 import { createAudienceLinkHandlers } from '../features/audience-link/handlers';
+import { limitAnonymousReads } from '../features/spectating/anonymous-read-limit';
 import { createSpectatorTimelineHandlers } from '../features/spectating/handlers';
 import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { identify } from '../lib/identity';
@@ -108,6 +109,7 @@ export function createRoutes(app: App) {
       store: database,
       clock: app.clock,
       feedUrlOf: broadcastFeedUrls(app.config.BROADCAST_PUBLIC_ORIGIN),
+      limitRead: limitAnonymousReads(() => app.limiter),
     }),
     rounds: {
       ...composeRoundRoutes(app),

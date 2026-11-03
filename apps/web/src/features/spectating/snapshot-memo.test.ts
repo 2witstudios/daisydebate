@@ -72,6 +72,39 @@ describe('createSnapshotMemo', () => {
   });
 });
 
+describe('createSnapshotMemo when full', () => {
+  test('evicts the oldest, so a flood cannot flush what a crowd is sharing', async () => {
+    const m = setup(2);
+    await m.read('crowd');
+    await m.read('flood-1');
+    const held = m.reads();
+    await m.read('flood-2');
+    await m.read('flood-1');
+    assert({
+      given: 'a full memo and one more key',
+      should: 'drop only the oldest, and keep the newer entry',
+      actual: m.reads(),
+      expected: held + 1,
+    });
+  });
+
+  test('evicts what has expired before anything still good', async () => {
+    const m = setup(2);
+    await m.read('old');
+    m.tick(1000);
+    await m.read('fresh');
+    await m.read('new');
+    const held = m.reads();
+    await m.read('fresh');
+    assert({
+      given: 'one expired entry and one good, then a new key',
+      should: 'keep the good one',
+      actual: m.reads(),
+      expected: held,
+    });
+  });
+});
+
 describe('createSnapshotMemo keeping a refusal', () => {
   test('a refusal holds for the interval, and only a refusal', async () => {
     let nowMs = 0;

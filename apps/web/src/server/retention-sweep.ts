@@ -194,7 +194,8 @@ export function retentionTargets({
     },
     /**
      * DEC-101 and DEC-89 (ISSUE-498): private transcript lines and cached AI
-     * judging responses are kept 180 days. A cleared response fails its job
+     * judging responses are kept 180 days; a ranked Round's transcript is kept, as its
+     * waiver says. A cleared response fails its job
      * (DEC-223). Round analyses keep the same window as the transcript they
      * read, under their own target.
      */

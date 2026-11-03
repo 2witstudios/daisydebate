@@ -7,6 +7,23 @@
  * it is safe. A held answer is only ever older than the instant it is served at,
  * so it can never run ahead of the release rule its read applied.
  */
+/**
+ * Makes room for one: what has expired first, else the oldest. Never everything, so a
+ * flood of new keys cannot make a crowd's shared answer read again.
+ */
+const evictOne = (
+  entries: Map<string, { readonly until: number }>,
+  nowMs: number,
+) => {
+  for (const [key, entry] of entries)
+    if (entry.until <= nowMs) {
+      entries.delete(key);
+      return;
+    }
+  const oldest = entries.keys().next();
+  if (!oldest.done) entries.delete(oldest.value);
+};
+
 export const createSnapshotMemo = <T>(options: {
   readonly nowMs: () => number;
   readonly ttlMs: number;
@@ -21,7 +38,8 @@ export const createSnapshotMemo = <T>(options: {
     const nowMs = options.nowMs();
     const held = entries.get(key);
     if (held && held.until > nowMs) return held.value;
-    if (entries.size >= options.maxEntries) entries.clear();
+    entries.delete(key);
+    if (entries.size >= options.maxEntries) evictOne(entries, nowMs);
     const value = read();
     const entry = { until: nowMs + options.ttlMs, value };
     entries.set(key, entry);

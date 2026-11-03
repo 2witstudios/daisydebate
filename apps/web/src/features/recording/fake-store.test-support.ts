@@ -57,7 +57,7 @@ export const fakeRecordingStore = (
       [...rows.values()].find((row) => row.roundId === roundId) ?? null,
     apply,
     applyParticipantRemoval: (id, decide, { expectedVersion }) =>
-      apply(id, decide, expectedVersion),
+      apply(id, (record) => decide(record, false), expectedVersion),
     claimDeletions: async ({ limit }): Promise<RecordingDeletionClaim[]> =>
       [...rows.values()]
         .filter((row) => row.lifecycle.status === 'removing')

@@ -9,7 +9,7 @@ import {
 import { sql } from 'drizzle-orm';
 import type { RecordingModeration } from './content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
-import { moveRecording } from './recording-move';
+import { moveRecording, recordingUnderOpenReport } from './recording-move';
 import { requeueRecordingJob } from './recording-processing-operations';
 
 type ReportRow = {
@@ -86,7 +86,10 @@ export const recordingModeration: RecordingModeration = {
         lifecycle.status === 'taken_down' &&
         lifecycle.held !== null &&
         !heldAsEvidence,
-      removable: lifecycle.status === 'taken_down' && !heldAsEvidence,
+      removable:
+        lifecycle.status === 'taken_down' &&
+        !heldAsEvidence &&
+        !(await recordingUnderOpenReport(tx, recordingId)),
       rebuildable:
         lifecycle.status === 'failed' &&
         lifecycle.capture !== undefined &&
@@ -121,8 +124,13 @@ export const recordingModeration: RecordingModeration = {
       ),
       'conflict',
     ),
-  remove: async (tx, input) =>
-    outcomeOf(
+  remove: async (tx, input) => {
+    const underOpenReport = await recordingUnderOpenReport(
+      tx,
+      input.recordingId,
+    );
+    const at = input.now.toISOString();
+    return outcomeOf(
       await moveRecording(
         tx,
         input.recordingId,
@@ -130,12 +138,14 @@ export const recordingModeration: RecordingModeration = {
           transitionRecording(record, {
             type: 'removal_requested',
             cause: 'moderation',
-            at: input.now.toISOString(),
+            at,
+            ...(underOpenReport ? { evidenceHeldUntil: at } : {}),
           }),
         input.expectedVersion,
       ),
       'conflict',
-    ),
+    );
+  },
   legallyRemove: async (tx, input) =>
     outcomeOf(
       await moveRecording(

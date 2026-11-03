@@ -58,6 +58,21 @@ const written = (id: string, next: RecordingLifecycle) => {
     where id=${id} returning ${COLUMNS}`;
 };
 
+/** Whether an open report names this Recording or its Round: it is evidence until decided. */
+export const recordingUnderOpenReport = async (
+  tx: Pick<BoundedTransactionContext, 'execute'>,
+  id: string,
+): Promise<boolean> => {
+  const [row] = (await tx.execute(sql`select exists(
+      select 1 from recordings rec join content_reports c on c.status='open' and (
+        (c.target_kind='recording' and c.target_id=rec.id)
+        or (c.target_kind='round' and c.target_id=rec.round_id))
+      where rec.id=${id}) as reported`)) as unknown as {
+    readonly reported: boolean;
+  }[];
+  return row?.reported ?? false;
+};
+
 /**
  * The one way a Recording's lifecycle is written: the caller's pure decision under
  * the row lock, in the caller's transaction, so racing operations serialize and

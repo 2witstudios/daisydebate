@@ -340,6 +340,20 @@ describe('after moderation hides a Recording', () => {
     return shown.transcript !== null;
   };
 
+  test('the audience keeps the result and loses the ballots', async () => {
+    const shown = await history({
+      round: ranked,
+      lifecycle: hidden,
+      viewer: { kind: 'visitor' },
+    });
+    assert({
+      given: 'a stranger on a ranked Round whose Recording was taken down',
+      should: 'show the result panel with no ballot in it',
+      actual: [shown.result !== null, shown.result?.ballots],
+      expected: [true, []],
+    });
+  });
+
   test('the audience gets no transcript, on the page either', async () => {
     assert({
       given: 'a stranger on a ranked Round whose Recording was taken down',

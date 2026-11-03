@@ -41,7 +41,7 @@ export type RecordingEvent =
       readonly cause: RecordingRemovalCause;
       readonly at: string;
       /**
-       * Set when an open report holds a taken-down casual Recording as evidence:
+       * Set when an open report holds this Recording as evidence:
        * the removal is owed, and waits until then at the latest.
        */
       readonly evidenceHeldUntil?: string;
@@ -227,30 +227,35 @@ const removalRequested = (
     return refused('ranked_is_kept');
   if (lifecycle.status === 'removing' || lifecycle.status === 'removed')
     return unchanged;
-  // Only a legal removal outruns an owed erasure's hold.
+  // Only a legal removal outruns a hold, owed or from a report still open.
   if (
-    lifecycle.status === 'taken_down' &&
-    lifecycle.removalOwed &&
-    event.cause === 'moderation'
+    event.cause === 'moderation' &&
+    (event.evidenceHeldUntil !== undefined ||
+      (lifecycle.status === 'taken_down' && lifecycle.removalOwed))
   )
     return refused('evidence_held');
   // Moderation takes a Recording down, then decides; only a legal ground skips that.
   if (event.cause === 'moderation' && lifecycle.status !== 'taken_down')
     return refused('take_down_first');
   if (
-    lifecycle.status === 'taken_down' &&
     event.cause === 'participant_request' &&
     event.evidenceHeldUntil !== undefined
-  )
+  ) {
+    const removalOwed = {
+      requestedAt: event.at,
+      heldUntil: event.evidenceHeldUntil,
+    };
+    if (lifecycle.status !== 'taken_down')
+      return moved({
+        status: 'taken_down',
+        takenDownAt: event.at,
+        held: lifecycle.status === 'ready' ? lifecycle : null,
+        removalOwed,
+      });
     return lifecycle.removalOwed
       ? unchanged
-      : moved({
-          ...lifecycle,
-          removalOwed: {
-            requestedAt: event.at,
-            heldUntil: event.evidenceHeldUntil,
-          },
-        });
+      : moved({ ...lifecycle, removalOwed });
+  }
   return moved({
     status: 'removing',
     cause: event.cause,

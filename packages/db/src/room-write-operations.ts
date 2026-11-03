@@ -1,3 +1,4 @@
+import { admitCasualCapture } from './casual-capture-admission';
 import type { RoundBotAdmission } from './round-bot-admission';
 import { persistRoomMutation } from './room-mutation-persistence';
 
@@ -226,6 +227,15 @@ async function executeOnce(
     botAdmission,
     botLocked,
   );
+  if (
+    outcome.mutation.freeze &&
+    outcome.mutation.state.competitionType !== 'ranked' &&
+    outcome.mutation.state.capture !== null
+  )
+    await admitCasualCapture(tx, {
+      hostActorId: outcome.mutation.state.hostActorId,
+      roundId: input.roundId,
+    });
   if (agreements?.notice && outcome.mutation.consent?.type === 'ready')
     await recordCaptureNotice(tx, {
       ...agreements.notice,

@@ -115,6 +115,13 @@ unknown when it failed is gone even if history later proves it public, and shows
 `recording.build_ceiling_exceeded` means one run went past three times the bound. It was
 stopped and counted as a failed attempt, and it retries. Nothing is discarded.
 
+## Casual capture limits
+
+A casual Launch with a broadcast or recording chosen is refused while its host already has two
+running (`capture-host-limit`), or eight run fleet-wide (`capture-capacity`). Ranked is never
+refused or counted, so what the Egress machines hold above eight is ranked's. Raise
+`CASUAL_CAPTURES_AT_ONCE` with the machines.
+
 ## Coverage
 
 `media.gaps` states what the video shows as something other than the debate, and the
@@ -134,7 +141,7 @@ a Recording still up. A Recording taken down while ready can be restored as it w
 can watch it again. A takedown, a moderation removal and a legal removal each end the feed of
 the Round's open Broadcast and withdraw it, and a restore does not start it again.
 A ranked Round leaves the archive with its Recording, and the audience no longer gets its
-transcript on the Recording page; a member seated in the Round still does. The reason is kept
+transcript, captions or ballots on the timeline or the Recording page, though the result stands; a member seated in the Round still does. The reason is kept
 on the Recording, from a closed list. A takedown just after a Broadcast completed withdraws its
 feed at once rather than after the 60 second grace.
 
@@ -144,11 +151,11 @@ page must be read again.
 
 ## Evidence hold
 
-Erasure of a seat does not remove a casual Recording that is already taken down while a
-report on it or its Round is open. It stays hidden with its removal owed, cannot be
+Erasure of a seat or a participant's removal does not delete a casual Recording while a
+report on it or its Round is open. It is hidden with its removal owed, cannot be
 restored, and the deletion sweep moves it to `removing` when the report closes or 90 days
-after the request, whichever is first. An ordinary moderation deletion is refused during the
-hold. The one exception is "Remove for a legal reason": it needs a closed legal ground, which
+after the request, whichever is first. An ordinary moderation deletion is refused until the
+report closes, and an old failed capture's cleanup waits for it. The one exception is "Remove for a legal reason": it needs a closed legal ground, which
 goes on the admin audit chain, and it goes at once.
 
 ```sql

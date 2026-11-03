@@ -133,6 +133,27 @@ test('transcript retention removes utterances and pending judging responses 180 
     });
   }));
 
+test('a ranked Round keeps its transcript past the window, as its waiver says', () =>
+  withSpokenRound(recordedAt, async ({ fixture, lines, roundId, state }) => {
+    await fixture.sql`update rounds set competition_type='ranked', format_id='freestyle',
+      ladder_id='freestyle', preset_version=1 where id=${roundId}`;
+    const retention = transcriptRetention({
+      database: drizzle({ client: fixture.sql }),
+    });
+    assert({
+      given: 'lines of a ranked Round well past 180 days',
+      should: 'delete none of them',
+      actual: [
+        await retention.purgeExpiredUtterances({
+          before: '2027-01-01T00:00:00.000Z',
+          limit: 10,
+        }),
+        (await state()).utterances,
+      ],
+      expected: [0, [lines.subject, lines.other]],
+    });
+  }));
+
 test('subject erasure removes their transcript lines and every pending judgment of their Rounds', async () =>
   withSpokenRound(
     new Date().toISOString(),
