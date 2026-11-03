@@ -1,7 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RecordingViewer } from './audience';
-import { account, at, deps, ready, record } from './fixture.test-support';
+import { account, at, deps, record } from './fixture.test-support';
 import { requestParticipantRemoval } from './removal';
 
 setupRitewayBun();
