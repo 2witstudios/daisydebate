@@ -53,8 +53,7 @@ describe('ballots (DATA-3.1)', () => {
       );
       assert({
         given: 'ballots for two judge seats',
-        should:
-          'accept one; reject a second per seat and a bad winner',
+        should: 'accept one; reject a second per seat and a bad winner',
         actual: { submitted, secondForSeat, badWinner },
         expected: {
           submitted: true,
