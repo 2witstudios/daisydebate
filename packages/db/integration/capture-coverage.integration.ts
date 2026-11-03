@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { captureRule } from '@daisy/debate-engine';
+import { captureRule, freezeJudgingPlan } from '@daisy/debate-engine';
 import { readCaptureShortfall } from '../src/capture-shortfall';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { historicalCapture } from './media-capture.test-support';
@@ -251,5 +251,89 @@ test('a seat that went quiet is no loss of the platform', async () => {
     should: 'state nothing, and measure zero',
     actual: { captureGapMs, gaps: captureGaps.gaps, platformLostAudio },
     expected: { captureGapMs: 0, gaps: [], platformLostAudio: false },
+  });
+});
+
+/** A worker dies part way through a stream, and its takeover seals the stream whole. */
+const takenOverShortfall = () => {
+  let result:
+    | (Awaited<ReturnType<typeof readCaptureShortfall>> & {
+        readonly sealed: string;
+      })
+    | null = null;
+  return withBoundedRound(async (fixture, transaction, roundId) => {
+    const { store, lease, stream, clip, start } = await historicalCapture(
+      fixture,
+      transaction,
+      roundId,
+      1000,
+      60_000,
+      { durationMs: 5190 },
+    );
+    const at = (ms: number) => new Date(start.getTime() + ms).toISOString();
+    await store.claimMediaWorkerLease({ ...lease, leaseMs: 15000 });
+    await store.appendCapturedTranscript({
+      ...clip,
+      startOffsetMs: 2034,
+      durationMs: 500,
+      before: at(2033),
+      after: at(2535),
+    });
+    await store.observeCapturedStream({
+      ...stream,
+      trackId: clip.trackId,
+      observedFrom: at(1934),
+      observedUntil: at(3000),
+    });
+    await fixture.sql.unsafe(
+      `update media_worker_leases set expires_at=clock_timestamp() - interval '1 second' where session_id=$1`,
+      [lease.sessionId],
+    );
+    const takeover = await store.claimMediaWorkerLease({
+      ...lease,
+      leaseMs: 15000,
+    });
+    const next = { ...stream, epoch: takeover.epoch };
+    await store.observeCapturedStream({
+      ...next,
+      trackId: createId(),
+      observedFrom: at(3000),
+      observedUntil: at(5164),
+    });
+    const sealed = await store.sealCapturedStream({
+      ...next,
+      expectedChunkCount: 0,
+      framesLost: false,
+    });
+    result = {
+      sealed: sealed.state,
+      ...(await transaction((tx) =>
+        readCaptureShortfall(tx as never, roundId, captureRule),
+      )),
+    };
+  }).then(() => result!);
+};
+
+test('a capture takeover with no gap is judged', async () => {
+  const shortfall = await takenOverShortfall();
+  assert({
+    given: 'a stream relaunched mid-speech, whole, with zero gaps',
+    should: 'measure a gap of zero and dispatch the AI judge',
+    actual: {
+      sealed: shortfall.sealed,
+      gapMs: shortfall.captureGapMs,
+      dispatch: freezeJudgingPlan({
+        completeness: 'incomplete',
+        humanJudges: false,
+        capture: {
+          gapMs: shortfall.captureGapMs,
+          expectedMs: shortfall.expectedSpeechMs,
+          platformLostAudio: shortfall.platformLostAudio,
+        },
+        ballotDeadlineMs: 60_000,
+        aiJudgingBudgetMs: 60_000,
+      }).dispatchAiJudges,
+    },
+    expected: { sealed: 'partial', gapMs: 0, dispatch: true },
   });
 });

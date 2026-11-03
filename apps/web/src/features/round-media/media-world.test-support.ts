@@ -125,6 +125,7 @@ export function createMediaWorld(
       session: {
         roomOccupiedSid: null,
         roomSawCapture: false,
+        roomRetiredAt: null,
         id: sessionId,
         roundId,
         roomName,

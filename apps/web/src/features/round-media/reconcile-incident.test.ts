@@ -1,7 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundMediaOperations } from './operations';
 import { createMediaWorld } from './media-world.test-support';
-import type { MediaPassReport } from './operation-context';
+import { OperationTimedOut } from '@daisy/observability';
+import type { MediaOperationInput, MediaPassReport } from './operation-context';
 setupRitewayBun();
 
 /** A live Round with an admitted seat, and every pass's evidence recorded. */
@@ -74,5 +75,83 @@ test('a pass refused before reading the vendor claims nothing about it', async (
     should: 'never report the vendor unreachable',
     actual: seen.some(({ observation }) => observation.kind === 'unreachable'),
     expected: false,
+  });
+});
+
+/** A pass with the vendor read overridden, and what it hands the store and the hook. */
+const passWith = async (media: Partial<MediaOperationInput['media']>) => {
+  const world = createMediaWorld({ status: 'active' });
+  const seen: MediaPassReport[] = [];
+  const finished: unknown[] = [];
+  const vendor = { ...world.input.media };
+  const input = {
+    ...world.input,
+    media: vendor,
+    observeIncident: async (report: MediaPassReport) => void seen.push(report),
+    store: {
+      ...world.input.store,
+      finishMediaReconcile: (request) => {
+        finished.push(request.seen);
+        return world.input.store.finishMediaReconcile(request);
+      },
+    } satisfies MediaOperationInput['store'],
+  };
+  const operations = createRoundMediaOperations(input);
+  await operations.session(world.roundId, world.seats[0].actorId);
+  Object.assign(vendor, media);
+  await operations.reconcile(world.roundId);
+  return { seen, finished };
+};
+const hiddenListener: Awaited<
+  ReturnType<MediaOperationInput['media']['publicationPermissions']>
+>[number] = {
+  identity: 'listener',
+  capture: false,
+  microphoneTrack: null,
+  grants: { publish: [], subscribe: true, hidden: true, capture: false },
+  restricted: true,
+};
+
+test('a hidden listener is not capture', async () => {
+  const listed = async (capture: boolean) => {
+    const { seen } = await passWith({
+      roomSid: async () => 'RM_room',
+      publicationPermissions: async () => [{ ...hiddenListener, capture }],
+    });
+    const last = seen.at(-1)!.observation;
+    return last.kind === 'room' && last.captureListed;
+  };
+  assert({
+    given: 'a hidden unbound listener, and an agent',
+    should: 'count only the agent as capture',
+    actual: [await listed(false), await listed(true)],
+    expected: [false, true],
+  });
+});
+
+test('only the room node itself says it is gone', async () => {
+  const answered = async (roomAnswers: () => Promise<boolean>) => {
+    const { finished } = await passWith({
+      someNodeDown: () => true,
+      roomSid: async () => 'RM_room',
+      publicationPermissions: async () => [hiddenListener],
+      roomAnswers,
+    });
+    return (finished.at(-1) as { answered: boolean | null }).answered;
+  };
+  assert({
+    given: 'an answer, the node refusing, a blip, and a call past its deadline',
+    should: 'read true, false, unknown, and false',
+    actual: [
+      await answered(async () => true),
+      await answered(async () => false),
+      await answered(async () => {
+        throw new Error('connection reset');
+      }),
+      await answered(async () => {
+        throw new OperationTimedOut();
+      }),
+    ],
+    expected: [true, false, null, false],
   });
 });

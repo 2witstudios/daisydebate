@@ -40,7 +40,6 @@ A recovery pass hands what it read of the vendor to `observeIncident`
 | -------------------------------------------------------- | --------------------------- |
 | The pass retired an uncertain room                       | Pause, `room_retired`       |
 | The vendor unreachable past a short bound                | Pause, `vendor_unreachable` |
-| An empty list when the last pass saw the capture agent   | Pause, `room_emptied`       |
 | The platform back, and every seat back or the grace over | Begin the countdown         |
 | The recovery bound passed with the platform still down   | End the Round               |
 
@@ -71,8 +70,10 @@ The freeze measures the speech a Round owed and lost, on
 `round_transcript_freezes`. The AI judge is dispatched unless capture falls below
 `roundIncidentPolicy.maxCaptureGapShare`, and each gap reaches its prompt in plain
 words. A shortfall nobody measured cannot be proven small. An AI-only Round past
-the limit records a `capture_below_limit` incident and refunds; a human judge
-heard the Round live and still rules.
+the limit is ended on the Round (`platform_ending = capture_shortfall`), refunds and
+alerts once; a human judge heard the Round live and still rules. Only a stream that lost
+state counts: a coverage gap alone can be a silent seat, and a takeover with valid windows
+and no gaps measures zero.
 
 ## Rate and alert
 
@@ -84,8 +85,8 @@ personal data.
 
 ## Provisional
 
-Every value in `roundIncidentPolicy` is provisional until the failure drill sets
-it. No node has been killed against this path yet.
+Every value in `roundIncidentPolicy` is provisional. Local kill drills with nodes
+staying dead held under them; no drill has run on staging or reached the recovery bound.
 
 ## Known limits
 

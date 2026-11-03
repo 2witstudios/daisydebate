@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { emptyRuntimeCheckpoint } from '@daisy/protocol';
-import { roundIncidentNotice } from './round-incident-notice';
+import { roundIncidentNotice } from './notice';
 setupRitewayBun();
 
 const since = '2026-11-03T10:00:00.000Z';

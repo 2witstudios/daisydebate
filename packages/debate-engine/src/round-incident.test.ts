@@ -589,12 +589,12 @@ test('the runtime says what happened to an incident, for its row', () => {
     should: 'state the opening and the resume, and nothing for the second hold',
     actual: [
       opened.incidentChanges?.map(({ kind }) => kind),
-      held.incidentChanges,
+      held.incidentChanges ?? [],
       resumed.incidentChanges,
     ],
     expected: [
       ['opened'],
-      undefined,
+      [],
       [
         {
           kind: 'resumed',

@@ -1,6 +1,7 @@
 /**
- * A platform incident's bounds (ADR 0110). Every value here is PROVISIONAL: the
- * failure drill has not run, and it sets them. Nothing here was measured.
+ * A platform incident's bounds (ADR 0110). Every value here is PROVISIONAL. Local kill
+ * drills, with nodes staying dead, held under them: seats back at most about 10 s, capture
+ * about 16 s. No drill has run on staging or tested the recovery bound, so none is final.
  */
 export const roundIncidentPolicy = {
   /** PROVISIONAL. How long the vendor stays unreachable before a Round pauses. */

@@ -91,7 +91,7 @@ process. Not measured at 50 Rounds.
 
 A node outage the server detects holds the Round's clock. No player can cause, hold or end it. When the platform and every seat are back, or a grace ends, the Round resumes on an automatic countdown from the speaker's last confirmed audio. Past a recovery bound it ends as a platform incident: no outcome, no rating, no penalty, no charge.
 
-**The state is one value on the checkpoint:** `none`, `paused` or `resuming`, moved only by a table of pure, total transitions. `advanceRoundClock` obeys it, so every caller and the browser's own engine do too.
+**The state is one value on the checkpoint:** `none`, `paused` or `resuming`, moved by a table of pure, total transitions, and at a countdown's end by the clock's own `resumeIfDue`, so a late tick cannot shorten anything. `advanceRoundClock` obeys it, so every caller and the browser's own engine do too.
 
 **A speech's rule duration never changes.** Hydration refuses a row that disagrees with its rules, so a row gains `returned_ms` beside it. A speech's end has one rule in TypeScript and one generated column in SQL.
 

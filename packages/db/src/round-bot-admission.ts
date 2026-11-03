@@ -108,7 +108,6 @@ export async function refundUnservedPracticeLocked(
         where p.round_id = ${roundId} and p.role in ('affirmative', 'negative')
           and a.configuration_snapshot->>'providerOutcome' in ('received', 'unknown'))`);
 }
-/** Bot-debater calls only: the AI judge is free (DEC-186). Caller acquires admission serialization before command/account/Round fences. Never creates a reservation. */
 /**
  * A Round the platform ended charges nothing, even if a call was served: this
  * is its own path, and the refunded_at guard keeps it to once.
@@ -123,6 +122,7 @@ export async function refundPlatformEndedLocked(
       and counted_at is not null`);
 }
 
+/** Bot-debater calls only: the AI judge is free (DEC-186). Caller acquires admission serialization before command/account/Round fences. Never creates a reservation. */
 export async function markLockedRoundBotModelCall(
   tx: BoundedTransactionContext,
   roundId: string,
