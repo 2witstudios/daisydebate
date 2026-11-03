@@ -493,6 +493,8 @@ export {
 } from './broadcast';
 export {
   spectatorTimelineSchema,
+  type BroadcastStream,
+  type BroadcastStanding,
   type SpectatorTimeline,
 } from './spectator-timeline';
 export {

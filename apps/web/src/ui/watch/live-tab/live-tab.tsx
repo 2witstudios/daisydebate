@@ -1,6 +1,7 @@
 import type { LiveHubListing } from '../../../features/watch/list-live';
 import {
   clearFiltersHref,
+  hubHref,
   isFiltered,
   type LiveQuery,
 } from '../../../features/watch/live-query';
@@ -16,11 +17,6 @@ export type LiveTabProps = {
   readonly listing: LiveHubListing;
 };
 
-const sortOptions = [
-  ['watched', 'Most watched'],
-  ['rated', 'Highest rated'],
-] as const;
-
 function Filters({ query }: { query: LiveQuery }) {
   return (
     <FilterForm
@@ -32,11 +28,6 @@ function Filters({ query }: { query: LiveQuery }) {
         placeholder: 'Search debaters or rooms',
       }}
       mode={query.mode}
-      sort={{
-        value: query.sort,
-        label: 'Sort live debates',
-        options: sortOptions,
-      }}
       clearHref={isFiltered(query) ? clearFiltersHref(query) : null}
     />
   );
@@ -66,12 +57,7 @@ export function LiveTab({ query, listing }: LiveTabProps) {
   return (
     <div className="flex flex-col gap-4">
       <Filters query={query} />
-      {listing.featured ? (
-        <FeaturedRound
-          card={listing.featured}
-          delaySeconds={listing.delaySeconds}
-        />
-      ) : null}
+      {listing.featured ? <FeaturedRound card={listing.featured} /> : null}
       {listing.rows.length > 0 ? (
         <ul className="grid grid-cols-3 gap-4 max-rail:grid-cols-2 max-compact:grid-cols-1">
           {listing.rows.map((card) => (
@@ -80,6 +66,11 @@ export function LiveTab({ query, listing }: LiveTabProps) {
             </li>
           ))}
         </ul>
+      ) : null}
+      {listing.nextBefore ? (
+        <ActionLink href={hubHref({ ...query, before: listing.nextBefore })}>
+          More live debates
+        </ActionLink>
       ) : null}
       {nothingMatches ? (
         <StateCard

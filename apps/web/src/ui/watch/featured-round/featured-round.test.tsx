@@ -1,33 +1,39 @@
-import { sampleWatchSource } from '../../../features/watch/sample-source.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { listLive } from '../../../features/watch/list-live';
-import { defaultLiveQuery } from '../../../features/watch/live-query';
+import { liveCard } from '../../../features/watch/live-card.test-support';
 import { FeaturedRound } from './featured-round';
 
 setupRitewayBun();
 
-describe('FeaturedDebate', () => {
+describe('FeaturedRound', () => {
   test('the featured card', () => {
-    const card = listLive(defaultLiveQuery, sampleWatchSource).featured;
-    if (!card) throw new Error('sample missing');
-    const html = renderToString(h(FeaturedRound, { card, delaySeconds: 30 }));
+    const html = renderToString(h(FeaturedRound, { card: liveCard() }));
     assert({
-      given: 'the top-of-the-ladder card',
-      should: 'mark it featured, both seats, a static clock and one link',
+      given: 'a ranked Round on the floor',
+      should: 'mark it featured, with both seats, its clock and one link',
       actual: [
         html.includes('>Featured<'),
-        html.includes('@debater-a'),
+        html.includes('@ana'),
+        html.includes('Socrates'),
         html.includes('Speaking'),
         html.includes('Listening'),
-        html.includes('03:48'),
-        html.includes('delayed 30 s'),
-        /<a [^>]*href="\/watch\/top-of-the-ladder"[^>]*>Watch live<\/a>/.test(
+        html.includes('01:10'),
+        /<a [^>]*href="\/watch\/abcdefghijklmnopqrstuvwx"[^>]*>Watch live<\/a>/.test(
           html,
         ),
       ],
       expected: [true, true, true, true, true, true, true],
+    });
+  });
+
+  test('no invented numbers', () => {
+    const html = renderToString(h(FeaturedRound, { card: liveCard() }));
+    assert({
+      given: 'a card from real rows',
+      should: 'show no viewer count',
+      actual: html.includes('watching'),
+      expected: false,
     });
   });
 });

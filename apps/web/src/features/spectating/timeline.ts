@@ -1,5 +1,6 @@
 import {
   debateSides,
+  type BroadcastStanding,
   type DebateSide,
   type SpectatorTimeline,
 } from '@daisy/protocol';
@@ -9,9 +10,31 @@ import type { SpectatorTimelineRead } from '@daisy/db';
 const sideOf = (role: string): readonly DebateSide[] =>
   debateSides.filter((side) => side === role);
 
-const stageOf = (read: SpectatorTimelineRead): SpectatorTimeline['stage'] => {
+/**
+ * How long past its delay released media may be missing before the audience is
+ * told. With the 60 second ranked delay this is DEC-303's 90 second alert.
+ */
+export const BROADCAST_INTERRUPTED_AFTER_MS = 30_000;
+
+/** What the projection needs from outside the read: the instant, and where a Broadcast is read. */
+export type SpectatorTimelineContext = {
+  readonly nowMs: number;
+  /** The public feed of a Broadcast; null when this deployment has none. */
+  readonly feedUrlOf: (broadcastId: string) => string | null;
+};
+
+type StageFacts = Pick<
+  SpectatorTimelineRead,
+  'outcomeReleased' | 'segments' | 'horizonMs'
+> & {
+  readonly round: Pick<SpectatorTimelineRead['round'], 'status' | 'rules'>;
+  readonly stopped: boolean;
+};
+
+/** The stage as the released video shows it: one rule for the player and the Live listing. */
+export const releasedStage = (read: StageFacts): SpectatorTimeline['stage'] => {
   if (read.round.status === 'opening') return { kind: 'upcoming' };
-  if (read.outcomeReleased || read.broadcastStopped) return { kind: 'ended' };
+  if (read.outcomeReleased || read.stopped) return { kind: 'ended' };
   const segment = read.segments[0];
   if (!segment || read.horizonMs === null) return { kind: 'slate' };
   const shownAt = read.horizonMs - SPECTATOR_MARGIN_MS;
@@ -30,6 +53,96 @@ const stageOf = (read: SpectatorTimelineRead): SpectatorTimeline['stage'] => {
   };
 };
 
+const ms = (value: Date | null) => value?.getTime() ?? null;
+
+const isTerminal = (status: string) =>
+  status === 'completed' || status === 'abandoned';
+
+type Policy = NonNullable<SpectatorTimelineRead['broadcast']>['policy'];
+
+/** The instant a policy still holds the Broadcast until, or null when it no longer holds it. */
+const holdOf = (
+  policy: Policy,
+  terminal: boolean,
+  nowMs: number,
+): { readonly releasesAt: string | null } | null => {
+  if (policy.kind === 'round_end')
+    return terminal ? null : { releasesAt: null };
+  if (policy.kind === 'at' && nowMs < policy.atMs)
+    return { releasesAt: new Date(policy.atMs).toISOString() };
+  return null;
+};
+
+const delayOwedMs = (policy: Policy) =>
+  policy.kind === 'delay' ? policy.seconds * 1000 : 0;
+
+/** When a hold let go, so its first release is not measured from the Round's start. */
+const releaseBegan = (policy: Policy, roundEnded: Date | null): number => {
+  if (policy.kind === 'round_end') return ms(roundEnded) ?? 0;
+  return policy.kind === 'at' ? policy.atMs : 0;
+};
+
+/**
+ * The audience's stream, from durable facts alone. A stream is offered only for
+ * a public Round: an unlisted one waits for its link token, because its Round id
+ * is not a secret.
+ */
+const standingOf = (
+  read: SpectatorTimelineRead,
+  context: SpectatorTimelineContext,
+): BroadcastStanding => {
+  const { broadcast, round } = read;
+  const manifestUrl =
+    broadcast && round.visibility === 'public'
+      ? context.feedUrlOf(broadcast.id)
+      : null;
+  if (!broadcast || manifestUrl === null) return { state: 'none' };
+  if (broadcast.stoppedAt) return { state: 'stopped' };
+  const watermark = ms(broadcast.releasedThroughAt);
+  if (broadcast.completedAt)
+    return { state: watermark === null ? 'failed' : 'ended' };
+  const terminal = isTerminal(round.status);
+  const hold = holdOf(broadcast.policy, terminal, context.nowMs);
+  if (hold) return { state: 'held', ...hold };
+  const since = Math.max(
+    watermark ?? ms(round.startedAt) ?? context.nowMs,
+    releaseBegan(broadcast.policy, round.completedAt),
+  );
+  const late =
+    context.nowMs - delayOwedMs(broadcast.policy) - since >
+    BROADCAST_INTERRUPTED_AFTER_MS;
+  const stream = { path: 'owned_hls', manifestUrl } as const;
+  if (watermark === null) {
+    if (!late) return { state: 'starting' };
+    return terminal
+      ? { state: 'failed' }
+      : { state: 'interrupted', stream: null };
+  }
+  if (!late) return { state: 'on_air', stream };
+  // A finished Round sends no more media, so a silent feed has simply ended.
+  return terminal ? { state: 'ended' } : { state: 'interrupted', stream };
+};
+
+/**
+ * A Recording is news only once the Round's end is released, and a stop
+ * withholds it from the audience (ADR 0105's one release rule).
+ */
+const recordingOf = (
+  read: SpectatorTimelineRead,
+): SpectatorTimeline['recording'] => {
+  if (!read.outcomeReleased || read.broadcast?.stoppedAt) return 'none';
+  switch (read.recordingStatus) {
+    case 'ready':
+      return 'ready';
+    case 'requested':
+    case 'capturing':
+    case 'processing':
+      return 'processing';
+    default:
+      return 'none';
+  }
+};
+
 /** The resolution enters the timeline with the Round's start, never before. */
 const resolutionOf = (read: SpectatorTimelineRead) =>
   read.horizonMs !== null &&
@@ -39,20 +152,19 @@ const resolutionOf = (read: SpectatorTimelineRead) =>
     : null;
 
 /**
- * Winner, scores and reason are public on ranked Rounds only (plan section 5),
- * and a tie stays null. A completed Round alone has a result.
+ * Winner, scores and reason are public on ranked Rounds; a casual Round releases
+ * its winner alone (plan section 5). A tie stays null, and a completed Round
+ * alone has a result.
  */
 const resultOf = (read: SpectatorTimelineRead): SpectatorTimeline['result'] => {
-  if (
-    read.round.competitionType !== 'ranked' ||
-    !read.outcomeReleased ||
-    read.round.status !== 'completed'
-  )
-    return null;
+  if (!read.outcomeReleased || read.round.status !== 'completed') return null;
   const { outcome } = read.round;
+  const winner =
+    outcome === 'affirmative' || outcome === 'negative' ? outcome : null;
+  if (read.round.competitionType !== 'ranked')
+    return { winner, ballots: [], ratings: [] };
   return {
-    winner:
-      outcome === 'affirmative' || outcome === 'negative' ? outcome : null,
+    winner,
     ballots: read.ballots.flatMap((ballot) =>
       sideOf(ballot.winner).map((winner) => ({
         winner,
@@ -73,11 +185,13 @@ const resultOf = (read: SpectatorTimelineRead): SpectatorTimeline['result'] => {
 /** One server-owned view of a Round for its audience, built from released rows alone. */
 export const projectSpectatorTimeline = (
   read: SpectatorTimelineRead,
+  context: SpectatorTimelineContext,
 ): SpectatorTimeline => ({
   version: 1,
   roundId: read.round.id,
   mode: read.round.competitionType,
-  hasBroadcast: read.hasBroadcast,
+  broadcast: standingOf(read, context),
+  recording: recordingOf(read),
   resolution: resolutionOf(read),
   seats: read.seats.flatMap((seat) =>
     sideOf(seat.side).map((side) => ({
@@ -86,7 +200,10 @@ export const projectSpectatorTimeline = (
       label: seat.username ?? seat.botName ?? null,
     })),
   ),
-  stage: stageOf(read),
+  stage: releasedStage({
+    ...read,
+    stopped: Boolean(read.broadcast?.stoppedAt),
+  }),
   result: resultOf(read),
   captions: read.captions.flatMap((caption) =>
     sideOf(caption.side).map((side) => ({
@@ -95,5 +212,5 @@ export const projectSpectatorTimeline = (
       text: caption.text,
     })),
   ),
-  releasedThrough: read.releasedThroughAt?.toISOString() ?? null,
+  releasedThrough: read.broadcast?.releasedThroughAt?.toISOString() ?? null,
 });

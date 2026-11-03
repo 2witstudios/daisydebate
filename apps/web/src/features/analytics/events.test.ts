@@ -36,4 +36,29 @@ describe('product event admission', () => {
       expected: null,
     });
   });
+
+  test('a viewing reports quality and nothing about who or what', () => {
+    const quality = {
+      engine: 'hlsjs',
+      startup_ms: 800,
+      rebuffer_ms: 0,
+      watched_ms: 1000,
+      height: 720,
+    };
+    assert({
+      given: 'bounded playback measures',
+      should: 'admit them',
+      actual: parseProductEvent('broadcast_playback', quality)?.event,
+      expected: 'broadcast_playback',
+    });
+    assert({
+      given: 'a measure carrying a Round id',
+      should: 'refuse it',
+      actual: parseProductEvent('broadcast_playback', {
+        ...quality,
+        roundId: 'abc',
+      }),
+      expected: null,
+    });
+  });
 });

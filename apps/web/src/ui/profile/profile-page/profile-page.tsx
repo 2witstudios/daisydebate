@@ -183,6 +183,7 @@ export function ProfilePage({
   paged,
   actions,
   ratings,
+  liveRound = null,
 }: {
   readonly profile: MemberProfile;
   /** Whether this is an older page of the history. */
@@ -191,11 +192,20 @@ export function ProfilePage({
   readonly actions?: ReactNode;
   /** Published rating display composed by the request page. */
   readonly ratings?: ReactNode;
+  /** The public Round they are live in, as the audience has reached it. */
+  readonly liveRound?: { readonly href: string; readonly title: string } | null;
 }) {
   const base = profileHref(profile.username);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <ProfileHeader profile={profile} actions={actions} />
+      {liveRound ? (
+        <p className="text-base">
+          <Link href={liveRound.href} className="font-strong">
+            {`Watch live: ${liveRound.title}`}
+          </Link>
+        </p>
+      ) : null}
       {ratings}
       <RecordSummary profile={profile} />
       <section aria-label="Match history" className={card}>

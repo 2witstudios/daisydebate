@@ -6,6 +6,7 @@ import { actors } from './schema/actors';
 import { ballots } from './schema/ballots';
 import { botProfiles } from './schema/bot-profiles';
 import { broadcasts } from './schema/broadcasts';
+import { recordings } from './schema/recordings';
 import { ratingChanges } from './schema/ratings';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
@@ -109,11 +110,23 @@ export const spectatorTimelineReads = ({
               ),
             )
             .orderBy(asc(roundParticipants.role));
+          const [recording] = await tx
+            .select({ status: recordings.status })
+            .from(recordings)
+            .where(eq(recordings.roundId, input.roundId));
           const shared = {
             round: { ...round, competitionType },
-            hasBroadcast: broadcast !== undefined,
-            broadcastStopped: Boolean(broadcast?.stoppedAt),
-            releasedThroughAt: broadcast?.releasedThroughAt ?? null,
+            broadcast: broadcast
+              ? {
+                  id: broadcast.id,
+                  deliveryPath: broadcast.deliveryPath,
+                  policy: broadcast.releasePolicy,
+                  releasedThroughAt: broadcast.releasedThroughAt,
+                  completedAt: broadcast.completedAt,
+                  stoppedAt: broadcast.stoppedAt,
+                }
+              : null,
+            recordingStatus: recording?.status ?? null,
             seats,
             horizonMs,
           };

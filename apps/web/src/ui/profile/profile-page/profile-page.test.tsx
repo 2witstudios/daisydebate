@@ -174,4 +174,20 @@ describe('ProfilePage', () => {
       expected: [true, true],
     });
   });
+
+  test('someone live in a public Round', () => {
+    const live = renderToString(
+      h(ProfilePage, {
+        profile: profile(),
+        paged: false,
+        liveRound: { href: '/watch/their-round', title: 'Friday night' },
+      }),
+    );
+    assert({
+      given: 'a member live in a public Round',
+      should: 'lead to it',
+      actual: live.includes('href="/watch/their-round"'),
+      expected: true,
+    });
+  });
 });

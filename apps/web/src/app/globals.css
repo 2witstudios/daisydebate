@@ -159,6 +159,9 @@
 /* Colors. Names mirror the `:root` tokens; text ink is `ink` so classes read
    `text-ink-muted`, not `text-text-muted`. `inline` makes utilities emit
    var(--token) directly instead of a second theme variable. */
+/* A viewport too short for the rail, as at 200% zoom. */
+@custom-variant short-viewport (@media (max-height: 36rem));
+
 @theme inline {
   --color-forest: var(--forest);
   --color-sage: var(--sage);

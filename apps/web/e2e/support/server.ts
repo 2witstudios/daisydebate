@@ -7,6 +7,7 @@ import { createApp } from '../../src/server/app';
 import { adoptProcessApp } from '../../src/server/process-app';
 import { createMailCapture } from './mail-capture';
 import { withOpenRouterStub } from '@daisy/ai-voice/testing';
+import { startBroadcastFeedServer } from './broadcast-feed-server';
 import { createSelfSignedTlsEdge } from './tls-edge';
 
 /**
@@ -62,6 +63,7 @@ adoptProcessApp(
 );
 
 createSelfSignedTlsEdge({ appPort, edgePort });
+startBroadcastFeedServer(Number(env('E2E_FEED_PORT')));
 
 // ISSUE-279: this process's event-loop delay, one log line a second, so a
 // stalled test's evidence shows whether our server was starved in the

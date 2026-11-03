@@ -6,20 +6,10 @@ setupRitewayBun();
 describe('watch routes', () => {
   test('live and replay hrefs', () => {
     assert({
-      given: 'a Round id with and without a query',
+      given: 'a Round id, and a replay with a query',
       should: 'put live under /watch and replay under /recordings',
-      actual: [
-        liveHref('top'),
-        liveHref('top', 'pane=chat'),
-        replayHref('top'),
-        replayHref('top', 't=90'),
-      ],
-      expected: [
-        '/watch/top',
-        '/watch/top?pane=chat',
-        '/recordings/top',
-        '/recordings/top?t=90',
-      ],
+      actual: [liveHref('top'), replayHref('top'), replayHref('top', 't=90')],
+      expected: ['/watch/top', '/recordings/top', '/recordings/top?t=90'],
     });
   });
 

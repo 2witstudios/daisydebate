@@ -37,15 +37,10 @@ test('public route shells render with their metadata titles', async ({
     await expectShell(page, route, title);
 });
 
-test('Watch and Recordings answer with the explainer while Watch is closed', async ({
-  request,
-}) => {
-  for (const route of ['/watch', '/watch/x', '/recordings', '/recordings/x']) {
+test('Watch and Recordings are open to a visitor', async ({ request }) => {
+  for (const route of ['/watch', '/recordings']) {
     const response = await request.get(route, { maxRedirects: 0 });
-    expect(response.status()).toBe(307);
-    expect(
-      new URL(response.headers()['location'] ?? '', 'http://x').pathname,
-    ).toBe('/coming-soon/watch');
+    expect(response.status()).toBe(200);
   }
 });
 
@@ -77,8 +72,6 @@ test('a closed destination answers every address with its explainer', async ({
     '/tournaments/mine/any/certificate': 'tournaments',
     '/prep': 'prep',
     '/prep/cards/any': 'prep',
-    '/watch': 'watch',
-    '/recordings': 'watch',
   };
   for (const [route, slug] of Object.entries(closed)) {
     const response = await request.get(route, { maxRedirects: 0 });
