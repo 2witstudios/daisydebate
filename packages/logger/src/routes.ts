@@ -250,6 +250,11 @@ const appRoutes = [
 const namedRoutes = ['/api/rounds/:id/media/reconcile'];
 
 export const logRoutes: ReadonlySet<string> = new Set([
+  '/content-waiver',
+  '/content-policy',
+  '/api/agreements/content-waiver',
+  '/api/broadcasts/[broadcastId]/stage',
+  '/stage/[broadcastId]',
   ...betterAuthRoutes,
   ...appRoutes,
   ...namedRoutes,

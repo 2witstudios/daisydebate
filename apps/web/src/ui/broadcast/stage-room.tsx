@@ -7,6 +7,8 @@ const POLL_MS = 1000;
 const SITE_LINK = 'daisydebate.com';
 
 type StageAnswer = StageSnapshot & {
+  /** The server's clock, so the burned-in countdown never reads the browser's. */
+  readonly nowMs: number;
   readonly debaterIdentities: readonly string[];
   readonly room: { readonly url: string; readonly token: string } | null;
 };
@@ -17,14 +19,12 @@ export function StageRoom(props: {
   readonly credential: string;
 }) {
   const [stage, setStage] = useState<StageAnswer | null>(null);
-  const [nowMs, setNowMs] = useState(0);
   const tiles = useRef<HTMLDivElement>(null);
   const roomRef = useRef<Room | null>(null);
   const started = useRef(false);
   const identities = useRef<readonly string[]>([]);
   useEffect(() => {
     const read = async () => {
-      setNowMs(Date.now());
       const answer = await fetch(`/api/broadcasts/${props.broadcastId}/stage`, {
         headers: { 'x-stage-credential': props.credential },
         cache: 'no-store',
@@ -41,6 +41,8 @@ export function StageRoom(props: {
               publication.setSubscribed(true);
       if (!started.current) {
         started.current = true;
+        // Egress waits for exactly this line before it records (awaitStartSignal).
+        // eslint-disable-next-line no-console
         console.log('START_RECORDING');
       }
       const connected = roomRef.current;
@@ -80,7 +82,7 @@ export function StageRoom(props: {
   return stage ? (
     <StageView
       snapshot={stage}
-      nowMs={nowMs}
+      nowMs={stage.nowMs}
       siteLink={SITE_LINK}
       tiles={<div ref={tiles} style={{ display: 'flex', width: '100%' }} />}
     />

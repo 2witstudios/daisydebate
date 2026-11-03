@@ -64,6 +64,7 @@ export const createStageRoute =
     return Response.json(
       {
         ...stageSnapshot({ position, seats: read.seats }),
+        nowMs: deps.now(),
         room: read.roomName
           ? {
               url: deps.livekitUrl,

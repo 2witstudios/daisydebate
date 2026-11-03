@@ -62,6 +62,7 @@ const conflictAnswer = (
     case 'capture-premium':
     case 'broadcast-private':
     case 'content-waiver-required':
+    case 'content-waiver-changed':
     case 'capture-notice-changed':
       return { kind: 'refused', reason: 'settings' };
   }
