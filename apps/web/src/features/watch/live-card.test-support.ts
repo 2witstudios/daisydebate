@@ -19,6 +19,7 @@ export const liveRow = (over: Partial<LiveRow> = {}): LiveRow => ({
       { key: '1NC', label: 'First negative', side: 'negative' },
     ],
   } as never,
+  startedAt: started,
   horizon: null,
   horizonMs: started.getTime() + 30_000 + SPECTATOR_MARGIN_MS,
   seats: [

@@ -4,8 +4,14 @@ import { debateSideSchema, idSchema } from './primitives';
 
 const spectatorStageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('upcoming') }),
-  /** Nothing public on the stage: prep, judging, or facts not yet released. */
-  z.strictObject({ kind: z.literal('slate') }),
+  /**
+   * Nothing public on the stage, and what the released video's slate says:
+   * nothing yet released, the first speech coming, another coming, or judging.
+   */
+  z.strictObject({
+    kind: z.literal('slate'),
+    phase: z.enum(['unreleased', 'starting', 'between', 'judging']),
+  }),
   z.strictObject({
     kind: z.literal('floor'),
     segment: z.enum(['speech', 'cross_ex']),
