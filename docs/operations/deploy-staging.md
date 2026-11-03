@@ -847,10 +847,9 @@ first such deploy, once:
    Recording bucket `GET` and `HEAD` from the app's origin.
 
 **Official feed.** The web app reads `BROADCAST_PUBLIC_ORIGIN`, the public bucket's
-read origin (`https://<bucket>.t3.tigrisfiles.io`). The value is not secret, but
-`fly.toml` does not name it and the workflow passes no `--env`, so it has to be set
-with `fly secrets set` on `daisy-debate-staging` to survive a deploy. Unset, no Round
-offers Stream this Round.
+read origin (`https://<bucket>.t3.tigrisfiles.io`). The value is not secret, so
+`fly.toml`'s `[env]` names it, beside `BROADCAST_CAPTURE` and `RECORDING_CAPTURE`, which
+turn capture on for staging. Unset, no Round offers Stream this Round.
 
 The Recording worker (`fly.recording-worker.toml`, app
 `daisy-debate-staging-recorder`) writes to its own private bucket,
