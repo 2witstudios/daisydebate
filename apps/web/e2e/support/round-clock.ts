@@ -1,3 +1,4 @@
+import { wasRidden } from './ride-refusals';
 import type { BrowserContext, Page } from '@playwright/test';
 import { roundViewSchema, type RoundView } from '@daisy/protocol';
 
@@ -31,8 +32,9 @@ export async function displayDeltaMs(
     page.getByRole('timer').getAttribute('aria-label'),
     member.context.request.get(`/api/rounds/${roundId}`),
   ]);
-  // A refused read is an answer to ask again: capacity refused it unrun.
-  if (body.status() === 503) return Number.POSITIVE_INFINITY;
+  // A refused read is an answer to ask again: capacity refused it unrun. An
+  // answer that rode a refusal is seconds younger than the clock read beside it.
+  if (body.status() === 503 || wasRidden(body)) return Number.POSITIVE_INFINITY;
   const displayed = parseClock(aria);
   const latest = openSegmentRemaining(
     roundViewSchema.parse(await body.json()),

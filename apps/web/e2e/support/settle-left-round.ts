@@ -2,9 +2,6 @@ import type { APIRequestContext, BrowserContext } from '@playwright/test';
 import { activeRoomReadSchema, isNamedSeat } from '@daisy/protocol';
 import { currentRoundForfeit, readBallotRound } from './human-ballot-round';
 
-const ATTEMPTS = 3;
-const REFUSED_PAUSE_MS = 1_000;
-
 /** The Round this member's active Room has launched, if it has one. */
 const leftRoundId = async (request: APIRequestContext) => {
   const response = await request.get('/api/rooms/active');
@@ -44,26 +41,19 @@ async function settleLeftRound(member: {
   readonly username: string;
 }) {
   const { request } = member.context;
-  let unsettled: unknown;
-  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-    try {
-      const roundId = await leftRoundId(request);
-      if (roundId)
-        await forfeitOwnSeat(
-          request,
-          roundId,
-          (seat) =>
-            seat.label === member.username &&
-            (seat.role === 'affirmative' || seat.role === 'negative'),
-        );
-      return;
-    } catch (error) {
-      unsettled = error;
-      if (attempt < ATTEMPTS)
-        await new Promise((done) => setTimeout(done, REFUSED_PAUSE_MS));
-    }
+  try {
+    const roundId = await leftRoundId(request);
+    if (roundId)
+      await forfeitOwnSeat(
+        request,
+        roundId,
+        (seat) =>
+          seat.label === member.username &&
+          (seat.role === 'affirmative' || seat.role === 'negative'),
+      );
+  } catch (error) {
+    process.stderr.write(`Left Round not settled: ${String(error)}\n`);
   }
-  process.stderr.write(`Left Round not settled: ${String(unsettled)}\n`);
 }
 
 /** One at a time: one forfeit ends the Round, and the next member then finds none. */

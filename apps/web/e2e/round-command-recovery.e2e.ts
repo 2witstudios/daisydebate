@@ -2,6 +2,7 @@ import type { Locator } from '@playwright/test';
 import { openPage } from './support/fixtures';
 import { test, expect } from './support/round-files';
 import { createHumanBallotRound } from './support/human-ballot-round';
+import { wasRidden } from './support/ride-refusals';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import {
   closeSettledLaunchContexts,
@@ -276,15 +277,12 @@ test("a test's own read rides out a refusal, and still sees one that lasts", asy
     await controlLaunch('refuse-round-reads');
     try {
       const lasting = await request.get(`/api/rounds/${round.id}`);
-      expect(lasting.status()).toBe(503);
-      const passing = request.get(`/api/rounds/${round.id}`);
-      // Refused at once, so this is between its first ask and the next, 1 s later.
-      await new Promise((done) => setTimeout(done, 300));
-      await controlLaunch('allow-round-reads');
-      expect((await passing).status()).toBe(200);
+      expect([lasting.status(), wasRidden(lasting)]).toEqual([503, true]);
     } finally {
       await controlLaunch('allow-round-reads');
     }
+    const answered = await request.get(`/api/rounds/${round.id}`);
+    expect([answered.status(), wasRidden(answered)]).toEqual([200, false]);
   } finally {
     await closeSettledLaunchContexts(accounts);
   }
