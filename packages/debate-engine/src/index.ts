@@ -11,6 +11,8 @@ export {
   segmentDue,
 } from './broadcast-release';
 export type { HeldSegment } from './broadcast-release';
+export { spectatorHorizon } from './spectator-horizon';
+export type { SpectatorHorizonFacts } from './spectator-horizon';
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
 export { mediaGrants, changedMediaGrants } from './media-grants';
