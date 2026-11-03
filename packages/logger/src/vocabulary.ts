@@ -61,6 +61,7 @@ export const eventRegistry = {
   'broadcast.egress.stop_failed': 'error',
   'broadcast.egress.stopped_unconfirmed': 'error',
   'broadcast.observer.restore_failed': 'error',
+  'broadcast.observer.revoke_retry_failed': 'error',
   'broadcast.complete_failed': 'error',
   'media.capture.lease_reinstated': 'warn',
   'media.capture.sealed': 'info',

@@ -109,6 +109,32 @@ describe('private phases fail closed', () => {
       ],
     });
   });
+  test('a stage that joins as it is revoked is revoked again', () => {
+    assert({
+      given: 'a private phase, the observer already revoked, the Egress live',
+      should: 'say the revocation again on every pass',
+      actual: decideBroadcast(
+        facts({
+          egress: active,
+          phase: { kind: 'private' },
+          observerSubscribed: false,
+        }),
+      ),
+      expected: [{ type: 'reassert-revocation' }],
+    });
+    assert({
+      given: 'the phase public again, or no Egress at all',
+      should: 'not say it',
+      actual: [
+        decideBroadcast(facts({ egress: active, observerSubscribed: false })),
+        decideBroadcast(
+          facts({ phase: { kind: 'private' }, observerSubscribed: false }),
+        ),
+      ].map((actions) => actions.some((a) => a.type === 'reassert-revocation')),
+      expected: [false, false],
+    });
+  });
+
   test('no Egress starts subscribed into a private phase', () => {
     assert({
       given: 'a private phase open and the Egress gone',
@@ -168,7 +194,10 @@ describe('private phases fail closed', () => {
         ),
         decideBroadcast(facts({ egress: active, observerSubscribed: false })),
       ],
-      expected: [[], [{ type: 'restore-observer' }]],
+      expected: [
+        [{ type: 'reassert-revocation' }],
+        [{ type: 'restore-observer' }],
+      ],
     });
   });
 });
