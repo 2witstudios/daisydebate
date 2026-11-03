@@ -29,6 +29,7 @@ import {
   type ClockTransition,
 } from './round-clock';
 import { closedCount, normalizeRoundClock } from './round-clock-state';
+import { debateSideOf } from './round-command-legality';
 import {
   applyRoundCommand,
   type Queues,
@@ -203,13 +204,8 @@ export function createRoundRuntime(input: {
       ? null
       : (input.participants.find((seat) => seat.actorId === actorId) ?? null);
 
-  const sideOf = (actorId: string | null): DebateSide | null => {
-    const seat = seatOf(actorId);
-    return seat !== null &&
-      (debateSides as readonly string[]).includes(seat.role)
-      ? (seat.role as DebateSide)
-      : null;
-  };
+  const sideOf = (actorId: string | null): DebateSide | null =>
+    debateSideOf(seatOf(actorId));
 
   const assertSeatCompleteness = (): void => {
     for (const role of Object.keys(rules.seats) as DebateRole[]) {

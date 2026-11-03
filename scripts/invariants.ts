@@ -136,6 +136,22 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       completeness: 'complete',
       panel: { humanWindow: null, aiSeats: [] },
     }),
+  'lifecycle-matches-status': () =>
+    createRoundRuntime({
+      round: {
+        id: roundId,
+        status: 'completed',
+        currentStage: null,
+        startedAt: null,
+        completedAt: t0,
+        outcome: null,
+      },
+      rules: rules(),
+      participants: seats,
+      checkpoint: freshCheckpoint,
+      segments: [],
+      nextSegmentId: () => 'segment-fixture',
+    }),
   'completed-is-terminal': () =>
     round({ status: 'completed' }).execute({
       command: { type: 'yield' },

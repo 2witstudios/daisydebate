@@ -7,7 +7,12 @@ import {
   type SegmentType,
 } from '@daisy/protocol';
 import { debateInvariantIds } from './invariant-ids';
-import type { ClockSegment, ClockState } from './round-clock-state';
+import {
+  closedCount,
+  debateHasEnded,
+  type ClockSegment,
+  type ClockState,
+} from './round-clock-state';
 
 /** Everything that decides whether one seat's command is legal at one instant. */
 export type RoundCommandFacts = {
@@ -47,10 +52,10 @@ const conflict = (message: string): RoundCommandRefusal => ({
 const openRowOf = (state: ClockState): ClockSegment | undefined =>
   state.rows.find((row) => row.endedAtMs === null);
 
-const closedCountOf = (state: ClockState): number =>
-  state.rows.filter((row) => row.endedAtMs !== null).length;
-
-const sideOf = (seat: RoundParticipantSeat | null): DebateSide | null =>
+/** The side a seat debates for; null for a judge or nobody. */
+export const debateSideOf = (
+  seat: RoundParticipantSeat | null,
+): DebateSide | null =>
   seat !== null && (debateSides as readonly string[]).includes(seat.role)
     ? (seat.role as DebateSide)
     : null;
@@ -59,7 +64,7 @@ const sideOf = (seat: RoundParticipantSeat | null): DebateSide | null =>
  * Who holds the floor: whoever an accepted interruption gave it to, else the
  * open segment's scheduled seat. Null when nothing is open.
  */
-export const floorHolderOf = ({
+const floorHolderOf = ({
   rules,
   state,
   participants,
@@ -93,7 +98,7 @@ const prepWindowRefusal = (
   seat: RoundParticipantSeat,
 ): RoundCommandRefusal | null => {
   const id = debateInvariantIds.prepRequiresSpendableSegment;
-  const sequence = closedCountOf(state);
+  const sequence = closedCount(state);
   const upcoming = rules.segments[sequence];
   if (!upcoming) return violates(id, 'No segment remains to prep for');
   if (upcoming.side !== seat.role || upcoming.slot !== seat.slot)
@@ -124,7 +129,7 @@ const startPrepRefusal = (facts: RoundCommandFacts) => {
       debateInvariantIds.prepRequiresCapability,
       'The resolved rules have no in-round prep',
     );
-  const side = sideOf(seat);
+  const side = debateSideOf(seat);
   if (seat === null || side === null)
     return conflict('Prep belongs to a seated debater');
   const window = prepWindowRefusal(facts, inRoundPrep, seat);
@@ -137,16 +142,17 @@ const startPrepRefusal = (facts: RoundCommandFacts) => {
     : null;
 };
 
-const startSpeechRefusal = ({ state, seat }: RoundCommandFacts) => {
+const startSpeechRefusal = ({ rules, state, seat }: RoundCommandFacts) => {
   const active = state.checkpoint.active_prep;
   if (active === null)
     return violates(
       debateInvariantIds.startSpeechRequiresPrep,
       'A speech opens out of the prepping side’s prep',
     );
-  return sideOf(seat) === active.side
+  const upcoming = rules.segments[closedCount(state)];
+  return seat?.role === active.side && seat.slot === upcoming?.slot
     ? null
-    : conflict('Only the prepping side ends its own prep');
+    : conflict('Only the prepping seat ends its own prep');
 };
 
 const yieldRefusal = (facts: RoundCommandFacts) => {
@@ -179,7 +185,7 @@ const interruptRefusal = (facts: RoundCommandFacts) => {
   const remaining = open.startedAtMs + open.durationMs - facts.nowMs;
   if (remaining < policy.minRemainingMs)
     return violates(id, 'Too little of the segment remains to interrupt');
-  if (sideOf(facts.seat) === null)
+  if (debateSideOf(facts.seat) === null)
     return conflict('Only a seated debater interrupts');
   return floorHolderOf(facts)?.id === facts.seat?.id
     ? violates(id, 'The floor holder cannot interrupt themselves')
@@ -191,9 +197,11 @@ const interruptRefusal = (facts: RoundCommandFacts) => {
  * nothing left to forfeit and must not pre-empt the judges (ADR 0070).
  */
 const forfeitRefusal = ({ rules, state, seat }: RoundCommandFacts) => {
-  if (closedCountOf(state) === rules.segments.length)
+  if (debateHasEnded(state, rules.segments.length))
     return conflict('The debate is over; there is nothing to forfeit');
-  return sideOf(seat) === null ? conflict('A seated debater forfeits') : null;
+  return debateSideOf(seat) === null
+    ? conflict('A seated debater forfeits')
+    : null;
 };
 
 const refusals: Readonly<
@@ -233,7 +241,7 @@ export const roundCommandRefusal = (
 export const roundCommandOptions = (
   facts: RoundCommandFacts,
 ): readonly RoundCommandOption[] => {
-  const side = sideOf(facts.seat);
+  const side = debateSideOf(facts.seat);
   const forfeit = roundCommandRefusal(facts, 'forfeit') === null;
   if (side === null || !forfeit) return [];
   const option = (type: RoundCommand['type']): RoundCommandOption => ({
@@ -241,8 +249,8 @@ export const roundCommandOptions = (
     legal: roundCommandRefusal(facts, type) === null,
   });
   const leave = { type: 'forfeit', legal: true } as const;
-  if (facts.state.checkpoint.active_prep?.side === side)
-    return [option('start_speech'), leave];
+  const speech = option('start_speech');
+  if (speech.legal) return [speech, leave];
   const open = openRowOf(facts.state);
   if (open === undefined) {
     const prep = option('start_prep');

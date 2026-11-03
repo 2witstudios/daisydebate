@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import judgeFlow from '../scenarios/judge-flow';
+import phaseTransition from '../scenarios/phase-transition';
 import {
   runScenario,
   ScenarioExpectationError,
@@ -123,5 +124,14 @@ describe('typed debate scenarios', () => {
       actual: [judgeFlow.unsupported, runScenario(judgeFlow)],
       expected: [undefined, judgeFlow.expect],
     });
+  });
+});
+
+test('a debate past its last segment awaits its ballot', () => {
+  assert({
+    given: 'the phase-transition scenario, spoken out with no ballot',
+    should: 'report the awaiting_ballot stage',
+    actual: runScenario(phaseTransition).stage,
+    expected: 'awaiting_ballot',
   });
 });

@@ -42,7 +42,7 @@ export const completedLifecycle = (
 ): Lifecycle => {
   if (lifecycle.status !== 'active')
     throw createInvariantError(
-      debateInvariantIds.segmentMatchesRules,
+      debateInvariantIds.lifecycleMatchesStatus,
       'Only an active round completes',
     );
   return {
@@ -53,14 +53,22 @@ export const completedLifecycle = (
   };
 };
 
+/** Only a running Round is abandoned; an ended one keeps its ending. */
 export const abandonedLifecycle = (
   lifecycle: Lifecycle,
   completedAtMs: number,
-): Lifecycle => ({
-  status: 'abandoned',
-  startedAtMs: startedAtOf(lifecycle),
-  completedAtMs,
-});
+): Lifecycle => {
+  if (lifecycle.status === 'completed' || lifecycle.status === 'abandoned')
+    throw createInvariantError(
+      debateInvariantIds.lifecycleMatchesStatus,
+      'Only a running round is abandoned',
+    );
+  return {
+    status: 'abandoned',
+    startedAtMs: startedAtOf(lifecycle),
+    completedAtMs,
+  };
+};
 export type ClockSegment = {
   readonly sequence: number;
   readonly type: SegmentType;
@@ -76,13 +84,18 @@ export type ClockState = {
 };
 export const closedCount = (state: ClockState): number =>
   state.rows.filter((row) => row.endedAtMs !== null).length;
+/** Every segment has closed: the debate is over and only its result is left. */
+export const debateHasEnded = (
+  state: ClockState,
+  segmentCount: number,
+): boolean => closedCount(state) === segmentCount;
 export const countdownAnchor = (state: ClockState): number => {
   const anchor =
     state.rows.filter((row) => row.endedAtMs !== null).at(-1)?.endedAtMs ??
     startedAtOf(state.lifecycle);
   if (anchor === null)
     throw createInvariantError(
-      debateInvariantIds.segmentMatchesRules,
+      debateInvariantIds.lifecycleMatchesStatus,
       'An active round requires a start instant',
     );
   return anchor;
@@ -92,7 +105,7 @@ const instant = (iso: string | null): number | null =>
 
 const invalidLifecycle = (status: RoundStatus): never => {
   throw createInvariantError(
-    debateInvariantIds.segmentMatchesRules,
+    debateInvariantIds.lifecycleMatchesStatus,
     status === 'active'
       ? 'An active round requires a start instant'
       : `A ${status} round's durable lifecycle is not one its status can hold`,

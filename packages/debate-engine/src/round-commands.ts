@@ -6,7 +6,7 @@ import type {
   RatedOutcome,
   RoundEffect,
 } from '@daisy/protocol';
-import { completedLifecycle } from './round-clock-state';
+import { completedLifecycle, debateHasEnded } from './round-clock-state';
 import {
   roundCommandRefusal,
   type RoundCommandFacts,
@@ -99,9 +99,15 @@ const startSpeech = (c: CommandContext): void => {
   c.openRowAt(c.now);
 };
 
+const stateOf = (c: CommandContext) => ({
+  lifecycle: c.on.lifecycle(),
+  checkpoint: c.on.checkpoint(),
+  rows: c.on.rows(),
+});
+
 /** Whether every segment has closed: the debate is over and only its result is left. */
 export const debateIsOver = (c: CommandContext): boolean =>
-  c.closedCount() === c.rules.segments.length;
+  debateHasEnded(stateOf(c), c.rules.segments.length);
 
 /**
  * Forfeiting closes the round with the other side's outcome. Once the debate
@@ -142,11 +148,7 @@ export const completeWith = (
 
 const factsOf = (c: CommandContext): RoundCommandFacts => ({
   rules: c.rules,
-  state: {
-    lifecycle: c.on.lifecycle(),
-    checkpoint: c.on.checkpoint(),
-    rows: c.on.rows(),
-  },
+  state: stateOf(c),
   participants: c.participants,
   seat: c.seatOf(c.actorId),
   nowMs: c.now,

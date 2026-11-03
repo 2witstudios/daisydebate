@@ -51,7 +51,9 @@ test(
         rounds.push(
           await f.round({
             room_id: room,
+            room_config_snapshot: validConfig,
             rules_snapshot: storedRules(before),
+            visibility: 'public',
             created_by_actor_id: actor,
             format_id: format,
           }),

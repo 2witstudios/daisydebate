@@ -167,6 +167,25 @@ test('prep takes the seat whose segment is next (ISSUE-1013)', () => {
     ],
     expected: [null, 'invariant'],
   });
+  const prepping = (seat: (typeof seats)[number]): RoundCommandFacts => ({
+    ...facts(seat),
+    state: {
+      ...facts(seat).state,
+      checkpoint: {
+        ...emptyRuntimeCheckpoint,
+        active_prep: { side: 'affirmative', started_at: at(0) },
+      },
+    },
+  });
+  assert({
+    given: 'the scheduled speaker prepping, read by them and by their teammate',
+    should: 'let only the prepping seat open the speech',
+    actual: [
+      roundCommandOptions(prepping(speaker)).map((option) => option.type),
+      roundCommandOptions(prepping(seats[1]!)).map((option) => option.type),
+    ],
+    expected: [['start_speech', 'forfeit'], ['forfeit']],
+  });
 });
 
 test('hydrating lifecycle columns (ISSUE-1014)', async () => {
@@ -238,6 +257,6 @@ test('hydrating lifecycle columns (ISSUE-1014)', async () => {
       should: 'refuse the corrupt lifecycle',
       actual: async () => hydrate(round),
       code: 'INVARIANT',
-      invariantId: 'round.segment.matches-rules',
+      invariantId: 'round.lifecycle.matches-status',
     });
 });

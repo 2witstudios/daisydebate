@@ -187,7 +187,7 @@ test('active snapshots require a durable countdown origin', async () => {
         nowMs: origin,
       }),
     code: 'INVARIANT',
-    invariantId: 'round.segment.matches-rules',
+    invariantId: 'round.lifecycle.matches-status',
   });
 });
 

@@ -8,6 +8,7 @@ import type {
 import { advanceRoundClock } from './round-clock';
 import {
   countdownAnchor,
+  debateHasEnded,
   startedAtOf,
   type ClockState,
   type ClockSegment as StoreRow,
@@ -36,9 +37,7 @@ export const stageOf = (
   if (on.rows.find((row) => row.endedAtMs === null) !== undefined)
     return 'live';
   if (on.checkpoint.active_prep !== null) return 'prep';
-  return on.rows.filter((row) => row.endedAtMs !== null).length === segmentCount
-    ? 'awaiting_ballot'
-    : 'countdown';
+  return debateHasEnded(on, segmentCount) ? 'awaiting_ballot' : 'countdown';
 };
 
 /**
