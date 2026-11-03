@@ -96,6 +96,10 @@ export function createMediaNodes(input: {
     permissions: (...args: Parameters<NodeService['permissions']>) =>
       preferred().permissions(...args),
     size: input.nodes.length,
+    /** Every node's index, healthy ones first, for another client of the same nodes. */
+    order: () => [
+      ...new Set([...inOrder(), ...services.map((_, index) => index)]),
+    ],
     /** Where a client joins this room now: on a healthy node, the same one each time. */
     urlsFor(room: string) {
       const up = inOrder();

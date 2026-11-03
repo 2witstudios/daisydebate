@@ -38,7 +38,7 @@ const route = (over: object = {}, revokedAt: Date | null = null) => {
         minted.push([room, access]);
         return 'token';
       },
-      livekitUrl: 'wss://lk.test',
+      livekitUrlFor: () => 'wss://lk.test',
       now: () => 1000,
       nextId: () => 'id',
     } as unknown as Deps),
