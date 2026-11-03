@@ -104,6 +104,7 @@ import { spectatorTimelineReads } from './spectator-timeline-reads';
 import { liveBroadcastReads } from './live-broadcast-reads';
 import { memberProfileReadOperations } from './member-profile-reads';
 import { recordingArchiveReadOperations } from './recording-archive-reads';
+import { recordingModeration } from './recording-moderation';
 import { spectatorFactLogOperations } from './spectator-fact-log';
 import { createRecordingCaptureStore } from './recording-capture-store';
 import { recordingOperations } from './recording-operations';
@@ -311,6 +312,7 @@ export function createDatabase({
       database: control,
       eventSink,
       chat: spectatorChatModeration,
+      recordings: recordingModeration,
     }),
     ...actorOperations({ database: control, eventSink }),
     ...messagingOperations(social, contactReactions),

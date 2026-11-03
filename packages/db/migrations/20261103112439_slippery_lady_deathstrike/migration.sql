@@ -211,6 +211,7 @@ CREATE INDEX "agreement_signatures_room_idx" ON "agreement_signatures" ("room_id
 CREATE UNIQUE INDEX "audience_reactions_spaced_unique" ON "audience_reactions" ("round_id","user_id","kind","spaced_at");--> statement-breakpoint
 CREATE INDEX "audience_reactions_round_idx" ON "audience_reactions" ("round_id","kind","created_at");--> statement-breakpoint
 CREATE INDEX "audience_reactions_user_idx" ON "audience_reactions" ("user_id");--> statement-breakpoint
+CREATE INDEX "audience_reactions_retention_idx" ON "audience_reactions" ("created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "broadcasts_round_unique" ON "broadcasts" ("round_id");--> statement-breakpoint
 CREATE INDEX "broadcasts_open_idx" ON "broadcasts" ("created_at") WHERE "completed_at" is null;--> statement-breakpoint
 CREATE INDEX "broadcasts_feed_up_idx" ON "broadcasts" ("created_at") WHERE "feed_withdrawn_at" is null;--> statement-breakpoint
@@ -218,6 +219,7 @@ CREATE UNIQUE INDEX "content_reports_once_unique" ON "content_reports" ("reporte
 CREATE INDEX "content_reports_queue_idx" ON "content_reports" ("queue","status","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "debater_follows_debater_idx" ON "debater_follows" ("debater_actor_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "messaging_channels_round_unique" ON "messaging_channels" ("round_id");--> statement-breakpoint
+CREATE INDEX "messaging_messages_channel_created_idx" ON "messaging_messages" ("channel_id","created_at");--> statement-breakpoint
 CREATE INDEX "notification_fanouts_round_idx" ON "notification_fanouts" ("round_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "notifications_once_unique" ON "notifications" ("user_id","kind","round_id");--> statement-breakpoint
 CREATE INDEX "notifications_user_idx" ON "notifications" ("user_id","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint

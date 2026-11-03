@@ -1,2 +1,0 @@
-CREATE INDEX "audience_reactions_retention_idx" ON "audience_reactions" ("created_at");--> statement-breakpoint
-CREATE INDEX "messaging_messages_channel_created_idx" ON "messaging_messages" ("channel_id","created_at");

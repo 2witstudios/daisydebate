@@ -1,3 +1,4 @@
+import { recordingModeration } from '../src/recording-moderation';
 import { requireTestServices } from '@daisy/config';
 import { captureRule } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
@@ -487,6 +488,69 @@ test('the Round inputs read only public ballot fields', async () => {
       should: 'read null',
       actual: await reads.readRecordingRound(createId()),
       expected: null,
+    });
+  });
+});
+
+test('moderation reaches a real Recording, and a takedown holds what it can restore', async () => {
+  await withStore(async ({ client, ops, fixture, track }) => {
+    const db = drizzle({ client });
+    const roundId = track(await fixture.round());
+    const id = createId();
+    await ops.requestRecording({
+      id,
+      roundId,
+      class: 'casual',
+      eligibility: hostOptIn,
+    });
+    await ops.applyRecording(id, () => ({ kind: 'moved', next: ready(id) }));
+    const before = await recordingModeration.readReportFacts(db as never, {
+      recordingId: id,
+      reporterActorId: createId(),
+    });
+    const facts = {
+      ranked: before?.ranked,
+      reporterSeated: before?.reporterSeated,
+      roundId: before?.audience.roundId,
+    };
+    assert({
+      given: 'a stranger reporting a real Recording',
+      should: 'find it, with its Round, instead of answering as missing',
+      actual: [facts, await recordingModeration.exists(db as never, id)],
+      expected: [{ ranked: false, reporterSeated: false, roundId }, true],
+    });
+    const take = () =>
+      recordingModeration.takeDown(db as never, {
+        recordingId: id,
+        reason: 'policy_violation',
+        now: later,
+      });
+    const first = await take();
+    const taken = await ops.findRecording(id);
+    assert({
+      given: 'a takedown, then the same again',
+      should: 'apply once, keep the media for a restore, and hide it',
+      actual: [
+        first,
+        await take(),
+        taken?.lifecycle.status,
+        taken?.lifecycle.status === 'taken_down' &&
+          taken.lifecycle.held?.status,
+      ],
+      expected: ['applied', 'unchanged', 'taken_down', 'ready'],
+    });
+    assert({
+      given: 'no such Recording',
+      should: 'answer as missing',
+      actual: [
+        await recordingModeration.takeDown(db as never, {
+          recordingId: createId(),
+          reason: 'policy_violation',
+          now: later,
+        }),
+        await recordingModeration.exists(db as never, createId()),
+      ],
+      expected: [null, false],
     });
   });
 });
