@@ -144,7 +144,7 @@ test('Start practice moves on only on the answer every Room form reads', async (
             title: 'Open room',
             phase: 'assembling',
             role: 'host',
-            seated: false,
+            seated: true,
             href: `/rooms/${'r'.repeat(24)}`,
           },
         })
