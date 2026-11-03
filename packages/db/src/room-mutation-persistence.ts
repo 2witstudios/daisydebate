@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 
-import type { RoomMutationOutcome } from '@daisy/protocol';
+import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
 import { freezeRoomConfig } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
@@ -12,7 +12,11 @@ import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
 import { holdActiveRoomMembers } from './room-membership-persistence';
 
-import { type Tx, publishDefinition } from './room-command-facts';
+import {
+  appendRoomChanged,
+  type Tx,
+  publishDefinition,
+} from './room-command-facts';
 import { isOpenRoomStatus } from './room-open';
 
 /** The room row a mutation writes; the idle anchor moves only on an accepted command. */
@@ -25,6 +29,7 @@ const roomRow = (
   topic: next.topic,
   publishedResolutionId: next.publishedResolutionId,
   visibility: next.visibility,
+  hostActorId: next.hostActorId,
   version: next.version,
   changeVersion: next.changeVersion,
   formatId: next.formatId,
@@ -125,4 +130,36 @@ export const persistRoomMutation = async (
     roundRef = { id: roundId, status: opens ? 'opening' : 'active' };
   }
   return roundRef;
+};
+
+/**
+ * Persists a Room change made under an authority other than a command (erasure,
+ * a restriction), under the caller's row lock. It freezes no Round, so it never
+ * spends an AI round or seats a bot. It moves the idle anchor only when the host
+ * changes: a new host must have the Room's whole idle time to act.
+ */
+export const persistRoomOutsideCommands = async (
+  tx: Tx,
+  before: RoomAssemblyState,
+  after: RoomAssemblyState,
+  activeRoomMembers: (room: RoomAssemblyState) => readonly string[],
+  now: string,
+) => {
+  const state = { ...after, changeVersion: before.changeVersion + 1 };
+  await persistRoomMutation(
+    tx,
+    {
+      state,
+      consent: null,
+      freeze: false,
+      seatsBotDebater: false,
+      publishDefinition: false,
+      draw: null,
+      members: activeRoomMembers(state),
+    },
+    '',
+    now,
+    after.hostActorId !== before.hostActorId,
+  );
+  await appendRoomChanged(tx, state.id, state.changeVersion);
 };

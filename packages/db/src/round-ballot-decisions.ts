@@ -5,6 +5,21 @@ import type {
   RoundCommandPrincipal,
 } from '@daisy/protocol';
 
+/**
+ * An AI judge never rules on an incomplete transcript (DEC-208): a job is never
+ * queued for one, and this holds if one ever is, since rating trusts the ballot.
+ */
+export function requireAgentBallotCapture(
+  principal: RoundCommandPrincipal,
+  completeness: string,
+): void {
+  if (principal.kind === 'agent' && completeness !== 'complete')
+    throw createAppError(
+      'INVARIANT',
+      'An AI judge cannot rule on an incomplete transcript',
+    );
+}
+
 /** A bot ballot needs a lease check and the live judging run for this exact job. */
 export function requireJudgingRun(
   input: {

@@ -1,12 +1,10 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { rooms, roomParticipants } from './schema/rooms';
-import { appendRoomChanged, roomFacts, type Tx } from './room-command-facts';
-import { persistRoomMutation } from './room-mutation-persistence';
+import { roomFacts, type Tx } from './room-command-facts';
+import { persistRoomOutsideCommands } from './room-mutation-persistence';
 import { roomIsOpen } from './room-open';
-
-type Mutation = Extract<RoomMutationOutcome, { ok: true }>['mutation'];
 
 /** The engine's pure Room transitions, injected by the caller. */
 export type RoomClosureTransitions = {
@@ -30,26 +28,19 @@ export type RoomClosureTransitions = {
 export const createRoomAccountClosureAdopter = (
   transitions: RoomClosureTransitions,
 ): PrivacyAdopter => {
-  const persist = async (
+  const persist = (
     tx: Tx,
     before: RoomAssemblyState,
     after: RoomAssemblyState,
     now: string,
-  ) => {
-    const state = { ...after, changeVersion: before.changeVersion + 1 };
-    const mutation: Mutation = {
-      state,
-      consent: null,
-      freeze: false,
-      // Closure freezes no Round, so it never spends an AI round or seats a bot.
-      seatsBotDebater: false,
-      publishDefinition: false,
-      draw: null,
-      members: transitions.activeRoomMembers(state),
-    };
-    await persistRoomMutation(tx, mutation, '', now, false);
-    await appendRoomChanged(tx, state.id, state.changeVersion);
-  };
+  ) =>
+    persistRoomOutsideCommands(
+      tx,
+      before,
+      after,
+      transitions.activeRoomMembers,
+      now,
+    );
 
   const closeHosted = async (tx: Tx, actorId: string, now: string) => {
     const hosted = await tx

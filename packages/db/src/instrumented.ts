@@ -10,7 +10,8 @@ export type DatabaseEventSink = (
     | 'db.query.failed'
     | 'db.capacity.refused'
     | 'db.capacity.holder'
-    | 'realtime.outbox.actor_missing',
+    | 'realtime.outbox.actor_missing'
+    | 'round.restriction.forfeit_failed',
   fields: Readonly<Record<string, unknown>>,
   message: string,
 ) => void;

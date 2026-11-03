@@ -66,8 +66,8 @@ test("rating recovery leaves the engine's unrated Rounds alone and still pages p
     database: {
       readRatingCandidates: async () => [
         {
-          roundId: 'incomplete',
-          facts: { ...rateable, ending: 'judged-on-incomplete-capture' },
+          roundId: 'unjudged',
+          facts: { ...rateable, ending: 'unjudged' },
         },
         { roundId: 'no-result', facts: { ...rateable, outcome: null } },
       ],
@@ -100,7 +100,7 @@ test('rating recovery reports a Round whose facts cannot be decided and pages on
           roundId: 'corrupt',
           facts: {
             ...rateable,
-            ending: 'judged-on-complete-capture',
+            ending: 'judged',
             attendance: {
               ...rateable.attendance,
               ruleSegments: null as never,

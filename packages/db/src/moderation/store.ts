@@ -10,7 +10,6 @@ import {
   lockAuthorizationActors,
   readOwnCollection,
   requireOwnScope,
-  type AuthorizationTransaction,
   type OwnCollectionFence,
 } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
@@ -37,8 +36,13 @@ export type Sanction =
  */
 export type ModerationReactions = {
   readonly onRestricted: readonly ((
-    tx: Pick<BunSQLDatabase, 'delete'> & AuthorizationTransaction,
+    tx: Transaction,
     actorId: string,
+    context: {
+      readonly now: string;
+      readonly nextId: () => string;
+      readonly eventSink: DatabaseEventSink | undefined;
+    },
   ) => Promise<void>)[];
 };
 
@@ -56,6 +60,7 @@ export async function applySanction(
     readonly sanction: Sanction;
     readonly operatorRef: string;
     readonly now: string;
+    readonly nextId: () => string;
   },
   dependencies: {
     readonly eventSink: DatabaseEventSink | undefined;
@@ -83,7 +88,11 @@ export async function applySanction(
     'applySanction',
   );
   for (const react of dependencies.reactions.onRestricted)
-    await react(tx, input.actorId);
+    await react(tx, input.actorId, {
+      now: input.now,
+      nextId: input.nextId,
+      eventSink: dependencies.eventSink,
+    });
 }
 
 export type OperatorRestrictionRow = {

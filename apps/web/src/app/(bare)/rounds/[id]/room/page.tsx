@@ -27,7 +27,8 @@ import type { SearchParams } from '../../../../../features/access/decision';
 import { accessOrTemporary } from '../../../../../lib/access';
 import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
-import { RoundRoomReconnecting } from '../../../../../ui/debate-room/round-room-reconnecting';
+import { temporarilyRefused } from '../../../../../server/temporary-read';
+import { reconnectingRoundPage } from '../../../../../ui/debate-room/round-reconnecting';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
 import { readPersistedTranscript } from '../../../../(shell)/rounds/[id]/read-persisted-transcript';
 import { MediaDocument } from '../../../../../ui/round-media/media-document';
@@ -62,10 +63,6 @@ const transcriptOf = (
     />
   ) : null;
 
-const reconnecting = () => (
-  <RoundRoomReconnecting retrySeconds={drawReconnectDelaySeconds()} />
-);
-
 /**
  * A member without a seat: the assigned judge's live view, a seatless
  * host's spectator view, or the receipt for everyone else.
@@ -78,8 +75,8 @@ async function watchingRoom(
   transcript: ReactNode,
 ) {
   const assigned = await readPersistedJudgeRound(id);
+  if (temporarilyRefused(assigned)) return reconnectingRoundPage();
   if (assigned.kind === 'unavailable') {
-    if (assigned.temporary) return reconnecting();
     throw createAppError('INFRASTRUCTURE');
   }
   const room = watchingRoomOf({
@@ -128,7 +125,7 @@ export default async function RoundRoomPage({
 }) {
   const { id } = await params;
   const access = await accessOrTemporary(`/rounds/${id}/room`, searchParams);
-  if (access.kind === 'temporary') return reconnecting();
+  if (access.kind === 'temporary') return reconnectingRoundPage();
   const { identity } = access;
   if (!idSchema.safeParse(id).success) notFound();
   const principal = roundDocumentPrincipal(identity);
@@ -140,7 +137,7 @@ export default async function RoundRoomPage({
     readPersistedTranscript(id),
   ]);
   if (result.kind === 'missing') notFound();
-  if (result.kind === 'unavailable' && result.temporary) return reconnecting();
+  if (temporarilyRefused(result)) return reconnectingRoundPage();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const transcriptIn = (placement: TranscriptPlacement) =>
     transcriptOf(id, text, result.socketUrl, placement);

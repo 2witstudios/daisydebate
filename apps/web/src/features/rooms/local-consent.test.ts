@@ -80,7 +80,7 @@ test('human Ready refuses unchecked devices before any command', async () => {
 
 test('a Ready made elsewhere survives a mounted Room that has not checked its devices', async () => {
   const h = harness();
-  await h.controller.devices(false, true);
+  await h.controller.devices(false);
   h.controller.updateView(consentView(true, 2));
   assert({
     given: 'a tab with unchecked devices that reads a Ready made elsewhere',
@@ -92,7 +92,7 @@ test('a Ready made elsewhere survives a mounted Room that has not checked its de
 
 test('a check that starts or fails with no pass held leaves a standing Ready', async () => {
   const h = harness(consentView(true, 2));
-  await h.controller.devices(false, true);
+  await h.controller.devices(false);
   assert({
     given: 'a reload or new tab whose device snapshot reports no pass',
     should: 'keep the Ready and send no withdrawal',
@@ -104,7 +104,7 @@ test('a check that starts or fails with no pass held leaves a standing Ready', a
 test('a Ready made elsewhere after this tab withdrew on device loss stands', async () => {
   const h = harness(consentView(true, 2));
   await h.controller.devices(true);
-  await h.controller.devices(false, true);
+  await h.controller.devices(false);
   h.controller.updateView(consentView(true, 4));
   assert({
     given: 'an acknowledged withdrawal, then a newer Ready from another tab',
@@ -134,7 +134,7 @@ test('a lost pass withdraws a Ready whose answer was lost after it committed', a
   });
   await c.devices(true);
   await c.ready();
-  await c.devices(false, true);
+  await c.devices(false);
   assert({
     given: 'a committed Ready answered unavailable, then device loss',
     should: 'read the commitment and withdraw it',
@@ -160,7 +160,7 @@ test('an unreadable lost Ready stays fenced until a view shows it, then withdraw
   });
   await c.devices(true);
   await c.ready();
-  await c.devices(false, true);
+  await c.devices(false);
   const fenced = c.readSnapshot().pending;
   c.updateView(consentView(true, 2));
   await withdrawn.promise;
@@ -175,7 +175,7 @@ test('an unreadable lost Ready stays fenced until a view shows it, then withdraw
 test('device invalidation fences Launch synchronously and withdraws current consent', async () => {
   const h = harness(consentView(true, 7));
   await h.controller.devices(true);
-  const work = h.controller.devices(false, true);
+  const work = h.controller.devices(false);
   const blocked = h.controller.readSnapshot().pending;
   await work;
   assert({
@@ -215,7 +215,7 @@ test('unacknowledged Unready stays blocked until authoritative recovery', async 
   const h = harness(consentView(true));
   h.fail();
   await h.controller.devices(true);
-  await h.controller.devices(false, true);
+  await h.controller.devices(false);
   const pending = h.controller.readSnapshot().pending;
   h.recover();
   await h.controller.retry();
@@ -251,7 +251,7 @@ test('loss during pending Ready is followed by Unready with consumed consent rev
   });
   await c.devices(true);
   const ready = c.ready();
-  const lost = c.devices(false, true);
+  const lost = c.devices(false);
   finish({ kind: 'accepted', view: consentView(true, 2) });
   await Promise.all([ready, lost]);
   assert({
@@ -314,7 +314,7 @@ test('withdrawal recovery refuses a substituted room and remains locally blocked
     },
   });
   await c.devices(true);
-  await c.devices(false, true);
+  await c.devices(false);
   await c.retry();
   assert({
     given: 'a failed withdrawal and wrong-room recovery payload',
@@ -353,7 +353,7 @@ test('committed readiness survives local device loss without another intent', as
     ...consentView(true),
     capabilities: { ...assemblySnapshot.capabilities, canReady: false },
   });
-  await h.controller.devices(false, true);
+  await h.controller.devices(false);
   await h.controller.unready();
   assert({
     given: 'server-committed readiness then device loss and withdrawal',
@@ -444,21 +444,5 @@ test('late conflict reread cannot restore a warning after commitment', async () 
     should: 'retain settled consent without an obsolete warning',
     actual: [c.readSnapshot().pending, c.readSnapshot().problem],
     expected: [false, false],
-  });
-});
-
-test('re-checking a working device keeps a Ready until the check reports a loss', async () => {
-  const h = harness(consentView(true, 2));
-  await h.controller.devices(true);
-  await h.controller.devices(false);
-  const whileChecking = h.sent.map((command) => command.type);
-  await h.controller.devices(true);
-  await h.controller.devices(false);
-  await h.controller.devices(false, true);
-  assert({
-    given: 'a passed check restarted, passed again, restarted and then lost',
-    should: 'send nothing for a restart and withdraw once on the reasoned loss',
-    actual: [whileChecking, h.sent.map((command) => command.type)],
-    expected: [[], ['unready']],
   });
 });

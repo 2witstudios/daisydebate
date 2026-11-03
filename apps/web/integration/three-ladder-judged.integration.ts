@@ -172,7 +172,7 @@ for (const ladder of ratingLadders)
                     (r: { version: number }) => r.version,
                   ),
                   entries: leaderboard?.data.entries.length,
-                  pending: display?.pending,
+                  posting: display?.posting,
                   deltas: display?.rows.every((r) => r.delta !== null),
                   seatsInOrder:
                     seatRoles.join() === [...seatRoles].sort().join(),
@@ -187,7 +187,7 @@ for (const ladder of ratingLadders)
                   seasons: [season.id],
                   versions: [1, 1],
                   entries: 2,
-                  pending: false,
+                  posting: 'rated',
                   deltas: true,
                   seatsInOrder: true,
                   resolution: true,

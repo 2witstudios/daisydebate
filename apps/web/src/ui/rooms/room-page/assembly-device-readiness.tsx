@@ -193,9 +193,9 @@ export function AssemblyDeviceReadiness(props: Props) {
         return result;
       },
     });
-    const unsubscribe = devices.subscribe((snapshot, invalidation) => {
+    const unsubscribe = devices.subscribe((snapshot) => {
       rememberCheckedDevices(roomId, snapshot, undefined, actorId);
-      void consent.devices(snapshot.devicesPassed, invalidation !== undefined);
+      void consent.devices(snapshot.devicesPassed);
     });
     let cancelled = false;
     void Promise.resolve().then(() => {

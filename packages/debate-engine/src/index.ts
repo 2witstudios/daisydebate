@@ -43,6 +43,7 @@ export {
   executeRoomCommand,
   hostIdentityHidden,
   projectRoom,
+  releaseRestrictedMember,
 } from './room-assembly';
 export { castSeatsBotDebater } from './ai-round-cast';
 export { activeRoomMembers, projectActiveRoom } from './room-membership';
@@ -52,6 +53,7 @@ export { maintainRoom } from './room-expiry';
 export {
   advanceOpening,
   forfeitInOpening,
+  forfeitOfRestriction,
   inPreRoundPrep,
   readRoundOpening,
   readRoundOpeningTopic,

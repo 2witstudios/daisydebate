@@ -92,6 +92,38 @@ export function forfeitInOpening(
   );
 }
 
+/**
+ * The forfeit a restriction imposes on a seated debater (DEC-331), in the opening
+ * or the debate. Null once the debate is over: the Round waits for its ballot,
+ * with nothing left to forfeit. Any other refusal throws.
+ */
+export function forfeitOfRestriction(
+  input: RuntimeInput & {
+    readonly opening: {
+      readonly state: RoundOpening;
+      readonly seed: string | null;
+    } | null;
+    readonly actorId: string;
+    readonly now: string;
+  },
+): RoundProjection | null {
+  const { opening, ...hydrated } = input;
+  if (opening)
+    return forfeitInOpening({
+      ...hydrated,
+      opening: opening.state,
+      seed: opening.seed,
+    });
+  const runtime = createRoundRuntime(hydrated);
+  return runtime.debateOverAt(input.now)
+    ? null
+    : runtime.execute({
+        command: { type: 'forfeit' },
+        actorId: input.actorId,
+        now: input.now,
+      });
+}
+
 /** Whether the Round is in pre-round prep at `now`: every mic and camera closes. */
 export const inPreRoundPrep = (input: {
   readonly opening: RoundOpening;
