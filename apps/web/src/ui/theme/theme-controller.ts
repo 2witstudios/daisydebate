@@ -2,7 +2,7 @@ import {
   preferenceFromCookies,
   serializeThemeCookie,
   type ThemePreference,
-} from './theme-preference';
+} from '../../features/theme/theme-preference';
 
 type Update = () => void;
 

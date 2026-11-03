@@ -9,7 +9,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { preferenceForKey, renderThemeSwitcher } from './theme-switcher.render';
 import { ThemeSwitcher } from './theme-switcher';
 import { ThemeProvider } from '../../theme/theme-provider';
-import type { ThemePreference } from '../../theme/theme-preference';
+import type { ThemePreference } from '../../../features/theme/theme-preference';
 
 setupRitewayBun();
 

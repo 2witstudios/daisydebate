@@ -9,7 +9,7 @@ import {
   THEME_PREFERENCES,
   themeColorFor,
 } from './theme-preference';
-import { rootTokens, schemeValue } from '../test-support/globals-tokens';
+import { rootTokens, schemeValue } from '../../ui/test-support/globals-tokens';
 
 setupRitewayBun();
 

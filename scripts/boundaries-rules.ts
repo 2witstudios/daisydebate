@@ -148,6 +148,33 @@ export const testSupportIssue = (
     ? `production import of test support ${specifier}`
     : null;
 
+// architecture-exception: ISSUE-1005
+const samplesAwaitingWatch = 'apps/web/src/features/watch/debate-source.ts';
+
+/**
+ * Dependencies point inward: a feature in `apps/web` never imports `ui/`, and
+ * sample data reaches it only as an argument from the page (ISSUE-1005). Tests
+ * are edges too, so they may hand a feature a fixture.
+ */
+export const featureUiIssue = (
+  specifier: string,
+  importer: string,
+): string | null => {
+  if (
+    !specifier.startsWith('.') ||
+    !importer.startsWith('apps/web/src/features/') ||
+    TEST_CODE.test(importer) ||
+    importer === samplesAwaitingWatch
+  )
+    return null;
+  const target = posix.normalize(
+    posix.join(posix.dirname(importer), specifier),
+  );
+  return target.startsWith('apps/web/src/ui/')
+    ? `feature imports ui ${specifier} (dependencies point inward)`
+    : null;
+};
+
 /**
  * ADR 0043: the participant app hosts no admin routes or admin surfaces.
  * Privileged operations are pure domain operations taking an explicit

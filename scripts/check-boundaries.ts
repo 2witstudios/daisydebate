@@ -11,6 +11,7 @@ import {
   adobeIsolationIssue,
   allowedWorkspaceDependencies as allowed,
   conceptCouplingIssue,
+  featureUiIssue,
   reservedWordIssue,
   deepImportIssue,
   operatorApiIssue,
@@ -128,6 +129,8 @@ for (const workspace of workspaces) {
       if (operatorApi) issues.push(`${relative(root, file)}: ${operatorApi}`);
       const testSupport = testSupportIssue(specifier, relative(root, file));
       if (testSupport) issues.push(`${relative(root, file)}: ${testSupport}`);
+      const featureUi = featureUiIssue(specifier, relative(root, file));
+      if (featureUi) issues.push(`${relative(root, file)}: ${featureUi}`);
       const coupling = conceptCouplingIssue(specifier, relative(root, file));
       if (coupling) issues.push(`${relative(root, file)}: ${coupling}`);
       if (specifier.startsWith('.')) {
