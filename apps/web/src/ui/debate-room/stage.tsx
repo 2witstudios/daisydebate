@@ -35,22 +35,31 @@ function FloorPill({
   );
 }
 
-/** Name, side and rating; a small tile adds its part in the phase. */
+/**
+ * Name, side and rating, with its part in the phase: always on a small tile,
+ * and at phone width on a large one, whose pill hides there.
+ */
 function TileCaption({
   debater,
   you,
   state,
+  named,
 }: {
   readonly debater: Debater;
   readonly you: boolean;
   readonly state: string;
+  readonly named: boolean;
 }) {
   return (
     <figcaption className="absolute bottom-2 left-3 flex items-baseline gap-1 text-sm whitespace-nowrap max-narrow:text-xs">
       <span className="font-strong">{you ? 'You' : debater.name}</span>
       <span className="text-stage-ink-muted">
         · {sideName[debater.side]}
-        {state ? ` · ${state.toLowerCase()}` : ''}
+        {state ? (
+          <span className={named ? undefined : 'hidden max-narrow:inline'}>
+            {` · ${state.toLowerCase()}`}
+          </span>
+        ) : null}
       </span>
       {debater.rating === null ? null : (
         <span className="text-stage-ink-muted tabular-nums">
@@ -104,7 +113,7 @@ export function Tile({
       {state && !caption ? (
         <FloorPill state={state} side={debater.side} />
       ) : null}
-      <TileCaption debater={debater} you={you} state={caption ? state : ''} />
+      <TileCaption debater={debater} you={you} state={state} named={caption} />
     </figure>
   );
 }
