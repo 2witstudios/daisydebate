@@ -51,6 +51,8 @@ export const broadcasts = pgTable(
     stoppedAt: timestampColumn('stopped_at'),
     stopReason: text('stop_reason'),
     completedAt: timestampColumn('completed_at'),
+    /** Every public object is deleted, so the official feed answers nothing. */
+    feedWithdrawnAt: timestampColumn('feed_withdrawn_at'),
     /** One web instance reconciles a Broadcast at a time, so one Egress starts. */
     reconcileLeaseUntil: timestampColumn('reconcile_lease_until'),
     leaseEpoch: integer('lease_epoch').notNull().default(0),
@@ -63,6 +65,9 @@ export const broadcasts = pgTable(
     index('broadcasts_open_idx')
       .on(table.createdAt)
       .where(sql`${table.completedAt} is null`),
+    index('broadcasts_feed_up_idx')
+      .on(table.createdAt)
+      .where(sql`${table.feedWithdrawnAt} is null`),
     check(
       'broadcasts_delivery_path_check',
       sql`${table.deliveryPath} in ('owned_hls')`,

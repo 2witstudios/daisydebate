@@ -1,0 +1,2 @@
+ALTER TABLE "broadcasts" ADD COLUMN "feed_withdrawn_at" timestamp with time zone;--> statement-breakpoint
+CREATE INDEX "broadcasts_feed_up_idx" ON "broadcasts" ("created_at") WHERE "feed_withdrawn_at" is null;
