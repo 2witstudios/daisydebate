@@ -13,13 +13,13 @@ import type { Database } from '@daisy/db';
 import { createAppError, isAppError, type ErrorCode } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
+import { restrictionRules } from '../moderation/restriction-rules';
 import { REPORT_EVIDENCE_RETENTION_MS } from '../reports/operations';
 import { boundedBody, json, refusal, transportRefusal } from './http';
 import {
   betaAccessCommandSchema,
   matchOperatorRoute,
   moderationLiftCommandSchema,
-  operatorReportsCursorSchema,
   operatorReportsPageSchema,
   operatorReportsQuerySchema,
   operatorRestrictionsCursorSchema,
@@ -359,32 +359,10 @@ async function listReports(
     Object.fromEntries(url.searchParams.entries()),
   );
   if (!query.success) throw createAppError('VALIDATION');
-  let after: { readonly createdAt: string; readonly id: string } | null = null;
-  if (query.data.cursor !== undefined) {
-    try {
-      const cursor = operatorReportsCursorSchema.parse(
-        JSON.parse(
-          Buffer.from(query.data.cursor, 'base64url').toString('utf8'),
-        ),
-      );
-      after = { createdAt: cursor.createdAt, id: cursor.id };
-    } catch {
-      throw createAppError('VALIDATION');
-    }
-  }
-  const rows = await deps.store.listOperatorReports({
-    limit: query.data.limit + 1,
-    after,
+  const items = await deps.store.listOperatorReports({
+    limit: query.data.limit,
   });
-  const items = rows.slice(0, query.data.limit);
-  const last = items.at(-1);
-  return operatorReportsPageSchema.parse({
-    items,
-    nextCursor:
-      rows.length > query.data.limit && last
-        ? encodeCursor({ v: 1, createdAt: last.createdAt, id: last.id })
-        : null,
-  });
+  return operatorReportsPageSchema.parse({ items });
 }
 
 /** Closes a report and applies its action, once per command (ADR 0103). */
@@ -435,6 +413,7 @@ async function resolveReport(
       now.getTime() + REPORT_EVIDENCE_RETENTION_MS,
     ).toISOString(),
     nextId: deps.nextId,
+    restrictionRules,
     live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,
   });
   deps.logger.log(

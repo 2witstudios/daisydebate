@@ -11,7 +11,7 @@ const posting = (
   after: number,
   occurredAt: string,
   role: 'affirmative' | 'negative',
-  outcome: 'affirmative' | 'negative' | 'draw',
+  outcome: 'affirmative' | 'negative',
 ) => ({
   seasonId: 's1',
   actorId,
@@ -90,7 +90,7 @@ const read: StandingsRead = {
       1470,
       '2026-10-05T12:00:00.000Z',
       'affirmative',
-      'draw',
+      'negative',
     ),
   ],
 };
@@ -100,7 +100,7 @@ describe('summarizeStandings', () => {
     assert({
       given: 'two rated debaters and one with a rating but no postings',
       should:
-        'count wins, losses and draws by seat and outcome, sum the week and season movement, and keep the last posting',
+        'count wins and losses by seat and outcome, sum the week and season movement, and keep the last posting',
       actual: summarizeStandings(read, '2026-09-28T12:00:00.000Z'),
       expected: [
         {
@@ -114,7 +114,6 @@ describe('summarizeStandings', () => {
           played: 2,
           wins: 2,
           losses: 0,
-          draws: 0,
           weekChange: 14,
           seasonChange: 30,
           lastRatedAt: '2026-10-04T12:00:00.000Z',
@@ -129,8 +128,7 @@ describe('summarizeStandings', () => {
           volatility: 0.06,
           played: 2,
           wins: 0,
-          losses: 1,
-          draws: 1,
+          losses: 2,
           weekChange: -14,
           seasonChange: -30,
           lastRatedAt: '2026-10-05T12:00:00.000Z',
@@ -146,7 +144,6 @@ describe('summarizeStandings', () => {
           played: 0,
           wins: 0,
           losses: 0,
-          draws: 0,
           weekChange: 0,
           seasonChange: 0,
           lastRatedAt: null,

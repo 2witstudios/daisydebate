@@ -170,7 +170,6 @@ const scores: Readonly<
 > = {
   affirmative: { affirmative: 1, negative: 0 },
   negative: { affirmative: 0, negative: 1 },
-  draw: { affirmative: 0.5, negative: 0.5 },
 };
 
 /**

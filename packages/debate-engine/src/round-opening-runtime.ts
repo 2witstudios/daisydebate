@@ -92,6 +92,38 @@ export function forfeitInOpening(
   );
 }
 
+/**
+ * The forfeit a restriction imposes on a seated debater (DEC-331), in the opening
+ * or the debate. Null once the debate is over: the Round waits for its ballot,
+ * with nothing left to forfeit. Any other refusal throws.
+ */
+export function forfeitOfRestriction(
+  input: RuntimeInput & {
+    readonly opening: {
+      readonly state: RoundOpening;
+      readonly seed: string | null;
+    } | null;
+    readonly actorId: string;
+    readonly now: string;
+  },
+): RoundProjection | null {
+  const { opening, ...hydrated } = input;
+  if (opening)
+    return forfeitInOpening({
+      ...hydrated,
+      opening: opening.state,
+      seed: opening.seed,
+    });
+  const runtime = createRoundRuntime(hydrated);
+  return runtime.debateOverAt(input.now)
+    ? null
+    : runtime.execute({
+        command: { type: 'forfeit' },
+        actorId: input.actorId,
+        now: input.now,
+      });
+}
+
 /** Whether the Round is in pre-round prep at `now`: every mic and camera closes. */
 export const inPreRoundPrep = (input: {
   readonly opening: RoundOpening;
@@ -104,18 +136,25 @@ export const inPreRoundPrep = (input: {
     input.now,
   ).step.step === 'prep';
 
-/** One viewer's opening for a Round read; every seat counts as eligible to read. */
+/**
+ * One viewer's opening for a Round read. Only the viewer's own seat can offer
+ * a strike, so only the viewer's eligibility is read, by the rule the command
+ * applies.
+ */
 export const readRoundOpening = (
   opening: { readonly state: RoundOpening; readonly seed: string | null },
   seats: readonly Omit<OpeningSeat, 'eligible'>[],
-  viewerActorId: string,
+  viewer: { readonly actorId: string; readonly eligible: boolean },
   now: string,
 ) =>
   projectOpening(
     opening.state,
     opening.seed === null ? null : bytesOf(opening.seed),
-    seats.map((seat) => ({ ...seat, eligible: true })),
-    viewerActorId,
+    seats.map((seat) => ({
+      ...seat,
+      eligible: seat.actorId === viewer.actorId && viewer.eligible,
+    })),
+    viewer.actorId,
     now,
   );
 

@@ -12,7 +12,12 @@ const held = () => {
   const operations = createRoundMediaOperations({
     store: {
       activeMediaSessions: async () =>
-        rounds.map((roundId) => ({ id: roundId, roundId })),
+        rounds.map((roundId) => ({
+          roundId,
+          now: '2026-01-01T00:00:00.000Z',
+          lastPassAt: null,
+          claimable: true,
+        })),
       requestMediaReconcile: async ({ roundId }: { roundId: string }) => {
         started.push(roundId);
         await gate.promise;
@@ -21,6 +26,7 @@ const held = () => {
     },
     reporter: { capture: () => undefined },
     nextId: () => 'id',
+    recoveryHeartbeatMs: 0,
   } as unknown as MediaOperationInput);
   return { gate, started, operations };
 };

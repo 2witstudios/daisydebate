@@ -18,7 +18,12 @@ export const RESOURCE_POLL_MS = { doorbell: 30000, alone: 5000 } as const;
 /** What a read answers; a thrown read counts as `unavailable`. */
 export type ResourceRead<T> =
   | { readonly kind: 'found'; readonly value: T }
-  | { readonly kind: 'missing' | 'unavailable'; readonly outdated?: boolean };
+  | {
+      readonly kind: 'missing' | 'unavailable';
+      readonly outdated?: boolean;
+      /** Asking again can help (see `unavailableRead`). */
+      readonly temporary?: true;
+    };
 
 /** A subscribed doorbell: retried after an authorized read, then closed. */
 export type Doorbell = {

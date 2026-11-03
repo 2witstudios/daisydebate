@@ -116,17 +116,24 @@ seconds late. The floor does not depend on that read: the next speaker's read or
 recovery tick moves it, and pacing cannot slow or speed the tick.
 
 The tick is the last resort, the only mover when every browser read is held, so one
-Round never waits on another there (ISSUE-972). Each tick starts a pass for each Round
-not already recovering in this process, longest since a pass first, up to 4 at once
-(`recoveryDue`), and does not wait for the tick before it. It used to visit sessions
-one at a time and wait for the last. On the CI runner that took a median 337 ms with
-one active session, 1340 ms with four and 2684 ms with seven. Four failing runs measured
-2112 to 3527 ms deadline to permission before that log existed, so those figures rest on
-the sweep timings, not on a log of those runs.
-What remains on this path is any pass of this Round already running, up to one 500 ms
-tick, and this Round's own pass. Above the cap a Round waits about active Rounds / 4
-passes; this limit is not yet measured against the concurrent-Round target (see the
-Live audio and video area page).
+Round never waits on another there, and it spends its passes where a floor must move
+(ISSUE-972). Each tick makes one read, one query for all active sessions, and
+`recoveryDue` decides from it. The Round longest without a pass past 5 s comes first, one
+each tick, so nothing can starve the heartbeat. Then a commit since its last pass or a
+clock boundary passed since then, then the other overdue Rounds, then repairs (never passed, unsafe, past the media
+window, or a last pass that did not finish),
+then a heartbeat for a Round with no pass in 2 s, which covers what that read cannot see,
+such as a revoked seat. A Round with none of these costs no pass, and neither does one a
+claim could not start for yet (a live lease, or under 500 ms since its last pass), which
+would only poll the lease. At most 4 run at once per process, and a tick does not wait for
+the one before it. Above that cap a Round waits its turn; this limit is not yet measured
+against the concurrent-Round target (ISSUE-1079). An opening Round's strike and pre-round
+prep instants are not on the read, so they move on a commit or the heartbeat.
+
+The tick used to visit sessions one at a time and wait for the last. On the CI runner
+that took a median 337 ms with one active session, 1340 ms with four and 2684 ms with
+seven. Four failing runs measured 2112 to 3527 ms deadline to permission before that log
+existed, so those figures rest on the sweep timings, not on a log of those runs.
 
 Whether a client disconnect reaches `request.signal` in production is unverified.
 Fly's documentation does not say whether its proxy closes the upstream connection,
@@ -232,6 +239,13 @@ Local mute and confirmed explicit departure suppression are tab-scoped keys unde
 `daisy:<kind>:media:<actor>:<roundId>` in sessionStorage: one account's record
 cannot be read by another principal, and every record dies with the tab
 (ISSUE-879).
+
+A tab holding the Round that leaves it also says so in its advisory claim. A tab
+waiting on it records its own departure and moves away instead of inheriting
+the Round: home reads again and stays, a waiting room goes to the lobby. So
+nothing captures or checks in for a member who left, and no record outlives the
+claim (ISSUE-1033). A leave pressed in a waiting tab says nothing, and a holder
+that closed or crashed without leaving is still taken over (ISSUE-879, DEC-332).
 
 A resume fires once per tab until the Round has rendered: `rooms/resume-attempt.ts` holds the attempt in tab storage, so a failing Round page cannot take home and the lobby with it (ISSUE-1035).
 

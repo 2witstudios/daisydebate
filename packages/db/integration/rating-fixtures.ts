@@ -23,7 +23,7 @@ const startOf = (standing: DebaterStanding | undefined): RatingState =>
   standing?.current?.state ?? standing?.previous ?? newcomer;
 
 const deltaFor = (outcome: string, side: string) =>
-  outcome === 'draw' ? 0 : outcome === side ? 10 : -10;
+  outcome === side ? 10 : -10;
 
 /**
  * The engine's own eligibility, with a stand-in plan that moves the winner up

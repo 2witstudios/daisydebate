@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../server/test-loggers.test-support';
-import { member, origin } from '../../server/member-handler.test-support';
+import { member, origin } from '../../server/member-boundary.test-support';
 import { createFriendHandlers } from './handlers';
 
 setupRitewayBun();
@@ -24,7 +24,7 @@ const harness = (identity: unknown = member) => {
       incoming: [],
       outgoing: [],
     }),
-    counts: async () => ({ friendsOnline: 2, membersOnline: 9 }),
+    counts: async () => ({ friendsOnline: 2 }),
     websocketEndpoint: 'wss://realtime.daisy.example/ws',
   });
   return { handlers, calls };
@@ -111,7 +111,7 @@ test('the counts read names the realtime endpoint and is never cached', async ()
       response.headers.get('cache-control'),
     ],
     expected: [
-      { version: 1, friendsOnline: 2, membersOnline: 9 },
+      { version: 1, friendsOnline: 2 },
       'wss://realtime.daisy.example/ws',
       'no-store',
     ],

@@ -223,24 +223,31 @@ export function createMediaReconcileRun(
         },
         authorizePermissions(known, entry, grants),
       );
-      if (!result.acknowledged) return;
+      if (!result.acknowledged) return false;
       entry.grants = grants;
     }
+    return true;
   };
-  /** Reconciles the room; the admission's own refusal, if met, is returned. */
+  /**
+   * Reconciles the room. The admission's own refusal, if met, is returned;
+   * otherwise whether every vendor write this needed was acknowledged.
+   */
   const reconcileRoom = async (
     claim: Claim,
     admission?: Principal,
-  ): Promise<{ readonly refused: unknown } | undefined> => {
+  ): Promise<{ readonly refused: unknown } | { readonly settled: boolean }> => {
     if (!(await input.deadline(input.media.exists(claim.roomName)))) {
-      if (!admission) return;
+      if (!admission) return { settled: true };
       const created = await createRoom(claim, admission);
       if ('refused' in created) return created;
-      if (!created.acknowledged) return;
+      if (!created.acknowledged) return { settled: false };
     }
     const { known, state } = await knownPublishers(claim);
-    if (await closeStale(claim, known, state))
-      await applyPermissions(claim, known);
+    return {
+      settled:
+        (await closeStale(claim, known, state)) &&
+        (await applyPermissions(claim, known)),
+    };
   };
   /** The caller's step under the lease; its failure is returned, not thrown. */
   const runHeld = async (whileHeld?: () => Promise<void>) => {
@@ -277,30 +284,39 @@ export function createMediaReconcileRun(
     let held: { readonly error: unknown } | null = null;
     let refusal: unknown;
     let failure: { readonly error: unknown } | null = null;
+    let clean = false;
     try {
       const state = await snapshot(claim.roundId);
       if (needsCleanup(state, claim)) {
         cleanupAttempted = true;
         absenceProof = await removeRoom(claim);
+        clean = absenceProof !== null;
       } else {
-        const refused = await reconcileRoom(claim, admission);
-        if (refused) refusal = refused.refused;
-        else held = await runHeld(whileHeld);
+        const room = await reconcileRoom(claim, admission);
+        if ('refused' in room) refusal = room.refused;
+        else {
+          clean = room.settled;
+          held = await runHeld(whileHeld);
+        }
       }
     } catch (error) {
       if (!isRefusal(error)) failure = { error };
     } finally {
       try {
         const state = await snapshot(claim.roundId);
-        if (!cleanupAttempted && uncertain(state))
+        if (!cleanupAttempted && uncertain(state)) {
           absenceProof = await removeRoom(claim);
+          clean &&= absenceProof !== null;
+        }
       } catch (error) {
+        clean = false;
         failure ??= { error };
       }
       await input.store.finishMediaReconcile({
         mediaWindowClosed,
         ...claim.fence,
         absenceProof,
+        clean,
       });
     }
     if (failure) {

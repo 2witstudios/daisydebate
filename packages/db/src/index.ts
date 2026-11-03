@@ -1,3 +1,4 @@
+import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
 import {
@@ -101,6 +102,7 @@ export {
   type WorkloadProfile,
 } from './workload-admission';
 export type { DatabaseEventSink } from './instrumented';
+export type { RestrictionRules } from './moderation-composition';
 export type { SocialRequestLimits } from './contacts/request-budget';
 export type {
   ProvisionalLinkPurposes,
@@ -175,7 +177,7 @@ export function createDatabase({
       nextId: nextActorId,
       botAdmission,
     });
-  return {
+  return namedLaneOperations({
     ...botAdmissionOperations,
     ...roundMaintenanceOperations(transcriptTransaction),
     ...roundPanelCompletionOperations(transcriptTransaction),
@@ -187,11 +189,13 @@ export function createDatabase({
     }),
     ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
     ...roundAnalysisReads({ database }),
-    mediaSessions: createMediaSessionStore({
-      database,
-      run: transcriptTransaction,
-      nextId: nextActorId,
-    }),
+    mediaSessions: namedLaneOperations(
+      createMediaSessionStore({
+        database,
+        run: transcriptTransaction,
+        nextId: nextActorId,
+      }),
+    ),
     ...attendanceEntrypoints({
       run: transcriptTransaction,
       nextId: nextActorId,
@@ -345,7 +349,12 @@ export function createDatabase({
     createMediaCaptureOperations: (
       input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'transaction'>,
     ) =>
-      mediaCaptureOperations({ ...input, transaction: transcriptTransaction }),
+      namedLaneOperations(
+        mediaCaptureOperations({
+          ...input,
+          transaction: transcriptTransaction,
+        }),
+      ),
     ...transcriptFinalizationOperations({ database }),
     ...documentOperations({ database, eventSink }),
     ...analyticsConsentOperations(control),
@@ -365,6 +374,6 @@ export function createDatabase({
     /** Server-owned onboarding claim; see `claimUsername`. */
     claimUsername: (input: { userId: string; username: string }) =>
       claimUsername(control, input, nextActorId, eventSink),
-  };
+  });
 }
 export type Database = ReturnType<typeof createDatabase>;

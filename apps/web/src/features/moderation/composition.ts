@@ -5,8 +5,8 @@ import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
 import {
   memberHttpBoundary,
-  runMemberHandler,
-} from '../../server/member-handler';
+  runEvaluatedRoute,
+} from '../../server/member-boundary';
 
 const MAX_BODY_BYTES = 1024;
 
@@ -15,7 +15,7 @@ export function composeModerationRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   return {
     notices: (request: Request) =>
-      runMemberHandler(boundary, request, {
+      runEvaluatedRoute(boundary, request, {
         name: 'moderation.notices',
         readOnly: true,
         readInput: async () => null,
@@ -40,7 +40,7 @@ export function composeModerationRoutes(app: App) {
         headers: { 'cache-control': 'no-store' },
       }),
     acknowledge: (request: Request) =>
-      runMemberHandler(boundary, request, {
+      runEvaluatedRoute(boundary, request, {
         name: 'moderation.acknowledge',
         readOnly: false,
         readInput: () => readJson(request, MAX_BODY_BYTES),

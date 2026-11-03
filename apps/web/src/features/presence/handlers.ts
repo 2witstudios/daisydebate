@@ -10,9 +10,9 @@ import {
 } from '@daisy/protocol';
 import { parseValidated, readJson } from '../../server/http';
 import {
-  runMemberHandler,
+  runEvaluatedRoute,
   type MemberBoundary,
-} from '../../server/member-handler';
+} from '../../server/member-boundary';
 
 const MAX_BODY_BYTES = 1024;
 
@@ -39,7 +39,7 @@ export function createPresenceHandlers(dependencies: {
 }) {
   return {
     people: (request: Request) =>
-      runMemberHandler(dependencies.boundary, request, {
+      runEvaluatedRoute(dependencies.boundary, request, {
         name: 'presence.people',
         readOnly: true,
         readInput: async () =>
@@ -66,7 +66,7 @@ export function createPresenceHandlers(dependencies: {
         },
       }),
     read: (request: Request) =>
-      runMemberHandler(dependencies.boundary, request, {
+      runEvaluatedRoute(dependencies.boundary, request, {
         name: 'presence.read',
         readOnly: true,
         readInput: async () => null,
@@ -77,7 +77,7 @@ export function createPresenceHandlers(dependencies: {
           }),
       }),
     set: (request: Request) =>
-      runMemberHandler(dependencies.boundary, request, {
+      runEvaluatedRoute(dependencies.boundary, request, {
         name: 'presence.set',
         readOnly: false,
         readInput: () => readJson(request, MAX_BODY_BYTES),

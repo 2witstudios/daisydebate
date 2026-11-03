@@ -11,7 +11,7 @@ test('real Judge hub projects own stored states and empty waiting without synthe
       resolution: 'Cities should fund transit',
       status: 'active',
       outcome: null,
-      ballotStatus: null,
+      ballotSubmitted: false,
       freezeRevision: 1,
     },
   ]);

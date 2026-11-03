@@ -3,6 +3,7 @@ import {
   liveTranscriptReadSchema,
   type LiveTranscriptRead,
 } from '@daisy/protocol';
+import { unavailableRead } from '../../server/temporary-read';
 import type { ResourceRead } from '../resource-sync/driver';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -21,7 +22,7 @@ export async function readTranscript(
       signal: deadline,
     });
     if ([401, 403, 404].includes(response.status)) return { kind: 'missing' };
-    if (!response.ok) return { kind: 'unavailable' };
+    if (!response.ok) return unavailableRead(response);
     const parsed = liveTranscriptReadSchema.safeParse(await response.json());
     // The server answered in a shape this build cannot read: only a reload helps.
     if (!parsed.success) return { kind: 'unavailable', outdated: true };

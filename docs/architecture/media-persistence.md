@@ -441,12 +441,13 @@ observation, as offsets into the speech, derived on each read from
 `transcript_observations` and the same coverage edges that decide a complete
 seal. The protected transcript read also carries each stream's `partialReasons`,
 and the ballot read's transcript carries `partialStreams`, so a stream partial with
-no gap still says why. The live read schema does not require them, because nothing
-renders them yet (ISSUE-1026). The completed Round's transcript read carries the
+no gap still says why. The live read schema does not require them on every
+reader's build, so it parses them as optional text. The completed Round's transcript read carries the
 same gaps. A stream can
 be Partial with no gap to show: a lost tail inside the close tolerance, or a clean
-handover at a new epoch with contiguous observations. It then says Partial
-without saying where (ISSUE-944 tracks showing that). A gap is
+handover at a new epoch with contiguous observations. When its reasons are lost frames or an interrupted session it then says part of
+the speech was lost, without saying where; other reasons, such as a silent bot's
+never-sealed stream, claim no loss. A gap is
 never stored and never implies what was said.
 
 ## Capture through a control-plane outage

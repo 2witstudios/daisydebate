@@ -77,6 +77,7 @@ export async function resolveSession(
   const signedIn =
     identity.state === 'provisional' ||
     identity.state === 'waitlisted' ||
+    identity.state === 'restricted' ||
     identity.state === 'member';
   return { identity, sessionExpiresAt: signedIn ? expiresAt : null };
 }

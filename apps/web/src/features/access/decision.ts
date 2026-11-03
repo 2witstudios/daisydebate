@@ -34,9 +34,8 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   '/prep': 'participant',
   '/train': 'participant',
   '/settings': 'account',
-  // A public root (Tournaments) holds guarded areas: the organizer console
-  // (any organizer, never an admin surface, ADR 0043), a participant's own
-  // events and the registration flow.
+  // Tournaments' root stays public; these areas under it stay guarded for when
+  // its screens exist (ADR 0043).
   '/tournaments/organize': 'participant',
   '/tournaments/mine': 'participant',
   '/tournaments/enter': 'participant',
@@ -98,6 +97,15 @@ export const usernameHref = (destination: string): string =>
 export const betaHref = (destination: string): string =>
   `/beta?next=${encodeURIComponent(destination)}`;
 
+/** Where a suspended or banned account lands (ADR 0103). */
+export const RESTRICTED_HREF = '/restricted';
+
+/** The restricted page, keeping a failed sign-out's notice from the page it left. */
+export const restrictedHref = (search: SearchParams): string =>
+  search.signOut === 'failed'
+    ? `${RESTRICTED_HREF}?signOut=failed`
+    : RESTRICTED_HREF;
+
 /** The passkey offer after a claimed username, then the destination. */
 export const passkeyOfferHref = (destination: string): string =>
   `/onboarding/passkey?next=${encodeURIComponent(destination)}`;
@@ -154,6 +162,8 @@ export function decideAccess({
       return redirectTo(onboardingHref(returnableDestination(path)));
     case 'waitlisted':
       return redirectTo(betaHref(returnableDestination(path)));
+    case 'restricted':
+      return redirectTo(RESTRICTED_HREF);
     case 'member':
       return { kind: 'allow' };
   }

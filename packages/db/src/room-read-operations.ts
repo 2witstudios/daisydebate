@@ -73,7 +73,8 @@ export async function launchedRoundRows(
   const seats = await tx
     .select()
     .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, roundId));
+    .where(eq(roundParticipants.roundId, roundId))
+    .orderBy(asc(roundParticipants.role), asc(roundParticipants.slot));
   const participants = await Promise.all(
     seats.map(async (p) => {
       const actor = await actorFact(tx, p.actorId);
@@ -98,6 +99,7 @@ export async function launchedRoundRows(
     topic: row.resolution,
     visibility: row.visibility,
     hostActorId: row.createdByActorId,
+    hostInherited: row.hostInherited,
     config: row.roomConfigSnapshot,
     rules: row.rulesSnapshot,
     participants,
@@ -157,7 +159,7 @@ export const roomReadOperations = ({
             ...roundViewFor(round, caller.actorId),
             waitingOn: await readWaitingOn(tx, round, decideWaitingOn),
           },
-          caller.actorId,
+          { actorId: caller.actorId, account },
           readOpening,
         );
       }),

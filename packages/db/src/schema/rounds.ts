@@ -25,6 +25,7 @@ import {
   pgTable,
   text,
   unique,
+  boolean,
 } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import {
@@ -72,6 +73,8 @@ export const rounds = pgTable(
     createdByActorId: text('created_by_actor_id').references(() => actors.id, {
       onDelete: 'restrict',
     }),
+    /** The host took over from a restricted one, and names no human judge (DEC-331). */
+    hostInherited: boolean('host_inherited').notNull().default(false),
     visibility: text('visibility').$type<'public' | 'unlisted' | 'private'>(),
     /** Null until a draw's reveal; stays null if the Round ended before it. */
     resolution: text('resolution'),

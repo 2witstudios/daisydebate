@@ -58,7 +58,9 @@ are tiny (`daisy` 9 MB, `daisy_test` 15 MB).
   `daisy_wt_*` databases and `daisy-wt-*` namespaces of worktrees that
   `git worktree list` no longer shows (a `prunable` entry, whose folder is
   gone, counts as removed). Names that do not parse as a worktree slot are
-  never touched. Redis keys are removed with `SCAN` and `UNLINK` over the
+  never touched. Pruning and the main slot belong to the repository recorded as
+  the stack's owner, a mark on the `postgres` database (ISSUE-928), because a
+  copy or a fresh `git init` lists only itself as a worktree. Redis keys are removed with `SCAN` and `UNLINK` over the
   exact `<namespace>:*` pattern, never `FLUSHDB`/`FLUSHALL`.
 - **Local stack only.** Slot tooling force-drops databases and unlinks
   namespaces, so it refuses a `.env` whose `DATABASE_URL`, `REDIS_URL` or

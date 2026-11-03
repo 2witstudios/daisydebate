@@ -149,7 +149,11 @@ run `bun slot:up`. It is idempotent:
 - starts the shared stack (`docker compose up -d --wait`) only when it is
   unreachable, so it never recreates a running stack;
 - prunes orphans: the databases and Redis keys of worktrees that
-  `git worktree list` no longer shows;
+  `git worktree list` no longer shows. Only the repository recorded as the
+  stack's owner prunes, and only it uses the main slot. A copy or a fresh
+  `git init` prunes nothing and is refused the main slot. The first checkout with
+  an origin records the owner; after moving the repository, run
+  `bun scripts/slot.ts claim`;
 - creates this checkout's dev, test and e2e databases if missing, migrates
   all three with this branch's migrations, and provisions the loopback-only
   `daisy_e2e` login as a member of the baseline's `daisy_web` runtime role
@@ -244,7 +248,9 @@ used. Main protection is enforced independently by GitHub.
 `ROOM_POLICY` is an optional JSON object read by `readServerConfig` and composed
 by the web server's ordinary `createApp`. When absent, canonical Room routes
 remain unavailable. A configured policy uses the existing authenticated routes,
-same-origin checks and per-member rate limiter; it does not bypass them.
+same-origin checks and per-member rate limiter; it does not bypass them. Round
+routes do not read it: their budgets are committed in
+`apps/web/src/features/round-runtime/round-policy.ts`.
 
 Every field but one is required, with no numeric defaults: `consentTtlMs`
 (milliseconds), `maxBodyBytes`, and `limits.create`, `limits.read`,

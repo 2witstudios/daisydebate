@@ -17,6 +17,7 @@ import {
   subscribeRealtimeHints,
   type RealtimeHintHandlers,
 } from './realtime-hints';
+import { namedLaneOperations } from './lane-operation';
 import { roomAuthorizationRead } from './room-authorization-read';
 import { createWorkload, dialDedicated, dialLanes } from './workload';
 import {
@@ -68,7 +69,7 @@ export function createRealtimeDatabase({
   const control = workload.lane('control');
   const dedicated =
     injectedClient ?? dialDedicated(url, Math.max(1, profile.dedicated));
-  return {
+  return namedLaneOperations({
     admission: authorityReads(admission),
     renewal: authorityReads(workload.lane('renewal').database),
     /**
@@ -118,6 +119,6 @@ export function createRealtimeDatabase({
       await workload.close();
       if (dedicated !== injectedClient) await dedicated.close({ timeout: 5 });
     },
-  };
+  });
 }
 export type RealtimeDatabase = ReturnType<typeof createRealtimeDatabase>;

@@ -152,7 +152,7 @@ const prepBudgetOf = (
   return { affirmative: left('affirmative'), negative: left('negative') };
 };
 
-const roundPositionOf = (
+export const roundPositionOf = (
   on: ClockState,
   now: number,
   rules: RoundRules,

@@ -15,6 +15,7 @@ import { createMediaWorkerTokenBroker } from './worker-token';
 import { mediaRuntime } from './projection';
 import type { MediaOperationInput } from './operation-context';
 import { createRoundMediaOperations } from './operations';
+import { MEDIA_RECOVERY_HEARTBEAT_MS } from './recovery-due';
 import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 
 /** Optional configuration stays inert until a real media operation is requested. */
@@ -60,6 +61,7 @@ export function createRoundMediaRuntime(
       deadline: (work) => withTimeout(work, 2_000),
       wait: () => Bun.sleep(25),
       now: () => Date.parse(app.clock.now()),
+      recoveryHeartbeatMs: MEDIA_RECOVERY_HEARTBEAT_MS,
     };
     const operations = createRoundMediaOperations(resources);
     runtime = {

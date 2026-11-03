@@ -9,7 +9,6 @@ export const entry = (overrides: Partial<RatingEntry> = {}): RatingEntry => ({
   deviation: 60,
   played: 20,
   wins: 10,
-  draws: 0,
   weekChange: 0,
   seasonChange: 0,
   ...overrides,

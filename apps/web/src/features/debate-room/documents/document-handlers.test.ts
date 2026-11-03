@@ -61,7 +61,6 @@ const handlersWith = ({
     limiter: () => ({
       consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
     }),
-    getActorByUserId: async () => ({ id: 'actor1' }),
     operations: () => operations,
   });
   return { handlers, calls };

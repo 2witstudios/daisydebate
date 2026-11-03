@@ -3,7 +3,7 @@ import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import type { App } from '../../server/app';
 import { consumeOrThrow } from '../../server/rate-limit';
-import { memberHttpBoundary } from '../../server/member-handler';
+import { memberHttpBoundary } from '../../server/member-boundary';
 import { createPresenceHandlers } from './handlers';
 import { ONLINE_LEASES_MAX } from '@daisy/db/presence-people-list';
 import { readPeopleList } from './people-list';

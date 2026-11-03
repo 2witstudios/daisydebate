@@ -7,6 +7,7 @@ import type {
   SeatGrantFacts,
 } from '@daisy/protocol';
 import { actors } from './schema/actors';
+import { rounds } from './schema/rounds';
 import { roundBotPublicationWindows } from './schema/round-bot-publications';
 import { roundParticipants } from './schema/round-participants';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
@@ -65,22 +66,24 @@ export async function captureHistory(
 }
 /** Facts only, for a Round's grants or for one seat's grant in one segment. */
 export async function readSeatGrants(
-  tx: Pick<CaptureTx, 'execute'>,
+  tx: Pick<CaptureTx, 'execute' | 'select'>,
   input: { readonly roundId: string } & Partial<CaptureStream>,
 ) {
+  const [round] = await tx
+    .select({ rules: rounds.rulesSnapshot })
+    .from(rounds)
+    .where(eq(rounds.id, input.roundId));
   const one =
     input.segmentId !== undefined && input.roundParticipantId !== undefined;
   const rows = (await tx.execute(sql`select distinct
       i.segment_id as "segmentId", i.round_participant_id as "roundParticipantId",
       a.kind, p.role, p.slot, s.sequence,
-      r.rules_snapshot->'segments'->s.sequence as turn,
       exists(select 1 from round_bot_publication_windows w
         where w.round_id=i.round_id and w.segment_id=i.segment_id
           and w.round_participant_id=i.round_participant_id) as credited
     from round_speaking_intervals i
     join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
     join actors a on a.id=p.actor_id
-    join rounds r on r.id=i.round_id
     left join round_segments s on s.round_id=i.round_id and s.id=i.segment_id
     where i.round_id=${input.roundId} and p.role<>'judge'
       and (i.ended_at is null or i.ended_at>i.started_at)
@@ -91,7 +94,7 @@ export async function readSeatGrants(
     kind: 'human' | 'bot';
     role: string;
     slot: number;
-    turn: { side?: string; slot?: number } | null;
+    sequence: number | null;
     credited: boolean;
   }[];
   return rows.map((row) => ({
@@ -99,7 +102,8 @@ export async function readSeatGrants(
     roundParticipantId: row.roundParticipantId,
     grant: {
       seat: { kind: row.kind, role: row.role, slot: row.slot },
-      turn: row.turn ?? undefined,
+      turn:
+        row.sequence === null ? undefined : round?.rules.segments[row.sequence],
       hasCreditedWindow: row.credited,
     } satisfies SeatGrantFacts,
   }));

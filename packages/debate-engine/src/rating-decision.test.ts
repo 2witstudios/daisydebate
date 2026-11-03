@@ -23,7 +23,7 @@ const completed: RatingEligibilityFacts = {
   outcome: 'affirmative',
   completedAt: at,
   alreadyRated: false,
-  ending: 'judged-on-complete-capture',
+  ending: 'judged',
   attendance: {
     ruleSegments: [],
     speeches: [],
@@ -60,20 +60,6 @@ describe('ratingEligibility', () => {
         kind: 'rated',
         ladder: 'freestyle',
         outcome: 'affirmative',
-        occurredAt: at,
-      },
-    });
-    assert({
-      given: 'a completed ranked round drawn',
-      should: 'rate it on the ranked ladder as a draw',
-      actual: ratingEligibility({
-        ...completed,
-        outcome: 'draw',
-      }),
-      expected: {
-        kind: 'rated',
-        ladder: 'freestyle',
-        outcome: 'draw',
         occurredAt: at,
       },
     });
@@ -176,24 +162,6 @@ describe('ratingEligibility over how the Round ended', () => {
     });
   });
 
-  test('a ballot rates only on a complete capture (DEC-285)', () => {
-    assert({
-      given: 'a ballot on a complete capture',
-      should: 'rate it',
-      actual: ratingEligibility(completed),
-      expected: rated,
-    });
-    assert({
-      given: 'a decisive ballot on an incomplete capture',
-      should: 'leave it unrated while ISSUE-911 is open',
-      actual: ratingEligibility({
-        ...completed,
-        ending: 'judged-on-incomplete-capture',
-      }),
-      expected: { kind: 'unrated', reason: 'incomplete-capture' },
-    });
-  });
-
   test('every other ending is a typed reason', () => {
     for (const [given, facts, reason] of [
       ['a null outcome', { outcome: null }, 'no-result'],
@@ -218,7 +186,7 @@ describe('ratingEligibility over how the Round ended', () => {
 
   test('a judged Round on an unsettled ledger is owed a rating, not given one', () => {
     assert({
-      given: 'a ballot on a complete capture whose ledger does not settle',
+      given: 'a ballot whose ledger does not settle',
       should: 'say attendance is unsettled',
       actual: ratingEligibility({ ...completed, attendance: unsettled }),
       expected: { kind: 'attendance-unsettled' },
@@ -234,10 +202,7 @@ describe('ratingAwaited', () => {
       actual: {
         rateable: ratingAwaited(completed),
         unsettled: ratingAwaited({ ...completed, attendance: unsettled }),
-        incomplete: ratingAwaited({
-          ...completed,
-          ending: 'judged-on-incomplete-capture',
-        }),
+        unjudged: ratingAwaited({ ...completed, ending: 'unjudged' }),
         noResult: ratingAwaited({ ...completed, outcome: null }),
         rated: ratingAwaited({ ...completed, alreadyRated: true }),
         active: ratingAwaited({ ...completed, status: 'active' }),
@@ -245,7 +210,7 @@ describe('ratingAwaited', () => {
       expected: {
         rateable: true,
         unsettled: true,
-        incomplete: false,
+        unjudged: false,
         noResult: false,
         rated: false,
         active: false,

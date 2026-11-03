@@ -32,6 +32,7 @@ import { closedCount, normalizeRoundClock } from './round-clock-state';
 import { debateSideOf } from './round-command-legality';
 import {
   applyRoundCommand,
+  debateIsOver,
   type Queues,
   type CommandContext,
 } from './round-commands';
@@ -257,6 +258,13 @@ export function createRoundRuntime(input: {
   return {
     position(now: string): RoundPosition {
       return positionAtState(capture(store), rules, Date.parse(now));
+    },
+    debateOverAt(now): boolean {
+      const at = Date.parse(now);
+      const scratch = restoreRoundStore(capture(store));
+      const into = queues();
+      advance(scratch, into, at);
+      return debateIsOver(contextOn(scratch, into, null, at));
     },
     execute({ command, actorId, now }): RoundProjection {
       const at = Date.parse(now);

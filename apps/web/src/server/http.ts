@@ -1,6 +1,10 @@
 import type { OperationName } from '../features/ops/operation-names';
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
-import { isCapacityRefusal, isTemporaryRefusal } from '@daisy/db/capacity';
+import {
+  isCapacityRefusal,
+  isTemporaryRefusal,
+  reportCapacityHolders,
+} from '@daisy/db/capacity';
 import {
   currentTraceId,
   extractTraceContext,
@@ -24,7 +28,7 @@ const isTemporaryOutage = (error: unknown) =>
 /** An `Identity` once anonymous and unavailable are ruled out. */
 export type SignedInIdentity = Extract<
   Identity,
-  { state: 'provisional' | 'waitlisted' | 'member' }
+  { state: 'provisional' | 'waitlisted' | 'restricted' | 'member' }
 >;
 
 /**
@@ -113,6 +117,7 @@ export async function handleOperation(
             headers: { 'x-request-id': id, 'Cache-Control': 'no-store' },
           });
         }
+        reportCapacityHolders(error, logger.log);
         const mapped = toPublicError(
           // A minted outer code is the answer; only an unminted wrapper
           // around a capacity refusal becomes the retryable outage.

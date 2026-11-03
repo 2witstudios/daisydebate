@@ -50,7 +50,6 @@ const resultLabel: Readonly<Record<NonNullable<RoundView['outcome']>, string>> =
   {
     affirmative: 'Affirmative won',
     negative: 'Negative won',
-    draw: 'Draw',
   };
 
 type Participant = RoundReceiptView['participants'][number];

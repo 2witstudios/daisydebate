@@ -82,6 +82,7 @@ for (const failure of [
           mediaWindowClosed,
           ...claim.fence,
           absenceProof,
+          clean: true,
         });
         const [session] =
           await f.sql`select id, room_name, ended_at from media_sessions where id=${binding.sessionId}`;

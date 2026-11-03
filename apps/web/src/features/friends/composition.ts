@@ -12,7 +12,7 @@ import {
   readFriendList,
   type FriendReadDependencies,
 } from './operations';
-import { memberHttpBoundary } from '../../server/member-handler';
+import { memberHttpBoundary } from '../../server/member-boundary';
 import { contactPairFence } from '../contacts/authorization';
 import { appDiscoverActor } from '../account/username-discovery';
 
@@ -78,14 +78,8 @@ export function composeFriendRoutes(app: App) {
     list,
     websocketEndpoint: app.websocketEndpoint,
     counts: async (principal) => {
-      const [{ friends }, membersOnline] = await Promise.all([
-        list(principal),
-        app.redis.countOnlinePresence(),
-      ]);
-      return {
-        friendsOnline: friendsOnlineOf(friends),
-        membersOnline,
-      };
+      const { friends } = await list(principal);
+      return { friendsOnline: friendsOnlineOf(friends) };
     },
   });
 }

@@ -8,14 +8,14 @@ import { resolveMessagingCreationIntent } from './creation-intent';
 import { composeMessagingCreationOperation } from './creation-operation';
 import {
   memberHttpBoundary,
-  runMemberHandler,
-} from '../../server/member-handler';
+  runEvaluatedRoute,
+} from '../../server/member-boundary';
 export function composeMessagingCreationIntentRoutes(app: App) {
   const run = (request: Request, kind: 'dm' | 'private_group') => {
     const policy = app.messagingPolicy,
       social = policy.social;
     const schemas = createMessagingSocialSchemas(social.bounds);
-    return runMemberHandler(memberHttpBoundary(app), request, {
+    return runEvaluatedRoute(memberHttpBoundary(app), request, {
       name: `messaging.${kind}.username`,
       readOnly: false,
       readInput: () => readJson(request, policy.maxBodyBytes),

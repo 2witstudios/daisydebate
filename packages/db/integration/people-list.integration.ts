@@ -1,4 +1,3 @@
-import { afterAll } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -21,16 +20,21 @@ import { ratingVisibilityOperations } from '../src/ratings-visibility';
 import { reportsPrivacyAdopter } from '../src/reports/privacy';
 import { moderationPrivacyAdopter } from '../src/moderation/privacy';
 import { moderationOperations } from '../src/moderation/store';
-import { moderationReactions } from '../src/moderation-composition';
+import {
+  moderationReactions,
+  type RestrictionRules,
+} from '../src/moderation-composition';
 import { admitParticipants } from '../src/beta-access-testing';
 import { createMessagingTestFixture } from '../src/testing';
 import { withFixture } from './constraint-helpers';
-import {
-  ddlTimeoutMs,
-  scratchDatabase,
-} from './scratch-migrations.test-support';
 
 setupRitewayBun();
+/** These suites have no Round or Room: the engine's rules are never reached. */
+const restrictionRules: RestrictionRules = {
+  releaseMember: (room) => room,
+  activeRoomMembers: () => [],
+  forfeitRound: () => null,
+};
 const { databaseUrl } = requireTestServices(process.env);
 const unfenced = async () => {};
 
@@ -687,7 +691,7 @@ test('a chosen status reads back, and a report closes once with its action', asy
       });
     await file(reportId);
     await file(createId());
-    const queued = await ops.listOperatorReports({ limit: 100, after: null });
+    const queued = await ops.listOperatorReports({ limit: 100 });
     const mine = queued.filter((row) => row.id === reportId);
     const commandId = createId();
     const resolve = (id: string) =>
@@ -705,6 +709,7 @@ test('a chosen status reads back, and a report closes once with its action', asy
         now: new Date().toISOString(),
         purgeAfter: new Date(Date.now() + 86_400_000).toISOString(),
         nextId: createId,
+        restrictionRules,
         live: () => true,
       });
     const first = await resolve(commandId);
@@ -833,6 +838,7 @@ test('a suspension ends the member’s offers, and closing an account keeps the 
       now: live,
       purgeAfter: new Date(Date.now() + 86_400_000).toISOString(),
       nextId: createId,
+      restrictionRules,
       live: () => true,
     });
     const after = await listChallenges(ctx.database, ctx.me, live, unfenced);
@@ -962,97 +968,3 @@ test('moderation: a ban has no end, the sweep counts from erasure, and impossibl
     await ctx.client.close();
   }
 });
-
-const migration = '20261103011513_who_is_online';
-const scratch = scratchDatabase(databaseUrl, 'whoonline');
-afterAll(() => scratch.drop());
-
-test(
-  'the migration turns a hidden choice into appearing offline',
-  async () => {
-    await scratch.create();
-    await scratch.migrate((folder) => folder < migration);
-    await withFixture(scratch.url, async (fixture) => {
-      const client = new SQL(scratch.url);
-      const hiddenId = await fixture.actor();
-      const shownId = await fixture.actor();
-      await client.unsafe(
-        'insert into presence_settings (actor_id, hidden, updated_at) values ($1, true, now()), ($2, false, now())',
-        [hiddenId, shownId],
-      );
-      await scratch.migrate((folder) => folder <= migration);
-      const rows = (await client.unsafe(
-        'select actor_id as id, chosen_status as status from presence_settings',
-      )) as { id: string; status: string }[];
-      const statusOf = (id: string) =>
-        rows.find((row) => row.id === id)?.status;
-      assert({
-        given: 'one member hiding and one not',
-        should: 'keep each choice in the new column',
-        actual: [statusOf(hiddenId), statusOf(shownId)],
-        expected: ['appearing_offline', 'online'],
-      });
-      await client.unsafe(
-        'delete from presence_settings where actor_id = any($1)',
-        [`{${hiddenId},${shownId}}`],
-      );
-      await client.close();
-    });
-  },
-  ddlTimeoutMs,
-);
-
-const surfaceMigration = '20261103050553_report_surface_people';
-const surfaceScratch = scratchDatabase(databaseUrl, 'reportsurface');
-afterAll(() => surfaceScratch.drop());
-
-test(
-  'the migration moves a report made from the list to the people surface',
-  async () => {
-    await surfaceScratch.create();
-    await surfaceScratch.migrate((folder) => folder < surfaceMigration);
-    await withFixture(surfaceScratch.url, async (fixture) => {
-      const client = new SQL(surfaceScratch.url);
-      const reporter = await fixture.actor();
-      const subject = await fixture.actor();
-      const other = await fixture.actor();
-      const fromList = createId();
-      const fromProfile = createId();
-      const insert = (id: string, about: string, surface: string) =>
-        client.unsafe(
-          "insert into reports (id, reporter_actor_id, subject_actor_id, reason, surface, created_at) values ($1, $2, $3, 'spam', $4, now())",
-          [id, reporter, about, surface],
-        );
-      await insert(fromList, subject, 'online');
-      await insert(fromProfile, other, 'profile');
-      await surfaceScratch.migrate((folder) => folder <= surfaceMigration);
-      const rows = (await client.unsafe(
-        'select id, surface from reports where id = any($1)',
-        [`{${fromList},${fromProfile}}`],
-      )) as { id: string; surface: string }[];
-      const surfaceOf = (id: string) =>
-        rows.find((row) => row.id === id)?.surface;
-      const refused = await client
-        .unsafe('update reports set surface = $1 where id = $2', [
-          'online',
-          fromProfile,
-        ])
-        .then(
-          () => false,
-          () => true,
-        );
-      assert({
-        given: 'a report from the online list and one from a profile',
-        should:
-          'move the first to people, keep the second, and refuse the old name',
-        actual: [surfaceOf(fromList), surfaceOf(fromProfile), refused],
-        expected: ['people', 'profile', true],
-      });
-      await client.unsafe('delete from reports where id = any($1)', [
-        `{${fromList},${fromProfile}}`,
-      ]);
-      await client.close();
-    });
-  },
-  ddlTimeoutMs,
-);

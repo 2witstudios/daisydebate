@@ -3,9 +3,9 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { contactBlockResultSchema } from '@daisy/protocol';
 import { readJson } from '../../server/http';
 import {
-  runMemberHandler,
+  runEvaluatedRoute,
   type MemberBoundary,
-} from '../../server/member-handler';
+} from '../../server/member-boundary';
 
 const MAX_BODY_BYTES = 1024;
 
@@ -22,7 +22,7 @@ export function createContactHandlers(dependencies: {
 }) {
   const run =
     (name: OperationName, operation: BlockOperation) => (request: Request) =>
-      runMemberHandler(dependencies.boundary, request, {
+      runEvaluatedRoute(dependencies.boundary, request, {
         name,
         readOnly: false,
         readInput: () => readJson(request, MAX_BODY_BYTES),

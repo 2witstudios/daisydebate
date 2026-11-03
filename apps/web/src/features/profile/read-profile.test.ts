@@ -127,7 +127,7 @@ describe('readProfile', () => {
       },
       expected: {
         me: false,
-        record: { wins: 2, losses: 0, draws: 0 },
+        record: { wins: 2, losses: 0 },
         reads: [{ caller: null, before: null, limit: 20 }],
         entry: {
           roundId,

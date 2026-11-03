@@ -86,10 +86,6 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Select browser specs and projects
-        id: select
-        run: bun scripts/select-e2e.ts
-
       - name: Apply migrations to the e2e database
         run: bun run --cwd packages/db db:migrate
         env:
@@ -140,7 +136,7 @@ jobs:
           path: |
             ~/.cache/ms-playwright
             ~/.cache/daisy-apt-archives
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-${{ steps.select.outputs.browser-key }}
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-${{ github.event_name == 'push' && 'chromium' || 'chromium-firefox-webkit' }}
 
       # Also installs zip/unzip: scripts/e2e-artifact-sanitizer.ts shells
       # out to them to redact retained trace archives, a path exercised only
@@ -150,7 +146,7 @@ jobs:
       - name: Install Playwright browsers
         timeout-minutes: 8
         env:
-          BROWSERS: ${{ steps.select.outputs.browsers }}
+          BROWSERS: ${{ github.event_name == 'push' && 'chromium' || 'chromium firefox webkit' }}
         # Word splitting is the point: one argument per browser.
         run: sh scripts/ci-browsers.sh $BROWSERS
 
@@ -165,11 +161,10 @@ jobs:
             ~/.cache/daisy-apt-archives
           key: ${{ steps.browser-cache.outputs.cache-primary-key }}
 
-      # DAISY_E2E_PROJECT_ARGS is --project=chromium on main pushes and
-      # empty on the nightly run (scripts/select-e2e.ts).
+      # A main push runs Chromium alone; the nightly run runs every project.
       - name: Run browser tests
         if: ${{ github.event_name != 'workflow_dispatch' }}
-        run: bun run --cwd apps/web test:e2e $DAISY_E2E_PROJECT_ARGS
+        run: bun run --cwd apps/web test:e2e ${{ github.event_name == 'push' && '--project=chromium' || '' }}
         env:
           CI: true
           # Explicit slot values: the config never defaults to a database.
@@ -199,10 +194,6 @@ jobs:
       - name: Report discovered/executed/pass/fail/skip counts
         if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/results.json
-
-      - name: Require every selected browser spec in the report
-        if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}
-        run: bun scripts/e2e-selection-report.ts
 
       - name: Sanitize retained artifacts before upload
         id: sanitize
@@ -363,8 +354,6 @@ jobs:
         run: git worktree add --detach .pu/worktrees/wt-roomlaunchci "$GITHUB_SHA"
       - name: Install exact dependencies
         run: bun install --frozen-lockfile
-      - name: Select native specs
-        run: bun scripts/select-e2e.ts
       - name: Initialize own environment
         run: cp .env.example .env
       - name: Create and migrate only the derived proof slot
@@ -508,9 +497,6 @@ jobs:
       - name: Report actual discovered and executed outcomes
         if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/room-launch-results.json
-      - name: Verify selected native specs produced outcomes
-        if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
-        run: bun scripts/e2e-selection-report.ts room-launch
       - name: Sanitize retained proof artifacts
         id: sanitize_launch
         if: ${{ always() && !cancelled() }}

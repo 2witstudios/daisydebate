@@ -77,7 +77,19 @@ be able to see who is online."
    its one named write, a restriction ends offers through a reaction Challenges
    registers, and `daisy_restriction_in_force` is the one SQL rule. A suspension
    or ban in force sets `restricted` on the one account
-   producer, so `participantAccess` stops web and realtime at the same check.
+   producer, so `participantAccess` stops web and realtime at the same check,
+   and the account resolves to its own `restricted` Identity state, which goes
+   straight to `/restricted`. The restriction also releases the member's seat at
+   once, in the same transaction (DEC-331): a Round they debate in that is still
+   being debated ends as a forfeit, recorded under the service
+   `moderation-restriction` and rated as any forfeit is; their seats in an open
+   Room are freed and it stays open for the others. A restricted host passes the
+   Room to the first eligible human still seated, since only a host can start it, and a
+   Room with no human left closes. A host-written resolution list does not pass:
+   the draw reads the bank, so a member's export holds only their own text. A host
+   who inherits a Room names no human judge, in the Room or
+   the Round they start (`host_inherited`, owner ruling). No page is needed for it to leave. A judge's
+   seat in a started Round stays, and the ballot deadline covers it.
    Closing an account never wipes this: reports about it and its sanctions stay
    through retention, and a report it filed stays with the reporter removed.
    These defaults and the evidence retention of 12 months after a report closes
