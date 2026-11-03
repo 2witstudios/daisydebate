@@ -56,6 +56,7 @@ const reduceAdmission = (
           phase: 'connecting',
           connection: link.connection,
           identity: event.admission.identity,
+          room: event.admission.room,
           reconnecting: admissionReconnects(link),
         },
       },

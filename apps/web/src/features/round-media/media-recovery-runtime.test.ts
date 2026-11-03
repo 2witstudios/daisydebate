@@ -33,7 +33,7 @@ test('a malformed reply says out of date as definite, and sets no timer', async 
   w.stop();
 });
 
-test('a conflict or an unavailable state ends the connection and asks for a fresh view', async () => {
+test('a conflict ends the connection; an unavailable state or a retired room rejoins by itself', async () => {
   const after = async (reply: () => unknown) => {
     const w = await sdkWorld({
       replies: (read) => (read === 1 ? publishing() : reply()),
@@ -48,17 +48,21 @@ test('a conflict or an unavailable state ends the connection and asks for a fres
     return outcome;
   };
   assert({
-    given: 'a 409 answer, then a server state of unavailable, on a live read',
-    should: 'release, refresh the Round once and wait for a person',
+    given:
+      'on a live read: a 409, a state of unavailable, and a session that moved to a fresh room',
+    should:
+      'wait for a person only on the 409; the others arm a rejoin, because admission decides authority',
     actual: [
       await after(() => {
         throw mediaFailure(409);
       }),
       await after(() => ({ ...snapshot, state: 'unavailable' })),
+      await after(() => ({ ...snapshot, room: 'n'.repeat(24) })),
     ],
     expected: [
       ['unavailable', 1, 0],
-      ['unavailable', 1, 0],
+      ['unavailable', 1, 1],
+      ['unavailable', 1, 1],
     ],
   });
 });

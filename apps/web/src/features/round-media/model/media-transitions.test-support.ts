@@ -78,7 +78,7 @@ export const TRANSITIONS: Readonly<
     'read-answered ended':
       'ended | cancel:all, abort-read, release-connection, forget-mute',
     'read-answered unavailable':
-      'released(definite) | cancel:all, abort-read, release-connection, refresh-view',
+      'released(transient) | refresh-view, cancel:all, abort-read, release-connection, schedule:recovery',
     'read-failed transient':
       'live(establishing) cam:off mic:off read:pausing next:none apply:none | schedule:read-retry',
     'read-failed definite':
@@ -490,7 +490,7 @@ export const TRANSITIONS: Readonly<
     'read-answered ended':
       'ended | cancel:all, abort-read, release-connection, forget-mute',
     'read-answered unavailable':
-      'released(definite) | cancel:all, abort-read, release-connection, refresh-view',
+      'released(transient) | refresh-view, cancel:all, abort-read, release-connection, schedule:recovery',
     'read-failed transient':
       'live(establishing) cam:off mic:off read:pausing next:none apply:none | schedule:read-retry',
     'read-failed definite':
@@ -589,7 +589,7 @@ export const TRANSITIONS: Readonly<
     'read-answered ended':
       'ended | cancel:all, abort-read, release-connection, forget-mute',
     'read-answered unavailable':
-      'released(definite) | cancel:all, abort-read, release-connection, refresh-view',
+      'released(transient) | refresh-view, cancel:all, abort-read, release-connection, schedule:recovery',
     'read-failed transient':
       'live(current) cam:off mic:off read:pausing next:wanted apply:none | schedule:read-retry',
     'read-failed definite':
@@ -1102,7 +1102,7 @@ export const TRANSITIONS: Readonly<
     'read-answered ended':
       'ended | cancel:all, abort-read, release-connection, forget-mute',
     'read-answered unavailable':
-      'released(definite) | cancel:all, abort-read, release-connection, refresh-view',
+      'released(transient) | refresh-view, cancel:all, abort-read, release-connection, schedule:recovery',
     'read-failed transient':
       'live(current) cam:stale-publication mic:off read:pausing next:none apply:none | schedule:read-retry',
     'read-failed definite':

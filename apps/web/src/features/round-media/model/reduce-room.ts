@@ -41,6 +41,7 @@ const reduceConnected = (
     phase: 'live',
     connection: link.connection,
     identity: link.identity,
+    room: link.room,
     establishment: { stage: 'establishing', reconnecting: link.reconnecting },
     grants: [],
     permission: event.permission,
