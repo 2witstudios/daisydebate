@@ -270,7 +270,6 @@ describe('a claimed discard', () => {
     const pages = [1000, 3, 0];
     const asked: string[] = [];
     const calls = await runOne(discarding, {
-      strip: async () => {},
       discardPage: async (prefix) => {
         asked.push(prefix);
         return pages.shift() ?? 0;
@@ -288,7 +287,6 @@ describe('a claimed discard', () => {
   });
   test('a storage failure retries and never claims it settled', async () => {
     const calls = await runOne(discarding, {
-      strip: async () => {},
       discardPage: async () => {
         throw new Error('outage');
       },
@@ -415,7 +413,7 @@ test('a failed Recording is stripped by what history proved, and says it is done
       throw new Error('never');
     },
     discardPage: async () => 0,
-    strip: async (prefix, kept) => {
+    strip: async (prefix: string, kept: unknown) => {
       stripped.push([prefix, kept]);
     },
     workDirOf: () => '/w',
