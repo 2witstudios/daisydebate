@@ -35,7 +35,8 @@
     "./documents": "./src/documents.ts",
     "./profile": "./src/profile.ts",
     "./outbox": "./src/outbox-api.ts",
-    "./attendance": "./src/attendance.ts"
+    "./attendance": "./src/attendance.ts",
+    "./broadcast-worker": "./src/broadcast-worker-store.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",

@@ -14,6 +14,7 @@ import {
   recordObserverRevoked,
   recordRevocationFailed,
   recordSegmentReleased,
+  renewBroadcastLease,
 } from '../src/broadcast-operations';
 import { withFixture } from './constraint-helpers';
 
@@ -197,6 +198,44 @@ test('reconcile records are idempotent and a revocation resets its failures', as
         await read(),
       ],
       expected: [2, 0, now.toISOString(), null, now.toISOString(), undefined],
+    });
+  });
+});
+
+test('a held lease renews with fresh facts, and refuses a fenced owner', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      releasePolicy: policy,
+    });
+    const job = (await db.transaction((tx) =>
+      claimBroadcast(tx, { owner: 'w', now, leaseUntil: later }),
+    ))!;
+    await recordFinalMediaEnd(db, { id: open.id, at: now });
+    const much = new Date(later.getTime() + 60_000);
+    const renewed = await renewBroadcastLease(db, {
+      id: open.id,
+      owner: 'w',
+      epoch: job.leaseEpoch,
+      leaseUntil: much,
+    });
+    const fenced = await renewBroadcastLease(db, {
+      id: open.id,
+      owner: 'w',
+      epoch: job.leaseEpoch - 1,
+      leaseUntil: much,
+    });
+    assert({
+      given: 'the owner renewing, and a stale epoch renewing',
+      should:
+        'extend the lease and return the fresh row for the owner, and null for the stale one',
+      actual: [
+        renewed?.leaseUntil?.toISOString(),
+        renewed?.finalMediaEndAt?.toISOString(),
+        fenced,
+      ],
+      expected: [much.toISOString(), now.toISOString(), null],
     });
   });
 });

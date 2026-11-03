@@ -42,6 +42,7 @@ const input = (over = {}) => ({
   nextSegment: 0,
   nowMs: start + 64_000,
   roundEndedAtMs: null,
+  finalMediaEnded: false,
   ...over,
 });
 
@@ -131,6 +132,31 @@ describe('releaseStep', () => {
         log.filter((l) => l.startsWith('encode')),
       ],
       expected: [1, ['encode s_1.ts']],
+    });
+  });
+  test('the last segment after final media ends the stream', async () => {
+    const seen: string[] = [];
+    const { ports } = world({
+      publishManifest: async (_key, text) => {
+        seen.push(text);
+      },
+    });
+    const at = (nextSegment: number, finalMediaEnded: boolean) =>
+      releaseStep(
+        input({ nextSegment, finalMediaEnded, nowMs: start + 900_000 }),
+        ports,
+      );
+    await at(2, false);
+    const open = seen.at(-1)!.includes('ENDLIST');
+    await at(1, true);
+    const notLast = seen.at(-1)!.includes('ENDLIST');
+    await at(2, true);
+    assert({
+      given:
+        'the last held segment before and after final media, and an earlier one',
+      should: 'mark the end only on the last segment after final media',
+      actual: [open, notLast, seen.at(-1)!.includes('ENDLIST')],
+      expected: [false, false, true],
     });
   });
   test('the manifest window comes from the durable hold, so a crash keeps it', async () => {

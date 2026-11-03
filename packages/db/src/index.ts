@@ -1,3 +1,4 @@
+import { createBroadcastStore } from './broadcast-store';
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
 import { friendshipReadOperations } from './friends/reads';
@@ -179,6 +180,7 @@ export function createDatabase({
     }),
     ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
     ...roundAnalysisReads({ database }),
+    broadcasts: createBroadcastStore(database),
     mediaSessions: createMediaSessionStore({
       database,
       run: transcriptTransaction,
