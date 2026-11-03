@@ -4,9 +4,9 @@
 import '../../lib/zod-jitless';
 import {
   ONLINE_TOPIC,
-  onlineRosterSchema,
-  type OnlineFilter,
-  type OnlineRoster,
+  peopleListSchema,
+  type PeopleFilter,
+  type PeopleList,
 } from '@daisy/protocol';
 import {
   createContext,
@@ -26,31 +26,31 @@ import {
 } from '../../features/realtime/browser-adapters';
 import {
   nextReadDelayMs,
-  ROSTER_CEILING_MS,
-  rosterFloorMs,
+  PEOPLE_READ_CEILING_MS,
+  peopleReadFloorMs,
 } from '../../features/presence/refresh-schedule';
 
-type OnlineView = {
-  readonly roster: OnlineRoster;
-  readonly filter: OnlineFilter;
+type PeopleView = {
+  readonly list: PeopleList;
+  readonly filter: PeopleFilter;
   readonly query: string;
-  readonly setFilter: (filter: OnlineFilter) => void;
+  readonly setFilter: (filter: PeopleFilter) => void;
   readonly setQuery: (query: string) => void;
   readonly loadMore: () => void;
   /** Re-reads at once, after the member's own action. */
   readonly refresh: () => void;
 };
 
-const OnlineContext = createContext<OnlineView | null>(null);
+const PeopleContext = createContext<PeopleView | null>(null);
 
-export const useOnline = (): OnlineView => {
-  const view = useContext(OnlineContext);
-  if (!view) throw new Error('useOnline needs an OnlineProvider');
+export const usePeople = (): PeopleView => {
+  const view = useContext(PeopleContext);
+  if (!view) throw new Error('usePeople needs an PeopleProvider');
   return view;
 };
 
 /** Self status for the avatar, or null outside a member's shell. */
-export const useOptionalOnline = () => useContext(OnlineContext);
+export const useOptionalPeople = () => useContext(PeopleContext);
 
 const readJson = async <T,>(
   url: string,
@@ -73,45 +73,45 @@ const readJson = async <T,>(
   }
 };
 
-const parseRoster = (value: unknown) => {
+const parseList = (value: unknown) => {
   // jitless: the strict CSP refuses Zod's eval-compiled parser.
-  const parsed = onlineRosterSchema.safeParse(value, { jitless: true });
+  const parsed = peopleListSchema.safeParse(value, { jitless: true });
   return parsed.success ? parsed.data : null;
 };
 
-const rosterUrl = (filter: OnlineFilter, query: string, cursor?: string) => {
+const listUrl = (filter: PeopleFilter, query: string, cursor?: string) => {
   const search = new URLSearchParams({ filter });
   if (query.trim()) search.set('q', query.trim());
   if (cursor) search.set('cursor', cursor);
-  return `/api/online?${search}`;
+  return `/api/people?${search}`;
 };
 
 /**
- * The tab's one view of who is online (ADR 0103). The page
+ * The tab's one view of the people list (ADR 0105). The page
  * opens with the server's read, a ring on the shared socket asks for a fresh
  * one, and a timer covers a ring that never comes. Rings say only that
  * something changed, so what a member sees is always an authorized read.
  */
-export function OnlineProvider({
-  initialRoster,
+export function PeopleProvider({
+  initialList,
   socketUrl: initialSocketUrl,
   children,
 }: {
-  readonly initialRoster: OnlineRoster;
+  readonly initialList: PeopleList;
   readonly socketUrl: string | null;
   readonly children: ReactNode;
 }) {
-  const [roster, setRoster] = useState(initialRoster);
-  const [filter, setFilter] = useState<OnlineFilter>('all');
+  const [list, setList] = useState(initialList);
+  const [filter, setFilter] = useState<PeopleFilter>('all');
   const [query, setQuery] = useState('');
   const [socketUrl, setSocketUrl] = useState(initialSocketUrl);
   const lastRead = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The read floor scales with who is online, not with everyone listed (ADR 0105).
-  const shown = useRef({ filter, query, count: roster.counts.online });
+  const shown = useRef({ filter, query, count: list.counts.online });
   useEffect(() => {
-    shown.current = { filter, query, count: roster.counts.online };
-  }, [filter, query, roster.counts.online]);
+    shown.current = { filter, query, count: list.counts.online };
+  }, [filter, query, list.counts.online]);
 
   // A re-read walks as many pages as the viewer loaded, so a ring never
   // snatches the list out from under someone who scrolled.
@@ -122,7 +122,7 @@ export function OnlineProvider({
   // steady rings can never keep superseding a slow read until nothing lands.
   const reading = useRef(false);
   const readAgain = useRef(false);
-  const readRoster = useCallback(async () => {
+  const readList = useCallback(async () => {
     if (reading.current) {
       readAgain.current = true;
       return;
@@ -131,14 +131,14 @@ export function OnlineProvider({
     const { filter: wanted, query: named } = shown.current;
     const seq = readSeq.current;
     lastRead.current = systemScheduler.now();
-    let merged: OnlineRoster | null = null;
+    let merged: PeopleList | null = null;
     let complete = true;
     for (let page = 0; page < pagesLoaded.current; page += 1) {
       const cursor: string | undefined = merged?.nextCursor ?? undefined;
       const read: {
-        readonly value: OnlineRoster | null;
+        readonly value: PeopleList | null;
         readonly response: Response | null;
-      } = await readJson(rosterUrl(wanted, named, cursor), parseRoster);
+      } = await readJson(listUrl(wanted, named, cursor), parseList);
       const { value, response } = read;
       const endpoint = response && realtimeEndpointOf(response);
       if (endpoint) setSocketUrl(endpoint);
@@ -146,26 +146,26 @@ export function OnlineProvider({
         complete = false;
         break;
       }
-      const next: OnlineRoster = merged
-        ? { ...value, members: [...merged.members, ...value.members] }
+      const next: PeopleList = merged
+        ? { ...value, people: [...merged.people, ...value.people] }
         : value;
       merged = next;
       if (!next.nextCursor) break;
     }
-    if (complete && merged && seq === readSeq.current) setRoster(merged);
+    if (complete && merged && seq === readSeq.current) setList(merged);
     reading.current = false;
     if (readAgain.current) {
       readAgain.current = false;
-      void readRosterRef.current();
+      void readListRef.current();
     }
   }, []);
-  const readRosterRef = useRef(readRoster);
+  const readListRef = useRef(readList);
   const schedule = useCallback(() => {
     if (timer.current !== null) return;
     timer.current = setTimeout(
       () => {
         timer.current = null;
-        void readRoster();
+        void readList();
       },
       nextReadDelayMs({
         now: systemScheduler.now(),
@@ -174,7 +174,7 @@ export function OnlineProvider({
         jitter: secureRandom(),
       }),
     );
-  }, [readRoster]);
+  }, [readList]);
 
   // A changed filter or search reads at once.
   const first = useRef(true);
@@ -185,30 +185,30 @@ export function OnlineProvider({
     }
     pagesLoaded.current = 1;
     readSeq.current += 1;
-    const handle = setTimeout(() => void readRoster(), 200);
+    const handle = setTimeout(() => void readList(), 200);
     return () => clearTimeout(handle);
-  }, [filter, query, readRoster]);
+  }, [filter, query, readList]);
 
   // The fallback when no ring arrives, and the first read that names the socket.
   useEffect(() => {
-    if (socketUrl === null) void readRoster();
+    if (socketUrl === null) void readList();
     const poll = setInterval(() => {
       const since = systemScheduler.now() - lastRead.current;
-      if (since >= rosterFloorMs(shown.current.count)) void readRoster();
-    }, ROSTER_CEILING_MS);
+      if (since >= peopleReadFloorMs(shown.current.count)) void readList();
+    }, PEOPLE_READ_CEILING_MS);
     return () => clearInterval(poll);
-  }, [readRoster, socketUrl]);
+  }, [readList, socketUrl]);
 
   useEffect(() => {
     if (socketUrl === null) return;
     const connection = tabConnection(socketUrl);
     connection.connect();
-    const stopRoster = connection.subscribeTopic(ONLINE_TOPIC, (frame) => {
+    const stopRings = connection.subscribeTopic(ONLINE_TOPIC, (frame) => {
       if (frame.type === 'online_changed' || frame.type === 'subscribed')
         schedule();
     });
     return () => {
-      stopRoster();
+      stopRings();
       connection.dispose();
     };
   }, [schedule, socketUrl]);
@@ -227,36 +227,36 @@ export function OnlineProvider({
 
   const loadingMore = useRef(false);
   const loadMore = useCallback(() => {
-    const cursor = roster.nextCursor;
+    const cursor = list.nextCursor;
     if (!cursor || loadingMore.current) return;
     loadingMore.current = true;
     const seq = readSeq.current;
-    void readJson(rosterUrl(filter, query, cursor), parseRoster).then(
+    void readJson(listUrl(filter, query, cursor), parseList).then(
       ({ value }) => {
         loadingMore.current = false;
         if (!value || seq !== readSeq.current) return;
         pagesLoaded.current += 1;
-        setRoster((current) => {
-          const seen = new Set(current.members.map((m) => m.username));
+        setList((current) => {
+          const seen = new Set(current.people.map((m) => m.username));
           return {
             ...value,
-            members: [
-              ...current.members,
-              ...value.members.filter((m) => !seen.has(m.username)),
+            people: [
+              ...current.people,
+              ...value.people.filter((m) => !seen.has(m.username)),
             ],
           };
         });
       },
     );
-  }, [filter, query, roster.nextCursor]);
+  }, [filter, query, list.nextCursor]);
 
   const refresh = useCallback(() => {
-    void readRoster();
-  }, [readRoster]);
+    void readList();
+  }, [readList]);
 
   const view = useMemo(
     () => ({
-      roster,
+      list,
       filter,
       query,
       setFilter,
@@ -264,9 +264,9 @@ export function OnlineProvider({
       loadMore,
       refresh,
     }),
-    [filter, loadMore, query, refresh, roster],
+    [filter, loadMore, query, refresh, list],
   );
   return (
-    <OnlineContext.Provider value={view}>{children}</OnlineContext.Provider>
+    <PeopleContext.Provider value={view}>{children}</PeopleContext.Provider>
   );
 }

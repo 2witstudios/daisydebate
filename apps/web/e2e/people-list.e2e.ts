@@ -4,7 +4,7 @@ import { origin, resetRateLimits, signUpMember } from './support/accounts';
 /**
  * The people list's forms with JavaScript off (ADR 0103). The live journeys
  * need a real realtime service, so they run in the realtime proof
- * (support/whos-online-live.ts, from messaging-realtime.e2e.ts).
+ * (support/people-list-live.ts, from messaging-realtime.e2e.ts).
  */
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
@@ -21,7 +21,7 @@ test('the people list is only for members', async ({ browser }) => {
     await expect(
       page.getByRole('complementary', { name: 'People' }),
     ).toHaveCount(0);
-    const read = await context.request.get('/api/online');
+    const read = await context.request.get('/api/people');
     expect(read.status()).toBe(401);
   } finally {
     await context.close();

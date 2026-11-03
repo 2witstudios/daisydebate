@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import type { OnlineRailPreference } from '../../../ui/layout/app-shell/rail-preference';
+import type { PeopleRailPreference } from '../../../ui/layout/app-shell/rail-preference';
 import { ChallengeProvider } from '../../../ui/challenges/challenge-provider';
-import { OnlineProvider } from '../../../ui/online/online-provider';
+import { PeopleProvider } from '../../../ui/people/people-provider';
 import {
-  OnlineRail,
+  PeopleRail,
   PhoneChallengeCards,
-} from '../../../ui/online/online-rail';
+} from '../../../ui/people/people-rail';
 import { friendAction } from '../friends/actions';
 import {
   acceptChallengeAction,
@@ -16,8 +16,8 @@ import { readChallenges } from '../challenges/read-challenges';
 import { blockAction } from '../contacts/actions';
 import { messagePersonAction } from '../messages/new/actions';
 import { reportAction } from '../reports/actions';
-import { setOnlineRail } from './actions';
-import { readOnline } from './read-online';
+import { setPeopleRail } from './actions';
+import { readPeople } from './read-people';
 
 /** Every action the list's menu posts; `ui/` never imports from `app/`. */
 export const personActions = {
@@ -32,7 +32,7 @@ export const personActions = {
 
 const empty = {
   version: 1 as const,
-  members: [],
+  people: [],
   nextCursor: null,
   counts: { everyone: 0, friends: 0, online: 0 },
   self: 'online' as const,
@@ -45,29 +45,29 @@ const noChallenges = {
 };
 
 /**
- * A member's online list for the shell (ADR 0103): read here so the first HTML
+ * A member's people list for the shell (ADR 0105): read here so the first HTML
  * already holds it, and a failed read still renders the rail, empty until the
  * browser's own read lands.
  */
-export async function OnlineShell({
+export async function PeopleShell({
   preference,
   activeRoomId,
 }: {
-  readonly preference: OnlineRailPreference;
+  readonly preference: PeopleRailPreference;
   readonly activeRoomId: string | null;
 }) {
-  const [roster, challenges] = await Promise.all([
-    readOnline(),
+  const [list, challenges] = await Promise.all([
+    readPeople(),
     readChallenges().catch(() => null),
   ]);
   return {
     preference,
     rail: (
       <>
-        <OnlineRail
+        <PeopleRail
           preference={preference}
           actions={personActions}
-          setRail={setOnlineRail}
+          setRail={setPeopleRail}
           activeRoomId={activeRoomId}
         />
         <PhoneChallengeCards
@@ -77,8 +77,8 @@ export async function OnlineShell({
       </>
     ),
     wrap: (shell: ReactNode) => (
-      <OnlineProvider
-        initialRoster={roster ?? empty}
+      <PeopleProvider
+        initialList={list ?? empty}
         socketUrl={challenges?.socketUrl ?? null}
       >
         <ChallengeProvider
@@ -88,7 +88,7 @@ export async function OnlineShell({
         >
           {shell}
         </ChallengeProvider>
-      </OnlineProvider>
+      </PeopleProvider>
     ),
   };
 }

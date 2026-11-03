@@ -84,7 +84,7 @@ const OPERATION_NAMES = [
   'moderation.notices',
   'ops.alerts',
   'ops.metrics',
-  'presence.online',
+  'presence.people',
   'presence.read',
   'presence.set',
   'ratings.visibility.read',

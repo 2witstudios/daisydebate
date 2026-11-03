@@ -8,9 +8,9 @@ import { Lobby } from '../../../ui/lobby/lobby';
 import { roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';
 import { ResumeRound } from '../../../ui/active-room/resume-round';
-import { LobbyViews, OnlineCount } from '../../../ui/online/lobby-views';
-import { OnlinePanel } from '../../../ui/online/online-rail';
-import { personActions } from '../online/online-shell';
+import { LobbyViews, OnlineCount } from '../../../ui/people/lobby-views';
+import { PeoplePanel } from '../../../ui/people/people-rail';
+import { personActions } from '../people/people-shell';
 
 export const metadata: Metadata = { title: 'Lobby' };
 export default async function LobbyPage({
@@ -42,12 +42,12 @@ export default async function LobbyPage({
       />
     </>
   );
-  // A phone has no rail: the Lobby's switch holds the online list instead.
+  // A phone has no rail: the Lobby's switch holds the people list instead.
   return identity.state === 'member' ? (
     <LobbyViews
-      view={(await searchParams).view === 'rooms' ? 'rooms' : 'online'}
+      view={(await searchParams).view === 'rooms' ? 'rooms' : 'people'}
       rooms={rooms}
-      online={<OnlinePanel actions={personActions} />}
+      people={<PeoplePanel actions={personActions} />}
       onlineCount={<OnlineCount />}
     />
   ) : (

@@ -42,7 +42,7 @@ const activateSeason = () =>
     ),
   );
 
-export function testWhoIsOnline() {
+export function testPeopleList() {
   test.beforeEach(async ({ request }) => {
     await resetRateLimits(request);
   });

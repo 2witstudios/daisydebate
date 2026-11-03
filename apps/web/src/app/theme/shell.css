@@ -10,7 +10,7 @@
   /* The phone's bottom tab bar, safe area excluded: 4 + 48 + 8. */
   --spacing-tab-bar: 60px;
   --spacing-tab: 48px;
-  --spacing-online-rail: 224px;
+  --spacing-people-rail: 224px;
   --spacing-person-card: 264px;
   --spacing-flyout: 190px;
   --spacing-flyout-shift: 6px;
@@ -26,7 +26,7 @@
   --shell-left: var(--spacing-nav-rail);
   --shell-right: 0px;
   grid-template-columns: var(--shell-left) minmax(0, 1fr) var(--shell-right);
-  grid-template-areas: 'rail main online';
+  grid-template-areas: 'rail main people';
 
   @media (width < 641px) {
     grid-template-columns: minmax(0, 1fr);
@@ -44,50 +44,50 @@
   }
 }
 
-/* The online rail's column (ADR 0103), mirroring the left rail: collapsed
+/* The people rail's column (ADR 0103), mirroring the left rail: collapsed
    wherever the viewport cannot hold it, and absent on a phone, where the
-   Lobby's Online view takes its place. */
-@utility grid-shell-online-mini {
+   Lobby's People view takes its place. */
+@utility grid-shell-people-mini {
   @media (width >= 641px) {
     --shell-right: var(--spacing-nav-rail);
   }
 }
-@utility grid-shell-online-open {
+@utility grid-shell-people-open {
   @media (width >= 641px) {
     --shell-right: var(--spacing-nav-rail);
   }
   @media (width >= 1101px) {
-    --shell-right: var(--spacing-online-rail);
+    --shell-right: var(--spacing-people-rail);
   }
 }
-@utility grid-shell-online-auto {
+@utility grid-shell-people-auto {
   @media (width >= 641px) {
     --shell-right: var(--spacing-nav-rail);
   }
   @media (width >= 1281px) {
-    --shell-right: var(--spacing-online-rail);
+    --shell-right: var(--spacing-people-rail);
   }
 }
 
-@utility online-full-open {
+@utility people-full-open {
   display: none;
   @media (width >= 1101px) {
     display: flex;
   }
 }
-@utility online-mini-open {
+@utility people-mini-open {
   display: flex;
   @media (width >= 1101px) {
     display: none;
   }
 }
-@utility online-full-auto {
+@utility people-full-auto {
   display: none;
   @media (width >= 1281px) {
     display: flex;
   }
 }
-@utility online-mini-auto {
+@utility people-mini-auto {
   display: flex;
   @media (width >= 1281px) {
     display: none;
@@ -122,8 +122,8 @@
   }
 }
 
-@utility area-online {
-  grid-area: online;
+@utility area-people {
+  grid-area: people;
 }
 
 /* The bottom tab bar keeps its tabs above the phone's home indicator. */

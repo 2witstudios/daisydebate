@@ -1,7 +1,7 @@
 /** The soonest a browser re-reads the list after a ring. */
-export const ROSTER_FLOOR_MS = 2_000;
+export const PEOPLE_READ_FLOOR_MS = 2_000;
 /** The latest: also the fallback when no ring arrives at all. */
-export const ROSTER_CEILING_MS = 30_000;
+export const PEOPLE_READ_CEILING_MS = 30_000;
 /** Each browser reads at most this often per person online, in milliseconds. */
 const MS_PER_MEMBER = 20;
 
@@ -10,10 +10,10 @@ const MS_PER_MEMBER = 20;
  * fleet's request rate stays near 50 reads a second up to about 1,500 online,
  * and a small room still feels instant.
  */
-export const rosterFloorMs = (onlineCount: number): number =>
+export const peopleReadFloorMs = (onlineCount: number): number =>
   Math.min(
-    ROSTER_CEILING_MS,
-    Math.max(ROSTER_FLOOR_MS, onlineCount * MS_PER_MEMBER),
+    PEOPLE_READ_CEILING_MS,
+    Math.max(PEOPLE_READ_FLOOR_MS, onlineCount * MS_PER_MEMBER),
   );
 
 /**
@@ -27,7 +27,7 @@ export const nextReadDelayMs = (input: {
   /** A unit value that spreads the load. */
   readonly jitter: number;
 }): number => {
-  const floor = rosterFloorMs(input.onlineCount);
+  const floor = peopleReadFloorMs(input.onlineCount);
   const wait = Math.max(0, input.lastReadAt + floor - input.now);
   return wait + Math.round(input.jitter * Math.min(1_000, floor / 2));
 };

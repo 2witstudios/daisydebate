@@ -19,7 +19,7 @@ export const reportReasonLabels: Readonly<Record<ReportReason, string>> = {
 };
 
 /** Where the report was made, the only evidence scope it carries. */
-export const reportSurfaces = ['online', 'profile', 'watch'] as const;
+export const reportSurfaces = ['people', 'profile', 'watch'] as const;
 export type ReportSurface = (typeof reportSurfaces)[number];
 
 export const reportOutcomes = [

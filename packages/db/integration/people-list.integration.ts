@@ -11,7 +11,7 @@ import {
   purgeExpiredChallenges,
 } from '../src/challenges/store';
 import { readChosenStatus, writeChosenStatus } from '../src/presence/settings';
-import { readRosterPage } from '../src/presence/roster';
+import { readPeopleListPage } from '../src/presence/people-list';
 import { createReportStore, reportOperations } from '../src/reports/store';
 import { contactReactions } from '../src/contact-composition';
 import { createContactStore } from '../src/contacts/store';
@@ -52,9 +52,9 @@ const open = async () => {
 
 const page = (
   ctx: Awaited<ReturnType<typeof open>>,
-  over: Partial<Parameters<typeof readRosterPage>[2]> = {},
+  over: Partial<Parameters<typeof readPeopleListPage>[2]> = {},
 ) =>
-  readRosterPage(
+  readPeopleListPage(
     ctx.database,
     ctx.me,
     {
@@ -71,7 +71,7 @@ const page = (
     unfenced,
   );
 
-test('the roster lists everyone, online or not, except the reader and a blocked pair', async () => {
+test('the people list shows everyone, online or not, except the reader and a blocked pair', async () => {
   const ctx = await open();
   try {
     const seen = async () =>
@@ -139,7 +139,7 @@ test('the roster lists everyone, online or not, except the reader and a blocked 
   }
 });
 
-test('the roster counts, and orders friends, then online, then by name, across pages', async () => {
+test('the people list counts, and orders friends, then online, then by name, across pages', async () => {
   const ctx = await open();
   const others = [createId(), createId()].map((id) => ({
     userId: id,
@@ -217,7 +217,7 @@ test('the roster counts, and orders friends, then online, then by name, across p
   }
 });
 
-test('the roster leaves out a member who could not sign in', async () => {
+test('the people list leaves out a member who could not sign in', async () => {
   const listed = async (ctx: Awaited<ReturnType<typeof open>>) =>
     (await page(ctx)).rows.length;
   const withdrawn = await open();
@@ -258,7 +258,7 @@ test('the roster leaves out a member who could not sign in', async () => {
   }
 });
 
-test('the roster leaves out an approved account the age rule does not admit', async () => {
+test('the people list leaves out an approved account the age rule does not admit', async () => {
   const contexts = [await open(), await open(), await open()] as const;
   const [unrecorded, underFloor, oldEnough] = contexts;
   const listed = async (ctx: Awaited<ReturnType<typeof open>>) =>
@@ -301,13 +301,13 @@ test('the roster leaves out an approved account the age rule does not admit', as
   }
 });
 
-test('the web role can run the roster read', async () => {
+test('the web role can run the people list read', async () => {
   const ctx = await open();
   try {
     const rows = await ctx.database.transaction(async (tx) => {
       await tx.execute(sql`set local role daisy_web`);
       return (
-        await readRosterPage(
+        await readPeopleListPage(
           tx as never,
           ctx.me,
           {
@@ -674,7 +674,7 @@ test('a chosen status reads back, and a report closes once with its action', asy
         id,
         subjectActorId: ctx.them.actorId,
         reason: 'hate',
-        surface: 'online',
+        surface: 'people',
         now: ctx.now,
       });
     await file(reportId);
@@ -797,7 +797,7 @@ test('a suspension ends the member’s offers, and closing an account keeps the 
         id: about,
         subjectActorId: ctx.them.actorId,
         reason: 'spam',
-        surface: 'online',
+        surface: 'people',
         now: live,
       },
     );

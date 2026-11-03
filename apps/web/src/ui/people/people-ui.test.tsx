@@ -2,13 +2,13 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { OnlineMember, OnlineRoster } from '@daisy/protocol';
+import type { Person, PeopleList } from '@daisy/protocol';
 import { ratingsLabel, ratingText } from './member-card';
 import { ChallengeProvider } from '../challenges/challenge-provider';
 import { LobbyViews } from './lobby-views';
-import { OnlineProvider } from './online-provider';
-import { OnlineRail } from './online-rail';
-import { rowDetail } from './online-rows';
+import { PeopleProvider } from './people-provider';
+import { PeopleRail } from './people-rail';
+import { rowDetail } from './people-rows';
 import { canBeChallenged } from './person-menu';
 import { StatusForm } from './status-form';
 
@@ -39,7 +39,7 @@ const actions = {
   report: action,
   block: action,
 };
-const person = (over: Partial<OnlineMember> = {}): OnlineMember => ({
+const person = (over: Partial<Person> = {}): Person => ({
   username: 'ada',
   status: 'online',
   relation: 'none',
@@ -50,20 +50,20 @@ const person = (over: Partial<OnlineMember> = {}): OnlineMember => ({
   losses: 1,
   ...over,
 });
-const roster = (members: readonly OnlineMember[]): OnlineRoster => ({
+const list = (people: readonly Person[]): PeopleList => ({
   version: 1,
-  members: [...members],
+  people: [...people],
   nextCursor: null,
-  counts: { everyone: members.length + 7, friends: 3, online: members.length },
+  counts: { everyone: people.length + 7, friends: 3, online: people.length },
   self: 'online',
 });
-const inProvider = (children: unknown, members: readonly OnlineMember[]) =>
+const inProvider = (children: unknown, people: readonly Person[]) =>
   renderToString(
     h(
       AppRouterContext,
       { value: router },
-      h(OnlineProvider, {
-        initialRoster: roster(members),
+      h(PeopleProvider, {
+        initialList: list(people),
         socketUrl: null,
         children: h(ChallengeProvider, {
           initialChallenges: {
@@ -90,9 +90,9 @@ const inProvider = (children: unknown, members: readonly OnlineMember[]) =>
     ),
   );
 
-describe('the online rail', () => {
+describe('the people rail', () => {
   const html = inProvider(
-    h(OnlineRail, {
+    h(PeopleRail, {
       preference: 'auto',
       actions,
       setRail: async () => {},
@@ -190,10 +190,10 @@ describe('the online rail', () => {
   });
 });
 
-describe('the online rail with no one to list', () => {
+describe('the people rail with no one to list', () => {
   test('the empty notice stays a list item', () => {
     const html = inProvider(
-      h(OnlineRail, {
+      h(PeopleRail, {
         preference: 'auto',
         actions,
         setRail: async () => {},
@@ -202,7 +202,7 @@ describe('the online rail with no one to list', () => {
       [],
     );
     assert({
-      given: 'no one on the roster',
+      given: 'no one on the list',
       should: 'announce it inside a real list item, so the list stays valid',
       actual: [
         /<li[^>]*role="status"/.test(html),
@@ -294,21 +294,21 @@ describe('StatusForm', () => {
 });
 
 describe('LobbyViews', () => {
-  test('the phone’s Online view still names the page', () => {
+  test('the phone’s People view still names the page', () => {
     const html = renderToString(
       h(LobbyViews, {
-        view: 'online',
+        view: 'people',
         rooms: h('p', null, 'rooms'),
-        online: h('p', null, 'online'),
+        people: h('p', null, 'people'),
         onlineCount: null,
       }),
     );
     assert({
-      given: 'the Lobby opened on its Online view',
+      given: 'the Lobby opened on its People view',
       should: 'keep the Lobby heading above the list',
       actual:
         html.indexOf('>Lobby</h1>') > -1 &&
-        html.indexOf('>Lobby</h1>') < html.indexOf('<p>online</p>'),
+        html.indexOf('>Lobby</h1>') < html.indexOf('<p>people</p>'),
       expected: true,
     });
   });

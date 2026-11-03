@@ -10,7 +10,7 @@ const authorizationCapabilities = [
   'social.challenge.decline',
   'social.challenge.cancel',
   'social.challenge.list',
-  'social.online.list',
+  'social.people.list',
   'social.report',
   'social.rating_visibility.read',
   'social.rating_visibility.update',

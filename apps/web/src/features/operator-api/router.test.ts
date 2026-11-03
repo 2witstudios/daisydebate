@@ -335,7 +335,7 @@ describe('the report routes (ADR 0103)', () => {
     subject: 'bea',
     subjectUserId: target,
     reason: 'hate' as const,
-    surface: 'online' as const,
+    surface: 'people' as const,
     createdAt: '2026-11-02T00:00:00.000Z',
     reportsOnSubject: 2,
   };

@@ -185,13 +185,13 @@ test('each social concept authorizes on its own resource, never Friends', () => 
   const allowed = (
     capability:
       | 'social.challenge.list'
-      | 'social.online.list'
+      | 'social.people.list'
       | 'social.rating_visibility.read'
       | 'social.moderation_notice.read',
     kind:
       | 'friend_collection'
       | 'challenge_collection'
-      | 'online_roster'
+      | 'people_list'
       | 'rating_visibility'
       | 'moderation_notice',
   ) =>
@@ -206,7 +206,7 @@ test('each social concept authorizes on its own resource, never Friends', () => 
     should: 'allow only its own',
     actual: [
       allowed('social.challenge.list', 'challenge_collection'),
-      allowed('social.online.list', 'online_roster'),
+      allowed('social.people.list', 'people_list'),
       allowed('social.rating_visibility.read', 'rating_visibility'),
       allowed('social.moderation_notice.read', 'moderation_notice'),
       allowed('social.challenge.list', 'friend_collection'),

@@ -1,6 +1,6 @@
 'use client';
 
-import type { OnlineMember } from '@daisy/protocol';
+import type { Person } from '@daisy/protocol';
 import Link from 'next/link';
 import { useCallback, useRef, useState, type RefObject } from 'react';
 import { Avatar } from '../components/avatar/avatar';
@@ -10,7 +10,7 @@ import { cn } from '../cn';
 import { anchorAt, MemberCardBody, ratingsLabel } from './member-card';
 import { outgoingTo, PersonMenu } from './person-menu';
 import { useChallenges } from '../challenges/challenge-provider';
-import { useOnline } from './online-provider';
+import { usePeople } from './people-provider';
 import type { PersonActions } from './person-actions';
 
 const LONG_PRESS_MS = 500;
@@ -18,7 +18,7 @@ const LONG_PRESS_MS = 500;
 const MENU_HEIGHT = 408;
 
 /** What a row reads under the name: a sent offer or request, otherwise the status. */
-export const rowDetail = (member: OnlineMember, challengeSent: boolean) =>
+export const rowDetail = (member: Person, challengeSent: boolean) =>
   challengeSent
     ? 'Challenge sent'
     : member.relation === 'outgoing'
@@ -27,7 +27,7 @@ export const rowDetail = (member: OnlineMember, challengeSent: boolean) =>
 
 type Anchored = { readonly username: string; readonly top: number };
 /** The person as they were on opening, so leaving never closes a report. */
-type OpenMenu = Anchored & { readonly member: OnlineMember };
+type OpenMenu = Anchored & { readonly member: Person };
 
 /**
  * The hover card and menu shared by the open list, the collapsed avatars and
@@ -38,7 +38,7 @@ export function usePersonOverlay(
   container: RefObject<HTMLElement | null>,
   actions: PersonActions,
 ) {
-  const { roster } = useOnline();
+  const { list } = usePeople();
   const [hover, setHover] = useState<Anchored | null>(null);
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const trigger = useRef<HTMLElement | null>(null);
@@ -55,7 +55,7 @@ export function usePersonOverlay(
     press.current = null;
   }, []);
   const memberOf = (name: string | undefined) =>
-    roster.members.find((member) => member.username === name);
+    list.people.find((member) => member.username === name);
   const openAt = (username: string, element: HTMLElement) => {
     const member = memberOf(username);
     if (!member) return;
@@ -136,7 +136,7 @@ function PersonRow({
   overlay,
   active,
 }: {
-  readonly member: OnlineMember;
+  readonly member: Person;
   readonly overlay: ReturnType<typeof usePersonOverlay>;
   readonly active: boolean;
 }) {
@@ -213,18 +213,18 @@ export function PersonList({
   readonly overlay: ReturnType<typeof usePersonOverlay>;
   readonly className?: string;
 }) {
-  const { roster, loadMore, filter } = useOnline();
-  const friends = roster.members.filter((m) => m.relation === 'friends');
-  const others = roster.members.filter((m) => m.relation !== 'friends');
+  const { list, loadMore, filter } = usePeople();
+  const friends = list.people.filter((m) => m.relation === 'friends');
+  const others = list.people.filter((m) => m.relation !== 'friends');
   const online = others.filter((m) => m.status !== 'offline');
   const offline = others.filter((m) => m.status === 'offline');
-  const section = (title: string, members: readonly OnlineMember[]) =>
-    members.length === 0 ? null : (
+  const section = (title: string, people: readonly Person[]) =>
+    people.length === 0 ? null : (
       <>
         <li>
           <h3 className={headClass}>{title}</h3>
         </li>
-        {members.map((member) => (
+        {people.map((member) => (
           <li key={member.username}>
             <PersonRow
               member={member}
@@ -240,14 +240,14 @@ export function PersonList({
       {section('Friends', friends)}
       {filter === 'all' ? section('Online', online) : null}
       {filter === 'all' ? section('Offline', offline) : null}
-      {roster.members.length === 0 ? (
+      {list.people.length === 0 ? (
         <li>
           <p role="status" className="px-3 py-6 text-center font-semibold">
             No one matches
           </p>
         </li>
       ) : null}
-      {roster.nextCursor ? (
+      {list.nextCursor ? (
         <li>
           <button
             type="button"

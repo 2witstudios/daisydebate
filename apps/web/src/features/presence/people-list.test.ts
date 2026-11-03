@@ -5,13 +5,13 @@ import {
   type AuthorizationPrincipal,
 } from '@daisy/auth/authorization';
 import {
-  decodeRosterCursor,
-  encodeRosterCursor,
-  readOnlineRoster,
-  ROSTER_PAGE,
+  decodePeopleListCursor,
+  encodePeopleListCursor,
+  readPeopleList,
+  PEOPLE_PAGE,
   shownLadders,
-  type OnlineRosterDependencies,
-} from './online';
+  type PeopleListDependencies,
+} from './people-list';
 
 setupRitewayBun();
 
@@ -38,8 +38,8 @@ const row = (actorId: string, username: string, overrides = {}) => ({
 });
 
 const deps = (
-  overrides: Partial<OnlineRosterDependencies> = {},
-): OnlineRosterDependencies => ({
+  overrides: Partial<PeopleListDependencies> = {},
+): PeopleListDependencies => ({
   now: () => '2026-11-02T00:00:00.000Z',
   limit: async () => {},
   onlineActorIds: async () => [me, ada, bea],
@@ -62,8 +62,8 @@ const deps = (
   ...overrides,
 });
 
-const read = (overrides: Partial<OnlineRosterDependencies> = {}) =>
-  readOnlineRoster(
+const read = (overrides: Partial<PeopleListDependencies> = {}) =>
+  readPeopleList(
     member,
     { filter: 'all', query: null, cursor: undefined },
     deps(overrides),
@@ -88,16 +88,16 @@ describe('shownLadders', () => {
   });
 });
 
-describe('readOnlineRoster', () => {
+describe('readPeopleList', () => {
   test('each row carries its status, relation and the viewer’s own status', async () => {
-    const roster = await read();
+    const list = await read();
     assert({
       given: 'a friend online, a stranger idle, and a viewer who chose Busy',
       should: 'show online and away, name the friend, and report Busy for self',
       actual: {
-        rows: roster.members.map((m) => [m.username, m.status, m.relation]),
-        self: roster.self,
-        counts: roster.counts,
+        rows: list.people.map((m) => [m.username, m.status, m.relation]),
+        self: list.self,
+        counts: list.counts,
       },
       expected: {
         rows: [
@@ -128,7 +128,7 @@ describe('readOnlineRoster', () => {
   });
 
   test('an offline member stays on the list', async () => {
-    const roster = await read({
+    const list = await read({
       activity: async () => new Map([[me, 'active' as const]]),
       page: async () => ({
         rows: [
@@ -142,7 +142,7 @@ describe('readOnlineRoster', () => {
     assert({
       given: 'a member with no lease and one appearing offline',
       should: 'list both as offline, with nothing telling them apart',
-      actual: roster.members.map((m) => [m.username, m.status]),
+      actual: list.people.map((m) => [m.username, m.status]),
       expected: [
         ['ada', 'offline'],
         ['bea', 'offline'],
@@ -151,7 +151,7 @@ describe('readOnlineRoster', () => {
   });
 
   test('being in a Round or a room shows on its own', async () => {
-    const roster = await read({
+    const list = await read({
       page: async () => ({
         rows: [
           row(ada, 'ada', { placement: 'round' }),
@@ -164,13 +164,13 @@ describe('readOnlineRoster', () => {
     assert({
       given: 'one member in a Round and one in a room who chose Busy',
       should: 'show each placement, for the viewer too',
-      actual: [roster.members.map((m) => m.status), roster.self],
+      actual: [list.people.map((m) => m.status), list.self],
       expected: [['round', 'room'], 'room'],
     });
   });
 
   test('a lease that lapsed since the scan reads as offline', async () => {
-    const roster = await read({
+    const list = await read({
       activity: async () =>
         new Map([
           [me, 'active' as const],
@@ -181,7 +181,7 @@ describe('readOnlineRoster', () => {
     assert({
       given: 'a member whose lease went between the two reads',
       should: 'keep them on the page as offline',
-      actual: roster.members.map((m) => [m.username, m.status]),
+      actual: list.people.map((m) => [m.username, m.status]),
       expected: [
         ['ada', 'offline'],
         ['bea', 'online'],
@@ -201,7 +201,7 @@ describe('readOnlineRoster', () => {
       volatility: 0.06,
       lastRatedAt: '2026-11-01T00:00:00.000Z',
     });
-    const roster = await read({
+    const list = await read({
       cards: async () => ({
         visibility: [{ actorId: ada, showPolicy: true, showValue: false }],
         ratings: [
@@ -232,7 +232,7 @@ describe('readOnlineRoster', () => {
       given: 'Ada showing Policy, and Bea rated on Policy but not showing it',
       should:
         'leave Value off Ada’s card, Policy off Bea’s, and tally the record',
-      actual: roster.members.map((m) => ({
+      actual: list.people.map((m) => ({
         ratings: m.ratings.map((r) => [r.ladder, r.rating]),
         record: [m.wins, m.losses],
       })),
@@ -250,7 +250,7 @@ describe('readOnlineRoster', () => {
   });
 
   test('a judge’s blinded debater shows no rating', async () => {
-    const roster = await read({
+    const list = await read({
       blinded: async () => [ada],
       cards: async () => ({
         visibility: [],
@@ -270,7 +270,7 @@ describe('readOnlineRoster', () => {
     assert({
       given: 'a viewer judging Ada with no ballot yet',
       should: 'hide the rating from them and say so',
-      actual: roster.members[0]?.ratings[0],
+      actual: list.people[0]?.ratings[0],
       expected: {
         ladder: 'freestyle',
         rating: null,
@@ -281,10 +281,10 @@ describe('readOnlineRoster', () => {
   });
 
   test('a full page names where the next one starts', async () => {
-    const rows = Array.from({ length: ROSTER_PAGE + 1 }, (_, index) =>
+    const rows = Array.from({ length: PEOPLE_PAGE + 1 }, (_, index) =>
       row(`${String(index).padStart(2, '0')}${'d'.repeat(22)}`, `m${index}`),
     );
-    const roster = await read({
+    const list = await read({
       activity: async (ids) =>
         new Map(ids.map((id) => [id, 'active' as const])),
       page: async () => ({
@@ -293,13 +293,13 @@ describe('readOnlineRoster', () => {
         self: { chosen: 'online', placement: null },
       }),
     });
-    const last = rows[ROSTER_PAGE - 1]!;
+    const last = rows[PEOPLE_PAGE - 1]!;
     assert({
       given: 'one row more than a page',
       should: 'answer a page and a cursor at its last row',
-      actual: [roster.members.length, decodeRosterCursor(roster.nextCursor!)],
+      actual: [list.people.length, decodePeopleListCursor(list.nextCursor!)],
       expected: [
-        ROSTER_PAGE,
+        PEOPLE_PAGE,
         {
           friend: false,
           online: true,
@@ -330,7 +330,7 @@ describe('readOnlineRoster', () => {
   });
 });
 
-describe('roster cursors', () => {
+describe('list cursors', () => {
   test('round trip, and refuse anything tampered', async () => {
     const cursor = {
       friend: true,
@@ -341,7 +341,7 @@ describe('roster cursors', () => {
     assert({
       given: 'an encoded position',
       should: 'decode to itself',
-      actual: decodeRosterCursor(encodeRosterCursor(cursor)),
+      actual: decodePeopleListCursor(encodePeopleListCursor(cursor)),
       expected: cursor,
     });
     await assertRejects({
@@ -349,7 +349,7 @@ describe('roster cursors', () => {
       should: 'refuse rather than probe',
       code: 'VALIDATION',
       actual: async () =>
-        decodeRosterCursor(Buffer.from('[1,2,3]').toString('base64url')),
+        decodePeopleListCursor(Buffer.from('[1,2,3]').toString('base64url')),
     });
   });
 });

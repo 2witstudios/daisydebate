@@ -1,20 +1,24 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   nextReadDelayMs,
-  ROSTER_CEILING_MS,
-  ROSTER_FLOOR_MS,
-  rosterFloorMs,
+  PEOPLE_READ_CEILING_MS,
+  PEOPLE_READ_FLOOR_MS,
+  peopleReadFloorMs,
 } from './refresh-schedule';
 
 setupRitewayBun();
 
-describe('rosterFloorMs', () => {
+describe('peopleReadFloorMs', () => {
   test('grows with the list between its bounds', () => {
     assert({
       given: 'a handful, a thousand and a hundred thousand online',
       should: 'stay at the floor, then grow, then stop at the ceiling',
-      actual: [rosterFloorMs(5), rosterFloorMs(1_000), rosterFloorMs(100_000)],
-      expected: [ROSTER_FLOOR_MS, 20_000, ROSTER_CEILING_MS],
+      actual: [
+        peopleReadFloorMs(5),
+        peopleReadFloorMs(1_000),
+        peopleReadFloorMs(100_000),
+      ],
+      expected: [PEOPLE_READ_FLOOR_MS, 20_000, PEOPLE_READ_CEILING_MS],
     });
   });
 });

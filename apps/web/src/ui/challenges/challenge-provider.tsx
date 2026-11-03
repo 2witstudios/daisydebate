@@ -18,7 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import { tabConnection } from '../../features/realtime/browser-adapters';
-import { ROSTER_CEILING_MS } from '../../features/presence/refresh-schedule';
+import { PEOPLE_READ_CEILING_MS } from '../../features/presence/refresh-schedule';
 
 type ChallengeView = {
   readonly challenges: ChallengeList;
@@ -105,7 +105,7 @@ export function ChallengeProvider({
   }, []);
 
   useEffect(() => {
-    const poll = setInterval(() => void read(), ROSTER_CEILING_MS);
+    const poll = setInterval(() => void read(), PEOPLE_READ_CEILING_MS);
     return () => clearInterval(poll);
   }, [read]);
 

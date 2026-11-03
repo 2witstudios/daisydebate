@@ -8,7 +8,7 @@ import {
   type RatingLadder,
   type ChallengeList,
   type CompetitionType,
-  type OnlineMember,
+  type Person,
   type ReportReason,
 } from '@daisy/protocol';
 import Link from 'next/link';
@@ -24,7 +24,7 @@ import { useFormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { anchorAt, MemberCardBody } from './member-card';
 import { useChallenges } from '../challenges/challenge-provider';
-import { useOnline } from './online-provider';
+import { usePeople } from './people-provider';
 import type { PersonActions } from './person-actions';
 
 const item =
@@ -43,7 +43,7 @@ const formatLabels: Readonly<Record<RatingLadder, string>> = {
 };
 
 /** Open to a challenge: anyone not Busy, away or online, and not already placed. */
-export const canBeChallenged = (member: OnlineMember): boolean =>
+export const canBeChallenged = (member: Person): boolean =>
   member.status === 'online' || member.status === 'away';
 
 export const outgoingTo = (challenges: ChallengeList, username: string) =>
@@ -280,7 +280,7 @@ function ReportView({
   return (
     <form action={post} className="flex flex-col gap-2">
       <input type="hidden" name="username" value={username} />
-      <input type="hidden" name="surface" value="online" />
+      <input type="hidden" name="surface" value="people" />
       <input type="hidden" name="reason" value={reason ?? ''} />
       <div role="group" aria-label="Reason" className="flex flex-col gap-1">
         {reportReasons.map((value) => (
@@ -330,21 +330,21 @@ export function PersonMenu({
   top,
   onClose,
 }: {
-  readonly member: OnlineMember;
+  readonly member: Person;
   readonly actions: PersonActions;
   readonly reported: boolean;
   readonly onReported: () => void;
   readonly top: number;
   readonly onClose: () => void;
 }) {
-  const { refresh: refreshOnline } = useOnline();
+  const { refresh: refreshPeople } = usePeople();
   const {
     challenges,
     refresh: refreshChallenges,
     noteCancelled,
   } = useChallenges();
   const refresh = () => {
-    refreshOnline();
+    refreshPeople();
     refreshChallenges();
   };
   const [view, setView] = useState<'menu' | 'challenge' | 'report'>('menu');

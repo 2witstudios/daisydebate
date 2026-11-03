@@ -26,7 +26,7 @@ const summary =
   'cursor-pointer list-none rounded-sm px-3 py-2 text-sm font-semibold text-ink-muted hover:text-ink';
 
 /**
- * Everything the online list's menu offers, as native forms on the profile,
+ * Everything the people list's menu offers, as native forms on the profile,
  * which is where its three dots lead before any script (ADR 0103).
  */
 export function ProfilePersonActions({

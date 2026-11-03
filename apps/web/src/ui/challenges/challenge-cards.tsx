@@ -6,7 +6,7 @@ import { challengeFormUnavailable } from '../../features/challenges/forms';
 import { cn } from '../cn';
 import { useFormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
-import type { PersonActions } from '../online/person-actions';
+import type { PersonActions } from '../people/person-actions';
 import { useChallenges } from './challenge-provider';
 
 const labels = {

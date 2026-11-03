@@ -5,7 +5,7 @@ import {
   idSchema,
   type ChosenStatus,
   type MemberPlacement,
-  type OnlineFilter,
+  type PeopleFilter,
 } from '@daisy/protocol';
 import {
   readOwnCollection,
@@ -17,7 +17,7 @@ import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { admittedParticipant } from '../participant-admission';
 import { roomIsOpen } from '../room-open';
 
-type RosterScope = { readonly userId: string; readonly actorId: string };
+type PeopleListScope = { readonly userId: string; readonly actorId: string };
 
 /** Rooms' and Rounds' published fact, for the membership row `m` joined to `rooms`. */
 const placementSql = sql<MemberPlacement>`case
@@ -32,7 +32,7 @@ const placementSql = sql<MemberPlacement>`case
 export const placementOf = (actorId: SQL) =>
   sql<MemberPlacement>`(select ${placementSql} from room_active_memberships m join rooms on rooms.id = m.room_id where m.actor_id = ${actorId})`;
 
-export type RosterRow = {
+export type PersonRow = {
   readonly actorId: string;
   readonly username: string;
   readonly chosen: ChosenStatus;
@@ -43,14 +43,14 @@ export type RosterRow = {
   readonly friendshipState: 'pending' | 'accepted' | null;
 };
 
-export type RosterCursor = {
+export type PeopleListCursor = {
   readonly friend: boolean;
   readonly online: boolean;
   readonly username: string;
   readonly actorId: string;
 };
 
-export type RosterPageInput = {
+export type PeopleListPageInput = {
   /**
    * Live leases, read from Redis by the caller. They say who counts as online,
    * never who is listed, and presence grants nothing.
@@ -59,14 +59,14 @@ export type RosterPageInput = {
   /** The bands the one admission rule admits, from `@daisy/auth`. */
   readonly admittedAgeBands: readonly AgeBand[];
   readonly now: string;
-  readonly filter: OnlineFilter;
+  readonly filter: PeopleFilter;
   readonly query: string | null;
-  readonly after: RosterCursor | null;
+  readonly after: PeopleListCursor | null;
   readonly limit: number;
 };
 
-export type RosterPage = {
-  readonly rows: readonly RosterRow[];
+export type PeopleListPage = {
+  readonly rows: readonly PersonRow[];
   readonly counts: {
     readonly everyone: number;
     readonly friends: number;
@@ -79,7 +79,7 @@ export type RosterPage = {
 };
 
 /** The most leases one read considers; the caller's Redis scan stops here. */
-export const ROSTER_ACTORS_MAX = 10_000;
+export const ONLINE_LEASES_MAX = 10_000;
 
 /** One bound value however many ids: every id was validated above. */
 const textArray = (values: readonly string[]) =>
@@ -114,12 +114,12 @@ const isOnline = (ids: readonly string[]) =>
   sql`(a.id = any(${textArray(ids)}) and coalesce(ps.chosen_status, 'online') <> 'appearing_offline')`;
 
 /** One keyset page, friends first, then online, then by name, and the list's totals. */
-export function readRosterPage(
+export function readPeopleListPage(
   database: BunSQLDatabase,
-  scope: RosterScope,
-  input: RosterPageInput,
-  authorize: OwnCollectionFence<RosterScope>,
-): Promise<RosterPage> {
+  scope: PeopleListScope,
+  input: PeopleListPageInput,
+  authorize: OwnCollectionFence<PeopleListScope>,
+): Promise<PeopleListPage> {
   requireOwnScope(scope);
   for (const id of input.onlineActorIds) idSchema.parse(id);
   return readOwnCollection(database, scope, authorize, async (tx) => {
@@ -134,7 +134,7 @@ export function readRosterPage(
       sql`select count(*)::int as everyone,
         count(*) filter (where ${isFriend})::int as friends,
         count(*) filter (where ${online})::int as online ${from}`,
-    )) as unknown as RosterPage['counts'][];
+    )) as unknown as PeopleListPage['counts'][];
     const rank = sql`case when ${isFriend} then 0 else 1 end`;
     const presence = sql`case when ${online} then 0 else 1 end`;
     const after = input.after
@@ -155,7 +155,7 @@ export function readRosterPage(
         f.state as "friendshipState"
       ${from} ${named} ${friendsOnly} ${after}
       order by ${rank}, ${presence}, lower(u.username), a.id
-      limit ${input.limit}`)) as unknown as RosterRow[];
+      limit ${input.limit}`)) as unknown as PersonRow[];
     return {
       rows: [...rows],
       counts: counts ?? { everyone: 0, friends: 0, online: 0 },
@@ -183,19 +183,19 @@ export async function readAvailability(
 }
 
 /** The people list's read (ADR 0105), instrumented. */
-export const rosterOperations = ({
+export const peopleListOperations = ({
   database,
   eventSink,
 }: {
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  readRosterPage: (
-    scope: RosterScope,
-    input: RosterPageInput,
-    authorize: OwnCollectionFence<RosterScope>,
+  readPeopleListPage: (
+    scope: PeopleListScope,
+    input: PeopleListPageInput,
+    authorize: OwnCollectionFence<PeopleListScope>,
   ) =>
-    instrumented(eventSink, 'readRosterPage', () =>
-      readRosterPage(database, scope, input, authorize),
+    instrumented(eventSink, 'readPeopleListPage', () =>
+      readPeopleListPage(database, scope, input, authorize),
     ),
 });

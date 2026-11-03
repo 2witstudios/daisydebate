@@ -23,8 +23,8 @@ test('the presence route sets only the caller’s own choice', async () => {
       identify: async () => member as never,
     },
     websocketEndpoint: null,
-    online: async () => {
-      throw new Error('Unexpected online read');
+    people: async () => {
+      throw new Error('Unexpected people read');
     },
     set: async (_principal, status) => {
       calls.push(status);
@@ -53,8 +53,8 @@ test('the presence route reads only the caller’s own choice', async () => {
       identify: async () => member as never,
     },
     websocketEndpoint: null,
-    online: async () => {
-      throw new Error('Unexpected online read');
+    people: async () => {
+      throw new Error('Unexpected people read');
     },
     set: async () => ({ status: 'online' }),
     read: async (principal) => ({

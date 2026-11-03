@@ -1,12 +1,12 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import {
-  onlineQuerySchema,
-  onlineRosterSchema,
+  peopleQuerySchema,
+  peopleListSchema,
   presenceSettingResultSchema,
   presenceSettingSchema,
   type ChosenStatus,
-  type OnlineFilter,
-  type OnlineRoster,
+  type PeopleFilter,
+  type PeopleList,
 } from '@daisy/protocol';
 import { parseValidated, readJson } from '../../server/http';
 import {
@@ -18,7 +18,7 @@ const MAX_BODY_BYTES = 1024;
 
 type Answer = Promise<{ readonly status: ChosenStatus }>;
 
-/** The member's own status, and who is online as they may see it (ADR 0103). */
+/** The member's own status, and the people list as they may see it (ADR 0105). */
 export function createPresenceHandlers(dependencies: {
   readonly boundary: MemberBoundary;
   /** Where browsers open the socket that rings them; null without realtime. */
@@ -28,30 +28,30 @@ export function createPresenceHandlers(dependencies: {
     status: ChosenStatus,
   ) => Answer;
   readonly read: (principal: AuthorizationPrincipal) => Answer;
-  readonly online: (
+  readonly people: (
     principal: AuthorizationPrincipal,
     input: {
-      readonly filter: OnlineFilter;
+      readonly filter: PeopleFilter;
       readonly query: string | null;
       readonly cursor: string | undefined;
     },
-  ) => Promise<Omit<OnlineRoster, 'version'>>;
+  ) => Promise<Omit<PeopleList, 'version'>>;
 }) {
   return {
-    online: (request: Request) =>
+    people: (request: Request) =>
       runMemberHandler(dependencies.boundary, request, {
-        name: 'presence.online',
+        name: 'presence.people',
         readOnly: true,
         readInput: async () =>
           parseValidated(
-            onlineQuerySchema,
+            peopleQuerySchema,
             Object.fromEntries(new URL(request.url).searchParams),
           ),
         operation: async (input, principal) => {
-          const query = input as ReturnType<typeof onlineQuerySchema.parse>;
-          return onlineRosterSchema.parse({
+          const query = input as ReturnType<typeof peopleQuerySchema.parse>;
+          return peopleListSchema.parse({
             version: 1,
-            ...(await dependencies.online(principal, {
+            ...(await dependencies.people(principal, {
               filter: query.filter,
               query: query.q ? query.q.replace(/^@/, '') : null,
               cursor: query.cursor,
