@@ -113,6 +113,7 @@ describe('competitive schema rules', () => {
         rooms: {
           checks: [
             'rooms_basis_complete',
+            'rooms_capture_is_object',
             'rooms_change_version_positive',
             'rooms_competition_type_check',
             'rooms_config_is_object',
@@ -146,6 +147,7 @@ describe('competitive schema rules', () => {
         rounds: {
           checks: [
             'rounds_attendance_cutoff_check',
+            'rounds_capture_is_object',
             'rounds_competition_type_check',
             'rounds_completed_after_started',
             'rounds_current_stage_check',
