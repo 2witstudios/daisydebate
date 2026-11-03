@@ -2,6 +2,7 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import {
   claimBroadcast,
+  completeBroadcast,
   recordSegmentReleased,
   renewBroadcastLease,
 } from './broadcast-operations';
@@ -20,6 +21,8 @@ export const createBroadcastWorkerStore = (url: string) => {
       recordSegmentReleased(database, input),
     renew: (input: Parameters<typeof renewBroadcastLease>[1]) =>
       renewBroadcastLease(database, input),
+    complete: (input: Parameters<typeof completeBroadcast>[1]) =>
+      completeBroadcast(database, input),
     close: () => client.close(),
   };
 };

@@ -209,15 +209,21 @@ describe('ending', () => {
   });
   test('stopped and completed Broadcasts do nothing further', () => {
     assert({
-      given: 'a stopped Broadcast with a live Egress, and a completed one',
-      should: 'stop the Egress once, then nothing',
+      given:
+        'a stopped Broadcast with a live Egress, then with none, then with its end recorded, and a completed one',
+      should:
+        'stop the Egress, record that media ended so the worker can complete it, then nothing',
       actual: [
         decideBroadcast(facts({ stoppedAtMs: 90_000, egress: active })),
         decideBroadcast(facts({ stoppedAtMs: 90_000 })),
+        decideBroadcast(
+          facts({ stoppedAtMs: 90_000, finalMediaEndMs: 90_000 }),
+        ),
         decideBroadcast(facts({ completedAtMs: 90_000, egress: active })),
       ],
       expected: [
         [{ type: 'stop-egress', id: 'EG_1', reason: 'stopped' }],
+        [{ type: 'record-media-ended' }],
         [],
         [],
       ],

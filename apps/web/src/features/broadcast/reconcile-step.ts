@@ -54,6 +54,11 @@ const run = (action: BroadcastAction, ports: ReconcilePorts) => {
         },
         () => ports.report('broadcast.egress.stop_failed'),
       );
+    case 'record-media-ended':
+      return attempt(
+        () => ports.recordFinalMediaEnd(),
+        () => ports.report('broadcast.complete_failed'),
+      );
     case 'revoke-observer':
       return attempt(
         async () => {
