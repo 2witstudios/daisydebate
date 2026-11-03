@@ -48,6 +48,8 @@ export {
   TRANSCRIPT_ADMISSION_WINDOW_MS,
 } from './capture-timing';
 export type { RoomConfig, RoomExecutionPlan } from './room';
+export { roomCaptureSchema } from './room-capture';
+export type { RoomCapture } from './room-capture';
 export { formatSettingsSchema } from './format-settings';
 export { publishedResolutionSchema } from './room-resolution';
 export type {

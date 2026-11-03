@@ -1,5 +1,6 @@
 import { BotAdmissionNotice } from './bot-admission-notice';
 import { AssemblyCommandForm } from './assembly-command-form';
+import { CaptureSummary } from './capture-choice';
 import { ContentWaiverForm } from './content-waiver-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
@@ -21,6 +22,7 @@ type View = Pick<
   | 'resolutionDraw'
   | 'contentWaiver'
   | 'captureNotice'
+  | 'capture'
 > & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
   readonly prep: RoomView['prep'];
@@ -119,6 +121,7 @@ export function ReadyControl({
           {view.captureNotice.text}
         </p>
       ) : null}
+      {ready.type === 'ready' ? <CaptureSummary capture={view.capture} /> : null}
       {ready.reason ? (
         <p role="status" className="mr-auto text-sm text-ink-muted">
           {ready.reason}

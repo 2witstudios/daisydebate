@@ -35,6 +35,10 @@ const refusalWords: Partial<Record<RoomRefusal, string>> = {
     'There aren’t enough resolutions to draw from. Choose another source or add lines.',
   'bots-busy': 'Bots are busy right now. Try again shortly.',
   'ai-judge-premium': aiJudgePremiumText,
+  'capture-premium':
+    'Broadcasting and recording a casual round come with a subscription.',
+  'broadcast-private':
+    'A private room can be recorded but not broadcast.',
   'content-waiver-required':
     'Sign this season’s ranked content waiver before Ready.',
   'capture-notice-changed':

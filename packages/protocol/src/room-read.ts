@@ -3,6 +3,7 @@ import { idSchema, debateRoleSchema } from './primitives';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
 import { formatSettingsSchema } from './format-settings';
 import { frozenRoomConfigSchema, frozenRoomExecutionPlanSchema } from './room';
+import { roomCaptureSchema } from './room-capture';
 import { resolutionDrawViewSchema } from './resolution-draw';
 import { competitionTypes, roundStatusSchema } from './round';
 import { formatStandingSchema } from './format-standing';
@@ -68,6 +69,10 @@ export const roomRefusalSchema = z.enum([
   'bots-busy',
   /** A casual AI judge needs a host holding the entitlement (WATCH-16). */
   'ai-judge-premium',
+  /** A casual broadcast or recording needs a host holding the entitlement (WATCH-8). */
+  'capture-premium',
+  /** A private Room admits participants alone, so it can record but not broadcast. */
+  'broadcast-private',
   /** Ready on a ranked Round needs this season's signed content waiver (WATCH-15). */
   'content-waiver-required',
   /** The capture notice changed after the form showed it: read it again. */
@@ -97,6 +102,14 @@ export const roomViewSchema = z.strictObject({
    * lock. Null for anyone else.
    */
   contentWaiver: z.enum(['signed', 'unsigned']).nullable(),
+  /**
+   * What the host of this casual Room can choose (WATCH-8): both choices when
+   * entitled, else premium, and null for ranked or anyone but the host. The
+   * command rechecks it under the host's fence.
+   */
+  captureOffer: z.enum(['included', 'premium']).nullable(),
+  /** The casual host's choice, shown to everyone before Ready. */
+  capture: roomCaptureSchema.nullable(),
   /** The exact notice shown before Ready, or null when nothing is captured. */
   captureNotice: z
     .strictObject({

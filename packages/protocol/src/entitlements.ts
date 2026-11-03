@@ -8,6 +8,8 @@ export const entitlementKinds = [
   'ai_rounds',
   /** Seating an AI judge on a casual Round (WATCH-16); ranked needs no grant. */
   'casual_ai_judge',
+  /** A casual host's broadcast and recording opt-ins (WATCH-8); ranked needs no grant. */
+  'casual_capture',
 ] as const;
 type EntitlementKind = (typeof entitlementKinds)[number];
 

@@ -22,6 +22,7 @@ export function accountEntitlements(
   return {
     roundAnalysis: holds('round_analysis'),
     casualAiJudge: holds('casual_ai_judge'),
+    casualCapture: holds('casual_capture'),
   };
 }
 

@@ -11,6 +11,7 @@ import type {
 } from '@daisy/protocol';
 import { can, capabilityOf, digest } from './authority';
 import { hostHoldsCasualAiJudge } from './ai-judge-seating';
+import { hostHoldsCasualCapture } from './capture-offer';
 import {
   captureNoticeRefusal,
   contentWaiverRefusal,
@@ -103,6 +104,7 @@ export function roomCommandOperation({
               formatId: ids.next(),
               // Ready seats nobody; only seating and Launch read this.
               hostHoldsCasualAiJudge: false,
+              hostHoldsCasualCapture: false,
               target: null,
               drawSeed: preparedSeed,
               drawStart: null,
@@ -149,6 +151,9 @@ export function roomCommandOperation({
               hostHoldsCasualAiJudge:
                 state.hostActorId === caller.actorId &&
                 hostHoldsCasualAiJudge(grants, betaGrantsPremium),
+              hostHoldsCasualCapture:
+                state.hostActorId === caller.actorId &&
+                hostHoldsCasualCapture(grants, betaGrantsPremium),
               formatFacts,
               resolutionPublication,
               target: target

@@ -1,4 +1,4 @@
-import { CONTENT_WAIVER_VERSION } from '../legal/agreements';
+import { CONTENT_WAIVER_VERSION, roundCaptureNotice } from '../legal/agreements';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   captureNoticeRefusal,
@@ -9,8 +9,12 @@ import {
 
 setupRitewayBun();
 
-const ranked = { competitionType: 'ranked' as const };
-const casual = { competitionType: 'casual' as const };
+const ranked = { competitionType: 'ranked' as const, capture: null };
+const casual = { competitionType: 'casual' as const, capture: null };
+const optedIn = {
+  competitionType: 'casual' as const,
+  capture: { broadcast: null, recording: true },
+};
 const version = roomCaptureNotice(ranked)!.version;
 
 describe('Ready agreements', () => {
@@ -34,6 +38,23 @@ describe('Ready agreements', () => {
         contentWaiverRefusal(null),
       ],
       expected: [null, 'content-waiver-required', 'ranked-unavailable', null],
+    });
+  });
+
+  test('a casual host who opted in owes every seat the opted-in notice', () => {
+    assert({
+      given: 'a casual Room whose host chose a recording',
+      should: 'show the opted-in notice and hold Ready to its version',
+      actual: [
+        roomCaptureNotice(optedIn),
+        captureNoticeRefusal(optedIn, undefined),
+        captureNoticeRefusal(optedIn, roomCaptureNotice(optedIn)!.version),
+      ],
+      expected: [
+        roundCaptureNotice('opted-in'),
+        'capture-notice-changed',
+        null,
+      ],
     });
   });
 

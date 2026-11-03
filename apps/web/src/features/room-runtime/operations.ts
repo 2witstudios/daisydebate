@@ -3,6 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
 import { hostHoldsCasualAiJudge, roomAiJudgeSeating } from './ai-judge-seating';
+import { hostHoldsCasualCapture, roomCaptureOffer } from './capture-offer';
 import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
@@ -161,6 +162,12 @@ export function createRoomRuntimeOperations({
           ),
       ),
       contentWaiver: await viewerContentWaiver(state, caller),
+      captureOffer: await roomCaptureOffer(state, caller.actorId, async () =>
+        hostHoldsCasualCapture(
+          await store.readOwnEntitlementGrants(caller),
+          betaGrantsPremium,
+        ),
+      ),
       captureNotice: roomCaptureNotice(state),
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
@@ -301,6 +308,8 @@ export function createRoomRuntimeOperations({
                     grants,
                     betaGrantsPremium,
                   ),
+                  // Seating never reads this; only set-capture and Launch do.
+                  hostHoldsCasualCapture: false,
                   target: target
                     ? {
                         ...target,

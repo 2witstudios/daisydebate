@@ -133,6 +133,9 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'bots-busy': 'a free bot: bots are busy, try again shortly',
   'ai-judge-premium':
     'a person to judge: AI judging on casual rounds is premium',
+  'capture-premium':
+    'the host to turn off broadcast and recording: they need a subscription',
+  'broadcast-private': 'a Room that is not private, to broadcast it',
   'content-waiver-required': 'the ranked content waiver to be signed',
   'capture-notice-changed': 'the latest recording notice to be read',
 };

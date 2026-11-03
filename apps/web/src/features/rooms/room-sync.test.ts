@@ -20,6 +20,7 @@ const ids = (tag: string): RoomCommandIds => ({
   prep: { start: `${tag}ps`, finish: `${tag}pf` },
   strikes: [],
   settings: `${tag}x`,
+  capture: `${tag}cp`,
   seats: [],
   format: { choose: `${tag}fc`, reset: `${tag}fr`, template: `${tag}ft` },
 });
