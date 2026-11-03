@@ -91,7 +91,14 @@ describe('a claimed build', () => {
         'pass the attempts on and finish fenced by owner, epoch and state',
       actual: [calls.builds, calls.finished, calls.removed],
       expected: [
-        [{ recordingId: 'r', holdPrefix: 'hold/b/', attemptCount: 2 }],
+        [
+          {
+            recordingId: 'r',
+            holdPrefix: 'hold/b/',
+            attemptCount: 2,
+            povs: [],
+          },
+        ],
         [
           {
             recordingId: 'r',
