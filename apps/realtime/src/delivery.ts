@@ -9,6 +9,7 @@ import {
 import { createSubscriptionRegistry } from './registry';
 import type { SocketPrincipal } from './registry';
 import { createAdmission } from './admission';
+import { reportCapacityHolders } from '@daisy/db/capacity';
 import { isAppError } from '@daisy/errors';
 import { liveParticipantSession } from './participant-session';
 import {
@@ -60,7 +61,7 @@ export function createRealtimeDelivery({
   const reportUnavailable = (
     error: unknown,
     operation = 'realtime.subscription',
-  ) =>
+  ) => {
     resources.logger.log(
       'realtime.subscription.unavailable',
       {
@@ -70,6 +71,8 @@ export function createRealtimeDelivery({
       },
       'Realtime authority unavailable',
     );
+    reportCapacityHolders(error, resources.logger.log);
+  };
   const registry = createSubscriptionRegistry({
     now,
     lifetimeMs: 60_000,

@@ -132,6 +132,7 @@ for (const ladder of ratingLadders)
                 username: `u-${f.host.userId}`,
                 now,
               });
+              const seatRoles = roundView.participants.map((p) => p.role);
               const hostPost = ledger.find(
                 (r: { actor_id: string }) => r.actor_id === f.host.actorId,
               )!;
@@ -173,6 +174,8 @@ for (const ladder of ratingLadders)
                   entries: leaderboard?.data.entries.length,
                   pending: display?.pending,
                   deltas: display?.rows.every((r) => r.delta !== null),
+                  seatsInOrder:
+                    seatRoles.join() === [...seatRoles].sort().join(),
                   resolution:
                     roundView.topic !== null &&
                     (room.topic === null || roundView.topic === room.topic),
@@ -186,6 +189,7 @@ for (const ladder of ratingLadders)
                   entries: 2,
                   pending: false,
                   deltas: true,
+                  seatsInOrder: true,
                   resolution: true,
                 },
               });

@@ -70,3 +70,28 @@ test('an unavailable refusal still recovers after an authorized snapshot', () =>
     expected: ['clear', 'refetch', 'resubscribe'],
   });
 });
+
+test('past the retry budget a refused topic keeps resubscribing at the reader’s pace', () => {
+  const { observer, calls, deliver } = attached();
+  for (let refused = 0; refused < 3; refused++) {
+    deliver(refusal('INFRASTRUCTURE'));
+    observer.authorizedSnapshot();
+  }
+  const resubscribes = () =>
+    calls.filter((call) => call === 'resubscribe').length;
+  const withinBudget = resubscribes();
+  deliver(refusal('INFRASTRUCTURE'));
+  observer.authorizedSnapshot();
+  const onErrorRead = resubscribes();
+  observer.authorizedSnapshot();
+  const onLaterRead = resubscribes();
+  deliver(refusal('AUTHORIZATION'));
+  observer.authorizedSnapshot();
+  assert({
+    given: 'four refusals in a row, the read each triggers, then a later read',
+    should:
+      'hold the read the error triggered, resubscribe on the later one, and stop on a denial',
+    actual: [withinBudget, onErrorRead, onLaterRead, resubscribes()],
+    expected: [3, 3, 4, 4],
+  });
+});

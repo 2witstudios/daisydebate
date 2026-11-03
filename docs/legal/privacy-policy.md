@@ -124,6 +124,8 @@ Age-refusal cookie: set only when sign-up is refused for age, as described above
 
 Theme cookie: remembers whether you chose the light, dark or system theme. Lasts one year.
 
+Navigation rail cookies: remember whether you collapsed the navigation rail and whether you opened or closed the list of who is online. Each lasts one year and is read only by our servers.
+
 Note-erasing cookie: set when you confirm closing your account, so the next page can erase the note copies kept in this browser. Lasts 60 seconds and holds no name, email or identifier.
 
 For as long as a tab stays open, your browser keeps the ids of challenge rooms that tab has already taken you to, so it does not take you back.
@@ -174,3 +176,5 @@ The draft describes the beta as the code behaves on main after #471, not as a pl
 ## Proposed beta analytics addition — requires counsel approval before activation
 
 With your optional consent, PostHog would receive bounded product usage facts (which product area you visit, successful Room creation and rematches) and a pseudonymous browser or account identifier. We would not send names, email addresses, debate content, raw page URLs or form contents as analytics properties. You could reject optional analytics or change your choice at `/analytics`; necessary storage remains enabled. Session replay would remain off. Account analytics deletion would be requested with account erasure. [OWNER: approve and state the PostHog region, organization account and event retention period.] [COUNSEL: approve this addition and reconcile the processor/cookie sections before publication; the preceding exclusion continues to describe the unactivated beta.]
+
+On activation the Cookies section would add these. Consent cookie: records your analytics answer. Strictly necessary, httpOnly, lasts 180 days; a signed-in member's answer is also kept in the account's consent record while the account exists. Analytics cookie: first-party, set in your browser only after you opt in. It holds an identifier, your random account identifier once you are signed in, with session state, and lasts one year. Browser storage: a marker of your answer and account identifier in local storage, whatever you answered, and after opt-in the analytics SDK's opt-in marker and session keys.

@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   roomListQuerySchema,
@@ -73,8 +73,10 @@ const hostRating = (clock: SpectatorClock) => {
   const earliestHeld = sql`(select c.rating_before from rating_changes c join rounds c_r on c_r.id=c.round_id where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.season_id=rt.season_id and not ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)} order by c.occurred_at asc limit 1)`;
   return sql`case when r.competition_type='ranked' then (select round(coalesce(${earliestHeld},rt.rating))::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id limit 1) end`;
 };
-const search = (q: string) =>
-  sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(r.topic),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;
+const search = (q: string, topic: SQL) =>
+  sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(${topic}),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;
+/** A launched Room's row shows its Round's resolution, so search reads the same text. */
+const launchedTopic = sql`coalesce(d.resolution,r.topic)`;
 /** The driver returns a timestamp, or JSON's string for one, as a canonical ISO instant. */
 const isoOrNull = (value: Date | string | null) =>
   value === null ? null : new Date(value).toISOString();
@@ -116,12 +118,12 @@ export async function discoverRooms(
   const candidates = (await tx.execute(sql`
   select id from (
     (select r.id,r.created_at from rooms r ${joins}
-      where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and ${order.after} and ${visible(caller)} and ${search(q)}
+      where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and ${order.after} and ${visible(caller)} and ${search(q, sql`r.topic`)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
     union all
     (select r.id,r.created_at from rounds d join rooms r on r.id=d.room_id ${joins}
       where ${launched} and ${modeMatches(mode)} and d.status in ('opening','active') and d.room_id is not null and r.status='started'
-        and ${order.after} and ${visible(caller)} and ${roundVisible(caller)} and ${search(q)}
+        and ${order.after} and ${visible(caller)} and ${roundVisible(caller)} and ${search(q, launchedTopic)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
   ) candidates order by created_at ${order.direction},id collate "C" ${order.direction} limit ${pageSize + 1}
  `)) as unknown as { id: string }[];
@@ -156,7 +158,7 @@ export async function discoverRooms(
   left join room_participants p on p.room_id=r.id and p.actor_id=${caller.actorId}
   left join rounds d on d.room_id=r.id
   left join round_participants rp on rp.round_id=d.id and rp.actor_id=${caller.actorId}
-  where r.id=any(${idSet}) and ${visible(caller)} and ${search(q)}
+  where r.id=any(${idSet}) and ${visible(caller)} and ${search(q, launchedTopic)}
    and ${modeMatches(mode)}
    and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${roundVisible(caller)}))
   order by r.created_at ${order.direction},r.id collate "C" ${order.direction}

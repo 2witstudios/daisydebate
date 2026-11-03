@@ -100,7 +100,7 @@ describe('standings reads', () => {
           0.06,
           at,
           'affirmative',
-          'draw',
+          'negative',
           true,
         ],
       ],
@@ -127,7 +127,7 @@ describe('standings reads', () => {
       expected: [
         ['affirmative', 'affirmative', at.toISOString()],
         ['negative', 'affirmative', at.toISOString()],
-        ['affirmative', 'draw', at.toISOString()],
+        ['affirmative', 'negative', at.toISOString()],
       ],
     });
   });

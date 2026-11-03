@@ -35,7 +35,7 @@ export async function recordFactReleases(
       union all
       select 'ballot', b.id, r.completed_at from ballots b
         join rounds r on r.id=b.round_id
-        where r.id=${input.roundId} and b.status='submitted' and r.competition_type='ranked'
+        where r.id=${input.roundId} and r.competition_type='ranked'
           and r.status='completed' and ${released(completed)}
       union all
       select 'rating', c.id, greatest(c.occurred_at,r.completed_at) from rating_changes c

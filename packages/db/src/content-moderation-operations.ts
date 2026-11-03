@@ -73,7 +73,7 @@ const feedbackSideFor = async (tx: Tx, ballotId: string, actorId: string) => {
     tx,
     sql`select p.role as side from ballots b
       join round_participants p on p.round_id = b.round_id
-      where b.id = ${ballotId} and b.status = 'submitted'
+      where b.id = ${ballotId}
         and p.actor_id = ${actorId}
         and p.role in ('affirmative', 'negative')
         and b.feedback ? p.role

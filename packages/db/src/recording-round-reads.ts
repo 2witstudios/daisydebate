@@ -124,7 +124,7 @@ export const recordingRoundReadOperations = ({
         reason: ballots.reason,
       })
       .from(ballots)
-      .where(and(eq(ballots.roundId, roundId), eq(ballots.status, 'submitted')))
+      .where(eq(ballots.roundId, roundId))
       .orderBy(asc(ballots.submittedAt), asc(ballots.id)),
 
   /** Accepted floor authority, for the speech timeline of a finished video. */

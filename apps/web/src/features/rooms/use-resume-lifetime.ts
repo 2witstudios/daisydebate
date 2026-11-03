@@ -1,17 +1,15 @@
 'use client';
 
 import { systemClock } from '@daisy/clock';
-import { createId } from '@paralleldrive/cuid2';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { documentTabId } from './document-tab';
+import { markDeparture } from './resume-departure';
 import { createResumeLifetime } from './resume-lifetime';
 import {
   resumeHeirKey,
   resumeOwnershipHeartbeatMs,
   subscribeOwnership,
 } from './resume-ownership';
-
-// One document identity, never sessionStorage (which a newly opened tab may clone).
-let documentTabId: string | null = null;
 
 /** Blocked storage means no coordination, which must never mean no media. */
 const advisoryStorage = () => {
@@ -49,6 +47,8 @@ const tabPredecessor = (actorId: string, roundId: string) => {
 export function useResumeLifetime(
   actorId: string | null,
   roundId: string | null,
+  /** Where this tab goes when the tab it waited on left the Round. */
+  holderLeft: () => void,
   steppedDown?: () => void,
 ) {
   const [claim, setClaim] = useState<{
@@ -62,19 +62,24 @@ export function useResumeLifetime(
       : null;
   const lifetime = useRef<ReturnType<typeof createResumeLifetime> | null>(null);
   const onStepDown = useRef(steppedDown);
+  const onHolderLeft = useRef(holderLeft);
   useEffect(() => {
     onStepDown.current = steppedDown;
-  }, [steppedDown]);
+    onHolderLeft.current = holderLeft;
+  }, [steppedDown, holderLeft]);
   useEffect(() => {
     if (actorId === null || roundId === null) return;
-    documentTabId ??= createId();
     const current = createResumeLifetime({
       actorId,
       roundId,
-      tabId: documentTabId,
+      tabId: documentTabId(),
       storage: advisoryStorage(),
       predecessor: tabPredecessor(actorId, roundId),
       now: () => Date.parse(systemClock.now()),
+      holderLeft: () => {
+        markDeparture(actorId, roundId);
+        onHolderLeft.current();
+      },
       subscribe: (listener) =>
         subscribeOwnership(window, actorId, roundId, listener),
       schedule: (tick) => {

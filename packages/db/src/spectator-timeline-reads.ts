@@ -159,12 +159,7 @@ export const spectatorTimelineReads = ({
                     reason: ballots.reason,
                   })
                   .from(ballots)
-                  .where(
-                    and(
-                      eq(ballots.roundId, input.roundId),
-                      eq(ballots.status, 'submitted'),
-                    ),
-                  )
+                  .where(eq(ballots.roundId, input.roundId))
                   .orderBy(asc(ballots.id))
               : [];
           const ratingRows =

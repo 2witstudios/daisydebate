@@ -177,7 +177,6 @@ test('every jsonb column refuses a scalar written around the application (ISSUE-
         winner: 'affirmative',
         scores: scalar,
         reason: 'r',
-        status: 'submitted',
         submitted_at: at,
       }),
       result: await fixture.rejectedBy(
@@ -251,7 +250,6 @@ test('ballots.scores and round_commands.result round-trip as jsonb objects throu
       winner: 'affirmative',
       scores,
       reason: 'clearer case',
-      status: 'submitted',
       submittedAt: at,
     });
     await database.insert(roundCommands).values({

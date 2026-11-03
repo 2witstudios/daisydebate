@@ -48,7 +48,7 @@ export const played = async (
   input: {
     readonly member: string;
     readonly side: 'affirmative' | 'negative';
-    readonly outcome: 'affirmative' | 'negative' | 'draw' | null;
+    readonly outcome: 'affirmative' | 'negative' | null;
     readonly day: number;
     readonly visibility?: 'public' | 'private';
   },

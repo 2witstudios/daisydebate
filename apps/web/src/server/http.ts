@@ -1,6 +1,10 @@
 import type { OperationName } from '../features/ops/operation-names';
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
-import { isCapacityRefusal, isTemporaryRefusal } from '@daisy/db/capacity';
+import {
+  isCapacityRefusal,
+  isTemporaryRefusal,
+  reportCapacityHolders,
+} from '@daisy/db/capacity';
 import {
   currentTraceId,
   extractTraceContext,
@@ -121,6 +125,7 @@ export async function handleOperation(
             headers: { 'x-request-id': id, 'Cache-Control': 'no-store' },
           });
         }
+        reportCapacityHolders(error, logger.log);
         const mapped = toPublicError(
           // A minted outer code is the answer; only an unminted wrapper
           // around a capacity refusal becomes the retryable outage.

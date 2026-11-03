@@ -1,4 +1,5 @@
 import { createBroadcastStore } from './broadcast-store';
+import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
 import {
@@ -196,7 +197,7 @@ export function createDatabase({
       botPublication,
     }),
     ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
-    ...roundAnalysisReads({ database }),
+    ...namedLaneOperations(roundAnalysisReads({ database })),
     broadcasts: createBroadcastStore(database),
     mediaSessions: createMediaSessionStore({
       database,

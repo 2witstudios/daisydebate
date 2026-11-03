@@ -84,13 +84,52 @@ describe('followNext', () => {
     });
     assert({
       given:
-        'a sub-pixel move up near the end, and a panel growing so the position clamps up',
+        'a sub-pixel move either way near the end, and a panel growing so the position clamps up',
       should: 'not resume',
       actual: [
         followNext(reading(880), scrolled(879.5)).state.following,
         followNext(reading(890), scrolled(880)).state.following,
+        followNext(reading(880), scrolled(880.5)).state.following,
       ],
-      expected: [false, false],
+      expected: [false, false, false],
+    });
+  });
+
+  test('a slow scroll adds up, either way', () => {
+    const slowly = (from: FollowState, stops: readonly number[]) =>
+      stops.reduce(
+        (state, top) => followNext(state, scrolled(top)).state,
+        from,
+      );
+    const steps = (from: number, to: number, by: number) =>
+      Array.from(
+        { length: Math.round((to - from) / by) },
+        (_, index) => from + by * (index + 1),
+      );
+    assert({
+      given: 'a reader moving down to the end in 0.5 and 1 px steps',
+      should: 'resume following',
+      actual: [
+        slowly(reading(880), steps(880, 900, 0.5)).following,
+        slowly(reading(880), steps(880, 900, 1)).following,
+      ],
+      expected: [true, true],
+    });
+    assert({
+      given: 'a follower moving up in 1 px steps',
+      should: 'stop following',
+      actual: slowly({ following: true, lastTop: 900 }, steps(900, 500, -1))
+        .following,
+      expected: false,
+    });
+    assert({
+      given: 'a rise of exactly the tolerance, and just past it, near the end',
+      should: 'resume only past it',
+      actual: [
+        followNext(reading(880), scrolled(881)).state.following,
+        followNext(reading(880), scrolled(881.01)).state.following,
+      ],
+      expected: [false, true],
     });
   });
 

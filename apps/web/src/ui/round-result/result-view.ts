@@ -28,7 +28,10 @@ export type TranscriptSection = {
   readonly lines: readonly TranscriptLine[];
   /** Required speech with no capture; the live read reports these. */
   readonly gaps?: readonly TranscriptGap[];
+  /** A partial stream with no gap to place: part of it was lost, nobody can say where. */
+  readonly losses?: readonly TranscriptLoss[];
 };
+type TranscriptLoss = { readonly key: string; readonly speaker: string };
 type TranscriptLine = {
   readonly id: string;
   readonly speaker: string;
@@ -44,7 +47,8 @@ type TranscriptGap = {
 };
 export type TranscriptItem =
   | ({ readonly kind: 'line' } & TranscriptLine)
-  | ({ readonly kind: 'gap' } & TranscriptGap);
+  | ({ readonly kind: 'gap' } & TranscriptGap)
+  | ({ readonly kind: 'loss' } & TranscriptLoss);
 
 /** A section's lines in order, each gap placed before the first line captured after it. */
 export function sectionItems(
@@ -63,7 +67,14 @@ export function sectionItems(
       items.push({ kind: 'gap', ...gaps.shift()! });
     items.push({ kind: 'line', ...line });
   }
-  return [...items, ...gaps.map((gap) => ({ kind: 'gap' as const, ...gap }))];
+  return [
+    ...items,
+    ...gaps.map((gap) => ({ kind: 'gap' as const, ...gap })),
+    ...(section.losses ?? []).map((loss) => ({
+      kind: 'loss' as const,
+      ...loss,
+    })),
+  ];
 }
 
 const author = (entry: Released) =>
@@ -95,8 +106,18 @@ export function transcriptSections(
   const transcript = view.transcript;
   if (!transcript) return [];
   const sections = sectionsOf(view.round, transcript.utterances);
-  const played = view.round.segments.filter((segment) =>
-    transcript.gaps.some((gap) => gap.segmentId === segment.id),
+  const placeless = transcript.partialStreams.filter(
+    (stream) =>
+      !transcript.gaps.some(
+        (gap) =>
+          gap.segmentId === stream.segmentId &&
+          gap.roundParticipantId === stream.roundParticipantId,
+      ),
+  );
+  const played = view.round.segments.filter(
+    (segment) =>
+      transcript.gaps.some((gap) => gap.segmentId === segment.id) ||
+      placeless.some((stream) => stream.segmentId === segment.id),
   );
   const keys = new Set(sections.map((section) => section.key));
   return [
@@ -115,6 +136,9 @@ export function transcriptSections(
         gaps: transcript.gaps
           .filter((gap) => gap.segmentId === segment?.id)
           .map((gap) => gapRow(view.round, gap)),
+        losses: placeless
+          .filter((stream) => stream.segmentId === segment?.id)
+          .map((stream) => lossRow(view.round, stream)),
       };
     });
 }
@@ -144,6 +168,14 @@ const gapRow = (
   speaker: speakerOf(round, gap.roundParticipantId),
   fromOffsetMs: gap.fromOffsetMs,
   untilOffsetMs: gap.untilOffsetMs,
+});
+
+const lossRow = (
+  round: TranscriptRound,
+  stream: { readonly roundParticipantId: string },
+): TranscriptLoss => ({
+  key: stream.roundParticipantId,
+  speaker: speakerOf(round, stream.roundParticipantId),
 });
 
 /** The Round's fields a transcript renders; any fuller view satisfies it. */
@@ -210,6 +242,9 @@ export function liveTranscriptSections(
           }),
         ),
       ),
+      losses: streams
+        .filter((stream) => stream.state === 'partial' && !stream.gaps.length)
+        .map((stream) => lossRow(view.round, stream)),
     };
   });
 }

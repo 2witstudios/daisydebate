@@ -65,7 +65,6 @@ export function ballotReadView(input: {
     own: input.ownSeatId
       ? {
           participantId: input.ownSeatId,
-          status: own?.status ?? null,
           ballot: own ? ballotBody(own) : null,
           freezeRevision: own?.freezeRevision ?? null,
         }
@@ -85,15 +84,11 @@ export function ballotReadView(input: {
             const ballot = ballotBody(row);
             const own = feedbackFor(ballot.feedback, input.viewerSide);
             return {
-              status: row.status,
               judge: input.aiJudgeSeatIds.has(row.judgeParticipantId)
                 ? ('ai' as const)
                 : ('human' as const),
               ballot: { ...ballot, feedback: own },
-              reportableFeedbackId:
-                row.status === 'submitted' && Object.keys(own).length > 0
-                  ? row.id
-                  : null,
+              reportableFeedbackId: Object.keys(own).length > 0 ? row.id : null,
             };
           })
         : [],

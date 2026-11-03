@@ -6,6 +6,7 @@ import {
   LiveTranscript,
   type TranscriptPlacement,
 } from '../../../../../ui/round-result/live-transcript';
+import { TranscriptSeedRecovery } from '../../../../../ui/round-result/transcript-seed-recovery';
 import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[roundId]/actions';
 import { LiveJudgeRoom } from '../../../../../ui/debate-room/live-judge-room';
 import {
@@ -19,7 +20,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
 import { ratingsUnlessRefused } from '../../../../../features/ratings/ratings-unless-refused';
-import { reconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
+import { drawReconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
@@ -53,17 +54,17 @@ const transcriptOf = (
     />
   ) : text.kind === 'unavailable' ? (
     // Refusals read as missing; only an outage, never a denial, says this.
-    <p role="status" className="p-4 text-sm">
-      Transcript unavailable. Reload to try again.
-    </p>
+    <TranscriptSeedRecovery
+      key={id}
+      roundId={id}
+      socketUrl={socketUrl}
+      placement={placement}
+    />
   ) : null;
 
-const reconnecting = () => {
-  const [entropy] = crypto.getRandomValues(new Uint8Array(1));
-  return (
-    <RoundRoomReconnecting retrySeconds={reconnectDelaySeconds(entropy!)} />
-  );
-};
+const reconnecting = () => (
+  <RoundRoomReconnecting retrySeconds={drawReconnectDelaySeconds()} />
+);
 
 /**
  * A member without a seat: the assigned judge's live view, a seatless
@@ -165,7 +166,12 @@ export default async function RoundRoomPage({
             />
             <RoundNativeAttendance
               view={result.round}
-              state={await readPersistedAttendance(id)}
+              read={
+                result.round.status === 'active'
+                  ? await readPersistedAttendance(id)
+                  : null
+              }
+              retrySeconds={drawReconnectDelaySeconds()}
             />
           </>
         }

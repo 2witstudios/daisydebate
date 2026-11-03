@@ -7,7 +7,11 @@ import { actorFact } from './room-command-facts';
 import { hydrateRoundRows } from './round-hydration';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
-import { fencedActorIds, seatEligibility } from './seat-eligibility';
+import {
+  fencedActorIds,
+  requireFencedSeat,
+  seatEligibility,
+} from './seat-eligibility';
 import {
   requireAdmittedPrincipal,
   type ParticipantAdmission,
@@ -85,7 +89,7 @@ export async function lockMediaRound(
   if (!round) throw missing();
   const participants: RoundCommandAuthority['participants'] = await Promise.all(
     round.participants.map(async (seat) => {
-      if (!actorIds.includes(seat.actorId)) throw createAppError('CONFLICT');
+      requireFencedSeat(actorIds, seat.actorId);
       const actor = await actorFact(tx, seat.actorId);
       return { ...seat, ...seatEligibility(actor, accounts, seat) };
     }),
