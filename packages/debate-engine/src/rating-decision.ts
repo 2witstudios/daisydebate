@@ -26,10 +26,10 @@ import { carryOver, rateDebate, postingInstant, ratingPolicy } from './rating';
  * preset, so this check re-decides nothing about the format; a mismatch
  * there is corruption and fails as an invariant in the adapter's
  * `assertRatedRoundIntegrity`, never as an unrated reason. A forfeit
- * carries a side outcome and rates like a judged result, on any capture and
- * with no attendance settlement to wait for. A ballot rates only on a complete
- * capture: DEC-285 holds that until the owner rules on ISSUE-911. A null
- * outcome is a real ending with no result (DEC-277).
+ * carries a side outcome and rates with no attendance settlement to wait for.
+ * A decisive ballot rates on any capture (DEC-329): the judge ruled, and a
+ * capture failure does not cost a ranked result. A null outcome is a real
+ * ending with no result (DEC-277).
  */
 export function ratingEligibility(
   input: RatingEligibilityFacts,
@@ -50,10 +50,8 @@ export function ratingEligibility(
     return { kind: 'unrated', reason: 'check-in-pending' };
   if (input.ending === 'unjudged')
     return { kind: 'unrated', reason: 'unjudged' };
-  if (input.ending === 'judged-on-incomplete-capture')
-    return { kind: 'unrated', reason: 'incomplete-capture' };
   if (
-    input.ending === 'judged-on-complete-capture' &&
+    input.ending === 'judged' &&
     !attendanceSettled(input.attendance, Date.parse(input.completedAt))
   )
     return { kind: 'attendance-unsettled' };
