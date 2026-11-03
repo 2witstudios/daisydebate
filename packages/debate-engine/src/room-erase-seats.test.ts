@@ -86,3 +86,48 @@ test('a restricted host with no human left closes the Room', () => {
     expected: ['closed', 'closed'],
   });
 });
+
+test('the heir is the first eligible debater by side and slot, then a judge', () => {
+  const room = state();
+  const [hostSeat, other] = room.participants;
+  const seat = (
+    actorId: string,
+    role: 'affirmative' | 'negative' | 'judge',
+    slot: number,
+    eligible = true,
+  ) => ({
+    ...other!,
+    id: actorId,
+    actorId,
+    role,
+    slot,
+    eligible,
+    kind: 'human' as const,
+  });
+  const heirOf = (seats: readonly (typeof room.participants)[number][]) =>
+    releaseRestrictedMember(
+      { ...room, participants: [hostSeat!, ...seats] },
+      'host',
+    ).hostActorId;
+  assert({
+    given: 'a judge listed first, then a negative',
+    should: 'pass over the judge',
+    actual: heirOf([seat('judge', 'judge', 0), seat('neg', 'negative', 0)]),
+    expected: 'neg',
+  });
+  assert({
+    given: 'two seats on a side',
+    should: 'take the lower slot',
+    actual: heirOf([seat('two', 'negative', 1), seat('one', 'negative', 0)]),
+    expected: 'one',
+  });
+  assert({
+    given: 'an ineligible debater and a judge',
+    should: 'take the judge',
+    actual: heirOf([
+      seat('gone', 'negative', 0, false),
+      seat('judge', 'judge', 0),
+    ]),
+    expected: 'judge',
+  });
+});

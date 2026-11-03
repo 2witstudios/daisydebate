@@ -33,6 +33,7 @@ export { maintainRoom } from './room-expiry';
 export {
   advanceOpening,
   forfeitInOpening,
+  forfeitOfRestriction,
   inPreRoundPrep,
   readRoundOpening,
   readRoundOpeningTopic,

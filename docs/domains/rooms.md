@@ -71,9 +71,15 @@ member, keyed by actor, so a second create or join is refused as
 `active-room` and the UI returns the user to their current Room. Bots hold no
 membership. Every terminal state frees its members:
 
-- **Close.** Only the host's explicit Close closes an open Room. Hosting is
+- **Close.** The host's explicit Close closes an open Room. Hosting is
   independent of seating: a host who leaves their seat (or never took one)
-  still hosts, and stays a member, through the live Round. A closed Room's
+  still hosts, and stays a member, through the live Round.
+- **Restriction.** A suspension or ban frees the member's seats in every open
+  Room and it stays open for the others (DEC-331). A restricted host passes the
+  Room to the first eligible human still seated, debaters by side and slot and
+  then judges, who gets the whole idle time to act. A host-written resolution
+  list is that member's own text and does not pass: the draw reads the bank. With
+  none left the Room closes. A closed Room's
   status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone.
 - **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, the Room maintenance
   sweep (its own worker, apart from Round maintenance) closes an open Room

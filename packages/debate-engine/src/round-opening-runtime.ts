@@ -1,4 +1,5 @@
-import { createRefusal } from '@daisy/errors';
+import { createRefusal, isAppError } from '@daisy/errors';
+import { debateOverRefusal } from './round-command-legality';
 import type { RoundProjection } from '@daisy/protocol';
 import { bytesOf } from './draw-random';
 import { createRoundRuntime } from './round-runtime';
@@ -90,6 +91,45 @@ export function forfeitInOpening(
     },
     opening,
   );
+}
+
+/**
+ * The forfeit a restriction imposes on a seated debater (DEC-331), in the opening
+ * or the debate. Null once the debate is over: the Round waits for its ballot,
+ * with nothing left to forfeit. Any other refusal still throws.
+ */
+export function forfeitOfRestriction(
+  input: RuntimeInput & {
+    readonly opening: {
+      readonly state: RoundOpening;
+      readonly seed: string | null;
+    } | null;
+    readonly actorId: string;
+    readonly now: string;
+  },
+): RoundProjection | null {
+  const { opening, ...hydrated } = input;
+  try {
+    return opening
+      ? forfeitInOpening({
+          ...hydrated,
+          opening: opening.state,
+          seed: opening.seed,
+        })
+      : createRoundRuntime(hydrated).execute({
+          command: { type: 'forfeit' },
+          actorId: input.actorId,
+          now: input.now,
+        });
+  } catch (error) {
+    if (
+      isAppError(error) &&
+      error.code === 'CONFLICT' &&
+      error.message === debateOverRefusal
+    )
+      return null;
+    throw error;
+  }
 }
 
 /** Whether the Round is in pre-round prep at `now`: every mic and camera closes. */

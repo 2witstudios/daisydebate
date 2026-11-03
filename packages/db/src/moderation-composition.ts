@@ -23,9 +23,10 @@ export const moderationReactions = (
 ): ModerationReactions => ({
   onRestricted: [
     endMemberOffers,
-    (tx, actorId, { nextId }) =>
+    (tx, actorId, { nextId, eventSink }) =>
       forfeitMemberRounds(tx, actorId, {
         nextId,
+        eventSink,
         forfeit: rules.forfeitRound,
       }),
     (tx, actorId, { now }) =>

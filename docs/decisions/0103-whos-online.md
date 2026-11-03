@@ -83,8 +83,9 @@ be able to see who is online."
    being debated ends as a forfeit, recorded under the service
    `moderation-restriction` and rated as any forfeit is; their seats in an open
    Room are freed and it stays open for the others. A restricted host passes the
-   Room to the first human still seated, since only a host can start it, and a
-   Room with no human left closes. No page is needed for it to leave. A judge's
+   Room to the first eligible human still seated, since only a host can start it, and a
+   Room with no human left closes. A host-written resolution list does not pass:
+   the draw reads the bank, so a member's export holds only their own text. No page is needed for it to leave. A judge's
    seat in a started Round stays, and the ballot deadline covers it.
    Closing an account never wipes this: reports about it and its sanctions stay
    through retention, and a report it filed stays with the reporter removed.

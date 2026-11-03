@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { resolutionCategories } from '@daisy/protocol/resolution-draw';
 import type {
   RoomAssemblyState,
   RoomCommand,
@@ -159,10 +160,40 @@ export const eraseSeats = (
 };
 
 /**
+ * A host-written list is that member's own text, so it does not pass with the
+ * Room: the draw reads the bank, and any list is the new host's own.
+ */
+const withoutHostList = (room: RoomAssemblyState): RoomAssemblyState => {
+  const draw = room.config.resolutionDraw;
+  const plan = room.executionPlan.resolutionDraw;
+  if (!draw.enabled || draw.source.kind !== 'host' || !plan.enabled)
+    return room;
+  const source = {
+    kind: 'bank' as const,
+    categories: [...resolutionCategories],
+  };
+  return {
+    ...room,
+    config: { ...room.config, resolutionDraw: { ...draw, source } },
+    executionPlan: {
+      ...room.executionPlan,
+      resolutionDraw: { ...plan, source },
+    },
+  };
+};
+
+const heirRank = { affirmative: 0, negative: 1, judge: 2 } as const;
+const heirOrder = (
+  a: RoomAssemblyState['participants'][number],
+  b: RoomAssemblyState['participants'][number],
+) => heirRank[a.role] - heirRank[b.role] || a.slot - b.slot;
+
+/**
  * A restriction on a member before Start round (DEC-331): their seats go and
  * the Room stays open for the others. Only a host can start a Room, so a
- * restricted host passes it to the first human still seated; with no human
- * left there is nobody to keep it open for, and it closes.
+ * restricted host passes it to the first eligible human still seated, debaters
+ * by side and slot and then judges; with none left there is nobody to keep it
+ * open for, and it closes. Their own resolution list does not pass.
  */
 export const releaseRestrictedMember = (
   room: RoomAssemblyState,
@@ -170,8 +201,14 @@ export const releaseRestrictedMember = (
 ): RoomAssemblyState => {
   const freed = eraseSeats(room, actorId);
   if (freed.hostActorId !== actorId) return freed;
-  const heir = freed.participants.find((p) => p.kind === 'human');
+  const [heir] = freed.participants
+    .filter((p) => p.kind === 'human' && p.eligible)
+    .sort(heirOrder);
   return heir
-    ? { ...freed, hostActorId: heir.actorId, hostLabel: heir.label }
+    ? {
+        ...withoutHostList(freed),
+        hostActorId: heir.actorId,
+        hostLabel: heir.label,
+      }
     : closeRoom(freed);
 };

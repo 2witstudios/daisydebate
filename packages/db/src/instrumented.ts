@@ -6,7 +6,10 @@ import {
 
 export type DatabaseEventSink = (
   event:
-    'db.query.failed' | 'db.capacity.refused' | 'realtime.outbox.actor_missing',
+    | 'db.query.failed'
+    | 'db.capacity.refused'
+    | 'realtime.outbox.actor_missing'
+    | 'round.restriction.forfeit_failed',
   fields: Readonly<Record<string, unknown>>,
   message: string,
 ) => void;

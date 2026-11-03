@@ -1,7 +1,7 @@
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import type { RoomAssemblyState } from '@daisy/protocol';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
-import { roomFacts, type Tx } from './room-command-facts';
+import { appendRoomChanged, roomFacts, type Tx } from './room-command-facts';
 import { persistRoomOutsideCommands } from './room-mutation-persistence';
 import { roomIsOpen } from './room-open';
 
@@ -26,7 +26,10 @@ export async function releaseMemberFromRooms(
   context: { readonly now: string; readonly rules: RoomReleaseRules },
 ): Promise<void> {
   // A seat held for them would make the others wait out its time.
-  await tx.delete(roomSeatHolds).where(eq(roomSeatHolds.actorId, actorId));
+  const released = await tx
+    .delete(roomSeatHolds)
+    .where(eq(roomSeatHolds.actorId, actorId))
+    .returning({ roomId: roomSeatHolds.roomId });
   const seated = tx
     .select({ id: roomParticipants.roomId })
     .from(roomParticipants)
@@ -51,5 +54,19 @@ export async function releaseMemberFromRooms(
       context.rules.activeRoomMembers,
       context.now,
     );
+  }
+  // Those Rooms' seats did not change, so nobody is asked to ready again; a
+  // member on the page only needs to read that the seat is free.
+  const written = new Set(held.map((row) => row.id));
+  const heldOnly = [...new Set(released.map((hold) => hold.roomId))]
+    .filter((roomId) => !written.has(roomId))
+    .sort();
+  for (const roomId of heldOnly) {
+    const [rung] = await tx
+      .update(rooms)
+      .set({ changeVersion: sql`${rooms.changeVersion} + 1` })
+      .where(and(eq(rooms.id, roomId), roomIsOpen()))
+      .returning({ changeVersion: rooms.changeVersion });
+    if (rung) await appendRoomChanged(tx, roomId, rung.changeVersion);
   }
 }

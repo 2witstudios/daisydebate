@@ -192,13 +192,16 @@ const interruptRefusal = (facts: RoundCommandFacts) => {
     : null;
 };
 
+export const debateOverRefusal =
+  'The debate is over; there is nothing to forfeit';
+
 /**
  * Once the debate is over the Round waits for its ballot, so leaving has
  * nothing left to forfeit and must not pre-empt the judges (ADR 0070).
  */
 const forfeitRefusal = ({ rules, state, seat }: RoundCommandFacts) => {
   if (debateHasEnded(state, rules.segments.length))
-    return conflict('The debate is over; there is nothing to forfeit');
+    return conflict(debateOverRefusal);
   return debateSideOf(seat) === null
     ? conflict('A seated debater forfeits')
     : null;

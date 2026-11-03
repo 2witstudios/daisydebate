@@ -133,7 +133,8 @@ export const persistRoomMutation = async (
 /**
  * Persists a Room change made under an authority other than a command (erasure,
  * a restriction), under the caller's row lock. It freezes no Round, so it never
- * spends an AI round or seats a bot, and it moves no idle anchor.
+ * spends an AI round or seats a bot. It moves the idle anchor only when the host
+ * changes: a new host must have the Room's whole idle time to act.
  */
 export const persistRoomOutsideCommands = async (
   tx: Tx,
@@ -156,7 +157,7 @@ export const persistRoomOutsideCommands = async (
     },
     '',
     now,
-    false,
+    after.hostActorId !== before.hostActorId,
   );
   await appendRoomChanged(tx, state.id, state.changeVersion);
 };

@@ -38,7 +38,11 @@ export type ModerationReactions = {
   readonly onRestricted: readonly ((
     tx: Transaction,
     actorId: string,
-    context: { readonly now: string; readonly nextId: () => string },
+    context: {
+      readonly now: string;
+      readonly nextId: () => string;
+      readonly eventSink: DatabaseEventSink | undefined;
+    },
   ) => Promise<void>)[];
 };
 
@@ -84,7 +88,11 @@ export async function applySanction(
     'applySanction',
   );
   for (const react of dependencies.reactions.onRestricted)
-    await react(tx, input.actorId, { now: input.now, nextId: input.nextId });
+    await react(tx, input.actorId, {
+      now: input.now,
+      nextId: input.nextId,
+      eventSink: dependencies.eventSink,
+    });
 }
 
 export type OperatorRestrictionRow = {
