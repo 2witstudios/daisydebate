@@ -1,3 +1,4 @@
+import { capacityRefusalFields } from '@daisy/db/capacity';
 import { mediaConfigured } from './round-worker-policy';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
@@ -73,10 +74,14 @@ const mediaRuntime = mediaConfigured(app.config)
 const mediaRecovery = mediaRuntime
   ? startRoundMediaRecovery({
       recover: () => mediaRuntime.operations().recoverActiveSessions(),
-      failed: () =>
+      failed: (error) =>
         app.logger.log(
           'round.media.recovery_failed',
-          { operation: 'round.media.recovery', errorCode: 'INFRASTRUCTURE' },
+          {
+            operation: 'round.media.recovery',
+            errorCode: 'INFRASTRUCTURE',
+            ...capacityRefusalFields(error),
+          },
           'Media recovery remains pending',
         ),
       every: (ms, tick) => {

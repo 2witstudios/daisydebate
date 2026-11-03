@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   recoveryDue,
   recoveryNeed,
+  waitingFloors,
   type RecoverySession,
 } from './recovery-due';
 setupRitewayBun();
@@ -295,5 +296,32 @@ test('a tick spends its slots on floors first, then what is free', () => {
     should: 'start nothing',
     actual: rounds(recoveryDue(sessions, new Set(['x', 'y']), HEARTBEAT_MS, 2)),
     expected: [],
+  });
+});
+
+test('waitingFloors names what held each due floor this tick', () => {
+  const floor = (roundId: string, claimable = true) =>
+    idle({ roundId, claimable, roundChangedAt: at(10) });
+  const started = floor('started');
+  assert({
+    given:
+      'floors leased, running, out of capacity and started, and a quiet Round',
+    should: 'name the first three and leave the others out',
+    actual: waitingFloors(
+      [
+        floor('leased', false),
+        floor('running'),
+        floor('full'),
+        started,
+        idle({ roundId: 'quiet' }),
+      ],
+      new Set(['running']),
+      [started],
+    ),
+    expected: [
+      { roundId: 'leased', cause: 'leased' },
+      { roundId: 'running', cause: 'running' },
+      { roundId: 'full', cause: 'capacity' },
+    ],
   });
 });

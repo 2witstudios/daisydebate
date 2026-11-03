@@ -53,6 +53,15 @@ const boundaryPassed = (session: RecoverySession, lastPassMs: number) => {
     (at) => at > lastPassMs && at <= nowMs,
   );
 };
+/** The floor has moved since this session's last pass, so LiveKit is behind it. */
+export const floorDue = (session: RecoverySession) => {
+  if (session.lastPassAt === null) return false;
+  const lastPassMs = Date.parse(session.lastPassAt);
+  return (
+    Date.parse(session.roundChangedAt) >= lastPassMs ||
+    boundaryPassed(session, lastPassMs)
+  );
+};
 /** Why this session needs a pass now, or null when it costs nothing this tick. */
 export const recoveryNeed = (
   session: RecoverySession,
@@ -64,11 +73,7 @@ export const recoveryNeed = (
   const lastPassMs = Date.parse(session.lastPassAt);
   const sinceLastPassMs = Date.parse(session.now) - lastPassMs;
   if (sinceLastPassMs >= MEDIA_RECOVERY_OVERDUE_MS) return 'overdue';
-  if (
-    Date.parse(session.roundChangedAt) >= lastPassMs ||
-    boundaryPassed(session, lastPassMs)
-  )
-    return 'floor';
+  if (floorDue(session)) return 'floor';
   if (
     session.unsafe ||
     !session.lastPassClean ||
@@ -90,6 +95,26 @@ export const recoveryNeed = (
  * Round its turn. With exactly one free slot and an overdue Round, that Round
  * takes the slot and a floor waits for the next tick.
  */
+export type FloorWait = 'leased' | 'running' | 'capacity';
+/** Each Round with a floor due that this tick did not start, and what held it. */
+export const waitingFloors = (
+  sessions: readonly RecoverySession[],
+  running: ReadonlySet<string>,
+  due: readonly RecoverySession[],
+): readonly {
+  readonly roundId: string;
+  readonly cause: FloorWait;
+}[] =>
+  sessions
+    .filter((session) => floorDue(session) && !due.includes(session))
+    .map(({ roundId, claimable }) => ({
+      roundId,
+      cause: running.has(roundId)
+        ? 'running'
+        : claimable
+          ? 'capacity'
+          : 'leased',
+    }));
 export const recoveryDue = <S extends RecoverySession>(
   sessions: readonly S[],
   running: ReadonlySet<string>,

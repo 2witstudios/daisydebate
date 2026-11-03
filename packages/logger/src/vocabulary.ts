@@ -51,6 +51,8 @@ export const eventRegistry = {
   'round.attendance.held': 'warn',
   'room.maintenance.failed': 'error',
   'round.media.recovery_failed': 'error',
+  'round.media.floor_waiting': 'info',
+  'round.media.floor_pass': 'info',
   'media.discovery.failed': 'error',
   'media.capture.failed': 'error',
   'media.capture.lease_reinstated': 'warn',

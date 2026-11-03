@@ -15,7 +15,7 @@ import {
 import { listenIdentity } from './listen-identity';
 import { cancelMediaWork } from './cancel-media-work';
 import { createMediaReconcileRun } from './reconcile-run';
-import { recoveryDue } from './recovery-due';
+import { floorDue, recoveryDue, waitingFloors } from './recovery-due';
 import type {
   Store,
   Principal,
@@ -396,14 +396,20 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
      * one Round's slow pass never delays another's floor (ISSUE-972).
      */
     async recoverActiveSessions() {
-      const due = recoveryDue(
-        await input.store.activeMediaSessions(),
-        recovering,
-        input.recoveryHeartbeatMs,
-      );
+      const tickedAt = input.now();
+      const sessions = await input.store.activeMediaSessions();
+      const listMs = input.now() - tickedAt;
+      const due = recoveryDue(sessions, recovering, input.recoveryHeartbeatMs);
+      for (const { roundId, cause } of waitingFloors(sessions, recovering, due))
+        input.logger.log(
+          'round.media.floor_waiting',
+          { roundId, cause, listMs },
+          'A due floor waits for a later tick',
+        );
       for (const session of due) recovering.add(session.roundId);
       await Promise.all(
         due.map(async (session) => {
+          const startedAt = input.now();
           try {
             await reconcile(session.roundId);
           } catch (error) {
@@ -414,6 +420,16 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
             });
           } finally {
             recovering.delete(session.roundId);
+            if (floorDue(session))
+              input.logger.log(
+                'round.media.floor_pass',
+                {
+                  roundId: session.roundId,
+                  listMs,
+                  durationMs: input.now() - startedAt,
+                },
+                'A tick moved a due floor',
+              );
           }
         }),
       );
