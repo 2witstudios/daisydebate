@@ -155,9 +155,8 @@ Nothing here states that it has been legally reviewed or approved.
 A ranked Round's transcript lines belong to this class, so erasure keeps them, along
 with the Round's pending judgment. A casual Round's lines still erase with the member.
 
-It does not keep the member's own transcript lines. Erasure deletes them from
-every Round, ranked included. It also discards every held AI judgment of a Round
-they sat in (DEC-223) and clears every Round analysis of it, the other debater's
+Erasure deletes the member's own transcript lines from every non-ranked Round, and
+discards every held AI judgment of such a Round they sat in (DEC-223). It also clears every Round analysis of it, the other debater's
 too. Limits of that:
 
 - Other people's lines stay until their 180-day retention ends, and can repeat
