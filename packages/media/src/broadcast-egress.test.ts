@@ -1,6 +1,7 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { EgressStatus, ServerError } from 'livekit-server-sdk';
 import {
+  broadcastEgressOnNodes,
   createBroadcastEgress,
   egressFact,
   stageCaptureId,
@@ -265,5 +266,82 @@ test('revoking an observer that is not in the room counts as revoked', async () 
       'confirm the first, so the microphone can open, and leave the second unconfirmed',
     actual: [await outcome(404), await outcome(503)],
     expected: ['confirmed', 'unconfirmed'],
+  });
+});
+
+describe('one Egress across the media nodes', () => {
+  const egress = (name: string, calls: string[], fails = false) =>
+    ({
+      start: async () => {
+        calls.push(`${name}:start`);
+        if (fails) throw new Error('down');
+        return name;
+      },
+      stop: async () => {
+        calls.push(`${name}:stop`);
+        if (fails) throw new Error('down');
+      },
+      read: async () => {
+        calls.push(`${name}:read`);
+        if (fails) throw new Error('down');
+        return { kind: 'running', id: name };
+      },
+      listStages: async () => [],
+      revokeObserver: async () => {
+        calls.push(`${name}:revoke`);
+        if (fails) throw new Error('down');
+      },
+      restoreObserver: async () => undefined,
+      observerToken: async () => `${name}-token`,
+    }) as never;
+  const startInput = { stageUrl: 'u', holdPrefix: 'p', segmentSeconds: 4 };
+
+  test('a dead node does not stop what is safe to repeat', async () => {
+    const calls: string[] = [];
+    const nodes = broadcastEgressOnNodes({
+      egresses: [egress('a', calls, true), egress('b', calls)],
+      order: () => [0, 1],
+    });
+    await nodes.revokeObserver('room');
+    await nodes.stop('id');
+    assert({
+      given: 'the first node faulting',
+      should: 'ask the next, and answer from it',
+      actual: [[...calls], await nodes.read('id')],
+      expected: [
+        ['a:revoke', 'b:revoke', 'a:stop', 'b:stop'],
+        { kind: 'running', id: 'b' },
+      ],
+    });
+  });
+
+  test('a start goes to the healthy node, once', async () => {
+    const calls: string[] = [];
+    const nodes = broadcastEgressOnNodes({
+      egresses: [egress('a', calls), egress('b', calls)],
+      order: () => [1, 0],
+    });
+    await nodes.start(startInput);
+    assert({
+      given: 'the second node first in health order',
+      should: 'start there and nowhere else',
+      actual: calls,
+      expected: ['b:start'],
+    });
+  });
+
+  test('a failed start is not repeated', async () => {
+    const calls: string[] = [];
+    const nodes = broadcastEgressOnNodes({
+      egresses: [egress('a', calls, true), egress('b', calls)],
+      order: () => [0, 1],
+    });
+    await nodes.start(startInput).catch(() => null);
+    assert({
+      given: 'a start that fails',
+      should: 'not try another node, since the first may have begun',
+      actual: calls,
+      expected: ['a:start'],
+    });
   });
 });

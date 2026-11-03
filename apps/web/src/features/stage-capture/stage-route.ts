@@ -45,7 +45,8 @@ export const createStageRoute =
       room: string,
       access: { readonly canSubscribe: boolean },
     ) => Promise<string>;
-    readonly livekitUrl: string;
+    /** A healthy node for this room, asked afresh on each poll. */
+    readonly livekitUrlFor: (room: string) => string;
     readonly now: () => number;
     readonly nextId: () => string;
   }) =>
@@ -78,7 +79,7 @@ export const createStageRoute =
         nowMs: deps.now(),
         room: read.roomName
           ? {
-              url: deps.livekitUrl,
+              url: deps.livekitUrlFor(read.roomName),
               token: await deps.observerToken(
                 read.roomName,
                 observerAccess(read.capture),

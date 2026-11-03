@@ -155,3 +155,41 @@ export function createBroadcastEgress(deps: {
     },
   };
 }
+
+export type BroadcastEgress = ReturnType<typeof createBroadcastEgress>;
+
+/**
+ * One Egress client per LiveKit node, as one (ISSUE-1299). Any node reaches any room
+ * and any Egress through LiveKit's Redis, so health only says which node to ask. A
+ * start goes to one node, since a second attempt could not tell what the first did.
+ * The rest are safe to repeat, so a fault moves on to the next node.
+ */
+export function broadcastEgressOnNodes(input: {
+  readonly egresses: readonly BroadcastEgress[];
+  /** Every node's index, healthy ones first. */
+  readonly order: () => readonly number[];
+}): BroadcastEgress {
+  const first = input.egresses[0];
+  if (!first) throw new Error('No media node is configured');
+  const anyNode = async <T>(work: (egress: BroadcastEgress) => Promise<T>) => {
+    let failure: unknown;
+    for (const index of input.order())
+      try {
+        return await work(input.egresses[index]!);
+      } catch (error) {
+        failure = error;
+      }
+    throw failure;
+  };
+  return {
+    start: (request) => input.egresses[input.order()[0]!]!.start(request),
+    stop: (id) => anyNode((egress) => egress.stop(id)),
+    read: (id) => anyNode((egress) => egress.read(id)),
+    listStages: (origin) => anyNode((egress) => egress.listStages(origin)),
+    revokeObserver: (room) => anyNode((egress) => egress.revokeObserver(room)),
+    restoreObserver: (room) =>
+      anyNode((egress) => egress.restoreObserver(room)),
+    // Signed here with the shared key, so no node is asked.
+    observerToken: first.observerToken,
+  };
+}
