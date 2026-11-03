@@ -45,6 +45,10 @@ export const mediaSessions = pgTable(
     reconcileOwner: text('reconcile_owner'),
     unsafeAt: timestampColumn('unsafe_at'),
     deletionRequestedAt: timestampColumn('deletion_requested_at'),
+    /** When a pass first failed to reach the vendor; a pass that reads it clears this. */
+    vendorUnreachableSince: timestampColumn('vendor_unreachable_since'),
+    /** The last pass that read the room saw the capture agent in it. */
+    roomSawCapture: boolean('room_saw_capture').notNull().default(false),
   },
   (table) => [
     uniqueIndex('media_sessions_round_unique').on(table.roundId),

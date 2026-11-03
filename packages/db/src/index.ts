@@ -1,3 +1,4 @@
+import { createRoundIncidentStore } from './round-incident-store';
 import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
@@ -189,6 +190,12 @@ export function createDatabase({
     }),
     ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
     ...roundAnalysisReads({ database }),
+    roundIncidents: namedLaneOperations(
+      createRoundIncidentStore({
+        run: transcriptTransaction,
+        nextId: nextActorId,
+      }),
+    ),
     mediaSessions: namedLaneOperations(
       createMediaSessionStore({
         database,

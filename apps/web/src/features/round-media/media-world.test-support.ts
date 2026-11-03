@@ -324,6 +324,7 @@ export function createMediaWorld(
   } as unknown as Store;
   const media = createMediaVendor({ journal, rooms, connected, fail });
   const input: MediaOperationInput = {
+    observeIncident: async () => undefined,
     recoveryHeartbeatMs: 0,
     priority,
     store,

@@ -1,6 +1,11 @@
 export { formatStanding } from './format-standing';
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
+export {
+  incidentDecision,
+  observationMatters,
+} from './round-incident-decision';
+export type { MediaObservation } from './round-incident-decision';
 export { mediaGrants, changedMediaGrants } from './media-grants';
 export { mediaWindowClosed } from './media-window';
 export type { RoundMediaGrants } from './media-grants';

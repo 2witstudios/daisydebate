@@ -477,6 +477,7 @@ export {
 export { attendanceRoundReadSchema } from './attendance';
 export { roundRecordSchema, type RoundRecord } from './round-view';
 export { roundMediaPolicy } from './round-media-policy';
+export { roundIncidentPolicy } from './round-incident-policy';
 export {
   capturePartialReasons,
   capturePartialReasonSchema,
