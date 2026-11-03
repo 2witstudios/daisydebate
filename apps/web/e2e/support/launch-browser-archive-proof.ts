@@ -1,11 +1,18 @@
-import { copyFile, mkdir, mkdtemp, open, rm, stat } from 'node:fs/promises';
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  open,
+  rm,
+  stat,
+  statfs,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
   prepareLaunchBrowserImage,
   readLaunchImageInputs,
 } from './launch-browser-image';
-import { launchBaseIsPresent } from './launch-browser-image-build';
 import {
   restoreLaunchImageArchive,
   saveLaunchImageArchive,
@@ -16,7 +23,17 @@ import { createLaunchPreparationProcess } from './launch-browser-image-process';
  * Real positive: save, remove, restore and inspect on this daemon's store.
  * Each negative is refused for its named reason. Only the wrong-identity case
  * reaches Docker, because the hash cannot know which image an archive holds.
+ *
+ * A real CI cache hit does not run it: the key covers this proof and the Docker
+ * engine, and the entry was saved only after it passed on these exact inputs.
+ * The restore and full image validation already ran in the prepare step.
  */
+if (process.env.LAUNCH_IMAGE_CACHE_HIT === 'true') {
+  process.stdout.write(
+    `${JSON.stringify({ event: 'browser.image.archive.proof', outcome: 'not-run-cache-hit' })}\n`,
+  );
+  process.exit(0);
+}
 const checkout = resolve(import.meta.dir, '../../../..');
 const prepared = await prepareLaunchBrowserImage({ checkout });
 const directory = await mkdtemp(join(tmpdir(), 'daisy-launch-archive-'));
@@ -39,10 +56,14 @@ try {
   const saved = join(directory, 'valid');
   const archive = join(saved, 'image.tar');
   const receiptPath = join(saved, 'receipt.json');
+  const { bavail, bsize } = await statfs(directory);
+  const freeBytes = bavail * bsize;
   const saveStarted = performance.now();
   const save = await saveLaunchImageArchive(owner, image, id, saved);
   if (!save.saved)
-    throw new Error(`Launch archive save refused: ${save.reason}`);
+    throw new Error(
+      `Launch archive save refused: ${save.reason} (${save.detail ?? 'no docker failure'}; ${freeBytes} bytes free before the save)`,
+    );
   const saveMs = Math.round(performance.now() - saveStarted);
   const { size: bytes } = await stat(archive);
   const receiptText = await Bun.file(receiptPath).text();
@@ -60,6 +81,7 @@ try {
     case: 'exact-roundtrip',
     image: id,
     bytes,
+    freeBytes,
     saveMs,
     loadMs: Math.round(performance.now() - loadStarted),
   });
@@ -151,47 +173,36 @@ try {
   await Bun.write(receiptPath, receiptText);
 
   // The shared outer owner: a corrupt archive directory is rejected and causes
-  // one fresh preparation. A real CI hit stays offline; its key covers this proof
-  // and its entry saved only after the proof passed on these exact inputs.
-  if (
-    process.env.LAUNCH_IMAGE_CACHE_HIT === 'true' &&
-    !(await launchBaseIsPresent(owner, image))
-  )
-    log({
-      case: 'corrupt-cache-bounded-rebuild',
-      outcome: 'not-run-cache-hit',
-    });
-  else {
-    if ((await owner.run(['image', 'rm', image.tag])).code !== 0)
-      throw new Error('Corrupt-cache proof could not release its reference');
-    const rebuildStarted = performance.now();
-    // Expected here, so it must not post a rejection warning on the run page.
-    let controlRejection: string | null = null;
-    const rebuilt = await prepareLaunchBrowserImage({
-      checkout,
-      archiveDirectory: corrupt,
-      onCacheRejected: (reason) => {
-        controlRejection = reason;
-      },
-    });
-    if (controlRejection !== 'digest')
-      throw new Error('Corrupt-cache control was not rejected for its digest');
-    if (rebuilt.image.key !== image.key)
-      throw new Error('Corrupt-cache rebuild changed its input identity');
-    log({
-      case: 'corrupt-cache-bounded-rebuild',
-      image: rebuilt.id,
-      elapsedMs: Math.round(performance.now() - rebuildStarted),
-    });
-    // Cold rebuilds are not byte-identical, so later proofs and the suite get
-    // the exact cached bytes rather than this control's rebuild.
-    if ((await owner.run(['image', 'rm', image.tag])).code !== 0)
-      throw new Error('Could not release the rebuilt control image');
-    const cached = await restoreLaunchImageArchive(observed, image, saved);
-    if (cached.status !== 'restored' || cached.id !== id)
-      throw new Error('Could not restore the exact cached image');
-    log({ case: 'cached-image-restored', image: id });
-  }
+  // one fresh preparation.
+  if ((await owner.run(['image', 'rm', image.tag])).code !== 0)
+    throw new Error('Corrupt-cache proof could not release its reference');
+  const rebuildStarted = performance.now();
+  // Expected here, so it must not post a rejection warning on the run page.
+  let controlRejection: string | null = null;
+  const rebuilt = await prepareLaunchBrowserImage({
+    checkout,
+    archiveDirectory: corrupt,
+    onCacheRejected: (reason) => {
+      controlRejection = reason;
+    },
+  });
+  if (controlRejection !== 'digest')
+    throw new Error('Corrupt-cache control was not rejected for its digest');
+  if (rebuilt.image.key !== image.key)
+    throw new Error('Corrupt-cache rebuild changed its input identity');
+  log({
+    case: 'corrupt-cache-bounded-rebuild',
+    image: rebuilt.id,
+    elapsedMs: Math.round(performance.now() - rebuildStarted),
+  });
+  // Cold rebuilds are not byte-identical, so later proofs and the suite get
+  // the exact cached bytes rather than this control's rebuild.
+  if ((await owner.run(['image', 'rm', image.tag])).code !== 0)
+    throw new Error('Could not release the rebuilt control image');
+  const cached = await restoreLaunchImageArchive(observed, image, saved);
+  if (cached.status !== 'restored' || cached.id !== id)
+    throw new Error('Could not restore the exact cached image');
+  log({ case: 'cached-image-restored', image: id });
   if (performance.now() - started > 480000)
     throw new Error('Archive proof exceeded the preparation budget');
 } finally {

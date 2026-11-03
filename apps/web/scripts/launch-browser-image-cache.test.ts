@@ -1,5 +1,5 @@
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { chmod, readdir } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readLaunchImageInputs } from '../e2e/support/launch-browser-image';
 import { acquireLaunchBase } from '../e2e/support/launch-browser-image-build';
@@ -14,13 +14,17 @@ import {
   launchArchiveFormat,
 } from '../e2e/support/launch-browser-image-policy';
 import { createLaunchPreparationProcess } from '../e2e/support/launch-browser-image-process';
-import { sha256 as sha } from '../e2e/support/launch-browser-image-values';
+import {
+  dockerFailureSummary,
+  sha256 as sha,
+} from '../e2e/support/launch-browser-image-values';
 import {
   createScratch,
   launchBaseMetadata,
 } from './launch-browser-image.fixture';
 
 setupRitewayBun();
+const support = resolve(import.meta.dir, '../e2e/support');
 const scratch = createScratch();
 const image = launchImageIdentity({
   version: '1.63.0',
@@ -45,9 +49,9 @@ function fakeDocker(saved: string | null = bytes) {
       calls.push([...args]);
       if (args[1] === 'save') {
         if (saved !== null) await Bun.write(args[3]!, saved);
-        return { code: 0, stdout: '' };
+        return { code: 0, stdout: '', stderr: '' };
       }
-      return { code: args[1] === 'load' ? 0 : 1, stdout: '' };
+      return { code: args[1] === 'load' ? 0 : 1, stdout: '', stderr: '' };
     },
   };
   return { owner, calls };
@@ -119,7 +123,12 @@ test('a refused or empty save publishes nothing, so it cannot poison the key', a
   const failing = fakeDocker();
   const owner = {
     ...failing.owner,
-    run: async () => ({ code: 1, stdout: '' }),
+    run: async () => ({
+      code: 125,
+      stdout: '',
+      stderr:
+        'Error response from daemon: write /var/lib/docker/tmp/docker-export-12: no space left on device\n',
+    }),
   };
   const refused = await captureStdout(() =>
     cacheLaunchImage(owner, image, id, directory),
@@ -130,11 +139,121 @@ test('a refused or empty save publishes nothing, so it cannot poison the key', a
     actual: [
       refused.result,
       refused.output.startsWith(
-        '::warning title=Launch browser image cache::cache-refused: docker-save',
+        '::warning title=Launch browser image cache::cache-refused: docker-save (exit 125: Error response from daemon: write … no space left on device)',
       ),
       await readdir(directory),
     ],
-    expected: [{ saved: false, reason: 'docker-save' }, true, []],
+    expected: [
+      {
+        saved: false,
+        reason: 'docker-save',
+        detail:
+          'exit 125: Error response from daemon: write … no space left on device',
+      },
+      true,
+      [],
+    ],
+  });
+});
+
+test('the owner returns stderr apart from stdout, bounded', async () => {
+  const directory = await scratch();
+  await Bun.write(
+    join(directory, 'docker'),
+    '#!/bin/sh\necho out\necho refused >&2\nexit 7\n',
+  );
+  await chmod(join(directory, 'docker'), 0o755);
+  const child = Bun.spawn(
+    [
+      process.execPath,
+      '-e',
+      `import { createLaunchPreparationProcess as c } from ${JSON.stringify(resolve(support, 'launch-browser-image-process.ts'))};
+       const o = c(); console.log(JSON.stringify(await o.run(['image', 'save']))); o.close();`,
+    ],
+    {
+      env: { PATH: `${directory}:${process.env.PATH}` },
+      stdout: 'pipe',
+    },
+  );
+  assert({
+    given: 'a docker command writing to both streams and exiting non-zero',
+    should: 'return its exit code and each stream separately',
+    actual: JSON.parse(await new Response(child.stdout).text()),
+    expected: { code: 7, stdout: 'out\n', stderr: 'refused\n' },
+  });
+});
+
+test('a real cache hit does not run the archive proof', async () => {
+  const child = Bun.spawn(
+    [process.execPath, resolve(support, 'launch-browser-archive-proof.ts')],
+    {
+      // No docker on PATH: reaching any Docker call here would fail the step.
+      env: { LAUNCH_IMAGE_CACHE_HIT: 'true', PATH: await scratch() },
+      stdout: 'pipe',
+    },
+  );
+  assert({
+    given: 'the cache step signalling a real hit',
+    should: 'log not-run-cache-hit and pass without calling Docker',
+    actual: {
+      log: JSON.parse(await new Response(child.stdout).text()),
+      code: await child.exited,
+    },
+    expected: {
+      log: {
+        event: 'browser.image.archive.proof',
+        outcome: 'not-run-cache-hit',
+      },
+      code: 0,
+    },
+  });
+});
+
+test('a docker failure summary keeps only plain words', () => {
+  for (const [given, stderr, expected] of [
+    [
+      'a path and an errno',
+      'write /tmp/daisy-launch-archive-x1/valid/image-a.tar: no space left on device\n',
+      'exit 1: write … no space left on device',
+    ],
+    [
+      'credentials in a proxy URL',
+      'dial https://user:hunter2@proxy.example:8080 failed\n',
+      'exit 1: dial … failed',
+    ],
+    [
+      'a token assignment and a digest',
+      'token=abc123 refused sha256:0123abcd\n',
+      'exit 1: … refused …',
+    ],
+    [
+      'a long unbroken word, which could be a secret',
+      `refused ${'a'.repeat(33)}\n`,
+      'exit 1: refused …',
+    ],
+    [
+      'a workflow command injected into the annotation',
+      '::error::forged\nrefused\n',
+      'exit 1: refused',
+    ],
+    [
+      'several lines, where the last names the failure',
+      'ok\nfailed: EOF\n',
+      'exit 1: failed: EOF',
+    ],
+    ['no output', '', 'exit 1'],
+  ] as const)
+    assert({
+      given,
+      should: 'report the exit code and no sensitive token',
+      actual: dockerFailureSummary(1, stderr),
+      expected,
+    });
+  assert({
+    given: 'a very long diagnostic',
+    should: 'stay within its fixed bound',
+    actual: dockerFailureSummary(1, 'word '.repeat(200)).length <= 200,
+    expected: true,
   });
 });
 
@@ -301,11 +420,11 @@ test('the miss path acquires its base through one verified step', async () => {
         calls.push(args[0]!);
         if (args[0] === 'pull') {
           present = pullCode === 0;
-          return { code: pullCode, stdout: '' };
+          return { code: pullCode, stdout: '', stderr: '' };
         }
         return present
-          ? { code: 0, stdout: JSON.stringify([pulled]) }
-          : { code: 1, stdout: '' };
+          ? { code: 0, stdout: JSON.stringify([pulled]), stderr: '' }
+          : { code: 1, stdout: '', stderr: '' };
       },
     };
     return { owner, calls };

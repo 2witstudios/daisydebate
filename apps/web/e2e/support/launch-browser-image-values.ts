@@ -12,3 +12,21 @@ export const record = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+
+const plainWord = /^[A-Za-z][A-Za-z'-]{0,31}[:,.;]?$/;
+
+/**
+ * Exit code and docker's last stderr line, allowlisted to plain words. Paths,
+ * URLs, assignments and digests hold digits or punctuation, so they never pass.
+ */
+export function dockerFailureSummary(code: number, stderr: string) {
+  const last = stderr.trim().split(/\r?\n/).at(-1) ?? '';
+  const summary = last
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => (plainWord.test(token) ? token : '…'))
+    .filter((token, index, all) => token !== '…' || all[index - 1] !== '…')
+    .join(' ')
+    .slice(0, 180);
+  return summary ? `exit ${code}: ${summary}` : `exit ${code}`;
+}
