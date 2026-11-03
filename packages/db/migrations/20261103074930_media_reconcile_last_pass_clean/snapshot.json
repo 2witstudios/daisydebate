@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "33d9082c-b3e3-4f90-a82f-39e55d5b13b0",
+  "id": "bd453aef-c609-4111-9a12-39024b4e348a",
   "prevIds": [
-    "2ab218fa-7d67-4508-8c85-430956301942"
+    "8a5b9e7d-b849-4862-a8e2-cb00bf934fe7"
   ],
   "ddl": [
     {
@@ -1589,19 +1589,6 @@
       "generated": null,
       "identity": null,
       "name": "citations",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
       "entityType": "columns",
       "schema": "public",
       "table": "ballots"
@@ -19930,13 +19917,6 @@
       "table": "ballots"
     },
     {
-      "value": "\"status\" in ('submitted')",
-      "name": "ballots_status_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
       "value": "\"winner\" in ('affirmative', 'negative')",
       "name": "ballots_winner_check",
       "entityType": "checks",
@@ -21680,7 +21660,7 @@
       "table": "rounds"
     },
     {
-      "value": "\"outcome\" is null or \"outcome\" in ('affirmative', 'negative', 'draw')",
+      "value": "\"outcome\" is null or \"outcome\" in ('affirmative', 'negative')",
       "name": "rounds_outcome_check",
       "entityType": "checks",
       "schema": "public",
