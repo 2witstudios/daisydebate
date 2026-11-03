@@ -1,4 +1,5 @@
 import type { Identity } from '@daisy/auth';
+import { createRefusal } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import type { OperationName } from '../features/ops/operation-names';
@@ -63,6 +64,31 @@ export const accountRoute =
       },
       deps.reporter,
     );
+
+/**
+ * The account rule for audience interaction (WATCH-1): any account may chat,
+ * react, report and follow, admitted or not, unless a suspension or ban is in
+ * force. Sign-in is not enough for a restricted account; reading stays open.
+ */
+export const refuseRestricted = (identity: SignedInIdentity): void => {
+  if (identity.state === 'restricted')
+    throw createRefusal('AUTHORIZATION', 'account-restricted');
+};
+
+/** An account mutation that is audience interaction: the rule above, then the work. */
+export const audienceRoute = (
+  deps: AccountRouteDeps,
+  route: Parameters<typeof accountRoute>[1],
+  work: Parameters<typeof accountRoute>[2],
+) =>
+  accountRoute(
+    deps,
+    { ...route, refusals: [...route.refusals, 'account-restricted'] },
+    (input) => {
+      refuseRestricted(input.identity);
+      return work(input);
+    },
+  );
 
 /** The Round id a `/api/rounds/<id>/...` route was called with. */
 export const roundIdOf = (request: Request) =>

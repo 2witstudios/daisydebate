@@ -40,6 +40,14 @@ export const audienceLinkHref = (roundId: string, token: string): string =>
 export const audienceLinkPageHref = (roundId: string): string =>
   `/rounds/${encodeURIComponent(roundId)}/audience-link`;
 
+/** The host's way to that page: only with a link to share and Watch open. */
+export const shareLinkHref = (
+  hosted: unknown,
+  roundId: string,
+  watchOpen: boolean,
+): string | null =>
+  hosted && watchOpen ? audienceLinkPageHref(roundId) : null;
+
 /**
  * The one rule for every audience read: a public Round is open to anyone, and an
  * unlisted one to the holder of its current link. Compared as digests, so the

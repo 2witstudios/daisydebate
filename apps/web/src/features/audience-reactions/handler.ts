@@ -3,7 +3,7 @@ import type { Database } from '@daisy/db';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { audienceReactionPostSchema } from '@daisy/protocol';
 import {
-  accountRoute,
+  audienceRoute,
   roundIdOf,
   type AccountRouteDeps,
 } from '../../server/account-route';
@@ -54,7 +54,7 @@ export const createAudienceReactionRoute = (
   },
 ) => {
   return (request: Request) =>
-    accountRoute(
+    audienceRoute(
       deps,
       {
         operation: 'audience.reaction',

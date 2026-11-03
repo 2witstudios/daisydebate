@@ -1,4 +1,5 @@
 'use client';
+import { roomWatchHref } from '../../../features/coming-soon/launch';
 import { roundEntry } from '../../../features/rooms/round-entry';
 import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
 import { roundLinkOf } from '../../../features/room-runtime/round-link';
@@ -83,6 +84,8 @@ export function RoomLive(props: Props) {
     [driver],
   );
   const syncedView = sync.value.view;
+  // Synced in place: the page redirects on a fresh load, this covers an open tab.
+  const watchHref = roomWatchHref(syncedView.watchRoundId);
   const [terminalRound, setTerminalRound] = useState<Pick<
     RoomView,
     'id' | 'roundRef'
@@ -151,6 +154,11 @@ export function RoomLive(props: Props) {
       {canOfferFreshRoom(view, props.actorId) ? (
         <Link href={`/rooms/${view.id}/rematch`} className="self-start">
           Create a new room
+        </Link>
+      ) : null}
+      {watchHref ? (
+        <Link href={watchHref} className="self-start">
+          Watch this Round
         </Link>
       ) : null}
       {roundLink ? (

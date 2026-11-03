@@ -39,6 +39,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestLadder: async () => null,
   requestRoundRatings: async () => null,
   requestWatchRound: async () => null,
+  requestWatchableRoundOfRoom: async () => null,
   requestPresentedLink: async () => null,
   requestHostedAudienceLink: async () => null,
   requestFollowing: async () => ({ people: [], history: [] }),

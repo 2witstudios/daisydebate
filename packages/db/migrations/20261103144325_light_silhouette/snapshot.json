@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "63c27aba-14f7-44e9-8090-4011065c3049",
+  "id": "35751724-b65d-48fc-b5a4-9aadbd43db13",
   "prevIds": [
     "1cc77326-3922-4ef5-a1a1-35a253aa5a99"
   ],
@@ -645,6 +645,12 @@
     {
       "isRlsEnabled": false,
       "name": "service_instances",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "spectator_fact_log_open_rounds",
       "entityType": "tables",
       "schema": "public"
     },
@@ -11087,6 +11093,32 @@
       "name": "round_id",
       "entityType": "columns",
       "schema": "public",
+      "table": "spectator_fact_log_open_rounds"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "touched_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "spectator_fact_log_open_rounds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "spectator_fact_releases"
     },
     {
@@ -21227,6 +21259,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "name": "spectator_fact_log_open_rounds_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "spectator_fact_log_open_rounds"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "spectator_fact_releases_round_id_rounds_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -22568,6 +22617,16 @@
       "name": "service_instances_pkey",
       "schema": "public",
       "table": "service_instances",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "round_id"
+      ],
+      "nameExplicit": false,
+      "name": "spectator_fact_log_open_rounds_pkey",
+      "schema": "public",
+      "table": "spectator_fact_log_open_rounds",
       "entityType": "pks"
     },
     {

@@ -1,1 +1,0 @@
-ALTER TABLE "spectator_fact_releases" DROP CONSTRAINT "spectator_fact_releases_kind_check", ADD CONSTRAINT "spectator_fact_releases_kind_check" CHECK ("kind" in ('stage', 'resolution', 'result', 'ballot', 'rating', 'caption'));

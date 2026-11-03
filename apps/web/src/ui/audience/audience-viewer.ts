@@ -16,6 +16,7 @@ type Actions = {
  */
 export const audienceViewerOf = (input: {
   readonly account: { readonly actorId: string | null } | null;
+  readonly restricted: boolean;
   readonly usernameClaimed: boolean;
   readonly inLiveRoom: boolean;
   readonly returnTo: string;
@@ -25,6 +26,7 @@ export const audienceViewerOf = (input: {
   const { account, actions } = input;
   if (account === null)
     return { kind: 'visitor', signInHref: signInHref(input.returnTo) };
+  if (input.restricted) return { kind: 'restricted' };
   if (account.actorId === null || !input.usernameClaimed)
     return { kind: 'needs-username' };
   const { react, reportMessage, postChat } = actions;

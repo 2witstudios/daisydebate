@@ -31,6 +31,7 @@ export async function RoundAudience({
   const target = { roundId, returnTo };
   const viewer = audienceViewerOf({
     account: principal,
+    restricted: identity.state === 'restricted',
     usernameClaimed: principal !== null && claimedUsername(identity) !== null,
     inLiveRoom: audience.inLiveRoom,
     returnTo,

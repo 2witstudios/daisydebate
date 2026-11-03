@@ -6,6 +6,7 @@ setupRitewayBun();
 const noop = async () => undefined as never;
 const of = (over: Partial<Parameters<typeof audienceViewerOf>[0]>) =>
   audienceViewerOf({
+    restricted: false,
     account: { actorId: 'actor' },
     usernameClaimed: true,
     inLiveRoom: false,
@@ -16,6 +17,15 @@ const of = (over: Partial<Parameters<typeof audienceViewerOf>[0]>) =>
   });
 
 describe('audienceViewerOf', () => {
+  test('a restricted account reads only', () => {
+    assert({
+      given: 'a restricted account',
+      should: 'offer no composer, reaction or report',
+      actual: of({ restricted: true }).kind,
+      expected: 'restricted',
+    });
+  });
+
   test('a visitor signs in and comes back to the page they read', () => {
     assert({
       given: 'no account on the public Round page',

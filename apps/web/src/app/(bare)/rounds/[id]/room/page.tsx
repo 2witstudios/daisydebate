@@ -1,5 +1,5 @@
 import { roundDocumentPrincipal } from '../../../../../features/debate-room/documents/document-principal';
-import { audienceLinkPageHref } from '../../../../../features/audience-link/audience-link';
+import { shareLinkHref } from '../../../../../features/audience-link/audience-link';
 import { launched } from '../../../../../features/coming-soon/launch';
 import {
   requestHostedAudienceLink,
@@ -156,16 +156,20 @@ export default async function RoundRoomPage({
       transcriptIn('card'),
     );
   const here = `/rounds/${id}/room`;
-  const hostedLink = await requestHostedAudienceLink(id, identity);
+  const shareHref = shareLinkHref(
+    await requestHostedAudienceLink(id, identity),
+    id,
+    launched.watch,
+  );
   return (
     <>
       <MediaDocument />
       <LiveRoundRoom
         attendanceSlot={
           <>
-            {hostedLink && launched.watch ? (
+            {shareHref ? (
               <a
-                href={audienceLinkPageHref(id)}
+                href={shareHref}
                 target="_blank"
                 rel="noopener"
                 className="text-sm underline"
