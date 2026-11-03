@@ -4,7 +4,7 @@ import type { ActiveRoom } from '@daisy/protocol';
  * The returned member's eligibility to auto-resume their live Round
  * (ISSUE-879): the server read already validated membership and published
  * the canonical href and whether the member holds a seat, so this decision only
- * adds the two client facts: whose session this is, and whether it left.
+ * adds the client facts: whose session this is, whether it left, and whether this tab's last attempt never rendered.
  */
 export function resumeRoundHrefOf(input: {
   readonly actorId: string | null;
@@ -12,9 +12,11 @@ export function resumeRoundHrefOf(input: {
     Pick<ActiveRoom, 'phase' | 'href' | 'seated'> | null | undefined;
   /** The member left this Round explicitly this session. */
   readonly departed: boolean;
+  /** This tab already sent them there, and the Round has not rendered since. */
+  readonly attempted: boolean;
 }): string | null {
   if (input.room === null || input.room === undefined) return null;
-  if (input.actorId === null || input.departed) return null;
+  if (input.actorId === null || input.departed || input.attempted) return null;
   return input.room.phase === 'live' && input.room.seated
     ? input.room.href
     : null;
