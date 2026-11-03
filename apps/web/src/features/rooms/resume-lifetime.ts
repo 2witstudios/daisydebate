@@ -50,7 +50,8 @@ export function createResumeLifetime(input: {
       return;
     }
     if (decision === 'take-over') {
-      if (input.departed()) {
+      // A departure stops a tab gaining the Round, never one already holding it.
+      if (owns !== true && input.departed()) {
         publish(false);
         return;
       }

@@ -117,6 +117,29 @@ test('a waiting tab does not take a Round the member left until they press', () 
   waiting.stop();
 });
 
+test('a departure elsewhere does not unseat the tab holding the Round', () => {
+  const host = world();
+  const owned: boolean[] = [];
+  const holder = host.tab(
+    'holder',
+    (value) => owned.push(value),
+    { id: null },
+    () => true,
+  );
+  const first = host.tab('first', () => undefined);
+  first.stop();
+  holder.takeOver();
+  owned.length = 0;
+  host.tick(6000);
+  assert({
+    given: 'an owner whose heartbeat lapsed while a departure stands',
+    should: 'keep the Round with no step-down',
+    actual: owned,
+    expected: [],
+  });
+  holder.stop();
+});
+
 test('normal close releases ownership for a deferred tab, without an event', () => {
   const host = world();
   const first = host.tab('first', () => undefined);

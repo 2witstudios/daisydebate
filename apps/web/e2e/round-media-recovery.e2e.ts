@@ -63,7 +63,7 @@ test('direct tabs take over without duplicate capture and reload recovers throug
     });
     await second.goto(`/rounds/${round.id}/room`);
     await expect(
-      second.getByText('This Round is open in another tab.', { exact: true }),
+      second.getByText('This Round is not open in this tab.', { exact: true }),
     ).toBeVisible();
     await expect(second.getByLabel('Your camera', { exact: true })).toHaveCount(
       0,
@@ -184,7 +184,7 @@ test('an owner that dies without releasing wakes a deferred direct tab without s
     });
     await recovery.goto(`/rounds/${round.id}/room`);
     await expect(
-      recovery.getByText('This Round is open in another tab.', { exact: true }),
+      recovery.getByText('This Round is not open in this tab.', { exact: true }),
     ).toBeVisible();
     await expect(
       recovery.getByLabel('Your camera', { exact: true }),

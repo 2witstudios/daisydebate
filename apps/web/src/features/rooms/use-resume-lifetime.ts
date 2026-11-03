@@ -3,7 +3,7 @@
 import { systemClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { clearDeparture } from './resume-departure';
+import { clearDeparture, sweepDepartures } from './resume-departure';
 import { createResumeLifetime } from './resume-lifetime';
 import {
   resumeHeirKey,
@@ -72,6 +72,7 @@ export function useResumeLifetime(
   useEffect(() => {
     if (actorId === null || roundId === null) return;
     documentTabId ??= createId();
+    sweepDepartures(advisoryStorage() as Storage);
     const current = createResumeLifetime({
       actorId,
       roundId,

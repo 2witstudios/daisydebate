@@ -5,6 +5,7 @@ import {
   clearDeparture,
   hasDeparted,
   markDeparture,
+  sweepDepartures,
 } from './resume-departure';
 import { claimOwnership, resumeOwnershipKey } from './resume-ownership';
 
@@ -87,18 +88,20 @@ test('coming back to a Round undoes an earlier step away', () => {
   });
 });
 
-test('a departure a member never came back from expires', () => {
+test('a departure a member never came back from ends after a day', () => {
   const local = new MemoryStorage();
   const day = 24 * 60 * 60 * 1000;
   markDeparture('a1', 'old', local, 1000);
   markDeparture('a1', 'recent', local, 1000 + day - 1);
-  markDeparture('a1', 'new', local, 1000 + day);
+  const atTheDay = [
+    hasDeparted('a1', 'old', local, 1000 + day),
+    hasDeparted('a1', 'recent', local, 1000 + day),
+  ];
+  sweepDepartures(local, 1000 + day);
   assert({
-    given: 'a later departure a day after an earlier one',
-    should: 'remove only the one past a day',
-    actual: ['old', 'recent', 'new'].map((round) =>
-      hasDeparted('a1', round, local),
-    ),
-    expected: [false, true, true],
+    given: 'a departure a day old and a newer one, then a sweep',
+    should: 'stop honoring and then remove only the old one',
+    actual: [atTheDay, local.length],
+    expected: [[false, true], 1],
   });
 });

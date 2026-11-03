@@ -12,13 +12,15 @@ const departureKey = (actorId: string, roundId: string) =>
   `${departurePrefix}${actorId}:${roundId}`;
 const departureRetentionMs = 24 * 60 * 60 * 1000;
 
+const freshMark = (raw: string | null, nowMs: number) =>
+  raw !== null && nowMs - Number(raw) < departureRetentionMs;
+
 const sweepExpiredDepartures = (storage: Storage, nowMs: number) => {
   const expired: string[] = [];
   for (let index = 0; index < storage.length; index++) {
     const key = storage.key(index);
     if (!key?.startsWith(departurePrefix)) continue;
-    const markedAtMs = Number(storage.getItem(key));
-    if (!(nowMs - markedAtMs < departureRetentionMs)) expired.push(key);
+    if (!freshMark(storage.getItem(key), nowMs)) expired.push(key);
   }
   for (const key of expired) storage.removeItem(key);
 };
@@ -43,12 +45,13 @@ export function hasDeparted(
   actorId: string | null,
   roundId: string,
   local?: Pick<Storage, 'getItem'>,
+  nowMs: number = Date.parse(systemClock.now()),
 ): boolean {
   if (actorId === null) return false;
   try {
-    return (
-      (local ?? window.localStorage).getItem(departureKey(actorId, roundId)) !==
-      null
+    return freshMark(
+      (local ?? window.localStorage).getItem(departureKey(actorId, roundId)),
+      nowMs,
     );
   } catch {
     return false;
@@ -63,6 +66,18 @@ const removeWithPrefix = (storage: Storage, prefix: string) => {
   }
   for (const key of doomed) storage.removeItem(key);
 };
+
+/** Each tab starting to coordinate removes what no later departure ever swept. */
+export function sweepDepartures(
+  local: Storage,
+  nowMs: number = Date.parse(systemClock.now()),
+): void {
+  try {
+    sweepExpiredDepartures(local, nowMs);
+  } catch {
+    // Storage disabled: it holds no records to sweep.
+  }
+}
 
 /** An ended account leaves no departure, nor an advisory claim a crash stranded. */
 export function clearAccountResumeRecords(
