@@ -199,8 +199,8 @@ describe('round runtime lifecycle', () => {
         should: 'refuse with the terminal invariant',
         actual: () =>
           world.execute({
-            command: { type: 'start' },
-            actorId: null,
+            command: { type: 'yield' },
+            actorId: person,
             now: at(totalMs + 1),
           }),
         code: 'INVARIANT',
