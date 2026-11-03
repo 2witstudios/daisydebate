@@ -3,6 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { createLogger } from '@daisy/logger';
 import type { MediaObservation } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
+import { readRoundIncidentRate } from '@daisy/db/round-incident-rate';
 import { createRoundIncidentObserver } from '../src/features/round-incidents/observe';
 import {
   captureWorkerScope,
@@ -179,6 +180,8 @@ test('no recovery within the bound ends the Round with no outcome', async () => 
         phase: ended.runtime_state.incident.phase,
         speechClosed: (await segmentOf(f)).ended_at !== null,
         alerts: alerts.length,
+        receipt: (await f.store.readLaunchedRound(f.roundId, f.host.actorId))
+          ?.endedByPlatformIncident,
       },
       expected: {
         status: 'abandoned',
@@ -189,6 +192,7 @@ test('no recovery within the bound ends the Round with no outcome', async () => 
         phase: 'none',
         speechClosed: true,
         alerts: 1,
+        receipt: true,
       },
     });
   });
@@ -309,6 +313,29 @@ test('a platform-ended Round charges nothing, once', async () => {
           new Date(second!.refunded_at).getTime(),
       },
       expected: { refunded: true, once: true },
+    });
+  });
+});
+
+test('the incident rate reads round_incidents and capture coverage reads the freezes', async () => {
+  await withMediaRound(async (f) => {
+    const { observe } = await liveSpeech(f);
+    await observe(room({}));
+    await observe(room({ empty: true, captureListed: false }));
+    const from = new Date(Date.now() - 86_400_000);
+    const until = new Date(Date.now() + 60_000);
+    const rate = await readRoundIncidentRate(f.sql, { from, until });
+    assert({
+      given: 'one Round held in the period',
+      should: 'count it, and read a rate from real Round-hours',
+      actual: {
+        counted: rate.incidents >= 1,
+        hasHours: rate.roundHours > 0,
+        rate:
+          rate.incidentsPer1000RoundHours ===
+          (rate.incidents / rate.roundHours) * 1000,
+      },
+      expected: { counted: true, hasHours: true, rate: true },
     });
   });
 });

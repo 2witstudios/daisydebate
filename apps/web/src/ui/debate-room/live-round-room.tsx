@@ -29,6 +29,7 @@ import { leaveIntent } from '../../features/round-runtime/leave-intent';
 import { RoundEndedNotice } from './round-ended';
 import { useSecond } from './use-second';
 import { useRoundTime } from './use-round-time';
+import { RoundIncidentBanner } from './round-incident-banner';
 import { RoundTimeNotice } from './round-time-notice';
 
 /**
@@ -147,6 +148,7 @@ export function LiveRoundRoom({
     <>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       <RoundTimeNotice roundTime={roundTime} />
+      <RoundIncidentBanner checkpoint={view.checkpoint} nowMs={now} />
       {outcome ? (
         <p role="status" className="sr-only">
           {outcome}

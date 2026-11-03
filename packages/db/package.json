@@ -38,7 +38,8 @@
     "./documents": "./src/documents.ts",
     "./profile": "./src/profile.ts",
     "./outbox": "./src/outbox-api.ts",
-    "./attendance": "./src/attendance.ts"
+    "./attendance": "./src/attendance.ts",
+    "./round-incident-rate": "./src/round-incident-rate.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",
