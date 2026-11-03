@@ -54,7 +54,9 @@ export const summarizeServerLog = (lines: readonly LogLine[]) => {
       named('db.capacity.refused'),
       (line) => `${text(line, 'cause')} ${text(line, 'operation')}`,
     ).map((group) => ({
-      lane: text(group[0]!, 'cause'),
+      // `cause` is `<lane>.<reason>`, as capacityRefusalFields writes it.
+      lane: text(group[0]!, 'cause').split('.')[0]!,
+      reason: text(group[0]!, 'cause').split('.')[1] ?? 'unknown',
       operation: text(group[0]!, 'operation'),
       count: group.length,
     })),

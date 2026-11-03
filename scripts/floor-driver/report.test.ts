@@ -68,12 +68,12 @@ test('a server log gives refusals, cost per floor change and lane use', () => {
     {
       event: 'db.capacity.refused',
       operation: 'media.capture',
-      cause: 'competitive',
+      cause: 'competitive.saturated',
     },
     {
       event: 'db.capacity.refused',
       operation: 'media.capture',
-      cause: 'competitive',
+      cause: 'competitive.saturated',
     },
     {
       event: 'round.media.floor_moved',
