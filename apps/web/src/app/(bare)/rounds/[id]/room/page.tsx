@@ -169,11 +169,14 @@ export default async function RoundRoomPage({
             />
             <RoundNativeAttendance
               view={result.round}
-              state={
+              read={
                 result.round.status === 'active'
                   ? await readPersistedAttendance(id)
                   : null
               }
+              retrySeconds={reconnectDelaySeconds(
+                crypto.getRandomValues(new Uint8Array(1))[0]!,
+              )}
             />
           </>
         }

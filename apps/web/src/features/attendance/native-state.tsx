@@ -1,9 +1,6 @@
 import type { RoundView } from '@daisy/protocol';
-import type { NativeAttendanceState } from './operations';
+import type { NativeAttendanceRead } from './read-native';
 import { RoundAttendanceForm } from './native-form';
-
-/** A check-in window is short, so a refused read asks again soon, as a GET. */
-const ATTENDANCE_RETRY_SECONDS = 5;
 
 /**
  * The check-in path for a page without JavaScript; `useRoundAttendance` checks
@@ -12,35 +9,50 @@ const ATTENDANCE_RETRY_SECONDS = 5;
  */
 export function RoundNativeAttendance({
   view,
-  state,
+  read,
+  retrySeconds,
 }: {
   readonly view: RoundView;
-  readonly state: NativeAttendanceState | null;
+  /** Absent for a Round that is not active, which has nothing to read. */
+  readonly read: NativeAttendanceRead | null;
+  /** When a temporarily refused read asks again, as a GET; the page picks it. */
+  readonly retrySeconds: number;
 }) {
   // Check-ins exist only in an active Round; its read refuses any other state.
-  if (view.status !== 'active') return null;
+  if (view.status !== 'active' || !read) return null;
   return (
     <noscript>
-      <NativeAttendanceSection view={view} state={state} />
+      <NativeAttendanceSection
+        view={view}
+        read={read}
+        retrySeconds={retrySeconds}
+      />
     </noscript>
   );
 }
 
 function NativeAttendanceSection({
   view,
-  state,
+  read,
+  retrySeconds,
 }: {
   readonly view: RoundView;
-  readonly state: NativeAttendanceState | null;
+  readonly read: NativeAttendanceRead;
+  readonly retrySeconds: number;
 }) {
-  if (!state || state.roundId !== view.id)
-    return (
+  if (read.kind !== 'found' || read.state.roundId !== view.id)
+    return read.kind === 'unavailable' && read.temporary ? (
       <section aria-label="Attendance">
         {/* Only a page with no script reads this: it holds no media to lose. */}
-        <meta httpEquiv="refresh" content={String(ATTENDANCE_RETRY_SECONDS)} />
+        <meta httpEquiv="refresh" content={String(retrySeconds)} />
         <p role="status">Attendance status is unavailable. Trying again.</p>
       </section>
+    ) : (
+      <section aria-label="Attendance">
+        <p>Attendance status is unavailable. Refresh this page to try again.</p>
+      </section>
     );
+  const { state } = read;
   const label = (id: string) => {
     const segment = view.segments.find((segment) => segment.id === id);
     return (
