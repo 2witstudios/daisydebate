@@ -29,7 +29,13 @@ export const drawRoomOverrides = async (
         ...foundation.definition,
         configurable: {
           ...foundation.definition.configurable,
-          resolutionDraw: drawCapableBounds,
+          resolutionDraw: {
+            ...drawCapableBounds,
+            drawSize: {
+              ...drawCapableBounds.drawSize,
+              min: Math.min(drawSize, drawCapableBounds.drawSize.min),
+            },
+          },
         },
       },
       config: {
