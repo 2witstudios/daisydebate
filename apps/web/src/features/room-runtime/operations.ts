@@ -10,7 +10,6 @@ import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
 import type { Database } from '@daisy/db';
 import {
-  readRoundOpening,
   readRoundOpeningTopic,
   activeRoomMembers,
   executeRoomCommand,
