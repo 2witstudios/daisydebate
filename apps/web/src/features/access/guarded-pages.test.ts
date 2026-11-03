@@ -30,8 +30,8 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
     return { kind: 'allowed', identity: { state: 'anonymous' } };
   },
 }));
-// Public pages that only read who is asking (the watch pages, the
-// leaderboard, which pins the viewer's line, and the Tournaments index) get
+// Public pages that only read who is asking (the watch pages and the
+// leaderboard, which pins the viewer's line) get
 // an anonymous visitor instead of the request's cookies.
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestRoomDraftAnswer: async () => ({ values: {} }),
@@ -140,29 +140,6 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/recordings/page'),
     '(shell)/recordings/[debateId]/page.tsx': () =>
       import('../../app/(shell)/recordings/[debateId]/page'),
-    '(shell)/prep/page.tsx': () => import('../../app/(shell)/prep/page'),
-    '(shell)/prep/cards/new/page.tsx': () =>
-      import('../../app/(shell)/prep/cards/new/page'),
-    '(shell)/prep/cards/[id]/page.tsx': () =>
-      import('../../app/(shell)/prep/cards/[id]/page'),
-    '(shell)/prep/cards/[id]/delete/page.tsx': () =>
-      import('../../app/(shell)/prep/cards/[id]/delete/page'),
-    '(shell)/prep/briefs/[id]/page.tsx': () =>
-      import('../../app/(shell)/prep/briefs/[id]/page'),
-    '(shell)/prep/briefs/new/page.tsx': () =>
-      import('../../app/(shell)/prep/briefs/new/page'),
-    '(shell)/prep/cases/[id]/page.tsx': () =>
-      import('../../app/(shell)/prep/cases/[id]/page'),
-    '(shell)/prep/briefs/[id]/review/page.tsx': () =>
-      import('../../app/(shell)/prep/briefs/[id]/review/page'),
-    '(shell)/prep/teams/[id]/page.tsx': () =>
-      import('../../app/(shell)/prep/teams/[id]/page'),
-    '(shell)/prep/privacy/page.tsx': () =>
-      import('../../app/(shell)/prep/privacy/page'),
-    '(shell)/prep/in-debate/page.tsx': () =>
-      import('../../app/(shell)/prep/in-debate/page'),
-    '(shell)/prep/start/page.tsx': () =>
-      import('../../app/(shell)/prep/start/page'),
     '(shell)/train/page.tsx': () => import('../../app/(shell)/train/page'),
     '(shell)/settings/page.tsx': () =>
       import('../../app/(shell)/settings/page'),
@@ -174,24 +151,6 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/watch/[debateId]/page'),
     '(shell)/leaderboard/page.tsx': () =>
       import('../../app/(shell)/leaderboard/page'),
-    '(shell)/tournaments/page.tsx': () =>
-      import('../../app/(shell)/tournaments/page'),
-    '(shell)/tournaments/enter/[id]/page.tsx': () =>
-      import('../../app/(shell)/tournaments/enter/[id]/page'),
-    '(shell)/tournaments/enter/[id]/withdraw/page.tsx': () =>
-      import('../../app/(shell)/tournaments/enter/[id]/withdraw/page'),
-    '(shell)/tournaments/mine/[id]/page.tsx': () =>
-      import('../../app/(shell)/tournaments/mine/[id]/page'),
-    '(shell)/tournaments/mine/[id]/room/[round]/page.tsx': () =>
-      import('../../app/(shell)/tournaments/mine/[id]/room/[round]/page'),
-    '(bare)/tournaments/mine/[id]/certificate/page.tsx': () =>
-      import('../../app/(bare)/tournaments/mine/[id]/certificate/page'),
-    '(shell)/tournaments/organize/page.tsx': () =>
-      import('../../app/(shell)/tournaments/organize/page'),
-    '(shell)/tournaments/organize/new/page.tsx': () =>
-      import('../../app/(shell)/tournaments/organize/new/page'),
-    '(shell)/tournaments/organize/[id]/page.tsx': () =>
-      import('../../app/(shell)/tournaments/organize/[id]/page'),
   };
 
 /** What a page asked the guard when rendered with its own search params. */
@@ -253,15 +212,11 @@ describe('guarded pages', () => {
         '/messages',
         '/notifications',
         '/play',
-        '/prep',
         '/ranked',
         '/recordings',
         '/rooms',
         '/rounds',
         '/settings',
-        '/tournaments/enter',
-        '/tournaments/mine',
-        '/tournaments/organize',
         '/train',
       ],
     });
@@ -279,13 +234,7 @@ describe('guarded pages', () => {
   });
 
   test('public spectator pages do not demand an account', async () => {
-    const publicRoutes = [
-      '/',
-      '/watch',
-      '/watch/[debateId]',
-      '/leaderboard',
-      '/tournaments',
-    ];
+    const publicRoutes = ['/', '/watch', '/watch/[debateId]', '/leaderboard'];
     const spectator = pages.filter(({ route }) => publicRoutes.includes(route));
     assert({
       given: 'the public spectator pages, each rendered',

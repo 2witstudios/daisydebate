@@ -1,6 +1,5 @@
 import { createElement as h, type ComponentType } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { FeaturedTournament } from './featured-tournament/featured-tournament';
 import { HeroBanner } from './hero-banner/hero-banner';
 import { MemberHero } from './member-hero/member-hero';
 import { initialLinkForm } from '../auth/request-link';
@@ -33,7 +32,6 @@ describe('dashboard photographs (ISSUE-19)', () => {
   const surfaces: ReadonlyArray<[string, ComponentType, string, string]> = [
     ['HeroBanner', HeroBannerWithLink, '1925', '817'],
     ['MemberHero', MemberHeroWithoutRoom, '1925', '817'],
-    ['FeaturedTournament', FeaturedTournament, '1600', '1065'],
   ];
 
   test('size from intrinsic dimensions, never an inline full-bleed overlay', () => {

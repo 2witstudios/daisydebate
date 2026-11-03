@@ -70,26 +70,24 @@ describe('closedDestinationOf', () => {
   test('every page that reads sample data sits in a closed area', async () => {
     const app = join(import.meta.dir, '../../app');
     const open: string[] = [];
-    let readers = 0;
     for await (const file of new Glob('**/page.tsx').scan(app)) {
       if (!(await Bun.file(join(app, file)).text()).includes('/ui/mock/'))
         continue;
-      readers += 1;
       const route = file.replace(/\(.*?\)\//g, '').replace(/\/?page\.tsx$/, '');
       if (closedDestinationOf(`/${route}`) === null) open.push(route);
     }
     assert({
       given: 'the pages that pass sample data to a feature',
       should: 'all answer with an explainer under the launch config',
-      actual: { open, found: readers > 0 },
-      expected: { open: [], found: true },
+      actual: open,
+      expected: [],
     });
   });
 
-  test('sample data is out of reach today', () => {
+  test('the unbuilt areas are out of reach today', () => {
     assert({
       given: 'the launch config',
-      should: 'close the areas that still read samples',
+      should: 'close the areas with no real screens',
       actual: ['/tournaments', '/prep', '/watch', '/recordings'].map((path) =>
         closedDestinationOf(path),
       ),

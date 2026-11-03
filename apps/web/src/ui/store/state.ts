@@ -1,6 +1,4 @@
-import type { TournamentSummary } from '../types/tournament-summary/tournament-summary';
 import { debates } from '../mock/debates';
-import { tournament } from '../mock/tournament';
 import { users } from '../mock/users';
 
 type LiveDebateRow = {
@@ -15,7 +13,6 @@ type LiveDebateRow = {
 type UiResources = {
   /** How many of the member's friends are online; null until read. */
   readonly friendsOnline: number | null;
-  readonly tournament: TournamentSummary;
 };
 
 type UiCollections = {
@@ -31,7 +28,6 @@ export type UiState = {
 export const createInitialState = (): UiState => ({
   resources: {
     friendsOnline: null,
-    tournament,
   },
   collections: {
     liveDebates: debates.map((debate) => ({
