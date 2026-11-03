@@ -194,15 +194,8 @@ export const releaseStep = async (
   const unsettled = entries[settled.length];
   // Due settled time before the next clip holds nothing to release, or the watermark
   // would sit still through a long prep and read as a stalled Broadcast.
-<<<<<<< HEAD
   const due = (one: { capturedAtMs: number; durationMs: number }) =>
-    segmentDue(input.policy, one, {
-      nowMs: input.nowMs,
-      roundEndedAtMs: input.roundEndedAtMs,
-    });
-=======
-  const due = (one: HoldEntry) => segmentDue(input.policy, one, input.nowMs);
->>>>>>> origin/pu/watch
+    segmentDue(input.policy, one, input.nowMs);
   const lastDue = settled.filter(due).at(-1);
   if (lastDue && !(entry && due({ ...entry.source, ...entry }))) {
     const through = Math.min(
