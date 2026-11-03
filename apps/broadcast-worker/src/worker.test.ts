@@ -3,6 +3,8 @@ import { runWorker } from './worker';
 
 setupRitewayBun();
 
+const noScratch = { dir: () => '/nowhere', clear: async () => {} };
+
 test('a database failure does not end the slot', async () => {
   let claims = 0;
   const reports: string[] = [];
@@ -12,6 +14,7 @@ test('a database failure does not end the slot', async () => {
     sleep: async () => {},
     stopped: () => claims >= 3,
     report: (event) => reports.push(event),
+    scratch: noScratch,
     objects: {} as never,
     store: {
       claim: async () => {
@@ -42,6 +45,7 @@ test('a failed release step keeps the job instead of waiting out its own lease',
     report: (event: string) => {
       reports.push(event);
     },
+    scratch: noScratch,
     objects: {
       putManifest: async () => {},
       readHoldText: async () => {
@@ -79,5 +83,58 @@ test('a failed release step keeps the job instead of waiting out its own lease',
     should: 'report it, retry the same job and finish it with one claim',
     actual: [claims, reports, recorded],
     expected: [1, ['broadcast.release_failed'], [1]],
+  });
+});
+
+test('what a step put on disk goes with the step, whatever became of it', async () => {
+  const cleared: string[] = [];
+  const reports: string[] = [];
+  let steps = 0;
+  await runWorker({
+    owner: 'w',
+    now: () => 900_000,
+    sleep: async () => {},
+    stopped: () => steps >= 1,
+    report: (event: string) => {
+      reports.push(event);
+    },
+    scratch: {
+      dir: (id) => `/scratch/${id}`,
+      clear: async (id) => {
+        cleared.push(id);
+      },
+    },
+    objects: {
+      putManifest: async () => {},
+      readHoldText: async () =>
+        '#EXTM3U\n#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:00:00.000Z\n#EXTINF:4.0,\ns_0.ts\n',
+      copyHoldToFile: async (_key: string, path: string) => {
+        steps += 1;
+        throw new Error(`no room for ${path}`);
+      },
+    } as never,
+    store: {
+      claim: async () => ({
+        id: 'b',
+        nextSegment: 0,
+        holdCursor: 0,
+        releasedGeneration: 1,
+        egressGeneration: 1,
+        egressStartedAt: new Date(0),
+        leaseEpoch: 1,
+        feedKey: 'k',
+        stoppedAt: null,
+        completedAt: null,
+        streamEndedAt: null,
+        finalMediaEndAt: null,
+        releasePolicy: { kind: 'delay', seconds: 60 },
+      }),
+    } as never,
+  });
+  assert({
+    given: 'a step that fails after it began encoding',
+    should: 'report it, and clear the disk on claim and after the step',
+    actual: [cleared, reports],
+    expected: [['b', 'b'], ['broadcast.release_failed']],
   });
 });
