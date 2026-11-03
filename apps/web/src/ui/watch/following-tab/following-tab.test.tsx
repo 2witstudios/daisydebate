@@ -1,10 +1,6 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  followingOf,
-  watchViewer,
-} from '../../../features/watch/sample-source.test-support';
 import { FollowingTab } from './following-tab';
 
 setupRitewayBun();
@@ -13,7 +9,25 @@ describe('FollowingTab', () => {
   test('a signed-in viewer', () => {
     const html = renderToString(
       h(FollowingTab, {
-        following: followingOf(watchViewer(true)),
+        following: {
+          people: [
+            {
+              handle: 'ana',
+              live: {
+                id: 'quarterfinal-practice',
+                title: 'Quarterfinal practice',
+              },
+              lastRound: null,
+            },
+          ],
+          history: [
+            {
+              id: 'semifinal-rehearsal',
+              title: 'Semifinal rehearsal',
+              note: 'Replay',
+            },
+          ],
+        },
         signInHref: '/sign-in',
       }),
     );

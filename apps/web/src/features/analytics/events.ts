@@ -19,6 +19,14 @@ const productEvents = {
   consent_updated: z.strictObject({ replay: z.boolean() }),
   room_created: z.strictObject({}),
   room_rematched: z.strictObject({}),
+  /** One viewing's quality against the WATCH-3 targets; never says what or who was watched. */
+  broadcast_playback: z.strictObject({
+    engine: z.enum(['hlsjs', 'native']),
+    startup_ms: z.int().nonnegative(),
+    rebuffer_ms: z.int().nonnegative(),
+    watched_ms: z.int().nonnegative(),
+    height: z.int().nonnegative(),
+  }),
 } as const;
 type ProductEventName = keyof typeof productEvents;
 export type ProductEvent = {

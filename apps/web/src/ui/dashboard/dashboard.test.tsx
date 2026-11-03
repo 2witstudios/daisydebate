@@ -2,6 +2,7 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Dashboard } from './dashboard';
 import { HeroBanner } from './hero-banner/hero-banner';
+import { LiveNow } from './live-now/live-now';
 import { tiles } from './tiles';
 import { initialLinkForm } from '../auth/request-link';
 import { occurrences, renderInStore } from '../test-support/render-in-store';
@@ -14,6 +15,7 @@ const render = (): string =>
       hero: h(HeroBanner, {
         requestLink: () => Promise.resolve(initialLinkForm),
       }),
+      liveNow: h(LiveNow, { rounds: [] }),
     }),
   );
 
@@ -53,13 +55,13 @@ describe('Dashboard', () => {
     assert({
       given: 'the home dashboard with ranked play and real standings launched',
       should:
-        'carry five Coming soon tags and no sample event now that Train is real',
+        'carry three Coming soon tags and no sample event, with Watch real',
       actual: [
         occurrences(html, 'Coming soon'),
         html.includes('href="/coming-soon/tournaments"'),
         html.includes('Live Now'),
       ],
-      expected: [5, true, false],
+      expected: [3, true, false],
     });
   });
 });

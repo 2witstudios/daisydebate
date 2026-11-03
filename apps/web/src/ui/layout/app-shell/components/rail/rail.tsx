@@ -117,7 +117,7 @@ export function Rail({
       <nav
         aria-label="Primary"
         className={cn(
-          'sticky top-0 flex h-dvh flex-col gap-2 py-2',
+          'sticky top-0 flex h-dvh flex-col gap-2 py-2 short-viewport:overflow-y-auto',
           extended
             ? 'items-stretch px-2 max-rail:items-center max-rail:px-0'
             : 'items-center',

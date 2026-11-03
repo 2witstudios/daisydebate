@@ -4,10 +4,9 @@ import type { SearchParams } from '../../../features/access/decision';
 import { archiveEntries } from '../../../features/recording/archive';
 import { parseRecordingsQuery } from '../../../features/recording/archive-query';
 import { recordingViewerOf } from '../../../features/recording/viewer';
-import { countHub } from '../../../features/watch/list-live';
-import { watchSource } from '../../../features/watch/round-source';
 import {
   readRecordingArchive,
+  requestHubCounts,
   requestIdentity,
 } from '../../../lib/request-session';
 import { RecordingsTab } from '../../../ui/watch/recordings-tab/recordings-tab';
@@ -24,12 +23,12 @@ export default async function RecordingsPage({
   redirectUnlessLaunched('watch');
   const viewer = recordingViewerOf(await requestIdentity());
   const query = parseRecordingsQuery(await searchParams);
-  const { page, publicCount } = await readRecordingArchive(query, viewer);
+  const [{ page }, counts] = await Promise.all([
+    readRecordingArchive(query, viewer),
+    requestHubCounts(),
+  ]);
   return (
-    <WatchHub
-      active="recordings"
-      counts={{ ...countHub(watchSource), recordings: publicCount }}
-    >
+    <WatchHub active="recordings" counts={counts}>
       <RecordingsTab
         query={query}
         listing={{

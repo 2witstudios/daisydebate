@@ -43,6 +43,7 @@ import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
 import { createSpectatorTimelineHandlers } from '../features/spectating/handlers';
+import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { identify } from '../lib/identity';
 import { memberHttpBoundary } from './member-boundary';
 import type { App } from './app';
@@ -95,6 +96,7 @@ export function createRoutes(app: App) {
       reporter: app.reporter,
       store: database,
       clock: app.clock,
+      feedUrlOf: broadcastFeedUrls(app.config.BROADCAST_PUBLIC_ORIGIN),
     }),
     rounds: {
       ...composeRoundRoutes(app),
