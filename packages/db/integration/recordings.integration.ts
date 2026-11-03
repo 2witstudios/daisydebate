@@ -247,7 +247,7 @@ test('concurrent deletion claims share nothing; a defer keeps the intent', async
 test('erasure removes casual Recordings whole and keeps ranked ones', async () => {
   await withPrivacySubject(async ({ client, actorId, userId, database }) => {
     await withFixture(databaseUrl, async (fixture) => {
-      const ops = recordingOperations({ database, now: () => later });
+      const ops = recordingOperations({ database });
       const casualRound = await fixture.round();
       await fixture.seat(casualRound, 'affirmative', 0, actorId);
       const unrelatedRound = await fixture.round();
