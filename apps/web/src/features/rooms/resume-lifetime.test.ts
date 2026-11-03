@@ -1,11 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createResumeLifetime } from './resume-lifetime';
+import { markClaimLeft } from './resume-ownership';
 
 setupRitewayBun();
 
 const world = () => {
   let nowMs = 10_000;
   const entries = new Map<string, string>();
+  const left: string[] = [];
   const ticks = new Set<() => void>();
   const listeners = new Set<() => void>();
   const storage = {
@@ -41,6 +43,7 @@ const world = () => {
         },
       },
       now: () => nowMs,
+      holderLeft: () => left.push(tabId),
       subscribe: (listener) => {
         listeners.add(listener);
         return () => {
@@ -57,6 +60,8 @@ const world = () => {
     });
   return {
     tab,
+    left,
+    storage,
     tick: (ms: number) => {
       nowMs += ms;
       [...ticks].forEach((tick) => tick());
@@ -88,6 +93,69 @@ test('direct route and deferred entry share takeover, stepdown and crash expiry'
     actual: [initially, afterTakeover, afterCrashWithoutEvents],
     expected: [[true, false], [false, true], true],
   });
+});
+
+const leaving = {
+  actorId: 'actor',
+  roundId: 'round',
+} as const;
+
+test('a tab waiting on a holder that left never takes the Round', () => {
+  const host = world();
+  const owned: boolean[] = [];
+  const first = host.tab('first', () => undefined);
+  const waiting = host.tab('waiting', (value) => owned.push(value));
+  markClaimLeft({ storage: host.storage, ...leaving, tabId: 'first' });
+  first.handOff();
+  host.tick(2500);
+  host.tick(6000);
+  assert({
+    given: 'the holder leaves and its claim then goes stale',
+    should: 'report the departure once and never own the Round',
+    actual: [host.left, owned],
+    expected: [['waiting'], [false]],
+  });
+  waiting.stop();
+});
+
+test('leaving from a waiting tab costs the holder nothing', () => {
+  const host = world();
+  const owned: boolean[] = [];
+  const holder = host.tab('holder', (value) => owned.push(value));
+  const waiting = host.tab('waiting', () => undefined);
+  markClaimLeft({ storage: host.storage, ...leaving, tabId: 'waiting' });
+  waiting.stop();
+  host.tick(6000);
+  assert({
+    given: 'a leave pressed in a tab holding nothing, then a lapsed heartbeat',
+    should: 'keep the holder owning and report no departure',
+    actual: [owned, host.left],
+    expected: [[true], []],
+  });
+  holder.stop();
+});
+
+test('a holder whose leave never navigated takes its claim back', () => {
+  const host = world();
+  const owned: boolean[] = [];
+  const holder = host.tab('holder', (value) => owned.push(value));
+  markClaimLeft({ storage: host.storage, ...leaving, tabId: 'holder' });
+  host.tick(2500);
+  const flagged = JSON.parse(
+    host.storage.getItem('daisy:resume-owner:actor:round')!,
+  );
+  host.tick(6000);
+  assert({
+    given: 'a leave that opened a new tab and left this one here',
+    should: 'keep the flag while fresh, then reclaim with no step-down',
+    actual: [
+      flagged.left,
+      JSON.parse(host.storage.getItem('daisy:resume-owner:actor:round')!).left,
+      owned,
+    ],
+    expected: [true, undefined, [true]],
+  });
+  holder.stop();
 });
 
 test('normal close releases ownership for a deferred tab, without an event', () => {

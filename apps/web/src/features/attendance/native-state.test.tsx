@@ -25,7 +25,11 @@ const onlyInNoscript = (html: string) =>
 
 test('attendance text appears only without JavaScript', () => {
   const unavailable = renderToStaticMarkup(
-    <RoundNativeAttendance view={view} state={null} />,
+    <RoundNativeAttendance
+      view={view}
+      read={{ kind: 'unavailable', temporary: true }}
+      retrySeconds={3}
+    />,
   );
   assert({
     given: 'an unavailable attendance read',
@@ -33,13 +37,17 @@ test('attendance text appears only without JavaScript', () => {
     actual: [
       onlyInNoscript(unavailable),
       unavailable.includes('Attendance status is unavailable.'),
-      unavailable.includes('http-equiv="refresh" content="5"'),
+      unavailable.includes('http-equiv="refresh" content="3"'),
     ],
     expected: [true, true, true],
   });
 
   const available = renderToStaticMarkup(
-    <RoundNativeAttendance view={view} state={state} />,
+    <RoundNativeAttendance
+      view={view}
+      read={{ kind: 'found', state }}
+      retrySeconds={3}
+    />,
   );
   assert({
     given: 'recorded receipts and an open check-in target',
@@ -61,9 +69,29 @@ test('a Round that is not active offers no attendance at all', () => {
     actual: renderToStaticMarkup(
       <RoundNativeAttendance
         view={{ ...view, status: 'opening' }}
-        state={null}
+        read={null}
+        retrySeconds={3}
       />,
     ),
     expected: '',
+  });
+});
+
+test('a failure that may not pass never refreshes by itself', () => {
+  const html = renderToStaticMarkup(
+    <RoundNativeAttendance
+      view={view}
+      read={{ kind: 'unavailable' }}
+      retrySeconds={3}
+    />,
+  );
+  assert({
+    given: 'an attendance read that failed with no temporary refusal',
+    should: 'offer the manual wording and no refresh',
+    actual: [
+      html.includes('Refresh this page to try again.'),
+      html.includes('http-equiv="refresh"'),
+    ],
+    expected: [true, false],
   });
 });

@@ -16,7 +16,7 @@ import { MediaPageLink } from '../round-media/media-page-link';
 import { RoundEndedNotice } from './round-ended';
 import {
   clearAccountResumeRecords,
-  markDeparture,
+  leaveRound,
 } from '../../features/rooms/resume-departure';
 import { useRoundMediaTab } from './use-round-media-tab';
 import { useRoundEndedRoute } from './use-round-ended';
@@ -105,7 +105,7 @@ export function LiveJudgeRoom({
       <Link
         href="/lobby"
         prefetch={false}
-        onClick={() => markDeparture(actorId, view.id)}
+        onClick={() => leaveRound(actorId, view.id)}
       >
         Back to the lobby
       </Link>

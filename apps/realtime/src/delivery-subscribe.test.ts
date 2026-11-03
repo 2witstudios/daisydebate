@@ -85,13 +85,14 @@ test('a subscribe refused by a lane logs the lane, reason and pressure', async (
           lane: 'admission',
           reason: 'expired',
           pressure: { pending: 2, running: 1, oldestAgeMs: 400 },
+          holders: { readAuthorizationSession: 1 },
         }),
       ),
   });
   await rig.subscribe();
   assert({
     given: 'a first subscribe whose authority read a lane refuses',
-    should: 'log the code, lane, reason and pressure',
+    should: 'log the code, lane, reason, pressure and what held the lane',
     actual: rig.logged,
     expected: [
       [
@@ -103,6 +104,14 @@ test('a subscribe refused by a lane logs the lane, reason and pressure', async (
           pending: 2,
           running: 1,
           oldestAgeMs: 400,
+        },
+      ],
+      [
+        'db.capacity.holder',
+        {
+          operation: 'readAuthorizationSession',
+          cause: 'admission',
+          running: 1,
         },
       ],
     ],

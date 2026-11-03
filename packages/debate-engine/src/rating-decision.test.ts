@@ -63,20 +63,6 @@ describe('ratingEligibility', () => {
         occurredAt: at,
       },
     });
-    assert({
-      given: 'a completed ranked round drawn',
-      should: 'rate it on the ranked ladder as a draw',
-      actual: ratingEligibility({
-        ...completed,
-        outcome: 'draw',
-      }),
-      expected: {
-        kind: 'rated',
-        ladder: 'freestyle',
-        outcome: 'draw',
-        occurredAt: at,
-      },
-    });
   });
 
   test('never rates unrated competition or an abandoned round', () => {

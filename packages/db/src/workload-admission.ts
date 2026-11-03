@@ -1,3 +1,4 @@
+import { currentLaneOperation } from './lane-operation';
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from './capacity-refusal';
 import { RUNTIME_SESSION } from './session-bounds';
@@ -152,6 +153,15 @@ type Waiter = {
   cancel: () => void;
 };
 
+const holdersByOperation = (
+  holds: Iterable<{ readonly operation: string; readonly weight: number }>,
+) => {
+  const totals: Record<string, number> = {};
+  for (const { operation, weight } of holds)
+    totals[operation] = (totals[operation] ?? 0) + weight;
+  return totals;
+};
+
 /**
  * One lane's admission: counted waiters, FIFO within a fairness key and
  * round-robin across keys, each waiter refused once it is `maxWaitMs` old.
@@ -163,10 +173,15 @@ export function createLaneGate(
   budget: LaneBudget | undefined,
   timer: LaneTimer = systemTimer,
   clock: LaneClock = () => performance.now(),
+  operationNow: () => string = currentLaneOperation,
 ): LaneGate {
   let active = 0;
   let waiting = 0;
-  const held = new Set<{ readonly since: number }>();
+  const held = new Set<{
+    readonly since: number;
+    readonly operation: string;
+    readonly weight: number;
+  }>();
   const queues = new Map<string, Waiter[]>();
   const order: string[] = [];
   const refuse = (reason: 'unconfigured' | 'saturated' | 'expired') =>
@@ -180,10 +195,11 @@ export function createLaneGate(
           Math.max(0, ...[...held].map(({ since }) => clock() - since)),
         ),
       },
+      holders: holdersByOperation(held),
     });
-  const release = (weight: number): LaneRelease => {
+  const release = (weight: number, operation: string): LaneRelease => {
     let released = false;
-    const hold = { since: clock() };
+    const hold = { since: clock(), operation, weight };
     held.add(hold);
     return () => {
       if (released) return;
@@ -230,15 +246,17 @@ export function createLaneGate(
         );
       if (weight > budget.connections)
         return Promise.reject(refuse('unconfigured'));
+      // Read here, not at the grant: a waiter is granted from another's release.
+      const operation = operationNow();
       if (waiting === 0 && active + weight <= budget.connections) {
         active += weight;
-        return Promise.resolve(release(weight));
+        return Promise.resolve(release(weight, operation));
       }
       if (waiting >= budget.queue) return Promise.reject(refuse('saturated'));
       return new Promise<LaneRelease>((resolve, reject) => {
         const waiter: Waiter = {
           weight,
-          grant: () => resolve(release(weight)),
+          grant: () => resolve(release(weight, operation)),
           cancel: () => undefined,
         };
         waiter.cancel = timer(budget.maxWaitMs, () => {

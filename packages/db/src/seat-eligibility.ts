@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 type ActorFact = {
   readonly kind: 'human' | 'bot';
   readonly eligible: boolean;
@@ -76,3 +77,15 @@ export const eligibleCompetitorIds = (
   seats
     .filter((seat) => seat.eligible && seat.role !== 'judge')
     .map((seat) => seat.id);
+
+/**
+ * A seat the fence did not lock appeared after the fence was read, as a launch
+ * committing mid-read. Nothing was decided about this caller, so it is a
+ * temporary failure and never a 409, which means authority refused (ISSUE-957).
+ */
+export function requireFencedSeat(
+  fenced: readonly string[],
+  actorId: string,
+): void {
+  if (!fenced.includes(actorId)) throw createAppError('INFRASTRUCTURE');
+}

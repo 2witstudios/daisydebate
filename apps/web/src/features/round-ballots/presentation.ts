@@ -26,13 +26,13 @@ export function ballotDisplay(
     ballotFields(Object.entries(answer.values), true).ok
   )
     return 'retry';
-  if (answer.receipt || view.own?.status === 'submitted') return 'recorded';
+  if (answer.receipt || view.own?.ballot) return 'recorded';
   if (ballotOpen(view)) return 'open';
   return pendingDisplay(view.round.status);
 }
 function ballotOpen(view: RoundBallotRead): boolean {
   return (
-    view.own?.status === null &&
+    view.own?.ballot === null &&
     view.round.status === 'active' &&
     view.freeze !== null
   );

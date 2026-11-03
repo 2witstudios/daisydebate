@@ -94,7 +94,6 @@ const generated = (season: string): readonly RatingEntry[] =>
       deviation,
       played,
       wins: Math.round(played * winRate),
-      draws: 0,
       weekChange,
       seasonChange,
     };
@@ -121,7 +120,6 @@ export function sampleEntries(
       deviation: line.played < 10 ? 170 : 62,
       played: line.played,
       wins: line.wins,
-      draws: 0,
       weekChange: line.change > 0 ? 3 : -2,
       seasonChange: line.change,
     },

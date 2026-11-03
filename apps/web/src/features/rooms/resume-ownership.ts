@@ -23,6 +23,7 @@ export const resumeHeirKey = (actorId: string, roundId: string) =>
 const ownershipSchema = z.strictObject({
   owner: z.string().min(1),
   claimedAtMs: z.number().int().nonnegative(),
+  left: z.literal(true).optional(),
 });
 
 const parseClaim = (raw: string | null): ResumeOwnership | null => {
@@ -80,8 +81,31 @@ export function heartbeatOwnership(input: {
   readonly nowMs: number;
 }): void {
   const held = readOwnership(input.storage, input.actorId, input.roundId);
-  if (held.owner !== input.tabId) return;
+  if (held.owner !== input.tabId || held.left) return;
   claimOwnership(input);
+}
+
+/**
+ * The holder says it left, in its own claim: a waiting tab must not inherit the
+ * Round (ISSUE-1033). A tab holding nothing says nothing, so leaving from a
+ * waiting tab never costs the holder its recovery. Nothing outlives the claim.
+ */
+export function markClaimLeft(input: {
+  readonly storage: Pick<Storage, 'getItem' | 'setItem'>;
+  readonly actorId: string;
+  readonly roundId: string;
+  readonly tabId: string;
+}): void {
+  const held = readOwnership(input.storage, input.actorId, input.roundId);
+  if (held.owner !== input.tabId) return;
+  try {
+    input.storage.setItem(
+      resumeOwnershipKey(input.actorId, input.roundId),
+      JSON.stringify({ ...held, left: true }),
+    );
+  } catch {
+    // Storage disabled: coordination is impossible.
+  }
 }
 
 /** An owner steps down; a foreign or absent claim is left untouched. */
