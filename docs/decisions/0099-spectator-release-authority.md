@@ -77,21 +77,32 @@ whose Round is terminal.
 **Privacy boundary.** Revoking the observer's subscribe permission on the server
 is the boundary; the page slate is appearance only. If revocation cannot be
 confirmed, the Egress stops. The criterion is zero leak measured at the production
-sweep's timing (point guard, 2026-11-03), not a lead on a rig. Where a speech end is
-scheduled, the sweep revokes 2 s ahead, which is its 1 s period, a late pass and
-the call. A private phase with no schedule, prep or an early yield, is revoked
-after it opens: its microphones close by grant, and conversation stays held until
-the revocation lands.
+sweep's timing (point guard, 2026-11-03), not a lead on a rig. The sweep revokes at
+the speech end, so every word of the last speech is kept: one value in
+`stage-capture.ts` restores a lead if the measurement ever needs one. That is safe
+because a private phase's microphones and cameras close by grant and stay closed
+until the revocation lands, whether the phase was scheduled or opened with no warning
+(prep, an early yield). Prep has no cameras at all. A public phase keeps its
+cameras, and they return when one follows.
 
-**When the sweep dies.** Nothing on a timer revokes for it, so the observer stays
-subscribed. What bounds that is the hold, not a duration: while the observer may be
-subscribed, conversation stays closed however long that lasts, and speech ends by
-grant, so no private talk exists to reach it. Cameras stay published in a private
-phase and are not held. The stage lets go of every track when it reads a private
-phase, as a second layer that needs the stage route alive. The media reconciler
-raises `broadcast.conversation_held_long` past 30 s. If the whole web tier is down,
-grants stop changing too, and the microphone open at that moment stays open until
-it returns. That case has no bound in code.
+**When the sweep dies.** While the observer may be subscribed, the hold keeps a
+private phase's microphones and cameras closed, however long that lasts, and the
+media reconciler raises `broadcast.conversation_held_long` past 30 s. The stage also
+lets go of every track when it reads a private phase, as a second layer that needs
+the stage route alive.
+
+**When the web tier dies.** Grants stop changing, so what was open stays open, and
+nothing revokes. The broadcast worker is the dead-man switch, apart from the release
+slots: past 10 s with no heartbeat on a Broadcast's row, read by the database's clock,
+it stops that Egress and clears `egress_id`. A control plane that returns finds no
+Egress and starts the next attempt the normal way. It acts only on a read following
+a good read, so its own outage stops nothing. Its bound is about 14 s from the last
+heartbeat to the stop call (10 s stale, up to 4 s for two checks), and what was
+captured in that time is in the hold. A deploy that keeps the web tier down past 10 s
+therefore costs a running Broadcast a gap. It holds a token with only `roomRecord`,
+not the key pair: LiveKit keys cannot be scoped, and that grant, the narrowest for
+the call, also lets it start and list Egress. A Recording running its own Egress is
+not covered, because this worker's database role reaches `broadcasts` alone.
 
 **Stray Egress.** The first start recorded for a generation wins. A loser's
 credential is never stored, so the stage refuses it, it never signals Egress to

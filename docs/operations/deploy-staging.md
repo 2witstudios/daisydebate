@@ -814,6 +814,19 @@ config in the `EGRESS_CONFIG_BODY` secret and writes to the private Tigris bucke
 `daisy-debate-staging-broadcast`, created with `fly storage create`. Stop the
 machine when idle: it has no proxy to auto-stop it.
 
+**Dead-man switch.** The broadcast worker stops an Egress whose heartbeat has lapsed
+for 10 s (ADR 0099), so it needs `LIVEKIT_URL` (the web app's) and
+`BROADCAST_EGRESS_STOP_TOKEN`, and refuses to start without them. It never holds the
+LiveKit key pair, which could sign any grant. The token is signed with that pair and
+carries one grant, `roomRecord`, the narrowest that can stop an Egress. LiveKit has
+nothing narrower, so it can also start and list them, and nothing else. It expires
+in a year: a stale one shows as `broadcast.dead_man_failed`. Mint it again when it
+nears expiry or the pair rotates:
+
+```sh
+cd packages/media && LIVEKIT_API_KEY=... LIVEKIT_API_SECRET=... bun -e "import { AccessToken } from 'livekit-server-sdk'; const t = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, { ttl: '365d' }); t.addGrant({ roomRecord: true }); console.log(await t.toJwt())"
+```
+
 **Official feed.** The web app reads `BROADCAST_PUBLIC_ORIGIN`, the public bucket's
 read origin (`https://<bucket>.t3.tigrisfiles.io`), from `fly.toml`. It is not a
 secret. Unset, no Round offers Stream this Round.

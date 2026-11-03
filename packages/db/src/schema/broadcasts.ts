@@ -62,6 +62,11 @@ export const broadcasts = pgTable(
     feedWithdrawnAt: timestampColumn('feed_withdrawn_at'),
     /** One web instance reconciles a Broadcast at a time, so one Egress starts. */
     reconcileLeaseUntil: timestampColumn('reconcile_lease_until'),
+    /**
+     * When the control plane last reached this Broadcast, by the database's clock.
+     * The worker stops an Egress whose heartbeat lapses: nothing else can revoke it.
+     */
+    controlHeartbeatAt: timestampColumn('control_heartbeat_at'),
     leaseEpoch: integer('lease_epoch').notNull().default(0),
     leaseOwner: text('lease_owner'),
     leaseUntil: timestampColumn('lease_until'),

@@ -264,6 +264,7 @@ export const recordEgressStarted = async (
       revocationFailures: 0,
       stageCredentialHash: input.stageCredentialHash,
       egressStartedAt: input.now,
+      controlHeartbeatAt: sql`clock_timestamp()`,
     })
     .where(
       and(
@@ -402,14 +403,20 @@ export const readBroadcastRoom = async (tx: Tx, roundId: string) => {
   return session?.roomName ?? null;
 };
 
-/** True for the one instance that may reconcile this Broadcast until the lease ends. */
+/**
+ * True for the one instance that may reconcile this Broadcast until the lease
+ * ends. A claim is also the control plane's heartbeat for it.
+ */
 export const claimBroadcastReconcile = async (
   tx: Tx,
   input: { readonly id: string; readonly now: Date; readonly until: Date },
 ): Promise<boolean> => {
   const rows = await tx
     .update(broadcasts)
-    .set({ reconcileLeaseUntil: input.until })
+    .set({
+      reconcileLeaseUntil: input.until,
+      controlHeartbeatAt: sql`clock_timestamp()`,
+    })
     .where(
       and(
         eq(broadcasts.id, input.id),
@@ -422,6 +429,40 @@ export const claimBroadcastReconcile = async (
     .returning({ id: broadcasts.id });
   return rows.length === 1;
 };
+
+/**
+ * Egresses no control plane has reached for `staleMs`, by the database's own clock,
+ * so no machine's clock can stop one. A failed read throws, and so stops nothing.
+ */
+export const listHeartbeatLapsedBroadcasts = (
+  tx: Tx,
+  input: { readonly staleMs: number },
+) =>
+  tx
+    .select({ id: broadcasts.id, egressId: broadcasts.egressId })
+    .from(broadcasts)
+    .where(
+      and(
+        isNotNull(broadcasts.egressId),
+        isNull(broadcasts.completedAt),
+        sql`${broadcasts.controlHeartbeatAt} < clock_timestamp() - make_interval(secs => ${input.staleMs / 1000}::double precision)`,
+      ),
+    );
+
+/**
+ * The worker stopped this Egress. With none recorded, a control plane that returns
+ * takes the normal path; a newer Egress recorded meanwhile is left alone.
+ */
+export const recordHeartbeatStop = (
+  tx: Tx,
+  input: { readonly id: string; readonly egressId: string },
+) =>
+  tx
+    .update(broadcasts)
+    .set({ egressId: null })
+    .where(
+      and(eq(broadcasts.id, input.id), eq(broadcasts.egressId, input.egressId)),
+    );
 
 /** Keeps the claim across a call that outlasts it; null `until` gives it back. */
 export const holdBroadcastReconcile = (

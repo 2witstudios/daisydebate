@@ -13,10 +13,12 @@ import {
   claimBroadcastReconcile,
   completeBroadcast,
   discoverUnopenedBroadcastRounds,
+  listHeartbeatLapsedBroadcasts,
   listOpenBroadcasts,
   openBroadcast,
   readReleasedThrough,
   recordFinalMediaEnd,
+  recordHeartbeatStop,
   recordObserverRestored,
   recordObserverRevoked,
   recordRevocationFailed,
@@ -646,6 +648,78 @@ test('paging reaches every open Broadcast, past any page', async () => {
         ids.every((found, at) => at === 0 || ids[at - 1]! < found),
       ],
       expected: [1, true],
+    });
+  });
+});
+
+test('a lapsed heartbeat lists its Egress, by the database clock, until it is stopped', async () => {
+  await withOps(async (db, roundId) => {
+    const { id } = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const lapsed = async () =>
+      (await listHeartbeatLapsedBroadcasts(db, { staleMs: 10_000 })).filter(
+        (row) => row.id === id,
+      );
+    const age = (seconds: number) =>
+      db
+        .update(broadcasts)
+        .set({ controlHeartbeatAt: new Date(Date.now() - seconds * 1000) })
+        .where(eq(broadcasts.id, id));
+    const noEgress = await lapsed();
+    await recordEgressStarted(db, {
+      id,
+      egressId: 'EG',
+      generation: 1,
+      stageCredentialHash: 'h',
+      now: past,
+    });
+    const justStarted = await lapsed();
+    await age(9);
+    const within = await lapsed();
+    await age(11);
+    const past10 = await lapsed();
+    await claimBroadcastReconcile(db, { id, now: later, until: later });
+    const beatAgain = await lapsed();
+    await age(11);
+    await recordHeartbeatStop(db, { id, egressId: 'OTHER' });
+    const newerKept = await lapsed();
+    await recordHeartbeatStop(db, { id, egressId: 'EG' });
+    const stopped = await lapsed();
+    const [row] = await db
+      .select()
+      .from(broadcasts)
+      .where(eq(broadcasts.id, id));
+    assert({
+      given:
+        'no Egress; a start stamped long ago; 9 s; 11 s; a claim; a stale stop; the real stop',
+      should:
+        'list only past 10 s with an Egress, and let a stop clear only its own',
+      actual: {
+        noEgress,
+        justStarted,
+        within,
+        past10,
+        beatAgain,
+        newerKept,
+        stopped,
+        egressId: row?.egressId,
+        generation: row?.egressGeneration,
+      },
+      expected: {
+        noEgress: [],
+        justStarted: [],
+        within: [],
+        past10: [{ id, egressId: 'EG' }],
+        beatAgain: [],
+        newerKept: [{ id, egressId: 'EG' }],
+        stopped: [],
+        egressId: null,
+        generation: 1,
+      },
     });
   });
 });
