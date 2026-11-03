@@ -18,7 +18,6 @@ import type {
   AttendanceReceiptFacts,
   AttendanceResolution,
   AttendancePrincipal,
-  LockedAttendanceCheckIn,
 } from '@daisy/db/attendance';
 import {
   attendanceEnvelopeSchema,

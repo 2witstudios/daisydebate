@@ -99,8 +99,14 @@ const beginResume = (
 const pauseAgain = (state: ClockState): ClockTransition => {
   const { incident } = state.checkpoint;
   if (incident.phase !== 'resuming') return stay(state);
-  const { until: _until, ...held } = incident;
-  return stay(withIncident(state, { ...held, phase: 'paused' }));
+  return stay(
+    withIncident(state, {
+      phase: 'paused',
+      since: incident.since,
+      cause: incident.cause,
+      resume_point: incident.resume_point,
+    }),
+  );
 };
 
 const end = (
