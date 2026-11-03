@@ -52,6 +52,17 @@ describe('RecordingRow', () => {
       ],
       expected: [true, true, false],
     });
+    const held = render({ media: 'withheld', length: null });
+    assert({
+      given: 'video held back from this viewer, with a transcript',
+      should: 'say so and offer reading, not replay',
+      actual: [
+        held.includes('Video being held back'),
+        held.includes('Read Semifinal'),
+        held.includes('Replay'),
+      ],
+      expected: [true, true, false],
+    });
     assert({
       given: 'a permission that hides the result',
       should: 'show none',
