@@ -65,7 +65,10 @@ export function ratingEligibility(
   };
 }
 
-/** Whether this Round still has a rating coming. */
+/**
+ * Whether a rating is due now. False while a check-in writer is in doubt: the
+ * Round is read again once that resolves.
+ */
 export function ratingAwaited(input: RatingEligibilityFacts): boolean {
   if (input.status !== 'completed') return false;
   const { kind } = ratingEligibility(input);

@@ -276,6 +276,6 @@ migration fails, retain its transactional failure evidence and repair forward;
 do not reset or change journal rows. If deployment/version verification fails,
 stop before activation and use the existing deploy incident process. If
 activation times out, inspect/list and retry the identical command: never
-close/open or roll over to compensate. Once competitive data commits, preserve
+close the season to compensate. Once competitive data commits, preserve
 it and repair forward. A second season and carry-over require DEC-111 resolution;
 RATE-H.1 still gates the first production activation.

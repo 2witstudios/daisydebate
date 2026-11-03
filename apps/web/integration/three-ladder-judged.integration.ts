@@ -90,7 +90,7 @@ for (const ladder of ratingLadders)
                 }).executeClaim(claim, new AbortController().signal);
               }
               const candidates = (
-                await f.store.readRatingCandidates({ limit: 64 })
+                await f.store.readRatingCandidates({ limit: 1000 })
               )
                 .filter(({ facts }) => ratingAwaited(facts))
                 .map(({ roundId: id }) => id);

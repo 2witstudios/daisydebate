@@ -71,8 +71,7 @@ describe('readMemberProfile', () => {
         ['round-2', 'judge', 'bot', null, null, 'Judge bot'],
         ['round-2', 'negative', 'human', 'closed-b', at, null],
       ],
-      [['round-2']],
-      [],
+      [{ roundId: 'round-2' }],
     ]);
     const profile = await read(database, { caller, decide });
     assert({

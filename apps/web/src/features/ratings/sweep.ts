@@ -25,8 +25,8 @@ export function createRatingSweep(deps: {
   }) => {
     const candidates = await deps.database.readRatingCandidates(input);
     for (const { roundId, facts } of candidates) {
-      if (!ratingAwaited(facts)) continue;
       try {
+        if (!ratingAwaited(facts)) continue;
         await rateCompletedRound(deps.database, roundId, deps.ids);
       } catch (error) {
         deps.onFailure(roundId, error);

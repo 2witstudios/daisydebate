@@ -88,3 +88,44 @@ test("rating recovery leaves the engine's unrated Rounds alone and still pages p
     },
   });
 });
+
+test('rating recovery reports a Round whose facts cannot be decided and pages on', async () => {
+  const attempts: string[] = [];
+  const failures: string[] = [];
+  const page = await createRatingSweep({
+    ids: { next: () => 'ledger-id' },
+    database: {
+      readRatingCandidates: async () => [
+        {
+          roundId: 'corrupt',
+          facts: {
+            ...rateable,
+            ending: 'judged-on-complete-capture',
+            attendance: {
+              ...rateable.attendance,
+              ruleSegments: null as never,
+            },
+          },
+        },
+        { roundId: 'ready', facts: rateable },
+      ],
+      rateRound: async ({ roundId }) => {
+        attempts.push(roundId);
+        return { kind: 'already-rated' };
+      },
+    },
+    onFailure: (roundId) => {
+      failures.push(roundId);
+    },
+  })({ limit: 2 });
+  assert({
+    given: 'one candidate whose stored facts make the decision throw',
+    should: 'report that Round and still rate the rest of the page',
+    actual: { attempts, failures, page },
+    expected: {
+      attempts: ['ready'],
+      failures: ['corrupt'],
+      page: { afterId: 'ready', exhausted: false },
+    },
+  });
+});

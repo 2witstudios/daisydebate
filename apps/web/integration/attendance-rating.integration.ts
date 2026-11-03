@@ -3,10 +3,9 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { settleAttendanceFixture } from './attendance-evaluator.test-support';
-import { ratingAwaited } from '@daisy/debate-engine';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { withAttendanceRound } from './attendance.test-support';
-import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
+import { rateDebate, ratingAwaited, ratingPolicy } from '@daisy/debate-engine';
 setupRitewayBun();
 requireTestServices(process.env);
 

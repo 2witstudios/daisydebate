@@ -26,7 +26,7 @@ type FactsRow = Omit<RatingEligibilityFacts, 'attendance'> &
 
 const readCandidates = async (
   db: Execute,
-  where: SQL,
+  selection: SQL,
 ): Promise<readonly RatingCandidate[]> => {
   const rows = (await db.execute(sql`select r.id as "roundId",
       r.competition_type as "competitionType", r.ladder_id as "ladderId",
@@ -36,7 +36,7 @@ const readCandidates = async (
       ${recordedEnding} as ending,
       ${attendanceLedgerColumns}
     from rounds r ${recordedEndingJoins}
-    where ${where}`)) as unknown as FactsRow[];
+    where ${selection}`)) as unknown as FactsRow[];
   return rows.map(
     ({
       roundId,
