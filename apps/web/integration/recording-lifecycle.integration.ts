@@ -251,6 +251,145 @@ test('an unlisted Recording opens only past its current link', async () => {
   );
 });
 
+test('a Recording taken down during an open Broadcast comes back to its audience on restore', async () => {
+  await withReadyRecording(
+    async ({ store, inputs, id, roundId, sql, stranger, moderate }) => {
+      const deps = { store, objects: fakeObjectStore().store, inputs };
+      await sql`update rooms set visibility='public' where id=(select room_id from rounds where id=${roundId})`;
+      await sql`update rounds set visibility='public' where id=${roundId}`;
+      const broadcastId = createId();
+      await sql`insert into broadcasts (id, round_id, feed_key, release_policy, released_through_at)
+        values (${broadcastId}, ${roundId}, ${createId()}, ${{ kind: 'delay', seconds: 60 }}, ${at}::timestamptz + interval '1 hour')`;
+      const play = () =>
+        openPlayback(deps, {
+          recordingId: id,
+          path: ['720p', 'seg.ts'],
+          viewer: stranger,
+          presentedLinkHashOf: () => null,
+        });
+      const listed = async () =>
+        (
+          await store.listArchive({
+            query: {
+              scope: 'all',
+              mode: 'any',
+              q: '',
+              sort: 'newest',
+              before: '',
+            },
+            viewerActorId: null,
+            clock: spectatorClockAt(new Date().toISOString()),
+            limit: 50,
+          })
+        ).rows
+          .filter((row) => row.id === roundId)
+          .map((row) => row.release.stop);
+      try {
+        assert({
+          given: 'a takedown with the feed open',
+          should: 'apply',
+          actual: await moderate({
+            action: 'recording.takedown',
+            recordingId: id,
+            expectedVersion: 4,
+            reason: 'policy_violation',
+          }),
+          expected: { v: 1, outcome: 'applied' },
+        });
+        await assertRejects({
+          given: 'the audience while it is down',
+          should: 'refuse the video',
+          code: 'NOT_FOUND',
+          actual: play,
+        });
+        assert({
+          given: 'the restore',
+          should: 'apply, with the feed staying ended',
+          actual: [
+            await moderate({
+              action: 'recording.restore',
+              recordingId: id,
+              expectedVersion: 5,
+            }),
+            (
+              (await sql`select stopped_at is not null as stopped from broadcasts where id=${broadcastId}`) as {
+                stopped: boolean;
+              }[]
+            )[0]?.stopped,
+          ],
+          expected: [{ v: 1, outcome: 'applied' }, true],
+        });
+        assert({
+          given: 'the audience after the restore',
+          should: 'play the video again and list it in the archive',
+          actual: [Boolean(await play()), await listed()],
+          expected: [true, ['feed_ended']],
+        });
+        await moderate({
+          action: 'broadcast.stop',
+          broadcastId,
+          reason: 'technical',
+        });
+        await assertRejects({
+          given: 'an operator then stopping that Broadcast',
+          should: 'hold the video back from the audience',
+          code: 'NOT_FOUND',
+          actual: play,
+        });
+        assert({
+          given: 'the same stop, in the archive',
+          should: 'no longer list the video to the public',
+          actual: await listed(),
+          expected: [],
+        });
+      } finally {
+        await sql`delete from broadcasts where id=${broadcastId}`;
+      }
+    },
+  );
+});
+
+test('a Recording of an abandoned Round can be found, and a participant can remove it', async () => {
+  await withReadyRecording(
+    async ({ store, inputs, id, roundId, sql, seat, stranger }) => {
+      await sql`update rounds set status='abandoned', outcome=null where id=${roundId}`;
+      const list = async (scope: 'all' | 'mine', viewerActorId: string) =>
+        (
+          await store.listArchive({
+            query: { scope, mode: 'any', q: '', sort: 'newest', before: '' },
+            viewerActorId,
+            clock: spectatorClockAt(new Date().toISOString()),
+            limit: 50,
+          })
+        ).rows.map((row) => row.id);
+      const actorOf = (viewer: RecordingViewer) =>
+        viewer.kind === 'account' ? viewer.actorId : '';
+      assert({
+        given: 'its participant looking through their own Rounds',
+        should: 'find it',
+        actual: (await list('mine', actorOf(seat))).includes(roundId),
+        expected: true,
+      });
+      assert({
+        given: 'a stranger looking through their own Rounds',
+        should: 'not find it',
+        actual: (await list('mine', actorOf(stranger))).includes(roundId),
+        expected: false,
+      });
+      const removed = await requestParticipantRemoval(
+        { store, inputs },
+        { recordingId: id, expectedVersion: 4, viewer: seat, now: at },
+      );
+      assert({
+        given: 'that participant asking to remove the casual Recording',
+        should: 'write the removal',
+        actual: removed.lifecycle.status,
+        expected: 'removing',
+      });
+    },
+  );
+});
+
 test('capture reports are idempotent against the real store', async () => {
   await withReadyRecording(async ({ store, id }) => {
     const record = await store.find(id);
@@ -409,6 +548,7 @@ test('deletion survives a vendor outage and is idempotent to the end', async () 
       objects: down.store,
       owner: 'w1',
       nowMs: later,
+      report: () => {},
     });
     assert({
       given: 'object storage down',
@@ -428,6 +568,7 @@ test('deletion survives a vendor outage and is idempotent to the end', async () 
       objects: up.store,
       owner: 'w2',
       nowMs: retryAt,
+      report: () => {},
     });
     assert({
       given: 'storage back',
@@ -440,6 +581,7 @@ test('deletion survives a vendor outage and is idempotent to the end', async () 
       objects: up.store,
       owner: 'w3',
       nowMs: retryAt,
+      report: () => {},
     });
     const removed = await store.find(id);
     assert({
@@ -457,6 +599,7 @@ test('deletion survives a vendor outage and is idempotent to the end', async () 
       objects: up.store,
       owner: 'w4',
       nowMs: retryAt,
+      report: () => {},
     });
     assert({
       given: 'the sweep run again',

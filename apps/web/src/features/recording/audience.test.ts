@@ -39,7 +39,7 @@ const nothing = {
   result: false,
 };
 const everything = { open: true, media: true, transcript: true, result: true };
-const passed = { releasedThroughMs: 200_000, stopped: false } as const;
+const passed = { releasedThroughMs: 200_000, stop: 'none' } as const;
 
 describe('roundEvidencePermissions', () => {
   test('follows the audience timeline', () => {
@@ -48,7 +48,7 @@ describe('roundEvidencePermissions', () => {
       should: 'not admit the audience at all',
       actual: roundEvidencePermissions(
         round,
-        { releasedThroughMs: 100_000, stopped: false },
+        { releasedThroughMs: 100_000, stop: 'none' },
         visitor,
       ),
       expected: nothing,
@@ -58,7 +58,7 @@ describe('roundEvidencePermissions', () => {
       should: 'not admit the audience',
       actual: roundEvidencePermissions(
         round,
-        { releasedThroughMs: null, stopped: false },
+        { releasedThroughMs: null, stop: 'none' },
         account('stranger'),
       ),
       expected: nothing,
@@ -74,7 +74,7 @@ describe('roundEvidencePermissions', () => {
       should: 'not hold its own evidence back',
       actual: roundEvidencePermissions(
         round,
-        { releasedThroughMs: null, stopped: false },
+        { releasedThroughMs: null, stop: 'none' },
         account('aff'),
       ),
       expected: everything,
@@ -86,14 +86,31 @@ describe('roundEvidencePermissions', () => {
       given: 'a stopped ranked Broadcast past its end, and its seat',
       should: 'withhold the video from the audience, and never from the seat',
       actual: [
-        roundEvidencePermissions(round, { ...passed, stopped: true }, visitor),
         roundEvidencePermissions(
           round,
-          { ...passed, stopped: true },
+          { ...passed, stop: 'media_withheld' },
+          visitor,
+        ),
+        roundEvidencePermissions(
+          round,
+          { ...passed, stop: 'media_withheld' },
           account('aff'),
         ).media,
       ],
       expected: [{ ...everything, media: false }, true],
+    });
+  });
+
+  test('a feed that ended without the operator stopping it withholds nothing', () => {
+    assert({
+      given: 'a Broadcast whose feed a takedown ended, the Recording restored',
+      should: 'let the audience watch',
+      actual: roundEvidencePermissions(
+        round,
+        { ...passed, stop: 'feed_ended' },
+        visitor,
+      ).media,
+      expected: true,
     });
   });
 

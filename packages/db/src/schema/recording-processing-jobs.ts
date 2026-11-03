@@ -31,8 +31,12 @@ export const recordingProcessingJobs = pgTable(
     holdPrefix: text('hold_prefix').notNull(),
     status: text('status').$type<RecordingJobState['status']>().notNull(),
     state: jsonbColumn('state', recordingJobStateSchema).notNull(),
-    /** A failed run comes due again here, so an outage only delays the work. */
-    failures: integer('failures').notNull().default(0),
+    /**
+     * Runs claimed since the job was last queued, counted at the claim so one that
+     * dies with its process counts too. A shutdown gives its run back.
+     */
+    runsStarted: integer('runs_started').notNull().default(0),
+    /** A run that does not answer comes due again here: an outage only delays the work. */
     dueAt: timestampColumn('due_at'),
     leaseOwner: text('lease_owner'),
     leaseUntil: timestampColumn('lease_until'),
@@ -61,7 +65,7 @@ export const recordingProcessingJobs = pgTable(
     ),
     check(
       'recording_jobs_counters_check',
-      sql`${table.failures} >= 0 and ${table.leaseEpoch} >= 0`,
+      sql`${table.runsStarted} >= 0 and ${table.leaseEpoch} >= 0`,
     ),
     check(
       'recording_jobs_lease_check',

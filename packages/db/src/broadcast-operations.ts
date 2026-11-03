@@ -373,7 +373,20 @@ export const listOpenBroadcasts = (
     .limit(limit);
 
 /**
- * How far the audience's timeline has reached for this Round, and whether its
+ * How a Broadcast's feed came to end, as far as its audience's video goes: an
+ * operator's stop holds the video back, and any other end leaves that to the
+ * Recording's own state.
+ */
+export type BroadcastStop = 'none' | 'feed_ended' | 'media_withheld';
+
+export const broadcastStopOf = (
+  stopped: boolean,
+  mediaWithheld: boolean | null,
+): BroadcastStop =>
+  !stopped ? 'none' : mediaWithheld ? 'media_withheld' : 'feed_ended';
+
+/**
+ * How far the audience's timeline has reached for this Round, and how its
  * Broadcast was stopped. One rule with every other read: `spectatorHorizonSql`.
  */
 export const readBroadcastRelease = async (
@@ -383,18 +396,20 @@ export const readBroadcastRelease = async (
 ) => {
   const rows = await reader.execute(sql`
     select ${spectatorHorizonSql(roundAliasR, clock)} as horizon,
-      exists (select 1 from broadcasts b where b.round_id = r.id and b.stopped_at is not null) as stopped
+      exists (select 1 from broadcasts b where b.round_id = r.id and b.stopped_at is not null) as stopped,
+      exists (select 1 from broadcasts b where b.round_id = r.id and b.media_withheld) as withheld
     from rounds r where r.id = ${roundId}`);
   const [row] = rows as unknown as {
     readonly horizon: Date | string | null;
     readonly stopped: boolean;
+    readonly withheld: boolean;
   }[];
   return {
     releasedThroughMs:
       row?.horizon === null || row?.horizon === undefined
         ? null
         : new Date(row.horizon).getTime(),
-    stopped: row?.stopped ?? false,
+    stop: broadcastStopOf(row?.stopped ?? false, row?.withheld ?? false),
   };
 };
 
@@ -544,12 +559,12 @@ export const readConversationHeld = async (
 };
 
 /**
- * An operator stops a Broadcast (WATCH-7). The reconciler then stops its
- * Egress, and the stop stands: a repeat, or a Broadcast already complete, is
- * `unchanged`, though the complete one's feed is asked to go at once. Null when
+ * Ends a Broadcast's feed, for whatever must not keep playing. The reconciler then
+ * stops its Egress, and the stop stands: a repeat, or a Broadcast already complete,
+ * is `unchanged`, though the complete one's feed is asked to go at once. Null when
  * there is no such Broadcast.
  */
-export const stopBroadcast = async (
+export const endBroadcastFeed = async (
   tx: Tx,
   input: {
     readonly id: string;
@@ -587,4 +602,31 @@ export const stopBroadcast = async (
     .from(broadcasts)
     .where(eq(broadcasts.id, input.id));
   return found ? 'unchanged' : null;
+};
+
+/**
+ * An operator stops a Broadcast (WATCH-7): its feed ends and its video is held back
+ * from the audience, even if something else had already ended the feed.
+ */
+export const stopBroadcast = async (
+  tx: Tx,
+  input: {
+    readonly id: string;
+    readonly reason: string;
+    readonly now: Date;
+  },
+): Promise<'applied' | 'unchanged' | null> => {
+  const ended = await endBroadcastFeed(tx, input);
+  const withheld = await tx
+    .update(broadcasts)
+    .set({ mediaWithheld: true })
+    .where(
+      and(
+        eq(broadcasts.id, input.id),
+        isNotNull(broadcasts.stoppedAt),
+        eq(broadcasts.mediaWithheld, false),
+      ),
+    )
+    .returning({ id: broadcasts.id });
+  return withheld.length === 1 ? 'applied' : ended;
 };

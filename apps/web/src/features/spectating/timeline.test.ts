@@ -25,6 +25,7 @@ const broadcast = (
   releasedThroughAt: null,
   completedAt: null,
   stoppedAt: null,
+  mediaWithheld: false,
   ...over,
 });
 const stream = { path: 'owned_hls', manifestUrl: MANIFEST } as const;
@@ -489,14 +490,25 @@ describe('projectSpectatorTimeline', () => {
       expected: undefined,
     });
     assert({
-      given: 'a released end on a stopped Broadcast',
+      given: 'a released end on a Broadcast whose media is withheld',
       should: 'withhold the Recording',
+      actual: recording({
+        recordingStatus: 'ready',
+        outcomeReleased: true,
+        broadcast: broadcast({ stoppedAt: ended, mediaWithheld: true }),
+      }),
+      expected: 'none',
+    });
+    assert({
+      given:
+        'a released end on a feed a takedown ended, the Recording restored',
+      should: 'say the Recording is ready',
       actual: recording({
         recordingStatus: 'ready',
         outcomeReleased: true,
         broadcast: broadcast({ stoppedAt: ended }),
       }),
-      expected: 'none',
+      expected: 'ready',
     });
   });
 });

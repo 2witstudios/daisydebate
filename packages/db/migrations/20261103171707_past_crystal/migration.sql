@@ -1,0 +1,2 @@
+ALTER TABLE "recording_processing_jobs" ADD COLUMN "runs_started" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "recording_processing_jobs" DROP CONSTRAINT "recording_jobs_counters_check", ADD CONSTRAINT "recording_jobs_counters_check" CHECK ("runs_started" >= 0 and "lease_epoch" >= 0);
