@@ -4,6 +4,7 @@ import { bytesOf } from './draw-random';
 import { createRoundRuntime } from './round-runtime';
 import {
   projectOpening,
+  settledOpeningTopic,
   settleOpening,
   strikeOpening,
   type OpeningSeat,
@@ -122,5 +123,16 @@ export const readRoundOpening = (
       eligible: seat.actorId === viewer.actorId && viewer.eligible,
     })),
     viewer.actorId,
+    now,
+  );
+
+/** The settled resolution of a stored opening; null until a draw has narrowed. */
+export const readRoundOpeningTopic = (
+  opening: { readonly state: RoundOpening; readonly seed: string | null },
+  now: string,
+) =>
+  settledOpeningTopic(
+    opening.state,
+    opening.seed === null ? null : bytesOf(opening.seed),
     now,
   );
