@@ -60,16 +60,18 @@ export function DataRights({
           </button>
         </form>
         <p className={helper}>
-          A JSON file of what the privacy policy lists as yours. An export
-          cannot be recalled once downloaded.
+          A JSON file of your data records, not video. An export cannot be
+          recalled once downloaded.
         </p>
       </div>
       <div className="flex flex-col gap-3">
         <h3 className={fieldsetLegend}>Close your account</h3>
         <p className={helper}>
-          Closing your account deletes your private data and signs you out
-          everywhere. It cannot be undone. Your username stays on the
-          competitive record, shown as closed, and cannot be reused.
+          Closing your account deletes your private data and any casual
+          recording you took part in, and signs you out everywhere. It cannot be
+          undone. Your username stays on the competitive record, shown as
+          closed, and cannot be reused. Ranked video and transcripts stay: Daisy
+          owns ranked content.
         </p>
         {/* A native post with one server-checked confirmation. */}
         <form method="post" action="/api/privacy/erase">

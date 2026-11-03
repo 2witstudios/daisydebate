@@ -5,6 +5,7 @@ import { endRoundFeed } from './broadcast-operations';
 import { openRecordingJobIfEgressRecorded } from './recording-processing-operations';
 import {
   moveRecording,
+  recordingUnderOpenReport,
   type RecordingDecision,
   type StoredRecording,
 } from './recording-move';
@@ -80,19 +81,21 @@ export const recordingOperations = ({
   },
 
   /**
-   * A participant's removal: the caller's decision under the row lock, and when it
-   * moves, the end of the Round's open feed in the same transaction.
+   * A participant's removal: the caller's decision under the row lock, told whether an
+   * open report holds it as evidence, and when it moves, the end of the Round's open
+   * feed in the same transaction.
    */
   applyParticipantRemoval<Decision extends RecordingDecision>(
     id: string,
-    decide: (record: StoredRecording) => Decision,
+    decide: (record: StoredRecording, underOpenReport: boolean) => Decision,
     input: { readonly expectedVersion: number; readonly now: string },
   ) {
     return database.transaction(async (tx) => {
+      const underOpenReport = await recordingUnderOpenReport(tx, id);
       const applied = await moveRecording(
         tx,
         id,
-        decide,
+        (record) => decide(record, underOpenReport),
         input.expectedVersion,
       );
       if (applied.kind === 'decided' && applied.transition.kind === 'moved')
@@ -202,6 +205,10 @@ export const recordingOperations = ({
           // A ranked Recording is kept forever: no timer removes what it left.
           eq(recordings.recordingClass, 'casual'),
           lte(recordings.updatedAt, new Date(input.before)),
+          // What a report rests on stays until the report is decided.
+          sql`not exists (select 1 from content_reports c where c.status = 'open' and (
+            (c.target_kind = 'recording' and c.target_id = ${recordings.id})
+            or (c.target_kind = 'round' and c.target_id = ${recordings.roundId})))`,
         ),
       )
       .orderBy(asc(recordings.updatedAt))

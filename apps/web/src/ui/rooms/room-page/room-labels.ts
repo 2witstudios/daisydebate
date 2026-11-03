@@ -127,6 +127,9 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
     'a person to judge: AI judging on casual rounds is premium',
   'capture-premium':
     'the host to turn off broadcast and recording: they need a subscription',
+  'capture-host-limit':
+    'one of the host’s broadcast or recorded rounds to finish',
+  'capture-capacity': 'a free broadcast slot: all are busy, try again shortly',
   'broadcast-private': 'a Room that is not private, to broadcast it',
   'content-waiver-required': 'the ranked content waiver to be signed',
   'capture-notice-changed': 'the latest recording notice to be read',

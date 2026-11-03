@@ -11,6 +11,7 @@ import {
   mayDownload,
   mayRequestRemoval,
   recordingMediaState,
+  moderationHidesText,
   permissionsAfterModeration,
   roundEvidencePermissions,
   type BroadcastRelease,
@@ -328,19 +329,27 @@ export const openRecordingHistory = async (
   );
   if (!admitted.open) return { kind: 'unavailable' };
   const record = await inputs.findRecordingByRound(round.id);
+  const hiddenByModeration =
+    record !== null && recordingHiddenByModeration(record.lifecycle);
   const permissions = permissionsAfterModeration(
     admitted,
     round,
     input.viewer,
-    record !== null && recordingHiddenByModeration(record.lifecycle),
+    hiddenByModeration,
   );
-  const [transcript, ballots, subscribed] = await permittedReads(
+  const [transcript, readBallots, subscribed] = await permittedReads(
     inputs,
     round.id,
     permissions,
     input.viewer,
   );
-  const state = recordingMediaState(record?.lifecycle.status ?? null);
+  // The result stands; the ballots carry the judges' words, which go with the footage.
+    const ballots =
+      readBallots &&
+      moderationHidesText(round, input.viewer, hiddenByModeration)
+        ? []
+        : readBallots;
+    const state = recordingMediaState(record?.lifecycle.status ?? null);
   // A public Round with neither video nor anything this viewer may read is not
   // offered: a stranger learns nothing from its page.
   if (state === 'not_recorded' && transcript === null && ballots === null)

@@ -1,12 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import {
-  deleteExpiredBatch,
-  requireRetentionBounds,
-  type RetentionBatch,
-} from './retention';
+import { requireRetentionBounds, type RetentionBatch } from './retention';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { utterances } from './schema/utterances';
 
 /**
  * Discards a validated pending judging response by ending its job 'failed',
@@ -18,7 +13,7 @@ export const discardPendingJudgment = sql`status='failed',terminal_reason='ballo
   pending_ballot=null,pending_ballot_agent_run_id=null,pending_ballot_epoch=null,pending_ballot_received_at=null`;
 
 /**
- * DEC-101 transcripts and DEC-89 judging data are kept 180 days; the sweep
+ * DEC-101 casual transcripts and DEC-89 judging data are kept 180 days; the sweep
  * applies the window. Each call is one bounded autocommitted statement, as in
  * `deleteExpiredBatch`.
  */
@@ -29,14 +24,21 @@ export const transcriptRetention = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  purgeExpiredUtterances: (batch: RetentionBatch) =>
-    instrumented(eventSink, 'purgeExpiredUtterances', () =>
-      deleteExpiredBatch(
-        database,
-        { table: utterances, key: utterances.id, at: utterances.createdAt },
-        batch,
-      ),
-    ),
+  /** A ranked Round's transcript is ranked content: its waiver keeps it, so no window does. */
+  purgeExpiredUtterances: ({ before, limit }: RetentionBatch) =>
+    instrumented(eventSink, 'purgeExpiredUtterances', async () => {
+      requireRetentionBounds({ before, limit });
+      const gone = await database.execute(sql`
+        delete from utterances where id in (
+          select u.id from utterances u
+          join rounds r on r.id = u.round_id
+          where u.created_at < ${before}::timestamptz
+            and r.competition_type <> 'ranked'
+          order by u.created_at
+          limit ${limit}
+        ) returning id`);
+      return (gone as unknown as unknown[]).length;
+    }),
   clearExpiredPendingBallots: ({ before, limit }: RetentionBatch) =>
     instrumented(eventSink, 'clearExpiredPendingBallots', async () => {
       requireRetentionBounds({ before, limit });

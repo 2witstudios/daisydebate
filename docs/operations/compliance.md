@@ -51,7 +51,7 @@ inventory and no gate; the reviewer checks this page.
 
 ## Data classes
 
-Data subjects: members (16+ during the beta, 13+ later), people who started
+Data subjects: members (16+), people who started
 a sign-up and never finished, newsletter subscribers, and operators.
 
 | Class                       | What it holds                                                                                                                                                                                                                                                                                             | Purpose                                                                                                                                                                      | Lawful basis (proposed)                                                                                                                | Retention (proposed)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | On erasure                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Owning module                                                                                                                   |
@@ -118,9 +118,10 @@ opting-in host's actor id) and its capture row's timings and Egress ids, with no
 keys. Moderation may take any Recording down, and may then remove it; only a legal ground
 removes one still up.
 
-**Evidence retention.** A casual Recording already taken down, with an open report on it
-or its Round, survives erasure, hidden from everyone and not restorable, until the report
-closes or 90 days pass, and is then deleted the same way. Only an operator's legal removal,
+**Evidence retention.** A casual Recording with an open report on it or its Round survives
+erasure and a participant's removal, hidden from everyone and not restorable, until the report
+closes or 90 days pass, and is then deleted the same way. A moderation removal is refused while
+the report is open, and a failed capture's cleanup waits. Only an operator's legal removal,
 with a closed legal ground on the audit record, deletes it sooner. Its purpose is to keep what a
 report rests on until the report is decided; the period and basis are **not reviewed by
 counsel**. With no open report it goes at once.
@@ -152,12 +153,12 @@ and the policy may change after that review. The waiver the class rests on is a
 draft for counsel ([ranked content waiver](../legal/ranked-content-waiver.md)).
 Nothing here states that it has been legally reviewed or approved.
 
-A ranked Round's transcript lines belong to this class, so erasure keeps them, along
+A ranked Round's transcript lines belong to this class, so the 180-day window does not
+reach them. Erasure keeps them, along
 with the Round's pending judgment. A casual Round's lines still erase with the member.
 
-It does not keep the member's own transcript lines. Erasure deletes them from
-every Round, ranked included. It also discards every held AI judgment of a Round
-they sat in (DEC-223) and clears every Round analysis of it, the other debater's
+Erasure deletes the member's own transcript lines from every non-ranked Round, and
+discards every held AI judgment of such a Round they sat in (DEC-223). It also clears every Round analysis of it, the other debater's
 too. Limits of that:
 
 - Other people's lines stay until their 180-day retention ends, and can repeat
@@ -184,7 +185,7 @@ today beyond what the record and deliverability already keep.
 
 ## Children
 
-Members must be 13 or older; the beta floor is 16 (DEC-244, one trusted
+Members must be 16 or older (DEC-244, one trusted
 configuration value). The age step stores only a birth month. An under-13
 answer is refused neutrally: nothing is stored and the provisional account is
 deleted at once, with its sign-in links and delivery receipts (WAIT-4.7).

@@ -9,7 +9,7 @@ describe('legal versions', () => {
       given: 'the current terms and privacy versions',
       should: 'name the served texts',
       actual: [TERMS_VERSION, PRIVACY_VERSION],
-      expected: ['draft-0.2', 'draft-0.1'],
+      expected: ['draft-0.3', 'draft-0.2'],
     });
   });
 });

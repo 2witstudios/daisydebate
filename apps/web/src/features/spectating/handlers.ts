@@ -30,6 +30,8 @@ export function createSpectatorTimelineHandlers(deps: {
   >;
   readonly clock: Pick<Clock, 'now'>;
   readonly feedUrlOf: SpectatorTimelineContext['feedUrlOf'];
+  /** The per-client limit; it runs before any read. */
+  readonly limitRead?: (request: Request) => Promise<unknown>;
 }) {
   const snapshots = createWatchRoundSnapshots(deps);
   const links = joinReadInFlight<LinkRead>();
@@ -45,6 +47,7 @@ export function createSpectatorTimelineHandlers(deps: {
         'spectating.timeline',
         () =>
           answerUnlessRefused(async () => {
+            await deps.limitRead?.(request);
             const snapshot = await snapshots(roundId);
             const admitted =
               snapshot !== null &&

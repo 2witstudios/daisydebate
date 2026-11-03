@@ -56,6 +56,8 @@ const conflictAnswer = (
     case 'draw-unavailable':
     case 'bots-busy':
     case 'capture-premium':
+    case 'capture-host-limit':
+    case 'capture-capacity':
     case 'broadcast-private':
     case 'content-waiver-required':
     case 'content-waiver-changed':

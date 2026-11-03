@@ -98,6 +98,13 @@ export const roundEvidencePermissions = (
   };
 };
 
+/** Whether moderation keeps this viewer from a Round's words: ballot reasons too. */
+export const moderationHidesText = (
+  round: RecordingRound,
+  viewer: RecordingViewer,
+  hiddenByModeration: boolean,
+): boolean => hiddenByModeration && !seated(round, viewer);
+
 /**
  * After moderation hid a Recording the audience gets no text of its Round either; a
  * member seated in it keeps their own record.
@@ -108,7 +115,7 @@ export const permissionsAfterModeration = (
   viewer: RecordingViewer,
   hiddenByModeration: boolean,
 ): RoundEvidencePermissions =>
-  hiddenByModeration && !seated(round, viewer)
+  moderationHidesText(round, viewer, hiddenByModeration)
     ? { ...permissions, transcript: false }
     : permissions;
 

@@ -146,8 +146,9 @@ function SubjectActions({
           ) : null}
           {subject.status === 'taken_down' && !subject.removable ? (
             <p>
-              Held as evidence: a member asked for this to go while a report is
-              open. Only a legal removal can delete it before the hold ends.
+              Held as evidence while a report on it or its Round is open. Close
+              the report to delete it. Only a legal removal can delete it
+              sooner.
             </p>
           ) : null}
           {subject.restorable ? (

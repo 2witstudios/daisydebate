@@ -7,6 +7,7 @@ import {
   audienceLinkCookie,
   audienceLinkHash,
 } from '../audience-link/audience-link';
+import { limitAnonymousReads } from './anonymous-read-limit';
 import { createSpectatorTimelineHandlers } from './handlers';
 
 setupRitewayBun();
@@ -24,6 +25,46 @@ const handlers = (readSpectatorTimeline: (input: never) => Promise<unknown>) =>
   });
 
 describe('spectator timeline route', () => {
+  test('the per-client limit runs before any read', async () => {
+    let reads = 0;
+    const limited = createSpectatorTimelineHandlers({
+      logger: silentLogger,
+      reporter: noopErrorReporter,
+      clock: { now: () => '2026-11-02T00:00:00.000Z' },
+      feedUrlOf: () => null,
+      store: {
+        readSpectatorTimeline: async () => {
+          reads += 1;
+          return null;
+        },
+      } as never,
+      limitRead: limitAnonymousReads(() => ({
+        consume: async () => ({ allowed: false, retryAfterSeconds: 30 }),
+      })),
+    });
+    const response = await limited.GET(request(), roundId);
+    assert({
+      given: 'an address past its limit',
+      should: 'refuse and read nothing',
+      actual: [response.status, reads],
+      expected: [429, 0],
+    });
+  });
+
+  test('a malformed id reads nothing and takes no place in the memo', async () => {
+    let reads = 0;
+    const response = await handlers(async () => {
+      reads += 1;
+      return null;
+    }).GET(request(), 'not an id');
+    assert({
+      given: 'an id no Round could have',
+      should: 'answer as missing, with no read',
+      actual: [response.status, reads],
+      expected: [404, 0],
+    });
+  });
+
   test('a Round with no audience', async () => {
     const response = await handlers(async () => null).GET(request(), roundId);
     assert({

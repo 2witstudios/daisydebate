@@ -123,6 +123,8 @@ export function createAudienceSnapshotRoute(deps: {
   readonly counts: ViewerCounts;
   readonly clock: Pick<Clock, 'now'>;
   readonly identify: (request: Request) => Promise<Identity>;
+  /** The per-client limit; it runs before any read. */
+  readonly limitRead?: (request: Request) => Promise<unknown>;
 }) {
   // Keyed by Round alone and holding no link: admission happens after it. The
   // body is the one serialization a crowd shares; a reader's own view is apart.
@@ -170,6 +172,9 @@ export function createAudienceSnapshotRoute(deps: {
       'audience.snapshot',
       () =>
         answerUnlessRefused(async () => {
+          await deps.limitRead?.(request);
+          // A malformed id reads as missing before it can take a place in the memo.
+          if (!idSchema.safeParse(roundId).success) return notFound();
           const shared = await memo(roundId, () => readShared(roundId));
           if (shared === null) return notFound();
           const { read, body } = shared;
