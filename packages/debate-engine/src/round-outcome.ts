@@ -1,17 +1,16 @@
 import { createAppError } from '@daisy/errors';
-import type { DebateSide, RatedOutcome } from '@daisy/protocol';
+import type { DebateSide } from '@daisy/protocol';
 
 type Seat = { readonly id: string; readonly role: string };
 type Ruling = {
   readonly judgeParticipantId: string;
   readonly winner: DebateSide;
-  readonly status: 'submitted' | 'voided';
 };
-/** Every required seat must supply exactly one valid ruling; there is no replacement or void policy here. */
+/** Every required seat must supply exactly one valid ruling. A tie has no winner: there are no draws (DEC-277). */
 export function deriveRoundOutcome(
   seats: readonly Seat[],
   ballots: readonly Ruling[],
-): RatedOutcome {
+): DebateSide | null {
   const required = seats
     .filter((seat) => seat.role === 'judge')
     .map((seat) => seat.id);
@@ -22,11 +21,7 @@ export function deriveRoundOutcome(
     assigned.size !== required.length ||
     supplied.size !== ballots.length ||
     ballots.length !== required.length ||
-    ballots.some(
-      (ballot) =>
-        ballot.status !== 'submitted' ||
-        !assigned.has(ballot.judgeParticipantId),
-    )
+    ballots.some((ballot) => !assigned.has(ballot.judgeParticipantId))
   )
     throw createAppError(
       'INVARIANT',
@@ -37,7 +32,7 @@ export function deriveRoundOutcome(
   ).length;
   const negative = ballots.length - affirmative;
   return affirmative === negative
-    ? 'draw'
+    ? null
     : affirmative > negative
       ? 'affirmative'
       : 'negative';
@@ -45,13 +40,9 @@ export function deriveRoundOutcome(
 
 /** The exact rulings admitted by the partial finalizer; preserves caller-owned IDs. */
 export const participatingRulings = <
-  T extends Pick<Ruling, 'judgeParticipantId' | 'status'>,
+  T extends Pick<Ruling, 'judgeParticipantId'>,
 >(
   judgeSeatIds: readonly string[],
   ballots: readonly T[],
 ): readonly T[] =>
-  ballots.filter(
-    (ballot) =>
-      ballot.status === 'submitted' &&
-      judgeSeatIds.includes(ballot.judgeParticipantId),
-  );
+  ballots.filter((ballot) => judgeSeatIds.includes(ballot.judgeParticipantId));

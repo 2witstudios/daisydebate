@@ -19,6 +19,8 @@ export function composeMediaCaptureRoutes(app: App) {
     (capture ??= app.database.createMediaCaptureOperations({
       sttLagMs: CAPTURE_STT_LAG_MS,
       captureRule,
+      sealed: (fact) =>
+        app.logger.log('media.capture.sealed', fact, 'Capture stream sealed'),
       nextId: () => app.ids.next(),
       buildProjection: ({ round, now }) =>
         createRoundRuntime({

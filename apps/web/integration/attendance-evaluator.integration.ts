@@ -1,3 +1,4 @@
+import { decisionOf } from './attendance-evaluation.test-support';
 import { buildRoundTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -31,7 +32,9 @@ test('competing attendance sweeps commit one shared-engine decision and exactly 
         should:
           'serialize one decision, ledger receipt and shared-engine announcement',
         actual: {
-          fulfilledDecisions: fulfilled.map((result) => result.value?.decision),
+          fulfilledDecisions: fulfilled.map((result) =>
+            decisionOf(result.value),
+          ),
           rejected: rejected.length,
           ...facts,
         },
@@ -90,7 +93,7 @@ test('failed shared announcement rolls back adjudication lifecycle, receipt, spe
       assert({
         given: 'the owned outbox fault is removed',
         should: 'retry to the single truthful forfeit',
-        actual: (await attendance.evaluate(roundId))?.decision,
+        actual: decisionOf(await attendance.evaluate(roundId)),
         expected: 'forfeit',
       });
     } finally {
@@ -114,7 +117,7 @@ test('fresh scheduled-speaker erasure resolves none instead of inventing absence
         should:
           'resolve an explicit immutable no-decision while preserving active Round and actual check-in facts',
         actual: {
-          decision: resolution?.decision,
+          decision: decisionOf(resolution),
           receipt: receipt?.decision,
           status: round?.status,
           outcome: round?.outcome,

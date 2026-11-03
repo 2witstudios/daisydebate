@@ -1,22 +1,22 @@
 import type { IdGenerator } from '@daisy/clock';
-import type {
-  AttendanceHold,
-  AttendanceResolution,
-} from '@daisy/db/attendance';
+import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import type { Database } from '@daisy/db';
 import {
+  attendanceSettled,
+  botGrantUnused,
   createRoundRuntime,
   decidePanelCompletion,
+  judgingEndIsReported,
+  judgingJobEndReason,
+  judgingPanelOf,
   freezeJudgingPlan,
   participatingRulings,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError, createRefusal } from '@daisy/errors';
+import { judgingPolicy, type JudgingTerminalReason } from '@daisy/protocol';
 import { createRatingSweep } from '../ratings/sweep';
-import { AI_JUDGING_BUDGET_MS } from '../round-judging/budget';
 import { maintenanceTickProjection, roundTickProjection } from './operations';
 
-/** Human judges may rule for 30 minutes after the immutable freeze (DEC-201). */
-export const DEFAULT_BALLOT_DEADLINE_MS = 30 * 60_000;
 /** A Round not started 15 minutes after Launch is abandoned (DEC-214). */
 export const ROUND_START_HORIZON_MS = 15 * 60_000;
 type JudgingPlanner = Parameters<
@@ -29,7 +29,7 @@ export const judgingPlan =
     freezeJudgingPlan({
       ...facts,
       ballotDeadlineMs,
-      aiJudgingBudgetMs: AI_JUDGING_BUDGET_MS,
+      aiJudgingBudgetMs: judgingPolicy.aiBudgetMs,
     });
 type CompletionBuilder = Parameters<
   Database['completePanelRound']
@@ -37,28 +37,16 @@ type CompletionBuilder = Parameters<
 /** The engine decides; a judged Round before its persisted ballot deadline is not yet eligible. */
 export const panelCompletion =
   (nextId: () => string): CompletionBuilder =>
-  ({
-    round,
-    now,
-    ballots,
-    ballotDeadlineAt,
-    completeness,
-    humanJudgeSeatIds,
-    runningAiSeatIds,
-    failedAiSeatIds,
-  }) => {
+  ({ round, now, panel: facts, ballotIds }) => {
+    const nowMs = Date.parse(now);
+    const panel = judgingPanelOf(facts, nowMs);
+    if (panel === null) throw createRefusal('CONFLICT', 'panel-ineligible');
+    const { completeness, ballots } = facts;
     const decision = decidePanelCompletion({
       completeness,
-      humanJudgeSeatIds,
-      runningAiSeatIds,
-      failedAiSeatIds,
-      judgeSeatIds: round.participants
-        .filter((seat) => seat.role === 'judge')
-        .map((seat) => seat.id),
+      panel,
       ballots,
-      ballotDeadlineAtMs:
-        ballotDeadlineAt === null ? Number.NaN : Date.parse(ballotDeadlineAt),
-      nowMs: Date.parse(now),
+      nowMs,
     });
     if (decision.kind === 'pending')
       throw createRefusal('CONFLICT', 'panel-ineligible');
@@ -67,21 +55,13 @@ export const panelCompletion =
       noRuling: decision.noRuling,
       ballotIds: participatingRulings(
         round.participants.filter((p) => p.role === 'judge').map((p) => p.id),
-        ballots,
+        ballotIds,
       ).map((b) => b.id),
       projection: createRoundRuntime({
         ...round,
         round,
         nextSegmentId: nextId,
-      }).completePanel({
-        now,
-        ballots,
-        ballotDeadlineAt,
-        completeness,
-        humanJudgeSeatIds,
-        runningAiSeatIds,
-        failedAiSeatIds,
-      }),
+      }).completePanel({ now, ballots, completeness, panel }),
     };
   };
 /** Bound internal ports; the startup owner supplies the existing availability instance. */
@@ -98,11 +78,9 @@ export function createRoundMaintenanceOperations(input: {
   readonly instanceId: string;
   readonly ratingFailed: (roundId: string, error: unknown) => void;
   /** An AI judge's job ended at completion, with no worker there to report it. */
-  readonly judgingEnded?: (reason: string) => void;
+  readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
   readonly ids: IdGenerator;
-  readonly evaluate: (
-    roundId: string,
-  ) => Promise<AttendanceResolution | AttendanceHold | null>;
+  readonly evaluate: (roundId: string) => Promise<AttendanceEvaluation>;
   /** Injected policy: how long after the freeze judges may rule (DEC-201). */
   readonly ballotDeadlineMs?: number;
   /** Injected policy, never defaulted: how long a launched Round may stay unstarted (DEC-214). */
@@ -115,7 +93,7 @@ export function createRoundMaintenanceOperations(input: {
   readonly probeRoundId: string | null;
 }) {
   const planJudging = judgingPlan(
-    input.ballotDeadlineMs ?? DEFAULT_BALLOT_DEADLINE_MS,
+    input.ballotDeadlineMs ?? judgingPolicy.humanBallotWindowMs,
   );
   const buildProjection = roundTickProjection(() => input.ids.next());
   const tickProjection = maintenanceTickProjection(
@@ -167,6 +145,7 @@ export function createRoundMaintenanceOperations(input: {
         roundId,
         buildProjection,
         planJudging,
+        botGrantUnused,
       });
       if (result.status !== 'frozen') return result;
       try {
@@ -177,7 +156,11 @@ export function createRoundMaintenanceOperations(input: {
           freezeRevision: result.freeze.revision,
           buildProjection,
           buildCompletion: panelCompletion(() => input.ids.next()),
-          ...(input.judgingEnded ? { judgingEnded: input.judgingEnded } : {}),
+          judgingEndReason: judgingJobEndReason,
+          attendanceSettled,
+          judgingEnded: (reason) => {
+            if (judgingEndIsReported(reason)) input.judgingEnded?.(reason);
+          },
         });
       } catch (error) {
         if (

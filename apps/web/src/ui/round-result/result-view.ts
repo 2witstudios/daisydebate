@@ -15,7 +15,6 @@ export type ResultBallot = {
   readonly author: string;
   /** The heading over this ballot's feedback for the reader. */
   readonly feedbackTitle: string;
-  readonly voided: boolean;
   readonly ballot: Ballot;
 };
 
@@ -79,7 +78,6 @@ export function resultBallots(view: RoundBallotRead): readonly ResultBallot[] {
     title: `Ballot ${index + 1} · ${author(entry)}`,
     author: author(entry),
     feedbackTitle: `Feedback for you from the ${judgeInSentence(entry)}`,
-    voided: entry.status === 'voided',
     ballot: entry.ballot,
   }));
 }

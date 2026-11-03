@@ -87,13 +87,27 @@ function feature(read: Partial<AttendanceEvaluationFacts> = {}) {
     evaluate: (async (input: {
       readonly resolveOnReceipts: (f: AttendanceEvaluationFacts) => unknown;
       readonly resolve: (f: AttendanceEvaluationFacts) => unknown;
-    }) =>
-      input.resolveOnReceipts(facts(read)) ??
-      input.resolve(facts(read))) as unknown as AttendanceEvaluator,
+    }) => {
+      const resolution =
+        input.resolveOnReceipts(facts(read)) ?? input.resolve(facts(read));
+      return resolution
+        ? { kind: 'decided', resolution }
+        : { kind: 'undecided' };
+    }) as unknown as AttendanceEvaluator,
     nextId: () => `command${String(++ids).padStart(17, '0')}`,
     instanceId: 'instance0000000000000000',
   });
-  return { instance, recorded };
+  return {
+    instance: {
+      ...instance,
+      /** The resolution a pass reached, or null while it stays undecided. */
+      evaluate: async (roundId: string) => {
+        const found = await instance.evaluate(roundId);
+        return found.kind === 'decided' ? found.resolution : null;
+      },
+    },
+    recorded,
+  };
 }
 const principal = { kind: 'human' as const, actorId: 'actor-aff' };
 
@@ -207,7 +221,7 @@ test('unknown health forfeits nobody, and the persisted cutoff ends the Round wi
   };
   assert({
     given: 'the same window at the persisted cutoff (DEC-276)',
-    should: 'abandon on infrastructure evidence, with no winner',
+    should: 'abandon on the cutoff, with no winner',
     actual: {
       evidence: ended.evidence,
       decision: ended.decision,
@@ -215,7 +229,7 @@ test('unknown health forfeits nobody, and the persisted cutoff ends the Round wi
       outcome: ended.projection.round.outcome ?? null,
     },
     expected: {
-      evidence: 'infrastructure_unresolved',
+      evidence: 'resolution_cutoff',
       decision: 'abandoned',
       status: 'abandoned',
       outcome: null,
