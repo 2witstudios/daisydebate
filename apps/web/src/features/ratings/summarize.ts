@@ -14,7 +14,6 @@ export type StandingSummary = {
   readonly played: number;
   readonly wins: number;
   readonly losses: number;
-  readonly draws: number;
   /** Rating movement from postings at or after `since`. */
   readonly weekChange: number;
   /** Rating movement over the whole season. */
@@ -28,7 +27,7 @@ const keyOf = (row: { seasonId: string; actorId: string }) =>
   `${row.seasonId}:${row.actorId}`;
 
 const resultOf = ({ role, outcome }: Posting) =>
-  outcome === 'draw' ? 'draws' : outcome === role ? 'wins' : 'losses';
+  outcome === role ? 'wins' : 'losses';
 
 /**
  * Each debater's season line from the `ratings` rows and the ledger: played,
@@ -48,7 +47,7 @@ export function summarizeStandings(
   }
   return read.ratings.map((rating) => {
     const own = postings.get(keyOf(rating)) ?? [];
-    const count = (result: 'wins' | 'losses' | 'draws') =>
+    const count = (result: 'wins' | 'losses') =>
       own.filter((posting) => resultOf(posting) === result).length;
     const moved = (rows: readonly Posting[]) =>
       rows.reduce((sum, row) => sum + row.ratingAfter - row.ratingBefore, 0);
@@ -63,7 +62,6 @@ export function summarizeStandings(
       played: own.length,
       wins: count('wins'),
       losses: count('losses'),
-      draws: count('draws'),
       weekChange: moved(
         own.filter((row) => Date.parse(row.occurredAt) >= from),
       ),

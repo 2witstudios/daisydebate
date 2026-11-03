@@ -5,8 +5,6 @@ import { idSchema } from './primitives';
 import { roundViewSchema } from './round-view';
 import { roundUtteranceSchema } from './round-transcript';
 
-const ballotStatus = z.literal('submitted');
-
 /**
  * A caller's own judge seat is private; other judges' seats never accompany
  * ballots, only whether a human or the AI judged. A ballot's feedback for a
@@ -17,7 +15,6 @@ export const roundBallotReadSchema = z.strictObject({
   own: z
     .strictObject({
       participantId: idSchema,
-      status: ballotStatus.nullable(),
       ballot: ballotSchema.nullable(),
       freezeRevision: z.int().positive().nullable(),
     })
@@ -33,7 +30,6 @@ export const roundBallotReadSchema = z.strictObject({
     .nullable(),
   ballots: z.array(
     z.strictObject({
-      status: ballotStatus,
       judge: z.enum(['human', 'ai']),
       ballot: ballotSchema,
     }),
@@ -75,7 +71,7 @@ export const roundJudgeAssignmentsSchema = z.array(
     resolution: z.string().nullable(),
     status: roundViewSchema.shape.status,
     outcome: roundViewSchema.shape.outcome,
-    ballotStatus: ballotStatus.nullable(),
+    ballotSubmitted: z.boolean(),
     freezeRevision: z.int().positive().nullable(),
   }),
 );

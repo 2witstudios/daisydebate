@@ -180,7 +180,7 @@ export async function proveHumanJudgedJourney(browser: Browser) {
         page.getByText('Ballot submitted.', { exact: false }),
       ).toBeVisible();
       const own = await readBallot(context.request, view.id);
-      expect(own.own?.status).toBe('submitted');
+      expect(own.own?.ballot).toBeTruthy();
       expect(own.own?.freezeRevision).toBe(input.freeze!.revision);
       const other = await readBallot(
         accounts.members[1]!.context.request,

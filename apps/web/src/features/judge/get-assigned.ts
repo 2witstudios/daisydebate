@@ -17,15 +17,15 @@ export const getAssignedDebates = (
     title: assignment.resolution ?? drawnTopicLabel,
     status: assignmentStatus(assignment),
     ballotHref: `/judge/ballot/${assignment.roundId}`,
-    ballotLabel: assignment.ballotStatus ? 'View ballot' : 'Open ballot',
+    ballotLabel: assignment.ballotSubmitted ? 'View ballot' : 'Open ballot',
     followHref: `/rounds/${assignment.roundId}${assignment.status === 'active' || assignment.status === 'opening' ? '/room' : ''}`,
   }));
 function assignmentStatus(a: RoundJudgeAssignment): string {
   if (a.status === 'completed' || a.status === 'abandoned')
-    return a.ballotStatus === 'submitted'
+    return a.ballotSubmitted
       ? 'Your ballot and the Round result are recorded.'
       : 'This Round is already decided. No ballot is due.';
-  if (a.ballotStatus === 'submitted')
+  if (a.ballotSubmitted)
     return 'Your ballot is recorded. Other votes or attendance settlement are pending.';
   if (a.freezeRevision !== null)
     return 'The recorded transcript is frozen. Your ballot is open.';

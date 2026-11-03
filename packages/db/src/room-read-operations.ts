@@ -73,7 +73,8 @@ export async function launchedRoundRows(
   const seats = await tx
     .select()
     .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, roundId));
+    .where(eq(roundParticipants.roundId, roundId))
+    .orderBy(asc(roundParticipants.role), asc(roundParticipants.slot));
   const participants = await Promise.all(
     seats.map(async (p) => {
       const actor = await actorFact(tx, p.actorId);

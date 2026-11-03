@@ -1,4 +1,4 @@
-import { reconnectDelaySeconds } from './reconnect-delay';
+import { drawReconnectDelaySeconds } from './reconnect-delay';
 import { RefusedPageRetries } from './refused-page-retries-client';
 
 /**

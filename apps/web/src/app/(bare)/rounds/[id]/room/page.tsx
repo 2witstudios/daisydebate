@@ -20,6 +20,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
 import { ratingsUnlessRefused } from '../../../../../features/ratings/ratings-unless-refused';
+import { drawReconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
@@ -162,11 +163,12 @@ export default async function RoundRoomPage({
             />
             <RoundNativeAttendance
               view={result.round}
-              state={
+              read={
                 result.round.status === 'active'
                   ? await readPersistedAttendance(id)
                   : null
               }
+              retrySeconds={drawReconnectDelaySeconds()}
             />
           </>
         }

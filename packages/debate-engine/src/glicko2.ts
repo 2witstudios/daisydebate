@@ -16,8 +16,8 @@ export type Glicko2State = {
 
 export type Glicko2Game = {
   readonly opponent: Pick<Glicko2State, 'rating' | 'deviation'>;
-  /** 1 for a win, 0.5 for a draw, 0 for a loss. */
-  readonly score: 0 | 0.5 | 1;
+  /** 1 for a win, 0 for a loss. Daisy has no draws. */
+  readonly score: 0 | 1;
 };
 
 export type Glicko2Config = {
