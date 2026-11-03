@@ -482,3 +482,39 @@ test('a wake whose answer then hangs leaves another wake owed', () => {
     ],
   });
 });
+
+test('a wake behind a superseded hung apply reads, and stays owed', () => {
+  const d = driver();
+  d.join(['microphone']);
+  d.send({
+    type: 'read-requested',
+    read: { kind: 'view', roundViewVersion: 2 },
+  });
+  d.flushDeferred();
+  d.answer(['camera', 'microphone']);
+  d.room({ type: 'captured', source: 'camera' });
+  d.send({
+    type: 'read-requested',
+    read: { kind: 'view', roundViewVersion: 3 },
+  });
+  d.flushDeferred();
+  d.timer('read-budget');
+  d.answer(['camera', 'microphone']);
+  d.effects.length = 0;
+  d.timer('recovery');
+  const reads = d.count('start-read');
+  const owed = armedOf(d.state());
+  d.answer(['camera', 'microphone']);
+  d.advance(testPolicy.readBudgetMs);
+  d.timer('recovery');
+  assert({
+    given: 'a newer view while an answer hangs in the SDK, then paced wakes',
+    should: 'read at the wake, stay owed, and name the camera past its budget',
+    actual: [reads, owed, d.live().sources.camera],
+    expected: [
+      1,
+      'wake',
+      { phase: 'publishing', sinceMs: 1_000_000, stuck: true },
+    ],
+  });
+});

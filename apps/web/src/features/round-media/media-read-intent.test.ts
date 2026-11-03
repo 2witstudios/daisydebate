@@ -35,7 +35,7 @@ test('new view and boundary are distinct read intents', () => {
     ],
   });
 });
-test('old duplicate malformed and disposed events are inert', () => {
+test('old, duplicate and malformed events are inert', () => {
   const intent = { ...initial, deadlineMs: 60000 };
   const events: MediaReadEvent[] = [
     ...[2, 3, -1, 3.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1].map(

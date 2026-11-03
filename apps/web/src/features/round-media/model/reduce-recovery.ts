@@ -70,6 +70,14 @@ export const attemptRecovery = (
       effects: armed.effects,
     };
   }
+  // An older apply holds no read, but its SDK work may yet hang: read now, and stay owed.
+  if (link.apply !== null) {
+    const armed = showStale(state, named, 'transient', ctx);
+    return prepend(
+      armed.effects,
+      startNextRead(armed.state, wantRead(armed.live), ctx.atMs),
+    );
+  }
   const fired: LiveConnection = {
     ...named,
     establishment: {
@@ -168,12 +176,12 @@ export const budgetExpired = (
   if (link.establishment.stage === 'establishing')
     return release(state, 'transient', ctx);
   const { freshness } = link.establishment;
-  // An answer's SDK work hung after its wake was spent: another is owed.
+  // An answer's SDK work hung after its wake was spent, whichever answer it was: another is owed.
   const wakeOwed =
     freshness.status === 'stale' &&
     freshness.cause === 'transient' &&
     !freshness.wakeArmed &&
-    applyHoldsReads(state, link);
+    link.apply !== null;
   if (freshness.status === 'stale' && !wakeOwed) return moved(state);
   const stale = showStale(state, link, 'transient', ctx);
   return { state: withLive(stale.state, stale.live), effects: stale.effects };
