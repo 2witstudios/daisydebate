@@ -1,19 +1,86 @@
+import { floorBoundaries, type FloorClock } from './refresh-deadline';
+
 /**
  * How many Rounds one process recovers at once. A pass runs its transactions one
  * at a time, each two connections of the 10 on the competitive lane (ADR 0088), and
  * browser reads share that lane, so recovery must leave it room.
  */
 const MEDIA_RECOVERY_CONCURRENCY = 4;
-
 /**
- * Which sessions this tick starts: those with no recovery running here, in the
- * order given, up to the free capacity. Pure, so a tick's choice can be read.
+ * The longest a Round goes with no pass when nothing is due. It bounds what the
+ * tick's one read cannot see: a revoked seat, and a room that drifted (ADR 0075).
  */
-export const recoveryDue = <S extends { readonly roundId: string }>(
+export const MEDIA_RECOVERY_HEARTBEAT_MS = 2_000;
+
+/** One active session as the tick's single read returns it, read at `now`. */
+export type RecoverySession = {
+  readonly roundId: string;
+  readonly now: string;
+  readonly lastPassAt: string | null;
+  readonly roundChangedAt: string;
+  readonly roundStatus: string;
+  readonly unsafe: boolean;
+  /** A claim would succeed now: no live lease and past the minimum interval. */
+  readonly claimable: boolean;
+  readonly clock: FloorClock;
+};
+type Why = 'floor' | 'repair' | 'heartbeat';
+
+const boundaryPassed = (session: RecoverySession, lastPassMs: number) => {
+  const nowMs = Date.parse(session.now);
+  const { lastSegment, countdownMs } = session.clock;
+  // Time alone can pass a speech's end and then its countdown with nothing committed.
+  const afterOpenSpeech =
+    lastSegment?.endedAt === null
+      ? [
+          Date.parse(lastSegment.startedAt) +
+            lastSegment.durationMs +
+            countdownMs,
+        ]
+      : [];
+  return [...floorBoundaries(session.clock), ...afterOpenSpeech].some(
+    (at) => at > lastPassMs && at <= nowMs,
+  );
+};
+/** Why this session needs a pass now, or null when it costs nothing this tick. */
+export const recoveryNeed = (
+  session: RecoverySession,
+  heartbeatMs: number,
+): Why | null => {
+  // Starting now would only poll the lease with a transaction every 25 ms.
+  if (!session.claimable) return null;
+  if (
+    session.lastPassAt === null ||
+    session.unsafe ||
+    ['completed', 'abandoned'].includes(session.roundStatus)
+  )
+    return 'repair';
+  const lastPassMs = Date.parse(session.lastPassAt);
+  if (
+    Date.parse(session.roundChangedAt) >= lastPassMs ||
+    boundaryPassed(session, lastPassMs)
+  )
+    return 'floor';
+  return Date.parse(session.now) - lastPassMs >= heartbeatMs
+    ? 'heartbeat'
+    : null;
+};
+const ORDER: readonly Why[] = ['floor', 'repair', 'heartbeat'];
+/**
+ * Which sessions this tick starts: those with a need and no recovery running
+ * here, a floor that must move first, in the order given within each need, up
+ * to the free capacity.
+ */
+export const recoveryDue = <S extends RecoverySession>(
   sessions: readonly S[],
   running: ReadonlySet<string>,
+  heartbeatMs: number,
   capacity: number = MEDIA_RECOVERY_CONCURRENCY,
 ): readonly S[] =>
-  sessions
-    .filter((session) => !running.has(session.roundId))
-    .slice(0, Math.max(0, capacity - running.size));
+  ORDER.flatMap((why) =>
+    sessions.filter(
+      (session) =>
+        !running.has(session.roundId) &&
+        recoveryNeed(session, heartbeatMs) === why,
+    ),
+  ).slice(0, Math.max(0, capacity - running.size));

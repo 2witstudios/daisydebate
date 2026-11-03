@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
-import { eq, isNull, sql } from 'drizzle-orm';
+import type { RuntimeCheckpoint } from '@daisy/protocol';
+import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -10,7 +11,76 @@ import {
 } from './media-session-authority';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaSessions } from './schema/media-sessions';
+import { rounds } from './schema/rounds';
+import { roundSegments } from './schema/round-segments';
 import { reconcileClaim } from './media-reconcile-rules';
+type ActiveSessionRow = {
+  readonly round_id: string;
+  readonly reconcile_started_at: Date | null;
+  readonly reconcile_owner: string | null;
+  readonly reconcile_lease_until: Date | null;
+  readonly reconcile_epoch: number;
+  readonly reconcile_request_version: number;
+  readonly unsafe_at: Date | null;
+  readonly deletion_requested_at: Date | null;
+  readonly status: string;
+  readonly started_at: Date | null;
+  readonly updated_at: Date;
+  readonly runtime_state: RuntimeCheckpoint;
+  readonly countdown_ms: number;
+  readonly segment_total: number;
+  readonly prep_budget_ms: number | null;
+  readonly last_sequence: number | null;
+  readonly last_started_at: Date | null;
+  readonly last_ended_at: Date | null;
+  readonly last_duration_ms: number | null;
+  readonly now: Date;
+};
+const activeSession = (row: ActiveSessionRow) => {
+  const prep = row.runtime_state.active_prep;
+  return {
+    roundId: row.round_id,
+    now: row.now.toISOString(),
+    lastPassAt: row.reconcile_started_at?.toISOString() ?? null,
+    roundChangedAt: row.updated_at.toISOString(),
+    roundStatus: row.status,
+    unsafe: row.unsafe_at !== null || row.deletion_requested_at !== null,
+    claimable:
+      reconcileClaim(
+        {
+          reconcileOwner: row.reconcile_owner,
+          reconcileLeaseUntil: row.reconcile_lease_until,
+          reconcileStartedAt: row.reconcile_started_at,
+          reconcileEpoch: row.reconcile_epoch,
+          reconcileRequestVersion: row.reconcile_request_version,
+          unsafeAt: row.unsafe_at,
+        },
+        row.now,
+        false,
+      ).kind === 'claim',
+    clock: {
+      startedAt: row.started_at?.toISOString() ?? null,
+      countdownMs: row.countdown_ms,
+      segmentTotal: row.segment_total,
+      prepBudgetMs: row.prep_budget_ms,
+      activePrep: prep
+        ? {
+            startedAt: prep.started_at,
+            consumedMs: row.runtime_state.prep_consumed_ms[prep.side],
+          }
+        : null,
+      segmentCount: row.last_sequence === null ? 0 : row.last_sequence + 1,
+      lastSegment:
+        row.last_started_at && row.last_duration_ms !== null
+          ? {
+              startedAt: row.last_started_at.toISOString(),
+              endedAt: row.last_ended_at?.toISOString() ?? null,
+              durationMs: row.last_duration_ms,
+            }
+          : null,
+    },
+  };
+};
 export function createMediaReconcileClaims(deps: {
   readonly database: BunSQLDatabase;
   readonly run: BoundedTransaction;
@@ -93,15 +163,46 @@ export function createMediaReconcileClaims(deps: {
       if (!session) throw createAppError('NOT_FOUND');
       return session;
     },
+    /**
+     * The recovery tick's one read: every active session and the facts that say
+     * whether it needs a pass, longest since a pass first, at one sampled clock.
+     */
     async activeMediaSessions() {
-      return (
-        deps.database
-          .select({ id: mediaSessions.id, roundId: mediaSessions.roundId })
-          .from(mediaSessions)
-          .where(isNull(mediaSessions.endedAt))
-          // Longest since a pass first, so a capped tick reaches every Round.
-          .orderBy(sql`${mediaSessions.reconcileStartedAt} asc nulls first`)
-      );
+      const rows = (await deps.database.execute(sql`
+        select
+          s.round_id,
+          s.reconcile_started_at,
+          s.reconcile_owner,
+          s.reconcile_lease_until,
+          s.reconcile_epoch,
+          s.reconcile_request_version,
+          s.unsafe_at,
+          s.deletion_requested_at,
+          r.status,
+          r.started_at,
+          r.updated_at,
+          r.runtime_state,
+          (r.rules_snapshot->>'countdownMs')::int as countdown_ms,
+          jsonb_array_length(r.rules_snapshot->'segments') as segment_total,
+          (r.rules_snapshot#>>'{inRoundPrep,budgetMsPerSide}')::int as prep_budget_ms,
+          last.sequence as last_sequence,
+          last.started_at as last_started_at,
+          last.ended_at as last_ended_at,
+          last.duration_ms as last_duration_ms,
+          clock_timestamp() as now
+        from ${mediaSessions} s
+        join ${rounds} r on r.id = s.round_id
+        left join lateral (
+          select sequence, started_at, ended_at, duration_ms
+          from ${roundSegments} seg
+          where seg.round_id = s.round_id
+          order by seg.sequence desc
+          limit 1
+        ) last on true
+        where s.ended_at is null
+        order by s.reconcile_started_at asc nulls first
+      `)) as unknown as readonly ActiveSessionRow[];
+      return rows.map(activeSession);
     },
   };
 }

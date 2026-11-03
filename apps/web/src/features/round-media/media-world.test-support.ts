@@ -284,10 +284,34 @@ export function createMediaWorld(
         },
       });
     },
-    activeMediaSessions: async () => (endedAt ? [] : [{ roundId }]),
+    // Never passed, so each recover call in these tests is a pass.
+    activeMediaSessions: async () =>
+      endedAt
+        ? []
+        : [
+            {
+              roundId,
+              now: '2026-01-01T00:00:00.000Z',
+              lastPassAt: null,
+              roundChangedAt: '2026-01-01T00:00:00.000Z',
+              roundStatus: 'active',
+              unsafe: false,
+              claimable: true,
+              clock: {
+                startedAt: null,
+                countdownMs: 0,
+                segmentTotal: 0,
+                prepBudgetMs: null,
+                activePrep: null,
+                segmentCount: 0,
+                lastSegment: null,
+              },
+            },
+          ],
   } as unknown as Store;
   const media = createMediaVendor({ journal, rooms, connected, fail });
   const input: MediaOperationInput = {
+    recoveryHeartbeatMs: 0,
     priority,
     store,
     media,

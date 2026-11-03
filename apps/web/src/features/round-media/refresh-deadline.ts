@@ -1,36 +1,70 @@
 import type { RoundView } from '@daisy/protocol';
 
-const gapRefreshAt = (view: RoundView): number | null => {
-  if (
-    view.checkpoint?.active_prep ||
-    view.segments.length >= view.rules.segments.length
-  )
-    return null;
-  const anchor =
-    view.segments.length === 0 ? view.startedAt : view.segments.at(-1)?.endedAt;
-  return anchor ? Date.parse(anchor) + view.rules.countdownMs : null;
+/** What a Round's clock boundaries are read from, in the browser's view or a server row. */
+export type FloorClock = {
+  readonly startedAt: string | null;
+  readonly countdownMs: number;
+  readonly segmentTotal: number;
+  readonly prepBudgetMs: number | null;
+  readonly activePrep: {
+    readonly startedAt: string;
+    readonly consumedMs: number;
+  } | null;
+  readonly segmentCount: number;
+  readonly lastSegment: {
+    readonly startedAt: string;
+    readonly endedAt: string | null;
+    readonly durationMs: number;
+  } | null;
 };
-const judgingRefreshAt = (view: RoundView): number[] => {
-  const last = view.segments.at(-1);
-  return last?.endedAt && view.segments.length === view.rules.segments.length
-    ? [Date.parse(last.endedAt) + 30 * 60_000]
+const gapBoundaries = (clock: FloorClock): number[] => {
+  if (clock.activePrep || clock.segmentCount >= clock.segmentTotal) return [];
+  const anchor =
+    clock.segmentCount === 0 ? clock.startedAt : clock.lastSegment?.endedAt;
+  return anchor ? [Date.parse(anchor) + clock.countdownMs] : [];
+};
+const judgingBoundaries = ({
+  lastSegment,
+  segmentCount,
+  segmentTotal,
+}: FloorClock): number[] =>
+  lastSegment?.endedAt && segmentCount === segmentTotal
+    ? [Date.parse(lastSegment.endedAt) + 30 * 60_000]
     : [];
+/** Every instant the committed clock next changes who may publish. */
+export function floorBoundaries(clock: FloorClock): number[] {
+  const last = clock.lastSegment;
+  const prep = clock.activePrep;
+  return [
+    ...gapBoundaries(clock),
+    ...(last?.endedAt === null
+      ? [Date.parse(last.startedAt) + last.durationMs]
+      : []),
+    ...(prep && clock.prepBudgetMs !== null
+      ? [Date.parse(prep.startedAt) + clock.prepBudgetMs - prep.consumedMs]
+      : []),
+    ...judgingBoundaries(clock),
+  ].filter(Number.isFinite);
+}
+const viewClock = (view: RoundView): FloorClock => {
+  const prep = view.checkpoint?.active_prep;
+  return {
+    startedAt: view.startedAt,
+    countdownMs: view.rules.countdownMs,
+    segmentTotal: view.rules.segments.length,
+    prepBudgetMs: view.rules.inRoundPrep?.budgetMsPerSide ?? null,
+    activePrep: prep
+      ? {
+          startedAt: prep.started_at,
+          consumedMs: view.checkpoint!.prep_consumed_ms[prep.side],
+        }
+      : null,
+    segmentCount: view.segments.length,
+    lastSegment: view.segments.at(-1) ?? null,
+  };
 };
 /** These deadlines request a server read; they never open a browser microphone. */
 export function nextMediaRefreshAt(view: RoundView): number | null {
-  const last = view.segments.at(-1);
-  const gap = gapRefreshAt(view);
-  const deadlines: number[] = gap === null ? [] : [gap];
-  if (last?.endedAt === null)
-    deadlines.push(Date.parse(last.startedAt) + last.durationMs);
-  const prep = view.checkpoint?.active_prep;
-  if (prep && view.rules.inRoundPrep)
-    deadlines.push(
-      Date.parse(prep.started_at) +
-        view.rules.inRoundPrep.budgetMsPerSide -
-        view.checkpoint!.prep_consumed_ms[prep.side],
-    );
-  deadlines.push(...judgingRefreshAt(view));
-  const finite = deadlines.filter(Number.isFinite);
-  return finite.length ? Math.min(...finite) : null;
+  const boundaries = floorBoundaries(viewClock(view));
+  return boundaries.length ? Math.min(...boundaries) : null;
 }

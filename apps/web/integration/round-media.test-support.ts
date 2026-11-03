@@ -28,7 +28,16 @@ export const mediaDependencies = (
     hint: fixture.redis.mediaAdmissionHint,
     logger: createLogger({ service: 'round-media-proof', level: 'silent' }),
   }),
-  store: fixture.store.mediaSessions,
+  // As if a claim could always start, so a recover call right after an admission
+  // waits for its pass; recovery-due tests pass the real read.
+  store: {
+    ...fixture.store.mediaSessions,
+    activeMediaSessions: async () =>
+      (await fixture.store.mediaSessions.activeMediaSessions()).map((row) => ({
+        ...row,
+        claimable: true,
+      })),
+  },
   media,
   publicUrl: 'wss://localhost.invalid',
   workerUrl: 'ws://127.0.0.1:7880',
@@ -38,6 +47,8 @@ export const mediaDependencies = (
   deadline: <T>(work: Promise<T>) => withTimeout(work, 2000),
   wait: () => Bun.sleep(10),
   now: () => performance.now(),
+  // Every recover call is a pass; recovery-due tests choose their own heartbeat.
+  recoveryHeartbeatMs: 0,
 });
 export const withMediaRound = (
   work: (

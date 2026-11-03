@@ -116,17 +116,20 @@ seconds late. The floor does not depend on that read: the next speaker's read or
 recovery tick moves it, and pacing cannot slow or speed the tick.
 
 The tick is the last resort, the only mover when every browser read is held, so one
-Round never waits on another there (ISSUE-972). Each tick starts a pass for each Round
-not already recovering in this process, longest since a pass first, up to 4 at once
-(`recoveryDue`), and does not wait for the tick before it. It used to visit sessions
-one at a time and wait for the last. On the CI runner that took a median 337 ms with
-one active session, 1340 ms with four and 2684 ms with seven. Four failing runs measured
-2112 to 3527 ms deadline to permission before that log existed, so those figures rest on
-the sweep timings, not on a log of those runs.
-What remains on this path is any pass of this Round already running, up to one 500 ms
-tick, and this Round's own pass. Above the cap a Round waits about active Rounds / 4
-passes; this limit is not yet measured against the concurrent-Round target (see the
-Live audio and video area page).
+Round never waits on another there, and it spends its passes where a floor must move
+(ISSUE-972). Each tick makes one read, one query for all active sessions, and
+`recoveryDue` decides from it: a commit since the Round's last pass or a clock boundary
+passed since then comes first, then repairs (never passed, unsafe, terminal), then a
+heartbeat for a Round with no pass in 2 s, which covers what that read cannot see, such
+as a revoked seat. A Round with none of these costs no pass, and neither does one a
+claim could not start for yet (a live lease, or under 500 ms since its last pass), which
+would only poll the lease. At most 4 run at once per
+process, and a tick does not wait for the one before it.
+
+The tick used to visit sessions one at a time and wait for the last. On the CI runner
+that took a median 337 ms with one active session, 1340 ms with four and 2684 ms with
+seven. Four failing runs measured 2112 to 3527 ms deadline to permission before that log
+existed, so those figures rest on the sweep timings, not on a log of those runs.
 
 Whether a client disconnect reaches `request.signal` in production is unverified.
 Fly's documentation does not say whether its proxy closes the upstream connection,

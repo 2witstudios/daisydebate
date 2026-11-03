@@ -187,11 +187,11 @@ The rest of this record describes BETA-2.
   stays open, and the opponent's grants and floor are computed exactly as
   before, so the Round continues and forfeit stays available (DEC-249).
   - **The bound.** The revoked identity's room permissions go to nothing
-    by the end of the first full media recovery pass that starts after the
-    revoke commits. Passes start on a 500 ms cadence, but that is not a
-    latency. A pass reconciles every live session serially, each with its
-    own bounded vendor calls, so with N live Rounds the demotion can wait
-    up to N reconciles behind a pass already under way.
+    by the end of the first full media recovery pass of that Round that
+    starts after the revoke commits. A revoke is not on the tick's one read,
+    so that pass may be the Round's heartbeat: up to 2 s
+    (`MEDIA_RECOVERY_HEARTBEAT_MS`) after its last pass, later when the tick's
+    4 slots per process are taken by floors that must move (ISSUE-972).
   - **Old tokens.** A token minted before the revoke stays usable for its
     60 s join window, because self-hosted LiveKit does not invalidate it.
     A rejoin with one is demoted again by the next pass. No new token can

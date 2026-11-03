@@ -184,3 +184,60 @@ test('a Round whose provider call hangs does not hold another Round on the recov
     }
   });
 });
+
+// ISSUE-972: what the tick reads is what decides, at one read per tick.
+test('the tick passes a Round only when its read shows one is due', async () => {
+  await withMediaRound(async (f) => {
+    await f.mediaOperations.session(f.roundId, f.host.actorId);
+    const [session] =
+      await f.sql`select id from media_sessions where round_id=${f.roundId}`;
+    const sessionId = String(session!.id);
+    const operations = createRoundMediaOperations({
+      ...mediaDependencies(f),
+      store: f.store.mediaSessions,
+      recoveryHeartbeatMs: 60_000,
+    });
+    // Past the minimum interval, so only what the read shows decides.
+    await f.sql`update media_sessions set reconcile_started_at=clock_timestamp() - interval '1 second' where id=${sessionId}`;
+    await f.sql`update rounds set updated_at=clock_timestamp() - interval '1 minute' where id=${f.roundId}`;
+    const served = async () =>
+      (await f.store.mediaSessions.mediaReconcileProgress(sessionId))
+        .servedVersion;
+    const requested = async () =>
+      Number(
+        (
+          await f.sql`select reconcile_request_version as v from media_sessions where id=${sessionId}`
+        )[0]!.v,
+      );
+    const before = await requested();
+    await operations.recoverActiveSessions();
+    assert({
+      given: 'a Round passed just now, with no commit and no boundary since',
+      should: 'cost no pass',
+      actual: await requested(),
+      expected: before,
+    });
+    await f.sql`update rounds set updated_at=clock_timestamp() where id=${f.roundId}`;
+    await operations.recoverActiveSessions();
+    assert({
+      given: 'a commit on the Round after that pass',
+      should: 'pass it on the next tick and serve the request',
+      actual: [await requested(), (await served()) >= before + 1],
+      expected: [before + 1, true],
+    });
+    const round = (await f.store.mediaSessions.activeMediaSessions()).find(
+      (row) => row.roundId === f.roundId,
+    )!;
+    assert({
+      given: 'the one read of a real session',
+      should: 'return the clock facts the decision reads',
+      actual: [
+        round.clock.segmentTotal > 0,
+        Number.isInteger(round.clock.countdownMs),
+        round.lastPassAt !== null,
+        round.unsafe,
+      ],
+      expected: [true, true, true, false],
+    });
+  });
+});
