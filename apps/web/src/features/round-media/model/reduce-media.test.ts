@@ -829,3 +829,24 @@ test('a resume that lands cancels its budget and reads what moved', () => {
     expected: ['steady', undefined],
   });
 });
+
+test('a resume clears a publication the SDK already removed, with no Retry', () => {
+  const d = driver();
+  d.join(['microphone']);
+  d.room({ type: 'captured', source: 'microphone' });
+  d.room({ type: 'published', source: 'microphone' });
+  d.send({ type: 'read-requested', read: { kind: 'wake' } });
+  d.flushDeferred();
+  d.answer([]);
+  d.room({ type: 'transport-resuming' });
+  d.room({ type: 'unpublish-failed', source: 'microphone' });
+  const stale = d.live().sources.microphone.phase;
+  d.room({ type: 'transport-resumed' });
+  assert({
+    given:
+      'a renegotiation refused as the floor moved, then a resume that lands',
+    should: 'leave the microphone off rather than waiting on a click',
+    actual: [stale, d.live().sources.microphone.phase],
+    expected: ['stale-publication', 'off'],
+  });
+});
