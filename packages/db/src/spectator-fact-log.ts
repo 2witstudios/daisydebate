@@ -63,27 +63,53 @@ export async function recordFactReleases(
   return (rows as unknown as unknown[]).length;
 }
 
+const unlogged = sql`not exists (
+  select 1 from spectator_fact_releases l
+  where l.round_id=r.id and l.kind=f.kind and l.fact_id=f.fact_id)`;
+const hasAudience = sql`r.room_id is not null and r.visibility in ('public','unlisted')`;
+
 /**
- * The Rounds with an audience holding a fact that has left and no row records:
- * exactly what a pass has to do. A recorded Round drops out, so a full batch
- * starves nothing, and a hold of any length needs no window. A held Round waits
- * outside the batch until its facts leave.
+ * The open Rounds with an audience holding a fact that has left and no row
+ * records: exactly what a pass has to do. It starts from the open rows, so
+ * finished Rounds cost nothing however many there are. A recorded Round drops
+ * out, so a full batch starves nothing, and a hold of any length needs no window.
  */
 export async function readRoundsAwaitingFactLog(
   tx: Tx,
   input: { readonly clock: SpectatorClock; readonly limit: number },
 ): Promise<readonly string[]> {
-  const rows = await tx.execute(sql`select r.id from rounds r
-    where r.room_id is not null and r.visibility in ('public','unlisted')
+  const rows = await tx.execute(sql`select r.id
+    from spectator_fact_log_open_rounds o
+    join rounds r on r.id=o.round_id
+    where ${hasAudience}
       and exists (
         select 1 from lateral ${factsOfRound}
-        where not exists (
-            select 1 from spectator_fact_releases l
-            where l.round_id=r.id and l.kind=f.kind and l.fact_id=f.fact_id)
+        where ${unlogged}
           and ${factReleasedSql(sql`f.captured_at`, round, input.clock)}
       )
     order by r.id limit ${input.limit}`);
   return (rows as unknown as { id: string }[]).map((row) => row.id);
+}
+
+/**
+ * Removes the open rows with nothing left to do: a Round with no audience, or one
+ * that is over with every fact logged. The removal holds only if `touched_at` has
+ * not moved, because a fact's trigger locks and touches the row: this waits for it
+ * and then leaves the row, however the two interleave.
+ */
+export async function closeSettledFactLogRounds(tx: Tx): Promise<number> {
+  const rows = await tx.execute(sql`with settled as (
+      select o.round_id, o.touched_at
+      from spectator_fact_log_open_rounds o
+      join rounds r on r.id=o.round_id
+      where not (${hasAudience})
+        or (r.status in ('completed','abandoned')
+          and not exists (select 1 from lateral ${factsOfRound} where ${unlogged}))
+    )
+    delete from spectator_fact_log_open_rounds o using settled s
+    where o.round_id=s.round_id and o.touched_at=s.touched_at
+    returning o.round_id`);
+  return (rows as unknown as unknown[]).length;
 }
 
 /** Records the log for every Round that may have a fact to record; a sweep's pass. */
@@ -102,6 +128,7 @@ export const spectatorFactLogOperations = ({
         recordFactReleases(database, { roundId, clock: input.clock }),
       ),
     );
+    await closeSettledFactLogRounds(database);
     return recorded.reduce((sum, count) => sum + count, 0);
   },
 });

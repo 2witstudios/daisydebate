@@ -1,9 +1,12 @@
 import { requireTestServices } from '@daisy/config';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
 import { SQL } from 'bun';
+import type { SQL as SQLType } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
+import { PgDialect } from 'drizzle-orm/pg-core';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  closeSettledFactLogRounds,
   readRoundsAwaitingFactLog,
   recordFactReleases,
   spectatorFactLogOperations,
@@ -30,7 +33,7 @@ const withEndedRound = async (
     readonly anotherRound: () => Promise<string>;
   }) => Promise<void>,
 ) => {
-  const client = new SQL(databaseUrl, { max: 2 });
+  const client = new SQL(databaseUrl, { max: 3 });
   try {
     await withFixture(databaseUrl, async (f) => {
       const host = await f.actor(await f.user());
@@ -217,6 +220,221 @@ test('a full batch of waiting Rounds starves nothing', async () => {
       actual: logged,
       expected: ids.map(() => true),
     });
+  });
+});
+
+type PlanNode = {
+  readonly 'Node Type': string;
+  readonly 'Relation Name'?: string;
+  readonly 'Actual Rows'?: number;
+  readonly 'Rows Removed by Filter'?: number;
+  readonly 'Actual Loops'?: number;
+  readonly Plans?: readonly PlanNode[];
+};
+type PlanRoot = readonly { readonly Plan: PlanNode }[];
+const planNodes = (node: PlanNode): readonly PlanNode[] => [
+  node,
+  ...(node.Plans ?? []).flatMap(planNodes),
+];
+/** The pass's query with its parameters inlined, for EXPLAIN. */
+const sqlText = (
+  db: ReturnType<typeof drizzle>,
+  input: Parameters<typeof readRoundsAwaitingFactLog>[1],
+) => {
+  let text = '';
+  void readRoundsAwaitingFactLog(
+    {
+      execute: async (query: Parameters<typeof db.execute>[0]) => {
+        const { sql: raw, params } = new PgDialect().sqlToQuery(
+          query as SQLType,
+        );
+        text = raw.replace(/\$(\d+)/g, (_, n) => {
+          const value = params[Number(n) - 1];
+          return typeof value === 'number'
+            ? String(value)
+            : `'${String(value)}'`;
+        });
+        return [];
+      },
+    } as never,
+    input,
+  );
+  return text;
+};
+
+/** Returns once a statement is waiting on an open row's lock; no timing involved. */
+const blockedOnOpenRow = async (sql: SQL, triesLeft = 5000): Promise<void> => {
+  const waiting = (await sql`select 1 from pg_stat_activity
+    where datname=current_database() and wait_event_type='Lock'
+      and query like '%spectator_fact_log_open_rounds%'`) as unknown[];
+  if (waiting.length > 0) return;
+  if (triesLeft === 0)
+    throw new Error('No removal ever waited on the open row');
+  return blockedOnOpenRow(sql, triesLeft - 1);
+};
+
+const openRows = (sql: SQL, roundId: string) =>
+  sql`select touched_at from spectator_fact_log_open_rounds where round_id=${roundId}` as Promise<
+    unknown[]
+  >;
+
+test('a Round leaves the open rows once it is over and logged, and a late fact reopens it', async () => {
+  await withEndedRound(async ({ db, sql, roundId }) => {
+    const clock = clockAt(after(ended, 1000 * delay));
+    const sweep = spectatorFactLogOperations({
+      database: db,
+    }).sweepSpectatorFactLog;
+    assert({
+      given: 'an ended Round with an unlogged result',
+      should: 'be open',
+      actual: (await openRows(sql, roundId)).length,
+      expected: 1,
+    });
+    await sweep({ clock, limit: 10 });
+    assert({
+      given: 'a pass that logged all of it',
+      should: 'close it',
+      actual: [
+        (await rows(sql, roundId)).map((r) => r.kind),
+        (await openRows(sql, roundId)).length,
+      ],
+      expected: [['result'], 0],
+    });
+    await sql`update rounds set visibility='private' where id=${roundId}`;
+    assert({
+      given: 'a Round turning private',
+      should: 'open no row',
+      actual: (await openRows(sql, roundId)).length,
+      expected: 0,
+    });
+    await sql`update rounds set visibility='public' where id=${roundId}`;
+    assert({
+      given: 'the same Round public again',
+      should: 'reopen, so a pass looks at it',
+      actual: (await openRows(sql, roundId)).length,
+      expected: 1,
+    });
+  });
+});
+
+test('a fact landing during a removal keeps the Round open', async () => {
+  await withEndedRound(async ({ db, sql, roundId }) => {
+    await recordFactReleases(db, {
+      roundId,
+      clock: clockAt(after(ended, 1000 * delay)),
+    });
+    const writer = await sql.reserve();
+    try {
+      await writer`begin`;
+      // Any of a Round's triggers: it locks and touches the open row, uncommitted.
+      await writer`update rounds set visibility='unlisted', audience_link_hash=${'a'.repeat(64)} where id=${roundId}`;
+      await writer`update rounds set visibility='public', audience_link_hash=null where id=${roundId}`;
+      const removal = closeSettledFactLogRounds(db);
+      await blockedOnOpenRow(sql);
+      await writer`commit`;
+      await removal;
+    } finally {
+      writer.release();
+    }
+    assert({
+      given: 'a removal that saw an old row while a writer held it',
+      should: 'wait for the writer and then leave the row',
+      actual: (await openRows(sql, roundId)).length,
+      expected: 1,
+    });
+  });
+});
+
+/** Every column of a table but the named ones, for copying a row in bulk. */
+const columnsOf = async (sql: SQL, table: string, except: readonly string[]) =>
+  (
+    (await sql`select column_name from information_schema.columns
+      where table_schema='public' and table_name=${table}
+        and is_generated='NEVER'`) as { column_name: string }[]
+  )
+    .map((row) => row.column_name)
+    .filter((name) => !except.includes(name))
+    .map((name) => `"${name}"`)
+    .join(',');
+
+test('the sweep costs nothing for finished Rounds, however many there are', async () => {
+  const history = 2000;
+  await withEndedRound(async ({ db, sql, roundId }) => {
+    const prefix = `${roundId.slice(0, 16)}`;
+    const roomColumns = await columnsOf(sql, 'rooms', ['id']);
+    const roundColumns = await columnsOf(sql, 'rounds', ['id', 'room_id']);
+    const [source] =
+      (await sql`select room_id from rounds where id=${roundId}`) as {
+        room_id: string;
+      }[];
+    const roomId = source!.room_id;
+    const ids = `generate_series(1, ${history}) n`;
+    const copied = (n: string) => `'${prefix}' || lpad(${n}::text, 8, '0')`;
+    try {
+      await sql.unsafe(`insert into rooms (id, ${roomColumns})
+        select ${copied('n')}, ${roomColumns} from rooms, ${ids} where rooms.id='${roomId}'`);
+      await sql.unsafe(`insert into rounds (id, room_id, ${roundColumns})
+        select ${copied('n')}, ${copied('n')}, ${roundColumns} from rounds, ${ids} where rounds.id='${roundId}'`);
+      const clock = clockAt(after(ended, 1000 * delay));
+      const { sweepSpectatorFactLog } = spectatorFactLogOperations({
+        database: db,
+      });
+      await sweepSpectatorFactLog({ clock, limit: history * 2 });
+      const [open] =
+        (await sql`select count(*)::int as n from spectator_fact_log_open_rounds`) as {
+          n: number;
+        }[];
+      assert({
+        given: `${history} finished Rounds, every fact logged by one pass`,
+        should: 'leave none of them open',
+        actual: open!.n,
+        expected: 0,
+      });
+      await sql`analyze rounds`;
+      await sql`analyze spectator_fact_log_open_rounds`;
+      const candidates = sqlText(db, { clock, limit: 256 });
+      const scanOfRounds = async () => {
+        const [plan] = (await sql.unsafe(
+          `explain (analyze, format json) ${candidates}`,
+        )) as { 'QUERY PLAN': PlanRoot }[];
+        const nodes = planNodes(plan!['QUERY PLAN'][0]!.Plan);
+        const ofRounds = nodes.filter((n) => n['Relation Name'] === 'rounds');
+        return {
+          fromOpenRows: nodes.some(
+            (n) => n['Relation Name'] === 'spectator_fact_log_open_rounds',
+          ),
+          seqScan: ofRounds.some((n) => n['Node Type'] === 'Seq Scan'),
+          read: ofRounds.reduce(
+            (sum, n) =>
+              sum +
+              ((n['Actual Rows'] ?? 0) + (n['Rows Removed by Filter'] ?? 0)) *
+                (n['Actual Loops'] ?? 0),
+            0,
+          ),
+        };
+      };
+      assert({
+        given: 'the pass over those finished Rounds',
+        should: 'start from the open rows and read no Round at all',
+        actual: await scanOfRounds(),
+        expected: { fromOpenRows: true, seqScan: false, read: 0 },
+      });
+      await sql`update rounds set visibility='private' where id=${roundId}`;
+      await sql`update rounds set visibility='public' where id=${roundId}`;
+      assert({
+        given: 'one of them reopened, among the same history (control)',
+        should: 'read that one Round alone',
+        actual: await scanOfRounds(),
+        expected: { fromOpenRows: true, seqScan: false, read: 1 },
+      });
+    } finally {
+      await sql.unsafe(
+        `delete from rounds where id like '${prefix}%' and id <> '${roundId}'`,
+      );
+      await sql.unsafe(
+        `delete from rooms where id like '${prefix}%' and id <> '${roomId}'`,
+      );
+    }
   });
 });
 
