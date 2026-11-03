@@ -3,6 +3,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createHash } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { sequentialId } from '@daisy/clock';
+import { launched } from '../features/coming-soon/launch';
 import { handleProxy, type ProxySettings } from './proxy-handler';
 
 setupRitewayBun();
@@ -275,8 +276,13 @@ describe('proxy early sign-in hint', () => {
     });
   });
 
+  /** Watch is the only destination with API routes, so it proves the closed answers. */
+  const watchClosed = { launchConfig: { ...launched, watch: false } };
+  const closedAt = (path: string) =>
+    proxy(new NextRequest(`https://internal.invalid${path}`), watchClosed);
+
   test('a closed destination answers an API call as if it did not exist', async () => {
-    const closed = at('/api/rounds/round/timeline');
+    const closed = closedAt('/api/rounds/round/timeline');
     assert({
       given: 'an API route of a closed destination, with no cookie',
       should: 'answer 404 with the public error body and no explainer redirect',
@@ -297,17 +303,26 @@ describe('proxy early sign-in hint', () => {
       given: 'a page of the same closed destination',
       should: 'still go to its explainer',
       actual: [
-        at('/audience/round').status,
-        at('/audience/round').headers.get('location'),
+        closedAt('/audience/round').status,
+        closedAt('/audience/round').headers.get('location'),
       ],
       expected: [307, 'https://daisy.invalid/coming-soon/watch'],
     });
   });
 
-  test('the proxy lets a Recording removal through with Watch closed', () => {
-    const response = at('/api/recordings/rec/removal');
+  test('a Room link is an ordinary guarded page while Watch is closed', () => {
     assert({
-      given: 'the removal route under the real launch config',
+      given: 'a cookie-less Room link with Watch closed',
+      should: 'send the sign-in hint, since no Watch page lies behind it',
+      actual: closedAt('/rooms/abc').headers.get('location'),
+      expected: 'https://daisy.invalid/sign-in?next=%2Frooms%2Fabc',
+    });
+  });
+
+  test('the proxy lets a Recording removal through with Watch closed', () => {
+    const response = closedAt('/api/recordings/rec/removal');
+    assert({
+      given: 'the removal route with Watch closed',
       should: 'reach its handler, which applies sign-in and its own rules',
       actual: [response.status, response.headers.get('location')],
       expected: [200, null],

@@ -12,6 +12,7 @@ import {
   explainerHref,
   isApiPath,
   roomLinkReachesWatch,
+  type LaunchConfig,
 } from '../features/coming-soon/launch';
 import { returnableDestination } from '../features/auth/redirect';
 import {
@@ -56,6 +57,8 @@ export type ProxySettings = {
   readonly analyticsHost?: string | null;
   /** `SEARCH_INDEXING`: unset is closed. */
   readonly searchIndexing?: SearchIndexing;
+  /** Which destinations are open: the launch config unless a caller injects one. */
+  readonly launchConfig?: LaunchConfig;
 };
 
 /**
@@ -121,12 +124,13 @@ function signInHint(
   policy: string,
   requestId: string,
   publicAppUrl: string,
+  launchConfig: LaunchConfig | undefined,
 ): NextResponse | null {
   const { pathname, search } = request.nextUrl;
   if (
     !isGuardedPath(pathname) ||
     hasSessionCookie(request.headers) ||
-    roomLinkReachesWatch(pathname)
+    roomLinkReachesWatch(pathname, launchConfig)
   )
     return null;
   const next = returnableDestination(`${pathname}${search}`);
@@ -208,7 +212,10 @@ function routeRequest(request: NextRequest, settings: ProxySettings) {
     crypto.getRandomValues(new Uint8Array(16)),
   ).toString('base64');
   const policy = contentSecurityPolicy(pathname, settings, nonce);
-  const closedDestination = closedDestinationOf(pathname);
+  const closedDestination = closedDestinationOf(
+    pathname,
+    settings.launchConfig,
+  );
   if (closedDestination && isApiPath(pathname))
     return closedApi(policy, requestId);
   if (closedDestination)
@@ -218,7 +225,13 @@ function routeRequest(request: NextRequest, settings: ProxySettings) {
       requestId,
       settings.publicAppUrl,
     );
-  const hint = signInHint(request, policy, requestId, settings.publicAppUrl);
+  const hint = signInHint(
+    request,
+    policy,
+    requestId,
+    settings.publicAppUrl,
+    settings.launchConfig,
+  );
   if (hint) return hint;
   const headers = new Headers(request.headers);
   // Never trust caller-supplied identifiers; proxy ingress establishes correlation.

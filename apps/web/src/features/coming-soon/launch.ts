@@ -1,7 +1,7 @@
 import { leaderboardDestinations } from '../leaderboard/actions';
 import type { DestinationSlug } from './destinations';
 
-type LaunchConfig = Readonly<Record<DestinationSlug, boolean>>;
+export type LaunchConfig = Readonly<Record<DestinationSlug, boolean>>;
 
 /**
  * Which destinations are open. Flip one to `true` when its real screens ship:
