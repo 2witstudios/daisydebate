@@ -66,7 +66,9 @@ export function createExportDataHandler({
       );
       return new Response(JSON.stringify(exported), {
         headers: {
-          'content-type': 'application/json',
+          // A renderable type shows inline on WebKit's Linux ports despite the
+          // attachment disposition, so the person gets no file (ISSUE-1129).
+          'content-type': 'application/octet-stream',
           'content-disposition': `attachment; filename="daisy-export-${account.principal.userId}.json"`,
           'cache-control': 'no-store',
         },

@@ -2,7 +2,7 @@ import type { Database } from '@daisy/db';
 import { createRefusal } from '@daisy/errors';
 import { debaterFollowUpdateSchema } from '@daisy/protocol';
 import {
-  accountRoute,
+  audienceRoute,
   type AccountRouteDeps,
 } from '../../server/account-route';
 import { parseValidated } from '../../server/http';
@@ -18,7 +18,7 @@ export const createDebaterFollowRoute = (
     readonly store: Pick<Database, 'setDebaterFollow'>;
   },
 ) =>
-  accountRoute(
+  audienceRoute(
     deps,
     {
       operation: 'following.update',

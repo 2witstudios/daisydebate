@@ -1,3 +1,4 @@
+import { launched } from '../../../features/coming-soon/launch';
 import { requestAudience } from '../../../lib/request-session';
 import { SeatedChatReader } from '../../../ui/audience/seated-chat-reader';
 
@@ -9,10 +10,14 @@ import { SeatedChatReader } from '../../../ui/audience/seated-chat-reader';
 export async function SeatedSpectatorChat({
   roundId,
   actorId,
+  watchOpen = launched.watch,
 }: {
   readonly roundId: string;
   readonly actorId: string;
+  /** No audience exists while Watch is closed, so there is nothing to read. */
+  readonly watchOpen?: boolean;
 }) {
+  if (!watchOpen) return null;
   const audience = await requestAudience(roundId, actorId);
   if (!audience?.seated || !audience.shown.chat) return null;
   return (

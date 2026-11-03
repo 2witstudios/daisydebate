@@ -27,7 +27,6 @@ test('each pass asks the store at the injected instant', async () => {
             now: '2026-11-03T00:00:00.000Z',
             rankedDelaySeconds: RANKED_DELAY_SECONDS,
           },
-          endedWithinHours: 48,
           limit: 256,
         },
       ],

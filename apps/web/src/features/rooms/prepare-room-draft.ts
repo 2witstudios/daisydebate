@@ -116,6 +116,12 @@ export function prepareRoomDraft(
       kind: 'preview',
       values: { ...values, ...draftFormValues(draft), intent: '' },
     };
+  // A form with no script ticks Ranked with the notice still unseen: show it first.
+  if (draft.ranked && !values.noticeVersion)
+    return {
+      kind: 'preview',
+      values: { ...values, ...draftFormValues(draft), intent: '' },
+    };
   const selection = selectionOf(draft);
   const compiled = resolveRoomConfiguration(
     selection.kind === 'custom' ? selection.definition : draft.definition,

@@ -15,6 +15,7 @@ import {
 } from './support/round-timing-response';
 import { expect, openPage, test } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
+import { countMediaAdmissions } from './support/round-media';
 import {
   createProofRoom,
   claim,
@@ -147,16 +148,13 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       (request) => request.method() === 'POST',
     );
     const superseded: { at: number; error: string }[] = [];
-    let admissions = 0;
+    const admissions = countMediaAdmissions(host);
     host.on('requestfailed', (request) => {
       if (request.url() === `${mediaUrl}/reconcile`)
         superseded.push({
           at: elapsedMs(),
           error: request.failure()?.errorText ?? '',
         });
-    });
-    host.on('request', (request) => {
-      if (request.url() === `${mediaUrl}/session`) admissions++;
     });
 
     // Delay the actual SSR response after its render seed was generated.
@@ -302,7 +300,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       });
       Object.assign(window, { boundaryStatuses: statuses });
     });
-    const admissionsBefore = admissions;
+    const admissionsBefore = admissions();
 
     // Hold this debater's Server Actions across the boundary, so no newer view
     // can reach its media session. Only the boundary event can then abort a
@@ -421,7 +419,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       statuses.filter((text) => /Reconnect|Connecting/.test(text)),
     ).toEqual([]);
     await expect(mediaStatus).toBeVisible();
-    expect(admissions).toBe(admissionsBefore);
+    expect(admissions()).toBe(admissionsBefore);
     expect(await camera.evaluate((track) => track.readyState)).toBe('live');
     await camera.dispose();
     releaseActions();

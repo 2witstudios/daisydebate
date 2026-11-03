@@ -1,12 +1,23 @@
+import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
+import { judgingJobRules } from '@daisy/debate-engine';
 import { withSeasons } from '@daisy/db/seasons';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 
+import { botAdmissionForTests } from './bot-admission.test-support';
 import { readyRankedRoom } from './ranked-room.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
-import { assembleJudgedRoom } from './round-judging.test-support';
+import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
+import {
+  assembleJudgedRoom,
+  fixtureBallot,
+  freezeBotJudge,
+  readBallotAs,
+} from './round-judging.test-support';
+import { finalizeByMaintenance } from './round-maintenance.test-support';
+import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
 
@@ -199,4 +210,66 @@ test('Launch rechecks a casual AI judge seat whose host has since lost the grant
       expected: 'ai-judge-premium',
     });
   });
+});
+
+test('a ballot that exists reads the same after the host loses the casual AI judge grant', async () => {
+  await withRoomRuntime(
+    async (f) => {
+      const { roundId, target } = await freezeBotJudge(f);
+      await seedSettledAttendanceLedger(f, roundId);
+      const claim = await f.store.claimRoundJudgingJob(target);
+      await f.store.beginRoundJudgingModelCall(claim.scope, claim.token);
+      await f.store.saveRoundJudgingResult(
+        claim.scope,
+        claim.token,
+        fixtureBallot('An AI ballot already written.', 'affirmative'),
+        { inputTokens: 1, outputTokens: 1 },
+      );
+      await createRoundJudgingOperations({
+        store: f.store,
+        nextId: createId,
+        voice: () => {
+          throw Error('A saved result never calls the provider');
+        },
+        withProvider: async () => {
+          throw Error('A saved result never acquires the provider');
+        },
+      }).executeClaim(claim, new AbortController().signal);
+      await finalizeByMaintenance(f, roundId);
+      const before = await readBallotAs(f, f.host, roundId);
+      const removed = await f.sql`
+      delete from account_entitlement_grants
+      where user_id=${f.host.userId} and entitlement='casual_ai_judge'
+      returning entitlement`;
+      const after = await readBallotAs(f, f.host, roundId);
+      const aiBallots = after.ballots.filter((ballot) => ballot.judge === 'ai');
+      assert({
+        given:
+          'a completed Round with an AI ballot, and its host’s grant withdrawn',
+        should: 'return the same ballot read, grant or no grant',
+        actual: {
+          withdrawn: removed.length,
+          status: after.round.status,
+          aiBallots: aiBallots.length,
+          unchanged: JSON.stringify(after) === JSON.stringify(before),
+        },
+        expected: {
+          withdrawn: 1,
+          status: 'completed',
+          aiBallots: 1,
+          unchanged: true,
+        },
+      });
+    },
+    {
+      ...botAdmissionForTests,
+      judging: {
+        leaseMs: 60000,
+        model: 'fixture-model',
+        nextToken: () => randomBytes(32).toString('base64url'),
+        contractVersion: 'fixture-contract',
+        rules: judgingJobRules,
+      },
+    },
+  );
 });

@@ -163,10 +163,19 @@ test('a host who inherits a Room names no human judge, in the Room or after', ()
   };
   const inherited = releaseRestrictedMember(withJudge, 'host');
   assert({
-    given: 'the original host, before any restriction',
+    given: 'a seatless original host, before any restriction',
     should: 'name the judge they seated',
-    actual: anonymousTo(withJudge, 'host'),
+    actual: anonymousTo(
+      { ...withJudge, participants: [other!, judge] },
+      'host',
+    ),
     expected: false,
+  });
+  assert({
+    given: 'an original host who holds a debating seat',
+    should: 'see only that the judge seat is filled (WATCH-6)',
+    actual: anonymousTo(withJudge, 'host'),
+    expected: true,
   });
   assert({
     given: 'a debater who inherits the Room',
@@ -306,6 +315,28 @@ describe('assign-seat from a host who inherited the Room', () => {
     });
   });
 
+  test('a debater who hosts tests nothing either', () => {
+    const hosting: RoomAssemblyState = {
+      ...room,
+      hostActorId: 'other',
+      hostLabel: other!.label,
+      rules: { ...room.rules, seats: { ...room.rules.seats, judge: 2 } },
+      participants: [other!, judge, debater],
+    };
+    assert({
+      given:
+        'a host holding a debating seat sending the hidden judge and a stranger to a seat',
+      should: 'refuse both alike, so the answer names no judge (WATCH-6)',
+      actual: [
+        refusal(assign(hosting, suspect, 'judge', 1)),
+        refusal(assign(hosting, stranger, 'judge', 1)),
+        refusal(assign(hosting, suspect, 'affirmative', 1)),
+        refusal(assign(hosting, stranger, 'affirmative', 1)),
+      ],
+      expected: Array.from({ length: 4 }, () => 'actor-ineligible'),
+    });
+  });
+
   test('a judge the heir assigns shows as filled', () => {
     const outcome = assign(
       inherited,
@@ -328,10 +359,16 @@ describe('assign-seat from a host who inherited the Room', () => {
     });
   });
 
-  test('a host who seated their judges still assigns them', () => {
-    const own = { ...inherited, hostInherited: false };
+  test('a seatless host who seated their judges still assigns them', () => {
+    const own = {
+      ...inherited,
+      hostInherited: false,
+      participants: inherited.participants.filter(
+        (p) => p.actorId !== inherited.hostActorId,
+      ),
+    };
     assert({
-      given: 'the same move from a host who did not inherit',
+      given: 'the same move from a seatless host who did not inherit',
       should: 'accept it',
       actual: refusal(assign(own, suspect, 'judge', 1)),
       expected: 'accepted',

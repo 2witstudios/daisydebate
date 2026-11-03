@@ -1,4 +1,5 @@
 import type { roomCommandTransaction } from './room-command-transaction';
+import { recordCaptureNotice } from './agreement-signatures';
 import { readEntitlementGrants } from './entitlement-grants';
 import type {
   EntitlementGrant,
@@ -107,6 +108,12 @@ export const roomCreateOperations = ({
     } | null;
     /** Members a debater seat stays held for (ADR 0103), the host included. */
     readonly holdSeatsFor?: readonly string[];
+    /** The notice the create form showed its host, recorded with the Room. */
+    readonly notice?: {
+      readonly id: string;
+      readonly version: string;
+      readonly words: string;
+    } | null;
   }): Promise<RoomCommandReceipt> {
     return instrumented(eventSink, 'createRoomCommand', () =>
       transaction(async (tx) => {
@@ -164,6 +171,13 @@ export const roomCreateOperations = ({
           createdAt: new Date(now),
           updatedAt: new Date(now),
         });
+        if (input.notice)
+          await recordCaptureNotice(tx, {
+            ...input.notice,
+            userId: input.caller.userId,
+            roomId: input.room.id,
+            now,
+          });
         const heldActors = input.holdSeatsFor ?? [];
         if (heldActors.length) {
           const known = await tx

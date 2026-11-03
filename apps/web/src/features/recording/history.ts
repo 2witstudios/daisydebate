@@ -118,6 +118,12 @@ export type RecordingHistoryScreen =
         readonly recordingId: string;
         readonly version: number;
       } | null;
+      /** What a report from this page names: the Recording, or its Round if none. */
+      readonly reportTarget: {
+        readonly targetKind: 'recording' | 'round';
+        readonly targetId: string;
+        readonly label: string;
+      };
     };
 
 const sideName = (side: string): string =>
@@ -246,6 +252,19 @@ const recordingActions = (input: {
   };
 };
 
+const reportTargetOf = (record: RecordingRecord | null, roundId: string) =>
+  record
+    ? ({
+        targetKind: 'recording',
+        targetId: record.id,
+        label: 'Report this recording',
+      } as const)
+    : ({
+        targetKind: 'round',
+        targetId: roundId,
+        label: 'Report this round',
+      } as const);
+
 const permittedReads = (
   inputs: HistoryInputs,
   roundId: string,
@@ -301,6 +320,7 @@ export const openRecordingHistory = async (
     date: new Date(round.completedAtMs).toISOString().slice(0, 10),
     visibility: round.visibility,
     media: mediaPanel(round, record, permissions.media),
+    reportTarget: reportTargetOf(record, round.id),
     transcript: transcript && transcriptPanel(round, transcript, input.q),
     result: ballots && resultPanel(round, ballots),
     ...recordingActions({

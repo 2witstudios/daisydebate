@@ -275,6 +275,45 @@ describe('proxy early sign-in hint', () => {
     });
   });
 
+  test('a closed destination answers an API call as if it did not exist', async () => {
+    const closed = at('/api/rounds/round/timeline');
+    assert({
+      given: 'an API route of a closed destination, with no cookie',
+      should: 'answer 404 with the public error body and no explainer redirect',
+      actual: {
+        status: closed.status,
+        location: closed.headers.get('location'),
+        cache: closed.headers.get('Cache-Control'),
+        code: ((await closed.json()) as { error: { code: string } }).error.code,
+      },
+      expected: {
+        status: 404,
+        location: null,
+        cache: 'no-store',
+        code: 'NOT_FOUND',
+      },
+    });
+    assert({
+      given: 'a page of the same closed destination',
+      should: 'still go to its explainer',
+      actual: [
+        at('/audience/round').status,
+        at('/audience/round').headers.get('location'),
+      ],
+      expected: [307, 'https://daisy.invalid/coming-soon/watch'],
+    });
+  });
+
+  test('the proxy lets a Recording removal through with Watch closed', () => {
+    const response = at('/api/recordings/rec/removal');
+    assert({
+      given: 'the removal route under the real launch config',
+      should: 'reach its handler, which applies sign-in and its own rules',
+      actual: [response.status, response.headers.get('location')],
+      expected: [200, null],
+    });
+  });
+
   test('sends a closed destination to its explainer before any sign-in', () => {
     const locations = [
       '/tournaments',
@@ -448,5 +487,42 @@ test('PostHog CSP admits only a configured regional origin', () => {
       policy('https://attacker.invalid').includes('attacker'),
     ],
     expected: [false, false],
+  });
+});
+
+describe('proxy search indexing', () => {
+  const request = (path: string, headers: Record<string, string> = {}) =>
+    new NextRequest(`https://daisy.invalid${path}`, { headers });
+  const robots = (path: string, overrides: Partial<ProxySettings>) =>
+    proxy(request(path), overrides).headers.get('x-robots-tag');
+
+  test('a closed deployment refuses indexing on every answer the proxy gives', () => {
+    const closed = { searchIndexing: 'closed' } as const;
+    assert({
+      given: 'a public page, a sign-in redirect and a foundation 404',
+      should: 'carry noindex on each',
+      actual: ['/', '/settings', '/foundation'].map((path) =>
+        robots(path, closed),
+      ),
+      expected: Array(3).fill('noindex, nofollow'),
+    });
+  });
+
+  test('an open deployment adds nothing', () => {
+    assert({
+      given: 'a deployment configured open',
+      should: 'leave the header off',
+      actual: robots('/', { searchIndexing: 'open' }),
+      expected: null,
+    });
+  });
+
+  test('settings that say nothing are closed', () => {
+    assert({
+      given: 'no indexing setting',
+      should: 'refuse indexing',
+      actual: robots('/', {}),
+      expected: 'noindex, nofollow',
+    });
   });
 });

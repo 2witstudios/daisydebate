@@ -1,3 +1,5 @@
+import { launched } from '../../../../features/coming-soon/launch';
+import { followOfferedTo } from '../../../../features/following/follow-offer';
 import { setDebaterFollowAction } from '../../audience/actions';
 import { FollowButton } from '../../../../ui/following/follow-button';
 import {
@@ -70,8 +72,7 @@ export default async function ProfileRoute({
 /** Following needs an account, not admission; the block rule lives in the store. */
 async function ProfileFollow({ username }: { readonly username: string }) {
   const identity = await requestIdentity();
-  if (!('principal' in identity) || identity.principal.kind !== 'user')
-    return null;
+  if (!followOfferedTo(identity, launched.watch)) return null;
   const follow = await requestDebaterFollow(
     identity.principal.userId,
     username,

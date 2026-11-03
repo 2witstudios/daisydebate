@@ -57,6 +57,25 @@ test('create forwards the selected immutable revision and verifies the returned 
   });
 });
 
+test('the notice a ranked form showed travels with its create', async () => {
+  const fields = rankedCreateForm('public');
+  fields.set('noticeVersion', 'ranked-draft-1');
+  let sent: unknown;
+  await createAssembly(async (_url, init) => {
+    sent = JSON.parse(String(init.body));
+    return Response.json(
+      { receipt: { roomId: 'i'.repeat(24) } },
+      { status: 201 },
+    );
+  }, fields);
+  assert({
+    given: 'a form carrying the notice version it rendered',
+    should: 'state it to the server',
+    actual: (sent as { noticeVersion?: string }).noticeVersion,
+    expected: 'ranked-draft-1',
+  });
+});
+
 test('invalid create selections refuse before transport; server refusals never become success', async () => {
   let calls = 0;
   const invalid = form();

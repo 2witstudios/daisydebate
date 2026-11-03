@@ -90,6 +90,27 @@ export const liveBroadcastReads = ({
 }: {
   readonly database: BunSQLDatabase;
 }) => ({
+  /**
+   * The Round of a Room anyone may be sent to Watch for: public, with its start
+   * released. An unlisted Round is reached by its own link and a private one not at
+   * all, so a Room link alone grants neither.
+   */
+  async readWatchableRoundOfRoom(
+    roomId: string,
+    clock: SpectatorClock,
+  ): Promise<string | null> {
+    const [round] = await database
+      .select({ id: rounds.id })
+      .from(rounds)
+      .where(
+        and(
+          eq(rounds.roomId, roomId),
+          eq(rounds.visibility, 'public'),
+          factReleasedSql(rounds.startedAt, roundColumns, clock),
+        ),
+      );
+    return round?.id ?? null;
+  },
   listLiveBroadcasts(input: {
     readonly filter: LiveBroadcastFilter;
     readonly before: string;
@@ -108,6 +129,7 @@ export const liveBroadcastReads = ({
             competitionType: rounds.competitionType,
             resolution: rounds.resolution,
             rules: rounds.rulesSnapshot,
+            startedAt: rounds.startedAt,
             horizon: sql<
               Date | string | null
             >`${spectatorHorizonSql(roundColumns, input.clock)}`,

@@ -1,5 +1,6 @@
 import type { RoomListEntry, RoundStage } from '@daisy/protocol';
 import { drawnTopicLabel } from '../debate-room/vocabulary';
+import { liveHref, watchRoutes } from '../watch/routes';
 
 type RowState = 'open' | 'starting' | 'live';
 
@@ -48,6 +49,19 @@ const sectionLabels: Readonly<Record<RowState, string>> = {
   live: 'Live now',
 };
 
+/**
+ * Where someone without a seat watches a live Round: its public page. Only a
+ * seatless host lists a Round that is not public, and that page admits them by
+ * its link alone, so they keep the Round's own guarded page.
+ */
+const watchHrefOf = (entry: RoomListEntry): string => {
+  const round = entry.roundRef;
+  if (!round) return watchRoutes.hub;
+  return entry.visibility === 'public'
+    ? liveHref(round.id)
+    : `/rounds/${round.id}`;
+};
+
 const actionFor = (entry: RoomListEntry, state: RowState): LobbyAction => {
   const roomHref = `/rooms/${entry.id}`;
   const round = entry.roundRef;
@@ -58,13 +72,11 @@ const actionFor = (entry: RoomListEntry, state: RowState): LobbyAction => {
       primary: true,
     };
   if (state === 'open') return { verb: 'Join', href: roomHref, primary: true };
+  // A Room that has not started has no Round to watch yet: its Room is the one
+  // page that exists, and it leads on to the Round once there is one.
   if (state === 'starting')
     return { verb: 'Spectate', href: roomHref, primary: false };
-  return {
-    verb: 'Watch',
-    href: round ? `/rounds/${round.id}` : roomHref,
-    primary: false,
-  };
+  return { verb: 'Watch', href: watchHrefOf(entry), primary: false };
 };
 
 const stageLabels: Readonly<Record<RoundStage, string>> = {

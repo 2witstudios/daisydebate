@@ -4,8 +4,19 @@ import { debateSideSchema, idSchema } from './primitives';
 
 const spectatorStageSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('upcoming') }),
-  /** Nothing public on the stage: prep, judging, or facts not yet released. */
-  z.strictObject({ kind: z.literal('slate') }),
+  /**
+   * Nothing public on the stage. `moment` is where the released speeches have
+   * reached, or `unreleased` before anything may be said, never the Round's live position, which the audience may not know yet.
+   */
+  z.strictObject({
+    kind: z.literal('slate'),
+    moment: z.enum([
+      'unreleased',
+      'before_first_speech',
+      'between_speeches',
+      'speeches_over',
+    ]),
+  }),
   z.strictObject({
     kind: z.literal('floor'),
     segment: z.enum(['speech', 'cross_ex']),

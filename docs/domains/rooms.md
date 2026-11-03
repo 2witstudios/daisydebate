@@ -98,11 +98,14 @@ membership. Every terminal state frees its members:
   then judges, who gets the whole idle time to act. A host-written resolution
   list is that member's own text and does not pass: the draw reads the bank. With
   none left the Room closes. No human judge is named to an heir, in the Room
-  or the Round they start (`host_inherited`, frozen on the Round), and a seated
-  judge answers an heir's `assign-seat` as a member not in the Room does. So an
-  heir can't remove or replace a human judge; closing the Room is their answer to
-  a stuck judge seat. A closed Room's
-  status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone.
+  or the Round they start (`host_inherited`, frozen on the Round), nor to a host
+  who holds a seat, because a seat gains nothing from hosting (WATCH-6). A seated
+  judge answers `assign-seat` from either as a member not in the Room does. So
+  neither can remove or replace a human judge; closing the Room is their answer
+  to a stuck judge seat. A closed Room's
+  status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone. A started
+  Room also reads `closed` to anyone outside it, with no drawn resolution, so the
+  Room read never says a Round began before the spectator timeline does (WATCH-6).
 - **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, the Room maintenance
   sweep (its own worker, apart from Round maintenance) closes an open Room
   with no accepted command for that long, by database time.
@@ -152,7 +155,9 @@ through the Round command route.
 The Round's room page sends each member to their own view: a debater to the
 live room, the assigned judge to the judge view, and a seatless host to the
 spectator view, a read-only projection of the Round (who holds the floor, the
-clock and the speech order) with no controls and no media. The spectator
+clock and the speech order) with no controls and no media. That read is undelayed:
+a seatless host acts as an event host (`round.observe.undelayed`, ADR 0099), on
+any Round, ranked included. A seated host gains nothing from hosting. The spectator
 view is the seed of spectating: `SpectatorKind` names why a viewer
 watches, today only `host`, and later kinds join that union without a
 second view. Everyone else gets the Round's public page.
@@ -215,11 +220,19 @@ the grant captures nothing. Beta approval writes the grant until billing exists.
 It is separate from `casual_ai_judge`. A private Room can record but not
 broadcast. A change asks every seat to Ready again, and each seat is told the
 opted-in notice and the exact choice before Ready. Launch freezes the choice on
-the Round. Ranked needs no grant and holds no choice: it is always captured.
+the Round. Ranked needs no grant and holds no choice: it is always captured. The
+create form shows a ranked host the same notice and records it with the Room,
+because a host may never take a seat and so may never reach a Ready. A ranked create
+that states no notice is refused, unless the host holds a seat (a cast seat or a held
+one, as a challenge has), whose Ready records it. A signature
+keeps the exact words, so a superseded notice stays readable.
 
-A seated human judge reads their own ballot. Once the Round has completed they
-read the others only if its audience may: every signed-in member on a public or
-unlisted Round, nobody without a seat on a private one.
+A seated human judge reads their own ballot, and once the Round has completed,
+every ballot of it. Only the Round's seats and its seatless host read a Round at
+all (ADR 0099). Anyone else reads no ballot here: signing in opens nothing. The
+audience of a ranked Round gets the winner, scores and reason on the spectator
+timeline, once the Broadcast's watermark has passed them, and never a side's
+feedback; a casual Round's audience gets no ballot.
 
 An AI judge never rules on a transcript frozen incomplete (DEC-208). No AI
 job is queued for such a freeze. With no human judge, the Round completes at

@@ -8,6 +8,7 @@ import { createPresenceHandlers } from './handlers';
 import { ONLINE_LEASES_MAX } from '@daisy/db/presence-people-list';
 import { readPeopleList } from './people-list';
 import { cachedScan } from './online-scan';
+import { spectatorClockAt } from '../spectating/spectator-clock';
 import { readChosen, setChosenStatus } from './setting';
 
 /** Status changes per member per minute, Presence's own budget. */
@@ -79,7 +80,11 @@ export function composePresenceRoutes(app: App) {
         activity: (actorIds) => app.redis.readActorsPresence(actorIds),
         page: (scope, page) =>
           app.database.readPeopleListPage(scope, page, ownList(principal)),
-        cards: (actorIds) => app.database.readMemberCards(actorIds),
+        cards: (actorIds) =>
+          app.database.readMemberCards(
+            actorIds,
+            spectatorClockAt(app.clock.now()),
+          ),
         blinded: (actorId) => app.database.readRatingBlindings(actorId),
       }),
   });

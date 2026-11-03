@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { roundCaptureNotice } from '../../../features/legal/agreements';
 import type { PublishedResolution, RoomCatalogChoice } from '@daisy/protocol';
 import { createRoomDraft } from '../../../features/rooms/create-room-draft';
 import {
@@ -21,6 +22,9 @@ const formats = [
   ['value', 'Value', 'Value res'],
   ['custom', 'Custom', 'Your rules'],
 ] as const;
+
+/** Ranked always has this notice: creating records that its host was shown it. */
+const rankedNotice = roundCaptureNotice('ranked')!;
 
 export function CreateRoomEditor({
   choices,
@@ -369,11 +373,17 @@ export function CreateRoomEditor({
             <div className="create-room-field">
               <span>Who can join</span>
               <input type="hidden" name="visibility" value="public" />
+              <input
+                type="hidden"
+                name="noticeVersion"
+                value={rankedNotice.version}
+              />
               <p>
                 Listed in the lobby. Ranked Rounds are always public, broadcast
                 and recorded, so anyone can watch them. Play casual to keep a
                 Round out of public view.
               </p>
+              <p>{rankedNotice.text}</p>
             </div>
           ) : (
             <label className="create-room-field">

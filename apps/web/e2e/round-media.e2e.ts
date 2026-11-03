@@ -16,6 +16,7 @@ import {
 } from './support/human-ballot-round';
 import {
   MEDIA_POLL,
+  countMediaAdmissions,
   expectPeerCamera,
   grantMedia,
   installMediaCapture,
@@ -262,13 +263,9 @@ test('a media read held across a real Round transition is superseded without tou
       });
     const page = await openPage(speaker!.context, 'held read speaker');
     const mediaPath = `/api/rounds/${round.id}/media`;
-    let admissions = 0;
+    const admissions = countMediaAdmissions(page);
     const cancelled: { error: string; ageMs: number }[] = [];
     let heldAt = 0;
-    page.on('request', (request) => {
-      if (new URL(request.url()).pathname === `${mediaPath}/session`)
-        admissions++;
-    });
     page.on('requestfailed', (request) => {
       // An earlier read superseded while the Round settled is not the held one.
       if (
@@ -399,7 +396,7 @@ test('a media read held across a real Round transition is superseded without tou
       proof.statuses.filter((text) => /Reconnect|Connecting/.test(text)),
     ).toEqual([]);
     await expect(status).toBeVisible();
-    expect(admissions).toBe(1);
+    expect(admissions()).toBe(1);
     expect(await camera.evaluate((track) => track.readyState)).toBe('live');
     await camera.dispose();
   } finally {

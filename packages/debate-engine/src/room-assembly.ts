@@ -11,7 +11,11 @@ import type {
 import { assemblyOpen, complete, type Edges } from './room-assembly-facts';
 import { activeRoomMembers } from './room-membership';
 import { removeSeat } from './room-edit-transitions';
-export { hostIdentityHidden, projectRoom } from './room-projection';
+export {
+  hostIdentityHidden,
+  projectRoom,
+  startHiddenFrom,
+} from './room-projection';
 import {
   selectFormat,
   updateConfig,

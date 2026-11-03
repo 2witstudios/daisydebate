@@ -28,7 +28,7 @@ export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
   lobby: {
     slug: 'lobby',
     title: 'Play',
-    tagline: 'Rated and casual rooms.',
+    tagline: 'Ranked and casual rooms.',
   },
   watch: {
     slug: 'watch',

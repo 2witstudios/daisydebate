@@ -22,8 +22,10 @@ appears in an inbox. Its contract is the Round's:
   2026-11-03). Moderation alone stands between a post and its readers. A public read
   takes no viewer and may be cached for a second.
 - **Post:** an account, not admission, through a rate-limited route. An account with
-  no username has no actor and no name to post under, so it chooses one first. A ban,
-  an account restriction or slow mode refuses; `decideChatPost` is that decision.
+  no username has no actor and no name to post under, so it chooses one first. A
+  Round's ban or slow mode refuses; `decideChatPost` is that decision. A suspension or
+  ban on the account itself refuses chat, reactions, reports and follows alike
+  (`refuseRestricted`, point guard, 2026-11-03); reading stays open.
   Posting ends when the Broadcast completes or is stopped, which waits for its delay
   to pass. A Round with no Broadcast has no chat.
 - **The live room does not post.** Chat is not held, so what keeps outcomes out of it

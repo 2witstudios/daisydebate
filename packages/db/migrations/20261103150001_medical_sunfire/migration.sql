@@ -3,6 +3,7 @@ CREATE TABLE "agreement_signatures" (
 	"user_id" text NOT NULL,
 	"agreement" text NOT NULL,
 	"version" text NOT NULL,
+	"words" text NOT NULL,
 	"season_id" text,
 	"room_id" text,
 	"signed_at" timestamp with time zone NOT NULL,
@@ -179,6 +180,11 @@ CREATE TABLE "recordings" (
 	CONSTRAINT "recordings_version_positive" CHECK ("version" > 0)
 );
 --> statement-breakpoint
+CREATE TABLE "spectator_fact_log_open_rounds" (
+	"round_id" text PRIMARY KEY,
+	"touched_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "spectator_fact_releases" (
 	"round_id" text,
 	"kind" text,
@@ -188,7 +194,7 @@ CREATE TABLE "spectator_fact_releases" (
 	"watermark_at" timestamp with time zone,
 	"basis" text NOT NULL,
 	CONSTRAINT "spectator_fact_releases_pkey" PRIMARY KEY("round_id","kind","fact_id"),
-	CONSTRAINT "spectator_fact_releases_kind_check" CHECK ("kind" in ('stage', 'result', 'ballot', 'rating', 'caption')),
+	CONSTRAINT "spectator_fact_releases_kind_check" CHECK ("kind" in ('stage', 'resolution', 'result', 'ballot', 'rating', 'caption')),
 	CONSTRAINT "spectator_fact_releases_basis_check" CHECK ("basis" in ('watermark', 'clock_fallback', 'broadcast_ended', 'no_broadcast')),
 	CONSTRAINT "spectator_fact_releases_after_capture_check" CHECK ("released_at" >= "captured_at")
 );
@@ -256,6 +262,7 @@ ALTER TABLE "recording_captures" ADD CONSTRAINT "recording_captures_recording_id
 ALTER TABLE "recording_captures" ADD CONSTRAINT "recording_captures_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "recording_processing_jobs" ADD CONSTRAINT "recording_processing_jobs_recording_id_recordings_id_fkey" FOREIGN KEY ("recording_id") REFERENCES "recordings"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "recordings" ADD CONSTRAINT "recordings_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "spectator_fact_log_open_rounds" ADD CONSTRAINT "spectator_fact_log_open_rounds_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "spectator_fact_releases" ADD CONSTRAINT "spectator_fact_releases_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "watch_history" ADD CONSTRAINT "watch_history_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "watch_history" ADD CONSTRAINT "watch_history_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -315,3 +322,53 @@ $$;
 GRANT USAGE ON SCHEMA public TO daisy_recording_worker;
 --> statement-breakpoint
 GRANT SELECT, UPDATE ON recording_processing_jobs TO daisy_recording_worker;
+--> statement-breakpoint
+-- A fact-log row opens from a Round's own change or from any fact of it, locking
+-- and touching an existing row so a concurrent removal waits and then leaves it.
+CREATE FUNCTION open_spectator_fact_log(of_round text) RETURNS void LANGUAGE sql AS $$
+  INSERT INTO spectator_fact_log_open_rounds (round_id, touched_at)
+  VALUES (of_round, clock_timestamp())
+  ON CONFLICT (round_id) DO UPDATE SET touched_at = clock_timestamp();
+$$;
+--> statement-breakpoint
+CREATE FUNCTION open_spectator_fact_log_of_round() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM open_spectator_fact_log(NEW.id);
+  RETURN NULL;
+END $$;
+--> statement-breakpoint
+CREATE FUNCTION open_spectator_fact_log_of_fact() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM open_spectator_fact_log(NEW.round_id);
+  RETURN NULL;
+END $$;
+--> statement-breakpoint
+CREATE TRIGGER rounds_open_fact_log_on_insert
+  AFTER INSERT ON rounds FOR EACH ROW
+  WHEN (NEW.room_id IS NOT NULL AND NEW.visibility IN ('public','unlisted'))
+  EXECUTE FUNCTION open_spectator_fact_log_of_round();
+--> statement-breakpoint
+CREATE TRIGGER rounds_open_fact_log_on_update
+  AFTER UPDATE OF status, visibility, room_id ON rounds FOR EACH ROW
+  WHEN (NEW.room_id IS NOT NULL AND NEW.visibility IN ('public','unlisted')
+    AND (OLD.status IS DISTINCT FROM NEW.status
+      OR OLD.visibility IS DISTINCT FROM NEW.visibility
+      OR OLD.room_id IS DISTINCT FROM NEW.room_id))
+  EXECUTE FUNCTION open_spectator_fact_log_of_round();
+--> statement-breakpoint
+CREATE TRIGGER rating_changes_open_fact_log
+  AFTER INSERT ON rating_changes FOR EACH ROW
+  EXECUTE FUNCTION open_spectator_fact_log_of_fact();
+--> statement-breakpoint
+CREATE TRIGGER ballots_open_fact_log
+  AFTER INSERT ON ballots FOR EACH ROW
+  EXECUTE FUNCTION open_spectator_fact_log_of_fact();
+--> statement-breakpoint
+CREATE TRIGGER utterances_open_fact_log
+  AFTER INSERT OR UPDATE OF complete ON utterances FOR EACH ROW
+  WHEN (NEW.complete)
+  EXECUTE FUNCTION open_spectator_fact_log_of_fact();
+--> statement-breakpoint
+INSERT INTO spectator_fact_log_open_rounds (round_id, touched_at)
+  SELECT id, clock_timestamp() FROM rounds
+  WHERE room_id IS NOT NULL AND visibility IN ('public','unlisted');

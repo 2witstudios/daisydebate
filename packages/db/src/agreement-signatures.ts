@@ -46,13 +46,14 @@ export async function readContentWaiverStanding(
   return row ? 'signed' : 'unsigned';
 }
 
-/** Records the notice a Ready stated, once per member, version and Room. */
+/** Records the notice a member was shown, once per member, version and Room. */
 export async function recordCaptureNotice(
   tx: Tx,
   input: {
     readonly id: string;
     readonly userId: string;
     readonly version: string;
+    readonly words: string;
     readonly roomId: string;
     readonly now: string;
   },
@@ -64,6 +65,7 @@ export async function recordCaptureNotice(
       userId: input.userId,
       agreement: 'round-capture-notice',
       version: input.version,
+      words: input.words,
       roomId: input.roomId,
       signedAt: new Date(input.now),
     })
@@ -90,6 +92,7 @@ export const agreementSignatureOperations = ({
       readonly id: string;
       readonly userId: string;
       readonly version: string;
+      readonly words: string;
     }): Promise<'signed' | 'no-active-season'> =>
       instrumented(eventSink, 'signContentWaiver', () =>
         transaction(async (tx) => {
@@ -102,6 +105,7 @@ export const agreementSignatureOperations = ({
               userId: input.userId,
               agreement: 'ranked-content-waiver',
               version: input.version,
+              words: input.words,
               seasonId,
               signedAt: new Date(await transactionNow(tx as never)),
             })
@@ -124,7 +128,7 @@ export const agreementSignaturePrivacyAdopter: PrivacyAdopter = {
   export: async (tx, subject) => ({
     agreement_signatures: exportRows(
       (await tx.execute(
-        sql`select agreement,version,season_id,room_id,signed_at from ${agreementSignatures} where user_id=${subject.userId} order by signed_at, id`,
+        sql`select agreement,version,words,season_id,room_id,signed_at from ${agreementSignatures} where user_id=${subject.userId} order by signed_at, id`,
       )) as unknown as Record<string, unknown>[],
     ),
   }),

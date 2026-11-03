@@ -35,7 +35,7 @@ export const mediaDependencies = (
     activeMediaSessions: async () =>
       (await fixture.store.mediaSessions.activeMediaSessions()).map((row) => ({
         ...row,
-        claimable: true,
+        claimWait: null,
       })),
   },
   media,

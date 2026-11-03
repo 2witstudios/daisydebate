@@ -10,7 +10,11 @@ import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
-import { requiredContentWaiver, roomCaptureNotice } from './ready-agreements';
+import {
+  createNoticeOf,
+  requiredContentWaiver,
+  roomCaptureNotice,
+} from './ready-agreements';
 import type { Database } from '@daisy/db';
 import {
   readRoundOpeningTopic,
@@ -19,6 +23,7 @@ import {
   hostIdentityHidden,
   projectActiveRoom,
   projectRoom,
+  startHiddenFrom,
   decideRoomResolution,
 } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
@@ -55,6 +60,7 @@ export type Store = Pick<
   | 'executeRoomCommand'
   | 'readActiveRoomFacts'
   | 'readContentWaiverStanding'
+  | 'readWatchableRoundOfRoom'
 >;
 type Redis = Pick<
   ReturnType<typeof createRedis>,
@@ -177,6 +183,9 @@ export function createRoomRuntimeOperations({
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
       ),
+      watchRoundId: startHiddenFrom(state, caller.actorId)
+        ? await store.readWatchableRoundOfRoom(state.id, spectatorClockAt(now))
+        : null,
     };
   };
   /** The picker's catalog: role-bearing formats at their canonical presets (FMT-1). */
@@ -242,6 +251,14 @@ export function createRoomRuntimeOperations({
       resolved,
       recheck,
     } = await resolveRoomSelection(body, store, ids);
+    const createNotice = createNoticeOf(
+      competitionType,
+      body.noticeVersion,
+      (body.holdSeatsFor ?? []).includes(caller.actorId) ||
+        (body.cast ?? []).some((seat) => seat.actorId === caller.actorId),
+    );
+    if (createNotice.kind === 'refused')
+      throw createRefusal('CONFLICT', 'capture-notice-changed');
     const resolutionSelection = body.resolution;
     const publication =
       resolutionSelection.kind === 'policy' ||
@@ -285,6 +302,14 @@ export function createRoomRuntimeOperations({
       },
       selection: recheck,
       ...(body.holdSeatsFor ? { holdSeatsFor: body.holdSeatsFor } : {}),
+      notice:
+        createNotice.kind === 'shown'
+          ? {
+              id: ids.next(),
+              version: createNotice.notice.version,
+              words: createNotice.notice.text,
+            }
+          : null,
       cast: cast.length
         ? {
             seats: cast.map((seat) => ({

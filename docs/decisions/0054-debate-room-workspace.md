@@ -99,7 +99,7 @@ document. Daisy builds this itself rather than embedding another product.
   After the last speech the room enters judging. The mic shows live while
   the debater holds the floor. The Round read and the Room view are
   projected per viewer at the server (DEC-98, DEC-174): a human judge's
-  seat is anonymous to everyone but that judge and the host, with no name,
+  seat is anonymous to everyone but that judge and a seatless host, with no name,
   actor or seat id, and the Round read never carries the host's actor. An
   unreadable stored checkpoint reads as none, so the room shows no live
   position instead of failing. Ratings, stakes, Round commands, chat

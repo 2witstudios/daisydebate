@@ -2,10 +2,18 @@ import { systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema, roomRefusalSchema, type RoomRefusal } from '@daisy/protocol';
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';
 import { roomCommandIds } from '../../../../features/rooms/room-command-ids';
+import {
+  launched,
+  roomWatchHref,
+} from '../../../../features/coming-soon/launch';
 import { requireAccess } from '../../../../lib/access';
+import {
+  requestIdentity,
+  requestWatchableRoundOfRoom,
+} from '../../../../lib/request-session';
 import { RoomLive } from '../../../../ui/rooms/room-page/room-live';
 import { roomTemplates } from '../../play/actions';
 import {
@@ -33,6 +41,16 @@ export default async function RoomRoute({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { id } = await params;
+  // Watching needs no account: someone who cannot enter the Room still reaches
+  // its released Round. A member's own read below says the same (WATCH-6).
+  if (
+    launched.watch &&
+    idSchema.safeParse(id).success &&
+    (await requestIdentity()).state !== 'member'
+  ) {
+    const watch = roomWatchHref(await requestWatchableRoundOfRoom(id));
+    if (watch) redirect(watch);
+  }
   const identity = await requireAccess(`/rooms/${id}`, searchParams);
   if (!idSchema.safeParse(id).success) notFound();
   if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
@@ -44,6 +62,8 @@ export default async function RoomRoute({
   if (result.kind !== 'found' || catalog.kind !== 'found')
     throw createAppError('INFRASTRUCTURE');
   const view = result.view;
+  const watch = roomWatchHref(view.watchRoundId);
+  if (watch) redirect(watch);
   return (
     <div className="room-page mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 py-8 max-narrow:px-4">
       <MediaDocument />
