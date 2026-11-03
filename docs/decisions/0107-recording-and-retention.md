@@ -74,6 +74,16 @@ its end. Debate before the first frame or after the last has no place in video t
 `media.unrecorded` states it apart: a late start, an early end, or a stopped Broadcast. The
 worker reads none of this: its login reaches its job table and nothing else.
 
+**Preparation says how far it really is.** A running build writes its figures on its own
+job row, in each step's units: attempts read, milliseconds encoded as ffmpeg counts them,
+files uploaded. There is no percentage of the whole, because nothing measures one. The
+viewer and the Recording page read that, fenced to the lease's current owner.
+`recordingProcessingBoundMs` is half the media's length plus five minutes, from the
+capture's end. Past it an operator is alerted once, viewers are told it is delayed, and it
+keeps retrying: a timer never fails or discards a Recording, and a ranked Recording is kept
+forever (point guard, 2026-11-03). `failed` means the retries ran out, with an alert.
+A failed ranked Recording keeps its sources; no sweep removes them.
+
 **Polling is the mechanism.** The capture sweep reads each Egress from LiveKit on every
 pass, so a lost, forged, duplicated or reordered webhook cannot change anything. Webhooks
 are at most hints, and no receiver is needed (point guard, 2026-11-03).

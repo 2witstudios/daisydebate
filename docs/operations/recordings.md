@@ -91,6 +91,19 @@ Recording, and the audience sees that video as held back (ISSUE-1094). Seats and
 insiders can still watch it; releasing it to the audience is an operator action not yet
 built.
 
+## Preparation and delay
+
+A running build writes how far it is on its job row, which the viewer and the Recording page
+show. `recordingProcessingBoundMs` is half the media's length plus five minutes, from the
+capture's end. Past it `recording.processing_delayed` is raised once, viewers are told it is
+delayed, and it keeps retrying. Nothing is failed or discarded on a timer. Look at the
+worker's capacity and queue.
+
+`recording.processing_gave_up` means five runs failed and the Recording is `failed`. A casual
+failure's partial objects are removed after seven days. A ranked one is never removed by a
+sweep: it stays `failed` with its sources in the hold bucket until an operator acts. There
+is no command to rebuild one yet.
+
 ## Coverage
 
 `media.gaps` states what the video shows as something other than the debate, and the
