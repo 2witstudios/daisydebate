@@ -48,8 +48,8 @@ export const createObjects = (config: {
     deletePublic: (key: string) => pub.delete(key),
     /**
      * Presigned PUTs, because Bun's write drops Cache-Control. An uncached header
-     * keeps a rewritten manifest fresh (BCAST-1); a short one bounds how long a
-     * withdrawn segment can be served.
+     * keeps a rewritten manifest fresh (BCAST-1) and lets a delete reach every
+     * reader of a segment.
      */
     putSegment: async (key: string, path: string) => {
       await putPublic(key, Bun.file(path), {

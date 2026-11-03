@@ -75,12 +75,12 @@ export const mediaPlaylist = (
 };
 
 /**
- * A released segment never changes, but Tigris keeps a default hour at the edge
- * and a delete reaches no cache, so this bounds how long a withdrawn segment is
- * still served. Half the 60 s a takedown may take (DEC-303), the rest for the
- * delete itself. Measured on staging: an unset one served 200 after deletion.
+ * A released segment never changes, but a delete must reach readers: Tigris keeps
+ * serving a deleted object for as long as it is read, at max-age=10 and above
+ * (measured on staging: still 200 after 150 s), so a takedown would miss exactly
+ * the viewers it is for. With no-cache it was gone in 2.3 s, at the same latency.
  */
-export const SEGMENT_CACHE_CONTROL = 'public, max-age=30';
+export const SEGMENT_CACHE_CONTROL = 'no-cache';
 
 export const masterPlaylist = (): string =>
   '#EXTM3U\n' +
