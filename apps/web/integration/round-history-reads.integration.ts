@@ -1,4 +1,4 @@
-import { captureRule, readRoundOpening } from '@daisy/debate-engine';
+import { captureRule, readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -239,6 +239,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     await f.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     const completedAudience = await f.store.readRoundBallot({
       readOpening: readRoundOpening,
+      decideWaitingOn: roundWaitingOn,
       captureRule,
       caller: spectator,
       roundId,

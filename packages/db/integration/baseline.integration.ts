@@ -68,7 +68,6 @@ test('the baseline declares the integrity CHECKs the audit listed', async () => 
           'email_suppression_reason_check',
           'seasons_ends_after_starts',
           'role_grants_revoked_after_granted',
-          'ballots_voided_after_submitted',
           'rounds_completed_after_started',
         ])}
         order by conname
@@ -83,7 +82,6 @@ test('the baseline declares the integrity CHECKs the audit listed', async () => 
     // step with the schema by hand.
     actual: [...names].sort(),
     expected: [
-      'ballots_voided_after_submitted',
       'email_delivery_status_check',
       'email_suppression_reason_check',
       'role_grants_revoked_after_granted',

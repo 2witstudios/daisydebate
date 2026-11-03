@@ -1,3 +1,4 @@
+import { decisionOf } from './attendance-evaluation.test-support';
 import { buildRoundTopic } from '@daisy/protocol';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
@@ -102,7 +103,7 @@ test('a D5 service expiring between tick and evaluation cannot adjudicate', asyn
         actual: {
           decisions: results
             .filter((r) => r.status === 'fulfilled')
-            .map((r) => r.value?.decision),
+            .map((r) => decisionOf(r.value)),
           refusals: results.filter((r) => r.status === 'rejected').length,
           committed,
         },

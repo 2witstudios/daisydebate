@@ -1,10 +1,15 @@
+import {
+  botGrantUnused,
+  judgingJobEndReason,
+  attendanceSettled,
+} from '@daisy/debate-engine';
+import { judgingPolicy } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createRoundMaintenanceOperations,
-  DEFAULT_BALLOT_DEADLINE_MS,
   judgingPlan,
   panelCompletion,
 } from '../src/features/round-finalization/maintenance';
@@ -30,7 +35,10 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
       buildCompletion: panelCompletion(createId),
-      planJudging: judgingPlan(DEFAULT_BALLOT_DEADLINE_MS),
+      judgingEndReason: judgingJobEndReason,
+      attendanceSettled,
+      botGrantUnused,
+      planJudging: judgingPlan(judgingPolicy.humanBallotWindowMs),
     };
     try {
       await assertRejects({
@@ -100,7 +108,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
         store: f.store,
         instanceId,
         ids: { next: createId },
-        evaluate: async () => null,
+        evaluate: async () => ({ kind: 'undecided' as const }),
       }).finalize(roundId);
       const [facts] =
         await f.sql`select status,outcome,(select count(*)::int from round_commands where round_id=${roundId} and type='complete') receipts,(select count(*)::int from ballots where round_id=${roundId}) ballots,(select count(*)::int from rating_changes where round_id=${roundId}) ratings from rounds where id=${roundId}`;
@@ -145,7 +153,10 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
       buildCompletion: panelCompletion(createId),
-      planJudging: judgingPlan(DEFAULT_BALLOT_DEADLINE_MS),
+      judgingEndReason: judgingJobEndReason,
+      attendanceSettled,
+      botGrantUnused,
+      planJudging: judgingPlan(judgingPolicy.humanBallotWindowMs),
     };
     try {
       const active = await f.store.getRound(roundId);

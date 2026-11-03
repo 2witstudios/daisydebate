@@ -1,4 +1,4 @@
-import { readRoundOpening } from '@daisy/debate-engine';
+import { judgingJobRules, readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -90,9 +90,6 @@ for (const ladder of ratingLadders)
                   },
                 }).executeClaim(claim, new AbortController().signal);
               }
-              // Membership survives a later ballot-status change; the Round's
-              // finalized outcome, not a re-aggregation, remains authoritative.
-              await f.sql`update ballots set status='voided',voided_at=clock_timestamp(),voided_by_actor_id=${f.host.actorId} where round_id=${roundId}`;
               const candidates = await f.store.readUnratedRatingRounds({
                 limit: 64,
               });
@@ -113,6 +110,7 @@ for (const ladder of ratingLadders)
                 f.host,
                 () => true,
                 readRoundOpening,
+                roundWaitingOn,
               );
               const display = await readRoundRatings(f.store, {
                 round: roundView,
@@ -193,6 +191,8 @@ for (const ladder of ratingLadders)
               leaseMs: 60000,
               model: 'fixture-model',
               nextToken: () => randomBytes(32).toString('base64url'),
+              contractVersion: 'fixture-contract',
+              rules: judgingJobRules,
             },
           },
         );

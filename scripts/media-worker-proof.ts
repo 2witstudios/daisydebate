@@ -1,3 +1,5 @@
+import { botGrantUnused } from '@daisy/debate-engine';
+import { judgingPolicy } from '@daisy/protocol';
 import { captureRule } from '@daisy/debate-engine';
 import { createCaptureProofDiagnostics } from './media-worker-diagnostics';
 import { randomBytes } from 'node:crypto';
@@ -8,10 +10,7 @@ import { disposeAudioRuntime } from '@daisy/media/subscription';
 import { systemId } from '@daisy/clock';
 import { createRoundMediaOperations } from '../apps/web/src/features/round-media/operations';
 import { mediaRuntime } from '../apps/web/src/features/round-media/projection';
-import {
-  DEFAULT_BALLOT_DEADLINE_MS,
-  judgingPlan,
-} from '../apps/web/src/features/round-finalization/maintenance';
+import { judgingPlan } from '../apps/web/src/features/round-finalization/maintenance';
 import { createMediaWorkerTokenBroker } from '../apps/web/src/features/round-media/worker-token';
 import { createMediaCaptureHandlers } from '../apps/web/src/features/media-capture/handlers';
 import { createCaptureHeardRelay } from '../apps/web/src/features/media-capture/heard-relay';
@@ -264,7 +263,8 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
       roundId,
       buildProjection: (context) =>
         mediaRuntime(context, nextId).tick(context.now),
-      planJudging: judgingPlan(DEFAULT_BALLOT_DEADLINE_MS),
+      botGrantUnused,
+      planJudging: judgingPlan(judgingPolicy.humanBallotWindowMs),
     });
     const transcript = await f.store.readFrozenRoundTranscript(roundId);
     // The worker seals each stream before the cutoff (VIDEO-4.1): anything but a

@@ -4,7 +4,6 @@ import type { RoundBallotEnvelope } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   judgeActorId,
-  judgeSeatId,
   lockedRound,
 } from '../round-runtime/locked-round.test-support';
 import { ballotFormFixture } from './ballot-form.test-support';
@@ -22,8 +21,6 @@ const context = {
   frozen: null as never,
 };
 const judge = { kind: 'human' as const, actorId: judgeActorId };
-const ballot = (winner: string, status = 'submitted') =>
-  ({ judgeParticipantId: judgeSeatId, winner, status }) as never;
 
 /** Captures the prepared locked input the store would execute. */
 const prepare = async (
@@ -83,23 +80,48 @@ test('only the seated judge is authorized, under the envelope digest', async () 
   });
 });
 
-test('completion waits for every judge and refuses an unstorable vote', async () => {
+test('completion follows the panel decision', async () => {
   const prepared = await prepare(judge);
+  const seat = lockedRound.round.participants.find((p) => p.role === 'judge')!;
+  const panel = (
+    ballots: readonly {
+      judgeParticipantId: string;
+      winner: 'affirmative' | 'negative';
+    }[],
+  ) => ({
+    completeness: 'complete' as const,
+    humanJudgeSeatIds: [seat.id],
+    aiJudgeSeatIds: [],
+    ballotDeadlineAt: new Date(Date.parse(context.now) + 1).toISOString(),
+    jobs: [],
+    held: {
+      attendanceCutoffAt: context.now,
+      lastAttendanceDecisionAt: null,
+      lastWriterResolvedAt: null,
+    },
+    ballots,
+  });
   assert({
     given: 'no ballot yet from the only judge',
     should: 'leave the Round for later judges',
-    actual: prepared.buildProjection({ ...context, ballots: [] }),
+    actual: prepared.buildProjection({
+      ...context,
+      ballots: [],
+      panel: panel([]),
+    }),
     expected: null,
   });
-  for (const [label, row] of [
-    ['a draw vote', ballot('draw')],
-    ['a pending ballot', ballot('affirmative', 'pending')],
-  ] as const)
-    await assertRejects({
-      given: label,
-      should: 'refuse as a broken invariant',
-      actual: async () =>
-        prepared.buildProjection({ ...context, ballots: [row] }),
-      code: 'INVARIANT',
-    });
+  assert({
+    given: 'a human seat with no persisted deadline',
+    should: 'not complete it',
+    actual: prepared.buildProjection({
+      ...context,
+      ballots: [],
+      panel: {
+        ...panel([{ judgeParticipantId: seat.id, winner: 'affirmative' }]),
+        ballotDeadlineAt: null,
+      },
+    }),
+    expected: null,
+  });
 });

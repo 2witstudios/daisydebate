@@ -1,3 +1,4 @@
+import { attendanceSettled } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
 import type {
   RateDebateInput,
@@ -29,5 +30,6 @@ export function rateCompletedRound(
     roundId,
     changeIds: [ids.next(), ids.next()],
     decide: ratingDecision,
+    attendanceSettled,
   });
 }

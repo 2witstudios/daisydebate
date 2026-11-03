@@ -45,8 +45,7 @@ export type RoundCommand =
   | { readonly type: 'start_speech' }
   | { readonly type: 'yield' }
   | { readonly type: 'interrupt' }
-  | { readonly type: 'forfeit' }
-  | { readonly type: 'complete'; readonly outcome: RatedOutcome };
+  | { readonly type: 'forfeit' };
 
 /** A durable segment row the runtime opened and the caller must insert. */
 export type SegmentInsert = {

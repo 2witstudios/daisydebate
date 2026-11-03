@@ -1,9 +1,10 @@
+import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { createId } from '@paralleldrive/cuid2';
 import { withSeasons } from '@daisy/db/seasons';
 import { buildRoundTopic } from '@daisy/protocol';
 import { recoverRatedResults } from './rated-room.test-support';
-import { readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
+import { readRoundOpening, roundWaitingOn, judgingJobRules } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -46,6 +47,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
         f.host,
         () => true,
         readRoundOpening,
+        roundWaitingOn,
       );
       const [receipt] =
         await f.sql`select result from round_commands where round_id=${roundId} and type='complete'`;
@@ -77,6 +79,8 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
         leaseMs: 60000,
         model: 'fixture-model',
         nextToken: () => randomBytes(32).toString('base64url'),
+        contractVersion: 'fixture-contract',
+        rules: judgingJobRules,
       },
     },
   );
@@ -152,6 +156,8 @@ const judgingOptions = {
     leaseMs: 60000,
     model: 'fixture-model',
     nextToken: () => randomBytes(32).toString('base64url'),
+    contractVersion: 'fixture-contract',
+    rules: judgingJobRules,
   },
 };
 
@@ -345,7 +351,7 @@ test('a held ballot past the cutoff still decides the Round once attendance sett
       { inputTokens: 1, outputTokens: 1 },
     );
     await f.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 hour' where round_id=${roundId}`;
-    await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
+    await passAttendanceCutoff(f.sql, roundId);
     await seedSettledAttendanceLedger(f, roundId);
     let calls = 0;
     await createRoundJudgingOperations({

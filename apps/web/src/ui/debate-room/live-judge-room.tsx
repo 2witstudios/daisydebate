@@ -14,6 +14,11 @@ import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useLiveRoundView } from './use-live-round-view';
 import { MediaPageLink } from '../round-media/media-page-link';
 import { RoundEndedNotice } from './round-ended';
+import {
+  clearAccountResumeRecords,
+  markDeparture,
+} from '../../features/rooms/resume-departure';
+import { useRoundMediaTab } from './use-round-media-tab';
 import { useRoundEndedRoute } from './use-round-ended';
 
 /**
@@ -21,12 +26,15 @@ import { useRoundEndedRoute } from './use-round-ended';
  * server-authoritative. Once the Round ends, the judge goes to its result.
  */
 export function LiveJudgeRoom({
+  actorId,
   transcript,
   view: seed,
   read,
   socketUrl,
   renderedAtMs,
 }: {
+  /** A judge's resume ends only by choosing to go; no command records that. */
+  readonly actorId: string;
   readonly transcript?: ReactNode;
   readonly view: RoundView;
   readonly read: () => Promise<RoundRead>;
@@ -44,12 +52,20 @@ export function LiveJudgeRoom({
     onConnectionOpen: wakeClock,
   });
   const refresh = useCallback(() => driver?.signal(), [driver]);
-  const media = useMemo(
-    () => roundMediaSlot(refresh, roundTime),
-    [refresh, roundTime],
-  );
   const view = synced.value;
   const now = useSecond(renderedAtMs, roundTime);
+  const tab = useRoundMediaTab(actorId, view);
+  const media = useMemo(
+    () =>
+      roundMediaSlot({
+        onRefresh: refresh,
+        roundTime,
+        actorId,
+        tab,
+        onAccountChanged: clearAccountResumeRecords,
+      }),
+    [refresh, roundTime, actorId, tab],
+  );
   const ended = useRoundEndedRoute(view);
   if (ended) return <RoundEndedNotice roundId={view.id} />;
   return (
@@ -86,6 +102,13 @@ export function LiveJudgeRoom({
       <MediaPageLink href={`/rounds/${view.id}`}>
         View the round result
       </MediaPageLink>
+      <Link
+        href="/lobby"
+        prefetch={false}
+        onClick={() => markDeparture(actorId, view.id)}
+      >
+        Back to the lobby
+      </Link>
     </main>
   );
 }

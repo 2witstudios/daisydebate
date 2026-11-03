@@ -16,7 +16,7 @@ export function ballotDebaters(view: RoundBallotRead): BallotDebaters {
   return { affirmative: { name: affirmative }, negative: { name: negative } };
 }
 export type BallotDisplay =
-  'retry' | 'recorded' | 'voided' | 'open' | 'waiting' | 'decided';
+  'retry' | 'recorded' | 'open' | 'waiting' | 'decided';
 export function ballotDisplay(
   view: RoundBallotRead,
   answer: import('./form').RoundBallotFormState,
@@ -26,7 +26,6 @@ export function ballotDisplay(
     ballotFields(Object.entries(answer.values), true).ok
   )
     return 'retry';
-  if (view.own?.status === 'voided') return 'voided';
   if (answer.receipt || view.own?.status === 'submitted') return 'recorded';
   if (ballotOpen(view)) return 'open';
   return pendingDisplay(view.round.status);

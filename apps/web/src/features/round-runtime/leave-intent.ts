@@ -5,6 +5,8 @@ import { roundControlIntents } from './control-intents';
 /** What Leave does for this viewer now (ADR 0070). */
 export type LeaveIntent =
   | { readonly kind: 'navigate' }
+  /** A seated debater whose forfeit is unavailable right now: nothing can confirm leaving. */
+  | { readonly kind: 'held' }
   /** A debater after the last speech: the Room no longer holds them (ISSUE-590). */
   | { readonly kind: 'freed' }
   | {
@@ -29,7 +31,8 @@ const awaitingBallot = (view: RoundView, nowMs: number) =>
  * Leaving a live Round forfeits it: a debater's own opening Round, or an
  * active one while forfeit is a legal intent. After the last speech a
  * debater leaves freed, forfeiting nothing, since judging is the judge's
- * work and the Room released them when the debate ended (ADR 0070). Judges
+ * work and the Room released them when the debate ended (ADR 0070). A debater
+ * between persisted phases is held, since forfeit cannot be posted yet. Judges
  * and anyone unseated only navigate.
  */
 export function leaveIntent(
@@ -54,5 +57,5 @@ export function leaveIntent(
       participantId: seat.id,
       expectedVersion: view.version,
     };
-  return awaitingBallot(view, nowMs) ? { kind: 'freed' } : { kind: 'navigate' };
+  return awaitingBallot(view, nowMs) ? { kind: 'freed' } : { kind: 'held' };
 }

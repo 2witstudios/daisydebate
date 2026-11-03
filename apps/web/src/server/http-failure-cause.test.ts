@@ -18,7 +18,7 @@ const failWith = async (error: unknown) => {
   const response = await handleOperation(
     logger,
     new Request('http://localhost/api/foundation/proof'),
-    'test.operation',
+    'health.readiness',
     () => Promise.reject(error),
   );
   return {

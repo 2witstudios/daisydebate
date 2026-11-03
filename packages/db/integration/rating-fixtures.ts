@@ -1,3 +1,4 @@
+import { attendanceSettled } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import type {
   CompetitionType,
@@ -258,7 +259,12 @@ export const withRatings = (
         fixture,
         database,
         rate: (roundId, decide = stub()) =>
-          database.rateRound({ roundId, changeIds: ids(), decide }),
+          database.rateRound({
+            roundId,
+            changeIds: ids(),
+            decide,
+            attendanceSettled,
+          }),
         seated,
         track,
       });

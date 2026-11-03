@@ -1,16 +1,29 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import type { JudgingAttemptDiagnostic } from '@daisy/protocol';
-import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { judgingJobCanRule } from '../src/round-judging-end';
+import { assertRejects } from '@daisy/errors/testing';
+import { readJudgingPanelFacts } from '../src/judging-panel-read';
 import {
   syntheticPendingBallot,
   withJudgingJob,
 } from './round-judging.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
+
+/** The Round's final speech ended long enough ago that its cutoff has passed; its end is write-once, so the guard stays out of the way. */
+const playedOut = (
+  fixture: Parameters<Parameters<typeof withJudgingJob>[0]>[0]['fixture'],
+  roundId: string,
+) =>
+  fixture.sql.begin(async (tx) => {
+    await tx`set local session_replication_role = replica`;
+    await tx`update rounds set final_segment_ended_at=ended.at,
+      transcript_admission_cutoff=ended.at+interval '120 seconds',
+      attendance_resolution_cutoff_at=ended.at+interval '60 minutes'
+      from (select date_trunc('milliseconds',clock_timestamp())-interval '61 minutes' as at) ended where id=${roundId}`;
+  });
 
 const expire = (
   fixture: Parameters<Parameters<typeof withJudgingJob>[0]>[0]['fixture'],
@@ -24,13 +37,16 @@ test('a judging job buys at most two model calls across lease expiries, then end
     for (let i = 0; i < 4; i++) {
       const claim = await jobs.claim(target).catch(() => null);
       if (!claim) break;
-      dispatched.push(await jobs.beginModelCall(claim.scope, claim.token));
+      dispatched.push(
+        (await jobs.beginModelCall(claim.scope, claim.token)).kind ===
+          'dispatched',
+      );
       await expire(fixture, roundId);
     }
     const [job] =
       await fixture.sql`select status,lease_expires_at from round_judging_jobs where round_id=${roundId}`;
     const [paid] =
-      await fixture.sql`select count(*)::int n from agent_runs where kind='judging' and configuration_snapshot->>'providerOutcome' in ('unknown','received') and configuration_snapshot->>'roundId'=${roundId}`;
+      await fixture.sql`select count(*)::int n from round_judging_attempts where round_id=${roundId} and category is distinct from 'provider_refused'`;
     assert({
       given:
         'a judging job whose model call never answers, its lease expiring after each dispatch',
@@ -66,7 +82,7 @@ test('a judging job past its AI budget buys no model call, whatever the human de
       should: 'refuse the model call and end the job with that reason',
       actual: { begun, status: job.status, reason: job.terminal_reason },
       expected: {
-        begun: false,
+        begun: { kind: 'ended', reason: 'generation_deadline' },
         status: 'failed',
         reason: 'generation_deadline',
       },
@@ -79,7 +95,7 @@ test('a judging job past its AI budget buys no model call, whatever the human de
       given: 'a passed human ballot deadline and budget remaining',
       should: 'still allow the AI job to work: the two are separate concepts',
       actual: await jobs.beginModelCall(claim.scope, claim.token),
-      expected: true,
+      expected: { kind: 'dispatched' },
     });
   });
 });
@@ -102,8 +118,6 @@ test('the failed final permitted call ends the job on that call, not on a later 
       first.token,
       {
         diagnostic: rejected,
-        contractVersion: 'judge-contract@1',
-        definite: false,
         final: false,
       },
     );
@@ -118,8 +132,6 @@ test('the failed final permitted call ends the job on that call, not on a later 
       second.token,
       {
         diagnostic: rejected,
-        contractVersion: 'judge-contract@1',
-        definite: false,
         final: false,
       },
     );
@@ -172,7 +184,7 @@ test('the failed final permitted call ends the job on that call, not on a later 
       },
       expected: {
         category: 'schema_rejected',
-        version: 'judge-contract@1',
+        version: 'fixture-contract',
         field: 'reason',
       },
     });
@@ -192,8 +204,6 @@ test('a call the vendor certainly refused buys nothing; an uncertain one still c
           issueCount: 0,
           issues: [],
         },
-        contractVersion: 'judge-contract@1',
-        definite,
         final: false,
       });
     };
@@ -256,7 +266,7 @@ test('the budget fences an active lease: renewal cancels, and a late answer gain
         tokens: run.input_tokens,
       },
       expected: {
-        saved: false,
+        saved: { kind: 'ended', reason: 'generation_deadline' },
         status: 'failed',
         held: false,
         tokens: usage.inputTokens,
@@ -320,14 +330,12 @@ test('a refusal that cannot heal ends the job at once, having bought nothing', a
         issueCount: 0,
         issues: [],
       },
-      contractVersion: 'judge-contract@1',
-      definite: true,
       final: true,
     });
     const [job] =
       await fixture.sql`select status,terminal_reason from round_judging_jobs where round_id=${roundId}`;
     const [paid] =
-      await fixture.sql`select count(*)::int as n from agent_runs where id=${claim.scope.agentRunId} and configuration_snapshot->>'providerOutcome' in ('unknown','received')`;
+      await fixture.sql`select count(*)::int as n from round_judging_attempts where agent_run_id=${claim.scope.agentRunId} and category is distinct from 'provider_refused'`;
     assert({
       given: 'no endpoint able to serve the request',
       should: 'end now, not retry for the whole budget, and count no paid call',
@@ -357,32 +365,41 @@ test('a held ballot outlives the cutoff until it has had its chance to submit', 
       syntheticPendingBallot,
       usage,
     );
-    await fixture.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
-    const canRule = async () => {
-      const [row] = await drizzle({ client: fixture.sql }).execute(
-        sql`select ${judgingJobCanRule} as can from round_judging_jobs where round_id=${roundId}`,
-      );
-      return (row as { can: boolean }).can;
-    };
-    const beforeCutoff = await canRule();
-    await fixture.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
-    const pastCutoff = await canRule();
+    const facts = () =>
+      readJudgingPanelFacts(drizzle({ client: fixture.sql }), {
+        roundId,
+        completeness: 'complete',
+      });
+    const unended = await fixture.round();
+    await assertRejects({
+      given: 'a Round read as frozen with no final end, so no cutoff',
+      should: 'refuse rather than hold the ballot without end',
+      actual: () =>
+        readJudgingPanelFacts(drizzle({ client: fixture.sql }), {
+          roundId: unended,
+          completeness: 'complete',
+        }),
+      code: 'INVARIANT',
+    });
+    await fixture.sql`delete from rounds where id=${unended}`;
+    await playedOut(fixture, roundId);
+    const before = (await facts()).held;
     const attemptId = createId();
     await fixture.sql`insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,backend_pid,backend_started_at)
       select ${attemptId},${createId()},${roundId},${'b'.repeat(64)},actor_id,1,'2026-10-22 00:00:00+00' from round_participants where round_id=${roundId} limit 1`;
     await fixture.sql`update round_check_in_attempts set state='aborted',resolved_at=clock_timestamp() where attempt_id=${attemptId}`;
-    const writerJustResolved = await canRule();
+    const after = (await facts()).held;
     await fixture.sql`delete from round_check_in_attempts where attempt_id=${attemptId}`;
     assert({
-      given: 'a validated ballot past its budget',
+      given: 'a held ballot, then an uncertain writer resolving',
       should:
-        'wait to the cutoff, stop there, and get a fresh chance when an uncertain writer resolves',
-      actual: { beforeCutoff, pastCutoff, writerJustResolved },
-      expected: {
-        beforeCutoff: true,
-        pastCutoff: false,
-        writerJustResolved: true,
+        'read the cutoff and the writer, for the engine to bound the hold by',
+      actual: {
+        cutoff: before.attendanceCutoffAt === after.attendanceCutoffAt,
+        before: before.lastWriterResolvedAt,
+        resolved: after.lastWriterResolvedAt !== null,
       },
+      expected: { cutoff: true, before: null, resolved: true },
     });
   });
 });
@@ -397,15 +414,15 @@ test('a fresh attendance decision also gives a held ballot its chance', async ()
       syntheticPendingBallot,
       usage,
     );
-    await fixture.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
-    await fixture.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
-    const canRule = async () => {
-      const [row] = await drizzle({ client: fixture.sql }).execute(
-        sql`select ${judgingJobCanRule} as can from round_judging_jobs where round_id=${roundId}`,
-      );
-      return (row as { can: boolean }).can;
-    };
-    const before = await canRule();
+    await playedOut(fixture, roundId);
+    const lastDecision = async () =>
+      (
+        await readJudgingPanelFacts(drizzle({ client: fixture.sql }), {
+          roundId,
+          completeness: 'complete',
+        })
+      ).held.lastAttendanceDecisionAt;
+    const before = await lastDecision();
     const segmentId = createId();
     await fixture.insert('round_segments', {
       id: segmentId,
@@ -432,14 +449,15 @@ test('a fresh attendance decision also gives a held ballot its chance', async ()
       segment_id: segmentId,
       command_id: commandId,
       decision: 'none',
+      evidence: 'settled_availability',
       effective_deadline: new Date(),
       settled_horizon: new Date(),
     });
     assert({
       given: 'a held ballot past the cutoff, then a new attendance decision',
-      should: 'count as able to rule for the grace after that decision',
-      actual: [before, await canRule()],
-      expected: [false, true],
+      should: 'read that decision, for the engine to bound the hold by',
+      actual: [before, (await lastDecision()) !== null],
+      expected: [null, true],
     });
   });
 });

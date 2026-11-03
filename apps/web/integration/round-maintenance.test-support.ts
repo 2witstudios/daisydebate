@@ -1,10 +1,11 @@
+import { botGrantUnused } from '@daisy/debate-engine';
+import { judgingPolicy } from '@daisy/protocol';
 import type { SQL } from 'bun';
 import type { Database } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { startAvailabilityService } from '../src/features/availability/service';
 import {
   createRoundMaintenanceOperations,
-  DEFAULT_BALLOT_DEADLINE_MS,
   judgingPlan,
 } from '../src/features/round-finalization/maintenance';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
@@ -37,7 +38,8 @@ export async function withWebFinalizer<T>(
         instanceId,
         roundId,
         buildProjection: roundTickProjection(createId),
-        planJudging: judgingPlan(DEFAULT_BALLOT_DEADLINE_MS),
+        botGrantUnused,
+        planJudging: judgingPlan(judgingPolicy.humanBallotWindowMs),
       }),
     );
   } finally {
@@ -61,7 +63,7 @@ export const ordinaryMaintenance = (
     store,
     instanceId,
     ids: { next: createId },
-    evaluate: async () => null,
+    evaluate: async () => ({ kind: 'undecided' as const }),
   });
 
 export async function finalizeByMaintenance(

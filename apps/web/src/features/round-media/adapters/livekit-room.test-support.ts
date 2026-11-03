@@ -1,0 +1,191 @@
+import { RoomEvent, Track } from 'livekit-client';
+import type { MediaSdk } from '../media-harness.test-support';
+
+/** A captured local track that records whether anything stopped it. */
+const capturedTrack = (source: string) => {
+  const listeners = new Map<string, () => void>();
+  const mediaStreamTrack = {
+    readyState: 'live',
+    deviceId: 'checked-mic',
+    getSettings() {
+      return { deviceId: this.deviceId };
+    },
+  };
+  return {
+    source,
+    ended: false,
+    muted: false,
+    isMuted: false,
+    mediaStreamTrack,
+    on(event: string, listener: () => void) {
+      listeners.set(event, listener);
+      return this;
+    },
+    emit: (event: string) => listeners.get(event)?.(),
+    listening: () => listeners.size,
+    async mute() {
+      this.muted = true;
+      return this;
+    },
+    async unmute() {
+      this.muted = false;
+      return this;
+    },
+    stop() {
+      this.ended = true;
+    },
+  };
+};
+type Captured = ReturnType<typeof capturedTrack>;
+
+/**
+ * A Room whose disconnect and unpublish stop nothing, and whose publish never
+ * settles: only the transport's own track.stop() can end a captured track.
+ */
+export function stubSdk(
+  options: {
+    readonly missingSource?: 'camera' | 'microphone';
+    /** The browser error a missing source throws; OverconstrainedError by default. */
+    readonly missingError?: string;
+    /** Each capture waits for its gate here, in call order; undefined passes at once. */
+    readonly captureGates?: readonly (Promise<void> | undefined)[];
+    /** Publishes settle at once, recorded in `published`. */
+    readonly settles?: boolean;
+    readonly unpublishGate?: Promise<void>;
+    /** Each publish waits for its gate here, in call order; undefined follows `settles`. */
+    readonly publishGates?: readonly (Promise<void> | undefined)[];
+    /** Each connect waits for its gate here, in call order; undefined connects at once. */
+    readonly connectGates?: readonly (Promise<void> | undefined)[];
+    /** The first publish rejects; later ones follow `settles`. */
+    readonly failFirstPublish?: boolean;
+    /** The first unpublish rejects. */
+    readonly failFirstUnpublish?: boolean;
+  } = {},
+) {
+  const captures: unknown[] = [];
+  const captured: Captured[] = [];
+  const published: Captured[] = [];
+  const gates = [...(options.captureGates ?? [])];
+  const publishGates = [...(options.publishGates ?? [])];
+  const connectGates = [...(options.connectGates ?? [])];
+  let failPublish = options.failFirstPublish ?? false;
+  let failUnpublish = options.failFirstUnpublish ?? false;
+  const handlers = new Map<string, (...args: unknown[]) => void>();
+  const localParticipant = {
+    trackPublications: new Map(),
+    permissions: undefined as
+      { canPublish: boolean; canPublishSources: number[] } | undefined,
+    publishTrack: (track: Captured) => {
+      if (failPublish) {
+        failPublish = false;
+        return Promise.reject(new Error('Publish refused'));
+      }
+      const gate = publishGates.shift();
+      if (gate)
+        return gate.then(() => {
+          published.push(track);
+        });
+      if (!options.settles) return new Promise(() => {});
+      published.push(track);
+      return Promise.resolve();
+    },
+    unpublishTrack: async (track: Captured) => {
+      await options.unpublishGate;
+      if (failUnpublish) {
+        failUnpublish = false;
+        throw new Error('Unpublish refused');
+      }
+      published.splice(published.indexOf(track), 1);
+    },
+  };
+  const room = {
+    localParticipant,
+    remoteParticipants: new Map(),
+    on(event: string, handler: (...args: unknown[]) => void) {
+      handlers.set(event, handler);
+      return room;
+    },
+    connect: async () => {
+      await connectGates.shift();
+    },
+    disconnect: async () => undefined,
+    removeAllListeners: () => undefined,
+    startAudio: async () => undefined,
+  };
+  return {
+    captures,
+    captured,
+    published,
+    /** An independently subscribed peer track, not a local publication. */
+    subscribePeer: (source: 'camera' | 'microphone') => {
+      const track = capturedTrack(source);
+      room.remoteParticipants.set('peer', {
+        identity: 'peer',
+        isSpeaking: false,
+        trackPublications: new Map([
+          [source, { source, isMuted: false, track }],
+        ]),
+      });
+      return track;
+    },
+    /** A peer present in the room, with whatever it has published so far. */
+    joinPeer: (
+      publications: readonly { source: Track.Source; track: unknown }[],
+    ) => {
+      room.remoteParticipants.set('peer', {
+        identity: 'peer',
+        isSpeaking: false,
+        trackPublications: new Map(
+          publications.map((publication) => [
+            publication.source,
+            { ...publication, isMuted: false },
+          ]),
+        ),
+      });
+    },
+    leavePeer: () => {
+      room.remoteParticipants.delete('peer');
+    },
+    fire: (event: string, ...args: unknown[]) => handlers.get(event)?.(...args),
+    /** LiveKit changes this participant's own permission. */
+    permit: (sources: Track.Source[]) => {
+      localParticipant.permissions = {
+        canPublish: sources.length > 0,
+        canPublishSources: sources.map((source) => Track.sourceToProto(source)),
+      };
+      handlers.get(RoomEvent.ParticipantPermissionsChanged)?.(
+        undefined,
+        localParticipant,
+      );
+    },
+    sdk: {
+      room: () => room,
+      capture: async (options_: { audio: boolean; video: unknown }) => {
+        captures.push(options_);
+        if (
+          options.missingSource === (options_.audio ? 'microphone' : 'camera')
+        )
+          throw new DOMException(
+            'private',
+            options.missingError ?? 'OverconstrainedError',
+          );
+        await gates.shift();
+        const track = capturedTrack(options_.audio ? 'microphone' : 'camera');
+        captured.push(track);
+        return [track];
+      },
+    } as unknown as MediaSdk,
+  };
+}
+export const events = {
+  tracks: () => {},
+  invalidated: () => {},
+  reconnect: () => {},
+};
+export const publish = (sources: string[]) =>
+  ({ grants: { publish: sources } }) as never;
+export const settle = async () => {
+  for (let i = 0; i < 200; i++) await Promise.resolve();
+};
+export const sources = (tracks: readonly Captured[]) =>
+  tracks.map((track) => track.source);

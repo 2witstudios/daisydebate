@@ -1,4 +1,4 @@
-import { captureRule, readRoundOpening } from '@daisy/debate-engine';
+import { captureRule, readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
 import {
   canReadRound,
@@ -161,6 +161,7 @@ export const readBallotAs = (
 ) =>
   f.store.readRoundBallot({
     readOpening: readRoundOpening,
+    decideWaitingOn: roundWaitingOn,
     captureRule,
     caller,
     roundId,

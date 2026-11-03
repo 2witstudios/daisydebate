@@ -9,8 +9,8 @@ const seats = ['judge-a', 'judge-b', 'judge-c'].map((id) => ({
 const submitted = (
   judgeParticipantId: string,
   winner: 'affirmative' | 'negative',
-) => ({ judgeParticipantId, winner, status: 'submitted' as const });
-test('all assigned ballots decide by majority independent of arrival order, with a tie as draw', () => {
+) => ({ judgeParticipantId, winner });
+test('all assigned ballots decide by majority independent of arrival order, with a tie as no winner', () => {
   const ballots = [
     submitted('judge-a', 'affirmative'),
     submitted('judge-b', 'negative'),
@@ -24,18 +24,13 @@ test('all assigned ballots decide by majority independent of arrival order, with
       deriveRoundOutcome(seats, [...ballots].reverse()),
       deriveRoundOutcome(seats.slice(0, 2), ballots.slice(0, 2)),
     ],
-    expected: ['affirmative', 'affirmative', 'draw'],
+    expected: ['affirmative', 'affirmative', null],
   });
 });
-test('missing, voided, duplicate and foreign ballots cannot decide a Round', async () => {
+test('missing, duplicate and foreign ballots cannot decide a Round', async () => {
   const a = submitted('judge-a', 'affirmative');
   for (const ballots of [
     [a],
-    [
-      a,
-      { ...submitted('judge-b', 'negative'), status: 'voided' as const },
-      submitted('judge-c', 'affirmative'),
-    ],
     [a, a, submitted('judge-c', 'affirmative')],
     [a, submitted('judge-b', 'negative'), submitted('foreign', 'affirmative')],
   ])

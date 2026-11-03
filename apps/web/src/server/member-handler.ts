@@ -1,3 +1,4 @@
+import type { OperationName } from '../features/ops/operation-names';
 import type { Identity } from '@daisy/auth';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Logger } from '@daisy/logger';
@@ -33,7 +34,7 @@ export function runMemberHandler(
   boundary: MemberBoundary,
   request: Request,
   input: {
-    readonly name: string;
+    readonly name: OperationName;
     readonly readOnly: boolean;
     readonly readInput: () => Promise<unknown>;
     readonly operation: (

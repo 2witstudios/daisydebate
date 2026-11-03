@@ -217,6 +217,7 @@ test('Round read returns only the stored receipt and current participant identit
       },
       topic: null,
     }),
+    () => null,
   );
 
   assert({

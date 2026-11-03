@@ -1,4 +1,5 @@
 import { withOpening, type ReadOpening } from './round-opening-read';
+import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
 import { closedStreamGaps, streamKey } from './capture-gaps';
 import type { CaptureRule } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
@@ -16,6 +17,7 @@ import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
 import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
 import { roundViewFor } from './round-view-projection';
+import { readWaitingOn } from './round-waiting-read';
 import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
@@ -99,6 +101,10 @@ export const roundBallotReads = ({
       account: Account,
     ) => boolean;
     readonly readOpening: ReadOpening;
+    /** The engine's decision, injected: an assigned judge's room shows it too. */
+    readonly decideWaitingOn: (
+      facts: RoundWaitingFacts,
+    ) => RoundWaitingOn | null;
     readonly captureRule: CaptureRule;
   }): Promise<RoundBallotRead> {
     if (!idSchema.safeParse(input.roundId).success)
@@ -130,11 +136,12 @@ export const roundBallotReads = ({
           .filter((p) => p.role === 'judge' && p.kind === 'bot')
           .map((p) => p.id),
       );
+      const waitingOn = await readWaitingOn(tx, round, input.decideWaitingOn);
       return roundBallotReadSchema.parse({
         round: await withOpening(
           tx,
           round,
-          roundViewFor(round, input.caller.actorId),
+          { ...roundViewFor(round, input.caller.actorId), waitingOn },
           input.caller.actorId,
           input.readOpening,
         ),

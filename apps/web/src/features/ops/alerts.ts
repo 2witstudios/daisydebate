@@ -6,7 +6,8 @@ import {
   readAlertSnapshot,
   type AlertStateRedis,
   type LocalAlertState,
-} from '../../server/alert-state';
+  type RunningWorker,
+} from './alert-state';
 import { handleOperation } from '../../server/http';
 import { requireProbeToken } from './probe-auth';
 
@@ -27,6 +28,7 @@ export function createAlertsHandler({
   redis,
   local,
   clock,
+  workers,
   token,
 }: {
   readonly logger: Logger;
@@ -36,6 +38,7 @@ export function createAlertsHandler({
   /** What this process saw itself, readable when Redis is not (ISSUE-191). */
   readonly local: LocalAlertState;
   readonly clock: Clock;
+  readonly workers: readonly RunningWorker[];
   /** Read lazily per request: baseline startup never requires auth configuration (ADR 0020). */
   readonly token: () => string;
 }) {
@@ -46,7 +49,12 @@ export function createAlertsHandler({
       'ops.alerts',
       async () => {
         requireProbeToken(request, token());
-        const snapshot = await readAlertSnapshot({ redis, local, clock });
+        const snapshot = await readAlertSnapshot({
+          redis,
+          local,
+          clock,
+          workers,
+        });
         return Response.json({
           now: snapshot.nowIso,
           conditions: evaluateAlerts(snapshot),

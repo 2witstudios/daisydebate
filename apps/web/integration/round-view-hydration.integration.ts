@@ -1,4 +1,4 @@
-import { readRoundOpening } from '@daisy/debate-engine';
+import { readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { roundPositionAt } from '@daisy/debate-engine/position';
 import { roundViewSchema } from '@daisy/protocol';
@@ -17,6 +17,7 @@ test('a started Round reads back checkpoint and ordered segments that pass the R
       fixture.host,
       () => true,
       readRoundOpening,
+      roundWaitingOn,
     );
     const round = roundViewSchema.parse(read);
     assert({

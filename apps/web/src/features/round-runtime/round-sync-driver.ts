@@ -15,8 +15,10 @@ import type { RoundRead } from './read-round';
 
 /**
  * Rounds order by their persisted revision. A running Round's position is
- * derived from the held round on the client each second; only its opening
- * goes out of date by itself, at its strike and prep deadlines.
+ * derived from the held round on the client each second; its opening goes out
+ * of date by itself at its strike and prep deadlines. What a played Round is
+ * waiting on can change with no revision, when a judging job fails, so that
+ * state can lag by up to the resource sync's 30 s backstop poll.
  */
 const roundIdentity: ResourceIdentity<RoundView> = {
   id: (round) => round.id,

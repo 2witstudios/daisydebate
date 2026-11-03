@@ -19,6 +19,7 @@ const makeHandler = (
     redis: { get: async (key) => values.get(key) ?? null },
     local,
     clock: fixedClock(NOW),
+    workers: [],
     token: () => TOKEN,
   });
 
@@ -74,6 +75,7 @@ describe('GET /api/ops/alerts (AUTH-7.7)', () => {
       },
       local: { limiterUnavailableSince: () => '2026-09-25T11:57:00.000Z' },
       clock: fixedClock(NOW),
+      workers: [],
       token: () => TOKEN,
     });
     const response = await handler(authorizedRequest());

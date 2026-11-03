@@ -1,6 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  oneOnOneSeats,
   completedSchedule,
   oneOnOneCast,
   runtimeWorld as runtime,
@@ -163,50 +164,34 @@ describe('round runtime lifecycle', () => {
       });
     });
 
-    test("completes only after the final segment's time, with an outcome, and is then terminal", async () => {
+    test('a decided panel closes the Round with its outcome, and it is then terminal', async () => {
       const { world, totalMs } = completedSchedule(rules);
-      const beforeDeadline = runtime();
-      beforeDeadline.activate({ at: at(0), now: at(0) });
-      beforeDeadline.tick(at(totalMs - 1));
-      await assertRejects({
-        given: "a completion one millisecond before the last segment's end",
-        should: 'refuse with the final-segment invariant',
-        actual: () =>
-          beforeDeadline.execute({
-            command: { type: 'complete', outcome: 'affirmative' },
-            actorId: null,
-            now: at(totalMs - 1),
-          }),
-        code: 'INVARIANT',
-        invariantId: 'round.complete.after-final-segment',
-      });
-      const completed = world.execute({
-        command: { type: 'complete', outcome: 'affirmative' },
-        actorId: null,
+      const judge = oneOnOneSeats.find((seat) => seat.role === 'judge')!.id;
+      const completed = world.completePanel({
         now: at(totalMs),
+        ballots: [{ judgeParticipantId: judge, winner: 'affirmative' }],
+        completeness: 'complete',
+        panel: {
+          humanWindow: { deadlineAt: at(totalMs + 1), seatIds: [judge] },
+          aiSeats: [],
+        },
       });
       assert({
-        given: "the completion after the final segment's time",
+        given: 'every judge ruled after the final segment',
         should: 'close the round with the outcome',
-        actual: {
-          round: completed.round,
-          close: completed.segmentCloses.at(-1)?.id,
-        },
+        actual: completed.round,
         expected: {
-          round: {
-            status: 'completed',
-            currentStage: null,
-            startedAt: at(0),
-            completedAt: at(totalMs),
-            outcome: 'affirmative',
-            checkpoint: {
-              version: 1,
-              prep_consumed_ms: { affirmative: 0, negative: 0 },
-              active_prep: null,
-              floor: null,
-            },
+          status: 'completed',
+          currentStage: null,
+          startedAt: at(0),
+          completedAt: at(totalMs),
+          outcome: 'affirmative',
+          checkpoint: {
+            version: 1,
+            prep_consumed_ms: { affirmative: 0, negative: 0 },
+            active_prep: null,
+            floor: null,
           },
-          close: undefined,
         },
       });
       await assertRejects({
@@ -214,7 +199,7 @@ describe('round runtime lifecycle', () => {
         should: 'refuse with the terminal invariant',
         actual: () =>
           world.execute({
-            command: { type: 'complete', outcome: 'negative' },
+            command: { type: 'start' },
             actorId: null,
             now: at(totalMs + 1),
           }),

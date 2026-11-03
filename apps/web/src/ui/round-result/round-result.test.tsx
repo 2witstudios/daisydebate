@@ -16,7 +16,6 @@ test('a debater reads the decision and the transcript, each labelled, with no ro
     actual: [
       'Official decision · Human judge',
       'Official decision · AI judge',
-      'This ballot was voided and does not count.',
       'Feedback for you from the human judge',
       'Weigh earlier.',
       'Show the transcript',

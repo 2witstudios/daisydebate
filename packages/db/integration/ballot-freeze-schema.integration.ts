@@ -82,21 +82,6 @@ test('every ballot names its own Round and an immutable committed freeze revisio
       ]),
       expected: ['ballots_freeze_immutable', 'ballots_freeze_immutable'],
     });
-    await fixture.sql.unsafe(
-      "update ballots set status='voided',voided_at=$1,voided_by_actor_id=$2 where judge_participant_id=$3",
-      [new Date(2000), judge.actorId, judge.id],
-    );
-    assert({
-      given: 'a valid provenance-preserving void operation',
-      should: 'retain the frozen witness',
-      actual: (
-        await fixture.sql.unsafe(
-          'select round_id,freeze_revision,status from ballots where judge_participant_id=$1',
-          [judge.id],
-        )
-      )[0],
-      expected: { round_id: roundId, freeze_revision: 1, status: 'voided' },
-    });
     await fixture.insert(
       'round_commands',
       {

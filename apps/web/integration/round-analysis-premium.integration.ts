@@ -1,4 +1,4 @@
-import { captureRule, readRoundOpening } from '@daisy/debate-engine';
+import { captureRule, readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -133,6 +133,7 @@ test('round analysis discovery and claims use the seat account’s own entitleme
       const ballotRead = () =>
         f.store.readRoundBallot({
           readOpening: readRoundOpening,
+          decideWaitingOn: roundWaitingOn,
           captureRule,
           roundId,
           caller: f.host,

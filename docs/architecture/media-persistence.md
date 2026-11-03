@@ -217,8 +217,8 @@ freeze alone cannot erase submitted ballots. Judge-seat references use deferred
 NO ACTION rather than immediate RESTRICT semantics so the owning Round's
 `ballots_round_fk ON DELETE CASCADE` can finish all child cascades. Direct seat
 deletion is refused at commit and rolls back. Direct freeze deletion is refused
-immediately, including when no ballot references it. These constraints preserve
-ballot voiding and replacement policy. Real PostgreSQL proof checks both refusals
+immediately, including when no ballot references it. These constraints keep a seat with a ballot from being deleted.
+Real PostgreSQL proof checks both refusals
 and zero remaining ballots, jobs, freezes,
 participants and utterances after owning Round erasure.
 
@@ -362,7 +362,7 @@ path after immutable transcript freeze and settled attendance: zero-judge Rounds
 at once, judged Rounds once their ballot deadline passes. The freeze persists
 that deadline (`rounds.ballot_deadline_at`, default 30 minutes after the freeze,
 DEC-201 and DEC-207); it is immutable, the ballot path refuses a ballot at or
-after it, and the deferred `rounds_unjudged_participants_check` triggers refuse
+after it, and the deferred `rounds_winnerless_completion_check` triggers refuse
 a null-outcome completion of a judged Round before it. `completePanelRound` holds the global command fence,
 canonical account and Round fences, reads the stored ballots and freeze time, and
 consumes the shared engine's `completePanel` projection, whose

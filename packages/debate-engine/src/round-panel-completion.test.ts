@@ -21,11 +21,8 @@ const total = rules.segments.reduce(
 const facts = (now: string) => ({
   now,
   ballots: [],
-  ballotDeadlineAt: roundAt(0),
   completeness: 'complete' as const,
-  humanJudgeSeatIds: [],
-  runningAiSeatIds: [],
-  failedAiSeatIds: [],
+  panel: { humanWindow: null, aiSeats: [] },
 });
 const played = () => {
   const world = runtimeWorld({ rules, participants });

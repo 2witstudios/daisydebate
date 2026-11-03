@@ -13,7 +13,6 @@ import {
   type RoutedRequest,
   type StepRoute,
 } from './support/round-timing-response';
-import type { Page } from '@playwright/test';
 import { expect, openPage, test } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import {
@@ -23,11 +22,8 @@ import {
   saveRoundSettings,
 } from './support/room-launch-flow';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
-import {
-  roundMediaStateSchema,
-  roundViewSchema,
-  type RoundView,
-} from '@daisy/protocol';
+import { displayDeltaMs } from './support/round-clock';
+import { roundMediaStateSchema, roundViewSchema } from '@daisy/protocol';
 
 const TWO_MINUTE_SKEW_MS = 120_000;
 /** m:ss reads whole seconds; this journey allows one sweep of the clock face. */
@@ -42,26 +38,6 @@ const MEDIA_BOUNDARY_BAR_MS = 2_000;
 /* The monotonic instant this process measures: the only honest clock an e2e
    harness may read, since the browser's wall clock is this test's subject. */
 const elapsedMs = () => Math.trunc(performance.timeOrigin + performance.now());
-
-/** The m:ss reading of a live round clock ("aria-label": label m:ss). */
-const parseClock = (aria: string | null): number => {
-  const [reading] = (aria?.split(' ') ?? []).slice(-1);
-  if (!reading?.includes(':')) return Number.POSITIVE_INFINITY;
-  const [minutes, seconds] = [
-    Number(reading.split(':')[0]),
-    Number(reading.split(':')[1]),
-  ];
-  if (!Number.isInteger(minutes) || !Number.isInteger(seconds))
-    return Number.POSITIVE_INFINITY;
-  return minutes * 60_000 + seconds * 1000;
-};
-
-/** The newest stored segment row's remaining duration, from the server's own rows. */
-const openSegmentRemaining = (view: RoundView, atMs: number) => {
-  const row = view.segments.at(-1);
-  if (!row || row.endedAt !== null) return null;
-  return Date.parse(row.startedAt) + row.durationMs - atMs;
-};
 
 test('a live debater clock reads the server read, not the adjusted browser wall clock', async ({
   browser,
@@ -126,7 +102,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     // monotonic projection stays inside the m:ss reading tolerance.
     await host.clock.setSystemTime(elapsedMs() + TWO_MINUTE_SKEW_MS);
     await expect
-      .poll(() => displayDeltaMs(host, accounts, roundId!), {
+      .poll(() => displayDeltaMs(host, accounts.members[0]!, roundId!), {
         timeout: WAIT_FOR_ROUND_READ_MS,
       })
       .toBeLessThan(READING_TOLERANCE_MS);
@@ -135,7 +111,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     // the other direction moves nothing on the display either.
     await host.clock.setSystemTime(elapsedMs() - TWO_MINUTE_SKEW_MS);
     await expect
-      .poll(() => displayDeltaMs(host, accounts, roundId!), {
+      .poll(() => displayDeltaMs(host, accounts.members[0]!, roundId!), {
         timeout: WAIT_FOR_ROUND_READ_MS,
       })
       .toBeLessThan(READING_TOLERANCE_MS);
@@ -198,7 +174,9 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
     await expect(clockStatus).toContainText('±');
     await expect
-      .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
+      .poll(() => displayDeltaMs(host, accounts.members[0]!, roundId!), {
+        timeout: 15000,
+      })
       .toBeLessThan(2000);
 
     // Delay real authorized clock reads beyond the accepted RTT envelope.
@@ -240,7 +218,9 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
     expect(await clockStatus.textContent()).toBe(tightStatus);
     await expect
-      .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
+      .poll(() => displayDeltaMs(host, accounts.members[0]!, roundId!), {
+        timeout: 15000,
+      })
       .toBeLessThan(2000);
 
     // Freeze the browser renderer, let the real server advance, then resume.
@@ -272,7 +252,9 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     expect(resumedRead.serverNowMs).toBeGreaterThan(before + 3000);
     await expect(clockStatus).toHaveAttribute('data-round-time', 'current');
     await expect
-      .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
+      .poll(() => displayDeltaMs(host, accounts.members[0]!, roundId!), {
+        timeout: 15000,
+      })
       .toBeLessThan(2000);
     await clockReads.pass();
     await session.detach();
@@ -445,7 +427,9 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     releaseActions();
     await hostActions.pass();
     await expect
-      .poll(() => displayDeltaMs(host, accounts, roundId!), { timeout: 15000 })
+      .poll(() => displayDeltaMs(host, accounts.members[0]!, roundId!), {
+        timeout: 15000,
+      })
       .toBeLessThan(2000);
     await test.info().attach('round-timing-evidence', {
       body: JSON.stringify({
@@ -461,7 +445,11 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
           'microphone closes with the connection untouched',
         ],
         clockStatus: await clockStatus.textContent(),
-        displayDeltaMs: await displayDeltaMs(host, accounts, roundId!),
+        displayDeltaMs: await displayDeltaMs(
+          host,
+          accounts.members[0]!,
+          roundId!,
+        ),
         deadlineMs: deadline,
         staleReadLeadMs: deadlineHere - staleStartedAt!,
         boundaryAbortDeltaMs: supersededAt.at - deadlineHere,
@@ -479,26 +467,6 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     await closeSettledLaunchContexts(accounts);
   }
 });
-
-/** |displayed remaining − server-authoritative remaining| at one instant. */
-async function displayDeltaMs(
-  host: Page,
-  accounts: Awaited<ReturnType<typeof createRoomLaunchAccounts>>,
-  roundId: string,
-): Promise<number> {
-  const [aria, body] = await Promise.all([
-    host.getByRole('timer').getAttribute('aria-label'),
-    accounts.members[0]!.context.request.get(`/api/rounds/${roundId}`),
-  ]);
-  const displayed = parseClock(aria);
-  const latest = openSegmentRemaining(
-    roundViewSchema.parse(await body.json()),
-    Number(body.headers()['x-server-now-ms']),
-  );
-  if (displayed === Number.POSITIVE_INFINITY || latest === null)
-    return Number.POSITIVE_INFINITY; // keep polling until both are in place
-  return Math.abs(displayed - latest);
-}
 
 async function serverNow(
   accounts: Awaited<ReturnType<typeof createRoomLaunchAccounts>>,

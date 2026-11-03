@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { settle } from './browser-transport.test-support';
+import { settle } from './adapters/livekit-room.test-support';
 import { compose } from './media-read-composition.test-support';
 import {
   MEDIA_REQUEST_DEADLINE_MS,
@@ -29,7 +29,7 @@ for (const mode of ['headers', 'body'] as const) {
     const stalled = [media.counts.reads, media.heldAborted()];
     media.timer.advance(1_000);
     await settle();
-    // The boundary's fresh apply is still running, so only a later ticket announces.
+    // Same grants, so the fresh answer needs no SDK work and settles at once; a later ticket announces.
     const atBoundary = [
       media.counts.reads,
       media.heldAborted(),
@@ -81,14 +81,14 @@ for (const mode of ['headers', 'body'] as const) {
       },
       expected: {
         stalled: [2, false],
-        atBoundary: [3, true, 1, 0],
+        atBoundary: [3, true, 1, 1],
         atView: 4,
         afterInert: 4,
         afterWakes: 5,
         health: ['live', 1, 1, 0, true],
         maxActive: 1,
         applied: ['camera', 'camera', 'camera'],
-        received: ['camera', 'camera'],
+        received: ['camera', 'camera', 'camera'],
         timers: 0,
         active: 0,
       },

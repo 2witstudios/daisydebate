@@ -46,6 +46,11 @@ function sameDecision(
       actual.participantId === expected.participantId &&
       actual.receivedAtMs === expected.receivedAtMs
     );
+  if (expected.evidence === 'resolution_cutoff')
+    return (
+      actual.evidence === 'resolution_cutoff' &&
+      actual.cutoffAtMs === expected.cutoffAtMs
+    );
   if (
     actual.evidence !== 'settled_availability' ||
     expected.decision !== actual.decision ||

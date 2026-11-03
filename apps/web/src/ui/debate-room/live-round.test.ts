@@ -324,13 +324,15 @@ describe('liveRoundOf during the round', () => {
       const room = liveRoundOf(
         {
           ...ran(rules.length, true),
-          waitingOn: {
-            state,
-            deadlineAt:
-              state === 'ai_processing'
-                ? new Date(origin + closedAt + 300_000).toISOString()
-                : null,
-          },
+          waitingOn:
+            state === 'ai_processing'
+              ? {
+                  state,
+                  deadlineAt: new Date(
+                    origin + closedAt + 300_000,
+                  ).toISOString(),
+                }
+              : { state },
         },
         aff.actorId,
         origin + closedAt + 60_000,
