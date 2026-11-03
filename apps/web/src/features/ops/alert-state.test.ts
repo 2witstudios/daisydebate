@@ -375,7 +375,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
       given:
         'two running workers, one with a marker, and a marker for one not running',
       should: 'report the two running workers only',
-      actual: snapshot.workers,
+      actual: snapshot.redisState === 'read' ? snapshot.workers : [],
       expected: [
         { name: 'privacy_jobs', missedAfterMs: 1, lastSuccessIso: NOW },
         { name: 'observation_purges', missedAfterMs: 2, lastSuccessIso: null },
