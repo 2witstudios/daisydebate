@@ -35,7 +35,12 @@ const adapter = (
   const pov = createPovEgress({
     config,
     client: {
-      startParticipantEgress: async (room, identity, output, options) => {
+      startParticipantEgress: async (
+        room: string,
+        identity: string,
+        output: EncodedOutputs,
+        options?: ParticipantEgressOptions,
+      ) => {
         calls.started.push([room, identity, output, options]);
         return new EgressInfo({ egressId: 'EG' });
       },
