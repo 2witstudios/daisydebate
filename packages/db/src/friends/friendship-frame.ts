@@ -5,7 +5,6 @@ import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
 import type { ContactInput } from '../contacts/fence';
 import type { FriendFrame } from './contracts';
-import { endPairChallenges } from './challenge-frame';
 import {
   clearSocialDeclines,
   recordSocialDecline,
@@ -98,7 +97,6 @@ export function friendshipFrame(
         pair.lowActorId === input.actorId ? pair.highActorId : pair.lowActorId;
       if (!next) {
         await tx.delete(friendships).where(where(pair));
-        await endPairChallenges(tx, pair);
         // Ending someone else's pending request is a decline (DEC-251).
         if (
           previous?.state === 'pending' &&

@@ -37,6 +37,12 @@ const requestSession = cache(async () =>
 export const privateGroupsOffered = (): boolean =>
   processApp().messagingPolicy.privateGroups === 'isolated-test-fixture';
 
+/** When this account's suspension ends; null for a ban or nothing in force. */
+export const requestRestrictionEnd = (userId: string) => {
+  const app = processApp();
+  return app.database.readRestrictionEnd({ userId, now: app.clock.now() });
+};
+
 /** Who is asking in this server-component render. */
 export const requestIdentity = async (): Promise<Identity> =>
   (await requestSession()).identity;

@@ -1,6 +1,8 @@
 import type { OutboxRow } from '@daisy/db/outbox';
 import {
+  ENVELOPE_VERSION,
   isPayloadDeliverableOnTopic,
+  ONLINE_TOPIC,
   isPayloadStorableOnTopic,
   outboxPayloadSchema,
   serverMessageSchema,
@@ -186,6 +188,23 @@ export function createSubscriptionDelivery({
     )
       publishFrame(connection, frame.topic, sub, () => frame);
   }
+  /**
+   * Rings every local subscriber of the online list (ADR 0103). The frame
+   * discloses nothing, so no authority read per recipient: revalidation keeps
+   * each lease current, and an expired one simply misses this ring.
+   */
+  function ringOnline() {
+    const frame: ServerMessage = {
+      v: ENVELOPE_VERSION,
+      type: 'online_changed',
+      topic: ONLINE_TOPIC,
+    };
+    for (const connection of connections) {
+      const sub = connection.topics.get(ONLINE_TOPIC);
+      if (sub?.attached && !sub.initializing)
+        publishFrame(connection, ONLINE_TOPIC, sub, () => frame);
+    }
+  }
   function hint(frame: unknown): Promise<void> {
     const parsed = serverMessageSchema.safeParse(frame, { jitless: true });
     if (!parsed.success || parsed.data.type !== 'typing_changed')
@@ -317,6 +336,7 @@ export function createSubscriptionDelivery({
   }
   return {
     hint,
+    ringOnline,
     async settledHints() {
       await Promise.allSettled([...hints.values()]);
     },

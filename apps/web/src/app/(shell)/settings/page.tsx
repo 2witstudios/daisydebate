@@ -15,7 +15,15 @@ import {
 } from '../../../lib/request-session';
 import { answerEditHrefs } from '../../../ui/onboarding/answer-summary/answer-summary';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
-import { saveNotificationsAction, saveProfileAction } from './actions';
+import {
+  saveNotificationsAction,
+  saveProfileAction,
+  saveRatingVisibilityAction,
+} from './actions';
+import { ratingVisibilitySchema } from '@daisy/protocol';
+import { GET as readRatingVisibility } from '../../api/ratings/visibility/route';
+import { readOwnRoute } from '../friends/read-route';
+import { RatingVisibilityForm } from '../../../ui/settings/preferences/rating-visibility-form';
 
 export const metadata: Metadata = { title: 'Settings' };
 
@@ -33,6 +41,11 @@ export default async function SettingsRoute({
     requestOnboardingAnswers(),
   ]);
   const answers = admitted ? ownAnswers : null;
+  const visibility = await readOwnRoute(
+    readRatingVisibility,
+    '/api/ratings/visibility',
+    ratingVisibilitySchema,
+  );
   return (
     <SettingsPage
       username={claimedUsername(identity)}
@@ -42,6 +55,14 @@ export default async function SettingsRoute({
       profileAction={saveProfileAction}
       notificationsAction={saveNotificationsAction}
       analytics={await requestAnalytics()}
+      ratingCard={
+        visibility ? (
+          <RatingVisibilityForm
+            action={saveRatingVisibilityAction}
+            visibility={visibility}
+          />
+        ) : null
+      }
       onboarding={
         answers === null
           ? null

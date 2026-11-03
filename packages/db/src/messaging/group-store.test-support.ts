@@ -11,6 +11,7 @@ export function groupStoreFacts() {
     betaState: 'approved',
     betaRevision: 1,
     ageBand: 'adult',
+    restricted: false,
     erased: false,
     revision: 1,
   }));

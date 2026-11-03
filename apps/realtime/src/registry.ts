@@ -163,6 +163,7 @@ export function createSubscriptionRegistry({
     remove,
     revalidate: delivery.revalidate,
     hint: delivery.hint,
+    ringOnline: delivery.ringOnline,
     closeAll() {
       for (const connection of connections) {
         remove(connection);

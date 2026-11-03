@@ -165,8 +165,8 @@ test('runtime shutdown cancels both polling and reauthorization timers exactly o
     should: 'release every runtime resource once',
     actual: { scheduled, cleared: cleared.length, unlistened, stopped },
     expected: {
-      scheduled: [1000, 50000],
-      cleared: 2,
+      scheduled: [1000, 1000, 50000],
+      cleared: 3,
       unlistened: 1,
       stopped: 1,
     },

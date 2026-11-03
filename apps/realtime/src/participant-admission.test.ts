@@ -32,6 +32,7 @@ const accountWith = (
   revision: 2,
   beta: beta && { state: beta, revision: 1 },
   ageBand,
+  restricted: false,
 });
 const variants = [
   ['approved adult', accountWith('approved', 'adult')],

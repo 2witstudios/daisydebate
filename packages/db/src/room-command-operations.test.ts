@@ -235,11 +235,13 @@ const attemptRows = (prepared: number, locked: number) => {
     [],
     [accountRow()],
     ...before.slice(4, 11),
+    [], // no seat holds
     [], // no draw
     [],
     before[12]!,
     ...after.slice(0, 3),
     ...after.slice(4, 11),
+    [], // no seat holds
     [], // no draw
   ];
 };

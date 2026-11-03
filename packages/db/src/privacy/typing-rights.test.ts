@@ -16,6 +16,7 @@ const account = {
   betaState: 'approved',
   betaRevision: 1,
   ageBand: 'adult',
+  restricted: false,
 };
 const lease = {
   version: 1 as const,

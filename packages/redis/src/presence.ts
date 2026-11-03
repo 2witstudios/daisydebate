@@ -11,6 +11,7 @@ import {
   createScriptRunner,
   deletePresenceLeaseScript,
   PRESENCE_ACTORS_MAX,
+  PRESENCE_LIMIT_MAX,
   readActorsPresenceScript,
   parseActivity,
   readActorConnectionsScript,
@@ -61,10 +62,11 @@ export function createPresenceOperations({
       assertTtlSeconds(ttlSeconds);
       try {
         await client.connect();
-        await runScript(upsertPresenceLeaseScript, 3, [
+        await runScript(upsertPresenceLeaseScript, 4, [
           redisKey(namespace, 'presence', 'conn', lease.connId),
           redisKey(namespace, 'presence', 'actor', lease.actorId),
           redisKey(namespace, 'presence', 'online'),
+          redisKey(namespace, 'presence', 'roster-revision'),
           lease.actorId,
           activity,
           lease.instanceId,
@@ -111,10 +113,11 @@ export function createPresenceOperations({
       assertActorId(lease.actorId);
       try {
         await client.connect();
-        await runScript(deletePresenceLeaseScript, 3, [
+        await runScript(deletePresenceLeaseScript, 4, [
           redisKey(namespace, 'presence', 'conn', lease.connId),
           redisKey(namespace, 'presence', 'actor', lease.actorId),
           redisKey(namespace, 'presence', 'online'),
+          redisKey(namespace, 'presence', 'roster-revision'),
           lease.connId,
           lease.actorId,
         ]);
@@ -166,16 +169,22 @@ export function createPresenceOperations({
      * a caller computing `derivePresence`'s `nowMs` must use this, never an
      * instance clock.
      */
-    async readOnlinePresence(limit: number): Promise<{
+    async readOnlinePresence(
+      limit: number,
+      offset = 0,
+    ): Promise<{
       readonly actors: readonly PresenceOnlineActor[];
       readonly nowMs: number;
     }> {
       assertLimit(limit);
+      if (!Number.isSafeInteger(offset) || offset < 0)
+        throw new Error('Presence offset must be a non-negative integer');
       try {
         await client.connect();
         const flat = (await runScript(readOnlinePresenceScript, 1, [
           redisKey(namespace, 'presence', 'online'),
           String(limit),
+          String(offset),
         ])) as (string | number)[];
         const nowMs = Number(flat[0]);
         const actors: PresenceOnlineActor[] = [];
@@ -228,6 +237,39 @@ export function createPresenceOperations({
         );
       } catch (error) {
         reportFailure('readActorsPresence');
+        throw error;
+      }
+    },
+    /**
+     * Every online actor id, scanned a page at a time up to `max` (ADR 0103).
+     * A member who moves between pages mid-scan can be missed; the next read
+     * finds them.
+     */
+    async readOnlineActorIds(max: number): Promise<readonly string[]> {
+      const ids = new Set<string>();
+      for (let offset = 0; offset < max; offset += PRESENCE_LIMIT_MAX) {
+        const { actors } = await this.readOnlinePresence(
+          Math.min(PRESENCE_LIMIT_MAX, max - offset),
+          offset,
+        );
+        for (const actor of actors) ids.add(actor.actorId);
+        if (actors.length < PRESENCE_LIMIT_MAX) break;
+      }
+      return [...ids];
+    },
+    /**
+     * The roster revision (ADR 0103): it moves when a lease appears, changes
+     * activity or goes. Zero when none has yet. Names nobody.
+     */
+    async readRosterRevision(): Promise<number> {
+      try {
+        await client.connect();
+        const value = await client.get(
+          redisKey(namespace, 'presence', 'roster-revision'),
+        );
+        return value === null ? 0 : Number(value);
+      } catch (error) {
+        reportFailure('readRosterRevision');
         throw error;
       }
     },

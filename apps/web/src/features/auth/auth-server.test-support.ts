@@ -99,7 +99,11 @@ export const composeAuthServer = (
 ) =>
   createAuthServer({
     getActorByUserId: async () => null,
-    getParticipationByUserId: async () => ({ betaState: null, ageBand: null }),
+    getParticipationByUserId: async () => ({
+      betaState: null,
+      ageBand: null,
+      restricted: false,
+    }),
     config: readAuthConfig(authTestEnv),
     recipientSubkey: deriveRecipientSubkey(authTestEnv.RECIPIENT_HASH_SECRET),
     database: memoryAdapter(tables),

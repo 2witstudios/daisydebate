@@ -1,5 +1,6 @@
-import type { FriendPresence as Presence } from '@daisy/protocol';
+import type { MemberStatus as Presence } from '@daisy/protocol';
 import { presenceDotClass } from './presence-dot-class';
+import { statusLabels } from './status-labels';
 
 export type PresenceDotProps = {
   readonly presence: Presence;
@@ -16,7 +17,7 @@ export function PresenceDot({ presence }: PresenceDotProps) {
     <span
       className={presenceDotClass(presence)}
       role="img"
-      aria-label={presence}
+      aria-label={statusLabels[presence]}
     />
   );
 }

@@ -20,6 +20,7 @@ const account = {
   revision: 1,
   beta: { state: 'approved', revision: 1 },
   ageBand: 'adult',
+  restricted: false,
 };
 const session = {
   ...principal,

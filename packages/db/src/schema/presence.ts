@@ -1,13 +1,23 @@
-import { boolean, pgTable } from 'drizzle-orm/pg-core';
-import { timestampColumn } from './columns';
+import { chosenStatuses } from '@daisy/protocol';
+import { check, pgTable, text } from 'drizzle-orm/pg-core';
+import { oneOf, timestampColumn } from './columns';
 import { contactActorColumn } from './contacts';
 
 /**
- * A member's choice to hide their online status from friends (ADR 0072).
- * No row means visible; a hidden member shows offline to every friend.
+ * The status a member chose (ADR 0103). No row means `online`. `appearing_offline` is
+ * appearing offline: nobody else sees them, and nothing says they chose it.
  */
-export const presenceSettings = pgTable('presence_settings', {
-  actorId: contactActorColumn('actor_id').primaryKey(),
-  hidden: boolean('hidden').notNull(),
-  updatedAt: timestampColumn('updated_at').notNull(),
-});
+export const presenceSettings = pgTable(
+  'presence_settings',
+  {
+    actorId: contactActorColumn('actor_id').primaryKey(),
+    chosenStatus: text('chosen_status').notNull(),
+    updatedAt: timestampColumn('updated_at').notNull(),
+  },
+  (table) => [
+    check(
+      'presence_settings_chosen_status_check',
+      oneOf(table.chosenStatus, chosenStatuses),
+    ),
+  ],
+);

@@ -129,6 +129,7 @@ test('expired reservations fence all discovered owners and reread after account/
     betaState: 'approved',
     betaRevision: 1,
     ageBand: 'adult',
+    restricted: false,
     erased: false,
     revision: 1,
   }));

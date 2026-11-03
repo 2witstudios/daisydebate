@@ -23,7 +23,7 @@ describe('Avatar', () => {
     assert({
       given: 'an avatar with online presence',
       should: 'render a presence status indicator',
-      actual: html.includes('aria-label="online"'),
+      actual: html.includes('aria-label="Online"'),
       expected: true,
     });
   });

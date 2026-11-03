@@ -6,6 +6,7 @@ export const ownReader = (actorId: string, userId: string) => ({
   betaState: 'approved',
   betaRevision: 1,
   ageBand: 'adult',
+  restricted: false,
   erased: false,
   revision: 2,
 });

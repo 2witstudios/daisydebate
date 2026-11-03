@@ -26,7 +26,7 @@ test('safety block commands cannot forge the blocking actor or durable facts', (
   for (const patch of [
     { blocked: 'true' },
     { blockerActorId: actorId },
-    { ageBand: 'adult' },
+    { ageBand: 'adult', restricted: false },
     { revision: 1 },
   ])
     assert({

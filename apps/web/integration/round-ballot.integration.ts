@@ -293,4 +293,5 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       expected: [before, 2, 2],
     });
   });
-});
+  // ISSUE-1064: about 7s in CI's shard 1 against about 2s on main; cause unknown.
+}, 15_000);
