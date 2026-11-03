@@ -36,6 +36,5 @@ export function RoundReconnecting({
 
 /** A temporarily refused Round page, returning at its own jittered moment. */
 export function reconnectingRoundPage() {
-  const [entropy] = crypto.getRandomValues(new Uint8Array(1));
-  return <RoundReconnecting retrySeconds={reconnectDelaySeconds(entropy!)} />;
+  return <RoundReconnecting retrySeconds={drawReconnectDelaySeconds()} />;
 }
