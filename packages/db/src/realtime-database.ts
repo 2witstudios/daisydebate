@@ -31,14 +31,13 @@ import {
  * lane: subscribes (`admission`) and renewals (`renewal`) are composed
  * separately, so an admission wave cannot consume renewal capacity.
  */
-const authorityReads = (database: BunSQLDatabase) =>
-  namedLaneOperations({
-    ...authorizationSessionOperations({ database }),
-    ...roomAuthorizationRead({ database }),
-    messagingChannelAuthority: createMessagingChannelAuthority(database),
-    messagingChannelCohortAuthority:
-      createMessagingChannelCohortAuthority(database),
-  });
+const authorityReads = (database: BunSQLDatabase) => ({
+  ...authorizationSessionOperations({ database }),
+  ...roomAuthorizationRead({ database }),
+  messagingChannelAuthority: createMessagingChannelAuthority(database),
+  messagingChannelCohortAuthority:
+    createMessagingChannelCohortAuthority(database),
+});
 export type RealtimeAuthorityReads = ReturnType<typeof authorityReads>;
 
 /**
@@ -70,7 +69,7 @@ export function createRealtimeDatabase({
   const control = workload.lane('control');
   const dedicated =
     injectedClient ?? dialDedicated(url, Math.max(1, profile.dedicated));
-  return {
+  return namedLaneOperations({
     admission: authorityReads(admission),
     renewal: authorityReads(workload.lane('renewal').database),
     /**
@@ -120,6 +119,6 @@ export function createRealtimeDatabase({
       await workload.close();
       if (dedicated !== injectedClient) await dedicated.close({ timeout: 5 });
     },
-  };
+  });
 }
 export type RealtimeDatabase = ReturnType<typeof createRealtimeDatabase>;

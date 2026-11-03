@@ -187,7 +187,7 @@ export function createDatabase({
       nextId: nextActorId,
       botAdmission,
     });
-  return {
+  return namedLaneOperations({
     ...botAdmissionOperations,
     ...roundMaintenanceOperations(transcriptTransaction),
     ...roundPanelCompletionOperations(transcriptTransaction),
@@ -198,13 +198,15 @@ export function createDatabase({
       botPublication,
     }),
     ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
-    ...namedLaneOperations(roundAnalysisReads({ database })),
+    ...roundAnalysisReads({ database }),
     broadcasts: createBroadcastStore(database),
-    mediaSessions: createMediaSessionStore({
-      database,
-      run: transcriptTransaction,
-      nextId: nextActorId,
-    }),
+    mediaSessions: namedLaneOperations(
+      createMediaSessionStore({
+        database,
+        run: transcriptTransaction,
+        nextId: nextActorId,
+      }),
+    ),
     ...attendanceEntrypoints({
       run: transcriptTransaction,
       nextId: nextActorId,
@@ -360,7 +362,12 @@ export function createDatabase({
     createMediaCaptureOperations: (
       input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'transaction'>,
     ) =>
-      mediaCaptureOperations({ ...input, transaction: transcriptTransaction }),
+      namedLaneOperations(
+        mediaCaptureOperations({
+          ...input,
+          transaction: transcriptTransaction,
+        }),
+      ),
     ...transcriptFinalizationOperations({ database }),
     ...documentOperations({ database, eventSink }),
     ...analyticsConsentOperations(control),
@@ -385,6 +392,6 @@ export function createDatabase({
     /** Server-owned onboarding claim; see `claimUsername`. */
     claimUsername: (input: { userId: string; username: string }) =>
       claimUsername(control, input, nextActorId, eventSink),
-  };
+  });
 }
 export type Database = ReturnType<typeof createDatabase>;
