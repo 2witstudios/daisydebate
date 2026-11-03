@@ -9,7 +9,7 @@ import {
   retentionTargets,
 } from '../src/server/retention-sweep';
 import { createSelfSignedTlsEdge } from '../e2e/support/tls-edge';
-import { ALERT_STATE_READ_TIMEOUT_MS } from '../src/server/alert-state';
+import { ALERT_STATE_READ_TIMEOUT_MS } from '../src/features/ops/alert-state';
 import { createFaultedApp } from './fault-proxy';
 import { createTestApp } from './fixtures';
 import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
@@ -122,7 +122,7 @@ describe('ISSUE-199 the probe over an unreadable alert state', () => {
   const faulted = createFaultedApp(testApp, 'REDIS_URL');
 
   test('a healthy origin with an unreadable alert state posts the conditions it did not evaluate', async () => {
-    // A completed sweep, so the readable state fires nothing (no cleanup_missed).
+    // A completed run, so the readable state fires nothing (no cleanup_missed).
     await createRetentionSweep({
       targets: retentionTargets({
         database: testApp.app.database,
@@ -132,6 +132,14 @@ describe('ISSUE-199 the probe over an unreadable alert state', () => {
       clock: testApp.app.clock,
       logger: testApp.app.logger,
     }).run();
+    // Healthy workers through the real recorder. Running them here would read
+    // jobs other suites leave in this shared database.
+    for (const operation of ['observation_purges', 'privacy_jobs'])
+      testApp.app.logger.log(
+        'worker.run.completed',
+        { operation },
+        'Scheduled worker run completed',
+      );
     const headers = await productionHeaders();
     using origin = Bun.serve({
       hostname: '127.0.0.1',

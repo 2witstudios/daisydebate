@@ -11,7 +11,7 @@ const answerTo = (error: unknown) =>
   handleOperation(
     silentLogger,
     new Request('http://localhost/x'),
-    'op',
+    'health.readiness',
     async () => {
       throw error;
     },

@@ -1,7 +1,7 @@
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { withTimeout } from '@daisy/observability';
-import { handleOperation } from './http';
+import { handleOperation } from '../../server/http';
 
 type Probe = { readonly health: () => Promise<boolean> };
 

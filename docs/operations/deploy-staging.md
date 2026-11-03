@@ -328,7 +328,7 @@ true` starts it again on the next request if it is ever found stopped.
   Check it at any time with `fly status -a daisy-debate-staging`: the one
   `app` machine is `started`, with 2 of 2 checks passing.
 - **The hourly retention sweep runs continuously.**
-  `apps/web/src/server/start.ts` starts `startRetentionSweep` (hourly
+  `apps/web/src/server/start.ts` starts the retention sweep (hourly
   `setInterval`, `runOnStart: true`) in-process, so expired verification,
   session, outbox and email rows and lapsed online-presence members are
   pruned every hour, and once more right after every deploy or restart.

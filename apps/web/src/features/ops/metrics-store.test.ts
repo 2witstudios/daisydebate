@@ -2,7 +2,6 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createMetricsStore,
   formatPrometheusMetrics,
-  KNOWN_OPERATIONS,
   LATENCY_BUCKETS_MS,
 } from './metrics-store';
 
@@ -94,6 +93,47 @@ describe('createMetricsStore (AUTH-7.7)', () => {
     });
   });
 
+  test('counts failed worker runs by worker, and an unknown name not at all', () => {
+    const store = createMetricsStore();
+    store.observe('worker.run.failed', { operation: 'privacy_jobs' });
+    store.observe('worker.run.failed', { operation: 'privacy_jobs' });
+    store.observe('worker.run.failed', { operation: 'not_a_worker' });
+    assert({
+      given: 'two failures of one worker and one unknown name',
+      should: 'tally the worker and keep every label bounded',
+      actual: store.snapshot().workerRunFailuresByWorker,
+      expected: {
+        observation_purges: 0,
+        privacy_jobs: 2,
+        messaging_file_maintenance: 0,
+      },
+    });
+  });
+
+  test('gives a slow check-in and a slow inbox their own histograms, and an unlisted name none', () => {
+    const store = createMetricsStore();
+    const completed = (operation: string, durationMs: number) =>
+      store.observe('http.request.completed', {
+        operation,
+        status: 200,
+        durationMs,
+      });
+    completed('attendance.check-in', 2_000);
+    completed('messaging.inbox', 40);
+    completed('not.a.route', 40);
+    assert({
+      given: 'two real operations and one no handler can pass',
+      should: 'keep one histogram per real operation and mint no other label',
+      actual: Object.entries(store.snapshot().latencyMsByOperation).map(
+        ([operation, { count, sum }]) => [operation, count, sum],
+      ),
+      expected: [
+        ['attendance.check-in', 1, 2_000],
+        ['messaging.inbox', 1, 40],
+      ],
+    });
+  });
+
   test('ignores unrelated events', () => {
     const store = createMetricsStore();
     store.observe('auth.magic_link.verified', {});
@@ -108,6 +148,11 @@ describe('createMetricsStore (AUTH-7.7)', () => {
         mailDeliveryFailuresByPurpose: { auth: 0, 'beta-access': 0 },
         authMailShedTotal: 0,
         networkDeniedByScope: { ipv6_56: 0, ipv6_48: 0, ipv4_24: 0 },
+        workerRunFailuresByWorker: {
+          observation_purges: 0,
+          privacy_jobs: 0,
+          messaging_file_maintenance: 0,
+        },
         retentionSweepFailuresByOperation: {},
         latencyMsByOperation: {},
       },
@@ -156,43 +201,6 @@ describe('createMetricsStore (AUTH-7.7)', () => {
       expected: 1,
     });
   });
-
-  test('collapses an unknown operation into the single "other" latency label (cardinality bound)', () => {
-    const store = createMetricsStore();
-    for (let i = 0; i < 50; i += 1)
-      store.observe('http.request.completed', {
-        operation: `attacker-controlled-operation-${i}`,
-        status: 200,
-        durationMs: 5,
-      });
-    const snapshot = store.snapshot();
-    assert({
-      given: '50 distinct, never-before-seen operation strings',
-      should:
-        'never mint a new label: every one collapses into "other", so the label set stays bounded',
-      actual: {
-        labels: Object.keys(snapshot.latencyMsByOperation),
-        otherCount: snapshot.latencyMsByOperation.other?.count,
-      },
-      expected: { labels: ['other'], otherCount: 50 },
-    });
-  });
-
-  test('the known-operation allowlist is the closed, bounded label set', () => {
-    const store = createMetricsStore();
-    for (const operation of KNOWN_OPERATIONS)
-      store.observe('http.request.completed', {
-        operation,
-        status: 200,
-        durationMs: 1,
-      });
-    assert({
-      given: 'one observation for every known operation',
-      should: 'produce exactly that many labels, never more',
-      actual: Object.keys(store.snapshot().latencyMsByOperation).length,
-      expected: KNOWN_OPERATIONS.length,
-    });
-  });
 });
 
 describe('formatPrometheusMetrics (AUTH-7.7)', () => {
@@ -229,6 +237,22 @@ describe('formatPrometheusMetrics (AUTH-7.7)', () => {
     });
   });
 
+  test('renders a failure counter for every worker, zero included', () => {
+    const store = createMetricsStore();
+    store.observe('worker.run.failed', { operation: 'privacy_jobs' });
+    const text = formatPrometheusMetrics(store.snapshot());
+    assert({
+      given: 'one failed privacy job run',
+      should: 'expose the failure and a zero for each other worker',
+      actual: [
+        'worker_run_failures_total{worker="privacy_jobs"} 1',
+        'worker_run_failures_total{worker="observation_purges"} 0',
+        'worker_run_failures_total{worker="messaging_file_maintenance"} 0',
+      ].every((line) => text.includes(line)),
+      expected: true,
+    });
+  });
+
   test('renders the latency histogram with a bounded operation label and a +Inf bucket', () => {
     const store = createMetricsStore();
     store.observe('http.request.completed', {
@@ -242,20 +266,18 @@ describe('formatPrometheusMetrics (AUTH-7.7)', () => {
       should:
         'expose a histogram type, one bucket line per boundary plus +Inf, and _sum/_count lines, all scoped to that operation label',
       actual: {
-        hasType: text.includes(
-          '# TYPE auth_http_request_duration_ms histogram',
-        ),
+        hasType: text.includes('# TYPE http_request_duration_ms histogram'),
         has50msBucket: text.includes(
-          'auth_http_request_duration_ms_bucket{operation="auth.request",le="50"} 1',
+          'http_request_duration_ms_bucket{operation="auth.request",le="50"} 1',
         ),
         hasInfBucket: text.includes(
-          'auth_http_request_duration_ms_bucket{operation="auth.request",le="+Inf"} 1',
+          'http_request_duration_ms_bucket{operation="auth.request",le="+Inf"} 1',
         ),
         hasSum: text.includes(
-          'auth_http_request_duration_ms_sum{operation="auth.request"} 30',
+          'http_request_duration_ms_sum{operation="auth.request"} 30',
         ),
         hasCount: text.includes(
-          'auth_http_request_duration_ms_count{operation="auth.request"} 1',
+          'http_request_duration_ms_count{operation="auth.request"} 1',
         ),
       },
       expected: {

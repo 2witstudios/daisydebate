@@ -72,7 +72,9 @@ describe('ISSUE-220 shedding past the bound raises an operator alert', () => {
         actual: {
           firedBefore: before.conditions?.includes('mail_shed'),
           firedAfter: after.conditions?.includes('mail_shed'),
-          counted: after.snapshot?.mailShed?.count === shed,
+          counted:
+            after.snapshot?.redisState === 'read' &&
+            after.snapshot.mailShed.count === shed,
           condition: JSON.stringify(after).includes('@')
             ? 'has an address'
             : 'counts only',

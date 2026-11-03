@@ -196,6 +196,9 @@ describe('structured logging', () => {
       'mail.abandoned',
       'retention.sweep.completed',
       'retention.sweep.failed',
+      'retention.run.completed',
+      'worker.run.completed',
+      'worker.run.failed',
     ];
     for (const event of events) logger.log(event, {}, 'auth');
     const entries = output
@@ -220,6 +223,9 @@ describe('structured logging', () => {
         ['mail.abandoned', 50],
         ['retention.sweep.completed', 30],
         ['retention.sweep.failed', 50],
+        ['retention.run.completed', 30],
+        ['worker.run.completed', 30],
+        ['worker.run.failed', 50],
       ],
     });
   });

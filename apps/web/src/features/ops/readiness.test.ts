@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createRecordingLogger } from './test-loggers.test-support';
+import { createRecordingLogger } from '../../server/test-loggers.test-support';
 import { createReadinessHandler } from './readiness';
 import { noopErrorReporter } from '@daisy/observability';
 

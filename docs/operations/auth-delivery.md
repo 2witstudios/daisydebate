@@ -238,7 +238,7 @@ run it probes the public origin's readiness endpoint
 (non-mutating, proving routing/TLS/security headers) and reads
 `GET /api/ops/alerts` (bearer-token gated by `OPS_PROBE_TOKEN`), which
 answers the already-evaluated conditions computed by
-`apps/web/src/server/alert-state.ts`'s `evaluateAlerts`. Whatever fires is
+`apps/web/src/features/ops/alert-state.ts`'s `evaluateAlerts`. Whatever fires is
 posted to the drive's Incidents channel via the existing
 `scripts/notify-drive.ts incidents --message`, naming the condition's own
 runbook below.
@@ -252,24 +252,29 @@ not come from the app: Fly's proxy during a cold start, the start-up gate,
 or the app down.
 
 The conditions, and the durable Redis marker each reads
-(`apps/web/src/server/alert-recorder.ts` writes them by tapping the
+(`apps/web/src/features/ops/alert-recorder.ts` writes them by tapping the
 existing event stream — no new call sites):
 
-| Condition             | Fires when                                                                                      | Marker                                             |
-| --------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `storage_unavailable` | `auth.session.unavailable` persists 2+ minutes                                                  | `alert-unavailable-storage`                        |
-| `limiter_unavailable` | `auth.rate_limit.unavailable` persists 2+ minutes                                               | `alert-unavailable-limiter`                        |
-| `delivery_failures`   | 3+ consecutive `mail.failed` of any purpose (provider health), reset by `mail.sent`             | `alert-mail-consecutive-failures`                  |
-| `auth_5xx_rate`       | >1% of auth-operation requests are 5xx over the trailing 10 minutes, with at least 100 requests | per-minute `alert-http-total-*`/`alert-http-5xx-*` |
-| `cleanup_missed`      | the retention sweep has not completed successfully in 2+ hours, or never has                    | `alert-retention-last-success`                     |
-| `mail_shed`           | 20+ `mail.shed` over the trailing 10 minutes (ISSUE-220)                                        | per-minute `alert-mail-shed-*`                     |
-| `network_limited`     | 300+ `auth.rate_limit.network_denied` over the trailing 10 minutes (AUTH-3.10)                  | per-minute `alert-network-denied-*`                |
+| Condition                   | Fires when                                                                                      | Marker                                                 |
+| --------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `storage_unavailable`       | `auth.session.unavailable` persists 2+ minutes                                                  | `alert-unavailable-storage`                            |
+| `limiter_unavailable`       | `auth.rate_limit.unavailable` persists 2+ minutes                                               | `alert-unavailable-limiter`                            |
+| `delivery_failures`         | 3+ consecutive `mail.failed` of any purpose (provider health), reset by `mail.sent`             | `alert-mail-consecutive-failures`                      |
+| `auth_5xx_rate`             | >1% of auth-operation requests are 5xx over the trailing 10 minutes, with at least 100 requests | per-minute `alert-http-total-*`/`alert-http-5xx-*`     |
+| `cleanup_missed`            | no retention run has succeeded and drained on every target in 3+ hours, or ever                 | `alert-retention-last-success`                         |
+| `observation_purges_missed` | the observation purge worker has had no healthy run in 15+ minutes, or ever                     | `alert-worker-last-success-observation_purges`         |
+| `privacy_jobs_missed`       | the vendor deletion worker has had no healthy run in 2+ hours, or ever                          | `alert-worker-last-success-privacy_jobs`               |
+| `file_maintenance_missed`   | file maintenance, when configured, has had no healthy run in 2+ hours or 3 intervals            | `alert-worker-last-success-messaging_file_maintenance` |
+| `mail_shed`                 | 20+ `mail.shed` over the trailing 10 minutes (ISSUE-220)                                        | per-minute `alert-mail-shed-*`                         |
+| `network_limited`           | 300+ `auth.rate_limit.network_denied` over the trailing 10 minutes (AUTH-3.10)                  | per-minute `alert-network-denied-*`                    |
 
 `GET /api/ops/metrics` (same bearer token) exposes the bounded-cardinality
 Prometheus counters behind AUTH-7.7's dashboard criterion: auth HTTP
 responses by status class, rate-limit denied/unavailable totals, mail
-delivery failures, and retention sweep failures by target name — no
-per-email or per-token labels. Wiring an actual scrape config or rendered
+delivery failures, retention sweep failures by target name, scheduled worker
+run failures by worker, and route handler latency by operation name (the closed
+list in `apps/web/src/features/ops/operation-names.ts`) — no per-email or
+per-token labels. Wiring an actual scrape config or rendered
 dashboard is a separate, owner-approved deploy-rail step (ADR 0042).
 
 ## Incident runbooks (AUTH-6.4, AUTH-7.7)
@@ -408,7 +413,7 @@ out.
 ### Storage or rate limiter unavailable
 
 **Symptom:** the `storage_unavailable` or `limiter_unavailable` alert fires
-(`apps/web/src/server/alert-state.test.ts`, "storage unavailable for
+(`apps/web/src/features/ops/alert-state.test.ts`, "storage unavailable for
 exactly the threshold fires" / "limiter unavailable for 2+ minutes fires
 limiter_unavailable").
 
@@ -416,7 +421,7 @@ limiter_unavailable").
    failure" above (`auth.session.unavailable`/`auth.rate_limit.unavailable`);
    follow that runbook to diagnose the outage itself.
 2. The alert fires only once the condition has held for 2+ minutes
-   (`apps/web/src/server/alert-recorder.test.ts`, "mark the storage
+   (`apps/web/src/features/ops/alert-recorder.test.ts`, "mark the storage
    occurrence, keeping since-time and re-arming the 3-minute bridging TTL"
    proves the marker's since-value is written once on the first occurrence
    and every later occurrence re-arms its TTL without disturbing that
@@ -468,13 +473,13 @@ limiter_unavailable").
 ### Delivery provider failing repeatedly
 
 **Symptom:** the `delivery_failures` alert fires
-(`apps/web/src/server/alert-state.test.ts`, "3 consecutive delivery
+(`apps/web/src/features/ops/alert-state.test.ts`, "3 consecutive delivery
 failures fire; 2 does not").
 
 1. Follow "Mail delivery is failing" above to diagnose Resend itself; this
    alert is that same condition crossing 3 consecutive `mail.failed`
    events with no intervening successful send
-   (`apps/web/src/server/alert-recorder.test.ts`, "increments consecutive
+   (`apps/web/src/features/ops/alert-recorder.test.ts`, "increments consecutive
    mail failures on mail.failed, resets on mail.sent").
 2. The counter resets to zero on the next successful send; no manual reset
    is needed once Resend recovers.
@@ -482,7 +487,7 @@ failures fire; 2 does not").
 ### Auth 5xx error rate elevated
 
 **Symptom:** the `auth_5xx_rate` alert fires
-(`apps/web/src/server/alert-state.test.ts`, "auth 5xx above 1% with at
+(`apps/web/src/features/ops/alert-state.test.ts`, "auth 5xx above 1% with at
 least 100 requests fires; below either threshold does not").
 
 1. Filter the event stream for `event:"http.request.completed"` or
@@ -504,30 +509,55 @@ least 100 requests fires; below either threshold does not").
 ### Retention cleanup missed
 
 **Symptom:** the `cleanup_missed` alert fires
-(`apps/web/src/server/alert-state.test.ts`, "a retention sweep silent for
-2+ hours, or never successful, fires cleanup_missed").
+(`apps/web/src/features/ops/alert-state.test.ts`, "no complete retention run for 3+
+hours, or ever, fires cleanup_missed").
 
 1. Filter the event stream for `event:"retention.sweep.failed"` — see
    "Retention of verification records" and "Retention of sessions" above
    for the manual `psql` fallback if a backlog needs draining sooner than
    the next hourly run.
-2. If no `retention.sweep.failed` events appear either, the sweep is not
-   running at all — check that the app process is up (`GET
+2. If none appear, read `retention.sweep.completed`. A target whose `batches`
+   equals its `maxBatches` has a backlog: its run did not complete, so drain it
+   or raise its bound (see "Outbox retention throughput" in
+   [database operations](database.md)). If no `retention.sweep.*` events appear
+   at all, the sweep is not running — check that the app process is up (`GET
 /api/health/ready`) and that it has completed at least one boot since
    the last deploy (`retention-sweep.ts`'s `runOnStart` sweeps once at
    start-up, before the hourly schedule).
 3. The marker this alert reads (`alert-retention-last-success`) is written
-   only on `retention.sweep.completed`, so a sweep that runs but never
-   fully succeeds keeps this alert firing even while individual batches
-   make progress — that is intentional (AUTH-7.7's "cleanup missed" names
-   the failure to _complete_, not the failure to _attempt_).
+   only on `retention.run.completed`, which a run logs when every target
+   succeeded and drained. One failing target, or one that stops at its batch
+   cap with due rows left, keeps this alert firing even while the
+   others make progress: that is intentional (AUTH-7.7's "cleanup missed"
+   names the failure to _complete_, not the failure to _attempt_). Scheduled
+   workers cannot refresh it; each has its own marker and alert (below).
+
+### Scheduled worker missed
+
+**Symptom:** `observation_purges_missed`, `privacy_jobs_missed` or
+`file_maintenance_missed` fires: that worker has had no healthy run within
+its threshold. A healthy run is one that owes nothing, so a job in backoff or a
+queue longer than a batch keeps the alert armed. The alert
+therefore fires on an outage of the vendor the worker delivers to, which for
+`privacy_jobs` means a deletion the law requires is still unpaid.
+
+1. Filter the event stream for `event:"worker.run.failed"` and the worker's
+   name in `operation`, and read `worker_run_failures_total{worker=...}` on
+   `/api/ops/metrics`.
+2. Failures present: the store or vendor behind that worker is down (Redis for
+   `observation_purges`, each vendor port for `privacy_jobs`, object storage
+   for `messaging_file_maintenance`). Jobs stay pending and retry on their own
+   once it returns; no manual drain is needed.
+3. No failures and no `worker.run.completed` either: check for jobs still owed
+   (`status = 'pending'` on `privacy_jobs` or `observation_purge_jobs`), then that the process is up, as for
+   `cleanup_missed`.
 
 ### Auth mail shed past the bound
 
 **Symptom:** the `mail_shed` alert fires: 20 or more pieces of magic-link
 work were shed in the trailing 10 minutes
 (`ALERT_THRESHOLDS.mailShedCount` and `mailShedWindowMinutes` in
-`apps/web/src/server/alert-state.ts`; proven through the composed app in
+`apps/web/src/features/ops/alert-state.ts`; proven through the composed app in
 `apps/web/integration/auth-mail-shed-alert.integration.ts`). While the
 global sign-up ceiling is saturated, every magic-link request's lookup and
 send or drop runs after its answer, at most 512 holding a slot with 64
@@ -567,7 +597,7 @@ at the edge is the response.
 requests were refused in the trailing 10 minutes because their client's
 IPv6 /56 or /48, or IPv4 /24, was over its limit
 (`ALERT_THRESHOLDS.networkDeniedCount` and `networkDeniedWindowMinutes`
-in `apps/web/src/server/alert-state.ts`; limits in
+in `apps/web/src/features/ops/alert-state.ts`; limits in
 `MAGIC_LINK_NETWORK_RULES`, `rate-limit.ts`; proven in
 `apps/web/integration/auth-network-limits.integration.ts`). The refused
 requests got a `429` with `Retry-After`, the same for any address, and did

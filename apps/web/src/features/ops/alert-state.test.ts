@@ -3,15 +3,19 @@ import {
   ALERT_THRESHOLDS,
   evaluateAlerts,
   readAlertSnapshot,
-  type AlertSnapshot,
+  runningWorkers,
+  workerSuccessKey,
 } from './alert-state';
 import { emptySnapshot } from './alert-state.test-support';
+
+import { OBSERVATION_PURGE_BACKOFF_CEILING_MS } from '@daisy/db/privacy';
+import { PRIVACY_JOBS_RETRY_MAX_MS } from '../../server/privacy-jobs';
 
 setupRitewayBun();
 
 const NOW = '2026-09-25T12:00:00.000Z';
 
-const baseSnapshot: AlertSnapshot = emptySnapshot(NOW);
+const baseSnapshot = emptySnapshot(NOW);
 
 describe('evaluateAlerts (AUTH-7.7)', () => {
   test('a healthy snapshot with a recent sweep fires no conditions', () => {
@@ -127,7 +131,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
     });
   });
 
-  test('a retention sweep silent for 2+ hours, or never successful, fires cleanup_missed', () => {
+  test('no complete retention run for 3+ hours, or ever, fires cleanup_missed', () => {
     const justUnder = new Date(
       Date.parse(NOW) - ALERT_THRESHOLDS.retentionMissedMs + 1,
     ).toISOString();
@@ -135,7 +139,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       Date.parse(NOW) - ALERT_THRESHOLDS.retentionMissedMs,
     ).toISOString();
     assert({
-      given: 'a sweep that succeeded just under 2 hours ago',
+      given: 'a run that completed just under 3 hours ago',
       should: 'not fire (negative control)',
       actual: evaluateAlerts({
         ...baseSnapshot,
@@ -144,7 +148,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       expected: [],
     });
     assert({
-      given: 'a sweep that last succeeded exactly 2 hours ago',
+      given: 'a run that last completed exactly 3 hours ago',
       should: 'fire cleanup_missed',
       actual: evaluateAlerts({
         ...baseSnapshot,
@@ -158,6 +162,94 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       should: 'fire cleanup_missed',
       actual: evaluateAlerts(baseSnapshot).map((c) => c.id),
       expected: ['cleanup_missed'],
+    });
+  });
+
+  test('a running worker past its threshold, or never healthy, fires its own alert (ISSUE-1007)', () => {
+    const ago = (ms: number) => new Date(Date.parse(NOW) - ms).toISOString();
+    const fresh = {
+      ...baseSnapshot,
+      retentionLastSuccessIso: NOW,
+    };
+    const worker = (lastSuccessIso: string | null) => ({
+      name: 'privacy_jobs' as const,
+      missedAfterMs: 1_000,
+      lastSuccessIso,
+    });
+    assert({
+      given: 'a worker healthy just under its threshold',
+      should: 'not fire (negative control)',
+      actual: evaluateAlerts({ ...fresh, workers: [worker(ago(999))] }).map(
+        (c) => c.id,
+      ),
+      expected: [],
+    });
+    assert({
+      given: 'a worker last healthy exactly at its threshold',
+      should: 'fire its own alert, not cleanup_missed',
+      actual: evaluateAlerts({ ...fresh, workers: [worker(ago(1_000))] }).map(
+        (c) => c.id,
+      ),
+      expected: ['privacy_jobs_missed'],
+    });
+    assert({
+      given: 'a running worker with no healthy run on record',
+      should: 'fire its own alert',
+      actual: evaluateAlerts({ ...fresh, workers: [worker(null)] }).map(
+        (c) => c.id,
+      ),
+      expected: ['privacy_jobs_missed'],
+    });
+    assert({
+      given: 'a worker this process does not run',
+      should: 'raise nothing',
+      actual: evaluateAlerts(fresh).map((c) => c.id),
+      expected: [],
+    });
+  });
+
+  test('each worker threshold outlasts its backoff ceiling, so one retry never pages', () => {
+    assert({
+      given: 'the thresholds and the backoff ceilings their workers use',
+      should: 'leave room for a retry at the longest wait',
+      actual: {
+        observation:
+          ALERT_THRESHOLDS.workerMissedMs.observation_purges >
+          OBSERVATION_PURGE_BACKOFF_CEILING_MS,
+        privacy:
+          ALERT_THRESHOLDS.workerMissedMs.privacy_jobs >
+          PRIVACY_JOBS_RETRY_MAX_MS,
+      },
+      expected: { observation: true, privacy: true },
+    });
+  });
+
+  test('file maintenance is expected only when configured, and never faster than its own interval', () => {
+    const names = (fileMaintenanceIntervalMs: number | null) =>
+      runningWorkers({ fileMaintenanceIntervalMs }).map(({ name }) => name);
+    assert({
+      given: 'no configured file maintenance',
+      should: 'expect only the two always-on workers',
+      actual: names(null),
+      expected: ['observation_purges', 'privacy_jobs'],
+    });
+    assert({
+      given: 'configured file maintenance',
+      should: 'expect it too',
+      actual: names(60_000),
+      expected: [
+        'observation_purges',
+        'privacy_jobs',
+        'messaging_file_maintenance',
+      ],
+    });
+    const DAY_MS = 86_400_000;
+    assert({
+      given: 'a daily maintenance interval',
+      should: 'allow three intervals before it counts as missed',
+      actual: runningWorkers({ fileMaintenanceIntervalMs: DAY_MS }).at(-1)
+        ?.missedAfterMs,
+      expected: 3 * DAY_MS,
     });
   });
 
@@ -263,7 +355,12 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
       given:
         'markers spread across the 10-minute request and shed windows, and a shed bucket just outside',
       should: 'assemble one snapshot summing every bucket in range only',
-      actual: await readAlertSnapshot({ redis, clock, local: noLocalOutage }),
+      actual: await readAlertSnapshot({
+        redis,
+        clock,
+        local: noLocalOutage,
+        workers: [],
+      }),
       expected: {
         nowIso: NOW,
         redisState: 'read',
@@ -272,9 +369,36 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
         deliveryConsecutiveFailures: 2,
         authRequests: { total: 100, serverErrors: 3, windowMinutes: 10 },
         retentionLastSuccessIso: '2026-09-25T11:00:00.000Z',
+        workers: [],
         mailShed: { count: 22, windowMinutes: 10 },
         networkDenied: { count: 400, windowMinutes: 10 },
       },
+    });
+  });
+
+  test('reads only the running workers, each from its own marker (ISSUE-1007)', async () => {
+    const values = new Map([
+      [workerSuccessKey('privacy_jobs'), NOW],
+      [workerSuccessKey('messaging_file_maintenance'), NOW],
+    ]);
+    const snapshot = await readAlertSnapshot({
+      redis: { get: async (key) => values.get(key) ?? null },
+      clock,
+      local: noLocalOutage,
+      workers: [
+        { name: 'privacy_jobs', missedAfterMs: 1 },
+        { name: 'observation_purges', missedAfterMs: 2 },
+      ],
+    });
+    assert({
+      given:
+        'two running workers, one with a marker, and a marker for one not running',
+      should: 'report the two running workers only',
+      actual: snapshot.redisState === 'read' ? snapshot.workers : [],
+      expected: [
+        { name: 'privacy_jobs', missedAfterMs: 1, lastSuccessIso: NOW },
+        { name: 'observation_purges', missedAfterMs: 2, lastSuccessIso: null },
+      ],
     });
   });
 
@@ -283,7 +407,12 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
     assert({
       given: 'no markers set at all',
       should: 'default counts to zero and timestamps to null',
-      actual: await readAlertSnapshot({ redis, clock, local: noLocalOutage }),
+      actual: await readAlertSnapshot({
+        redis,
+        clock,
+        local: noLocalOutage,
+        workers: [],
+      }),
       expected: baseSnapshot,
     });
   });
