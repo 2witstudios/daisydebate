@@ -10,7 +10,7 @@ What Daisy Debate collects during the beta, why, how long we keep it, who proces
 
 Daisy Debate is operated by [OWNER: legal entity name], [OWNER: registered postal address]. We decide how and why your personal data is used, which makes us the controller of it.
 
-For privacy questions and requests, write to [OWNER: privacy contact email]. [COUNSEL: confirm whether an EU or UK representative or a data protection officer is required, and add their contact if so.]
+For privacy questions and requests, write to privacy@daisydebate.com. [COUNSEL: confirm whether an EU or UK representative or a data protection officer is required, and add their contact if so.]
 
 ## What we collect
 
@@ -68,7 +68,7 @@ People who run Daisy can see the beta access list (username, request and decisio
 
 ## Ranked rounds and recordings
 
-Ranked rounds are always public, broadcast with a delay and recorded. Before you can be Ready for one you sign the ranked content waiver once per season, and each ranked round shows you a notice first. We keep a record of each: your account, the version and the time. Lawful basis: our contract with you, and our legitimate interest in being able to show what you agreed to. [COUNSEL: confirm.]
+Ranked rounds are always public, and are broadcast with a delay and recorded when capture has capacity. Before you can be Ready for one you sign the ranked content waiver once per season, and each ranked round shows you a notice first. We keep a record of each: your account, the version and the time. Lawful basis: our contract with you, and our legitimate interest in being able to show what you agreed to. [COUNSEL: confirm.]
 
 We keep ranked video, with the results and ballots, as Daisy’s content for as long as Daisy runs ranked seasons, including after you close your account, because ranked season rounds are qualifying artifacts for tournaments: the results and the video stand as the evidence behind qualification, disputes and integrity review. Lawful basis: our contract with you, and our legitimate interest in the integrity of qualification. Moderation can still take a recording down. [COUNSEL: this purpose, basis and period are proposed and not yet reviewed (COMP-4, docs/operations/compliance.md).]
 
@@ -112,7 +112,7 @@ When you sign up we ask your birth month and year. If you are under 13, or under
 
 To stop the age answer being retried at once, your browser keeps a cookie for 24 hours that records only whether sign-up was refused for being under 13 or for being under the beta minimum age. It holds no name, email or identifier. [COUNSEL: confirm whether that age bracket is personal data on a shared device.]
 
-We do not knowingly collect personal data from children under 13. If you believe a child under 13 has given us data, contact [OWNER: privacy contact email] and we will delete it. [COUNSEL: confirm COPPA and age-appropriate design obligations for 13 to 17 year olds once the minimum age drops to 13.]
+We do not knowingly collect personal data from children under 13. If you believe a child under 13 has given us data, contact privacy@daisydebate.com and we will delete it. [COUNSEL: confirm COPPA and age-appropriate design obligations for 13 to 17 year olds once the minimum age drops to 13.]
 
 ## Cookies
 
@@ -140,7 +140,7 @@ We use no advertising or analytics cookies and no other tracking technologies, a
 
 You can ask to access, correct, export or delete your personal data, to restrict or object to how we use it, and to withdraw consent where we rely on it. You can also complain to your data protection authority.
 
-In Settings you can end sessions, manage passkeys and your sign-in email, export your data records and close your account. An export holds data records, not video: downloading a recording is a paid feature. For anything else, write to [OWNER: privacy contact email]. We will answer within [COUNSEL: response period, for example one month].
+In Settings you can end sessions, manage passkeys and your sign-in email, export your data records and close your account. An export holds data records, not video: downloading a recording is a paid feature. For anything else, write to privacy@daisydebate.com. We will answer within [COUNSEL: response period, for example one month].
 
 When an account is closed we delete your email address, name and image, sessions, passkeys, birth month, onboarding answers, terms acceptance, beta access record, friends, messages, audience chat and reactions, follows, watch history and the transcripts of what you said in casual rounds. Your username stays on the results, rounds, ballots and ratings you took part in, marked closed, and is never given to anyone else; room titles, topics and resolutions stay with the rounds they were debated in. Ranked rounds also keep their video, and your signed waiver and notice records stay as the evidence of what you agreed to. We keep them because other members’ records and tournament qualification depend on them (legitimate interest). You can object, and we will review your objection. [COUNSEL: confirm the legitimate-interest basis and the objection procedure (COMP-4, docs/operations/compliance.md).] Documents you created in debate rooms are not yet removed with the account; you can ask us to remove them.
 

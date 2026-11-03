@@ -1,5 +1,9 @@
 import { mediaEndpointsOf } from '@daisy/config';
-import { createBroadcastEgress } from '@daisy/media/broadcast';
+import {
+  broadcastEgressOnNodes,
+  createBroadcastEgress,
+} from '@daisy/media/broadcast';
+import { createMediaNodes } from '@daisy/media';
 import {
   startSingleFlightWorker,
   type WorkerTimers,
@@ -11,21 +15,62 @@ import { createStrayEgressSweep } from './stray-egress-sweep';
 const STRAY_SWEEP_EVERY_MS = 15_000;
 const STRAY_CLAIM_MS = 800;
 
-/** The LiveKit and Egress adapter, or null on a deployment with no LiveKit. */
-export const stageEgressOf = (app: App) => {
+const MEDIA_NODE_PROBE_MS = 5_000;
+
+const stageMedia = new WeakMap<App, ReturnType<typeof composeStageMedia>>();
+
+/**
+ * Capture's own view of the media nodes: which are up, and an Egress client for each
+ * (ISSUE-1299). Null on a deployment with no LiveKit. One node has nowhere to fail
+ * over to, so it pays for no probe. The timer never holds the process open.
+ */
+const composeStageMedia = (app: App) => {
   const {
     LIVEKIT_URL: url,
+    LIVEKIT_PUBLIC_URL: publicUrl,
     LIVEKIT_API_KEY: apiKey,
     LIVEKIT_API_SECRET: apiSecret,
   } = app.config;
-  // Staging runs one LiveKit node. A list's first entry until Broadcast follows a
-  // room's node (ISSUE filed with the merge of multi-node media).
-  return url && apiKey && apiSecret
-    ? createBroadcastEgress({
-        config: { url: mediaEndpointsOf(url)[0]!, apiKey, apiSecret },
-      })
-    : null;
+  if (!url || !publicUrl || !apiKey || !apiSecret) return null;
+  const urls = mediaEndpointsOf(url);
+  const publicUrls = mediaEndpointsOf(publicUrl);
+  const nodes = createMediaNodes({
+    nodes: urls.map((entry, index) => ({
+      url: entry,
+      publicUrl: publicUrls[index]!,
+    })),
+    apiKey,
+    apiSecret,
+    fetch,
+    healthChanged: (nodeIndex, healthy) =>
+      app.logger.log(
+        'stage.media.node_health',
+        { nodeIndex, cause: healthy ? 'up' : 'down' },
+        'A media node changed health',
+      ),
+  });
+  if (nodes.size > 1) {
+    void nodes.probe();
+    setInterval(() => void nodes.probe(), MEDIA_NODE_PROBE_MS).unref();
+  }
+  return {
+    nodes,
+    egress: broadcastEgressOnNodes({
+      egresses: urls.map((entry) =>
+        createBroadcastEgress({ config: { url: entry, apiKey, apiSecret } }),
+      ),
+      order: nodes.order,
+    }),
+  };
 };
+
+const stageMediaOf = (app: App) => {
+  if (!stageMedia.has(app)) stageMedia.set(app, composeStageMedia(app));
+  return stageMedia.get(app)!;
+};
+
+/** The LiveKit and Egress adapter, or null on a deployment with no LiveKit. */
+export const stageEgressOf = (app: App) => stageMediaOf(app)?.egress ?? null;
 
 /**
  * What the stage page reads. A capture id names a Broadcast or a Recording with
@@ -33,13 +78,11 @@ export const stageEgressOf = (app: App) => {
  * capture switch is on, so merging never activates capture.
  */
 export const composeStage = (app: App) => {
-  const egress = stageEgressOf(app);
-  const url = app.config.LIVEKIT_PUBLIC_URL;
+  const media = stageMediaOf(app);
   if (
     (app.config.BROADCAST_CAPTURE !== 'on' &&
       app.config.RECORDING_CAPTURE !== 'on') ||
-    !egress ||
-    !url
+    !media
   )
     return async () => new Response(null, { status: 404 });
   return createStageRoute({
@@ -48,8 +91,8 @@ export const composeStage = (app: App) => {
         (await app.database.broadcasts.readStage(id)) ??
         app.database.recordingCaptures.readStage(id),
     },
-    observerToken: egress.observerToken,
-    livekitUrl: mediaEndpointsOf(url)[0]!,
+    observerToken: media.egress.observerToken,
+    livekitUrlFor: (room) => media.nodes.urlsFor(room).publicUrl,
     now: () => Date.parse(app.clock.now()),
     nextId: () => app.ids.next(),
   });
