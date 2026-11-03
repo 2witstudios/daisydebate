@@ -68,6 +68,7 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `clientIdHash`           | hash  |
 | `durationMs`             | count |
 | `status`                 | count |
+| `silentClips`            | count |
 | `port`                   | count |
 | `deleted`                | count |
 | `batches`                | count |
