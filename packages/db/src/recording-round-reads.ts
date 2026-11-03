@@ -16,7 +16,7 @@ import { rounds } from './schema/rounds';
 const debaterSides = ['affirmative', 'negative'] as const;
 
 /**
- * The Round as Recording reads it: named, read-only inputs (ADR 0105). Recording
+ * The Round as Recording reads it: named, read-only inputs (ADR 0107). Recording
  * never writes any of this. Visibility follows the Room. Who may see each part is
  * decided by the caller, so `readRecordingTranscript` and
  * `readRecordingBallots` are called only for a viewer who holds that permission.

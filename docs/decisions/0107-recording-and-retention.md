@@ -1,4 +1,4 @@
-# 0105: Recording and retention
+# 0107: Recording and retention
 
 Status: accepted, owner decisions on the Watch plan, 2026-11-02. The retention of
 ranked video after erasure is **proposed and not reviewed by counsel** (COMP-4), and
