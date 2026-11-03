@@ -8,8 +8,8 @@ import { mediaWorkerLeases } from './schema/transcript-segments';
 /**
  * Drops revoked human seats from the media session and fences its worker
  * lease; returns the next vendor room name, so the session moves to a fresh
- * LiveKit room. Called only after the locked owner/epoch and settled absence
- * proof pass.
+ * LiveKit room. Called only under the locked owner and epoch, once the pass has
+ * decided to retire the room (`decideRoom`).
  */
 export async function rotateMediaRoom(
   tx: BoundedTransactionContext,

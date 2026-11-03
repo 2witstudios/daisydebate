@@ -82,9 +82,9 @@ export function createMediaReconcileRun(
     }
     // A late write after this read can only reach the name this proof retires (ADR 0110).
     const proof = await input.store.prepareMediaAbsenceProof(claim.fence);
-    if (!proof || (await input.deadline(input.media.exists(claim.roomName))))
-      return null;
-    return proof;
+    return (await input.deadline(input.media.exists(claim.roomName)))
+      ? null
+      : proof;
   };
   /**
    * Creates the room for `admission`, or returns `{ refused }` when the
@@ -278,8 +278,7 @@ export function createMediaReconcileRun(
     admission?: Principal,
     whileHeld?: () => Promise<void>,
   ) => {
-    let absenceProof: Awaited<ReturnType<Store['prepareMediaAbsenceProof']>> =
-      null;
+    let absenceProof: Awaited<ReturnType<typeof removeRoom>> = null;
     let cleanupAttempted = false;
     let held: { readonly error: unknown } | null = null;
     let refusal: unknown;

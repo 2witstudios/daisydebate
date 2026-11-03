@@ -16,7 +16,7 @@ type AuthenticatedWorker = ReturnType<
 export function createMediaWorkerTokenBroker(input: {
   readonly sessions: Database['mediaSessions'];
   readonly capture: Capture;
-  readonly media: Omit<MediaNodes, 'urlsFor' | 'probe'>;
+  readonly media: Omit<MediaNodes, 'urlsFor' | 'probe' | 'size'>;
   readonly urlsFor: MediaNodes['urlsFor'];
   readonly nextId: () => string;
   readonly deadline: <T>(work: Promise<T>) => Promise<T>;

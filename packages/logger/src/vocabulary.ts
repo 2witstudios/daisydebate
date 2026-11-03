@@ -35,6 +35,7 @@ export const eventRegistry = {
   'auth.email_change.cleanup_failed': 'error',
   'round.media.unsafe': 'error',
   'round.media.room_retired': 'warn',
+  'round.media.node_health': 'warn',
   'round.media.reconcile_deferred': 'warn',
   'round.media.request_deferred': 'info',
   'round.media.fairness_degraded': 'warn',

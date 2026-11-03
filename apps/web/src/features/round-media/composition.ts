@@ -53,9 +53,19 @@ export function createRoundMediaRuntime(
       apiKey,
       apiSecret,
       fetch,
+      healthChanged: (count, healthy) =>
+        app.logger.log(
+          'round.media.node_health',
+          { count, cause: healthy ? 'up' : 'down' },
+          'A media node changed health',
+        ),
     });
-    void nodes.probe();
-    setInterval(() => void nodes.probe(), MEDIA_NODE_PROBE_MS).unref();
+    // One node has nowhere to fail over to, so it pays for no probe. The runtime lives
+    // as long as the process, and the timer never holds it open.
+    if (nodes.size > 1) {
+      void nodes.probe();
+      setInterval(() => void nodes.probe(), MEDIA_NODE_PROBE_MS).unref();
+    }
     const resources: MediaOperationInput = {
       priority: createAdmissionPriority({
         deadline: (work) => withTimeout(work, MEDIA_ADMISSION_HINT_TIMEOUT_MS),

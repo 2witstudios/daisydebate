@@ -315,7 +315,11 @@ test('a short network blip keeps the same connection and tracks, with no new adm
       );
     const admissions = countMediaAdmissions(source);
     await speaker.context.setOffline(true);
-    await source.waitForTimeout(1_500);
+    await expect(
+      source
+        .getByRole('status')
+        .filter({ hasText: 'Reconnecting camera and sound' }),
+    ).toBeVisible({ timeout: 4_000 });
     await speaker.context.setOffline(false);
     await expectConnected(source);
     await expectPeerCamera(peer);

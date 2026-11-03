@@ -43,6 +43,8 @@ export function createMediaNodes(input: {
   readonly apiKey: string;
   readonly apiSecret: string;
   readonly fetch: Fetch;
+  /** A node's health moved; its index only, never its address. */
+  readonly healthChanged?: (nodeIndex: number, healthy: boolean) => void;
   /** One per node, for tests; the real SDK client otherwise. */
   readonly services?: readonly NodeService[];
 }) {
@@ -85,6 +87,7 @@ export function createMediaNodes(input: {
     deleteRoom: (room: string) => preferred().deleteRoom(room),
     permissions: (...args: Parameters<NodeService['permissions']>) =>
       preferred().permissions(...args),
+    size: input.nodes.length,
     /** Where a client joins this room now: on a healthy node, the same one each time. */
     urlsFor(room: string) {
       const up = inOrder();
@@ -101,7 +104,10 @@ export function createMediaNodes(input: {
                 signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
               })
               .then(
-                (response) => response.ok,
+                async (response) => {
+                  await response.body?.cancel();
+                  return response.ok;
+                },
                 () => false,
               );
           // Browsers join the public route, so it must answer as well as the API.
@@ -109,6 +115,8 @@ export function createMediaNodes(input: {
             answers(url),
             answers(httpRouteOf(publicUrl)),
           ]);
+          if (healthy[index] !== (api && joinable))
+            input.healthChanged?.(index, api && joinable);
           healthy[index] = api && joinable;
         }),
       );

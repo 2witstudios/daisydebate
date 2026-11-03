@@ -8,7 +8,7 @@ import {
   reconcileLive,
   requireMutationAdmissible,
   requireReconcileLease,
-  roomRetirement,
+  decideRoom,
 } from './media-reconcile-rules';
 
 setupRitewayBun();
@@ -194,30 +194,35 @@ test('completion releases the lease and ends only a cleaned terminal session', (
       reconcileCompletion(session, now, {
         terminal: false,
         unresolved: false,
-        cleaned: false,
+        decision: { kind: 'keep' },
         clean: true,
       }),
       reconcileCompletion(session, now, {
         terminal: true,
         unresolved: false,
-        cleaned: false,
+        decision: { kind: 'keep' },
         clean: true,
       }),
       reconcileCompletion(session, now, {
         terminal: true,
         unresolved: false,
-        cleaned: true,
+        decision: { kind: 'retire', cause: 'absent', uncertain: false },
         clean: true,
       }),
       reconcileCompletion(
         { ...session, endedAt: at(-2), deletionRequestedAt: at(-3) },
         now,
-        { terminal: true, unresolved: false, cleaned: true, clean: true },
+        {
+          terminal: true,
+          unresolved: false,
+          decision: { kind: 'retire', cause: 'absent', uncertain: false },
+          clean: true,
+        },
       ),
       reconcileCompletion({ ...session, deletionRequestedAt: at(-5) }, now, {
         terminal: false,
         unresolved: false,
-        cleaned: true,
+        decision: { kind: 'retire', cause: 'absent', uncertain: false },
         clean: true,
       }),
     ],
@@ -268,7 +273,7 @@ test('a never-unsafe session is safe only without unresolved mutations', () => {
         reconcileCompletion(session, now, {
           terminal: false,
           unresolved,
-          cleaned: false,
+          decision: { kind: 'keep' },
           clean: true,
         }).result,
     ),
@@ -286,7 +291,11 @@ test('a completion records whether the pass finished its work', () => {
     deletionRequestedAt: null,
     unsafeAt: null,
   };
-  const outcome = { terminal: false, unresolved: false, cleaned: false };
+  const outcome = {
+    terminal: false,
+    unresolved: false,
+    decision: { kind: 'keep' },
+  };
   assert({
     given: 'a pass that did not finish, then one that did',
     should: 'record each on the session for the recovery tick to read',
@@ -307,42 +316,50 @@ test('a room is retired on observed absence, or once uncertainty outlasts the bo
     unsafeAt: null,
     oldestPendingAt: null,
   };
+  const keep = { kind: 'keep' };
   assert({
     given:
-      'nothing uncertain; proven absence; uncertainty under the bound; a pending call at the bound; an older unsafe mark',
+      'nothing uncertain; proven absence, sound and uncertain; uncertainty under the bound, at it, and older on the unsafe mark; a terminal session past it, then proven absent',
     should:
-      'keep a sound room, retire an absent one at once, wait out a blip, and retire a silent one',
+      'keep a sound room, retire an absent one at once, wait out a blip, retire a silent one, and hold a terminal session for proof',
     actual: [
-      roomRetirement(quiet),
-      roomRetirement({ ...quiet, absenceProven: true }),
-      roomRetirement({
+      decideRoom(quiet),
+      decideRoom({ ...quiet, absenceProven: true }),
+      decideRoom({ ...quiet, absenceProven: true, oldestPendingAt: at(-1) }),
+      decideRoom({
         ...quiet,
         oldestPendingAt: at(1 - MEDIA_ROOM_RETIRE_AFTER_MS),
       }),
-      roomRetirement({
+      decideRoom({
         ...quiet,
         oldestPendingAt: at(-MEDIA_ROOM_RETIRE_AFTER_MS),
       }),
-      roomRetirement({
+      decideRoom({
         ...quiet,
         unsafeAt: at(-MEDIA_ROOM_RETIRE_AFTER_MS),
         oldestPendingAt: at(-1),
       }),
-      roomRetirement({
+      decideRoom({
         ...quiet,
         terminal: true,
         unsafeAt: at(-MEDIA_ROOM_RETIRE_AFTER_MS),
       }),
-      roomRetirement({ ...quiet, terminal: true, absenceProven: true }),
+      decideRoom({
+        ...quiet,
+        terminal: true,
+        absenceProven: true,
+        unsafeAt: at(-1),
+      }),
     ],
     expected: [
-      null,
-      'absent',
-      null,
-      'unreachable',
-      'unreachable',
-      null,
-      'absent',
+      keep,
+      { kind: 'retire', cause: 'absent', uncertain: false },
+      { kind: 'retire', cause: 'absent', uncertain: true },
+      keep,
+      { kind: 'retire', cause: 'unreachable', uncertain: true },
+      { kind: 'retire', cause: 'unreachable', uncertain: true },
+      keep,
+      { kind: 'retire', cause: 'absent', uncertain: true },
     ],
   });
 });

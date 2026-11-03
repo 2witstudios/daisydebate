@@ -9,6 +9,7 @@ import { createMediaService } from '@daisy/media';
 import { createLogger } from '@daisy/logger';
 import { noopErrorReporter, withTimeout } from '@daisy/observability';
 import { createCaptureHeardRelay } from '../src/features/media-capture/heard-relay';
+import type { MediaOperationInput } from '../src/features/round-media/operation-context';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
 import { withRoomRuntime } from './room-runtime.test-support';
@@ -21,7 +22,9 @@ export const localMediaConfig = {
 };
 export const mediaDependencies = (
   fixture: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
-  media = createMediaService({ config: localMediaConfig }),
+  media: MediaOperationInput['media'] = createMediaService({
+    config: localMediaConfig,
+  }),
 ) => ({
   priority: createAdmissionPriority({
     deadline: (work) => withTimeout(work, MEDIA_ADMISSION_HINT_TIMEOUT_MS),

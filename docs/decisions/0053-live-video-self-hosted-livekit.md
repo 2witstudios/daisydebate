@@ -77,6 +77,9 @@ at least every 500 ms and each known runtime expiry; accepted commands also
 trigger it. Client inactivity cannot preserve stale rights. Close all
 required microphones before opening any.
 
+[ADR 0110](0110-disposable-vendor-room.md) amends what follows: an uncertain vendor room
+is retired for a fresh one, which is how an unknown outcome stops blocking admission.
+
 Commit a durable pending mutation record before each vendor dispatch. A
 response resolves it; timeout or process death before outcome recording
 leaves it outstanding. Each call has a 2 s deadline, but cancellation does

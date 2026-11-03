@@ -97,40 +97,57 @@ export function requireMutationAdmissible(
 }
 
 /**
- * How long an unknown vendor outcome holds a room: past the 5 s the adapter waits
- * on one call, so the request itself is over, and a live node's blip has answered.
+ * How long an unknown vendor outcome holds a room: past the 5 s the adapter waits on one
+ * call, so a live node's blip has answered. It is not a bound on the provider: a delete's
+ * reclaim can make three calls, so a late create can still leave an empty room under the
+ * retired name, which closes itself by `empty_timeout`.
  */
 export const MEDIA_ROOM_RETIRE_AFTER_MS = 6_000;
 
+/** What this pass decided about the session's vendor room (ADR 0110). */
+export type RoomDecision =
+  | { readonly kind: 'keep' }
+  | {
+      readonly kind: 'retire';
+      /** `unreachable` retires a room that may still be live. */
+      readonly cause: 'absent' | 'unreachable';
+      /** Its state was unknown, so it is left behind even with every seat eligible. */
+      readonly uncertain: boolean;
+    };
+
 /**
- * Why a session stops naming its vendor room, or null while it keeps it. Observed
- * absence is enough at once. Otherwise uncertainty older than the bound retires
- * the room with the node still silent, because a late outcome can only reach a
- * name that no token uses any more (ADR 0110).
+ * The one decision. Observed absence retires at once. Otherwise uncertainty older than
+ * the bound retires an open Round's room with the node still silent, because a late
+ * outcome can only reach a name no token uses. A terminal session waits for proof, since
+ * ending it stops every later delete attempt.
  */
-export function roomRetirement(input: {
+export function decideRoom(input: {
   readonly now: Date;
-  /** An end stops every later attempt, so a terminal session waits for proof. */
   readonly terminal: boolean;
   readonly absenceProven: boolean;
   readonly unsafeAt: Date | null;
   readonly oldestPendingAt: Date | null;
-}): 'absent' | 'unreachable' | null {
+}): RoomDecision {
   const since = [input.unsafeAt, input.oldestPendingAt].flatMap((at) =>
     at ? [at.getTime()] : [],
   );
-  if (input.absenceProven) return 'absent';
-  if (since.length === 0 || input.terminal) return null;
-  return input.now.getTime() - Math.min(...since) >= MEDIA_ROOM_RETIRE_AFTER_MS
-    ? 'unreachable'
-    : null;
+  const uncertain = since.length > 0;
+  if (input.absenceProven)
+    return { kind: 'retire', cause: 'absent', uncertain };
+  if (
+    uncertain &&
+    !input.terminal &&
+    input.now.getTime() - Math.min(...since) >= MEDIA_ROOM_RETIRE_AFTER_MS
+  )
+    return { kind: 'retire', cause: 'unreachable', uncertain };
+  return { kind: 'keep' };
 }
 
 /**
- * Release the lease and serve the running version. A terminal session
- * requests deletion; only a matching absence proof clears unsafe and ends it.
- * A proven-clean recovery of an open Round also clears the room deletion
- * request, ending the unsafe episode so capture discovery resumes (ISSUE-465).
+ * Release the lease and serve the running version. A terminal session requests
+ * deletion and ends only when its room is retired, which for it means proven absent.
+ * Retiring an open Round's room also clears the deletion request, ending the unsafe
+ * episode so capture discovery resumes (ISSUE-465).
  */
 export function reconcileCompletion(
   session: {
@@ -142,13 +159,15 @@ export function reconcileCompletion(
   now: Date,
   outcome: {
     readonly terminal: boolean;
+    /** Vendor work still pending after this pass's decision. */
     readonly unresolved: boolean;
-    readonly cleaned: boolean;
+    readonly decision: RoomDecision;
     /** The pass finished its work; a failed one leaves the Round due to the tick. */
     readonly clean: boolean;
   },
 ) {
-  const { terminal, unresolved, cleaned, clean } = outcome;
+  const { terminal, unresolved, decision, clean } = outcome;
+  const retired = decision.kind === 'retire';
   return {
     fields: {
       reconcileOwner: null,
@@ -156,7 +175,7 @@ export function reconcileCompletion(
       reconcileCompletedAt: now,
       reconcileLastPassClean: clean,
       reconcileServedVersion: session.reconcileRunningVersion,
-      ...(cleaned
+      ...(retired
         ? {
             unsafeAt: null,
             ...(terminal
@@ -169,8 +188,8 @@ export function reconcileCompletion(
         : {}),
     },
     result: {
-      safe: !unresolved && (session.unsafeAt === null || cleaned),
-      ended: terminal && cleaned,
+      safe: !unresolved && (session.unsafeAt === null || retired),
+      ended: terminal && retired,
     },
   };
 }

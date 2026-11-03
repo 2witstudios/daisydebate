@@ -133,7 +133,7 @@ test('an unreachable node costs nothing: admission reads through a healthy one a
     });
     await nodes.probe();
     const admitted = await createRoundMediaOperations({
-      ...mediaDependencies(f, nodes as never),
+      ...mediaDependencies(f, nodes),
       urlsFor: nodes.urlsFor,
     }).session(f.roundId, f.host.actorId);
     const [session] =
