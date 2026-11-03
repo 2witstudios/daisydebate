@@ -6,6 +6,7 @@ type Segment = {
   readonly startedAtMs: number;
   readonly endedAtMs: number | null;
   readonly durationMs: number;
+  readonly returnedMs: number;
 };
 type Interval = {
   readonly segmentId: string;

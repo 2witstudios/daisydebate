@@ -16,6 +16,7 @@ export type FloorClock = {
     readonly startedAt: string;
     readonly endedAt: string | null;
     readonly durationMs: number;
+    readonly returnedMs: number;
   } | null;
 };
 /** When the open segment is due, from its committed row. */
@@ -23,6 +24,7 @@ export const dueAt = (segment: NonNullable<FloorClock['lastSegment']>) =>
   segmentDueAtMs({
     startedAtMs: Date.parse(segment.startedAt),
     durationMs: segment.durationMs,
+    returnedMs: segment.returnedMs,
   });
 const gapBoundaries = (clock: FloorClock): number[] => {
   if (clock.activePrep || clock.segmentCount >= clock.segmentTotal) return [];

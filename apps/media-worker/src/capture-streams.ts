@@ -73,6 +73,7 @@ export function createStreamTracker(ceiling: number) {
             startedAtMs: Date.parse(segment.startedAt),
             endedAtMs: Date.parse(segment.endedAt ?? state.serverNow),
             durationMs: segment.durationMs,
+            returnedMs: segment.returnedMs,
           }),
         );
         if (Date.parse(interval.startedAt) < end)

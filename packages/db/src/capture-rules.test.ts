@@ -17,6 +17,7 @@ const segment = {
   startedAt: new Date(t0),
   endedAt: new Date(t0 + 10_000),
   durationMs: 60_000,
+  returnedMs: 0,
 };
 const now = new Date(t0 + 20_000);
 const grant = [{ start: t0, end: t0 + 10_000 }];

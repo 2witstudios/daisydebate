@@ -42,13 +42,14 @@ export function grantWindows(
     readonly startedAt: Date;
     readonly endedAt: Date | null;
   }[],
-  segment: Pick<Segment, 'startedAt' | 'endedAt' | 'durationMs'>,
+  segment: Pick<Segment, 'startedAt' | 'endedAt' | 'durationMs' | 'returnedMs'>,
 ) {
   const segmentStart = segment.startedAt.getTime();
   const segmentEnd = speakingEndMs({
     startedAtMs: segmentStart,
     endedAtMs: segment.endedAt?.getTime() ?? null,
     durationMs: segment.durationMs,
+    returnedMs: segment.returnedMs,
   });
   return rows.map((row) => ({
     start: Math.max(row.startedAt.getTime(), segmentStart),

@@ -26,6 +26,7 @@ const openSegmentRemaining = (view: RoundView, atMs: number) => {
     segmentDueAtMs({
       startedAtMs: Date.parse(row.startedAt),
       durationMs: row.durationMs,
+      returnedMs: row.returnedMs,
     }) - atMs
   );
 };

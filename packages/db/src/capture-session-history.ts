@@ -11,6 +11,7 @@ export async function captureSessionInterrupted(
     readonly startedAt: Date;
     readonly endedAt: Date | null;
     readonly durationMs: number;
+    readonly returnedMs: number;
   },
 ) {
   const history = await tx
@@ -32,6 +33,7 @@ export async function captureSessionInterrupted(
     startedAtMs: start,
     endedAtMs: segment.endedAt?.getTime() ?? null,
     durationMs: segment.durationMs,
+    returnedMs: segment.returnedMs,
   });
   const creations = history.filter(
     (row) => row.kind === 'create' && row.outcome === 'succeeded',

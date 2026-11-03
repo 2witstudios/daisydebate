@@ -195,6 +195,7 @@ const consumerState = {
     startedAt: at(0),
     endedAt: null,
     durationMs: 120_000,
+    returnedMs: 0,
   },
   intervals: [{ roundParticipantId: seat, startedAt: at(0), endedAt: null }],
   participants: [],

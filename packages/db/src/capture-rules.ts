@@ -6,6 +6,7 @@ type SegmentTiming = {
   readonly startedAt: Date;
   readonly endedAt: Date | null;
   readonly durationMs: number;
+  readonly returnedMs: number;
 };
 
 const speakingEnd = (segment: SegmentTiming) =>
@@ -13,6 +14,7 @@ const speakingEnd = (segment: SegmentTiming) =>
     startedAtMs: segment.startedAt.getTime(),
     endedAtMs: segment.endedAt?.getTime() ?? null,
     durationMs: segment.durationMs,
+    returnedMs: segment.returnedMs,
   });
 
 /**

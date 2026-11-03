@@ -84,6 +84,7 @@ test('an ended stream whose staged frame no batch took yet is never sealed in th
         startedAt: new Date(segmentId === segment ? 9000 : 10050).toISOString(),
         endedAt: null,
         durationMs: 60000,
+        returnedMs: 0,
       },
       intervals:
         segmentId === segment

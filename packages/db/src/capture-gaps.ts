@@ -102,6 +102,7 @@ export async function closedStreamGaps(
       startedAtMs: segment.startedAt.getTime(),
       endedAtMs: segment.endedAt?.getTime() ?? null,
       durationMs: segment.durationMs,
+      returnedMs: segment.returnedMs,
     });
     const kind = seats.find(
       (seat) => seat.id === stream.roundParticipantId,

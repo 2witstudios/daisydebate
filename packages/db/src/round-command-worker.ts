@@ -15,7 +15,7 @@ type Claim = Pick<
 type WorkerRound = Pick<RoundHydration, 'id' | 'status'> & {
   readonly segments: readonly Pick<
     RoundHydration['segments'][number],
-    'id' | 'startedAt' | 'endedAt' | 'durationMs'
+    'id' | 'startedAt' | 'endedAt' | 'durationMs' | 'returnedMs'
   >[];
 };
 export async function lockRoundCommandWorker(
@@ -78,7 +78,12 @@ function currentWorkerSegment(
     startedAtMs = Date.parse(segment.startedAt);
   return (
     at >= startedAtMs &&
-    at < segmentDueAtMs({ startedAtMs, durationMs: segment.durationMs })
+    at <
+      segmentDueAtMs({
+        startedAtMs,
+        durationMs: segment.durationMs,
+        returnedMs: segment.returnedMs,
+      })
   );
 }
 

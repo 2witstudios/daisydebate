@@ -30,6 +30,7 @@ test('a stalled heard report cannot hold capture history, validation or sealing 
           startedAt: new Date(0).toISOString(),
           endedAt: ended ? new Date(1000).toISOString() : null,
           durationMs: 1000,
+          returnedMs: 0,
         },
         participants: [
           { roundParticipantId: 'p'.repeat(24), kind: 'bot', identity: 'bot' },

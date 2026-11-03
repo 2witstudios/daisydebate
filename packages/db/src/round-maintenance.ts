@@ -73,7 +73,10 @@ export function roundMaintenanceOperations(run: BoundedTransaction) {
         sql`${anchor} + coalesce(${rounds.preRoundPrepMs}, 0) * interval '1 millisecond' <= statement_timestamp()`;
       const dueDraw = sql`exists (select 1 from ${roundResolutionDraws} d cross join lateral (select count(*)::int as n, max(s.struck_at) as last from ${roundResolutionStrikes} s where s.draw_id = d.id) st where d.round_id = ${rounds.id} and case when st.n < d.draw_size - 1 then coalesce(st.last, d.started_at) + ${turnWindowMs} * interval '1 millisecond' <= statement_timestamp() else ${prepEnd(sql`st.last`)} end)`;
       const noDraw = sql`not exists (select 1 from ${roundResolutionDraws} d where d.round_id = ${rounds.id}) and ${prepEnd(sql`${rounds.createdAt}`)}`;
-      const dueOpening = sql`${rounds.status} = 'opening' and ${rounds.roomId} is not null and (${dueDraw} or (${noDraw}))`;
+      // An incident only delays these deadlines, so the checks above can read
+      // early and never late; the engine decides. Its countdown must still end.
+      const heldOpening = sql`${rounds.runtimeState}->'incident'->>'phase' <> 'none'`;
+      const dueOpening = sql`${rounds.status} = 'opening' and ${rounds.roomId} is not null and (${heldOpening} or ${dueDraw} or (${noDraw}))`;
       return run(async (tx) => {
         await requireCurrentWeb(tx, input.instanceId);
         const rows = await tx

@@ -16,7 +16,7 @@ const checkpoint = {
   prep_consumed_ms: { affirmative: 0, negative: 0 },
   active_prep: null,
   floor: null,
-  incident: { phase: 'none' },
+  incident: { phase: 'none' as const },
   clock_stops: [],
 };
 
@@ -92,7 +92,6 @@ test('one write closes a speech and opens the next under the one-open-row index'
           rulesSegmentKey: 'NC',
           startedAt: instant,
           durationMs: 240_000,
-          returnedMs: 0,
         },
       ],
       effects: [],

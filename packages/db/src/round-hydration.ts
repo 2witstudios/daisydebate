@@ -51,6 +51,7 @@ export type RoundHydration = {
     readonly startedAt: string;
     readonly endedAt: string | null;
     readonly durationMs: number;
+    readonly returnedMs: number;
   }[];
 };
 
@@ -70,6 +71,7 @@ export async function segmentRows(
       startedAt: roundSegments.startedAt,
       endedAt: roundSegments.endedAt,
       durationMs: roundSegments.durationMs,
+      returnedMs: roundSegments.returnedMs,
     })
     .from(roundSegments)
     .where(eq(roundSegments.roundId, roundId))

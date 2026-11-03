@@ -28,7 +28,12 @@ const idle = (over: Partial<RecoverySession> = {}): RecoverySession => ({
     prepBudgetMs: null,
     activePrep: null,
     segmentCount: 1,
-    lastSegment: { startedAt: at(0), endedAt: null, durationMs: 60_000 },
+    lastSegment: {
+      startedAt: at(0),
+      endedAt: null,
+      durationMs: 60_000,
+      returnedMs: 0,
+    },
   },
   ...over,
 });
@@ -84,6 +89,7 @@ test('a floor that must move needs a pass at once', () => {
             startedAt: at(0),
             endedAt: at(8),
             durationMs: 60_000,
+            returnedMs: 0,
           },
         },
       }),

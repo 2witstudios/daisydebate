@@ -31,7 +31,7 @@ const intervalOpen = (before: SQL, after: SQL) =>
  * publication's speaking window and hearing alike.
  */
 const segmentInProgress = (before: SQL, after: SQL) =>
-  sql`s.started_at<=${before} and ${after}<least(coalesce(s.ended_at,'infinity'::timestamptz),s.started_at+s.duration_ms*interval '1 millisecond')`;
+  sql`s.started_at<=${before} and ${after}<least(coalesce(s.ended_at,'infinity'::timestamptz),s.due_at)`;
 /** Latest actual played scope authenticates control, including unresolved historical attendance. */
 export async function requireBotControlSegment(
   tx: Pick<BoundedTransactionContext, 'execute'>,

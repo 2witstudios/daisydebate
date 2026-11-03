@@ -21,6 +21,7 @@ export function contained(state: CaptureState, seat: string, window: Window) {
         endedAtMs:
           segment.endedAt === null ? null : Date.parse(segment.endedAt),
         durationMs: segment.durationMs,
+        returnedMs: segment.returnedMs,
       })
   )
     return false;

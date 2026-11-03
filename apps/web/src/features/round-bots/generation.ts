@@ -26,6 +26,7 @@ const dueAtOf = (segment: Context['round']['segments'][number]) =>
   segmentDueAtMs({
     startedAtMs: Date.parse(segment.startedAt),
     durationMs: segment.durationMs,
+    returnedMs: segment.returnedMs,
   });
 function messagesFor(
   context: Context,
