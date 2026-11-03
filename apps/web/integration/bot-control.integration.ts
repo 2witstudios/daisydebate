@@ -31,6 +31,19 @@ test('idle bot control records actual opponent-speech attendance despite refused
       actual: () => f.store.verifyRoundBotPublication(claim.scope, claim.token),
       code: 'CONFLICT',
     });
+    assert({
+      given: 'a publisher naming a vendor room its session has left',
+      should: 'refuse it before any window is credited (ADR 0110)',
+      actual: await f.store
+        .verifyRoundBotPublication(
+          claim.scope,
+          claim.token,
+          undefined,
+          'retiredroom0000000000000',
+        )
+        .catch((error: { reason?: string }) => error.reason),
+      expected: 'bot-room-changed',
+    });
     const receipts = await control(claim).pulse();
     const [stored] =
       await f.sql`select a.state,a.service_id,a.actor_id,c.received_at=a.received_at as first_stamp,

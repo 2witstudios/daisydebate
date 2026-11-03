@@ -16,7 +16,7 @@ import {
   stubSdk,
 } from './livekit-room.test-support';
 import { admission } from '../media-fixtures.test-support';
-import { createLiveKitRoom } from './livekit-room';
+import { createLiveKitRoom, resumeDelayMs } from './livekit-room';
 import type { RoomEvent as MediaRoomEvent } from '../model/media-events';
 setupRitewayBun();
 
@@ -76,6 +76,38 @@ test('an unexpected disconnect ends every captured track', async () => {
     should: 'end it, since LiveKit skips a room already disconnected',
     actual: stub.captured.filter((track) => !track.ended).length,
     expected: 0,
+  });
+});
+
+test('a blip keeps every captured track; only a drop ends them', async () => {
+  const stub = stubSdk();
+  const { transport } = createBrowserMediaTransport(events, stub.sdk);
+  await transport.connect(admission);
+  void transport.apply(publish(['camera']));
+  await settle();
+  stub.fire(RoomEvent.SignalReconnecting);
+  stub.fire(RoomEvent.Reconnected);
+  stub.fire(RoomEvent.Reconnecting);
+  stub.fire(RoomEvent.Reconnected);
+  assert({
+    given: 'the SDK resuming after a signal blip, then a full restart',
+    should: 'leave the captured camera running',
+    actual: stub.captured.filter((track) => track.ended).length,
+    expected: 0,
+  });
+});
+
+test('a connection tries to resume only inside its short budget', () => {
+  assert({
+    given: 'each retry inside the budget, and one past it',
+    should: 'retry quickly, then give up to the one recovery loop',
+    actual: [
+      resumeDelayMs({ retryCount: 0, elapsedMs: 0 }),
+      resumeDelayMs({ retryCount: 1, elapsedMs: 10 }),
+      resumeDelayMs({ retryCount: 9, elapsedMs: 4_999 }),
+      resumeDelayMs({ retryCount: 2, elapsedMs: 5_000 }),
+    ],
+    expected: [0, 300, 1_500, null],
   });
 });
 
@@ -867,5 +899,27 @@ test('a device lost while its publish ran is reported once it lands', async () =
       'report published and then ended, so the model does not call it healthy',
     actual: reported.filter((type) => type.match(/published|track-ended/)),
     expected: ['published', 'track-ended'],
+  });
+});
+
+test('the SDK saying a signal resume began reports a blip', async () => {
+  const stub = stubSdk();
+  const said: string[] = [];
+  const room = createLiveKitRoom(
+    {
+      report: (event) => said.push(event.type),
+      handles: () => undefined,
+      checkedDevices: () => ({ state: 'available', choices: {} }),
+    },
+    stub.sdk,
+  );
+  await room.connect(admission);
+  stub.fire(RoomEvent.SignalReconnecting);
+  stub.fire(RoomEvent.Reconnected);
+  assert({
+    given: 'an ordinary signal resume',
+    should: 'say it began and that it landed',
+    actual: said.filter((type) => type.startsWith('transport')),
+    expected: ['transport-resuming', 'transport-resumed'],
   });
 });

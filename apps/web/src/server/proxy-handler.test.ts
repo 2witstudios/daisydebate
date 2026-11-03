@@ -333,7 +333,7 @@ test('production CSP permits only the configured websocket origin', () => {
 test('LiveKit origins are restricted to Ready and live Round presentations', () => {
   const connect = (path: string) =>
     proxy(new NextRequest(`https://daisy.invalid${path}`), {
-      mediaPublicUrl: 'wss://media.daisy.invalid:9443/rtc',
+      mediaPublicUrls: ['wss://media.daisy.invalid:9443/rtc'],
     }).headers.get('Content-Security-Policy') ?? '';
   assert({
     given: 'the configured secure media endpoint',

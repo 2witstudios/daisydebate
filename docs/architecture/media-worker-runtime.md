@@ -33,7 +33,8 @@ gets one capture process with a fresh worker id, so a relaunch after a crash
 or exit takes the expired lease over at a new epoch instead of reusing stale
 authority. A session that was just launched is never launched twice while its
 lease is still pending. A failing session backs off exponentially from 1 s to
-30 s without blocking other sessions. SIGTERM stops discovery, sends SIGTERM
+8 s after a process exits, without blocking other sessions, and a process that held for
+30 s starts that pace again. This bounds the retry only, not detection or reconnection. SIGTERM stops discovery, sends SIGTERM
 to every capture process, kills any that are still running after 20 s, and
 exits once all have exited. The supervisor logs only `server.ready`,
 `server.shutdown`, `media.discovery.failed` (`errorCode`) and

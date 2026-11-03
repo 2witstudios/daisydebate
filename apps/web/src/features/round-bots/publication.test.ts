@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createRefusal } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { publicationStopOf } from '@daisy/media/audio';
 import { createBotPublisher, type BotSpeechJob } from './publication';
@@ -31,6 +32,8 @@ function harness(
     readonly join?: (attempt: number) => Promise<void>;
     readonly heardAfterMs?: number | null;
     readonly heardSeat?: string;
+    /** Windows refused because the session left the room, once each. */
+    readonly roomLeft?: { count: number };
   } = {},
 ) {
   let now = 1_000,
@@ -47,11 +50,20 @@ function harness(
         _scope: unknown,
         _token: unknown,
         window?: unknown,
+        room?: unknown,
       ) => {
-        if (window) events.push('credit');
+        if (window && options.roomLeft && options.roomLeft.count > 0) {
+          options.roomLeft.count -= 1;
+          throw createRefusal('CONFLICT', 'bot-room-changed');
+        }
+        if (window) events.push(room === 'room' ? 'credit' : 'credit-no-room');
       },
     } as never,
-    botToken: async () => ({ url: 'ws://media.test', token: 'grant' }),
+    botToken: async () => ({
+      url: 'ws://media.test',
+      token: 'grant',
+      roomName: 'room',
+    }),
     connect: async () => {
       const attempt = joins++;
       await options.join?.(attempt);
@@ -260,5 +272,26 @@ test('a claim that ends while its track waits to be heard leaves no participant 
     should: 'abandon the wait and close the publication, crediting nothing',
     actual: [open.map((state) => state.closed), events.includes('credit')],
     expected: [[true], false],
+  });
+});
+
+test('a session that left the room makes the next attempt join its fresh one', async () => {
+  const { claim, events } = harness({ roomLeft: { count: 1 } });
+  claim.start();
+  await assertRejects({
+    given: 'a window refused because the session left the room',
+    should: 'refuse this attempt',
+    actual: () => claim.publish(job(10), signal()),
+    code: 'CONFLICT',
+  });
+  const second = await claim.publish(job(10), signal());
+  assert({
+    given: 'the next attempt',
+    should: 'close the old publication, join again and speak',
+    actual: [
+      second.complete,
+      events.filter((event) => /^(join|close)/.test(event)),
+    ],
+    expected: [true, ['join:TR_0', 'close:TR_0', 'join:TR_1']],
   });
 });

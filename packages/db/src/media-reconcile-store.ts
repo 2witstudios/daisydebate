@@ -1,4 +1,5 @@
-import { rotateRevokedMediaSession } from './media-session-rotation';
+import { revokedBoundSeats, rotateMediaRoom } from './media-session-rotation';
+import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
 import {
   readMediaBotLeases,
   mediaHearingSeats,
@@ -52,7 +53,10 @@ export function createMediaReconcileStore(input: {
 }) {
   const pending = (tx: BoundedTransactionContext, sessionId: string) =>
     tx
-      .select({ id: mediaVendorMutations.id })
+      .select({
+        id: mediaVendorMutations.id,
+        dispatchedAt: mediaVendorMutations.dispatchedAt,
+      })
       .from(mediaVendorMutations)
       .where(
         and(
@@ -239,23 +243,21 @@ export function createMediaReconcileStore(input: {
           .where(eq(mediaSessions.id, session.id));
       });
     },
-    /** Obtain the settled immutable-intent horizon BEFORE observing provider absence. */
+    /** The mutation horizon, taken BEFORE observing absence: a later intent voids the proof. */
     async prepareMediaAbsenceProof(
       request: MediaReconcileFence,
-    ): Promise<MediaAbsenceProof | null> {
-      return withFence(request, async (tx, session) => {
-        if ((await pending(tx, session.id)).length) return null;
-        return {
-          ...request,
-          settledMutationCount: await mutationCount(tx, session.id),
-        };
-      });
+    ): Promise<MediaAbsenceProof> {
+      return withFence(request, async (tx, session) => ({
+        ...request,
+        mutationHorizon: await mutationCount(tx, session.id),
+      }));
     },
     async finishMediaReconcile(
       request: MediaReconcileFence & {
         readonly absenceProof: MediaAbsenceProof | null;
         readonly clean: boolean;
         readonly mediaWindowClosed: MediaWindowRule;
+        readonly roomFate: (facts: MediaRoomFacts) => MediaRoomFate;
       },
     ) {
       return withFence(request, async (tx, session, now) => {
@@ -272,35 +274,50 @@ export function createMediaReconcileStore(input: {
           now.toISOString(),
           round.finalSegmentEndedAt?.toISOString() ?? null,
         );
-        const unresolved = (await pending(tx, session.id)).length > 0;
-        const cleaned =
-          !unresolved &&
-          proofMatches(
+        const outstanding = await pending(tx, session.id);
+        const dispatched = outstanding.map((row) => row.dispatchedAt.getTime());
+        const known = session.unsafeAt ? [session.unsafeAt.getTime()] : [];
+        const revoked = await revokedBoundSeats(tx, session.id, session.seats);
+        const fate = request.roomFate({
+          nowMs: now.getTime(),
+          terminal,
+          ended: session.endedAt !== null,
+          absenceProven: proofMatches(
             request.absenceProof,
             request,
             await mutationCount(tx, session.id),
-          );
+          ),
+          seatRevoked: revoked.length > 0,
+          uncertainSinceMs:
+            dispatched.length + known.length
+              ? Math.min(...dispatched, ...known)
+              : null,
+        });
+        if (fate.kind !== 'keep' && outstanding.length)
+          await tx
+            .update(mediaVendorMutations)
+            .set({ settledAt: now, outcome: 'superseded' })
+            .where(
+              and(
+                eq(mediaVendorMutations.sessionId, session.id),
+                isNull(mediaVendorMutations.settledAt),
+              ),
+            );
         const roomName =
-          cleaned && !terminal && !session.endedAt
-            ? await rotateRevokedMediaSession(
-                tx,
-                session.id,
-                session.seats,
-                now,
-                input.nextId,
-              )
+          fate.kind === 'rotate'
+            ? await rotateMediaRoom(tx, session.id, revoked, now, input.nextId)
             : undefined;
         const { fields, result } = reconcileCompletion(session, now, {
           terminal,
-          unresolved,
-          cleaned,
+          unresolved: outstanding.length > 0 && fate.kind === 'keep',
+          fate,
           clean: request.clean,
         });
         await tx
           .update(mediaSessions)
           .set({ ...fields, ...(roomName ? { roomName } : {}) })
           .where(eq(mediaSessions.id, session.id));
-        return result;
+        return { ...result, fate };
       });
     },
   };

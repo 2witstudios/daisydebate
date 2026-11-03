@@ -5,7 +5,8 @@ import {
 } from './admission-priority';
 import type { App } from '../../server/app';
 import { createAppError } from '@daisy/errors';
-import { createMediaService } from '@daisy/media';
+import { mediaEndpointsOf } from '@daisy/config';
+import { createMediaNodes } from '@daisy/media';
 import {
   noopErrorReporter,
   withTimeout,
@@ -17,6 +18,9 @@ import type { MediaOperationInput } from './operation-context';
 import { createRoundMediaOperations } from './operations';
 import { MEDIA_RECOVERY_HEARTBEAT_MS } from './recovery-due';
 import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
+
+/** How soon a dead node stops being offered to a new join. */
+const MEDIA_NODE_PROBE_MS = 1_000;
 
 /** Optional configuration stays inert until a real media operation is requested. */
 export function createRoundMediaRuntime(
@@ -35,16 +39,33 @@ export function createRoundMediaRuntime(
       LIVEKIT_API_KEY: apiKey,
       LIVEKIT_API_SECRET: apiSecret,
     } = app.config;
-    if (
-      !url ||
-      !publicUrl ||
-      !apiKey ||
-      !apiSecret ||
-      new URL(publicUrl).protocol !== 'wss:'
-    )
+    if (!url || !publicUrl || !apiKey || !apiSecret)
       throw createAppError('INFRASTRUCTURE');
-    const worker = new URL(url);
-    worker.protocol = worker.protocol === 'https:' ? 'wss:' : 'ws:';
+    const apiUrls = mediaEndpointsOf(url);
+    const publicUrls = mediaEndpointsOf(publicUrl);
+    if (publicUrls.some((entry) => new URL(entry).protocol !== 'wss:'))
+      throw createAppError('INFRASTRUCTURE');
+    const nodes = createMediaNodes({
+      nodes: apiUrls.map((entry, index) => ({
+        url: entry,
+        publicUrl: publicUrls[index]!,
+      })),
+      apiKey,
+      apiSecret,
+      fetch,
+      healthChanged: (nodeIndex, healthy) =>
+        app.logger.log(
+          'round.media.node_health',
+          { nodeIndex, cause: healthy ? 'up' : 'down' },
+          'A media node changed health',
+        ),
+    });
+    // One node has nowhere to fail over to, so it pays for no probe. The runtime lives
+    // as long as the process, and the timer never holds it open.
+    if (nodes.size > 1) {
+      void nodes.probe();
+      setInterval(() => void nodes.probe(), MEDIA_NODE_PROBE_MS).unref();
+    }
     const resources: MediaOperationInput = {
       priority: createAdmissionPriority({
         deadline: (work) => withTimeout(work, MEDIA_ADMISSION_HINT_TIMEOUT_MS),
@@ -52,9 +73,8 @@ export function createRoundMediaRuntime(
         logger: app.logger,
       }),
       store: app.database.mediaSessions,
-      media: createMediaService({ config: { url, apiKey, apiSecret } }),
-      publicUrl,
-      workerUrl: worker.toString(),
+      media: nodes,
+      urlsFor: nodes.urlsFor,
       nextId: () => app.ids.next(),
       reporter,
       logger: app.logger,
@@ -82,7 +102,7 @@ export function createRoundMediaRuntime(
             { cause, sessionId },
             'Capture token deferred',
           ),
-        workerUrl: resources.workerUrl,
+        urlsFor: resources.urlsFor,
         nextId: resources.nextId,
         deadline: resources.deadline,
         hold: operations.holdForCapture,

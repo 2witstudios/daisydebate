@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMediaService } from './service';
 import {
   ParticipantInfo,
+  ServerError,
   TrackSource,
   type RoomServiceClient,
 } from 'livekit-server-sdk';
@@ -61,3 +62,37 @@ test('recovery reads the exact room and projects scoped publication permissions'
     },
   });
 });
+
+for (const [status, code] of [
+  [503, 'unavailable'],
+  [408, 'deadline_exceeded'],
+] as const)
+  test(`a room stranded on a dead node is reclaimed, then deleted: ${status}`, async () => {
+    const calls: string[] = [];
+    let stranded = true;
+    const service = createMediaService({
+      config: {
+        url: 'http://127.0.0.1:7880',
+        apiKey: 'key',
+        apiSecret: 'secret',
+      },
+      rooms: {
+        createRoom: async () => {
+          calls.push('create');
+          stranded = false;
+        },
+        deleteRoom: async () => {
+          calls.push('delete');
+          if (stranded)
+            throw new ServerError('no response', 'no response', status, code);
+        },
+      } as never,
+    });
+    await service.deleteRoom('r4nd0mr00mnam3r4nd0mr00m');
+    assert({
+      given: "LiveKit's answer for a room held by a dead node",
+      should: 'move it to a live node, then delete it',
+      actual: calls,
+      expected: ['delete', 'create', 'delete'],
+    });
+  });

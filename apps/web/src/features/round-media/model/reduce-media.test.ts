@@ -803,3 +803,50 @@ test('a read let finish spends no attempt after its retry pause', () => {
     expected: [1, 0],
   });
 });
+
+test('a blip past its budget is a drop, whatever the SDK is waiting on', () => {
+  const d = driver();
+  d.join(['camera']);
+  d.room({ type: 'transport-resuming' });
+  d.timer('resume-budget');
+  assert({
+    given: 'a resume still unanswered when its budget ends',
+    should: 'release the connection, with the rejoin armed',
+    actual: (d.state().link as { phase: string; why?: string }).why,
+    expected: 'transient',
+  });
+});
+
+test('a resume that lands cancels its budget and reads what moved', () => {
+  const d = driver();
+  d.join(['camera']);
+  d.room({ type: 'transport-resuming' });
+  d.room({ type: 'transport-resumed' });
+  assert({
+    given: 'the SDK resuming inside its budget',
+    should: 'return to steady, with no budget timer left',
+    actual: [d.live().transport, d.state().timers['resume-budget']],
+    expected: ['steady', undefined],
+  });
+});
+
+test('a resume clears a publication the SDK already removed, with no Retry', () => {
+  const d = driver();
+  d.join(['microphone']);
+  d.room({ type: 'captured', source: 'microphone' });
+  d.room({ type: 'published', source: 'microphone' });
+  d.send({ type: 'read-requested', read: { kind: 'wake' } });
+  d.flushDeferred();
+  d.answer([]);
+  d.room({ type: 'transport-resuming' });
+  d.room({ type: 'unpublish-failed', source: 'microphone' });
+  const stale = d.live().sources.microphone.phase;
+  d.room({ type: 'transport-resumed' });
+  assert({
+    given:
+      'a renegotiation refused as the floor moved, then a resume that lands',
+    should: 'leave the microphone off rather than waiting on a click',
+    actual: [stale, d.live().sources.microphone.phase],
+    expected: ['stale-publication', 'off'],
+  });
+});

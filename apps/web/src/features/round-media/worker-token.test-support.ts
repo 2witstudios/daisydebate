@@ -23,7 +23,7 @@ export const broker = (
       sessions: world.input.store,
       capture,
       media: world.input.media,
-      workerUrl: world.input.workerUrl,
+      urlsFor: world.input.urlsFor,
       nextId: world.input.nextId,
       deadline: world.input.deadline,
       hold: createRoundMediaOperations(world.input).holdForCapture,

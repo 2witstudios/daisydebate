@@ -19,6 +19,8 @@ const MAX_EXCLUDED_SESSIONS = 256;
 export function createCaptureSupervisor(input: {
   readonly maxSessions: number;
   readonly retryMs: { readonly initial: number; readonly max: number };
+  /** A process that ran this long was working: its failure starts the pace again. */
+  readonly heldMs: number;
   readonly nowMs: () => number;
   readonly nextWorkerId: () => string;
   /** `excluded` sessions must not count toward `limit`: the query leaves them out. */
@@ -29,12 +31,13 @@ export function createCaptureSupervisor(input: {
   readonly launch: (scope: Scope) => Process;
   readonly failed: (status: number) => void;
 }) {
-  const running = new Map<string, Process>();
+  const running = new Map<string, Process & { readonly launchedAt: number }>();
   const backoff = new Map<string, { failures: number; retryAt: number }>();
   // Sessions the server definitely closed: never relaunched. Bounded, oldest first.
   const finished = new Set<string>();
   let stopped = false;
   const exited = (sessionId: string, status: number) => {
+    const launchedAt = running.get(sessionId)?.launchedAt ?? input.nowMs();
     running.delete(sessionId);
     if (status === CAPTURE_FINISHED_EXIT) {
       backoff.delete(sessionId);
@@ -48,7 +51,8 @@ export function createCaptureSupervisor(input: {
       return;
     }
     input.failed(status);
-    const failures = (backoff.get(sessionId)?.failures ?? 0) + 1;
+    const held = input.nowMs() - launchedAt >= input.heldMs;
+    const failures = (held ? 0 : (backoff.get(sessionId)?.failures ?? 0)) + 1;
     backoff.delete(sessionId);
     // Bounded: the oldest retry record goes first.
     if (backoff.size >= 1024) backoff.delete(backoff.keys().next().value!);
@@ -90,7 +94,7 @@ export function createCaptureSupervisor(input: {
           ...session,
           workerId: input.nextWorkerId(),
         });
-        running.set(session.sessionId, process);
+        running.set(session.sessionId, { ...process, launchedAt: now });
         void process.exited.then(
           (status) => exited(session.sessionId, status),
           () => exited(session.sessionId, 1),

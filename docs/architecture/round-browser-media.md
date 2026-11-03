@@ -40,9 +40,9 @@ No worker capability is available through the human endpoints.
 
 Vendor creation, permission and deletion intents commit before dispatch. A
 provider deadline never cancels its promise. Unknown outcomes remain durable and
-block admission and opening, including after restart or an absence probe. Only
-an actual acknowledgement settles an intent; recovery requires another verified
-absence after every outstanding intent settles. Session ending is derived from
+block admission and opening, including after restart, until the room is retired
+([ADR 0110](../decisions/0110-disposable-vendor-room.md)): an observed absence, or
+uncertainty past 6 s, gives the session a fresh room with the same seats. Session ending is derived from
 the locked Round and fresh PostgreSQL time, never an internal caller boolean.
 The application lifecycle must invoke `recoverActiveSessions()` independently of
 browser presence; the owning lifecycle composition supplies scheduling.
@@ -153,8 +153,8 @@ each attempt. Expiry is a transient failure, handled by the model's existing
 retry and no second retry owner.
 A read that cannot finish on a live connection keeps its transport and tracks:
 LiveKit enforces every grant on the server, so it carries no authority risk. Only
-an answer about authority ends the connection: 401, 403, 404, 409, 410, or the
-server's unavailable or ended state. Anything else makes the state `out-of-date`,
+an answer about authority ends the connection: 401, 403, 404, 409, 410 or the ended
+state. Anything else makes the state `out-of-date`,
 shown as such rather than as plain connected, until a later read answers. Later
 view, boundary and wake events start those reads, and so does recovery's paced wake.
 Supersession restarts a read's retries but not the stall, so reads kept unanswered
@@ -167,18 +167,27 @@ this connection's apply has been stuck past the read budget.
 
 `media-failure.ts` is the one classifier. A 408, 429 or 5xx, a timeout or the network
 is `transient`: `retrying` tries it again, and recovery paces further attempts. A 401,
-403, 404 or 410 is `refused`: final for this page, with no Retry. A 409 or the
-server's unavailable state ends the connection as `definite`, as does any failure
+403, 404 or 410 is `refused`: final for this page, with no Retry. A 409 ends the
+connection as `definite`, as does any failure
 before going live that retrying cannot help, such as a reply that does not parse.
 `definite` asks for a fresh view and waits for Retry; on a live connection it keeps
 the tracks and shows `out-of-date`. `replaced` means LiveKit moved this seat to another
 connection; it sets no timer, and Retry takes the seat back.
 
+A blip is not a drop. The SDK resumes the same connection for up to 5 seconds, with its
+tracks and publications, and the seat reads as reconnecting without losing its video.
+On resuming, a read fetches whatever grant moved meanwhile. Past the 5 seconds the SDK
+gives up and it is a drop.
+
+A read answering the server's unavailable state, or naming a room other than the one this
+connection joined, releases it as `transient`, so the seat rejoins without a click and a
+fresh admission decides its authority. A revoked seat is refused there.
+
 Recovery is part of the one model, with one timer. A transient `out-of-date` sends a
 `wake` read on the same connection, with no admission. A transient `unavailable` is a
 released connection, so it admits again. That covers a media connection that fails after
 a good admission, unless LiveKit refused the token (401 or 403), and a first apply that
-hangs past the read budget. When LiveKit drops a connection, the model releases it at
+hangs past the read budget. When LiveKit drops a connection, past a blip's budget, the model releases it at
 once and reports it the same way, so nothing reads on a dead connection and there is one
 path back. If LiveKit says this seat connected elsewhere, this connection stops and says
 so, and Retry takes the seat back.

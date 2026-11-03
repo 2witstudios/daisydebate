@@ -77,13 +77,16 @@ at least every 500 ms and each known runtime expiry; accepted commands also
 trigger it. Client inactivity cannot preserve stale rights. Close all
 required microphones before opening any.
 
+[ADR 0110](0110-disposable-vendor-room.md) amends what follows: an uncertain vendor room
+is retired for a fresh one, which is how an unknown outcome stops blocking admission.
+
 Commit a durable pending mutation record before each vendor dispatch. A
 response resolves it; timeout or process death before outcome recording
 leaves it outstanding. Each call has a 2 s deadline, but cancellation does
 not prove the vendor stopped. While any outcome is unresolved, refuse
 admission and opening mutations, cancel bot output, attempt removal/deletion
-and retry cleanup. Restart never clears uncertainty. Resolve the outstanding
-operation and verify cleanup before reopening.
+and retry cleanup. Restart never clears uncertainty; only retiring the room ends it
+([ADR 0110](0110-disposable-vendor-room.md)).
 
 The ordinary closure bound includes polling, actual lock-queue delay and
 each closure call. A universal 6.5 s bound is not established under

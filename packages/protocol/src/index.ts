@@ -490,3 +490,4 @@ export {
   sealReply,
   tokenReply,
 } from './capture-worker-replies';
+export type { MediaRoomFacts, MediaRoomFate } from './media-room-fate';

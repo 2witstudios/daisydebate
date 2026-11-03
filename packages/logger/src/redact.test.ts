@@ -125,6 +125,7 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       silentClips: 2,
       audibleClips: 1,
       port: 3000,
+      nodeIndex: 3000,
       deleted: 0,
       batches: 3,
       closeCode: 4001,
