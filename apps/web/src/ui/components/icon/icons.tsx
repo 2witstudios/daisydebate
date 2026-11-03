@@ -118,7 +118,7 @@ export const iconPaths: Record<string, ReactNode> = {
       <path d="m13 9 3 3-3 3" />
     </>
   ),
-  /* The online rail's toggle: the panel with its divider on the right. */
+  /* The people rail's toggle: the panel with its divider on the right. */
   panelRight: (
     <>
       <rect x="3" y="4" width="18" height="16" rx="2" />

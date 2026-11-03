@@ -5,7 +5,7 @@ import type { CreationFormState } from '../../features/messaging/forms/create-fo
 import type { PersonBlockState } from '../../features/contacts/block-form';
 import type { ReportFormState } from '../../features/reports/form';
 
-/** Every server action the online list uses; `ui/` never imports from `app/`. */
+/** Every server action the people list uses; `ui/` never imports from `app/`. */
 export type PersonActions = {
   readonly friend: FormAction<FriendFormState>;
   readonly sendChallenge: FormAction<ChallengeFormState>;

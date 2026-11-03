@@ -1,4 +1,4 @@
-import type { OnlineMember } from '@daisy/protocol';
+import type { Person } from '@daisy/protocol';
 import { statusLabels } from '../components/presence-dot/status-labels';
 
 const ladderLabels = {
@@ -8,14 +8,14 @@ const ladderLabels = {
 } as const;
 
 /** The account menu's words: a figure, or why there is none (ui-conventions). */
-export const ratingText = (rating: OnlineMember['ratings'][number]): string => {
+export const ratingText = (rating: Person['ratings'][number]): string => {
   if (rating.hidden) return 'Hidden while judging';
   if (rating.rating === null) return 'Unrated';
   return rating.provisional ? 'Provisional' : String(rating.rating);
 };
 
 /** What a screen reader hears for a person's shown ratings. */
-export const ratingsLabel = (member: OnlineMember): string =>
+export const ratingsLabel = (member: Person): string =>
   member.ratings
     .map((rating) => `${ladderLabels[rating.ladder]} ${ratingText(rating)}`)
     .join(', ');
@@ -26,7 +26,7 @@ export const anchorAt = (top: number) => (element: HTMLElement | null) => {
 };
 
 /** Name, status, record and the ratings this person shows. */
-export function MemberCardBody({ member }: { readonly member: OnlineMember }) {
+export function MemberCardBody({ member }: { readonly member: Person }) {
   return (
     <>
       <div className="min-w-0">

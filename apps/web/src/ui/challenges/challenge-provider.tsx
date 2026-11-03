@@ -18,7 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import { tabConnection } from '../../features/realtime/browser-adapters';
-import { ROSTER_CEILING_MS } from '../../features/presence/refresh-schedule';
+import { PEOPLE_READ_CEILING_MS } from '../../features/presence/refresh-schedule';
 
 type ChallengeView = {
   readonly challenges: ChallengeList;
@@ -65,7 +65,7 @@ const readList = async () => {
 
 /**
  * The tab's one view of this member's challenges (ADR 0103), with its own
- * lifecycle: only the socket is shared with the online list. A ring on the
+ * lifecycle: only the socket is shared with the people list. A ring on the
  * member's inbox asks for a fresh read, and a timer covers one that never comes.
  */
 export function ChallengeProvider({
@@ -105,7 +105,7 @@ export function ChallengeProvider({
   }, []);
 
   useEffect(() => {
-    const poll = setInterval(() => void read(), ROSTER_CEILING_MS);
+    const poll = setInterval(() => void read(), PEOPLE_READ_CEILING_MS);
     return () => clearInterval(poll);
   }, [read]);
 

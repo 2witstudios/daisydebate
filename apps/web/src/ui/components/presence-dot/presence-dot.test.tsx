@@ -39,7 +39,7 @@ describe('PresenceDot', () => {
         `${base} bg-hue-clay`,
         `${base} bg-hue-teal`,
         `${base} bg-live`,
-        `${base} bg-ink-faint`,
+        'inline-block size-presence-dot rounded-round border-2 border-ink-faint bg-surface',
       ],
     });
   });

@@ -16,7 +16,7 @@ const member = {
   actorId: me,
   sessionId: 's'.repeat(24),
 } as unknown as AuthorizationPrincipal;
-const input = { username: 'ada', reason: 'hate', surface: 'online' } as const;
+const input = { username: 'ada', reason: 'hate', surface: 'people' } as const;
 
 const deps = (overrides = {}) => {
   const filed: unknown[] = [];
@@ -51,7 +51,7 @@ describe('fileReport', () => {
             id: 'r'.repeat(24),
             subjectActorId: them,
             reason: 'hate',
-            surface: 'online',
+            surface: 'people',
             now,
           },
         ],

@@ -65,7 +65,7 @@ export function createPresenceOperations({
           redisKey(namespace, 'presence', 'conn', lease.connId),
           redisKey(namespace, 'presence', 'actor', lease.actorId),
           redisKey(namespace, 'presence', 'online'),
-          redisKey(namespace, 'presence', 'roster-revision'),
+          redisKey(namespace, 'presence', 'online-revision'),
           lease.actorId,
           activity,
           lease.instanceId,
@@ -116,7 +116,7 @@ export function createPresenceOperations({
           redisKey(namespace, 'presence', 'conn', lease.connId),
           redisKey(namespace, 'presence', 'actor', lease.actorId),
           redisKey(namespace, 'presence', 'online'),
-          redisKey(namespace, 'presence', 'roster-revision'),
+          redisKey(namespace, 'presence', 'online-revision'),
           lease.connId,
           lease.actorId,
         ]);
@@ -257,18 +257,18 @@ export function createPresenceOperations({
       return [...ids];
     },
     /**
-     * The roster revision (ADR 0103): it moves when a lease appears, changes
+     * The online revision (ADR 0103): it moves when a lease appears, changes
      * activity or goes. Zero when none has yet. Names nobody.
      */
-    async readRosterRevision(): Promise<number> {
+    async readOnlineRevision(): Promise<number> {
       try {
         await client.connect();
         const value = await client.get(
-          redisKey(namespace, 'presence', 'roster-revision'),
+          redisKey(namespace, 'presence', 'online-revision'),
         );
         return value === null ? 0 : Number(value);
       } catch (error) {
-        reportFailure('readRosterRevision');
+        reportFailure('readOnlineRevision');
         throw error;
       }
     },

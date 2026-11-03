@@ -31,11 +31,11 @@ local function arm(key, top, now)
 end
 `;
 /**
- * ADR 0103: a lease appeared, changed activity or went, so the online list may
+ * ADR 0103: a lease appeared, changed activity or went, so the people list may
  * have changed. Realtime nodes read this revision and ring their browsers. A
  * refresh never rings: nothing anyone can see changed. KEYS[4] the revision.
  */
-const ringRoster = `
+const ringOnlineChange = `
 redis.call('INCR', KEYS[4])
 redis.call('EXPIRE', KEYS[4], 86400)
 `;
@@ -48,7 +48,7 @@ redis.call('EXPIRE', KEYS[4], 86400)
  * live lease, so neither key can outlive every lease scored into it. The
  * actor zset's lapsed members are trimmed here, on the write path, so the
  * read never has to (and a reconnecting actor's zset stays small).
- * KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online zset; KEYS[4] roster
+ * KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online zset; KEYS[4] online
  * revision. ARGV[1] actorId; ARGV[2] activity; ARGV[3] instanceId; ARGV[4] ttlMs;
  * ARGV[5] connId.
  */
@@ -66,7 +66,7 @@ if top[2] then
   redis.call('ZADD', KEYS[3], top[2], ARGV[1])
   arm(KEYS[3], top, now)
 end
-${ringRoster}
+${ringOnlineChange}
 return 1
 `);
 /**
@@ -104,7 +104,7 @@ return 1
  * bare ZADD onto a dropped key recreates it with no TTL, so this script
  * cannot assume either key's expiry is still intact just because it was
  * armed once. KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online zset;
- * KEYS[4] roster revision.
+ * KEYS[4] online revision.
  * ARGV[1] connId; ARGV[2] actorId.
  */
 export const deletePresenceLeaseScript = defineScript(`
@@ -124,7 +124,7 @@ else
   redis.call('ZREM', KEYS[3], ARGV[2])
 end
 if existed == 1 then
-  ${ringRoster}
+  ${ringOnlineChange}
 end
 return existed
 `);

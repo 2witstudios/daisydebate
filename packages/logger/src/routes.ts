@@ -123,7 +123,7 @@ const appRoutes = [
   '/api/messaging/typing',
   '/api/ops/alerts',
   '/api/ops/metrics',
-  '/api/online',
+  '/api/people',
   '/api/presence',
   '/api/ratings/visibility',
   '/api/reports',

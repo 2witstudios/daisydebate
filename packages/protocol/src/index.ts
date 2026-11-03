@@ -374,8 +374,6 @@ export {
 export {
   chosenStatuses,
   memberStatuses,
-  onlineQuerySchema,
-  onlineRosterSchema,
   presenceSettingResultSchema,
   presenceSettingSchema,
   ratingVisibilitySchema,
@@ -384,11 +382,10 @@ export type {
   ChosenStatus,
   MemberPlacement,
   MemberStatus,
-  OnlineFilter,
-  OnlineMember,
-  OnlineRoster,
   RatingVisibility,
 } from './presence-setting';
+export { peopleListSchema, peopleQuerySchema } from './people-list';
+export type { PeopleFilter, PeopleList, Person } from './people-list';
 export {
   challengeCommandSchemas,
   challengeListSchema,

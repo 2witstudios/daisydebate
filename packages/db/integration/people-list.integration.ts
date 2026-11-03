@@ -2,6 +2,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import {
   createChallengeStore,
@@ -9,7 +10,7 @@ import {
   purgeExpiredChallenges,
 } from '../src/challenges/store';
 import { readChosenStatus, writeChosenStatus } from '../src/presence/settings';
-import { readRosterPage } from '../src/presence/roster';
+import { readPeopleListPage } from '../src/presence/people-list';
 import { createReportStore, reportOperations } from '../src/reports/store';
 import { contactReactions } from '../src/contact-composition';
 import { createContactStore } from '../src/contacts/store';
@@ -23,6 +24,7 @@ import {
   moderationReactions,
   type RestrictionRules,
 } from '../src/moderation-composition';
+import { admitParticipants } from '../src/beta-access-testing';
 import { createMessagingTestFixture } from '../src/testing';
 import { withFixture } from './constraint-helpers';
 
@@ -54,15 +56,18 @@ const open = async () => {
 
 const page = (
   ctx: Awaited<ReturnType<typeof open>>,
-  over: Partial<Parameters<typeof readRosterPage>[2]> = {},
+  over: Partial<Parameters<typeof readPeopleListPage>[2]> = {},
 ) =>
-  readRosterPage(
+  readPeopleListPage(
     ctx.database,
     ctx.me,
     {
       onlineActorIds: [ctx.me.actorId, ctx.them.actorId],
+      admittedAgeBands: ['16-17', 'adult'],
+      now: ctx.now,
       filter: 'all',
-      query: null,
+      // Other suites' members share this database: read only this fixture's.
+      query: ctx.them.userId,
       after: null,
       limit: 10,
       ...over,
@@ -70,11 +75,17 @@ const page = (
     unfenced,
   );
 
-test('the roster leaves out the reader, anyone appearing offline and a blocked pair', async () => {
+test('the people list shows everyone, online or not, except the reader and a blocked pair', async () => {
   const ctx = await open();
   try {
-    const seen = async () => (await page(ctx)).rows.map((row) => row.actorId);
+    const seen = async () =>
+      (await page(ctx)).rows.map((row) => [row.actorId, row.online]);
+    const reader = await page(ctx, { query: ctx.me.userId });
     const open_ = await seen();
+    // Counts span the shared database, but only these ids hold a lease here.
+    const onlineCount = async () => (await page(ctx)).counts.online;
+    const leased = await onlineCount();
+    const unleased = await page(ctx, { onlineActorIds: [] });
     await writeChosenStatus(
       ctx.database,
       ctx.them,
@@ -82,6 +93,7 @@ test('the roster leaves out the reader, anyone appearing offline and a blocked p
       unfenced,
     );
     const offline = await seen();
+    const appearingOffline = await onlineCount();
     await writeChosenStatus(
       ctx.database,
       ctx.them,
@@ -109,22 +121,235 @@ test('the roster leaves out the reader, anyone appearing offline and a blocked p
     const blocked = await page(ctx);
     assert({
       given:
-        'the other member online, then appearing offline, Busy, then blocking the reader',
+        'the other member online, with no lease, appearing offline, Busy, then blocking the reader',
       should:
-        'list them, hide them, list them as Busy, then hide them both ways',
+        'never list the reader; list them online, offline, offline, Busy, then hide them both ways, counting them online only while they show as online',
       actual: [
+        reader.rows,
         open_,
+        unleased.rows.map((row) => [row.actorId, row.online]),
         offline,
-        busy.rows.map((row) => row.chosen),
+        busy.rows.map((row) => [row.chosen, row.online]),
         blocked.rows,
-        blocked.counts,
+        [
+          leased,
+          unleased.counts.online,
+          appearingOffline,
+          busy.counts.online,
+          blocked.counts.online,
+          blocked.counts.friends,
+        ],
       ],
       expected: [
-        [ctx.them.actorId],
         [],
-        ['busy'],
+        [[ctx.them.actorId, true]],
+        [[ctx.them.actorId, false]],
+        [[ctx.them.actorId, false]],
+        [['busy', true]],
         [],
-        { everyone: 0, friends: 0 },
+        [1, 0, 0, 1, 0, 0],
+      ],
+    });
+  } finally {
+    await ctx.cleanup();
+    await ctx.client.close();
+  }
+});
+
+test('the people list counts, and orders friends, then online, then by name, across pages', async () => {
+  const ctx = await open();
+  const others = [createId(), createId()].map((id) => ({
+    userId: id,
+    actorId: createId(),
+    username: `${ctx.me.userId.slice(0, 12)}${id.slice(0, 8)}`,
+  }));
+  try {
+    for (const other of others) {
+      await ctx.client.unsafe(
+        'insert into users(id,username,email_verified) values($1,$2,true)',
+        [other.userId, other.username],
+      );
+      await ctx.client.unsafe(
+        "insert into actors(id,kind,user_id) values($1,'human',$2)",
+        [other.actorId, other.userId],
+      );
+    }
+    await admitParticipants(
+      ctx.client,
+      others.map((other) => other.userId),
+      ctx.now,
+    );
+    const [first, second] = [...others].sort((a, b) =>
+      a.username < b.username ? -1 : 1,
+    );
+    const base = {
+      onlineActorIds: [second!.actorId],
+      query: ctx.me.userId.slice(0, 12),
+    };
+    const before = await page(ctx, base);
+    const one = await page(ctx, { ...base, limit: 1 });
+    const cursor = one.rows[0]!;
+    const two = await page(ctx, {
+      ...base,
+      limit: 1,
+      after: {
+        friend: cursor.friend,
+        online: cursor.online,
+        username: cursor.username,
+        actorId: cursor.actorId,
+      },
+    });
+    assert({
+      given: 'two named members, the later name online and the earlier not',
+      should:
+        'list the online one first, page without repeating, and count exactly that one online',
+      actual: [
+        before.rows.map((row) => row.actorId).slice(0, 2),
+        two.rows.map((row) => row.actorId),
+        before.counts.online,
+        before.counts.everyone >= 2,
+      ],
+      expected: [[second!.actorId, first!.actorId], [first!.actorId], 1, true],
+    });
+  } finally {
+    for (const other of others) {
+      await ctx.client.unsafe('delete from actors where id = $1', [
+        other.actorId,
+      ]);
+      await ctx.client.unsafe(
+        'delete from account_beta_access where user_id = $1',
+        [other.userId],
+      );
+      await ctx.client.unsafe('delete from users where id = $1', [
+        other.userId,
+      ]);
+    }
+    await ctx.cleanup();
+    await ctx.client.close();
+  }
+});
+
+test('the people list leaves out a member who could not sign in', async () => {
+  const listed = async (ctx: Awaited<ReturnType<typeof open>>) =>
+    (await page(ctx)).rows.length;
+  const withdrawn = await open();
+  const banned = await open();
+  const closed = await open();
+  try {
+    const admitted = await listed(withdrawn);
+    await withdrawn.client.unsafe(
+      "update account_beta_access set state = 'revoked' where user_id = $1",
+      [withdrawn.them.userId],
+    );
+    await banned.client.unsafe(
+      `insert into moderation_actions (id, user_id, kind, starts_at, operator_ref)
+       values ($1, $2, 'ban', $3, 'test')`,
+      [createId(), banned.them.userId, banned.now],
+    );
+    await closed.client.unsafe(
+      'update users set deleted_at = now() where id = $1',
+      [closed.them.userId],
+    );
+    assert({
+      given:
+        'an admitted member, then one withdrawn from the beta, one banned and one closed',
+      should: 'list only the admitted member',
+      actual: [
+        admitted,
+        await listed(withdrawn),
+        await listed(banned),
+        await listed(closed),
+      ],
+      expected: [1, 0, 0, 0],
+    });
+  } finally {
+    for (const ctx of [withdrawn, banned, closed]) {
+      await ctx.cleanup();
+      await ctx.client.close();
+    }
+  }
+});
+
+test('the people list leaves out an approved account the age rule does not admit', async () => {
+  const contexts = [await open(), await open(), await open()] as const;
+  const [unrecorded, underFloor, oldEnough] = contexts;
+  const listed = async (ctx: Awaited<ReturnType<typeof open>>) =>
+    (await page(ctx)).rows.length;
+  const online = async (ctx: Awaited<ReturnType<typeof open>>) =>
+    (await page(ctx, { onlineActorIds: [ctx.them.actorId] })).counts.online;
+  try {
+    // The grandfathered cohort was approved with no age check.
+    await unrecorded.client.unsafe(
+      'delete from account_age where user_id = $1',
+      [unrecorded.them.userId],
+    );
+    await underFloor.client.unsafe(
+      "update account_age set birth_month = '2012-01' where user_id = $1",
+      [underFloor.them.userId],
+    );
+    await oldEnough.client.unsafe(
+      "update account_age set birth_month = '2010-01' where user_id = $1",
+      [oldEnough.them.userId],
+    );
+    assert({
+      given:
+        'approved accounts with no age record, in the 13-15 band, and in the 16-17 band',
+      should: 'list and count only the one the age floor admits',
+      actual: [
+        await listed(unrecorded),
+        await online(unrecorded),
+        await listed(underFloor),
+        await online(underFloor),
+        await listed(oldEnough),
+        await online(oldEnough),
+      ],
+      expected: [0, 0, 0, 0, 1, 1],
+    });
+  } finally {
+    for (const ctx of contexts) {
+      await ctx.cleanup();
+      await ctx.client.close();
+    }
+  }
+});
+
+test('the web role can run the people list read', async () => {
+  const ctx = await open();
+  try {
+    const rows = await ctx.database.transaction(async (tx) => {
+      await tx.execute(sql`set local role daisy_web`);
+      return (
+        await readPeopleListPage(
+          tx as never,
+          ctx.me,
+          {
+            onlineActorIds: [ctx.them.actorId],
+            admittedAgeBands: ['16-17', 'adult'],
+            now: ctx.now,
+            filter: 'all',
+            query: ctx.them.userId,
+            after: null,
+            limit: 10,
+          },
+          unfenced,
+        )
+      ).rows;
+    });
+    assert({
+      given: 'the read running as the production web role',
+      should: 'answer the row, carrying no age or birth data',
+      actual: rows.map((row) => Object.keys(row).sort()),
+      expected: [
+        [
+          'actorId',
+          'chosen',
+          'friend',
+          'friendshipState',
+          'online',
+          'placement',
+          'requesterActorId',
+          'username',
+        ],
       ],
     });
   } finally {
@@ -461,7 +686,7 @@ test('a chosen status reads back, and a report closes once with its action', asy
         id,
         subjectActorId: ctx.them.actorId,
         reason: 'hate',
-        surface: 'online',
+        surface: 'people',
         now: ctx.now,
       });
     await file(reportId);
@@ -585,7 +810,7 @@ test('a suspension ends the member’s offers, and closing an account keeps the 
         id: about,
         subjectActorId: ctx.them.actorId,
         reason: 'spam',
-        surface: 'online',
+        surface: 'people',
         now: live,
       },
     );

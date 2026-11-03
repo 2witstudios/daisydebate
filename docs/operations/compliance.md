@@ -177,7 +177,8 @@ views over the operational log store.
   to an old ban. No digest is kept today; keeping one would be a new data class
   (DEC-298, for counsel under COMP-4).
 - COMP-4: counsel reviews every lawful basis and retention period above,
-  including everyone seeing who is online, the moderation defaults and keeping
+  including every member seeing every other member and their status (ADR 0105),
+  the moderation defaults and keeping
   a sanction after erasure (DEC-298).
 - PRIV-H: processor DPAs, regions and transfer safeguards; a processor
   going live also adds its deletion port and joins the configured vendor

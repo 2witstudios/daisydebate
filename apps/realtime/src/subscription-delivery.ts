@@ -189,7 +189,7 @@ export function createSubscriptionDelivery({
       publishFrame(connection, frame.topic, sub, () => frame);
   }
   /**
-   * Rings every local subscriber of the online list (ADR 0103). The frame
+   * Rings every local subscriber of the people list (ADR 0103). The frame
    * discloses nothing, so no authority read per recipient: revalidation keeps
    * each lease current, and an expired one simply misses this ring.
    */

@@ -9,7 +9,7 @@ import { friendshipReadOperations } from './friends/reads';
 import { createReportStore, reportOperations } from './reports/store';
 import { moderationOperations } from './moderation/store';
 import { moderationReactions } from './moderation-composition';
-import { rosterOperations } from './presence/roster';
+import { peopleListOperations } from './presence/people-list';
 import { memberCardOperations } from './member-cards';
 import { ratingVisibilityOperations } from './ratings-visibility';
 import { createFriendStore } from './friends/store';
@@ -286,7 +286,7 @@ export function createDatabase({
     ...messagingOperations(social, contactReactions),
     ...friendshipReadOperations({ database: social, eventSink }),
     ...presenceSettingOperations({ database: social, eventSink }),
-    ...rosterOperations({ database: social, eventSink }),
+    ...peopleListOperations({ database: social, eventSink }),
     ...ratingVisibilityOperations({ database: social, eventSink }),
     ...memberCardOperations({ database: social, eventSink }),
     ...challengeReadOperations({ database: social, eventSink }),

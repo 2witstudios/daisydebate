@@ -7,7 +7,7 @@ import { cn } from '../../../../cn';
 import { Icon, type IconName } from '../../../../components/icon/icon';
 import { itemActive } from '../../../../components/nav-item/nav-item';
 import { useFriendsOnline } from '../../../../friends/use-friends-online';
-import { SelfAvatar } from '../../../../online/status-form';
+import { SelfAvatar } from '../../../../people/status-form';
 import type { ShellAccount } from '../../account';
 import {
   friendsLabel,
