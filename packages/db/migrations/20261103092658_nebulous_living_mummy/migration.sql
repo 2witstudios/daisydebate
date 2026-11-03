@@ -12,6 +12,16 @@ CREATE TABLE "agreement_signatures" (
         or ("agreement" = 'round-capture-notice' and "room_id" is not null and "season_id" is null))
 );
 --> statement-breakpoint
+CREATE TABLE "audience_reactions" (
+	"id" text PRIMARY KEY,
+	"round_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"kind" text NOT NULL,
+	"spaced_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "audience_reactions_kind_check" CHECK ("kind" in ('sharp_point', 'good_rebuttal', 'needs_evidence', 'clear_structure'))
+);
+--> statement-breakpoint
 CREATE TABLE "broadcasts" (
 	"id" text PRIMARY KEY,
 	"round_id" text NOT NULL,
@@ -74,6 +84,41 @@ CREATE TABLE "content_reports" (
 	CONSTRAINT "content_reports_resolution_check" CHECK (("status" = 'open') = ("resolved_at" is null) and ("resolved_at" is null) = ("resolved_by_ref" is null))
 );
 --> statement-breakpoint
+CREATE TABLE "debater_follows" (
+	"follower_user_id" text,
+	"debater_actor_id" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "debater_follows_pkey" PRIMARY KEY("follower_user_id","debater_actor_id")
+);
+--> statement-breakpoint
+CREATE TABLE "notification_fanouts" (
+	"kind" text,
+	"round_id" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "notification_fanouts_pkey" PRIMARY KEY("kind","round_id"),
+	CONSTRAINT "notification_fanouts_kind_check" CHECK ("kind" in ('followed_debater_live', 'recording_ready'))
+);
+--> statement-breakpoint
+CREATE TABLE "notification_preferences" (
+	"user_id" text,
+	"kind" text,
+	"enabled" boolean NOT NULL,
+	CONSTRAINT "notification_preferences_pkey" PRIMARY KEY("user_id","kind"),
+	CONSTRAINT "notification_preferences_kind_check" CHECK ("kind" in ('followed_debater_live', 'recording_ready'))
+);
+--> statement-breakpoint
+CREATE TABLE "notifications" (
+	"id" text PRIMARY KEY,
+	"user_id" text NOT NULL,
+	"kind" text NOT NULL,
+	"round_id" text NOT NULL,
+	"debater_actor_id" text,
+	"read_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "notifications_kind_check" CHECK ("kind" in ('followed_debater_live', 'recording_ready')),
+	CONSTRAINT "notifications_debater_check" CHECK (("kind" = 'followed_debater_live') = ("debater_actor_id" is not null))
+);
+--> statement-breakpoint
 CREATE TABLE "recordings" (
 	"id" text PRIMARY KEY,
 	"round_id" text NOT NULL,
@@ -113,33 +158,70 @@ CREATE TABLE "spectator_fact_releases" (
 	CONSTRAINT "spectator_fact_releases_after_capture_check" CHECK ("released_at" >= "captured_at")
 );
 --> statement-breakpoint
+CREATE TABLE "watch_history" (
+	"user_id" text,
+	"round_id" text,
+	"watched_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "watch_history_pkey" PRIMARY KEY("user_id","round_id")
+);
+--> statement-breakpoint
 ALTER TABLE "rounds" RENAME CONSTRAINT "rounds_rated_ladder_check" TO "rounds_ranked_ladder_check";--> statement-breakpoint
+ALTER TABLE "messaging_channels" ADD COLUMN "round_id" text;--> statement-breakpoint
 ALTER TABLE "rooms" ADD COLUMN "capture" jsonb;--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "capture" jsonb;--> statement-breakpoint
 ALTER TABLE "operator_command_receipts" ALTER COLUMN "target_user_id" DROP NOT NULL;--> statement-breakpoint
 CREATE INDEX "agreement_signatures_season_idx" ON "agreement_signatures" ("season_id");--> statement-breakpoint
 CREATE INDEX "agreement_signatures_room_idx" ON "agreement_signatures" ("room_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "audience_reactions_spaced_unique" ON "audience_reactions" ("round_id","user_id","kind","spaced_at");--> statement-breakpoint
+CREATE INDEX "audience_reactions_round_idx" ON "audience_reactions" ("round_id","kind","created_at");--> statement-breakpoint
+CREATE INDEX "audience_reactions_user_idx" ON "audience_reactions" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "broadcasts_round_unique" ON "broadcasts" ("round_id");--> statement-breakpoint
 CREATE INDEX "broadcasts_open_idx" ON "broadcasts" ("created_at") WHERE "completed_at" is null;--> statement-breakpoint
 CREATE INDEX "broadcasts_feed_up_idx" ON "broadcasts" ("created_at") WHERE "feed_withdrawn_at" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "content_reports_once_unique" ON "content_reports" ("reporter_user_id","target_kind","target_id");--> statement-breakpoint
 CREATE INDEX "content_reports_queue_idx" ON "content_reports" ("queue","status","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "debater_follows_debater_idx" ON "debater_follows" ("debater_actor_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "messaging_channels_round_unique" ON "messaging_channels" ("round_id");--> statement-breakpoint
+CREATE INDEX "notification_fanouts_round_idx" ON "notification_fanouts" ("round_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "notifications_once_unique" ON "notifications" ("user_id","kind","round_id");--> statement-breakpoint
+CREATE INDEX "notifications_user_idx" ON "notifications" ("user_id","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "notifications_read_idx" ON "notifications" ("read_at") WHERE "read_at" is not null;--> statement-breakpoint
+CREATE INDEX "notifications_round_idx" ON "notifications" ("round_id");--> statement-breakpoint
+CREATE INDEX "notifications_debater_idx" ON "notifications" ("debater_actor_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "recordings_round_unique" ON "recordings" ("round_id");--> statement-breakpoint
 CREATE INDEX "recordings_status_idx" ON "recordings" ("status","updated_at");--> statement-breakpoint
 CREATE INDEX "recordings_deletion_due_idx" ON "recordings" ("deletion_due_at") WHERE "status" = 'removing';--> statement-breakpoint
 CREATE INDEX "spectator_fact_releases_round_idx" ON "spectator_fact_releases" ("round_id","released_at");--> statement-breakpoint
+CREATE INDEX "watch_history_user_idx" ON "watch_history" ("user_id","watched_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "watch_history_retention_idx" ON "watch_history" ("watched_at");--> statement-breakpoint
+CREATE INDEX "watch_history_round_idx" ON "watch_history" ("round_id");--> statement-breakpoint
 ALTER TABLE "agreement_signatures" ADD CONSTRAINT "agreement_signatures_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "agreement_signatures" ADD CONSTRAINT "agreement_signatures_season_id_seasons_id_fkey" FOREIGN KEY ("season_id") REFERENCES "seasons"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "agreement_signatures" ADD CONSTRAINT "agreement_signatures_room_id_rooms_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "audience_reactions" ADD CONSTRAINT "audience_reactions_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "audience_reactions" ADD CONSTRAINT "audience_reactions_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "broadcasts" ADD CONSTRAINT "broadcasts_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "audience_bans" ADD CONSTRAINT "audience_bans_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "content_reports" ADD CONSTRAINT "content_reports_reporter_user_id_users_id_fkey" FOREIGN KEY ("reporter_user_id") REFERENCES "users"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "debater_follows" ADD CONSTRAINT "debater_follows_follower_user_id_users_id_fkey" FOREIGN KEY ("follower_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "debater_follows" ADD CONSTRAINT "debater_follows_debater_actor_id_actors_id_fkey" FOREIGN KEY ("debater_actor_id") REFERENCES "actors"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "messaging_channels" ADD CONSTRAINT "messaging_channels_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "notification_fanouts" ADD CONSTRAINT "notification_fanouts_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "notification_preferences" ADD CONSTRAINT "notification_preferences_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_debater_actor_id_actors_id_fkey" FOREIGN KEY ("debater_actor_id") REFERENCES "actors"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "recordings" ADD CONSTRAINT "recordings_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "spectator_fact_releases" ADD CONSTRAINT "spectator_fact_releases_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "watch_history" ADD CONSTRAINT "watch_history_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "watch_history" ADD CONSTRAINT "watch_history_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "messaging_channels" ADD CONSTRAINT "messaging_channels_round" CHECK (("kind" = 'round_spectator') = ("round_id" is not null));--> statement-breakpoint
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_ranked_public_check" CHECK ("competition_type" <> 'ranked' or "visibility" = 'public');--> statement-breakpoint
 ALTER TABLE "rooms" ADD CONSTRAINT "rooms_capture_is_object" CHECK (jsonb_typeof("capture") = 'object');--> statement-breakpoint
 ALTER TABLE "rounds" ADD CONSTRAINT "rounds_capture_is_object" CHECK (jsonb_typeof("capture") = 'object');--> statement-breakpoint
-ALTER TABLE "account_entitlement_grants" DROP CONSTRAINT "account_entitlement_grants_entitlement_check", ADD CONSTRAINT "account_entitlement_grants_entitlement_check" CHECK ("entitlement" in ('round_analysis', 'ai_rounds', 'casual_ai_judge', 'casual_capture'));
+ALTER TABLE "account_entitlement_grants" DROP CONSTRAINT "account_entitlement_grants_entitlement_check", ADD CONSTRAINT "account_entitlement_grants_entitlement_check" CHECK ("entitlement" in ('round_analysis', 'ai_rounds', 'casual_ai_judge', 'casual_capture'));--> statement-breakpoint
+ALTER TABLE "messaging_channels" DROP CONSTRAINT "messaging_channels_kind", ADD CONSTRAINT "messaging_channels_kind" CHECK ("kind" in ('dm', 'private_group', 'round_spectator'));--> statement-breakpoint
+ALTER TABLE "messaging_channels" DROP CONSTRAINT "messaging_channels_policy", ADD CONSTRAINT "messaging_channels_policy" CHECK ("policy_revision" > 0 and (("kind" = 'dm' and "policy_key" = 'social.dm') or ("kind" = 'private_group' and "policy_key" = 'social.private_group') or ("kind" = 'round_spectator' and "policy_key" = 'round.spectator')));
 --> statement-breakpoint
 -- WATCH-16 and WATCH-8: beta approval grants these until billing exists, so every
 -- account already approved holds them, as the beta access command now writes.

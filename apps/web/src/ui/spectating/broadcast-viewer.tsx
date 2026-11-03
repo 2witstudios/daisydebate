@@ -158,8 +158,11 @@ const playerNotices = {
  */
 export function BroadcastViewer({
   initial,
+  children,
 }: {
   readonly initial: SpectatorTimeline;
+  /** The audience beside the video: chat, reactions and the count. */
+  readonly children?: React.ReactNode;
 }) {
   const router = useRouter();
   const [timeline, setTimeline] = useState(initial);
@@ -237,6 +240,7 @@ export function BroadcastViewer({
         )}
       </div>
       <SpectatorFacts timeline={timeline} />
+      {children}
       {feedUrl ? (
         <StreamThisRound feedUrl={feedUrl} mode={timeline.mode} />
       ) : null}

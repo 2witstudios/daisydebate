@@ -221,6 +221,28 @@ describe('ending', () => {
     roundStatus: 'completed',
     roundEndedAtMs: 90_000,
   } as const;
+  test('a Round ending with no live Egress still ends its media', () => {
+    assert({
+      given: 'a finished Round whose Egress failed, or never started',
+      should: 'record the end, so the Broadcast can complete and facts release',
+      actual: [
+        decideBroadcast(
+          facts({
+            roundStatus: 'completed',
+            roundEndedAtMs: 90_000,
+            egress: { kind: 'failed', id: 'EG_1' },
+          }),
+        ),
+        decideBroadcast(
+          facts({ roundStatus: 'abandoned', roundEndedAtMs: 90_000 }),
+        ),
+      ],
+      expected: [
+        [{ type: 'record-media-ended' }],
+        [{ type: 'record-media-ended' }],
+      ],
+    });
+  });
   test('a terminal Round stops its Egress, which nothing else ends', () => {
     assert({
       given: 'a completed Round and an abandoned Round with an active Egress',
@@ -242,7 +264,7 @@ describe('ending', () => {
       actual: decideBroadcast(
         facts({ ...ended, egress: { kind: 'complete' } }),
       ),
-      expected: [],
+      expected: [{ type: 'record-media-ended' }],
     });
   });
   test('completion is final media end plus delay, never the clock alone', () => {
@@ -251,7 +273,7 @@ describe('ending', () => {
       given: 'no recorded final media end, long after the Round ended',
       should: 'not complete',
       actual: decideBroadcast(facts({ ...over, nowMs: 10_000_000 })),
-      expected: [],
+      expected: [{ type: 'record-media-ended' }],
     });
     assert({
       given: 'final media released short of its end',
