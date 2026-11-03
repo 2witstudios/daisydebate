@@ -96,7 +96,7 @@ const evidence = z.strictObject({
       evidence: z.enum([
         'settled_availability',
         'on_time_receipt',
-        'infrastructure_unresolved',
+        'resolution_cutoff',
       ]),
       effectiveDeadline: instant.nullable(),
       settledHorizon: instant.nullable(),
