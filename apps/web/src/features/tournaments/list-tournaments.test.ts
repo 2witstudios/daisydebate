@@ -1,17 +1,20 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { listTournaments } from './list-tournaments';
 import { defaultQuery } from './query';
+import { sampleTournamentSource } from '../../ui/mock/tournament-source';
 
 setupRitewayBun();
 
 const ids = (query: Partial<typeof defaultQuery>, signedIn = true) =>
-  listTournaments({ ...defaultQuery, ...query }, signedIn).rows.map(
-    (row) => row.tournament.id,
-  );
+  listTournaments(
+    sampleTournamentSource,
+    { ...defaultQuery, ...query },
+    signedIn,
+  ).rows.map((row) => row.tournament.id);
 
 describe('listTournaments', () => {
   test('the default index', () => {
-    const listing = listTournaments(defaultQuery, true);
+    const listing = listTournaments(sampleTournamentSource, defaultQuery, true);
     assert({
       given: 'the default query, signed in',
       should: 'list the open tab, count every tab and feature Autumn Open',
@@ -41,15 +44,21 @@ describe('listTournaments', () => {
     assert({
       given: 'the signed-in viewer',
       should: 'list Harvest Cup first, then the registered and waitlisted',
-      actual: listTournaments(defaultQuery, true).yours.map(
-        (item) => item.tournament.id,
-      ),
+      actual: listTournaments(
+        sampleTournamentSource,
+        defaultQuery,
+        true,
+      ).yours.map((item) => item.tournament.id),
       expected: ['harvest-cup', 'autumn-open', 'novice-cup', 'hollow-cup'],
     });
   });
 
   test('signed out there is no viewer, entry or your-tournaments', () => {
-    const listing = listTournaments(defaultQuery, false);
+    const listing = listTournaments(
+      sampleTournamentSource,
+      defaultQuery,
+      false,
+    );
     assert({
       given: 'an anonymous visitor',
       should: 'see the same list with no viewer state',

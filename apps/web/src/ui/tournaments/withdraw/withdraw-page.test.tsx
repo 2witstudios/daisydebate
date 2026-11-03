@@ -4,11 +4,12 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getTournament } from '../../../features/tournaments/get-tournament';
 import { withdrawScreen } from '../../../features/tournaments/withdraw';
 import { WithdrawPage } from './withdraw-page';
+import { sampleTournamentSource } from '../../mock/tournament-source';
 
 setupRitewayBun();
 
 const render = (id: string) => {
-  const view = getTournament(id, true);
+  const view = getTournament(sampleTournamentSource, id, true);
   if (!view) throw new Error(`no sample ${id}`);
   return renderToString(
     h(WithdrawPage, {

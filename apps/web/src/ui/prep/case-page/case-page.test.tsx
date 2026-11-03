@@ -5,15 +5,17 @@ import { parseCaseQuery } from '../../../features/prep/cases/case-query';
 import { caseView } from '../../../features/prep/cases/case-view';
 import { getCase } from '../../../features/prep/cases/get-case';
 import { CasePage } from './case-page';
+import { samplePrepSource } from '../../mock/prep-source';
 
 setupRitewayBun();
 
 const render = (id: string, params: Record<string, string | string[]> = {}) => {
-  const found = getCase(id);
+  const found = getCase(samplePrepSource, id);
   if (found === undefined) throw new Error(`no sample ${id}`);
   return renderToString(
     h(CasePage, {
       view: caseView(
+        samplePrepSource,
         found,
         parseCaseQuery(params),
         160,

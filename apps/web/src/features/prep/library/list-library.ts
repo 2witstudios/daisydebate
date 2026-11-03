@@ -1,4 +1,3 @@
-import { sampleLibrary, sampleSavedSearches } from '../../../ui/mock/prep';
 import {
   filterOptions,
   inView,
@@ -13,6 +12,7 @@ import {
   libraryHref,
   type LibraryQuery,
 } from './library-query';
+import type { PrepSource } from '../source';
 import { listTeams } from '../teams/get-team';
 import {
   toPreview,
@@ -58,11 +58,15 @@ export type LibraryListing = {
 
 /**
  * The library's one data seam. It returns the owner's items for a query at
- * `now` (an ISO timestamp the caller injects). Today it reads the sample
- * library; the backend read replaces this function and nothing else.
+ * `now` (an ISO timestamp the caller injects). The backend read replaces this
+ * function and nothing else.
  */
-export function listLibrary(query: LibraryQuery, now: string): LibraryListing {
-  const all = sampleLibrary(now);
+export function listLibrary(
+  source: PrepSource,
+  query: LibraryQuery,
+  now: string,
+): LibraryListing {
+  const all = source.library(now);
   const found = matching(all, query);
   const shown = sortItems(inView(found, query.view), query.sort);
   const selected = shown.find((item) => item.id === query.item) ?? shown[0];
@@ -77,7 +81,7 @@ export function listLibrary(query: LibraryQuery, now: string): LibraryListing {
     preview: selected === undefined ? undefined : toPreview(selected, now),
     searchMatches: matchingSearch(all, query).length,
     options: filterOptions(all),
-    savedSearches: sampleSavedSearches.map((saved) => {
+    savedSearches: source.savedSearches.map((saved) => {
       const savedQuery = { ...defaultLibraryQuery, ...saved.query };
       return {
         id: saved.id,
@@ -86,7 +90,7 @@ export function listLibrary(query: LibraryQuery, now: string): LibraryListing {
         count: matching(all, savedQuery).length,
       };
     }),
-    teams: listTeams().map((team) => ({
+    teams: listTeams(source).map((team) => ({
       id: team.id,
       name: team.name,
       memberHandles: team.members.map((m) => m.handle),

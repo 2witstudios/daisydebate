@@ -9,11 +9,12 @@ import {
   type BriefEvidence,
 } from './brief-document';
 import { listBriefEvidence } from './brief-evidence';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 setupRitewayBun();
 
 const now = '2026-09-30T12:00:00.000Z';
-const evidence = listBriefEvidence(now);
+const evidence = listBriefEvidence(samplePrepSource, now);
 const [rights] = sampleBriefs;
 if (rights === undefined) throw new Error('no sample brief');
 

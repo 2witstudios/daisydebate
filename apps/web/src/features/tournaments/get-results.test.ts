@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getResults } from './get-results';
+import { sampleTournamentSource } from '../../ui/mock/tournament-source';
 
 setupRitewayBun();
 
@@ -9,9 +10,9 @@ describe('getResults', () => {
       given: 'a completed tournament, a live one and an unknown id',
       should: 'return results, unpublished and not-found',
       actual: [
-        getResults('summer-invitational', true).kind,
-        getResults('harvest-cup', true).kind,
-        getResults('nope', true).kind,
+        getResults(sampleTournamentSource, 'summer-invitational', true).kind,
+        getResults(sampleTournamentSource, 'harvest-cup', true).kind,
+        getResults(sampleTournamentSource, 'nope', true).kind,
       ],
       expected: ['results', 'unpublished', 'not-found'],
     });
@@ -19,7 +20,7 @@ describe('getResults', () => {
 
   test('a personal result only for the signed-in viewer who competed', () => {
     const mine = (id: string, signedIn: boolean) => {
-      const read = getResults(id, signedIn);
+      const read = getResults(sampleTournamentSource, id, signedIn);
       return read.kind === 'results' ? (read.data.mine?.honour ?? null) : 'x';
     };
     assert({

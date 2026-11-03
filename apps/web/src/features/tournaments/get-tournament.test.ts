@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getTournament } from './get-tournament';
+import { sampleTournamentSource } from '../../ui/mock/tournament-source';
 
 setupRitewayBun();
 
@@ -8,14 +9,14 @@ describe('getTournament', () => {
     assert({
       given: 'an id no tournament has',
       should: 'return null',
-      actual: getTournament('nope', true),
+      actual: getTournament(sampleTournamentSource, 'nope', true),
       expected: null,
     });
   });
 
   test('the registration state follows the tournament and the viewer', () => {
     const state = (id: string, signedIn = true) =>
-      getTournament(id, signedIn)?.state;
+      getTournament(sampleTournamentSource, id, signedIn)?.state;
     assert({
       given: 'each sample tournament kind',
       should: 'name every panel state',
@@ -47,7 +48,7 @@ describe('getTournament', () => {
   });
 
   test('the detail carries schedule, recognition and entrants', () => {
-    const view = getTournament('autumn-open', true);
+    const view = getTournament(sampleTournamentSource, 'autumn-open', true);
     assert({
       given: 'Autumn Open',
       should: 'list 24 entrants, 7 schedule rows and 4 honours',

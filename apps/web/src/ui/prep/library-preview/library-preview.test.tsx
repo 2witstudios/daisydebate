@@ -4,12 +4,17 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { defaultLibraryQuery } from '../../../features/prep/library/library-query';
 import { listLibrary } from '../../../features/prep/library/list-library';
 import { LibraryPreview } from './library-preview';
+import { samplePrepSource } from '../../mock/prep-source';
 
 setupRitewayBun();
 
 const now = '2026-09-30T12:00:00.000Z';
 const render = (item: string) => {
-  const preview = listLibrary({ ...defaultLibraryQuery, item }, now).preview;
+  const preview = listLibrary(
+    samplePrepSource,
+    { ...defaultLibraryQuery, item },
+    now,
+  ).preview;
   if (preview === undefined) throw new Error(`no preview for ${item}`);
   return renderToString(h(LibraryPreview, { preview }));
 };

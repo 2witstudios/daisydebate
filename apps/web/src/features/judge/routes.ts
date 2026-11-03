@@ -4,7 +4,5 @@
  */
 export const judgeRoutes = {
   hub: '/judge',
-  rating: '/judge/rating',
-  resources: '/judge/resources',
   waiting: '/judge/waiting',
 } as const;

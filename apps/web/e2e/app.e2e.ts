@@ -4,25 +4,17 @@ import { signUpMember } from './support/accounts';
 
 const publicTitles: Record<string, string> = {
   '/': 'Daisy Debate',
-  '/watch': 'Watch',
   '/leaderboard': 'Leaderboard',
-  '/tournaments': 'Tournaments',
 };
-// Participant areas (and Settings) need an account (AUTH-4.5, ISSUE-167: /prep and /train too).
+// Participant areas (and Settings) need an account (AUTH-4.5, ISSUE-167: /train too).
 const guardedTitles: Record<string, string> = {
   '/play': 'Play',
   '/ranked': 'Rated debate',
   '/lobby': 'Lobby',
   '/judge': 'Judge',
-  '/recordings': 'Recordings',
   '/settings': 'Settings',
-  '/prep': 'Prep',
   '/train': 'Train',
 };
-
-// Pages whose heading is not their metadata title: Recordings is a section of
-// the Watch hub, so its page heading is "Watch".
-const headings: Record<string, string> = { '/recordings': 'Watch' };
 
 const expectShell = async (page: Page, route: string, title: string) => {
   await page.goto(route);
@@ -33,9 +25,7 @@ const expectShell = async (page: Page, route: string, title: string) => {
       : new RegExp(`^${title} · Daisy Debate$`),
   );
   await expect(page.locator('main h1')).toHaveText(
-    route === '/'
-      ? 'The arena for competitive debate'
-      : (headings[route] ?? title),
+    route === '/' ? 'The arena for competitive debate' : title,
   );
 };
 
@@ -63,6 +53,27 @@ test('guarded areas send visitors to sign-in and render for a member', async ({
   await signUpMember(page.request);
   for (const [route, title] of Object.entries(guardedTitles))
     await expectShell(page, route, title);
+});
+
+test('a closed destination answers every address with its explainer', async ({
+  request,
+}) => {
+  const closed: Record<string, string> = {
+    '/tournaments': 'tournaments',
+    '/tournaments/organize': 'tournaments',
+    '/tournaments/mine/any/certificate': 'tournaments',
+    '/prep': 'prep',
+    '/prep/cards/any': 'prep',
+    '/watch': 'watch',
+    '/recordings': 'watch',
+  };
+  for (const [route, slug] of Object.entries(closed)) {
+    const response = await request.get(route, { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+    expect(new URL(response.headers()['location'] ?? '').pathname).toBe(
+      `/coming-soon/${slug}`,
+    );
+  }
 });
 
 test('a profile shows the real member, their record and history', async ({

@@ -8,6 +8,7 @@ import {
   ConsolePage,
   ConsoleUnavailable,
 } from '../../../../../ui/tournaments/organize/console/console-page';
+import { sampleTournamentSource } from '../../../../../ui/mock/tournament-source';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -19,7 +20,7 @@ export const metadata: Metadata = { title: 'Tournament console' };
 export default async function ConsoleRoute({ params, searchParams }: Props) {
   const { id } = await params;
   await requireAccess(`/tournaments/organize/${id}`, searchParams);
-  const data = getConsole(id);
+  const data = getConsole(sampleTournamentSource, id);
   if (!data) return <ConsoleUnavailable />;
   return (
     <ConsolePage

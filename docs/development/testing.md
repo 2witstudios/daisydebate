@@ -224,7 +224,8 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   boolean. `given`/`should` read as a specification sentence:
   when the assertion fails, its message is the bug report.
 - **Dead code.** `bun run knip` reports unused files, exports and
-  dependencies. It warns on PRs and fails the nightly main run, so keep
+  dependencies, then runs again in production mode for `apps/web`, which
+  also reports a module only its own test imports. It warns on PRs and fails the nightly main run, so keep
   findings at zero (ADR 0013, ADR 0083).
 - **Duplication.** `bun run duplication` reports copy-pasted blocks not in
   `.jscpd-baseline.json`, and copy-pasted test blocks not in

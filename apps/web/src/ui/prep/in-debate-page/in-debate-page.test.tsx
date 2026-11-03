@@ -5,6 +5,7 @@ import { roomPanelView } from '../../../features/prep/room-panel';
 import { parseRoomPanelQuery } from '../../../features/prep/room-panel-query';
 import { stageColourClasses } from '../../test-support/stage-palette';
 import { InDebatePage } from './in-debate-page';
+import { samplePrepSource } from '../../mock/prep-source';
 
 setupRitewayBun();
 
@@ -12,6 +13,7 @@ const render = (params: Record<string, string> = {}) =>
   renderToString(
     h(InDebatePage, {
       view: roomPanelView(
+        samplePrepSource,
         parseRoomPanelQuery(params),
         160,
         '2026-09-30T12:04:00.000Z',

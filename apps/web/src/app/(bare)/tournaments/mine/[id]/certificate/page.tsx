@@ -4,6 +4,7 @@ import type { SearchParams } from '../../../../../../features/access/decision';
 import { getResults } from '../../../../../../features/tournaments/get-results';
 import { requireAccess } from '../../../../../../lib/access';
 import { CertificatePage } from '../../../../../../ui/tournaments/certificate/certificate-page';
+import { sampleTournamentSource } from '../../../../../../ui/mock/tournament-source';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -19,7 +20,7 @@ export default async function CertificateRoute({
 }: Props) {
   const { id } = await params;
   await requireAccess(`/tournaments/mine/${id}/certificate`, searchParams);
-  const read = getResults(id, true);
+  const read = getResults(sampleTournamentSource, id, true);
   if (read.kind !== 'results' || !read.data.mine) notFound();
   return (
     <CertificatePage tournament={read.data.tournament} mine={read.data.mine} />

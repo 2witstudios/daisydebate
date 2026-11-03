@@ -7,7 +7,7 @@ import {
   type Completeness,
   type Segment,
 } from './card';
-import { getDraftSegments } from './get-draft';
+import type { PrepSource } from '../source';
 import { importSource, type ImportOutcome } from './import-source';
 import {
   citationIncomplete,
@@ -156,13 +156,14 @@ function noticeFor(
  * replaces the `draft` and `cite` fields here and the screens do not change.
  */
 export function cardCreateView(
+  source: PrepSource,
   query: CardCreateQuery,
   pace: number,
 ): CardCreateView {
   const current = stepIndex(query.step);
   const outcome: ImportOutcome =
-    query.src === 'link' ? importSource(query.url) : { kind: 'idle' };
-  const segments = getDraftSegments();
+    query.src === 'link' ? importSource(source, query.url) : { kind: 'idle' };
+  const segments = source.draftSegments;
   const fields: CitationFields = {
     author: '[Author A]',
     qualifications: '[Role, institution]',

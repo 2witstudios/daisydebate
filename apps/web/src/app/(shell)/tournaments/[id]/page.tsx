@@ -5,6 +5,7 @@ import { parseDetailQuery } from '../../../../features/tournaments/detail-query'
 import { getTournament } from '../../../../features/tournaments/get-tournament';
 import { requestIdentity } from '../../../../lib/request-session';
 import { TournamentDetail } from '../../../../ui/tournaments/detail/tournament-detail';
+import { sampleTournamentSource } from '../../../../ui/mock/tournament-source';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -17,7 +18,11 @@ export const metadata: Metadata = { title: 'Tournament' };
 export default async function TournamentPage({ params, searchParams }: Props) {
   const { id } = await params;
   const identity = await requestIdentity();
-  const view = getTournament(id, identity.state === 'member');
+  const view = getTournament(
+    sampleTournamentSource,
+    id,
+    identity.state === 'member',
+  );
   if (!view) notFound();
   return (
     <TournamentDetail

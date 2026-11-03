@@ -7,6 +7,7 @@ import {
   registerHref,
   type RegisterQuery,
 } from './register-flow';
+import { sampleTournamentSource } from '../../ui/mock/tournament-source';
 
 setupRitewayBun();
 
@@ -15,7 +16,7 @@ const flow = (
   query: Partial<RegisterQuery> = {},
   signedIn = true,
 ) => {
-  const view = getTournament(id, signedIn);
+  const view = getTournament(sampleTournamentSource, id, signedIn);
   if (!view) throw new Error(`no sample ${id}`);
   return registerFlow(view, { ...defaultRegisterQuery, ...query });
 };

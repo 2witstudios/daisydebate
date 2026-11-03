@@ -6,10 +6,11 @@ type LaunchConfig = Readonly<Record<DestinationSlug, boolean>>;
 /**
  * Which destinations are open. Flip one to `true` when its real screens ship:
  * the nav then lists it, every link into it reaches the live route, and its
- * explainer redirects there. Until then the nav leaves it out and every link
- * into it goes to its explainer, never to sample data. Seasons is the exception:
- * a tile for a public page under the Leaderboard, so its flag changes only the
- * tile and the explainer redirect.
+ * explainer redirects there. Until then the nav leaves it out, and every link
+ * into it and every typed address under it reaches its explainer, never sample
+ * data (`closedDestinationOf`). Seasons is the exception: a tile for a public
+ * page under the Leaderboard, so its flag changes only the tile and the
+ * explainer redirect.
  */
 export const launched: LaunchConfig = {
   lobby: true,
@@ -26,11 +27,37 @@ export const launched: LaunchConfig = {
 export type PlaceLaunchConfig = Readonly<Record<'notifications', boolean>>;
 
 /**
- * Which of a member's own places are open. Notifications read sample data
- * until stored notifications ship (ISSUE-634); flip it then, and the rail
- * and the phone's More sheet list it again.
+ * Which of a member's own places are open. Nothing stores a notification
+ * until WATCH-12 (ISSUE-634); flip it then, and the rail and the phone's More
+ * sheet list it again.
  */
 export const launchedPlaces: PlaceLaunchConfig = { notifications: false };
+
+/** The first path segment each destination owns. Recordings belong to Watch. */
+const destinationAreas: ReadonlyMap<string, DestinationSlug> = new Map([
+  ['lobby', 'lobby'],
+  ['watch', 'watch'],
+  ['recordings', 'watch'],
+  ['judge', 'judge'],
+  ['tournaments', 'tournaments'],
+  ['leaderboard', 'leaderboard'],
+  ['train', 'train'],
+  ['prep', 'prep'],
+]);
+
+/**
+ * The closed destination a path falls under, or null. The proxy answers such a
+ * request with the explainer, before any page renders. Empty segments are
+ * dropped, so a doubled slash cannot step out of an area.
+ */
+export const closedDestinationOf = (
+  pathname: string,
+  config: LaunchConfig = launched,
+): DestinationSlug | null => {
+  const [first = ''] = pathname.split('/').filter((part) => part !== '');
+  const slug = destinationAreas.get(first);
+  return slug !== undefined && !config[slug] ? slug : null;
+};
 
 /** The live route of a destination; Seasons lives under the Leaderboard. */
 export const liveHref = (slug: DestinationSlug): string =>

@@ -1,8 +1,8 @@
-import { sampleDraft } from '../../ui/mock/tournament-organizer';
 import type { Draft } from './create-wizard';
+import type { TournamentSource } from './source';
 
 /**
- * The create wizard's one seam: the organizer's draft. Today it is a sample
- * and read-only; the drafts service replaces this function only.
+ * The create wizard's one seam: the organizer's draft. Read-only; the drafts
+ * service replaces this function only.
  */
-export const getDraft = (): Draft => sampleDraft;
+export const getDraft = (source: TournamentSource): Draft => source.draft;

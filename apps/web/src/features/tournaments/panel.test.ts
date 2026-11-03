@@ -1,11 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getTournament } from './get-tournament';
 import { registrationPanel } from './panel';
+import { sampleTournamentSource } from '../../ui/mock/tournament-source';
 
 setupRitewayBun();
 
 const panel = (id: string, signedIn = true) => {
-  const view = getTournament(id, signedIn);
+  const view = getTournament(sampleTournamentSource, id, signedIn);
   if (!view) throw new Error(`no sample tournament ${id}`);
   return registrationPanel(view);
 };

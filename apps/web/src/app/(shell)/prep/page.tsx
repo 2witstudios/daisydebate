@@ -5,6 +5,7 @@ import { parseLibraryQuery } from '../../../features/prep/library/library-query'
 import { listLibrary } from '../../../features/prep/library/list-library';
 import { requireAccess } from '../../../lib/access';
 import { Library } from '../../../ui/prep/library/library';
+import { samplePrepSource } from '../../../ui/mock/prep-source';
 
 export const metadata: Metadata = { title: 'Prep' };
 
@@ -16,6 +17,9 @@ export default async function PrepPage({
   await requireAccess('/prep', searchParams);
   const query = parseLibraryQuery(await searchParams);
   return (
-    <Library listing={listLibrary(query, systemClock.now())} query={query} />
+    <Library
+      listing={listLibrary(samplePrepSource, query, systemClock.now())}
+      query={query}
+    />
   );
 }

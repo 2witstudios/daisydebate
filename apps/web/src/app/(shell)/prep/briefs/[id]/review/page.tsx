@@ -9,6 +9,7 @@ import { getShare } from '../../../../../../features/prep/teams/get-team';
 import { requireAccess } from '../../../../../../lib/access';
 import { NotFoundPanel } from '../../../../../../ui/prep/not-found/not-found-panel';
 import { ReviewPage } from '../../../../../../ui/prep/review-page/review-page';
+import { samplePrepSource } from '../../../../../../ui/mock/prep-source';
 
 export const metadata: Metadata = { title: 'Brief' };
 
@@ -21,7 +22,7 @@ export default async function BriefReviewRoute({
 }) {
   const { id } = await params;
   await requireAccess(`/prep/briefs/${id}/review`, searchParams);
-  const brief = getBrief(id);
+  const brief = getBrief(samplePrepSource, id);
   if (brief === undefined || id === 'new')
     return (
       <NotFoundPanel
@@ -31,5 +32,14 @@ export default async function BriefReviewRoute({
       />
     );
   const query = parseReviewQuery(await searchParams);
-  return <ReviewPage view={reviewView(brief, getShare(id), query)} />;
+  return (
+    <ReviewPage
+      view={reviewView(
+        samplePrepSource,
+        brief,
+        getShare(samplePrepSource, id),
+        query,
+      )}
+    />
+  );
 }

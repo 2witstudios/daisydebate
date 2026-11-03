@@ -8,6 +8,7 @@ import {
 import { findBlockSources } from './cards/block-sources';
 import { getCard } from './cards/get-card';
 import { getCase, listCases } from './cases/get-case';
+import type { PrepSource } from './source';
 import { caseChangedElsewhere, type Notice } from './notices';
 import { readSeconds } from './reading-time';
 import { formatSeconds } from '../../lib/clock-display';
@@ -96,6 +97,7 @@ const panelCard = (card: Card, pace: number): PanelCard => ({
 });
 
 const cardsIn = (
+  source: PrepSource,
   speeches: readonly Speech[],
   pace: number,
 ): readonly PanelCard[] =>
@@ -105,19 +107,20 @@ const cardsIn = (
       const card =
         b.href === undefined
           ? undefined
-          : getCard(b.href.split('/').at(-1) ?? '');
+          : getCard(source, b.href.split('/').at(-1) ?? '');
       return card === undefined ? [] : [panelCard(card, pace)];
     });
 
 function searchResults(
+  source: PrepSource,
   q: string,
   pace: number,
   now: string,
 ): readonly PanelCard[] {
-  return findBlockSources(q, now, pace)
+  return findBlockSources(source, q, now, pace)
     .filter((s) => s.kind === 'card')
     .flatMap((s) => {
-      const card = getCard(s.id);
+      const card = getCard(source, s.id);
       return card === undefined ? [] : [panelCard(card, pace)];
     });
 }
@@ -142,6 +145,7 @@ function speechPanel(speech: Speech | undefined, pace: number) {
 }
 
 function pinnedPanel(
+  source: PrepSource,
   c: Case,
   query: RoomPanelQuery,
   pace: number,
@@ -174,7 +178,7 @@ function pinnedPanel(
         )
       : null,
   };
-  const card = query.card === '' ? undefined : getCard(query.card);
+  const card = query.card === '' ? undefined : getCard(source, query.card);
   if (card !== undefined)
     return {
       ...head,
@@ -197,10 +201,11 @@ function pinnedPanel(
       tab: query.tab,
       tabs,
       speech: speechPanel(snapshot.speeches[0], pace),
-      cards: cardsIn(snapshot.speeches, pace),
+      cards: cardsIn(source, snapshot.speeches, pace),
       search: {
         q: query.q,
-        results: query.q === '' ? [] : searchResults(query.q, pace, now),
+        results:
+          query.q === '' ? [] : searchResults(source, query.q, pace, now),
       },
     },
   };
@@ -213,12 +218,15 @@ function pinnedPanel(
  * with the room.
  */
 export function roomPanelView(
+  source: PrepSource,
   query: RoomPanelQuery,
   pace: number,
   now: string,
 ): RoomPanelView {
   const pinned =
-    query.pin === '' || query.pin === 'none' ? undefined : getCase(query.pin);
+    query.pin === '' || query.pin === 'none'
+      ? undefined
+      : getCase(source, query.pin);
   const common = {
     query,
     hideHref: roomPanelHref({ ...query, hidden: true }),
@@ -227,7 +235,7 @@ export function roomPanelView(
     closeHref: roomPanelHref({ ...query, open: false }),
   };
   if (pinned !== undefined) {
-    const panel = pinnedPanel(pinned, query, pace, now);
+    const panel = pinnedPanel(source, pinned, query, pace, now);
     return {
       ...common,
       summary:
@@ -245,7 +253,8 @@ export function roomPanelView(
         kind: 'search-only',
         search: {
           q: query.q,
-          results: query.q === '' ? [] : searchResults(query.q, pace, now),
+          results:
+            query.q === '' ? [] : searchResults(source, query.q, pace, now),
         },
       },
     };
@@ -254,7 +263,7 @@ export function roomPanelView(
     summary: 'No case attached',
     body: {
       kind: 'choose',
-      options: listCases().map((c) => ({
+      options: listCases(source).map((c) => ({
         value: c.id,
         label: `${c.title} (v${latestVersion(c).version})`,
       })),

@@ -4,6 +4,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { roomPanelView } from '../../../features/prep/room-panel';
 import { parseRoomPanelQuery } from '../../../features/prep/room-panel-query';
 import { RoomPanel } from './room-panel';
+import { samplePrepSource } from '../../mock/prep-source';
 
 setupRitewayBun();
 
@@ -12,6 +13,7 @@ describe('RoomPanel', () => {
     const html = renderToString(
       h(RoomPanel, {
         view: roomPanelView(
+          samplePrepSource,
           parseRoomPanelQuery({ pin: 'aff-rights' }),
           160,
           '2026-09-30T12:04:00.000Z',
