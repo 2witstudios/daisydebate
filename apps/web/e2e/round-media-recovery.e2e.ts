@@ -285,6 +285,58 @@ test('network loss during a live speech restores peer sound and video without Re
   }
 });
 
+test('a short network blip keeps the same connection and tracks, with no new admission', async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const accounts = await createRoomLaunchAccounts(browser, 2);
+  try {
+    const { round, speaker, listener } = await grantedDebaters(
+      accounts.members,
+    );
+    const source = await openPage(speaker.context, 'blipping speaker');
+    const peer = await openPage(listener.context, 'watching opponent');
+    await Promise.all([
+      source.goto(`/rounds/${round.id}/room`),
+      peer.goto(`/rounds/${round.id}/room`),
+    ]);
+    await Promise.all([expectConnected(source), expectConnected(peer)]);
+    await peer
+      .getByRole('button', { name: 'Enable sound', exact: true })
+      .click();
+    await expectPeerCamera(peer);
+    const camera = await source
+      .getByLabel('Your camera', { exact: true })
+      .evaluateHandle(
+        (node) =>
+          (
+            (node as HTMLVideoElement).srcObject as MediaStream
+          ).getVideoTracks()[0]!,
+      );
+    const admissions = countMediaAdmissions(source);
+    await speaker.context.setOffline(true);
+    await source.waitForTimeout(1_500);
+    await speaker.context.setOffline(false);
+    await expectConnected(source);
+    await expectPeerCamera(peer);
+    expect(await camera.evaluate((track) => track.readyState)).toBe('live');
+    expect(
+      await source
+        .getByLabel('Your camera', { exact: true })
+        .evaluate(
+          (node, held) =>
+            ((node as HTMLVideoElement).srcObject as MediaStream)
+              .getVideoTracks()
+              .includes(held),
+          camera,
+        ),
+    ).toBe(true);
+    expect(admissions()).toBe(0);
+  } finally {
+    await closeSettledLaunchContexts(accounts);
+  }
+});
+
 test('every admission stalling is bounded by its deadline, paced, and recovers without Retry', async ({
   browser,
 }) => {
