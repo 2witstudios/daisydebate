@@ -11,7 +11,6 @@ export type MediaReadIntent = {
   readonly roundViewVersion: number;
   readonly deadlineMs: number | null;
   readonly generation: number;
-  readonly disposed: boolean;
 };
 type Decision = {
   readonly intent: MediaReadIntent;
@@ -49,14 +48,13 @@ const decideRoundEvent = (
     : { intent, action: 'ignore' };
 };
 
-/** Rejected events preserve identity, including every event after disposal. */
+/** Rejected events preserve identity. */
 export function decideMediaRead(
   intent: MediaReadIntent,
-  event: MediaReadEvent | { readonly kind: 'dispose' },
+  event: MediaReadEvent,
 ): Decision {
-  if (intent.disposed) return { intent, action: 'ignore' };
   if (event.kind === 'wake') return { intent, action: 'wake' };
-  if (event.kind === 'dispose') return supersede({ ...intent, disposed: true });
+
   return decideRoundEvent(intent, event);
 }
 

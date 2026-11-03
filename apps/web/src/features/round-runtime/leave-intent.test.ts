@@ -64,3 +64,14 @@ test('only a debater is told they are freed while the ballot is pending (ISSUE-5
     expected: [{ kind: 'navigate' }, { kind: 'navigate' }],
   });
 });
+
+test('a seated debater whose forfeit is unavailable is held, never free to leave (ISSUE-879)', () => {
+  const overran = ran(1);
+  const pastPersistedPhase = Date.parse(at(startOf(1) + 1000));
+  assert({
+    given: 'a debater whose speech ran out before the next phase persisted',
+    should: 'hold them, because no command could confirm a departure',
+    actual: leaveIntent(overran, aff.actorId, pastPersistedPhase),
+    expected: { kind: 'held' },
+  });
+});

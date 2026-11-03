@@ -5,6 +5,7 @@ import { view, judge } from './live-round.test-support';
 setupRitewayBun();
 await mockNextRouter();
 const { LiveJudgeRoom } = await import('./live-judge-room');
+const { MediaStage } = await import('../../features/round-media/media-stage');
 test('an assigned judge watches debaters without competitive controls or attendance', () => {
   const assignedView = {
     ...view,
@@ -15,6 +16,7 @@ test('an assigned judge watches debaters without competitive controls or attenda
   };
   const html = renderToStaticMarkup(
     <LiveJudgeRoom
+      actorId="a"
       view={assignedView}
       read={async () => ({
         kind: 'found',
@@ -24,6 +26,20 @@ test('an assigned judge watches debaters without competitive controls or attenda
       })}
       socketUrl={null}
       renderedAtMs={0}
+    />,
+  );
+  // One seat's identity admits one connection, so the stage waits for this tab's claim.
+  const stage = renderToStaticMarkup(
+    <MediaStage
+      view={assignedView}
+      media={null}
+      connection="live"
+      microphoneConfirmed
+      tracks={[]}
+      handles={[]}
+      ownIdentity={null}
+      ownMuted={false}
+      remotePeers={[]}
     />,
   );
   assert({
@@ -39,8 +55,10 @@ test('an assigned judge watches debaters without competitive controls or attenda
       html.includes('Your camera'),
       html.includes('Riley Judge'),
       html.includes('>Resolution</h2>'),
-      html.match(/<figure/g)?.length,
+      html.includes('Checking this Round’s tab'),
+      stage.match(/<figure/g)?.length,
+      stage.includes('Riley Judge'),
     ],
-    expected: [true, true, false, false, false, false, true, 2],
+    expected: [true, true, false, false, false, false, true, true, 2, false],
   });
 });

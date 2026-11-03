@@ -2,7 +2,10 @@ import type { Page } from '@playwright/test';
 import { buildRoundTopic, serverMessageSchema } from '@daisy/protocol';
 import { expect } from './fixtures';
 
-/** Observe the mounted production connection; never create a test transport. */
+/**
+ * Observe the mounted production realtime connection; never create a test
+ * transport. Authorized media reception holds its own LiveKit socket.
+ */
 export function observeAttendanceSockets(page: Page) {
   const connections: {
     secure: boolean;
@@ -11,6 +14,7 @@ export function observeAttendanceSockets(page: Page) {
     topics: Set<string>;
   }[] = [];
   page.on('websocket', (socket) => {
+    if (new URL(socket.url()).pathname !== '/ws') return;
     const observation = {
       secure: new URL(socket.url()).protocol === 'wss:',
       ready: false,

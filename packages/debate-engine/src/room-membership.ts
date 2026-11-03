@@ -81,6 +81,7 @@ export function projectActiveRoom(
     title: facts.room.title,
     phase,
     role,
+    seated: facts.seatRole !== null,
     href: activeRoomHref({
       phase,
       roomId: facts.room.id,
