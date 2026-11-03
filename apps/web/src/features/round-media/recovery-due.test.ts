@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   recoveryDue,
   recoveryNeed,
+  waitingFloors,
   type RecoverySession,
 } from './recovery-due';
 setupRitewayBun();
@@ -18,7 +19,7 @@ const idle = (over: Partial<RecoverySession> = {}): RecoverySession => ({
   roundStatus: 'active',
   finalSegmentEndedAt: null,
   unsafe: false,
-  claimable: true,
+  claimWait: null,
   lastPassClean: true,
   clock: {
     startedAt: at(0),
@@ -115,7 +116,7 @@ test('a Round no claim can start for costs no pass yet', () => {
     given: 'a floor that must move while a lease or the minimum interval holds',
     should: 'wait for a later tick instead of polling the lease',
     actual: recoveryNeed(
-      idle({ roundChangedAt: at(11), claimable: false }),
+      idle({ roundChangedAt: at(11), claimWait: 'lease' }),
       HEARTBEAT_MS,
     ),
     expected: null,
@@ -295,5 +296,36 @@ test('a tick spends its slots on floors first, then what is free', () => {
     should: 'start nothing',
     actual: rounds(recoveryDue(sessions, new Set(['x', 'y']), HEARTBEAT_MS, 2)),
     expected: [],
+  });
+});
+
+test('waitingFloors names what held each due floor this tick', () => {
+  const floor = (
+    roundId: string,
+    claimWait: RecoverySession['claimWait'] = null,
+  ) => idle({ roundId, claimWait, roundChangedAt: at(10) });
+  const started = floor('started');
+  assert({
+    given:
+      'floors under a lease, in the interval, running, out of capacity and started, and a quiet Round',
+    should: 'name the first four and leave the others out',
+    actual: waitingFloors(
+      [
+        floor('leased', 'lease'),
+        floor('recent', 'interval'),
+        floor('running'),
+        floor('full'),
+        started,
+        idle({ roundId: 'quiet' }),
+      ],
+      new Set(['running']),
+      [started],
+    ),
+    expected: [
+      { roundId: 'leased', cause: 'lease' },
+      { roundId: 'recent', cause: 'interval' },
+      { roundId: 'running', cause: 'running' },
+      { roundId: 'full', cause: 'capacity' },
+    ],
   });
 });

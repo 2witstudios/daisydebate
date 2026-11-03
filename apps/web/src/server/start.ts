@@ -4,6 +4,7 @@ import { startBroadcastSweep } from '../features/broadcast/composition';
 import { startStrayEgressSweep } from '../features/stage-capture/composition';
 import { startNotificationSweep } from '../features/spectating/audience-composition';
 import { startRecordingCapture } from '../features/recording/composition';
+import { recoveryFailureFields } from '../features/round-media/recovery-failure';
 import { mediaConfigured } from './round-worker-policy';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
@@ -79,10 +80,14 @@ const mediaRuntime = mediaConfigured(app.config)
 const mediaRecovery = mediaRuntime
   ? startRoundMediaRecovery({
       recover: () => mediaRuntime.operations().recoverActiveSessions(),
-      failed: () =>
+      failed: (error) =>
         app.logger.log(
           'round.media.recovery_failed',
-          { operation: 'round.media.recovery', errorCode: 'INFRASTRUCTURE' },
+          {
+            operation: 'round.media.recovery',
+            errorCode: 'INFRASTRUCTURE',
+            ...recoveryFailureFields(error),
+          },
           'Media recovery remains pending',
         ),
       every: (ms, tick) => {

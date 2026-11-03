@@ -32,7 +32,11 @@ const closeTheLoop = (world: ReturnType<typeof createMediaWorld>) => {
   ) =>
     open
       ? claim(...args)
-      : { kind: 'wait', retryAt: '' }) as unknown as typeof claim;
+      : {
+          kind: 'wait',
+          reason: 'lease',
+          retryAt: '',
+        }) as unknown as typeof claim;
   return { open: () => void (open = true), polls: () => polls };
 };
 const conversation = {

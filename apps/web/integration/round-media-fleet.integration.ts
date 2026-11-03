@@ -247,9 +247,9 @@ test('the tick passes a Round only when its read shows one is due', async () => 
     await f.sql`update media_sessions set reconcile_owner=null, reconcile_lease_until=null, deletion_requested_at=null, reconcile_started_at=clock_timestamp() - interval '1 second' where id=${sessionId}`;
     assert({
       given: 'a live lease and a deletion request',
-      should: 'read as not claimable and unsafe',
-      actual: [held.claimable, held.unsafe, (await read()).claimable],
-      expected: [false, true, true],
+      should: 'read as waiting on the lease and unsafe',
+      actual: [held.claimWait, held.unsafe, (await read()).claimWait],
+      expected: ['lease', true, null],
     });
     const preparing = '2026-01-01T00:00:00.000Z';
     await f.sql`update rounds set rules_snapshot=jsonb_set(rules_snapshot, '{inRoundPrep}', '{"budgetMsPerSide": 60000}'::jsonb), runtime_state=jsonb_set(jsonb_set(runtime_state, '{active_prep}', jsonb_build_object('side', 'negative', 'started_at', ${preparing}::text)), '{prep_consumed_ms,negative}', '7000'::jsonb) where id=${f.roundId}`;
