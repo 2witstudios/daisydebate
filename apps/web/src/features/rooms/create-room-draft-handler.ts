@@ -1,30 +1,17 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
+import { parseValidated } from '../../server/http';
 import {
-  handleOperation,
-  requireSameOrigin,
-  requireSignedIn,
-  parseValidated,
-} from '../../server/http';
-import { consumeOrThrow } from '../../server/rate-limit';
+  runMemberRoute,
+  type BudgetedMemberBoundary,
+} from '../../server/member-boundary';
 import { readBoundedBody } from '../../server/bounded-body';
 import { inProcessFetch } from '../../server/in-process-fetch';
 import { readRoomTemplates } from './read-catalog';
 import { submitConfiguredRoomCreation } from './create-room-form';
 import { saveRoomDraftAnswer } from './create-room-draft-answer';
 
-import type { Identity } from '@daisy/auth';
-import type { Logger } from '@daisy/logger';
-import type { ErrorReporter } from '@daisy/observability';
-import type { RateLimiter } from '../../server/rate-limit';
-
-type Dependencies = {
-  readonly logger: Logger;
-  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
-  readonly reporter: ErrorReporter;
-  readonly origin: () => string;
-  readonly identify: (request: Request) => Promise<Identity>;
-  readonly limiter: RateLimiter;
+type Dependencies = BudgetedMemberBoundary & {
   readonly store: Parameters<typeof saveRoomDraftAnswer>[0];
   readonly catalog: (request: Request) => Promise<Response>;
   readonly create: (request: Request) => Promise<Response>;
@@ -34,19 +21,16 @@ type Dependencies = {
 /** Full 64-segment schedules need a bounded route, independent of the 16 KiB action cap. */
 export function createRoomDraftHandler(dependencies: Dependencies) {
   return async (request: Request) =>
-    handleOperation(
-      dependencies.logger,
+    runMemberRoute(
+      dependencies,
       request,
-      'room.draft.submit',
-      async () => {
-        requireSameOrigin(request, dependencies.origin());
-        const identity = requireSignedIn(await dependencies.identify(request));
-        if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
-        await consumeOrThrow(
-          dependencies.limiter,
-          `room:draft:${identity.principal.userId}`,
-          { max: 60, windowSeconds: 300 },
-        );
+      {
+        name: 'room.draft.submit',
+        readOnly: false,
+        bucket: 'room:draft',
+        rule: { max: 60, windowSeconds: 300 },
+      },
+      async (caller) => {
         const body = await readBoundedBody(request, 128 * 1024);
         if (body === null) throw createAppError('VALIDATION');
         let form: FormData;
@@ -95,7 +79,7 @@ export function createRoomDraftHandler(dependencies: Dependencies) {
           });
         await saveRoomDraftAnswer(
           dependencies.store,
-          identity.principal.userId,
+          caller.userId,
           commandId,
           source,
           state,
@@ -110,6 +94,5 @@ export function createRoomDraftHandler(dependencies: Dependencies) {
           headers: { location: `${destination.pathname}${destination.search}` },
         });
       },
-      dependencies.reporter,
     );
 }

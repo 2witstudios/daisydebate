@@ -13,6 +13,7 @@ import {
   type RoomCreate,
   type RoomView,
 } from '@daisy/protocol';
+import { roundViewReader } from '../src/features/round-runtime/reads';
 import { createRoomRuntimeOperations } from '../src/features/room-runtime/operations';
 import { foundationSelection } from './foundation-selection.test-support';
 
@@ -122,7 +123,7 @@ async function fixture(
     ids: systemId,
     entropy: drawEntropy,
     consentTtlMs: () => 60_000,
-    botsAvailable: () => true,
+    aiSeats: () => ({ debater: true, judge: true }),
     betaGrantsPremium: true,
   });
   const operationsWithBotAvailability = (available: boolean) =>
@@ -133,7 +134,7 @@ async function fixture(
       ids: systemId,
       entropy: drawEntropy,
       consentTtlMs: () => 60_000,
-      botsAvailable: () => available,
+      aiSeats: () => ({ debater: available, judge: available }),
       betaGrantsPremium: true,
     });
   /** The proof format every Room suite builds on; off the picker (FMT-1), so custom. */
@@ -262,6 +263,7 @@ async function fixture(
     store,
     redis,
     operations,
+    roundView: roundViewReader(store),
     operationsWithBotAvailability,
     host,
     guest,

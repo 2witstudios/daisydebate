@@ -9,7 +9,7 @@ export const at = (day: number, hour = 12) =>
 
 export const season = async (
   fixture: Fixture,
-  status: 'scheduled' | 'active' | 'closed',
+  status: 'active' | 'closed',
   startsAt: Date,
 ) => {
   const id = createId();

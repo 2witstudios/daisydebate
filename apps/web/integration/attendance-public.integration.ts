@@ -30,19 +30,8 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
     },
   });
   const origin = server.url.origin;
-  const policy = {
-    consentTtlMs: 60_000,
-    maxBodyBytes: 1024,
-    limits: Object.fromEntries(
-      ['create', 'read', 'command'].map((name) => [
-        name,
-        { max: 200, windowSeconds: 60 },
-      ]),
-    ),
-  };
   const app = createTestApp({
     PUBLIC_APP_URL: origin,
-    ROOM_POLICY: JSON.stringify(policy),
   });
   const account = createAccountFlows(app);
   const signed = await account.signUp();

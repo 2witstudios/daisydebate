@@ -1,6 +1,6 @@
 import type { CompetitionType, RoundStatus } from './round';
 import type { AttendanceLedgerFacts } from './attendance';
-import type { DebateRole, RatingLadder } from './primitives';
+import type { DebateRole, RatingLadder, RoundOutcome } from './primitives';
 
 /**
  * The rating decision contract (ADR 0055, ADR 0058) between `@daisy/db`,
@@ -15,8 +15,6 @@ export type RatingState = {
   readonly deviation: number;
   readonly volatility: number;
 };
-
-export type RatedOutcome = 'affirmative' | 'negative' | 'draw';
 
 /**
  * How a Round's finalization record says it ended: the one derived statement
@@ -35,7 +33,7 @@ export type RatingEligibilityFacts = {
   /** The round's stored ladder, derived by CHECK; null when unrated. */
   readonly ladderId: RatingLadder | null;
   readonly status: RoundStatus;
-  readonly outcome: RatedOutcome | null;
+  readonly outcome: RoundOutcome | null;
   readonly completedAt: string | null;
   /** Whether the ledger already holds a change for this round. */
   readonly alreadyRated: boolean;
@@ -59,7 +57,7 @@ export type RatingEligibility =
   | {
       readonly kind: 'rated';
       readonly ladder: RatingLadder;
-      readonly outcome: RatedOutcome;
+      readonly outcome: RoundOutcome;
       readonly occurredAt: string;
     }
   | { readonly kind: 'already-rated' }
@@ -83,7 +81,7 @@ export type DebaterStanding = {
 /** What a rating plan is computed from, as the adapter loads it. */
 export type RatingPlanFacts = {
   readonly ladder: RatingLadder;
-  readonly outcome: RatedOutcome;
+  readonly outcome: RoundOutcome;
   readonly occurredAt: string;
   readonly seasonId: string | null;
   readonly seats: readonly {

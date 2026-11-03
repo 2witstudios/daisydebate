@@ -67,7 +67,6 @@ export default async function RoundPage({
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   if (
     identity.state === 'member' &&
-    identity.principal.actorId !== null &&
     isLiveDebater(result.round, identity.principal.actorId)
   )
     redirect(`/rounds/${id}/room`);

@@ -9,6 +9,7 @@ export {
   idSchema,
   debateSides,
   debateRoles,
+  roundOutcomeSchema,
   ratingLadders,
   canonicalRatingLadder,
   errorSchema,
@@ -18,6 +19,7 @@ export type {
   DebateSide,
   ProtocolError,
   RatingLadder,
+  RoundOutcome,
 } from './primitives';
 export {
   MAX_FORMAT_SEATS,
@@ -128,7 +130,6 @@ export type { Ballot, BallotCategory } from './ballot';
 export type {
   DebaterStanding,
   PlannedRatingChange,
-  RatedOutcome,
   RatingEligibility,
   RatingEligibilityFacts,
   RatingPlan,
@@ -359,6 +360,8 @@ export type {
   RoundAnalysisView,
 } from './round-analysis';
 export {
+  judgeRulingSchema,
+  panelRulingSchema,
   roundPanelReceiptSchema,
   type RoundPanelReceipt,
   type RoundPanelCompletion,
@@ -471,12 +474,14 @@ export type {
   JudgingJobFacts,
   JudgingPanel,
   JudgingPanelFacts,
+  JudgeRuling,
   PanelRuling,
   RoundEnding,
 } from './round-panel-completion';
 export type { AttendanceLedgerFacts } from './attendance';
 export { attendanceRoundReadSchema } from './attendance';
 export { roundRecordSchema, type RoundRecord } from './round-view';
+export { roundMediaPolicy } from './round-media-policy';
 export {
   broadcastReleasePolicySchema,
   SPECTATOR_MARGIN_MS,

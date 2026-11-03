@@ -5,7 +5,7 @@ import type { PrivacySubject } from '@daisy/db/privacy';
 import type { Logger } from '@daisy/logger';
 import { readBoundedBody } from '../../../server/bounded-body';
 import { requireSignedIn, requireSameOrigin } from '../../../server/http';
-import { evaluatedIdentity } from '../../../server/member-handler';
+import { evaluatedIdentity } from '../../../server/member-boundary';
 import {
   consumeWindowsOrThrow,
   type RateLimiter,
@@ -93,8 +93,6 @@ export function createEraseAccountHandler({
           : seeOther('/sign-in');
       const account = requireSignedIn(identity);
       if (!evaluatedIdentity(account)) throw createAppError('AUTHORIZATION');
-      if (account.principal.actorId === null)
-        throw createAppError('AUTHORIZATION');
       await consumeWindowsOrThrow(
         limiter(),
         `privacy:erase:${account.principal.userId}`,

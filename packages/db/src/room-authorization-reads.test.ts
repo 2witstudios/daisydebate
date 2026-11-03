@@ -43,6 +43,7 @@ test('Room assembly read hydrates its pinned definition and current host label',
     caller,
     (candidate, fact) =>
       fact?.member === true && candidate.hostActorId === caller.actorId,
+    () => null,
   );
 
   assert({

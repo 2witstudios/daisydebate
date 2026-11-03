@@ -18,6 +18,10 @@ export const debateSides = ['affirmative', 'negative'] as const;
 export const debateSideSchema = z.enum(debateSides);
 export type DebateSide = (typeof debateSides)[number];
 
+/** How a Round ended for its sides: a side won, or nobody did. Abandonment is a status, not an outcome. */
+export const roundOutcomeSchema = z.enum([...debateSides, 'draw']);
+export type RoundOutcome = z.infer<typeof roundOutcomeSchema>;
+
 /**
  * The one debate role vocabulary (ADR 0029): the two sides plus the judge.
  * Every seat map, CHECK constraint and role rule derives from this array;

@@ -19,6 +19,9 @@ const MAX_WAITING_ROUNDS = 256;
 /** How often the held-by-pending-writer measure is published. */
 const HELD_REPORT_MS = 60_000;
 
+/** The work that can fail: one Round's stages, and the two sweeps. */
+type MaintenanceWork = MaintenanceStage | 'discover' | 'rate';
+
 /** One discovery page. `cycleComplete` ends a pass over every due Round. */
 type DiscoveryPage = {
   readonly roundIds: readonly string[];
@@ -33,8 +36,7 @@ type MaintenancePorts = {
   readonly finalize: (roundId: string) => Promise<unknown>;
   readonly rateUnrated: () => Promise<unknown>;
   readonly timers: WorkerTimers;
-  /** `stage` names the work that failed: discover, tick, evaluate, finalize or rate. */
-  readonly failed: (error: unknown, stage: string) => void;
+  readonly failed: (error: unknown, stage: MaintenanceWork) => void;
   /** Monotonic milliseconds. */
   readonly now: () => number;
   /** Rounds an uncertain check-in writer holds, so none can go silently stuck. */
@@ -57,7 +59,7 @@ const evaluationOf = (found: AttendanceEvaluation): Evaluation =>
     : 'continue';
 
 /** The one per-Round pacing map, with the held measure read from it. */
-function createEvaluationPacing(input: MaintenancePorts) {
+function createRoundPacing(input: MaintenancePorts) {
   const { now } = input;
   const rounds = new Map<string, RoundPacing>();
   let lastHeldReport = Number.NEGATIVE_INFINITY;
@@ -112,7 +114,7 @@ function createEvaluationPacing(input: MaintenancePorts) {
  */
 async function maintainRound(
   input: MaintenancePorts,
-  pacing: ReturnType<typeof createEvaluationPacing>,
+  pacing: ReturnType<typeof createRoundPacing>,
   roundId: string,
   phase: RoundPhase,
 ) {
@@ -153,7 +155,7 @@ export function startRoundMaintenance(input: MaintenancePorts) {
     ratingWork = Promise.resolve();
   const active = new Map<string, Promise<void>>();
   const waiting = new Map<string, RoundPhase>();
-  const pacing = createEvaluationPacing(input);
+  const pacing = createRoundPacing(input);
   /** Every id this discovery cycle saw; a queued Round it missed is no longer due. */
   let seen = new Set<string>();
   const advance = () => {

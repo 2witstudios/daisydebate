@@ -111,7 +111,8 @@ export const sessionRefreshDueNow = async (): Promise<boolean> => {
 
 /**
  * The signed-in account's own onboarding answers, read once for this
- * server-component render; null for anyone without a claimed username.
+ * server-component render; null for anyone who cannot onboard: no claimed
+ * username, or a restricted account.
  * Waitlisted accounts onboard too (ADR 0075). The id is the session's,
  * never one the request names.
  */
@@ -141,10 +142,7 @@ export const requestOptionalAnswersAdmitted = cache(
   async (): Promise<boolean> => {
     const identity = await requestIdentity();
     // A waitlisted account onboards before approval (ADR 0075).
-    if (
-      (identity.state !== 'member' && identity.state !== 'waitlisted') ||
-      identity.principal.actorId === null
-    )
+    if (identity.state !== 'member' && identity.state !== 'waitlisted')
       return false;
     const app = processApp();
     return app.database.optionalAnswersAdmitted({
@@ -233,7 +231,7 @@ export async function requestLadder(input: {
   return readLadder(processApp().database, {
     ...input,
     username: identity.state === 'member' ? identity.username : null,
-    ...(identity.state === 'member' && identity.principal.actorId
+    ...(identity.state === 'member'
       ? { viewerActorId: identity.principal.actorId }
       : {}),
   });
@@ -250,7 +248,7 @@ export async function requestMemberStandings(username: string) {
   return readMemberStandings(app.database, {
     username,
     now: app.clock.now(),
-    ...(identity.state === 'member' && identity.principal.actorId
+    ...(identity.state === 'member'
       ? { viewerActorId: identity.principal.actorId }
       : {}),
   });

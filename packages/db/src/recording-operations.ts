@@ -49,7 +49,7 @@ const lifecycleColumns = (next: RecordingLifecycle) => ({
     : {}),
 });
 
-/** The Recording's durable writes (ADR 0105): PostgreSQL is the one writer. */
+/** The Recording's durable writes (ADR 0107): PostgreSQL is the one writer. */
 export const recordingOperations = ({
   database,
 }: {

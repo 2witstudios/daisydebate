@@ -20,7 +20,7 @@ import { rounds } from './rounds';
 /**
  * The delayed audience stream of one Round (ADR 0099). It is not a Recording
  * and nothing about the Round depends on it. `releasedThroughAt` is the durable
- * watermark the spectator timeline follows; `nextSegment` is the hold's cursor.
+ * watermark the spectator timeline follows; `nextSegment` is the public sequence.
  */
 export const broadcasts = pgTable(
   'broadcasts',
@@ -46,6 +46,13 @@ export const broadcasts = pgTable(
     observerRevokedAt: timestampColumn('observer_revoked_at'),
     revocationFailures: integer('revocation_failures').notNull().default(0),
     nextSegment: integer('next_segment').notNull().default(0),
+    /** Each Egress attempt holds under its own prefix, so a restart overwrites nothing. */
+    egressGeneration: integer('egress_generation').notNull().default(0),
+    /** The attempt the worker is releasing, and its position in that attempt's hold. */
+    releasedGeneration: integer('released_generation').notNull().default(1),
+    holdCursor: integer('hold_cursor').notNull().default(0),
+    /** The public manifests say the stream ended; only then can it complete. */
+    streamEndedAt: timestampColumn('stream_ended_at'),
     releasedThroughAt: timestampColumn('released_through_at'),
     finalMediaEndAt: timestampColumn('final_media_end_at'),
     stoppedAt: timestampColumn('stopped_at'),
@@ -74,7 +81,7 @@ export const broadcasts = pgTable(
     ),
     check(
       'broadcasts_cursor_check',
-      sql`${table.nextSegment} >= 0 and ${table.revocationFailures} >= 0 and ${table.leaseEpoch} >= 0 and ${table.chatSlowModeSeconds} between 0 and 3600`,
+      sql`${table.nextSegment} >= 0 and ${table.holdCursor} >= 0 and ${table.egressGeneration} >= 0 and ${table.releasedGeneration} >= 1 and ${table.revocationFailures} >= 0 and ${table.leaseEpoch} >= 0 and ${table.chatSlowModeSeconds} between 0 and 3600`,
     ),
     check(
       'broadcasts_lease_check',

@@ -83,6 +83,13 @@ export function capacityRefusalDetail(
   const refusal = refusalIn(error);
   return refusal ? refusals.get(refusal) : undefined;
 }
+/** A refusal's loggable fields: which lane, why, and how that lane stood. */
+export function capacityRefusalFields(error: unknown) {
+  const detail = capacityRefusalDetail(error);
+  return (
+    detail && { cause: `${detail.lane}.${detail.reason}`, ...detail.pressure }
+  );
+}
 /**
  * Records that `db.capacity.refused` was emitted for this rejection. The
  * refusal itself is marked, not the wrapper that carried it, so any other

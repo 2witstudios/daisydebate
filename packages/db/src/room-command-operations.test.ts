@@ -155,7 +155,6 @@ const startInput: Parameters<
       },
       consent: null,
       freeze: true,
-      spendsAiRound: false,
       seatsBotDebater: false,
       publishDefinition: false,
       draw: null,

@@ -181,7 +181,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
         command: { type: 'forfeit', participantId: seat.id },
       },
     );
-    const view = await f.operations.roundView(f.guest, roundId);
+    const view = await f.roundView(f.guest, roundId);
     const judge = raw.participants.find((p) => p.role === 'judge')!;
     assert({
       given: 'a terminal Round read by its debater',

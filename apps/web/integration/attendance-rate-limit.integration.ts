@@ -8,18 +8,7 @@ setupRitewayBun();
 requireTestServices(process.env);
 
 async function attendanceMember() {
-  const app = createTestApp({
-    ROOM_POLICY: JSON.stringify({
-      consentTtlMs: 60_000,
-      maxBodyBytes: 1024,
-      limits: Object.fromEntries(
-        ['create', 'read', 'command'].map((name) => [
-          name,
-          { max: 200, windowSeconds: 60 },
-        ]),
-      ),
-    }),
-  });
+  const app = createTestApp();
   const accounts = createAccountFlows(app);
   const signed = await accounts.signUp();
   const claimed = await accounts.claim(signed.cookie, {

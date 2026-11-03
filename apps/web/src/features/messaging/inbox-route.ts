@@ -9,8 +9,8 @@ import { composeMessagingInbox } from './inbox-composition';
 import { requireMemberActor } from '../access/actor';
 import {
   memberHttpBoundary,
-  runMemberHandler,
-} from '../../server/member-handler';
+  runEvaluatedRoute,
+} from '../../server/member-boundary';
 const inboxOf = (app: App, principal: AuthorizationPrincipal) =>
   composeMessagingInbox({
     database: app.database,
@@ -26,7 +26,7 @@ export function composeMessagingChannelEntryRoute(app: App) {
     const schemas = createMessagingInboxSchemas(
       app.messagingPolicy.bounds.pageItems,
     );
-    return runMemberHandler(memberHttpBoundary(app), request, {
+    return runEvaluatedRoute(memberHttpBoundary(app), request, {
       name: 'messaging.channel.entry',
       readOnly: true,
       readInput: async () => parseValidated(idSchema, channelId),
@@ -47,7 +47,7 @@ export function composeMessagingInboxRoute(app: App) {
   return (request: Request) => {
     const policy = app.messagingPolicy;
     const schemas = createMessagingInboxSchemas(policy.bounds.pageItems);
-    return runMemberHandler(memberHttpBoundary(app), request, {
+    return runEvaluatedRoute(memberHttpBoundary(app), request, {
       name: 'messaging.inbox',
       readOnly: true,
       headers: {

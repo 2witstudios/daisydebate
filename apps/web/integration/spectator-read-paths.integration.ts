@@ -121,6 +121,7 @@ test('every public and member read holds a ranked outcome until release', async 
           () => true,
           () => false,
           spectatorClockAt(now),
+          () => null,
         );
         return page.rooms.find((r) => r.id === openRoomId)?.hostRating;
       };

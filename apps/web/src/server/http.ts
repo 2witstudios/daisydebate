@@ -24,7 +24,7 @@ const isTemporaryOutage = (error: unknown) =>
 /** An `Identity` once anonymous and unavailable are ruled out. */
 export type SignedInIdentity = Extract<
   Identity,
-  { state: 'provisional' | 'waitlisted' | 'member' }
+  { state: 'provisional' | 'waitlisted' | 'restricted' | 'member' }
 >;
 
 /**

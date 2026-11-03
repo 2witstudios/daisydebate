@@ -38,6 +38,10 @@ export type { JudgingScope } from './round-judging-context';
 export type ModelCallBegun =
   | { readonly kind: 'dispatched' }
   | { readonly kind: 'ended'; readonly reason: JudgingTerminalReason };
+/** A lease renewed to a new expiry, or its budget had passed and the job ended. */
+export type LeaseRenewed =
+  | { readonly kind: 'renewed'; readonly leaseExpiresAt: string }
+  | { readonly kind: 'ended'; readonly reason: JudgingTerminalReason };
 /** A valid answer is held for submission, or its budget had passed and the job ended. */
 export type AnswerSaved =
   | { readonly kind: 'held' }
@@ -358,19 +362,20 @@ export function createRoundJudgingJobs(input: {
         return 'retry';
       });
     },
-    renew: (scope: JudgingScope, token: string) =>
+    renew: (scope: JudgingScope, token: string): Promise<LeaseRenewed> =>
       withLease(scope, token, async (tx, { run, job, now }) => {
-        // Cancels the running call: the worker releases on this refusal.
+        // Cancels the running call: the worker releases on this answer.
         if (budgetSpent(job, now)) {
-          await failLockedJudgingJob(tx, scope, run.id, 'generation_deadline');
-          return null;
+          const reason = 'generation_deadline';
+          await failLockedJudgingJob(tx, scope, run.id, reason);
+          return { kind: 'ended', reason };
         }
         const expires = new Date(now.getTime() + input.leaseMs);
         await tx
           .update(roundJudgingJobs)
           .set({ leaseExpiresAt: expires })
           .where(judgingJobWhere(scope));
-        return expires.toISOString();
+        return { kind: 'renewed', leaseExpiresAt: expires.toISOString() };
       }),
   };
 }

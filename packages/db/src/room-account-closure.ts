@@ -42,7 +42,6 @@ export const createRoomAccountClosureAdopter = (
       consent: null,
       freeze: false,
       // Closure freezes no Round, so it never spends an AI round or seats a bot.
-      spendsAiRound: false,
       seatsBotDebater: false,
       publishDefinition: false,
       draw: null,

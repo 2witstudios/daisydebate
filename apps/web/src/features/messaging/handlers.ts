@@ -5,7 +5,7 @@ import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
 import { readJson } from '../../server/http';
-import { runMemberHandler } from '../../server/member-handler';
+import { runEvaluatedRoute } from '../../server/member-boundary';
 
 type Operation = (
   input: unknown,
@@ -39,7 +39,7 @@ export function createMessagingHandlers(dependencies: Dependencies) {
     >,
     input: () => Promise<unknown>,
   ) =>
-    runMemberHandler(dependencies, request, {
+    runEvaluatedRoute(dependencies, request, {
       name: `messaging.${operation}`,
       readOnly:
         operation === 'history' ||

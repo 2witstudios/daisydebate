@@ -1,6 +1,6 @@
 import { captureUnadmitted } from './room-capture';
 import { castHoldsUnadmittedAiJudge } from './ai-judge-seating';
-import { castSeatsBotDebater, castSpendsAiRound } from './ai-round-cast';
+import { castSeatsBotDebater } from './ai-round-cast';
 import { acceptedRoomMutation } from './room-assembly-facts';
 import type {
   RoomAssemblyState,
@@ -77,7 +77,6 @@ export const startRound = (
   return acceptedRoomMutation(next, {
     draw,
     freeze: true,
-    spendsAiRound: castSpendsAiRound(next),
     seatsBotDebater: castSeatsBotDebater(next),
   });
 };

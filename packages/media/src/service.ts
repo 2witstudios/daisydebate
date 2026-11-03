@@ -8,6 +8,7 @@ import {
 import {
   configSchema,
   joinSchema,
+  OBSERVER_IDENTITY,
   parseMedia,
   participantSchema,
   permissionSchema,
@@ -73,9 +74,9 @@ export function createMediaService({
   const participants = async (room: string) => {
     const name = parseMedia(idSchema, room);
     return operation(async () =>
-      (await client.listParticipants(name)).map((participant) =>
-        parseMedia(participantSchema, participant),
-      ),
+      (await client.listParticipants(name))
+        .filter((participant) => participant.identity !== OBSERVER_IDENTITY)
+        .map((participant) => parseMedia(participantSchema, participant)),
     );
   };
   return {

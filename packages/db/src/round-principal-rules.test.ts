@@ -5,11 +5,7 @@ import {
   requireRunScope,
   type BotPublicationScope,
 } from './bot-publication-context';
-import {
-  mediaId,
-  mediaWindowClosed,
-  requireMediaWindow,
-} from './media-session-authority';
+import { mediaId, requireMediaWindow } from './media-session-authority';
 import {
   requireHumanRoundPrincipal,
   roundPrincipalColumns,
@@ -179,24 +175,13 @@ test('a human Round principal needs its own live member account', async () => {
     });
 });
 
-test('Round media stays open for live Rounds until thirty minutes after the final end', async () => {
+test('a media operation answers the window decision it is handed', async () => {
   const end = '2026-10-22T12:00:00.000Z';
-  assert({
-    given: 'scheduled, active and terminal Rounds around the final end',
-    should: 'close for terminal Rounds and from exactly thirty minutes after',
-    actual: [
-      mediaWindowClosed('opening', end, null),
-      mediaWindowClosed('active', '2026-10-22T12:29:59.999Z', end),
-      mediaWindowClosed('active', '2026-10-22T12:30:00.000Z', end),
-      mediaWindowClosed('completed', end, null),
-      mediaWindowClosed('abandoned', end, null),
-    ],
-    expected: [false, false, true, true, true],
-  });
+  const mediaWindowClosed = (status: string) => status === 'completed';
   await assertRejects({
     given: 'a closed media window',
     should: 'refuse the media operation',
-    actual: () => requireMediaWindow('completed', end, null),
+    actual: () => requireMediaWindow(mediaWindowClosed, 'completed', end, null),
     code: 'CONFLICT',
   });
   await assertRejects({
@@ -208,7 +193,10 @@ test('Round media stays open for live Rounds until thirty minutes after the fina
   assert({
     given: 'an open window and a cuid2 identifier',
     should: 'admit both',
-    actual: [requireMediaWindow('active', end, null), mediaId(scope.roundId)],
+    actual: [
+      requireMediaWindow(mediaWindowClosed, 'active', end, null),
+      mediaId(scope.roundId),
+    ],
     expected: [undefined, scope.roundId],
   });
 });

@@ -1,15 +1,10 @@
 import { createHash } from 'node:crypto';
-import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
-import type { Logger } from '@daisy/logger';
-import type { ErrorReporter } from '@daisy/observability';
 import { ticketSchema } from '@daisy/protocol';
-import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
-  handleOperation,
-  requireSameOrigin,
-  requireSignedIn,
-} from '../../server/http';
+  runMemberRoute,
+  type BudgetedMemberBoundary,
+} from '../../server/member-boundary';
 
 /** ADR 0031 §11 / plan section D: 60 s, single-use. */
 const TICKET_TTL_SECONDS = 60;
@@ -19,20 +14,10 @@ const TICKET_TTL_SECONDS = 60;
  */
 const TICKET_RULE = { windowSeconds: 60, max: 20 } as const;
 
-type TicketDependencies = {
-  readonly logger: Logger;
-  /** ADR 0037: where a 5xx from this handler's raw error goes, scrubbed. */
-  readonly reporter: ErrorReporter;
-  readonly origin: () => string;
+type TicketDependencies = BudgetedMemberBoundary & {
   readonly websocketEndpoint: () => string | null;
-  /** Principal resolution from the request's cookies only. */
-  readonly identify: (request: Request) => Promise<Identity>;
   /** The caller's own durable session id, resolved from the same cookies. */
   readonly sessionId: (headers: Headers) => Promise<string | null>;
-  readonly limiter: () => RateLimiter;
-  readonly getActorByUserId: (
-    userId: string,
-  ) => Promise<{ readonly id: string } | null>;
   readonly issueTicket: (input: {
     readonly ticketHash: string;
     readonly actorId: string;
@@ -67,39 +52,32 @@ const hashTicket = (ticket: string): string =>
  */
 export function createTicketHandler(dependencies: TicketDependencies) {
   return (request: Request) =>
-    handleOperation(
-      dependencies.logger,
+    // Signed in, but no username yet or no beta access (ADR 0075):
+    // authenticated, not authorized, same as every other permission gate.
+    runMemberRoute(
+      dependencies,
       request,
-      'realtime.ticket.issue',
-      async () => {
-        requireSameOrigin(request, dependencies.origin());
-        const identity = requireSignedIn(await dependencies.identify(request));
-        // Signed in, but no username yet or no beta access (ADR 0075):
-        // authenticated, not authorized, same as every other permission gate.
-        if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
+      {
+        name: 'realtime.ticket.issue',
+        readOnly: false,
+        bucket: 'realtime:ticket',
+        rule: TICKET_RULE,
+        beforeBudget: () => {
+          if (dependencies.websocketEndpoint() === null)
+            throw createAppError('INFRASTRUCTURE');
+        },
+      },
+      async (caller) => {
         const socketUrl = dependencies.websocketEndpoint();
-        if (socketUrl === null) throw createAppError('INFRASTRUCTURE');
-        const { userId } = identity.principal;
-        await consumeOrThrow(
-          dependencies.limiter(),
-          `realtime:ticket:${userId}`,
-          TICKET_RULE,
-        );
         const sessionId = await dependencies.sessionId(request.headers);
-        // The session read that produced `identity` just succeeded; a null
+        // The session read that produced the identity just succeeded; a null
         // here means it lapsed in the instant between the two reads.
         if (!sessionId) throw createAppError('AUTHENTICATION');
-        const actor = await dependencies.getActorByUserId(userId);
-        // ACTOR-1 creates the actor row in the same transaction that
-        // completes username onboarding, so a 'member' identity (which
-        // requires a username) always has one; a miss here is a data
-        // integrity fault, not a client error.
-        if (!actor) throw createAppError('INFRASTRUCTURE');
         const ticket = randomTicket();
         const origin = new URL(dependencies.origin()).origin;
         await dependencies.issueTicket({
           ticketHash: hashTicket(ticket),
-          actorId: actor.id,
+          actorId: caller.actorId,
           sessionId,
           origin,
           ttlSeconds: TICKET_TTL_SECONDS,
@@ -110,6 +88,5 @@ export function createTicketHandler(dependencies: TicketDependencies) {
           expiresInSeconds: TICKET_TTL_SECONDS,
         });
       },
-      dependencies.reporter,
     );
 }

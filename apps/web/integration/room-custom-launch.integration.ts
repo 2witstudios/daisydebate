@@ -150,10 +150,7 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
       expected: [view.id],
     });
     const launched = await f.command(f.host, view, { type: 'start-round' });
-    const round = await f.operations.roundView(
-      f.guest,
-      launched.view.roundRef!.id,
-    );
+    const round = await f.roundView(f.guest, launched.view.roundRef!.id);
     assert({
       given:
         'unequal sides, repeated negative reply, non-alternating order, custom duration and AI judge',
@@ -186,7 +183,7 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
     await assertRejects({
       given: 'a seated account becomes erased',
       should: 'mask its Round read despite earlier membership',
-      actual: () => f.operations.roundView(f.guest, round.id),
+      actual: () => f.roundView(f.guest, round.id),
       code: 'NOT_FOUND',
     });
   }, botAdmissionForTests);

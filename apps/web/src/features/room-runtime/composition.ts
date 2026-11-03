@@ -3,7 +3,7 @@ import { createRoomDraftHandler } from '../rooms/create-room-draft-handler';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
 import { handleOperation } from '../../server/http';
-import { identify } from '../../lib/identity';
+import { memberHttpBoundary } from '../../server/member-boundary';
 import { createRoomHandlers } from './handlers';
 import { createRoomRuntimeOperations } from './operations';
 import { drawEntropy } from './entropy';
@@ -35,14 +35,7 @@ export function composeRoomRoutes(app: App) {
       );
     const policy = app.roomPolicy;
     handlers ??= createRoomHandlers({
-      logger: app.logger,
-      reporter: app.reporter,
-      clock: app.clock,
-      origin: () => app.auth().config.PUBLIC_APP_URL,
-      identify: (request) => identify(app.auth(), request.headers),
-      getActorByUserId: (userId) => app.database.getActorByUserId(userId),
-      limiter: () => app.limiter,
-      active: () => true,
+      ...memberHttpBoundary(app),
       maxBodyBytes: policy.maxBodyBytes,
       limits: policy.limits,
       websocketEndpoint: app.websocketEndpoint,
@@ -52,7 +45,7 @@ export function composeRoomRoutes(app: App) {
         ids: app.ids,
         now: () => app.clock.now(),
         consentTtlMs: () => policy.consentTtlMs,
-        botsAvailable: () => Boolean(app.config.OPENROUTER_API_KEY),
+        aiSeats: () => app.aiSeats,
         betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
         entropy: drawEntropy,
       }),
@@ -85,17 +78,11 @@ export function composeRoomRoutes(app: App) {
       run(request, (h) => h.read(request, roomId)),
     commands: (request: Request, roomId: string) =>
       run(request, (h) => h.commands(request, roomId)),
-    roundRead: (request: Request, roundId: string) =>
-      run(request, (h) => h.roundRead(request, roundId)),
   };
   return {
     ...routes,
     submitDraft: createRoomDraftHandler({
-      logger: app.logger,
-      reporter: app.reporter,
-      origin: () => app.auth().config.PUBLIC_APP_URL,
-      identify: (request) => identify(app.auth(), request.headers),
-      limiter: app.limiter,
+      ...memberHttpBoundary(app),
       store: app.redis,
       catalog: routes.catalog,
       create: routes.create,

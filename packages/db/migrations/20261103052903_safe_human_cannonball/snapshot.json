@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "74810114-2477-488a-b1e0-d1c03e223fc2",
+  "id": "89605b3f-e3d9-4bf1-a8ca-cfa2aab00e05",
   "prevIds": [
-    "b0da3e5e-32b7-47f7-8ff8-83bc9ba67cee"
+    "2ab218fa-7d67-4508-8c85-430956301942"
   ],
   "ddl": [
     {
@@ -39,12 +39,6 @@
     {
       "isRlsEnabled": false,
       "name": "ai_judge_profiles",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "audience_reactions",
       "entityType": "tables",
       "schema": "public"
     },
@@ -147,12 +141,6 @@
     {
       "isRlsEnabled": false,
       "name": "content_reports",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "debater_follows",
       "entityType": "tables",
       "schema": "public"
     },
@@ -326,24 +314,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "notification_fanouts",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "notification_preferences",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "notifications",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "observation_purge_jobs",
       "entityType": "tables",
       "schema": "public"
@@ -489,12 +459,6 @@
     {
       "isRlsEnabled": false,
       "name": "round_resolution_strikes",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "role_grants",
       "entityType": "tables",
       "schema": "public"
     },
@@ -687,12 +651,6 @@
     {
       "isRlsEnabled": false,
       "name": "utterances",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "watch_history",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1137,84 +1095,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "ai_judge_profiles"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "audience_reactions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "audience_reactions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "audience_reactions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "audience_reactions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "spaced_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "audience_reactions"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "audience_reactions"
     },
     {
       "type": "text",
@@ -2296,6 +2176,58 @@
       "table": "broadcasts"
     },
     {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "egress_generation",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "released_generation",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "hold_cursor",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "stream_ended_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": false,
@@ -3126,45 +3058,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "content_reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "follower_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "debater_follows"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "debater_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "debater_follows"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "debater_follows"
     },
     {
       "type": "text",
@@ -4630,19 +4523,6 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "messaging_channels"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "title",
       "entityType": "columns",
       "schema": "public",
@@ -5752,175 +5632,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "moderation_actions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notification_fanouts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notification_fanouts"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notification_fanouts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notification_preferences"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notification_preferences"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "enabled",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notification_preferences"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "debater_actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "read_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "notifications"
     },
     {
       "type": "text",
@@ -7975,110 +7686,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "round_resolution_strikes"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "role",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "scope_type",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "scope_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "granted_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "granted_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "revoked_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "role_grants"
     },
     {
       "type": "text",
@@ -11552,45 +11159,6 @@
       "table": "utterances"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "watch_history"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "watch_history"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "watched_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "watch_history"
-    },
-    {
       "nameExplicit": true,
       "columns": [
         {
@@ -11729,104 +11297,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "agreement_signatures"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "kind",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "spaced_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "audience_reactions_spaced_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "audience_reactions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "kind",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "audience_reactions_round_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "audience_reactions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "audience_reactions_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "audience_reactions"
     },
     {
       "nameExplicit": true,
@@ -12689,27 +12159,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "debater_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "debater_follows_debater_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "debater_follows"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "owner_actor_id",
           "isExpression": false,
           "asc": true,
@@ -13340,27 +12789,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "messaging_channels_round_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "messaging_channels"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "owner_actor_id",
           "isExpression": false,
           "asc": true,
@@ -13881,139 +13309,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "moderation_actions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "kind",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "notifications_once_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": false,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": false,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "notifications_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "read_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "\"read_at\" is not null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "notifications_read_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "notifications_round_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "debater_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "notifications_debater_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "notifications"
     },
     {
       "nameExplicit": true,
@@ -14756,90 +14051,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "round_resolution_strikes"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "role",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "scope_type",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "coalesce(\"scope_id\", '')",
-          "isExpression": true,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"revoked_at\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "role_grants_active_unique",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "role_grants_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "granted_by_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "role_grants_granted_by_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "role_grants"
     },
     {
       "nameExplicit": true,
@@ -17474,55 +16685,6 @@
       "table": "utterances"
     },
     {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "watched_at",
-          "isExpression": false,
-          "asc": false,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "watch_history_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "watch_history"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "watched_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "watch_history_retention_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "watch_history"
-    },
-    {
       "nameExplicit": false,
       "columns": [
         "user_id"
@@ -17657,40 +16819,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "ai_judge_profiles"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "audience_reactions_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "audience_reactions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "audience_reactions_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "audience_reactions"
     },
     {
       "nameExplicit": false,
@@ -18177,40 +17305,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "follower_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "debater_follows_follower_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "debater_follows"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "debater_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "debater_follows_debater_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "debater_follows"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "owner_actor_id"
       ],
       "schemaTo": "public",
@@ -18489,23 +17583,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "messaging_channel_streams"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "messaging_channels_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "messaging_channels"
     },
     {
       "nameExplicit": false,
@@ -19017,91 +18094,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "moderation_actions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "notification_fanouts_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "notification_fanouts"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "notification_preferences_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "notification_preferences"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "notifications_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "notifications_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "debater_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "notifications_debater_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "notifications"
     },
     {
       "nameExplicit": false,
@@ -19658,40 +18650,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "round_resolution_strikes"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "role_grants_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "granted_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "role_grants_granted_by_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "role_grants"
     },
     {
       "nameExplicit": false,
@@ -20985,40 +19943,6 @@
       "table": "utterances"
     },
     {
-      "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "watch_history_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "watch_history"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "watch_history_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "watch_history"
-    },
-    {
       "columns": [
         "actor_id",
         "request_id"
@@ -21061,17 +19985,6 @@
       "entityType": "pks",
       "schema": "public",
       "table": "social_requests"
-    },
-    {
-      "columns": [
-        "follower_user_id",
-        "debater_actor_id"
-      ],
-      "nameExplicit": false,
-      "name": "debater_follows_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "debater_follows"
     },
     {
       "columns": [
@@ -21222,28 +20135,6 @@
     },
     {
       "columns": [
-        "kind",
-        "round_id"
-      ],
-      "nameExplicit": false,
-      "name": "notification_fanouts_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "notification_fanouts"
-    },
-    {
-      "columns": [
-        "user_id",
-        "kind"
-      ],
-      "nameExplicit": false,
-      "name": "notification_preferences_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "notification_preferences"
-    },
-    {
-      "columns": [
         "user_id",
         "interest"
       ],
@@ -21378,17 +20269,6 @@
     },
     {
       "columns": [
-        "user_id",
-        "round_id"
-      ],
-      "nameExplicit": false,
-      "name": "watch_history_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "watch_history"
-    },
-    {
-      "columns": [
         "user_id"
       ],
       "nameExplicit": false,
@@ -21445,16 +20325,6 @@
       "name": "ai_judge_profiles_pkey",
       "schema": "public",
       "table": "ai_judge_profiles",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "audience_reactions_pkey",
-      "schema": "public",
-      "table": "audience_reactions",
       "entityType": "pks"
     },
     {
@@ -21739,16 +20609,6 @@
     },
     {
       "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "notifications_pkey",
-      "schema": "public",
-      "table": "notifications",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
         "user_id"
       ],
       "nameExplicit": false,
@@ -21925,16 +20785,6 @@
       "name": "round_resolution_draws_pkey",
       "schema": "public",
       "table": "round_resolution_draws",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "role_grants_pkey",
-      "schema": "public",
-      "table": "role_grants",
       "entityType": "pks"
     },
     {
@@ -22479,13 +21329,6 @@
       "table": "agreement_signatures"
     },
     {
-      "value": "\"kind\" in ('sharp_point', 'good_rebuttal', 'needs_evidence', 'clear_structure')",
-      "name": "audience_reactions_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "audience_reactions"
-    },
-    {
       "value": "\"freeze_revision\" > 0",
       "name": "ballots_freeze_revision_positive",
       "entityType": "checks",
@@ -22612,7 +21455,7 @@
       "table": "broadcasts"
     },
     {
-      "value": "\"next_segment\" >= 0 and \"revocation_failures\" >= 0 and \"lease_epoch\" >= 0 and \"chat_slow_mode_seconds\" between 0 and 3600",
+      "value": "\"next_segment\" >= 0 and \"hold_cursor\" >= 0 and \"egress_generation\" >= 0 and \"released_generation\" >= 1 and \"revocation_failures\" >= 0 and \"lease_epoch\" >= 0 and \"chat_slow_mode_seconds\" between 0 and 3600",
       "name": "broadcasts_cursor_check",
       "entityType": "checks",
       "schema": "public",
@@ -23088,15 +21931,8 @@
       "table": "messaging_channel_streams"
     },
     {
-      "value": "\"kind\" in ('dm', 'private_group', 'round_spectator')",
+      "value": "\"kind\" in ('dm', 'private_group')",
       "name": "messaging_channels_kind",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "messaging_channels"
-    },
-    {
-      "value": "(\"kind\" = 'round_spectator') = (\"round_id\" is not null)",
-      "name": "messaging_channels_round",
       "entityType": "checks",
       "schema": "public",
       "table": "messaging_channels"
@@ -23109,7 +21945,7 @@
       "table": "messaging_channels"
     },
     {
-      "value": "\"policy_revision\" > 0 and ((\"kind\" = 'dm' and \"policy_key\" = 'social.dm') or (\"kind\" = 'private_group' and \"policy_key\" = 'social.private_group') or (\"kind\" = 'round_spectator' and \"policy_key\" = 'round.spectator'))",
+      "value": "\"policy_revision\" > 0 and ((\"kind\" = 'dm' and \"policy_key\" = 'social.dm') or (\"kind\" = 'private_group' and \"policy_key\" = 'social.private_group'))",
       "name": "messaging_channels_policy",
       "entityType": "checks",
       "schema": "public",
@@ -23361,34 +22197,6 @@
       "table": "moderation_actions"
     },
     {
-      "value": "\"kind\" in ('followed_debater_live', 'recording_ready')",
-      "name": "notification_fanouts_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "notification_fanouts"
-    },
-    {
-      "value": "\"kind\" in ('followed_debater_live', 'recording_ready')",
-      "name": "notification_preferences_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "notification_preferences"
-    },
-    {
-      "value": "\"kind\" in ('followed_debater_live', 'recording_ready')",
-      "name": "notifications_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
-      "value": "(\"kind\" = 'followed_debater_live') = (\"debater_actor_id\" is not null)",
-      "name": "notifications_debater_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "notifications"
-    },
-    {
       "value": "\"status\" in ('pending', 'succeeded')",
       "name": "observation_purge_jobs_status_valid",
       "entityType": "checks",
@@ -23634,7 +22442,7 @@
       "table": "seasons"
     },
     {
-      "value": "\"status\" in ('scheduled', 'active', 'closed')",
+      "value": "\"status\" in ('active', 'closed')",
       "name": "seasons_status_check",
       "entityType": "checks",
       "schema": "public",
@@ -23877,34 +22685,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "round_resolution_strikes"
-    },
-    {
-      "value": "\"role\" in ('moderator', 'judge')",
-      "name": "role_grants_role_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "value": "\"scope_type\" in ('global')",
-      "name": "role_grants_scope_type_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "value": "\"scope_type\" <> 'global' or \"scope_id\" is null",
-      "name": "role_grants_global_scope_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "role_grants"
-    },
-    {
-      "value": "\"revoked_at\" is null or \"revoked_at\" >= \"granted_at\"",
-      "name": "role_grants_revoked_after_granted",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "role_grants"
     },
     {
       "value": "\"payload_digest\" ~ '^[0-9a-f]{64}$'",
@@ -24691,5 +23471,7 @@
       "table": "utterances"
     }
   ],
-  "renames": []
+  "renames": [
+    "public.rounds.rounds_rated_ladder_check->public.rounds.rounds_ranked_ladder_check"
+  ]
 }

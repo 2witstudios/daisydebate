@@ -1,4 +1,4 @@
-import type { CaptureRule, DebateRole, RatedOutcome } from '@daisy/protocol';
+import type { CaptureRule, DebateRole, RoundOutcome } from '@daisy/protocol';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
@@ -16,7 +16,7 @@ import { rounds } from './schema/rounds';
 const debaterSides = ['affirmative', 'negative'] as const;
 
 /**
- * The Round as Recording reads it: named, read-only inputs (ADR 0105). Recording
+ * The Round as Recording reads it: named, read-only inputs (ADR 0107). Recording
  * never writes any of this. Visibility follows the Room. Who may see each part is
  * decided by the caller, so `readRecordingTranscript` and
  * `readRecordingBallots` are called only for a viewer who holds that permission.
@@ -61,7 +61,7 @@ export const recordingRoundReadOperations = ({
               completedAt: round.completedAt,
               resolution: round.resolution,
               visibility: 'private',
-              outcome: round.outcome as RatedOutcome | null,
+              outcome: round.outcome as RoundOutcome | null,
               role: 'affirmative',
             },
           ])
@@ -82,7 +82,7 @@ export const recordingRoundReadOperations = ({
         hostActorId: round.hostActorId,
         status: round.status,
         completedAtMs: round.completedAt?.getTime() ?? null,
-        outcome: round.outcome as RatedOutcome | null,
+        outcome: round.outcome as RoundOutcome | null,
         seats: seats.map((seat) => ({
           id: seat.id,
           actorId: seat.actorId,

@@ -1,34 +1,17 @@
-import type { Identity } from '@daisy/auth';
-import { createAppError } from '@daisy/errors';
-import type { Logger } from '@daisy/logger';
-import type { ErrorReporter } from '@daisy/observability';
 import {
   attendanceRefusalSchema,
   idSchema,
   type AttendanceEnvelope,
   type AttendanceReceipt,
 } from '@daisy/protocol';
-import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
+import { parseValidated, refusalResponse } from '../../server/http';
 import {
-  handleOperation,
-  parseValidated,
-  requireSameOrigin,
-  requireSignedIn,
-  refusalResponse,
-} from '../../server/http';
+  runMemberRoute,
+  type BudgetedMemberBoundary,
+} from '../../server/member-boundary';
 import { readAttendanceCommand } from './body';
 import { nativeAttendanceResponse } from './native-response';
-type HandlerDeps = {
-  readonly logger: Logger;
-  /** ADR 0037: where this handler's 5xx raw errors go, scrubbed. */
-  readonly reporter: ErrorReporter;
-  readonly origin: () => string;
-  readonly active: () => boolean;
-  readonly identify: (request: Request) => Promise<Identity>;
-  readonly getActorByUserId: (
-    userId: string,
-  ) => Promise<{ readonly id: string } | null>;
-  readonly limiter: () => RateLimiter;
+type HandlerDeps = BudgetedMemberBoundary & {
   readonly checkIn: (
     principal: { readonly kind: 'human'; readonly actorId: string },
     roundId: string,
@@ -39,29 +22,23 @@ const attendanceRate = { max: 120, windowSeconds: 60 } as const;
 /** Normal member/session/origin/rate boundaries also govern the synthetic public-path probe. */
 export function createAttendanceHandler(deps: HandlerDeps) {
   return async (request: Request, rawRoundId: string) => {
-    const response = await handleOperation(
-      deps.logger,
+    const roundId = () => parseValidated(idSchema, rawRoundId);
+    const response = await runMemberRoute(
+      deps,
       request,
-      'attendance.check-in',
-      async (requestId) => {
-        if (!deps.active()) throw createAppError('NOT_FOUND');
-        requireSameOrigin(request, deps.origin());
-        const member = requireSignedIn(await deps.identify(request));
-        if (member.state !== 'member') throw createAppError('AUTHORIZATION');
-        const roundId = parseValidated(idSchema, rawRoundId);
-        await consumeOrThrow(
-          deps.limiter(),
-          `attendance:${member.principal.userId}`,
-          attendanceRate,
-        );
-        const actor = await deps.getActorByUserId(member.principal.userId);
-        if (actor?.id !== member.principal.actorId)
-          throw createAppError('AUTHORIZATION');
+      {
+        name: 'attendance.check-in',
+        readOnly: false,
+        bucket: 'attendance',
+        rule: attendanceRate,
+        beforeBudget: roundId,
+      },
+      async (caller, { requestId }) => {
         const { envelope } = await readAttendanceCommand(request);
         try {
           const receipt = await deps.checkIn(
-            { kind: 'human', actorId: actor.id },
-            roundId,
+            { kind: 'human', actorId: caller.actorId },
+            roundId(),
             envelope,
           );
           return Response.json(receipt);
@@ -75,7 +52,6 @@ export function createAttendanceHandler(deps: HandlerDeps) {
           throw error;
         }
       },
-      deps.reporter,
     );
     return request.headers
       .get('content-type')

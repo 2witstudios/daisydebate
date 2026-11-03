@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { round } from '../room-runtime/operations.test-support';
+import { round } from './round.test-support';
 import { readTranscript } from './read-transcript';
 setupRitewayBun();
 test('protected transcript reads validate identity and clear denied access', async () => {

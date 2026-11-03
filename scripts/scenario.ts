@@ -16,7 +16,7 @@ import {
 import type {
   DebateSide,
   HydratedSegment,
-  RatedOutcome,
+  RoundOutcome,
   RoundParticipantSeat,
   RoundProjection,
   RoundStage,
@@ -99,7 +99,7 @@ export type ScenarioObservation = {
   readonly id: string;
   readonly status: 'opening' | 'active' | 'completed' | 'abandoned';
   readonly stage: RoundStage | null;
-  readonly outcome: RatedOutcome | null;
+  readonly outcome: RoundOutcome | null;
   /** The segment keys that opened, in order. */
   readonly opened: readonly string[];
 };

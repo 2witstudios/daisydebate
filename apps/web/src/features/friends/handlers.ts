@@ -13,7 +13,7 @@ import {
 } from '@daisy/protocol';
 import type { FriendshipCommand } from './friendship';
 import { parseValidated, readJson } from '../../server/http';
-import { runMemberHandler } from '../../server/member-handler';
+import { runEvaluatedRoute } from '../../server/member-boundary';
 
 const MAX_BODY_BYTES = 1024;
 
@@ -54,7 +54,7 @@ export function createFriendHandlers(dependencies: {
       readonly username: string;
     },
   ) =>
-    runMemberHandler(dependencies.boundary, request, {
+    runEvaluatedRoute(dependencies.boundary, request, {
       name: `friends.${name}`,
       readOnly: false,
       readInput: () => readJson(request, MAX_BODY_BYTES),
@@ -76,7 +76,7 @@ export function createFriendHandlers(dependencies: {
     operation: (principal: AuthorizationPrincipal) => Promise<T>,
     headers: Readonly<Record<string, string>> = {},
   ) =>
-    runMemberHandler(dependencies.boundary, request, {
+    runEvaluatedRoute(dependencies.boundary, request, {
       name: `friends.${name}`,
       readOnly: true,
       readInput: async () => null,

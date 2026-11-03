@@ -2,6 +2,8 @@ import {
   authorize,
   type AccountAuthorizationFact,
 } from '@daisy/auth/authorization';
+import type { Database } from '@daisy/db';
+import { readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
 import type { LaunchedRound } from '@daisy/protocol';
 const canRead = (
   caller: { readonly userId: string; readonly actorId: string },
@@ -44,3 +46,32 @@ export const canObserveUndelayed = (
   round: LaunchedRound,
   account: AccountAuthorizationFact | null,
 ) => canRead(caller, round, account, 'round.observe.undelayed');
+
+/** The Round as this caller may see it: every read of it, one composition. */
+export const roundViewReader =
+  (
+    store: Pick<Database, 'readLaunchedRound'> & {
+      readonly broadcasts: Pick<Database['broadcasts'], 'conversationHeld'>;
+    },
+  ) =>
+  async (
+    caller: { readonly userId: string; readonly actorId: string },
+    roundId: string,
+  ) => {
+    let viewerIsUndelayedObserver = false;
+    const view = await store.readLaunchedRound(
+      roundId,
+      caller,
+      (round, account) => {
+        viewerIsUndelayedObserver = canObserveUndelayed(caller, round, account);
+        return canReadRound(caller, round, account);
+      },
+      readRoundOpening,
+      roundWaitingOn,
+    );
+    return {
+      ...view,
+      viewerIsUndelayedObserver,
+      conversationHeld: await store.broadcasts.conversationHeld(roundId),
+    };
+  };

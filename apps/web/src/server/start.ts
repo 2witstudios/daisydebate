@@ -2,6 +2,7 @@ import { recordingPersistence } from '../features/recording/persistence';
 import { startRecordingDeletions } from './recording-deletions';
 import { startBroadcastSweep } from '../features/broadcast/composition';
 import { startNotificationSweep } from '../features/spectating/audience-composition';
+import { mediaConfigured } from './round-worker-policy';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
 import { startRoomLifecycleMaintenance } from './room-maintenance';
@@ -70,12 +71,7 @@ await started;
 // Its unexpected failures go to the app's scrubbed reporter (ADR 0037):
 // uninitialized without a DSN, so an unconfigured deployment stays inert.
 const operatorApi = await startOperatorApi(app, app.reporter);
-const mediaRuntime = [
-  app.config.LIVEKIT_URL,
-  app.config.LIVEKIT_PUBLIC_URL,
-  app.config.LIVEKIT_API_KEY,
-  app.config.LIVEKIT_API_SECRET,
-].every(Boolean)
+const mediaRuntime = mediaConfigured(app.config)
   ? createRoundMediaRuntime(app)
   : null;
 const mediaRecovery = mediaRuntime

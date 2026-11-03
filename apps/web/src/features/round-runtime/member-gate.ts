@@ -1,61 +1,36 @@
-import type { Identity } from '@daisy/auth';
-import type { Logger } from '@daisy/logger';
-import type { ErrorReporter } from '@daisy/observability';
-import { createAppError } from '@daisy/errors';
 import { roundRefusalSchema } from '@daisy/protocol';
-import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
+import type { RateRule } from '../../server/rate-limit';
+import { refusalResponse } from '../../server/http';
 import {
-  refusalResponse,
-  handleOperation,
-  requireSameOrigin,
-  requireSameOriginRead,
-  requireSignedIn,
-} from '../../server/http';
-export type RoundCaller = { readonly userId: string; readonly actorId: string };
-type Rule = { readonly max: number; readonly windowSeconds: number };
-export type RoundMemberRouteDependencies = {
-  readonly logger: Logger;
-  /** ADR 0037: where a 5xx from these gates' raw errors goes, scrubbed. */
-  readonly reporter: ErrorReporter;
-  readonly identify: (request: Request) => Promise<Identity>;
-  readonly origin: () => string;
-  readonly getActorByUserId: (
-    id: string,
-  ) => Promise<{ readonly id: string } | null>;
-  readonly limiter: () => RateLimiter;
-  readonly limits: { readonly read: Rule; readonly command: Rule };
-  readonly active: () => boolean;
+  runMemberRoute,
+  type BudgetedMemberBoundary,
+  type MemberCaller,
+} from '../../server/member-boundary';
+export type RoundCaller = MemberCaller;
+/** `view` is the Round itself, with its own budget beside the other member reads. */
+type RoundOperation = 'read' | 'view' | 'command';
+export type RoundMemberRouteDependencies = BudgetedMemberBoundary & {
+  readonly limits: { readonly read: RateRule; readonly command: RateRule };
 };
-/** Origin, session, member, limiter and fresh actor gates for both competitive write contracts. */
+/** The member boundary for the Round's routes, answering its own refusals. */
 export function createRoundMemberGate(d: RoundMemberRouteDependencies) {
   return (
     request: Request,
-    operation: 'read' | 'command',
+    operation: RoundOperation,
     action: (caller: RoundCaller) => Promise<Response>,
   ) =>
-    handleOperation(
-      d.logger,
+    runMemberRoute(
+      d,
       request,
-      `round.${operation}`,
-      async (requestId) => {
-        if (!d.active()) throw createAppError('NOT_FOUND');
-        if (operation === 'command') requireSameOrigin(request, d.origin());
-        else requireSameOriginRead(request, d.origin());
-        const identity = requireSignedIn(await d.identify(request));
-        if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
-        await consumeOrThrow(
-          d.limiter(),
-          `round-member:${operation}:${identity.principal.userId}`,
-          d.limits[operation],
-        );
-        const actor = await d.getActorByUserId(identity.principal.userId);
-        if (!actor || actor.id !== identity.principal.actorId)
-          throw createAppError('INFRASTRUCTURE');
+      {
+        name: `round.${operation}`,
+        readOnly: operation !== 'command',
+        bucket: `round-member:${operation}`,
+        rule: operation === 'command' ? d.limits.command : d.limits.read,
+      },
+      async (caller, { requestId }) => {
         try {
-          return await action({
-            userId: identity.principal.userId,
-            actorId: actor.id,
-          });
+          return await action(caller);
         } catch (error) {
           const response = refusalResponse(
             error,
@@ -66,6 +41,5 @@ export function createRoundMemberGate(d: RoundMemberRouteDependencies) {
           return response;
         }
       },
-      d.reporter,
     );
 }

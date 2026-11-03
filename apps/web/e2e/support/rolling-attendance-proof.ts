@@ -6,7 +6,7 @@ import { createHumanBallotRound } from './human-ballot-round';
 import {
   actualSpeech,
   enterSpeech,
-  nextReceipt,
+  receiptAfterReload,
   healthyAttendance,
   attendedResolution,
   closeAttendedFixture,
@@ -113,9 +113,7 @@ export async function rollingAttendancePeer({
         { timeout: 10_000 },
       )
       .toBe(true);
-    const replay = await nextReceipt(present[0]!.page, round.id, () =>
-      present[0]!.page.reload(),
-    );
+    const replay = await receiptAfterReload(present[0]!.page, round.id);
     expect(replay.receivedAt).toBe(present[0]!.receipt.receivedAt);
     expect(replay.replayed).toBe(true);
     await attendedResolution(round.id, speech.id);

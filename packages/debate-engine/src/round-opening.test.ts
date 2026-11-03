@@ -1,6 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { ResolutionDrawState } from '@daisy/protocol/resolution-draw';
-import { openingStep, settleOpening, type RoundOpening } from './round-opening';
+import {
+  openingStep,
+  settledOpeningTopic,
+  settleOpening,
+  type RoundOpening,
+} from './round-opening';
 import { begin } from './round-opening.test-support';
 
 setupRitewayBun();
@@ -122,6 +127,37 @@ describe('settleOpening', () => {
       should: 'settle to the same strikes',
       actual: settleOpening(once.opening, null, now).opening.draw!.strikes,
       expected: once.opening.draw!.strikes,
+    });
+  });
+});
+
+describe('settledOpeningTopic', () => {
+  test('the one resolution an opening has reached, whoever asks', () => {
+    const draw = humanDraw();
+    const revealAt = after(windowMs(draw) * (draw.manifest.drawSize - 1));
+    const stored = opening(draw, PREP_MS);
+    const standing = settleOpening(stored, null, revealAt).opening.draw!;
+    const struck = new Set(standing.strikes.map((strike) => strike.position));
+    assert({
+      given: 'a draw before and after its last window ran out, with no tick',
+      should: 'stay null, then name the one line left standing',
+      actual: [
+        settledOpeningTopic(stored, null, after(1)),
+        settledOpeningTopic(stored, null, revealAt),
+      ],
+      expected: [
+        null,
+        draw.items.find((item) => !struck.has(item.position))?.text,
+      ],
+    });
+  });
+
+  test('a Round with no draw has no opening topic', () => {
+    assert({
+      given: 'an opening with prep only',
+      should: 'leave the Round its stored resolution',
+      actual: settledOpeningTopic(opening(null, PREP_MS), null, after(1)),
+      expected: null,
     });
   });
 });

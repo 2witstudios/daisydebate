@@ -3,8 +3,10 @@ import { createAnalyticsDelivery } from '../features/analytics/delivery';
 import { analyticsConfiguration } from '../features/analytics/config';
 import { createPostHogErasure } from '../features/analytics/erase-vendor';
 import {
+  aiSeatAvailability,
   botAdmissionOptions,
   roundWorkerDatabaseOptions,
+  type AiSeatAvailability,
 } from './round-worker-policy';
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { readRealtimePublicUrl } from '@daisy/config';
@@ -55,6 +57,8 @@ import { createRequestNetwork } from './request-network';
 
 export type AppDependencies = {
   readonly roomPolicy?: RoomPolicy;
+  /** Fixtures that seat bots with no worker state it; otherwise from config. */
+  readonly aiSeats?: AiSeatAvailability;
   /**
    * The messaging policy this app runs: `betaMessagingPolicy` (DEC-251) in
    * every deployment. `MESSAGING_POLICY` may only tighten it.
@@ -98,6 +102,7 @@ export type AppDependencies = {
 export function createApp({
   env,
   roomPolicy,
+  aiSeats,
   messagingPolicy,
   messagingFiles,
   fetch,
@@ -223,6 +228,7 @@ export function createApp({
       NODE_ENV: config.NODE_ENV,
     }),
     roomPolicy: roomPolicy ?? config.ROOM_POLICY ?? null,
+    aiSeats: aiSeats ?? aiSeatAvailability(config),
     messagingPolicy: policy,
     /** DEC-251's social request budget; `CONTACTS_POLICY` may only tighten it. */
     contactsPolicy: tightenContactsPolicy(

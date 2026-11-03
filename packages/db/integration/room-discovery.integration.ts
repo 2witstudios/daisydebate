@@ -99,6 +99,7 @@ test('discovery work is independent of historical Room and Round volume', async 
             () => true,
             () => false,
             { now: new Date().toISOString(), rankedDelaySeconds: 0 },
+            () => null,
           ),
         );
       const first = await list(),

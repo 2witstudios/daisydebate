@@ -9,11 +9,11 @@ import {
 } from '../forms/file-form';
 import { attachMessagingFormFile } from './form-upload';
 import type { createMessagingFileHandlers } from './handlers';
-import { runMemberHandler } from '../../../server/member-handler';
+import { runEvaluatedRoute } from '../../../server/member-boundary';
 /** Multipart is bounded after origin/member validation, outside the 16 KiB action decoder. */
 export function nativeFileHandler(
   input: {
-    readonly boundary: Parameters<typeof runMemberHandler>[0];
+    readonly boundary: Parameters<typeof runEvaluatedRoute>[0];
     readonly maxMultipartBytes: number;
     readonly files: ReturnType<typeof createMessagingFileHandlers>;
     readonly respond: (state: MessagingFileFormState) => Response;
@@ -22,7 +22,7 @@ export function nativeFileHandler(
   channel: unknown,
   message: unknown,
 ) {
-  return runMemberHandler(input.boundary, request, {
+  return runEvaluatedRoute(input.boundary, request, {
     name: 'messaging.file.attach',
     readOnly: false,
     readInput: async () => {

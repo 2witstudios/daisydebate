@@ -25,6 +25,10 @@ CREATE TABLE "broadcasts" (
 	"observer_revoked_at" timestamp with time zone,
 	"revocation_failures" integer DEFAULT 0 NOT NULL,
 	"next_segment" integer DEFAULT 0 NOT NULL,
+	"egress_generation" integer DEFAULT 0 NOT NULL,
+	"released_generation" integer DEFAULT 1 NOT NULL,
+	"hold_cursor" integer DEFAULT 0 NOT NULL,
+	"stream_ended_at" timestamp with time zone,
 	"released_through_at" timestamp with time zone,
 	"final_media_end_at" timestamp with time zone,
 	"stopped_at" timestamp with time zone,
@@ -38,7 +42,7 @@ CREATE TABLE "broadcasts" (
 	CONSTRAINT "broadcasts_delivery_path_check" CHECK ("delivery_path" in ('owned_hls')),
 	CONSTRAINT "broadcasts_release_policy_is_object" CHECK (jsonb_typeof("release_policy") = 'object'),
 	CONSTRAINT "broadcasts_release_policy_check" CHECK ("release_policy"->>'kind' in ('delay','round_end','at')),
-	CONSTRAINT "broadcasts_cursor_check" CHECK ("next_segment" >= 0 and "revocation_failures" >= 0 and "lease_epoch" >= 0 and "chat_slow_mode_seconds" between 0 and 3600),
+	CONSTRAINT "broadcasts_cursor_check" CHECK ("next_segment" >= 0 and "hold_cursor" >= 0 and "egress_generation" >= 0 and "released_generation" >= 1 and "revocation_failures" >= 0 and "lease_epoch" >= 0 and "chat_slow_mode_seconds" between 0 and 3600),
 	CONSTRAINT "broadcasts_lease_check" CHECK (("lease_owner" is null) = ("lease_until" is null)),
 	CONSTRAINT "broadcasts_stop_check" CHECK (("stopped_at" is null) = ("stop_reason" is null))
 );
