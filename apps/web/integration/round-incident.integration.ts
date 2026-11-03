@@ -1,7 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createLogger } from '@daisy/logger';
-import type { MediaObservation } from '@daisy/debate-engine';
+import {
+  readRoundOpening,
+  roundWaitingOn,
+  type MediaObservation,
+} from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { readRoundIncidentRate } from '@daisy/db/round-incident-rate';
 import { createRoundIncidentObserver } from '../src/features/round-incidents/observe';
@@ -180,8 +184,15 @@ test('no recovery within the bound ends the Round with no outcome', async () => 
         phase: ended.runtime_state.incident.phase,
         speechClosed: (await segmentOf(f)).ended_at !== null,
         alerts: alerts.length,
-        receipt: (await f.store.readLaunchedRound(f.roundId, f.host.actorId))
-          ?.endedByPlatformIncident,
+        receipt: (
+          await f.store.readLaunchedRound(
+            f.roundId,
+            f.host,
+            () => true,
+            readRoundOpening,
+            roundWaitingOn,
+          )
+        )?.endedByPlatformIncident,
       },
       expected: {
         status: 'abandoned',

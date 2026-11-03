@@ -113,7 +113,9 @@ export function RoundReceipt({
         <h1 className="font-display text-2xl font-semibold text-ink">
           Round result
         </h1>
-        {round.outcome || round.status === 'completed' ? (
+        {round.outcome ||
+        round.status === 'completed' ||
+        round.endedByPlatformIncident ? (
           <p className="text-lg font-strong text-ink">
             Result · {resultText(round)}
           </p>
