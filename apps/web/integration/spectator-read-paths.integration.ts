@@ -11,6 +11,7 @@ import { readProfile } from '../src/features/profile/read-profile';
 import { readMemberStandings } from '../src/features/ratings/read-member';
 import { canReadRound } from '../src/features/round-runtime/reads';
 import { createSpectatorTimelineHandlers } from '../src/features/spectating/handlers';
+import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
 import { PUBLIC_SNAPSHOT_CACHE } from '../src/server/http';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { noopErrorReporter } from '@daisy/observability';
@@ -85,6 +86,28 @@ test('every public and member read holds a ranked outcome until release', async 
           roundId!,
         );
       };
+      // A Room the rated host opens while the Round is still held.
+      const openRoomId = createId();
+      await f.sql`insert into rooms (id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
+        select ${openRoomId},host_actor_id,title,null,'public',format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,'assembling'
+        from rooms where id=${frozen.room.id}`;
+      const listedRating = async () => {
+        const page = await f.store.listRoomPage(
+          f.outsider,
+          { pageSize: 50, q: '' },
+          () => true,
+          () => true,
+          () => false,
+          spectatorClockAt(now),
+        );
+        return page.rooms.find((r) => r.id === openRoomId)?.hostRating;
+      };
+      const ledger =
+        (await f.sql`select rating_before, rating_after from rating_changes
+        where round_id=${roundId} and actor_id=${f.host.actorId}`) as {
+          rating_before: number;
+          rating_after: number;
+        }[];
       const reads = async () => {
         const response = await timelineResponse();
         const body = await response.text();
@@ -104,6 +127,7 @@ test('every public and member read holds a ranked outcome until release', async 
           { identity: visitor, username: hostName, query: {}, now },
         );
         return {
+          listedRating: await listedRating(),
           body,
           response,
           timeline,
@@ -139,6 +163,12 @@ test('every public and member read holds a ranked outcome until release', async 
         should: 'not show the debater as rated',
         actual: [held.ladderEntries, held.memberRating],
         expected: [0, null],
+      });
+      assert({
+        given: 'a Room listing the host before release',
+        should: 'show the rating from before the held Round',
+        actual: held.listedRating,
+        expected: Math.round(ledger[0]!.rating_before),
       });
       assert({
         given: 'a public profile before release',
@@ -236,11 +266,18 @@ test('every public and member read holds a ranked outcome until release', async 
         expected: [false, false, false, true],
       });
       assert({
+        given: 'a Room listing the host after release',
+        should: 'show the rating the Round left',
+        actual: out.listedRating,
+        expected: Math.round(ledger[0]!.rating_after),
+      });
+      assert({
         given: 'ratings, standings and profiles after release',
         should: 'show the rated Round',
         actual: [out.ladderEntries, out.memberRating !== null, out.historyRows],
         expected: [1, true, 1],
       });
+      await f.sql`delete from rooms where id=${openRoomId}`;
     } finally {
       if (roundId) {
         await f.sql`delete from broadcasts where round_id=${roundId}`;
