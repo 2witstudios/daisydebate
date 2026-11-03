@@ -97,6 +97,7 @@ export const notificationFanouts = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.kind, table.roundId] }),
+    index('notification_fanouts_round_idx').on(table.roundId),
     check(
       'notification_fanouts_kind_check',
       oneOf(table.kind, notificationKinds),

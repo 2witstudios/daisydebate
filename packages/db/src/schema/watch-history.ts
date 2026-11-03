@@ -19,5 +19,6 @@ export const watchHistory = pgTable(
     primaryKey({ columns: [table.userId, table.roundId] }),
     index('watch_history_user_idx').on(table.userId, table.watchedAt.desc()),
     index('watch_history_retention_idx').on(table.watchedAt),
+    index('watch_history_round_idx').on(table.roundId),
   ],
 );

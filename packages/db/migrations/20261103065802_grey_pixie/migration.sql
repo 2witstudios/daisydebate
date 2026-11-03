@@ -56,6 +56,7 @@ CREATE INDEX "audience_reactions_round_idx" ON "audience_reactions" ("round_id",
 CREATE INDEX "audience_reactions_user_idx" ON "audience_reactions" ("user_id");--> statement-breakpoint
 CREATE INDEX "debater_follows_debater_idx" ON "debater_follows" ("debater_actor_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "messaging_channels_round_unique" ON "messaging_channels" ("round_id");--> statement-breakpoint
+CREATE INDEX "notification_fanouts_round_idx" ON "notification_fanouts" ("round_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "notifications_once_unique" ON "notifications" ("user_id","kind","round_id");--> statement-breakpoint
 CREATE INDEX "notifications_user_idx" ON "notifications" ("user_id","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "notifications_read_idx" ON "notifications" ("read_at") WHERE "read_at" is not null;--> statement-breakpoint
@@ -63,6 +64,7 @@ CREATE INDEX "notifications_round_idx" ON "notifications" ("round_id");--> state
 CREATE INDEX "notifications_debater_idx" ON "notifications" ("debater_actor_id");--> statement-breakpoint
 CREATE INDEX "watch_history_user_idx" ON "watch_history" ("user_id","watched_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "watch_history_retention_idx" ON "watch_history" ("watched_at");--> statement-breakpoint
+CREATE INDEX "watch_history_round_idx" ON "watch_history" ("round_id");--> statement-breakpoint
 ALTER TABLE "audience_reactions" ADD CONSTRAINT "audience_reactions_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "audience_reactions" ADD CONSTRAINT "audience_reactions_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "debater_follows" ADD CONSTRAINT "debater_follows_follower_user_id_users_id_fkey" FOREIGN KEY ("follower_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
