@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { attemptSource, WHOLE_FILE } from './attempt-source';
+import { attemptSource } from './attempt-source';
 
 setupRitewayBun();
 
