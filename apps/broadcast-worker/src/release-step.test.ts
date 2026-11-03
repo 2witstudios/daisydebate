@@ -33,6 +33,10 @@ const world = (over: Partial<ReleasePorts> = {}) => {
       log.push(`record ${seq} ${end - start}`);
       return true;
     },
+    recordEnded: async (end) => {
+      log.push(`ended ${end - start}`);
+      return true;
+    },
     ...over,
   };
   return { ports, log };
@@ -42,7 +46,8 @@ const input = (over = {}) => ({
   nextSegment: 0,
   nowMs: start + 64_000,
   roundEndedAtMs: null,
-  finalMediaEnded: false,
+  finalMediaEndMs: null,
+  releasedThroughMs: null,
   ...over,
 });
 
@@ -134,29 +139,91 @@ describe('releaseStep', () => {
       expected: [1, ['encode s_1.ts']],
     });
   });
-  test('the last segment after final media ends the stream', async () => {
+  test('a cursor past the hold, after final media, ends the stream', async () => {
+    const seen: string[] = [];
+    const { ports, log } = world({
+      publishManifest: async (_key, text) => {
+        seen.push(text);
+      },
+    });
+    const finalMediaEndMs = start + 13_000;
+    const past = (over = {}) =>
+      releaseStep(
+        input({
+          nextSegment: 3,
+          finalMediaEndMs,
+          releasedThroughMs: start + 12_000,
+          nowMs: finalMediaEndMs + 10_000,
+          ...over,
+        }),
+        ports,
+      );
+    const open = await past({ finalMediaEndMs: null });
+    const settling = await past({ nowMs: finalMediaEndMs + 9_999 });
+    assert({
+      given: 'no final media yet, then a hold still settling after a stop',
+      should: 'wait and touch nothing',
+      actual: [open.kind, settling.kind, log],
+      expected: ['waiting', 'waiting', []],
+    });
+    assert({
+      given: 'the last segment ending a second before the stop, hold settled',
+      should: 'mark the end and move the timeline to the end of the media',
+      actual: [
+        (await past()).kind,
+        seen.at(-1)!.includes('ENDLIST'),
+        log.at(-1),
+      ],
+      expected: ['ended', true, 'ended 13000'],
+    });
+    const before = log.length;
+    assert({
+      given: 'a stream already ended',
+      should: 'do nothing more',
+      actual: [
+        (await past({ releasedThroughMs: finalMediaEndMs })).kind,
+        log.length,
+      ],
+      expected: ['waiting', before],
+    });
+  });
+  test('a Round whose Egress held nothing still ends', async () => {
+    const { ports, log } = world({ readHoldPlaylist: async () => '#EXTM3U\n' });
+    assert({
+      given: 'no held segment at all, after final media',
+      should: 'publish no manifest and record the end',
+      actual: [
+        (
+          await releaseStep(
+            input({ finalMediaEndMs: start, nowMs: start + 10_000 }),
+            ports,
+          )
+        ).kind,
+        log,
+      ],
+      expected: ['ended', ['ended 0']],
+    });
+  });
+  test('the last segment is released as open until the stream ends', async () => {
     const seen: string[] = [];
     const { ports } = world({
       publishManifest: async (_key, text) => {
         seen.push(text);
       },
     });
-    const at = (nextSegment: number, finalMediaEnded: boolean) =>
-      releaseStep(
-        input({ nextSegment, finalMediaEnded, nowMs: start + 900_000 }),
-        ports,
-      );
-    await at(2, false);
-    const open = seen.at(-1)!.includes('ENDLIST');
-    await at(1, true);
-    const notLast = seen.at(-1)!.includes('ENDLIST');
-    await at(2, true);
+    await releaseStep(
+      input({
+        nextSegment: 2,
+        finalMediaEndMs: start,
+        nowMs: start + 900_000,
+      }),
+      ports,
+    );
     assert({
-      given:
-        'the last held segment before and after final media, and an earlier one',
-      should: 'mark the end only on the last segment after final media',
-      actual: [open, notLast, seen.at(-1)!.includes('ENDLIST')],
-      expected: [false, false, true],
+      given: 'the last held segment after final media',
+      should: 'not end the stream until the cursor is past the hold',
+      actual: seen.at(-1)!.includes('ENDLIST'),
+      expected: false,
     });
   });
   test('the manifest window comes from the durable hold, so a crash keeps it', async () => {

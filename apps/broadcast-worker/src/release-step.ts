@@ -9,6 +9,9 @@ import {
 
 const WINDOW = 6;
 
+/** Egress finishes writing its last segments this long after a stop (measured: 2 s). */
+const HOLD_SETTLE_MS = 10_000;
+
 export type EncodedRendition = {
   readonly rendition: string;
   readonly file: string;
@@ -29,6 +32,8 @@ export type ReleasePorts = {
     seq: number,
     mediaEndMs: number,
   ) => Promise<boolean>;
+  /** Every held segment is out, so the timeline reaches the end of the media. */
+  readonly recordEnded: (mediaEndMs: number) => Promise<boolean>;
 };
 
 export type ReleaseInput = {
@@ -36,14 +41,56 @@ export type ReleaseInput = {
   readonly nextSegment: number;
   readonly nowMs: number;
   readonly roundEndedAtMs: number | null;
-  /** Known once the Egress stopped; the last held segment then ends the stream. */
-  readonly finalMediaEnded: boolean;
+  /** Known once the Egress stopped; a cursor past the hold then ends the stream. */
+  readonly finalMediaEndMs: number | null;
+  readonly releasedThroughMs: number | null;
 };
 
 export type ReleaseResult =
   | { readonly kind: 'waiting' }
   | { readonly kind: 'fenced' }
+  | { readonly kind: 'ended' }
   | { readonly kind: 'released'; readonly released: ReleasedSegment };
+
+const windowEndingAt = (
+  held: ReturnType<typeof parseHoldPlaylist>,
+  seq: number,
+): readonly ReleasedSegment[] =>
+  held.slice(Math.max(0, seq - WINDOW + 1), seq + 1).map((e, i, all) => ({
+    seq: seq - all.length + 1 + i,
+    capturedAtMs: e.capturedAtMs,
+    durationMs: e.durationMs,
+  }));
+
+const publishManifests = async (
+  ports: Pick<ReleasePorts, 'publishManifest'>,
+  segments: readonly ReleasedSegment[],
+  ended: boolean,
+) => {
+  for (const { name } of RENDITIONS)
+    await ports.publishManifest(
+      `${name}/index.m3u8`,
+      mediaPlaylist(segments, { ended }),
+    );
+};
+
+/**
+ * Nothing is left to release, and no more media is coming: the manifests say so
+ * and the timeline reaches the media's end, so the Broadcast can complete even
+ * when the last segment ended seconds before the stop, or none was ever held.
+ */
+const endStream = async (
+  input: ReleaseInput,
+  finalMediaEndMs: number,
+  held: ReturnType<typeof parseHoldPlaylist>,
+  ports: ReleasePorts,
+): Promise<ReleaseResult> => {
+  if (held.length > 0)
+    await publishManifests(ports, windowEndingAt(held, held.length - 1), true);
+  return (await ports.recordEnded(finalMediaEndMs))
+    ? { kind: 'ended' }
+    : { kind: 'fenced' };
+};
 
 /**
  * One segment, at the cursor only. The order is the guarantee: media reaches
@@ -56,8 +103,15 @@ export const releaseStep = async (
 ): Promise<ReleaseResult> => {
   const held = parseHoldPlaylist(await ports.readHoldPlaylist());
   const entry = held[input.nextSegment];
+  if (!entry) {
+    const end = input.finalMediaEndMs;
+    return end !== null &&
+      input.nowMs >= end + HOLD_SETTLE_MS &&
+      (input.releasedThroughMs ?? Number.NEGATIVE_INFINITY) < end
+      ? endStream(input, end, held, ports)
+      : { kind: 'waiting' };
+  }
   if (
-    !entry ||
     !segmentDue(input.policy, entry, {
       nowMs: input.nowMs,
       roundEndedAtMs: input.roundEndedAtMs,
@@ -67,20 +121,8 @@ export const releaseStep = async (
   const seq = input.nextSegment;
   for (const { rendition, file } of await ports.encode(entry.name))
     await ports.publishSegment(seq, rendition, file);
-  const window = held
-    .slice(Math.max(0, seq - WINDOW + 1), seq + 1)
-    .map((e, i, all) => ({
-      seq: seq - all.length + 1 + i,
-      capturedAtMs: e.capturedAtMs,
-      durationMs: e.durationMs,
-    }));
-  for (const { name } of RENDITIONS)
-    await ports.publishManifest(
-      `${name}/index.m3u8`,
-      mediaPlaylist(window, {
-        ended: input.finalMediaEnded && seq === held.length - 1,
-      }),
-    );
+  const window = windowEndingAt(held, seq);
+  await publishManifests(ports, window, false);
   const recorded = await ports.recordReleased(
     seq,
     releasedThrough(null, entry),

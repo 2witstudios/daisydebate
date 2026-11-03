@@ -136,6 +136,26 @@ export const readReleasedThrough = async (tx: Tx, roundId: string) => {
 };
 
 /** Records the running Egress; the reconcile pass reads its state from LiveKit. */
+/** Every held segment is out: the timeline reaches the end of the media. */
+export const recordMediaEndReleased = async (
+  tx: Tx,
+  input: {
+    readonly id: string;
+    readonly owner: string;
+    readonly epoch: number;
+    readonly mediaEnd: Date;
+  },
+): Promise<boolean> => {
+  const rows = await tx
+    .update(broadcasts)
+    .set({
+      releasedThroughAt: sql`greatest(${broadcasts.releasedThroughAt}, ${input.mediaEnd.toISOString()}::timestamptz)`,
+    })
+    .where(held(input.id, input.owner, input.epoch))
+    .returning({ id: broadcasts.id });
+  return rows.length > 0;
+};
+
 export const recordEgressStarted = (
   tx: Tx,
   input: {

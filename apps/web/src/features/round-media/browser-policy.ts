@@ -25,12 +25,15 @@ export const mediaDocumentStale = (
   isRoundMediaHref(href) &&
   !isRoundMediaHref(documentUrl);
 
+/** The Broadcast's stage only receives: it connects to LiveKit with no capture exception. */
+const isStagePage = (path: string) => /^\/stage\/[^/]+$/.test(path);
+
 export function roundMediaOrigins(
   path: string,
   endpoint: string | null | undefined,
   development: boolean,
 ): readonly string[] {
-  if (!isRoundMediaPage(path) || !endpoint) return [];
+  if (!(isRoundMediaPage(path) || isStagePage(path)) || !endpoint) return [];
   try {
     const url = new URL(endpoint);
     if (

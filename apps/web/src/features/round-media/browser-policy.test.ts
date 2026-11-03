@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { isRoundMediaHref, mediaDocumentStale } from './browser-policy';
+import {
+  isRoundMediaHref,
+  roundMediaOrigins,
+  mediaDocumentStale,
+} from './browser-policy';
 setupRitewayBun();
 
 describe('isRoundMediaHref', () => {
@@ -67,6 +71,32 @@ describe('mediaDocumentStale', () => {
         mediaDocumentStale('https://daisy.test/lobby', '/lobby?q=a'),
       ],
       expected: [false, false, false],
+    });
+  });
+});
+
+describe('roundMediaOrigins', () => {
+  test('the Broadcast stage reaches LiveKit, and gets no capture page status', () => {
+    const endpoint = 'wss://livekit.daisy.invalid';
+    assert({
+      given: 'the stage page, a sub-path of it, and a page with no media',
+      should: 'name LiveKit for the stage alone',
+      actual: [
+        roundMediaOrigins('/stage/b1', endpoint, false),
+        roundMediaOrigins('/stage/b1/x', endpoint, false),
+        roundMediaOrigins('/watch/r1', endpoint, false),
+      ],
+      expected: [
+        ['wss://livekit.daisy.invalid', 'https://livekit.daisy.invalid'],
+        [],
+        [],
+      ],
+    });
+    assert({
+      given: 'the stage as an in-app href',
+      should: 'not count as a capture page, so it never receives mic or camera',
+      actual: isRoundMediaHref('/stage/b1'),
+      expected: false,
     });
   });
 });

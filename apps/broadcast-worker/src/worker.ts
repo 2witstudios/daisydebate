@@ -82,7 +82,8 @@ export const runWorker = async (deps: {
             nextSegment: next,
             nowMs: deps.now(),
             roundEndedAtMs: facts.finalMediaEndAt?.getTime() ?? null,
-            finalMediaEnded: facts.finalMediaEndAt !== null,
+            finalMediaEndMs: facts.finalMediaEndAt?.getTime() ?? null,
+            releasedThroughMs: facts.releasedThroughAt?.getTime() ?? null,
           },
           {
             readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
@@ -111,11 +112,27 @@ export const runWorker = async (deps: {
                 segment,
                 mediaEnd: new Date(mediaEndMs),
               }),
+            recordEnded: (mediaEndMs) =>
+              store.recordEnded({
+                id: job.id,
+                owner: deps.owner,
+                epoch: job.leaseEpoch,
+                mediaEnd: new Date(mediaEndMs),
+              }),
           },
         );
         if (result.kind === 'fenced') break;
-        if (result.kind === 'waiting') await deps.sleep(IDLE_MS);
-        else next += 1;
+        if (result.kind === 'released') {
+          next += 1;
+          facts = {
+            ...facts,
+            releasedThroughAt: new Date(
+              result.released.capturedAtMs + result.released.durationMs,
+            ),
+          };
+        } else if (result.kind === 'ended')
+          facts = { ...facts, releasedThroughAt: facts.finalMediaEndAt };
+        else await deps.sleep(IDLE_MS);
       }
     } catch {
       deps.report('broadcast.release_failed');
