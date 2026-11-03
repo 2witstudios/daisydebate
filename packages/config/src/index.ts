@@ -12,7 +12,8 @@ export type { RoundJudgingPolicy } from './judging-policy';
 export type { RoundAnalysisPolicy } from './round-analysis-policy';
 export type { MessagingPolicyOverride } from './messaging-policy';
 export type { ContactsPolicyOverride } from './contacts-policy';
-import { mediaEndpoint } from './media-endpoint';
+import { mediaEndpointList, mediaEndpointsOf } from './media-endpoint';
+export { mediaEndpointsOf };
 import {
   deploymentIdentityFields,
   requireDeploymentIdentity,
@@ -116,8 +117,8 @@ const serverFields = {
   BETA_NOTIFY_EMAIL: z.email().optional(),
   ...operatorFields,
   REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
-  LIVEKIT_URL: mediaEndpoint(/^https?$/).optional(),
-  LIVEKIT_PUBLIC_URL: mediaEndpoint(/^wss?$/).optional(),
+  LIVEKIT_URL: mediaEndpointList(/^https?$/).optional(),
+  LIVEKIT_PUBLIC_URL: mediaEndpointList(/^wss?$/).optional(),
   LIVEKIT_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
   LIVEKIT_API_SECRET: secret(z.string().regex(/^\S+$/)).optional(),
   MEDIA_WORKER_SECRET: secret(mediaWorkerSecret).optional(),

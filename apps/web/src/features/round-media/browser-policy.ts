@@ -31,6 +31,16 @@ export function roundMediaOrigins(
   development: boolean,
 ): readonly string[] {
   if (!isRoundMediaPage(path) || !endpoint) return [];
+  // Every node in the list: a Round may be sent to any of them.
+  return endpoint
+    .split(',')
+    .flatMap((entry) => nodeOrigins(entry, development));
+}
+
+function nodeOrigins(
+  endpoint: string,
+  development: boolean,
+): readonly string[] {
   try {
     const url = new URL(endpoint);
     if (
