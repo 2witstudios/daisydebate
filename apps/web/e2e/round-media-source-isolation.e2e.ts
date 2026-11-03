@@ -7,6 +7,7 @@ import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import {
   MEDIA_POLL,
+  countMediaAdmissions,
   grantedDebaters,
   readMediaState,
   grantMedia,
@@ -237,14 +238,7 @@ test('actual checked-device loss retries only the default camera and preserves t
         return capture(constraints);
       };
     });
-    let admissions = 0;
-    source.on('request', (request) => {
-      if (
-        new URL(request.url()).pathname ===
-        `/api/rounds/${round.id}/media/session`
-      )
-        admissions++;
-    });
+    const admissions = countMediaAdmissions(source);
     await source.reload();
     await expect(
       source
@@ -265,7 +259,7 @@ test('actual checked-device loss retries only the default camera and preserves t
         .getByRole('status')
         .filter({ hasText: /checked camera is missing/ }),
     ).toHaveCount(0);
-    expect(admissions).toBe(1);
+    expect(admissions()).toBe(1);
     const after = await checkedChoices(source, round.roomId);
     expect(after).toEqual({ microphone: selection.microphone });
     await source.screenshot({
@@ -294,15 +288,11 @@ for (const scenario of [
     const accounts = await createRoomLaunchAccounts(browser, 2);
     try {
       await grantMedia(accounts.members);
-      let admissions = 0;
+      let admissions = () => 0;
       const { round, pages } = await openCheckedMediaRound(
         accounts.members,
         async (page, index) => {
-          if (index === 0)
-            page.on('request', (request) => {
-              if (new URL(request.url()).pathname.endsWith('/media/session'))
-                admissions++;
-            });
+          if (index === 0) admissions = countMediaAdmissions(page);
           await installMediaCapture(
             page,
             index === 0 ? scenario.mode : 'alternating',
@@ -329,7 +319,7 @@ for (const scenario of [
       const authority = roundMediaStateSchema.parse(await response.json());
       expect(authority.grants.publish).toContain('microphone');
       expect(authority.grants.subscribe).toBe(true);
-      expect(admissions).toBe(1);
+      expect(admissions()).toBe(1);
       await source.screenshot({
         path: test.info().outputPath(`${scenario.mode}.png`),
       });
