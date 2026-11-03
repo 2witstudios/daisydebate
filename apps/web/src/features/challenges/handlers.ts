@@ -45,7 +45,7 @@ export function createChallengeHandlers(dependencies: {
 }) {
   const write = (
     request: Request,
-    name: string,
+    name: 'send' | 'accept' | 'decline' | 'cancel',
     run: (input: unknown, principal: AuthorizationPrincipal) => Answer,
   ) =>
     runMemberHandler(dependencies.boundary, request, {
