@@ -49,6 +49,27 @@ export const SERVICE_APPS: readonly ServiceApp[] = [
       pattern: /child\.kill\('SIGKILL'\), ([\d_]+)\)/,
     },
   },
+  // ADR 0099, ADR 0107: the Broadcast and Recording pipeline.
+  {
+    file: 'fly.egress.toml',
+    token: 'FLY_EGRESS_API_TOKEN',
+    target: null,
+    stop: null,
+  },
+  {
+    file: 'fly.broadcast-worker.toml',
+    token: 'FLY_BROADCAST_WORKER_API_TOKEN',
+    target: 'broadcast-worker',
+    stop: null,
+    private: true,
+  },
+  {
+    file: 'fly.recording-worker.toml',
+    token: 'FLY_RECORDING_WORKER_API_TOKEN',
+    target: 'recording-worker',
+    stop: null,
+    private: true,
+  },
   // ADR 0084: the log store (its own pinned image), then the shipper, both
   // before the admin app that reads the store's schema.
   {

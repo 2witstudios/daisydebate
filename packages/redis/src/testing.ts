@@ -47,6 +47,7 @@ const reads = new Set([
   'MGET',
   'OBJECT',
   'PING',
+  'PFCOUNT',
   'PTTL',
   'SCARD',
   'SISMEMBER',

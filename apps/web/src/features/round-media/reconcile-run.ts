@@ -10,6 +10,7 @@ import {
 } from '@daisy/debate-engine';
 import {
   admissionRevoked,
+  conversationHeldOverdue,
   mediaEnded,
   seatGrants,
   type MediaSnapshot,
@@ -121,8 +122,25 @@ const admitsCreator = (context: AuthorizeContext, admission: Principal) => {
 export function createMediaReconcileRun(
   input: MediaOperationInput,
   buildProjection: Parameters<Store['readMediaSession']>[0]['buildProjection'],
-  snapshot: (roundId: string, actorId?: string) => Promise<MediaSnapshot>,
+  readSnapshot: (roundId: string, actorId?: string) => Promise<MediaSnapshot>,
 ) {
+  // Raised from here, not the sweep, because a dead sweep is the likely cause.
+  const heldAlerted = new Set<string>();
+  const snapshot = async (roundId: string, actorId?: string) => {
+    const state = await readSnapshot(roundId, actorId);
+    if (
+      !heldAlerted.has(roundId) &&
+      conversationHeldOverdue(state, input.nextId)
+    ) {
+      heldAlerted.add(roundId);
+      input.logger.log(
+        'broadcast.conversation_held_long',
+        { roundId },
+        'Conversation held over 30 s waiting for the audience observer',
+      );
+    }
+    return state;
+  };
   const { deferred, mutate } = createMediaMutations(input, buildProjection);
   /** Tells the incident hook what this pass saw of the room. */
   const reportToIncident = (
@@ -230,8 +248,7 @@ export function createMediaReconcileRun(
     for (const entry of known) {
       const desired = seatGrants(state, entry.participantId, input.nextId);
       if (
-        !entry.grants.publish.includes('microphone') ||
-        desired.publish.includes('microphone')
+        entry.grants.publish.every((source) => desired.publish.includes(source))
       )
         continue;
       const grants = {

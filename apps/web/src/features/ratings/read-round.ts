@@ -56,6 +56,7 @@ export async function readRoundRatings(
     ladder: round.ladderId,
     seasonId: null,
     now,
+    revealRoundId: round.id,
     ...(input.viewerActorId ? { viewerActorId: input.viewerActorId } : {}),
   });
   if (!published) return noSeason;

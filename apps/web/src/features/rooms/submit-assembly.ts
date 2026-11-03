@@ -7,6 +7,8 @@ import {
   type RoomRefusal,
 } from '@daisy/protocol';
 
+import { captureFromFields } from './capture-form';
+
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 type Submitted =
   | { readonly kind: 'accepted'; readonly view: RoomView }
@@ -33,7 +35,23 @@ function commandFields(form: FormData): Record<string, unknown> | null {
     if (typeof raw[key] !== 'string') return null;
     raw[key] = JSON.parse(raw[key]);
   }
+  if (raw.type === 'set-capture') return withCapture(raw);
   return 'format' in raw ? withFormatTuple(raw) : raw;
+}
+
+/** The plain capture fields become the command's one closed value. */
+function withCapture(
+  raw: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const capture = captureFromFields(raw);
+  return (
+    capture && {
+      type: raw.type,
+      commandId: raw.commandId,
+      expectedVersion: raw.expectedVersion,
+      capture,
+    }
+  );
 }
 
 /**

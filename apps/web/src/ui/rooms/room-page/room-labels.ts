@@ -67,7 +67,7 @@ const competitionLabels = {
   casual: 'Casual · ratings don’t change',
 } as const;
 
-/** Host, who can join, and whether the result is rated: the header's meta line. */
+/** Host, who can join, and whether the result is ranked: the header's meta line. */
 export function roomMeta(
   view: Pick<RoomView, 'hostLabel' | 'visibility' | 'competitionType'>,
 ): readonly string[] {
@@ -123,6 +123,17 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'ranked-unavailable': 'an active Ranked season',
   'draw-unavailable': 'enough resolutions to draw from',
   'bots-busy': 'a free bot: bots are busy, try again shortly',
+  'ai-judge-premium':
+    'a person to judge: AI judging on casual rounds is premium',
+  'capture-premium':
+    'the host to turn off broadcast and recording: they need a subscription',
+  'capture-host-limit':
+    'one of the host’s broadcast or recorded rounds to finish',
+  'capture-capacity': 'a free broadcast slot: all are busy, try again shortly',
+  'broadcast-private': 'a Room that is not private, to broadcast it',
+  'content-waiver-required': 'the ranked content waiver to be signed',
+  'capture-notice-changed': 'the latest recording notice to be read',
+  'content-waiver-changed': 'the latest ranked content waiver to be signed',
 };
 
 /** Why Start round is refused, in words; never the raw refusal code. */

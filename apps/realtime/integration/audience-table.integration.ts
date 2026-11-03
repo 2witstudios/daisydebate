@@ -24,7 +24,7 @@ test('native restricted-role audience table uses persisted Round seats and canon
       await issueAuthorityTicket(fixture),
     );
     const cases = [
-      ['public outsider', (await rounds.seed('public')).topic, 'subscribed'],
+      ['public outsider', (await rounds.seed('public')).topic, 'error'],
       [
         'private affirmative',
         (await rounds.seed('private', 'affirmative')).topic,

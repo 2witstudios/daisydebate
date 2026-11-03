@@ -21,14 +21,14 @@ export type Destination = {
 };
 
 /**
- * Explainer copy for every destination. Rated play shares the normal Room lifecycle.
+ * Explainer copy for every destination. Ranked play shares the normal Room lifecycle.
  */
 export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
   // The slug names the route it opens; the tile, rail and preview call it Play.
   lobby: {
     slug: 'lobby',
     title: 'Play',
-    tagline: 'Rated and casual rooms.',
+    tagline: 'Ranked and casual rooms.',
   },
   watch: {
     slug: 'watch',

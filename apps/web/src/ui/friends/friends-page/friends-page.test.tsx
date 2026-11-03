@@ -18,7 +18,10 @@ const router = {
   replace: noop,
   prefetch: noop,
 };
-const render = (list: Parameters<typeof FriendsPage>[0]['list']) =>
+const render = (
+  list: Parameters<typeof FriendsPage>[0]['list'],
+  liveHrefs: ReadonlyMap<string, string> = new Map(),
+) =>
   renderInStore(
     h(
       AppRouterContext,
@@ -26,6 +29,7 @@ const render = (list: Parameters<typeof FriendsPage>[0]['list']) =>
       h(FriendsPage, {
         list,
         friendAction: action,
+        liveHrefs,
         message: (username: string) =>
           h('button', { type: 'submit' }, `Message @${username}`),
       }),
@@ -107,6 +111,30 @@ describe('FriendsPage', () => {
         html.includes('Send friend request'),
       ],
       expected: [true, true],
+    });
+  });
+
+  test('a friend live in a public Round', () => {
+    const html = render(
+      {
+        version: 1,
+        friends: [
+          { username: 'ada', presence: 'online' },
+          { username: 'cat', presence: 'offline' },
+        ],
+        incoming: [],
+        outgoing: [],
+      },
+      new Map([['ada', '/watch/round-of-ada']]),
+    );
+    assert({
+      given: 'one friend live and one not',
+      should: 'offer Watch live for the live one only',
+      actual: [
+        html.includes('href="/watch/round-of-ada"'),
+        html.split('Watch live').length - 1,
+      ],
+      expected: [true, 1],
     });
   });
 });

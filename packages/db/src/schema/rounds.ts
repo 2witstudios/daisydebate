@@ -6,6 +6,7 @@ import {
   ratingLadders,
   roundRulesSchema,
   frozenRoomConfigSchema,
+  roomCaptureSchema,
   roundStageSchema,
   roundStatusSchema,
   runtimeCheckpointSchema,
@@ -33,6 +34,7 @@ import { actors } from './actors';
 import {
   createdAtColumn,
   jsonbColumn,
+  jsonbColumnNullable,
   jsonbIsObject,
   notBefore,
   oneOf,
@@ -101,6 +103,8 @@ export const rounds = pgTable(
       'room_config_snapshot',
       frozenRoomConfigSchema,
     ),
+    /** What every participant was told is captured, frozen at Launch (WATCH-8). */
+    capture: jsonbColumnNullable('capture', roomCaptureSchema),
     /** Proof metadata of the Room's draw, frozen at Launch; null without one. */
     resolutionEvidence: jsonbColumn(
       'resolution_evidence',
@@ -131,6 +135,8 @@ export const rounds = pgTable(
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
+    /** SHA3-256 of an unlisted Round's current link; the token is never stored. */
+    audienceLinkHash: text('audience_link_hash'),
   },
   (table) => {
     const opening = sql`${table.status} = 'opening' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;
@@ -194,6 +200,7 @@ export const rounds = pgTable(
       jsonbIsObject('rounds', table.resolutionEvidence),
       jsonbIsObject('rounds', table.runtimeState),
       jsonbIsObject('rounds', table.rulesSnapshot),
+      jsonbIsObject('rounds', table.capture),
       check(
         'rounds_completed_after_started',
         notBefore(table.completedAt, table.startedAt),
@@ -227,7 +234,7 @@ export const rounds = pgTable(
         sql`(${opening}) or (${active}) or (${completed}) or (${abandoned})`,
       ),
       check(
-        'rounds_rated_ladder_check',
+        'rounds_ranked_ladder_check',
         sql`(${table.competitionType} = 'ranked' and ${table.ladderId} is not null and ${table.ladderId} = ${table.formatId}) or (${table.competitionType} <> 'ranked' and ${table.ladderId} is null)`,
       ),
       check(

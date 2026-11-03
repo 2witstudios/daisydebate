@@ -6,6 +6,7 @@ import {
   type RoomCastChoice,
   type RoomView,
 } from '@daisy/protocol';
+import { aiJudgeSeatable } from './ai-judge-notice';
 import { declaredSeats, seatLabel } from './assembly-controls';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
@@ -83,15 +84,25 @@ function SeatActions({
                   bot.seatRole ===
                   (seat.role === 'judge' ? 'judge' : 'debater'),
               )
-              .map((bot) => (
-                <option
-                  key={bot.actorId}
-                  value={bot.actorId}
-                  disabled={!bot.eligible}
-                >
-                  {bot.label} · AI{!bot.eligible ? ' · unavailable' : ''}
-                </option>
-              ))}
+              .map((bot) => {
+                const premium =
+                  bot.seatRole === 'judge' &&
+                  !aiJudgeSeatable(view.aiJudgeSeating);
+                return (
+                  <option
+                    key={bot.actorId}
+                    value={bot.actorId}
+                    disabled={!bot.eligible || premium}
+                  >
+                    {bot.label} · AI
+                    {premium
+                      ? ' · premium'
+                      : !bot.eligible
+                        ? ' · unavailable'
+                        : ''}
+                  </option>
+                );
+              })}
           </select>
           <button type="submit" className={buttonClass('secondary')}>
             Assign

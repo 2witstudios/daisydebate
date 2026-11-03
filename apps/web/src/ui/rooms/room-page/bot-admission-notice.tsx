@@ -21,7 +21,7 @@ export function BotAdmissionNotice({
   if (admission.kind === 'free')
     return (
       <p role="status" className="text-sm text-ink-muted">
-        The AI judge is free: this round doesn’t use one of your AI rounds.
+        The AI judge doesn’t use one of your AI rounds.
       </p>
     );
   return (

@@ -51,4 +51,8 @@ export type MediaOperationInput = {
   readonly recoveryHeartbeatMs: number;
   /** Milliseconds, read only to bound how long an admission waits. */
   readonly now: () => number;
+  /** Which camera a seat captures. Only a hint about quality: it decides no authority. */
+  readonly cameraProfile?: (
+    roundId: string,
+  ) => Promise<'standard' | 'broadcast'>;
 };

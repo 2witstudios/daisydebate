@@ -1,3 +1,4 @@
+import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -77,7 +78,7 @@ const readyAllThenStart = async (
   return (await f.command(f.host, view, { type: 'start-round' })).view;
 };
 
-test('a launched Round names its human judge only to that judge and the host', async () => {
+test('a launched Round names its human judge to that judge alone, and not to a debater who hosts', async () => {
   await withRoomRuntime(async (f) => {
     const judge = f.outsider;
     const spectator = await f.member();
@@ -101,20 +102,18 @@ test('a launched Round names its human judge only to that judge and the host', a
       actual: [leaks(lobby.guest, secrets), leaks(lobby.spectator, secrets)],
       expected: [[], []],
     });
-    const lobbyKnowers = {
-      judge: await ownView(judge),
-      host: await ownView(f.host),
-    };
     assert({
-      given:
-        'the same assembly read by its judge and by its host (negative control)',
+      given: 'the same assembly read by its judge (negative control)',
       should:
         'name the judge, so the leak check above can see a judge identity',
-      actual: [
-        leaks(lobbyKnowers.judge, secrets).length > 0,
-        leaks(lobbyKnowers.host, secrets).length > 0,
-      ],
-      expected: [true, true],
+      actual: leaks(await ownView(judge), secrets).length > 0,
+      expected: true,
+    });
+    assert({
+      given: 'the same assembly read by its host, who holds a debating seat',
+      should: 'carry no judge name, actor or seat id (WATCH-6)',
+      actual: leaks(await ownView(f.host), secrets),
+      expected: [],
     });
 
     view = await readyAllThenStart(f, view);
@@ -146,25 +145,29 @@ test('a launched Round names its human judge only to that judge and the host', a
     const read = (who: Caller) => f.roundView(who, roundId);
     const asJudge = await read(judge);
     assert({
-      given:
-        'a new Round with a human judge, read by a debater and a spectator',
+      given: 'a new Round with a human judge, read by a debater',
       should: 'carry no judge name, actor, seat id or host actor',
-      actual: [
-        leaks(await read(f.guest), roundSecrets),
-        leaks(await read(spectator), roundSecrets),
-      ],
-      expected: [[], []],
+      actual: leaks(await read(f.guest), roundSecrets),
+      expected: [],
+    });
+    await assertRejects({
+      given: 'the same Round read by a spectator',
+      should: 'give no live read at all (WATCH-6)',
+      actual: () => read(spectator),
+      code: 'NOT_FOUND',
     });
     assert({
-      given:
-        'the same Round read by its judge and by its host (negative control)',
+      given: 'the same Round read by its judge (negative control)',
       should:
         'name the judge, so the leak check above can see a judge identity',
-      actual: [
-        leaks(asJudge, roundSecrets).length > 0,
-        leaks(await read(f.host), roundSecrets).length > 0,
-      ],
-      expected: [true, true],
+      actual: leaks(asJudge, roundSecrets).length > 0,
+      expected: true,
+    });
+    assert({
+      given: 'the same Round read by its host, who holds a debating seat',
+      should: 'carry no judge name, actor or seat id (WATCH-6)',
+      actual: leaks(await read(f.host), secrets),
+      expected: [],
     });
   });
 });

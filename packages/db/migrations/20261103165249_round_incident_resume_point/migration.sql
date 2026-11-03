@@ -1,1 +1,0 @@
-ALTER TABLE "round_incidents" ADD COLUMN "resume_point" timestamp with time zone;

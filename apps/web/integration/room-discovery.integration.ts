@@ -53,6 +53,7 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
     const list = (who = f.outsider) =>
       f.operations.list(who, { q: title, pageSize: 1 });
     const scheduled = await list();
+    const scheduledSeat = await list(f.guest);
     await f.sql`update rounds set status='active',current_stage='countdown',started_at=statement_timestamp() where id=${roundId}`;
     const active = await list();
     await f.sql`update rounds set visibility='private' where id=${roundId}`;
@@ -69,10 +70,11 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
       given:
         'public started Room, private frozen Round and a frozen participant removed from current Room seats',
       should:
-        'authorize from frozen Round facts, preserve both live states and exclude terminal history without Redis reads',
+        'authorize from frozen Round facts, hide live Rounds from non-participants and exclude terminal history without Redis reads',
       actual: [
-        scheduled.rooms.map((r) => r.roundRef?.status),
-        active.rooms.map((r) => r.roundRef?.status),
+        scheduled.rooms.length,
+        scheduledSeat.rooms.map((r) => r.roundRef?.status),
+        active.rooms.length,
         hidden.rooms.length,
         seated.rooms.length,
         host.rooms.length,
@@ -81,12 +83,12 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
         abandoned.rooms.length,
         f.consentReads() - consentReads,
       ],
-      expected: [['active'], ['active'], 0, 1, 1, 1, 0, 0, 0],
+      expected: [0, ['active'], 0, 0, 1, 1, 1, 0, 0, 0],
     });
     assert({
       given: 'the lightweight discovery projection',
       should: 'carry counts and labels but omit aggregate and consent data',
-      actual: Object.keys(scheduled.rooms[0]!).sort(),
+      actual: Object.keys(scheduledSeat.rooms[0]!).sort(),
       expected: [
         'id',
         'version',
@@ -158,7 +160,8 @@ test('selected Room locks recheck visibility, participant and status races with 
 
 test('selected Round locks recheck frozen visibility and terminal status races', async () => {
   await withRoomRuntime(async (f) => {
-    for (const change of ['visibility', 'status', 'seat'] as const) {
+    // An outsider never selects a live Round, so only a member can be mid-read.
+    for (const change of ['status', 'seat'] as const) {
       const title = createId();
       const cast = await f.freshCast();
       let view = await f.assemble({ title }, cast);
@@ -167,17 +170,12 @@ test('selected Round locks recheck frozen visibility and terminal status races',
         await f.sql`update rounds set visibility='private' where id=${view.roundRef!.id}`;
       await withHeld(async (holder, pid) => {
         await holder`select id from rounds where id=${view.roundRef!.id} for update`;
-        const reading = f.operations.list(
-          change === 'seat' ? cast.guest : f.outsider,
-          {
-            q: title,
-            pageSize: 1,
-          },
-        );
+        const reading = f.operations.list(cast.guest, {
+          q: title,
+          pageSize: 1,
+        });
         await blocked(f.sql, pid);
-        if (change === 'visibility')
-          await holder`update rounds set visibility='private' where id=${view.roundRef!.id}`;
-        else if (change === 'seat')
+        if (change === 'seat')
           await holder`delete from round_participants where round_id=${view.roundRef!.id} and actor_id=${cast.guest.actorId}`;
         else
           await holder`update rounds set status='abandoned',current_stage=null,completed_at=statement_timestamp() where id=${view.roundRef!.id}`;

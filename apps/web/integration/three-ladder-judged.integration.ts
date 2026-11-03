@@ -1,5 +1,6 @@
 import {
   judgingJobRules,
+  RANKED_DELAY_SECONDS,
   ratingAwaited,
   readRoundOpening,
   roundWaitingOn,
@@ -20,10 +21,10 @@ import {
   submitHumanBallot,
 } from './round-judging.test-support';
 import {
-  readyRatedRoom,
-  recoverRatedResults,
-  runRatedOpening,
-} from './rated-room.test-support';
+  readyRankedRoom,
+  recoverRankedResults,
+  runRankedOpening,
+} from './ranked-room.test-support';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
@@ -46,9 +47,9 @@ for (const ladder of ratingLadders)
               const season = await withSeasons(databaseUrl, (s) =>
                 s.activateBetaSeason({ id: seasonId }),
               );
-              const room = await readyRatedRoom(f, ladder, judgeKind);
+              const room = await readyRankedRoom(f, ladder, judgeKind);
               ({ roundId } = await launchRuntimeRound(f, room));
-              await runRatedOpening(f, roundId);
+              await runRankedOpening(f, roundId);
               await playOut(f, roundId, true);
               const frozen = await finalizeAsWeb(f, roundId);
               if (
@@ -100,12 +101,15 @@ for (const ladder of ratingLadders)
               )
                 .filter(({ facts }) => facts !== null && ratingAwaited(facts))
                 .map(({ roundId: id }) => id);
-              await recoverRatedResults(f);
+              await recoverRankedResults(f);
               const ledger =
                 await f.sql`select actor_id,ladder,season_id,rating_before,rating_after from rating_changes where round_id=${roundId}`;
               const projection =
                 await f.sql`select version from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
-              const now = new Date().toISOString();
+              // The audience reads the ranked result once the delay has passed.
+              const now = new Date(
+                Date.now() + (RANKED_DELAY_SECONDS + 1) * 1000,
+              ).toISOString();
               const leaderboard = await readLadder(f.store, {
                 seasonId: season.id,
                 ladder,
@@ -193,6 +197,7 @@ for (const ladder of ratingLadders)
               if (roundId)
                 await f.sql`delete from rating_changes where round_id=${roundId}`;
               await f.sql`delete from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
+              await f.sql`delete from agreement_signatures where season_id=${seasonId}`;
               await f.sql`delete from seasons where id=${seasonId}`;
             }
           },

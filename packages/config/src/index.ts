@@ -12,7 +12,11 @@ export type { RoundJudgingPolicy } from './judging-policy';
 export type { RoundAnalysisPolicy } from './round-analysis-policy';
 export type { MessagingPolicyOverride } from './messaging-policy';
 export type { ContactsPolicyOverride } from './contacts-policy';
-import { mediaEndpointList, mediaEndpointsOf } from './media-endpoint';
+import {
+  mediaEndpoint,
+  mediaEndpointList,
+  mediaEndpointsOf,
+} from './media-endpoint';
 export { mediaEndpointsOf };
 import {
   deploymentIdentityFields,
@@ -109,6 +113,8 @@ const serverFields = {
     .default('false')
     .transform((value) => value === 'true'),
   PUBLIC_APP_URL: z.url(),
+  /** Search engines stay out unless a deployment opens itself: staging never does. */
+  SEARCH_INDEXING: z.enum(['open', 'closed']).default('closed'),
   /**
    * ADR 0075: where the owner's beta request digest goes. Personal data, so
    * it is set in the deploy's secret store, never committed; absent, owed
@@ -122,6 +128,26 @@ const serverFields = {
   LIVEKIT_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
   LIVEKIT_API_SECRET: secret(z.string().regex(/^\S+$/)).optional(),
   MEDIA_WORKER_SECRET: secret(mediaWorkerSecret).optional(),
+  /**
+   * ADR 0099: the Broadcast control plane runs only when this is exactly `on`.
+   * Unset, merging or deploying this code captures nothing.
+   */
+  BROADCAST_CAPTURE: z.literal('on').optional(),
+  /**
+   * ADR 0107: Recording's capture sweep runs only when this is exactly `on`.
+   * Unset, no Round is requested a Recording and no Egress starts for one.
+   */
+  RECORDING_CAPTURE: z.literal('on').optional(),
+  /**
+   * Where signed Recording reads point. Not a secret: every signed URL names it.
+   * The replay page's browser policy names it, and no other page's does.
+   */
+  RECORDING_BUCKET_ENDPOINT: mediaEndpoint(/^https?$/).optional(),
+  /**
+   * The public bucket's read origin. Not a secret: every feed URL names it.
+   * Unset, no Round offers an official feed.
+   */
+  BROADCAST_PUBLIC_ORIGIN: mediaEndpoint(/^https?$/).optional(),
   // AIDB: OpenRouter for AI debates (chat, TTS, STT). Optional: without it
   // AI debates are unavailable and nothing calls out.
   OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),

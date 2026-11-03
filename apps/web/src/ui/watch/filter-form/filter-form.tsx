@@ -17,7 +17,8 @@ export type FilterFormProps = {
     readonly placeholder: string;
   };
   readonly mode: 'any' | 'ranked' | 'casual';
-  readonly sort: {
+  /** Absent when the list has one order. */
+  readonly sort?: {
     readonly value: string;
     readonly label: string;
     readonly options: readonly (readonly [string, string])[];
@@ -68,18 +69,20 @@ export function FilterForm({
       </label>
       {leading}
       <ModeToggle value={mode} />
-      <select
-        name="sort"
-        aria-label={sort.label}
-        defaultValue={sort.value}
-        className={controlClass}
-      >
-        {sort.options.map(([value, text]) => (
-          <option key={value} value={value}>
-            {text}
-          </option>
-        ))}
-      </select>
+      {sort ? (
+        <select
+          name="sort"
+          aria-label={sort.label}
+          defaultValue={sort.value}
+          className={controlClass}
+        >
+          {sort.options.map(([value, text]) => (
+            <option key={value} value={value}>
+              {text}
+            </option>
+          ))}
+        </select>
+      ) : null}
       <button type="submit" className={buttonClass('secondary')}>
         Apply
       </button>

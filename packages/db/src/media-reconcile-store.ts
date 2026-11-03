@@ -1,3 +1,7 @@
+import {
+  readBroadcastObserverHeld,
+  readConversationHeld,
+} from './broadcast-operations';
 import { revokedBoundSeats, rotateMediaRoom } from './media-session-rotation';
 import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
 import {
@@ -27,7 +31,7 @@ import {
 } from './participant-admission';
 import { mediaParticipants } from './schema/media-sessions';
 import { sampleRoundExecutionTime } from './round-execution-time';
-import { mediaSessions } from './schema/media-sessions';
+import { mediaSessions, mediaRoomRotations } from './schema/media-sessions';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
 import { rounds } from './schema/rounds';
 
@@ -122,6 +126,8 @@ export function createMediaReconcileStore(input: {
         /** ADR 0075: participant access, read for every human seat. */
         readonly admits: ParticipantAdmission;
         readonly authorize: (context: {
+          readonly conversationHeld: boolean;
+          readonly cameraHeld: boolean;
           readonly round: RoundHydration;
           readonly participants: RoundCommandAuthority['participants'];
           /** Bot seats that may hear, floor or not (ISSUE-764). */
@@ -169,6 +175,12 @@ export function createMediaReconcileStore(input: {
           participantId = binding.participantId;
         }
         request.authorize({
+          conversationHeld: await readConversationHeld(tx, {
+            roundId: session.roundId,
+          }),
+          cameraHeld: await readBroadcastObserverHeld(tx, {
+            roundId: session.roundId,
+          }),
           bindings: await tx
             .select({
               roundParticipantId: mediaParticipants.roundParticipantId,
@@ -344,6 +356,12 @@ export function createMediaReconcileStore(input: {
                   : {}),
           })
           .where(eq(mediaSessions.id, session.id));
+        if (roomName)
+          await tx.insert(mediaRoomRotations).values({
+            id: input.nextId(),
+            roundId: session.roundId,
+            rotatedAt: now,
+          });
         return { ...result, fate };
       });
     },

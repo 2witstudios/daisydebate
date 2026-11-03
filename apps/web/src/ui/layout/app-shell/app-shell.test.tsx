@@ -111,7 +111,7 @@ describe('AppShell', () => {
     assert({
       given: 'a member',
       should:
-        'link home from the logo, then the launched destinations, then Messages and Friends, then the account menu with the profile and account pages',
+        'link home from the logo, then the launched destinations, then Messages, Notifications and Friends, then the account menu with the profile and account pages',
       actual: [
         rail.includes('aria-label="Daisy Debate home"'),
         hrefsOf(rail).filter(
@@ -128,6 +128,7 @@ describe('AppShell', () => {
           '/judge',
           '/train',
           '/messages',
+          '/notifications',
           '/friends',
           '/profile/ada-byron',
           '/settings',
@@ -253,6 +254,7 @@ describe('AppShell', () => {
       expected: [
         '/leaderboard',
         '/train',
+        '/notifications',
         '/friends',
         '/profile/ada-byron',
         '/settings',
@@ -292,7 +294,7 @@ describe('Notifications behind its launch flag (ISSUE-634)', () => {
       given:
         'the flag off and on, then a member’s rail and phone More sheet with the shipped flag',
       should:
-        'offer Notifications only when launched, and link /notifications nowhere in the nav while it is not',
+        'offer Notifications only when launched, and link /notifications from both navs while it is not',
       actual: [
         notificationsDestination({ notifications: false }),
         notificationsDestination({ notifications: true })?.href,
@@ -300,7 +302,7 @@ describe('Notifications behind its launch flag (ISSUE-634)', () => {
         hrefsOf(rail).includes('/notifications'),
         hrefsOf(tabBar).includes('/notifications'),
       ],
-      expected: [null, '/notifications', false, false, false],
+      expected: [null, '/notifications', true, true, true],
     });
   });
 });

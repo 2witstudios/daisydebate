@@ -99,7 +99,7 @@ function RoundDetails({ round }: { readonly round: RoundSnapshot }) {
 
 /**
  * The round bar: the labelled resolution, the speech the
- * round is on by its full name, the viewer's side, judge, recording, and
+ * round is on by its full name, the viewer's side, judge, and
  * Leave round alone in the far corner. No app navigation in a round. A
  * room number (ISSUE-582) shows only once rounds carry one.
  */
@@ -152,19 +152,6 @@ export function RoundBar({
         >
           {round.judge === 'ai' ? 'AI judge' : 'Judge present'}
         </span>
-      ) : null}
-      {round.recording ? (
-        round.phase === 'judging' ? (
-          <span
-            className={cn(chip, 'border border-border-strong text-ink-muted')}
-          >
-            Recording stopped
-          </span>
-        ) : (
-          <span className={cn(chip, 'bg-live-soft text-live')}>
-            ● Recording
-          </span>
-        )
       ) : null}
       <span className="flex">
         <LeaveRoom links={leave} />

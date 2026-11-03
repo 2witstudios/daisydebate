@@ -54,6 +54,7 @@ describe('Lobby', () => {
           title: 'Live round',
           status: 'started',
           competitionType: 'ranked',
+          visibility: 'public',
           roundRef: { id: id('d'), status: 'active' },
         },
       ],
@@ -67,11 +68,20 @@ describe('Lobby', () => {
         html.includes('Host member · '),
         html.includes('Persisted debate topic'),
         new RegExp(`href="/rooms/${id('a')}"[^>]*>Join<`).test(html),
-        new RegExp(`href="/rounds/${id('d')}"[^>]*>Watch<`).test(html),
+        new RegExp(`href="/watch/${id('d')}"[^>]*>Watch<`).test(html),
         html.indexOf('>Open</h2>') < html.indexOf('>Live now</h2>'),
         html.includes('>Ranked</span>'),
       ],
       expected: [true, true, true, true, true, true, true],
+    });
+  });
+
+  test('the header leads to everything live', () => {
+    assert({
+      given: 'the Lobby header',
+      should: 'link Watch live to the public hub',
+      actual: /href="\/watch"[^>]*>Watch live<\/a>/.test(render()),
+      expected: true,
     });
   });
 
@@ -287,7 +297,7 @@ describe('Lobby', () => {
   test('a row carries the listing facts and never the host rating', () => {
     const html = render();
     assert({
-      given: 'an open Room waiting five minutes with a rated host',
+      given: 'an open Room waiting five minutes with a ranked host',
       should: 'show its format, seats and wait, and leave the rating out',
       actual: [
         html.includes('Foundation · 1 of 3 seats · Waiting 5 min'),

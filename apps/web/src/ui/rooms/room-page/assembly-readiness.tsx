@@ -1,5 +1,7 @@
 import { BotAdmissionNotice } from './bot-admission-notice';
 import { AssemblyCommandForm } from './assembly-command-form';
+import { CaptureSummary } from './capture-choice';
+import { ContentWaiverForm } from './content-waiver-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import { isNamedSeat, type RoomView } from '@daisy/protocol';
@@ -11,7 +13,14 @@ import { startRefusalText, waitingOn } from './room-labels';
 type Control = 'ready' | 'unready' | 'start-round';
 type View = Pick<
   RoomView,
-  'participants' | 'version' | 'readiness' | 'startRefusal' | 'botAdmission'
+  | 'participants'
+  | 'version'
+  | 'readiness'
+  | 'startRefusal'
+  | 'botAdmission'
+  | 'contentWaiver'
+  | 'captureNotice'
+  | 'capture'
 > & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
   readonly capabilities: Pick<
@@ -24,6 +33,7 @@ type Props = {
   readonly actorId: string;
   readonly local: LocalReadiness;
   readonly action: FormAction<RoomFormState>;
+  readonly waiverAction: FormAction<RoomFormState>;
   readonly commandIds: Readonly<Record<Control, string>>;
 };
 
@@ -48,6 +58,7 @@ function CommandForm({
   label,
   enabled,
   expectedConsentVersion = null,
+  noticeVersion = null,
   className,
 }: {
   readonly type: Control;
@@ -57,6 +68,7 @@ function CommandForm({
   readonly label: string;
   readonly enabled: boolean;
   readonly expectedConsentVersion?: number | null;
+  readonly noticeVersion?: string | null;
   readonly className: string;
 }) {
   return (
@@ -68,6 +80,9 @@ function CommandForm({
           name="expectedConsentVersion"
           value={String(expectedConsentVersion)}
         />
+      ) : null}
+      {noticeVersion !== null ? (
+        <input type="hidden" name="noticeVersion" value={noticeVersion} />
       ) : null}
       <button type="submit" disabled={!enabled} className={className}>
         {label}
@@ -82,6 +97,7 @@ export function ReadyControl({
   actorId,
   local,
   action,
+  waiverAction,
   commandIds,
 }: Props) {
   const ready = readinessControl(view, actorId, local);
@@ -92,6 +108,17 @@ export function ReadyControl({
   const isReady = ready.type === 'unready' && !local.unreadyPending;
   return (
     <div className="flex flex-wrap items-center justify-end gap-3">
+      {ready.type === 'ready' && view.contentWaiver === 'unsigned' ? (
+        <ContentWaiverForm action={waiverAction} />
+      ) : null}
+      {ready.type === 'ready' && view.captureNotice ? (
+        <p role="note" className="w-full text-sm text-ink-muted">
+          {view.captureNotice.text}
+        </p>
+      ) : null}
+      {ready.type === 'ready' ? (
+        <CaptureSummary capture={view.capture} />
+      ) : null}
       {ready.reason ? (
         <p role="status" className="mr-auto text-sm text-ink-muted">
           {ready.reason}
@@ -110,6 +137,8 @@ export function ReadyControl({
         commandId: commandIds[ready.type],
         action,
         expectedConsentVersion: own?.consentVersion ?? null,
+        noticeVersion:
+          ready.type === 'ready' ? (view.captureNotice?.version ?? null) : null,
         className: buttonClass(
           ready.type === 'ready' ? 'primary' : 'secondary',
         ),

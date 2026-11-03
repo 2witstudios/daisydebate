@@ -1,6 +1,7 @@
 import type { RoundBallotRead } from '@daisy/protocol';
 import { ballotDebaters } from '../../features/round-ballots/presentation';
 import { ballotEyebrowClass } from '../ballot/ballot-class';
+import { ReportForm } from '../content-moderation/report-form';
 import { BallotSummary } from '../ballot/ballot-summary/ballot-summary';
 import { StoredBallotScores } from '../ballot/stored-ballot-scores';
 import { TranscriptContent } from './transcript-content';
@@ -13,7 +14,13 @@ const cardClass = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
  * transcript a seated reader may read. Round analysis is a separate product
  * with its own read and component; it never appears here.
  */
-export function RoundResult({ view }: { readonly view: RoundBallotRead }) {
+export function RoundResult({
+  view,
+  reportAction,
+}: {
+  readonly view: RoundBallotRead;
+  readonly reportAction: (form: FormData) => void | Promise<void>;
+}) {
   const ballots = resultBallots(view);
   const sections = transcriptSections(view);
   return (
@@ -44,6 +51,14 @@ export function RoundResult({ view }: { readonly view: RoundBallotRead }) {
                 debaters={ballotDebaters(view)}
                 feedbackTitle={entry.feedbackTitle}
               />
+              {entry.reportableFeedbackId ? (
+                <ReportForm
+                  targetKind="ballot_feedback"
+                  targetId={entry.reportableFeedbackId}
+                  label="Report this feedback"
+                  action={reportAction}
+                />
+              ) : null}
               <StoredBallotScores
                 title={`${entry.title} scores`}
                 ballot={entry.ballot}

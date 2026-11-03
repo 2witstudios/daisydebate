@@ -1,0 +1,60 @@
+/*
+ * The audience's video frame (ADR 0099). The page is captured at a fixed 720p,
+ * so its pixels are the broadcast's and do not follow the app's scale or theme.
+ */
+@utility broadcast-stage {
+  display: grid;
+  grid-template-rows: 64px 1fr 48px;
+  width: 1280px;
+  height: 720px;
+  overflow: hidden;
+  background: #14130f;
+  color: #fff;
+  font-family: sans-serif;
+}
+@utility broadcast-stage-clock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  font-size: 28px;
+}
+@utility broadcast-stage-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: #000;
+  font-size: 20px;
+}
+/* A name sits under its own tile, in its own row, and never over a debater. */
+@utility broadcast-stage-seats {
+  display: flex;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 24px;
+  text-align: center;
+  & > li {
+    display: grid;
+    flex: 1;
+    grid-template-rows: 1fr 40px;
+    min-width: 0;
+    font-weight: 400;
+  }
+  & > li[data-floor='true'] {
+    font-weight: 700;
+  }
+  & p {
+    margin: 0;
+    line-height: 40px;
+  }
+}
+@utility broadcast-stage-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}

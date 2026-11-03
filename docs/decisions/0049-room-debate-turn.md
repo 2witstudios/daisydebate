@@ -276,7 +276,7 @@ seats alike take human and bot actors. `formats.ranked_eligible` leaves the
 schema with ADR 0058 §4's consequences, so section 6's "canonical rules on a
 `ranked_eligible` format" reads "the sanctioned preset's resolved rules".
 What makes play ranked is the sanctioned construction and `competition_type`
-(ADR 0058 §8), never the occupant kind of a seat: rated eligibility is a
+(ADR 0058 §8), never the occupant kind of a seat: ranked eligibility is a
 construction-time invariant, so whether a round rates is fixed by how it was
 constructed, not by who occupies a seat.
 

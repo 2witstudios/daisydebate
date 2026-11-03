@@ -1,6 +1,7 @@
 import { getTableColumns } from 'drizzle-orm';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { actors } from './schema/actors';
+import { agreementSignatures } from './schema/agreement-signatures';
 import { formatPresets } from './schema/format-presets';
 import { formatRevisions } from './schema/format-revisions';
 import { formats } from './schema/formats';
@@ -13,6 +14,18 @@ import { schemaRules as rules } from './schema.test-support';
 setupRitewayBun();
 
 describe('competitive schema rules', () => {
+  test('an agreement signature is one row per scope, its kind and scope checked', () => {
+    assert({
+      given: 'the agreement_signatures table',
+      should: 'declare its kind and scope CHECKs',
+      actual: rules(agreementSignatures).checks,
+      expected: [
+        'agreement_signatures_agreement_check',
+        'agreement_signatures_scope_check',
+      ],
+    });
+  });
+
   test('users and actors carry the tombstone and identity rules', () => {
     assert({
       given: 'the users and actors tables',
@@ -100,12 +113,14 @@ describe('competitive schema rules', () => {
         rooms: {
           checks: [
             'rooms_basis_complete',
+            'rooms_capture_is_object',
             'rooms_change_version_positive',
             'rooms_competition_type_check',
             'rooms_config_is_object',
             'rooms_execution_plan_is_object',
             'rooms_fixed_topic_present',
             'rooms_ranked_has_preset_check',
+            'rooms_ranked_public_check',
             'rooms_rules_snapshot_is_object',
             'rooms_status_check',
             'rooms_title_nonempty',
@@ -132,6 +147,7 @@ describe('competitive schema rules', () => {
         rounds: {
           checks: [
             'rounds_attendance_cutoff_check',
+            'rounds_capture_is_object',
             'rounds_competition_type_check',
             'rounds_completed_after_started',
             'rounds_current_stage_check',
@@ -141,7 +157,7 @@ describe('competitive schema rules', () => {
             'rounds_platform_ending_check',
             'rounds_pre_round_prep_positive',
             'rounds_ranked_has_preset_check',
-            'rounds_rated_ladder_check',
+            'rounds_ranked_ladder_check',
             'rounds_resolution_evidence_is_object',
             'rounds_room_config_snapshot_is_object',
             'rounds_room_freeze_complete',

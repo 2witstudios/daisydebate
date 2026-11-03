@@ -50,7 +50,6 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
       (select seed from round_draw_seeds where round_id = ${roundId}) seed,
       (select status from rounds where id = ${roundId}) status,
       (select resolution from rounds where id = ${roundId}) resolution`;
-    const spectated = await f.roundView(f.outsider, roundId);
     assert({
       given: 'the Round a Start round creates',
       should:
@@ -62,23 +61,9 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
         rows.status,
         rows.resolution,
         drawn.opening?.draw?.visibility,
-        spectated.opening?.draw?.visibility,
-        spectated.topic,
-        (await roundJson(f.outsider)).includes(SENTINEL),
         JSON.stringify(drawn).includes(rows.seed),
       ],
-      expected: [
-        5,
-        5,
-        1,
-        'opening',
-        null,
-        'debater',
-        'progress',
-        null,
-        false,
-        false,
-      ],
+      expected: [5, 5, 1, 'opening', null, 'debater', false],
     });
     const ballotRead = await f.store.readRoundBallot({
       caller: f.outsider,
@@ -99,13 +84,13 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
       ],
       expected: ['progress', false],
     });
-    const lobby = await f.operations.list(f.outsider, {
+    const lobby = await f.operations.list(f.guest, {
       q: view.title,
       pageSize: 20,
     });
     const row = lobby.rooms.find((room) => room.id === view.id);
     assert({
-      given: 'the Lobby during the strike',
+      given: 'the Lobby during the strike, read by a seated debater',
       should: 'list the Room as live with no topic and no drawn or listed line',
       actual: [
         row?.topic,
@@ -132,7 +117,7 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
           code: 'CONFLICT',
         });
     }
-    const revealed = await f.roundView(f.outsider, roundId);
+    const revealed = await f.roundView(f.guest, roundId);
     const survivor = revealed.topic!;
     const [round] = await f.sql`select resolution, status, started_at,
       room_config_snapshot, resolution_evidence
@@ -163,15 +148,38 @@ test('Start round creates the draw on the Round, strikes reach one resolution, a
 
     // ISSUE-705: until the Round ends, its read carries the topic and no draw text.
     assert({
-      given: 'the active Round read by its debater and by a spectator',
+      given: 'the active Round read by its debater',
       should:
         'carry the debated resolution once and no other drawn line, and no audit envelope',
       actual: [
         (await roundJson(f.host)).split(SENTINEL).length - 1,
-        (await roundJson(f.outsider)).split(SENTINEL).length - 1,
-        (await f.roundView(f.outsider, roundId)).resolutionAudit,
+        (await f.roundView(f.host, roundId)).resolutionAudit,
       ],
-      expected: [1, 1, null],
+      expected: [1, null],
+    });
+    const outsiderRoom = await f.operations.view(f.outsider, view.id);
+    assert({
+      given: 'the same Room read by a non-participant',
+      should:
+        'read closed, with no drawn line and no Round reference (WATCH-6)',
+      actual: {
+        status: outsiderRoom.status,
+        topic: outsiderRoom.topic,
+        roundRef: outsiderRoom.roundRef,
+        carriesDraw: JSON.stringify(outsiderRoom).includes(SENTINEL),
+      },
+      expected: {
+        status: 'closed',
+        topic: null,
+        roundRef: null,
+        carriesDraw: false,
+      },
+    });
+    await assertRejects({
+      given: 'the active public Round read by a non-participant',
+      should: 'give them no live read at all (ISSUE-728, WATCH-6)',
+      actual: () => f.roundView(f.outsider, roundId),
+      code: 'NOT_FOUND',
     });
 
     const refused = await Promise.allSettled([

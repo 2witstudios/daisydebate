@@ -13,6 +13,8 @@ export function proxy(request: NextRequest) {
     mediaPublicUrls: app.config.LIVEKIT_PUBLIC_URL
       ? mediaEndpointsOf(app.config.LIVEKIT_PUBLIC_URL)
       : [],
+    broadcastPublicOrigin: app.config.BROADCAST_PUBLIC_ORIGIN ?? null,
+    recordingBucketOrigin: app.config.RECORDING_BUCKET_ENDPOINT ?? null,
     // ADR 0037: the browser's capture origin, present only when the client
     // DSN is configured; absent otherwise, so the CSP names no vendor host.
     sentryEndpoint: app.config.NEXT_PUBLIC_SENTRY_DSN
@@ -20,6 +22,7 @@ export function proxy(request: NextRequest) {
       : null,
     development: app.config.NODE_ENV === 'development',
     ids: app.ids,
+    searchIndexing: app.config.SEARCH_INDEXING,
     analyticsHost: analyticsConfiguration(app.config).key
       ? (app.config.NEXT_PUBLIC_POSTHOG_HOST ?? null)
       : null,

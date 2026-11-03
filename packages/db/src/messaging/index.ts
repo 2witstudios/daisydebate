@@ -1,4 +1,5 @@
 export { createMessagingStore } from './store';
+export type { SpectatorChannelFacts } from './spectator-chat';
 export type {
   MessagingAuthorizationFence,
   MessagingChannelStore,

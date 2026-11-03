@@ -17,6 +17,10 @@ import { restrictionRules } from '../moderation/restriction-rules';
 import { REPORT_EVIDENCE_RETENTION_MS } from '../reports/operations';
 import { boundedBody, json, refusal, transportRefusal } from './http';
 import {
+  contentModerationRoute,
+  type ContentModerationStore,
+} from './content-moderation';
+import {
   betaAccessCommandSchema,
   matchOperatorRoute,
   moderationLiftCommandSchema,
@@ -44,6 +48,18 @@ const operatorService = {
   capabilities: [
     'account.collection.read',
     'account.beta_access.update',
+    'content_report.queue.read',
+    'content_report.resolve',
+    'broadcast.stop',
+    'broadcast.chat_slow_mode.update',
+    'recording.takedown',
+    'recording.restore',
+    'recording.remove',
+    'recording.legal_remove',
+    'recording.rebuild',
+    'recording.rebuildable.read',
+    'chat_message.remove',
+    'account.audience_ban.update',
     'report.collection.read',
     'report.resolve',
     'moderation.collection.read',
@@ -75,6 +91,7 @@ export type OperatorApiDependencies = {
     readonly ttlSeconds: number;
   }) => Promise<boolean>;
   readonly store: Store;
+  readonly contentModeration: ContentModerationStore;
   readonly nextId: () => string;
   readonly logger: Pick<Logger, 'log'>;
   /**
@@ -207,6 +224,20 @@ function dispatch(
       return liftModeration(deps, principal, route.id!, request);
     case 'readCommand':
       return readCommand(deps, principal, route.id!);
+    default:
+      return contentModerationRoute(
+        {
+          store: deps.contentModeration,
+          crypto: deps.crypto,
+          nowMs: deps.nowMs,
+          logger: deps.logger,
+        },
+        principal,
+        route.route,
+        route.id,
+        url,
+        request,
+      );
   }
 }
 

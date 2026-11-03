@@ -72,6 +72,7 @@ export const state = (): RoomAssemblyState => ({
     },
   },
   config: plainRoomConfig,
+  capture: null,
   executionPlan: {
     preRoundPrep: { enabled: false },
     resolutionDraw: { enabled: false },
@@ -108,6 +109,8 @@ export const edges = {
   participantId: 'new-seat',
   formatId: 'new-format',
   target: null,
+  hostHoldsCasualAiJudge: true,
+  hostHoldsCasualCapture: true,
   drawStart: null,
 };
 export const consent = { available: true, readyActorIds: ['host', 'other'] };

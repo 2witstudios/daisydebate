@@ -92,7 +92,7 @@ for (const channel of [
   channelRow('archived'),
   channelRow('active', Number.MAX_SAFE_INTEGER),
 ])
-  test(`closed request cannot reopen ${channel === null ? 'absent' : channel[4]} exhausted=${channel?.[7] === Number.MAX_SAFE_INTEGER}`, async () => {
+  test(`closed request cannot reopen ${channel === null ? 'absent' : channel[4]} exhausted=${channel?.[8] === Number.MAX_SAFE_INTEGER}`, async () => {
     const { client, queries } = fakeSql([
       [request('cancelled', new Date('2026-10-09T17:00:00Z'))],
       budget(),
@@ -110,7 +110,7 @@ for (const channel of [
       should: 'refuse reopening before any mutation',
       actual: () => frame.commitDmRequest(command),
       code:
-        channel?.[7] === Number.MAX_SAFE_INTEGER ? 'CONFLICT' : 'AUTHORIZATION',
+        channel?.[8] === Number.MAX_SAFE_INTEGER ? 'CONFLICT' : 'AUTHORIZATION',
     });
     assert({
       given: 'the refusal',

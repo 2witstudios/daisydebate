@@ -27,6 +27,7 @@
     "./account-age": "./src/account-age.ts",
     "./messaging-files": "./src/messaging-files/index.ts",
     "./round-ballot": "./src/round-ballot-operations.ts",
+    "./content-moderation-ports": "./src/content-moderation-ports.ts",
     "./round-bot-admission": "./src/round-bot-admission.ts",
     "./round-judging-jobs": "./src/round-judging-jobs.ts",
     "./bot-publication": "./src/bot-publication.ts",
@@ -39,7 +40,9 @@
     "./profile": "./src/profile.ts",
     "./outbox": "./src/outbox-api.ts",
     "./attendance": "./src/attendance.ts",
-    "./round-incident-rate": "./src/round-incident-rate.ts"
+    "./round-incident-rate": "./src/round-incident-rate.ts",
+    "./broadcast-worker": "./src/broadcast-worker-store.ts",
+    "./recording-worker": "./src/recording-worker-store.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",

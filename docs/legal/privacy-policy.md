@@ -1,6 +1,6 @@
 # Privacy Policy — draft for counsel
 
-**DRAFT, not in force.** Version `draft-1`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app: `/privacy` and `/terms` keep their current text until WAIT-6.2 (owner and counsel) approves this draft and WAIT-6.3 publishes it, together with the clickwrap version.
+**DRAFT, not in force.** Version `draft-2`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app: `/privacy` and `/terms` keep their current text until WAIT-6.2 (owner and counsel) approves this draft and WAIT-6.3 publishes it, together with the clickwrap version.
 
 Placeholders: **[OWNER: …]** is a business fact the owner supplies; **[COUNSEL: …]** is a legal judgment for counsel. Neither may remain in a published version.
 
@@ -50,11 +50,11 @@ We do not sell your personal data or use it for advertising. When a round is jud
 
 ## Speech, transcripts and AI
 
-When a round uses live audio, short clips of your speech are sent to our AI provider to be turned into text. We do not record or keep the audio: it is held in memory only until it is transcribed.
+When a round uses live audio, short clips of your speech are sent to our AI provider to be turned into text. For transcription we do not keep the audio: it is held in memory only until it is transcribed. Recording a round is a separate thing, described under “Ranked rounds and recordings”.
 
 To judge a round, give feedback, or let an AI opponent reply, the AI provider receives the resolution and the transcript, labelled by side and seat only, never with your name, username or email.
 
-Transcripts and AI feedback are deleted 180 days after they are created, and an AI ballot still awaiting a result is discarded 180 days after it arrives. [COUNSEL: confirm the disclosure of AI processing and whether the provider’s zero-retention terms need to be named here.]
+Transcripts of casual rounds and AI feedback are deleted 180 days after they are created; ranked transcripts are kept with ranked video, and an AI ballot still awaiting a result is discarded 180 days after it arrives. [COUNSEL: confirm the disclosure of AI processing and whether the provider’s zero-retention terms need to be named here.]
 
 ## Who can see it
 
@@ -66,9 +66,19 @@ Other signed-in members see your username in the list of members, whether or not
 
 People who run Daisy can see the beta access list (username, request and decision dates) through a separate, private administration app, so that they can approve testers. It does not show email addresses. They also see reports members file there: who reported whom, the reason and where it was made, never a copy of any conversation. A report's outcome can be a warning, a suspension or a ban.
 
+## Ranked rounds and recordings
+
+Ranked rounds are always public, broadcast with a delay and recorded. Before you can be Ready for one you sign the ranked content waiver once per season, and each ranked round shows you a notice first. We keep a record of each: your account, the version and the time. Lawful basis: our contract with you, and our legitimate interest in being able to show what you agreed to. [COUNSEL: confirm.]
+
+We keep ranked video, with the results and ballots, as Daisy’s content for as long as Daisy runs ranked seasons, including after you close your account, because ranked season rounds are qualifying artifacts for tournaments: the results and the video stand as the evidence behind qualification, disputes and integrity review. Lawful basis: our contract with you, and our legitimate interest in the integrity of qualification. Moderation can still take a recording down. [COUNSEL: this purpose, basis and period are proposed and not yet reviewed (COMP-4, docs/operations/compliance.md).]
+
+On any other round, recording happens only if the host opts in, and you are told before you are Ready. A casual recording is kept until any participant removes it, and then the whole recording goes.
+
+A subscriber can download a recording they can watch. A copy outside Daisy is beyond our reach, so neither erasure nor takedown can remove it.
+
 ## Service providers and international transfers
 
-Fly.io hosts the service, its databases and the live audio and video relay, in [OWNER: hosting region, for example the United States]. Everything we hold is stored there.
+Fly.io hosts the service, its databases and the live audio and video relay, in [OWNER: hosting region, for example the United States]. Everything we hold is stored there. Tigris stores broadcast and recorded video, on Fly.io. [OWNER: confirm the Tigris region and contract (PRIV-H).]
 
 Resend sends our email: sign-in links, security notices and beta access emails. It receives your email address and the message.
 
@@ -90,13 +100,13 @@ Email delivery records are deleted after 30 days. A record that an address bounc
 
 Our application’s logs are kept no longer than 30 days. The hosting platform’s and the live audio and video relay’s technical logs follow their own retention, as stated under “Why we use it”.
 
-Transcripts and AI feedback are deleted after 180 days, and an AI ballot still awaiting a result is discarded 180 days after it arrives.
+Transcripts of casual rounds and AI feedback are deleted after 180 days; ranked transcripts are kept with ranked video, and an AI ballot still awaiting a result is discarded 180 days after it arrives.
 
 [OWNER: decide and state how long an account that never finishes sign-up is kept; today it is not deleted automatically.]
 
 ## Age requirements and children
 
-You must be 16 or older to use Daisy during the beta. After the beta the minimum age will be 13. [OWNER: confirm the post-beta minimum age.] Optional onboarding questions are only ever asked of members 16 or older.
+You must be 16 or older to use Daisy. Optional onboarding questions are only ever asked of members 16 or older.
 
 When you sign up we ask your birth month and year. If you are under 13, or under the beta minimum age, we tell you so in neutral words and keep nothing you entered: the account that started to be created is deleted immediately, with its sign-in links and sessions.
 
@@ -114,6 +124,8 @@ Age-refusal cookie: set only when sign-up is refused for age, as described above
 
 Theme cookie: remembers whether you chose the light, dark or system theme. Lasts one year.
 
+Unlisted Round link cookie: set when you open a link to an unlisted Round, so that you and its video can return to it. Strictly necessary, httpOnly, lasts 7 days, and holds that link alone.
+
 Navigation rail cookies: remember whether you collapsed the navigation rail and whether you opened or closed the list of who is online. Each lasts one year and is read only by our servers.
 
 Note-erasing cookie: set when you confirm closing your account, so the next page can erase the note copies kept in this browser. Lasts 60 seconds and holds no name, email or identifier.
@@ -128,9 +140,9 @@ We use no advertising or analytics cookies and no other tracking technologies, a
 
 You can ask to access, correct, export or delete your personal data, to restrict or object to how we use it, and to withdraw consent where we rely on it. You can also complain to your data protection authority.
 
-Today you can end sessions and manage passkeys and your sign-in email in Settings. For anything else, including deleting your account or getting a copy of your data, write to [OWNER: privacy contact email]. We will answer within [COUNSEL: response period, for example one month].
+In Settings you can end sessions, manage passkeys and your sign-in email, export your data records and close your account. An export holds data records, not video: downloading a recording is a paid feature. For anything else, write to [OWNER: privacy contact email]. We will answer within [COUNSEL: response period, for example one month].
 
-When an account is closed we delete your email address, name and image, sessions, passkeys, birth month, onboarding answers, terms acceptance, beta access record, friends, messages and the transcripts of what you said. Your username stays on the results, rounds, ballots and ratings you took part in, marked closed, and is never given to anyone else; room titles, topics and resolutions stay with the rounds they were debated in. We keep them because other members’ records depend on them (legitimate interest). You can object, and we will review your objection. [COUNSEL: confirm the legitimate-interest basis and the objection procedure (COMP-4, docs/operations/compliance.md).] Documents you created in debate rooms are not yet removed with the account; you can ask us to remove them.
+When an account is closed we delete your email address, name and image, sessions, passkeys, birth month, onboarding answers, terms acceptance, beta access record, friends, messages, audience chat and reactions, follows, watch history and the transcripts of what you said in casual rounds. Your username stays on the results, rounds, ballots and ratings you took part in, marked closed, and is never given to anyone else; room titles, topics and resolutions stay with the rounds they were debated in. Ranked rounds also keep their video, and your signed waiver and notice records stay as the evidence of what you agreed to. We keep them because other members’ records and tournament qualification depend on them (legitimate interest). You can object, and we will review your objection. [COUNSEL: confirm the legitimate-interest basis and the objection procedure (COMP-4, docs/operations/compliance.md).] Documents you created in debate rooms are not yet removed with the account; you can ask us to remove them.
 
 While your beta access is pending or withdrawn you can still reduce your own footprint, as the terms of service describe under “The beta and the waiting list”.
 
@@ -148,7 +160,7 @@ The draft describes the beta as the code behaves on main after #471, not as a pl
 - **No re-acceptance on a new version, and the privacy version is not recorded:** [ISSUE-720](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/ka7qt1wj6nwde0k8agw3ok4c).
 - **Provisional accounts are never purged:** [ISSUE-721](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/bz2ejqkv8jkreve7ow1ywq70). The retention section has an [OWNER] placeholder for the period.
 - **Settings privacy, newsletter and ladder controls save nothing:** [ISSUE-722](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/xsj3wvnwe385a3ouh3zabvqw).
-- **Not in the beta, so not in the policy:** a newsletter (beehiiv), analytics and session replay (PostHog), recordings, direct messages and file attachments (built but switched off). Each needs a policy update before it is turned on.
+- **Not in the beta, so not in the policy:** a newsletter (beehiiv), analytics and session replay (PostHog), direct messages and file attachments (built but switched off). Each needs a policy update before it is turned on.
 - **Error tracking (Sentry) is wired in code, inert without its keys** (ADR 0037), and the draft above now describes it (scrubbed events, `user.id` only). Keys stay off until PRIV-H records the account, region and DPA; the processor row in [compliance](../operations/compliance.md) says the same.
 - **Lawful basis for birth month:** DEC-244 (owner) names legal obligation and contract; the waitlist plan names contract and legitimate interests. The draft states all three with a [COUNSEL] placeholder.
 - **Clickwrap wording:** the sign-up checkbox reads "I agree to the Terms and the Privacy notice", but the terms draft says the privacy policy is not a contract. WAIT-6.3 should make the checkbox "I agree to the Terms of Service and have read the Privacy Policy", and link the page title "Privacy policy" consistently.

@@ -67,10 +67,33 @@ test('seat rows render actual readiness without treating empty seats as ready', 
   });
 });
 
+test('a casual host without the entitlement is offered a person, not the AI judge (WATCH-16)', () => {
+  const html = renderToStaticMarkup(
+    <AssemblySeats
+      view={{ ...assemblySnapshot, aiJudgeSeating: 'premium' }}
+      viewer={viewer}
+      bots={[bot]}
+      {...intents}
+    />,
+  );
+  assert({
+    given: 'an open judge seat seen by a casual host without the entitlement',
+    should:
+      'offer no AI judge post, keep Invite, and state plainly what is available',
+    actual: [
+      html.includes('>AI judge</button>'),
+      html.includes('>Invite</a>'),
+      html.includes('AI judging on casual rounds is premium'),
+      html.includes('Invite a person to judge'),
+    ],
+    expected: [false, true, true, true],
+  });
+});
+
 test('open judge seat offers invite and, to the host, an AI judge', () => {
   const host = renderToStaticMarkup(
     <AssemblySeats
-      view={assemblySnapshot}
+      view={{ ...assemblySnapshot, aiJudgeSeating: 'included' }}
       viewer={viewer}
       bots={[bot]}
       {...intents}

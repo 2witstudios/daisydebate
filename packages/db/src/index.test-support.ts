@@ -109,6 +109,7 @@ export const roundRow = (record: {
   record.presetVersion,
   record.roomConfigSnapshot ?? null,
   null,
+  null,
   record.rules,
   record.status,
   record.currentStage,
@@ -162,6 +163,7 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
     basisPresetVersion: null,
     competitionType: 'casual',
     config: oneOnOneSettings,
+    capture: null,
     executionPlan: {
       preRoundPrep: { enabled: false },
       resolutionDraw: { enabled: false },
@@ -191,6 +193,7 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
     row.basisPresetVersion,
     row.competitionType,
     row.config,
+    row.capture,
     row.executionPlan,
     row.rulesSnapshot,
     row.status,

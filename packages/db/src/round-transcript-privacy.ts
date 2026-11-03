@@ -5,11 +5,18 @@ import { discardPendingJudgment } from './transcript-retention';
 const seatedBy = (actorId: string) =>
   sql`select id,round_id from round_participants where actor_id=${actorId}`;
 
+/** Ranked lines are ranked content: the transcript stands behind the result. */
+const seatedOnNonRanked = (actorId: string) =>
+  sql`select p.id,p.round_id from round_participants p
+    join rounds r on r.id=p.round_id
+    where p.actor_id=${actorId} and r.competition_type <> 'ranked'`;
+
 /**
  * ISSUE-498: subject erasure deletes the subject's own transcript lines (text
  * and capture digest go with the row) and discards every pending AI judgment
- * of a Round they sat in, since it quotes them (DEC-223). Other debaters'
- * lines stay. Round analyses have their own adopter.
+ * of a Round they sat in, since it quotes them (DEC-223). A ranked Round is
+ * exempt: its lines and judgment are ranked content and stay (ISSUE-1089,
+ * proposed until counsel reviews it). Other debaters' lines stay. Round analyses have their own adopter.
  * Export returns only the subject's own lines.
  */
 export const roundTranscriptPrivacyAdopter: PrivacyAdopter = {
@@ -17,10 +24,10 @@ export const roundTranscriptPrivacyAdopter: PrivacyAdopter = {
   phase: 'after-close',
   erase: async (tx, subject) => {
     await tx.execute(sql`delete from utterances
-      where (round_participant_id,round_id) in (${seatedBy(subject.actorId)})`);
+      where (round_participant_id,round_id) in (${seatedOnNonRanked(subject.actorId)})`);
     await tx.execute(sql`update round_judging_jobs set ${discardPendingJudgment}
       where pending_ballot is not null
-        and round_id in (select round_id from round_participants where actor_id=${subject.actorId})`);
+        and round_id in (select round_id from (${seatedOnNonRanked(subject.actorId)}) seats)`);
   },
   export: async (tx, subject) => {
     const rows =

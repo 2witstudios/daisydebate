@@ -13,6 +13,7 @@ export type RoomCommandIds = {
     readonly 'start-round': string;
   };
   readonly settings: string;
+  readonly capture: string;
   /** Per declared seat, in `declaredSeats` order. */
   readonly seats: readonly {
     readonly claim: string;
@@ -52,5 +53,6 @@ export function roomCommandIds(
     ai: nextId(),
   }));
   const format = { choose: nextId(), reset: nextId(), template: nextId() };
-  return { header, readiness, settings, seats, format };
+  const capture = nextId();
+  return { header, readiness, settings, capture, seats, format };
 }

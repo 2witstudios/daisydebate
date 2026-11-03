@@ -1,87 +1,34 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
+import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { liveCard } from '../../../features/watch/live-card.test-support';
 import { LiveNow } from './live-now';
-import { createInitialState } from '../../store/state';
-import { UiStoreProvider } from '../../store/store';
 
 setupRitewayBun();
 
-const seed = createInitialState();
-
 describe('LiveNow', () => {
-  test('renders each live debate as a link into the watch route', () => {
-    const initialState = {
-      ...seed,
-      collections: {
-        ...seed.collections,
-        liveDebates: [
-          {
-            topic: 'Tests Are Specifications',
-            viewers: 77,
-            challenger: 'Ada Byron',
-            challengerRating: 2100,
-            defender: 'Alan Kay',
-            defenderRating: 1999,
-          },
-        ],
-      },
-    };
-    const html = renderToString(
-      h(UiStoreProvider, { initialState, children: h(LiveNow) }),
-    );
+  test('nothing live', () => {
+    const html = renderToString(h(LiveNow, { rounds: [] }));
     assert({
-      given: 'a store with one live debate',
-      should:
-        'render the see-all link plus one /watch debate link with topic, both sides, ratings, viewers',
+      given: 'no live Rounds',
+      should: 'say so, and still lead to the listing',
       actual: [
-        html.split('<a ').length - 1,
+        html.includes('Nothing live right now.'),
         html.includes('href="/watch"'),
-        html.includes('Tests Are Specifications'),
-        html.includes('Ada Byron'),
-        html.includes('2100'),
-        html.includes('Alan Kay'),
-        html.includes('1999'),
-        html.includes('>77<'),
       ],
-      expected: [2, true, true, true, true, true, true, true],
+      expected: [true, true],
     });
   });
 
-  test('names the see-all action for assistive technology', () => {
-    const html = renderToString(
-      h(UiStoreProvider, { initialState: seed, children: h(LiveNow) }),
-    );
+  test('a live Round', () => {
+    const html = renderToString(h(LiveNow, { rounds: [liveCard()] }));
     assert({
-      given: 'the live now panel',
-      should: 'link "See All" to /watch with a disambiguating name',
+      given: 'a live Round',
+      should: 'link straight to it, with no invented count',
       actual: [
-        /<a [^>]*aria-label="See all live debates"[^>]*href="\/watch"/.test(
-          html,
-        ),
-      ],
-      expected: [true],
-    });
-  });
-
-  test('an empty panel points at the recordings instead of an empty list', () => {
-    const html = renderToString(
-      h(UiStoreProvider, {
-        initialState: {
-          ...seed,
-          collections: { ...seed.collections, liveDebates: [] },
-        },
-        children: h(LiveNow),
-      }),
-    );
-    assert({
-      given: 'a store with no live debates',
-      should:
-        'say nothing is live and link "Browse recordings" to /watch, with no list',
-      actual: [
-        html.includes('No rounds live right now'),
-        /<a [^>]*href="\/watch"[^>]*>[\s]*Browse recordings/.test(html),
-        html.includes('<ul>'),
+        html.includes('href="/watch/abcdefghijklmnopqrstuvwx"'),
+        html.includes('Friday night'),
+        html.includes('watching'),
       ],
       expected: [true, true, false],
     });

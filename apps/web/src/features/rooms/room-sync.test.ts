@@ -12,6 +12,7 @@ const ids = (tag: string): RoomCommandIds => ({
   header: { details: `${tag}d`, leave: `${tag}l`, close: `${tag}c` },
   readiness: { ready: `${tag}r`, unready: `${tag}u`, 'start-round': `${tag}s` },
   settings: `${tag}x`,
+  capture: `${tag}cp`,
   seats: [],
   format: { choose: `${tag}fc`, reset: `${tag}fr`, template: `${tag}ft` },
 });

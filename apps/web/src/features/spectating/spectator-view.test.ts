@@ -1,7 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
 import {
-  aff,
   at,
   countdown,
   neg,
@@ -12,34 +11,44 @@ import {
   view,
 } from '../../ui/debate-room/live-round.test-support';
 import {
-  spectatorAudienceOf,
+  spectatorKindOf,
   spectatorViewOf,
   watchingRoomOf,
 } from './spectator-view';
 
 setupRitewayBun();
 
-const host = 'h'.repeat(24);
 const hosted = (round: RoundView): RoundView => ({
   ...round,
   viewerIsHost: true,
+  viewerIsUndelayedObserver: true,
 });
 
-describe('spectatorAudienceOf', () => {
+describe('spectatorKindOf', () => {
   test('who watches as a spectator today', () => {
     assert({
       given:
         'a seatless host of a live Round, the same host once it ended or was abandoned, a seated host, and a member who does not host (ISSUE-673)',
       should: 'admit only the seatless host of a Round that has not ended',
       actual: [
-        spectatorAudienceOf(hosted(ran(1)), host),
-        spectatorAudienceOf(hosted({ ...view, status: 'opening' }), host),
-        spectatorAudienceOf(hosted({ ...view, status: 'completed' }), host),
-        spectatorAudienceOf(hosted({ ...view, status: 'abandoned' }), host),
-        spectatorAudienceOf(hosted(ran(1)), aff.actorId),
-        spectatorAudienceOf({ ...ran(1), viewerIsHost: false }, host),
+        spectatorKindOf(hosted(ran(1))),
+        spectatorKindOf(hosted({ ...view, status: 'opening' })),
+        spectatorKindOf(hosted({ ...view, status: 'completed' })),
+        spectatorKindOf(hosted({ ...view, status: 'abandoned' })),
+        spectatorKindOf({
+          ...hosted(ran(1)),
+          viewerIsUndelayedObserver: false,
+        }),
+        spectatorKindOf(ran(1)),
       ],
-      expected: ['host', 'host', null, null, null, null],
+      expected: [
+        'undelayed-observer',
+        'undelayed-observer',
+        null,
+        null,
+        null,
+        null,
+      ],
     });
   });
 });
@@ -204,17 +213,17 @@ describe('watchingRoomOf', () => {
       actual: [
         watchingRoomOf({
           judgeRound: judging,
-          audience: spectatorAudienceOf(hosted(judging), host),
+          spectatorKind: spectatorKindOf(hosted(judging)),
         }).kind,
         watchingRoomOf({
           judgeRound: { ...judging, status: 'completed' },
-          audience: 'host',
+          spectatorKind: 'undelayed-observer',
         }).kind,
         watchingRoomOf({
           judgeRound: null,
-          audience: spectatorAudienceOf(hosted(judging), host),
+          spectatorKind: spectatorKindOf(hosted(judging)),
         }).kind,
-        watchingRoomOf({ judgeRound: null, audience: null }).kind,
+        watchingRoomOf({ judgeRound: null, spectatorKind: null }).kind,
       ],
       expected: ['judge', 'receipt', 'spectator', 'receipt'],
     });

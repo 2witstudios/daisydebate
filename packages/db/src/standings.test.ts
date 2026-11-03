@@ -44,6 +44,7 @@ describe('standings reads', () => {
         await database.readStandings({
           ladder: 'freestyle',
           seasonIds: [],
+          clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
         }),
         queries.length,
       ],
@@ -68,17 +69,46 @@ describe('standings reads', () => {
           1516,
           350,
           290,
+          0.06,
           at,
           'affirmative',
           'affirmative',
+          true,
         ],
-        ['s1', 'a2', 'd1', 1500, 1484, 350, 290, at, 'negative', 'affirmative'],
-        ['s1', 'a1', 'd2', 1516, 1516, 290, 250, at, 'affirmative', 'negative'],
+        [
+          's1',
+          'a2',
+          'd1',
+          1500,
+          1484,
+          350,
+          290,
+          0.06,
+          at,
+          'negative',
+          'affirmative',
+          true,
+        ],
+        [
+          's1',
+          'a1',
+          'd2',
+          1516,
+          1516,
+          290,
+          250,
+          0.06,
+          at,
+          'affirmative',
+          'negative',
+          true,
+        ],
       ],
     ]);
     const read = await database.readStandings({
       ladder: 'freestyle',
       seasonIds: ['s1'],
+      clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     });
     assert({
       given: 'a named and a tombstoned debater',
@@ -107,6 +137,7 @@ describe('standings reads', () => {
     await database.readStandings({
       ladder: 'freestyle',
       seasonIds: ['s1'],
+      clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     });
     assert({
       given: 'a standings read',
@@ -128,7 +159,22 @@ describe('standings reads', () => {
       const { database } = createTestDatabase([
         [],
         [],
-        [['s1', 'a1', 'd1', 1500, 1516, 350, 290, at, role, outcome]],
+        [
+          [
+            's1',
+            'a1',
+            'd1',
+            1500,
+            1516,
+            350,
+            290,
+            0.06,
+            at,
+            role,
+            outcome,
+            true,
+          ],
+        ],
       ]);
       await assertRejects({
         given: `a ledger row with ${given}`,
@@ -137,6 +183,7 @@ describe('standings reads', () => {
           database.readStandings({
             ladder: 'freestyle',
             seasonIds: ['s1'],
+            clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
           }),
         code: 'INTERNAL',
       });

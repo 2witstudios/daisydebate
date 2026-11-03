@@ -164,4 +164,8 @@ export function installShutdownSignals(
     target.once(signal, () => void shutdown().catch(() => process.exit(1)));
 }
 export { noopErrorReporter, type ErrorReporter } from './error-reporter';
-export { scrubEvent, type ScrubbableEvent } from './scrub-event';
+export {
+  scrubEvent,
+  scrubTransaction,
+  type ScrubbableEvent,
+} from './scrub-event';

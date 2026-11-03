@@ -95,7 +95,11 @@ export function canonicalContactPair(first: string, second: string) {
   return { lowActorId: ids[0]!, highActorId: ids[1]! };
 }
 
-/** One channel's authority as `actor` sees it, over aliases c, d, p and g. */
+/**
+ * One channel's authority as `actor` sees it, over aliases c, d, p and g. A
+ * spectator channel has no such authority: its contract is the Round's, so to
+ * these reads, and every DM or group route on them, it does not exist.
+ */
 const channelFactObject = (actor: SQL) => sql`jsonb_build_object(
       'kind', 'channel', 'channelId', c.id,
       'policyKey', c.policy_key, 'policyRevision', c.policy_revision,
@@ -134,7 +138,7 @@ export async function readMessagingChannelFact(
   const rows = (await tx.execute(sql`
     select ${channelFactObject(actor)} as fact
     from ${messagingChannels} c ${channelFactJoins(actor)}
-    where c.id = ${channelId} and (c.kind <> 'dm' or d.channel_id is not null)
+    where c.id = ${channelId} and c.kind <> 'round_spectator' and (c.kind <> 'dm' or d.channel_id is not null)
   `)) as unknown as Array<{ fact: unknown }>;
   return rows.length === 0 ? null : parseMessagingChannelFact(rows[0]!.fact);
 }
@@ -158,7 +162,7 @@ export async function readMessagingChannelFacts(
     select w.i as "index", ${channelFactObject(actor)} as fact
     from jsonb_to_recordset(${JSON.stringify(wanted)}::text::jsonb) as w(i integer, channel_id text, actor_id text)
     join ${messagingChannels} c on c.id = w.channel_id ${channelFactJoins(actor)}
-    where c.kind <> 'dm' or d.channel_id is not null
+    where c.kind <> 'round_spectator' and (c.kind <> 'dm' or d.channel_id is not null)
   `)) as unknown as Array<{ index: unknown; fact: unknown }>;
   const facts: (MessagingChannelFact | null)[] = bindings.map(() => null);
   for (const row of rows) {

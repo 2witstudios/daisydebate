@@ -25,12 +25,15 @@ export const mediaDocumentStale = (
   isRoundMediaHref(href) &&
   !isRoundMediaHref(documentUrl);
 
+/** The Broadcast's stage only receives: it connects to LiveKit with no capture exception. */
+const isStagePage = (path: string) => /^\/stage\/[^/]+$/.test(path);
+
 export function roundMediaOrigins(
   path: string,
   endpoints: readonly string[],
   development: boolean,
 ): readonly string[] {
-  if (!isRoundMediaPage(path)) return [];
+  if (!(isRoundMediaPage(path) || isStagePage(path))) return [];
   // Every node in the list: a Round may be sent to any of them.
   return endpoints.flatMap((entry) => nodeOrigins(entry, development));
 }

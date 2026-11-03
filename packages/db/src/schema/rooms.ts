@@ -1,6 +1,7 @@
 import {
   competitionTypes,
   debateRoles,
+  roomCaptureSchema,
   roomConfigSchema,
   roomStatuses,
   type RoomView,
@@ -24,6 +25,7 @@ import {
 import {
   createdAtColumn,
   jsonbColumn,
+  jsonbColumnNullable,
   jsonbIsObject,
   oneOf,
   timestampColumn,
@@ -82,6 +84,8 @@ export const rooms = pgTable(
       .notNull(),
     /** RoomConfig as chosen. */
     config: jsonbColumn('config', roomConfigSchema).notNull(),
+    /** The casual host's broadcast and recording choice (WATCH-8); null is none. */
+    capture: jsonbColumnNullable('capture', roomCaptureSchema),
     /** RoomExecutionPlan, resolved. */
     executionPlan: jsonbColumn(
       'execution_plan',
@@ -112,6 +116,10 @@ export const rooms = pgTable(
     check(
       'rooms_visibility_check',
       oneOf(table.visibility, ['public', 'unlisted', 'private']),
+    ),
+    check(
+      'rooms_ranked_public_check',
+      sql`${table.competitionType} <> 'ranked' or ${table.visibility} = 'public'`,
     ),
     check('rooms_title_nonempty', sql`length(trim(${table.title})) > 0`),
     check(
@@ -180,6 +188,7 @@ export const rooms = pgTable(
     jsonbIsObject('rooms', table.config),
     jsonbIsObject('rooms', table.executionPlan),
     jsonbIsObject('rooms', table.rulesSnapshot),
+    jsonbIsObject('rooms', table.capture),
   ],
 );
 

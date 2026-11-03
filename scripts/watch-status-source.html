@@ -1,0 +1,181 @@
+<!--
+  The authored input of the Watch Status canvas (bun progress:watch). Scores and
+  notes are estimates, set here as the same Score blocks Project Status reads.
+  Task state never lives here: name a task by its code in a task tag or a Tasks
+  row, and the generator links and colours it from the board.
+-->
+<h3>Score: Discovery</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Audience experience</td></tr>
+<tr><td>Subtitle</td><td>Live and Recordings listings, dashboard</td></tr>
+<tr><td>Features</td><td>60</td></tr>
+<tr><td>Stable</td><td>35</td></tr>
+<tr><td>Hardened</td><td>40</td></tr>
+<tr><td>Scale</td><td>20</td></tr>
+<tr><td>Spec</td><td>90</td></tr>
+<tr><td>Status</td><td>Real Live listing and Lobby links built; Lobby Watch reaches the viewer. Not yet rendered in a browser at the launched head.</td></tr>
+<tr><td>Tasks</td><td>SPECT-1.1 WATCH-11</td></tr>
+</table>
+<h3>Score: Live player</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Audience experience</td></tr>
+<tr><td>Subtitle</td><td>anonymous viewing, qualities, states</td></tr>
+<tr><td>Features</td><td>65</td></tr>
+<tr><td>Stable</td><td>50</td></tr>
+<tr><td>Hardened</td><td>45</td></tr>
+<tr><td>Scale</td><td>45</td></tr>
+<tr><td>Spec</td><td>90</td></tr>
+<tr><td>Status</td><td>Viewer page and player built; real players meet the start and stall targets on staging, with audio. iPhone and macOS Safari await a real tap.</td></tr>
+<tr><td>Tasks</td><td>SPECT-1.2 SPECT-1.3 WATCH-17</td></tr>
+</table>
+<h3>Score: Replay and archive</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Audience experience</td></tr>
+<tr><td>Subtitle</td><td>real archive, transcript history, player, downloads</td></tr>
+<tr><td>Features</td><td>55</td></tr>
+<tr><td>Stable</td><td>35</td></tr>
+<tr><td>Hardened</td><td>35</td></tr>
+<tr><td>Scale</td><td>10</td></tr>
+<tr><td>Spec</td><td>85</td></tr>
+<tr><td>Status</td><td>Archive, player, processing and composite downloads built. Per-POV capture and downloads planned. 24.5 minutes to build an 80-minute Round, one sample.</td></tr>
+<tr><td>Tasks</td><td>REC-1.3 REC-1.4 WATCH-14 REC-1.6</td></tr>
+</table>
+<h3>Score: Interaction</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Audience experience</td></tr>
+<tr><td>Subtitle</td><td>chat, reactions, following, history, counts</td></tr>
+<tr><td>Features</td><td>55</td></tr>
+<tr><td>Stable</td><td>30</td></tr>
+<tr><td>Hardened</td><td>45</td></tr>
+<tr><td>Scale</td><td>5</td></tr>
+<tr><td>Spec</td><td>80</td></tr>
+<tr><td>Status</td><td>Chat, reactions, following, history, counts and notifications built; chat now delivers near real time. No test renders chat in the Room.</td></tr>
+<tr><td>Tasks</td><td>SPECT-1.4 WATCH-12</td></tr>
+</table>
+<h3>Score: Media infrastructure</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Broadcast and recording core</td></tr>
+<tr><td>Subtitle</td><td>multi-node LiveKit, Redis, Egress pool, encoders</td></tr>
+<tr><td>Features</td><td>30</td></tr>
+<tr><td>Stable</td><td>40</td></tr>
+<tr><td>Hardened</td><td>45</td></tr>
+<tr><td>Scale</td><td>35</td></tr>
+<tr><td>Spec</td><td>60</td></tr>
+<tr><td>Status</td><td>Staging only. Production SFU, TURN and node failure are undecided; floor control scaling is unmeasured.</td></tr>
+<tr><td>Tasks</td><td>BCAST-1 BCAST-2 BCAST-H</td></tr>
+</table>
+<h3>Score: Broadcast</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Broadcast and recording core</td></tr>
+<tr><td>Subtitle</td><td>Web Egress stage page, lifecycle, owned delivery</td></tr>
+<tr><td>Features</td><td>75</td></tr>
+<tr><td>Stable</td><td>55</td></tr>
+<tr><td>Hardened</td><td>70</td></tr>
+<tr><td>Scale</td><td>50</td></tr>
+<tr><td>Spec</td><td>90</td></tr>
+<tr><td>Status</td><td>Whole path with audio proven on staging to 5,000 simulated viewers on delivery. 22 real Rounds put no private audio or video in the public feed. 360p ships; 540p and per-POV capture follow.</td></tr>
+<tr><td>Tasks</td><td>BCAST-1 BCAST-3 BCAST-6</td></tr>
+</table>
+<h3>Score: Delay and release</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Broadcast and recording core</td></tr>
+<tr><td>Subtitle</td><td>60 seconds ranked, host-chosen casual, scheduled release</td></tr>
+<tr><td>Features</td><td>75</td></tr>
+<tr><td>Stable</td><td>65</td></tr>
+<tr><td>Hardened</td><td>70</td></tr>
+<tr><td>Scale</td><td>60</td></tr>
+<tr><td>Spec</td><td>90</td></tr>
+<tr><td>Status</td><td>Viewers at 70 to 74 seconds, flat, never early. Round-end and set-time release withdrawn for this merge: the audit found them unwatchable; pacing is ISSUE-1256. Release gate built from committed history, not yet leak-tested.</td></tr>
+<tr><td>Tasks</td><td>BCAST-1 BCAST-4</td></tr>
+</table>
+<h3>Score: Spectator timeline</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Broadcast and recording core</td></tr>
+<tr><td>Subtitle</td><td>one delayed source of audience facts</td></tr>
+<tr><td>Features</td><td>65</td></tr>
+<tr><td>Stable</td><td>50</td></tr>
+<tr><td>Hardened</td><td>65</td></tr>
+<tr><td>Scale</td><td>5</td></tr>
+<tr><td>Spec</td><td>85</td></tr>
+<tr><td>Status</td><td>Leak tests per read path pass on real Postgres and Redis; release log built. A finished Broadcast's facts now also wait out the player's margin. 670 audience polls a second saturated the web process on the rig and failed debate work (ISSUE-1305).</td></tr>
+<tr><td>Tasks</td><td>BCAST-5 WATCH-6</td></tr>
+</table>
+<h3>Score: Recording</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Broadcast and recording core</td></tr>
+<tr><td>Subtitle</td><td>model, capture, processing, verification</td></tr>
+<tr><td>Features</td><td>50</td></tr>
+<tr><td>Stable</td><td>35</td></tr>
+<tr><td>Hardened</td><td>45</td></tr>
+<tr><td>Scale</td><td>5</td></tr>
+<tr><td>Spec</td><td>80</td></tr>
+<tr><td>Status</td><td>Own bucket and key, progress, bound, ceiling, composite build and playback; one 80-minute Round built in 24.5 min on a shared machine, sample of one. Per-POV is the next PR. Dedicated-machine measure still owed.</td></tr>
+<tr><td>Tasks</td><td>REC-1.1 REC-1.2</td></tr>
+</table>
+<h3>Score: Moderation</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Trust and business</td></tr>
+<tr><td>Subtitle</td><td>reports, takedown, stop switch, operator queue</td></tr>
+<tr><td>Features</td><td>55</td></tr>
+<tr><td>Stable</td><td>35</td></tr>
+<tr><td>Hardened</td><td>50</td></tr>
+<tr><td>Scale</td><td>5</td></tr>
+<tr><td>Spec</td><td>75</td></tr>
+<tr><td>Status</td><td>Content reports, operator queue, stop, takedown, restore, removal, legal removal and rebuild built and integration-tested. Not proven on staging.</td></tr>
+<tr><td>Tasks</td><td>WATCH-7</td></tr>
+</table>
+<h3>Score: Subscription gate</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Trust and business</td></tr>
+<tr><td>Subtitle</td><td>entitlement, opt-in controls</td></tr>
+<tr><td>Features</td><td>60</td></tr>
+<tr><td>Stable</td><td>35</td></tr>
+<tr><td>Hardened</td><td>40</td></tr>
+<tr><td>Scale</td><td>10</td></tr>
+<tr><td>Spec</td><td>80</td></tr>
+<tr><td>Status</td><td>Casual capture choice and AI judge gate built with beta grants. No billing.</td></tr>
+<tr><td>Tasks</td><td>WATCH-8 WATCH-16</td></tr>
+</table>
+<h3>Score: Privacy and legal</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Category</td><td>Trust and business</td></tr>
+<tr><td>Subtitle</td><td>notices, retention, erasure, Terms</td></tr>
+<tr><td>Features</td><td>60</td></tr>
+<tr><td>Stable</td><td>35</td></tr>
+<tr><td>Hardened</td><td>40</td></tr>
+<tr><td>Scale</td><td>5</td></tr>
+<tr><td>Spec</td><td>70</td></tr>
+<tr><td>Status</td><td>Waiver required before ranked Ready, data class declared. Not reviewed by counsel, by owner decision.</td></tr>
+<tr><td>Tasks</td><td>WATCH-9 WATCH-15 REC-1.5 WATCH-H</td></tr>
+</table>
+<!-- standing -->
+<div class="cat"><p class="p"><strong>Watch is built and stays off until the flip.</strong> PR 553 is ready to merge, and merging leaves Watch closed and capture off. The flip commit stays last: it waits for the media-resilience recovery PR with two LiveKit nodes on staging, ISSUE-1299 and a real privacy contact, then one three-Round leak proof on the final head. Builder ag-ez2sisqa, branch pu/watch. Proven on a rig built from the branch: 22 real Rounds with no private audio or video in the public feed, a real Round with Broadcast and Recording, and one browser run whose failures were fixed and rerun locally. The second audit, by reading at an older head, found 107 of 151 criteria met (38 of them behind the launch flag), 39 partly and 2 not. One load run saturated the web process at 670 polls a second (ISSUE-1305), a question for the flip.</p></div>
+<div class="cat"><h2>Before production <span class="tag fut">discovery running</span></h2><p class="p">Legal review blocks nothing, by owner decision. Three items are open: the production SFU (multi-node on Fly, TURN and a node-failure drill), measuring floor control scaling (ISSUE-1079), and the owner's real iPhone and Safari tap. Production still needs the owner through <task>WATCH-H</task>.</p></div>
+<div class="cat"><h2>Production readiness</h2><p class="p">Stage percentages under Order of work are estimates, set by hand at each merge. Media resilience: <task>SFU-1</task> <task>SFU-2</task> <task>SFU-3</task> <task>SFU-4</task> <task>SFU-5</task> <task>SFU-6</task> <task>SFU-7</task> <task>SFU-8</task> <task>SFU-9</task> <task>SFU-10</task> <task>SFU-11</task> <task>SFU-12</task>. Floor control scaling: <task>FLOOR-1</task> <task>FLOOR-2</task> <task>FLOOR-3</task> <task>FLOOR-4</task> <task>FLOOR-5</task>.</p></div>
+<!-- changes -->
+<h1 style="font-size:20px;margin:22px 0 10px">Other parts of the app to fix</h1>
+<div class="cat"><h2>Rooms and Rounds</h2><div class="scroll"><table><tr><th>Part</th><th>What is wrong</th><th>Change</th><th class="hide-sm">Evidence</th><th>Tasks</th></tr><tr><td class="name">Ranked Room visibility</td><td class="txt">A ranked Room can be unlisted or private. The create form defaults to unlisted, the edit command writes any visibility, and ADR 0092 calls the two independent.</td><td class="txt">Database constraint and command refusal; ranked is always public.</td><td class="ev hide-sm">schema/rooms.ts; room-edit-transitions.ts:152; create-room-editor.tsx:49</td><td class="tasks"><task>WATCH-5</task></td></tr><tr><td class="name">Round reads</td><td class="txt">Any member reads the full live view of a public or unlisted Round, including outcome, checkpoint and segments.</td><td class="txt">Split into participant and delayed projections.</td><td class="ev hide-sm">authorization-room.ts:20; round-view.ts:43; round-runtime/reads.ts:34</td><td class="tasks"><task>WATCH-6</task></td></tr><tr><td class="name">Ballots</td><td class="txt">Same gate as Round reads. Field filtering for non-participants is not verified.</td><td class="txt">Release winner, scores and reason on the spectator timeline. Per-side feedback stays private; judges stay hidden.</td><td class="ev hide-sm">round-ballot-reads.ts:85; rounds/[id]/page.tsx:26</td><td class="tasks"><task>WATCH-6</task> <task>BCAST-5</task></td></tr><tr><td class="name">Seatless host</td><td class="txt">Keeps the live room by owner decision, but only through an implicit audience type.</td><td class="txt">Keep the live room behind the explicit undelayed observer capability. A seated host gains nothing extra.</td><td class="ev hide-sm">spectator-view.ts:19; rounds/[id]/room/page.tsx:54</td><td class="tasks"><task>WATCH-6</task></td></tr><tr><td class="name">Rating posting</td><td class="txt">Already done by PR 508 through the maintenance sweep. No rating posts on an incomplete transcript freeze (DEC-277).</td><td class="txt">Replay and race proof only.</td><td class="ev hide-sm">PR 508; DEC-277</td><td class="tasks"><task>ISSUE-435</task></td></tr><tr><td class="name">Resolution secrecy</td><td class="txt">Open issue. Spectators must not see a resolution before reveal.</td><td class="txt">Negative test on the spectator path.</td><td class="ev hide-sm">ISSUE-728</td><td class="tasks"><task>ISSUE-728</task> <task>WATCH-6</task></td></tr></table></div></div>
+<div class="cat"><h2>Delay leaks</h2><div class="scroll"><table><tr><th>Part</th><th>What is wrong</th><th>Change</th><th class="hide-sm">Evidence</th><th>Tasks</th></tr><tr><td class="name">Realtime topics</td><td class="txt">The round topic admits non-participants, and standings has no audience check.</td><td class="txt">Round topic for participants only; delay standings.</td><td class="ev hide-sm">apps/realtime/src/authorization.ts:88,139</td><td class="tasks"><task>WATCH-6</task></td></tr><tr><td class="name">Lobby</td><td class="txt">Listings expose the Round reference, live stage and start time.</td><td class="txt">Remove or delay them.</td><td class="ev hide-sm">room-discovery.ts:134</td><td class="tasks"><task>WATCH-6</task></td></tr><tr><td class="name">Profile history</td><td class="txt">Anonymous readers see public Rounds as soon as they complete.</td><td class="txt">Respect the release time.</td><td class="ev hide-sm">member-profile-reads.ts:96,134</td><td class="tasks"><task>BCAST-5</task></td></tr><tr><td class="name">Leaderboard and standings</td><td class="txt">Rating changes and outcomes are read undelayed.</td><td class="txt">Respect the release time.</td><td class="ev hide-sm">standings.ts:84,165; request-session.ts:179</td><td class="tasks"><task>BCAST-5</task></td></tr></table></div></div>
+<div class="cat"><h2>Media and platform</h2><div class="scroll"><table><tr><th>Part</th><th>What is wrong</th><th>Change</th><th class="hide-sm">Evidence</th><th>Tasks</th></tr><tr><td class="name">Publish quality</td><td class="txt">Cameras cap at 360p and 20 fps, so a broadcast cannot look better.</td><td class="txt">Add a 720p layer, sent only when the broadcast needs it.</td><td class="ev hide-sm">round-media/browser-transport.ts:35</td><td class="tasks"><task>BCAST-3</task></td></tr><tr><td class="name">LiveKit topology</td><td class="txt">One shared-cpu-1x node. Its private Redis on staging was deployed by hand, and a real browser call through it is unproven.</td><td class="txt">Put Redis in config and go multi-node. Supersedes DEC-228 for this purpose.</td><td class="ev hide-sm">fly.livekit.toml; docs/operations/deploy-staging.md</td><td class="tasks"><task>BCAST-2</task> <task>BCAST-H</task></td></tr><tr><td class="name">Media vendor journal</td><td class="txt">Only create, delete and permissions intents exist.</td><td class="txt">New intents and a producer for capture.</td><td class="ev hide-sm">media-reconcile-contracts.ts:1</td><td class="tasks"><task>BCAST-6</task> <task>REC-1.2</task></td></tr><tr><td class="name">Entitlements</td><td class="txt">Only round_analysis and ai_rounds, sourced from beta.</td><td class="txt">Add the host subscription entitlement.</td><td class="ev hide-sm">packages/protocol/src/entitlements.ts:6</td><td class="tasks"><task>WATCH-8</task></td></tr><tr><td class="name">Reporting</td><td class="txt">No report table or handler exists. Messaging reports were only deferred.</td><td class="txt">One reporting capability for Round, Recording, chat and abusive ballot feedback.</td><td class="ev hide-sm">ADR 0060:88; features/watch/report.ts</td><td class="tasks"><task>WATCH-7</task></td></tr><tr><td class="name">Admin app</td><td class="txt">The operator API covers accounts, beta access and commands only.</td><td class="txt">Add moderation routes and a queue.</td><td class="ev hide-sm">protocol/src/operator.ts:48; operator-nav.tsx:4</td><td class="tasks"><task>WATCH-7</task></td></tr><tr><td class="name">Retention and erasure</td><td class="txt">No recording, report or watch-history stores are covered.</td><td class="txt">New retention targets and privacy adopters. Ranked video survives erasure; a casual recording is removed whole.</td><td class="ev hide-sm">retention-sweep.ts:46; privacy/planner.ts:9</td><td class="tasks"><task>REC-1.5</task></td></tr><tr><td class="name">Notifications</td><td class="txt">Mock only, with no stored kinds. The place is off in launch.ts.</td><td class="txt">Real stored notifications, with no early outcomes.</td><td class="ev hide-sm">get-notifications.ts:2; launch.ts:30</td><td class="tasks"><task>WATCH-12</task> <task>ISSUE-634</task></td></tr></table></div></div>
+<div class="cat"><h2>Mocks and false claims</h2><div class="scroll"><table><tr><th>Part</th><th>What is wrong</th><th>Change</th><th class="hide-sm">Evidence</th><th>Tasks</th></tr><tr><td class="name">Access guards and launch</td><td class="txt">/recordings requires a participant. /watch is open and serves mocks whatever the launch flag says.</td><td class="txt">Public viewing, honest flag, updated guard tests.</td><td class="ev hide-sm">access/decision.ts:31; coming-soon/launch.ts:15; guarded-pages.test.ts:29</td><td class="tasks"><task>WATCH-11</task></td></tr><tr><td class="name">Dashboard</td><td class="txt">LiveNow and FeaturedTournament are seeded from mocks.</td><td class="txt">Real data, or remove them.</td><td class="ev hide-sm">ui/store/state.ts:2; dashboard.tsx:30</td><td class="tasks"><task>WATCH-11</task> <task>SPECT-1.1</task></td></tr><tr><td class="name">Tournament recording links</td><td class="txt">Bracket and results pages link to generic recordings from mock data.</td><td class="txt">Real links, or remove them.</td><td class="ev hide-sm">results-tabs.tsx:170; features/tournaments/event.ts:201</td><td class="tasks"><task>WATCH-11</task></td></tr><tr><td class="name">Recording labels</td><td class="txt">The Round drawer shows Saved and Not recorded without durable evidence.</td><td class="txt">Show only what is proven.</td><td class="ev hide-sm">ui/debate-room/drawer-room.tsx:28</td><td class="tasks"><task>WATCH-11</task></td></tr><tr><td class="name">Legal and compliance text</td><td class="txt">compliance.md says nothing is recorded; the Terms draft promises recordings and says You own what you write and say, which contradicts Daisy owning ranked content.</td><td class="txt">One truthful statement, in the same PR as the behaviour, plus a ranked rights agreement.</td><td class="ev hide-sm">operations/compliance.md:74; legal/documents.ts:51</td><td class="tasks"><task>WATCH-9</task> <task>WATCH-15</task></td></tr></table></div></div>
+<div class="cat"><h2>Semantics</h2><div class="scroll"><table><tr><th>Part</th><th>What is wrong</th><th>Change</th><th class="hide-sm">Evidence</th><th>Tasks</th></tr><tr><td class="name">Round, not debate</td><td class="txt">WatchDebate (77 lines), debateId (157 lines, including routes), DebateMode and stale debates.mode.</td><td class="txt">Say Round everywhere, including route params.</td><td class="ev hide-sm">features/watch/debate.ts:10; ADR 0048:46</td><td class="tasks"><task>WATCH-10</task></td></tr><tr><td class="name">One word: ranked</td><td class="txt">Both words were used for one concept, with about 190 lines of the other word.</td><td class="txt">Ranked everywhere, by owner decision. Replace the other word where it means ranked.</td><td class="ev hide-sm">protocol/src/round.ts:9; schema/rounds.ts:209</td><td class="tasks"><task>WATCH-10</task></td></tr><tr><td class="name">Spectator, viewer, audience</td><td class="txt">Overlapping words. Viewer mostly means the requester. A stale spectator participant role remains in tests.</td><td class="txt">One meaning each; viewer means the requester.</td><td class="ev hide-sm">debate-participants.integration.ts:67</td><td class="tasks"><task>WATCH-10</task></td></tr><tr><td class="name">Route names</td><td class="txt">/watch, /recordings and /rounds with debateId params split one experience.</td><td class="txt">Decide the route map with the rename.</td><td class="ev hide-sm">features/watch/routes.ts:4</td><td class="tasks"><task>WATCH-10</task></td></tr></table></div></div>
+<!-- reference -->
+<h1 style="font-size:20px;margin:22px 0 10px">Order of work</h1>
+<div class="cat"><div class="scroll"><table><tr><th>Stage</th><th>Progress</th><th>What it does</th><th>Tasks</th></tr><tr><td class="name">1. Decide</td><td><div class="bar hi"><i style="width:90%"></i><span>90%</span></div></td><td class="txt">Record the settled policy and numeric targets.</td><td class="tasks"><task>WATCH-1</task> <task>WATCH-2</task> <task>WATCH-3</task></td></tr><tr><td class="name">2. Prove</td><td><div class="bar mid"><i style="width:65%"></i><span>65%</span></div></td><td class="txt">Test the riskiest assumptions and the owned pipeline on staging. May change the design.</td><td class="tasks"><task>BCAST-1</task> <task>BCAST-H</task></td></tr><tr><td class="name">3. Fix the shape</td><td><div class="bar hi"><i style="width:90%"></i><span>90%</span></div></td><td class="txt">Refactors before anything is built on top.</td><td class="tasks"><task>WATCH-5</task> <task>WATCH-6</task> <task>WATCH-10</task></td></tr><tr><td class="name">4. Build the core</td><td><div class="bar hi"><i style="width:75%"></i><span>75%</span></div></td><td class="txt">Infrastructure, Broadcast, delay, timeline and recording.</td><td class="tasks"><task>BCAST-2</task> <task>BCAST-3</task> <task>BCAST-4</task> <task>BCAST-5</task> <task>BCAST-6</task> <task>REC-1.1</task> <task>REC-1.2</task> <task>ISSUE-435</task></td></tr><tr><td class="name">5. Build the experience</td><td><div class="bar hi"><i style="width:80%"></i><span>80%</span></div></td><td class="txt">Viewing, replay, interaction and removing mocks.</td><td class="tasks"><task>SPECT-1.1</task> <task>SPECT-1.2</task> <task>SPECT-1.3</task> <task>SPECT-1.4</task> <task>REC-1.3</task> <task>REC-1.4</task> <task>WATCH-11</task> <task>WATCH-12</task> <task>WATCH-14</task> <task>WATCH-17</task></td></tr><tr><td class="name">6. Build trust and business</td><td><div class="bar hi"><i style="width:80%"></i><span>80%</span></div></td><td class="txt">Moderation, subscription, compliance and rights.</td><td class="tasks"><task>WATCH-7</task> <task>WATCH-8</task> <task>WATCH-9</task> <task>WATCH-15</task> <task>WATCH-16</task> <task>REC-1.5</task> <task>REC-1.6</task></td></tr><tr><td class="name">7. Prove the whole</td><td><div class="bar lo"><i style="width:30%"></i><span>30%</span></div></td><td class="txt">Real journeys, load and the scale path on staging.</td><td class="tasks"><task>WATCH-4</task> <task>ISSUE-728</task></td></tr><tr><td class="name">8. Production gate</td><td><div class="bar lo"><i style="width:0%"></i><span>0%</span></div></td><td class="txt">Human sign-off only. Agents never take this.</td><td class="tasks"><task>WATCH-H</task></td></tr></table></div></div>
+<div class="two">
+<div class="cat"><h2>Settled requirements</h2><dl><dt>Ranked</dt><dd>Always public, always broadcast, always recorded, kept forever. Entering accepts a recorded notice.</dd><dt>Everything else</dt><dd>Broadcast and recording are two separate opt-ins, each needing a subscribed host. Recording visibility follows the Room.</dd><dt>Delay</dt><dd>60 seconds on ranked, enforced on the server, for outcome integrity with future betting markets in mind, not to stop help. Casual also defaults to 60 seconds; the host can lower it to the fastest native setting (target 10 seconds or less) or raise it, including release at Round end or at a set time. A host wanting truly live can stream it themselves.</dd><dt>Non-ranked chat</dt><dd>Debaters can read spectator chat during the Round, with a host off switch. Never on ranked.</dd><dt>Audience</dt><dd>Anyone can watch without an account. Talking and interacting need an account.</dd><dt>Undelayed viewing</dt><dd>A seatless host keeps the live room on every Round, as an event host. Event moderation authority also holds it. A competitor gains nothing from hosting.</dd><dt>Spectator evidence</dt><dd>Ranked Rounds get public captions and ballots with winner, scores and reason. Per-side feedback stays private so judges write honestly, and a debater can report abuse.</dd><dt>Downloads</dt><dd>In this release, paywalled. A subscriber can download any Recording they can watch; copies are beyond erasure. Clips are not in this release.</dd><dt>Judging</dt><dd>AI judging is free on ranked, as part of the signed waiver, and premium on casual, with beta testers granted it. A ballot that exists is never hidden.</dd><dt>Vocabulary</dt><dd>Ranked is the one word.</dd><dt>Ranked content</dt><dd>Daisy owns in-Round content; that is the deal when competing in ranked. Members own their prep and drives. The season is the event: a signed content waiver is required before ranked play, once per season. Streaming is allowed everywhere under a good-faith content policy, and competitors can earn with no royalty. Daisy makes clips by hand at first, under the agreement. A share of total revenue, on the NBA model, comes later and never in beta. Commercial restrictions apply only to tournaments. Non-ranked content stays with its participants.</dd><dt>Replay and downloads</dt><dd>Viewers watch one composited video. Each POV is also captured privately, and subscribers can download any POV, the audio alone, or the composite.</dd><dt>Privacy at release</dt><dd>The worker refuses to publish media from any interval not known to be public, using committed Round history. Revocation keeps private media out of storage.</dd><dt>Video quality</dt><dd>A 540p top layer on Rounds with a Broadcast, stepped down first under limited upload or CPU. Speech audio and the opponent always win.</dd><dt>Streaming</dt><dd>Self-streaming stays allowed, though tournaments may ban it. Stream this Round makes the official feed the easiest thing to stream.</dd><dt>Deletion</dt><dd>Ranked content cannot be deleted by participants, even by erasing an account; moderation can still take it down. A casual recording is removed whole when any participant asks.</dd><dt>Scale</dt><dd>1,000 viewers per Round, 5,000 total, with a proven path to expand.</dd><dt>Delivery</dt><dd>One design, one branch, one PR, one release. Daisy owns the video pipeline, with no video vendor, on Tigris object storage. Non-ranked broadcast stays subscription only.</dd></dl></div>
+<div class="cat"><h2>Concepts</h2><dl><dt>Round</dt><dd>The competitive record. Participants and judges use the live room.</dd><dt>Broadcast</dt><dd>The audience stream, held until its release time, with its own state and completion.</dd><dt>Recording</dt><dd>A retained playable video with its own state and lifetime. Never inferred from a Broadcast or from Round completion.</dd><dt>Replay</dt><dd>Viewer-authorized playback of a Recording.</dd><dt>Spectator timeline</dt><dd>What an audience may know and when, released by the server at the Broadcast release time.</dd><dt>Undelayed observer</dt><dd>An explicit capability held by a seatless host, event moderation authority or operators.</dd><dt>Transcript</dt><dd>The authoritative capture used for judging. Not the same as captions.</dd><dt>Round analysis</dt><dd>The private AI report. Coach and coaching are reserved for human coaches.</dd></dl></div>
+</div>
+<div class="cat"><h2>Earlier decisions this changes</h2><dl><dt><task>DEC-179</task></dt><dd>Answered: spectators do not get undelayed timing.</dd><dt><task>DEC-134</task></dt><dd>Reversed: Viewers count comes back with real data.</dd><dt><task>DEC-163</task> to DEC-167</dt><dd>Watch UI decisions need review against the Broadcast design, including the Transcript tab.</dd><dt><task>DEC-101</task></dt><dd>Changes: ranked Rounds now get public captions. Counsel should see this.</dd><dt>ADR 0048, ADR 0067, ADR 0092</dt><dd>Amend for ranked-is-public and spectator timing.</dd><dt>DEC-99, DEC-228</dt><dd>One shared LiveKit server with no Redis no longer holds.</dd><dt>New ADRs</dt><dd>Owned broadcast delivery; spectator release authority; recording and retention. Numbers from bun adr:next.</dd></dl></div>

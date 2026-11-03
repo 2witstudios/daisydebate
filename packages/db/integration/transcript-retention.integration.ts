@@ -45,7 +45,7 @@ async function spokenRound(fixture: Fixture, roundId: string, at: string) {
     [1, lines.other, other.id],
   ] as const)
     await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,created_at) values(${id},${roundId},${segmentId},${seat},${sequence},'a private line',${at}::timestamptz)`;
-  return { subject, lines };
+  return { subject, lines, roundId };
 }
 
 /** The validated response is cached only after its freeze and job exist. */
@@ -133,6 +133,27 @@ test('transcript retention removes utterances and pending judging responses 180 
     });
   }));
 
+test('a ranked Round keeps its transcript past the window, as its waiver says', () =>
+  withSpokenRound(recordedAt, async ({ fixture, lines, roundId, state }) => {
+    await fixture.sql`update rounds set competition_type='ranked', format_id='freestyle',
+      ladder_id='freestyle', preset_version=1 where id=${roundId}`;
+    const retention = transcriptRetention({
+      database: drizzle({ client: fixture.sql }),
+    });
+    assert({
+      given: 'lines of a ranked Round well past 180 days',
+      should: 'delete none of them',
+      actual: [
+        await retention.purgeExpiredUtterances({
+          before: '2027-01-01T00:00:00.000Z',
+          limit: 10,
+        }),
+        (await state()).utterances,
+      ],
+      expected: [0, [lines.subject, lines.other]],
+    });
+  }));
+
 test('subject erasure removes their transcript lines and every pending judgment of their Rounds', async () =>
   withSpokenRound(
     new Date().toISOString(),
@@ -162,5 +183,41 @@ test('subject erasure removes their transcript lines and every pending judgment 
           },
         },
       });
+    },
+  ));
+
+test("erasure keeps a ranked Round's transcript lines and its pending judgment", () =>
+  withSpokenRound(
+    new Date().toISOString(),
+    async ({ fixture, subject, state, roundId }) => {
+      const now = new Date().toISOString();
+      const database = drizzle({ client: fixture.sql });
+      // A real seeded ladder format, so the ranked constraints hold.
+      const [preset] = await fixture.sql`
+        select format_id,version,format_version from format_presets
+        where format_id='value' order by version desc limit 1`;
+      const [original] = await fixture.sql`
+        select format_id,format_version from rounds where id=${roundId}`;
+      await fixture.sql`update rounds set competition_type='ranked',
+        format_id=${preset.format_id},format_version=${preset.format_version},
+        preset_version=${preset.version},ladder_id=${preset.format_id}
+        where id=${roundId}`;
+      try {
+        const before = await state();
+        await database.transaction((tx) =>
+          roundTranscriptPrivacyAdopter.erase(tx, subject, { now }),
+        );
+        assert({
+          given: 'an erased debater with lines in a ranked Round',
+          should:
+            'keep the lines and the judgment, since they are ranked content',
+          actual: await state(),
+          expected: before,
+        });
+      } finally {
+        await fixture.sql`update rounds set competition_type='casual',
+          format_id=${original.format_id},format_version=${original.format_version},
+          preset_version=null,ladder_id=null where id=${roundId}`;
+      }
     },
   ));

@@ -11,7 +11,11 @@ import type {
 import { assemblyOpen, complete, type Edges } from './room-assembly-facts';
 import { activeRoomMembers } from './room-membership';
 import { removeSeat } from './room-edit-transitions';
-export { hostIdentityHidden, projectRoom } from './room-projection';
+export {
+  hostIdentityHidden,
+  projectRoom,
+  startHiddenFrom,
+} from './room-projection';
 import {
   selectFormat,
   updateConfig,
@@ -25,6 +29,7 @@ import {
   close,
   closeRoom,
 } from './room-consent-transitions';
+import { setCapture } from './room-capture';
 import { topicInvariantHolds } from './resolution-draw';
 type RoomCommandType = RoomCommand['type'];
 /** Who may run a Room command, whether it asks every seat to ready again, and what it does. */
@@ -50,6 +55,7 @@ const roomCommandPolicies: RoomCommandPolicies = {
   'update-format': { ...hostEdit, transition: updateConfig },
   'select-format': { ...hostEdit, transition: selectFormat },
   'update-details': { ...hostEdit, transition: updateDetails },
+  'set-capture': { ...hostEdit, transition: setCapture },
   'assign-seat': { ...hostEdit, transition: claimSeat },
   'remove-seat': { ...hostEdit, transition: leaveSeat },
   'claim-seat': { ...memberEdit, transition: claimSeat },

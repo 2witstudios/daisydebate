@@ -17,6 +17,7 @@ export const completed: RoundBallotRead = {
   ballots: [
     {
       judge: 'human',
+      reportableFeedbackId: 'f'.repeat(24),
       ballot: {
         ...sampleJudgeBallot,
         feedback: { affirmative: 'Weigh earlier.' },
@@ -24,6 +25,7 @@ export const completed: RoundBallotRead = {
     },
     {
       judge: 'ai',
+      reportableFeedbackId: null,
       ballot: { ...sampleJudgeBallot, feedback: {} },
     },
   ],

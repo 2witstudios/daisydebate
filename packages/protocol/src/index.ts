@@ -1,3 +1,15 @@
+export {
+  privateSpanChanges,
+  publicClips,
+  publicIntervals,
+  publicIntervalsSchema,
+  settledByHeartbeat,
+  stageTimeline,
+  wholeSegmentsInside,
+  type PublicClip,
+  type PublicInterval,
+  type StageInterval,
+} from './public-interval';
 /**
  * Named re-exports, not `export *` (AGENTS.md: explicit exports, no
  * barrels). This is `@daisy/protocol`'s only public entry point: every
@@ -53,6 +65,19 @@ export {
   TRANSCRIPT_ADMISSION_WINDOW_MS,
 } from './capture-timing';
 export type { RoomConfig, RoomExecutionPlan } from './room';
+export {
+  chatSlowModeSchema,
+  CONTENT_MODERATION_DELIVERY_BOUND_MS,
+  contentReportCreateSchema,
+  reasonsForTarget,
+} from './content-moderation';
+export type {
+  ContentReportCreate,
+  ContentReportReason,
+  ContentReportTargetKind,
+} from './content-moderation';
+export { roomCaptureSchema } from './room-capture';
+export type { RoomCapture } from './room-capture';
 export { formatSettingsSchema } from './format-settings';
 export { publishedResolutionSchema } from './room-resolution';
 export type {
@@ -482,6 +507,84 @@ export { roundRecordSchema, type RoundRecord } from './round-view';
 export { frozenCaptureGapsSchema } from './capture-gap';
 export type { FrozenCaptureGaps } from './capture-gap';
 export { roundMediaPolicy } from './round-media-policy';
+export { broadcastLivePrefix, officialFeedPath } from './official-feed';
+export {
+  broadcastReleasePolicySchema,
+  releaseSkipsSchema,
+  SPECTATOR_MARGIN_MS,
+  type BroadcastReleasePolicy,
+} from './broadcast';
+export {
+  spectatorTimelineSchema,
+  type BroadcastStream,
+  type BroadcastStanding,
+  type SpectatorTimeline,
+} from './spectator-timeline';
+export {
+  audienceReactionKinds,
+  audienceReactionPostSchema,
+  audienceSnapshotSchema,
+  debaterFollowUpdateSchema,
+  notificationKinds,
+  notificationPreferencesSchema,
+  notificationsReadSchema,
+  SPECTATOR_CHAT_UNITS,
+  SPECTATOR_CHAT_WINDOW,
+  spectatorChatPostSchema,
+  viewerPulseSchema,
+  watchHistoryUpdateSchema,
+  type AudienceReactionKind,
+  type AudienceSnapshot,
+  type NotificationKind,
+  type NotificationPreferences,
+  type SpectatorChatMessage,
+} from './audience';
+export {
+  RECORDING_EVIDENCE_HOLD_MS,
+  recordingClasses,
+  recordingEligibilitySchema,
+  recordingFailureReasons,
+  recordingHiddenByModeration,
+  recordingHoldPrefix,
+  holdAttemptPrefix,
+  recordingLifecycleSchema,
+  recordingMediaSchema,
+  recordingRemovalCauses,
+  recordingSourceSchema,
+  recordingStatuses,
+  type RecordingClass,
+  type RecordingEligibility,
+  type RecordingLifecycle,
+  type RecordingMedia,
+  type RecordingRemovalCause,
+  type RecordingSource,
+  type RecordingSpeech,
+  type RecordingStatus,
+} from './recording';
+export {
+  recordingObjectPrefix,
+  transitionRecording,
+  type RecordingEvent,
+  type RecordingTransition,
+} from './recording-lifecycle';
+export {
+  capturedMediaMs,
+  recordingBuildCeilingMs,
+  recordingBuildDelayed,
+  recordingBuildSteps,
+  recordingPreparationOf,
+  type RecordingBuildProgress,
+  type RecordingPreparation,
+} from './recording-processing';
+export {
+  builtRecordingMediaSchema,
+  recordingJobStateSchema,
+  recordingJobStatuses,
+  type BuiltRecordingMedia,
+  type RecordingJobState,
+} from './recording-processing';
+export { broadcastHoldPrefix } from './broadcast-hold';
+export { parseHoldPlaylist, type HoldEntry } from './egress-hold-playlist';
 export {
   captureWithinLimit,
   roundIncidentPolicy,
@@ -508,6 +611,7 @@ export {
   sealReply,
   tokenReply,
 } from './capture-worker-replies';
+export { conversational } from './runtime';
 export type {
   MediaRoomFacts,
   MediaRoomFate,

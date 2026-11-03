@@ -41,6 +41,12 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
       seen.add(nonce);
       return true;
     },
+    contentModeration: {
+      listModerationReports: async () => [],
+      listRebuildableRecordings: async () => [],
+      readModerationReport: async () => null,
+      runModerationCommand: async () => ({ v: 1, outcome: 'applied' }),
+    },
     store: {
       listOperatorReports: async () => [],
       listOperatorRestrictions: async () => [],

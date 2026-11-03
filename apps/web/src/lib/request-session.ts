@@ -1,3 +1,5 @@
+import { readAudienceForViewer } from '../features/spectating/audience-snapshot';
+import { readNotificationItems } from '../features/notifications/read-notifications';
 import { browserCaptureAttributes } from '../features/telemetry/browser-capture';
 import { cookies } from 'next/headers';
 import { analyticsConfiguration } from '../features/analytics/config';
@@ -11,13 +13,27 @@ import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
-import type { MatchHistoryQuery, MemberProfile } from '@daisy/protocol';
+import { type MatchHistoryQuery, type MemberProfile } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
+import { spectatorClockAt } from '../features/spectating/spectator-clock';
+import { presentedLinkHash } from '../features/audience-link/audience-link';
+import { readHostedAudienceLink } from '../features/audience-link/issue-link';
+import { admitAudience } from '../features/spectating/read-timeline';
+import { readUnlessRefused } from '../features/spectating/refused-read';
+import { followingOf } from '../features/watch/following';
+import type { HubCounts } from '../features/watch/hub-counts';
+import { liveRoundsOf } from '../features/watch/list-live';
+import type { LiveQuery } from '../features/watch/live-query';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
+import { ARCHIVE_PAGE_SIZE } from '../features/recording/archive';
+import type { RecordingsQuery } from '../features/recording/archive-query';
+import type { RecordingViewer } from '../features/recording/audience';
+import { recordingReads } from '../features/recording/composition';
+import { openRecordingHistory } from '../features/recording/history';
 import { resolveSession } from './identity';
 
 /**
@@ -36,6 +52,31 @@ const requestSession = cache(async () =>
  */
 export const privateGroupsOffered = (): boolean =>
   processApp().messagingPolicy.privateGroups === 'isolated-test-fixture';
+
+/** One archive page for this viewer, and how many Recordings are public. */
+export const readRecordingArchive = async (
+  query: RecordingsQuery,
+  viewer: RecordingViewer,
+) => {
+  const app = processApp();
+  const { archive } = recordingReads(app);
+  const clock = spectatorClockAt(app.clock.now());
+  const [page, publicCount] = await Promise.all([
+    archive.listArchive({
+      query,
+      viewerActorId: viewer.kind === 'account' ? viewer.actorId : null,
+      clock,
+      limit: ARCHIVE_PAGE_SIZE,
+    }),
+    archive.countPublicArchive({ clock }),
+  ]);
+  return { page, publicCount };
+};
+
+/** A finished Round's history screen for this viewer. */
+export const readRecordingHistory = (
+  input: Parameters<typeof openRecordingHistory>[1],
+) => openRecordingHistory(recordingReads(processApp()).inputs, input);
 
 /** When this account's suspension ends; null for a ban or nothing in force. */
 export const requestRestrictionEnd = (userId: string) => {
@@ -138,8 +179,157 @@ export const requestMemberProfile = async (
       identity: await requestIdentity(),
       username,
       query,
+      now: processApp().clock.now(),
     },
   );
+
+/**
+ * What the public Round route reads, its one way in: the same facts the
+ * anonymous snapshot serves, from the same one read a second. Null when this Round
+ * has no audience, `refused` when the audience lane is full.
+ */
+export const requestWatchRound = async (roundId: string) =>
+  readUnlessRefused(async () => {
+    const snapshot = await processApp().watchRounds(roundId);
+    return snapshot &&
+      (await admitAudience(processApp().database, snapshot, {
+        roundId,
+        presentedHash: await requestPresentedLink(roundId),
+      }))
+      ? snapshot.timeline
+      : null;
+  }, 'refused' as const);
+
+/** The public Round a Room's link may send anyone to, once its start is released. */
+export const requestWatchableRoundOfRoom = (roomId: string) =>
+  processApp().database.readWatchableRoundOfRoom(
+    roomId,
+    spectatorClockAt(processApp().clock.now()),
+  );
+
+/** A Round's link standing, for the member who hosts it; null for anyone else. */
+export const requestHostedAudienceLink = async (
+  roundId: string,
+  identity: Identity,
+) =>
+  identity.state === 'member'
+    ? readHostedAudienceLink(processApp().database, {
+        roundId,
+        caller: {
+          userId: identity.principal.userId,
+          actorId: identity.principal.actorId,
+        },
+      })
+    : null;
+
+/** The hash of the audience link this render's browser holds for a Round. */
+export const requestPresentedLink = async (roundId: string) =>
+  presentedLinkHash((await headers()).get('cookie'), roundId);
+
+/** One page of the real Live listing. */
+export const requestLiveListing = (query: LiveQuery) =>
+  readUnlessRefused(
+    () => processApp().liveReads.listing(query),
+    'refused' as const,
+  );
+
+/** The newest live Rounds, for the home page. */
+export const requestLeadingLive = () =>
+  readUnlessRefused(() => processApp().liveReads.leading(), []);
+
+/** The live Round of each named debater, for a profile or the Friends list. */
+export const requestLiveRoundsOf = (usernames: readonly string[]) =>
+  readUnlessRefused(
+    () =>
+      liveRoundsOf(processApp().database, {
+        usernames,
+        now: processApp().clock.now(),
+      }),
+    new Map(),
+  );
+
+const FOLLOWING_ROWS = 50;
+const RECENTLY_WATCHED_ROWS = 10;
+
+/** The Following tab for one account: who it follows, who is live, what it watched. */
+export const requestFollowing = async (userId: string) => {
+  const { database, clock } = processApp();
+  const now = clock.now();
+  const [usernames, history] = await Promise.all([
+    database.listFollowedDebaters({
+      followerUserId: userId,
+      limit: FOLLOWING_ROWS,
+    }),
+    database.listWatchHistory({
+      userId,
+      clock: spectatorClockAt(now),
+      limit: RECENTLY_WATCHED_ROWS,
+    }),
+  ]);
+  const live = await liveRoundsOf(database, { usernames, now });
+  return followingOf({ usernames, live, history });
+};
+
+/** The numbers on the Watch tabs. */
+export const requestHubCounts = async (): Promise<HubCounts> => {
+  const app = processApp();
+  const clock = spectatorClockAt(app.clock.now());
+  const [live, recordings] = await Promise.all([
+    readUnlessRefused(() => app.liveReads.count(), 0),
+    recordingReads(app).archive.countPublicArchive({ clock }),
+  ]);
+  return { live, recordings };
+};
+
+const WATCH_HISTORY_ROWS = 50;
+
+/** This account's stored notifications, as its list reads them. */
+export const requestNotifications = (userId: string, unreadOnly: boolean) =>
+  readNotificationItems(processApp().database, {
+    userId,
+    unreadOnly,
+    now: processApp().clock.now(),
+  });
+
+/** What this account keeps of its notification choices and watching. */
+export const requestAudienceSettings = async (userId: string) => {
+  const { database, clock } = processApp();
+  const [preferences, history] = await Promise.all([
+    database.readNotificationPreferences({ userId }),
+    database.listWatchHistory({
+      userId,
+      clock: spectatorClockAt(clock.now()),
+      limit: WATCH_HISTORY_ROWS,
+    }),
+  ]);
+  return { preferences, history };
+};
+
+/** Whether this account follows that debater; null when it cannot. */
+export const requestDebaterFollow = (
+  followerUserId: string,
+  username: string,
+) => processApp().database.readDebaterFollow({ followerUserId, username });
+
+/**
+ * A Round's audience for this viewer, by the same reads as the snapshot. Fresh, so
+ * a poster sees their own message. A full lane omits it from this render: it sits
+ * beside a debate or a feed and never takes them down.
+ */
+export const requestAudience = async (
+  roundId: string,
+  actorId: string | null,
+) => {
+  const presentedHash = await requestPresentedLink(roundId);
+  return readUnlessRefused(
+    () =>
+      readAudienceForViewer(
+        { store: processApp().database, counts: processApp().redis },
+        { roundId, actorId, presentedHash, now: processApp().clock.now() },
+      ),
+    null,
+  );
+};
 
 /** Process binding for the public ladder and its signed-in blinding context. */
 export async function requestLadder(input: {
@@ -193,6 +383,8 @@ export async function requestRoundRatings(
 /** Canonical deployment URL, never derived from a caller-controlled Host. */
 export const requestMetadataBase = (): URL =>
   new URL(processApp().config.PUBLIC_APP_URL);
+
+export const requestSearchIndexing = () => processApp().config.SEARCH_INDEXING;
 
 /** Native create-room preview answers are scoped to this authenticated member. */
 export async function requestRoomDraftAnswer(

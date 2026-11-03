@@ -13,12 +13,23 @@ const area = z.enum([
   'prep',
   'watch',
 ]);
+/** One viewing's quality against the WATCH-3 targets; never says what or who was watched. */
+const playbackQuality = z.strictObject({
+  engine: z.enum(['hlsjs', 'native']),
+  startup_ms: z.int().nonnegative(),
+  rebuffer_ms: z.int().nonnegative(),
+  watched_ms: z.int().nonnegative(),
+  height: z.int().nonnegative(),
+});
+
 /** Only bounded product facts. Content, URLs and participant identifiers are never event properties. */
 const productEvents = {
   page_viewed: z.strictObject({ area }),
   consent_updated: z.strictObject({ replay: z.boolean() }),
   room_created: z.strictObject({}),
   room_rematched: z.strictObject({}),
+  broadcast_playback: playbackQuality,
+  recording_playback: playbackQuality,
 } as const;
 type ProductEventName = keyof typeof productEvents;
 export type ProductEvent = {

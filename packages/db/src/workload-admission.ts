@@ -15,6 +15,7 @@ const WORKLOAD_LANES = [
   'social',
   'search',
   'audience',
+  'browse',
   'control',
   'admission',
   'renewal',
@@ -71,7 +72,12 @@ export const WORKLOAD_PROFILES = {
     lanes: {
       competitive: COMPETITIVE,
       social: lane(4, 16, 100),
-      audience: lane(2, 32, 250),
+      // The Watch audience: viewers read a per-Round cached answer, so a read here
+      // is rare and a queue only delays a viewer who can keep what they have. A
+      // full lane refuses at once, and they come back later (ADR 0088 §6).
+      audience: lane(2, 0, 1),
+      // Public pages that are not a live audience: standings, profiles, recordings.
+      browse: lane(2, 32, 250),
       // Auth bursts queue behind the sign-up ceiling and network limits,
       // which decide what is shed (AUTH-3.10, proven on 10 connections). The
       // count and age here are a backstop, never the shedding mechanism.

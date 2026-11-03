@@ -67,6 +67,11 @@ const config: NextConfig = {
         source: '/auth/confirm',
         headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
       },
+      // The one URL that carries an audience link token (DEC-302).
+      {
+        source: '/watch/:roundId/link',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
       // Local room checks need self camera/microphone. All other routes deny
       // capture; this grants neither publication nor server readiness.
       ...roundMediaPages.map((source) => ({

@@ -1,8 +1,12 @@
 import { roundDocumentPrincipal } from '../../../../features/debate-room/documents/document-principal';
-import { requestRoundRatings } from '../../../../lib/request-session';
+import {
+  requestHostedAudienceLink,
+  requestRoundRatings,
+} from '../../../../lib/request-session';
 import { RoundRatings } from '../../../../ui/ranked/round-ratings';
-import { readPersistedBallot } from '../../judge/ballot/[debateId]/actions';
+import { readPersistedBallot } from '../../judge/ballot/[roundId]/actions';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
@@ -19,12 +23,22 @@ import {
   resultRetryOf,
 } from '../../../../ui/round-result/result-part';
 import { drawReconnectDelaySeconds } from '../../../../ui/debate-room/reconnect-delay';
+import { audienceLinkPageHref } from '../../../../features/audience-link/audience-link';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { temporarilyRefused } from '../../../../server/temporary-read';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
-import { readPersistedRound, readPersistedRoundAnalysis } from './actions';
+import {
+  readPersistedRound,
+  readPersistedRoundAnalysis,
+  reportRoundAction,
+} from './actions';
+import {
+  reportAnswerText,
+  reportNotice,
+} from '../../../../features/content-moderation/submit-report';
+import { ReportForm } from '../../../../ui/content-moderation/report-form';
 import { readPersistedTranscript } from './read-persisted-transcript';
 import { MediaDocument } from '../../../../ui/round-media/media-document';
 
@@ -65,6 +79,8 @@ export default async function RoundPage({
   const access = await accessOrTemporary(`/rounds/${id}`, searchParams);
   if (access.kind === 'temporary') return reconnectingRoundPage();
   const { identity } = access;
+  const reported = reportNotice((await searchParams).report);
+  const reportFromRound = reportRoundAction.bind(null, id);
   if (!idSchema.safeParse(id).success) notFound();
   const result = await readPersistedRound(id);
   if (result.kind === 'missing') notFound();
@@ -102,6 +118,7 @@ export default async function RoundPage({
   );
   if (ratings === 'refused') return reconnectingRoundPage();
   const retry = resultRetryOf([ballots, analysis, transcript]);
+  const hostedLink = await requestHostedAudienceLink(id, identity);
   return (
     <>
       <MediaDocument />
@@ -114,12 +131,34 @@ export default async function RoundPage({
             }
           />
         ) : null}
-        {ballots.value ? <RoundResult view={ballots.value} /> : null}
+        {ballots.value ? (
+          <RoundResult view={ballots.value} reportAction={reportFromRound} />
+        ) : null}
         {analysis.value ? (
           <RoundAnalysis
             view={analysis.value.view}
             lines={analysis.value.lines}
           />
+        ) : null}
+        {hostedLink ? (
+          <Link href={audienceLinkPageHref(id)} className="text-sm underline">
+            Share this Round by link
+          </Link>
+        ) : null}
+        {identity.state === 'member' ? (
+          <>
+            {reported ? (
+              <p role="status" className="text-sm text-ink-muted">
+                {reportAnswerText(reported)}
+              </p>
+            ) : null}
+            <ReportForm
+              targetKind="round"
+              targetId={result.round.id}
+              label="Report this round"
+              action={reportFromRound}
+            />
+          </>
         ) : null}
       </RoundReceipt>
       {ownsFiles && filePrincipal !== null ? (

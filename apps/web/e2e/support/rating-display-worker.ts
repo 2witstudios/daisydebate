@@ -33,7 +33,7 @@ try {
     const id = createId(),
       command = createId();
     await sql.begin(async (tx) => {
-      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,status,outcome,ladder_id,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,'completed','affirmative',${ladder},clock_timestamp(),clock_timestamp() from rooms where id=${rooms.find((r) => r.ladder === ladder)!.id} and host_actor_id=${member.id}`;
+      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,status,outcome,ladder_id,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,'completed','affirmative',${ladder},clock_timestamp()-interval '10 minutes',clock_timestamp()-interval '10 minutes' from rooms where id=${rooms.find((r) => r.ladder === ladder)!.id} and host_actor_id=${member.id}`;
       for (const [role, actor] of [
         ['affirmative', member.id],
         ['negative', opponent],
@@ -43,6 +43,8 @@ try {
       await tx`insert into round_finalizations(round_id,command_id,resulting_version) values(${id},${command},1)`;
     });
     await rateCompletedRound(database, id, { next: createId });
+    // Long past the ranked delay: the standings hold a result until it has left.
+    await sql`update rating_changes set occurred_at=clock_timestamp()-interval '10 minutes' where round_id=${id}`;
     const [posted] =
       await sql`select rating_before,rating_after from rating_changes where round_id=${id} and actor_id=${member.id}`;
     evidence.push({

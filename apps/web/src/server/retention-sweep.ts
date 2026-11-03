@@ -82,6 +82,10 @@ export function retentionTargets({
     readonly purgeExpiredRoundAnalyses: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSocialDeclines: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSocialRequests: (batch: Batch) => Promise<number>;
+    readonly purgeReadNotifications: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredWatchHistory: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredSpectatorChat: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredAudienceReactions: (batch: Batch) => Promise<number>;
   };
   readonly redis: {
     readonly sweepOnlinePresence: (limit: number) => Promise<number>;
@@ -190,7 +194,8 @@ export function retentionTargets({
     },
     /**
      * DEC-101 and DEC-89 (ISSUE-498): private transcript lines and cached AI
-     * judging responses are kept 180 days. A cleared response fails its job
+     * judging responses are kept 180 days; a ranked Round's transcript is kept, as its
+     * waiver says. A cleared response fails its job
      * (DEC-223). Round analyses keep the same window as the transcript they
      * read, under their own target.
      */
@@ -233,6 +238,44 @@ export function retentionTargets({
           limit,
         }),
     },
+    /** WATCH-12: a notification goes 90 days after it is read. */
+    {
+      name: 'retention.notifications',
+      batchSize: 1000,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeReadNotifications({
+          before: cutoff(now, 90 * DAY_MS),
+          limit,
+        }),
+    },
+    /** SPECT-1.4: a Round leaves watch history a year after the last visit. */
+    {
+      name: 'retention.watch_history',
+      batchSize: 1000,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredWatchHistory({
+          before: cutoff(now, 365 * DAY_MS),
+          limit,
+        }),
+    },
+    /**
+     * The point guard's ruling of 2026-11-03: spectator chat and audience reactions
+     * go 180 days after posting, matching transcripts (not reviewed by counsel).
+     */
+    ...(
+      [
+        ['spectator_chat', database.purgeExpiredSpectatorChat],
+        ['audience_reactions', database.purgeExpiredAudienceReactions],
+      ] as const
+    ).map(([name, purge]) => ({
+      name: `retention.${name}`,
+      batchSize: 1000,
+      maxBatches: 20,
+      purge: ({ now, limit }: { now: string; limit: number }) =>
+        purge({ before: cutoff(now, 180 * DAY_MS), limit }),
+    })),
     /** Offers past their time; the list already ignores them (ADR 0103). */
     {
       name: 'retention.challenges',

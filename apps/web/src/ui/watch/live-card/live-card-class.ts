@@ -11,8 +11,8 @@ const steps = (ranked: boolean): Readonly<Record<Step, string>> => ({
 const base = 'h-1 flex-1 rounded-round';
 
 /**
- * One segment of a debate's progress bar: done, in progress or to come, in
- * the debate's own hue (ADR 0051): clay for ranked, sky for casual.
+ * One segment of a Round's progress bar: done, in progress or to come, in
+ * the Round's own hue (ADR 0051): clay for ranked, sky for casual.
  */
 export const progressStepClass = (step: Step, ranked: boolean): string =>
   `${base} ${steps(ranked)[step]}`;

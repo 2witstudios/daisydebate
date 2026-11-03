@@ -196,3 +196,10 @@ export type RoundPosition = {
   /** A platform incident's hold on the clock, for every viewer alike. */
   readonly incident: RoundIncident;
 };
+
+/** Conversation microphones may open: before the first segment or awaiting a ballot. */
+export const conversational = (
+  position: Pick<RoundPosition, 'stage' | 'openSegment' | 'nextSegment'>,
+) =>
+  position.stage === 'awaiting_ballot' ||
+  (position.openSegment === null && position.nextSegment?.sequence === 0);

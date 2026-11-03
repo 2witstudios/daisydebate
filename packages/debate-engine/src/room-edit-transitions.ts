@@ -10,7 +10,12 @@ import type {
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 import { decideFormatSelection } from './format-selection';
 
-import { acceptedRoomMutation, type Edges } from './room-assembly-facts';
+import { aiJudgeSeatAdmitted } from './ai-judge-seating';
+import {
+  acceptedRoomMutation,
+  hostNamesJudges,
+  type Edges,
+} from './room-assembly-facts';
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   ok: false,
   refusal,
@@ -127,6 +132,8 @@ export const updateDetails = (
   _consent: RoomConsent,
   edges: Edges,
 ): RoomMutationOutcome => {
+  if (room.competitionType === 'ranked' && command.visibility !== 'public')
+    return refuse('illegal-config');
   const draw = room.executionPlan.resolutionDraw.enabled;
   if (draw === (command.topic !== undefined)) return refuse('illegal-config');
   const topicChanged =
@@ -257,6 +264,12 @@ export const claimSeat = (
   if (admission) return refuse(admission);
   if (!target) return refuse('actor-ineligible');
   if (
+    target.kind === 'bot' &&
+    command.role === 'judge' &&
+    !aiJudgeSeatAdmitted(room, edges.hostHoldsCasualAiJudge)
+  )
+    return refuse('ai-judge-premium');
+  if (
     command.slot >= room.rules.seats[command.role] ||
     (command.role !== 'judge' && takesHeldSeat(room, targetId, edges.now)) ||
     room.participants.some(
@@ -308,9 +321,10 @@ export const leaveSeat = (
 };
 
 /**
- * A host assigns only a human already in the Room. To a host who inherited it, a
- * seated human judge reads as not in the Room: any other answer, or a move to a
- * seat they can read, would name a judge hidden from them (DEC-331).
+ * A host assigns only a human already in the Room. To a host who may not name
+ * the judges, an heir or one holding a seat, a seated human judge reads as not in
+ * the Room: any other answer, or a move to a seat they can read, would name a
+ * judge hidden from them (DEC-331, WATCH-6).
  */
 const unassignableHuman = (
   room: RoomAssemblyState,
@@ -325,5 +339,5 @@ const unassignableHuman = (
   )
     return false;
   const seat = room.participants.find((p) => p.actorId === target.actorId);
-  return !seat || (room.hostInherited && seat.role === 'judge');
+  return !seat || (!hostNamesJudges(room) && seat.role === 'judge');
 };

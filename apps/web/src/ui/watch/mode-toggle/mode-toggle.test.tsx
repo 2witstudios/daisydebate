@@ -20,7 +20,7 @@ describe('ModeToggle', () => {
         ),
         html.match(/checked=""/g)?.length,
         ['Any', 'Ranked', 'Casual'].every((label) => html.includes(label)),
-        html.includes('Rated or casual'),
+        html.includes('Ranked or casual'),
       ],
       expected: [3, true, 1, true, true],
     });

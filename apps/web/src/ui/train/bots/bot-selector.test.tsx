@@ -48,6 +48,7 @@ const view = {
     href: '/train',
   },
   available: true,
+  judge: 'ai' as const,
 };
 
 const noopAction = async () => ({ values: {} });
@@ -74,6 +75,24 @@ describe('BotSelectorPage', () => {
     });
   });
 
+  test('a member without the casual AI judge is offered a person to judge', () => {
+    const offered = render({
+      view: { ...view, judge: 'person' },
+      action: noopAction,
+    });
+    assert({
+      given: 'a landing whose judge is a person',
+      should: 'still post Start practice and say plainly who judges',
+      actual: [
+        offered.includes('aria-label="Start practice"'),
+        offered.includes('AI judging on casual rounds is premium'),
+        offered.includes('invite a person to judge'),
+        render({ view, action: noopAction }).includes('is premium'),
+      ],
+      expected: [true, true, true, false],
+    });
+  });
+
   test('an unavailable landing says so instead of offering a broken post', () => {
     const html = render({
       view: { ...view, available: false },
@@ -92,7 +111,7 @@ describe('BotSelectorPage', () => {
 
   test('an empty roster offers nothing', () => {
     const html = render({
-      view: { opponents: [], chosen: null, available: false },
+      view: { opponents: [], chosen: null, available: false, judge: 'ai' },
       action: noopAction,
     });
     assert({

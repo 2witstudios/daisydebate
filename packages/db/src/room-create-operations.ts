@@ -1,5 +1,8 @@
 import type { roomCommandTransaction } from './room-command-transaction';
+import { recordCaptureNotice } from './agreement-signatures';
+import { readEntitlementGrants } from './entitlement-grants';
 import type {
+  EntitlementGrant,
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
@@ -66,6 +69,8 @@ export type InitialCastApplier = (
   seat: InitialCastSeat,
   target: Actor | null,
   now: string,
+  /** The host's own grants, read under the host fence this create holds. */
+  grants: readonly EntitlementGrant[],
 ) => RoomMutationOutcome;
 
 export const roomCreateOperations = ({
@@ -103,6 +108,12 @@ export const roomCreateOperations = ({
     } | null;
     /** Members a debater seat stays held for (ADR 0103), the host included. */
     readonly holdSeatsFor?: readonly string[];
+    /** The notice the create form showed its host, recorded with the Room. */
+    readonly notice?: {
+      readonly id: string;
+      readonly version: string;
+      readonly words: string;
+    } | null;
   }): Promise<RoomCommandReceipt> {
     return instrumented(eventSink, 'createRoomCommand', () =>
       transaction(async (tx) => {
@@ -160,6 +171,13 @@ export const roomCreateOperations = ({
           createdAt: new Date(now),
           updatedAt: new Date(now),
         });
+        if (input.notice)
+          await recordCaptureNotice(tx, {
+            ...input.notice,
+            userId: input.caller.userId,
+            roomId: input.room.id,
+            now,
+          });
         const heldActors = input.holdSeatsFor ?? [];
         if (heldActors.length) {
           const known = await tx
@@ -280,10 +298,11 @@ const applyInitialCast = async (
   const [row] = await tx.select().from(rooms).where(eq(rooms.id, room.id));
   if (!row) throw createAppError('INFRASTRUCTURE');
   const { state } = await roomFacts(tx, row);
+  const grants = await readEntitlementGrants(tx, caller.userId);
   let assembled = state;
   for (const seat of seats) {
     const target = await actorFact(tx, seat.actorId);
-    const outcome = cast.apply(assembled, seat, target, now);
+    const outcome = cast.apply(assembled, seat, target, now, grants);
     if (!outcome.ok) throw createRefusal('CONFLICT', outcome.refusal);
     assembled = outcome.mutation.state;
   }

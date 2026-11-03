@@ -33,6 +33,8 @@ const serviceStages = [
   { stage: 'runtime', app: 'apps/web' },
   { stage: 'realtime', app: 'apps/realtime' },
   { stage: 'media-worker', app: 'apps/media-worker' },
+  { stage: 'broadcast-worker', app: 'apps/broadcast-worker' },
+  { stage: 'recording-worker', app: 'apps/recording-worker' },
 ] as const;
 
 // Follow declared workspace edges, including dev edges for the build install.

@@ -25,7 +25,7 @@ import { carryOver, rateDebate, postingInstant, ratingPolicy } from './rating';
  * eligibility was decided when the round was constructed from a sanctioned
  * preset, so this check re-decides nothing about the format; a mismatch
  * there is corruption and fails as an invariant in the adapter's
- * `assertRatedRoundIntegrity`, never as an unrated reason. A forfeit
+ * `assertRankedRoundIntegrity`, never as an unrated reason. A forfeit
  * carries a side outcome and rates with no attendance settlement to wait for.
  * A decisive ballot rates on any capture (DEC-329): the judge ruled, and a
  * capture failure does not cost a ranked result. A null outcome is a real

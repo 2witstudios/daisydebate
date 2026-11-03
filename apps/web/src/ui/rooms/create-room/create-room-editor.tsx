@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { roundCaptureNotice } from '../../../features/legal/agreements';
 import type { PublishedResolution, RoomCatalogChoice } from '@daisy/protocol';
 import { createRoomDraft } from '../../../features/rooms/create-room-draft';
 import {
@@ -22,13 +23,16 @@ const formats = [
   ['custom', 'Custom', 'Your rules'],
 ] as const;
 
+/** Ranked always has this notice: creating records that its host was shown it. */
+const rankedNotice = roundCaptureNotice('ranked')!;
+
 export function CreateRoomEditor({
   choices,
   resolutions,
   initialChoice,
   values: kept,
   commandId,
-  initialRated,
+  initialRanked,
   pending,
   error,
 }: {
@@ -37,7 +41,7 @@ export function CreateRoomEditor({
   readonly initialChoice: RoomCatalogChoice;
   readonly values: Readonly<Record<string, string>>;
   readonly commandId: string;
-  readonly initialRated: boolean;
+  readonly initialRanked: boolean;
   readonly pending: boolean;
   readonly error?: string | undefined;
 }) {
@@ -50,7 +54,7 @@ export function CreateRoomEditor({
       ...kept,
     };
     if (
-      initialRated &&
+      initialRanked &&
       Object.keys(kept).length === 0 &&
       initialChoice.preset.rankedEligible
     )
@@ -365,18 +369,40 @@ export function CreateRoomEditor({
           ) : null}
         </section>
         <section className="create-room-section">
-          <label className="create-room-field">
-            <span>Who can join</span>
-            <select
-              name="visibility"
-              className={controlClass}
-              value={values.visibility ?? 'unlisted'}
-              onChange={(event) => metadata('visibility', event.target.value)}
-            >
-              <option value="unlisted">Anyone with the link</option>
-              <option value="public">Listed in the lobby</option>
-            </select>
-          </label>
+          {values.ranked === 'on' && !isCustom ? (
+            <div className="create-room-field">
+              <span>Who can join</span>
+              <input type="hidden" name="visibility" value="public" />
+              <input
+                type="hidden"
+                name="noticeVersion"
+                value={rankedNotice.version}
+              />
+              <p>
+                Listed in the lobby. Ranked Rounds are always public, broadcast
+                and recorded, so anyone can watch them. Play casual to keep a
+                Round out of public view.
+              </p>
+              <p>{rankedNotice.text}</p>
+            </div>
+          ) : (
+            <label className="create-room-field">
+              <span>Who can join</span>
+              <select
+                name="visibility"
+                className={controlClass}
+                value={values.visibility ?? 'unlisted'}
+                onChange={(event) => metadata('visibility', event.target.value)}
+              >
+                <option value="unlisted">Anyone with the link</option>
+                <option value="public">Listed in the lobby</option>
+              </select>
+              <small>
+                Choosing Ranked makes the Room public: ranked Rounds are always
+                public, broadcast and recorded.
+              </small>
+            </label>
+          )}
         </section>
         <div className="create-room-actions">
           <button

@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { roundMediaStateSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
@@ -31,17 +33,30 @@ import {
 test('closing an account leaves no live Round behind it', async ({
   browser,
 }) => {
-  const observer = await createRoomLaunchAccounts(browser, 1);
   const accounts = await createRoomLaunchAccounts(browser, 2);
   try {
     const round = await createHumanBallotRound(accounts.members, 0);
     await accounts.closeContexts();
-    const { request } = observer.members[0]!.context;
-    const settled = await readBallotRound(request, round.id);
-    expect(settled.completedAt).not.toBeNull();
+    // The Round's own read belongs to its seats, and they have just left.
+    const finished = await new Promise<string>((resolve, reject) =>
+      execFile(
+        'bun',
+        [
+          fileURLToPath(
+            new URL('./support/round-status-process.ts', import.meta.url),
+          ),
+          round.id,
+        ],
+        { timeout: 20_000 },
+        (error, output) =>
+          error
+            ? reject(new Error('Round status read failed'))
+            : resolve(output),
+      ),
+    );
+    expect(finished).toBe('true');
   } finally {
     await accounts.closeContexts();
-    await observer.closeContexts();
   }
 });
 

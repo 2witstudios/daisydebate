@@ -3,6 +3,7 @@ import { idSchema, debateRoleSchema } from './primitives';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
 import { formatSettingsSchema } from './format-settings';
 import { frozenRoomConfigSchema, frozenRoomExecutionPlanSchema } from './room';
+import { roomCaptureSchema } from './room-capture';
 import { competitionTypes, roundStatusSchema } from './round';
 import { formatStandingSchema } from './format-standing';
 import { roomStatuses } from './room-contract';
@@ -56,6 +57,20 @@ export const roomRefusalSchema = z.enum([
   'draw-unavailable',
   /** Live bot-debater capacity is full; a later Launch may succeed (ISSUE-773). */
   'bots-busy',
+  /** A casual AI judge needs a host holding the entitlement (WATCH-16). */
+  'ai-judge-premium',
+  /** A casual broadcast or recording needs a host holding the entitlement (WATCH-8). */
+  'capture-premium',
+  /** Too many casual captures running: for this host, or leaving room for ranked (OW4). */
+  'capture-host-limit',
+  'capture-capacity',
+  /** A private Room admits participants alone, so it can record but not broadcast. */
+  'broadcast-private',
+  /** Ready on a ranked Round needs this season's signed content waiver (WATCH-15). */
+  'content-waiver-required',
+  'content-waiver-changed',
+  /** The capture notice changed after the form showed it: read it again. */
+  'capture-notice-changed',
 ]);
 /** Full authoritative projection grammar used at JSON delivery boundaries. */
 export const roomViewSchema = z.strictObject({
@@ -69,11 +84,43 @@ export const roomViewSchema = z.strictObject({
   /** Redacted to null for a viewer who may not name a judge seat the host occupies (DEC-174). */
   hostActorId: idSchema.nullable(),
   hostLabel: z.string().nullable(),
+  /**
+   * Host-only display of what seating an AI judge means here (WATCH-16):
+   * free on ranked, included for an entitled casual host, else premium. The
+   * seat command rechecks it under the host's fence. Null for anyone else.
+   */
+  aiJudgeSeating: z.enum(['free', 'included', 'premium']).nullable(),
+  /**
+   * This viewer's standing on the season's content waiver (WATCH-15), for a
+   * seated human on an open ranked Room. Ready rechecks it under the Room's
+   * lock. Null for anyone else.
+   */
+  contentWaiver: z.enum(['signed', 'unsigned']).nullable(),
+  /**
+   * What the host of this casual Room can choose (WATCH-8): both choices when
+   * entitled, else premium, and null for ranked or anyone but the host. The
+   * command rechecks it under the host's fence.
+   */
+  captureOffer: z.enum(['included', 'premium']).nullable(),
+  /** The casual host's choice, shown to everyone before Ready. */
+  capture: roomCaptureSchema.nullable(),
+  /** The exact notice shown before Ready, or null when nothing is captured. */
+  captureNotice: z
+    .strictObject({
+      version: z.string().min(1).max(64),
+      text: z.string().min(1),
+    })
+    .nullable(),
+  /**
+   * For someone outside a started public Room: the Round to watch, once the
+   * spectator timeline has released its start. Null for everyone else.
+   */
+  watchRoundId: idSchema.nullable(),
   /** Host-only display metadata; admission is rechecked atomically at freeze. */
   botAdmission: z
     .union([
       z.strictObject({ kind: z.literal('unavailable') }),
-      /** The cast's only bots judge: the AI judge is free (DEC-186). */
+      /** The cast's only bots judge: the AI judge spends no AI Round (DEC-186). */
       z.strictObject({ kind: z.literal('free') }),
       z
         .strictObject({

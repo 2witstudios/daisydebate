@@ -9,6 +9,10 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import {
+  contentModerationActions,
+  contentModerationCommandResultSchema,
+} from '@daisy/protocol/content-moderation';
+import {
   moderationLiftCommandAction,
   operatorCommandStateSchema,
   reportResolveCommandAction,
@@ -41,6 +45,16 @@ const commandStateReaders = new Map<
   ) => Promise<Omit<OperatorCommandState, 'action'>>
 >([
   [betaAccessCommandAction, readBetaAccessCommandState],
+  // A content moderation command's readback is its stored result alone.
+  ...contentModerationActions.map(
+    (action) =>
+      [
+        action,
+        async (_database: unknown, _commandId: string, result: unknown) => ({
+          result: contentModerationCommandResultSchema.parse(result),
+        }),
+      ] as const,
+  ),
   [reportResolveCommandAction, storedOnly],
   [moderationLiftCommandAction, storedOnly],
 ]);

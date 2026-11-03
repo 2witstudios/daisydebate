@@ -1,3 +1,5 @@
+import { captureUnadmitted } from './room-capture';
+import { castHoldsUnadmittedAiJudge } from './ai-judge-seating';
 import { castSeatsBotDebater } from './ai-round-cast';
 import { acceptedRoomMutation } from './room-assembly-facts';
 import type {
@@ -62,6 +64,12 @@ export const startRound = (
 ): RoomMutationOutcome => {
   const blocker = startBlocker(room, consent);
   if (blocker) return refuse(blocker);
+  if (castHoldsUnadmittedAiJudge(room, edges.hostHoldsCasualAiJudge))
+    return refuse('ai-judge-premium');
+  if (captureUnadmitted(room, edges.hostHoldsCasualCapture))
+    return refuse('capture-premium');
+  if (room.visibility === 'private' && room.capture?.broadcast)
+    return refuse('broadcast-private');
   const draw = room.executionPlan.resolutionDraw.enabled
     ? startRoundDraw(room, edges)
     : null;

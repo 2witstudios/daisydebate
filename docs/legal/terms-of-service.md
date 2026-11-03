@@ -1,6 +1,6 @@
 # Terms of Service — draft for counsel
 
-**DRAFT, not in force.** Version `draft-1`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app: `/privacy` and `/terms` keep their current text, apart from ADR 0097's change on outside help (served version `draft-0.1`), until WAIT-6.2 (owner and counsel) approves this draft and WAIT-6.3 publishes it, together with the clickwrap version.
+**DRAFT, not in force.** Version `draft-2`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app: `/privacy` and `/terms` keep their current text, apart from ADR 0097's change on outside help and WATCH-15's change on content (served version `draft-0.2`), until WAIT-6.2 (owner and counsel) approves this draft and WAIT-6.3 publishes it, together with the clickwrap version.
 
 Placeholders: **[OWNER: …]** is a business fact the owner supplies; **[COUNSEL: …]** is a legal judgment for counsel. Neither may remain in a published version.
 
@@ -14,11 +14,11 @@ Our privacy policy explains what we collect and why; it is part of how the servi
 
 ## Who can join
 
-You must be 16 or older to use Daisy during the beta. After the beta the minimum age will be 13. [OWNER: confirm the post-beta minimum age.] We ask your birth month and year at sign-up, and we refuse sign-up below the minimum age without keeping what you entered.
+You must be 16 or older to use Daisy.
 
 You must give your true birth month and year. An account created with a false age may be closed.
 
-One person holds one account. You sign in with an emailed link or a passkey, and you must keep your email account and devices secure. [COUNSEL: confirm whether members aged 13 to 17 need a parent or guardian’s agreement once the minimum age drops to 13.]
+One person holds one account. You sign in with an emailed link or a passkey, and you must keep your email account and devices secure.
 
 ## The beta and the waiting list
 
@@ -46,9 +46,19 @@ Some rounds are judged by AI, and some opponents are AI debaters. AI judging and
 
 ## What you post
 
-You own what you write and say. You give Daisy a non-exclusive, worldwide, royalty-free licence to store, process, transcribe and show it as needed to run the service: to the people in the round, to signed-in members where the room is public or unlisted, and on your public profile. This licence ends when your content is deleted, except for results, rounds and your username kept on the public record so other members’ records stay correct.
+Who holds what you say depends on the kind of round.
+
+**Ranked rounds.** Competing in a ranked round is the deal: Daisy holds what is said and shown in the round, under the [ranked content waiver](ranked-content-waiver.md) you sign once per season before your first ranked round. Ranked rounds are always public, and they are broadcast and recorded. If every capture machine is busy, a round can run without a broadcast or recording; the debate and its result are not affected. Their video stays after you close your account. The waiver is separate from these terms. [COUNSEL: the legal form of that holding: assignment, exclusive licence or other.]
+
+**Everything else.** On a non-ranked round your content stays with you and the other participants. You give Daisy a non-exclusive, worldwide, royalty-free licence to store, process, transcribe and show it only as needed to run the service: to the people in the round, to the audience where the room is public or unlisted and the host opted in, and on your public profile. This licence ends when your content is deleted, except for results, rounds and your username kept on the public record so other members’ records stay correct.
+
+**Your prep.** Your prep material and drives stay yours, on every kind of round, ranked included.
+
+**Streaming and posting ranked rounds.** Anyone may stream and post ranked rounds under our [ranked content policy](ranked-content-policy.md), with no royalty. Daisy may restrict or take down ranked content.
 
 You are responsible for what you post and confirm you have the right to post it. We may remove content that breaks these terms. [COUNSEL: confirm the licence scope and any notice-and-takedown process.]
+
+Tournaments may add their own per-event terms, shown to you before you enter.
 
 ## Results and records
 
@@ -56,7 +66,7 @@ Your profile shows your public debates and your record to anyone. We may correct
 
 ## Leaving, and being removed
 
-You can stop using Daisy at any time and ask us to delete your account by writing to [OWNER: contact email]. Your username stays on your past results, marked closed, so other people’s results remain accurate, and nobody else can take it.
+You can stop using Daisy at any time and ask us to delete your account by writing to [OWNER: contact email]. Your username stays on your past results, marked closed, so other people’s results remain accurate, and nobody else can take it. Ranked rounds, their video included, stay too.
 
 We may suspend or close an account that breaks these terms or puts others at risk. Unless the law or safety prevents it, we tell you why, and you can answer.
 

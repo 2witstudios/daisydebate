@@ -121,6 +121,23 @@ dependency, which clears the vitest and tinypool entries together, an `@adobe/da
 - Add shared packages (`ui`, `testing`, `validation`) only when a second real
   consumer exists; do not create them speculatively.
 
+### Broadcast player
+
+`hls.js` **1.7.4** plays a Broadcast's public HLS in `apps/web/src/ui/spectating`
+and nowhere else; Safari plays the same manifest natively. It is loaded on demand
+when the Round page starts a stream, so no other page carries it. It runs its
+transmuxer from the package's own `dist/hls.worker.js` through `workerPath`: its
+default, a blob of a stringified function, dies in a minified bundle and falls
+back to the main thread without a word, and a browser spec holds this. That one
+page's CSP adds `worker-src 'self'` and `media-src blob:` beside the feed origin's
+`media-src` and `connect-src`, and its document must load as that page because a
+CSP binds to the document (`broadcastDocumentStale`). The version-matched
+[API reference](https://github.com/video-dev/hls.js/blob/v1.7.4/docs/API.md) and
+the package's own types were read before adding it. Measured on staging with this
+version in real Chrome: start p95 1.1 s, seek p95 0.47 s. Removal: a native HLS
+floor across browsers would replace it, or a faster delivery path would add a
+source beside it in `stream-source.ts`.
+
 ### Round media vendor adapter
 
 `livekit-server-sdk` **2.19.0** is pinned in `@daisy/media` for VIDEO-1.4's

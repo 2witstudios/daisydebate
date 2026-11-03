@@ -289,7 +289,7 @@ a human judge's seat unnamed.
 
 ## Spectator view
 
-The audience's view of a debate (`/watch/[debateId]`) stays inside the app
+The audience's view of a Round (`/watch/[roundId]`) stays inside the app
 shell. The speaker is large with the other debater inset, using the round
 room's video tile, and the phase and clock sit in a strip under the stage;
 once the debate ends both debaters show side by side. The header carries

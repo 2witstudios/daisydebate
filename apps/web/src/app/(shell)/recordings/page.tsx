@@ -1,26 +1,41 @@
 import type { Metadata } from 'next';
+import { redirectUnlessLaunched } from '../../../features/coming-soon/launch-gate';
 import type { SearchParams } from '../../../features/access/decision';
-import { countHub } from '../../../features/watch/list-live';
-import { listRecordings } from '../../../features/watch/list-recordings';
-import { parseRecordingsQuery } from '../../../features/watch/recordings-query';
-import { viewerOf } from '../../../features/watch/viewer';
-import { requireAccess } from '../../../lib/access';
+import { archiveEntries } from '../../../features/recording/archive';
+import { parseRecordingsQuery } from '../../../features/recording/archive-query';
+import { recordingViewerOf } from '../../../features/recording/viewer';
+import {
+  readRecordingArchive,
+  requestHubCounts,
+  requestIdentity,
+} from '../../../lib/request-session';
 import { RecordingsTab } from '../../../ui/watch/recordings-tab/recordings-tab';
 import { WatchHub } from '../../../ui/watch/watch-hub/watch-hub';
 
 export const metadata: Metadata = { title: 'Recordings' };
 
-/** The guarded archive of recorded debates, under the Watch hub. */
+/** The archive of finished Rounds, under the Watch hub. */
 export default async function RecordingsPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const viewer = viewerOf(await requireAccess('/recordings', searchParams));
+  redirectUnlessLaunched('watch');
+  const viewer = recordingViewerOf(await requestIdentity());
   const query = parseRecordingsQuery(await searchParams);
+  const [{ page }, counts] = await Promise.all([
+    readRecordingArchive(query, viewer),
+    requestHubCounts(),
+  ]);
   return (
-    <WatchHub active="recordings" counts={countHub()}>
-      <RecordingsTab query={query} listing={listRecordings(query, viewer)} />
+    <WatchHub active="recordings" counts={counts}>
+      <RecordingsTab
+        query={query}
+        listing={{
+          rows: archiveEntries(page, viewer),
+          nextBefore: page.nextBefore,
+        }}
+      />
     </WatchHub>
   );
 }

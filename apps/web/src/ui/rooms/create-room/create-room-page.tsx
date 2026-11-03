@@ -14,10 +14,10 @@ export function CreateRoomPage({
   choices,
   resolutions = [],
   freshRoom = false,
-  initialRated = false,
+  initialRanked = false,
 }: {
   readonly freshRoom?: boolean;
-  readonly initialRated?: boolean;
+  readonly initialRanked?: boolean;
   readonly initialState?: FormState;
   readonly sourceRoomId?: string;
   readonly commandId: string;
@@ -46,7 +46,7 @@ export function CreateRoomPage({
         </p>
       ) : null}
       <CreateAssemblyForm
-        initialRated={initialRated}
+        initialRanked={initialRanked}
         {...(initialState ? { initialState } : {})}
         {...(sourceRoomId ? { sourceRoomId } : {})}
         commandId={commandId}

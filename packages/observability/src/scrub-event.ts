@@ -121,3 +121,69 @@ function userIdOf(user: ScrubbableEvent['user']): { id?: string } | undefined {
       : undefined;
   return id === undefined ? undefined : { id };
 }
+
+/** Span attributes that hold a whole URL, query included (Next's `http.target` does). */
+const URL_ATTRIBUTES = new Set([
+  'http.target',
+  'http.url',
+  'url',
+  'url.full',
+  'url.path',
+]);
+/** Span attributes that hold nothing but a query. */
+const QUERY_ATTRIBUTES = new Set(['http.query', 'url.query']);
+
+const withoutQueries = (data: unknown): unknown =>
+  typeof data !== 'object' || data === null
+    ? data
+    : Object.fromEntries(
+        Object.entries(data)
+          .filter(([key]) => !QUERY_ATTRIBUTES.has(key))
+          .map(([key, value]) => [
+            key,
+            URL_ATTRIBUTES.has(key) && typeof value === 'string'
+              ? value.split('?')[0]
+              : value,
+          ]),
+      );
+
+type ScrubbableTransaction = {
+  transaction?: unknown;
+  contexts?: { trace?: { data?: unknown } & Record<string, unknown> };
+  spans?: readonly ({ data?: unknown } & Record<string, unknown>)[];
+};
+
+/**
+ * `beforeSend` never sees a transaction, and a query string can carry a token:
+ * Next records every request's whole URL on its server span. A transaction gets
+ * `scrubEvent`, and then no query survives in its name or any span's attributes.
+ */
+export function scrubTransaction<E>(event: E): E {
+  const scrubbed = scrubEvent(event) as ScrubbableTransaction;
+  const { transaction, contexts, spans } = scrubbed;
+  return {
+    ...scrubbed,
+    ...(typeof transaction === 'string'
+      ? { transaction: transaction.split('?')[0] }
+      : {}),
+    ...(contexts?.trace
+      ? {
+          contexts: {
+            ...contexts,
+            trace: {
+              ...contexts.trace,
+              data: withoutQueries(contexts.trace.data),
+            },
+          },
+        }
+      : {}),
+    ...(spans
+      ? {
+          spans: spans.map((span) => ({
+            ...span,
+            data: withoutQueries(span.data),
+          })),
+        }
+      : {}),
+  } as E;
+}

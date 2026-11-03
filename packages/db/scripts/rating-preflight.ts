@@ -10,8 +10,8 @@ try {
     const [counts] = await tx`select
       (select count(*)::integer from ratings) as standings,
       (select count(*)::integer from rating_changes) as postings,
-      (select count(*)::integer from rounds where ladder_id is not null or competition_type='ranked' or preset_version is not null) as rated_rounds,
-      (select count(*)::integer from rooms where competition_type='ranked' or preset_version is not null) as rated_rooms,
+      (select count(*)::integer from rounds where ladder_id is not null or competition_type='ranked' or preset_version is not null) as ranked_rounds,
+      (select count(*)::integer from rooms where competition_type='ranked' or preset_version is not null) as ranked_rooms,
       (select count(*)::integer from seasons) as seasons`;
     const dependents =
       await tx`select conrelid::regclass::text as relation, conname as constraint,
@@ -22,16 +22,16 @@ try {
     const incompatible = [
       'standings',
       'postings',
-      'rated_rounds',
-      'rated_rooms',
+      'ranked_rounds',
+      'ranked_rooms',
     ].some((key) => Number(counts?.[key]) !== 0);
     return {
       migration: '20261028224402_three_rating_ladders',
       counts,
       dependents,
       disposition: incompatible
-        ? 'REFUSE: retained rated state requires explicit disposition'
-        : 'CLEAR: no existing rated state',
+        ? 'REFUSE: retained ranked state requires explicit disposition'
+        : 'CLEAR: no existing ranked state',
       activation:
         Number(counts?.seasons) === 0
           ? 'empty season catalog'

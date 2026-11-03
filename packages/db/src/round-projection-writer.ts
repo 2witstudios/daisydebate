@@ -4,10 +4,14 @@ import {
   TRANSCRIPT_ADMISSION_WINDOW_MS,
 } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RoundProjection } from '@daisy/protocol';
-import { runtimeCheckpointSchema, buildRoundTopic } from '@daisy/protocol';
+import {
+  privateSpanChanges,
+  runtimeCheckpointSchema,
+  buildRoundTopic,
+} from '@daisy/protocol';
 import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
 import { appendRoundStrikes, revealEvidence } from './room-draw-persistence';
@@ -17,6 +21,7 @@ import { releaseRoundRoomMembers } from './room-membership-persistence';
 import { jsonObjectSchema } from './schema/columns';
 import { isUniqueViolation } from './unique-violation';
 import { roundCommands } from './schema/round-commands';
+import { roundPrivateSpans } from './schema/round-private-spans';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 
@@ -108,6 +113,7 @@ export async function writeProjectionWithPhaseSignal(
     roundId,
     projection.incidentChanges ?? [],
   );
+  await writePrivateSpans(tx, roundId, current, projection, now);
   if (endsRound(current, projection))
     await refundUnservedPracticeLocked(tx, roundId);
   // The engine rules when a Round stops holding its Room's members (ADR 0070).
@@ -230,6 +236,64 @@ const lifecycleInstant = (
   projected: string | null,
   now: string,
 ) => (projected !== null ? sql`coalesce(${column}, ${new Date(now)})` : column);
+
+const prepFacts = (
+  checkpoint: z.infer<typeof runtimeCheckpointSchema>,
+): { startedAtMs: number; consumedMs: number } | null =>
+  checkpoint.active_prep && {
+    startedAtMs: Date.parse(checkpoint.active_prep.started_at),
+    consumedMs: checkpoint.prep_consumed_ms[checkpoint.active_prep.side],
+  };
+
+/** The Round's private spans, committed with the transition that opened or closed them. */
+export async function writePrivateSpans(
+  tx: Tx,
+  roundId: string,
+  current: LockedRound,
+  projection: RoundProjection,
+  now: string,
+): Promise<void> {
+  const lifecycle = projection.round;
+  if (lifecycle === null) return;
+  const before = runtimeCheckpointSchema.parse(current.runtimeState);
+  const after = runtimeCheckpointSchema.parse(lifecycle.checkpoint);
+  const ended = terminal.has(lifecycle.status);
+  const changes = privateSpanChanges(
+    { stage: current.currentStage, activePrep: prepFacts(before) },
+    {
+      stage: ended ? null : lifecycle.currentStage,
+      activePrep: ended ? null : prepFacts(after),
+      consumedNowMs: before.active_prep
+        ? after.prep_consumed_ms[before.active_prep.side]
+        : 0,
+    },
+    Date.parse(now),
+    projection.finalSegmentEndedAt
+      ? Date.parse(projection.finalSegmentEndedAt)
+      : null,
+  );
+  for (const change of changes)
+    if (change.type === 'open')
+      await tx
+        .insert(roundPrivateSpans)
+        .values({
+          roundId,
+          kind: change.kind,
+          startedAt: new Date(change.atMs),
+        })
+        .onConflictDoNothing();
+    else
+      await tx
+        .update(roundPrivateSpans)
+        .set({ endedAt: new Date(change.atMs) })
+        .where(
+          and(
+            eq(roundPrivateSpans.roundId, roundId),
+            eq(roundPrivateSpans.kind, change.kind),
+            isNull(roundPrivateSpans.endedAt),
+          ),
+        );
+}
 
 /** Writes one projection's round row and segment changes inside `tx`. */
 async function writeProjection(

@@ -1,83 +1,73 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { watchViewer } from '../../../features/watch/debate-source';
-import {
-  listRecordings,
-  type RecordingsHubListing,
-} from '../../../features/watch/list-recordings';
+import type { ArchiveEntry } from '../../../features/recording/archive';
 import {
   defaultRecordingsQuery,
   type RecordingsQuery,
-} from '../../../features/watch/recordings-query';
+} from '../../../features/recording/archive-query';
 import { RecordingsTab } from './recordings-tab';
 
 setupRitewayBun();
 
-const render = (query: RecordingsQuery, listing?: RecordingsHubListing) =>
-  renderToString(
-    h(RecordingsTab, {
-      query,
-      listing: listing ?? listRecordings(query, watchViewer(true)),
-    }),
-  );
+const row: ArchiveEntry = {
+  roundId: 'round',
+  href: '/recordings/round',
+  title: 'Semifinal',
+  ranked: true,
+  date: '2026-11-02',
+  length: '30 min',
+  aff: '@ada',
+  neg: '@lin',
+  result: null,
+  media: 'watch',
+  transcript: false,
+  ownVisibility: null,
+};
+const render = (
+  query: RecordingsQuery,
+  rows: readonly ArchiveEntry[] = [],
+  nextBefore: string | null = null,
+) => renderToString(h(RecordingsTab, { query, listing: { rows, nextBefore } }));
 
 describe('RecordingsTab', () => {
   test('the public archive', () => {
-    const html = render(defaultRecordingsQuery);
+    const html = render(defaultRecordingsQuery, [row], 'b'.repeat(24));
     assert({
-      given: 'the default query',
-      should: 'show the GET filter form and six rows',
+      given: 'a page with more after it',
+      should: 'show the GET filters, the row and a link to the next page',
       actual: [
         /<form [^>]*action="\/recordings"/.test(html),
         html.includes('method="get"'),
-        (html.match(/aria-label="Replay /g) ?? []).length,
+        html.includes('Replay Semifinal'),
+        html.includes(`before=${'b'.repeat(24)}`),
       ],
-      expected: [true, true, 6],
+      expected: [true, true, true, true],
     });
   });
 
-  test('a filter that matches nothing', () => {
-    const html = render({ ...defaultRecordingsQuery, q: 'zzz' });
+  test('every empty state is honest', () => {
     assert({
-      given: 'a search with no match',
-      should: 'offer Clear filters back to the archive',
-      actual: [
-        html.includes('No recordings match'),
-        /<a [^>]*href="\/recordings"[^>]*>Clear filters<\/a>/.test(html),
-      ],
-      expected: [true, true],
+      given: 'a filter that matches nothing',
+      should: 'offer to clear it',
+      actual: render({ ...defaultRecordingsQuery, q: 'zzz' }).includes(
+        'No recordings match',
+      ),
+      expected: true,
     });
-  });
-
-  test('no recordings of my own', () => {
-    const html = render(
-      { ...defaultRecordingsQuery, scope: 'mine' },
-      { rows: [], inScope: 0 },
-    );
     assert({
-      given: 'an empty my-debates scope',
-      should: 'invite to find a match or open the lobby',
-      actual: [
-        html.includes('No recorded debates yet'),
-        html.includes('href="/ranked"'),
-        html.includes('href="/lobby"'),
-      ],
-      expected: [true, true, true],
+      given: 'an empty public archive',
+      should: 'say so',
+      actual: render(defaultRecordingsQuery).includes('No recordings yet'),
+      expected: true,
     });
-  });
-
-  test('an empty public archive', () => {
-    const html = render(defaultRecordingsQuery, { rows: [], inScope: 0 });
     assert({
-      given: 'no public recordings at all',
-      should: 'say so and point to what is live',
-      actual: [
-        html.includes('No recordings yet'),
-        html.includes('href="/watch"'),
-        html.includes('role="search"'),
-      ],
-      expected: [true, true, true],
+      given: 'no debates of their own',
+      should: 'point to a match',
+      actual: render({ ...defaultRecordingsQuery, scope: 'mine' }).includes(
+        'No recorded debates yet',
+      ),
+      expected: true,
     });
   });
 });

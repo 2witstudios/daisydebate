@@ -10,7 +10,7 @@ import type { RoundRead } from '../../features/round-runtime/read-round';
 import {
   spectatorViewOf,
   type SpectatorActivity,
-  type SpectatorAudience,
+  type SpectatorKind,
   type SpectatorSeat,
   type SpectatorView,
 } from '../../features/spectating/spectator-view';
@@ -24,12 +24,12 @@ import { RoundTimeNotice } from '../debate-room/round-time-notice';
 import { initialsOf } from '../../lib/initials';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 
-const audienceLabel: Readonly<Record<SpectatorAudience, string>> = {
-  host: 'You’re hosting · watching',
+const spectatorKindLabel: Readonly<Record<SpectatorKind, string>> = {
+  'undelayed-observer': 'You’re hosting · watching',
 };
 
-const audienceRoster: Readonly<Record<SpectatorAudience, string>> = {
-  host: 'host, watching',
+const spectatorKindRoster: Readonly<Record<SpectatorKind, string>> = {
+  'undelayed-observer': 'host, watching',
 };
 
 const activityLabel: Readonly<Record<SpectatorActivity, string>> = {
@@ -156,7 +156,7 @@ const stageNote = (watched: SpectatorView): string | null => {
 export function LiveSpectatorRoom(props: {
   readonly transcript?: ReactNode;
   readonly view: RoundView;
-  readonly audience: SpectatorAudience;
+  readonly spectatorKind: SpectatorKind;
   readonly renderedAtMs: number;
   readonly read: () => Promise<RoundRead>;
   readonly socketUrl: string | null;
@@ -180,7 +180,7 @@ export function LiveSpectatorRoom(props: {
           Live
         </span>
         <span className="rounded-round bg-hue-teal-soft px-3 py-1 text-sm font-strong text-hue-teal">
-          {audienceLabel[props.audience]}
+          {spectatorKindLabel[props.spectatorKind]}
         </span>
         <Link
           href="/lobby"
@@ -246,7 +246,7 @@ export function LiveSpectatorRoom(props: {
           <li>
             <span className="font-strong">You</span>{' '}
             <span className="text-ink-muted">
-              · {audienceRoster[props.audience]}
+              · {spectatorKindRoster[props.spectatorKind]}
             </span>
           </li>
         </ul>

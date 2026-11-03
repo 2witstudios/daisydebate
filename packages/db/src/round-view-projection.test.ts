@@ -68,9 +68,9 @@ describe('roundViewFor', () => {
     });
   });
 
-  test('the judge and the host', () => {
+  test('the judge and a seatless host', () => {
     assert({
-      given: 'the Round read by its judge and by its host',
+      given: 'the Round read by its judge and by its seatless host',
       should: 'name the judge to both and still never send the host actor',
       actual: [judge.actorId, host].map((viewer) => {
         const view = roundViewFor(round, viewer);
@@ -80,6 +80,41 @@ describe('roundViewFor', () => {
         [judge, false],
         [judge, false],
       ],
+    });
+  });
+
+  test('a host who holds a seat', () => {
+    const anonymousJudge = {
+      role: 'judge',
+      kind: 'human',
+      slot: 0,
+      anonymous: true,
+    };
+    const hosting = (actorId: string) => ({ ...round, hostActorId: actorId });
+    assert({
+      given: 'the Round read by a debater who also hosts it',
+      should: 'name no judge: hosting adds nothing to a seat (WATCH-6, DEC-98)',
+      actual: {
+        judge: roundViewFor(hosting(aff.actorId), aff.actorId).participants[2],
+        leaks: leaks(roundViewFor(hosting(aff.actorId), aff.actorId)),
+      },
+      expected: { judge: anonymousJudge, leaks: [] },
+    });
+    const secondJudge = {
+      ...seat('j', 'judge'),
+      actorId: id('k'),
+      slot: 1,
+      label: 'Sam Judge',
+    };
+    const panel = {
+      ...hosting(judge.actorId),
+      participants: [aff, neg, judge, secondJudge],
+    };
+    assert({
+      given: 'a panel read by the judge who also hosts it',
+      should: 'name them to themselves and keep the other judge hidden',
+      actual: roundViewFor(panel, judge.actorId).participants.slice(2),
+      expected: [judge, { ...anonymousJudge, slot: 1 }],
     });
   });
 

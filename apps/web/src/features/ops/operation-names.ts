@@ -6,6 +6,21 @@
  */
 const OPERATION_NAMES = [
   'account.age.answer',
+  'agreements.content-waiver',
+  'moderation.report',
+  'audience.chat',
+  'audience.reaction',
+  'audience.snapshot',
+  'audience.viewer-pulse',
+  'following.update',
+  'watch-history.update',
+  'notifications.read',
+  'notifications.preferences',
+  'audience-link.issue',
+  'audience-link.open',
+  'recording.playback',
+  'recording.download',
+  'recording.removal',
   'account.onboarding.save',
   'account.sessions.list',
   'account.sessions.revoke',
@@ -101,6 +116,7 @@ const OPERATION_NAMES = [
   'round.media.reconcile',
   'round.media.session',
   'round.read',
+  'spectating.timeline',
   'round.view',
 ] as const;
 

@@ -15,10 +15,7 @@ import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
-import {
-  canReadRound,
-  canReadTranscript,
-} from '../src/features/round-runtime/reads';
+import { canReadTranscript } from '../src/features/round-runtime/reads';
 import { everyoneReady } from './round-judging.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -228,7 +225,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
     const spectator = await f.member();
     await assertRejects({
       given: 'an eligible public spectator',
-      should: 'read timing but not private transcript content',
+      should: 'read neither live timing nor private transcript content',
       actual: () => read(spectator),
       code: 'NOT_FOUND',
     });
@@ -238,7 +235,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       captureRule,
       caller: spectator,
       roundId,
-      authorize: (r, a) => canReadRound(spectator, r, a),
+      authorize: () => true,
     });
     await f.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     const completedAudience = await f.store.readRoundBallot({
@@ -247,8 +244,8 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       captureRule,
       caller: spectator,
       roundId,
-      authorize: (r, a) => canReadRound(spectator, r, a),
-      authorizeTranscript: (r, a) => canReadRound(spectator, r, a),
+      authorize: () => true,
+      authorizeTranscript: () => true,
     });
     assert({
       given:

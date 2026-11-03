@@ -94,8 +94,8 @@ test(
           counts: z.object({
             standings: z.number().int(),
             postings: z.number().int(),
-            rated_rounds: z.number().int(),
-            rated_rooms: z.number().int(),
+            ranked_rounds: z.number().int(),
+            ranked_rooms: z.number().int(),
             seasons: z.number().int(),
           }),
           disposition: z.string(),
@@ -122,8 +122,8 @@ test(
           counts: {
             standings: 1,
             postings: 1,
-            rated_rounds: 1,
-            rated_rooms: 0,
+            ranked_rounds: 1,
+            ranked_rooms: 0,
             seasons: 1,
           },
           refusal: true,

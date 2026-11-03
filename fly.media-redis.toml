@@ -1,0 +1,18 @@
+# Staging media Redis (BCAST-2, owner sign-off under BCAST-H, 2026-11-02): the
+# bus LiveKit and Egress share. Separate from the app's Upstash Redis, whose
+# per-command billing does not suit a media bus. Private: no services, reached
+# over 6PN with a password. Expendable: nothing is persisted. It must run while
+# LiveKit runs, so it is not stopped when idle.
+app = "daisy-debate-staging-media-redis"
+primary_region = "ord"
+
+[build]
+  image = "redis:8.6.1-alpine"
+
+[experimental]
+  entrypoint = ["sh", "-c"]
+  cmd = ["exec redis-server --bind '* -::*' --requirepass \"$REDIS_PASSWORD\" --save '' --appendonly no --maxmemory 128mb --maxmemory-policy noeviction"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

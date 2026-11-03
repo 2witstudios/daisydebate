@@ -32,6 +32,11 @@ export const roundBallotReadSchema = z.strictObject({
     z.strictObject({
       judge: z.enum(['human', 'ai']),
       ballot: ballotSchema,
+      /**
+       * This ballot's id when it carries feedback for the reader, who alone
+       * may report that feedback (WATCH-7). It names no judge. Null otherwise.
+       */
+      reportableFeedbackId: idSchema.nullable(),
     }),
   ),
   /**

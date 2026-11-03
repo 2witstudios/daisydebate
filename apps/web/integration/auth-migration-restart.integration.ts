@@ -34,7 +34,7 @@ const userIdOf = (identity: Identity): string =>
         throw new Error('expected an authenticated identity');
       })();
 
-const debateOwner = (roundId: string) =>
+const roundOwner = (roundId: string) =>
   withSql(async (sql) => {
     const [row] = await sql`
       SELECT a.user_id AS "userId", r.status AS status
@@ -52,12 +52,12 @@ test('a migration re-application and a resource restart preserve a live session,
   const userId = userIdOf(before);
 
   const actorId = `actr${createId().slice(0, 20)}`;
-  const debateId = `dbte${createId().slice(0, 20)}`;
+  const roundId = `dbte${createId().slice(0, 20)}`;
   await withSql(async (sql) => {
     await sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`;
     await sql`
       INSERT INTO rounds (id, created_by_actor_id, resolution, competition_type, format_id, format_version, rules_snapshot, status)
-      VALUES (${debateId}, ${actorId}, 'Restart-survival proof', 'casual', 'foundation', 1, '{}'::jsonb, 'opening')
+      VALUES (${roundId}, ${actorId}, 'Restart-survival proof', 'casual', 'foundation', 1, '{}'::jsonb, 'opening')
     `;
   });
 
@@ -66,14 +66,14 @@ test('a migration re-application and a resource restart preserve a live session,
   // the user id signUp() created, leaving nothing for a later run to count.
   afterAll(async () => {
     await withSql(async (sql) => {
-      await sql`DELETE FROM rounds WHERE id = ${debateId}`;
+      await sql`DELETE FROM rounds WHERE id = ${roundId}`;
       await sql`DELETE FROM actors WHERE id = ${actorId}`;
     });
     await removeAccount({ email, userId });
   });
 
   const beforePasskeys = (await counts({ userId })).passkeys;
-  const beforeOwner = await debateOwner(debateId);
+  const beforeOwner = await roundOwner(roundId);
 
   // "Migration upgrade": re-apply the already-applied migrations to
   // the live, populated test database via the real migration script — the
@@ -103,7 +103,7 @@ test('a migration re-application and a resource restart preserve a live session,
     new Headers({ cookie, [CLIENT_IP_HEADER]: testApp.newClient() }),
   );
   const afterPasskeys = (await counts({ userId })).passkeys;
-  const afterOwner = await debateOwner(debateId);
+  const afterOwner = await roundOwner(roundId);
 
   assert({
     given:

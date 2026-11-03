@@ -783,11 +783,12 @@ own committed config and its own app-scoped deploy token, and
 `scripts/verify-deploy-config.ts` checks the configs and the workflow
 steps (`SERVICE_APPS`).
 
-| App                                 | Config                  | Image                                 | Network                       | Secrets                                                                                         |
-| ----------------------------------- | ----------------------- | ------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| `daisy-debate-staging-livekit`      | `fly.livekit.toml`      | `infra/livekit/Dockerfile` (pinned)   | default 6PN (DEC-230)         | `LIVEKIT_KEYS` (`<key>: <secret>`)                                                              |
-| `daisy-debate-staging-realtime`     | `fly.realtime.toml`     | `apps/web/Dockerfile`, `realtime`     | default 6PN (Postgres, Redis) | `DATABASE_URL` (`daisy_realtime`), `REDIS_URL`                                                  |
-| `daisy-debate-staging-media-worker` | `fly.media-worker.toml` | `apps/web/Dockerfile`, `media-worker` | default 6PN (Postgres)        | `MEDIA_WORKER_DATABASE_URL` (`daisy_media_worker`), `MEDIA_WORKER_SECRET`, `OPENROUTER_API_KEY` |
+| App                                 | Config                  | Image                                 | Network                                                                              | Secrets                                                                                         |
+| ----------------------------------- | ----------------------- | ------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `daisy-debate-staging-livekit`      | `fly.livekit.toml`      | `infra/livekit/Dockerfile` (pinned)   | default 6PN (DEC-230)                                                                | `LIVEKIT_KEYS` (`<key>: <secret>`)                                                              |
+| `daisy-debate-staging-media-redis`  | `fly.media-redis.toml`  | `redis:8.6.1-alpine`                  | private 6PN, password, nothing persisted; the bus LiveKit and Egress share (BCAST-2) |                                                                                                 |     |
+| `daisy-debate-staging-realtime`     | `fly.realtime.toml`     | `apps/web/Dockerfile`, `realtime`     | default 6PN (Postgres, Redis)                                                        | `DATABASE_URL` (`daisy_realtime`), `REDIS_URL`                                                  |
+| `daisy-debate-staging-media-worker` | `fly.media-worker.toml` | `apps/web/Dockerfile`, `media-worker` | default 6PN (Postgres)                                                               | `MEDIA_WORKER_DATABASE_URL` (`daisy_media_worker`), `MEDIA_WORKER_SECRET`, `OPENROUTER_API_KEY` |
 
 Realtime redeems the connect tickets the web app issues, and tickets are
 namespaced, so `REDIS_NAMESPACE` lives only in the committed `[env]` of
@@ -801,6 +802,115 @@ and `MEDIA_WORKER_SECRET` (the worker's value) as secrets, and
 `LIVEKIT_URL`, `LIVEKIT_PUBLIC_URL`, `REALTIME_PUBLIC_URL`,
 `COMPETITIVE_PROVIDER_CONCURRENCY`, `ROUND_BOT_WORKER_POLICY`,
 `ROUND_JUDGING_POLICY` and `ROUND_ANALYSIS_POLICY` in `fly.toml`.
+
+**Media Redis.** LiveKit reads `REDIS_HOST` and `REDIS_PASSWORD` from Fly
+secrets on `daisy-debate-staging-livekit`, not from `infra/livekit`, so a main
+deploy keeps them (BCAST-2, superseding DEC-228). LiveKit needs this Redis while
+it runs, so the app is never stopped when idle. To detach, run
+`fly secrets unset REDIS_HOST REDIS_PASSWORD -a daisy-debate-staging-livekit`.
+
+**Egress and storage.** `daisy-debate-staging-egress` (`fly.egress.toml`) holds its whole
+config in the `EGRESS_CONFIG_BODY` secret and writes to the private Tigris bucket
+`daisy-debate-staging-broadcast`, created with `fly storage create`. Both machines stay on: nothing wakes a stopped one. Staging keeps two Egress machines always on (`fly scale count 2 -a daisy-debate-staging-egress`), since nothing wakes a stopped one, each fitting one Round at 4 CPU. Casual capture is capped at one Round, so one machine stays for ranked. Beyond two captured Rounds at once, ranked capture is not guaranteed: a start with no capacity retries and raises `broadcast.egress.start_failed`, that Round's audience sees no video, and the debate itself is untouched.
+
+**Web restarts stop capture (hold).** A Broadcast's or own Recording's stage page ends
+its own Egress once the stage route has refused or failed for about 10 s, and media
+captured after the last control-plane heartbeat is never published (ADR 0099). So a
+web restart of 10 s or more during a live Round costs its audience a gap and its
+Recording a stated gap. On staging, which runs one web machine, treat a web deploy as
+part of the deployment hold: wait for live Rounds to end or accept the gap. Production
+needs rolling web machines, so that a deploy never leaves the sweep down for 10 s and
+never stops a Broadcast.
+
+**Turning the pipeline on.** `deploy-staging.yml` deploys Egress, the Broadcast worker and
+the Recording worker after the migration, each with its own app-scoped token. Before the
+first such deploy, once:
+
+1. Create the three tokens with `fly tokens create deploy -a <app>` and store them as the
+   repository secrets `FLY_EGRESS_API_TOKEN`, `FLY_BROADCAST_WORKER_API_TOKEN` and
+   `FLY_RECORDING_WORKER_API_TOKEN`, never printing them.
+2. As the operator, before the merge that adds them (ADR 0080: the migrator has no
+   `CREATEROLE`, and a migration whose guarded `CREATE ROLE` finds no role fails the deploy),
+   create `daisy_broadcast_worker` and `daisy_recording_worker` with `LOGIN` and a generated
+   password, and grant each `CONNECT` on `daisy_debate_staging`, as step 2 of section 3 does
+   for the other logins. Store the matching URL as the secret
+   `BROADCAST_WORKER_DATABASE_URL` on the encoder or `RECORDING_WORKER_DATABASE_URL` on the
+   recorder. A worker refuses to start without its URL.
+3. On `daisy-debate-staging-encoder`, set `BROADCAST_STORAGE_ENDPOINT` and the
+   `BROADCAST_HOLD_*` and `BROADCAST_PUBLIC_*` secrets. On
+   `daisy-debate-staging-recorder`, set `RECORDING_HOLD_*`; `fly storage create` already
+   gave it `RECORDING_BUCKET_*`. On `daisy-debate-staging`, set the `RECORDING_BUCKET_*`
+   secrets for signed playback.
+4. `BROADCAST_CAPTURE` and `RECORDING_CAPTURE` go `on` in `fly.toml`'s `[env]`, read by the web app, with the commit that turns Watch on. Until that commit they are unset and a green deploy captures nothing.
+5. Set each bucket's CORS: the public bucket `GET` and `HEAD` from any origin, the
+   Recording bucket `GET` and `HEAD` from the app's origin.
+
+**Official feed.** The web app reads `BROADCAST_PUBLIC_ORIGIN`, the public bucket's
+read origin (`https://<bucket>.t3.tigrisfiles.io`). The value is not secret, but
+`fly.toml` does not name it and the workflow passes no `--env`, so it has to be set
+with `fly secrets set` on `daisy-debate-staging` to survive a deploy. Unset, no Round
+offers Stream this Round.
+
+The Recording worker (`fly.recording-worker.toml`, app
+`daisy-debate-staging-recorder`) writes to its own private bucket,
+`daisy-debate-staging-recording`, with its own Tigris key: that key cannot read
+the hold bucket, and neither the hold key nor the public key can read it (checked
+by listing each way on 2026-11-03). Create it with
+`fly storage create -a daisy-debate-staging-recorder -n daisy-debate-staging-recording`
+and set the `RECORDING_BUCKET_*` secrets from what it prints. The worker reads the
+hold through `RECORDING_HOLD_*`. The bucket needs a CORS rule allowing `GET` and
+`HEAD` from the app's origin only, because players fetch signed Recording URLs
+across origins.
+
+The public broadcast bucket needs a CORS rule, or every browser player fails
+with `manifestLoadError`: allow `GET` and `HEAD` from any origin, nothing else.
+Objects there are public by design, and only the release step writes them. A
+player on another origin is the only check that shows this; `curl` does not.
+
+**Adding capacity (BCAST-2).** Each pressure has its own step. None of them changes
+a Round already running, except where noted.
+
+| Pressure                | Step                                                                                                                         | Limit and what shows it                                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| More Broadcasts at once | `fly scale count <n> -a daisy-debate-staging-egress`, with `fly machine start` first if stopped                              | One Round per machine at 4 CPU. A start with no capacity retries and raises `broadcast.egress.start_failed` |
+| More releases to encode | `fly scale count <n> -a daisy-debate-staging-encoder`, or raise `BROADCAST_WORKER_SLOTS` (default 4, at most 32) per machine | `broadcast.release_failed`, or viewers falling behind the Round's delay                                     |
+| More Recording builds   | `fly scale count <n> -a daisy-debate-staging-recorder`                                                                       | Builds queue durably, so the cost of too few is a later Ready                                               |
+| More people in Rounds   | `fly scale vm <size> -a daisy-debate-staging-livekit`, under the hold below                                                  | It restarts the machine, which ends every live call                                                         |
+
+Egress machines join through the shared media Redis and need nothing else. New
+machines hold the app's existing secrets, since Fly secrets are app-wide.
+
+A second LiveKit node is **not yet a procedure**, and it is not `fly scale count`.
+The Redis it needs is in place, but `LIVEKIT_NODE_IP` is one dedicated anycast IPv4
+that every machine would advertise, so media for a Room could reach a machine that
+does not host it. It needs an address per node, which has not been built or tried.
+Until it is, one LiveKit node is the limit on concurrent Rounds, and losing that node
+drops every Round on it. No instance kill has been run for any app in this table.
+
+**Deployment hold (BCAST-2).** Nothing mechanical stops a deploy from interrupting a
+live Round: a gate in the workflow is a deploy-rail change and needs human sign-off.
+The hold is this procedure.
+
+| Deploy                            | Effect on a live Round                                                                                                                                    | When it happens                                                                       |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| LiveKit                           | Ends every live call. A running Broadcast loses its source, and viewers see the slate                                                                     | A main merge that changes `infra/livekit` or `fly.livekit.toml`; **every manual run** |
+| Web, realtime, capture worker     | Machines restart, with one machine each (`--ha=false`). A web restart of 10 s or more ends a running Broadcast's Egress and costs it a stated gap (below) | Every deploy                                                                          |
+| Egress, encoder, Recording worker | Deployed by the workflow. Egress only when `fly.egress.toml` changes, since stopping it leaves a stated gap. The workers resume from durable state.       |
+| Media Redis                       | Not in the workflow.                                                                                                                                      |
+
+Before any merge to main on staging, since each one restarts web, and a web restart over 10 s costs a live Broadcast a stated gap; and before a manual run or a by-hand deploy of any row:
+
+1. Look for anything live, on the database (`fly ssh console -a daisy-debate-staging-db`,
+   then `psql`): `select count(*) from rounds where status in ('opening', 'active');`
+   and `select count(*) from broadcasts where completed_at is null and stopped_at is null;`.
+   A Broadcast's release can outlast its Round.
+2. If it is not zero, hold: wait for those Rounds and their Broadcasts to end. A
+   Round-long or scheduled release can hold a Broadcast for as long as its host chose.
+3. If it cannot wait, say so on the PageSpace Incidents channel first, naming the
+   Rounds, because their calls will end.
+
+Never dispatch the deploy workflow "just to redeploy" while anything is live: it
+redeploys LiveKit whatever changed. This hold is written, not yet rehearsed.
 
 **LiveKit on Fly.** Browsers signal over `wss://daisy-debate-staging-livekit.fly.dev`
 (fly-proxy terminates TLS on 443 and forwards to 7880). Media is UDP 7882,

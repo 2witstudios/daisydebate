@@ -118,7 +118,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
     { ...frozen, id: 'g'.repeat(24) },
     {
       ...frozen,
-      participants: [{ ...frozen.participants[0], role: 'spectator' }],
+      participants: [{ ...frozen.participants[0], role: 'not-a-role' }],
     },
   ];
   const results = [];

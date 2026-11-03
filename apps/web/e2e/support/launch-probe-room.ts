@@ -77,7 +77,13 @@ async function createProbeRoom(
       throw new Error('Public probe own consent missing');
     await roomCommand(
       member,
-      { type: 'ready', expectedConsentVersion: seat.consentVersion },
+      {
+        type: 'ready',
+        expectedConsentVersion: seat.consentVersion,
+        ...(own.captureNotice
+          ? { noticeVersion: own.captureNotice.version }
+          : {}),
+      },
       own,
     );
   }

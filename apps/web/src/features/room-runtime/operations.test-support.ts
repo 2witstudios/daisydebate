@@ -46,6 +46,7 @@ export const state: RoomAssemblyState = {
   hostLabel: 'Member',
   seatHolds: [],
   status: 'assembling',
+  capture: null,
   formatId: 'one-on-one',
   formatVersion: 1,
   presetVersion: null,
@@ -80,6 +81,8 @@ export function makeOperations(
   const base = {
     databaseNow: async () => now,
     readRoundBotAdmissionStatus: async () => null,
+    readOwnEntitlementGrants: async () => [],
+    readContentWaiverStanding: async () => 'signed',
     listRoomCatalogSources: async (
       _caller: typeof caller,
       authorize: (fact: AccountAuthorizationFact) => boolean,
@@ -207,6 +210,7 @@ export function makeOperations(
     ...overrides,
   } as unknown as Store;
   const operations = createRoomRuntimeOperations({
+    now: () => '2026-11-02T00:00:00.000Z',
     store: base,
     redis: {
       setRoomConsent: async () => undefined,
@@ -222,6 +226,7 @@ export function makeOperations(
       typeof aiSeats === 'boolean'
         ? { debater: aiSeats, judge: aiSeats }
         : aiSeats,
+    betaGrantsPremium: true,
     entropy: () => '01'.repeat(32),
   });
   return {

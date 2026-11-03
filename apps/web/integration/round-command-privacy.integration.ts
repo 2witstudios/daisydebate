@@ -19,10 +19,27 @@ test('real authenticated Round responses and JSON and server-action form replays
     http,
     { host, guest, judges: [judge] },
     async ({ roundId, view }) => {
-      const named = view.participants
+      // Only the judge's own read names their seat; the seated host's does not.
+      const asJudge = roundViewSchema.parse(
+        await (
+          await routes.rounds.read(
+            new Request(`${f.origin}/api/rounds/${roundId}`, {
+              headers: headers(judge),
+            }),
+            roundId,
+          )
+        ).json(),
+      );
+      const named = asJudge.participants
         .filter(isNamedSeat)
         .find((p) => p.role === 'judge')!;
       const hidden = [named.id, named.actorId, named.label];
+      assert({
+        given: 'the seated host reading the Round',
+        should: 'find no trace of the judge',
+        actual: hidden.filter((value) => JSON.stringify(view).includes(value)),
+        expected: [],
+      });
       const own = roundViewSchema.parse(
         await (
           await routes.rounds.read(

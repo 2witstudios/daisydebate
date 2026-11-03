@@ -31,8 +31,10 @@ type OpponentCard = {
 export type TrainLanding = {
   readonly opponents: readonly OpponentCard[];
   readonly chosen: OpponentCard | null;
-  /** A practice room can assemble: both its AI seats are available. */
+  /** A practice room can assemble: the seats it would seat with AI are available. */
   readonly available: boolean;
+  /** Who judges the practice: the AI judge, or a person the host invites (WATCH-16). */
+  readonly judge: 'ai' | 'person';
 };
 
 const card = (bot: RoomCastChoice, chosenId: string | null): OpponentCard => ({
@@ -52,6 +54,7 @@ const card = (bot: RoomCastChoice, chosenId: string | null): OpponentCard => ({
 export function trainLanding(
   params: SearchParams,
   bots: readonly RoomCastChoice[],
+  casualAiJudge: boolean,
 ): TrainLanding {
   const roster = opponents(bots);
   const named = first(params['bot']);
@@ -64,6 +67,8 @@ export function trainLanding(
     opponents: roster.map((bot) => card(bot, chosenId)),
     chosen: chosenBot ? card(chosenBot, chosenId) : null,
     available:
-      roster.some((bot) => bot.eligible) && practiceJudge(bots) !== null,
+      roster.some((bot) => bot.eligible) &&
+      (!casualAiJudge || practiceJudge(bots) !== null),
+    judge: casualAiJudge ? 'ai' : 'person',
   };
 }

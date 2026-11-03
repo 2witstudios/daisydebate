@@ -15,8 +15,8 @@ const ratingDecision: RatingDecision = {
 /**
  * Rates a completed round on its frozen ladder: the adapter locks and
  * writes, the engine decides. Idempotent, so a caller may retry it. The
- * attendance maintenance consumer uses it after a committed RT forfeit.
- * Ledger ids come from the caller's id source.
+ * maintenance rating sweep uses it for every finalized result, judged or
+ * forfeited. Ledger ids come from the caller's id source.
  */
 export function rateCompletedRound(
   database: {

@@ -300,6 +300,8 @@ export type AuthorizationInput = {
     /** ADR 0079: the operator's account listing, and one target account (its fact is `context.account`). */
     | { readonly kind: 'account_collection' }
     | { readonly kind: 'account' }
+    /** WATCH-7: operator moderation; each store checks its own target exists. */
+    | { readonly kind: 'content_moderation' }
     | { readonly kind: 'foundation' };
   readonly context: {
     readonly account: AccountAuthorizationFact | null;

@@ -133,12 +133,22 @@ capabilities:
 - User, anonymous and foundation-service principals never hold them.
 - The operator service holds nothing else.
 
+**Moderation capabilities (WATCH-7).** Seven more closed capabilities, each
+decided the same way and held only by the operator service: `report.queue.read`,
+`report.resolve`, `broadcast.stop`, `broadcast.chat_slow_mode.update`,
+`recording.takedown`, `recording.restore`, `recording.remove`, `recording.legal_remove`, `recording.rebuild`, `chat_message.remove` and `account.audience_ban.update`.
+Each has its own typed route under `/operator/v1`, and its store checks that its
+target exists. A stop and a takedown take away listing and delivery within
+`MODERATION_DELIVERY_BOUND_MS` (60 s, DEC-303). With these, the scope does hold
+destructive actions, so a stolen key can now stop Broadcasts and take down
+Recordings until the key is removed; both audit trails record every use.
+
 **Trust and key compromise.** Web authenticates the admin _service_, not
 the human. `operatorRef` is the service's attestation of an operator it has
 already authorized in its own evaluator. A stolen signing key lets an
-attacker act as the admin service, within its two capabilities and only
-from inside the 6PN or a WireGuard peer, until the key is removed. Both
-audit trails record every use, and the scope contains nothing destructive.
+attacker act as the admin service, within its capabilities and only from
+inside the 6PN or a WireGuard peer, until the key is removed. Both audit
+trails record every use.
 
 **Approval policy.** Future two-person approval evidence will be bound to
 the command digest, the target revision, the policy revision and a
@@ -195,6 +205,12 @@ by `packages/db/integration/operator-command-deadline.integration.ts`.
 readback is a union discriminated by `action`, so a new operator command
 brings its own variant rather than reshaping the beta one (ISSUE-781). The
 admin app uses it to settle a command whose response it never received.
+
+**Moderation commands.** A moderation command takes the same transaction, with
+its own semantic digest over service, operator and change. A receipt's
+`target_user_id` is null unless the command targets an account. The admin app
+keeps no pending row for them: each sets a state, and its form keeps its command
+id, so resubmitting after an unknown outcome replays the receipt.
 
 **Retention.** Receipts are append-only for the runtime role. A retention
 proposal of 400 days is pending the owner's privacy decision.

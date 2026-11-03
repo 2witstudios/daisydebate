@@ -63,6 +63,21 @@
         "riteway": "9.3.0",
       },
     },
+    "apps/broadcast-worker": {
+      "name": "@daisy/broadcast-worker",
+      "version": "0.0.0",
+      "dependencies": {
+        "@daisy/db": "workspace:*",
+        "@daisy/debate-engine": "workspace:*",
+        "@daisy/logger": "workspace:*",
+        "@daisy/protocol": "workspace:*",
+        "@paralleldrive/cuid2": "3.3.0",
+        "zod": "4.6.6",
+      },
+      "devDependencies": {
+        "riteway": "9.3.0",
+      },
+    },
     "apps/log-shipper": {
       "name": "@daisy/log-shipper",
       "version": "0.0.0",
@@ -115,6 +130,20 @@
         "riteway": "9.3.0",
       },
     },
+    "apps/recording-worker": {
+      "name": "@daisy/recording-worker",
+      "version": "0.0.0",
+      "dependencies": {
+        "@daisy/db": "workspace:*",
+        "@daisy/logger": "workspace:*",
+        "@daisy/protocol": "workspace:*",
+        "@paralleldrive/cuid2": "3.3.0",
+        "zod": "4.6.6",
+      },
+      "devDependencies": {
+        "riteway": "9.3.0",
+      },
+    },
     "apps/web": {
       "name": "@daisy/web",
       "version": "0.0.0",
@@ -143,6 +172,7 @@
         "@tiptap/starter-kit": "3.31.4",
         "better-auth": "1.7.7",
         "happy-dom": "21.0.4",
+        "hls.js": "1.7.4",
         "livekit-client": "2.22.0",
         "next": "16.4.2",
         "posthog-js": "1.443.0",
@@ -403,6 +433,8 @@
 
     "@daisy/auth": ["@daisy/auth@workspace:packages/auth"],
 
+    "@daisy/broadcast-worker": ["@daisy/broadcast-worker@workspace:apps/broadcast-worker"],
+
     "@daisy/clock": ["@daisy/clock@workspace:packages/clock"],
 
     "@daisy/config": ["@daisy/config@workspace:packages/config"],
@@ -428,6 +460,8 @@
     "@daisy/protocol": ["@daisy/protocol@workspace:packages/protocol"],
 
     "@daisy/realtime": ["@daisy/realtime@workspace:apps/realtime"],
+
+    "@daisy/recording-worker": ["@daisy/recording-worker@workspace:apps/recording-worker"],
 
     "@daisy/redis": ["@daisy/redis@workspace:packages/redis"],
 
@@ -1484,6 +1518,8 @@
     "hermes-estree": ["hermes-estree@0.25.1", "", {}, "sha512-0wUoCcLp+5Ev5pDW2OriHC2MJCbwLwuRx+gAqMTOkGKJJiBCLjtrvy4PWUGn6MIVefecRpzoOZ/UV6iGdOr+Cw=="],
 
     "hermes-parser": ["hermes-parser@0.25.1", "", { "dependencies": { "hermes-estree": "0.25.1" } }, "sha512-6pEjquH3rqaI6cYAXYPcz9MS4rY6R4ngRgrgfDshRptUZIc3lw0MCIJIGDj9++mfySOuPTHB4nrSW99BCvOPIA=="],
+
+    "hls.js": ["hls.js@1.7.4", "", {}, "sha512-3GlxGdPvT2YHvQYOt+yOzT/DEior/qJVNIylHA77kgeoBTdQQqi70GwefNEUmHQeNGyjC8U62+bruqW/Tpm+tg=="],
 
     "htmlparser2": ["htmlparser2@10.1.0", "", { "dependencies": { "domelementtype": "^2.3.0", "domhandler": "^5.0.3", "domutils": "^3.2.2", "entities": "^7.0.1" } }, "sha512-VTZkM9GWRAtEpveh7MSF6SjjrpNVNNVJfFup7xTY3UpFtm67foy9HDVXneLtFVt4pMz5kZtgNcvCniNFb1hlEQ=="],
 

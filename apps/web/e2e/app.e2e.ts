@@ -9,7 +9,7 @@ const publicTitles: Record<string, string> = {
 // Participant areas (and Settings) need an account (AUTH-4.5, ISSUE-167: /train too).
 const guardedTitles: Record<string, string> = {
   '/play': 'Play',
-  '/ranked': 'Rated debate',
+  '/ranked': 'Ranked debate',
   '/lobby': 'Lobby',
   '/judge': 'Judge',
   '/settings': 'Settings',
@@ -35,6 +35,13 @@ test('public route shells render with their metadata titles', async ({
 }) => {
   for (const [route, title] of Object.entries(publicTitles))
     await expectShell(page, route, title);
+});
+
+test('Watch and Recordings are open to a visitor', async ({ request }) => {
+  for (const route of ['/watch', '/recordings']) {
+    const response = await request.get(route, { maxRedirects: 0 });
+    expect(response.status()).toBe(200);
+  }
 });
 
 test('guarded areas send visitors to sign-in and render for a member', async ({
@@ -65,8 +72,6 @@ test('a closed destination answers every address with its explainer', async ({
     '/tournaments/mine/any/certificate': 'tournaments',
     '/prep': 'prep',
     '/prep/cards/any': 'prep',
-    '/watch': 'watch',
-    '/recordings': 'watch',
   };
   for (const [route, slug] of Object.entries(closed)) {
     const response = await request.get(route, { maxRedirects: 0 });
