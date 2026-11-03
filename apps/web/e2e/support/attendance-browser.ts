@@ -131,8 +131,13 @@ export async function nextReceipt(
       !requested.has(response.request())
     )
       return false;
-    body = await response.json();
-    return true;
+    // The reload can still beat this read: then the new document's is next.
+    try {
+      body = await response.json();
+      return true;
+    } catch {
+      return false;
+    }
   });
   // A failed action leaves this wait unawaited; report only that failure.
   pending.catch(() => undefined);
