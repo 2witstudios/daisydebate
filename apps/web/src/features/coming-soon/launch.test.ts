@@ -48,6 +48,55 @@ describe('closedDestinationOf', () => {
     });
   });
 
+  test('every Watch address outside its pages closes with it', () => {
+    const paths = [
+      '/audience/round',
+      '/rounds/round/audience-link',
+      '/api/rounds/round/audience',
+      '/api/rounds/round/timeline',
+      '/api/rounds/round/chat',
+      '/api/rounds/round/reactions',
+      '/api/rounds/round/viewers',
+      '/api/recordings/rec/download',
+      '/api/recordings/rec/playback/master.m3u8',
+      '/api/recordings/rec/removal',
+      '/api/watch-history',
+      '/api/debater-follows',
+      '/api//rounds//round/%74imeline/',
+      '/%61pi/recordings/rec/download',
+    ];
+    const allOpen = { ...allSoon, watch: true };
+    assert({
+      given: 'chat, reactions, counts, the timeline and Recording routes',
+      should: 'close with Watch, however the path is written',
+      actual: paths.map((path) => closedDestinationOf(path, allSoon)),
+      expected: paths.map(() => 'watch' as const),
+    });
+    assert({
+      given: 'the same addresses once Watch is launched',
+      should: 'close none of them',
+      actual: paths.map((path) => closedDestinationOf(path, allOpen)),
+      expected: paths.map(() => null),
+    });
+  });
+
+  test('a Round and Room API a debater needs stays open', () => {
+    assert({
+      given: 'the live Round routes, the Room routes and other API lookalikes',
+      should: 'close none of them while Watch is closed',
+      actual: [
+        '/api/rounds/round',
+        '/api/rounds/round/commands',
+        '/rounds/round',
+        '/rounds/round/room',
+        '/api/rooms/room',
+        '/api/messaging/reactions',
+        '/api/rounds',
+      ].map((path) => closedDestinationOf(path, allSoon)),
+      expected: [null, null, null, null, null, null, null],
+    });
+  });
+
   test('anything else stays open', () => {
     const allOpen = { ...allSoon, watch: true, prep: true };
     assert({

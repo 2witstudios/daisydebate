@@ -4,11 +4,13 @@ import { broadcastPlaybackOrigin } from '../features/spectating/browser-policy';
 import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { IdGenerator } from '@daisy/clock';
+import { createAppError, toPublicError } from '@daisy/errors';
 import { isValidTraceparent } from '@daisy/observability';
 import { isGuardedPath, signInHref } from '../features/access/decision';
 import {
   closedDestinationOf,
   explainerHref,
+  isApiPath,
 } from '../features/coming-soon/launch';
 import { returnableDestination } from '../features/auth/redirect';
 import { hasSessionCookie } from '../features/auth/sessions/session-cookie'; // A nonce never authorizes a `style="…"` attribute, and `next/image` always
@@ -83,6 +85,19 @@ function edgeRedirect(
   const response = NextResponse.redirect(
     new URL(href, new URL(publicAppUrl).origin),
   );
+  response.headers.set('Content-Security-Policy', policy);
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('x-request-id', requestId);
+  return response;
+}
+
+/** A closed destination's API answers as a route that does not exist. */
+function closedApi(policy: string, requestId: string): NextResponse {
+  const { status, body } = toPublicError(
+    createAppError('NOT_FOUND'),
+    requestId,
+  );
+  const response = NextResponse.json(body, { status });
   response.headers.set('Content-Security-Policy', policy);
   response.headers.set('Cache-Control', 'no-store');
   response.headers.set('x-request-id', requestId);
@@ -175,6 +190,8 @@ export function handleProxy(request: NextRequest, settings: ProxySettings) {
   ).toString('base64');
   const policy = contentSecurityPolicy(pathname, settings, nonce);
   const closedDestination = closedDestinationOf(pathname);
+  if (closedDestination && isApiPath(pathname))
+    return closedApi(policy, requestId);
   if (closedDestination)
     return edgeRedirect(
       explainerHref(closedDestination),

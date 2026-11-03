@@ -1,5 +1,6 @@
 import { roundDocumentPrincipal } from '../../../../../features/debate-room/documents/document-principal';
 import { audienceLinkPageHref } from '../../../../../features/audience-link/audience-link';
+import { launched } from '../../../../../features/coming-soon/launch';
 import {
   requestHostedAudienceLink,
   requestRoundRatings,
@@ -162,7 +163,7 @@ export default async function RoundRoomPage({
       <LiveRoundRoom
         attendanceSlot={
           <>
-            {hostedLink ? (
+            {hostedLink && launched.watch ? (
               <a
                 href={audienceLinkPageHref(id)}
                 target="_blank"

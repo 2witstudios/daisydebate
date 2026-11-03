@@ -275,6 +275,35 @@ describe('proxy early sign-in hint', () => {
     });
   });
 
+  test('a closed destination answers an API call as if it did not exist', async () => {
+    const closed = at('/api/rounds/round/timeline');
+    assert({
+      given: 'an API route of a closed destination, with no cookie',
+      should: 'answer 404 with the public error body and no explainer redirect',
+      actual: {
+        status: closed.status,
+        location: closed.headers.get('location'),
+        cache: closed.headers.get('Cache-Control'),
+        code: ((await closed.json()) as { error: { code: string } }).error.code,
+      },
+      expected: {
+        status: 404,
+        location: null,
+        cache: 'no-store',
+        code: 'NOT_FOUND',
+      },
+    });
+    assert({
+      given: 'a page of the same closed destination',
+      should: 'still go to its explainer',
+      actual: [
+        at('/audience/round').status,
+        at('/audience/round').headers.get('location'),
+      ],
+      expected: [307, 'https://daisy.invalid/coming-soon/watch'],
+    });
+  });
+
   test('sends a closed destination to its explainer before any sign-in', () => {
     const locations = [
       '/tournaments',
