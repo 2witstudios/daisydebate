@@ -1,7 +1,10 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import type { RoundView } from '@daisy/protocol';
-import { clearDeparture } from '../../features/rooms/resume-departure';
+import {
+  clearDeparture,
+  hasDeparted,
+} from '../../features/rooms/resume-departure';
 import { clearResumeAttempt } from '../../features/rooms/resume-attempt';
 import { useResumeLifetime } from '../../features/rooms/use-resume-lifetime';
 import type { RoundMediaTab } from '../../features/round-media/media-session';
@@ -23,7 +26,11 @@ const createStepDown = () => {
 const roundIsLive = (view: RoundView) =>
   view.status !== 'completed' && view.status !== 'abandoned';
 
-/** A seat's one identity admits one connection, so every seated room holds a claim. */
+/**
+ * A seat's one identity admits one connection, so every seated room holds a
+ * claim. A room left waiting captures nothing after the member leaves elsewhere
+ * until they press Use this tab (ISSUE-1033).
+ */
 export function useRoundMediaTab(
   actorId: string,
   view: RoundView,
@@ -37,6 +44,7 @@ export function useRoundMediaTab(
     actorId,
     roundIsLive(view) ? view.id : null,
     stepDown.fire,
+    hasDeparted,
   );
   return useMemo(
     () => ({

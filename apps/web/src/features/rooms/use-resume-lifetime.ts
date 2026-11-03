@@ -3,6 +3,7 @@
 import { systemClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { clearDeparture } from './resume-departure';
 import { createResumeLifetime } from './resume-lifetime';
 import {
   resumeHeirKey,
@@ -50,6 +51,7 @@ export function useResumeLifetime(
   actorId: string | null,
   roundId: string | null,
   steppedDown?: () => void,
+  departed: (actorId: string, roundId: string) => boolean = () => false,
 ) {
   const [claim, setClaim] = useState<{
     readonly actorId: string;
@@ -62,9 +64,11 @@ export function useResumeLifetime(
       : null;
   const lifetime = useRef<ReturnType<typeof createResumeLifetime> | null>(null);
   const onStepDown = useRef(steppedDown);
+  const holdForDeparture = useRef(departed);
   useEffect(() => {
     onStepDown.current = steppedDown;
-  }, [steppedDown]);
+    holdForDeparture.current = departed;
+  }, [steppedDown, departed]);
   useEffect(() => {
     if (actorId === null || roundId === null) return;
     documentTabId ??= createId();
@@ -75,6 +79,7 @@ export function useResumeLifetime(
       storage: advisoryStorage(),
       predecessor: tabPredecessor(actorId, roundId),
       now: () => Date.parse(systemClock.now()),
+      departed: () => holdForDeparture.current(actorId, roundId),
       subscribe: (listener) =>
         subscribeOwnership(window, actorId, roundId, listener),
       schedule: (tick) => {
@@ -98,6 +103,10 @@ export function useResumeLifetime(
       lifetime.current = null;
     };
   }, [actorId, roundId]);
-  const takeOver = useCallback(() => lifetime.current?.takeOver(), []);
+  /** The person chose this tab, so any earlier departure no longer stands. */
+  const takeOver = useCallback(() => {
+    if (actorId !== null && roundId !== null) clearDeparture(actorId, roundId);
+    lifetime.current?.takeOver();
+  }, [actorId, roundId]);
   return { owns, takeOver };
 }

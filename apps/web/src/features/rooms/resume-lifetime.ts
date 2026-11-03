@@ -25,6 +25,8 @@ export function createResumeLifetime(input: {
     readonly write: (tabId: string) => void;
     readonly clear: () => void;
   };
+  /** The member left this Round in another tab: only an explicit press takes it. */
+  readonly departed: () => boolean;
   /** False must synchronously release this tab's media before any later attempt. */
   readonly changed: (owns: boolean) => void;
 }) {
@@ -47,8 +49,13 @@ export function createResumeLifetime(input: {
       publish(false);
       return;
     }
-    if (decision === 'take-over') claim();
-    else heartbeatOwnership({ ...input, nowMs: input.now() });
+    if (decision === 'take-over') {
+      if (input.departed()) {
+        publish(false);
+        return;
+      }
+      claim();
+    } else heartbeatOwnership({ ...input, nowMs: input.now() });
     publish(true);
   };
   sweepExpiredClaims(input.storage, input.now());

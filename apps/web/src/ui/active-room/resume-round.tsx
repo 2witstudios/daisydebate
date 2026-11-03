@@ -2,7 +2,7 @@
 
 import type { ActiveRoom } from '@daisy/protocol';
 import { useEffect, useRef, useState } from 'react';
-import { departedInSession } from '../../features/rooms/resume-departure';
+import { hasDeparted } from '../../features/rooms/resume-departure';
 import { resumeRoundHrefOf } from '../../features/rooms/resume';
 import {
   attemptedResume,
@@ -37,7 +37,7 @@ export function ResumeRound({
     () =>
       typeof window !== 'undefined' &&
       roundId !== null &&
-      departedInSession(actorId, roundId),
+      hasDeparted(actorId, roundId),
   );
   const [attempted] = useState(
     () =>

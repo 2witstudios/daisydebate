@@ -25,6 +25,7 @@ const world = () => {
     tabId: string,
     changed: (owner: boolean) => void,
     successor: { id: string | null } = { id: null },
+    departed: () => boolean = () => false,
   ) =>
     createResumeLifetime({
       actorId: 'actor',
@@ -41,6 +42,7 @@ const world = () => {
         },
       },
       now: () => nowMs,
+      departed,
       subscribe: (listener) => {
         listeners.add(listener);
         return () => {
@@ -88,6 +90,31 @@ test('direct route and deferred entry share takeover, stepdown and crash expiry'
     actual: [initially, afterTakeover, afterCrashWithoutEvents],
     expected: [[true, false], [false, true], true],
   });
+});
+
+test('a waiting tab does not take a Round the member left until they press', () => {
+  const host = world();
+  let left = false;
+  const first = host.tab('first', () => undefined);
+  const owned: boolean[] = [];
+  const waiting = host.tab(
+    'waiting',
+    (value) => owned.push(value),
+    { id: null },
+    () => left,
+  );
+  left = true;
+  first.stop();
+  host.tick(2500);
+  const afterLeaving = owned.at(-1);
+  waiting.takeOver();
+  assert({
+    given: 'an owner that departed, then a press in the waiting tab',
+    should: 'keep waiting past the release and own only after the press',
+    actual: [afterLeaving, owned.at(-1)],
+    expected: [false, true],
+  });
+  waiting.stop();
 });
 
 test('normal close releases ownership for a deferred tab, without an event', () => {
