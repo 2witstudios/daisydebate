@@ -22,8 +22,8 @@ export function ConversationHeldNotice(props: {
 }) {
   return conversationHeldShown(props.view, props.nowMs) ? (
     <p role="status">
-      This conversation opens once the audience stream has switched away, so
-      it stays private. Speeches are not affected.
+      This conversation opens once the audience stream has switched away, so it
+      stays private. Speeches are not affected.
     </p>
   ) : null;
 }
