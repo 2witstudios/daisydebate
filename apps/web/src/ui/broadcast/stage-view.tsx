@@ -35,7 +35,7 @@ export function StageView(props: {
   const { snapshot } = props;
   const live = snapshot.phase === 'speech';
   return (
-    <main className="grid h-[720px] w-[1280px] grid-rows-[64px_1fr_48px] overflow-hidden bg-[#14130f] font-sans text-white">
+    <main className="font-sans text-white grid h-[720px] w-[1280px] grid-rows-[64px_1fr_48px] overflow-hidden bg-[#14130f]">
       <header className="flex items-center justify-between px-6 text-[28px]">
         <span>
           {live
@@ -63,7 +63,7 @@ export function StageView(props: {
           ))}
         </ul>
       </section>
-      <footer className="flex items-center justify-between bg-black px-6 text-xl">
+      <footer className="bg-black flex items-center justify-between px-6 text-xl">
         <span>Daisy Debate</span>
         <span>{props.siteLink}</span>
       </footer>
