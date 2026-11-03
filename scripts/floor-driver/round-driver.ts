@@ -143,7 +143,7 @@ async function joinSeat(seat: Seat, roundId: string, target: DriverTarget) {
     await seat.session.request(
       'media.session',
       `/api/rounds/${roundId}/media/session`,
-      { method: 'POST' },
+      { json: {} },
     ),
     'media.session',
   ) as { identity: string; token: string; url: string };
@@ -192,21 +192,17 @@ export async function driveRound(input: {
     speeches: input.speeches,
   });
   const [first, second] = seats;
-  const held = input.seatsHeldElsewhere
-    ? await input.seatsHeldElsewhere.open(roundId)
-    : null;
-  const joined = held
-    ? null
-    : await Promise.all([
-        joinSeat(first, roundId, target),
-        joinSeat(second, roundId, target),
-      ]);
+  const browserless = !input.seatsHeldElsewhere;
+  type Joined = Awaited<ReturnType<typeof joinSeat>>;
+  type Held = Awaited<
+    ReturnType<NonNullable<typeof input.seatsHeldElsewhere>['open']>
+  >;
+  let held: Held | null = null;
+  const joined: Joined[] = [];
   const identityOf = (role: Seat['role']) =>
     held
       ? held.identities[role]
-      : joined![role === first.role ? 0 : 1]!.identity;
-  const roomName = held ? held.roomName : joined![0]!.roomName;
-  const browserless = held === null;
+      : joined[role === first.role ? 0 : 1]!.identity;
   const checkedIn = new Set<string>();
   const checkIn = async (segmentId: string) => {
     if (!browserless || checkedIn.has(segmentId)) return;
@@ -231,7 +227,7 @@ export async function driveRound(input: {
               .request(
                 'media.reconcile',
                 `/api/rounds/${roundId}/media/reconcile`,
-                { method: 'POST' },
+                { json: {} },
               )
               .catch(() => null),
           ),
@@ -239,6 +235,13 @@ export async function driveRound(input: {
       : Promise.resolve([]);
   let failure: string | null = null;
   try {
+    if (input.seatsHeldElsewhere)
+      held = await input.seatsHeldElsewhere.open(roundId);
+    else {
+      joined.push(await joinSeat(first, roundId, target));
+      joined.push(await joinSeat(second, roundId, target));
+    }
+    const roomName = held ? held.roomName : joined[0]!.roomName;
     const offsetMs = await serverOffset(first.session, roundId);
     let view = await waitForOpenSpeech(first.session, roundId);
     while (!input.shouldStop()) {
@@ -312,14 +315,14 @@ export async function driveRound(input: {
       }
       clearTimeout(atBoundary);
       if (grantedAt === null) input.miss();
-      else input.deadline(grantedAt - dueAt);
+      else input.deadline(Math.round(grantedAt - dueAt));
       view = await waitForOpenSpeech(first.session, roundId);
     }
   } catch (error) {
     failure = error instanceof Error ? error.message : 'Round failed';
   } finally {
     await settle(first, roundId).catch(() => null);
-    await Promise.all(joined?.map((seat) => seat.close()) ?? []);
+    await Promise.all(joined.map((seat) => seat.close()));
     await held?.close();
   }
   return failure;
