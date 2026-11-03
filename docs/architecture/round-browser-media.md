@@ -40,9 +40,9 @@ No worker capability is available through the human endpoints.
 
 Vendor creation, permission and deletion intents commit before dispatch. A
 provider deadline never cancels its promise. Unknown outcomes remain durable and
-block admission and opening, including after restart or an absence probe. Only
-an actual acknowledgement settles an intent; recovery requires another verified
-absence after every outstanding intent settles. Session ending is derived from
+block admission and opening, including after restart, until the room is retired
+([ADR 0110](../decisions/0110-disposable-vendor-room.md)): an observed absence, or
+uncertainty past 6 s, gives the session a fresh room with the same seats. Session ending is derived from
 the locked Round and fresh PostgreSQL time, never an internal caller boolean.
 The application lifecycle must invoke `recoverActiveSessions()` independently of
 browser presence; the owning lifecycle composition supplies scheduling.
