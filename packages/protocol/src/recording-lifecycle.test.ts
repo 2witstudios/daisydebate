@@ -432,6 +432,50 @@ describe('an evidence hold on a taken-down casual Recording', () => {
     });
   });
 
+  test('an open report holds a Recording however far along it is', () => {
+    assert({
+      given: 'a member asking a ready Recording to go under an open report',
+      should: 'hide it with the removal owed, keeping it as evidence',
+      actual: apply(ready, {
+        type: 'removal_requested',
+        cause: 'participant_request',
+        at: heldUntil,
+        evidenceHeldUntil: heldUntil,
+      }),
+      expected: {
+        kind: 'moved',
+        next: {
+          status: 'taken_down',
+          takenDownAt: heldUntil,
+          held: ready,
+          removalOwed: { requestedAt: heldUntil, heldUntil },
+        },
+      },
+    });
+    assert({
+      given: 'a moderation removal under an open report',
+      should: 'refuse until the report closes',
+      actual: apply(down, {
+        type: 'removal_requested',
+        cause: 'moderation',
+        at: heldUntil,
+        evidenceHeldUntil: heldUntil,
+      }),
+      expected: { kind: 'refused', reason: 'evidence_held' },
+    });
+    assert({
+      given: 'a legal removal under an open report',
+      should: 'still go',
+      actual: apply(down, {
+        type: 'removal_requested',
+        cause: 'legal_removal',
+        at: heldUntil,
+        evidenceHeldUntil: heldUntil,
+      }).kind,
+      expected: 'moved',
+    });
+  });
+
   test('moderation removal waits for the hold; a legal removal does not', () => {
     assert({
       given: 'an ordinary moderation removal of a held Recording',

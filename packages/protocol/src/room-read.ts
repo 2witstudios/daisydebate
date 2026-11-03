@@ -61,6 +61,9 @@ export const roomRefusalSchema = z.enum([
   'ai-judge-premium',
   /** A casual broadcast or recording needs a host holding the entitlement (WATCH-8). */
   'capture-premium',
+  /** Too many casual captures running: for this host, or leaving room for ranked (OW4). */
+  'capture-host-limit',
+  'capture-capacity',
   /** A private Room admits participants alone, so it can record but not broadcast. */
   'broadcast-private',
   /** Ready on a ranked Round needs this season's signed content waiver (WATCH-15). */

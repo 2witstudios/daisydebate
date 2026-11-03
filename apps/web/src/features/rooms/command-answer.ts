@@ -31,6 +31,10 @@ const refusalWords: Partial<Record<RoomRefusal, string>> = {
   'ai-judge-premium': aiJudgePremiumText,
   'capture-premium':
     'Broadcasting and recording a casual round come with a subscription.',
+  'capture-host-limit':
+    'You already have as many broadcast or recorded rounds running as one host can. Wait for one to finish, or turn this off.',
+  'capture-capacity':
+    'Every slot for broadcast and recorded casual rounds is busy. Try again shortly, or turn this off.',
   'broadcast-private': 'A private room can be recorded but not broadcast.',
   'content-waiver-required':
     'Sign this season’s ranked content waiver before Ready.',

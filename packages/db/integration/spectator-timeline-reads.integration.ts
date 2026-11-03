@@ -5,7 +5,7 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { spectatorTimelineReads } from '../src/spectator-timeline-reads';
-import { withFixture } from './constraint-helpers';
+import { withFixture, type Fixture } from './constraint-helpers';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -17,7 +17,11 @@ const withLiveRound = async (
   competitionType: 'ranked' | 'casual',
   run: (
     read: (horizonMs: number | null) => Promise<unknown>,
-    round: { readonly client: SQL; readonly roundId: string },
+    round: {
+      readonly client: SQL;
+      readonly roundId: string;
+      readonly fixture: Fixture;
+    },
   ) => Promise<void>,
 ) => {
   const client = new SQL(databaseUrl, { max: 2 });
@@ -59,7 +63,7 @@ const withLiveRound = async (
         await run(
           (horizonMs) =>
             readSpectatorTimeline({ roundId, horizonOf: () => horizonMs }),
-          { client, roundId },
+          { client, roundId, fixture: f },
         );
       } finally {
         await client`delete from utterances where round_id=${roundId}`;
@@ -124,6 +128,66 @@ test('a line on a segment still open past the last heartbeat waits, like its med
       should: 'hold it, then caption it, and a commit proves it too',
       actual: [unheard, heard, closed],
       expected: [[], ['An early line'], ['An early line']],
+    });
+  });
+});
+
+test('a legal removal takes the captions too', async () => {
+  await withLiveRound('ranked', async (read, { client, roundId }) => {
+    const id = createId();
+    const at = spoken.toISOString();
+    await client`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle)
+      values (${id},${roundId},'ranked','removing',
+        jsonb_build_object('kind','ranked'),
+        ${JSON.stringify({ status: 'removing', cause: 'legal_removal', requestedAt: at })}::text::jsonb)`;
+    const hidden = captions(await read(margin(spoken)));
+    await client`delete from recordings where id=${id}`;
+    assert({
+      given: 'a released line on a Round whose Recording was legally removed',
+      should: 'caption nothing',
+      actual: [hidden, captions(await read(margin(spoken)))],
+      expected: [[], ['An early line']],
+    });
+  });
+});
+
+test('a takedown takes the ballots from a finished Round, and its result stands', async () => {
+  await withLiveRound('ranked', async (read, { client, roundId, fixture }) => {
+    const judge = await fixture.seat(roundId, 'judge');
+    const revision = await fixture.freeze(roundId);
+    const ballotId = createId();
+    await client`insert into ballots (id, judge_participant_id, round_id, freeze_revision,
+        rubric_version, winner, scores, reason, feedback, submitted_at)
+      values (${ballotId}, ${judge.id}, ${roundId}, ${revision}, 'speaker-10@1',
+        'affirmative', ${JSON.stringify({})}::text::jsonb, 'A reason',
+        ${JSON.stringify({})}::text::jsonb, now())`;
+    await client`update rounds set status='completed', current_stage=null, outcome='affirmative',
+      completed_at=${later} where id=${roundId}`;
+    const reasons = async () => {
+      const read_ = (await read(margin(later) + 1000)) as {
+        ballots: { reason: string }[];
+        outcomeReleased: boolean;
+      };
+      return [read_.outcomeReleased, read_.ballots.map((b) => b.reason)];
+    };
+    const shown = await reasons();
+    const id = createId();
+    await client`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle)
+      values (${id},${roundId},'ranked','taken_down',
+        jsonb_build_object('kind','ranked'),
+        ${JSON.stringify({ status: 'taken_down', takenDownAt: later.toISOString(), held: null })}::text::jsonb)`;
+    const hidden = await reasons();
+    await client`delete from recordings where id=${id}`;
+    await client`delete from ballots where id=${ballotId}`;
+    assert({
+      given: 'a released ballot, then the Recording taken down',
+      should:
+        'show its reason, then no ballot, with the outcome still released',
+      actual: [shown, hidden],
+      expected: [
+        [true, ['A reason']],
+        [true, []],
+      ],
     });
   });
 });

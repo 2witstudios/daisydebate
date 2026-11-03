@@ -443,6 +443,88 @@ test('a participant removing a casual Recording ends the feed of its open Broadc
   );
 });
 
+test('a Recording under an open report cannot be destroyed', async () => {
+  await withReadyRecording(
+    async ({ store, inputs, id, roundId, sql, seat, moderate }) => {
+      const reportId = createId();
+      await sql`insert into content_reports (id, target_kind, target_id, reason, queue)
+        values (${reportId}, 'round', ${roundId}, 'harassment', 'safety')`;
+      try {
+        const asked = await requestParticipantRemoval(
+          { store, inputs },
+          { recordingId: id, expectedVersion: 4, viewer: seat, now: at },
+        );
+        assert({
+          given:
+            'a participant asking it to go while a report on its Round is open',
+          should: 'hide it, with the removal owed and nothing deleted',
+          actual: [
+            asked.lifecycle.status,
+            asked.lifecycle.status === 'taken_down' &&
+              asked.lifecycle.removalOwed?.requestedAt,
+          ],
+          expected: ['taken_down', at],
+        });
+        await assertRejects({
+          given: 'a moderation removal while the report is open',
+          should: 'refuse',
+          code: 'CONFLICT',
+          actual: () =>
+            moderate({
+              action: 'recording.remove',
+              recordingId: id,
+              expectedVersion: 5,
+            }),
+        });
+        assert({
+          given: 'the hold, while the report is open',
+          should: 'not be paid',
+          actual: await store.listEndedEvidenceHolds({ now: at, limit: 100 }),
+          expected: [],
+        });
+        await sql`update content_reports set status='dismissed', resolved_at=now(), resolved_by_ref='op' where id=${reportId}`;
+        assert({
+          given: 'the report closed',
+          should: 'pay the removal it owed',
+          actual: (
+            await store.listEndedEvidenceHolds({ now: at, limit: 100 })
+          ).includes(id),
+          expected: true,
+        });
+      } finally {
+        await sql`delete from content_reports where id=${reportId}`;
+      }
+    },
+  );
+});
+
+test('an old failed casual Recording under an open report stays', async () => {
+  await withReadyRecording(async ({ store, id, sql }) => {
+    const reportId = createId();
+    await sql`update recordings set status='failed',
+        lifecycle=${JSON.stringify({ status: 'failed', reason: 'capture_failed', failedAt: at })}::text::jsonb,
+        updated_at=${at}::timestamptz where id=${id}`;
+    const due = () =>
+      store.listFailedBefore({
+        before: '2036-01-01T00:00:00.000Z',
+        limit: 1000,
+      });
+    const before = (await due()).includes(id);
+    await sql`insert into content_reports (id, target_kind, target_id, reason, queue)
+      values (${reportId}, 'recording', ${id}, 'harassment', 'safety')`;
+    try {
+      assert({
+        given: 'a failure past its retention, then a report on it',
+        should: 'be due, then held back from cleanup',
+        actual: [before, (await due()).includes(id)],
+        expected: [true, false],
+      });
+    } finally {
+      await sql`delete from content_reports where id=${reportId}`;
+    }
+  });
+});
+
 test('capture reports are idempotent against the real store', async () => {
   await withReadyRecording(async ({ store, id }) => {
     const record = await store.find(id);

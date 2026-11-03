@@ -88,15 +88,18 @@ export const createWatchRoundSnapshots = (deps: {
     maxEntries: SNAPSHOT_ROUNDS,
     keepsFailure: isTemporaryRefusal,
   });
-  return (roundId: string) =>
-    memo(roundId, async () => {
-      const snapshot = await readAudienceSnapshot(deps.store, {
-        roundId,
-        now: deps.clock.now(),
-        feedUrlOf: deps.feedUrlOf,
-      });
-      return (
-        snapshot && { ...snapshot, body: JSON.stringify(snapshot.timeline) }
-      );
-    });
+  // A malformed id reads as missing before it can take a place in the memo.
+  return async (roundId: string) =>
+    !idSchema.safeParse(roundId).success
+      ? null
+      : memo(roundId, async () => {
+          const snapshot = await readAudienceSnapshot(deps.store, {
+            roundId,
+            now: deps.clock.now(),
+            feedUrlOf: deps.feedUrlOf,
+          });
+          return (
+            snapshot && { ...snapshot, body: JSON.stringify(snapshot.timeline) }
+          );
+        });
 };

@@ -1,13 +1,17 @@
 import { createAppError } from '@daisy/errors';
 import { mayRequestRemoval, type RecordingViewer } from './audience';
-import { transitionRecording } from '@daisy/protocol';
+import {
+  RECORDING_EVIDENCE_HOLD_MS,
+  transitionRecording,
+} from '@daisy/protocol';
 import type { RecordingInputs, RecordingRecord, RecordingStore } from './ports';
 
 /**
  * A participant has a casual Recording removed, whole. The version is the one
  * their form showed, so a changed Recording is confirmed again rather than acted
  * on blind. Ranked is refused by the transition as well as by this check. The store
- * ends the Round's open feed with it.
+ * ends the Round's open feed with it. Under an open report it is hidden with the removal
+ * owed, and the sweep pays that when the report closes.
  */
 export const requestParticipantRemoval = async (
   deps: {
@@ -34,11 +38,18 @@ export const requestParticipantRemoval = async (
   if (!allowed) throw createAppError('AUTHORIZATION');
   const applied = await deps.store.applyParticipantRemoval(
     input.recordingId,
-    (current) =>
+    (current, underOpenReport) =>
       transitionRecording(current, {
         type: 'removal_requested',
         cause: 'participant_request',
         at: input.now,
+        ...(underOpenReport
+          ? {
+              evidenceHeldUntil: new Date(
+                Date.parse(input.now) + RECORDING_EVIDENCE_HOLD_MS,
+              ).toISOString(),
+            }
+          : {}),
       }),
     { expectedVersion: input.expectedVersion, now: input.now },
   );

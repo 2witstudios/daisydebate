@@ -1,5 +1,8 @@
 import { captionKnownPublicSql } from './spectator-release-sql';
-import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+import {
+  recordingHiddenByModeration,
+  SPECTATOR_MARGIN_MS,
+} from '@daisy/protocol';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -177,8 +180,16 @@ export const spectatorTimelineReads = ({
             .orderBy(desc(roundSegments.sequence))
             .limit(1);
           const ranked = competitionType === 'ranked';
+          // Moderation takes the words with the video, from the audience: captions and
+          // ballot reasons. The result and the ratings stand as the competitive record.
+          const hiddenByModeration =
+            recording !== undefined &&
+            recordingHiddenByModeration(recording.lifecycle);
           const ballotRows =
-            ranked && outcomeReleased && round.status === 'completed'
+            ranked &&
+            outcomeReleased &&
+            round.status === 'completed' &&
+            !hiddenByModeration
               ? await tx
                   .select({
                     winner: ballots.winner,
@@ -213,9 +224,8 @@ export const spectatorTimelineReads = ({
                   )
                   .orderBy(asc(roundParticipants.role))
               : [];
-          // A takedown takes the words with the video, from the audience.
           const captionRows =
-            ranked && recording?.status !== 'taken_down'
+            ranked && !hiddenByModeration
               ? await tx
                   .select({
                     id: utterances.id,
