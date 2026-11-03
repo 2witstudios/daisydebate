@@ -183,6 +183,13 @@ A read answering the server's unavailable state, or naming a room other than the
 connection joined, releases it as `transient`, so the seat rejoins without a click and a
 fresh admission decides its authority. A revoked seat is refused there.
 
+A node's death reaches the seats from the server, not from their connections: the reconcile
+pass reads the lost room ([ADR 0110](../decisions/0110-disposable-vendor-room.md)), retires it
+and opens a platform incident, the Round's view changes, and the read that follows names a
+fresh room, which releases the connection. A seat whose signal runs through a surviving node
+would otherwise wait about 15 s on ICE. During the resume countdown the speaker's microphone
+is open, so publishing and capture are ready when the clock restarts.
+
 Recovery is part of the one model, with one timer. A transient `out-of-date` sends a
 `wake` read on the same connection, with no admission. A transient `unavailable` is a
 released connection, so it admits again. That covers a media connection that fails after
