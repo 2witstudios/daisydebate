@@ -221,15 +221,19 @@ export async function driveRound(input: {
       ),
     );
   };
+  // Never awaited by the Round's own step, as a browser's read is not, and a
+  // transport failure is only a read that did not arrive.
   const read = () =>
     browserless && args.profile === 'live'
       ? Promise.all(
           seats.map((seat) =>
-            seat.session.request(
-              'media.reconcile',
-              `/api/rounds/${roundId}/media/reconcile`,
-              { method: 'POST' },
-            ),
+            seat.session
+              .request(
+                'media.reconcile',
+                `/api/rounds/${roundId}/media/reconcile`,
+                { method: 'POST' },
+              )
+              .catch(() => null),
           ),
         )
       : Promise.resolve([]);
@@ -314,19 +318,17 @@ export async function driveRound(input: {
   } catch (error) {
     failure = error instanceof Error ? error.message : 'Round failed';
   } finally {
-    await settle(first.session, roundId).catch(() => null);
+    await settle(first, roundId).catch(() => null);
     await Promise.all(joined?.map((seat) => seat.close()) ?? []);
     await held?.close();
   }
   return failure;
 }
 /** Leaves no live Round behind: a stopped run forfeits what it still holds. */
-async function settle(session: HttpSession, roundId: string) {
+async function settle({ session, role }: Seat, roundId: string) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const { view } = await readView(session, roundId);
     if (view.status !== 'active' && view.status !== 'opening') return;
-    const seat = view.participants.find((entry) => 'id' in entry);
-    if (!seat || !('id' in seat)) return;
     const answer = await session.request(
       'round.command',
       `/api/rounds/${roundId}/commands`,
@@ -335,7 +337,7 @@ async function settle(session: HttpSession, roundId: string) {
           version: 1,
           commandId: newCommandId(),
           expectedVersion: view.version,
-          command: { type: 'forfeit', participantId: seat.id },
+          command: { type: 'forfeit', participantId: seatIdOf(view, role) },
         },
       },
     );
