@@ -30,7 +30,7 @@ describe('handleOperation', () => {
     const response = await handleOperation(
       logger,
       new Request('http://localhost/api/foundation/proof'),
-      'test.operation',
+      'health.readiness',
       async () => {
         throw new Error('raw database failure');
       },
@@ -56,7 +56,7 @@ describe('handleOperation', () => {
         captures: [
           {
             hasRequestId: true,
-            route: 'test.operation',
+            route: 'health.readiness',
             errorCode: 'INTERNAL',
           },
         ],
@@ -72,7 +72,7 @@ describe('handleOperation', () => {
     const response = await handleOperation(
       logger,
       new Request('http://localhost/api/foundation/proof'),
-      'test.operation',
+      'health.readiness',
       async () => {
         throw createAppError('AUTHORIZATION');
       },
@@ -97,7 +97,7 @@ describe('handleOperation', () => {
     const response = await handleOperation(
       logger,
       new Request('http://localhost/api/foundation/proof'),
-      'test.operation',
+      'health.readiness',
       async () => {
         throw createInvariantError('INVARIANT', 'impossible state');
       },
@@ -129,7 +129,7 @@ describe('handleOperation', () => {
     const response = await handleOperation(
       logger,
       jsonRequest(large),
-      'test.oversized',
+      'health.readiness',
       async () => Response.json(await readJson(jsonRequest(large), 64)),
     );
     assert({
@@ -149,7 +149,7 @@ describe('handleOperation', () => {
     const response = await handleOperation(
       logger,
       new Request('http://localhost/api/foundation/proof'),
-      'test.operation',
+      'health.readiness',
       () => Promise.resolve(Response.json({ ok: true })),
     );
     assert({
@@ -176,7 +176,7 @@ describe('handleOperation', () => {
         traceId,
       }))(recorded.at(-1)?.fields as Record<string, unknown>),
       expected: {
-        operation: 'test.operation',
+        operation: 'health.readiness',
         requestId: response.headers.get('x-request-id'),
         traceId: undefined,
       },
@@ -197,7 +197,7 @@ describe('handleOperation', () => {
           'x-daisy-client-id-hash': keyed,
         },
       }),
-      'test.operation',
+      'health.readiness',
       () => Promise.resolve(Response.json({ ok: true })),
     );
     const serialized = JSON.stringify(recorded);
@@ -225,7 +225,7 @@ describe('handleOperation', () => {
       new Request('http://localhost/api/foundation/proof', {
         headers: { 'x-daisy-client-ip': '203.0.113.9' },
       }),
-      'test.operation',
+      'health.readiness',
       () => Promise.resolve(Response.json({ ok: true })),
     );
     assert({
@@ -242,7 +242,7 @@ describe('handleOperation', () => {
       new Request('http://localhost/api/foundation/proof', {
         headers: { 'x-request-id': 'caller-provided-id-123' },
       }),
-      'test.operation',
+      'health.readiness',
       () => Promise.resolve(new Response(null, { status: 204 })),
     );
     assert({
@@ -258,7 +258,7 @@ describe('handleOperation', () => {
     const response = await handleOperation(
       logger,
       new Request('http://localhost/api/foundation/proof'),
-      'test.operation',
+      'health.readiness',
       () =>
         Promise.reject(
           createAppError('INVARIANT', `Secret detail: ${internalDetail}`),
@@ -305,7 +305,7 @@ describe('handleOperation', () => {
     await handleOperation(
       logger,
       new Request('http://localhost/api/foundation/proof'),
-      'test.operation',
+      'health.readiness',
       () => Promise.reject(createInvariantError(invariantId)),
     );
     const invariantEvent = recorded.find(
@@ -324,7 +324,7 @@ describe('handleOperation', () => {
     const response = await handleOperation(
       logger,
       new Request('http://localhost/api/foundation/proof'),
-      'test.operation',
+      'health.readiness',
       () =>
         Promise.reject(
           new Error('ECONNREFUSED 10.0.0.12:5432 from connection pool'),
@@ -367,7 +367,7 @@ describe('handleOperation', () => {
       new Request('http://localhost/api/foundation/proof', {
         signal: controller.signal,
       }),
-      'test.operation',
+      'health.readiness',
       () => Promise.resolve(Response.json({ ok: true })),
     );
     assert({
@@ -387,7 +387,7 @@ describe('handleOperation', () => {
       should: 'include request-scoped operation context',
       actual: recorded.at(-1)?.fields,
       expected: {
-        operation: 'test.operation',
+        operation: 'health.readiness',
         requestId: response.headers.get('x-request-id'),
         traceId: undefined,
         durationMs: (recorded.at(-1)?.fields as { durationMs: number })

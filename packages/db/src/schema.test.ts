@@ -145,6 +145,7 @@ describe('competitive schema rules', () => {
         },
         rounds: {
           checks: [
+            'rounds_attendance_cutoff_check',
             'rounds_competition_type_check',
             'rounds_completed_after_started',
             'rounds_current_stage_check',

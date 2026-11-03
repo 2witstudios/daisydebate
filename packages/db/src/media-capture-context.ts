@@ -38,6 +38,14 @@ export type CaptureDependencies = {
   readonly sttLagMs: number;
   /** The engine's decisions on capture evidence (DEC-212, DEC-218, DEC-220). */
   readonly captureRule: CaptureRule;
+  /** Told each seal's facts, for the log. */
+  readonly sealed?: (fact: {
+    readonly roundId: string;
+    readonly sessionId: string;
+    readonly cause: string;
+    readonly windows: number;
+    readonly captureStartMs: number | null;
+  }) => void;
   readonly nextId: () => string;
   readonly buildProjection: LockedRoundTickInput['buildProjection'];
 };

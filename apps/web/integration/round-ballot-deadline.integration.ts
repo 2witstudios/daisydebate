@@ -1,3 +1,6 @@
+import { decisionOf } from './attendance-evaluation.test-support';
+import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
+import { judgingJobRules } from '@daisy/debate-engine';
 import { withSeasons } from '@daisy/db/seasons';
 import { recoverRankedResults } from './ranked-room.test-support';
 import { randomBytes } from 'node:crypto';
@@ -71,7 +74,7 @@ async function maintainWith<T>(
       store: f.store,
       instanceId,
       ids: { next: createId },
-      evaluate: async () => null,
+      evaluate: async () => ({ kind: 'undecided' as const }),
     }),
   );
   try {
@@ -175,8 +178,8 @@ test('a judge who never rules is recorded as no ruling at the persisted deadline
       expected: {
         persisted: true,
         early: [
-          'rounds_unjudged_participants_check',
-          'rounds_unjudged_participants_check',
+          'rounds_winnerless_completion_check',
+          'rounds_winnerless_completion_check',
         ],
         waiting: ['active', null],
         late: 'CONFLICT round-decided',
@@ -185,6 +188,39 @@ test('a judge who never rules is recorded as no ruling at the persisted deadline
         receipts: 1,
         ruling: 'partial',
         noRuling: [seats[1]!.id],
+        ratings: 0,
+      },
+    });
+  });
+});
+
+test('a split panel ends with no winner at once, on maintenance, inside the window (ISSUE-996, ISSUE-997)', async () => {
+  await withRoomRuntime(async (f) => {
+    const { roundId, judges, seats } = await frozenTwoJudgeRound(f);
+    await submitAs(f, judges[0]!, roundId, seats[0]!.id, 'negative');
+    await submitAs(f, judges[1]!, roundId, seats[1]!.id, 'affirmative');
+    const afterBallots = (await f.store.getRound(roundId))!;
+    await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
+    const done = (await f.store.getRound(roundId))!;
+    const receipts = await completions(f, roundId);
+    assert({
+      given: 'two human judges splitting with the ballot window still open',
+      should:
+        'leave the ending to the panel path, which ends it with no winner, a recorded ruling and no rating',
+      actual: {
+        afterBallots: afterBallots.status,
+        done: [done.status, done.outcome],
+        ruling: receipts[0]?.result.ruling,
+        noRuling: receipts[0]?.result.noRuling,
+        ratings: (
+          await f.sql`select count(*)::int n from rating_changes where round_id=${roundId}`
+        )[0].n,
+      },
+      expected: {
+        afterBallots: 'active',
+        done: ['completed', null],
+        ruling: 'judges-split',
+        noRuling: [],
         ratings: 0,
       },
     });
@@ -250,6 +286,8 @@ test('an AI judging job no provider ever served by its budget is a known failure
         leaseMs: 60000,
         model: 'fixture-model',
         nextToken: () => randomBytes(32).toString('base64url'),
+        contractVersion: 'fixture-contract',
+        rules: judgingJobRules,
       },
     },
   );
@@ -330,7 +368,7 @@ test('an AI job out of budget with no worker running is reported once, with the 
         instanceId,
         ids: { next: createId },
         ratingFailed: () => {},
-        evaluate: async () => null,
+        evaluate: async () => ({ kind: 'undecided' as const }),
         startHorizonMs: 60_000,
         probeRoundId: null,
         judgingEnded: (reason) => reported.push(reason),
@@ -360,6 +398,8 @@ test('an AI job out of budget with no worker running is reported once, with the 
         leaseMs: 60000,
         model: 'fixture-model',
         nextToken: () => randomBytes(32).toString('base64url'),
+        contractVersion: 'fixture-contract',
+        rules: judgingJobRules,
       },
     },
   );
@@ -370,6 +410,8 @@ const judgingOptions = {
     leaseMs: 60000,
     model: 'fixture-model',
     nextToken: () => randomBytes(32).toString('base64url'),
+    contractVersion: 'fixture-contract',
+    rules: judgingJobRules,
   },
 };
 /** A frozen AI-judged Round past its budget and cutoff, its worker holding a ballot or not. */
@@ -386,7 +428,7 @@ async function jobPastBudget(f: Fixture, holds: boolean) {
     );
   }
   await f.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 hour' where round_id=${roundId}`;
-  await f.sql`update rounds set attendance_resolution_cutoff_at=clock_timestamp()-interval '1 hour' where id=${roundId}`;
+  await passAttendanceCutoff(f.sql, roundId, 3600);
   return roundId;
 }
 
@@ -403,7 +445,7 @@ test('a held ballot dropped at its bound is reported once, with the reason', asy
       instanceId,
       ids: { next: createId },
       ratingFailed: () => {},
-      evaluate: async () => null,
+      evaluate: async () => ({ kind: 'undecided' as const }),
       startHorizonMs: 60_000,
       probeRoundId: null,
       judgingEnded: (reason) => reported.push(reason),
@@ -446,7 +488,8 @@ for (const { holds, reason } of [
       });
       for (let pass = 0; pass < 8; pass++) {
         const decided = await attendance.evaluate(roundId);
-        if (!decided || decided.decision === 'abandoned') break;
+        if (decided.kind !== 'decided' || decisionOf(decided) === 'abandoned')
+          break;
       }
       const [job] =
         await f.sql`select terminal_reason from round_judging_jobs where round_id=${roundId}`;
@@ -464,6 +507,41 @@ for (const { holds, reason } of [
       });
     }, judgingOptions);
   });
+
+test('a forfeit cutting off a held ballot ends it round_ended and reports nothing (ISSUE-945)', async () => {
+  await withRoomRuntime(async (f) => {
+    const roundId = await jobPastBudget(f, true);
+    await proveFirstSpeakerAbsent(f, roundId);
+    const reported: string[] = [];
+    const instanceId = createId();
+    await f.store.renewServiceInstance({ instanceId, role: 'web' });
+    const attendance = createAttendanceFeature({
+      checkIns: f.store,
+      evaluate: f.store.evaluateRoundAttendance,
+      nextId: createId,
+      instanceId,
+      judgingEnded: (ended) => reported.push(ended),
+    });
+    try {
+      const decided = await attendance.evaluate(roundId);
+      const [job] =
+        await f.sql`select terminal_reason from round_judging_jobs where round_id=${roundId}`;
+      assert({
+        given: 'settled evidence of an absence, and a job holding a ballot',
+        should: 'forfeit, end the job round_ended, and report nothing',
+        actual: {
+          decision: decisionOf(decided),
+          reason: job.terminal_reason,
+          reported,
+        },
+        expected: { decision: 'forfeit', reason: 'round_ended', reported: [] },
+      });
+    } finally {
+      await f.sql`delete from service_instances where instance_id=${instanceId}`;
+      await f.sql`delete from availability_samples where at>=clock_timestamp()-interval '5 hours'`;
+    }
+  }, judgingOptions);
+});
 
 /** A first speaker settled evidence proves absent: their opponent attended, service healthy. */
 async function proveFirstSpeakerAbsent(f: Fixture, roundId: string) {
@@ -512,7 +590,7 @@ test('a forfeit on an incomplete freeze still has a rating coming', async () => 
         given: 'a provable absence deciding a ranked Round frozen incomplete',
         should: 'answer that the writer would still rate it',
         actual: {
-          decision: decided?.decision,
+          decision: decisionOf(decided),
           awaits: await f.store.readRoundAwaitsRating(roundId),
         },
         expected: { decision: 'forfeit', awaits: true },
@@ -558,7 +636,7 @@ for (const { pastBudget, reason, reported } of [
           given: 'a provable absence with an open judging job',
           should: 'report only an ending that is not the forfeit itself',
           actual: {
-            decision: decided?.decision,
+            decision: decisionOf(decided),
             reason: job.terminal_reason,
             ended,
           },

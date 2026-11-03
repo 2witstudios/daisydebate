@@ -2,7 +2,10 @@ import { isDeepStrictEqual } from 'node:util';
 import { createAppError } from '@daisy/errors';
 import type { JudgingScope } from './round-judging-context';
 import type { agentRuns } from './schema/agent-runs';
-import type { roundJudgingJobs } from './schema/round-judging-jobs';
+import type {
+  roundJudgingAttempts,
+  roundJudgingJobs,
+} from './schema/round-judging-jobs';
 
 type Job = typeof roundJudgingJobs.$inferSelect;
 type Run = typeof agentRuns.$inferSelect;
@@ -66,15 +69,14 @@ export function requireCurrentRun(
     throw createAppError('AUTHORIZATION');
 }
 
-/** One provider dispatch per attempt, and none once a response is held. */
+type Attempt = typeof roundJudgingAttempts.$inferSelect;
+
+/** One provider dispatch per run, and none once a response is held. */
 export function requireUndispatched(
   job: Pick<Job, 'pendingBallot'>,
-  run: Pick<Run, 'configurationSnapshot'>,
+  attempt: Pick<Attempt, 'outcome'> | undefined,
 ): void {
-  if (
-    job.pendingBallot ||
-    run.configurationSnapshot.providerOutcome !== 'not_started'
-  )
+  if (job.pendingBallot || attempt)
     throw createAppError('CONFLICT', 'Model call already dispatched');
 }
 
@@ -84,7 +86,7 @@ export function requireUndispatched(
  */
 export function pendingBallotAction(
   job: Pick<Job, 'pendingBallot'>,
-  run: Pick<Run, 'configurationSnapshot'>,
+  attempt: Pick<Attempt, 'answeredAt'> | undefined,
   ballot: unknown,
 ): 'store' | 'kept' {
   if (job.pendingBallot) {
@@ -92,7 +94,7 @@ export function pendingBallotAction(
       throw createAppError('CONFLICT', 'Judging response already recorded');
     return 'kept';
   }
-  if (run.configurationSnapshot.providerOutcome !== 'received')
+  if (!attempt?.answeredAt)
     throw createAppError('CONFLICT', 'Model response not accounted');
   return 'store';
 }

@@ -1,3 +1,4 @@
+import { judgingJobRules } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -22,7 +23,7 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
         const { roundId, target } = await freezeBotJudge(f);
         const claim = await f.store.claimRoundJudgingJob(target);
         const readRun = () =>
-          f.sql`select requests,input_tokens,output_tokens,configuration_snapshot->>'providerOutcome' as outcome from agent_runs where id=${claim.scope.agentRunId}`;
+          f.sql`select requests,input_tokens,output_tokens,(select case when answered_at is not null then 'received' when outcome='dispatched' or category<>'provider_refused' then 'unknown' else 'refused' end from round_judging_attempts where agent_run_id=${claim.scope.agentRunId}) as outcome from agent_runs where id=${claim.scope.agentRunId}`;
         const entered = Promise.withResolvers<void>(),
           release = Promise.withResolvers<void>();
         let calls = 0;
@@ -112,7 +113,7 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
           const [count] =
             await f.sql`select count(*)::int as n from ballots where round_id=${roundId}`;
           const attempts =
-            await f.sql`select category from round_judging_attempts where round_id=${roundId}`;
+            await f.sql`select category from round_judging_attempts where category is not null and round_id=${roundId}`;
           assert({
             given: `actual PG dispatch plus controlled loopback ${mode} response (not vendor acceptance)`,
             should:
@@ -167,6 +168,8 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
           leaseMs: 60000,
           model: 'fixture-model',
           nextToken: () => randomBytes(32).toString('base64url'),
+          contractVersion: 'fixture-contract',
+          rules: judgingJobRules,
         },
       },
     );

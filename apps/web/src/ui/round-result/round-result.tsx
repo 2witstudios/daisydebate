@@ -38,11 +38,6 @@ export function RoundResult({ view }: { readonly view: RoundBallotRead }) {
               <p className={ballotEyebrowClass}>
                 Official decision · {entry.author}
               </p>
-              {entry.voided ? (
-                <p className="text-ink-muted">
-                  This ballot was voided and does not count.
-                </p>
-              ) : null}
               <BallotSummary
                 title={entry.title}
                 ballot={entry.ballot}

@@ -37,8 +37,11 @@ import {
   readRoundAwaitsRating,
   readUnratedRatingRounds,
 } from './rating-discovery';
-import { deliverObservationPurges } from './observation-purge-jobs';
-import { duePrivacyJobs } from './privacy/vendor-jobs';
+import {
+  deliverObservationPurges,
+  owedObservationPurges,
+} from './observation-purge-jobs';
+import { duePrivacyJobs, owedPrivacyJobs } from './privacy/vendor-jobs';
 import { deliverPrivacyJob as deliverPrivacyJobImpl } from './privacy/vendor-jobs';
 import {
   erasePrivacySubject as runSubjectRightsErasure,
@@ -223,6 +226,14 @@ export function createDatabase({
     ) =>
       instrumented(eventSink, 'deliverObservationPurges', () =>
         deliverObservationPurges(control, input, port),
+      ),
+    owedObservationPurges: () =>
+      instrumented(eventSink, 'owedObservationPurges', () =>
+        owedObservationPurges(control),
+      ),
+    owedPrivacyJobs: () =>
+      instrumented(eventSink, 'owedPrivacyJobs', () =>
+        owedPrivacyJobs(control),
       ),
     /** ISSUE-833: due vendor deletion jobs, read for the scheduled worker. */
     duePrivacyJobs: (input: Parameters<typeof duePrivacyJobs>[1]) =>

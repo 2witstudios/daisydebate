@@ -1,3 +1,4 @@
+import type { RoundPanelCompletion } from '@daisy/protocol';
 import { invariantIdOf as invariantId } from './invariant-error';
 import { fixedIds, type IdGenerator } from '@daisy/clock';
 import {
@@ -7,7 +8,6 @@ import {
 } from '@daisy/db/reference-formats';
 import {
   createRoundRuntime,
-  deriveRoundOutcome,
   resolveRoomConfiguration,
   type RoundCommand,
   type RoundPosition,
@@ -151,6 +151,7 @@ type Run = {
     readonly actorId: string | null;
     readonly now: string;
   }) => void;
+  readonly completePanel: (input: RoundPanelCompletion) => void;
   readonly tick: (now: string) => void;
   readonly opened: () => readonly string[];
   readonly nowMs: () => number;
@@ -215,6 +216,7 @@ function startRun(scenario: DebateScenario): Run {
     participants,
     position: (now) => runtime.position(now),
     execute: (input) => collect(runtime.execute(input)),
+    completePanel: (input) => collect(runtime.completePanel(input)),
     tick: (now) => collect(runtime.tick(now)),
     opened: () => opened,
     nowMs: () => atMs,
@@ -240,19 +242,28 @@ export function runScenario(scenario: DebateScenario): ScenarioObservation {
       return;
     }
     if (action.type === 'ballots') {
-      // As the ballot operation: every judge's ruling, then the service completes.
-      const outcome = deriveRoundOutcome(
-        run.participants,
-        action.rulings.map(({ judge, winner }) => ({
+      // As the ballot operation: every judge's ruling, then one panel decision.
+      const [first, ...rest] = run.participants
+        .filter((seat) => seat.role === 'judge')
+        .map((seat) => seat.id);
+      const now = new Date(run.nowMs()).toISOString();
+      run.completePanel({
+        now,
+        ballots: action.rulings.map(({ judge, winner }) => ({
           judgeParticipantId: seatOf(run, judge).id,
           winner,
-          status: 'submitted' as const,
         })),
-      );
-      run.execute({
-        command: { type: 'complete', outcome },
-        actorId: null,
-        now: new Date(run.nowMs()).toISOString(),
+        completeness: 'complete',
+        panel: {
+          humanWindow:
+            first === undefined
+              ? null
+              : {
+                  deadlineAt: new Date(run.nowMs() + 1).toISOString(),
+                  seatIds: [first, ...rest],
+                },
+          aiSeats: [],
+        },
       });
       return;
     }

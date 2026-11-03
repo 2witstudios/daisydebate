@@ -22,7 +22,7 @@ export async function completedRound(
   const end = new Date(clock!.now.getTime() - 60_000);
   const start = new Date(end.getTime() - 1000);
   await fixture.sql.unsafe(
-    "update rounds set visibility='public',status='completed',outcome='affirmative',started_at=$2,completed_at=$3,final_segment_ended_at=$3,transcript_admission_cutoff=$4 where id=$1",
+    "update rounds set visibility='public',status='completed',outcome='affirmative',started_at=$2,completed_at=$3,final_segment_ended_at=$3,transcript_admission_cutoff=$4,attendance_resolution_cutoff_at=$3::timestamptz+interval '60 minutes' where id=$1",
     [roundId, start, end, new Date(end.getTime() + 120000)],
   );
   const aff = await fixture.seat(roundId, 'affirmative', 0, affActorId);

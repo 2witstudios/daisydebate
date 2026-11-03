@@ -106,9 +106,9 @@ switch, matching `@sentry/nextjs`'s own per-runtime config convention
   environment as a separate deployment. With `SENTRY_DSN` unset, no server
   makes any Sentry network call.
 - `NEXT_PUBLIC_SENTRY_DSN`: gates `apps/web`'s client (browser) capture
-  only — the `global-error` boundary — and is inlined into the browser
-  bundle at build time like any other `NEXT_PUBLIC_*` variable (PRIV-6's
-  own hazard note makes the same point for PostHog's public key). With it
+  only, and reaches the browser at request time on `<html>`, never through
+  the build ([ADR 0101](0101-operational-signals-report-what-happened.md)
+  supersedes the build-time inlining first decided here). With it
   unset, the browser makes no Sentry network call even if `SENTRY_DSN` is
   set for the server. A deployment may run server-side capture without
   client-side capture by setting only `SENTRY_DSN`; the reverse (client

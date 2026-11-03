@@ -150,6 +150,23 @@ export async function startAdmittedRound(host: Member, room: RoomView) {
   );
   return ballotRoundCommand(host.context.request, initial, { type: 'start' });
 }
+/** Every seat claimed, then each member's own fresh consent. */
+export async function seatAndReady(
+  room: RoomView,
+  seats: readonly {
+    readonly member: Member;
+    readonly role: string;
+    readonly slot: number;
+  }[],
+) {
+  let current = room;
+  for (const { member, ...seat } of seats)
+    current = await claimSeat(member, current, seat);
+  for (const { member, ...seat } of seats)
+    current = await readyOwnSeat(member, current, seat);
+  return current;
+}
+
 /** Actual authenticated Room admission and fresh consent; no fixture rows or invented authority. */
 export async function createHumanBallotRound(
   members: readonly Member[],
@@ -162,17 +179,13 @@ export async function createHumanBallotRound(
   let room = await createFoundationRoom(host, (choice) =>
     humanRoundSelection(choice, judgeSeats, countdownMs),
   );
-  const seats = [
+  room = await seatAndReady(room, [
     { member: members[0]!, role: 'affirmative', slot: 0 },
     { member: members[1]!, role: 'negative', slot: 0 },
     ...members
       .slice(2)
       .map((member, slot) => ({ member, role: 'judge', slot })),
-  ];
-  for (const { member, ...seat } of seats)
-    room = await claimSeat(member, room, seat);
-  for (const { member, ...seat } of seats)
-    room = await readyOwnSeat(member, room, seat);
+  ]);
   return startAdmittedRound(host, room);
 }
 
