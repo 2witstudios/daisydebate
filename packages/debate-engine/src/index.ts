@@ -54,6 +54,7 @@ export {
   forfeitInOpening,
   inPreRoundPrep,
   readRoundOpening,
+  readRoundOpeningTopic,
   strikeInOpening,
 } from './round-opening-runtime';
 export { deriveRoundOutcome, participatingRulings } from './round-outcome';

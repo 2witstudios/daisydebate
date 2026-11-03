@@ -1,3 +1,4 @@
+import { readRoundOpeningTopic } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -26,6 +27,7 @@ for (const kind of ['read', 'write'] as const)
             view.id,
             f.host,
             (_state, account) => account?.member === true,
+            readRoundOpeningTopic,
           ),
           f.store.listRoomCatalogSources(
             f.host,

@@ -14,6 +14,7 @@ import {
 } from './room-command-facts';
 import { loadAuthorizationAccount } from './authorization';
 import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
+import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
 type Seat = {
   readonly actorId: string;
   readonly role: string;
@@ -103,6 +104,7 @@ export async function discoverRooms(
   authorizeCollection: (account: Account) => boolean,
   hostHidden: (fact: RoomDiscoveryFact) => boolean,
   clock: SpectatorClock,
+  readTopic: ReadOpeningTopic,
 ): Promise<RoomListPage> {
   const parsed = roomListQuerySchema.safeParse(input);
   if (!parsed.success) throw createAppError('VALIDATION');
@@ -227,9 +229,16 @@ export async function discoverRooms(
         ...r
       }) => r,
     );
+  // One at a time: a transaction runs one query.
+  const rooms: typeof entries = [];
+  for (const room of entries)
+    rooms.push({
+      ...room,
+      topic: await currentRoomTopic(tx, room, readTopic),
+    });
   return {
-    rooms: entries,
-    nextCursor: more ? (entries.at(-1)?.id ?? null) : null,
-    retry: entries.length === 0 && candidates.length > 0,
+    rooms,
+    nextCursor: more ? (rooms.at(-1)?.id ?? null) : null,
+    retry: rooms.length === 0 && candidates.length > 0,
   };
 }

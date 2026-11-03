@@ -13,6 +13,7 @@ import { resolveRoomSelection } from './selection';
 import { requiredContentWaiver, roomCaptureNotice } from './ready-agreements';
 import type { Database } from '@daisy/db';
 import {
+  readRoundOpeningTopic,
   activeRoomMembers,
   executeRoomCommand,
   hostIdentityHidden,
@@ -144,6 +145,7 @@ export function createRoomRuntimeOperations({
       roomId,
       caller,
       (state, account) => can(caller, 'room.read', account, state),
+      readRoundOpeningTopic,
     );
     const state = eligible(facts.state);
     const consent = await consentOf(state, await store.databaseNow());
@@ -399,6 +401,7 @@ export function createRoomRuntimeOperations({
         (account) => can(caller, 'room.list', account),
         (fact) => hostIdentityHidden(fact, caller.actorId),
         spectatorClockAt(now()),
+        readRoundOpeningTopic,
       );
     },
     create,
@@ -407,6 +410,7 @@ export function createRoomRuntimeOperations({
         sourceRoomId,
         caller,
         (state, account) => can(caller, 'room.read', account, state),
+        readRoundOpeningTopic,
       );
       if (source.hostActorId !== caller.actorId)
         throw createAppError('AUTHORIZATION');
