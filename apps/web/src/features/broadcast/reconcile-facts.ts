@@ -13,7 +13,7 @@ type StoredBroadcast = {
   readonly stoppedAt: Date | null;
   readonly completedAt: Date | null;
   readonly finalMediaEndAt: Date | null;
-  readonly releasedThroughAt: Date | null;
+  readonly streamEndedAt: Date | null;
 };
 
 const ms = (at: Date | null) => (at === null ? null : at.getTime());
@@ -37,6 +37,6 @@ export const reconcileFacts = (input: {
   observerSubscribed: input.broadcast.observerRevokedAt === null,
   revocationFailures: input.broadcast.revocationFailures,
   finalMediaEndMs: ms(input.broadcast.finalMediaEndAt),
-  releasedThroughMs: ms(input.broadcast.releasedThroughAt),
+  streamEndedMs: ms(input.broadcast.streamEndedAt),
   policy: input.broadcast.releasePolicy,
 });

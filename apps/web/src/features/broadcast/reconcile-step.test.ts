@@ -15,7 +15,7 @@ const facts = (over: Partial<BroadcastFacts> = {}): BroadcastFacts => ({
   observerSubscribed: true,
   revocationFailures: 0,
   finalMediaEndMs: null,
-  releasedThroughMs: null,
+  streamEndedMs: null,
   policy: { kind: 'delay', seconds: 60 },
   ...over,
 });

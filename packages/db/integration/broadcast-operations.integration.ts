@@ -280,6 +280,7 @@ test('conversation stays held until the observer is revoked, however long that t
     });
     const noEgress = await held();
     await recordEgressStarted(db, {
+      generation: 1,
       id: open.id,
       egressId: 'EG',
       stageCredentialHash: 'h',

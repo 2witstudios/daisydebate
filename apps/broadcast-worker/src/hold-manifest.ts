@@ -43,21 +43,33 @@ export const parseHoldPlaylist = (text: string): readonly HoldEntry[] => {
 
 export const mediaPlaylist = (
   segments: readonly ReleasedSegment[],
-  options: { readonly ended: boolean },
+  options: {
+    readonly ended: boolean;
+    /** Later Egress attempts: each starts a discontinuity at its first sequence. */
+    readonly attempt?: { readonly index: number; readonly firstSeq: number };
+  },
 ): string => {
   const target = Math.ceil(
     Math.max(1000, ...segments.map((s) => s.durationMs)) / 1000,
   );
+  const attempt = options.attempt ?? { index: 0, firstSeq: -1 };
+  const shown = segments.some((s) => s.seq === attempt.firstSeq);
+  const passed = Math.max(0, attempt.index - (shown ? 1 : 0));
   const body = segments
     .map(
       (s) =>
+        (s.seq === attempt.firstSeq && attempt.index > 0
+          ? '#EXT-X-DISCONTINUITY\n'
+          : '') +
         `#EXT-X-PROGRAM-DATE-TIME:${new Date(s.capturedAtMs).toISOString()}\n` +
         `#EXTINF:${(s.durationMs / 1000).toFixed(3)},\nseg-${s.seq}.ts\n`,
     )
     .join('');
   return (
     `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:${target}\n` +
-    `#EXT-X-MEDIA-SEQUENCE:${segments[0]?.seq ?? 0}\n${body}` +
+    `#EXT-X-MEDIA-SEQUENCE:${segments[0]?.seq ?? 0}\n` +
+    (passed > 0 ? `#EXT-X-DISCONTINUITY-SEQUENCE:${passed}\n` : '') +
+    body +
     (options.ended ? '#EXT-X-ENDLIST\n' : '')
   );
 };

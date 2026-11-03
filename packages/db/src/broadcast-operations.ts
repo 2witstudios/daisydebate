@@ -96,6 +96,7 @@ export const recordSegmentReleased = async (
     .update(broadcasts)
     .set({
       nextSegment: input.segment + 1,
+      holdCursor: sql`${broadcasts.holdCursor} + 1`,
       releasedThroughAt: sql`greatest(${broadcasts.releasedThroughAt}, ${input.mediaEnd.toISOString()}::timestamptz)`,
     })
     .where(
@@ -136,6 +137,26 @@ export const readReleasedThrough = async (tx: Tx, roundId: string) => {
 };
 
 /** Records the running Egress; the reconcile pass reads its state from LiveKit. */
+/** The worker has emptied one attempt's hold and moves to the next. */
+export const recordHoldAdvanced = async (
+  tx: Tx,
+  input: {
+    readonly id: string;
+    readonly owner: string;
+    readonly epoch: number;
+  },
+): Promise<boolean> => {
+  const rows = await tx
+    .update(broadcasts)
+    .set({
+      releasedGeneration: sql`${broadcasts.releasedGeneration} + 1`,
+      holdCursor: 0,
+    })
+    .where(held(input.id, input.owner, input.epoch))
+    .returning({ id: broadcasts.id });
+  return rows.length > 0;
+};
+
 /** Every held segment is out: the timeline reaches the end of the media. */
 export const recordMediaEndReleased = async (
   tx: Tx,
@@ -144,11 +165,13 @@ export const recordMediaEndReleased = async (
     readonly owner: string;
     readonly epoch: number;
     readonly mediaEnd: Date;
+    readonly now: Date;
   },
 ): Promise<boolean> => {
   const rows = await tx
     .update(broadcasts)
     .set({
+      streamEndedAt: input.now,
       releasedThroughAt: sql`greatest(${broadcasts.releasedThroughAt}, ${input.mediaEnd.toISOString()}::timestamptz)`,
     })
     .where(held(input.id, input.owner, input.epoch))
@@ -161,6 +184,7 @@ export const recordEgressStarted = (
   input: {
     readonly id: string;
     readonly egressId: string;
+    readonly generation: number;
     readonly stageCredentialHash: string;
     readonly now: Date;
   },
@@ -169,6 +193,7 @@ export const recordEgressStarted = (
     .update(broadcasts)
     .set({
       egressId: input.egressId,
+      egressGeneration: input.generation,
       stageCredentialHash: input.stageCredentialHash,
       egressStartedAt: input.now,
     })

@@ -58,6 +58,7 @@ export const createBroadcastSweep = (deps: {
     const room = read.roomName;
     const id = broadcast.id;
     const credential = deps.newCredential();
+    const generation = broadcast.egressGeneration + 1;
     await reconcileStep(
       reconcileFacts({
         nowMs,
@@ -71,13 +72,14 @@ export const createBroadcastSweep = (deps: {
         startEgress: () =>
           deps.egress.start({
             stageUrl: deps.stageUrl(id, credential.secret),
-            holdPrefix: `hold/${id}/`,
+            holdPrefix: `hold/${id}/${generation}/`,
             segmentSeconds: SEGMENT_SECONDS,
           }),
         recordEgressStarted: (egressId) =>
           deps.store.recordEgressStarted({
             id,
             egressId,
+            generation,
             stageCredentialHash: credential.hash,
             now: new Date(nowMs),
           }),
