@@ -86,7 +86,7 @@ be able to see who is online."
    Room to the first eligible human still seated, since only a host can start it, and a
    Room with no human left closes. A host-written resolution list does not pass:
    the draw reads the bank, so a member's export holds only their own text. A host
-   who inherits a Room seated nobody, so they name no human judge, in the Room or
+   who inherits a Room names no human judge, in the Room or
    the Round they start (`host_inherited`, owner ruling). No page is needed for it to leave. A judge's
    seat in a started Round stays, and the ballot deadline covers it.
    Closing an account never wipes this: reports about it and its sanctions stay

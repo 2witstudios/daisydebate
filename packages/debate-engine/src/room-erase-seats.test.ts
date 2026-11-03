@@ -1,11 +1,12 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   eraseSeats,
+  executeRoomCommand,
   projectRoom,
   releaseRestrictedMember,
 } from './room-assembly';
 import type { RoomAssemblyState } from '@daisy/protocol';
-import { consent, state } from './room-assembly.test-support';
+import { consent, edges, state } from './room-assembly.test-support';
 
 setupRitewayBun();
 
@@ -216,5 +217,124 @@ test('a host who inherits a Room names no human judge, in the Room or after', ()
     should: 'name them to themselves',
     actual: anonymousTo(inherited, 'judge'),
     expected: false,
+  });
+});
+
+describe('assign-seat from a host who inherited the Room', () => {
+  const room = state();
+  const [hostSeat, other] = room.participants;
+  const judge = {
+    ...other!,
+    id: 'judge-seat',
+    actorId: 'judge',
+    label: 'Hidden judge',
+    role: 'judge' as const,
+    slot: 0,
+    kind: 'human' as const,
+  };
+  const debater = {
+    ...other!,
+    id: 'debater-seat',
+    actorId: 'debater',
+    label: 'Second debater',
+    role: 'negative' as const,
+    slot: 1,
+    kind: 'human' as const,
+  };
+  const inherited = releaseRestrictedMember(
+    {
+      ...room,
+      rules: { ...room.rules, seats: { ...room.rules.seats, judge: 2 } },
+      participants: [hostSeat!, other!, judge, debater],
+    },
+    'host',
+  );
+  const assign = (
+    from: RoomAssemblyState,
+    target: { readonly actorId: string; readonly label: string },
+    role: 'affirmative' | 'negative' | 'judge',
+    slot: number,
+  ) =>
+    executeRoomCommand(
+      from,
+      'other',
+      {
+        commandId: 'assign',
+        expectedVersion: from.version,
+        type: 'assign-seat',
+        actorId: target.actorId,
+        role,
+        slot,
+      },
+      consent,
+      {
+        ...edges,
+        target: {
+          ...other!,
+          ...target,
+          kind: 'human',
+          eligible: true,
+          seatRole: null,
+        },
+      },
+    );
+  const refusal = (outcome: ReturnType<typeof assign>) =>
+    outcome.ok ? 'accepted' : outcome.refusal;
+  const stranger = { actorId: 'stranger', label: 'Stranger' };
+  const suspect = { actorId: judge.actorId, label: judge.label };
+
+  test('a hidden judge answers as a member who is not seated', () => {
+    assert({
+      given:
+        'the heir sending the hidden judge and a stranger to the judge seat',
+      should: 'refuse both alike, so the answer tests nothing',
+      actual: [
+        refusal(assign(inherited, suspect, 'judge', 1)),
+        refusal(assign(inherited, stranger, 'judge', 1)),
+      ],
+      expected: ['actor-ineligible', 'actor-ineligible'],
+    });
+    assert({
+      given:
+        'the heir sending the hidden judge to a debater seat they can read',
+      should: 'refuse it as they refuse a stranger',
+      actual: [
+        refusal(assign(inherited, suspect, 'affirmative', 1)),
+        refusal(assign(inherited, stranger, 'affirmative', 1)),
+      ],
+      expected: ['actor-ineligible', 'actor-ineligible'],
+    });
+  });
+
+  test('a judge the heir assigns shows as filled', () => {
+    const outcome = assign(
+      inherited,
+      { actorId: debater.actorId, label: debater.label },
+      'judge',
+      1,
+    );
+    if (!outcome.ok) throw Error(`Refused: ${outcome.refusal}`);
+    const seats = projectRoom(
+      outcome.mutation.state,
+      'other',
+      consent,
+      edges.now,
+    ).participants.filter((p) => p.role === 'judge');
+    assert({
+      given: 'a seated debater the heir moves to a judge seat',
+      should: 'accept it and show every judge seat only as filled',
+      actual: seats.map((seat) => 'anonymous' in seat),
+      expected: [true, true],
+    });
+  });
+
+  test('a host who seated their judges still assigns them', () => {
+    const own = { ...inherited, hostInherited: false };
+    assert({
+      given: 'the same move from a host who did not inherit',
+      should: 'accept it',
+      actual: refusal(assign(own, suspect, 'judge', 1)),
+      expected: 'accepted',
+    });
   });
 });

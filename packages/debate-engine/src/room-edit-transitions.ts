@@ -238,7 +238,7 @@ const seatAdmission = (
     target.kind !== 'human'
   )
     return 'actor-ineligible';
-  if (unjoinedHuman(room, actorId, command.type, target))
+  if (unassignableHuman(room, actorId, command.type, target))
     return 'actor-ineligible';
   return null;
 };
@@ -307,13 +307,23 @@ export const leaveSeat = (
   return acceptedRoomMutation(removeSeat(room, held.id));
 };
 
-const unjoinedHuman = (
+/**
+ * A host assigns only a human already in the Room. To a host who inherited it, a
+ * seated human judge reads as not in the Room: any other answer, or a move to a
+ * seat they can read, would name a judge hidden from them (DEC-331).
+ */
+const unassignableHuman = (
   room: RoomAssemblyState,
   actorId: string,
   type: string,
   target: NonNullable<Edges['target']>,
-) =>
-  type === 'assign-seat' &&
-  target.kind === 'human' &&
-  target.actorId !== actorId &&
-  !room.participants.some((p) => p.actorId === target.actorId);
+) => {
+  if (
+    type !== 'assign-seat' ||
+    target.kind !== 'human' ||
+    target.actorId === actorId
+  )
+    return false;
+  const seat = room.participants.find((p) => p.actorId === target.actorId);
+  return !seat || (room.hostInherited && seat.role === 'judge');
+};
