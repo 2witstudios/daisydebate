@@ -1,7 +1,9 @@
+import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   eligibleCompetitorIds,
   fencedActorIds,
+  requireFencedSeat,
   seatEligibility,
 } from './seat-eligibility';
 
@@ -127,5 +129,20 @@ test('only eligible debating seats are attendance competitors', () => {
       { id: 'neg2', role: 'negative', eligible: true },
     ]),
     expected: ['aff', 'neg2'],
+  });
+});
+
+test('a seat outside the fence is a temporary failure, never an authority refusal', async () => {
+  await assertRejects({
+    given: 'a seat the fence did not lock',
+    should: 'answer INFRASTRUCTURE',
+    code: 'INFRASTRUCTURE',
+    actual: async () => requireFencedSeat(['a'], 'b'),
+  });
+  assert({
+    given: 'a seat the fence locked',
+    should: 'pass',
+    actual: requireFencedSeat(['a'], 'a'),
+    expected: undefined,
   });
 });
