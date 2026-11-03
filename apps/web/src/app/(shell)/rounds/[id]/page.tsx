@@ -25,7 +25,8 @@ import { MediaDocument } from '../../../../ui/round-media/media-document';
 export const metadata: Metadata = { title: 'Round' };
 async function completedBallots(round: RoundView, member: boolean) {
   if (!member || round.status !== 'completed') return null;
-  return readPersistedBallot(round.id);
+  const result = await readPersistedBallot(round.id);
+  return result.kind === 'found' ? result.view : null;
 }
 /**
  * Only a seated debater of a completed Round has a round analysis to read.
@@ -37,10 +38,8 @@ async function ownAnalysis(round: RoundView, debater: boolean) {
     readPersistedRoundAnalysis(round.id),
     readPersistedTranscript(round.id),
   ]);
-  if (result.kind !== 'found')
-    return temporarilyRefused(result) ? result : null;
+  if (result.kind !== 'found') return null;
   return {
-    kind: 'found' as const,
     view: result.view,
     lines: transcript.kind === 'found' ? transcriptLines(transcript.value) : [],
   };
@@ -84,12 +83,6 @@ export default async function RoundPage({
     completedBallots(result.round, identity.state === 'member'),
     ownAnalysis(result.round, debater),
   ]);
-  // A refused decision must not read as a Round with no decision (ISSUE-964).
-  if (
-    (ballots && temporarilyRefused(ballots)) ||
-    (analysis && temporarilyRefused(analysis))
-  )
-    return reconnectingRoundPage();
   return (
     <>
       <MediaDocument />
@@ -99,8 +92,8 @@ export default async function RoundPage({
             requestRoundRatings(result.round),
           )}
         />
-        {ballots?.kind === 'found' ? <RoundResult view={ballots.view} /> : null}
-        {analysis?.kind === 'found' ? (
+        {ballots ? <RoundResult view={ballots} /> : null}
+        {analysis ? (
           <RoundAnalysis view={analysis.view} lines={analysis.lines} />
         ) : null}
       </RoundReceipt>
