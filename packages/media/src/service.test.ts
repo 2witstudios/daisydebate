@@ -53,6 +53,7 @@ describe('media room service boundary', () => {
     } as unknown as Pick<
       RoomServiceClient,
       | 'listRooms'
+      | 'updateRoomMetadata'
       | 'createRoom'
       | 'deleteRoom'
       | 'updateParticipant'

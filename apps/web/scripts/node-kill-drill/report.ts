@@ -28,6 +28,8 @@ const coverageSchema = z.strictObject({
   coverage: z.number().nullable(),
   missingOutsideOutageMs: z.number(),
   coverageOutsideOutage: z.number().nullable(),
+  /** Owed time with no capture, in ms from the kill. */
+  holes: z.array(z.object({ start: z.number(), end: z.number() })),
 });
 /** One kill and what it did; a sample whose kill never fired says why. */
 export const drillSampleSchema = z.strictObject({

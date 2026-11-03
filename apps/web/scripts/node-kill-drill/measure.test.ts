@@ -139,6 +139,7 @@ test('captureCoverage', () => {
       coverage: 0.8,
       missingOutsideOutageMs: 0,
       coverageOutsideOutage: 1,
+      holes: [{ start: 40_000, end: 60_000 }],
     },
   });
   assert({

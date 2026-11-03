@@ -10,6 +10,7 @@ const coverage = {
   coverage: 0.8,
   missingOutsideOutageMs: 0,
   coverageOutsideOutage: 1,
+  holes: [],
 };
 const sample = (overrides: Partial<DrillSample> = {}): DrillSample => ({
   index: 0,

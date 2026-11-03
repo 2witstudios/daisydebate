@@ -98,6 +98,23 @@ const intersect = (a: readonly Interval[], b: readonly Interval[]) =>
     }),
   );
 
+/** Owed time with no capture, as the ranges a reader can place against the kill. */
+const holesOf = (
+  owed: readonly Interval[],
+  observed: readonly Interval[],
+): readonly Interval[] =>
+  owed.flatMap((span) => {
+    const holes: Interval[] = [];
+    let at = span.start;
+    for (const seen of observed) {
+      if (seen.end <= at || seen.start >= span.end) continue;
+      if (seen.start > at) holes.push({ start: at, end: seen.start });
+      at = Math.max(at, seen.end);
+    }
+    if (at < span.end) holes.push({ start: at, end: span.end });
+    return holes;
+  });
+
 /**
  * Observed speech over owed speech, overall and with the outage set aside: the
  * owner's target is 100 percent outside an incident. Nothing owed is no number.
@@ -122,6 +139,7 @@ export function captureCoverage(
     coverage: owedMs ? observedMs / owedMs : null,
     missingOutsideOutageMs: owedOutside - observedOutside,
     coverageOutsideOutage: owedOutside ? observedOutside / owedOutside : null,
+    holes: holesOf(owed, observed),
   };
 }
 

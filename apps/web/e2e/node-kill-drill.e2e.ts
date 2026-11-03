@@ -501,7 +501,13 @@ async function drillOneKill(
           ...draft,
           seats: seatResults,
           captureBackMs: captureBackAfter(observedIn(evidence), killMs),
-          coverage: whole,
+          coverage: whole && {
+            ...whole,
+            holes: whole.holes.map(({ start, end }) => ({
+              start: start - killMs,
+              end: end - killMs,
+            })),
+          },
           streams,
           penalties: evidence.adjudications.filter((row) =>
             ['forfeit', 'abandoned'].includes(row.decision),
