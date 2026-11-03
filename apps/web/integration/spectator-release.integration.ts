@@ -247,6 +247,61 @@ test('a later Round rewinds a rating without hiding what is already public', asy
   });
 });
 
+test('a member card holds a rating as the standings do', async () => {
+  await inArena(async (a) => {
+    const { affirmative, negative, roundId } = await ratedRound(a);
+    const heldId = await a.round({
+      affirmative,
+      negative,
+      outcome: 'affirmative',
+      completedAt: minute(40),
+    });
+    await a.rate(heldId);
+    try {
+      await openBroadcast(heldId, {});
+      const clock = spectatorClockAt(minute(59));
+      const cards = await a.database.readMemberCards([affirmative], clock);
+      const standings = await a.database.readStandings({
+        ladder: 'freestyle',
+        seasonIds: [a.seasonId!],
+        clock,
+      });
+      const [first] = await a.ledger(affirmative);
+      const card = cards.ratings.find((r) => r.actorId === affirmative);
+      const standing = standings.ratings.find(
+        (r) => r.actorId === affirmative,
+      );
+      assert({
+        given: 'one released Round and one held, for one debater',
+        should:
+          'stand on the card where the ladder stands them, last rated by the released Round',
+        actual: {
+          rating: card?.rating,
+          deviation: card?.deviation,
+          volatility: card?.volatility,
+          lastRatedAt: card?.lastRatedAt,
+        },
+        expected: {
+          rating: standing?.rating,
+          deviation: standing?.deviation,
+          volatility: standing?.volatility,
+          lastRatedAt: standings.changes.find(
+            (c) => c.actorId === affirmative && c.roundId === roundId,
+          )?.occurredAt,
+        },
+      });
+      assert({
+        given: 'the same card (control)',
+        should: 'be the rating the released Round left',
+        actual: card?.rating,
+        expected: first!.rating_after,
+      });
+    } finally {
+      await dropBroadcasts([heldId]);
+    }
+  });
+});
+
 test('a debater reading their own Round sees its rating at once', async () => {
   await inArena(async (a) => {
     const { roundId } = await ratedRound(a);

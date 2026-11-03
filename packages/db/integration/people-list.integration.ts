@@ -393,14 +393,15 @@ test('a card reads a page of people, whatever they have played', async () => {
   const cards = ratingVisibilityOperations({ database: ctx.database });
   const memberCards = memberCardOperations({ database: ctx.database });
   try {
-    const none = await memberCards.readMemberCards([]);
-    const empty = await memberCards.readMemberCards([ctx.them.actorId]);
+    const clock = { now: ctx.now, rankedDelaySeconds: 60 };
+    const none = await memberCards.readMemberCards([], clock);
+    const empty = await memberCards.readMemberCards([ctx.them.actorId], clock);
     await cards.writeRatingVisibility(
       ctx.them,
       { showPolicy: true, showValue: false, now: ctx.now },
       unfenced,
     );
-    const shown = await memberCards.readMemberCards([ctx.them.actorId]);
+    const shown = await memberCards.readMemberCards([ctx.them.actorId], clock);
     const own = await cards.readRatingVisibility(ctx.them, unfenced);
     assert({
       given: 'nobody, a member with nothing played, then one turning Policy on',
