@@ -14,3 +14,9 @@ export const unavailableRead = (response: Response): UnavailableRead =>
   (response.status === 503 && response.headers.has('retry-after'))
     ? { kind: 'unavailable', temporary: true }
     : { kind: 'unavailable' };
+
+/** Whether any read's answer was a refusal asking again can help. */
+export const temporarilyRefused = (read: {
+  readonly kind: string;
+  readonly temporary?: true;
+}): boolean => read.kind === 'unavailable' && read.temporary === true;

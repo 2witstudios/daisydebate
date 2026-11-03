@@ -7,12 +7,15 @@ import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
 import type { SearchParams } from '../../../../features/access/decision';
-import { requireAccess } from '../../../../lib/access';
+import { accessOrTemporary } from '../../../../lib/access';
 import { isLiveDebater } from '../../../../ui/debate-room/live-round';
 import { RoundDocuments } from '../../../../ui/debate-room/round-documents';
+import { reconnectingRoundPage } from '../../../../ui/debate-room/round-room-reconnecting';
 import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
 import { RoundResult } from '../../../../ui/round-result/round-result';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
+import { ratingsUnlessRefused } from '../../../../features/ratings/ratings-unless-refused';
+import { temporarilyRefused } from '../../../../server/temporary-read';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
 import { readPersistedRound, readPersistedRoundAnalysis } from './actions';
@@ -22,8 +25,7 @@ import { MediaDocument } from '../../../../ui/round-media/media-document';
 export const metadata: Metadata = { title: 'Round' };
 async function completedBallots(round: RoundView, member: boolean) {
   if (!member || round.status !== 'completed') return null;
-  const result = await readPersistedBallot(round.id);
-  return result.kind === 'found' ? result.view : null;
+  return readPersistedBallot(round.id);
 }
 /**
  * Only a seated debater of a completed Round has a round analysis to read.
@@ -35,8 +37,10 @@ async function ownAnalysis(round: RoundView, debater: boolean) {
     readPersistedRoundAnalysis(round.id),
     readPersistedTranscript(round.id),
   ]);
-  if (result.kind !== 'found') return null;
+  if (result.kind !== 'found')
+    return temporarilyRefused(result) ? result : null;
   return {
+    kind: 'found' as const,
     view: result.view,
     lines: transcript.kind === 'found' ? transcriptLines(transcript.value) : [],
   };
@@ -49,10 +53,13 @@ export default async function RoundPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { id } = await params;
-  const identity = await requireAccess(`/rounds/${id}`, searchParams);
+  const access = await accessOrTemporary(`/rounds/${id}`, searchParams);
+  if (access.kind === 'temporary') return reconnectingRoundPage();
+  const { identity } = access;
   if (!idSchema.safeParse(id).success) notFound();
   const result = await readPersistedRound(id);
   if (result.kind === 'missing') notFound();
+  if (temporarilyRefused(result)) return reconnectingRoundPage();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   if (
     identity.state === 'member' &&
@@ -77,13 +84,23 @@ export default async function RoundPage({
     completedBallots(result.round, identity.state === 'member'),
     ownAnalysis(result.round, debater),
   ]);
+  // A refused decision must not read as a Round with no decision (ISSUE-964).
+  if (
+    (ballots && temporarilyRefused(ballots)) ||
+    (analysis && temporarilyRefused(analysis))
+  )
+    return reconnectingRoundPage();
   return (
     <>
       <MediaDocument />
       <RoundReceipt round={result.round}>
-        <RoundRatings view={await requestRoundRatings(result.round)} />
-        {ballots ? <RoundResult view={ballots} /> : null}
-        {analysis ? (
+        <RoundRatings
+          view={await ratingsUnlessRefused(() =>
+            requestRoundRatings(result.round),
+          )}
+        />
+        {ballots?.kind === 'found' ? <RoundResult view={ballots.view} /> : null}
+        {analysis?.kind === 'found' ? (
           <RoundAnalysis view={analysis.view} lines={analysis.lines} />
         ) : null}
       </RoundReceipt>

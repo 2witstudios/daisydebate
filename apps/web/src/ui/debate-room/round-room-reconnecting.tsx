@@ -1,3 +1,5 @@
+import { reconnectDelaySeconds } from './reconnect-delay';
+
 /**
  * A Round room whose read was temporarily refused. It takes no Round input:
  * nothing was read or authorized, so it says the same to anyone, and the next
@@ -24,5 +26,13 @@ export function RoundRoomReconnecting({
         Try now
       </a>
     </section>
+  );
+}
+
+/** A temporarily refused Round page, returning at its own jittered moment. */
+export function reconnectingRoundPage() {
+  const [entropy] = crypto.getRandomValues(new Uint8Array(1));
+  return (
+    <RoundRoomReconnecting retrySeconds={reconnectDelaySeconds(entropy!)} />
   );
 }
