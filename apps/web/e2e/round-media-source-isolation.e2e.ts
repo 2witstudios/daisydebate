@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { z } from 'zod';
 import { roundMediaStateSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
+import { floorReturnsChoice } from './support/human-round-selection';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import {
@@ -353,6 +354,7 @@ test('a renegotiation refused as the floor moves keeps reception, and the next g
   try {
     const { round, speaker, listener } = await grantedDebaters(
       accounts.members,
+      floorReturnsChoice,
     );
     const source = await openPage(speaker.context, 'failed unpublish speaker');
     const peer = await openPage(listener.context, 'failed unpublish peer');
@@ -416,7 +418,11 @@ test('a renegotiation refused as the floor moves keeps reception, and the next g
       .toBe(true);
     await expectConnected(source);
     await expectPeerCamera(source);
-    // The negative's speech follows at once; ending it returns the floor here.
+    // The negative's speech follows at once; the speaker's microphone has left.
+    await expect(
+      peer.getByLabel('Participant audio', { exact: true }),
+    ).toHaveCount(0, MEDIA_POLL);
+    // Ending that speech opens the rebuttal here, so only a new track can pass.
     await peer.getByRole('button', { name: 'End speech', exact: true }).click();
     await peer
       .getByRole('button', { name: 'Confirm end speech', exact: true })

@@ -85,12 +85,12 @@ export async function currentRoundForfeit(
   throw new Error('The Round version moved past five fresh reads');
 }
 type Selection = ReturnType<typeof humanRoundSelection>;
-/** A public Room from the actual catalog foundation, shaped by `select`. */
+/** A public Room from a proof format, the two-speech foundation by default, shaped by `select`. */
 export async function createFoundationRoom(
   host: Member,
   select: (choice: typeof foundationChoice) => Selection,
+  choice = foundationChoice,
 ) {
-  const choice = foundationChoice;
   const created = await host.context.request.post('/api/rooms', {
     headers: { origin },
     data: {
@@ -158,12 +158,15 @@ export async function createHumanBallotRound(
   members: readonly Member[],
   judgeSeats: 0 | 2 = 2,
   countdownMs = 0,
+  choice = foundationChoice,
 ) {
   if (members.length !== 2 + judgeSeats)
     throw new Error('Human Round proof needs one member per seat');
   const host = members[0]!;
-  let room = await createFoundationRoom(host, (choice) =>
-    humanRoundSelection(choice, judgeSeats, countdownMs),
+  let room = await createFoundationRoom(
+    host,
+    (proof) => humanRoundSelection(proof, judgeSeats, countdownMs),
+    choice,
   );
   room = await seatAndReady(room, [
     { member: members[0]!, role: 'affirmative', slot: 0 },
