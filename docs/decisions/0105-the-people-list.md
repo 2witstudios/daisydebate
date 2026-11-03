@@ -30,8 +30,9 @@ and messaged.
    The rail sections read Friends, Online and Offline. The Friends tab lists all
    friends.
 4. **Counts.** `counts.everyone` and `counts.friends` total the list and are the
-   tab numbers. `counts.online` is who is online: it is the heading's number, and
-   the re-read floor of ADR 0103 §3 scales with it.
+   tab numbers. `counts.online` is who is online: it is the heading's number. The re-read floor
+   of ADR 0103 §3 scales with that or the rows loaded, whichever is larger, because
+   a re-read walks every loaded page.
 5. **Offline members can be messaged, not challenged.** Challenges stay live.
    Challenging someone offline waits for a future calendars feature, and until
    then the menu offers no Challenge on an offline row.
@@ -54,6 +55,12 @@ and messaged.
 - Being listed no longer depends on having been active, which the privacy policy
   draft now says. Publishing it remains counsel's and the owner's sign-off
   (WHO-2, COMP-4).
+- A list of everyone makes absence meaningful. A public profile whose name finds
+  no one in the list tells a member that this person blocked them or is
+  restricted, without trying anything, and §2 rejects absence for appearing
+  offline for the same reason. ISSUE-1119 requires delisting, so they stay
+  delisted. This is recorded as a decision on the owner's behalf, who can overrule
+  it.
 - Each read counts and sorts all members, not only those online. That is fine at
   pre-ship size and needs measuring before real scale. `ONLINE_LEASES_MAX` bounds
   only the lease scan.

@@ -11,7 +11,7 @@ import type { AuthorizationTransaction } from '../authorization';
 import type { ContactPairKey } from '../contacts/reactions';
 import type { ContactInput } from '../contacts/fence';
 import { appendOutboxEvent } from '../outbox';
-import { readAvailability } from '../presence/people-list';
+import { readAvailability } from '../presence/availability';
 import { openRoomHostedBy } from '../room-open';
 import { challenges } from '../schema/challenges';
 import { rooms } from '../schema/rooms';

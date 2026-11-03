@@ -220,6 +220,8 @@ export function testPeopleList() {
         .first()
         .getByRole('button', { name: 'Appear offline' })
         .click();
+      // Offline sorts last, so a long list would page them out of view.
+      await rail.getByLabel('Search people').fill(b);
       await expect(
         rail.getByRole('link', { name: new RegExp(`^@${b}, Offline`) }),
       ).toBeVisible({ timeout: 45_000 });

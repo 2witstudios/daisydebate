@@ -27,7 +27,7 @@ const tab =
   'inline-flex min-h-10 items-center gap-2 rounded-sm px-3 text-sm font-semibold text-ink-muted hover:bg-surface-overlay hover:text-ink aria-pressed:bg-accent-soft aria-pressed:text-ink';
 
 /** The list's search and tabs, shared with the phone's view. */
-function OnlineControls() {
+function PeopleControls() {
   const { query, setQuery, filter, setFilter, list } = usePeople();
   return (
     <>
@@ -141,7 +141,7 @@ export function PeopleRail({
               label="Collapse people list"
             />
           </div>
-          <OnlineControls />
+          <PeopleControls />
         </div>
         <PersonList overlay={overlay} className="min-h-0 flex-1 pb-1" />
       </div>
@@ -212,7 +212,7 @@ export function PeoplePanel({ actions }: { readonly actions: PersonActions }) {
       aria-label="People"
       className="relative flex flex-col gap-3"
     >
-      <OnlineControls />
+      <PeopleControls />
       <PersonList overlay={overlay} className="-mx-4" />
       {overlay.overlay}
     </section>

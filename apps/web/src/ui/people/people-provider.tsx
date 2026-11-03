@@ -27,6 +27,7 @@ import {
 import {
   nextReadDelayMs,
   PEOPLE_READ_CEILING_MS,
+  peopleReadCount,
   peopleReadFloorMs,
 } from '../../features/presence/refresh-schedule';
 import { mergePages } from './merge-pages';
@@ -46,7 +47,7 @@ const PeopleContext = createContext<PeopleView | null>(null);
 
 export const usePeople = (): PeopleView => {
   const view = useContext(PeopleContext);
-  if (!view) throw new Error('usePeople needs an PeopleProvider');
+  if (!view) throw new Error('usePeople needs a PeopleProvider');
   return view;
 };
 
@@ -108,11 +109,11 @@ export function PeopleProvider({
   const [socketUrl, setSocketUrl] = useState(initialSocketUrl);
   const lastRead = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // The read floor scales with who is online, not with everyone listed (ADR 0105).
-  const shown = useRef({ filter, query, count: list.counts.online });
+  const count = peopleReadCount(list);
+  const shown = useRef({ filter, query, count });
   useEffect(() => {
-    shown.current = { filter, query, count: list.counts.online };
-  }, [filter, query, list.counts.online]);
+    shown.current = { filter, query, count };
+  }, [filter, query, count]);
 
   // A re-read walks as many pages as the viewer loaded, so a ring never
   // snatches the list out from under someone who scrolled.
@@ -169,7 +170,7 @@ export function PeopleProvider({
       nextReadDelayMs({
         now: systemScheduler.now(),
         lastReadAt: lastRead.current,
-        onlineCount: shown.current.count,
+        peopleCount: shown.current.count,
         jitter: secureRandom(),
       }),
     );

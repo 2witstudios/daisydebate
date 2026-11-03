@@ -1,10 +1,10 @@
 {
+  "id": "f065c178-3514-44ed-9578-48403ddb8719",
+  "prevIds": [
+    "363787d1-3897-4357-9649-a181b35a6c61"
+  ],
   "version": "8",
   "dialect": "postgres",
-  "id": "1687f226-1f40-453d-973f-b4769f32b198",
-  "prevIds": [
-    "5e47a22f-c3b6-49b4-b030-ef6ca754b0fe"
-  ],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -1589,19 +1589,6 @@
       "generated": null,
       "identity": null,
       "name": "citations",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
       "entityType": "columns",
       "schema": "public",
       "table": "ballots"
@@ -3513,6 +3500,19 @@
       "generated": null,
       "identity": null,
       "name": "reconcile_completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "name": "reconcile_last_pass_clean",
       "entityType": "columns",
       "schema": "public",
       "table": "media_sessions"
@@ -7171,6 +7171,19 @@
       "table": "rooms"
     },
     {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "host_inherited",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -9064,6 +9077,19 @@
       "generated": null,
       "identity": null,
       "name": "created_by_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "host_inherited",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -19917,13 +19943,6 @@
       "table": "ballots"
     },
     {
-      "value": "\"status\" in ('submitted')",
-      "name": "ballots_status_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ballots"
-    },
-    {
       "value": "\"winner\" in ('affirmative', 'negative')",
       "name": "ballots_winner_check",
       "entityType": "checks",
@@ -20967,7 +20986,7 @@
       "table": "reports"
     },
     {
-      "value": "\"surface\" in ('people', 'profile', 'watch')",
+      "value": "\"surface\" in ('online', 'profile', 'watch')",
       "name": "reports_surface_check",
       "entityType": "checks",
       "schema": "public",
@@ -21667,7 +21686,7 @@
       "table": "rounds"
     },
     {
-      "value": "\"outcome\" is null or \"outcome\" in ('affirmative', 'negative', 'draw')",
+      "value": "\"outcome\" is null or \"outcome\" in ('affirmative', 'negative')",
       "name": "rounds_outcome_check",
       "entityType": "checks",
       "schema": "public",

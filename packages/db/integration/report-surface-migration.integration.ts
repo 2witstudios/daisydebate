@@ -11,7 +11,7 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const surfaceMigration = '20261103050553_report_surface_people';
+const surfaceMigration = '20261103101522_report_surface_people';
 const scratch = scratchDatabase(databaseUrl, 'reportsurface');
 afterAll(() => scratch.drop());
 
@@ -51,7 +51,8 @@ test(
           () => true,
         );
       assert({
-        given: 'a report filed under the old surface name and one from a profile',
+        given:
+          'a report filed under the old surface name and one from a profile',
         should:
           'move the first to people, keep the second, and refuse the old name',
         actual: [surfaceOf(fromList), surfaceOf(fromProfile), refused],

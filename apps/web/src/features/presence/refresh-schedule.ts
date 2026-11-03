@@ -6,14 +6,23 @@ export const PEOPLE_READ_CEILING_MS = 30_000;
 const MS_PER_MEMBER = 20;
 
 /**
- * The gap between a browser's reads (ADR 0103). It grows with the list, so the
- * fleet's request rate stays near 50 reads a second up to about 1,500 online,
- * and a small room still feels instant.
+ * What one browser's reads scale with (ADR 0105): who is online, for the fleet's
+ * rate, or the rows it has loaded, because a re-read walks every loaded page.
  */
-export const peopleReadFloorMs = (onlineCount: number): number =>
+export const peopleReadCount = (list: {
+  readonly counts: { readonly online: number };
+  readonly people: readonly unknown[];
+}): number => Math.max(list.counts.online, list.people.length);
+
+/**
+ * The gap between a browser's reads (ADR 0103). It grows with that count, so the
+ * fleet's request rate stays near 50 reads a second up to about 1,500 online,
+ * a long list stays inside the read budget, and a small room still feels instant.
+ */
+export const peopleReadFloorMs = (peopleCount: number): number =>
   Math.min(
     PEOPLE_READ_CEILING_MS,
-    Math.max(PEOPLE_READ_FLOOR_MS, onlineCount * MS_PER_MEMBER),
+    Math.max(PEOPLE_READ_FLOOR_MS, peopleCount * MS_PER_MEMBER),
   );
 
 /**
@@ -23,11 +32,11 @@ export const peopleReadFloorMs = (onlineCount: number): number =>
 export const nextReadDelayMs = (input: {
   readonly now: number;
   readonly lastReadAt: number;
-  readonly onlineCount: number;
+  readonly peopleCount: number;
   /** A unit value that spreads the load. */
   readonly jitter: number;
 }): number => {
-  const floor = peopleReadFloorMs(input.onlineCount);
+  const floor = peopleReadFloorMs(input.peopleCount);
   const wait = Math.max(0, input.lastReadAt + floor - input.now);
   return wait + Math.round(input.jitter * Math.min(1_000, floor / 2));
 };
