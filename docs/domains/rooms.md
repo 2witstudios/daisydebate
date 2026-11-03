@@ -180,10 +180,6 @@ round maintenance queues one durable judging job per eligible AI judge. A
 leased server worker then calls the model and commits through the same
 ballot operation.
 
-A seated human judge reads their own ballot. Once the Round has completed they
-read the others only if its audience may: every signed-in member on a public or
-unlisted Round, nobody without a seat on a private one.
-
 An AI judge never rules on a transcript frozen incomplete (DEC-208). No AI
 job is queued for such a freeze. With no human judge, the Round completes at
 the freeze with no outcome, and its result reads "Transcript incomplete".
