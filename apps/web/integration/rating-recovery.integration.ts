@@ -93,7 +93,7 @@ test('real PostgreSQL recovery crosses full pages after unavailable season and r
             'later pages posted and a new database client restarts from the beginning',
           should: 'post every outcome exactly once with the real Glicko policy',
           actual: (await db.readRatingCandidates({ limit: 10 })).filter(
-            ({ facts }) => ratingAwaited(facts),
+            ({ facts }) => facts !== null && ratingAwaited(facts),
           ),
           expected: [],
         });

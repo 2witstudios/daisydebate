@@ -1,10 +1,10 @@
 import { createAppError } from '@daisy/errors';
-import type {
-  DebateSide,
-  HydratedSegment,
-  RoundParticipantSeat,
-} from '@daisy/protocol';
-import { attendancePolicy } from './attendance';
+import type { HydratedSegment, RoundParticipantSeat } from '@daisy/protocol';
+import {
+  attendancePolicy,
+  resolutionCutoffOf,
+  type RoundEndingDecision,
+} from './attendance';
 import { finalSpeechKey } from './attendance-order';
 import { abandonedLifecycle } from './round-clock-state';
 import {
@@ -15,15 +15,7 @@ import {
 
 export type RoundAdjudication = {
   readonly segmentId: string;
-  readonly decision:
-    | {
-        readonly decision: 'forfeit';
-        readonly winner: DebateSide;
-        readonly effectiveDeadlineMs: number;
-      }
-    | { readonly decision: 'abandoned'; readonly effectiveDeadlineMs: number }
-    /** Settled evidence never came and the persisted cutoff passed (DEC-276). */
-    | { readonly decision: 'abandoned'; readonly cutoffAtMs: number };
+  readonly decision: RoundEndingDecision;
   readonly now: string;
 };
 /** Only the durable evaluator supplies a verified decision; this guards its actual runtime target. */
@@ -34,30 +26,36 @@ export function applyRoundAdjudication(
   participants: readonly RoundParticipantSeat[],
 ): void {
   const { row, target } = requireActualSpeech(c, input, segments);
-  if ('cutoffAtMs' in input.decision) {
-    if (
-      !Number.isFinite(input.decision.cutoffAtMs) ||
-      !Number.isFinite(c.now) ||
-      c.now < input.decision.cutoffAtMs
-    )
-      throw createAppError('INVARIANT');
+  const { decision } = input;
+  if (decision.evidence === 'resolution_cutoff') {
+    requirePassedCutoff(c, segments);
     closePlayedRound(c);
     c.on.setLifecycle(abandonedLifecycle(c.on.lifecycle(), c.now));
     return;
   }
-  requireSettledTime(c, input.decision.effectiveDeadlineMs, row);
+  requireSettledTime(c, decision.effectiveDeadlineMs, row);
   if (
     !participants.some((p) => p.role === target.side && p.slot === target.slot)
   )
     throw createAppError('INVARIANT');
-  if (input.decision.decision === 'forfeit') {
+  if (decision.decision === 'forfeit') {
     const winner = target.side === 'affirmative' ? 'negative' : 'affirmative';
-    if (input.decision.winner !== winner) throw createAppError('INVARIANT');
+    if (decision.winner !== winner) throw createAppError('INVARIANT');
     closePlayedRound(c);
     return completeWith(c, winner);
   }
   closePlayedRound(c);
   c.on.setLifecycle(abandonedLifecycle(c.on.lifecycle(), c.now));
+}
+
+/** Only a debate whose last segment closed has a cutoff, and only then can it pass. */
+function requirePassedCutoff(
+  c: CommandContext,
+  segments: readonly HydratedSegment[],
+): void {
+  const cutoffAtMs = resolutionCutoffOf(c.rules, segments);
+  if (cutoffAtMs === null || !Number.isFinite(c.now) || c.now < cutoffAtMs)
+    throw createAppError('INVARIANT');
 }
 
 function requireActualSpeech(

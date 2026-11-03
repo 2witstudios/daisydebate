@@ -98,7 +98,7 @@ for (const ladder of ratingLadders)
               const candidates = (
                 await f.store.readRatingCandidates({ limit: 1000 })
               )
-                .filter(({ facts }) => ratingAwaited(facts))
+                .filter(({ facts }) => facts !== null && ratingAwaited(facts))
                 .map(({ roundId: id }) => id);
               await recoverRatedResults(f);
               const ledger =
