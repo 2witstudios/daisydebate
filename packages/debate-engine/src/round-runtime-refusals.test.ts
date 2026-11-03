@@ -189,8 +189,8 @@ describe('round runtime command refusals and seat order', () => {
     assert({
       given: 'the final speech was yielded early and every segment is closed',
       should: 'offer the terminal round to its judge',
-      actual: spent.position(at(1_000)).awaitingBallot,
-      expected: true,
+      actual: spent.position(at(1_000)).stage,
+      expected: 'awaiting_ballot',
     });
     const judge = oneOnOneSeats[2].id;
     const completed = spent.completePanel({

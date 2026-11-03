@@ -162,6 +162,4 @@ export type RoundPosition = {
   } | null;
   /** Remaining budget per side; null when the format has no in-round prep. */
   readonly prepBudgetRemainingMs: Readonly<Record<DebateSide, number>> | null;
-  /** True while the final segment has spoken but the outcome is not in. */
-  readonly awaitingBallot: boolean;
 };

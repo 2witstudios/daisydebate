@@ -19,6 +19,7 @@ import type {
   RatedOutcome,
   RoundParticipantSeat,
   RoundProjection,
+  RoundStage,
 } from '@daisy/protocol';
 
 /** The reference formats a scenario plays, each with its sanctioned config. */
@@ -97,7 +98,7 @@ export const foundationScenarioIds = [
 export type ScenarioObservation = {
   readonly id: string;
   readonly status: 'opening' | 'active' | 'completed' | 'abandoned';
-  readonly stage: 'countdown' | 'prep' | 'live' | null;
+  readonly stage: RoundStage | null;
   readonly outcome: RatedOutcome | null;
   /** The segment keys that opened, in order. */
   readonly opened: readonly string[];

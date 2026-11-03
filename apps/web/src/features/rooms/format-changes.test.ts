@@ -57,7 +57,7 @@ describe('formatChangeLine', () => {
         formatChangeLine({
           kind: 'interruptions',
           from: { allowed: 'enabled', minRemainingMs: 30_000 },
-          to: { allowed: 'disabled', minRemainingMs: 0 },
+          to: { allowed: 'disabled' },
         }),
         formatChangeLine({
           kind: 'yield',

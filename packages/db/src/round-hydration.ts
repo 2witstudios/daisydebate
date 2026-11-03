@@ -3,6 +3,7 @@ import type {
   CompetitionType,
   DebateRole,
   RoundRules,
+  RoundStage,
   RuntimeCheckpoint,
   SegmentType,
 } from '@daisy/protocol';
@@ -26,7 +27,7 @@ export type RoundHydration = {
   /** The opening and its secret seed, only while the Round is in it. */
   readonly opening: StoredOpening | null;
   readonly status: 'opening' | 'active' | 'completed' | 'abandoned';
-  readonly currentStage: 'countdown' | 'prep' | 'live' | null;
+  readonly currentStage: RoundStage | null;
   /** When the Round was launched (its row's creation), on the database clock. */
   readonly launchedAt: string;
   readonly startedAt: string | null;

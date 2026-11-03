@@ -130,15 +130,17 @@ export function roundLength({
 
 type Mode = NonNullable<Interaction['interruptions']>['mode'];
 
+/** Only an enabled policy has a protected end to show. */
+export type RuleRowInterruptions =
+  | { readonly mode: 'enabled'; readonly minRemainingMs: number }
+  | { readonly mode: Exclude<Mode, 'enabled'> };
+
 /** A round's rules as label/value rows: m:ss, Off, never a raw value. */
 export function ruleRows(rules: {
   readonly preRoundPrepMs: number | null;
   readonly prepPerSideMs: number | null;
   readonly countdownMs: number;
-  readonly interruptions: {
-    readonly mode: Mode;
-    readonly minRemainingMs: number;
-  } | null;
+  readonly interruptions: RuleRowInterruptions;
   readonly yielding: {
     readonly allowed: boolean;
     readonly returnsTime: boolean;
@@ -159,8 +161,8 @@ export function ruleRows(rules: {
         : `${clockDuration(rules.prepPerSideMs)} per side`,
     ],
     ['Countdown before each speech', clockDuration(rules.countdownMs)],
-    ['Interruptions', interruptionLabel[interruptions?.mode ?? 'disabled']],
-    ...(interruptions && interruptions.mode !== 'disabled'
+    ['Interruptions', interruptionLabel[interruptions.mode]],
+    ...(interruptions.mode === 'enabled'
       ? [
           [
             'Protected end of each speech',

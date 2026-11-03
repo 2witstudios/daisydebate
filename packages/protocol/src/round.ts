@@ -23,8 +23,8 @@ export const roundStatuses = [
 export const roundStatusSchema = z.enum(roundStatuses);
 export type RoundStatus = (typeof roundStatuses)[number];
 
-/** Where a running round is: what the clock is doing right now. */
-const roundStages = ['countdown', 'prep', 'live'] as const;
+/** Where a running round is: what the clock is doing, or that the debate is over and only its result is left. */
+const roundStages = ['countdown', 'prep', 'live', 'awaiting_ballot'] as const;
 export const roundStageSchema = z.enum(roundStages);
 export type RoundStage = (typeof roundStages)[number];
 

@@ -84,8 +84,11 @@ const round = (input: {
       id: roundId,
       status: input.status ?? 'opening',
       currentStage: null,
-      startedAt: input.status === 'active' ? t0 : null,
-      completedAt: null,
+      startedAt: (input.status ?? 'opening') === 'opening' ? null : t0,
+      completedAt:
+        input.status === 'completed' || input.status === 'abandoned'
+          ? t0
+          : null,
       outcome: null,
     },
     rules: input.rules ?? rules(),
@@ -132,6 +135,22 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       ballots: [],
       completeness: 'complete',
       panel: { humanWindow: null, aiSeats: [] },
+    }),
+  'lifecycle-matches-status': () =>
+    createRoundRuntime({
+      round: {
+        id: roundId,
+        status: 'completed',
+        currentStage: null,
+        startedAt: null,
+        completedAt: t0,
+        outcome: null,
+      },
+      rules: rules(),
+      participants: seats,
+      checkpoint: freshCheckpoint,
+      segments: [],
+      nextSegmentId: () => 'segment-fixture',
     }),
   'completed-is-terminal': () =>
     round({ status: 'completed' }).execute({

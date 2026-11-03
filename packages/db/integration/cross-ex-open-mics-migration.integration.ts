@@ -33,6 +33,11 @@ const staleRules = (allowed: string) => ({
     interruptions: { allowed, minRemainingMs: 30_000 },
   },
 });
+/** A later migration owns the interruption rule's shape; every other field must parse. */
+const withCurrentInterruptionRule = (rules: typeof validRules) => ({
+  ...rules,
+  interaction: { ...rules.interaction, interruptions: { allowed: 'disabled' } },
+});
 const parses = (
   schema: { safeParse: (value: unknown) => { success: boolean } },
   values: readonly unknown[],
@@ -135,7 +140,9 @@ test(
           ),
           roomRules: parses(
             roundRulesSchema,
-            [...rooms].map((row) => row.rules_snapshot),
+            [...rooms].map((row) =>
+              withCurrentInterruptionRule(row.rules_snapshot),
+            ),
           ),
           roundConfigs: parses(
             roomConfigSchema,
@@ -143,7 +150,9 @@ test(
           ),
           roundRules: parses(
             roundRulesSchema,
-            [...rounds].map((row) => row.rules_snapshot),
+            [...rounds].map((row) =>
+              withCurrentInterruptionRule(row.rules_snapshot),
+            ),
           ),
         },
         expected: {

@@ -18,7 +18,7 @@ const scenario: DebateScenario = {
   expect: {
     id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
     status: 'active',
-    stage: 'live',
+    stage: 'awaiting_ballot',
     outcome: null,
     opened: ['AC', 'NC'],
   },
