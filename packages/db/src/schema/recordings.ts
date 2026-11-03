@@ -28,7 +28,7 @@ import {
 import { rounds } from './rounds';
 
 /**
- * A retained playable video of a Round (ADR 0105). It is not a Broadcast and
+ * A retained playable video of a Round (ADR 0107). It is not a Broadcast and
  * shares nothing with one. One Recording per Round, with a stable id derived
  * media can name. `lifecycle` is the whole state as one value; `status` repeats
  * its tag so the jobs can index it, and a check keeps the two equal. Its deletion

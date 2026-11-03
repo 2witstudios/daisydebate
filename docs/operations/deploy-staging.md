@@ -818,6 +818,13 @@ machine when idle: it has no proxy to auto-stop it.
 read origin (`https://<bucket>.t3.tigrisfiles.io`), from `fly.toml`. It is not a
 secret. Unset, no Round offers Stream this Round.
 
+The public broadcast bucket needs a CORS rule, or every browser player fails
+with `manifestLoadError`: allow `GET` and `HEAD` from any origin, nothing else.
+Objects there are public by design, and only the release step writes them. A
+player on another origin is the only check that shows this; `curl` does not. An
+Egress machine fits one Round at 4 CPU; a start with no capacity retries and
+raises `broadcast.egress.start_failed`.
+
 **LiveKit on Fly.** Browsers signal over `wss://daisy-debate-staging-livekit.fly.dev`
 (fly-proxy terminates TLS on 443 and forwards to 7880). Media is UDP 7882,
 with ICE over raw TCP 7881 as the fallback; both need the app's dedicated

@@ -53,7 +53,7 @@ export function startRoundJudgingWorkers(input: {
       renewMs: policy.renewMs,
     },
     timers: input.timers,
-    outOfBudget: () => jobEnded('generation_deadline'),
+    jobEnded,
     failed: failure(
       'round.judging.failed',
       'round.judging',

@@ -6,7 +6,9 @@ lease duration, open Rooms per host, body bound, and create/read/command
 rate limits. The ordinary process currently supplies no Room policy and
 returns a masked unavailable response. Browser and durable proofs supply
 explicit fixture policy through the existing `adoptProcessApp` seam. Those
-fixture numbers do not approve deployment or product policy.
+fixture numbers do not approve deployment or product policy. Round routes take
+their budgets from `apps/web/src/features/round-runtime/round-policy.ts`
+instead.
 
 ## Contracts and request authority
 

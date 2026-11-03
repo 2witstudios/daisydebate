@@ -20,7 +20,6 @@ const handlerWith = ({
   websocketEndpoint = 'wss://socket.daisy.invalid/realtime' as string | null,
   consume = allowEvery,
   sessionId = async () => 'session1',
-  actor = { id: 'actor1' } as { readonly id: string } | null,
   issue = async () => {},
 }: {
   identity?: Identity;
@@ -30,7 +29,6 @@ const handlerWith = ({
     rule: unknown,
   ) => Promise<{ allowed: boolean; retryAfterSeconds: number }>;
   sessionId?: () => Promise<string | null>;
-  actor?: { readonly id: string } | null;
   issue?: (input: {
     readonly ticketHash: string;
     readonly actorId: string;
@@ -60,7 +58,6 @@ const handlerWith = ({
         return consume(key, rule);
       },
     }),
-    getActorByUserId: async () => actor,
     issueTicket: async (input) => {
       issued.push(input);
       return issue(input);
@@ -230,17 +227,6 @@ describe('POST /api/realtime/ticket gates', () => {
         'answer 401 and issue nothing, having already spent the rate-limit budget',
       actual: [response.status, issued, consumeCalls.length],
       expected: [401, [], 1],
-    });
-  });
-
-  test('a member with no actor row is a 503 data-integrity fault, not a client error', async () => {
-    const { handler, issued } = handlerWith({ actor: null });
-    const response = await handler(post());
-    assert({
-      given: 'a member identity whose actors row is missing',
-      should: 'answer 503 INFRASTRUCTURE and issue nothing',
-      actual: [...(await statusAndCode(response)), issued],
-      expected: [503, 'INFRASTRUCTURE', []],
     });
   });
 });

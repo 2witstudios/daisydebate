@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm';
 import type { LaunchedRound, RoundView } from '@daisy/protocol';
 import type { RoundOpening } from '@daisy/protocol/resolution-draw';
-import { transactionNow, type Tx } from './room-command-facts';
+import { transactionNow, type Account, type Tx } from './room-command-facts';
+import { humanSeatEligible } from './seat-eligibility';
 import { loadRoundDraw } from './room-draw-persistence';
 import { rounds } from './schema/rounds';
 
@@ -37,7 +38,7 @@ export const loadRoundOpening = async (
 export type ReadOpening = (
   opening: StoredOpening,
   seats: LaunchedRound['participants'],
-  viewerActorId: string,
+  viewer: { readonly actorId: string; readonly eligible: boolean },
   now: string,
 ) => {
   readonly view: NonNullable<RoundView['opening']>;
@@ -89,7 +90,7 @@ export const withOpening = async (
   tx: Tx,
   round: LaunchedRound,
   view: RoundView,
-  viewerActorId: string,
+  viewer: { readonly actorId: string; readonly account: Account },
   readOpening: ReadOpening,
 ): Promise<RoundView> => {
   if (view.status !== 'opening') return view;
@@ -98,7 +99,10 @@ export const withOpening = async (
   const read = readOpening(
     settled.opening,
     round.participants,
-    viewerActorId,
+    {
+      actorId: viewer.actorId,
+      eligible: humanSeatEligible([viewer.account], viewer.actorId),
+    },
     settled.now,
   );
   return { ...view, opening: read.view, topic: view.topic ?? read.topic };

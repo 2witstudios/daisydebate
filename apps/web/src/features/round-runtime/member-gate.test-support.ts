@@ -11,7 +11,6 @@ export const memberGate = (id: string, origin: string) => ({
     principal: { kind: 'user' as const, userId: id, actorId: id },
   }),
   origin: () => origin,
-  getActorByUserId: async () => ({ id }),
   limiter: () => ({
     consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
   }),
@@ -19,6 +18,5 @@ export const memberGate = (id: string, origin: string) => ({
     read: { max: 10, windowSeconds: 60 },
     command: { max: 10, windowSeconds: 60 },
   },
-  active: () => true,
   maxBodyBytes: 4096,
 });

@@ -11,7 +11,7 @@ import {
   roundCommandOptions,
   type RoundCommandOption,
 } from './round-command-legality';
-import { positionAtState } from './round-position-projection';
+import { positionAtState, roundPositionOf } from './round-position-projection';
 export type { RoundPosition, RoundCommandOption };
 
 /** One authorized durable snapshot and explicit time; safe in the browser CSP. */
@@ -27,8 +27,11 @@ export const roundPositionAt = (input: {
 }): RoundPosition =>
   positionAtState(normalizeRoundClock(input), input.rules, input.nowMs);
 
-/** The commands one seat is offered at one instant, by the rule the engine enforces. */
-export const roundCommandOptionsAt = (input: {
+/**
+ * What one seat reads at one instant: the position and the commands it is
+ * offered, both from one advance of the clock, by the rule the engine enforces.
+ */
+export const roundControlsAt = (input: {
   readonly round: Pick<
     HydratedRound,
     'status' | 'startedAt' | 'completedAt' | 'outcome'
@@ -39,15 +42,23 @@ export const roundCommandOptionsAt = (input: {
   readonly participants: readonly RoundParticipantSeat[];
   readonly seat: RoundParticipantSeat;
   readonly nowMs: number;
-}): readonly RoundCommandOption[] =>
-  roundCommandOptions({
-    rules: input.rules,
-    state: advanceRoundClock(
-      normalizeRoundClock(input),
-      input.rules,
-      input.nowMs,
-    ).state,
-    participants: input.participants,
-    seat: input.seat,
-    nowMs: input.nowMs,
-  });
+}): {
+  readonly position: RoundPosition;
+  readonly options: readonly RoundCommandOption[];
+} => {
+  const { state } = advanceRoundClock(
+    normalizeRoundClock(input),
+    input.rules,
+    input.nowMs,
+  );
+  return {
+    position: roundPositionOf(state, input.nowMs, input.rules),
+    options: roundCommandOptions({
+      rules: input.rules,
+      state,
+      participants: input.participants,
+      seat: input.seat,
+      nowMs: input.nowMs,
+    }),
+  };
+};
