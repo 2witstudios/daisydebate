@@ -74,27 +74,6 @@ const holdsTheFloor = (input: MediaGrantInput) => {
     ).includes(input.participantId)
   );
 };
-/**
- * Who speaks when the countdown ends. Their microphone opens now, so it is published and
- * capture already has it when the clock starts: no word waits on a subscription, and no
- * floor change is any longer for it. Nothing is credited outside the speech.
- */
-const speaksNext = (input: MediaGrantInput) => {
-  const next = input.position.nextSegment;
-  const seat = input.participants.find(
-    (participant) => participant.id === input.participantId,
-  );
-  return (
-    next !== null &&
-    seat?.kind === 'human' &&
-    speakingParticipants(
-      input.rules,
-      input.participants,
-      next.sequence,
-      null,
-    ).includes(input.participantId)
-  );
-};
 const publishSources = (
   human: boolean,
   microphone: boolean,
@@ -134,7 +113,7 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
   const microphone =
     position.prep === null &&
     (position.incident.phase === 'none'
-      ? conversational(position) || speakingNow(input) || speaksNext(input)
+      ? conversational(position) || speakingNow(input)
       : holdsTheFloor(input));
   return {
     publish: publishSources(seat.kind === 'human', microphone),
