@@ -27,6 +27,7 @@ test('a member who is not admitted keeps exactly the withdrawals (ADR 0075)', ()
     'channel.request.result',
     'channel.invitation.cancel',
     'social.challenge.decline',
+    'social.challenge.cancel',
   ];
   const sorted = (values: readonly string[]) => [...values].sort();
   assert({
@@ -35,12 +36,40 @@ test('a member who is not admitted keeps exactly the withdrawals (ADR 0075)', ()
     should:
       'allow only own-footprint withdrawals: exits, own cleanup and own replay reads',
     actual: [
-      { beta: { state: 'pending' as const }, ageBand: 'adult' as const },
-      { beta: { state: 'revoked' as const }, ageBand: 'adult' as const },
-      { beta: { state: 'approved' as const }, ageBand: null },
-      { beta: null, ageBand: 'adult' as const },
+      {
+        beta: { state: 'pending' as const },
+        ageBand: 'adult' as const,
+        restricted: false,
+      },
+      {
+        beta: { state: 'revoked' as const },
+        ageBand: 'adult' as const,
+        restricted: false,
+      },
+      {
+        beta: { state: 'approved' as const },
+        ageBand: null,
+        restricted: false,
+      },
+      { beta: null, ageBand: 'adult' as const, restricted: false },
     ].map((account) => sorted(admitted(account))),
     expected: Array.from({ length: 4 }, () => sorted(withdrawals)),
+  });
+});
+
+test('a restriction withdraws participant access like a revoked beta', () => {
+  assert({
+    given: 'an approved adult under a suspension or ban',
+    should: 'refuse participant capabilities and keep the exits',
+    actual: (['room.create', 'social.challenge.decline'] as const).map(
+      (capability) =>
+        admitsCapability(capability, {
+          beta: { state: 'approved' },
+          ageBand: 'adult',
+          restricted: true,
+        }),
+    ),
+    expected: [false, true],
   });
 });
 
@@ -67,6 +96,7 @@ test('withdrawals never include adding, transferring authority or reading others
       admitsCapability(capability, {
         beta: { state: 'pending' },
         ageBand: 'adult',
+        restricted: false,
       }),
     ),
     expected: refused.map(() => false),
@@ -77,7 +107,11 @@ test('an admitted participant holds every capability the rule governs', () => {
   assert({
     given: 'an approved account with an adult age record',
     should: 'admit every capability',
-    actual: admitted({ beta: { state: 'approved' }, ageBand: 'adult' }).length,
+    actual: admitted({
+      beta: { state: 'approved' },
+      ageBand: 'adult',
+      restricted: false,
+    }).length,
     expected: capabilities.length,
   });
 });

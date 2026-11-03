@@ -17,6 +17,7 @@ const account = {
   betaState: 'approved',
   betaRevision: 1,
   ageBand: 'adult',
+  restricted: false,
 };
 const now = '2026-10-09T00:00:00.000Z';
 const input = { subject, now, vendors: ['posthog'], jobIds: ['j'.repeat(24)] };
@@ -131,6 +132,7 @@ test('erased or foreign subject facts cannot trigger further cleanup or intents'
         betaState: 'approved',
         betaRevision: 1,
         ageBand: 'adult',
+        restricted: false,
       },
     ],
   ]);

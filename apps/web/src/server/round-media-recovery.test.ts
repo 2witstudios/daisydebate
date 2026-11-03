@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRoundMediaRecovery } from './round-media-recovery';
 setupRitewayBun();
-test('media recovery schedules independently every500ms and stops before resources close', async () => {
+test('media recovery schedules independently every 500 ms and stops before resources close', async () => {
   const gate = Promise.withResolvers<void>();
   let tick: () => void = () => {},
     period = 0,
@@ -29,15 +29,16 @@ test('media recovery schedules independently every500ms and stops before resourc
   await Promise.resolve();
   tick();
   tick();
+  await Promise.resolve();
   const stopping = service.stop().then(() => {
     closed = true;
   });
   assert({
     given: 'recovery remains in flight while its timer ticks twice',
     should:
-      'run once at500ms, stop its timer immediately and await actual work',
+      'start each tick anyway at 500 ms, stop its timer immediately and await every tick',
     actual: [calls, period, timerStopped, closed],
-    expected: [1, 500, true, false],
+    expected: [3, 500, true, false],
   });
   gate.resolve();
   await stopping;
@@ -46,6 +47,6 @@ test('media recovery schedules independently every500ms and stops before resourc
     given: 'shutdown awaited the provider work',
     should: 'never restart recovery',
     actual: [calls, closed],
-    expected: [1, true],
+    expected: [3, true],
   });
 });

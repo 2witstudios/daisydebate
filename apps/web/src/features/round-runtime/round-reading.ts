@@ -20,9 +20,9 @@ export const sideName: Readonly<Record<DebateSide, string>> = {
 
 export const isSeat = (p: Participant): p is Seat => p.role !== 'judge';
 
-/** A Round that has not ended: scheduled to start, or running. */
+/** A Round that has not ended: opening, or running. */
 export const isLiveRound = (view: Pick<RoundView, 'status'>): boolean =>
-  view.status === 'scheduled' || view.status === 'active';
+  view.status === 'opening' || view.status === 'active';
 
 /** Who holds the floor: an accepted interruption's seat, else the segment's side. */
 export const floorSideOf = (

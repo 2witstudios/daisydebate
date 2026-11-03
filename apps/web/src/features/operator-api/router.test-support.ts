@@ -42,6 +42,14 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
       return true;
     },
     store: {
+      listOperatorReports: async () => [],
+      listOperatorRestrictions: async () => [],
+      resolveReport: async () => {
+        throw new Error('Unexpected report command');
+      },
+      liftModeration: async () => {
+        throw new Error('Unexpected lift');
+      },
       listOperatorAccounts: async (input) => {
         calls.lists.push(input);
         return [account, { ...account, userId: 'v'.repeat(24) }];

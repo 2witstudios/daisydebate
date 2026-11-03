@@ -39,18 +39,19 @@ describe('presence lease upsert', () => {
         evalCount: evals.length,
         evalshaCount: evalshas.length,
         keyCount: evalshas[0]?.args[1],
-        keys: evalshas[0]?.args.slice(2, 5),
-        rest: evalshas[0]?.args.slice(5),
+        keys: evalshas[0]?.args.slice(2, 6),
+        rest: evalshas[0]?.args.slice(6),
       },
       expected: {
         loadCount: 1,
         evalCount: 0,
         evalshaCount: 1,
-        keyCount: '3',
+        keyCount: '4',
         keys: [
           `test:v1:presence:conn:conn1`,
           `test:v1:presence:actor:${actorId}`,
           'test:v1:presence:online',
+          'test:v1:presence:roster-revision',
         ],
         rest: [actorId, 'active', 'inst1', '60000', 'conn1'],
       },
@@ -218,6 +219,7 @@ describe('presence lease delete', () => {
         'test:v1:presence:conn:conn1',
         `test:v1:presence:actor:${actorId}`,
         'test:v1:presence:online',
+        'test:v1:presence:roster-revision',
         'conn1',
         actorId,
       ],
@@ -234,6 +236,18 @@ describe('presence lease delete', () => {
       given: 'an invalid connId',
       should: 'issue no Redis command',
       actual: commands.length,
+      expected: 0,
+    });
+  });
+});
+
+describe('the roster revision (ADR 0103)', () => {
+  test('reads as a number, zero before any lease', async () => {
+    const { redis } = createTestRedis();
+    assert({
+      given: 'no lease has ever been written',
+      should: 'read zero',
+      actual: await redis.readRosterRevision(),
       expected: 0,
     });
   });

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Suspense } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { Avatar } from '../../../../components/avatar/avatar';
 import { Icon } from '../../../../components/icon/icon';
 import { SignOutForm } from '../../../../components/sign-out-form/sign-out-form';
@@ -7,7 +7,7 @@ import {
   navFlyoutLinkClass,
   navItemClass,
 } from '../../../../components/nav-item/nav-item-class';
-import { viewerStatus } from '../../../../friends/friends';
+import { SelfAvatar } from '../../../../online/status-form';
 import { cn } from '../../../../cn';
 import type { ShellAccount, ShellRatings } from '../../account';
 import { profileHref, wayIn } from '../destinations';
@@ -16,17 +16,20 @@ import { DismissibleDetails } from './dismissible-details';
 
 /**
  * The foot's account control. A member's avatar, with the username beside it
- * when extended, opens a menu upward and to the right: their ratings, then the
- * account pages and sign-out. The menu is a native disclosure, so it opens on
+ * when extended, opens a menu upward and to the right: their ratings, their
+ * status, then the account pages and sign-out. The menu is a native disclosure, so it opens on
  * a tap without script. A visitor gets the way in on the same row.
  */
 export function AccountMenu({
   account,
   extended,
   ratings,
+  statusControl,
 }: {
   readonly account: ShellAccount;
   readonly extended: boolean;
+  /** The member's own status choice, between their ratings and the pages. */
+  readonly statusControl?: ReactNode;
   /** Null when the viewer is not a member, so there is nothing to read. */
   readonly ratings: Promise<ShellRatings> | null;
 }) {
@@ -50,7 +53,7 @@ export function AccountMenu({
       summaryTitle="Account"
       summary={
         <>
-          <Avatar name={username} presence={viewerStatus} size="sm" />
+          <SelfAvatar username={username} />
           {extended ? (
             <span
               aria-hidden="true"
@@ -76,6 +79,7 @@ export function AccountMenu({
             </Suspense>
           ) : null}
         </div>
+        {statusControl}
         <Link href={profileHref(username)} className={navFlyoutLinkClass}>
           Profile
         </Link>

@@ -31,6 +31,15 @@ local function arm(key, top, now)
 end
 `;
 /**
+ * ADR 0103: a lease appeared, changed activity or went, so the online list may
+ * have changed. Realtime nodes read this revision and ring their browsers. A
+ * refresh never rings: nothing anyone can see changed. KEYS[4] the revision.
+ */
+const ringRoster = `
+redis.call('INCR', KEYS[4])
+redis.call('EXPIRE', KEYS[4], 86400)
+`;
+/**
  * Sets the connection hash with its own TTL, scores the connId into the
  * actor's zset by expiry, then rescores the actor into the online zset by
  * its live connections' latest expiry. One EVAL, so a concurrent reader
@@ -39,8 +48,8 @@ end
  * live lease, so neither key can outlive every lease scored into it. The
  * actor zset's lapsed members are trimmed here, on the write path, so the
  * read never has to (and a reconnecting actor's zset stays small).
- * KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online zset.
- * ARGV[1] actorId; ARGV[2] activity; ARGV[3] instanceId; ARGV[4] ttlMs;
+ * KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online zset; KEYS[4] roster
+ * revision. ARGV[1] actorId; ARGV[2] activity; ARGV[3] instanceId; ARGV[4] ttlMs;
  * ARGV[5] connId.
  */
 export const upsertPresenceLeaseScript = defineScript(`
@@ -57,6 +66,7 @@ if top[2] then
   redis.call('ZADD', KEYS[3], top[2], ARGV[1])
   arm(KEYS[3], top, now)
 end
+${ringRoster}
 return 1
 `);
 /**
@@ -93,7 +103,8 @@ return 1
  * write's trim or sweep can empty and drop either key entirely between calls, and a
  * bare ZADD onto a dropped key recreates it with no TTL, so this script
  * cannot assume either key's expiry is still intact just because it was
- * armed once. KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online zset.
+ * armed once. KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online zset;
+ * KEYS[4] roster revision.
  * ARGV[1] connId; ARGV[2] actorId.
  */
 export const deletePresenceLeaseScript = defineScript(`
@@ -111,6 +122,9 @@ if top[2] then
   arm(KEYS[3], top, now)
 else
   redis.call('ZREM', KEYS[3], ARGV[2])
+end
+if existed == 1 then
+  ${ringRoster}
 end
 return existed
 `);
@@ -174,7 +188,7 @@ return result
  */
 export const readOnlinePresenceScript = defineScript(`
 ${nowFromTime}
-local members = redis.call('ZRANGEBYSCORE', KEYS[1], now, '+inf', 'WITHSCORES', 'LIMIT', 0, tonumber(ARGV[1]))
+local members = redis.call('ZRANGEBYSCORE', KEYS[1], now, '+inf', 'WITHSCORES', 'LIMIT', tonumber(ARGV[2]), tonumber(ARGV[1]))
 local result = {now}
 for i = 1, #members do
   table.insert(result, members[i])

@@ -86,7 +86,7 @@ export const standingsOperations = ({
       await database.execute(sql`select distinct opponent.actor_id from round_participants judge
       join rounds r on r.id=judge.round_id
       join round_participants opponent on opponent.round_id=r.id and opponent.role in ('affirmative','negative')
-      where judge.actor_id=${viewerActorId} and judge.role='judge' and r.status in ('scheduled','active')
+      where judge.actor_id=${viewerActorId} and judge.role='judge' and r.status in ('opening','active')
       and not exists(select 1 from ballots b where b.judge_participant_id=judge.id and b.status='submitted')`);
     return (rows as unknown as { actor_id: string }[]).map(
       (row) => row.actor_id,

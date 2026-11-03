@@ -10,7 +10,7 @@ const scenario: DebateScenario = {
     ids: foundationScenarioIds,
   },
   when: [
-    { type: 'command', command: { type: 'start' }, actor: null },
+    { type: 'start-round' },
     { type: 'tick', atMs: 10_000 },
     { type: 'tick', atMs: 260_000 },
     { type: 'tick', atMs: 500_000 }, // the NC spoken out, ballot pending

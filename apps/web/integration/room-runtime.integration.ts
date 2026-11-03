@@ -120,8 +120,7 @@ test('Room refusals preserve durable state and Ready retries cannot revive withd
       await f.sql`select actor_id from round_participants where round_id=${rounds[0]!.id} order by actor_id`;
     assert({
       given: 'concurrent identical Launch commands',
-      should:
-        'freeze one scheduled Round, rules, config, topic and real identities',
+      should: 'freeze one new Round, rules, config, topic and real identities',
       actual: [
         results.map((r) => r.receipt.replayed).sort(),
         rounds.length,
@@ -134,7 +133,7 @@ test('Room refusals preserve durable state and Ready retries cannot revive withd
       expected: [
         [false, true],
         1,
-        'scheduled',
+        'active',
         view.topic,
         view.config,
         view.rules,

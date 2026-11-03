@@ -1,4 +1,4 @@
-import { attendanceSettled } from '@daisy/debate-engine';
+import { ratingEligibility } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import type {
   CompetitionType,
@@ -26,29 +26,13 @@ const deltaFor = (outcome: string, side: string) =>
   outcome === 'draw' ? 0 : outcome === side ? 10 : -10;
 
 /**
- * A stand-in for the engine's decision (`@daisy/debate-engine`'s
- * `ratingDecision`), kept so these tests see the adapter alone: it rates whatever the
- * round's own construction made ranked, and moves the winner up ten points from
- * the loaded standing, so a test can see exactly which facts the adapter loaded
- * and what it wrote. Ratedness has one authority — `competition_type` — with
- * the ladder it implies read back from the row (ADR 0058 §8).
+ * The engine's own eligibility, with a stand-in plan that moves the winner up
+ * ten points from the loaded standing, so a test can see exactly which facts
+ * the adapter loaded and what it wrote. The adapter's source never imports the
+ * engine; the rule reaches it only as this injected decision.
  */
 export const stub = (seen: RatingPlanFacts[] = []): RatingDecision => ({
-  eligibility: ({
-    competitionType,
-    ladderId,
-    status,
-    outcome,
-    completedAt,
-    alreadyRated,
-  }) => {
-    if (competitionType !== 'ranked' || ladderId === null)
-      return { kind: 'unrated', reason: 'competition' };
-    if (alreadyRated) return { kind: 'already-rated' };
-    return status !== 'completed' || outcome === null || completedAt === null
-      ? { kind: 'unrated', reason: 'abandoned' }
-      : { kind: 'rated', ladder: ladderId, outcome, occurredAt: completedAt };
-  },
+  eligibility: ratingEligibility,
   plan: (facts) => {
     seen.push(facts);
     if (facts.seasonId === null) throw new Error('stub: no active season');
@@ -263,7 +247,6 @@ export const withRatings = (
             roundId,
             changeIds: ids(),
             decide,
-            attendanceSettled,
           }),
         seated,
         track,

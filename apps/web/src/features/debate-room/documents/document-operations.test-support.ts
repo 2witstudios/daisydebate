@@ -15,7 +15,7 @@ const round = {
   formatId: 'one-on-one',
   formatVersion: 1,
   resolution: 'A representative resolution',
-  status: 'scheduled' as const,
+  status: 'opening' as const,
   currentStage: null,
   launchedAt: '2026-10-10T12:00:00.000Z',
   startedAt: null,
@@ -77,7 +77,8 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
     return found?.ownerActorId === ownerActorId ? found : undefined;
   };
   const store: DebateDocumentStore = {
-    getRound: async (id) => (id === round.id ? round : null),
+    getRound: async (id) =>
+      id === round.id ? { ...round, opening: null } : null,
     createDocument: async (document) => {
       // The database stamps created_at/updated_at itself (ADR 0033 §3.2).
       const record = {

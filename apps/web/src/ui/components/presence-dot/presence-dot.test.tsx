@@ -2,7 +2,8 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { PresenceDot } from './presence-dot';
-import { friendPresences as statuses } from '@daisy/protocol';
+import { memberStatuses as statuses } from '@daisy/protocol';
+import { statusLabels } from './status-labels';
 import { presenceDotClass } from './presence-dot-class';
 
 setupRitewayBun();
@@ -20,7 +21,7 @@ describe('PresenceDot', () => {
         return (
           html.includes('role="img"') &&
           !html.includes('role="status"') &&
-          html.includes(`aria-label="${presence}"`)
+          html.includes(`aria-label="${statusLabels[presence]}"`)
         );
       }),
       expected: statuses.map(() => true),
@@ -35,6 +36,9 @@ describe('PresenceDot', () => {
       expected: [
         `${base} bg-online`,
         `${base} bg-gold`,
+        `${base} bg-hue-clay`,
+        `${base} bg-hue-teal`,
+        `${base} bg-live`,
         `${base} bg-ink-faint`,
       ],
     });

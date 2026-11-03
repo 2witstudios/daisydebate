@@ -1,11 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import type { DebateSide, RoomAssemblyState } from '@daisy/protocol';
-import {
-  automaticChoice,
-  bytesOf,
-  canonicalOrder,
-  shuffle,
-} from './draw-random';
+import { automaticChoice, canonicalOrder, shuffle } from './draw-random';
 import type {
   ResolutionCategory,
   ResolutionDrawItem,
@@ -131,7 +126,7 @@ export const survivorOf = (draw: ResolutionDrawState) => {
  * time-out strikes the lowest standing position; an automatic side's
  * choice comes from the seed.
  */
-function settleDraw(
+export function settleDraw(
   draw: ResolutionDrawState,
   seed: Uint8Array | null,
   now: string,
@@ -162,46 +157,11 @@ function settleDraw(
 }
 
 /**
- * The reveal handoff: the survivor becomes the Room's topic, and enabled
- * prep starts at the reveal instant. Idempotent.
- */
-export function handOffReveal(room: RoomAssemblyState): RoomAssemblyState {
-  const survivor = room.resolutionDraw && survivorOf(room.resolutionDraw);
-  if (!survivor || room.topic !== null) return room;
-  return {
-    ...room,
-    topic: survivor.item.text,
-    prepStartedAt: room.executionPlan.preRoundPrep.enabled
-      ? survivor.at
-      : room.prepStartedAt,
-  };
-}
-
-/** Settles the Room's draw at `now` and hands off any reveal. */
-export function settleRoom(
-  room: RoomAssemblyState,
-  seedHex: string | null,
-  now: string,
-): RoomAssemblyState {
-  const seed = seedHex === null ? null : bytesOf(seedHex);
-  if (
-    !room.resolutionDraw ||
-    (room.status !== 'assembling' && room.status !== 'ready')
-  )
-    return room;
-  const draw = settleDraw(room.resolutionDraw, seed, now);
-  return draw === room.resolutionDraw
-    ? room
-    : handOffReveal({ ...room, resolutionDraw: draw });
-}
-
-/**
  * The stored topic invariant: a fixed-topic Room has text; a draw Room has
- * none until its reveal, then exactly the survivor's text.
+ * none, because its resolution belongs to the Round.
  */
 export function topicInvariantHolds(room: RoomAssemblyState): boolean {
-  if (!room.executionPlan.resolutionDraw.enabled)
-    return room.topic !== null && room.topic.trim() !== '';
-  const survivor = room.resolutionDraw && survivorOf(room.resolutionDraw);
-  return survivor ? room.topic === survivor.item.text : room.topic === null;
+  return room.executionPlan.resolutionDraw.enabled
+    ? room.topic === null
+    : room.topic !== null && room.topic.trim() !== '';
 }

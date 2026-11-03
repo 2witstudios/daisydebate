@@ -22,7 +22,7 @@ test('concurrent identical commands commit once and replay before stale-version 
       version: 1 as const,
       commandId,
       expectedVersion: 1,
-      command: { type: 'start' as const },
+      command: { type: 'yield' as const, participantId: createId() },
     };
     let executions = 0;
     const input = {

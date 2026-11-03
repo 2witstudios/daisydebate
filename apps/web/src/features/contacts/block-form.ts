@@ -32,3 +32,12 @@ export function blockFormUnavailable(input: FormData): BlockFormState {
     notice: 'Could not change this contact. Your username is kept; try again.',
   };
 }
+
+/** The online list's one-button block: its answer, and whether to close. */
+export type PersonBlockState = {
+  readonly done?: boolean;
+  readonly notice?: string;
+};
+
+export const personBlockedNotice = 'Blocked.';
+export const personBlockFailedNotice = 'Could not block them. Try again.';

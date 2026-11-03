@@ -26,6 +26,7 @@ export const account: AccountAuthorizationFact = {
   member: true,
   beta: { state: 'approved' as const, revision: 1 },
   ageBand: 'adult' as const,
+  restricted: false,
   erased: false,
   revision: 1,
 };
@@ -47,6 +48,7 @@ export const state: RoomAssemblyState = {
   visibility: 'public',
   hostActorId: caller.actorId,
   hostLabel: 'Member',
+  seatHolds: [],
   status: 'assembling',
   formatId: 'one-on-one',
   formatVersion: 1,
@@ -71,9 +73,6 @@ export const state: RoomAssemblyState = {
       eligible: true,
     },
   ],
-  prepStartedAt: null,
-  prepRemainingMs: null,
-  resolutionDraw: null,
   roundRef: null,
 };
 
@@ -82,7 +81,7 @@ export const launched: LaunchedRound = {
   id: 'd4n6p8r2t4v6x8z1k3b5c7d9',
   roomId: state.id,
   version: 1,
-  status: 'scheduled',
+  status: 'opening',
   ladderId: null,
   competitionType: 'casual',
   topic: state.topic ?? '',
@@ -112,7 +111,7 @@ export const launched: LaunchedRound = {
 /** The host's own reading of the launched Round. */
 export const round: RoundView = (({ hostActorId, ...viewed }) => {
   void hostActorId;
-  return { ...viewed, waitingOn: null, viewerIsHost: true };
+  return { ...viewed, opening: null, waitingOn: null, viewerIsHost: true };
 })(launched);
 
 export function makeOperations(

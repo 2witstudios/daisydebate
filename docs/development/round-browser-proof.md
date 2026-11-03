@@ -151,13 +151,20 @@ naming its reason, then rebuilds from pinned digests under the same eight-minute
 owner, and never fails the run. A CI entry cannot be replaced under its key, so a
 rejected one rebuilds on every run until its key changes: bump `refresh` in the
 base descriptor or delete the entry. A refused save emits a `cache-refused` warning,
-publishes nothing and keeps the valid image.
+publishes nothing and keeps the valid image. A `docker save` refusal names its exit
+code and docker's last stderr line, reduced to a fixed vocabulary of diagnostic
+words, so a path, URL, secret or name never reaches a log.
 
 A cache hit holds only the prepared image and needs no network. Its entry saves only
 after the lifecycle, archive and trust proofs pass, and the key covers the first
-two. So on a real hit, signalled by the cache step, they log `not-run-cache-hit`
-where they would need the upstream base. Any changed input is a miss that runs them
-in full, and outside CI an absent base is acquired. The eight-minute deadline control
+two and the Docker engine. So on a real hit, signalled by the cache step, the archive
+proof logs `not-run-cache-hit`, and the lifecycle proof does so where it would need
+the upstream base. The prepare step's restore and full image validation and the trust
+proof still run. A rejected hit counts too: prepare warns and rebuilds a fully validated
+image, the proof stays skipped because the entry's pass vouches for its code, and a
+hit never saves. Any changed input is a miss that runs them in full, where a refused
+save in the archive proof is fatal and reports the free bytes measured before it. Outside CI
+an absent base is acquired. The eight-minute deadline control
 is manual: `bun apps/web/e2e/support/launch-browser-preparation-proof.ts
 --full-budget`; CI proves the same owner under a 40-second budget.
 

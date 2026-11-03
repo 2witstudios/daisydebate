@@ -134,11 +134,7 @@ export async function startAdmittedRound(host: Member, room: RoomView) {
     type: 'start-round',
   });
   if (!launched.roundRef) throw new Error('Round was not durably admitted');
-  const initial = await readBallotRound(
-    host.context.request,
-    launched.roundRef.id,
-  );
-  return ballotRoundCommand(host.context.request, initial, { type: 'start' });
+  return readBallotRound(host.context.request, launched.roundRef.id);
 }
 /** Every seat claimed, then each member's own fresh consent. */
 export async function seatAndReady(

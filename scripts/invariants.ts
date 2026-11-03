@@ -82,7 +82,7 @@ const round = (input: {
   createRoundRuntime({
     round: {
       id: roundId,
-      status: input.status ?? 'scheduled',
+      status: input.status ?? 'opening',
       currentStage: null,
       startedAt: input.status === 'active' ? t0 : null,
       completedAt: null,
@@ -135,7 +135,7 @@ const fixtures: Readonly<Record<string, Fixture>> = {
     }),
   'completed-is-terminal': () =>
     round({ status: 'completed' }).execute({
-      command: { type: 'start' },
+      command: { type: 'yield' },
       actorId: null,
       now: t0,
     }),
@@ -163,7 +163,7 @@ const fixtures: Readonly<Record<string, Fixture>> = {
   'seats-complete': () =>
     round({
       participants: [seats[0]!, seats[2]!],
-    }).execute({ command: { type: 'start' }, actorId: null, now: t0 }),
+    }).activate({ at: t0, now: t0 }),
   'prep-requires-capability': () =>
     round({
       status: 'active',

@@ -42,7 +42,7 @@ for (const sort of ['longest-waiting', 'newest'] as const)
           format_id: formatId,
           room_config_snapshot: config,
           visibility: 'public',
-          status: 'scheduled',
+          status: 'opening',
         });
         await f.sql`update rooms set status='started' where id=${anchor}`;
         await add(4, 4);

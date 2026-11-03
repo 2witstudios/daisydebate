@@ -135,7 +135,7 @@ export async function applyDevSeed({
           formatVersion: seed.round.formatVersion,
           presetVersion: null,
           rulesSnapshot: seed.round.rules,
-          status: 'scheduled',
+          status: 'opening',
           ladderId: null,
         })
         .onConflictDoUpdate({

@@ -71,6 +71,7 @@ for (const [changed, locked, extended] of [
               betaState: 'approved',
               betaRevision: 1,
               ageBand: 'adult',
+              restricted: false,
             },
           ];
         return [{ locked }];
@@ -201,6 +202,7 @@ test('a read whose cast keeps moving gives up after two restarts, never answerin
             betaState: 'approved',
             betaRevision: 1,
             ageBand: 'adult',
+            restricted: false,
           },
         ];
       return [{ locked: true }];

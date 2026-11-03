@@ -12,7 +12,7 @@ import { assignAiJudgeAndReady } from './round-judging.test-support';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { openRoundCapture } from './round-media.test-support';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 
@@ -52,7 +52,7 @@ async function playedBotRound(
   ).view;
   room = await f.seatBotOpponent(room, bot.actorId);
   ({ room } = await assignAiJudgeAndReady(f, room, [f.host]));
-  const { roundId } = await startRuntimeRound(f, room);
+  const { roundId } = await launchRuntimeRound(f, room);
   const round = (await f.store.getRound(roundId))!;
   const elapsed = round.rules.segments.reduce(
     (n, s) => n + s.durationMs + round.rules.countdownMs,

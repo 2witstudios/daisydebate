@@ -187,7 +187,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
       queries[fileIntent + 1]?.query.includes('delete from messaging_files'),
       receiptDelete?.params,
       queries.some((query) =>
-        /delete from (friendships|friend_challenges|presence_settings|contact_pairs|social_request)/.test(
+        /delete from (friendships|challenges|presence_settings|contact_pairs|social_request)/.test(
           query.query,
         ),
       ),

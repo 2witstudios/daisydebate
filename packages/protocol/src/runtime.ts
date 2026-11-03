@@ -1,3 +1,4 @@
+import type { ResolutionDrawState } from './resolution-draw';
 import type { DebateRole, DebateSide } from './primitives';
 import type { RatedOutcome } from './ratings';
 import type { SegmentType } from './format';
@@ -40,7 +41,6 @@ export type RoundParticipantSeat = {
 };
 
 export type RoundCommand =
-  | { readonly type: 'start' }
   | { readonly type: 'start_prep' }
   | { readonly type: 'start_speech' }
   | { readonly type: 'yield' }
@@ -111,6 +111,10 @@ export type RoundProjection = {
   /** The engine's ruling that this Round holds its Room's members no longer (ADR 0070). */
   readonly releasesRoomMembers?: true;
   readonly speakingChanges?: readonly RoundSpeakingChange[];
+  /** The opening's draw after this revision; the writer appends its new strikes. */
+  readonly openingDraw?: ResolutionDrawState;
+  /** The opening ended here: the Round's start, never the processing time. */
+  readonly opensAt?: string;
   /** Null when no round-row column changed. */
   readonly round: {
     readonly status: RoundStatus;

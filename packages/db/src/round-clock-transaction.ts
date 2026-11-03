@@ -14,6 +14,11 @@ import { writeSpeakingProjection } from './round-speaking-writer';
 type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
 export type LockedRoundTickInput = {
   readonly roundId: string;
+  /**
+   * This tick also runs an opening: its strikes and its start. Capture and
+   * attendance ticks only keep an active Round's clock current.
+   */
+  readonly runsOpening?: true;
   readonly buildProjection: (context: {
     readonly round: RoundHydration;
     readonly now: string;
@@ -29,7 +34,10 @@ export async function executeLockedRoundTick(
   if (!round) throw createAppError('NOT_FOUND');
   const now = await sampleRoundExecutionTime(tx);
   let changed = false;
-  if (round.status === 'active') {
+  if (
+    round.status === 'active' ||
+    (round.status === 'opening' && input.runsOpening)
+  ) {
     const projection = input.buildProjection({ round, now });
     changed = await writeProjectionWithPhaseSignal(
       tx,

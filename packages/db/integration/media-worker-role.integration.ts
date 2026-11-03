@@ -103,7 +103,7 @@ test('discovery under the worker role finds sessions needing a capture worker', 
     const abandonedRound = await fixture.round();
     const abandoned = await session(abandonedRound);
     await fixture.sql.unsafe(
-      "update rounds set status='abandoned',completed_at=clock_timestamp() where id=$1",
+      "update rounds set status='abandoned',current_stage=null,completed_at=clock_timestamp() where id=$1",
       [abandonedRound],
     );
     const client = new SQL(url, { max: 1 });

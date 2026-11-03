@@ -8,7 +8,7 @@ const total = rules.segments.reduce(
 );
 test('the final actual segment closes at its own elapsed deadline while Round awaits judging', () => {
   const world = runtimeWorld();
-  world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+  world.activate({ at: at(0), now: at(0) });
   const projection = world.tick(at(total + 120_000));
   assert({
     given: 'a late tick after the actual final deadline',
@@ -38,7 +38,7 @@ test('the final actual segment closes at its own elapsed deadline while Round aw
 });
 test('accepted early final yield anchors actual end independently of the original timetable', () => {
   const world = runtimeWorld();
-  world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+  world.activate({ at: at(0), now: at(0) });
   const early = total - 1000;
   world.tick(at(early));
   const ended = world.execute({
@@ -58,20 +58,20 @@ test('accepted early final yield anchors actual end independently of the origina
   });
 });
 
-test('scheduled abandonment invents no played interval or capture anchor', () => {
-  const abandoned = runtimeWorld().execute({
+test('a forfeit in the opening invents no played interval or capture anchor', () => {
+  const forfeited = runtimeWorld().execute({
     command: { type: 'forfeit' },
     actorId: person,
     now: at(0),
   });
   assert({
     given: 'forfeit before any segment is played',
-    should: 'abandon without a fabricated capture deadline',
+    should: 'stand as a result without a fabricated capture deadline',
     actual: {
-      status: abandoned.round?.status,
-      anchor: abandoned.finalSegmentEndedAt,
-      speaking: abandoned.speakingChanges,
+      status: forfeited.round?.status,
+      anchor: forfeited.finalSegmentEndedAt,
+      speaking: forfeited.speakingChanges,
     },
-    expected: { status: 'abandoned', anchor: undefined, speaking: [] },
+    expected: { status: 'completed', anchor: undefined, speaking: [] },
   });
 });

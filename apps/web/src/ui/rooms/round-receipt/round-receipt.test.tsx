@@ -7,7 +7,7 @@ setupRitewayBun();
 const scheduled: RoundReceiptView = {
   id: 'round-owned',
   roomId: 'room-owned',
-  status: 'scheduled',
+  status: 'opening',
   outcome: null,
   panelRuling: null,
   topic: '<Frozen topic>',
@@ -58,16 +58,15 @@ const scheduled: RoundReceiptView = {
   ],
 };
 
-test('persisted scheduled Round renders the frozen asymmetric schedule and cast', () => {
+test('persisted new Round renders the frozen asymmetric schedule and cast', () => {
   const html = renderToStaticMarkup(<RoundReceipt round={scheduled} />);
   assert({
-    given:
-      'a scheduled Round with unequal frozen speech lengths and an AI judge',
+    given: 'a new Round with unequal frozen speech lengths and an AI judge',
     should:
       'show its real receipt, ordered slots and exact durations without implying media or a ballot exists',
     actual: [
       html.includes('&lt;Frozen topic&gt;'),
-      html.includes('Not started'),
+      html.includes('Starting'),
       html.includes('0:45'),
       !html.includes('Open floor'),
       html.includes('Affirmative 2'),

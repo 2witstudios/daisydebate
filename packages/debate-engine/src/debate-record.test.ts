@@ -63,7 +63,7 @@ describe('recordResult', () => {
       should: 'not be part of the record at all',
       actual: [
         recordResult({ status: 'abandoned', outcome: null }, 'affirmative'),
-        recordResult({ status: 'scheduled', outcome: null }, 'negative'),
+        recordResult({ status: 'opening', outcome: null }, 'negative'),
         recordResult({ status: 'active', outcome: null }, 'affirmative'),
         recordResult(completed('affirmative'), 'judge'),
       ],

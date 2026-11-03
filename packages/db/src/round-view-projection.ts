@@ -54,6 +54,7 @@ export function roundViewFor(
     round.participants.some((seat) => seat.actorId === viewerActorId);
   return {
     ...view,
+    opening: null,
     resolutionAudit: auditFor(round.resolutionAudit, ownPeople),
     viewerIsHost: knowsJudges,
     participants: round.participants.map((seat) =>

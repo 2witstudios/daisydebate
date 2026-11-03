@@ -8,7 +8,7 @@ const envelope = {
   version: 1,
   commandId: id,
   expectedVersion: 1,
-  command: { type: 'start' },
+  command: { type: 'yield', participantId: id },
 };
 const fixture = () => {
   let calls = 0;

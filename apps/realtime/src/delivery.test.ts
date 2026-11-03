@@ -62,6 +62,7 @@ test('ticket admission refuses session expiry crossed during the durable await',
       revision: 1,
       beta: { state: 'approved', revision: 1 },
       ageBand: 'adult',
+      restricted: false,
     },
   });
   assert({

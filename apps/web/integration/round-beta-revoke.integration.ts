@@ -3,7 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 
@@ -13,7 +13,7 @@ requireTestServices(process.env);
 test('a revoked participant never blocks the opponent finishing the Round (ADR 0075)', async () => {
   await withRoomRuntime(async (f) => {
     const room = await f.assemble();
-    const { roundId, operations, envelope } = await startRuntimeRound(f, room);
+    const { roundId, operations } = await launchRuntimeRound(f, room);
     // The operator revokes the host mid-Round, as the signed command commits it.
     await f.sql.begin(async (tx) => {
       await tx`update account_beta_access set state='revoked', revision=revision+1, decided_at=now() where user_id=${f.host.userId}`;
@@ -28,7 +28,7 @@ test('a revoked participant never blocks the opponent finishing the Round (ADR 0
       expectedVersion: number,
     ) =>
       operations.command({ kind: 'human', actorId }, roundId, {
-        ...envelope,
+        version: 1,
         commandId: createId(),
         expectedVersion,
         command: { type, participantId: seatOf(actorId).id },
@@ -38,10 +38,10 @@ test('a revoked participant never blocks the opponent finishing the Round (ADR 0
         'the revoked host yielding on their own seat, after the revoke committed',
       should:
         'refuse it inside the fence: participation needs access, whatever the edge saw',
-      actual: () => seated('yield', f.host.actorId, 2),
+      actual: () => seated('yield', f.host.actorId, 1),
       code: 'AUTHORIZATION',
     });
-    const receipt = await seated('forfeit', f.guest.actorId, 2);
+    const receipt = await seated('forfeit', f.guest.actorId, 1);
     const ended = await f.store.getRound(roundId);
     assert({
       given:
@@ -53,7 +53,7 @@ test('a revoked participant never blocks the opponent finishing the Round (ADR 0
         status: ended?.status,
         outcome: ended?.outcome !== null,
       },
-      expected: { version: 3, status: 'completed', outcome: true },
+      expected: { version: 2, status: 'completed', outcome: true },
     });
   });
 });

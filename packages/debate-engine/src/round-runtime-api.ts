@@ -21,8 +21,11 @@ export type RoundRuntime = {
   readonly adjudicate: (input: RoundAdjudication) => RoundProjection;
   /** Internal completion after durable freeze/attendance verification; does not advance time. */
   readonly completePanel: (input: RoundPanelCompletion) => RoundProjection;
-  /** Maintenance ends a Round never started by its start horizon (DEC-214). */
-  readonly abandonUnstarted: (now: string) => RoundProjection;
+  /** The opening ended at `at`: the Round starts there and catches up to `now`. */
+  readonly activate: (input: {
+    readonly at: string;
+    readonly now: string;
+  }) => RoundProjection;
   /** Advances time alone, projecting whatever the clock moved. */
   readonly tick: (now: string) => RoundProjection;
   /** The current checkpoint. */

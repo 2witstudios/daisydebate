@@ -39,3 +39,19 @@ export const parseRailPreference = (raw: unknown): RailPreference =>
 export const flipRailPreference = (
   preference: RailPreference,
 ): RailPreference => (preference === 'mini' ? 'extended' : 'mini');
+
+/**
+ * The online rail's choice (ADR 0103). Absent is automatic: CSS opens it on a
+ * screen wider than 1280px, and the first choice sticks across every page.
+ */
+const ONLINE_RAIL_CHOICES = ['open', 'mini'] as const;
+export type OnlineRailChoice = (typeof ONLINE_RAIL_CHOICES)[number];
+export type OnlineRailPreference = OnlineRailChoice | 'auto';
+export const ONLINE_RAIL_COOKIE = 'daisy.online-rail';
+
+export const isOnlineRailChoice = (raw: unknown): raw is OnlineRailChoice =>
+  ONLINE_RAIL_CHOICES.some((choice) => choice === raw);
+
+/** Trust boundary for the cookie: unknown values fall back to automatic. */
+export const parseOnlineRail = (raw: unknown): OnlineRailPreference =>
+  isOnlineRailChoice(raw) ? raw : 'auto';

@@ -35,7 +35,7 @@ rated, the outcome and the debate's completion time.
 | τ                      | 0.5                                               |
 | Volatility search      | ε = 1e-6, at most 100 steps                       |
 | Inactivity period      | one day                                           |
-| Season deviation floor | unresolved; rollover refused                      |
+| Season deviation floor | unresolved; no second season                      |
 | Provisional above      | deviation 110                                     |
 | Bounds                 | rating 0–4000, deviation 30–350, volatility ≤ 0.1 |
 
@@ -94,8 +94,8 @@ same record. A retry returns even a closed Season 1 unchanged; another season
 causes refusal. Startup never activates a season.
 
 A debate posts to the active season with DEC-119 ordering. New actors start
-from the confirmed initial parameters. Prior-season carry-over and rollover
-refuse pending DEC-111: the proposed floor150 is not authorized by beta RD110
+from the confirmed initial parameters. Prior-season carry-over refuses and a
+second season cannot be opened pending DEC-111: the proposed floor150 is not authorized by beta RD110
 policy. No prior-season history is invented.
 
 ### 7. Provisional is derived from the deviation
@@ -156,3 +156,14 @@ for current delivery and retains one frozen ladder authority. The previous
 Quick removal remains; the generic Ranked pool is removed by a fail-closed
 forward migration. Existing rated data requires explicit disposition before any
 DDL. No relabel, reset or compatibility pool is supplied.
+
+## Amendment (2026-11-02, ISSUE-999, ISSUE-1000)
+
+Who gets rated is the engine's `ratingEligibility`, over the Round's recorded
+ending and attendance ledger. The adapter selects candidates and loads facts,
+with one derived statement of how a Round ended, and holds no rule. The answer
+is unchanged: a forfeit rates on any capture, and a ballot rates only on a
+complete capture while ISSUE-911 is open (DEC-285). A null outcome is unrated
+with a reason (DEC-277). Until DEC-111 resolves there is one season: opening a
+season is refused while any season exists, closing one is refused, and the
+rollover command is removed. The close refusal comes out when rollover lands.

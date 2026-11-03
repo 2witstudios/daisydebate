@@ -20,6 +20,7 @@ const account = {
   revision: 1,
   beta: { state: 'approved', revision: 1 },
   ageBand: 'adult',
+  restricted: false,
 };
 const session = {
   ...principal,
@@ -188,7 +189,7 @@ test('a subscribe whose budget is spent during the facts read stops before the l
       roundId,
       createdByActorId: principal.actorId,
       visibility: 'public',
-      status: 'scheduled',
+      status: 'opening',
       revision: 1,
       participants: [],
     },

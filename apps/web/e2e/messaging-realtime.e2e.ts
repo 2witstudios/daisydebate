@@ -1,4 +1,5 @@
 import { testMessagingUnknownCommit } from './support/messaging-unknown-commit';
+import { testWhoIsOnline } from './support/whos-online-live';
 import { testMessagingHistoryCompletion } from './support/messaging-history-completion';
 import { testMessagingNavigationOverlap } from './support/messaging-navigation-overlap';
 import { testEditCompletionWindow } from './support/messaging-completion-window';
@@ -26,6 +27,7 @@ import {
 } from './support/messaging-journey';
 
 testMessageControlFocus();
+testWhoIsOnline();
 testMessagingNavigationOverlap();
 testEditCompletionWindow();
 testMessagingHistoryCompletion();

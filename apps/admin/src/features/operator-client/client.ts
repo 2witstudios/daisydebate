@@ -5,9 +5,15 @@ import {
 } from '@daisy/auth/operator-signature';
 import { betaAccessCommandResultSchema } from '@daisy/protocol';
 import {
+  moderationLiftResultSchema,
   operatorAccountsPageSchema,
   operatorCommandStateSchema,
+  operatorReportsPageSchema,
+  operatorRestrictionsSchema,
+  reportResolveResultSchema,
   type betaAccessCommandSchema,
+  type moderationLiftCommandSchema,
+  type reportResolveCommandSchema,
 } from '@daisy/protocol/operator';
 import { z } from 'zod';
 import { toBase64Url, type RandomBytes } from '../../auth/secrets';
@@ -169,6 +175,72 @@ export function createOperatorClient(deps: {
           ],
         },
         operatorAccountsPageSchema,
+      ),
+    listReports: (
+      operatorRef: string,
+      page: { readonly limit: number; readonly cursor?: string },
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: '/operator/v1/reports',
+          query: [
+            ...(page.cursor === undefined
+              ? []
+              : [['cursor', page.cursor] as const]),
+            ['limit', String(page.limit)],
+          ],
+        },
+        operatorReportsPageSchema,
+      ),
+    resolveReport: (
+      operatorRef: string,
+      reportId: string,
+      command: z.infer<typeof reportResolveCommandSchema>,
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'PUT',
+          path: `/operator/v1/reports/${reportId}/resolution`,
+          query: [],
+          body: JSON.stringify(command),
+        },
+        reportResolveResultSchema,
+      ),
+    listRestrictions: (
+      operatorRef: string,
+      page: { readonly limit: number; readonly cursor?: string },
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: '/operator/v1/moderation',
+          query: [
+            ...(page.cursor === undefined
+              ? []
+              : [['cursor', page.cursor] as const]),
+            ['limit', String(page.limit)],
+          ],
+        },
+        operatorRestrictionsSchema,
+      ),
+    liftModeration: (
+      operatorRef: string,
+      actionId: string,
+      command: z.infer<typeof moderationLiftCommandSchema>,
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'PUT',
+          path: `/operator/v1/moderation/${actionId}/lift`,
+          query: [],
+          body: JSON.stringify(command),
+        },
+        moderationLiftResultSchema,
       ),
     /** Signed at `signedAt`, which the caller recorded first (ADR 0077). */
     setBetaAccess: (

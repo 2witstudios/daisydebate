@@ -1,22 +1,8 @@
+import { debaterSeatsHeldFrom } from './room-edit-transitions';
 import { formatStanding } from './format-standing';
 import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
 import { freezeRoomConfig, freezeRoomExecutionPlan } from '@daisy/protocol';
-import {
-  mayStrike,
-  preRoundBegun,
-  preRoundPhase,
-  type PreRoundPhase,
-} from './pre-round-phase';
-import { settleRoom, survivorOf } from './resolution-draw';
-
-import {
-  assemblyOpen,
-  castGate,
-  complete,
-  startBlocker,
-} from './room-assembly-facts';
-import { prepFinished } from './pre-round-phase';
-import type { ResolutionDrawView } from '@daisy/protocol/resolution-draw';
+import { assemblyOpen, startBlocker } from './room-assembly-facts';
 const participantReady = (
   p: Pick<
     RoomAssemblyState['participants'][number],
@@ -58,25 +44,15 @@ export const hostIdentityHidden = (
 /**
  * Server projection: consumers never infer startability or consent from
  * local device state. Every field is built explicitly — nothing internal is
- * spread — so a host list, draw texts or the seed cannot ride along. The
- * Room is settled at `now` first, without writing.
+ * spread — so a host list cannot ride along.
  */
 export function projectRoom(
-  stored: RoomAssemblyState,
+  room: RoomAssemblyState,
   actorId: string,
   consent: RoomConsent,
   now: string,
-  drawSeed: string | null,
 ): RoomView {
-  const room = settleRoom(stored, drawSeed, now);
-  if (preRoundBegun(room))
-    consent = {
-      available: true,
-      readyActorIds: room.participants
-        .filter((p) => p.kind === 'human')
-        .map((p) => p.actorId),
-    };
-  const blocker = startBlocker(room, consent, now);
+  const blocker = startBlocker(room, consent);
   const hidden = hiddenJudges(room, actorId);
   const hostHidden = hostIdentityHidden(
     {
@@ -90,7 +66,6 @@ export function projectRoom(
     },
     actorId,
   );
-  const phase = preRoundPhase(room, now);
   const source = room.config.resolutionDraw.enabled
     ? room.config.resolutionDraw.source
     : null;
@@ -118,9 +93,6 @@ export function projectRoom(
       assemblyOpen(room)
         ? { resolutions: source.resolutions }
         : null,
-    resolutionDraw: room.resolutionDraw
-      ? projectDraw(room, actorId, phase, now)
-      : null,
     rules: room.rules,
     participants: room.participants.map((p) => {
       const state = {
@@ -171,124 +143,32 @@ export function projectRoom(
       version: room.version,
       readyActorIds: consent.readyActorIds.filter((id) => !hidden.has(id)),
     },
-    prep: prepView(room, now),
-    capabilities: roomCapabilities(room, actorId, blocker, now, phase, consent),
+    debaterSeatsHeldFromViewer:
+      room.status === 'assembling' || room.status === 'ready'
+        ? debaterSeatsHeldFrom(room, actorId, now)
+        : 0,
+    capabilities: roomCapabilities(room, actorId, blocker),
     startRefusal: blocker,
     roundRef: room.roundRef,
   };
 }
 
-/** Seated debaters see every drawn text; everyone else sees progress only. */
-const projectDraw = (
-  room: RoomAssemblyState,
-  actorId: string,
-  phase: PreRoundPhase,
-  now: string,
-): ResolutionDrawView => {
-  const draw = room.resolutionDraw!;
-  const turn =
-    // A closed Room settles nothing more, so it has no turn to count down.
-    phase.phase === 'striking' && assemblyOpen(room)
-      ? {
-          ordinal: phase.turn.ordinal,
-          side: phase.turn.side,
-          dueAt: phase.turn.dueAt,
-          remainingMs: Math.max(
-            0,
-            Date.parse(phase.turn.dueAt) - Date.parse(now),
-          ),
-        }
-      : null;
-  const revealedAt = survivorOf(draw)?.at ?? null;
-  const debater = room.participants.some(
-    (p) =>
-      p.actorId === actorId &&
-      (p.role === 'affirmative' || p.role === 'negative'),
-  );
-  if (!debater)
-    return {
-      visibility: 'progress',
-      drawSize: draw.manifest.drawSize,
-      strikes: draw.strikes.map(({ ordinal, side, kind }) => ({
-        ordinal,
-        side,
-        kind,
-      })),
-      turn,
-      revealedAt,
-    };
-  return {
-    visibility: 'debater',
-    commitment: draw.commitment,
-    drawSize: draw.manifest.drawSize,
-    items: draw.items.map(({ position, text, category }) => ({
-      position,
-      text,
-      category,
-    })),
-    strikes: draw.strikes.map(
-      ({ ordinal, side, kind, position, actorId: by }) => ({
-        ordinal,
-        side,
-        kind,
-        position,
-        byViewer: by === actorId,
-      }),
-    ),
-    turn,
-    revealedAt,
-  };
-};
-
-const prepView = (room: RoomAssemblyState, now: string): RoomView['prep'] => ({
-  startedAt: room.prepStartedAt,
-  remainingMs:
-    room.prepStartedAt !== null && room.prepRemainingMs !== null
-      ? Math.max(
-          0,
-          room.prepRemainingMs -
-            (Date.parse(now) - Date.parse(room.prepStartedAt)),
-        )
-      : room.prepRemainingMs,
-  finished: prepFinished(room, now),
-});
-/** The pre-round can begin, and a draw would start: everyone Ready and eligible. */
-const preRoundStartable = (
-  room: RoomAssemblyState,
-  phase: PreRoundPhase,
-  consent: RoomConsent,
-) =>
-  phase.phase === 'not-begun' &&
-  complete(room) &&
-  castGate(room, consent) === null;
 const roomCapabilities = (
   room: RoomAssemblyState,
   actorId: string,
   blocker: RoomView['startRefusal'],
-  now: string,
-  phase: PreRoundPhase,
-  consent: RoomConsent,
 ): RoomView['capabilities'] => {
   const host = room.hostActorId === actorId;
   const open = assemblyOpen(room);
-  const manage = host && open;
-  const editable = open && !preRoundBegun(room);
   const own = room.participants.find((p) => p.actorId === actorId);
   return {
     host,
-    canEdit: manage && editable && room.competitionType !== 'ranked',
-    canClaimSeat: editable,
-    canReady: canReady(editable, own),
-    canStartPreRound: manage && preRoundStartable(room, phase, consent),
-    canStrike: open && mayStrike(room, actorId, phase),
-    canFinishPrep: manage && prepCanFinish(room, now),
+    canEdit: host && open && room.competitionType !== 'ranked',
+    canClaimSeat: open,
+    canReady: canReady(open, own),
     canStart: host && blocker === null,
   };
 };
-const prepCanFinish = (room: RoomAssemblyState, now: string) =>
-  room.executionPlan.preRoundPrep.enabled &&
-  room.prepStartedAt !== null &&
-  prepFinished(room, now);
 const canReady = (
   open: boolean,
   own: RoomAssemblyState['participants'][number] | undefined,

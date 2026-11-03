@@ -155,8 +155,8 @@ test('an idle Room the engine expires is closed, released and announced', async 
     now,
     [[foundationDefinition]],
     [],
-    [], // its friend challenges are deleted (ISSUE-699)
     [],
+    [], // its friend challenges are deleted (ISSUE-699)
     [],
     [],
     [],
@@ -176,7 +176,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
         spendsAiRound: false,
         seatsBotDebater: false,
         publishDefinition: false,
-        drawSecrets: null,
+        draw: null,
         members: [],
       },
     }),
@@ -191,9 +191,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
       queries.some(({ query }) =>
         query.startsWith('delete from "room_active_memberships"'),
       ),
-      queries.some(({ query }) =>
-        query.startsWith('delete from "friend_challenges"'),
-      ),
+      queries.some(({ query }) => query.startsWith('delete from "challenges"')),
       queries.filter(({ query }) => query.includes('pg_notify')).length,
     ],
     expected: [true, true, true, true, 1],

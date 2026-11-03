@@ -7,15 +7,9 @@ const envelope = { commandId: 'c'.repeat(24), expectedVersion: 1 };
 
 test('a strike is a seated action, never host management', () => {
   assert({
-    given: 'a strike, a seat claim, readiness and a host command',
-    should: 'ask for the seated strike capability, not room.manage',
+    given: 'a seat claim, readiness and a host command',
+    should: 'ask for each own capability',
     actual: [
-      capabilityOf({
-        ...envelope,
-        type: 'strike-resolution',
-        ordinal: 0,
-        position: 1,
-      }),
       capabilityOf({
         ...envelope,
         type: 'claim-seat',
@@ -23,8 +17,8 @@ test('a strike is a seated action, never host management', () => {
         slot: 0,
       }),
       capabilityOf({ ...envelope, type: 'ready', expectedConsentVersion: 0 }),
-      capabilityOf({ ...envelope, type: 'start-pre-round' }),
+      capabilityOf({ ...envelope, type: 'start-round' }),
     ],
-    expected: ['room.strike', 'room.join', 'room.ready', 'room.manage'],
+    expected: ['room.join', 'room.ready', 'room.manage'],
   });
 });

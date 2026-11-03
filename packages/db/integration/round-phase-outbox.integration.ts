@@ -20,7 +20,7 @@ test('accepted Round projections append one phase signal with the stored version
     try {
       await createScheduledRound(authoring, 'A motion');
       const before = await database.getRound(roundId);
-      if (!before) throw new Error('the scheduled Round did not hydrate');
+      if (!before) throw new Error('the new Round did not hydrate');
       await database.executeRoundCommand({
         ...authoredRoundCommand(authoring, before.version),
         buildProjection: () => ({

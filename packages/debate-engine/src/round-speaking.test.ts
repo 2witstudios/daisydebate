@@ -42,7 +42,7 @@ test('cross-examination keeps both microphones open and refuses every interrupti
     const world = runtimeWorld({
       rules: { ...rules, interaction: { ...rules.interaction, interruptions } },
     });
-    world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
+    world.activate({ at: at(0), now: at(0) });
     const opened = world.tick(at(330_000));
     const cx = opened.segmentInserts.find((s) => s.type === 'cross_ex')!;
     const grant = opened.speakingChanges?.find(

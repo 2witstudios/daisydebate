@@ -6,13 +6,10 @@ import {
   maintenanceAvailability,
   maintenanceTestTimers as timers,
 } from './round-maintenance.test-support';
-import {
-  createRoundMaintenanceOperations,
-  ROUND_START_HORIZON_MS,
-} from '../src/features/round-finalization/maintenance';
+import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
 import { startRoundMaintenance } from '../src/features/round-finalization/service';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 setupRitewayBun();
@@ -23,7 +20,7 @@ test(
   async () =>
     withRoomRuntime(async (f) => {
       const choice = await f.foundation();
-      const { roundId } = await startRuntimeRound(
+      const { roundId } = await launchRuntimeRound(
         f,
         await f.assemble({
           selection: {
@@ -94,7 +91,6 @@ test(
           ratingFailed: (_id, error) => {
             throw error;
           },
-          startHorizonMs: ROUND_START_HORIZON_MS,
           probeRoundId: null,
           store: f.store,
           instanceId,

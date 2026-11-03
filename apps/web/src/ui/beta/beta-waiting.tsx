@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { destinationHref } from '../../features/coming-soon/launch';
 import { cn } from '../cn';
 import { OnboardingFrame } from '../onboarding/frame/frame';
-import { SignOutForm } from '../components/sign-out-form/sign-out-form';
-import { SIGN_OUT_FAILED_NOTICE } from '../components/sign-out-form/sign-out-notice';
+import {
+  AccountExit,
+  accountExitLink as link,
+} from '../onboarding/account-exit/account-exit';
 
 export type BetaWaitingProps = {
   readonly username: string;
@@ -17,38 +19,6 @@ export type BetaWaitingProps = {
   /** Back from a sign-out that did not happen (ISSUE-691). */
   readonly signOutFailed?: boolean;
 };
-
-const link =
-  'inline-flex min-h-onboarding-touch items-center justify-center rounded-round border border-border px-6 text-md font-strong no-underline hover:no-underline';
-
-/**
- * The account's way out (ISSUE-691, plan BETA §5): a native form, so it
- * signs out without JavaScript, beside the page's links.
- */
-function Actions({
-  failed,
-  children,
-}: {
-  readonly failed: boolean;
-  readonly children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      {failed ? (
-        <p role="alert" className="text-md text-ink">
-          {SIGN_OUT_FAILED_NOTICE}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap gap-3">
-        {children}
-        <Link className={link} href="/settings">
-          Account settings
-        </Link>
-        <SignOutForm next="/beta" className={`${link} bg-transparent`} />
-      </div>
-    </div>
-  );
-}
 
 const marker =
   'flex size-8 shrink-0 items-center justify-center rounded-round text-sm font-strong';
@@ -147,11 +117,11 @@ export function BetaWaiting({
             month and year to continue.
           </p>
         </div>
-        <Actions failed={signOutFailed}>
+        <AccountExit failed={signOutFailed}>
           <Link className={link} href={ageHref}>
             Add your age
           </Link>
-        </Actions>
+        </AccountExit>
       </OnboardingFrame>
     );
   return (
@@ -179,7 +149,7 @@ export function BetaWaiting({
         <WaitingStatus />
       )}
       <div className="mt-auto border-t border-border pt-4">
-        <Actions failed={signOutFailed}>{null}</Actions>
+        <AccountExit failed={signOutFailed}>{null}</AccountExit>
       </div>
     </OnboardingFrame>
   );

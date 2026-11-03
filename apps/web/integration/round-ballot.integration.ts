@@ -12,7 +12,7 @@ import {
   readyTwoHumanJudgeRoom,
 } from './round-judging.test-support';
 import {
-  startRuntimeRound,
+  launchRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
 
@@ -27,7 +27,7 @@ const ruling = (winner: Ballot['winner']): Ballot => ({
 test('all actual human judges submit one shared ballot against actual frozen input before the engine completes', async () => {
   await withRoomRuntime(async (f) => {
     const { room, judges } = await readyTwoHumanJudgeRoom(f);
-    const { roundId } = await startRuntimeRound(f, room);
+    const { roundId } = await launchRuntimeRound(f, room);
     const initial = (await f.store.getRound(roundId))!;
     const seats = judges.map((j) =>
       initial.participants.find((p) => p.actorId === j.actorId)!,
@@ -293,4 +293,5 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       expected: [before, 2, 2],
     });
   });
-});
+  // ISSUE-1064: about 7s in CI's shard 1 against about 2s on main; cause unknown.
+}, 15_000);

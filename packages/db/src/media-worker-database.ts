@@ -64,7 +64,7 @@ export function createMediaWorkerDatabase(input: {
         left join media_worker_leases l on l.session_id = s.id
         where s.ended_at is null and s.unsafe_at is null
           and s.deletion_requested_at is null
-          and r.status in ('scheduled', 'active')
+          and r.status in ('opening', 'active')
           and (l.session_id is null or l.expires_at <= clock_timestamp())
           and s.id <> all(string_to_array(${excluded.join(',')}, ','))
         order by s.created_at, s.id

@@ -21,7 +21,6 @@ const operations = (ids: readonly string[], probeRoundId: string | null) =>
     instanceId: 'webinstance0000000000001',
     ids: { next: () => 'generatedid0000000000001' },
     evaluate: async () => ({ kind: 'undecided' as const }),
-    startHorizonMs: 60_000,
     probeRoundId,
   });
 

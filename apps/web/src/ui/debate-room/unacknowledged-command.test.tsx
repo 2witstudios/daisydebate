@@ -56,6 +56,27 @@ test('a pending retry is busy and cannot be sent twice', () => {
   });
 });
 
+test('a retried strike carries the turn and position the debater struck', () => {
+  const html = render({
+    values: {
+      ...original,
+      type: 'strike_resolution',
+      ordinal: '1',
+      position: '2',
+    },
+    unacknowledged: true,
+  });
+  assert({
+    given: 'an unacknowledged strike',
+    should: 'offer a retry carrying its ordinal and position',
+    actual: [
+      html.includes('name="ordinal" value="1"'),
+      html.includes('name="position" value="2"'),
+    ],
+    expected: [true, true],
+  });
+});
+
 test('the retry posts exactly the fields the debater sent, its segment included (ISSUE-838)', () => {
   const html = render({
     values: { ...original, confirmed: 'true', segment: '0' },

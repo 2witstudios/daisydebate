@@ -1,7 +1,7 @@
 import { speakingChangesOf } from './round-speaking';
+import { startRound } from './round-commands';
 import { roundHoldsMembers } from './room-membership';
 import { applyPanelCompletion } from './round-panel-completion';
-import { abandonUnstartedRound } from './round-start-horizon';
 import type { RoundRuntime } from './round-runtime-api';
 import { applyRoundAdjudication } from './round-adjudication';
 import { assertAttendanceRules } from './attendance-policy';
@@ -315,7 +315,20 @@ export function createRoundRuntime(input: {
       onScratch(completion.now, (c) =>
         applyPanelCompletion(c, completion, input.participants),
       ),
-    abandonUnstarted: (now) => onScratch(now, abandonUnstartedRound),
+    /**
+     * The opening has run: the Round becomes active at the instant it ended,
+     * and the clock catches up to `now`, so a late sweep cannot move the
+     * countdown.
+     */
+    activate({ at, now }): RoundProjection {
+      const scratch = restoreRoundStore(capture(store));
+      const into = queues();
+      const c = contextOn(scratch, into, null, Date.parse(at));
+      startRound(c);
+      advance(scratch, into, Date.parse(now));
+      store = scratch;
+      return project(into);
+    },
     tick(now): RoundProjection {
       const into = queues();
       advance(store, into, Date.parse(now));

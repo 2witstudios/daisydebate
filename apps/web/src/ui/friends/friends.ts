@@ -1,17 +1,4 @@
-import type {
-  FriendList,
-  FriendPresence,
-  FriendRelation,
-} from '@daisy/protocol';
-
-/** Your own status on the rail: a member looking at a page is online. */
-export const viewerStatus: FriendPresence = 'online';
-
-export const presenceLabel: Readonly<Record<FriendPresence, string>> = {
-  online: 'Online',
-  away: 'Away',
-  offline: 'Offline',
-};
+import type { FriendList, FriendRelation } from '@daisy/protocol';
 
 /** How many friends are around: online or away, not offline. */
 export const friendsAround = (friends: FriendList['friends']): number =>

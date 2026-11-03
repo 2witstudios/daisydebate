@@ -6,7 +6,6 @@ import type { FriendStore } from '@daisy/db/friends';
 import {
   capabilityFor,
   changeFriendship,
-  friendPresenceOf,
   friendsOnlineOf,
   readFriendList,
   type FriendCapability,
@@ -214,7 +213,11 @@ test('readFriendList', async () => {
     state,
     requesterActorId,
     requestedAt: now,
-    otherHidden: otherActorId === 'g'.repeat(24),
+    otherChosen:
+      otherActorId === 'g'.repeat(24)
+        ? ('appearing_offline' as const)
+        : ('online' as const),
+    otherPlacement: null,
   });
   const asked: (readonly string[])[] = [];
   const list = await readFriendList(principal, {
@@ -226,21 +229,13 @@ test('readFriendList', async () => {
       row(d, 'dan', 'pending', d),
       row('f'.repeat(24), 'eve', 'pending', me),
     ],
-    challenges: async () => [
-      {
-        roomId: 'r'.repeat(24),
-        username: 'zed',
-        title: '@zed vs @me',
-        challengedAt: now,
-      },
-    ],
     presence: async (ids) => {
       asked.push(ids);
       return new Map([
-        [them, 'online' as const],
-        [e, 'away' as const],
-        // Gus hides: even a live lease of theirs must never reach the list.
-        ['g'.repeat(24), 'online' as const],
+        [them, 'active' as const],
+        [e, 'idle' as const],
+        // Gus appears offline: even a live lease of theirs must never reach the list.
+        ['g'.repeat(24), 'active' as const],
       ]);
     },
   });
@@ -257,14 +252,6 @@ test('readFriendList', async () => {
       ],
       incoming: [{ username: 'dan', requestedAt: now }],
       outgoing: [{ username: 'eve', requestedAt: now }],
-      challenges: [
-        {
-          username: 'zed',
-          roomId: 'r'.repeat(24),
-          title: '@zed vs @me',
-          challengedAt: now,
-        },
-      ],
     },
   });
   assert({
@@ -278,14 +265,5 @@ test('readFriendList', async () => {
     should: 'count only the visible online and away friends in the badge',
     actual: friendsOnlineOf(list.friends),
     expected: 2,
-  });
-});
-
-test('friendPresenceOf', () => {
-  assert({
-    given: 'an active, an idle and no live lease',
-    should: 'show online, away and offline',
-    actual: (['active', 'idle', null] as const).map(friendPresenceOf),
-    expected: ['online', 'away', 'offline'],
   });
 });

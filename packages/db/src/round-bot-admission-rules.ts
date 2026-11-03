@@ -42,7 +42,7 @@ export function requireSponsor(
     throw createAppError('AUTHORIZATION');
   if (!account?.member || account.erased || round.competitionType === 'ranked')
     throw createAppError('AUTHORIZATION');
-  if (!['scheduled', 'active'].includes(round.status))
+  if (!['opening', 'active'].includes(round.status))
     throw createAppError('CONFLICT');
 }
 

@@ -133,6 +133,7 @@ test('bot-debater admission composes the busy cap with the flat beta quota', () 
     revision: 1,
     beta: { state: 'approved' as const, revision: 1 },
     ageBand: 'adult' as const,
+    restricted: false,
   };
   const configured = botAdmissionOptions({
     AI_ROUND_BUSY_CAP: 4,

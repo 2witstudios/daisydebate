@@ -123,7 +123,7 @@ test('a scheduled forfeit persists abandonment without a start instant or ballot
     const participant = await fixture.seat(roundId, 'affirmative', 0, actorId);
     try {
       const before = await database.getRound(roundId);
-      if (!before) throw new Error('the scheduled round did not hydrate');
+      if (!before) throw new Error('the new round did not hydrate');
       await database.executeRoundCommand({
         ...authoredRoundCommand({ roundId, actorId }, before.version, {
           type: 'forfeit',

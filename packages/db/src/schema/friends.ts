@@ -8,7 +8,6 @@ import {
   text,
 } from 'drizzle-orm/pg-core';
 import { friendshipStates } from '@daisy/protocol';
-import { rooms } from './rooms';
 import { oneOf, timestampColumn } from './columns';
 import { contactActorColumn, contactPairs } from './contacts';
 
@@ -46,30 +45,5 @@ export const friendships = pgTable(
       columns: [table.lowActorId, table.highActorId],
       foreignColumns: [contactPairs.lowActorId, contactPairs.highActorId],
     }).onDelete('cascade'),
-  ],
-);
-
-/**
- * A challenge one friend sent another (ADR 0072): the room the challenger
- * opened for them, shown to the challenged friend while it assembles. It
- * goes with its room, and declining deletes it.
- */
-export const friendChallenges = pgTable(
-  'friend_challenges',
-  {
-    roomId: text('room_id')
-      .primaryKey()
-      .references(() => rooms.id, { onDelete: 'cascade' }),
-    challengerActorId: contactActorColumn('challenger_actor_id'),
-    challengedActorId: contactActorColumn('challenged_actor_id'),
-    createdAt: timestampColumn('created_at').notNull(),
-  },
-  (table) => [
-    index('friend_challenges_challenged_idx').on(table.challengedActorId),
-    index('friend_challenges_challenger_idx').on(table.challengerActorId),
-    check(
-      'friend_challenges_distinct',
-      sql`${table.challengerActorId} <> ${table.challengedActorId}`,
-    ),
   ],
 );

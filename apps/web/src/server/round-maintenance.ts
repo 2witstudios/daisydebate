@@ -4,10 +4,7 @@ import type { ErrorReporter } from '@daisy/observability';
 import { workerFailures } from './recoverable-failure';
 import type { App } from './app';
 import { createAttendanceFeature } from '../features/attendance/operations';
-import {
-  createRoundMaintenanceOperations,
-  ROUND_START_HORIZON_MS,
-} from '../features/round-finalization/maintenance';
+import { createRoundMaintenanceOperations } from '../features/round-finalization/maintenance';
 import { startRoundMaintenance } from '../features/round-finalization/service';
 import { readPublicCheckInProbe } from '../features/availability/configuration';
 /** The existing availability lease supplies service authority; no new lease/pool is created. */
@@ -49,7 +46,6 @@ export function startRoundCompetitiveMaintenance(input: {
           'round.maintenance',
           'Competitive maintenance remains recoverable',
         )(error, 'rate'),
-      startHorizonMs: ROUND_START_HORIZON_MS,
       probeRoundId:
         readPublicCheckInProbe(app.config.ATTENDANCE_PUBLIC_PROBE)?.roundId ??
         null,

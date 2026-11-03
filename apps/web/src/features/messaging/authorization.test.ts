@@ -19,6 +19,7 @@ const socialAccounts = [
     revision: 1,
     beta: { state: 'approved' as const, revision: 1 },
     ageBand: 'adult' as const,
+    restricted: false,
   },
   {
     userId: 'v'.repeat(24),
@@ -26,6 +27,7 @@ const socialAccounts = [
     member: true,
     beta: { state: 'approved' as const, revision: 1 },
     ageBand: 'adult' as const,
+    restricted: false,
     erased: false,
     revision: 1,
   },
@@ -84,6 +86,7 @@ const input: AuthorizationInput = {
       revision: 1,
       beta: { state: 'approved' as const, revision: 1 },
       ageBand: 'adult' as const,
+      restricted: false,
     },
     socialReading: policy,
     socialPosting: policy,

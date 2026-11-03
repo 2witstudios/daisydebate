@@ -106,7 +106,7 @@ export async function discoverRooms(
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
     union all
     (select r.id,r.created_at from rounds d join rooms r on r.id=d.room_id ${joins}
-      where ${launched} and ${modeMatches(mode)} and d.status in ('scheduled','active') and d.room_id is not null and r.status='started'
+      where ${launched} and ${modeMatches(mode)} and d.status in ('opening','active') and d.room_id is not null and r.status='started'
         and ${order.after} and ${visible(caller)} and ${roundVisible(caller)} and ${search(q)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
   ) candidates order by created_at ${order.direction},id collate "C" ${order.direction} limit ${pageSize + 1}
@@ -128,7 +128,7 @@ export async function discoverRooms(
   account = await loadAuthorizationAccount(tx, caller.userId);
   if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
   const rows = (await tx.execute(sql`
-  select r.id,r.version,r.title,r.topic,r.visibility,r.host_actor_id as "hostActorId",
+  select r.id,r.version,r.title,coalesce(d.resolution,r.topic) as topic,r.visibility,r.host_actor_id as "hostActorId",
    ${hostLabel} as "hostLabel",${hostIsHumanJudge} as "hostIsHumanJudge",r.status,r.competition_type as "competitionType",
    p.actor_id is not null as seated,p.role,p.slot,
    case when r.status='started' then json_build_object('id',d.id,'status',d.status) else null end as "roundRef",
@@ -144,7 +144,7 @@ export async function discoverRooms(
   left join round_participants rp on rp.round_id=d.id and rp.actor_id=${caller.actorId}
   where r.id=any(${idSet}) and ${visible(caller)} and ${search(q)}
    and ${modeMatches(mode)}
-   and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('scheduled','active') and ${roundVisible(caller)}))
+   and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${roundVisible(caller)}))
   order by r.created_at ${order.direction},r.id collate "C" ${order.direction}
  `)) as unknown as (Omit<RoomListEntry, 'waitingSince' | 'live'> & {
     waitingSince: Date | string | null;

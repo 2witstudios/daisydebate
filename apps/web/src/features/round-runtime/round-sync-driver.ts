@@ -14,8 +14,9 @@ import {
 import type { RoundRead } from './read-round';
 
 /**
- * Rounds order by their persisted revision. The live position is derived
- * from the held round on the client each second. What a played Round is
+ * Rounds order by their persisted revision. A running Round's position is
+ * derived from the held round on the client each second; its opening goes out
+ * of date by itself at its strike and prep deadlines. What a played Round is
  * waiting on can change with no revision, when a judging job fails, so that
  * state can lag by up to the resource sync's 30 s backstop poll.
  */
@@ -28,6 +29,23 @@ export type RoundSync = ResourceSync<RoundView>;
 
 export const seedRoundSync = (round: RoundView, at: number): RoundSync =>
   seedResourceSync(roundIdentity, round, at);
+
+/**
+ * When the opening's strike or prep runs out by the read's own account, the
+ * Round must be read again, even with no doorbell. A step with no time left
+ * has nothing more to wait for: the backstop picks it up, so a read at zero
+ * never schedules another.
+ */
+export function openingDeadline(state: RoundSync): number | null {
+  const opening = state.value.opening;
+  const remaining =
+    opening?.step.step === 'prep'
+      ? opening.step.remainingMs
+      : opening?.step.step === 'strike'
+        ? (opening.draw?.turn?.remainingMs ?? 0)
+        : 0;
+  return remaining > 0 ? state.readAt + remaining : null;
+}
 
 /** Resource sync for a live round (ADR 0066): its `round:<id>` doorbell and read. */
 export function createRoundSyncDriver({
@@ -57,6 +75,7 @@ export function createRoundSyncDriver({
     scheduler,
     visibility,
     connection,
+    deadline: openingDeadline,
     ...(onConnectionOpen ? { onConnectionOpen } : {}),
     doorbell: (subscribed, signal) =>
       attachVersionDoorbell({

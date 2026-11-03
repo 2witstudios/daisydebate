@@ -10,7 +10,7 @@ const scenario: DebateScenario = {
     ids: foundationScenarioIds,
   },
   when: [
-    { type: 'command', command: { type: 'start' }, actor: null },
+    { type: 'start-round' },
     { type: 'tick', atMs: 9_999 }, // one millisecond before the AC opens
   ],
   expect: {

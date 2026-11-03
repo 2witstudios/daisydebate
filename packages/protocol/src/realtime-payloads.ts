@@ -16,6 +16,11 @@ const messagingInboxChangedPayloadSchema = z.strictObject({
   kind: z.literal('messaging.inbox.changed'),
 });
 
+/** A member's challenges changed: they re-read them (ADR 0103). */
+const challengeChangedPayloadSchema = z.strictObject({
+  kind: z.literal('challenge.changed'),
+});
+
 /**
  * `round.presence-changed` is not one of these: presence is never written
  * to the outbox (ADR 0033 §1). It is delivered as the `presence.changed`
@@ -92,6 +97,7 @@ const actorPresencePreferenceChangedPayloadSchema = z.strictObject({
 /** The outbox payload contract, discriminated by `kind`, always carrying `entityVersion`. */
 export const outboxPayloadSchema = z.discriminatedUnion('kind', [
   messagingInboxChangedPayloadSchema,
+  challengeChangedPayloadSchema,
   doorbellPayloadSchema,
   roomChangedPayloadSchema,
   inboxDeltaPayloadSchema,
@@ -118,11 +124,14 @@ const storageFamilyPayloadKinds: Readonly<
   // Channel content is observed (ADR 0089), never a doorbell; the channel
   // topic carries only typing hints, which are not outbox rows.
   channel: [],
+  // Rung by each realtime node, never an outbox row (ADR 0103).
+  online: [],
   room: ['room.changed'],
   round: ['round.phase-changed', 'round.transcript-changed'],
   'round:presence': [],
   'user:inbox': [
     'messaging.inbox.changed',
+    'challenge.changed',
     'user.notification-delivered',
     'session.revoked',
     'access.revoked',

@@ -171,8 +171,7 @@ test('publication replacement cannot alter existing Room or frozen Round wording
       if (error !== rollback) throw error;
     }
     assert({
-      given:
-        'a Room and scheduled Round pinned before a publication replacement',
+      given: 'a Room and new Round pinned before a publication replacement',
       should:
         'retain their exact wording, IDs and owner provenance independently of current publication',
       actual: pins,

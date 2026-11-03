@@ -5,7 +5,7 @@ import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 import { oneOnOneSettings } from './runtime.test-support';
 import type { FormatSelectionFacts } from './format-selection';
-import { drawRoom, drawSettings } from './room-pre-round.test-support';
+import { drawRoom, drawSettings } from './round-opening.test-support';
 
 setupRitewayBun();
 
@@ -151,12 +151,7 @@ describe('select-format', () => {
         refusal(
           run({ ...room, competitionType: 'ranked' }, selectFormat(room)),
         ),
-        refusal(
-          run(
-            { ...room, prepStartedAt: '2026-10-09T00:00:00.000Z' },
-            selectFormat(room),
-          ),
-        ),
+        refusal(run({ ...room, status: 'started' }, selectFormat(room))),
         refusal(run(room, selectFormat(room), null)),
         refusal(
           run(room, selectFormat(room), {
@@ -173,7 +168,7 @@ describe('select-format', () => {
       expected: [
         'host-required',
         'illegal-config',
-        'prep-running',
+        'room-closed',
         'format-unavailable',
         'format-unavailable',
         'format-unavailable',

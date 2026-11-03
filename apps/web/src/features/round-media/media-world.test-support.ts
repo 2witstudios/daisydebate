@@ -15,7 +15,11 @@ import {
   type Vendor,
 } from './media-vendor.test-support';
 
-type Access = { readonly beta: 'approved' | 'revoked'; ageBand: 'adult' };
+type Access = {
+  readonly beta: 'approved' | 'revoked';
+  ageBand: 'adult';
+  restricted: false;
+};
 type Admits = (access: Access) => boolean;
 type Caller = { readonly actorId: string; readonly admits: Admits };
 
@@ -25,7 +29,7 @@ type Caller = { readonly actorId: string; readonly admits: Admits };
  */
 export function createMediaWorld(
   options: {
-    readonly status?: 'scheduled' | 'active' | 'completed' | 'abandoned';
+    readonly status?: 'opening' | 'active' | 'completed' | 'abandoned';
     readonly busyClaims?: number;
     /** Another worker claims the reconcile lease the instant each of ours finishes, as recovery does on a busy deployment. */
     readonly reclaimedAfterFinish?: boolean;
@@ -65,11 +69,14 @@ export function createMediaWorld(
   const eligible = new Map<string, boolean>(seats.map((s) => [s.id, true]));
   // Each seat's own fenced facts (ISSUE-714).
   const access = new Map<string, Access>(
-    seats.map((s) => [s.id, { beta: 'approved', ageBand: 'adult' }]),
+    seats.map((s) => [
+      s.id,
+      { beta: 'approved', ageBand: 'adult', restricted: false },
+    ]),
   );
   const bindings: { roundParticipantId: string; identity: string }[] = [];
   const pending = new Set<string>();
-  let status = options.status ?? 'scheduled';
+  let status = options.status ?? 'opening';
   let busy = options.busyClaims ?? 0;
   let leaseOwner: string | null = null;
   let reconciles = 0;
@@ -122,10 +129,11 @@ export function createMediaWorld(
         endedAt: endedAt && new Date(endedAt),
       },
       round: {
+        opening: null,
         id: roundId,
         status,
         currentStage: null,
-        startedAt: status === 'scheduled' ? null : now,
+        startedAt: status === 'opening' ? null : now,
         completedAt: null,
         outcome: null,
         rules,
@@ -318,7 +326,11 @@ export function createMediaWorld(
       void eligible.set(participantId, value),
     /** An operator's beta revoke of the seat's account; membership stays (ISSUE-714). */
     withdraw: (participantId: string) =>
-      void access.set(participantId, { beta: 'revoked', ageBand: 'adult' }),
+      void access.set(participantId, {
+        beta: 'revoked',
+        ageBand: 'adult',
+        restricted: false,
+      }),
     end: () => {
       status = 'completed';
     },

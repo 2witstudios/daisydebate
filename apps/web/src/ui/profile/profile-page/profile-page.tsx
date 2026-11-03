@@ -91,7 +91,7 @@ function HistoryRow({
           href={`/rounds/${entry.roundId}`}
           className="min-w-0 font-strong text-ink"
         >
-          {entry.resolution}
+          {entry.resolution ?? 'Ended before a resolution was chosen'}
         </MediaPageLink>
         <span className="flex items-center gap-2">
           {me && entry.visibility !== 'public' ? (

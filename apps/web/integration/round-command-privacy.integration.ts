@@ -18,11 +18,9 @@ test('real authenticated Round responses and JSON and server-action form replays
   await withHumanJudgeHttpRound(
     http,
     { host, guest, judges: [judge] },
-    async ({ roundId, started, startBody: rawStart }) => {
-      const startBody = rawStart as { view: unknown };
-      const named = roundViewSchema
-        .parse(startBody.view)
-        .participants.filter(isNamedSeat)
+    async ({ roundId, view }) => {
+      const named = view.participants
+        .filter(isNamedSeat)
         .find((p) => p.role === 'judge')!;
       const hidden = [named.id, named.actorId, named.label];
       const own = roundViewSchema.parse(
@@ -83,12 +81,7 @@ test('real authenticated Round responses and JSON and server-action form replays
         should:
           'return truthful receipts without judge identifiers or names and replay the native form encoding without mutation',
         actual: {
-          statuses: [
-            started.status,
-            first.status,
-            retry.status,
-            refused.status,
-          ],
+          statuses: [first.status, retry.status, refused.status],
           versions: [
             firstBody.view.version,
             retryBody.view.version,
@@ -108,7 +101,7 @@ test('real authenticated Round responses and JSON and server-action form replays
           nativeAcknowledged: native.acknowledged,
         },
         expected: {
-          statuses: [200, 200, 200, 409],
+          statuses: [200, 200, 409],
           versions: [
             own.version + 1,
             own.version + 1,

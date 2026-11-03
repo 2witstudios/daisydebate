@@ -2,7 +2,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { readUnratedRatingRounds } from '../src/rating-discovery';
+import { ratingAwaited } from '@daisy/debate-engine';
+import { readRatingCandidates } from '../src/rating-discovery';
 import { withRatings } from './rating-fixtures';
 import { validRules } from './round-fixtures';
 
@@ -14,7 +15,10 @@ test('RT rating discovery requires committed forfeit evidence and survives consu
     const ranked = await seated({ terminalEvidence: false });
     const casual = await seated({ competitionType: 'casual' });
     const db = drizzle({ client: fixture.sql });
-    const read = () => readUnratedRatingRounds(db, { limit: 100 });
+    const read = async () =>
+      (await readRatingCandidates(db, { limit: 100 }))
+        .filter(({ facts }) => ratingAwaited(facts))
+        .map(({ roundId }) => roundId);
     assert({
       given: 'completed ranked result without RT receipt',
       should: 'exclude unrelated completion',
@@ -69,5 +73,25 @@ test('RT rating discovery requires committed forfeit evidence and survives consu
       await fixture.sql`delete from rating_changes where round_id=${ranked.roundId}`;
       await fixture.sql`delete from rounds where id in (${ranked.roundId},${casual.roundId})`;
     }
+  });
+});
+
+test('the writer answers a typed reason for a Round the engine leaves unrated', async () => {
+  await withRatings(databaseUrl, async ({ fixture, seated, rate }) => {
+    const unrecorded = await seated({ terminalEvidence: false });
+    assert({
+      given: 'a completed ranked Round with no finalization record',
+      should: 'leave it unrated with no ledger, not throw',
+      actual: await rate(unrecorded.roundId),
+      expected: { kind: 'unrated', reason: 'ending-unrecorded' },
+    });
+    const noResult = await seated();
+    await fixture.sql`update rounds set outcome=null where id=${noResult.roundId}`;
+    assert({
+      given: 'a completed ranked Round whose outcome is null (DEC-277)',
+      should: 'leave it unrated, never a thrown conflict',
+      actual: await rate(noResult.roundId),
+      expected: { kind: 'unrated', reason: 'no-result' },
+    });
   });
 });
