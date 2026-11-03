@@ -268,9 +268,7 @@ test('a member card holds a rating as the standings do', async () => {
       });
       const [first] = await a.ledger(affirmative);
       const card = cards.ratings.find((r) => r.actorId === affirmative);
-      const standing = standings.ratings.find(
-        (r) => r.actorId === affirmative,
-      );
+      const standing = standings.ratings.find((r) => r.actorId === affirmative);
       assert({
         given: 'one released Round and one held, for one debater',
         should:
