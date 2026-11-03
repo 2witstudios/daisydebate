@@ -16,7 +16,13 @@ const debater = {
 test('a tile keeps its part in the phase at phone width', () => {
   const html = (state: string) =>
     renderToStaticMarkup(
-      <Tile debater={debater} you={false} state={state} look="small" />,
+      <Tile
+        debater={debater}
+        you={false}
+        state={state}
+        look="small"
+        className=""
+      />,
     );
   assert({
     given: 'a tile whose pill hides at narrow width',
@@ -32,6 +38,7 @@ test('a tile keeps its part in the phase at phone width', () => {
           you={false}
           state="Speaking"
           look="small"
+          className=""
           caption
         />,
       ).includes('<span> · speaking</span>'),
