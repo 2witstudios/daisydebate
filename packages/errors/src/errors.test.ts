@@ -197,6 +197,14 @@ describe('createRefusal', () => {
       expected: [true, 'CONFLICT', 'active-room', 'Reworded', 'why'],
     });
   });
+  test('names itself in a trace when no message is given', () => {
+    assert({
+      given: 'a refusal with only a reason',
+      should: 'carry the word as its internal message',
+      actual: createRefusal('CONFLICT', 'active-room').message,
+      expected: 'active-room',
+    });
+  });
   test('never exposes its internal text', () => {
     const { status, body } = toPublicError(
       createRefusal('CONFLICT', 'active-room', 'Internal sentence'),

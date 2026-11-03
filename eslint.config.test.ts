@@ -74,8 +74,17 @@ describe('refusal reasons, never messages (ISSUE-1010)', () => {
         await problems(
           "export const a = (decision: { refusal: string }) => createAppError('VALIDATION', decision.refusal);",
         ),
+        await problems(
+          "export const a = (error?: Error) => error?.message === 'x';",
+        ),
+        await problems(
+          'export const a = (error: Error, map: Record<string, number>) => map[error.message];',
+        ),
+        await problems(
+          "export const a = (error: Error) => { switch (error.message) { case 'x': return 1; default: return 2; } };",
+        ),
       ],
-      expected: [1, 1, 1, 1, 2, 1],
+      expected: [1, 1, 1, 1, 2, 1, 1, 1, 1],
     });
   });
   test('holds in integration suites, and for mints in scripts', async () => {

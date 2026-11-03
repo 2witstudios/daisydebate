@@ -17,17 +17,22 @@ map covered them all.
   vocabularies in `@daisy/protocol`. `createRefusal(code, reason, message?, cause?)`
   mints one.
 - Code branches on `reason`. `message` is free text for a person reading a
-  trace, and no behaviour reads it. Rewording a message needs no other change.
+  trace, the word itself by default, and no behaviour reads it. Rewording a
+  message needs no other change.
 - Each feature owns its vocabulary: Room, Round, Attendance and Capture, plus the
-  internal Round completion, rating and Round media words. A reason sent to a
+  internal Round completion and Round media words. A reason sent to a
   client keeps its existing wire word and status.
 - A map over a vocabulary is a `Record` keyed by it, so a new word without an
   entry fails to compile.
-- ESLint refuses `error.message` in a comparison or lookup, and a kebab-case
-  word or a `.refusal` or `.reason` value as the message of `createAppError`.
-  That also catches most mints from a branch cut before this decision, which
-  would otherwise quietly lose their refusal. It cannot see a word held in any
-  other variable, or an `error.message` under another name.
+- A word only becomes a reason once code reads it, or a client receives it. A
+  refusal nothing reads stays a sentence.
+- ESLint refuses `error.message` in a comparison, lookup, computed member or
+  `switch`, and a kebab-case word or a `.refusal` or `.reason` value as the
+  message of `createAppError`. That also catches most mints from a branch cut
+  before this decision, which would otherwise quietly lose their refusal. It
+  cannot see a word held in any other variable, or a message read through
+  another name. Scripts carry only the mint rules: their plain `Error` text is
+  CLI output, and their tests compare it.
 
 Capacity refusals stay separate (ADR 0088): an admission fact with a lane and a
 reason, read through `isCapacityRefusal`, never by text. A vendor's own error

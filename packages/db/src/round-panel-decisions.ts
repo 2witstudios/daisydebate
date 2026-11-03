@@ -28,7 +28,7 @@ export type PanelDurableFacts = {
 
 const ineligible = () => createRefusal('CONFLICT', 'panel-ineligible');
 const receiptConflict = () =>
-  createRefusal('CONFLICT', 'panel-receipt-conflict');
+  createAppError('CONFLICT', 'Panel receipt conflicts with its command');
 
 export function requirePanelRequest(input: PanelRequest): void {
   if (
@@ -169,7 +169,10 @@ export function requireCompletionProjection(completion: {
     projection.segmentInserts.length ||
     projection.segmentCloses.length
   )
-    throw createRefusal('CONFLICT', 'panel-projection');
+    throw createAppError(
+      'CONFLICT',
+      'Panel projection does not match its completion',
+    );
 }
 
 export const panelReceipt = (input: {

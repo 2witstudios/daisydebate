@@ -45,7 +45,7 @@ export function createInvariantError(
 }
 /**
  * A refusal with a closed reason. `message` is free text for a person reading
- * a trace, so rewording it changes no behaviour.
+ * a trace, the word itself by default, so rewording it changes no behaviour.
  */
 export function createRefusal(
   code: ErrorCode,
@@ -53,7 +53,9 @@ export function createRefusal(
   message?: string,
   cause?: unknown,
 ): AppError {
-  return Object.assign(createAppError(code, message, cause), { reason });
+  return Object.assign(createAppError(code, message ?? reason, cause), {
+    reason,
+  });
 }
 /** Only factory-minted errors carry a trustworthy public code. */
 export function isAppError(error: unknown): error is AppError {

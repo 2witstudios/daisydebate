@@ -39,6 +39,8 @@ export type SocketData = {
 };
 /** About a second of frames at the admission rate; a normal client queues a few. */
 const MAX_QUEUED_FRAMES = 64;
+/** One frame's check and effect; well inside the 30 s a client calls a socket dead. */
+const FRAME_TURN_BUDGET_MS = 15_000;
 export type SocketTimers = {
   readonly setTimeout: (
     callback: () => void,
@@ -222,9 +224,10 @@ export function createWebSocketHandlers({
    * Frames on one socket take effect in arrival order: each waits its turn for
    * its principal check and its effect, so a later frame's faster check can't
    * overtake (ISSUE-1018). A ping changes nothing, so it answers from its own
-   * check at once and a slow turn can't miss the heartbeat. The queue is
-   * bounded, and a client over it reconnects and resyncs; a frame that throws
-   * is reported and frees the next.
+   * check at once, which is why a stalled turn needs its own budget: the
+   * heartbeat can't see it. A backlog means the server is slow, since admission
+   * caps a client's rate, so overflow closes without the rate limit's long
+   * backoff. A frame that throws is reported and frees the next.
    */
   function receiveAuthenticated(
     ws: ServerWebSocket<SocketData>,
@@ -234,21 +237,34 @@ export function createWebSocketHandlers({
     if (!frame) return;
     if (frame.type === 'ping') return answerPing(ws, frame.id);
     if ((ws.data.queuedFrames ?? 0) >= MAX_QUEUED_FRAMES) {
-      reject(ws, 'rate_limited');
+      reject(ws, 'slow_consumer');
       return;
     }
     ws.data.queuedFrames = (ws.data.queuedFrames ?? 0) + 1;
     const turn = (ws.data.frameTurn ?? Promise.resolve()).then(async () => {
+      const stalled = timers.setTimeout(
+        () => reject(ws, 'authority_unavailable', 'check_unanswered'),
+        FRAME_TURN_BUDGET_MS,
+      );
       try {
         if (ws.data.phase === 'authenticated') await takeEffect(ws, frame);
       } catch (error) {
-        failed?.(error, 'realtime.frame');
+        reportFrameFailure(error);
       } finally {
+        timers.clearTimeout(stalled);
         ws.data.queuedFrames = (ws.data.queuedFrames ?? 1) - 1;
       }
     });
     ws.data.frameTurn = turn;
     return turn;
+  }
+  /** A reporter that throws must not poison the queue behind this frame. */
+  function reportFrameFailure(error: unknown) {
+    try {
+      failed?.(error, 'realtime.frame');
+    } catch {
+      // Nothing is left to report to, and the socket keeps working.
+    }
   }
   async function answerPing(ws: ServerWebSocket<SocketData>, id: string) {
     if (await currentPrincipal(ws))

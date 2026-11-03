@@ -3,7 +3,11 @@ import { expect } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Logger } from '@daisy/logger';
 import { closeFor } from './handlers/hello';
-import { createWebSocketHandlers, type SocketData } from './socket';
+import {
+  createWebSocketHandlers,
+  type SocketData,
+  type SocketTimers,
+} from './socket';
 import { fixture, topic } from './registry.test-support';
 
 setupRitewayBun();
@@ -96,16 +100,17 @@ const orderedHandlers = (
   validatePrincipal: () => Promise<boolean>,
   failed?: (error: unknown, operation: string) => void,
   registry = fixture().registry,
+  timers: SocketTimers = {
+    setTimeout: () => 1 as unknown as ReturnType<typeof setTimeout>,
+    clearTimeout: () => {},
+  },
 ) => {
   const logger = { log: () => {}, child: () => logger } as Logger;
   return createWebSocketHandlers({
     logger,
     registry,
     now: () => 0,
-    timers: {
-      setTimeout: () => 1 as unknown as ReturnType<typeof setTimeout>,
-      clearTimeout: () => {},
-    },
+    timers,
     authenticate: async () => ({
       actorId: 'a'.repeat(24),
       userId: 'b'.repeat(24),
@@ -173,9 +178,9 @@ test('the frame queue stays bounded and survives a frame that throws', async () 
     void handlers.message(over.ws, frameOf('unsubscribe', 'd'));
   assert({
     given: 'more frames than the queue holds behind a held check',
-    should: 'close the socket as rate limited',
+    should: 'close as a slow server, without the rate limit backoff',
     actual: over.closes,
-    expected: [closeFor('rate_limited').code],
+    expected: [closeFor('slow_consumer').code],
   });
 
   const thrown = orderedSocket();
@@ -239,4 +244,65 @@ test('a ping answers at once behind a held turn, from its own check', async () =
     expected: { checks: 2, last: 'pong' },
   });
   held[0]?.(false);
+});
+
+test('a reporter that throws leaves the queue working', async () => {
+  const { ws, frames, closes } = orderedSocket();
+  const { registry } = fixture();
+  const subscribe = registry.subscribe.bind(registry);
+  let calls = 0;
+  registry.subscribe = (...args) => {
+    calls += 1;
+    return calls === 1
+      ? Promise.reject(new Error('subscribe crashed'))
+      : subscribe(...args);
+  };
+  const handlers = orderedHandlers(
+    async () => true,
+    () => {
+      throw new Error('reporter crashed');
+    },
+    registry,
+  );
+  handlers.open(ws);
+  await handlers.message(ws, hello);
+  await handlers.message(ws, frameOf('subscribe', 'd'));
+  await handlers.message(ws, frameOf('subscribe', 'e'));
+  assert({
+    given: 'a frame that throws and a reporter that also throws',
+    should: 'still let the next frame take effect',
+    actual: { last: JSON.parse(frames.at(-1)!).id, closes },
+    expected: { last: 'e'.repeat(24), closes: [] },
+  });
+});
+
+test('a stalled turn closes the socket so the client reconnects', async () => {
+  const { ws, closes } = orderedSocket();
+  const { check } = heldChecks();
+  const scheduled: Array<{ callback: () => void; ms: number }> = [];
+  const handlers = orderedHandlers(check, undefined, fixture().registry, {
+    setTimeout: (callback, ms) => {
+      scheduled.push({ callback, ms });
+      return scheduled.length as unknown as ReturnType<typeof setTimeout>;
+    },
+    clearTimeout: () => {},
+  });
+  handlers.open(ws);
+  await handlers.message(ws, hello);
+  void handlers.message(ws, frameOf('subscribe', 'd'));
+  await flush();
+  const budget = scheduled.at(-1)!;
+  budget.callback();
+  assert({
+    given: 'a turn that never settles, with pings still answering around it',
+    should: 'close on its budget, inside the 30 s the client allows',
+    actual: {
+      insideHeartbeat: budget.ms < 30_000,
+      closes,
+    },
+    expected: {
+      insideHeartbeat: true,
+      closes: [closeFor('authority_unavailable').code],
+    },
+  });
 });

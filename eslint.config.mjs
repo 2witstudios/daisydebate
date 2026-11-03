@@ -353,6 +353,21 @@ const refusalMintRestrictions = [
 const refusalReadRestrictions = [
   {
     selector:
+      "BinaryExpression[operator=/^[!=]==$/] > ChainExpression > MemberExpression[property.name='message'][object.name=/^(error|err|e|cause|failure)$/]",
+    message: 'Branch on error.reason (createRefusal), never on error.message.',
+  },
+  {
+    selector:
+      "MemberExpression[computed=true] > MemberExpression.property[property.name='message'][object.name=/^(error|err|e|cause|failure)$/]",
+    message: 'Branch on error.reason (createRefusal), never on error.message.',
+  },
+  {
+    selector:
+      "SwitchStatement > MemberExpression.discriminant[property.name='message'][object.name=/^(error|err|e|cause|failure)$/]",
+    message: 'Branch on error.reason (createRefusal), never on error.message.',
+  },
+  {
+    selector:
       "BinaryExpression[operator=/^[!=]==$/] > MemberExpression[property.name='message'][object.name=/^(error|err|e|cause|failure)$/]",
     message: 'Branch on error.reason (createRefusal), never on error.message.',
   },

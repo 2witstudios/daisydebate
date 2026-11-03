@@ -7,10 +7,7 @@ import type { RoundRefusal } from './round-command';
  * A Round's panel completion and its maintenance; never sent to a client. They
  * also read Attendance's `attendance-terminal` and Round's `attendance-unsettled`.
  */
-type RoundCompletionRefusal =
-  'panel-ineligible' | 'panel-projection' | 'panel-receipt-conflict';
-/** A Round that cannot be rated yet; its rating pass tries again. */
-type RatingRefusal = 'rating-input-not-finalized';
+type RoundCompletionRefusal = 'panel-ineligible';
 /** Expected media backpressure: a retryable 503 that needs no one to look. */
 type RoundMediaRefusal = 'media-deferred';
 
@@ -21,7 +18,6 @@ type RoundMediaRefusal = 'media-deferred';
 export type RefusalReason =
   | AttendanceRefusal
   | CaptureRefusal
-  | RatingRefusal
   | RoomRefusal
   | RoundCompletionRefusal
   | RoundMediaRefusal
