@@ -1,0 +1,35 @@
+import { RENDITIONS } from './hold-manifest';
+
+export const encoderArgs = (
+  input: string,
+  output: (rendition: string) => string,
+): readonly string[] => [
+  'ffmpeg',
+  '-y',
+  '-loglevel',
+  'error',
+  '-copyts',
+  '-i',
+  input,
+  ...RENDITIONS.flatMap((r) => [
+    '-map',
+    '0:v',
+    '-map',
+    '0:a',
+    '-vf',
+    `scale=${r.width}:${r.height}`,
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-b:v',
+    r.videoBitrate,
+    '-c:a',
+    'copy',
+    '-muxdelay',
+    '0',
+    '-f',
+    'mpegts',
+    output(r.name),
+  ]),
+];

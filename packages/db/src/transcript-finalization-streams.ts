@@ -53,6 +53,7 @@ export async function closeUnresolvedStreams(
         ...stream,
         roundId,
         state: 'partial' as const,
+        partialReasons: ['never-sealed' as const],
         chunkCount: 0,
         sealedChunkCount: 0,
         sealedAt: sql`clock_timestamp()`,
@@ -62,6 +63,7 @@ export async function closeUnresolvedStreams(
     .update(transcriptSegments)
     .set({
       state: 'partial',
+      partialReasons: ['never-sealed'],
       sealedChunkCount: sql`${transcriptSegments.chunkCount}`,
       sealedAt: sql`clock_timestamp()`,
     })

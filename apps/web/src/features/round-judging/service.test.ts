@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { createProviderBudget } from '../../server/provider-budget';
 import { startRoundJudgingService } from './service';
 import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
@@ -257,5 +257,45 @@ test('claim failure and shutdown while claiming return the reserved provider slo
     should: 'return admission without leaving an occupied provider slot',
     actual: reclaimed,
     expected: [true, true],
+  });
+});
+
+test('a ballot waiting on attendance is no failure, whatever its message says (ISSUE-1010)', async () => {
+  const { failures, failed } = failureLog();
+  const { timers } = manualTimers();
+  const executed = Promise.withResolvers<void>();
+  const service = startRoundJudgingService({
+    reserveCapacity: () => () => {},
+    store: {
+      scanRoundJudgingJobs: async () => [
+        { roundId: 'round', judgeParticipantId: 'judge' },
+      ],
+      claimRoundJudgingJob: async () => ({
+        scope: { roundId: 'round', judgeParticipantId: 'judge' },
+        token: 'memory-only',
+      }),
+      renewRoundJudgingJob: async () => undefined,
+      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+    },
+    execute: async () => {
+      executed.resolve();
+      throw createRefusal(
+        'CONFLICT',
+        'attendance-unsettled',
+        'Any reworded sentence',
+      );
+    },
+    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
+    timers,
+    failed,
+  });
+  await service.started;
+  await executed.promise;
+  await service.stop();
+  assert({
+    given: 'a judging run refused only because attendance is unsettled',
+    should: 'report no worker failure',
+    actual: failures,
+    expected: [],
   });
 });

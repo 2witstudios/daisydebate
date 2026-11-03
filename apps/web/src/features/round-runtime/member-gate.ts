@@ -2,6 +2,7 @@ import type { Identity } from '@daisy/auth';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import { createAppError } from '@daisy/errors';
+import { roundRefusalSchema } from '@daisy/protocol';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
   refusalResponse,
@@ -56,18 +57,11 @@ export function createRoundMemberGate(d: RoundMemberRouteDependencies) {
             actorId: actor.id,
           });
         } catch (error) {
-          const response = refusalResponse(error, requestId, [
-            'not-found',
-            'not-authorized',
-            'not-seated',
-            'stale-version',
-            'command-conflict',
-            'illegal-command',
-            'freeze-not-ready',
-            'ballot-already-submitted',
-            'round-decided',
-            'attendance-unsettled',
-          ]);
+          const response = refusalResponse(
+            error,
+            requestId,
+            roundRefusalSchema.options,
+          );
           if (!response) throw error;
           return response;
         }

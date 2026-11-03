@@ -157,6 +157,7 @@ test('a completed transcript says where a speech was partial, even a speech with
     ...completed,
     transcript: {
       completeness: 'incomplete',
+      partialStreams: [],
       utterances: completed.transcript!.utterances.filter(
         (line) => line.segmentId !== last.id,
       ),

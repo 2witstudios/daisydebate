@@ -1,5 +1,4 @@
 import {
-  chmodSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -11,37 +10,26 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  type Job,
+  read,
+  runStep,
+  type Workflow,
+  workflow,
+} from './rebaseline-visuals.test-support';
 
 setupRitewayBun();
 
-type Step = {
-  id?: string;
-  run?: string;
-  uses?: string;
-  env?: Record<string, string>;
-  with?: Record<string, unknown>;
-};
-type Job = {
-  'runs-on': string;
-  needs?: string | string[];
-  permissions?: Record<string, string>;
-  steps: Step[];
-};
-type Workflow = {
-  on: Record<string, { inputs?: Record<string, { required?: boolean }> }>;
-  permissions: Record<string, string>;
-  jobs: Record<string, Job>;
-};
-
-const path = '.github/workflows/rebaseline-visuals.yml';
-const read = (file: string) =>
-  readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-const workflow = Bun.YAML.parse(read(path)) as Workflow;
 const e2e = Bun.YAML.parse(read('.github/workflows/e2e.yml')) as Workflow;
 const jobText = (job: Job) => JSON.stringify(job);
 
 describe('Rebaseline visuals workflow (ADR 0073)', () => {
-  const { resolve, render, commit } = workflow.jobs as Record<string, Job>;
+  const {
+    resolve,
+    render,
+    commit,
+    'start-checks': startChecks,
+  } = workflow.jobs as Record<string, Job>;
 
   test('it is a manual action on one target', () => {
     assert({
@@ -59,18 +47,23 @@ describe('Rebaseline visuals workflow (ADR 0073)', () => {
     assert({
       given: 'the workflow and job permissions',
       should:
-        'grant nothing by default, read to resolve and render, and contents: write to commit alone',
+        'grant nothing by default, read to resolve and render, contents: write to commit alone, and actions: write to start-checks alone',
       actual: {
         workflow: workflow.permissions,
         resolve: resolve?.permissions,
         render: render?.permissions,
         commit: commit?.permissions,
+        startChecks: startChecks?.permissions,
       },
       expected: {
         workflow: {},
         resolve: { contents: 'read', 'pull-requests': 'read' },
         render: { contents: 'read' },
         commit: { contents: 'write' },
+        startChecks: {
+          actions: 'write',
+          'pull-requests': 'read',
+        },
       },
     });
   });
@@ -129,32 +122,22 @@ describe('Rebaseline visuals workflow (ADR 0073)', () => {
 });
 
 /** Runs the resolve step's script against a stub `gh` answering `reply`. */
-const runResolve = (target: string, reply: string) => {
-  const step = workflow.jobs.resolve!.steps.find(({ id }) => id === 'target')!;
-  const dir = mkdtempSync(join(tmpdir(), 'rebaseline-resolve-'));
-  try {
-    const gh = join(dir, 'gh');
-    writeFileSync(gh, `#!/bin/sh\ncat <<'JSON'\n${reply}\nJSON\n`);
-    chmodSync(gh, 0o755);
-    const output = join(dir, 'output');
-    writeFileSync(output, '');
-    const run = Bun.spawnSync(['bash', '-c', step.run!], {
-      env: {
-        PATH: `${dir}:${process.env.PATH}`,
-        GITHUB_REPOSITORY: 'owner/daisy',
-        GITHUB_OUTPUT: output,
-        TARGET: target,
-        DEFAULT_BRANCH: 'main',
-      },
-    });
-    return {
-      ok: run.exitCode === 0,
-      output: readFileSync(output, 'utf8'),
-    };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-};
+const runResolve = (target: string, reply: string) =>
+  runStep(
+    workflow.jobs.resolve!.steps.find(({ id }) => id === 'target')!,
+    (dir) => {
+      writeFileSync(join(dir, 'output'), '');
+      return {
+        stubs: { gh: `cat <<'JSON'\n${reply}\nJSON` },
+        env: {
+          GITHUB_OUTPUT: join(dir, 'output'),
+          TARGET: target,
+          DEFAULT_BRANCH: 'main',
+        },
+      };
+    },
+    (dir) => ({ output: readFileSync(join(dir, 'output'), 'utf8') }),
+  );
 
 const sha = 'a'.repeat(40);
 const pull = (repo: string, ref: string, state = 'open') =>

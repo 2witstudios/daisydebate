@@ -1,4 +1,6 @@
+import { aiJudgePremiumText } from './ai-judge-copy';
 import { createAssembly } from './create-assembly';
+import type { RoomCreateRefusal } from './room-create-response';
 import { refused, type FormState } from '../forms/form-state';
 import type { readRoomTemplates } from './read-catalog';
 import type { RoomDraftAnswer } from './create-room-answer';
@@ -91,16 +93,21 @@ export async function submitRoomCreation(
   return refused(submitted, creationRefusal(result));
 }
 
-const refusals = {
+const settingsRefusal =
+  'The room could not be created. Review your settings and try again.';
+const refusals: Readonly<Record<RoomCreateRefusal, string>> = {
   'ranked-unavailable':
     'Ranked rooms are unavailable right now. Turn Ranked off or try again later.',
-  settings:
-    'The room could not be created. Review your settings and try again.',
+  settings: settingsRefusal,
+  // A created Room's form sends no cast, so neither reaches a person here.
+  'actor-ineligible': settingsRefusal,
+  'seat-unavailable': settingsRefusal,
   forbidden: 'Your account cannot create rooms right now.',
   'rate-limited':
     'You are creating rooms too quickly. Wait a moment and try again.',
   replayed: 'This form was already sent. Reload the page and try again.',
-} as const;
+  'ai-judge-premium': aiJudgePremiumText,
+};
 
 function creationRefusal(
   result: Exclude<

@@ -18,9 +18,25 @@ export type CapacityRefusalDetail = {
 };
 
 const CAPACITY_UNAVAILABLE = 'Database capacity unavailable';
-const refusals = new WeakMap<Error, CapacityRefusalDetail>();
-/** Errors whose capacity refusal the database boundary already logged. */
-const reportedRefusals = new WeakSet<Error>();
+type RefusalRegistry = {
+  readonly refusals: WeakMap<Error, CapacityRefusalDetail>;
+  /** Errors whose capacity refusal the database boundary already logged. */
+  readonly reportedRefusals: WeakSet<Error>;
+};
+const REGISTRY = Symbol.for('daisy.db.capacity-refusals');
+const host = globalThis as typeof globalThis & {
+  [REGISTRY]?: RefusalRegistry;
+};
+/**
+ * One registry per process, not per module copy: Next can bundle a page apart
+ * from the process app, so the copy that reads a refusal may not be the one
+ * that minted it (ISSUE-927). A table keeps each refusal's frozen detail and
+ * reported mark off the error, which wrappers and reporters see.
+ */
+const { refusals, reportedRefusals } = (host[REGISTRY] ??= {
+  refusals: new WeakMap(),
+  reportedRefusals: new WeakSet(),
+});
 /**
  * The member of `error`'s chain (itself or one of at most 16 native Error
  * causes) that `marked` recognises. Only own data-property causes are
@@ -52,6 +68,14 @@ const refusalIn = (error: unknown) =>
 /** Refused-unrun admission identity, through bounded native cause wrappers. */
 export const isCapacityRefusal = (error: unknown): boolean =>
   refusalIn(error) !== undefined;
+/**
+ * A refusal asking again can clear. `unconfigured` cannot: a lane missing from
+ * the profile, or work heavier than the lane, is the same on every request.
+ */
+export const isTemporaryRefusal = (error: unknown): boolean => {
+  const reason = capacityRefusalDetail(error)?.reason;
+  return reason === 'saturated' || reason === 'expired';
+};
 /** The lane and reason of the refusal `error` carries, if it carries one. */
 export function capacityRefusalDetail(
   error: unknown,

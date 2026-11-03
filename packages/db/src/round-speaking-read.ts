@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -41,7 +41,7 @@ export const roundSpeakingRead = ({
         .for('share');
       if (!round) throw createAppError('NOT_FOUND');
       if (round.version !== input.expectedVersion)
-        throw createAppError('CONFLICT', 'stale-version');
+        throw createRefusal('CONFLICT', 'stale-version');
       const matches = await tx
         .select({ id: roundSpeakingIntervals.id })
         .from(roundSpeakingIntervals)

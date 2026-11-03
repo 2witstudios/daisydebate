@@ -101,18 +101,15 @@ test('messaging rights erase subject associations atomically and preserve other 
       },
       expected: { texts: ['Own private text'], channels: [] },
     });
+    const rollback = new Error('rollback privacy proof');
     try {
       await database.transaction(async (tx) => {
         await lockAuthorizationActors(tx, [subject.actorId], { maxActors: 1 });
         await eraseSocial(tx);
-        throw new Error('rollback privacy proof');
+        throw rollback;
       });
     } catch (error) {
-      if (
-        !(error instanceof Error) ||
-        error.message !== 'rollback privacy proof'
-      )
-        throw error;
+      if (error !== rollback) throw error;
     }
     const [rolledBack] = await client.unsafe(
       "select text,(select count(*)::int from outbox where payload->>'channelId'=$2) as bells from messaging_messages where id=$1",

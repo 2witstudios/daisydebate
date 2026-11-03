@@ -11,7 +11,7 @@ export type Requirement = 'participant' | 'account';
 export type AccessDecision =
   | { readonly kind: 'allow' }
   /** The session store is down: refuse with a retryable error, not sign-in. */
-  | { readonly kind: 'unavailable' }
+  | { readonly kind: 'unavailable'; readonly temporary?: true }
   | { readonly kind: 'redirect'; readonly to: string };
 
 /**
@@ -139,7 +139,10 @@ export function decideAccess({
   readonly path: string;
   readonly requirement: Requirement;
 }): AccessDecision {
-  if (identity.state === 'unavailable') return { kind: 'unavailable' };
+  if (identity.state === 'unavailable')
+    return identity.temporary
+      ? { kind: 'unavailable', temporary: true }
+      : { kind: 'unavailable' };
   if (identity.state === 'anonymous')
     return redirectTo(signInHref(returnableDestination(path)));
   if (requirement === 'account') return { kind: 'allow' };
