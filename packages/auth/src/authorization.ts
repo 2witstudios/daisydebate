@@ -165,7 +165,7 @@ const nonMemberResource = (
   resource: AuthorizationInput['resource'],
 ): resource is Extract<
   AuthorizationInput['resource'],
-  { kind: 'foundation' | 'account' | 'account_collection' }
+  { kind: 'foundation' | 'account' | 'account_collection' | 'moderation' }
 > => resource.kind === 'foundation' || operatorResource(resource);
 function serviceDecision(
   principal: Extract<AuthorizationPrincipal, { kind: 'service' }>,
@@ -224,6 +224,8 @@ function resolveMemberResource(
         | 'foundation'
         | 'account'
         | 'account_collection'
+        | 'moderation'
+        | 'moderation'
         | 'channel_reaction'
         | 'member_history';
     }
@@ -272,7 +274,7 @@ function memberDecision(
   capability: AuthorizationCapability,
   resource: Exclude<
     AuthorizationInput['resource'],
-    { kind: 'foundation' | 'account' | 'account_collection' }
+    { kind: 'foundation' | 'account' | 'account_collection' | 'moderation' }
   >,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {

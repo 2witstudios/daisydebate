@@ -128,7 +128,11 @@ export function RoomLive(props: Props) {
         <RoomSetup
           view={view}
           choices={props.choices}
-          commandIds={{ details: ids.header.details, settings: ids.settings }}
+          commandIds={{
+            details: ids.header.details,
+            settings: ids.settings,
+            capture: ids.capture,
+          }}
           formatIds={ids.format}
           detailsAction={props.detailsAction}
           settingsAction={props.settingsAction}

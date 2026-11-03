@@ -48,6 +48,19 @@ export {
   TRANSCRIPT_ADMISSION_WINDOW_MS,
 } from './capture-timing';
 export type { RoomConfig, RoomExecutionPlan } from './room';
+export {
+  chatSlowModeSchema,
+  MODERATION_DELIVERY_BOUND_MS,
+  reasonsForTarget,
+  reportCreateSchema,
+} from './moderation';
+export type {
+  ReportCreate,
+  ReportReason,
+  ReportTargetKind,
+} from './moderation';
+export { roomCaptureSchema } from './room-capture';
+export type { RoomCapture } from './room-capture';
 export { formatSettingsSchema } from './format-settings';
 export { publishedResolutionSchema } from './room-resolution';
 export type {

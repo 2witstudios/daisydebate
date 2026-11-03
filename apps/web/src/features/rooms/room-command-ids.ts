@@ -19,6 +19,7 @@ export type RoomCommandIds = {
    */
   readonly strikes: readonly string[];
   readonly settings: string;
+  readonly capture: string;
   /** Per declared seat, in `declaredSeats` order. */
   readonly seats: readonly {
     readonly claim: string;
@@ -64,5 +65,6 @@ export function roomCommandIds(
     ai: nextId(),
   }));
   const format = { choose: nextId(), reset: nextId(), template: nextId() };
-  return { header, readiness, prep, strikes, settings, seats, format };
+  const capture = nextId();
+  return { header, readiness, prep, strikes, settings, capture, seats, format };
 }

@@ -5,6 +5,11 @@ import {
   betaAccessCommandStateSchema,
   betaAccessStates,
 } from './beta-access';
+import {
+  moderationCommandResultSchema,
+  moderationCommandStateSchema,
+  moderationOperatorRoutes,
+} from './moderation';
 import { idSchema } from './primitives';
 
 /**
@@ -61,6 +66,7 @@ export const operatorRoutes = {
     path: /^\/operator\/v1\/commands\/([a-z0-9]{24})$/,
     query: [],
   },
+  ...moderationOperatorRoutes,
 } as const;
 export type OperatorRoute = keyof typeof operatorRoutes;
 
@@ -126,11 +132,13 @@ export const betaAccessCommandSchema = z.strictObject({
  */
 export const operatorCommandStateSchema = z.discriminatedUnion('action', [
   betaAccessCommandStateSchema,
+  moderationCommandStateSchema,
 ]);
 
 /** What a receipt stores: the result of whichever action it records. */
 export const operatorCommandResultSchema = z.union([
   betaAccessCommandResultSchema,
+  moderationCommandResultSchema,
 ]);
 
 /**
@@ -142,5 +150,6 @@ export const operatorCommandReceiptSchema = z.discriminatedUnion('action', [
     action: z.literal(betaAccessCommandAction),
     result: betaAccessCommandResultSchema,
   }),
+  moderationCommandStateSchema,
 ]);
 export type OperatorCommandState = z.infer<typeof operatorCommandStateSchema>;

@@ -97,6 +97,8 @@ export const assemblySnapshot = {
   hostLabel: 'Host member',
   aiJudgeSeating: null,
   contentWaiver: null,
+  captureOffer: null,
+  capture: null,
   captureNotice: null,
   botAdmission: null,
   status: 'assembling',

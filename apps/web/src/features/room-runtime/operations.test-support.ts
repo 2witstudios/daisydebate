@@ -48,6 +48,7 @@ export const state: RoomAssemblyState = {
   hostActorId: caller.actorId,
   hostLabel: 'Member',
   status: 'assembling',
+  capture: null,
   formatId: 'one-on-one',
   formatVersion: 1,
   presetVersion: null,

@@ -70,6 +70,7 @@ export const state = (): RoomAssemblyState => ({
     },
   },
   config: plainRoomConfig,
+  capture: null,
   executionPlan: {
     preRoundPrep: { enabled: false },
     resolutionDraw: { enabled: false },
@@ -110,6 +111,7 @@ export const edges = {
   formatId: 'new-format',
   target: null,
   hostHoldsCasualAiJudge: true,
+  hostHoldsCasualCapture: true,
   drawSeed: null,
   drawStart: null,
 };

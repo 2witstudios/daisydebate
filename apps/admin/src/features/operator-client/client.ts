@@ -9,6 +9,13 @@ import {
   operatorCommandStateSchema,
   type betaAccessCommandSchema,
 } from '@daisy/protocol/operator';
+import {
+  moderationCommandResultSchema,
+  moderationReportDetailSchema,
+  moderationReportsPageSchema,
+  type ModerationQueue,
+  type ModerationReport,
+} from '@daisy/protocol/moderation';
 import { z } from 'zod';
 import { toBase64Url, type RandomBytes } from '../../auth/secrets';
 
@@ -187,6 +194,48 @@ export function createOperatorClient(deps: {
           signedAt,
         },
         betaAccessCommandResultSchema,
+      ),
+    listReports: (
+      operatorRef: string,
+      page: {
+        readonly queue: ModerationQueue;
+        readonly status: ModerationReport['status'];
+        readonly limit: number;
+        readonly cursor?: string;
+      },
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: '/operator/v1/reports',
+          query: [
+            ['queue', page.queue],
+            ['status', page.status],
+            ['limit', String(page.limit)],
+            ...(page.cursor === undefined
+              ? []
+              : [['cursor', page.cursor] as const]),
+          ],
+        },
+        moderationReportsPageSchema,
+      ),
+    readReport: (operatorRef: string, reportId: string) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: `/operator/v1/reports/${reportId}`,
+          query: [],
+        },
+        moderationReportDetailSchema,
+      ),
+    /** One moderation command at its own path; the body is already closed. */
+    moderate: (operatorRef: string, path: string, body: object) =>
+      call(
+        operatorRef,
+        { method: 'PUT', path, query: [], body: JSON.stringify(body) },
+        moderationCommandResultSchema,
       ),
     readCommand: (operatorRef: string, commandId: string) =>
       call(

@@ -34,6 +34,8 @@ export type Edges = {
    * account fence. It says nothing on a ranked Room, where the seat is free.
    */
   readonly hostHoldsCasualAiJudge: boolean;
+  /** The host's casual capture entitlement (WATCH-8), read the same way. */
+  readonly hostHoldsCasualCapture: boolean;
   /** What the adapter loaded, under lock, for a select-format tuple (FMT-1). */
   readonly formatFacts?: FormatSelectionFacts | null;
   readonly resolutionPublication?: PublishedResolution | null;

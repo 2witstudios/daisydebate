@@ -59,6 +59,14 @@ const authorizationCapabilities = [
   // ADR 0079: the operator service's closed capabilities, never a user's.
   'account.collection.read',
   'account.beta_access.update',
+  // WATCH-7: operator moderation, recorded in ADR 0079.
+  'report.queue.read',
+  'report.resolve',
+  'broadcast.stop',
+  'broadcast.chat_slow_mode.update',
+  'recording.takedown',
+  'chat_message.remove',
+  'account.audience_ban.update',
 ] as const;
 export const authorizationCapabilitySchema = z.enum(authorizationCapabilities);
 export type AuthorizationCapability = z.infer<

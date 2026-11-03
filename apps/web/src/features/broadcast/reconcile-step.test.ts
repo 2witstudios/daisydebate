@@ -142,6 +142,16 @@ describe('reconcileStep', () => {
       expected: ['stop EG', 'recordFinalMediaEnd'],
     });
   });
+  test('a stopped Broadcast with its Egress gone records that media ended', async () => {
+    const { ports, log } = world();
+    await reconcileStep(facts({ stoppedAtMs: 90_000 }), ports);
+    assert({
+      given: 'a stop and no running Egress',
+      should: 'record the end, so the worker can complete it',
+      actual: log,
+      expected: ['recordFinalMediaEnd'],
+    });
+  });
   test('a failure in one action never escapes to the caller', async () => {
     const { ports, log } = world({
       startEgress: async () => {

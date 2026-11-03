@@ -24,6 +24,7 @@
     "./account-age": "./src/account-age.ts",
     "./messaging-files": "./src/messaging-files/index.ts",
     "./round-ballot": "./src/round-ballot-operations.ts",
+    "./moderation-ports": "./src/moderation-ports.ts",
     "./round-bot-admission": "./src/round-bot-admission.ts",
     "./round-judging-jobs": "./src/round-judging-jobs.ts",
     "./bot-publication": "./src/bot-publication.ts",

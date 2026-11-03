@@ -29,6 +29,7 @@ export const createObjects = (config: {
     copyHoldToFile: async (key: string, path: string) => {
       await Bun.write(path, hold.file(key));
     },
+    deletePublic: (key: string) => pub.delete(key),
     putSegment: async (key: string, path: string) => {
       await pub.write(key, Bun.file(path), { type: 'video/mp2t' });
     },

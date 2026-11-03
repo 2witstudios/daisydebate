@@ -230,6 +230,8 @@ const hydrateRoom = async (
     },
     basis,
     competitionType: row.competitionType,
+    // Nothing is stored until `rooms.capture` lands with its migration (WATCH-8).
+    capture: null,
     definition: revision.definition,
     config: row.config,
     executionPlan: row.executionPlan,

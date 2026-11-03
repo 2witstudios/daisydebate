@@ -41,6 +41,11 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
       seen.add(nonce);
       return true;
     },
+    moderation: {
+      listModerationReports: async () => [],
+      readModerationReport: async () => null,
+      runModerationCommand: async () => ({ v: 1, outcome: 'applied' }),
+    },
     store: {
       listOperatorAccounts: async (input) => {
         calls.lists.push(input);

@@ -12,6 +12,7 @@ import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import { Icon } from '../../components/icon/icon';
+import { CaptureChoice } from './capture-choice';
 import { AssemblyDetails } from './assembly-details';
 import { AssemblySettingsForm } from './assembly-settings-form';
 import { FormatChoice } from './format-choice';
@@ -99,7 +100,11 @@ export function RoomSetup({
   readonly view: RoomView;
   /** The picker's catalog: Daisy's standards and league templates (FMT-3). */
   readonly choices: readonly RoomCatalogChoice[];
-  readonly commandIds: { readonly details: string; readonly settings: string };
+  readonly commandIds: {
+    readonly details: string;
+    readonly settings: string;
+    readonly capture: string;
+  };
   readonly formatIds: RoomCommandIds['format'];
   readonly detailsAction: FormAction<RoomFormState>;
   readonly settingsAction: FormAction<RoomFormState>;
@@ -202,6 +207,24 @@ export function RoomSetup({
               onSaved={saved}
             />
           </section>
+          {view.captureOffer ? (
+            <section
+              aria-labelledby="room-setup-capture"
+              className="flex flex-col gap-4"
+            >
+              <h3
+                id="room-setup-capture"
+                className="text-xs font-bold tracking-wide text-ink-muted uppercase"
+              >
+                Broadcast and recording
+              </h3>
+              <CaptureChoice
+                view={view}
+                commandId={commandIds.capture}
+                action={commandAction}
+              />
+            </section>
+          ) : null}
         </div>
       </div>
     </section>

@@ -24,6 +24,7 @@ import {
   startRound,
   close,
 } from './room-consent-transitions';
+import { setCapture } from './room-capture';
 import { startPreRound, strikeResolution } from './room-pre-round';
 import { preRoundBegun } from './pre-round-phase';
 import { settleRoom, topicInvariantHolds } from './resolution-draw';
@@ -32,6 +33,7 @@ const roomTransitions = {
   'update-format': updateConfig,
   'select-format': selectFormat,
   'update-details': updateDetails,
+  'set-capture': setCapture,
   'claim-seat': claimSeat,
   'assign-seat': claimSeat,
   'leave-seat': leaveSeat,
@@ -47,6 +49,7 @@ const roomTransitions = {
 const hostCommands = new Set<RoomCommand['type']>([
   'update-config',
   'update-details',
+  'set-capture',
   'update-format',
   'select-format',
   'assign-seat',
@@ -61,6 +64,7 @@ const editCommands = new Set<RoomCommand['type']>([
   'update-format',
   'select-format',
   'update-details',
+  'set-capture',
   'claim-seat',
   'assign-seat',
   'leave-seat',

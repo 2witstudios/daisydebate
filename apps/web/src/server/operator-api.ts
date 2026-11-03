@@ -1,6 +1,8 @@
 import { lookup } from 'node:dns/promises';
 import { parseOperatorKeys } from '@daisy/auth/operator-signature';
+import { createAppError } from '@daisy/errors';
 import { createOperatorApi } from '../features/operator-api/router';
+import type { ModerationStore } from '../features/operator-api/moderation';
 import { startOperatorListener } from '../features/operator-api/listener';
 import {
   decodeBase64url,
@@ -8,6 +10,19 @@ import {
 } from '../features/operator-api/node-crypto';
 import type { ErrorReporter } from '@daisy/observability';
 import type { App } from './app';
+
+/**
+ * Moderation's tables land with their migration (WATCH-7); until then every
+ * moderation route refuses, and that commit replaces this with the store.
+ */
+const notFound = async () => {
+  throw createAppError('NOT_FOUND');
+};
+const moderationAwaitingTables: ModerationStore = {
+  listModerationReports: async () => [],
+  readModerationReport: async () => null,
+  runModerationCommand: notFound,
+};
 
 /**
  * The private operator listener (ADR 0079), or null when no operator keys
@@ -34,6 +49,7 @@ export async function startOperatorApi(app: App, reporter: ErrorReporter) {
     serve: ({ hostname, port, fetch }) =>
       Bun.serve({ hostname, port, fetch, maxRequestBodySize: 32 * 1024 }),
     handle: createOperatorApi({
+      moderation: moderationAwaitingTables,
       audience: config.OPERATOR_AUDIENCE!,
       keys,
       crypto: nodeOperatorCrypto,

@@ -1,3 +1,4 @@
+import { captureUnadmitted } from './room-capture';
 import { castHoldsUnadmittedAiJudge } from './ai-judge-seating';
 import { castSeatsBotDebater, castSpendsAiRound } from './ai-round-cast';
 import { acceptedRoomMutation } from './room-assembly-facts';
@@ -82,6 +83,8 @@ export const startRound = (
   if (blocker) return refuse(blocker);
   if (castHoldsUnadmittedAiJudge(room, edges.hostHoldsCasualAiJudge))
     return refuse('ai-judge-premium');
+  if (captureUnadmitted(room, edges.hostHoldsCasualCapture))
+    return refuse('capture-premium');
   next = { ...room, status: 'started' };
   return acceptedRoomMutation(next, {
     freeze: true,

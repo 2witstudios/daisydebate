@@ -36,6 +36,8 @@ export type BroadcastAction =
       readonly id: string;
       readonly reason: 'revocation-unconfirmed' | 'round-ended' | 'stopped';
     }
+  /** A stopped Broadcast's Egress is gone: no more media will come. */
+  | { readonly type: 'record-media-ended' }
   | { readonly type: 'revoke-observer' }
   | { readonly type: 'restore-observer' }
   | { readonly type: 'complete' };
@@ -76,7 +78,9 @@ export const decideBroadcast = (
   if (facts.stoppedAtMs !== null)
     return live
       ? [{ type: 'stop-egress', id: live.id, reason: 'stopped' }]
-      : [];
+      : facts.finalMediaEndMs === null
+        ? [{ type: 'record-media-ended' }]
+        : [];
   if (facts.roundStatus === 'completed' || facts.roundStatus === 'abandoned') {
     if (live)
       return [{ type: 'stop-egress', id: live.id, reason: 'round-ended' }];
