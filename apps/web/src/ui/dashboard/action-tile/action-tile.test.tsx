@@ -7,7 +7,7 @@ setupRitewayBun();
 
 const tile: ActionTileProps = {
   href: '/ranked',
-  glyph: 'swords',
+  destination: 'lobby',
   title: 'Ranked',
   description: 'Climb the ladder. Prove yourself.',
   note: 'yellow',

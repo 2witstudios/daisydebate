@@ -3,6 +3,7 @@
 @import './theme/components.css';
 @import './theme/shell.css';
 @import './theme/dashboard.css';
+@import './theme/note-glyphs.css';
 @import './theme/auth.css';
 @import './theme/onboarding.css';
 @import './theme/brand.css';

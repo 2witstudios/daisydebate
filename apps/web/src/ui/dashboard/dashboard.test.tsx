@@ -9,6 +9,15 @@ import { occurrences, renderInStore } from '../test-support/render-in-store';
 
 setupRitewayBun();
 
+const renderWithGlance = (): string =>
+  renderInStore(
+    h(Dashboard, {
+      hero: null,
+      liveNow: null,
+      seasonGlance: { number: 7, line: '12 days left' },
+    }),
+  );
+
 const render = (): string =>
   renderInStore(
     h(Dashboard, {
@@ -32,6 +41,22 @@ describe('Dashboard', () => {
         tiles.map((tile) => occurrences(list, `href="${tile.href}"`)),
       ],
       expected: [true, tiles.map(() => 1)],
+    });
+  });
+
+  test('reveals the season on the Seasons note alone', () => {
+    const html = renderWithGlance();
+    const noteOf = (href: string) =>
+      html.slice(html.indexOf(`href="${href}"`)).split('</a>')[0] ?? '';
+    assert({
+      given: 'a running season',
+      should: 'put its number and time on the Seasons note and no other',
+      actual: [
+        noteOf('/leaderboard/seasons').includes('12 days left'),
+        occurrences(html, '12 days left'),
+        occurrences(html, '>7</text>'),
+      ],
+      expected: [true, 1, 1],
     });
   });
 

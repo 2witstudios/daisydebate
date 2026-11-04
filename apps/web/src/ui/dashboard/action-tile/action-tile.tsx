@@ -1,32 +1,36 @@
 import Link from 'next/link';
 import { cn } from '../../cn';
-import type { IconName } from '../../components/icon/icon';
-import { Icon } from '../../components/icon/icon';
+import type { DestinationSlug } from '../../../features/destinations/destinations';
+import type { SeasonGlance } from '../../../features/leaderboard/season';
 import type { NoteColor, NoteTilt } from './action-tile-class';
 import {
   noteCopyClass,
   notePaperClass,
   noteTiltClass,
 } from './action-tile-class';
+import { NoteGlyph } from './note-glyph/note-glyph';
 
 export type ActionTileProps = {
   readonly href: string;
-  /** Icon name from the shared stroke icon set. */
-  readonly glyph: IconName;
+  /** Whose icon the note wears. */
+  readonly destination: DestinationSlug;
   readonly title: string;
   readonly description: string;
   readonly note: NoteColor;
   readonly tilt: NoteTilt;
+  /** The Seasons note's reveal; null when no season is running. */
+  readonly seasonGlance?: SeasonGlance | null;
 };
 
 /** One destination on Home, as a curled note stuck to the page. */
 export function ActionTile({
   href,
-  glyph,
+  destination,
   title,
   description,
   note,
   tilt,
+  seasonGlance = null,
 }: ActionTileProps) {
   return (
     <Link
@@ -37,7 +41,7 @@ export function ActionTile({
         noteTiltClass(tilt),
       )}
     >
-      <Icon name={glyph} size={28} strokeWidth={1.6} className="shrink-0" />
+      <NoteGlyph destination={destination} seasonGlance={seasonGlance} />
       <div className="flex flex-1 flex-col gap-1">
         <h2 className="font-display text-xl leading-tile-title font-semibold tracking-tight">
           {title}

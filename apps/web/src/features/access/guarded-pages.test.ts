@@ -46,6 +46,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestFollowing: async () => ({ people: [], history: [] }),
   requestHubCounts: async () => ({ live: 0, recordings: 0 }),
   requestLeadingLive: async () => [],
+  requestSeasonGlance: async () => null,
   requestLiveRoundsOf: async () => new Map(),
   requestLiveListing: async () => ({
     featured: null,

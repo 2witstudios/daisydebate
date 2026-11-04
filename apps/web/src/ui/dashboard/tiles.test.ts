@@ -65,15 +65,6 @@ describe('tiles config', () => {
     });
   });
 
-  test('gives Train the brain', () => {
-    assert({
-      given: 'the Train tile',
-      should: 'wear the brain icon',
-      actual: tiles.find(({ title }) => title === 'Train')?.glyph,
-      expected: 'brain',
-    });
-  });
-
   test('says what Tournaments plans', () => {
     assert({
       given: 'the Tournaments tile',

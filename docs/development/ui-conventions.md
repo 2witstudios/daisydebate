@@ -146,6 +146,15 @@ the gaps it cannot.
   are the one place that teaches the product, shown once after sign-up and
   reopened from Help; every other onboarding step follows the rule.
 
+## Home notes
+
+Home's eight destinations are curled notes (owner, 2026-11-03). Hovering or
+keyboard-focusing one peels it and plays its icon's motion once, in CSS alone,
+so it needs no script. With reduced motion neither plays. The Seasons note is
+the one exception to "no live facts on tiles": on hover and focus only, it
+reveals the running season's number and time, which appear instantly with
+reduced motion. The rail and tab bar keep the static icons.
+
 ## App shell
 
 Owner decision, 2026-10-12 (the Round room redesign canvas, Proposal page;
