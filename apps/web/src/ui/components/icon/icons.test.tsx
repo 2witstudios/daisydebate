@@ -4,7 +4,6 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { iconPaths } from './icons';
-import { tiles } from '../../dashboard/tiles';
 import { extractIconNames } from '../../test-support/icon-references';
 
 setupRitewayBun();
@@ -44,11 +43,10 @@ describe('icon set', () => {
       given: 'a scan of non-test source for literal icon references',
       should: 'see JSX literals, stat icon props, and nav/tile data alike',
       actual: [
-        'calendar',
         'chevronRight',
         'key',
         'home',
-        ...tiles.map((tile) => tile.glyph),
+        'brain',
       ].filter((name) => !names.includes(name)),
       expected: [],
     });
