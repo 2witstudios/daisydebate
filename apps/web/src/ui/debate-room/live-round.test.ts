@@ -345,8 +345,11 @@ describe('liveRoundOf during the round', () => {
       ],
       expected: [
         'prep',
-        { label: 'Your prep', remainingMs: 220_000 },
+        {
+          label: 'Your prep',
+          remainingMs: 220_000,
           note: 'Your microphone goes live when this prep ends.',
+        },
         4,
         { aff: 220_000, neg: 240_000 },
         'waiting',
