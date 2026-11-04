@@ -100,3 +100,21 @@ export const viewerSettled = (timeline: SpectatorTimeline): boolean =>
     timeline.broadcast.state === 'none') &&
   timeline.stage.kind === 'ended' &&
   timeline.recording !== 'processing';
+
+/**
+ * The worker stopped publishing: the object stands still, so what it says about the
+ * present no longer holds. Late is honest; a viewer is told, never shown a stale
+ * "on air". The clock is the tab's own, so no two machines have to agree.
+ */
+export const PUBLISHING_STALE_AFTER_MS = 30_000;
+export const timelineAsOf = (
+  timeline: SpectatorTimeline,
+  sinceMovedMs: number,
+): SpectatorTimeline =>
+  sinceMovedMs > PUBLISHING_STALE_AFTER_MS &&
+  timeline.broadcast.state === 'on_air'
+    ? {
+        ...timeline,
+        broadcast: { state: 'interrupted', stream: timeline.broadcast.stream },
+      }
+    : timeline;

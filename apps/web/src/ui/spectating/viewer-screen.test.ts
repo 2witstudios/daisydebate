@@ -1,7 +1,9 @@
 import type { BroadcastStream, SpectatorTimeline } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  PUBLISHING_STALE_AFTER_MS,
   streamableFeedOf,
+  timelineAsOf,
   viewerScreenOf,
   viewerSettled,
   type ViewerPlayback,
@@ -206,6 +208,32 @@ describe('viewerSettled', () => {
         }),
       ].map(viewerSettled),
       expected: [false, false, true],
+    });
+  });
+});
+
+describe('timelineAsOf', () => {
+  const onAir = timeline({ broadcast: { state: 'on_air', stream } });
+  test('a stale object cannot keep saying on air', () => {
+    assert({
+      given: 'state that moved within the bound, and state that stopped moving',
+      should: 'stand, then say interrupted and keep the stream',
+      actual: [
+        timelineAsOf(onAir, PUBLISHING_STALE_AFTER_MS).broadcast.state,
+        timelineAsOf(onAir, PUBLISHING_STALE_AFTER_MS + 1).broadcast,
+      ],
+      expected: ['on_air', { state: 'interrupted', stream }],
+    });
+  });
+
+  test('what has already settled stays settled', () => {
+    const ended = timeline({ broadcast: { state: 'ended' } });
+    assert({
+      given: 'an ended Broadcast whose state no longer moves',
+      should: 'still say ended',
+      actual: timelineAsOf(ended, PUBLISHING_STALE_AFTER_MS * 10).broadcast
+        .state,
+      expected: 'ended',
     });
   });
 });

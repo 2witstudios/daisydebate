@@ -1,49 +1,48 @@
 # Audience load against a live debate
 
-The promise this checks: viewers can never hurt the debate. `scripts/audience-load.ts`
-drives the audience's poll routes at a stated rate, and its `floor` command reads the
-existing floor logs, so one debate's timing can be compared with and without an audience.
+The promise this checks: viewers can never hurt the debate. It holds for polls and not yet
+for a burst of page loads (below). A viewer's polls read the publisher's state from the public bucket (ADR 0112), so they never reach web.
+What still reaches web is the first page load, one sampled pulse, and anyone's direct
+request, and `fly.toml` limits how many of those run at once.
 
 ## What the driver sends
 
-`--viewers N` is N requests a second: each viewer polls
-`GET /api/rounds/:id/timeline` and `GET /api/rounds/:id/audience` (chat, reactions and
-the count) every 2 s, as the page does. It is open loop and sends no cookie, as a viewer
-of a public Round does. It refuses every origin but local and staging.
+`scripts/audience-load.ts` loads `/watch/:id` at `--viewers N` divided by `--every-seconds` (2 by default) requests a second, open loop, with no cookie, from one source. Run it from several machines
+to stand in for separate addresses. It refuses every origin but local and staging.
 
 ## The comparison
 
 Run one live, human, public Round with a Broadcast through both windows, on the same
 deployment, keeping the logs of each.
 
-1. **Without load.** For at least 5 minutes of speeches:
-   `fly logs -a daisy-debate-staging -j > baseline.log` (locally, keep the server's
-   stdout).
-2. **With load.** Same Round, same length, with the log kept in `loaded.log`:
-   `bun scripts/audience-load.ts --origin https://beta.daisydebate.com --round <roundId> --viewers 1000 --seconds 300`
+1. **Without load.** For at least 5 minutes of speeches, keep the log in `baseline.log`.
+2. **With load.** Same Round, same length, in `loaded.log`, sending page loads as well
+   as direct requests, with seats joining during the burst.
 3. **Read both.** `bun scripts/audience-load.ts floor baseline.log`, then `loaded.log`.
+
+A floor pass is logged only when a floor is due, so a window with no speech boundary
+has no passes to compare. Hold the window across at least two.
 
 ## What to read
 
-| Field                       | Log event                   | What it says                                                                       | Viewers did no harm when              |
-| --------------------------- | --------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------- |
-| `passMs`                    | `round.media.floor_pass`    | How long a tick's pass for a due floor took (`durationMs`)                         | p99 stays near the baseline           |
-| `failedPasses`              | `round.media.floor_pass`    | Passes that carried a failure `cause`                                              | Stays at the baseline, normally zero  |
-| `waitingByCause`            | `round.media.floor_waiting` | Why a due floor did not start a pass: `lease`, `interval`, `running` or `capacity` | `running` and `capacity` do not rise  |
-| `tickMs`                    | `round.media.floor_tick`    | How long a tick took to read its sessions                                          | p99 stays near the baseline           |
-| `refusedByLane.audience`    | `db.capacity.refused`       | Viewers refused: the audience lane full                                            | May be any number: this is the design |
-| `refusedByLane.competitive` | `db.capacity.refused`       | Debate work refused                                                                | Stays at the baseline, normally zero  |
+| Field                       | Log event                   | What it says                                           |
+| --------------------------- | --------------------------- | ------------------------------------------------------ |
+| `passMs`                    | `round.media.floor_pass`    | How long a tick's pass for a due floor took            |
+| `failedPasses`              | `round.media.floor_pass`    | Passes that carried a failure `cause`. The bar is zero |
+| `waitingByCause`            | `round.media.floor_waiting` | Why a due floor did not start a pass                   |
+| `tickMs`                    | `round.media.floor_tick`    | How long a tick took to read its sessions              |
+| `refusedByLane.competitive` | `db.capacity.refused`       | Debate work refused. The bar is zero                   |
 
-The driver's own output says what viewers got: `statuses["200"]` answered,
-`statuses["503"]` refused and told when to come back, `statuses["0"]` never answered, and
-`answeredMs` how long an answer took. A rising `0` count or `answeredMs` with a flat
-database is the process itself saturating, not a lane.
+Read seat audio and rejoin from the seats' own browsers. The floor logs cannot show them.
 
-## What the lanes do not cover
+## What the limit does not cover
 
-The audience lane and the per-Round cache keep viewers from the database's competitive
-connections. Every poll still runs through the web process that also runs debates: its
-proxy, route handling and request log. `passMs` and `tickMs` rising while
-`refusedByLane.competitive` stays flat means that shared process is the limit, and the
-remedy is outside the database: answer polls before they reach Next, put a CDN in front
-of the cacheable answers, or take the audience to its own machines.
+The connection limit in `fly.toml` protects the process by turning traffic away, and a
+seat's requests share those slots with everyone's. It does not stop a page-load crowd from
+hurting a debate. The one rerun, with 1,000 page loads a second from three regions for
+150 s, broke the promise above (the proof page, Page loads beside a live debate).
+
+Polls no longer reach web. A flash crowd of first page loads still does, because each one
+renders on web and reads the database. This release accepts that limit. The fix and a rerun
+at a lower rate, to find where harm begins, are on the Before a tournament checklist. An edge
+per-address limit does not cover it, because a real crowd comes from many addresses.

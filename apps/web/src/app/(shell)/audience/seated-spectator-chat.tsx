@@ -15,10 +15,5 @@ export async function SeatedSpectatorChat({
 }) {
   const audience = await requestAudience(roundId, actorId);
   if (!audience?.seated || !audience.shown.chat) return null;
-  return (
-    <SeatedChatReader
-      initial={audience.snapshot}
-      unlisted={audience.unlisted}
-    />
-  );
+  return <SeatedChatReader initial={audience.snapshot} />;
 }

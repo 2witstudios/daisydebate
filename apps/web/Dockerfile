@@ -36,6 +36,7 @@ COPY packages/redis/package.json packages/redis/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
 COPY apps/broadcast-worker/package.json apps/broadcast-worker/package.json
 COPY apps/recording-worker/package.json apps/recording-worker/package.json
+COPY apps/audience-publisher/package.json apps/audience-publisher/package.json
 COPY apps/log-shipper/package.json apps/log-shipper/package.json
 COPY apps/media-worker/package.json apps/media-worker/package.json
 COPY apps/realtime/package.json apps/realtime/package.json
@@ -78,6 +79,7 @@ COPY packages/redis/package.json packages/redis/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
 COPY apps/broadcast-worker/package.json apps/broadcast-worker/package.json
 COPY apps/recording-worker/package.json apps/recording-worker/package.json
+COPY apps/audience-publisher/package.json apps/audience-publisher/package.json
 COPY apps/log-shipper/package.json apps/log-shipper/package.json
 COPY apps/media-worker/package.json apps/media-worker/package.json
 COPY apps/realtime/package.json apps/realtime/package.json
@@ -164,6 +166,13 @@ USER daisy
 COPY --chown=daisy:daisy apps/recording-worker/src apps/recording-worker/src
 COPY --chown=daisy:daisy apps/recording-worker/assets apps/recording-worker/assets
 WORKDIR /app/apps/recording-worker
+CMD ["bun", "src/start.ts"]
+
+# ---- audience-publisher: apps/audience-publisher, a Round's released public state
+# in the public bucket (fly.audience-publisher.toml, ADR 0112). No port: it only calls out.
+FROM server-source AS audience-publisher
+COPY --chown=daisy:daisy apps/audience-publisher/src apps/audience-publisher/src
+WORKDIR /app/apps/audience-publisher
 CMD ["bun", "src/start.ts"]
 
 # ---- log-shipper: apps/log-shipper, the operational log shipper

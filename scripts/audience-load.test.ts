@@ -12,10 +12,23 @@ setupRitewayBun();
 const roundId = 'a'.repeat(24);
 
 describe('parseLoadPlan', () => {
+  test('a rate that cannot send is refused', () => {
+    expect(() =>
+      parseLoadPlan([
+        '--origin',
+        'http://localhost:3100',
+        '--round',
+        roundId,
+        '--every-seconds',
+        '0',
+      ]),
+    ).toThrow('--viewers, --seconds and --every-seconds must be positive');
+  });
+
   test('a viewer count states its request rate', () => {
     assert({
       given: '1,000 viewers on a local server',
-      should: 'poll two routes each every 2 s, 1,000 requests a second',
+      should: 'load the page once each every 2 s, 500 requests a second',
       actual: parseLoadPlan([
         '--origin',
         'http://localhost:3100',
@@ -29,7 +42,7 @@ describe('parseLoadPlan', () => {
       expected: {
         origin: 'http://localhost:3100',
         roundId,
-        requestsPerSecond: 1000,
+        requestsPerSecond: 500,
         seconds: 60,
       },
     });

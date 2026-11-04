@@ -36,12 +36,40 @@ const render = (over: Partial<SpectatorTimeline>) =>
     h(
       AppRouterContext,
       { value: router },
-      h(BroadcastViewer, { initial: timeline(over) }),
+      h(BroadcastViewer, {
+        initial: timeline(over),
+        stateUrl: 'https://feed.daisy.invalid/state/k.json',
+        refreshHref: '/watch/r',
+      }),
     ),
   );
 const ended = { kind: 'ended' } as const;
 
 describe('BroadcastViewer', () => {
+  test('with nothing published, the page says how to look again', () => {
+    const noBroadcast = renderToString(
+      h(
+        AppRouterContext,
+        { value: router },
+        h(BroadcastViewer, {
+          initial: timeline({ stage: { kind: 'upcoming' } }),
+          stateUrl: null,
+          refreshHref: '/watch/r',
+        }),
+      ),
+    );
+    const published = render({ stage: { kind: 'upcoming' } });
+    assert({
+      given: 'a Round with no state to read, and one with',
+      should: 'offer a plain refresh to the first alone',
+      actual: [
+        noBroadcast.includes('href="/watch/r"'),
+        published.includes('href="/watch/r"'),
+      ],
+      expected: [true, false],
+    });
+  });
+
   test('Stream this Round sits beside a playing Broadcast, and nowhere else', () => {
     const stream = {
       path: 'owned_hls',

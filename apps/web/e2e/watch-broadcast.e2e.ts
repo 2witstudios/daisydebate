@@ -241,9 +241,6 @@ test.describe('watching with no account', () => {
     const refused = await page.locator('main').innerText();
     await page.goto('/watch/abcdefghijklmnopqrstuvwx');
     expect(await page.locator('main').innerText()).toBe(refused);
-    expect(
-      (await request.get(`/api/rounds/${hidden.roundId}/timeline`)).status(),
-    ).toBe(404);
     await page.goto(`/watch?q=${hidden.aff}`);
     await expect(page.getByText(`@${hidden.aff}`)).toHaveCount(0);
     expect(

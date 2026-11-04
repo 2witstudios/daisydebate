@@ -76,6 +76,13 @@ export const SERVICE_APPS: readonly ServiceApp[] = [
     stop: null,
     private: true,
   },
+  {
+    file: 'fly.audience-publisher.toml',
+    token: 'FLY_AUDIENCE_PUBLISHER_API_TOKEN',
+    target: 'audience-publisher',
+    stop: null,
+    private: true,
+  },
   // ADR 0084: the log store (its own pinned image), then the shipper, both
   // before the admin app that reads the store's schema.
   {

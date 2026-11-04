@@ -627,3 +627,18 @@ export type {
   MediaRoomRotationCause,
 } from './media-room-fate';
 export { mediaRoomRotationCauses } from './media-room-fate';
+
+export {
+  audienceStatePath,
+  audienceStateSchema,
+  latestViewerBucket,
+  pulseRateFor,
+  tabPulses,
+  VIEWER_BUCKET_MS,
+  VIEWER_BUCKET_TTL_MS,
+  viewerBucketOf,
+  viewersFromSample,
+  VIEWER_PULSE_MS,
+  VIEWER_PULSES_PER_SECOND,
+} from './audience-state';
+export type { AudienceState } from './audience-state';

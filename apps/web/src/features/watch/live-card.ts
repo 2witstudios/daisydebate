@@ -1,5 +1,5 @@
 import type { LiveBroadcastPage } from '@daisy/db';
-import { releasedStage } from '../spectating/timeline';
+import { releasedStage } from '@daisy/debate-engine';
 import { modeLabel } from './labels';
 import { liveHref } from './routes';
 

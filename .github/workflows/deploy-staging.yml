@@ -92,6 +92,7 @@ jobs:
         deploy.egress=${{ steps.egress.outcome }}
         deploy.broadcast-worker=${{ steps.broadcast-worker.outcome }}
         deploy.recording-worker=${{ steps.recording-worker.outcome }}
+        deploy.audience-publisher=${{ steps.audience-publisher.outcome }}
         deploy.clickhouse=${{ steps.clickhouse.outcome }}
         deploy.log-shipper=${{ steps.log-shipper.outcome }}
         deploy.admin-migrate=${{ steps.admin-migrate.outcome }}
@@ -239,6 +240,16 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_RECORDING_WORKER_API_TOKEN }}
         run: >-
           flyctl deploy -c fly.recording-worker.toml --local-only --ha=false --no-public-ips
+          --build-arg APP_VERSION="${DEPLOY_SHA::7}"
+          --build-arg GIT_COMMIT="$DEPLOY_SHA"
+      - id: audience-publisher
+        name: Deploy the audience publisher
+        # ADR 0112: viewers read what it writes. A restart leaves their state a moment
+        # older and nothing else. Its token deploys only that app.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_AUDIENCE_PUBLISHER_API_TOKEN }}
+        run: >-
+          flyctl deploy -c fly.audience-publisher.toml --local-only --ha=false --no-public-ips
           --build-arg APP_VERSION="${DEPLOY_SHA::7}"
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: clickhouse
