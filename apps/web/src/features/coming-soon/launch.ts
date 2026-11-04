@@ -14,7 +14,7 @@ export type LaunchConfig = Readonly<Record<DestinationSlug, boolean>>;
  */
 export const launched: LaunchConfig = {
   lobby: true,
-  watch: false,
+  watch: true,
   judge: true,
   tournaments: false,
   seasons: true,

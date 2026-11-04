@@ -82,6 +82,7 @@ const setup = (over: {
         ],
         knownThroughMs: 90_000,
         captureFromMs: 0,
+        prepStartsAtMs: [],
       }),
       discardSources: log('discardSources'),
       listProcessingUnalerted: async () => over.processing ?? [],

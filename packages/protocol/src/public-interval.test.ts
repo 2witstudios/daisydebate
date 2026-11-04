@@ -2,13 +2,21 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   privateSpanChanges,
   publicClips,
-  publicIntervals,
+  publicIntervals as publicIntervalsBeforePrep,
   settledByHeartbeat,
   stageTimeline,
   wholeSegmentsInside,
 } from './public-interval';
 
 setupRitewayBun();
+
+const publicIntervals = (
+  ...args: [
+    Parameters<typeof publicIntervalsBeforePrep>[0],
+    Parameters<typeof publicIntervalsBeforePrep>[1],
+    Parameters<typeof publicIntervalsBeforePrep>[2],
+  ]
+) => publicIntervalsBeforePrep(...args, []);
 
 /** The start edge's allowance at an instant, for a capture opened at zero. */
 const lag = (edgeMs: number) => 1300 + Math.ceil(edgeMs / 10_000);
@@ -208,8 +216,8 @@ describe('stageTimeline', () => {
         { kind: 'speech', fromMs: LAG, toMs: 10_000 },
         { kind: 'between', fromMs: 10_000, toMs: 20_000 + lag(20_000) },
         { kind: 'speech', fromMs: 20_000 + lag(20_000), toMs: 30_000 },
-        { kind: 'between', fromMs: 30_000, toMs: 35_000 },
-        { kind: 'private', fromMs: 35_000, toMs: 45_000 + lag(45_000) },
+        { kind: 'between', fromMs: 30_000, toMs: 34_300 },
+        { kind: 'private', fromMs: 34_300, toMs: 45_000 + lag(45_000) },
         {
           kind: 'between',
           fromMs: 45_000 + lag(45_000),
@@ -242,7 +250,7 @@ describe('stageTimeline', () => {
         knownThroughMs: 40_000,
         captureFromMs: 0,
       }),
-      expected: [{ kind: 'private', fromMs: 30_000, toMs: 40_000 }],
+      expected: [{ kind: 'private', fromMs: 29_300, toMs: 40_000 }],
     });
   });
   test('a boundary never gives a private moment a more public kind', () => {
@@ -344,6 +352,67 @@ describe('wholeSegmentsInside', () => {
         [{ fromMs: 6000, toMs: 13_000 }],
       ),
       expected: [entry(8000)],
+    });
+  });
+});
+
+describe('the boundary going into prep', () => {
+  const PREP = 40_100;
+  const MARGIN = 700;
+  test('public speech stops short of prep, and only of prep', () => {
+    assert({
+      given: 'a speech ending just before prep, and a later one with no prep',
+      should: 'cut the first by the margin and leave the other to its end',
+      actual: publicIntervalsBeforePrep(
+        [closed(0, 40_000), closed(60_000, 90_000)],
+        0,
+        0,
+        [PREP],
+      ).map(({ toMs }) => toMs),
+      expected: [PREP - MARGIN, 90_000],
+    });
+    assert({
+      given: 'a prep long after a speech ended',
+      should: 'not touch the speech',
+      actual: publicIntervalsBeforePrep(
+        [closed(0, 40_000)],
+        0,
+        0,
+        [50_000],
+      ).map(({ toMs }) => toMs),
+      expected: [40_000],
+    });
+  });
+
+  test('the feed cuts to the private slate that much early', () => {
+    const timeline = stageTimeline({
+      segments: [closed(0, 40_000)],
+      privateSpans: [{ kind: 'prep', startedAtMs: PREP, endedAtMs: 60_000 }],
+      knownThroughMs: 70_000,
+      captureFromMs: 0,
+    });
+    assert({
+      given: 'a speech running into prep',
+      should: 'end the speech and begin the private slate at the same point',
+      actual: timeline.map(({ kind, toMs, fromMs }) =>
+        kind === 'speech' ? toMs : fromMs,
+      ),
+      expected: [PREP - MARGIN, PREP - MARGIN],
+    });
+  });
+
+  test('judging keeps its end at the speech', () => {
+    const [speech] = stageTimeline({
+      segments: [closed(0, 40_000)],
+      privateSpans: [{ kind: 'judging', startedAtMs: 40_000, endedAtMs: null }],
+      knownThroughMs: 70_000,
+      captureFromMs: 0,
+    });
+    assert({
+      given: 'the last speech running into judging',
+      should: 'keep the whole speech: a brief spill there is accepted',
+      actual: speech?.toMs,
+      expected: 40_000,
     });
   });
 });

@@ -22,6 +22,7 @@ import {
 } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
+import { roundPrivateSpans } from './schema/round-private-spans';
 import { roundSegments } from './schema/round-segments';
 import { recordingCaptures } from './schema/recording-captures';
 import { recordingProcessingJobs as jobs } from './schema/recording-processing-jobs';
@@ -94,7 +95,13 @@ export const readRecordingPublicHistory = async (
       eq(recordingCaptures.recordingId, recordings.id),
     )
     .where(eq(recordings.id, recordingId));
-  if (!capture) return { segments: [], knownThroughMs: null, captureFromMs: 0 };
+  if (!capture)
+    return {
+      segments: [],
+      knownThroughMs: null,
+      captureFromMs: 0,
+      prepStartsAtMs: [],
+    };
   const segments = await tx
     .select({
       startedAt: roundSegments.startedAt,
@@ -104,7 +111,17 @@ export const readRecordingPublicHistory = async (
     .from(roundSegments)
     .where(eq(roundSegments.roundId, capture.roundId))
     .orderBy(asc(roundSegments.sequence));
+  const preps = await tx
+    .select({ startedAt: roundPrivateSpans.startedAt })
+    .from(roundPrivateSpans)
+    .where(
+      and(
+        eq(roundPrivateSpans.roundId, capture.roundId),
+        eq(roundPrivateSpans.kind, 'prep'),
+      ),
+    );
   return {
+    prepStartsAtMs: preps.map((prep) => prep.startedAt.getTime()),
     segments: segments.map((segment) => ({
       startedAtMs: segment.startedAt.getTime(),
       endedAtMs: segment.endedAt?.getTime() ?? null,
@@ -167,6 +184,7 @@ export const requeueRecordingJob = async (
             history.segments,
             history.knownThroughMs,
             history.captureFromMs,
+            history.prepStartsAtMs,
           ),
         ],
         ceilingMs: input.ceilingMs,

@@ -2,7 +2,8 @@
 # segments, encodes three renditions and writes public HLS. Its image is the
 # `broadcast-worker` target of apps/web/Dockerfile. Its database login reaches
 # broadcasts only, and its secrets are all Fly secrets. It has no public service.
-# Stop the machine when idle: there is no proxy to auto-stop it.
+# Nothing starts it: there is no proxy, and a deploy leaves a stopped machine stopped.
+# The owner may stop it when not testing (deploy-staging, Stopping capture).
 app = "daisy-debate-staging-encoder"
 primary_region = "ord"
 kill_timeout = 30
@@ -12,5 +13,5 @@ kill_timeout = 30
   build-target = "broadcast-worker"
 
 [[vm]]
-  size = "performance-4x"
-  memory = "8gb"
+  size = "performance-2x"
+  memory = "4gb"
