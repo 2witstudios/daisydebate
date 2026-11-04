@@ -1,4 +1,4 @@
-import { audienceStateKey } from '@daisy/db';
+import { audienceStateKey } from '@daisy/db/audience-state-key';
 import { audienceStatePath } from '@daisy/protocol';
 
 /**
