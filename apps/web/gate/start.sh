@@ -6,9 +6,18 @@ set -euo pipefail
 
 : "${PORT:?PORT names the port web binds behind the gate}"
 
+# Match the logger's non-personal deployment metadata contract before JSON encoding.
+app_version=${APP_VERSION-development}
+git_commit=${GIT_COMMIT-unknown}
+if ! [[ "$app_version" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$ ]] || \
+   ! [[ "$git_commit" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$ ]]; then
+  printf '%s\n' 'Invalid gate deployment metadata' >&2
+  exit 1
+fi
+
 log_event() {
-  printf '{"level":%s,"time":%s,"service":"web-gate","event":"%s","msg":"%s"}\n' \
-    "$1" "$(($(date +%s) * 1000))" "$2" "$3"
+  printf '{"level":%s,"time":%s,"service":"web-gate","appVersion":"%s","gitCommit":"%s","event":"%s","msg":"%s"}\n' \
+    "$1" "$(($(date +%s) * 1000))" "$app_version" "$git_commit" "$2" "$3"
 }
 
 # The default route's gateway, from the route table's little-endian hex (DEC-39).
@@ -20,7 +29,7 @@ while read -r _ destination hex _; do
   gateways=$((gateways + 1))
 done < <(tail -n +2 /proc/net/route)
 if [ "$gateways" != 1 ]; then
-  log_event 60 web_gate.gateway_unresolved 'No single default gateway, so the gate cannot name callers'
+  log_event 50 web_gate.gateway_unresolved 'No single default gateway, so the gate cannot name callers'
   exit 1
 fi
 
@@ -78,12 +87,12 @@ while true; do
   fi
   deaths=$((deaths + 1))
   if [ "$deaths" -ge 5 ]; then
-    log_event 60 web_gate.gave_up 'The gate keeps dying: ending the machine'
+    log_event 50 web_gate.gave_up 'The gate keeps dying: ending the machine'
     stop_web
     wait "$web_pid" || true
     exit 1
   fi
-  log_event 50 web_gate.restarted 'The gate died and is starting again'
+  log_event 40 web_gate.restarted 'The gate died and is starting again'
   sleep 1
   start_gate
 done

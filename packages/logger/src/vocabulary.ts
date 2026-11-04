@@ -7,6 +7,9 @@ import { logRoutes } from './routes';
 
 export const eventRegistry = {
   'runtime.initialize': 'info',
+  'web_gate.restarted': 'warn',
+  'web_gate.gave_up': 'error',
+  'web_gate.gateway_unresolved': 'error',
   'request.unhandled': 'error',
   'http.request.completed': 'info',
   'http.request.cancelled': 'warn',

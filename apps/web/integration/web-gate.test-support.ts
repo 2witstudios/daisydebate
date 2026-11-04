@@ -1,3 +1,4 @@
+import { admitLogLine } from '@daisy/logger/ingest';
 import { afterAll, beforeAll } from 'bun:test';
 import { $ } from 'bun';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -44,6 +45,8 @@ export const containers = [
   container,
   `${container}-shutdown`,
   `${container}-deaths`,
+  `${container}-gateway`,
+  `${container}-metadata`,
 ];
 export const startContainer = async (name: string) => {
   await $`docker run -d --name ${name} --user 1001:1001 -p 127.0.0.1::8080 -e PORT=8090 -v ${web}/src:/app/apps/web/src:ro -w /app/apps/web daisy-web-gate-proof bash gate/start.sh`.quiet();
@@ -121,3 +124,9 @@ export const loadMany = (
   init?: RequestInit,
   client?: string,
 ) => Promise.all(Array.from({ length: count }, () => load(path, init, client)));
+
+export const gateAdmissions = (logs: string) =>
+  logs
+    .split('\n')
+    .filter((line) => line.includes('"event":"web_gate.'))
+    .map((line) => admitLogLine(line).ok);

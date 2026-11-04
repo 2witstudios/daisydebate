@@ -36,7 +36,9 @@ script.
   killed before a replacement starts. A gate that dies restarts without touching web and logs
   `web_gate.restarted`. Five
   deaths in a minute drain web and end the machine unsuccessfully, with `web_gate.gave_up`,
-  so Fly restarts it. A normal shutdown drains web before stopping the gate. Web unreachable
+  so Fly restarts it. A normal shutdown drains web before stopping the gate. Supervisor
+  events use the shared logger registry, severity and deployment metadata contract, so the
+  central log ingester retains them without accepting unregistered fields. Web unreachable
   fails Fly's checks and the alert probe's readiness read, which posts to Incidents. That probe's
   cadence is best effort (ADR 0046).
 
