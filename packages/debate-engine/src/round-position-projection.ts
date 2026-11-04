@@ -1,9 +1,5 @@
-import {
-  clockStopsOf,
-  dueAfterStops,
-  runningMs,
-  segmentDueAtMs,
-} from '@daisy/protocol';
+import { countdownDue } from './round-start-gate';
+import { clockStopsOf, runningMs, segmentDueAtMs } from '@daisy/protocol';
 import type {
   DebateSide,
   RoundPosition,
@@ -13,7 +9,6 @@ import type {
 } from '@daisy/protocol';
 import { advanceRoundClock } from './round-clock';
 import {
-  countdownAnchor,
   debateHasEnded,
   startedAtOf,
   type ClockState,
@@ -126,15 +121,9 @@ const countdownOf = (
     upcoming === null
   )
     return null;
-  return Math.max(
-    0,
-    dueAfterStops(
-      countdownAnchor(state),
-      countdownMs,
-      clockStopsOf(state.checkpoint),
-      now,
-    ) - now,
-  );
+  // To the due instant, then zero through any hold: only the clock's own opening reads the
+  // gate, so a held floor change never shows a countdown jumping up and back down.
+  return Math.max(0, countdownDue(state, countdownMs, now) - now);
 };
 
 /**

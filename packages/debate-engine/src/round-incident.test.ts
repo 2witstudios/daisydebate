@@ -1,3 +1,4 @@
+import { roundStartPolicy } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { HydratedSegment, RuntimeCheckpoint } from '@daisy/protocol';
 import { mediaGrants } from './media-grants';
@@ -384,6 +385,7 @@ test('commands are refused while held', () => {
   const held: RuntimeCheckpoint = {
     ...emptyCheckpoint,
     prep_consumed_ms: { affirmative: 0, negative: 0 },
+    start_gate: null,
     clock_stops: [],
     incident: {
       phase: 'paused',
@@ -612,5 +614,218 @@ test('the runtime says what happened to an incident, for its row', () => {
     should: 'state only its end',
     actual: ended.incidentChanges?.map(({ kind }) => kind),
     expected: ['ended'],
+  });
+});
+
+test('a speech starts when capture has its speaker, or a short bound passes', () => {
+  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const due = rules.countdownMs;
+  const opens = (run: ReturnType<typeof runtimeOf>, atMs: number) =>
+    run.tick(roundAt(atMs)).segmentInserts.map(({ startedAt }) => startedAt);
+  const awaiting = () => {
+    const run = runtimeOf([]);
+    run.applyStartGate({
+      kind: 'await',
+      atMs: Date.parse(roundAt(due - 1_500)),
+      seats: [seat.id],
+      boundMs: 1_500,
+    });
+    return run;
+  };
+  const heardAt = (atMs: number) => {
+    const run = awaiting();
+    const projection = run.applyStartGate({
+      kind: 'heard',
+      atMs: Date.parse(roundAt(atMs)),
+      seat: seat.id,
+    });
+    return { run, projection };
+  };
+  const inTime = heardAt(due - 500);
+  assert({
+    given: 'capture hearing the speaker before the clock is due',
+    should: 'start exactly on time, so no floor change grows',
+    actual: [opens(inTime.run, due - 1), opens(inTime.run, due)],
+    expected: [[], [roundAt(due)]],
+  });
+  const late = heardAt(due + 400);
+  assert({
+    given: 'capture hearing the speaker 400 ms late',
+    should: 'start at that instant, for every reader of the clock',
+    actual: late.projection.segmentInserts.map(({ startedAt }) => startedAt),
+    expected: [roundAt(due + 400)],
+  });
+  const never = awaiting();
+  assert({
+    given: 'capture never hearing the speaker',
+    should: 'hold until the bound and start anyway',
+    actual: [opens(never, due + 1_499), opens(never, due + 1_500)],
+    expected: [[], [roundAt(due + 1_500)]],
+  });
+  assert({
+    given: 'the clock having started',
+    should: 'spend the gate',
+    actual: never.checkpoint().start_gate,
+    expected: null,
+  });
+  const nobody = runtimeOf([]);
+  nobody.applyStartGate({
+    kind: 'await',
+    atMs: Date.parse(roundAt(due - 1_500)),
+    seats: [],
+    boundMs: 1_500,
+  });
+  assert({
+    given: 'no speaker to wait for, as with a bot speaker',
+    should: 'hold nothing',
+    actual: opens(nobody, due),
+    expected: [roundAt(due)],
+  });
+  const other = awaiting();
+  other.applyStartGate({
+    kind: 'heard',
+    atMs: Date.parse(roundAt(due - 500)),
+    seat: 'someone-else',
+  });
+  assert({
+    given: 'a report for a seat the gate is not waiting on',
+    should: 'change nothing',
+    actual: other.checkpoint().start_gate?.phase,
+    expected: 'awaiting',
+  });
+  const position = awaiting().position(roundAt(due + 500));
+  assert({
+    given: 'a read during the hold',
+    should: 'show zero: the countdown never jumps back up',
+    actual: position.countdownRemainingMs,
+    expected: 0,
+  });
+});
+
+test('prep taken inside the lead leaves the next start to gate afresh', () => {
+  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const due = rules.countdownMs;
+  const run = runtimeOf([]);
+  run.applyStartGate({
+    kind: 'await',
+    atMs: Date.parse(roundAt(due - 1_500)),
+    seats: [seat.id],
+    boundMs: 1_500,
+  });
+  run.execute({
+    command: { type: 'start_prep' },
+    actorId: seat.actorId,
+    now: roundAt(due - 1_000),
+  });
+  const after = run.applyStartGate({
+    kind: 'heard',
+    atMs: Date.parse(roundAt(due - 900)),
+    seat: seat.id,
+  });
+  assert({
+    given: 'prep taken after the gate was written',
+    should: 'spend the gate, since the microphone it waited for closes',
+    actual: after.round?.checkpoint.start_gate,
+    expected: null,
+  });
+});
+
+test('an incident spends a start gate, so a stale report moves nothing', () => {
+  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const due = rules.countdownMs;
+  const run = runtimeOf([]);
+  run.applyStartGate({
+    kind: 'await',
+    atMs: Date.parse(roundAt(due - 1_500)),
+    seats: [seat.id],
+    boundMs: 1_500,
+  });
+  run.applyIncident(pause(due - 1_000, null));
+  const after = run.applyStartGate({
+    kind: 'heard',
+    atMs: Date.parse(roundAt(due - 900)),
+    seat: seat.id,
+  });
+  assert({
+    given: 'capture reporting the old room after an incident opened',
+    should: 'leave the gate spent',
+    actual: after.round?.checkpoint.start_gate,
+    expected: null,
+  });
+});
+
+test('a start gate does not move the microphone it waits for', () => {
+  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const due = rules.countdownMs;
+  const run = runtimeOf([]);
+  run.applyStartGate({
+    kind: 'await',
+    atMs: Date.parse(roundAt(due - 1_500)),
+    seats: [seat.id],
+    boundMs: 1_500,
+  });
+  const lead = roundStartPolicy.microphoneLeadMs;
+  const now = roundAt(due - (lead - 100));
+  const position = run.position(now);
+  assert({
+    given: 'the gate the pass opens in the same breath as the microphone',
+    should:
+      'hold the clock but keep the microphone open, on the lead from its due',
+    actual: {
+      startsIn: position.countdownRemainingMs,
+      microphone: mediaGrants({
+        participants: oneOnOneSeats.map((row) => ({
+          ...row,
+          eligible: true,
+          kind: 'human' as const,
+        })),
+        participantId: seat.id,
+        rules,
+        position,
+        now,
+        finalSegmentEndedAt: null,
+        inPreRoundPrep: false,
+        conversationHeld: true,
+      }).publish.includes('microphone'),
+    },
+    expected: { startsIn: lead - 100, microphone: true },
+  });
+});
+
+test('the microphone opens just before the clock, for the next human speaker only', () => {
+  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const other = oneOnOneSeats.find(
+    (row) => row.role !== first.side && row.role !== 'judge',
+  )!;
+  const due = rules.countdownMs;
+  const publish = (atMs: number, participantId: string, kind = 'human') => {
+    const now = roundAt(atMs);
+    return mediaGrants({
+      participants: oneOnOneSeats.map((row) => ({
+        ...row,
+        eligible: true,
+        kind: kind as 'human',
+      })),
+      participantId,
+      rules,
+      position: runtimeOf(
+        [{ ...speech(), endedAt: roundAt(atMs - 1) }].slice(0, 0),
+      ).position(now),
+      now,
+      finalSegmentEndedAt: null,
+      inPreRoundPrep: false,
+      conversationHeld: true,
+    }).publish.includes('microphone');
+  };
+  assert({
+    given:
+      'the first speech, with the conversation held, before and within the lead',
+    should: 'open only the next speaker, only within the lead',
+    actual: [
+      publish(due - roundStartPolicy.microphoneLeadMs - 1, seat.id),
+      publish(due - roundStartPolicy.microphoneLeadMs, seat.id),
+      publish(due - roundStartPolicy.microphoneLeadMs, other.id),
+    ],
+    expected: [false, true, false],
   });
 });

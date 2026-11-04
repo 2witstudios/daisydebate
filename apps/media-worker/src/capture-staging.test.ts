@@ -90,14 +90,90 @@ test('private staging never retains conversation or a closed-edge window for a f
   f.state.state.intervals[0]!.endedAt = iso(10010);
   f.observe(2, 30.4);
   f.observe(3, 40.6);
-  f.state.state.intervals[0]!.endedAt = null;
   assert({
     given:
       'conversation callbacks and full brackets crossing a closed grant edge',
     should: 'retain no PCM for a later grant',
     actual: { frames: f.staging.take().length, ...f.counts() },
+    expected: { frames: 0, dropped: 0, retained: 0 },
+  });
+  // Later histories cannot admit them: each frame's own time is outside any interval.
+  f.state.state.serverNow = iso(20_000);
+  f.staging.refresh(f.state.calibration);
+  assert({
+    given: 'a fresher history, past their wait',
+    should: 'let every one go, never having stored any',
+    actual: { frames: f.staging.take().length, ...f.counts() },
     expected: { frames: 0, dropped: 4, retained: 0 },
   });
+});
+test('a frame that beat the history showing its speech open waits for it', () => {
+  const f = fixture(),
+    segment = f.state.state.segment!;
+  f.state.state.segment = null;
+  f.observe(0, 10);
+  f.observe(1, 20.2);
+  assert({
+    given: 'frames arriving before this worker knows the speech is open',
+    should: 'retain nothing yet',
+    actual: f.staging.take().length,
+    expected: 0,
+  });
+  f.state.state.segment = segment;
+  f.staging.refresh(f.state.calibration);
+  assert({
+    given: 'the next history showing the speech open from before they arrived',
+    should:
+      'admit the frame inside the interval; the first straddles its start',
+    actual: f.staging.take().map(({ frame }) => frame.pcm[0]),
+    expected: [7],
+  });
+});
+test('closing a track lets go of its own waiting frames only', () => {
+  const f = fixture(),
+    segment = f.state.state.segment!;
+  f.state.state.segment = null;
+  f.observe(0, 10);
+  f.observe(1, 20.2);
+  f.staging.observe({
+    identity: 'i'.repeat(24),
+    trackId: 'other-track',
+    sequence: 0,
+    beforeMs: 30.4,
+    afterMs: 30.5,
+    pcm: new Int16Array(160).fill(9),
+  });
+  f.staging.closeTrack('real-track');
+  assert({
+    given: 'a track closing while its frames wait for history',
+    should: 'drop only that track, retaining nothing of it',
+    actual: f.counts(),
+    expected: { dropped: 2, retained: 0 },
+  });
+  f.state.state.segment = segment;
+  f.staging.refresh(f.state.calibration);
+  assert({
+    given: 'the next history',
+    should: 'admit the other track, and not bring the closed one back',
+    actual: f.staging.take().map(({ frame }) => frame.pcm[0]),
+    expected: [9],
+  });
+});
+test('audio before the clock never enters, however soon the speech opens', () => {
+  const f = fixture(),
+    interval = f.state.state.intervals[0]!,
+    { startedAt } = interval;
+  interval.startedAt = iso(10_500);
+  f.observe(0, 10);
+  f.observe(1, 20.2);
+  f.staging.refresh(f.state.calibration);
+  assert({
+    given: 'frames from just before an interval the next history shows',
+    should: 'never admit them',
+    actual: f.staging.take().length,
+    expected: 0,
+  });
+  interval.startedAt = startedAt;
 });
 test('private staged PCM is held until a batch takes it', () => {
   const f = fixture();
@@ -122,7 +198,7 @@ test('private staged PCM is held until a batch takes it', () => {
       segment: 'g'.repeat(24),
       pcm: 7,
       later: 1,
-      dropped: 1,
+      dropped: 0,
     },
   });
 });

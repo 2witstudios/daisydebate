@@ -55,6 +55,7 @@ export const mediaDependencies = (
   now: () => performance.now(),
   // Every recover call is a pass; recovery-due tests choose their own heartbeat.
   observeIncident: async () => undefined,
+  awaitCapture: async () => undefined,
   recoveryHeartbeatMs: 0,
 });
 export const withMediaRound = (
@@ -200,6 +201,7 @@ export const captureHeardRelay = (
     readCapture: (identity) => capture.readMediaCaptureState(identity),
     readLease: (identity) => capture.readCurrentCaptureLease(identity),
     write: fixture.redis.writeCaptureHeard,
+    startGateHeard: async () => undefined,
   });
 
 /** Starts the launched Round and moves its clock past the countdown into the first speech. */

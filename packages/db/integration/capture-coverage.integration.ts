@@ -228,16 +228,21 @@ test('a freeze can say how much speech the platform lost', async () => {
       captureGapMs,
       unheardMs,
       expectedSpeechMs,
-      gaps: captureGaps.gaps.map(({ fromOffsetMs, untilOffsetMs }) => [
-        fromOffsetMs,
-        untilOffsetMs,
-      ]),
+      gaps: captureGaps.gaps
+        .filter(({ cause }) => cause === 'platform')
+        .map(({ fromOffsetMs, untilOffsetMs }) => [
+          fromOffsetMs,
+          untilOffsetMs,
+        ]),
+      edges:
+        captureGaps.gaps.filter(({ cause }) => cause === 'edge').length > 0,
     },
     expected: {
       captureGapMs: 100,
       unheardMs: 100,
       expectedSpeechMs: 5190,
       gaps: [[3000, 3100]],
+      edges: true,
     },
   });
 });
@@ -254,9 +259,18 @@ test('a seat that went quiet is no loss of the platform', async () => {
   const { captureGaps } = quiet;
   assert({
     given: 'a coverage gap alone, with nothing lost by the platform',
-    should: 'state nothing as the platform fault, and still count it unheard',
-    actual: { captureGapMs, unheardMs, gaps: captureGaps.gaps },
-    expected: { captureGapMs: 0, unheardMs: 100, gaps: [] },
+    should:
+      'state it neutrally, not as the platform fault, and still count it unheard',
+    actual: {
+      captureGapMs,
+      unheardMs,
+      causes: [...new Set(captureGaps.gaps.map(({ cause }) => cause))].sort(),
+    },
+    expected: {
+      captureGapMs: 0,
+      unheardMs: 100,
+      causes: ['edge', 'unattributed'],
+    },
   });
 });
 
@@ -348,7 +362,9 @@ test("a takeover's gap is the platform's, and stated", async () => {
     actual: {
       gapMs: frozenCaptureColumns(shortfall.capture).captureGapMs,
       unheard: frozenCaptureColumns(shortfall.capture).unheardMs,
-      gaps: shortfall.captureGaps.gaps.length,
+      gaps: shortfall.captureGaps.gaps.filter(
+        ({ cause }) => cause === 'platform',
+      ).length,
     },
     expected: { gapMs: 400, unheard: 400, gaps: 1 },
   });

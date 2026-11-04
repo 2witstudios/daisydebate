@@ -21,7 +21,7 @@ import { roundTimeMediaClock } from './schedule-deadline';
 setupRitewayBun();
 
 const view = ran(1);
-const deadlineMs = nextMediaRefreshAt(view)!;
+const deadlineMs = nextMediaRefreshAt(view, 0)!;
 const RTT_MS = 200;
 const UNCERTAINTY_MS = RTT_MS / 2;
 

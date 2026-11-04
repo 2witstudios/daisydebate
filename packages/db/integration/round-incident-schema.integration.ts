@@ -118,11 +118,17 @@ test('a fresh Round reads the strict checkpoint', async () => {
     );
     assert({
       given: 'the column default',
-      should: 'parse with no incident and no stops',
-      actual: (({ incident, clock_stops }) => ({ incident, clock_stops }))(
-        runtimeCheckpointSchema.parse(row.runtime_state),
-      ),
-      expected: { incident: { phase: 'none' }, clock_stops: [] },
+      should: 'parse with no incident, no start gate and no stops',
+      actual: (({ incident, start_gate, clock_stops }) => ({
+        incident,
+        start_gate,
+        clock_stops,
+      }))(runtimeCheckpointSchema.parse(row.runtime_state)),
+      expected: {
+        incident: { phase: 'none' },
+        start_gate: null,
+        clock_stops: [],
+      },
     });
   });
 });

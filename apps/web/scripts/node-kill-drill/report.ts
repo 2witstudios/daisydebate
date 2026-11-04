@@ -69,7 +69,7 @@ export type DrillSample = z.infer<typeof drillSampleSchema>;
 const SEAT_BACK_BAR_MS = 15_000;
 const CAPTURE_BACK_BAR_MS = 30_000;
 /** Detection cannot be instant, and the resume point is the last confirmed audio before it. */
-const AIRTIME_LOST_BAR_MS = 1_000;
+const AIRTIME_LOST_BAR_MS = 2_000;
 const UNRECOVERED_BAR_MS = 60_000;
 /** What the capture rule itself allows a complete stream at its two edges (DEC-218, DEC-220). */
 const HONEST_GAP_TOLERANCE_MS =

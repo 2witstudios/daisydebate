@@ -59,6 +59,8 @@ export type RoundSnapshot = {
   readonly clock: {
     readonly label: string;
     readonly remainingMs: number;
+    /** Something the seat should know while this clock runs. */
+    readonly note?: string;
   } | null;
   /** Each side's prep left; null when the round has no in-round prep. */
   readonly prepMs: Readonly<Record<Side, number>> | null;

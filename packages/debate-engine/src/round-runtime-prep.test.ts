@@ -55,6 +55,7 @@ describe('round runtime prep', () => {
           active_prep: { side: 'affirmative', started_at: at(945_000) },
           floor: null,
           incident: { phase: 'none' },
+          start_gate: null,
           clock_stops: [],
         },
         position: {
@@ -183,6 +184,7 @@ describe('round runtime prep', () => {
         active_prep: null,
         floor: null,
         incident: { phase: 'none' },
+        start_gate: null,
         clock_stops: [],
       },
     });

@@ -54,6 +54,7 @@ const storedRound: RoundHydration = {
     active_prep: null,
     floor: null,
     incident: { phase: 'none' },
+    start_gate: null,
     clock_stops: [],
   },
   version: 1,

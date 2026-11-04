@@ -222,6 +222,9 @@ function coalesceCreditedWindows(
   return merged;
 }
 
+/** Below one audio packet, a measured gap is the measure's own grain. */
+const STATED_GAP_MIN_MS = 20;
+
 /** One rule for one tolerance, handed to the adapter as data it cannot change. */
 export function createCaptureRule(tolerance: {
   readonly joinMs: number;
@@ -232,6 +235,18 @@ export function createCaptureRule(tolerance: {
     botGrantUnused,
     gaps: (coverage, observed) =>
       traverseCoverage({ ...coverage, observed }).gaps,
+    edges: (coverage, observed) => {
+      const runs = captureRuns(observed.filter(validRange));
+      const tolerated = traverseCoverage({ ...coverage, observed }).gaps;
+      return coverage.authority
+        .filter(validRange)
+        .flatMap((window) => uncovered(window, runs))
+        .filter(
+          (gap) =>
+            gap.end - gap.start >= STATED_GAP_MIN_MS &&
+            !tolerated.some((other) => overlaps(gap, other)),
+        );
+    },
     coverage: (kind, grants, botWindows) =>
       kind === 'bot'
         ? {

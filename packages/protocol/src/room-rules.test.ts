@@ -150,6 +150,7 @@ describe('runtime checkpoint', () => {
           active_prep: null,
           floor: null,
           incident: { phase: 'none' },
+          start_gate: null,
           clock_stops: [],
         },
       },
@@ -168,6 +169,7 @@ describe('runtime checkpoint', () => {
         holder_participant_id: id,
         granted_at: '2026-01-01T00:04:30.000Z',
       },
+      start_gate: null,
       incident: {
         phase: 'resuming',
         since: '2026-01-01T00:04:40.000Z',

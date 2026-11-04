@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./media-grants": "./src/media-grants.ts",
     "./position": "./src/round-position.ts",
     "./media-window": "./src/media-window.ts"
   },

@@ -79,7 +79,11 @@ export function createMediaWorkerClient(input: WorkerTransportDependencies) {
     },
     /** Capture hears a bot seat's track (ISSUE-514-r2); the server owns admission. */
     heard: async (
-      track: Stream & { readonly trackId: string },
+      track: Omit<Stream, 'segmentId'> & {
+        /** Null during a countdown, with no segment yet current. */
+        readonly segmentId: string | null;
+        readonly trackId: string;
+      },
       signal?: AbortSignal,
     ) => {
       await call('heard', { ...track, version: 1 }, acknowledgedReply, signal);

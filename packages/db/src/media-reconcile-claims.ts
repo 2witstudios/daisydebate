@@ -1,5 +1,9 @@
 import { createAppError } from '@daisy/errors';
-import type { RoundStatus, RuntimeCheckpoint } from '@daisy/protocol';
+import {
+  startGateInstant,
+  type RoundStatus,
+  type RuntimeCheckpoint,
+} from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -76,6 +80,9 @@ const activeSession = (row: ActiveSessionRow) => {
           }
         : null,
       stops: row.runtime_state.clock_stops,
+      startGateAt: row.runtime_state.start_gate
+        ? startGateInstant(row.runtime_state.start_gate)
+        : null,
       hold:
         row.runtime_state.incident.phase === 'none'
           ? null

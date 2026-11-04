@@ -12,9 +12,9 @@ import {
   type ClockTransition,
 } from './round-clock-transition';
 import { debateInvariantIds } from './invariant-ids';
+import { segmentStartsAt } from './round-start-gate';
 import {
   closedCount,
-  countdownAnchor,
   type ClockState,
   type ClockSegment,
 } from './round-clock-state';
@@ -61,7 +61,7 @@ const gapOpening = (
   const stops = clockStopsOf(state.checkpoint);
   const due =
     active === null
-      ? dueAfterStops(countdownAnchor(state), rules.countdownMs, stops, nowMs)
+      ? segmentStartsAt(state, rules.countdownMs, nowMs)
       : dueAfterStops(
           Date.parse(active.started_at),
           Math.max(0, budget - state.checkpoint.prep_consumed_ms[active.side]),
@@ -81,7 +81,12 @@ const gapOpening = (
         },
       },
     };
-  return openClockSegment(state, rules, due);
+  // The gate is spent: the clock now starts, and nothing below reads it again.
+  return openClockSegment(
+    { ...state, checkpoint: { ...state.checkpoint, start_gate: null } },
+    rules,
+    due,
+  );
 };
 
 /** Time alone, without mutation, I/O, IDs or server storage. */

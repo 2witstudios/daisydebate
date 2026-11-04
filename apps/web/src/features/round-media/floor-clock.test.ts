@@ -1,3 +1,4 @@
+import { roundStartPolicy } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { floorBoundaries, floorDueAt, type FloorClock } from './floor-clock';
 
@@ -11,6 +12,7 @@ const clock = (lastSegment: FloorClock['lastSegment']): FloorClock => ({
   prepBudgetMs: null,
   activePrep: null,
   stops: [],
+  startGateAt: null,
   hold: null,
   segmentCount: 1,
   lastSegment,
@@ -71,7 +73,7 @@ test('a hold moves every wait', () => {
     given: 'a countdown a closed hold interrupted',
     should: 'be due that much later',
     actual: floorBoundaries({ ...gap, stops: [stop] }),
-    expected: [70_000],
+    expected: [70_000 - roundStartPolicy.microphoneLeadMs, 70_000],
   });
   assert({
     given: 'prep a closed hold interrupted',
@@ -92,5 +94,11 @@ test('a hold moves every wait', () => {
       floorBoundaries({ ...gap, hold: { resumesAt: at(90_000) } }),
     ],
     expected: [[], [90_000]],
+  });
+  assert({
+    given: 'a start gate holding the clock past its due',
+    should: 'read a move at the gate instant, not the due',
+    actual: floorBoundaries({ ...gap, startGateAt: at(10_700) }),
+    expected: [10_000 - roundStartPolicy.microphoneLeadMs, 10_700],
   });
 });

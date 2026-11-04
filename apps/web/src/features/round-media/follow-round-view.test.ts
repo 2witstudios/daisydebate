@@ -13,7 +13,7 @@ import { ran } from '../../ui/debate-room/live-round.test-support';
 setupRitewayBun();
 
 const view = ran(1);
-const deadlineMs = nextMediaRefreshAt(view)!;
+const deadlineMs = nextMediaRefreshAt(view, 0)!;
 
 const mounted = async () => {
   const state = { reads: 0, refreshes: 0, signals: [] as AbortSignal[] };

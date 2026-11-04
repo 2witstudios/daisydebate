@@ -1,9 +1,10 @@
 import type {
   RoundCommandAuthority,
+  RoundParticipantSeat,
   RoundPosition,
   RoundRules,
 } from '@daisy/protocol';
-import { conversational } from '@daisy/protocol';
+import { conversational, roundStartPolicy } from '@daisy/protocol';
 import { broadcastPhase } from './broadcast-phase';
 import { mediaWindowClosed } from './media-window';
 import { speakingParticipants } from './round-speaking';
@@ -94,6 +95,41 @@ const cameraOpen = (input: MediaGrantInput) =>
       Date.parse(input.now),
     )
   );
+/**
+ * The next human speaker, just before their clock. Their microphone opens now, so capture
+ * has it when the clock starts. Only the seat's own clock tells them to speak, and only
+ * speech inside the interval is ever credited.
+ */
+export const microphoneOpensForClock = (input: {
+  readonly rules: RoundRules;
+  readonly participants: readonly (RoundParticipantSeat & {
+    readonly kind: string;
+  })[];
+  readonly participantId: string;
+  readonly nextSequence: number;
+}) => {
+  const seat = input.participants.find(
+    (participant) => participant.id === input.participantId,
+  );
+  return (
+    seat?.kind === 'human' &&
+    speakingParticipants(
+      input.rules,
+      input.participants,
+      input.nextSequence,
+      null,
+    ).includes(input.participantId)
+  );
+};
+const opensForClock = (input: MediaGrantInput) => {
+  const { nextSegment: next, countdownRemainingMs: left } = input.position;
+  return (
+    next !== null &&
+    left !== null &&
+    left <= roundStartPolicy.microphoneLeadMs &&
+    microphoneOpensForClock({ ...input, nextSequence: next.sequence })
+  );
+};
 const publishSources = (
   camera: boolean,
   microphone: boolean,
@@ -131,7 +167,8 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
     position.prep === null &&
     (position.incident.phase === 'none'
       ? (conversational(position) && input.conversationHeld !== true) ||
-        speakingNow(input)
+        speakingNow(input) ||
+        opensForClock(input)
       : holdsTheFloor(input));
   return {
     publish: publishSources(

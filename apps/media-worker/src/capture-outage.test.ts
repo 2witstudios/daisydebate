@@ -453,7 +453,7 @@ test('only frames dropped by the bound count as lost', () => {
     given: 'a refused frame, then four held frames over a bound of two',
     should: 'keep the newest two and mark only the overflow lost',
     actual: [refusedLost, lost, dropped, staging.take().length],
-    expected: [0, [seat, seat], 3, 2],
+    expected: [0, [seat, seat], 2, 2],
   });
 });
 

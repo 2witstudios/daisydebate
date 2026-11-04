@@ -78,6 +78,7 @@ describe('round runtime lifecycle', () => {
             active_prep: null,
             floor: null,
             incident: { phase: 'none' },
+            start_gate: null,
             clock_stops: [],
           },
         },

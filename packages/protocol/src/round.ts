@@ -71,6 +71,30 @@ const incidentSchema = z.discriminatedUnion('phase', [
 export type RoundIncident = z.infer<typeof incidentSchema>;
 
 /**
+ * A speech may start only once capture has its speakers, or a short bound has passed
+ * (ADR 0110). Absent, or for another segment, it holds nothing.
+ */
+const startGateSchema = z
+  .discriminatedUnion('phase', [
+    z.strictObject({
+      phase: z.literal('awaiting'),
+      sequence: z.int().min(0),
+      /** The speakers capture has not reported on this room. */
+      seats: z.array(idSchema).min(1).readonly(),
+      /** The clock starts here regardless: capture failing never stalls a debate. */
+      until: z.iso.datetime(),
+    }),
+    z.strictObject({
+      phase: z.literal('ready'),
+      sequence: z.int().min(0),
+      /** When capture had them all. The clock starts here if this is past its due. */
+      at: z.iso.datetime(),
+    }),
+  ])
+  .nullable();
+export type RoundStartGate = z.infer<typeof startGateSchema>;
+
+/**
  * The runtime checkpoint (ADR 0058 §4), version 1 — only what has no
  * durable row. The open `round_segments` row is the live interval; the
  * checkpoint holds the three facts a restart could not otherwise
@@ -101,6 +125,8 @@ export const runtimeCheckpointSchema = z.strictObject({
     })
     .nullable(),
   incident: incidentSchema,
+  /** Whether capture is ready for the coming speech, which it may briefly hold. */
+  start_gate: startGateSchema,
   /** Finished incidents' spans, so a countdown, a strike window or prep owes them back. */
   clock_stops: z
     .array(z.strictObject({ from: z.iso.datetime(), to: z.iso.datetime() }))
@@ -115,6 +141,7 @@ export const emptyRuntimeCheckpoint: RuntimeCheckpoint = {
   active_prep: null,
   floor: null,
   incident: { phase: 'none' },
+  start_gate: null,
   clock_stops: [],
 };
 

@@ -125,7 +125,10 @@ async function captureSession(
     maxDurationMs: budget.maxQueueMs,
   });
   const carries: ClipCarries = new Map();
-  const heard = createHeardReporter({ heard: input.client.heard });
+  const heard = createHeardReporter({
+    heard: input.client.heard,
+    nowMs: input.nowMs,
+  });
   const enqueue = (clip: CutClip) => {
     if (clip.kind === 'silent') stats.silentClips++;
     else stats.audibleClips++;

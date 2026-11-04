@@ -88,6 +88,7 @@ test('a capture gap reaches the judge in plain words', () => {
         slot: 0,
         fromOffsetMs: 40_000,
         untilOffsetMs: 52_000,
+        cause: 'platform',
       },
     ],
     utterances: [],
@@ -102,8 +103,43 @@ test('a capture gap reaches the judge in plain words', () => {
         side: 'negative',
         slot: 0,
         statement:
-          'The platform captured no audio from 40 seconds to 52 seconds into this speech. The speaker may have spoken then.',
+          'The platform captured no audio from 40.0 seconds to 52.0 seconds into this speech. The speaker may have spoken then.',
       },
+    ],
+  });
+});
+
+test('a gap says what is known about it', () => {
+  const statements = (['platform', 'edge', 'unattributed'] as const).map(
+    (cause) =>
+      transcriptEvidence({
+        revision: 1,
+        completeness: 'complete',
+        coverage: [],
+        utterances: [],
+        gaps: [
+          {
+            sequence: 0,
+            side: 'affirmative',
+            slot: 0,
+            fromOffsetMs: 0,
+            untilOffsetMs: 700,
+            cause,
+          },
+        ],
+      } as never).captureGaps[0]!.statement,
+  );
+  assert({
+    given: 'a sub-second gap of each cause',
+    should: 'state its span, and blame the platform only when it is known',
+    actual: statements.map((line) => [
+      line.includes('from 0.0 seconds to 0.7 seconds'),
+      line.startsWith('The platform'),
+    ]),
+    expected: [
+      [true, true],
+      [true, false],
+      [true, false],
     ],
   });
 });

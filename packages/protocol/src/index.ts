@@ -119,6 +119,7 @@ export type {
   RoundIncident,
   PlatformIncidentCause,
   RoundPlatformEnding,
+  RoundStartGate,
 } from './round';
 export {
   judgingAttemptCategories,
@@ -586,6 +587,7 @@ export {
 export { broadcastHoldPrefix } from './broadcast-hold';
 export { parseHoldPlaylist, type HoldEntry } from './egress-hold-playlist';
 export { roundIncidentPolicy } from './round-incident-policy';
+export { roundStartPolicy, startGateInstant } from './round-start-policy';
 export {
   captureWithinLimit,
   frozenCaptureColumns,

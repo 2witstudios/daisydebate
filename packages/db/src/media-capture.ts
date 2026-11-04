@@ -47,13 +47,14 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
         select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "serverNow"
         from media_worker_leases l
         join media_sessions s on s.id=l.session_id
-        join round_segments g on g.round_id=s.round_id
         where l.session_id=${input.sessionId} and s.round_id=${input.roundId}
           and l.worker_id=${input.workerId} and l.epoch=${input.epoch}
           and l.expires_at>clock_timestamp()
           and s.ended_at is null and s.unsafe_at is null
           and s.deletion_requested_at is null
-          and g.id=${input.segmentId} and g.ended_at is null`)) as unknown as {
+          and (${input.segmentId}::text is null or exists(
+            select 1 from round_segments g
+            where g.round_id=s.round_id and g.id=${input.segmentId} and g.ended_at is null))`)) as unknown as {
         serverNow: string;
       }[];
       if (!row)

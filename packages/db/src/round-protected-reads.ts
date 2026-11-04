@@ -68,10 +68,7 @@ export async function readTranscriptSnapshot(
   const gaps = await closedStreamGaps(
     tx,
     roundId,
-    streams.filter(
-      (stream) =>
-        stream.state === 'partial' || (freeze && stream.state === 'open'),
-    ),
+    streams.filter((stream) => freeze || stream.state !== 'open'),
     captureRule,
   );
   return {
@@ -79,7 +76,9 @@ export async function readTranscriptSnapshot(
     freeze: freeze ? { completeness: freeze.completeness } : null,
     streams: streams.map((stream) => ({
       ...stream,
-      gaps: gaps.get(streamKey(stream)) ?? [],
+      gaps: (gaps.get(streamKey(stream)) ?? []).map(
+        ({ fromOffsetMs, untilOffsetMs }) => ({ fromOffsetMs, untilOffsetMs }),
+      ),
     })),
     utterances: await readOrderedRoundUtterances(tx, roundId, 'frozen'),
   };

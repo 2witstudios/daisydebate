@@ -3,7 +3,7 @@ import {
   type CaptureRule,
   type FrozenCapture,
 } from '@daisy/protocol';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { closedStreamGaps, streamKey } from './capture-gaps';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
@@ -26,19 +26,21 @@ export async function readCaptureShortfall(
   // What each stream was owed: a hold gives nobody anything to say, and cross-examination
   // owes each speaker their own stream, as the gaps below are counted.
   const expectedSpeechMs = Math.round(spoken?.ms ?? 0);
-  const partial = await tx
+  const closed = await tx
     .select({
       segmentId: transcriptSegments.segmentId,
       roundParticipantId: transcriptSegments.roundParticipantId,
+      state: transcriptSegments.state,
       partialReasons: transcriptSegments.partialReasons,
     })
     .from(transcriptSegments)
     .where(
       and(
         eq(transcriptSegments.roundId, roundId),
-        eq(transcriptSegments.state, 'partial'),
+        ne(transcriptSegments.state, 'open'),
       ),
     );
+  const partial = closed.filter((stream) => stream.state === 'partial');
   // A coverage gap alone can be a silent seat, never the platform's failure to state. A
   // takeover's gap is the platform's: a worker died there.
   const lost = partial.filter(
@@ -46,26 +48,33 @@ export async function readCaptureShortfall(
       partialReasonsStateLoss(stream.partialReasons) ||
       stream.partialReasons.includes('other-worker-evidence'),
   );
-  const found = await closedStreamGaps(tx, roundId, partial, rule);
-  const gapsOf = (streams: typeof partial) =>
-    streams.flatMap((stream) =>
-      (found.get(streamKey(stream)) ?? []).map((gap) => ({
-        segmentId: stream.segmentId,
-        roundParticipantId: stream.roundParticipantId,
-        ...gap,
-      })),
-    );
+  const found = await closedStreamGaps(tx, roundId, closed, rule);
+  const isLost = (stream: (typeof closed)[number]) => lost.includes(stream);
+  /** Every gap capture can measure, for the transcript and the judge. */
+  const stated = closed.flatMap((stream) =>
+    (found.get(streamKey(stream)) ?? []).map(({ edge, ...gap }) => ({
+      segmentId: stream.segmentId,
+      roundParticipantId: stream.roundParticipantId,
+      ...gap,
+      cause: edge
+        ? ('edge' as const)
+        : isLost(stream)
+          ? ('platform' as const)
+          : ('unattributed' as const),
+    })),
+  );
   // Zero gaps over valid windows measures zero. Only history with no windows has no measure.
   const unmeasured = (stream: (typeof partial)[number]) =>
     stream.partialReasons.some(
       (reason) =>
         reason === 'invalid-history' || reason === 'no-authority-window',
     );
+  // Edges decide nothing, or a Round of short speeches would lose its judge to them.
   const sum = (of: typeof partial) =>
-    gapsOf(of).reduce(
-      (total, gap) => total + gap.untilOffsetMs - gap.fromOffsetMs,
-      0,
-    );
+    of
+      .flatMap((stream) => found.get(streamKey(stream)) ?? [])
+      .filter(({ edge }) => !edge)
+      .reduce((total, gap) => total + gap.untilOffsetMs - gap.fromOffsetMs, 0);
   const frozenCapture = (): FrozenCapture => {
     const expectedMs = expectedSpeechMs;
     if (lost.some(unmeasured))
@@ -84,8 +93,7 @@ export async function readCaptureShortfall(
         };
   };
   return {
-    // What is stated as the platform's fault.
-    captureGaps: { gaps: gapsOf(lost) },
+    captureGaps: { gaps: stated },
     capture: frozenCapture(),
   };
 }

@@ -36,7 +36,12 @@ export async function closedStreamGaps(
 ) {
   const found = new Map<
     string,
-    readonly { readonly fromOffsetMs: number; readonly untilOffsetMs: number }[]
+    readonly {
+      readonly fromOffsetMs: number;
+      readonly untilOffsetMs: number;
+      /** Forgiven at the speech's edge: stated, but it decides nothing. */
+      readonly edge: boolean;
+    }[]
   >();
   if (!streams.length) return found;
   const segmentIds = [...new Set(streams.map((stream) => stream.segmentId))];
@@ -120,21 +125,21 @@ export async function closedStreamGaps(
         end: row.end.getTime(),
       })),
     );
-    found.set(
-      streamKey(stream),
-      rule
-        .gaps(
-          coverage,
-          (observedOf.get(streamKey(stream)) ?? []).map((row) => ({
-            start: row.start.getTime(),
-            end: row.end.getTime(),
-          })),
-        )
-        .map((gap) => ({
-          fromOffsetMs: Math.max(0, gap.start - startMs),
-          untilOffsetMs: Math.max(0, gap.end - startMs),
-        })),
-    );
+    const heard = (observedOf.get(streamKey(stream)) ?? []).map((row) => ({
+      start: row.start.getTime(),
+      end: row.end.getTime(),
+    }));
+    const offsets =
+      (edge: boolean) =>
+      (gap: { readonly start: number; readonly end: number }) => ({
+        fromOffsetMs: Math.max(0, gap.start - startMs),
+        untilOffsetMs: Math.max(0, gap.end - startMs),
+        edge,
+      });
+    found.set(streamKey(stream), [
+      ...rule.gaps(coverage, heard).map(offsets(false)),
+      ...rule.edges(coverage, heard).map(offsets(true)),
+    ]);
   }
   return found;
 }

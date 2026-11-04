@@ -78,6 +78,7 @@ export const emptyCheckpoint = {
   active_prep: null,
   floor: null,
   incident: { phase: 'none' },
+  start_gate: null,
   clock_stops: [],
 } as const;
 

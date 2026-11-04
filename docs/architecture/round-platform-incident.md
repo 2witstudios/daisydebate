@@ -44,7 +44,7 @@ A recovery pass hands what it read of the vendor to `observeIncident`
 | The recovery bound passed with the platform still down                                                                                                                                    | End the Round               |
 
 A held speaker's microphone stays open through the hold, so capture can confirm it on the
-new room before the countdown; no microphone opens for a countdown to a speech, and only
+new room before the countdown; no microphone opens for a resume countdown beyond the holder's, and only
 speech inside a reopened interval is credited. The opponent can hear the holder during the
 hold, with the clock stopped. A resume already due settles before a new failure is decided.
 

@@ -6,6 +6,7 @@ import type { App } from '../../server/app';
 import { createRoundMediaRuntime } from '../round-media/composition';
 import { createMediaCaptureHandlers } from './handlers';
 import { createCaptureHeardRelay } from './heard-relay';
+import { createRoundStartGate } from '../round-start-gate/gate';
 import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 
 type Capture = ReturnType<App['database']['createMediaCaptureOperations']>;
@@ -52,6 +53,10 @@ export function composeMediaCaptureRoutes(app: App) {
     heard: createCaptureHeardRelay({
       ...admission,
       write: app.redis.writeCaptureHeard,
+      startGateHeard: createRoundStartGate({
+        store: app.database.roundStartGates,
+        nextId: () => app.ids.next(),
+      }).heard,
     }),
   });
 }

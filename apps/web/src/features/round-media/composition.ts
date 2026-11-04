@@ -1,3 +1,4 @@
+import { createRoundStartGate } from '../round-start-gate/gate';
 import { captureRule } from '@daisy/debate-engine';
 import {
   createAdmissionPriority,
@@ -81,6 +82,10 @@ export function createRoundMediaRuntime(
       nextId: () => app.ids.next(),
       reporter,
       logger: app.logger,
+      awaitCapture: createRoundStartGate({
+        store: app.database.roundStartGates,
+        nextId: () => app.ids.next(),
+      }).awaitCapture,
       observeIncident: createRoundIncidentObserver({
         store: app.database.roundIncidents,
         reporter,
