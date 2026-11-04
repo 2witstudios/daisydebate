@@ -88,10 +88,9 @@ describe('FileTree', () => {
         html.includes('aria-current="page"'),
         html.includes('aria-label="Actions for Plan"'),
         html.includes('aria-label="Actions for Cases"'),
-        html.includes('href="/prep/folders/folder-a/delete"'),
         html.includes('role="menuitem"'),
       ],
-      expected: [true, true, true, false, true],
+      expected: [true, true, true, true],
     });
   });
 

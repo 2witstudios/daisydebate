@@ -1,4 +1,9 @@
-import type { ReactNode, Ref } from 'react';
+import type {
+  ReactNode,
+  Ref,
+  MouseEventHandler,
+  KeyboardEventHandler,
+} from 'react';
 import { Icon, type IconName } from '../components/icon/icon';
 
 const itemClass =
@@ -12,12 +17,16 @@ export function FileMenuItem({
   children,
   disabled = false,
   ref,
+  initialFocus = false,
+  onKeyDown,
 }: {
+  readonly initialFocus?: boolean;
+  readonly onKeyDown?: KeyboardEventHandler<HTMLButtonElement>;
   readonly ref?: Ref<HTMLButtonElement>;
   readonly disabled?: boolean;
   readonly icon?: IconName;
   readonly danger?: boolean;
-  readonly onClick: () => void;
+  readonly onClick: MouseEventHandler<HTMLButtonElement>;
   readonly children: ReactNode;
 }) {
   return (
@@ -26,6 +35,8 @@ export function FileMenuItem({
       type="button"
       disabled={disabled}
       role="menuitem"
+      data-menu-initial-focus={initialFocus || undefined}
+      onKeyDown={onKeyDown}
       className={danger ? dangerClass : itemClass}
       onClick={onClick}
     >

@@ -214,3 +214,106 @@ test('Recent refreshes after saves and focus; local Delete for good closes its t
     await accounts.closeContexts();
   }
 });
+
+test('Delete keeps the safe choice through delayed counts and repeated gestures', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'Safe deletion confirmation',
+    );
+    const doc = await createTestDocument(page);
+    await folder(page, 'Cases');
+    await page.goto(`${origin}/prep`);
+    await files(page)
+      .getByLabel(`Actions for ${doc.title}`, { exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+    const keep = page.getByRole('menuitem', { name: 'Keep it' });
+    const confirm = page.getByRole('menuitem', { name: 'Delete for good' });
+    await expect(keep).toBeFocused();
+    await confirm.dispatchEvent('click', { detail: 2 });
+    await expect(confirm).toBeVisible();
+    await confirm.focus();
+    expect(
+      await confirm.evaluate((button) => {
+        const event = new KeyboardEvent('keydown', {
+          key: 'Enter',
+          repeat: true,
+          bubbles: true,
+          cancelable: true,
+        });
+        button.dispatchEvent(event);
+        return event.defaultPrevented;
+      }),
+    ).toBe(true);
+    await keep.click();
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/api/documents/folders/count', async (route) => {
+      const response = await route.fetch();
+      await pending;
+      await route.fulfill({ response });
+    });
+    await files(page).getByLabel('Actions for Cases', { exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+    await expect(keep).toBeFocused();
+    await expect(confirm).toBeDisabled();
+    release();
+    await expect(confirm).toBeEnabled();
+    await expect(keep).toBeFocused();
+    await keep.press('Enter');
+    await expect(
+      files(page).getByRole('button', { name: 'Cases', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('textbox', { name: doc.title, exact: true }),
+    ).toBeVisible();
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('finishing rename by clicking the editor preserves the new typing target', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(accounts.members[0]!.context, 'Rename focus');
+    const doc = await createTestDocument(page);
+    await page.goto(`${origin}/prep?open=${doc.id}`);
+    const editor = page.getByRole('textbox', { name: doc.title, exact: true });
+    await expect(editor).toBeVisible();
+    await files(page)
+      .getByLabel(`Actions for ${doc.title}`, { exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
+    await files(page).getByLabel(`Rename ${doc.title}`).fill('Renamed notes');
+    await editor.click();
+    await expect(
+      page.getByRole('textbox', { name: 'Renamed notes', exact: true }),
+    ).toBeFocused();
+    await page.keyboard.type('Typing stays in the editor');
+    await expect(
+      page.getByRole('textbox', { name: 'Renamed notes', exact: true }),
+    ).toContainText('Typing stays in the editor');
+    await files(page)
+      .getByLabel('Actions for Renamed notes', { exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
+    await files(page).getByLabel('Rename Renamed notes').press('Escape');
+    await expect(
+      files(page)
+        .getByRole('region', { name: 'My drive' })
+        .getByRole('button', { name: 'Renamed notes', exact: true }),
+    ).toBeFocused();
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { DriveNode } from '../../features/documents/drive-tree';
 import { FileMenuItem } from './file-menu-item';
 import type { DriveActions } from './use-drive';
@@ -29,7 +29,6 @@ export function FileDeleteStep({
   const [preview, setPreview] = useState<DeletionPreview>(
     node.kind === 'folder' ? { kind: 'loading' } : { kind: 'ready', count: 1 },
   );
-  const confirm = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (node.kind !== 'folder') return;
     let live = true;
@@ -45,9 +44,6 @@ export function FileDeleteStep({
       live = false;
     };
   }, [node.id, node.kind, folderCount]);
-  useLayoutEffect(() => {
-    if (preview.kind === 'ready') confirm.current?.focus();
-  }, [preview.kind]);
   return (
     <>
       <p
@@ -63,21 +59,27 @@ export function FileDeleteStep({
               : `This deletes ${label} for good. It cannot be restored.`}
       </p>
       <FileMenuItem
-        ref={confirm}
         icon="trash"
         danger
         disabled={preview.kind !== 'ready'}
-        onClick={() =>
+        onKeyDown={(event) => {
+          if (event.repeat && (event.key === 'Enter' || event.key === ' '))
+            event.preventDefault();
+        }}
+        onClick={(event) => {
+          if (event.detail > 1) return;
           run(() =>
             change(node.kind === 'folder' ? 'folders/delete' : 'delete', {
               id: node.id,
             }),
-          )
-        }
+          );
+        }}
       >
         Delete for good
       </FileMenuItem>
-      <FileMenuItem onClick={close}>Keep it</FileMenuItem>
+      <FileMenuItem initialFocus onClick={close}>
+        Keep it
+      </FileMenuItem>
     </>
   );
 }

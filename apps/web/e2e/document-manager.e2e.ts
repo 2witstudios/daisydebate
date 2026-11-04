@@ -339,9 +339,7 @@ test('row actions keep focus and confirm folder deletion in place', async ({
     ).toBeFocused();
     await tree(page).getByLabel('Actions for Evidence').click();
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
-    await expect(
-      page.getByRole('menuitem', { name: 'Delete for good' }),
-    ).toBeFocused();
+    await expect(page.getByRole('menuitem', { name: 'Keep it' })).toBeFocused();
     await page.getByRole('menuitem', { name: 'Keep it' }).click();
     await expect(
       row.getByRole('button', { name: 'Evidence', exact: true }),

@@ -228,7 +228,11 @@ export function RecoveredDrafts({
     );
   };
   return (
-    <>
+    <section
+      aria-label="Draft recovery"
+      tabIndex={0}
+      className="max-h-1/2 min-h-0 shrink-0 overflow-y-auto empty:hidden"
+    >
       {needing ? (
         <DeletedDocumentNotice
           title={
@@ -278,6 +282,6 @@ export function RecoveredDrafts({
           />
         );
       })}
-    </>
+    </section>
   );
 }

@@ -67,6 +67,12 @@ const moveMenuFocus = (event: KeyboardEvent<HTMLDivElement>) => {
   }
 };
 
+const focusMenuStart = (menu: HTMLDivElement | null) =>
+  (
+    menu?.querySelector<HTMLButtonElement>('[data-menu-initial-focus]') ??
+    menu?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
+  )?.focus();
+
 type View = 'main' | 'move' | 'delete';
 
 /** A row's actions as one flat menu; Move and Delete are steps inside it. */
@@ -113,10 +119,7 @@ export function FileMenu({
   }, []);
   useLayoutEffect(() => {
     place();
-    if (menu.current?.matches(':popover-open'))
-      menu.current
-        .querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
-        ?.focus();
+    if (menu.current?.matches(':popover-open')) focusMenuStart(menu.current);
   }, [view, place]);
   useEffect(() => {
     const element = menu.current;
@@ -161,11 +164,7 @@ export function FileMenu({
           if (event.newState !== 'open') return setView('main');
           drive.loadFolders();
           place();
-          menu.current
-            ?.querySelector<HTMLButtonElement>(
-              '[role="menuitem"]:not(:disabled)',
-            )
-            ?.focus();
+          focusMenuStart(menu.current);
         }}
       >
         {view === 'main' ? (

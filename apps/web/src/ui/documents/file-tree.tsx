@@ -35,14 +35,14 @@ function RenameField({
   onDone,
 }: {
   readonly label: string;
-  readonly onDone: (name: string | null) => void;
+  readonly onDone: (name: string | null, returnFocus: boolean) => void;
 }) {
   const [value, setValue] = useState(label);
   const finished = useRef(false);
-  const finish = (name: string | null) => {
+  const finish = (name: string | null, returnFocus = false) => {
     if (finished.current) return;
     finished.current = true;
-    onDone(name);
+    onDone(name, returnFocus);
   };
   return (
     <input
@@ -54,8 +54,14 @@ function RenameField({
       onChange={(event) => setValue(event.target.value)}
       onBlur={() => finish(value)}
       onKeyDown={(event) => {
-        if (event.key === 'Enter') finish(value);
-        if (event.key === 'Escape') finish(null);
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          finish(value, true);
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          finish(null, true);
+        }
       }}
       className="mr-1 h-5 min-w-0 flex-1 rounded-sm bg-surface-raised px-1 text-sm text-ink file-rename"
     />
@@ -87,8 +93,10 @@ function NodeRow({
   const rowElement = useRef<HTMLDivElement>(null);
   const rowButton = useRef<HTMLButtonElement>(null);
   const wasRenaming = useRef(renaming);
+  const returnAfterRename = useRef(false);
   useLayoutEffect(() => {
-    if (wasRenaming.current && !renaming) rowButton.current?.focus();
+    if (wasRenaming.current && !renaming && returnAfterRename.current)
+      rowButton.current?.focus();
     wasRenaming.current = renaming;
   }, [renaming]);
   useLayoutEffect(() => {
@@ -103,7 +111,8 @@ function NodeRow({
       next?.focus();
     };
   }, []);
-  const done = (name: string | null) => {
+  const done = (name: string | null, returnFocus: boolean) => {
+    returnAfterRename.current = returnFocus;
     dispatch({ type: 'drive/renaming', id: null });
     const typed = name?.trim();
     if (!typed || typed === label) return;

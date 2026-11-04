@@ -32,13 +32,11 @@ export function RoomDocument({
       className="flex min-h-0 flex-1 flex-col bg-surface-raised"
     >
       {sync ? (
-        <div className="max-h-1/2 shrink-0 overflow-y-auto empty:hidden">
-          <RecoveredDrafts
-            documents={loadedDocuments(state.opened)}
-            sync={sync}
-            dispatch={dispatch}
-          />
-        </div>
+        <RecoveredDrafts
+          documents={loadedDocuments(state.opened)}
+          sync={sync}
+          dispatch={dispatch}
+        />
       ) : null}
       <DocumentPane
         opened={state.opened}

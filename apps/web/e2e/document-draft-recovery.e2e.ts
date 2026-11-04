@@ -1504,3 +1504,42 @@ test('end-user navigation: leaving a Round through the account menu saves pendin
     recovery: secondRecovery,
   });
 });
+
+test('tall recovered comparisons at Prep scroll without consuming the editor', async ({
+  liveRoom,
+}) => {
+  const { page, documentId } = liveRoom;
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  await offeredAfterReload(
+    page,
+    documentId,
+    'Long recovered comparison '.repeat(300).trim(),
+  );
+  await page.setViewportSize({ width: 390, height: 600 });
+  await page.goto(`${origin}/prep?open=${documentId}`);
+  const draft = page.getByRole('region', { name: /^Recovered Untitled/ });
+  await draft.getByText('Compare recovered and server copies').click();
+  const recovery = page.getByRole('region', {
+    name: 'Draft recovery',
+    exact: true,
+  });
+  const bounds = (await recovery.boundingBox())!;
+  expect(bounds.height).toBeLessThanOrEqual(300);
+  expect(
+    await recovery.evaluate((node) => node.scrollHeight > node.clientHeight),
+  ).toBe(true);
+  const editor = page.getByRole('textbox', { name: untitled });
+  expect((await editor.boundingBox())!.height).toBeGreaterThan(20);
+  const restore = draft.getByRole('button', { name: /^Restore Untitled/ });
+  await restore.scrollIntoViewIfNeeded();
+  const control = (await restore.boundingBox())!;
+  expect(control.y).toBeGreaterThanOrEqual(bounds.y);
+  expect(control.y + control.height).toBeLessThanOrEqual(
+    bounds.y + bounds.height + 1,
+  );
+  await draft
+    .getByRole('button', { name: /^Discard recovered Untitled/ })
+    .click();
+  await expect(draft).toHaveCount(0);
+  await expect(editor).toBeVisible();
+});
