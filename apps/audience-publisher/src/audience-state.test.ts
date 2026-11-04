@@ -201,6 +201,23 @@ test('one failed Broadcast does not hold the others', async () => {
   });
 });
 
+test('a lost count on a new bucket keeps the rate in force', async () => {
+  let nowMs = NOW;
+  let count: () => Promise<number> = async () => 400_000;
+  const h = harness({ count: () => count(), now: () => nowMs });
+  await h.publisher.pass();
+  const lowered = JSON.parse(h.puts.at(-1)!.body).pulseRate;
+  nowMs += 60_000;
+  count = () => Promise.reject(new Error('down'));
+  await h.publisher.pass();
+  assert({
+    given: 'the viewer count lost as the bucket moves',
+    should: 'keep the lowered rate, not ask every tab to pulse',
+    actual: [lowered < 1, JSON.parse(h.puts.at(-1)!.body).pulseRate],
+    expected: [true, lowered],
+  });
+});
+
 test('many failures in one pass report once, with their count', async () => {
   const h = harness({
     publishing: ['bad-one', 'bad-two'].map((feedKey) => ({

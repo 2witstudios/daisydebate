@@ -18,10 +18,10 @@ import {
 } from '@daisy/protocol';
 
 /** How long a Broadcast's state stays once it is over and its Recording has settled. */
-export const STATE_SETTLED_KEEP_MS = 10 * 60_000;
+const STATE_SETTLED_KEEP_MS = 10 * 60_000;
 /** How long it stays for a Recording that has not settled. */
-export const STATE_KEEP_MS = 6 * 60 * 60_000;
-export const STATE_PUBLISH_EVERY_MS = 1000;
+const STATE_KEEP_MS = 6 * 60 * 60_000;
+const STATE_PUBLISH_EVERY_MS = 1000;
 const STATE_BROADCASTS = 256;
 const STATE_HEADERS = {
   'cache-control': 'no-cache',
@@ -130,8 +130,11 @@ export const createAudienceStatePublisher = (deps: Deps) => {
     const viewers = audience.open
       ? await countOf(broadcast.roundId, gatheredAt, nowMs)
       : null;
+    // A lost count says nothing about the crowd: the rate in force stands.
     const rate =
-      was === undefined || moved ? pulseRateFor(viewers ?? 0) : was.rate;
+      viewers !== null && (was === undefined || moved)
+        ? pulseRateFor(viewers)
+        : (was?.rate ?? 1);
     const body = JSON.stringify(
       audienceStateSchema.parse({
         version: 1,

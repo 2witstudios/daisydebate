@@ -19,7 +19,8 @@ export function ViewerPulse({
   readonly roundId: string;
   readonly unlisted: boolean;
 }) {
-  const published = usePublishedAudience()?.pulseRate ?? 1;
+  // Unknown until the state arrives, and a tab sends nothing until it knows.
+  const published = usePublishedAudience()?.pulseRate ?? null;
   const rate = useRef(published);
   useEffect(() => {
     rate.current = published;
@@ -28,7 +29,7 @@ export function ViewerPulse({
     const token = createId();
     const draw = crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32;
     const pulse = () => {
-      if (!tabPulses(draw, rate.current)) return;
+      if (rate.current === null || !tabPulses(draw, rate.current)) return;
       void fetch(`/api/rounds/${encodeURIComponent(roundId)}/viewers`, {
         method: 'POST',
         credentials: unlisted ? 'same-origin' : 'omit',
@@ -36,7 +37,6 @@ export function ViewerPulse({
         body: JSON.stringify({ version: 1, token }),
       }).catch(() => undefined);
     };
-    pulse();
     const timer = setInterval(pulse, VIEWER_PULSE_MS);
     return () => clearInterval(timer);
   }, [roundId, unlisted]);
