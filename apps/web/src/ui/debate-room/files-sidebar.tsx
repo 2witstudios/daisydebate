@@ -50,14 +50,12 @@ export function FilesSidebar({
   round,
   state,
   dispatch,
-  onNew,
   drive,
   phoneClass,
 }: {
   readonly round: RoundSnapshot;
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
-  readonly onNew: () => void;
   readonly drive: DriveActions;
   /** Hides the sidebar on a phone unless its tab is showing. */
   readonly phoneClass: string | false;
@@ -77,7 +75,7 @@ export function FilesSidebar({
         <button
           type="button"
           aria-label="New document"
-          onClick={onNew}
+          onClick={() => dispatch({ type: 'palette/open', mode: 'create' })}
           className={headerButton}
         >
           <Icon name="plus" size={18} />
@@ -94,10 +92,11 @@ export function FilesSidebar({
           <Icon name="drawer" size={18} />
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col p-3">
+      <div className="flex min-h-0 flex-1 flex-col pt-2">
         <FileTree
           tree={state.drive}
           active={state.tabs.active}
+          renaming={state.renaming}
           dispatch={dispatch}
           drive={drive}
         />

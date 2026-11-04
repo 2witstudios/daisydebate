@@ -22,6 +22,8 @@ export type DriveActions = {
   readonly loadFolders: () => void;
   readonly open: (id: string, title: string) => void;
   readonly createDocument: (folderId: string | null) => void;
+  /** A folder named for now, its row ready for its real name. */
+  readonly createFolder: (parentFolderId: string | null) => void;
   readonly toggle: (folderId: string, expanded: boolean, read: boolean) => void;
   readonly more: (folderId: string | null, after: DriveCursor) => void;
   readonly change: (
@@ -182,6 +184,7 @@ export function useDrive({
             folderId: treeFolder(orNull(fields.parentFolderId)),
             entry: answer.folder,
           });
+          dispatch({ type: 'drive/renaming', id: answer.folder.id });
         }
         setFolders([]);
       })
@@ -196,6 +199,11 @@ export function useDrive({
     },
     open,
     createDocument,
+    createFolder: (parentFolderId) =>
+      change('folders/create', {
+        parentFolderId: parentFolderId ?? '',
+        name: 'New folder',
+      }),
     toggle: (folderId, expanded, read) => {
       dispatch({ type: 'drive/expand', folderId, expanded });
       if (expanded && !read)

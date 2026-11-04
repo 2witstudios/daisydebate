@@ -25,18 +25,19 @@ export default async function PrepPage({
     searchParams,
   ]);
   return (
-    <DocumentManager
-      principalId={principal.userId}
-      back="/prep"
-      title="Prep"
-      initial={{ folderId: null, ...page, folders }}
-      notice={driveNoticeText(params.notice)}
-      openId={
-        typeof params.open === 'string' &&
-        idSchema.safeParse(params.open).success
-          ? params.open
-          : null
-      }
-    />
+    <div data-workspace className="flex min-h-0 flex-1 flex-col">
+      <DocumentManager
+        principalId={principal.userId}
+        back="/prep"
+        initial={{ folderId: null, ...page, folders }}
+        notice={driveNoticeText(params.notice)}
+        openId={
+          typeof params.open === 'string' &&
+          idSchema.safeParse(params.open).success
+            ? params.open
+            : null
+        }
+      />
+    </div>
   );
 }

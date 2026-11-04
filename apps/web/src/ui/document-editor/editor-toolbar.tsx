@@ -56,7 +56,7 @@ const toneIcon = { dark: 'moon', light: 'sun' } as const;
 
 const tool = (on: boolean) =>
   cn(
-    'flex size-room-target shrink-0 cursor-pointer items-center justify-center rounded-sm transition-colors',
+    'flex size-dense-target shrink-0 cursor-pointer items-center justify-center rounded-sm transition-colors',
     on ? 'bg-surface-overlay text-ink' : 'text-ink-muted hover:text-ink',
   );
 
@@ -110,11 +110,11 @@ export function EditorToolbar({
     tools.current[next]?.focus();
   };
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-border bg-surface-raised px-2 py-1 max-narrow:flex-nowrap max-narrow:overflow-x-auto">
+    <div className="flex h-tab-strip shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-surface-raised px-2">
       <div
         role="toolbar"
         aria-label="Formatting"
-        className="flex shrink-0 flex-wrap items-center gap-1 max-narrow:flex-nowrap"
+        className="flex shrink-0 items-center gap-px"
         onKeyDown={onKeyDown}
       >
         {formats.map((f, index) => (
@@ -155,11 +155,7 @@ export function EditorToolbar({
           A+
         </button>
       </div>
-      <div
-        role="group"
-        aria-label="Page tone"
-        className="flex shrink-0 gap-px rounded-sm border border-border p-px"
-      >
+      <div role="group" aria-label="Page tone" className="flex shrink-0 gap-px">
         {(['dark', 'light'] as const).map((tone) => (
           <button
             key={tone}

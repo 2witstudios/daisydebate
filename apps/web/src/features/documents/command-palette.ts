@@ -1,3 +1,6 @@
+/** What the palette is showing: nothing, a search of the drive, or what can be made. */
+export type PaletteMode = 'closed' | 'search' | 'create';
+
 export type PaletteCommand = {
   readonly id: string;
   readonly title: string;

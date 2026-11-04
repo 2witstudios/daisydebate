@@ -131,9 +131,9 @@ describe('nav-item presentation', () => {
     assert({
       given: 'an extended rail item',
       should:
-        'render the label as text that survives every width (max-rail:sr-only), with no sr-only duplicate, and keep the tooltip for the widths where CSS hides the words',
+        'render the label as text that survives every width (icon-rail:sr-only), with no sr-only duplicate, and keep the tooltip for the widths where CSS hides the words',
       actual: [
-        html.includes('<span class="max-rail:sr-only">Ranked</span>'),
+        html.includes('<span class="icon-rail:sr-only">Ranked</span>'),
         html.includes('<span class="sr-only">Ranked</span>'),
         html.includes('title="Ranked"'),
       ],
@@ -188,7 +188,7 @@ describe('nav-item presentation', () => {
         'show the word as decoration and keep the whole name, counts included, as screen-reader text',
       actual: [
         html.includes(
-          '<span aria-hidden="true" class="max-rail:sr-only">Friends</span>',
+          '<span aria-hidden="true" class="icon-rail:sr-only">Friends</span>',
         ),
         html.includes('<span class="sr-only">Friends, 4 online</span>'),
         html.includes('<span aria-hidden="true">4</span>'),

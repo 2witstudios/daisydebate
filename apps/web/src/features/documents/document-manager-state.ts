@@ -1,3 +1,4 @@
+import type { PaletteMode } from './command-palette';
 import {
   adoptServerText,
   renameDocument,
@@ -41,7 +42,11 @@ export type ManagerState = {
   readonly opened: readonly OpenDocument[];
   readonly tabs: TabsState;
   readonly pages: Readonly<Record<string, PageTone | null>>;
-  readonly paletteOpen: boolean;
+  readonly palette: PaletteMode;
+  /** The row whose name is being typed. */
+  readonly renaming: string | null;
+  /** The one panel a narrow screen shows. */
+  readonly pane: 'files' | 'document';
 };
 
 export const initialManagerState = (
@@ -51,7 +56,9 @@ export const initialManagerState = (
   opened: [],
   tabs: { open: [], active: null },
   pages: {},
-  paletteOpen: false,
+  palette: 'closed',
+  renaming: null,
+  pane: 'files',
 });
 
 export type ManagerAction =
@@ -86,7 +93,12 @@ export type ManagerAction =
   | { readonly type: 'doc/closed'; readonly id: string }
   /** The owner closed, so no document stays on screen. */
   | { readonly type: 'doc/withdrawn' }
-  | { readonly type: 'palette/open' }
+  | {
+      readonly type: 'palette/open';
+      readonly mode: Exclude<PaletteMode, 'closed'>;
+    }
+  | { readonly type: 'pane/files' }
+  | { readonly type: 'drive/renaming'; readonly id: string | null }
   | { readonly type: 'palette/close' }
   | {
       readonly type: 'page/tone';
@@ -139,6 +151,8 @@ const MANAGER_ACTIONS: Readonly<Record<ManagerAction['type'], true>> = {
   'doc/closed': true,
   'doc/withdrawn': true,
   'palette/open': true,
+  'pane/files': true,
+  'drive/renaming': true,
   'palette/close': true,
   'page/tone': true,
   'drive/page': true,
@@ -155,12 +169,18 @@ export const isManagerAction = (action: {
   readonly type: string;
 }): action is ManagerAction => Object.hasOwn(MANAGER_ACTIONS, action.type);
 
+/** The tabs that remain; with none left, a narrow screen goes back to Files. */
+const withTabs = <T extends ManagerState>(state: T, tabs: TabsState): T => ({
+  ...state,
+  tabs,
+  pane: tabs.open.length === 0 ? 'files' : state.pane,
+});
+
 /** Tabs that remain, with no body kept for one closed by a removal. */
 const withoutDocument = <T extends ManagerState>(state: T, id: string): T => ({
-  ...state,
+  ...withTabs(state, closeTab(state.tabs, id)),
   drive: removeEntry(state.drive, id),
   opened: state.opened.filter((open) => openId(open) !== id),
-  tabs: closeTab(state.tabs, id),
 });
 
 /** The manager's one transition: total, with every other state unchanged. */
@@ -183,15 +203,19 @@ export function reduceManager<T extends ManagerState>(
     case 'tabs/open':
       return { ...state, tabs: openTab(state.tabs, action.id) };
     case 'tabs/close':
-      return { ...state, tabs: closeTab(state.tabs, action.id) };
+      return withTabs(state, closeTab(state.tabs, action.id));
     case 'tabs/activate':
-      return { ...state, tabs: activateTab(state.tabs, action.id) };
+      return {
+        ...state,
+        tabs: activateTab(state.tabs, action.id),
+        pane: 'document',
+      };
     case 'doc/loaded':
       return loadOpenDocuments(state, action.documents);
     case 'doc/withdrawn':
       return { ...state, opened: [], tabs: { open: [], active: null } };
     case 'doc/add':
-      return addOpenDocument(state, action.document);
+      return { ...addOpenDocument(state, action.document), pane: 'document' };
     case 'doc/opening': {
       const known = findOpen(state.opened, action.id);
       const opened: readonly OpenDocument[] =
@@ -211,14 +235,15 @@ export function reduceManager<T extends ManagerState>(
         ...state,
         opened,
         tabs: openTab(state.tabs, action.id),
-        paletteOpen: false,
+        palette: 'closed',
+        pane: 'document',
       };
     }
     case 'doc/closed':
       return {
         ...state,
+        ...withTabs(state, closeTab(state.tabs, action.id)),
         opened: state.opened.filter((open) => openId(open) !== action.id),
-        tabs: closeTab(state.tabs, action.id),
       };
     case 'drive/unlist':
       return { ...state, drive: removeEntry(state.drive, action.id) };
@@ -240,9 +265,13 @@ export function reduceManager<T extends ManagerState>(
         updateDocumentHtml(doc, action.html, action.now),
       );
     case 'palette/open':
-      return { ...state, paletteOpen: true };
+      return { ...state, palette: action.mode };
     case 'palette/close':
-      return { ...state, paletteOpen: false };
+      return { ...state, palette: 'closed' };
+    case 'pane/files':
+      return { ...state, pane: 'files' };
+    case 'drive/renaming':
+      return { ...state, renaming: action.id };
     case 'page/tone':
       return {
         ...state,

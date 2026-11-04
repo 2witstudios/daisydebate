@@ -1,7 +1,8 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   initialManagerState,
   reduceManager,
+  type ManagerAction,
   type ManagerState,
 } from './document-manager-state';
 import { loadedDocuments } from './open-documents';
@@ -157,5 +158,75 @@ test('a body arriving leaves the person where they are', () => {
     should: 'not move them, and not reopen the tab',
     actual: [arrived.tabs.active, late.tabs.open.includes(document.id)],
     expected: [other.id, false],
+  });
+});
+
+const runActions = (
+  actions: readonly ManagerAction[],
+  from = initialManagerState(),
+) => actions.reduce<ManagerState>(reduceManager, from);
+
+describe('reduceManager: the palette', () => {
+  test('its modes', () => {
+    assert({
+      given: 'the + and then Esc',
+      should: 'open what can be made, and close',
+      actual: [
+        initialManagerState().palette,
+        runActions([{ type: 'palette/open', mode: 'create' }]).palette,
+        runActions([
+          { type: 'palette/open', mode: 'create' },
+          { type: 'palette/close' },
+        ]).palette,
+      ],
+      expected: ['closed', 'create', 'closed'],
+    });
+  });
+});
+
+describe('reduceManager: the row being renamed', () => {
+  test('one at a time', () => {
+    assert({
+      given: 'a row being renamed, then finished',
+      should: 'hold that row, then none',
+      actual: [
+        runActions([{ type: 'drive/renaming', id: 'a' }]).renaming,
+        runActions([
+          { type: 'drive/renaming', id: 'a' },
+          { type: 'drive/renaming', id: null },
+        ]).renaming,
+      ],
+      expected: ['a', null],
+    });
+  });
+});
+
+describe('reduceManager: the panel a narrow screen shows', () => {
+  const opening: ManagerAction = {
+    type: 'doc/opening',
+    id: 'a',
+    title: 'Plan',
+  };
+
+  test('following the document', () => {
+    assert({
+      given: 'nothing open, then a document opening, then the back button',
+      should: 'show Files, the document, then Files',
+      actual: [
+        initialManagerState().pane,
+        runActions([opening]).pane,
+        runActions([opening, { type: 'pane/files' }]).pane,
+      ],
+      expected: ['files', 'document', 'files'],
+    });
+  });
+
+  test('the last tab closing', () => {
+    assert({
+      given: 'the only open tab closed',
+      should: 'go back to Files rather than an empty panel',
+      actual: runActions([opening, { type: 'tabs/close', id: 'a' }]).pane,
+      expected: 'files',
+    });
   });
 });

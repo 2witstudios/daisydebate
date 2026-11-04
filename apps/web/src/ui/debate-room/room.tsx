@@ -169,10 +169,12 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
   const unread = chatUnread(round, state);
   const alert = problem ?? props.notice ?? null;
   const create = () => drive.createDocument(null);
-  const choose = (choice: PaletteChoice) =>
-    choice.kind === 'new'
-      ? create()
-      : drive.open(choice.documentId, choice.title);
+  const choose = (choice: PaletteChoice) => {
+    dispatch({ type: 'palette/close' });
+    if (choice.kind === 'new') create();
+    else if (choice.kind === 'new-folder') drive.createFolder(null);
+    else drive.open(choice.documentId, choice.title);
+  };
   // Until script runs the phone tabs cannot switch, so every panel stays
   // readable, stacked in one scrolling column.
   const phoneHides = (...panels: readonly PhonePanel[]) =>
@@ -206,7 +208,6 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
           round={round}
           state={state}
           dispatch={dispatch}
-          onNew={create}
           drive={drive}
           phoneClass={phoneHides('files')}
         />
@@ -249,7 +250,8 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
         hydrated={hydrated}
       />
       <CommandPalette
-        open={state.paletteOpen}
+        open={state.palette !== 'closed'}
+        mode={state.palette === 'create' ? 'create' : 'search'}
         documents={state.opened.map((open) => ({
           id: openId(open),
           title: openTitle(open),

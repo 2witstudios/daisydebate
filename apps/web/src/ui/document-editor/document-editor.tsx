@@ -90,7 +90,7 @@ export function DocumentEditor({
         data-doc-size={textSize}
         className="min-h-0 flex-1 overflow-auto bg-surface-raised"
       >
-        <div className="px-10 pt-6 pb-24 max-compact:px-4">
+        <div className="px-10 pt-6 pb-10 max-compact:px-4">
           <EditorContent editor={editor} />
         </div>
       </div>

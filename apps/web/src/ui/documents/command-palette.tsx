@@ -12,6 +12,7 @@ import {
   moveSelection,
   rankCommands,
   type PaletteCommand,
+  type PaletteMode,
   type RankedCommand,
 } from '../../features/documents/command-palette';
 import { cn } from '../cn';
@@ -19,6 +20,7 @@ import { Icon } from '../components/icon/icon';
 
 export type PaletteChoice =
   | { readonly kind: 'new' }
+  | { readonly kind: 'new-folder' }
   | {
       readonly kind: 'open';
       readonly documentId: string;
@@ -61,6 +63,26 @@ export function paletteCommands(
     ...documents.map(openCommand),
   ];
 }
+
+/** What the + offers, and nothing else. */
+export const createCommands: readonly Command[] = [
+  {
+    id: 'create:document',
+    title: 'Document',
+    group: 'Create',
+    keywords: ['new', 'page', 'write', 'notes'],
+    choice: { kind: 'new' },
+    snippet: 'A page to write in',
+  },
+  {
+    id: 'create:folder',
+    title: 'Folder',
+    group: 'Create',
+    keywords: ['new', 'organize'],
+    choice: { kind: 'new-folder' },
+    snippet: 'Keep documents together',
+  },
+];
 
 const SEARCH_DELAY_MS = 150;
 
@@ -110,6 +132,7 @@ function Highlighted({ ranked }: { readonly ranked: RankedCommand }) {
 }
 
 type Props = {
+  readonly mode?: Exclude<PaletteMode, 'closed'>;
   readonly open: boolean;
   /** Offered with nothing typed: the documents open here. */
   readonly documents: readonly PaletteDocument[];
@@ -122,17 +145,19 @@ type Props = {
 /** Raycast-style: type to filter, arrows to move, Enter to run, Esc to close. */
 export function CommandPalette({
   open,
+  mode = 'search',
   documents,
   search,
   onChoose,
   onClose,
 }: Props) {
+  const creating = mode === 'create';
   const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
   const [hits, setHits] = useState<readonly PaletteDocument[] | null>(null);
   useEffect(() => {
-    if (!search || query.trim() === '') return;
+    if (creating || !search || query.trim() === '') return;
     let live = true;
     const wait = setTimeout(() => {
       // A failed search keeps what is shown; the next keystroke asks again.
@@ -147,11 +172,11 @@ export function CommandPalette({
       live = false;
       clearTimeout(wait);
     };
-  }, [query, search]);
-  const shown = query.trim() === '' ? null : hits;
+  }, [creating, query, search]);
+  const shown = creating || query.trim() === '' ? null : hits;
   const commands = useMemo(
-    () => paletteCommands(shown ?? documents),
-    [shown, documents],
+    () => (creating ? createCommands : paletteCommands(shown ?? documents)),
+    [creating, shown, documents],
   );
   const groups = useMemo(
     () => groupRanked(rankedWithHits(query, commands, shown !== null)),
@@ -172,6 +197,11 @@ export function CommandPalette({
     if (!open && node.open) node.close();
   }, [open]);
 
+  const closed = () => {
+    setQuery('');
+    setSelected(0);
+    onClose();
+  };
   const run = (ranked: RankedCommand | undefined) => {
     const choice = ranked && choiceOf(ranked.command.id);
     if (!choice) return;
@@ -195,12 +225,14 @@ export function CommandPalette({
     <dialog
       ref={dialog}
       aria-label="Command palette"
-      onClose={onClose}
-      onClick={(event) => event.target === dialog.current && onClose()}
-      className="m-auto mt-16 w-full room-palette overflow-hidden rounded-lg border border-border-strong bg-surface-raised p-0 text-ink shadow-3 backdrop:bg-scrim/60"
+      onClose={closed}
+      onClick={(event) => event.target === dialog.current && closed()}
+      className="m-auto room-palette w-full overflow-hidden rounded-lg border border-border-strong bg-surface-raised p-0 text-ink shadow-3 backdrop:bg-scrim/60"
     >
       <div className="flex items-center gap-2 border-b border-border px-4">
-        <Icon name="search" size={18} className="text-ink-faint" />
+        {creating ? null : (
+          <Icon name="search" size={18} className="text-ink-faint" />
+        )}
         <input
           autoFocus
           role="combobox"
@@ -211,7 +243,8 @@ export function CommandPalette({
               ? `palette-${ranked[selected]!.command.id}`
               : undefined
           }
-          aria-label="Search commands"
+          aria-label={creating ? 'Search what to create' : 'Search commands'}
+          placeholder={creating ? 'Create a document or folder' : undefined}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -229,9 +262,11 @@ export function CommandPalette({
       >
         {groups.map((group) => (
           <div key={group.group} role="group" aria-label={group.group}>
-            <div className="px-2 pt-2 pb-1 text-xs font-strong text-ink-faint">
-              {group.group}
-            </div>
+            {creating ? null : (
+              <div className="px-2 pt-2 pb-1 text-xs font-strong text-ink-faint">
+                {group.group}
+              </div>
+            )}
             {group.items.map((item) => {
               const index = ranked.indexOf(item);
               const isNew = item.command.id.startsWith('new:');
@@ -250,7 +285,16 @@ export function CommandPalette({
                       : 'text-ink-muted',
                   )}
                 >
-                  <Icon name={isNew ? 'plus' : 'file'} size={16} />
+                  <Icon
+                    name={
+                      item.command.id === 'create:folder'
+                        ? 'folder'
+                        : isNew
+                          ? 'plus'
+                          : 'file'
+                    }
+                    size={16}
+                  />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <Highlighted ranked={item} />
                     {snippetOf(item.command.id) ? (
@@ -273,6 +317,13 @@ export function CommandPalette({
           </p>
         ) : null}
       </div>
+      {creating ? (
+        <div className="flex gap-4 border-t border-border px-4 py-2 text-xs text-ink-muted">
+          <span>↑↓ Choose</span>
+          <span>Enter Create</span>
+          <span>Esc Close</span>
+        </div>
+      ) : null}
     </dialog>
   );
 }

@@ -42,28 +42,70 @@ const journey = async (
     const violations = await watchCspViolations(page);
 
     await page.goto(`${origin}/prep`);
-    await expect(page.getByRole('heading', { name: 'Prep' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Prep' })).toHaveCount(0);
+    if (viewport.width >= 1440) {
+      const main = await page.getByRole('main').boundingBox();
+      const files = await page
+        .getByRole('region', { name: 'Your files' })
+        .boundingBox();
+      expect(files).toEqual(main);
+      const rail = await page
+        .getByRole('navigation', { name: 'Primary' })
+        .boundingBox();
+      expect(rail?.width).toBe(56);
+      await expect(
+        page.getByRole('navigation', { name: 'Primary' }).getByRole('link', {
+          name: 'Prep',
+        }),
+      ).toBeVisible();
+    }
+    // The + opens a palette in the middle of the screen, not a menu beside it.
+    await tree(page).getByRole('button', { name: 'New', exact: true }).click();
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    await expect(palette).toBeVisible();
+    const box = (await palette.boundingBox())!;
+    expect(
+      Math.abs(box.x + box.width / 2 - viewport.width / 2),
+    ).toBeLessThanOrEqual(1);
+    await palette.getByRole('option', { name: /Document/ }).click();
+    await typeInto(page, 'Untitled', `Strongest card ${word}`);
+    const typing = await page
+      .getByRole('textbox', { name: 'Untitled', exact: true })
+      .evaluate((node) => {
+        const style = getComputedStyle(node);
+        return [style.outlineStyle, style.boxShadow];
+      });
+    expect(typing).toEqual(['none', 'none']);
+    // A + at the end of the tabs starts another.
     await page
       .getByRole('button', { name: 'New document', exact: true })
       .click();
-    await typeInto(page, 'Untitled', `Strongest card ${word}`);
+    await expect(
+      page.getByRole('button', { name: /^Close Untitled/ }),
+    ).toHaveCount(2);
+    await page
+      .getByRole('button', { name: /^Close Untitled/ })
+      .last()
+      .click();
 
     // A folder, and the document moved into it, through the same tree.
     const narrow = viewport.width < 901;
     if (narrow) await expect(tree(page)).toBeVisible();
-    await tree(page).getByText('New folder').first().click();
-    await tree(page).getByLabel('Folder name').fill('Cases');
-    await tree(page).getByRole('button', { name: 'Create folder' }).click();
+    if (narrow)
+      await page.getByRole('button', { name: 'Back to Files' }).click();
+    await tree(page).getByRole('button', { name: 'New', exact: true }).click();
+    await palette.getByRole('option', { name: /Folder/ }).click();
+    const naming = tree(page).getByLabel('Rename New folder');
+    await naming.fill('Cases');
+    await naming.press('Enter');
     const folder = tree(page).getByRole('button', {
       name: 'Cases',
       exact: true,
     });
     await expect(folder).toBeVisible();
-    await tree(page).getByLabel('Actions for Untitled').click();
-    await tree(page)
-      .getByLabel('Move Untitled to')
-      .selectOption({ label: 'Cases' });
-    await tree(page).getByRole('button', { name: 'Move', exact: true }).click();
+    await tree(page).getByLabel('Actions for Untitled').first().click();
+    await page.getByRole('menuitem', { name: 'Move to…' }).click();
+    await page.getByRole('menuitem', { name: 'Cases' }).click();
     await folder.click();
     await expect(
       tree(page).getByRole('button', { name: 'Untitled', exact: true }),
@@ -100,7 +142,7 @@ const journey = async (
         .getByRole('navigation', { name: 'Round' })
         .getByRole('button', { name: 'Files' })
         .click();
-    await tree(page).getByRole('button', { name: 'Open or create' }).click();
+    await tree(page).getByRole('button', { name: 'Search files' }).click();
     await page.getByRole('combobox', { name: 'Search commands' }).fill(word);
     const hit = page.getByRole('option', { name: /Untitled/ });
     await expect(hit).toContainText(word);

@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { idSchema } from '@daisy/protocol';
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { driveNoticeText } from '../../../../../features/documents/drive-return';
@@ -32,17 +31,15 @@ export default async function PrepFolderPage({
     after: null,
   });
   return (
-    <>
-      <Link href="/prep" className="px-6 text-sm underline">
-        Back to My drive
-      </Link>
+    <div data-workspace className="flex min-h-0 flex-1 flex-col">
       <DocumentManager
         principalId={principal.userId}
         back={`/prep/folders/${id}`}
         title={folder.name}
+        parentHref="/prep"
         initial={{ folderId: id, ...page, folders }}
         notice={driveNoticeText((await searchParams).notice)}
       />
-    </>
+    </div>
   );
 }

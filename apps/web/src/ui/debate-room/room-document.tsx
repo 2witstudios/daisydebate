@@ -47,6 +47,7 @@ export function RoomDocument({
         pages={state.pages}
         dispatch={dispatch}
         onEdit={onEdit}
+        onNew={onNew}
         save={save}
         leading={<ShowFiles state={state} dispatch={dispatch} />}
         empty={

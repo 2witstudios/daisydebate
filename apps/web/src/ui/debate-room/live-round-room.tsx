@@ -17,6 +17,7 @@ import type { LeaveLinks } from './leave-room';
 import { liveRoundOf } from './live-round';
 import { DebateRoom } from './room';
 import { useDocumentSaving } from '../documents/use-document-saving';
+import { BoundedDocuments } from '../documents/bounded-documents';
 import { ManagerWorkspace } from '../documents/document-manager';
 import {
   roundCommandIds,
@@ -221,13 +222,14 @@ export function LiveRoundRoom({
               roomId={view.roomId}
             />
             {/* A document is not the Round's, so its end stops no one typing. */}
-            <ManagerWorkspace
-              sync={sync}
-              notice={notice}
-              save={save}
-              back={`/rounds/${view.id}`}
-              title="Your files"
-            />
+            <BoundedDocuments title="Your files">
+              <ManagerWorkspace
+                sync={sync}
+                notice={notice}
+                save={save}
+                back={`/rounds/${view.id}`}
+              />
+            </BoundedDocuments>
           </>
         )
       }
