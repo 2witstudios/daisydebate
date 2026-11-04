@@ -6,7 +6,79 @@ import {
   type SpectatorTimeline,
 } from '@daisy/protocol';
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
-import type { SpectatorTimelineRead } from '@daisy/db';
+
+type FloorStage = Extract<SpectatorTimeline['stage'], { kind: 'floor' }>;
+
+/**
+ * The persisted facts of one Round for its audience, already held to the horizon by
+ * the read. The adapter's rows meet this shape; this module imports no adapter.
+ */
+export type SpectatorTimelineRead = {
+  readonly round: {
+    readonly id: string;
+    readonly visibility: string | null;
+    readonly status: string;
+    readonly competitionType: 'ranked' | 'casual';
+    readonly resolution: string | null;
+    readonly rules: {
+      readonly segments: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly side: FloorStage['side'];
+      }[];
+    };
+    readonly outcome: string | null;
+    readonly startedAt: Date | null;
+    readonly completedAt: Date | null;
+    readonly roomId: string | null;
+  };
+  readonly broadcast: null | {
+    readonly id: string;
+    readonly feedKey: string;
+    readonly deliveryPath: string;
+    readonly policy: { readonly seconds: number };
+    readonly releasedThroughAt: Date | null;
+    readonly completedAt: Date | null;
+    readonly stoppedAt: Date | null;
+    readonly mediaWithheld: boolean;
+  };
+  readonly recordingStatus: string | null;
+  readonly recordingLifecycle:
+    Parameters<typeof recordingPreparationOf>[0] | null;
+  readonly recordingJob: Parameters<typeof recordingPreparationOf>[1];
+  readonly seats: readonly {
+    readonly side: string;
+    readonly kind: string;
+    readonly username: string | null;
+    readonly botName: string | null;
+  }[];
+  readonly horizonMs: number | null;
+  readonly segments: readonly {
+    readonly type: FloorStage['segment'];
+    readonly key: string;
+    readonly startedAt: Date;
+    readonly endedAt: Date | null;
+    readonly durationMs: number;
+  }[];
+  readonly ballots: readonly {
+    readonly winner: string;
+    readonly scores: NonNullable<
+      SpectatorTimeline['result']
+    >['ballots'][number]['scores'];
+    readonly reason: string;
+  }[];
+  readonly ratings: readonly {
+    readonly side: string;
+    readonly before: number;
+    readonly after: number;
+  }[];
+  readonly captions: readonly {
+    readonly id: string;
+    readonly side: string;
+    readonly text: string;
+  }[];
+  readonly outcomeReleased: boolean;
+};
 
 const sideOf = (role: string): readonly DebateSide[] =>
   debateSides.filter((side) => side === role);

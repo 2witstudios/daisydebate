@@ -15,7 +15,6 @@ import {
 import { createNotificationSweep } from '../notifications/sweep';
 import { createViewerPulseRoute } from '../viewer-counts/handler';
 import { createWatchHistoryRoute } from '../watch-history/handler';
-import { limitAnonymousReads } from './anonymous-read-limit';
 import { createAudienceSnapshotRoute } from './audience-snapshot';
 
 const NOTIFICATION_SWEEP_EVERY_MS = 15_000;
@@ -36,10 +35,7 @@ export function composeAudienceRoutes(app: App) {
       logger: app.logger,
       reporter: app.reporter,
       store,
-      counts: app.redis,
-      clock,
       identify: account.identify,
-      limitRead: limitAnonymousReads(account.limiter),
     }),
     chat: createSpectatorChatRoute({ ...account, store, clock, ids }),
     reaction: createAudienceReactionRoute({ ...account, store, clock, ids }),

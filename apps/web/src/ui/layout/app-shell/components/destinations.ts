@@ -65,7 +65,7 @@ export const moreDestination: Destination = {
   ],
 };
 
-/** A member's own places: their inbox, notifications and friends. */
+/** A member's own places: their notifications, inbox and friends. */
 export const memberDestinations = {
   messages: { href: '/messages', icon: 'message', label: 'Messages' },
   friends: {

@@ -41,8 +41,8 @@ Round worker, which `bun dev` does not start.
 | `bun dev`                                                     | All dev processes (the web app and apps/realtime) via turbo                                                                                                                                                                    |
 | `bun dev:agent`                                               | Run `slot:up`, seed, launch web and realtime, and wait ready                                                                                                                                                                   |
 | `bun demo` / `bun demo:link <email>`                          | The [local demo](demo.md): production build with every Round worker for real browsers / print a captured sign-in link                                                                                                          |
-| `bun build`                                                   | Production builds through the turbo graph                                                                                                                                                                                      |
-| `bun test`                                                    | Fast deterministic unit/domain tests; no services or Next boot                                                                                                                                                                 |
+| `bun run build`                                               | Production builds through the turbo graph                                                                                                                                                                                      |
+| `bun run test`                                                | Fast deterministic unit/domain tests; no services or Next boot                                                                                                                                                                 |
 | `bun test:integration`                                        | Database, Redis, and web vertical tests against real services, each run in its own Postgres database, dropped after it (ADR 0034)                                                                                              |
 | `bun visual:server`                                           | Linux Playwright browser server for screenshot parity on non-Linux hosts (see testing)                                                                                                                                         |
 | `bun test:e2e`                                                | Playwright against the production server build                                                                                                                                                                                 |
@@ -74,7 +74,44 @@ Round worker, which `bun dev` does not start.
 | `bun progress:sync [--apply]`                                 | Render Project Status from the Score blocks on the Product intent pages, then Watch Status; a dry run exits 1 only when scores drifted, `--apply` writes and reads back                                                        |
 | `bun progress:watch [--apply]`                                | Render the Watch Status canvas from the board, PR 553 and `scripts/watch-status-source.html`, under the same drift rule and writer as `bun progress:sync`                                                                      |
 | `bun decision:record`                                         | Record a decision made on the owner's behalf on Pending decisions and notify the owner                                                                                                                                         |
-| `bun plan:review <plan>`                                      | Automated Codex review of a plan against AGENTS.md and the ADRs, before tasking                                                                                                                                                |
+| `bun plan:review <plan>`                                      | Automated Codex review of a plan against the engineering rules and the ADRs, before tasking                                                                                                                                    |
+
+## Verification
+
+Run commands from the repository root. Code in parallel; heavy commands queue
+machine-wide. The scripts `build`, `typecheck`, `lint`, `test`,
+`test:integration`, `test:e2e`, `check`, `check:affected`, `verify`, `knip`,
+`duplication`, `dev` and `dev:agent` run through `scripts/heavy.ts`, one at a
+time across every checkout (`DAISY_HEAVY_CONCURRENCY`, default 1); commands they
+start run inside the same slot. Use `bun run test` and `bun run build`: the
+built-ins `bun test` and `bun build` bypass the queue. Every run, dev servers
+included, is terminated at `DAISY_HEAVY_TIMEOUT_MINUTES` (default 45). A dev
+server holds the slot while it runs: stop idle ones.
+
+- `bun doctor` checks the Bun version, environment parsing, PostgreSQL
+  reachability, migration currency, Redis reachability and architecture
+  boundaries. It should pass before service-based work. `--json` gives a
+  machine-readable report.
+- `bun check` does not boot Next or require integration services, but its policy
+  stage lists open PRs for ADR and migration number claims, so it needs the
+  network and an authenticated `gh` (`GH_TOKEN` in CI).
+- `bun verify` applies migrations twice to `TEST_DATABASE_URL` to prove
+  idempotency, and requires isolated services and a test database. `--json` gives
+  a report.
+- `bun migrations:check` is required before pushing `packages/db/migrations/`
+  changes.
+- `bun scenario <name>` runs `scenarios/<name>.ts` as a deterministic domain
+  lifecycle scenario; unsupported scenarios report a documented boundary, and
+  rejection steps also prove atomic state preservation.
+- `bun invariants` validates `spec/invariants.json` against the engine registry,
+  referenced test source names and registered negative fixtures. `--json` gives a
+  report.
+- `bun test:integration` requires `bun slot:up`. `bun test:e2e` uses Node 24 only
+  as its driver runtime.
+- `bun evidence`, with knip, duplication and the coverage trend
+  (`bun metrics:check`), runs in CI's non-blocking advisory reports job.
+
+Use `bun db:studio` only for local inspection.
 
 ## Environment
 

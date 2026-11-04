@@ -109,7 +109,7 @@ describe('AppShell', () => {
     assert({
       given: 'a member',
       should:
-        'link home from the logo, then the destinations, then Messages, Notifications and Friends, then the account menu with the profile and account pages',
+        'link home from the logo, then the destinations, then Notifications, Messages and Friends, then the account menu with the profile and account pages',
       actual: [
         rail.includes('aria-label="Daisy Debate home"'),
         hrefsOf(rail).filter(
@@ -130,8 +130,8 @@ describe('AppShell', () => {
           '/judge',
           '/train',
           '/prep',
-          '/messages',
           '/notifications',
+          '/messages',
           '/friends',
           '/profile/ada-byron',
           '/settings',

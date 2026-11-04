@@ -3,7 +3,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   BROADCAST_INTERRUPTED_AFTER_MS,
   projectSpectatorTimeline as project,
-} from './timeline';
+} from './spectator-timeline';
 
 setupRitewayBun();
 

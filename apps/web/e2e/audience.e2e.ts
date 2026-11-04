@@ -208,11 +208,8 @@ test('an unlisted Round opens to its link alone, for every audience form, with n
       missingReport: 404,
       read: 404,
     });
-    const held = await holder.request.get(`/api/rounds/${roundId}/audience`);
-    expect([held.status(), held.headers()['cache-control']]).toEqual([
-      200,
-      'no-store',
-    ]);
+    const held = await holder.request.get(`/watch/${roundId}`);
+    expect(held.status()).toBe(200);
   } finally {
     await holderContext.close();
     await strangerContext.close();

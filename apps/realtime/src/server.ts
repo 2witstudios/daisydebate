@@ -31,7 +31,7 @@ const liveResponse = () =>
 /**
  * Never exposes which dependency is down: an internet-facing readiness
  * route that named `redis: false` would hand an attacker a live outage map
- * (AGENTS.md: "public errors must not expose internals"), unlike apps/web's
+ * (docs/architecture/rules.md: "Public errors must not expose internals"), unlike apps/web's
  * `/api/health/ready`, which already returns `{status}` only. Which check
  * failed is still traceable: `@daisy/db`'s `health`/`checkListen` and
  * `@daisy/redis`'s `health` each log their own `db.query.failed` or

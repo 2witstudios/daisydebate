@@ -6,14 +6,14 @@ import { getDefaultSelectors } from 'eslint-plugin-better-tailwindcss/defaults';
 
 /**
  * Shared between the repo-wide `no-restricted-syntax` entry and the
- * ambient-time exemption below, so the two copies can't drift: AGENTS.md's
- * explicit-exports rule applies to every workspace source file, with no
+ * ambient-time exemption below, so the two copies can't drift: the engineering
+ * rules' explicit-exports rule applies to every workspace source file, with no
  * exception.
  */
 const exportStarRestriction = {
   selector: 'ExportAllDeclaration',
   message:
-    'Use named re-exports, not `export *` (AGENTS.md: explicit exports, no barrels).',
+    'Use named re-exports, not `export *` (docs/architecture/rules.md: explicit exports, no barrels).',
 };
 
 /**

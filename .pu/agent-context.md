@@ -11,7 +11,7 @@ description: >
 
 You are operating inside PurePoint, an agent-first coding workspace. PurePoint spawns AI coding agents in isolated git worktrees so multiple agents can work in parallel without conflicts.
 
-This file is committed in the Daisy repository so that `pu` never replaces it with its generic default. `AGENTS.md` is the operating map and wins over anything here.
+This file is committed in the Daisy repository so that `pu` never replaces it with its generic default. `AGENTS.md` is the operating map; it and the documents it links win over anything here.
 
 ## Your Role
 
@@ -41,7 +41,7 @@ PurePoint tasks are expected to be **completed fully**. This means:
 
 - **No truncation.** Implement every requirement, not just the easy parts.
 - **No simplification.** Don't reduce scope without explicit permission from the user or point guard.
-- **No deferring your own scope.** Every criterion of the task you were given is yours to finish. Findings outside it are filed, not dropped: a follow-up leaf when an open leaf owns it, otherwise an `ISSUE-n` in the drive's `Issues` list, as `AGENTS.md` requires.
+- **No deferring your own scope.** Every criterion of the task you were given is yours to finish. Findings outside it are filed, not dropped: a follow-up leaf when an open leaf owns it, otherwise an `ISSUE-n` in the drive's `Issues` list, as [work management](../docs/development/work-management.md#issues) requires.
 - **No TODO stubs.** Every function, every test, every integration — complete.
 - **If your context is filling up**, that's a signal to commit your progress and communicate status — not to abandon work.
 

@@ -11,7 +11,8 @@ setupRitewayBun();
 
 describe('planReviewPrompt', () => {
   const prompt = planReviewPrompt({
-    agents: 'AGENTS RULES: greenfield over backward compatibility',
+    agents: 'AGENTS INDEX: the map of this repository',
+    rules: 'ENGINEERING RULES: greenfield over backward compatibility',
     adrs: [
       { number: '0018', title: 'cuid2 identifiers' },
       { number: '0023', title: 'Greenfield baseline' },
@@ -21,15 +22,16 @@ describe('planReviewPrompt', () => {
 
   test('gives the external reviewer the repository constraints and the plan', () => {
     assert({
-      given: 'AGENTS.md, the ADR index and a plan',
-      should: 'include all three and the required verdict line',
+      given: 'AGENTS.md, the engineering rules, the ADR index and a plan',
+      should: 'include all four and the required verdict line',
       actual: [
-        prompt.includes('AGENTS RULES'),
+        prompt.includes('AGENTS INDEX'),
+        prompt.includes('ENGINEERING RULES'),
         prompt.includes('ADR 0023: Greenfield baseline'),
         prompt.includes('Backfill existing rows.'),
         prompt.includes('PLAN REVIEW: APPROVE'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 

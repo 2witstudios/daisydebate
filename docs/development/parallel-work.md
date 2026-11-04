@@ -49,25 +49,6 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
   record. Local notes are scratch; anything another session needs belongs
   in PageSpace.
 
-## Work intake
-
-Start in the drive's Product → `Project Status`. Before planning a slice,
-read:
-
-- the applicable `Product intent` area pages: Score, "What 100% means" and
-  "Constraints other features must respect now";
-- the affected-capability links (Rooms/realtime to Spectating, Formats to
-  Judging, Messaging to Privacy).
-
-Link these sources from the slice plan. Future intent constrains current
-work without creating a future task tree. Design work extends the existing
-shipped UI and canvases in `Resources/Designs`.
-
-Obsolete pages go to the PageSpace trash, which is restorable; there is no
-Archive folder. Moves keep task identity. A merged PR's tasks
-reach Done when its latest review verdict approves; otherwise they wait in
-Merged for the board keeper ([reviews](reviews.md)).
-
 ## Shared surfaces
 
 Slices rarely collide. When they do, the collision resolves at merge:
@@ -104,7 +85,8 @@ step does that work.
 - `bun check` mirrors CI's blocking gates, which CI runs on every PR.
 - `bun migrations:check` runs whenever migrations change.
 - CI is per-PR isolated (service containers, concurrency cancellation). The
-  browser tier runs once per PR in the dedicated browser workflow.
+  browser tier runs on main after merge, and a PR may dispatch it by choice
+  ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)).
 
 ## Reviewing and merging
 

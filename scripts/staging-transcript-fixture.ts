@@ -61,6 +61,8 @@ export async function transcriptProofFixture(
         requestDigest: digest,
         adminAuditHead: digest,
         nextId: createId,
+        // Not a signed operator request: there is no deadline to outlive.
+        live: () => true,
         authorize: (target) =>
           target?.userId === user.id &&
           target.actorId === account.actor_id &&

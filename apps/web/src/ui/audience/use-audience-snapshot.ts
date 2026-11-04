@@ -4,19 +4,20 @@ import { audienceSnapshotSchema, type AudienceSnapshot } from '@daisy/protocol';
 import { useEffect, useState } from 'react';
 import { answerOfResponse } from '../../features/spectating/poll-pace';
 import { startBrowserPoll } from '../spectating/browser-poll';
+import { usePublishedAudience } from '../spectating/published-state';
 import { newerAudience } from './newer-audience';
 
 /**
- * The audience's activity, refreshed from the read everyone gets, and from a fresh
- * render as soon as there is one, so a poster sees their own message at once. Off,
- * it makes no request. Without script the server's render stands. Only an unlisted
- * Round sends cookies, for its link: a public read needs none, so it stays cacheable.
- * A refusal or a failed read backs off, and the last view stands until one succeeds.
+ * The audience's activity, and from a fresh render as soon as there is one, so a
+ * poster sees their own message at once. A viewer reads what the worker published
+ * beside the player. Someone in the live room reads web, signed in, since what they
+ * may see is their own (`audienceFor`). Without script the server's render stands. A
+ * refusal or a failed read backs off, and the last view stands until one succeeds.
  */
 export function useAudienceSnapshot(
   initial: AudienceSnapshot,
+  liveRoom: boolean,
   polling: boolean,
-  unlisted: boolean,
 ) {
   const [snapshot, setSnapshot] = useState(initial);
   const [rendered, setRendered] = useState(initial);
@@ -24,13 +25,19 @@ export function useAudienceSnapshot(
     setRendered(initial);
     setSnapshot(newerAudience(snapshot, initial));
   }
+  const published = usePublishedAudience()?.audience;
+  const [seen, setSeen] = useState(published);
+  if (!liveRoom && published && published !== seen) {
+    setSeen(published);
+    setSnapshot(newerAudience(snapshot, published));
+  }
   useEffect(() => {
-    if (!polling) return;
+    if (!polling || !liveRoom) return;
     let stopped = false;
     const stop = startBrowserPoll(async () => {
       const response = await fetch(
         `/api/rounds/${encodeURIComponent(initial.roundId)}/audience`,
-        { credentials: unlisted ? 'same-origin' : 'omit' },
+        { credentials: 'same-origin' },
       );
       const parsed = audienceSnapshotSchema.safeParse(
         response.ok ? await response.json() : null,
@@ -43,6 +50,6 @@ export function useAudienceSnapshot(
       stopped = true;
       stop();
     };
-  }, [initial.roundId, polling, unlisted]);
+  }, [initial.roundId, polling, liveRoom]);
   return snapshot;
 }

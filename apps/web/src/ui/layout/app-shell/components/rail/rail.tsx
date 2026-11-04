@@ -11,7 +11,7 @@ import { memberDestinations, primaryDestinations } from '../destinations';
 import { AccountMenu } from './account-menu';
 import { FriendsLink } from './friends-link';
 
-/** A member's own places: their inbox, notifications (once launched) and friends. */
+/** A member's own places: their notifications, inbox and friends. */
 function MemberPlaces({
   account,
   extended,
@@ -23,10 +23,10 @@ function MemberPlaces({
   return (
     <>
       <li>
-        <NavItem {...memberDestinations.messages} extended={extended} />
+        <NavItem {...memberDestinations.notifications} extended={extended} />
       </li>
       <li>
-        <NavItem {...memberDestinations.notifications} extended={extended} />
+        <NavItem {...memberDestinations.messages} extended={extended} />
       </li>
       <li>
         <FriendsLink extended={extended} />
@@ -81,9 +81,8 @@ export type RailProps = {
 /**
  * The one navigation rail on every shell page, beside the page. Top to
  * bottom: the logo (with the Daisy Debate wordmark when extended), the
- * launched destinations, a divider, a member's messages, notifications (once
- * launched) and friends with Minimize as the last row of that group, then
- * the account at the foot. The account opens a menu with the member's
+ * destinations, a divider, a member's notifications, messages and friends
+ * with Minimize as the last row of that group, then the account at the foot. The account opens a menu with the member's
  * ratings and the account pages; More is that menu now. Extended (the
  * default) each name shows beside its icon; mini is icons only, with names
  * as screen-reader text and tooltips. Below the rail breakpoint CSS alone

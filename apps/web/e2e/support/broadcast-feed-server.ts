@@ -89,6 +89,9 @@ const recordingObject = (pathname: string) => {
  * spec's way to read what was asked for and to end a feed; a real bucket has
  * neither, and the page never calls them.
  */
+/** What the stand-in publisher has written, by its object path. */
+export const publishedStates = new Map<string, string>();
+
 export const startBroadcastFeedServer = (port: number) => {
   const certificates = createLaunchCertificates();
   const tls = {
@@ -112,6 +115,15 @@ export const startBroadcastFeedServer = (port: number) => {
       }
       requested.push(pathname);
       const cors = { 'Access-Control-Allow-Origin': '*' };
+      const state = publishedStates.get(pathname.slice(1));
+      if (state)
+        return new Response(state, {
+          headers: {
+            ...cors,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+          },
+        });
       const stored = recordingObject(pathname);
       if (stored)
         return new Response(stored.body, {

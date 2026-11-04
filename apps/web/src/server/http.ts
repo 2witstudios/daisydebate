@@ -57,13 +57,6 @@ export function parseValidated<T>(schema: ZodType<T>, input: unknown): T {
   return result.data;
 }
 /**
- * The only cacheable answer: a released, viewer-free spectator snapshot read
- * every one to two seconds. Anything else, errors included, stays no-store.
- */
-export const PUBLIC_SNAPSHOT_CACHE =
-  'public, max-age=1, s-maxage=1, stale-while-revalidate=1';
-
-/**
  * The one wrapper every route handler runs in: correlation and no-store
  * headers, a request-scoped child of the injected logger, completion and
  * failure logging, and the public error contract for anything thrown. The
@@ -93,8 +86,7 @@ export async function handleOperation(
         request.signal.throwIfAborted();
         const response = await handler(id, logger);
         response.headers.set('x-request-id', id);
-        if (response.headers.get('Cache-Control') !== PUBLIC_SNAPSHOT_CACHE)
-          response.headers.set('Cache-Control', 'no-store');
+        response.headers.set('Cache-Control', 'no-store');
         logger.log(
           'http.request.completed',
           {

@@ -38,8 +38,8 @@ export type AudienceViewer =
 export type AudiencePanelProps = {
   readonly initial: AudienceSnapshot;
   readonly viewer: AudienceViewer;
-  /** An unlisted Round's reads carry its link. */
-  readonly unlisted?: boolean;
+  /** In the live room, so what they read is their own, from web. */
+  readonly liveRoom?: boolean;
   /** Off for a seat during the Round, which reads only what it may. */
   readonly shown: {
     readonly chat: boolean;
@@ -146,10 +146,10 @@ export function AudiencePanel({
   initial,
   viewer,
   shown,
-  unlisted = false,
+  liveRoom = false,
 }: AudiencePanelProps) {
   const polling = shown.chat || shown.reactions || shown.viewers;
-  const snapshot = useAudienceSnapshot(initial, polling, unlisted);
+  const snapshot = useAudienceSnapshot(initial, liveRoom, polling);
   const count = shown.viewers ? viewerCountText(snapshot.viewers) : null;
   return (
     <section aria-label="Audience" className="flex flex-col gap-4">
