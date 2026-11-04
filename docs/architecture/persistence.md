@@ -42,7 +42,7 @@ from admission cutoff and transcript freeze.
 
 The single greenfield baseline ([ADR 0038](../decisions/0038-drizzle-1-baseline.md)) creates `daisy_web` with DML but no schema, `TRUNCATE`, or migration-log privilege. `daisy_realtime` gets only explicit read models and outbox access; it cannot read authentication secrets or private user fields. `daisy_e2e` is a local loopback login and member of `daisy_web`. Migrations run through a separate owner credential. A baseline squash requires the recorded policy entry and a one-time reset of local and test databases; deployed migrations are never rewritten.
 
-Generate schema changes with `bun db:generate`, review SQL and snapshot metadata, and run `bun migrations:check`. A forward migration is required after a baseline reaches `main`. Production changes use expand/contract for rolling deployments; see [database operations](../operations/database.md).
+Generate schema changes with `bun db:generate`, review SQL and snapshot metadata, and run `bun migrations:check`. A forward migration is required after a baseline reaches `main`. Once Daisy has real users, production changes use expand/contract for rolling deployments (DEC-304); see [database operations](../operations/database.md).
 
 ## Auth mail, realtime, and Redis
 

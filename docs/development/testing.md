@@ -3,11 +3,13 @@
 Four tiers, all runnable locally. Faster tiers must not require slower
 infrastructure. All unit tests follow TDD and the RITEway format (ADR 0014);
 `packages/debate-engine/src/engine.test.ts` is the canonical example. Generic
-AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
+AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021), and
+`@daisy/errors` plus native `Error.cause` replaces `error-causes`. `bun policy`
+enforces the ADR-linked, time-bounded exception registry.
 
 ## Tiers
 
-1. **Unit/domain (`bun test`)** — every package's `src/`. Debate engine
+1. **Unit/domain (`bun run test`)** — every package's `src/`. Debate engine
    contract tests run the real Adobe ECS adapter; protocol, config, errors,
    logger, observability, and web HTTP-boundary tests are deterministic and
    need no services, no Next boot, no network.
@@ -169,8 +171,8 @@ the staging go-ahead gate.
 ## Suite wiring (`bun evidence`)
 
 A suite that nothing invokes is indistinguishable from a suite that does
-not exist — PageSpace lost entire tiers this way. `bun evidence` (in
-`bun check` and CI) is the live audit:
+not exist — PageSpace lost entire tiers this way. `bun evidence` (a
+report in CI's advisory job) is the live audit:
 
 - Every `*.test.ts` and `*.test.tsx` must sit in a claimed location: a
   workspace's `src/` (`bun test src`, the unit tier), root `scripts/`
@@ -226,12 +228,15 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - **Dead code.** `bun run knip` reports unused files, exports and
   dependencies, then runs again in production mode for `apps/web`, which
   also reports a module only its own test imports. It warns on PRs and fails the nightly main run, so keep
-  findings at zero (ADR 0013, ADR 0083).
+  findings at zero, and keep `knip.jsonc` ignores limited to genuine implicit
+  uses (ADR 0013, ADR 0083).
 - **Duplication.** `bun run duplication` reports copy-pasted blocks not in
   `.jscpd-baseline.json`, and copy-pasted test blocks not in
   `.jscpd-tests-baseline.json` (tests have their own scan and baseline). It
   is a report, not a gate: consolidate what it finds during the review
-  loop's `/simplify` pass (ADR 0026, ADR 0083).
+  loop's `/simplify` pass by extracting the shared function, component or data
+  table into the owning module. Never raise `minTokens`, add an ignore, or
+  re-baseline to quiet it (ADR 0026, ADR 0083).
 - **Size and complexity.** ESLint's `max-lines` and `complexity` rules warn.
   Treat a warning as a prompt to split or simplify, not as a merge blocker.
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no

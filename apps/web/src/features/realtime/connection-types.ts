@@ -23,8 +23,8 @@ export type WebSocketLike = {
 /**
  * The injected timing seam: production wires real `performance.now`/
  * `setTimeout`/`clearTimeout`; tests wire a virtual clock and timer queue so
- * the heartbeat and backoff rules are proven deterministically (AGENTS.md:
- * inject clocks, never sleep-and-hope).
+ * the heartbeat and backoff rules are proven deterministically (testing
+ * rules: inject clocks, never sleep-and-hope).
  */
 export type Scheduler = {
   readonly now: () => number;

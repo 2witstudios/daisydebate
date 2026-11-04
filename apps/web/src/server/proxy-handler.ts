@@ -187,7 +187,7 @@ function routeRequest(request: NextRequest, settings: ProxySettings) {
     settings.foundationProofEnabled,
   );
   if (closed) return closed;
-  // 16 CSPRNG bytes: a cuid2 value (the injected ids) is never a secret (AGENTS.md),
+  // 16 CSPRNG bytes: a cuid2 value (the injected ids) is never a secret (docs/architecture/rules.md),
   // and the nonce must be unguessable, unlike the request-id above.
   const nonce = Buffer.from(
     crypto.getRandomValues(new Uint8Array(16)),
