@@ -307,7 +307,6 @@ export {
   decodeMessagingInboxCursor,
   encodeMessagingInboxCursor,
   messagingInboxSearchLine,
-  type MessagingInboxCursor,
   messagingInboxPreviewMax,
   messagingInboxTitleMax,
 } from './messaging/inbox';

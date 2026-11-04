@@ -23,7 +23,7 @@ export type MessageRow =
     };
 
 /** Messages this close from one author read as one run. */
-export const messageRunMs = 5 * 60_000;
+const messageRunMs = 5 * 60_000;
 
 const dayKey = (at: string, timeZone: string) =>
   new Intl.DateTimeFormat('en-CA', {

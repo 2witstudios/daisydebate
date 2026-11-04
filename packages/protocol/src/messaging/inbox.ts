@@ -41,7 +41,7 @@ const cursorTime = z.iso.datetime();
  * the channel as tie-break. It names only an entry its reader was already
  * scanned, and it is a position, never a navigation grant.
  */
-export type MessagingInboxCursor =
+type MessagingInboxCursor =
   | { readonly kind: 'invitation'; readonly channelId: string }
   | { readonly kind: 'withheld'; readonly channelId: string }
   | {

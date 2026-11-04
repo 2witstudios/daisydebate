@@ -5,8 +5,8 @@ type Scheduler = {
 };
 
 /** The longest a burst of rings waits, and the search's typing pause. */
-export const inboxRingCoalesceMs = 750;
-export const inboxSearchDebounceMs = 250;
+const inboxRingCoalesceMs = 750;
+const inboxSearchDebounceMs = 250;
 
 /**
  * The list's one reader. A ring re-reads every page the reader has loaded and
