@@ -256,10 +256,6 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
                 { ...command, type: 'start_prep' },
               );
               if (taken.ok()) prepared.set(next.key, nowMs());
-              else
-                console.log(
-                  `prep for ${next.key}: ${taken.status()} ${await taken.text()}`,
-                );
             }
           } else if (
             running &&

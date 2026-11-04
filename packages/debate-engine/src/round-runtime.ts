@@ -23,7 +23,7 @@ import {
   type RoundRules,
   type RuntimeCheckpoint,
 } from '@daisy/protocol';
-import { advanceRoundClock, openClockSegment } from './round-clock';
+import { advanceRoundClock } from './round-clock';
 import {
   closeClockSegment,
   type ClockTransition,
