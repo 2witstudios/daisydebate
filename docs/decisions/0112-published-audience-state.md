@@ -1,6 +1,6 @@
 # 0112: A viewer reads published state, not web
 
-Status: accepted, owner's point guard (DEC-350), 2026-11-03. Amends ADR 0099 and ADR 0108.
+Status: accepted, owner's point guard (DEC-350), 2026-11-03. Amends ADR 0099 and ADR 0108. Page loads amended by ADR 0116.
 
 ## Context
 
@@ -41,11 +41,8 @@ snapshot and a pulse rate. The player and the audience panel poll it. The anonym
 
 ## Consequences
 
-- A viewer's first page load still reaches web and reads the database, and so does a sampled
-  pulse. `fly.toml` limits how many requests run at once (ISSUE-1306), and that did not protect
-  a live debate from 1,000 page loads a second (proof page). This decision accepts that limit
-  for invited testers. A static shell for the anonymous page, and a rerun at a lower rate, are
-  owed before a tournament.
+- A viewer's first page load may still reach web and read the database, and so does a sampled
+  pulse. ADR 0116 puts a gate and a short cache in front of that.
 - A signed-in poster reads their own message from the next published state or a fresh render.
 - Chat and usernames sit in a public object under an unguessable key for that lifetime.
 - A host no longer sees a live viewer count in the live room.

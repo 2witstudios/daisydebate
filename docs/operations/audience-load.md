@@ -1,9 +1,8 @@
 # Audience load against a live debate
 
-The promise this checks: viewers can never hurt the debate. It holds for polls and not yet
-for a burst of page loads (below). A viewer's polls read the publisher's state from the public bucket (ADR 0112), so they never reach web.
-What still reaches web is the first page load, one sampled pulse, and anyone's direct
-request, and `fly.toml` limits how many of those run at once.
+The promise this checks: viewers can never hurt the debate. A viewer's polls read the publisher's
+state from the public bucket (ADR 0112). A page load meets the web gate first (ADR 0116). What still
+reaches web is a cache miss, one sampled pulse, and requests within the gate's budgets.
 
 ## What the driver sends
 
@@ -35,14 +34,10 @@ has no passes to compare. Hold the window across at least two.
 
 Read seat audio and rejoin from the seats' own browsers. The floor logs cannot show them.
 
-## What the limit does not cover
+## What stands in front
 
-The connection limit in `fly.toml` protects the process by turning traffic away, and a
-seat's requests share those slots with everyone's. It does not stop a page-load crowd from
-hurting a debate. The one rerun, with 1,000 page loads a second from three regions for
-150 s, broke the promise above (the proof page, Page loads beside a live debate).
-
-Polls no longer reach web. A flash crowd of first page loads still does, because each one
-renders on web and reads the database. This release accepts that limit. The fix and a rerun
-at a lower rate, to find where harm begins, are on the Before a tournament checklist. An edge
-per-address limit does not cover it, because a real crowd comes from many addresses.
+The web gate (ADR 0116) answers cached Watch pages and refuses past its budgets before web. In
+the driver's output `429` is one address past its budget and `503` is the anonymous lane full, and
+neither reached web. A rising `0` count or `answeredMs` reads as the machine or the gate.
+`passMs` and `tickMs` rising with `refusedByLane.competitive` flat means web's process is still the
+limit, so read how many requests reached it.

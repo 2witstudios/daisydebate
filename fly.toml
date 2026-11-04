@@ -43,25 +43,17 @@ kill_timeout = 35
   # RESEND_WEBHOOK_SECRET, OPS_PROBE_TOKEN, DATABASE_URL, REDIS_URL) are set
   # with `fly secrets import`, never written here (fly.toml
   # is committed; scripts/verify-deploy-config.ts refuses a database URL here).
-  PORT = "8080"
+  # Web behind the gate on loopback (ADR 0116); the gate holds internal_port.
+  PORT = "8090"
+  LISTEN_HOST = "127.0.0.1"
   PUBLIC_APP_URL = "https://beta.daisydebate.com"
   REDIS_NAMESPACE = "daisy"
   LOG_LEVEL = "info"
-  # AUTH_TRUSTED_PROXIES: fly-proxy terminates the client TLS connection and
-  # reaches the app over the machine's private IPv4 link (the app binds
-  # 0.0.0.0, as https://fly.io/docs/networking/app-services/ requires), so
-  # the socket peer the ingress sees is fly-proxy, not the caller. Measured
-  # on staging (ISSUE-162, 2026-09-28): every public connection arrives from
-  # the machine's default gateway (172.19.3.97 on that host), never from 6PN
-  # (fdaa::/8). `gateway` trusts exactly that one address, read from
-  # /proc/net/route at start (apps/web/src/server/trusted-proxies.ts); a
-  # trusted peer's Fly-Client-IP then names the caller
-  # (apps/web/src/features/auth/abuse/client-ip.ts). DEC-39 (supersedes DEC-36):
-  # no range is trusted — not 6PN, which every machine and WireGuard peer in
-  # the org shares, nor 172.16.0.0/12 or Fly's public edge. With no single
-  # gateway it trusts nothing and logs ingress.trusted_proxy.unresolved. See
-  # docs/operations/deploy-staging.md "Client identity on Fly".
-  AUTH_TRUSTED_PROXIES = "gateway"
+  # AUTH_TRUSTED_PROXIES: web's only peer is the gate on this machine. The gate trusts
+  # Fly-Client-IP only from fly-proxy, which is the machine's default gateway (ISSUE-162,
+  # DEC-39), read from /proc/net/route by apps/web/gate/start.sh, and overwrites it for
+  # anyone else. See docs/operations/deploy-staging.md "Client identity on Fly".
+  AUTH_TRUSTED_PROXIES = "127.0.0.1"
   # The signed operator API (ADR 0079): a second listener on this machine's
   # own 6PN address only, port 8081, never in [[services]], so fly-proxy
   # never routes to it. It starts only once the OPERATOR_API_KEYS secret is
@@ -100,7 +92,7 @@ kill_timeout = 35
   BROADCAST_PUBLIC_ORIGIN = "https://daisy-debate-staging-broadcast-public.t3.tigrisfiles.io"
 
 [http_service]
-  # Must match Dockerfile EXPOSE and the PORT env above.
+  # The gate's port (apps/web/gate/nginx.conf.template) and the Dockerfile's EXPOSE.
   internal_port = 8080
   # Reject plaintext; fly-proxy issues the TLS cert for <app>.fly.dev.
   force_https = true
@@ -112,16 +104,12 @@ kill_timeout = 35
   auto_start_machines = true
   min_machines_running = 1
 
-  # ISSUE-1306, DEC-350: the floor under one machine stalling debates. Unset, Fly
-  # counts connections and sets no hard limit. A request past the rate limit still
-  # costs this process: on the rig about 670 a second saturated it, near 1.5 ms each,
-  # so 64 in flight is about a tenth of a second's work. Fly's page says no new traffic
-  # reaches the Machine at the hard limit, and not whether the proxy queues or refuses,
-  # so whether this refuses a real seat is read from the load run, not assumed.
+  # ADR 0116: this counts requests at the gate, which answers or refuses most of them
+  # itself. The gate holds the limits that matter, per address and for the anonymous lane.
   [http_service.concurrency]
     type = "requests"
-    soft_limit = 48
-    hard_limit = 64
+    soft_limit = 1500
+    hard_limit = 2000
 
   [[http_service.checks]]
     # Fly's liveness probe: process aliveness only, no dependency calls.
