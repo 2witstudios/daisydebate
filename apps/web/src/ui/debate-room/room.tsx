@@ -3,7 +3,6 @@
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import {
   useLayoutEffect,
-  useCallback,
   useReducer,
   useRef,
   useSyncExternalStore,
@@ -149,30 +148,24 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
   usePaletteShortcut(dispatch);
   const phonePanel = phonePanelOf(state);
   useFocusReturn(state.filesOpen, phonePanel);
-  const { problem, setProblem } = useDocumentSync(
-    sync,
-    dispatch,
-    state.tabs.open,
-  );
-  const report = useCallback(
-    (message: string) => setProblem(message),
-    [setProblem],
-  );
+  const { problem } = useDocumentSync(sync, dispatch, state.tabs.open);
   const drive = useDrive({
     sync,
     opened: state.opened,
     dispatch,
-    setProblem: report,
-    back: `/rounds/${round.id}/room`,
   });
   const hydrated = useHydrated();
   const unread = chatUnread(round, state);
-  const alert = problem ?? props.notice ?? null;
+  const alerts = [...new Set([problem ?? props.notice, drive.problem])].filter(
+    Boolean,
+  );
   const create = () => drive.createDocument(null);
-  const choose = (choice: PaletteChoice) =>
-    choice.kind === 'new'
-      ? create()
-      : drive.open(choice.documentId, choice.title);
+  const choose = (choice: PaletteChoice) => {
+    dispatch({ type: 'palette/close' });
+    if (choice.kind === 'new') create();
+    else if (choice.kind === 'new-folder') drive.createFolder(null);
+    else drive.open(choice.documentId, choice.title);
+  };
   // Until script runs the phone tabs cannot switch, so every panel stays
   // readable, stacked in one scrolling column.
   const phoneHides = (...panels: readonly PhonePanel[]) =>
@@ -192,11 +185,15 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
           round={round}
         />
       </section>
-      {alert ? (
-        <p role="alert" className="shrink-0 px-4 py-1 text-sm text-live">
-          {alert}
+      {alerts.map((message) => (
+        <p
+          key={message}
+          role="alert"
+          className="shrink-0 px-4 py-1 text-sm text-live"
+        >
+          {message}
         </p>
-      ) : null}
+      ))}
       <BallotStatus round={round} />
       <div
         data-room-workspace
@@ -206,7 +203,6 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
           round={round}
           state={state}
           dispatch={dispatch}
-          onNew={create}
           drive={drive}
           phoneClass={phoneHides('files')}
         />
@@ -221,6 +217,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
             onEdit={sync?.change}
             onNew={create}
             onRetry={drive.open}
+            saveRecovered={drive.saveRecovered}
             save={props.save ?? null}
           />
         </div>
@@ -249,7 +246,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
         hydrated={hydrated}
       />
       <CommandPalette
-        open={state.paletteOpen}
+        mode={state.palette}
         documents={state.opened.map((open) => ({
           id: openId(open),
           title: openTitle(open),

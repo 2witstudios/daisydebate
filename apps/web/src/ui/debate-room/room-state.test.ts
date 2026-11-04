@@ -70,7 +70,7 @@ describe('reduceRoom a new document', () => {
   test('a new document from the palette', () => {
     const reduce = reduceRoom;
     const state = reduce(
-      { ...withDocuments(), paletteOpen: true },
+      { ...withDocuments(), palette: 'search' },
       { type: 'doc/add', document: newDocument },
     );
     assert({
@@ -79,9 +79,9 @@ describe('reduceRoom a new document', () => {
       actual: {
         title: loadedDocuments(state.opened).at(-1)?.title,
         active: state.tabs.active,
-        paletteOpen: state.paletteOpen,
+        palette: state.palette,
       },
-      expected: { title: 'Untitled', active: 'doc-new', paletteOpen: false },
+      expected: { title: 'Untitled', active: 'doc-new', palette: 'closed' },
     });
   });
 });
@@ -271,7 +271,7 @@ describe('reduceRoom doc/loaded and doc/add', () => {
 
   test('a document the server created', () => {
     const state = reduce(
-      { ...withDocuments(), paletteOpen: true },
+      { ...withDocuments(), palette: 'search' },
       {
         type: 'doc/add',
         document: { ...flow, id: 'doc-new', title: 'Flow 2' },
@@ -280,8 +280,8 @@ describe('reduceRoom doc/loaded and doc/add', () => {
     assert({
       given: 'a document created on the server',
       should: 'add it, open it and close the palette',
-      actual: { active: state.tabs.active, paletteOpen: state.paletteOpen },
-      expected: { active: 'doc-new', paletteOpen: false },
+      actual: { active: state.tabs.active, palette: state.palette },
+      expected: { active: 'doc-new', palette: 'closed' },
     });
   });
 });

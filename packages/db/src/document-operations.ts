@@ -6,6 +6,14 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import { documentFolders } from './schema/document-folders';
 import { documents } from './schema/documents';
 
+/** One owned folder's recursive subtree, shared by confirmation and deletion. */
+const folderSubtree = (id: string) => sql`
+  with recursive down(id) as (
+    select id from document_folders where id = ${id}
+    union all
+    select f.id from document_folders f join down on f.parent_folder_id = down.id
+  ) select id from down`;
+
 export type DocumentRecord = {
   readonly id: string;
   readonly ownerActorId: string;
@@ -296,19 +304,19 @@ export const documentOperations = ({
     );
   },
 
-  /** The document edited last, so a load with nothing open lands on the work. */
-  async lastEditedDocument(input: {
+  /** Newest edited documents, without bodies, for Recent and reopening. */
+  async recentDocuments(input: {
     readonly ownerActorId: string;
-  }): Promise<string | null> {
-    return instrumented(eventSink, 'lastEditedDocument', async () => {
-      const [row] = await database
-        .select({ id: documents.id })
+    readonly limit: number;
+  }): Promise<readonly { readonly id: string; readonly title: string }[]> {
+    return instrumented(eventSink, 'recentDocuments', () =>
+      database
+        .select({ id: documents.id, title: documents.title })
         .from(documents)
         .where(eq(documents.ownerActorId, input.ownerActorId))
         .orderBy(desc(documents.updatedAt), desc(documents.id))
-        .limit(1);
-      return row?.id ?? null;
-    });
+        .limit(input.limit),
+    );
   },
 
   /**
@@ -589,13 +597,8 @@ export const documentOperations = ({
         return countOf(
           tx,
           sql`
-          with recursive down(id) as (
-            select id from document_folders where id = ${input.id}
-            union all
-            select f.id from document_folders f join down on f.parent_folder_id = down.id
-          )
           select count(*) as count from documents
-          where folder_id in (select id from down)`,
+          where folder_id in (${folderSubtree(input.id)})`,
         );
       }),
     );
@@ -606,10 +609,18 @@ export const documentOperations = ({
     readonly id: string;
     readonly ownerActorId: string;
     readonly admits: DriveAdmission;
-  }): Promise<boolean> {
+  }): Promise<readonly string[] | null> {
     return instrumented(eventSink, 'deleteDocumentFolder', () =>
       database.transaction(async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
+        await ownFolder(tx, input.ownerActorId, input.id);
+        // The account fence holds all document mutations until the cascade ends,
+        // so these are exactly the bodies removed by this confirmed deletion.
+        const removed = await tx.select({ id: documents.id }).from(documents)
+          .where(sql`
+          ${documents.folderId} in (
+            ${folderSubtree(input.id)}
+          )`);
         const rows = await tx
           .delete(documentFolders)
           .where(
@@ -619,7 +630,9 @@ export const documentOperations = ({
             ),
           )
           .returning({ id: documentFolders.id });
-        return rows.length === 1;
+        return rows.length === 1
+          ? removed.map((document) => document.id)
+          : null;
       }),
     );
   },

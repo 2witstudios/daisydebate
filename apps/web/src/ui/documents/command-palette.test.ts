@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleRoomDocuments } from '../mock/debate-room-docs.test-support';
-import { paletteCommands } from './command-palette';
+import { createCommands, paletteCommands } from './command-palette';
 
 setupRitewayBun();
 
@@ -26,6 +26,23 @@ describe('paletteCommands', () => {
         .filter((c) => c.choice.kind === 'open')
         .map((c) => c.title),
       expected: sampleRoomDocuments.map((doc) => doc.title),
+    });
+  });
+});
+
+describe('createCommands', () => {
+  test('what the + offers', () => {
+    assert({
+      given: 'the + palette',
+      should: 'offer a document and a folder, and nothing else',
+      actual: createCommands.map((command) => [
+        command.title,
+        command.choice.kind,
+      ]),
+      expected: [
+        ['Document', 'new'],
+        ['Folder', 'new-folder'],
+      ],
     });
   });
 });

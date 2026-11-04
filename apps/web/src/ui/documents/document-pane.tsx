@@ -1,6 +1,7 @@
 'use client';
 
-import type { Dispatch, ReactNode } from 'react';
+import { useRef, type Dispatch, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { systemClock } from '@daisy/clock';
 import {
   findOpen,
@@ -29,37 +30,54 @@ type TabsProps = {
   readonly dispatch: Dispatch<ManagerAction>;
   readonly save: SaveState | null;
   readonly leading?: ReactNode;
+  readonly onNew?: (() => void) | undefined;
+  readonly onLastTabClosed?: (() => void) | undefined;
 };
 
 /** Open files across the top of the editor, and whether they are saved. */
-function DocumentTabs({ tabs, active, dispatch, save, leading }: TabsProps) {
+function DocumentTabs({
+  tabs,
+  active,
+  dispatch,
+  save,
+  leading,
+  onNew,
+  onLastTabClosed,
+}: TabsProps) {
+  const list = useRef<HTMLDivElement>(null);
+  const newDocument = useRef<HTMLButtonElement>(null);
+  const close = (id: string) => {
+    flushSync(() => dispatch({ type: 'tabs/close', id }));
+    const selected = list.current?.querySelector<HTMLButtonElement>(
+      '[aria-current="page"]',
+    );
+    if (selected) selected.focus({ preventScroll: true });
+    else if (onLastTabClosed) onLastTabClosed();
+    else newDocument.current?.focus({ preventScroll: true });
+  };
   return (
-    <div
-      className={cn(
-        'flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface px-4',
-        tabs.length === 0 && !save && 'max-compact:hidden',
-      )}
-    >
+    <div className="flex min-h-tab-strip shrink-0 items-stretch border-b border-border bg-surface">
       {leading}
       <div
+        ref={list}
         role="group"
         aria-label="Open files"
-        className="flex min-w-0 flex-1 gap-px overflow-x-auto"
+        className="flex min-w-0 flex-1 overflow-x-auto"
       >
         {tabs.map((tab) => (
           <div
             key={tab.id}
             className={cn(
-              'flex shrink-0 items-center border-b-2',
+              'flex shrink-0 items-center border-r border-border',
               tab.id === active
-                ? 'border-accent font-strong text-ink'
-                : 'border-transparent text-ink-muted hover:text-ink',
+                ? 'bg-surface-raised font-strong text-ink'
+                : 'text-ink-muted hover:text-ink',
             )}
           >
             <button
               type="button"
               aria-current={tab.id === active ? 'page' : undefined}
-              className="h-room-target cursor-pointer pr-1 pl-3 text-sm whitespace-nowrap"
+              className="h-full cursor-pointer pr-1 pl-3 text-sm whitespace-nowrap"
               onClick={() => dispatch({ type: 'tabs/activate', id: tab.id })}
             >
               {tab.title}
@@ -67,18 +85,30 @@ function DocumentTabs({ tabs, active, dispatch, save, leading }: TabsProps) {
             <button
               type="button"
               aria-label={`Close ${tab.title}`}
-              className="flex size-room-target cursor-pointer items-center justify-center rounded-sm opacity-60 hover:opacity-100"
-              onClick={() => dispatch({ type: 'tabs/close', id: tab.id })}
+              className="flex size-dense-target cursor-pointer items-center justify-center rounded-sm opacity-60 hover:opacity-100"
+              onClick={() => close(tab.id)}
             >
               <Icon name="close" size={12} />
             </button>
           </div>
         ))}
+        {onNew ? (
+          <button
+            type="button"
+            ref={newDocument}
+            aria-label="New document"
+            title="New document"
+            className="flex h-full w-tab-strip shrink-0 cursor-pointer items-center justify-center text-ink-muted hover:bg-surface-overlay hover:text-ink"
+            onClick={onNew}
+          >
+            <Icon name="plus" size={14} />
+          </button>
+        ) : null}
       </div>
       {save ? (
         <span
           className={cn(
-            'shrink-0 text-xs',
+            'flex shrink-0 items-center px-3 text-xs',
             save === 'unsaved' ? 'text-live' : 'text-ink-muted',
           )}
         >
@@ -99,6 +129,8 @@ export function DocumentPane({
   onEdit,
   empty,
   leading,
+  onNew,
+  onLastTabClosed,
   save = null,
 }: {
   readonly opened: readonly OpenDocument[];
@@ -109,6 +141,10 @@ export function DocumentPane({
   readonly dispatch: Dispatch<ManagerAction>;
   readonly onEdit?: ((id: string, html: string) => void) | undefined;
   readonly leading?: ReactNode;
+  /** Starts a document from the end of the tabs. */
+  readonly onNew?: (() => void) | undefined;
+  /** The frame owns where focus goes after its last tab closes. */
+  readonly onLastTabClosed?: (() => void) | undefined;
   readonly empty?: ReactNode;
   readonly save?: SaveState | null;
 }) {
@@ -125,6 +161,8 @@ export function DocumentPane({
         dispatch={dispatch}
         save={save}
         leading={leading}
+        onNew={onNew}
+        onLastTabClosed={onLastTabClosed}
       />
       {active?.kind === 'loading' ? (
         <p role="status" className="p-4 text-sm text-ink-muted">

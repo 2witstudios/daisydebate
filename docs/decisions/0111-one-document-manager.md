@@ -5,6 +5,8 @@ Status: accepted (owner, 2026-11-03; point guard confirmation on Delivery,
 [ADR 0058](0058-one-round-model.md) §9 and
 [ADR 0097](0097-round-workspace.md).
 
+Amended by [ADR 0113](0113-document-without-page-layout.md): the manager fills its frame, its editor has no page layout, and Prep uses an icon-only rail.
+
 ## Context
 
 The owner: "It is only a document manager that you can search and use inside of

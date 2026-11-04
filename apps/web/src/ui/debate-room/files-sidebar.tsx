@@ -15,7 +15,7 @@ export const FILES_HIDE_ID = 'drive-files-hide';
 export const FILES_SHOW_ID = 'drive-files-show';
 
 const headerButton =
-  'flex size-room-target shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-surface-raised';
+  'flex size-dense-target shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-surface-raised';
 
 /** The closed Files sidebar's way back, at the start of the document tabs. */
 export function ShowFiles({
@@ -50,14 +50,12 @@ export function FilesSidebar({
   round,
   state,
   dispatch,
-  onNew,
   drive,
   phoneClass,
 }: {
   readonly round: RoundSnapshot;
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
-  readonly onNew: () => void;
   readonly drive: DriveActions;
   /** Hides the sidebar on a phone unless its tab is showing. */
   readonly phoneClass: string | false;
@@ -76,8 +74,8 @@ export function FilesSidebar({
         <h2 className="flex-1 text-sm font-strong">Files</h2>
         <button
           type="button"
-          aria-label="New document"
-          onClick={onNew}
+          aria-label="New"
+          onClick={() => dispatch({ type: 'palette/open', mode: 'create' })}
           className={headerButton}
         >
           <Icon name="plus" size={18} />
@@ -94,10 +92,11 @@ export function FilesSidebar({
           <Icon name="drawer" size={18} />
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col p-3">
+      <div className="flex min-h-0 flex-1 flex-col pt-2">
         <FileTree
           tree={state.drive}
           active={state.tabs.active}
+          renaming={state.renaming}
           dispatch={dispatch}
           drive={drive}
         />

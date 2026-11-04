@@ -10,7 +10,7 @@ export function usePaletteShortcut(dispatch: Dispatch<ManagerAction>) {
       if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey))
         return;
       event.preventDefault();
-      dispatch({ type: 'palette/open' });
+      dispatch({ type: 'palette/open', mode: 'search' });
     };
     document.addEventListener('keydown', open);
     return () => document.removeEventListener('keydown', open);

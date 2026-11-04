@@ -52,6 +52,7 @@
 :root,
 .preview-scheme-light,
 .preview-scheme-dark,
+.area-rail,
 [data-room-page] {
   /* Brand primitives — the board's forest, sage, deep sage, cream and
      butter. Light keeps the board values; dark lifts forest and deep sage so
@@ -170,6 +171,16 @@
    var(--token) directly instead of a second theme variable. */
 /* A viewport too short for the rail, as at 200% zoom. */
 @custom-variant short-viewport (@media (max-height: 36rem));
+/* Where the rail is icons only whatever the saved choice says: a viewport too
+   narrow for words, or a page that fills the shell and brings its own sidebar. */
+@custom-variant icon-rail {
+  @media (width < 1101px) {
+    @slot;
+  }
+  .grid-shell:has([data-workspace]) & {
+    @slot;
+  }
+}
 
 @theme inline {
   --color-forest: var(--forest);

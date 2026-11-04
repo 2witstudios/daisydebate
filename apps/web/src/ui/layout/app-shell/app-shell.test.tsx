@@ -65,14 +65,14 @@ describe('AppShell', () => {
       should:
         'carry every destination name as text at rail widths in extended and as screen-reader text in mini, with Minimize as a labeled row in extended and Expand as screen-reader text in mini, and no More control in the rail',
       actual: [
-        extended.includes('<span class="max-rail:sr-only">Home</span>'),
-        extended.includes('<span class="max-rail:sr-only">Minimize</span>'),
+        extended.includes('<span class="icon-rail:sr-only">Home</span>'),
+        extended.includes('<span class="icon-rail:sr-only">Minimize</span>'),
         extended.includes('<form'),
         extended.includes('>More<'),
         mini.includes('<span class="sr-only">Messages</span>'),
         mini.includes('<span class="sr-only">Expand</span>'),
         mini.includes('title="Expand"'),
-        mini.includes('max-rail:sr-only'),
+        mini.includes('icon-rail:sr-only'),
       ],
       expected: [true, true, true, false, true, true, true, false],
     });
@@ -86,7 +86,7 @@ describe('AppShell', () => {
       should:
         'show the wordmark next to the logo in extended and hide it below the rail breakpoint, and show only the mark in mini',
       actual: [
-        extended.includes('<span class="max-rail:hidden">Daisy Debate</span>'),
+        extended.includes('<span class="icon-rail:hidden">Daisy Debate</span>'),
         mini.includes('<span class="hidden">Daisy Debate</span>'),
       ],
       expected: [true, true],
@@ -180,10 +180,10 @@ describe('AppShell', () => {
       should:
         'name every link — words at rail widths, the full name as screen-reader text when the word is shorter — and the account by username',
       actual: [
-        rail.includes('<span class="max-rail:sr-only">Messages</span>'),
+        rail.includes('<span class="icon-rail:sr-only">Messages</span>'),
         /<span class="sr-only">Friends, \d+ online<\/span>/.test(rail),
         rail.includes(
-          '<span aria-hidden="true" class="max-rail:sr-only">Friends</span>',
+          '<span aria-hidden="true" class="icon-rail:sr-only">Friends</span>',
         ),
         rail.includes('aria-label="Your account, ada-byron"'),
         ['/help', '/terms', '/privacy'].every((href) =>
@@ -204,7 +204,7 @@ describe('AppShell', () => {
       actual: [
         visitor.includes('href="/sign-in"'),
         visitor.includes('title="Sign in"'),
-        visitor.includes('<span class="max-rail:sr-only">Sign in</span>'),
+        visitor.includes('<span class="icon-rail:sr-only">Sign in</span>'),
         provisional.includes('href="/onboarding/username"'),
         ['/messages', '/friends'].some((href) =>
           visitor.includes(`href="${href}"`),

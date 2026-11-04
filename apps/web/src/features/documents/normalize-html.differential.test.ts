@@ -45,7 +45,6 @@ const ATTRIBUTES = [
   '',
   ' data-checked="true" data-type="taskItem"',
   " type='a'",
-  ' data-page="landscape" data-columns="5"',
 ];
 
 const pickFrom =

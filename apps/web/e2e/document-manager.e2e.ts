@@ -14,14 +14,30 @@ import { watchCspViolations } from './support/csp';
 
 const tree = (page: Page) => page.getByRole('navigation', { name: 'Files' });
 
-const typeInto = async (page: Page, title: string, text: string) => {
+const typeInto = async (
+  page: Page,
+  title: string,
+  text: string,
+  blankSpace = false,
+) => {
   const editor = page.getByRole('textbox', { name: title, exact: true });
   await expect(editor).toBeVisible();
   const saved = page.waitForResponse(
     (response) =>
       response.url().endsWith('/api/documents/save') && response.ok(),
   );
-  await editor.click();
+  if (blankSpace) {
+    const viewport = await editor.evaluate((node) => {
+      let parent = node.parentElement;
+      while (parent && getComputedStyle(parent).overflowY !== 'auto')
+        parent = parent.parentElement;
+      if (!parent) throw new Error('The document needs a scrolling viewport');
+      const bounds = parent.getBoundingClientRect();
+      return { x: bounds.x + bounds.width / 2, y: bounds.bottom - 48 };
+    });
+    await page.mouse.click(viewport.x, viewport.y);
+    await expect(editor).toBeFocused();
+  } else await editor.click();
   await page.keyboard.type(text);
   await saved;
 };
@@ -30,6 +46,7 @@ const typeInto = async (page: Page, title: string, text: string) => {
 const journey = async (
   browser: Parameters<typeof createRoomLaunchAccounts>[0],
   viewport: { readonly width: number; readonly height: number },
+  testInfo: import('@playwright/test').TestInfo,
 ) => {
   const accounts = await createRoomLaunchAccounts(browser, 2);
   let roundId: string | undefined;
@@ -42,31 +59,102 @@ const journey = async (
     const violations = await watchCspViolations(page);
 
     await page.goto(`${origin}/prep`);
-    await expect(page.getByRole('heading', { name: 'Prep' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Prep' })).toHaveCount(0);
+    if (viewport.width >= 901) {
+      const main = await page.getByRole('main').boundingBox();
+      const files = await page
+        .getByRole('region', { name: 'Your files' })
+        .boundingBox();
+      expect(files).toEqual(main);
+      const rail = await page
+        .getByRole('navigation', { name: 'Primary' })
+        .boundingBox();
+      expect(rail?.width).toBe(56);
+      await expect(
+        page.getByRole('navigation', { name: 'Primary' }).getByRole('link', {
+          name: 'Prep',
+        }),
+      ).toBeVisible();
+    }
+    await testInfo.attach(`prep-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+    // The + opens a palette in the middle of the screen, not a menu beside it.
+    await tree(page).getByRole('button', { name: 'New', exact: true }).click();
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    await expect(palette).toBeVisible();
+    const box = (await palette.boundingBox())!;
+    expect(
+      Math.abs(box.x + box.width / 2 - viewport.width / 2),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(box.y + box.height / 2 - viewport.height / 2),
+    ).toBeLessThanOrEqual(1);
+    await testInfo.attach(`palette-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+    await palette.getByRole('option', { name: /Document/ }).click();
+    await typeInto(page, 'Untitled', `Strongest card ${word}`, true);
+    const typing = await page
+      .getByRole('textbox', { name: 'Untitled', exact: true })
+      .evaluate((node) => {
+        const style = getComputedStyle(node);
+        return [style.outlineStyle, style.boxShadow];
+      });
+    expect(typing).toEqual(['none', 'none']);
+    await testInfo.attach(`prep-document-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+    // A + at the end of the tabs starts another.
     await page
       .getByRole('button', { name: 'New document', exact: true })
       .click();
-    await typeInto(page, 'Untitled', `Strongest card ${word}`);
+    await expect(
+      page.getByRole('button', { name: /^Close Untitled/ }),
+    ).toHaveCount(2);
+    await page
+      .getByRole('button', { name: /^Close Untitled/ })
+      .last()
+      .click();
 
     // A folder, and the document moved into it, through the same tree.
     const narrow = viewport.width < 901;
-    if (narrow) await expect(tree(page)).toBeVisible();
-    await tree(page).getByText('New folder').first().click();
-    await tree(page).getByLabel('Folder name').fill('Cases');
-    await tree(page).getByRole('button', { name: 'Create folder' }).click();
+    if (narrow)
+      await page.getByRole('button', { name: 'Back to Files' }).click();
+    await tree(page).getByRole('button', { name: 'New', exact: true }).click();
+    await palette.getByRole('option', { name: /Folder/ }).click();
+    const naming = tree(page).getByLabel('Rename New folder');
+    await naming.fill('Cases');
+    await naming.press('Enter');
     const folder = tree(page).getByRole('button', {
       name: 'Cases',
       exact: true,
     });
     await expect(folder).toBeVisible();
-    await tree(page).getByLabel('Actions for Untitled').click();
     await tree(page)
-      .getByLabel('Move Untitled to')
-      .selectOption({ label: 'Cases' });
-    await tree(page).getByRole('button', { name: 'Move', exact: true }).click();
+      .getByRole('button', { name: 'Actions for Untitled', exact: true })
+      .first()
+      .click();
+    await testInfo.attach(`menu-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+    await page.getByRole('menuitem', { name: 'Move to…' }).click();
+    const moved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/api/documents/move') && response.ok(),
+    );
+    await page.getByRole('menuitem', { name: 'Cases' }).click();
+    await moved;
+    await expect(folder).toHaveAttribute('aria-expanded', 'false');
     await folder.click();
     await expect(
-      tree(page).getByRole('button', { name: 'Untitled', exact: true }),
+      tree(page)
+        .getByRole('region', { name: 'My drive' })
+        .getByRole('button', { name: 'Untitled', exact: true }),
     ).toBeVisible();
 
     // Into a live Round, in its timed prep.
@@ -100,14 +188,18 @@ const journey = async (
         .getByRole('navigation', { name: 'Round' })
         .getByRole('button', { name: 'Files' })
         .click();
-    await tree(page).getByRole('button', { name: 'Open or create' }).click();
+    await tree(page).getByRole('button', { name: 'Search files' }).click();
     await page.getByRole('combobox', { name: 'Search commands' }).fill(word);
     const hit = page.getByRole('option', { name: /Untitled/ });
     await expect(hit).toContainText(word);
     await hit.click();
     const answer = `Answered in prep ${word}`;
-    await typeInto(page, 'Untitled', answer);
+    await typeInto(page, 'Untitled', answer, true);
 
+    await testInfo.attach(`round-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
     // Back at /prep, it is the same document.
     await page.goto(`${origin}/prep`);
     await expect(
@@ -131,12 +223,12 @@ const journey = async (
 
 test('a document made at /prep is found and edited during prep in a live Round', async ({
   browser,
-}) => {
-  await journey(browser, { width: 1280, height: 800 });
+}, testInfo) => {
+  await journey(browser, { width: 1280, height: 800 }, testInfo);
 });
 
-test('the same journey on a phone', async ({ browser }) => {
-  await journey(browser, { width: 390, height: 844 });
+test('the same journey on a phone', async ({ browser }, testInfo) => {
+  await journey(browser, { width: 390, height: 844 }, testInfo);
 });
 
 test('a document deleted in another tab keeps its text and saves as new', async ({
@@ -182,6 +274,149 @@ test('a document deleted in another tab keeps its text and saves as new', async 
     await expect(
       page.getByRole('textbox', { name: 'Untitled', exact: true }),
     ).toContainText(text);
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('phone Files keeps notices visible and reopens cached documents', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const context = accounts.members[0]!.context;
+  try {
+    const page = await openPage(context, 'Files navigation and notices');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${origin}/prep`);
+    await tree(page).getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('option', { name: /Document/ }).click();
+    await expect(
+      page.getByRole('textbox', { name: 'Untitled', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Back to Files' }).click();
+    await expect(
+      tree(page).getByRole('button', { name: 'New', exact: true }),
+    ).toBeFocused();
+    await tree(page)
+      .getByRole('region', { name: 'My drive' })
+      .getByRole('button', { name: 'Untitled', exact: true })
+      .click();
+    await expect(
+      page.getByRole('textbox', { name: 'Untitled', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Back to Files' }),
+    ).toBeFocused();
+    await page.getByRole('button', { name: 'Back to Files' }).click();
+    await page.route('**/api/documents/create', (route) =>
+      route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: '{}',
+      }),
+    );
+    await tree(page).getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('option', { name: /Document/ }).click();
+    await expect(
+      page
+        .getByRole('region', { name: 'Your files', exact: true })
+        .getByRole('alert'),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole('region', { name: 'Your files', exact: true })
+        .getByRole('alert'),
+    ).toContainText('drive');
+    await expect(tree(page)).toBeVisible();
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('row actions keep focus and confirm folder deletion in place', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const context = accounts.members[0]!.context;
+  try {
+    const page = await openPage(context, 'Folder actions');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${origin}/prep`);
+    const created = await page.request.post('/api/documents/folders/create', {
+      headers: { origin },
+      data: { name: 'Cases', parentFolderId: null },
+    });
+    const { folder } = (await created.json()) as { folder: { id: string } };
+    await page.reload();
+    await tree(page)
+      .getByRole('button', { name: 'Actions for Cases', exact: true })
+      .click();
+    await expect(
+      page.getByRole('menuitem', { name: 'New document here' }),
+    ).toBeFocused();
+    await page.getByRole('menuitem', { name: 'New document here' }).click();
+    await expect(
+      page.getByRole('textbox', { name: 'Untitled', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Back to Files' }).click();
+    const row = tree(page).getByRole('region', { name: 'My drive' });
+    await expect(
+      row.getByRole('button', { name: 'Untitled', exact: true }),
+    ).toBeVisible();
+    await tree(page)
+      .getByRole('button', { name: 'Actions for Untitled', exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
+    const naming = tree(page).getByLabel('Rename Untitled');
+    await naming.fill('Evidence');
+    await naming.press('Enter');
+    await expect(
+      row.getByRole('button', { name: 'Evidence', exact: true }),
+    ).toBeVisible();
+    await expect(
+      row.getByRole('button', { name: 'Evidence', exact: true }),
+    ).toBeFocused();
+    await tree(page)
+      .getByRole('button', { name: 'Actions for Evidence', exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'Keep it' })).toBeFocused();
+    await page.getByRole('menuitem', { name: 'Keep it' }).click();
+    await expect(
+      row.getByRole('button', { name: 'Evidence', exact: true }),
+    ).toBeVisible();
+    await tree(page)
+      .getByRole('button', { name: 'Actions for Cases', exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+    await expect(page.getByText(/1 document for good/)).toBeVisible();
+    await page.getByRole('menuitem', { name: 'Delete for good' }).click();
+    await expect(
+      tree(page).getByRole('button', { name: 'Cases', exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Close Evidence', exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText('Evidence was deleted', { exact: false }),
+    ).toHaveCount(0);
+    const count = await page.request.post('/api/documents/folders/count', {
+      headers: { origin },
+      data: { id: folder.id },
+    });
+    expect(count.status()).toBe(404);
+    const folders = await page.request.post('/api/documents/folders', {
+      headers: { origin },
+      data: {},
+    });
+    expect(
+      ((await folders.json()) as { folders: { id: string }[] }).folders.some(
+        (one) => one.id === folder.id,
+      ),
+    ).toBe(false);
+    expect(page.url()).toBe(`${origin}/prep`);
   } finally {
     await settledLaunchAuth();
     await accounts.closeContexts();

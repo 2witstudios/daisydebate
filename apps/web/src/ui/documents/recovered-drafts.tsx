@@ -181,14 +181,13 @@ const noOffers: readonly DraftOffer[] = [];
 export function RecoveredDrafts({
   documents,
   sync,
+  saveRecovered,
   dispatch,
-  inFolderPage = false,
 }: {
   readonly documents: readonly MemberDocument[];
   readonly sync: DocumentSync;
+  readonly saveRecovered: DocumentSync['saveAsNew'];
   readonly dispatch: Dispatch<ManagerAction>;
-  /** This tree's root is a folder, and a saved copy lands in My drive above it. */
-  readonly inFolderPage?: boolean;
 }) {
   const offers = useSyncExternalStore(
     sync.subscribe,
@@ -203,7 +202,7 @@ export function RecoveredDrafts({
   const [copyProblem, setCopyProblem] = useState<string | null>(null);
   const saveAsNew = (id: string) => {
     const wasDeleted = sync.firstGone() === id;
-    sync.saveAsNew(id).then(
+    saveRecovered(id).then(
       (created) => {
         if (!created) return;
         setCopyProblem(null);
@@ -215,12 +214,6 @@ export function RecoveredDrafts({
             dispatch({ type: 'drive/unlist', id });
           } else dispatch({ type: 'drive/remove', id });
           dispatch({ type: 'doc/add', document: created });
-          if (inFolderPage) return;
-          dispatch({
-            type: 'drive/add',
-            folderId: null,
-            entry: { kind: 'document', id: created.id, title: created.title },
-          });
         });
       },
       (error: unknown) =>
@@ -232,7 +225,11 @@ export function RecoveredDrafts({
     );
   };
   return (
-    <>
+    <section
+      aria-label="Draft recovery"
+      tabIndex={0}
+      className="max-h-1/2 min-h-0 shrink-0 overflow-y-auto empty:hidden"
+    >
       {needing ? (
         <DeletedDocumentNotice
           title={
@@ -282,6 +279,6 @@ export function RecoveredDrafts({
           />
         );
       })}
-    </>
+    </section>
   );
 }

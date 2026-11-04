@@ -285,7 +285,7 @@
 }
 @utility create-room-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 1rem;
   border-top: 1px solid var(--border);

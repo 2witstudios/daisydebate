@@ -60,6 +60,7 @@ const schemas = {
   rename: z.object({ id: idSchema, title: label }),
   move: z.object({ id: idSchema, folderId: folderChoice }),
   delete: z.object({ id: idSchema }),
+  folderCount: z.object({ id: idSchema }),
   folderCreate: z.object({ parentFolderId: folderChoice, name: label }),
   folderRename: z.object({ id: idSchema, name: label }),
   folderMove: z.object({ id: idSchema, parentFolderId: folderChoice }),
@@ -78,6 +79,7 @@ const rules = {
   rename: { windowSeconds: 60, max: 30 },
   move: { windowSeconds: 60, max: 60 },
   delete: { windowSeconds: 60, max: 30 },
+  folderCount: { windowSeconds: 60, max: 60 },
   folderCreate: { windowSeconds: 60, max: 30 },
   folderRename: { windowSeconds: 60, max: 30 },
   folderMove: { windowSeconds: 60, max: 60 },
@@ -95,6 +97,7 @@ const operationNames = {
   rename: 'documents.rename',
   move: 'documents.move',
   delete: 'documents.delete',
+  folderCount: 'documents.folder_count',
   folderCreate: 'documents.folder_create',
   folderRename: 'documents.folder_rename',
   folderMove: 'documents.folder_move',
@@ -219,7 +222,7 @@ export function createDocumentHandlers(dependencies: Dependencies) {
     },
     recent: {
       POST: route('recent', schemas.recent, 64, async (principal) =>
-        Response.json(await ops().lastEdited(principal)),
+        Response.json(await ops().recent(principal)),
       ),
     },
     folders: {
@@ -266,6 +269,17 @@ export function createDocumentHandlers(dependencies: Dependencies) {
     delete: {
       POST: change('delete', schemas.delete, (principal, body) =>
         ops().deleteDocument(principal, body),
+      ),
+    },
+    folderCount: {
+      POST: route(
+        'folderCount',
+        schemas.folderCount,
+        128,
+        async (principal, body) =>
+          Response.json({
+            count: await ops().folderDocumentCount(principal, body),
+          }),
       ),
     },
     folderCreate: {

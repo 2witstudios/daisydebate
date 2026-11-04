@@ -173,10 +173,6 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/recordings/[roundId]/page.tsx': () =>
       import('../../app/(shell)/recordings/[roundId]/page'),
     '(shell)/prep/page.tsx': () => import('../../app/(shell)/prep/page'),
-    '(shell)/prep/folders/[id]/page.tsx': () =>
-      import('../../app/(shell)/prep/folders/[id]/page'),
-    '(shell)/prep/folders/[id]/delete/page.tsx': () =>
-      import('../../app/(shell)/prep/folders/[id]/delete/page'),
     '(shell)/train/page.tsx': () => import('../../app/(shell)/train/page'),
     '(shell)/settings/page.tsx': () =>
       import('../../app/(shell)/settings/page'),

@@ -1,18 +1,24 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { renderToString } from 'react-dom/server';
 import { emptyDrive, withPage } from '../../features/documents/drive-tree';
+import { menuPlace } from './file-menu';
 import { FileTree } from './file-tree';
 import type { DriveActions } from './use-drive';
 
 setupRitewayBun();
 
 const drive: DriveActions = {
-  back: '/prep',
+  problem: null,
+  folderProblem: null,
   folders: [{ id: 'folder-a', name: 'Cases', parentFolderId: null }],
+  recent: [{ id: 'doc-b', title: 'Last night' }],
   loadFolders: () => {},
   open: () => {},
   createDocument: () => {},
-  toggle: () => {},
+  createFolder: () => {},
+  toggle: async () => true,
+  folderCount: async () => 0,
+  saveRecovered: async () => null,
   more: () => {},
   change: () => {},
 };
@@ -24,63 +30,106 @@ const tree = withPage(emptyDrive, null, {
   next: null,
   first: true,
 });
-const html = renderToString(
-  <FileTree tree={tree} active={null} dispatch={() => {}} drive={drive} />,
-);
+const render = (renaming: string | null = null) =>
+  renderToString(
+    <FileTree
+      tree={tree}
+      active="doc-a"
+      renaming={renaming}
+      dispatch={() => {}}
+      drive={drive}
+      heading={{ title: 'Files' }}
+    />,
+  );
 
-describe('FileTree before script runs', () => {
-  test('every change is a real form post that names where it returns', () => {
-    const count = (text: string) => html.split(text).length - 1;
+describe('FileTree', () => {
+  test('the sidebar', () => {
+    const html = render();
     assert({
-      given: 'a folder and a document, server-rendered',
-      should: 'offer each change as a POST form back to this page',
-      actual: {
-        rename: count('action="/api/documents/rename"'),
-        folderRename: count('action="/api/documents/folders/rename"'),
-        move: count('action="/api/documents/move"'),
-        folderMove: count('action="/api/documents/folders/move"'),
-        remove: count('action="/api/documents/delete"'),
-        create: count('action="/api/documents/folders/create"'),
-        back: html.includes('name="back" value="/prep"'),
-        allPost: count('<form') === count('method="post"'),
-      },
-      expected: {
-        rename: 1,
-        folderRename: 1,
-        move: 1,
-        folderMove: 1,
-        remove: 1,
-        create: 1,
-        back: true,
-        allPost: true,
-      },
-    });
-  });
-
-  test('rows link where a page can answer them', () => {
-    assert({
-      given: 'a folder and a document',
-      should: 'link the folder’s page, its deletion, and the document at Prep',
+      given: 'a heading and a drive',
+      should:
+        'offer one + and search, list each row, and post no forms of its own',
       actual: [
-        html.includes('href="/prep/folders/folder-a"'),
-        html.includes('href="/prep/folders/folder-a/delete"'),
-        html.includes('href="/prep?open=doc-a"'),
+        html.includes('aria-label="New"'),
+        html.includes('Search files'),
+        html.includes('Cases'),
+        html.includes('Plan'),
+        html.includes('<form'),
       ],
-      expected: [true, true, true],
+      expected: [true, true, true, true, false],
     });
   });
 
-  test('a folder cannot be offered as its own new parent', () => {
-    const moveFolder = html.slice(
-      html.indexOf('action="/api/documents/folders/move"'),
+  test('what was edited last', () => {
+    const inARound = renderToString(
+      <FileTree
+        tree={tree}
+        active={null}
+        renaming={null}
+        dispatch={() => {}}
+        drive={drive}
+      />,
     );
     assert({
-      given: 'the Move form for the folder Cases',
-      should: 'not list Cases as a place to go',
-      actual: moveFolder
-        .slice(0, moveFolder.indexOf('</form>'))
-        .includes('value="folder-a">'),
-      expected: false,
+      given: 'recent documents, with and without a heading of its own',
+      should: 'list them in the sidebar, and leave a Round’s frame alone',
+      actual: [
+        render().includes('Last night'),
+        inARound.includes('Last night'),
+      ],
+      expected: [true, false],
+    });
+  });
+
+  test('a row in use', () => {
+    const html = render();
+    assert({
+      given: 'the open document and a folder',
+      should:
+        'mark the document current, and give each row a flat menu with a way to delete the folder',
+      actual: [
+        html.includes('aria-current="page"'),
+        html.includes('aria-label="Actions for Plan"'),
+        html.includes('aria-label="Actions for Cases"'),
+        html.includes('role="menuitem"'),
+      ],
+      expected: [true, true, true, false],
+    });
+  });
+
+  test('a row being renamed', () => {
+    const html = render('doc-a');
+    assert({
+      given: 'the document whose name is being typed',
+      should: 'put a field in its row and hold back its menu',
+      actual: [
+        html.includes('aria-label="Rename Plan"'),
+        html.includes('aria-label="Actions for Plan"'),
+      ],
+      expected: [true, false],
+    });
+  });
+});
+
+describe('menuPlace', () => {
+  const viewport = { width: 1000, height: 800 };
+  const menu = { width: 224, height: 200 };
+
+  test('with room below', () => {
+    assert({
+      given: 'a button with room under it',
+      should: 'open under the button',
+      actual: menuPlace({ left: 100, top: 100, bottom: 128 }, menu, viewport),
+      expected: { left: 100, top: 130 },
+    });
+  });
+
+  test('near the screen edges', () => {
+    assert({
+      given: 'a button at the far corner',
+      should: 'stay on screen, opening above it',
+      actual: menuPlace({ left: 900, top: 760, bottom: 788 }, menu, viewport),
+      expected: { left: 774, top: 558 },
     });
   });
 });

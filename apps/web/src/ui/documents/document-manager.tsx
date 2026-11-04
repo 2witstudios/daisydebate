@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+} from 'react';
 import {
   initialManagerState,
   reduceManager,
@@ -16,10 +22,12 @@ import {
   openId as openDocumentId,
   openTitle,
 } from '../../features/documents/open-documents';
+import { cn } from '../cn';
+import { Icon } from '../components/icon/icon';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { DocumentPane } from './document-pane';
 import type { DocumentSync } from './document-sync';
-import { driveApi, type FolderRow } from './drive-api';
+import { driveApi, type FolderRow, type RecentDocument } from './drive-api';
 import { FileTree } from './file-tree';
 import { RecoveredDrafts } from './recovered-drafts';
 import { useDocumentSaving } from './use-document-saving';
@@ -30,31 +38,27 @@ import type { SaveState } from './document-pane';
 
 /** What a page rendered on the server, so the tree is there before script runs. */
 export type InitialDrive = {
-  readonly folderId: string | null;
   readonly entries: readonly DriveEntryView[];
   readonly next: DriveCursor | null;
   readonly folders: readonly FolderRow[];
+  readonly recent: readonly RecentDocument[];
 };
 
 /**
  * The document manager (ADR 0111): the member's tree, search, tabs and editor as
- * one thing. A page gives it the member and where a form returns to; it imports
- * nothing from any place it opens.
+ * one thing. It fills the frame a page gives it and draws none of its own (ADR
+ * 0113); it imports nothing from any place it opens.
  */
 export function DocumentManager({
   principalId,
-  back,
   initial = null,
-  title = 'Your files',
   notice: pageNotice = null,
   openId = null,
 }: {
   readonly principalId: string;
   /** A document a link asked to open. */
   readonly openId?: string | null;
-  readonly back: string;
   readonly initial?: InitialDrive | null;
-  readonly title?: string;
   readonly notice?: string | null;
 }) {
   const saving = useDocumentSaving(principalId);
@@ -62,9 +66,7 @@ export function DocumentManager({
     <ManagerWorkspace
       key={principalId}
       {...saving}
-      back={back}
       initial={initial}
-      title={title}
       pageNotice={pageNotice}
       openId={openId}
     />
@@ -76,9 +78,7 @@ export function ManagerWorkspace({
   sync,
   notice,
   save,
-  back,
   initial = null,
-  title,
   pageNotice = null,
   openId = null,
 }: {
@@ -86,9 +86,7 @@ export function ManagerWorkspace({
   readonly sync: DocumentSync;
   readonly notice: string | null;
   readonly save: SaveState;
-  readonly back: string;
   readonly initial?: InitialDrive | null;
-  readonly title: string;
   readonly pageNotice?: string | null;
 }) {
   const [state, dispatch] = useReducer(
@@ -98,87 +96,154 @@ export function ManagerWorkspace({
       : emptyDrive,
     initialManagerState,
   );
-  const { problem, setProblem } = useDocumentSync(
-    sync,
-    dispatch,
-    state.tabs.open,
-  );
-  const report = useCallback(
-    (message: string) => setProblem(message),
-    [setProblem],
-  );
+  const { problem } = useDocumentSync(sync, dispatch, state.tabs.open);
   const drive = useDrive({
     sync,
     opened: state.opened,
     dispatch,
-    setProblem: report,
-    back,
     initialFolders: initial?.folders ?? [],
-    rootFolderId: initial?.folderId ?? null,
+    ...(initial ? { initialRecent: initial.recent } : {}),
     listRoot: initial === null,
+    showRecent: true,
+    save,
   });
   usePaletteShortcut(dispatch);
+  const workspace = useRef<HTMLElement>(null);
+  const filesPane = useRef<HTMLDivElement>(null);
+  const documentPane = useRef<HTMLDivElement>(null);
+  const lastFocused = useRef<HTMLElement | null>(null);
+  const movingFocus = useRef(false);
+  const backToFiles = useRef<HTMLButtonElement>(null);
+  const focusPane = useCallback((pane: 'files' | 'document') => {
+    const target =
+      pane === 'files'
+        ? filesPane.current?.querySelector<HTMLButtonElement>('button')
+        : backToFiles.current;
+    // This handoff is not a new Files choice; only the person can cancel an
+    // outstanding initial link fallback through the Files focus handler.
+    movingFocus.current = true;
+    try {
+      target?.focus({ preventScroll: true });
+    } finally {
+      movingFocus.current = false;
+    }
+  }, []);
+  useLayoutEffect(() => {
+    if (
+      state.navigation.focus !== null &&
+      window.matchMedia('(width < 901px)').matches
+    )
+      focusPane(state.navigation.focus);
+  }, [state.navigation, focusPane]);
+  useEffect(() => {
+    const narrow = window.matchMedia('(width < 901px)');
+    const remember = (event: FocusEvent) => {
+      if (event.target === document.body) return;
+      lastFocused.current = workspace.current?.contains(event.target as Node)
+        ? (event.target as HTMLElement)
+        : null;
+    };
+    const outside = (event: PointerEvent) => {
+      if (!workspace.current?.contains(event.target as Node))
+        lastFocused.current = null;
+    };
+    const crossed = () => {
+      if (!narrow.matches) return;
+      const visible =
+        state.navigation.pane === 'document' ? 'document' : 'files';
+      const hidden =
+        visible === 'document' ? filesPane.current : documentPane.current;
+      const active = document.activeElement;
+      // A top-layer menu survives display:none and otherwise reappears in its
+      // old step when Files returns. Close it before handing focus across.
+      for (const popover of hidden?.querySelectorAll<HTMLElement>(
+        ':popover-open',
+      ) ?? [])
+        popover.hidePopover();
+      // CSS may already have blurred the hidden control to BODY before this
+      // media-query event. Remember only focus this manager actually owned.
+      if (
+        hidden?.contains(active) ||
+        (active === document.body &&
+          lastFocused.current !== null &&
+          hidden?.contains(lastFocused.current))
+      )
+        focusPane(visible);
+    };
+    document.addEventListener('focusin', remember);
+    document.addEventListener('pointerdown', outside);
+    narrow.addEventListener('change', crossed);
+    return () => {
+      document.removeEventListener('focusin', remember);
+      document.removeEventListener('pointerdown', outside);
+      narrow.removeEventListener('change', crossed);
+    };
+  }, [state.navigation.pane, focusPane]);
   const opened = useRef(false);
   useEffect(() => {
     if (openId === null || opened.current) return;
     opened.current = true;
-    drive.open(openId, 'your document');
+    drive.open(openId, 'your document', 'link');
   });
   const choose = (choice: PaletteChoice) => {
+    dispatch({ type: 'palette/close' });
     if (choice.kind === 'open') drive.open(choice.documentId, choice.title);
-    else drive.createDocument(initial?.folderId ?? null);
+    else if (choice.kind === 'new-folder') drive.createFolder(null);
+    else drive.createDocument(null);
   };
 
   return (
     <section
+      ref={workspace}
       aria-label="Your files"
-      className="mx-auto flex w-full max-w-dash-column flex-col gap-3 px-6 pb-8"
+      className="flex min-h-0 flex-1 flex-col"
     >
-      <h2 className="text-lg font-bold">{title}</h2>
-      <noscript>
-        <p>
-          You can organize your documents here without JavaScript. Editing one
-          needs it.
-        </p>
-      </noscript>
-      {(problem ?? notice ?? pageNotice) ? (
-        <p role="alert">{problem ?? notice ?? pageNotice}</p>
-      ) : null}
-      <div className="flex room-workspace border-t border-border max-narrow:flex-col">
-        <div className="flex w-drive shrink-0 flex-col gap-3 border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
-          <form method="post" action="/api/documents/create">
-            <input type="hidden" name="back" value={back} />
-            <input
-              type="hidden"
-              name="folderId"
-              value={initial?.folderId ?? ''}
-            />
-            <button
-              type="submit"
-              onClick={(event) => {
-                event.preventDefault();
-                drive.createDocument(initial?.folderId ?? null);
-              }}
-              className="h-room-target w-full cursor-pointer rounded-sm bg-accent px-4 text-sm font-strong text-accent-ink hover:bg-accent-strong"
-            >
-              New document
-            </button>
-          </form>
+      {[...new Set([problem ?? notice, drive.problem, pageNotice])]
+        .filter(Boolean)
+        .map((message) => (
+          <p
+            key={message}
+            role="alert"
+            className="border-b border-border px-4 py-2 text-sm"
+          >
+            {message}
+          </p>
+        ))}
+      <RecoveredDrafts
+        documents={loadedDocuments(state.opened)}
+        sync={sync}
+        saveRecovered={drive.saveRecovered}
+        dispatch={dispatch}
+      />
+      <div className="flex min-h-0 flex-1">
+        <div
+          ref={filesPane}
+          onFocusCapture={() => {
+            if (!movingFocus.current) dispatch({ type: 'files/used' });
+          }}
+          onPointerDownCapture={() => dispatch({ type: 'files/used' })}
+          onKeyDownCapture={() => dispatch({ type: 'files/used' })}
+          className={cn(
+            'flex w-drive shrink-0 flex-col border-r border-border bg-surface max-compact:w-full max-compact:border-r-0',
+            state.navigation.pane === 'document' && 'max-compact:hidden',
+          )}
+        >
           <FileTree
             tree={state.drive}
             active={state.tabs.active}
+            renaming={state.renaming}
             dispatch={dispatch}
             drive={drive}
-            rootFolderId={initial?.folderId ?? null}
+            heading={{ title: 'Files' }}
           />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col bg-surface-raised">
-          <RecoveredDrafts
-            documents={loadedDocuments(state.opened)}
-            sync={sync}
-            dispatch={dispatch}
-            inFolderPage={(initial?.folderId ?? null) !== null}
-          />
+        <div
+          ref={documentPane}
+          className={cn(
+            'flex min-w-0 flex-1 flex-col bg-surface-raised',
+            state.navigation.pane !== 'document' && 'max-compact:hidden',
+          )}
+        >
           <DocumentPane
             opened={state.opened}
             onRetry={drive.open}
@@ -186,13 +251,30 @@ export function ManagerWorkspace({
             pages={state.pages}
             dispatch={dispatch}
             onEdit={sync.change}
+            onNew={() => drive.createDocument(null)}
+            onLastTabClosed={() => focusPane('files')}
             save={save}
-            empty={<p className="p-4 text-ink-muted">No files yet.</p>}
+            leading={
+              <button
+                type="button"
+                ref={backToFiles}
+                aria-label="Back to Files"
+                className="flex h-full w-tab-strip shrink-0 cursor-pointer items-center justify-center border-r border-border compact:hidden"
+                onClick={() => dispatch({ type: 'pane/files' })}
+              >
+                <Icon name="chevronLeft" size={16} />
+              </button>
+            }
+            empty={
+              <p className="px-10 pt-6 text-sm text-ink-muted max-compact:px-4">
+                Open a file, or press + to start one.
+              </p>
+            }
           />
         </div>
       </div>
       <CommandPalette
-        open={state.paletteOpen}
+        mode={state.palette}
         documents={state.opened.map((open) => ({
           id: openDocumentId(open),
           title: openTitle(open),

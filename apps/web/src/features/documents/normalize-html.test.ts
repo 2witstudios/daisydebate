@@ -11,6 +11,17 @@ const html = (input: string) => {
 };
 
 describe('normalizeDocumentHtml', () => {
+  test('a page setting saved before page layout was removed', () => {
+    assert({
+      given: 'a stored document opening with a landscape page setting',
+      should: 'keep its text and drop the setting',
+      actual: html(
+        '<div data-page="landscape" data-columns="3"></div><h1>Flow</h1>',
+      ),
+      expected: html('<h1>Flow</h1>'),
+    });
+  });
+
   test('unsafe attributes on allowed tags', () => {
     assert({
       given: 'a paragraph carrying an event handler and a style attribute',
@@ -151,16 +162,14 @@ describe('normalizeDocumentHtml bounds', () => {
 
   test('editor output passes the strict scan', () => {
     const editor =
-      '<div data-page="landscape" data-columns="5"></div><h1>Flow</h1><ul><li><p><strong>FW</strong> harm <span data-debate-mark="dropped">C3</span></p></li></ul>' +
+      '<h1>Flow</h1><ul><li><p><strong>FW</strong> harm <span data-debate-mark="dropped">C3</span></p></li></ul>' +
       '<ul data-type="taskList"><li data-checked="true" data-type="taskItem"><label><input type="checkbox" checked="checked"><span></span></label><div><p>Q</p></div></li></ul>' +
       '<blockquote><p>quote</p></blockquote><ol type="a"><li><p>one<br>two</p></li></ol><hr><p></p>';
     assert({
       given: 'HTML shaped as the editor writes it',
       should: 'normalize, and stay stable when normalized again',
       actual: ((once: string) => [
-        once.startsWith(
-          '<div data-page="landscape" data-columns="5">\n</div>\n<h1>',
-        ),
+        once.startsWith('<h1>'),
         html(once) === once,
       ])(html(editor)),
       expected: [true, true],

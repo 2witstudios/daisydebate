@@ -41,6 +41,7 @@ const OPERATION_NAMES = [
   'contacts.block.username',
   'documents.create',
   'documents.delete',
+  'documents.folder_count',
   'documents.folder_create',
   'documents.folder_delete',
   'documents.folder_move',

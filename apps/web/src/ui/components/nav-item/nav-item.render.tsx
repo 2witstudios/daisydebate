@@ -49,7 +49,7 @@ function linkName({
   if (extended && word !== undefined && word !== label) {
     return (
       <>
-        <span aria-hidden="true" className="max-rail:sr-only">
+        <span aria-hidden="true" className="icon-rail:sr-only">
           {word}
         </span>
         <span className="sr-only">{label}</span>
@@ -59,7 +59,7 @@ function linkName({
   // The accessible name is always the full label; the word is the extended
   // rail's visible decoration only.
   return (
-    <span className={extended ? 'max-rail:sr-only' : 'sr-only'}>
+    <span className={extended ? 'icon-rail:sr-only' : 'sr-only'}>
       {extended ? (word ?? label) : label}
     </span>
   );

@@ -159,6 +159,49 @@ describe('Tailwind theme (ADR 0028)', () => {
     });
   });
 
+  test('a workspace page keeps the icon rail whatever was saved', async () => {
+    const css = await compile('grid-shell-extended icon-rail:hidden');
+    const rules = everyRuleOf(css);
+    assert({
+      given: 'the extended rail and a page marked as a workspace',
+      should:
+        'narrow the rail column, and apply the icon rail variant by width or by that page',
+      actual: [
+        rules.find(
+          (rule) =>
+            rule.selector === '.grid-shell-extended:has([data-workspace])',
+        )?.declarations['--shell-left'],
+        rules
+          .filter((rule) => rule.selector.includes('icon-rail'))
+          .some((rule) => rule.media === '(width < 1101px)'),
+        rules
+          .filter((rule) => rule.selector.includes('icon-rail'))
+          .some((rule) => rule.selector.includes(':has([data-workspace])')),
+      ],
+      expected: ['var(--spacing-nav-rail)', true, true],
+    });
+  });
+
+  test('a finger keeps the full target where a pointer gets the dense one', async () => {
+    const css = await compile('h-dense-target');
+    assert({
+      given: 'the dense target',
+      should:
+        'be 28px, and take the 44px token for a coarse pointer or a phone',
+      actual: [
+        rulesOf(css).get(':root, :host')?.declarations[
+          '--spacing-dense-target'
+        ],
+        everyRuleOf(css).find(
+          (rule) =>
+            rule.selector === ':root' &&
+            rule.declarations['--spacing-dense-target'] !== undefined,
+        )?.declarations['--spacing-dense-target'],
+      ],
+      expected: ['28px', 'var(--spacing-room-target)'],
+    });
+  });
+
   test('defines the extended rail width once, as a shell token', async () => {
     const css = await compile('grid-shell-extended');
     const tokens = rulesOf(css).get(':root, :host')?.declarations;
