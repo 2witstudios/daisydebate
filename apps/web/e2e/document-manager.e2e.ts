@@ -14,14 +14,30 @@ import { watchCspViolations } from './support/csp';
 
 const tree = (page: Page) => page.getByRole('navigation', { name: 'Files' });
 
-const typeInto = async (page: Page, title: string, text: string) => {
+const typeInto = async (
+  page: Page,
+  title: string,
+  text: string,
+  blankSpace = false,
+) => {
   const editor = page.getByRole('textbox', { name: title, exact: true });
   await expect(editor).toBeVisible();
   const saved = page.waitForResponse(
     (response) =>
       response.url().endsWith('/api/documents/save') && response.ok(),
   );
-  await editor.click();
+  if (blankSpace) {
+    const viewport = await editor.evaluate((node) => {
+      let parent = node.parentElement;
+      while (parent && getComputedStyle(parent).overflowY !== 'auto')
+        parent = parent.parentElement;
+      if (!parent) throw new Error('The document needs a scrolling viewport');
+      const bounds = parent.getBoundingClientRect();
+      return { x: bounds.x + bounds.width / 2, y: bounds.bottom - 48 };
+    });
+    await page.mouse.click(viewport.x, viewport.y);
+    await expect(editor).toBeFocused();
+  } else await editor.click();
   await page.keyboard.type(text);
   await saved;
 };
@@ -80,7 +96,7 @@ const journey = async (
       contentType: 'image/png',
     });
     await palette.getByRole('option', { name: /Document/ }).click();
-    await typeInto(page, 'Untitled', `Strongest card ${word}`);
+    await typeInto(page, 'Untitled', `Strongest card ${word}`, true);
     const typing = await page
       .getByRole('textbox', { name: 'Untitled', exact: true })
       .evaluate((node) => {
@@ -178,7 +194,7 @@ const journey = async (
     await expect(hit).toContainText(word);
     await hit.click();
     const answer = `Answered in prep ${word}`;
-    await typeInto(page, 'Untitled', answer);
+    await typeInto(page, 'Untitled', answer, true);
 
     await testInfo.attach(`round-${viewport.width}`, {
       body: await page.screenshot(),

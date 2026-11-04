@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+} from 'react';
 import { systemClock } from '@daisy/clock';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
 import {
@@ -16,7 +24,7 @@ import type {
   DriveCursor,
   DriveEntryView,
 } from '../../features/documents/drive-tree';
-import type { DocumentSync } from './document-sync';
+import type { DocumentSync, StoredDocument } from './document-sync';
 import type { SaveState } from './document-pane';
 
 import {
@@ -26,6 +34,7 @@ import {
   type RecentDocument,
 } from './drive-api';
 import { useRecentDocuments } from './use-recent-documents';
+import { createDriveOperations } from './drive-operations';
 
 type DriveProblem =
   | {
@@ -97,8 +106,14 @@ export function useDrive({
     save,
     initialRecent,
   );
+  const scope = useMemo(() => createDriveOperations(sync), [sync]);
+  useLayoutEffect(() => {
+    scope.activate();
+    return scope.close;
+  }, [scope]);
+  const ownsOperation = scope.owns;
+  const inOrder = scope.run;
   const generation = useRef(0);
-  const creating = useRef(false);
   const known = useRef(opened);
   useEffect(() => {
     known.current = opened;
@@ -138,12 +153,14 @@ export function useDrive({
   const mutate = async <T>(run: () => Promise<T>): Promise<T> => {
     generation.current++;
     const answer = await run();
-    generation.current++;
-    setProblem((current) =>
-      current?.kind === 'change' || current?.kind === 'missing'
-        ? null
-        : current,
-    );
+    if (ownsOperation()) {
+      generation.current++;
+      setProblem((current) =>
+        current?.kind === 'change' || current?.kind === 'missing'
+          ? null
+          : current,
+      );
+    }
     return answer;
   };
 
@@ -244,38 +261,41 @@ export function useDrive({
   };
 
   const createDocument = (folderId: string | null) => {
-    if (!sync || !sync.available() || creating.current) return;
-    creating.current = true;
-    mutate(() => sync.create(folderId))
-      .then((document) => {
-        dispatch({ type: 'doc/add', document });
-        const entry: DriveEntryView = {
-          kind: 'document',
-          id: document.id,
-          title: document.title,
-        };
-        dispatch({
-          type: 'drive/add',
-          folderId,
-          entry,
-        });
-      })
-      .catch((error: unknown) => {
-        if (statusOf(error) === 404 && folderId !== null) missing(folderId);
-        setProblem({
-          kind: statusOf(error) === 404 ? 'missing' : 'change',
-          message:
-            statusOf(error) === 409
-              ? DRIVE_FULL_NOTICE
-              : statusOf(error) === 404
-                ? driveNotices.missing
-                : 'That document was not created. Try again.',
-        });
-      })
-      .finally(() => {
-        creating.current = false;
-        readRecent();
-      });
+    if (!sync || !scope.beginCreate()) return;
+    void inOrder(() =>
+      mutate(() => sync.create(folderId))
+        .then((document) => {
+          if (!ownsOperation()) return;
+          dispatch({ type: 'doc/add', document });
+          const entry: DriveEntryView = {
+            kind: 'document',
+            id: document.id,
+            title: document.title,
+          };
+          dispatch({
+            type: 'drive/add',
+            folderId,
+            entry,
+          });
+        })
+        .catch((error: unknown) => {
+          if (!ownsOperation()) return;
+          if (statusOf(error) === 404 && folderId !== null) missing(folderId);
+          setProblem({
+            kind: statusOf(error) === 404 ? 'missing' : 'change',
+            message:
+              statusOf(error) === 409
+                ? DRIVE_FULL_NOTICE
+                : statusOf(error) === 404
+                  ? driveNotices.missing
+                  : 'That document was not created. Try again.',
+          });
+        })
+        .finally(() => {
+          scope.endCreate();
+          if (ownsOperation()) readRecent();
+        }),
+    );
   };
 
   const change: DriveActions['change'] = (path, fields) => {
@@ -292,100 +312,107 @@ export function useDrive({
                 name: fields.name ?? '',
               }
             : fields;
-    mutate(() =>
-      driveApi.change<{
-        folder?: DriveEntryView;
-        deletedDocumentIds?: readonly string[];
-      }>(path, body),
-    )
-      .then((answer) => {
-        if (path === 'rename' || path === 'folders/rename')
-          dispatch({
-            type: 'drive/rename',
-            id,
-            label: (fields.title ?? fields.name ?? '').trim(),
-            now: systemClock.now(),
-          });
-        else if (path === 'move')
-          dispatch({
-            type: 'drive/move',
-            id,
-            folderId: orNull(fields.folderId),
-          });
-        else if (path === 'folders/move')
-          dispatch({
-            type: 'drive/move',
-            id,
-            folderId: orNull(fields.parentFolderId),
-          });
-        else if (path === 'delete') {
-          sync?.forget(id);
-          dispatch({ type: 'drive/remove', id });
-        } else if (path === 'folders/delete') {
-          const documentIds = answer.deletedDocumentIds ?? [];
-          sync?.forgetAll(documentIds);
-          dispatch({ type: 'drive/folder-deleted', id, documentIds });
-        } else if (path === 'folders/create' && answer.folder) {
-          dispatch({
-            type: 'drive/add',
-            folderId: orNull(fields.parentFolderId),
-            entry: answer.folder,
-          });
-          dispatch({ type: 'drive/renaming', id: answer.folder.id });
-        }
-        readRecent();
-      })
-      .catch(async (error: unknown) => {
-        if (
-          statusOf(error) === 404 &&
-          (path === 'move' || path === 'folders/move')
-        ) {
-          try {
-            const found = await driveApi.folders();
-            setFolders(found);
-            setFolderProblem(null);
-            const sourceExists =
-              path === 'folders/move'
-                ? found.some((folder) => folder.id === id)
-                : await driveApi.hasDocument(id);
-            const targetId = orNull(
-              path === 'move' ? fields.folderId : fields.parentFolderId,
-            );
-            const targetExists =
-              targetId === null ||
-              found.some((folder) => folder.id === targetId);
-            if (!sourceExists) missing(id);
-            if (!targetExists && targetId !== null) missing(targetId);
-            setProblem({
-              kind: !sourceExists || !targetExists ? 'missing' : 'change',
-              message: !sourceExists
-                ? driveNotices.missing
-                : !targetExists
-                  ? 'That destination is no longer in your drive. Choose another folder.'
-                  : 'That move could not be completed. Your file stays here. Try again.',
+    void inOrder(() =>
+      mutate(() =>
+        driveApi.change<{
+          folder?: DriveEntryView;
+          deletedDocumentIds?: readonly string[];
+        }>(path, body),
+      )
+        .then((answer) => {
+          if (!ownsOperation()) return;
+          if (path === 'rename' || path === 'folders/rename')
+            dispatch({
+              type: 'drive/rename',
+              id,
+              label: (fields.title ?? fields.name ?? '').trim(),
+              now: systemClock.now(),
             });
-          } catch {
-            setProblem({
-              kind: 'change',
-              message:
-                'That move could not be checked. Your file stays here. Reload before trying again.',
+          else if (path === 'move')
+            dispatch({
+              type: 'drive/move',
+              id,
+              folderId: orNull(fields.folderId),
             });
+          else if (path === 'folders/move')
+            dispatch({
+              type: 'drive/move',
+              id,
+              folderId: orNull(fields.parentFolderId),
+            });
+          else if (path === 'delete') {
+            sync?.forget(id);
+            dispatch({ type: 'drive/remove', id });
+          } else if (path === 'folders/delete') {
+            const documentIds = answer.deletedDocumentIds ?? [];
+            sync?.forgetAll(documentIds);
+            dispatch({ type: 'drive/folder-deleted', id, documentIds });
+          } else if (path === 'folders/create' && answer.folder) {
+            dispatch({
+              type: 'drive/add',
+              folderId: orNull(fields.parentFolderId),
+              entry: answer.folder,
+            });
+            dispatch({ type: 'drive/renaming', id: answer.folder.id });
           }
-          return;
-        }
-        const staleId =
-          path === 'folders/create' ? orNull(fields.parentFolderId) : id;
-        if (statusOf(error) === 404 && staleId) missing(staleId);
-        setProblem({
-          kind: statusOf(error) === 404 ? 'missing' : 'change',
-          message:
-            statusOf(error) === 409
-              ? driveNotices.conflict
-              : statusOf(error) === 404
-                ? driveNotices.missing
-                : 'That change did not save. Try again.',
-        });
-      });
+          readRecent();
+        })
+        .catch(async (error: unknown) => {
+          if (!ownsOperation()) return;
+          if (
+            statusOf(error) === 404 &&
+            (path === 'move' || path === 'folders/move')
+          ) {
+            try {
+              const found = await driveApi.folders();
+              if (!ownsOperation()) return;
+              setFolders(found);
+              setFolderProblem(null);
+              const sourceExists =
+                path === 'folders/move'
+                  ? found.some((folder) => folder.id === id)
+                  : await driveApi.hasDocument(id);
+              if (!ownsOperation()) return;
+              const targetId = orNull(
+                path === 'move' ? fields.folderId : fields.parentFolderId,
+              );
+              const targetExists =
+                targetId === null ||
+                found.some((folder) => folder.id === targetId);
+              if (!sourceExists) missing(id);
+              if (!targetExists && targetId !== null) missing(targetId);
+              setProblem({
+                kind: !sourceExists || !targetExists ? 'missing' : 'change',
+                message: !sourceExists
+                  ? driveNotices.missing
+                  : !targetExists
+                    ? 'That destination is no longer in your drive. Choose another folder.'
+                    : 'That move could not be completed. Your file stays here. Try again.',
+              });
+            } catch {
+              if (!ownsOperation()) return;
+              setProblem({
+                kind: 'change',
+                message:
+                  'That move could not be checked. Your file stays here. Reload before trying again.',
+              });
+            }
+            return;
+          }
+          const staleId =
+            path === 'folders/create' ? orNull(fields.parentFolderId) : id;
+          if (statusOf(error) === 404 && staleId) missing(staleId);
+          setProblem({
+            kind: statusOf(error) === 404 ? 'missing' : 'change',
+            message:
+              statusOf(error) === 409
+                ? driveNotices.conflict
+                : statusOf(error) === 404
+                  ? driveNotices.missing
+                  : 'That change did not save. Try again.',
+          });
+        }),
+    );
   };
 
   return {
@@ -414,18 +441,32 @@ export function useDrive({
       }),
     saveRecovered: async (id) => {
       if (!sync) return null;
-      const created = await mutate(() => sync.saveAsNew(id));
-      if (created) {
-        dispatch({
-          type: 'drive/add',
-          folderId: null,
-          entry: { kind: 'document', id: created.id, title: created.title },
-        });
-        readRecent();
-      }
-      return created;
+      let result: StoredDocument | null = null;
+      await inOrder(async () => {
+        const created = await mutate(() => sync.saveAsNew(id));
+        if (!ownsOperation()) return;
+        result = created;
+        if (created) {
+          dispatch({
+            type: 'drive/add',
+            folderId: null,
+            entry: { kind: 'document', id: created.id, title: created.title },
+          });
+          readRecent();
+        }
+      });
+      return result;
     },
-    folderCount: driveApi.folderCount,
+    folderCount: async (id) => {
+      let count: number | undefined;
+      await inOrder(async () => {
+        const found = await driveApi.folderCount(id);
+        if (ownsOperation()) count = found;
+      });
+      if (count === undefined)
+        throw new Error('The document owner is no longer available');
+      return count;
+    },
     toggle: async (folderId, expanded, read) => {
       dispatch({ type: 'drive/expand', folderId, expanded });
       if (expanded && !read) {

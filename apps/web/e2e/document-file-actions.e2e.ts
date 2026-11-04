@@ -947,3 +947,59 @@ test('phone stale links honor both initial read orders and a later real Files ch
     await accounts.closeContexts();
   }
 });
+
+test('rapid renames remain ordered when a committed response is delayed', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let committed!: () => void;
+  const firstCommitted = new Promise<void>((resolve) => {
+    committed = resolve;
+  });
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'Ordered renames',
+    );
+    const doc = await createTestDocument(page);
+    await page.goto(`${origin}/prep`);
+    await page.route('**/api/documents/rename', async (route) => {
+      const response = await route.fetch();
+      if (route.request().postDataJSON().title === 'First title') {
+        committed();
+        await held;
+      }
+      await route.fulfill({ response });
+    });
+    const rename = async (title: string) => {
+      await files(page)
+        .getByRole('button', { name: `Actions for ${doc.title}`, exact: true })
+        .click();
+      await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
+      const input = files(page).getByLabel(`Rename ${doc.title}`);
+      await input.fill(title);
+      await input.press('Enter');
+    };
+    await rename('First title');
+    await firstCommitted;
+    await rename('Second title');
+    release();
+    await expect(
+      files(page).getByRole('button', { name: 'Second title', exact: true }),
+    ).toBeVisible();
+    const read = await page.request.post('/api/documents/read', {
+      headers: { origin },
+      data: { ids: [doc.id] },
+    });
+    expect(read.status()).toBe(200);
+    expect((await read.json()).documents[0].title).toBe('Second title');
+  } finally {
+    release();
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});

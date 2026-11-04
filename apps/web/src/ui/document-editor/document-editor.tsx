@@ -11,7 +11,7 @@ import { outsideTextTransaction } from './outside-text';
 import { DEFAULT_TEXT_SIZE, type TextSize } from './editor-view';
 
 const editorAttributes = (title: string) => ({
-  class: 'room-doc min-h-full',
+  class: 'room-doc flex-1 px-10 pt-6 pb-10 max-compact:px-4',
   'aria-label': title,
 });
 
@@ -101,11 +101,9 @@ export function DocumentEditor({
       <div
         data-room-page={page ?? undefined}
         data-doc-size={textSize}
-        className="min-h-0 flex-1 overflow-auto bg-surface-raised"
+        className="flex min-h-0 flex-1 flex-col overflow-auto bg-surface-raised"
       >
-        <div className="px-10 pt-6 pb-10 max-compact:px-4">
-          <EditorContent editor={editor} />
-        </div>
+        <EditorContent editor={editor} className="flex flex-1 flex-col" />
       </div>
     </div>
   );
