@@ -34,7 +34,7 @@ type Props = {
  * A rich document (any member document): Tiptap on a page surface. One editor per
  * document id, kept in step with the stored HTML; base CSS comes from the stylesheet (injectCSS off, the CSP
  * refuses its un-nonced style tag). The text size is the viewer's own and
- * never saved; the page layout is part of the document.
+ * never saved.
  */
 export function DocumentEditor({
   document,
@@ -90,7 +90,7 @@ export function DocumentEditor({
         data-doc-size={textSize}
         className="min-h-0 flex-1 overflow-auto bg-surface-raised"
       >
-        <div className="mx-auto room-doc-column px-8 pt-6 pb-10">
+        <div className="px-10 pt-6 pb-24 max-compact:px-4">
           <EditorContent editor={editor} />
         </div>
       </div>

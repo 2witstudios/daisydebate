@@ -122,10 +122,6 @@
   }
 }
 
-@utility room-doc-column {
-  max-width: 760px;
-}
-
 @utility room-palette {
   max-width: 36rem;
 }
@@ -190,6 +186,13 @@ img.ProseMirror-separator {
 }
 
 /* The document: type, lists and checklists. */
+/* A document shows the caret while someone types, and no box around it. */
+.room-doc:focus,
+.room-doc:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .room-doc {
   font-size: var(--text-md);
   line-height: var(--leading-normal);
@@ -280,53 +283,6 @@ img.ProseMirror-separator {
   font-size: var(--text-xl);
 }
 
-/* A landscape page: the document opens with its page setting, an empty
-   leaf the editor never shows, and flows into that many columns. Each
-   section heading after the first starts a column; the title spans them. */
-.room-doc > [data-page] {
-  display: none;
-}
-
-.room-doc-column:has(> * > .room-doc > [data-page='landscape']) {
-  max-width: none;
-}
-
-.room-doc:has(> [data-page='landscape']) {
-  column-count: var(--room-columns);
-  column-gap: var(--spacing-8);
-  column-rule: 1px solid var(--border);
-  /* Narrow screens scroll the page sideways rather than crush columns. */
-  min-width: calc(var(--room-columns) * var(--spacing-room-column));
-}
-
-.room-doc:has(> [data-columns='2']) {
-  --room-columns: 2;
-}
-
-.room-doc:has(> [data-columns='3']) {
-  --room-columns: 3;
-}
-
-.room-doc:has(> [data-columns='4']) {
-  --room-columns: 4;
-}
-
-.room-doc:has(> [data-columns='5']) {
-  --room-columns: 5;
-}
-
-.room-doc:has(> [data-columns='6']) {
-  --room-columns: 6;
-}
-
-.room-doc:has(> [data-page='landscape']) > h1 {
-  column-span: all;
-}
-
-.room-doc:has(> [data-page='landscape']) > h2 ~ h2 {
-  break-before: column;
-}
-
 /* A page follows the viewer's theme unless they choose otherwise: then it
    carries its own scheme so light-dark() tokens resolve for it alone. */
 [data-room-page='light'] {
@@ -342,7 +298,6 @@ img.ProseMirror-separator {
 @theme {
   --spacing-room-avatar: 6rem;
   --aspect-room-preview: 16 / 9;
-  --spacing-room-column: 10rem;
 }
 
 @utility room-page {

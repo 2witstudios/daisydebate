@@ -2,13 +2,6 @@
 
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useRef, useState, type KeyboardEvent } from 'react';
-import {
-  pageColumnChoices,
-  pageLayoutOf,
-  parsePageColumns,
-  portrait,
-  type PageLayout,
-} from '../../features/documents/page-layout';
 import { cn } from '../cn';
 import { Icon, type IconName } from '../components/icon/icon';
 import type { PageTone } from './document-editor';
@@ -67,14 +60,6 @@ const tool = (on: boolean) =>
     on ? 'bg-surface-overlay text-ink' : 'text-ink-muted hover:text-ink',
   );
 
-const layoutValue = (layout: PageLayout) =>
-  layout.orientation === 'portrait' ? 'portrait' : String(layout.columns);
-
-const layoutFrom = (value: string): PageLayout => {
-  const columns = parsePageColumns(value);
-  return columns === null ? portrait : { orientation: 'landscape', columns };
-};
-
 type Props = {
   readonly editor: Editor;
   readonly access: string;
@@ -86,7 +71,7 @@ type Props = {
 };
 
 /**
- * Formatting as one toolbar (one tab stop, arrow keys within it), then who can read the file, its page layout, the view's
+ * Formatting as one toolbar (one tab stop, arrow keys within it), then who can read the file, the view's
  * text size and the page tone.
  */
 export function EditorToolbar({
@@ -106,7 +91,6 @@ export function EditorToolbar({
           e.isActive(f.id === 'heading' ? 'heading' : f.id),
         ]),
       ),
-      layout: pageLayoutOf(e.state.doc),
     }),
   });
   const [focus, setFocus] = useState(0);
@@ -151,25 +135,6 @@ export function EditorToolbar({
         <Icon name="lock" size={13} />
         {access}
       </span>
-      <select
-        aria-label="Page"
-        value={layoutValue(active.layout)}
-        className="h-room-target shrink-0 cursor-pointer rounded-sm border border-border-strong bg-surface-raised px-2 text-sm text-ink"
-        onChange={(event) =>
-          editor
-            .chain()
-            .focus()
-            .setPageLayout(layoutFrom(event.target.value))
-            .run()
-        }
-      >
-        <option value="portrait">Portrait</option>
-        {pageColumnChoices.map((columns) => (
-          <option key={columns} value={String(columns)}>
-            Landscape · {columns} columns
-          </option>
-        ))}
-      </select>
       <div role="group" aria-label="Text size" className="flex shrink-0 gap-px">
         <button
           type="button"

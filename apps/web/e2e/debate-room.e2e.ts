@@ -189,13 +189,11 @@ test('the round room: no app shell, Files closes, the sidebar switches, Leave as
   await expect(page).toHaveURL(`/rounds/${roundId}`);
 });
 
-test('a landscape page and formatting from the keyboard', async ({
+test('formatting from the keyboard', async ({
   liveRoom,
 }) => {
   const { page, violations } = liveRoom;
   const flow = page.getByRole('textbox', { name: 'Untitled', exact: true });
-  const columns = () =>
-    flow.evaluate((node) => getComputedStyle(node).columnCount);
   const saved = () =>
     page.waitForResponse(
       (response) =>
@@ -216,15 +214,7 @@ test('a landscape page and formatting from the keyboard', async ({
   await page.keyboard.press('Enter');
   await expect(flow.locator('strong')).toHaveText('Kenya');
   await marked;
-  const laidOut = saved();
-  await page.getByRole('combobox', { name: 'Page' }).selectOption({
-    label: 'Landscape · 3 columns',
-  });
-  await laidOut;
-  expect(await columns()).toBe('3');
   await page.reload();
-  await expect(page.getByRole('combobox', { name: 'Page' })).toHaveValue('3');
-  expect(await columns()).toBe('3');
   await expect(flow.locator('strong')).toHaveText('Kenya');
   expect(await violations.read()).toEqual({
     eventViolations: [],
@@ -241,7 +231,6 @@ test('the round editor’s targets, the phone toolbar row and focus return', asy
   const formatting = page.getByRole('toolbar', { name: 'Formatting' });
   const controls = [
     ...(await formatting.getByRole('button').all()),
-    page.getByRole('combobox', { name: 'Page' }),
     page.getByRole('button', { name: 'Smaller text' }),
     page.getByRole('button', { name: 'Larger text' }),
     page.getByRole('button', { name: 'Dark page' }),
