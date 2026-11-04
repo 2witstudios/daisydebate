@@ -99,6 +99,7 @@ export function TabBar({
         const active = itemActive(pathname, tab.href, [], tab.alsoActive);
         return (
           <Link
+            prefetch={active ? false : null}
             key={tab.href}
             href={tab.href}
             aria-current={active ? 'page' : undefined}

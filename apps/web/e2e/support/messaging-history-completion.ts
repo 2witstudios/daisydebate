@@ -96,6 +96,15 @@ export function testMessagingHistoryCompletion() {
         await expect(
           page.getByRole('textbox', { name: 'Your message', exact: true }),
         ).toBeDisabled();
+        // A durable HTTP answer does not mean the live window has applied it.
+        // Its newest row and Earlier cursor move together; capture the target
+        // after that snapshot, while the action response is still held.
+        if (from === 'sent')
+          await expect(
+            page
+              .getByRole('list', { name: 'Message history', exact: true })
+              .getByText(text, { exact: true }),
+          ).toBeVisible();
         const earlier = page.getByRole('link', {
           name: 'Earlier messages',
           exact: true,

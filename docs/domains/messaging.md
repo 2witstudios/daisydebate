@@ -110,7 +110,14 @@ content or fabricated entity revision. The existing owner inbox topic provides
 the routing address, selected from the current locked DM pair. The
 conversation list keeps what it shows and reads the protected inbox API again:
 rings coalesce and revalidate every loaded page, stale search answers are dropped, and the router is never asked
-to refresh, so an open conversation and its draft are untouched (ADR 0115). Generic
+to refresh, so an open conversation and its draft are untouched (ADR 0115). Conversation-list tools, pagination and the pane’s Back link disable speculative Next prefetch: opening
+another destination is an explicit navigation, rather than extra protected reads
+competing with the conversation's own history. The shell also avoids prefetching
+its already-active destination, including the Messages ancestor, on rail and phone.
+This does not change database
+admission or the shared read budget; genuine overload still refuses honestly.
+The browser proof distinguishes explicit `next-router-prefetch: 1` traffic from
+RSC route reads and includes a real router-refresh negative control. Generic
 outbox position orders delivery; an uncertifiable reconnect requires HTTP
 resynchronization. The kind marker carries no personal data, and no personal payload is inferred
 from an owner-only topic. Messaging's lawful basis and retention are the
