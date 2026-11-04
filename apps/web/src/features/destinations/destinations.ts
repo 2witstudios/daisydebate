@@ -70,11 +70,3 @@ export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
 /** Where a destination lives; Seasons lives under the Leaderboard. */
 export const destinationHref = (slug: DestinationSlug): string =>
   slug === 'seasons' ? leaderboardDestinations.seasons : `/${slug}`;
-
-/**
- * Whether a link may prefetch. Prep's page ships with #650, and a prefetch of a
- * route with no page never finishes, which would leave a request open on every
- * page with the rail. A click still gets the 404 (owner decision, ISSUE-1328).
- */
-export const destinationPrefetch = (href: string): false | null =>
-  href === destinationHref('prep') ? false : null;
