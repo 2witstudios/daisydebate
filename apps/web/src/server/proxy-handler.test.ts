@@ -349,8 +349,8 @@ describe('proxy early sign-in hint', () => {
       '/tournaments',
       '/tournaments/organize',
       '/tournaments/mine/abc/certificate',
-      '/prep/cards/abc',
-      '//prep',
+      '/tournaments/organize',
+      '//tournaments',
     ].map((path) => [at(path).status, at(path).headers.get('location')]);
     const explainer = (slug: string) => [
       307,
@@ -364,8 +364,8 @@ describe('proxy early sign-in hint', () => {
         explainer('tournaments'),
         explainer('tournaments'),
         explainer('tournaments'),
-        explainer('prep'),
-        explainer('prep'),
+        explainer('tournaments'),
+        explainer('tournaments'),
       ],
     });
   });

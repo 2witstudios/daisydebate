@@ -1,3 +1,4 @@
+import { listed } from './document-sync.test-support';
 import {
   documentApi,
   recoveryRecord,
@@ -33,7 +34,7 @@ describe('reduceSave', () => {
         after({ type: 'edit' }),
         after({ type: 'edit' }, { type: 'retrying' }),
         after({ type: 'refused', status: 413 }),
-        after({ type: 'conflict' }).save,
+        after({ type: 'conflict', unstored: false }).save,
         after({ type: 'retrying' }, { type: 'saved' }),
       ],
       expected: [
@@ -49,7 +50,7 @@ describe('reduceSave', () => {
 
 describe('documentSaving', () => {
   const api = (save: DocumentsApi['save']): DocumentsApi => ({
-    list: async () => [stored('a')],
+    ...listed(() => [stored('a')]),
     create: async () => stored('b'),
     save,
   });
@@ -59,7 +60,6 @@ describe('documentSaving', () => {
     const events: SaveEvent[] = [];
     const { timers, fire } = manualTimers();
     const sync = documentSaving(
-      'r',
       'user',
       api(async () => ({ status: 'saved', revision: 2 })),
       (event) => events.push(event),
@@ -86,7 +86,6 @@ describe('documentSaving', () => {
     const events: SaveEvent[] = [];
     const { timers, fire } = manualTimers();
     const sync = documentSaving(
-      'r',
       'user',
       api(async () => {
         throw new Error('offline');
@@ -120,7 +119,8 @@ test('browser resource composition shares exact serialized exit capacity across 
   const api = (id: string) =>
     createDocumentsApi({
       send: async (path, init) => {
-        if (path.endsWith('/list'))
+        if (path.endsWith('/recent')) return Response.json({ id: id });
+        if (path.endsWith('/read'))
           return Response.json({ documents: [stored(id)] });
         sent.push(String(init.body));
         await gate.promise;
@@ -135,8 +135,8 @@ test('browser resource composition shares exact serialized exit capacity across 
   });
   const oneResources = resources(),
     twoResources = resources();
-  const one = documentSaving('r1', 'p', api('a'), () => {}, oneResources);
-  const two = documentSaving('r2', 'p', api('b'), () => {}, twoResources);
+  const one = documentSaving('p', api('a'), () => {}, oneResources);
+  const two = documentSaving('p', api('b'), () => {}, twoResources);
   await one.load();
   await two.load();
   one.change('a', 'é'.repeat(20_000));
@@ -169,11 +169,11 @@ test('browser resource composition shares exact serialized exit capacity across 
 test('refused edits and absent recovery choices leave the real owner state unchanged', async () => {
   const events: SaveEvent[] = [];
   const api: DocumentsApi = {
-    list: async () => [stored('a')],
+    ...listed(() => [stored('a')]),
     create: async () => stored('b'),
     save: async () => ({ status: 'saved', revision: 2 }),
   };
-  const sync = documentSaving('r', 'p', api, (event) => events.push(event), {
+  const sync = documentSaving('p', api, (event) => events.push(event), {
     ...manualDraftResources('use-round-sync.test:3', {
       storage: memoryStorage(),
     }),
@@ -196,7 +196,7 @@ test('refused edits and absent recovery choices leave the real owner state uncha
 test('a recovery choice remains actionable after newer typing is acknowledged', async () => {
   const storage = memoryStorage();
   storage.setItem(
-    'daisy:round-notes:draft:p:r:a',
+    'daisy:document-drafts:copy:p:a',
     recoveryRecord({
       html: '<p>Recovered copy</p>',
       baseRevision: 1,
@@ -214,7 +214,7 @@ test('a recovery choice remains actionable after newer typing is acknowledged', 
     },
     () => [document],
   );
-  const sync = documentSaving('r', 'p', api, () => {}, {
+  const sync = documentSaving('p', api, () => {}, {
     ...manualDraftResources('use-round-sync.test:4', { storage }),
   });
   await sync.load();
@@ -241,7 +241,7 @@ for (const status of [401, 403] as const)
   test(`a ${status} refused save keeps every private copy`, async () => {
     const storage = memoryStorage();
     storage.setItem(
-      'daisy:round-notes:draft:p:other-round:x',
+      'daisy:document-drafts:copy:p:other-round:x',
       recoveryRecord({
         html: '<p>Other Round</p>',
         baseRevision: 1,
@@ -256,7 +256,7 @@ for (const status of [401, 403] as const)
       () => [stored('a')],
     );
     const events: SaveEvent[] = [];
-    const sync = documentSaving('r', 'p', api, (event) => events.push(event), {
+    const sync = documentSaving('p', api, (event) => events.push(event), {
       ...manualDraftResources(`use-round-sync.test:${status}`, { storage }),
     });
     await sync.load();
@@ -270,9 +270,9 @@ for (const status of [401, 403] as const)
         sync.available(),
         events.at(-1),
         storage
-          .getItem('daisy:round-notes:draft:p:r:a')
+          .getItem('daisy:document-drafts:copy:p:a')
           ?.includes('Typed before'),
-        storage.getItem('daisy:round-notes:draft:p:other-round:x') !== null,
+        storage.getItem('daisy:document-drafts:copy:p:other-round:x') !== null,
       ],
       expected: [status === 403, { type: 'refused', status }, true, true],
     });

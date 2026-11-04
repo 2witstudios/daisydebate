@@ -3,14 +3,15 @@ import { noopErrorReporter } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import { silentLogger } from '../../server/test-loggers.test-support';
+import { DRIVE_LIMITS } from '@daisy/db/documents';
 import { createDocumentHandlers } from './document-handlers';
+import { driveNoticeText } from './drive-return';
 import type { DocumentOperations } from './document-operations';
 
 setupRitewayBun();
 
 const ORIGIN = 'http://localhost:3000';
 const DOC = 'ckdocument0000000000000a';
-const DEBATE = 'ckaidebate00000000000000';
 
 const member: Extract<Identity, { state: 'member' }> = {
   state: 'member',
@@ -33,26 +34,33 @@ const conflictAt = (revision: number) =>
 const handlersWith = ({
   identity = member,
   save = async () => ({ revision: 2 }),
+  create,
 }: {
+  create?: DocumentOperations['createDocument'];
   identity?: Identity;
   save?: DocumentOperations['saveDocument'];
 } = {}) => {
   const calls: unknown[] = [];
   const operations = {
-    listDocuments: async (...args: unknown[]) => {
+    listDrive: async (...args: unknown[]) => {
+      calls.push(args);
+      return { entries: [], next: null };
+    },
+    readDocuments: async (...args: unknown[]) => {
       calls.push(args);
       return [document];
     },
-    createDocument: async (...args: unknown[]) => {
-      calls.push(args);
-      return document;
-    },
+    createDocument:
+      create ??
+      (async (...args: unknown[]) => {
+        calls.push(args);
+        return document;
+      }),
     saveDocument: save,
     renameDocument: async (...args: unknown[]) => {
       calls.push(args);
-      return { ...document, title: 'Plan' };
     },
-  } as DocumentOperations;
+  } as unknown as DocumentOperations;
   const handlers = createDocumentHandlers({
     logger: silentLogger,
     reporter: noopErrorReporter,
@@ -78,30 +86,135 @@ const read = async (response: Response) => [
   await response.json(),
 ];
 
-describe('debate room document routes', () => {
-  test('list, create and rename answer the documented shapes', async () => {
+describe('document routes', () => {
+  test('list, read, create and rename answer the documented shapes', async () => {
     const { handlers, calls } = handlersWith();
     assert({
-      given: 'a member listing, creating and renaming',
-      should: 'answer documents, the created document and the renamed one',
+      given: 'a member listing, reading, creating and renaming',
+      should: 'answer each with no Round named anywhere',
       actual: [
-        await read(await handlers.list.POST(post({ roundId: DEBATE }))),
-        await read(await handlers.create.POST(post({ roundId: DEBATE }))),
+        await read(
+          await handlers.list.POST(post({ folderId: null, after: null })),
+        ),
+        await read(await handlers.read.POST(post({ ids: [DOC] }))),
+        await read(await handlers.create.POST(post({ folderId: null }))),
         await read(
           await handlers.rename.POST(post({ id: DOC, title: 'Plan' })),
         ),
       ],
       expected: [
+        [200, { entries: [], next: null }],
         [200, { documents: [document] }],
         [201, { document }],
-        [200, { document: { ...document, title: 'Plan' } }],
+        [200, {}],
       ],
     });
     assert({
       given: 'the create call',
       should: 'pass the explicit principal and only the validated fields',
-      actual: calls[1],
-      expected: [{ userId: 'user1', actorId: 'actor1' }, { roundId: DEBATE }],
+      actual: calls[2],
+      expected: [{ userId: 'user1', actorId: 'actor1' }, { folderId: null }],
+    });
+  });
+
+  test('a plain form answers with a 303 back to its page', async () => {
+    const { handlers, calls } = handlersWith();
+    const form = (body: string, origin = ORIGIN) =>
+      new Request(`${ORIGIN}/api/documents/x`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          origin,
+        },
+        body,
+      });
+    const answer = await handlers.rename.POST(
+      form(`id=${DOC}&title=Plan&back=%2Fprep`),
+    );
+    const away = await handlers.rename.POST(
+      form(`id=${DOC}&title=Plan&back=https%3A%2F%2Fevil.test`),
+    );
+    const refused = await handlers.rename.POST(
+      form(`id=not-an-id&title=Plan&back=%2Fprep`),
+    );
+    assert({
+      given: 'a form post, one naming another site, and one refused',
+      should: 'return to its page, never off the site, and say so by a key',
+      actual: [
+        answer.status,
+        answer.headers.get('location'),
+        away.headers.get('location'),
+        refused.headers.get('location'),
+        calls.length,
+      ],
+      expected: [303, '/prep', '/prep', '/prep?notice=name-length', 2],
+    });
+  });
+
+  test('a form body is bounded as it is read, and a refused form gets a page', async () => {
+    const { handlers } = handlersWith();
+    const form = (body: string) =>
+      new Request(`${ORIGIN}/api/documents/x`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          origin: ORIGIN,
+        },
+        body,
+      });
+    const large = await handlers.rename.POST(form('x'.repeat(4 * 1024 * 1024)));
+    const anonymous = handlersWith({
+      identity: { state: 'anonymous', principal: { kind: 'anonymous' } },
+    });
+    const refused = await anonymous.handlers.rename.POST(form(`id=${DOC}`));
+    assert({
+      given: 'a form far past the limit, and one with no session',
+      should:
+        'not read the first past its bound, and answer the second with a page',
+      actual: [large.status, refused.status, refused.headers.get('location')],
+      expected: [303, 303, '/prep?notice=refused'],
+    });
+  });
+
+  test('a full drive says so in plain words, at the real limit', async () => {
+    const { handlers } = handlersWith({
+      create: async () => {
+        throw createAppError('CONFLICT', 'This drive is full');
+      },
+    });
+    const answer = await handlers.create.POST(
+      new Request(`${ORIGIN}/api/documents/x`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          origin: ORIGIN,
+        },
+        body: 'folderId=&back=%2Fprep',
+      }),
+    );
+    const location = answer.headers.get('location') ?? '';
+    const key = new URL(location, ORIGIN).searchParams.get('notice');
+    assert({
+      given: 'a form creating a document in a full drive',
+      should: 'return to the page with the notice naming the limit',
+      actual: [
+        location,
+        driveNoticeText(key)?.includes(String(DRIVE_LIMITS.documents)),
+      ],
+      expected: ['/prep?notice=drive-full', true],
+    });
+  });
+
+  test('a control character in a name is refused as invalid', async () => {
+    const { handlers, calls } = handlersWith();
+    const answer = await handlers.rename.POST(
+      post({ id: DOC, title: 'a\u0000b' }),
+    );
+    assert({
+      given: 'a title holding U+0000',
+      should: 'refuse it before any operation',
+      actual: [answer.status, calls.length],
+      expected: [400, 0],
     });
   });
 
@@ -166,27 +279,63 @@ describe('debate room document routes', () => {
         principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
       },
     });
-    const list = { roundId: DEBATE };
+    const restricted = handlersWith({
+      identity: {
+        state: 'restricted',
+        username: 'ada',
+        principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
+      },
+    });
+    const revoked = handlersWith({
+      identity: {
+        state: 'waitlisted',
+        username: 'ada',
+        reason: 'revoked',
+        principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
+      },
+    });
+    const ageRequired = handlersWith({
+      identity: {
+        state: 'waitlisted',
+        username: 'ada',
+        reason: 'age-required',
+        principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
+      },
+    });
+    const list = { folderId: null, after: null };
     assert({
       given:
-        'a foreign origin, no session, a provisional user, a waitlisted user and bad bodies',
+        'a foreign origin, no session, a provisional, pending, restricted, revoked or under-age account and bad bodies',
       should: 'refuse each before any operation runs',
       actual: [
         (await handlers.list.POST(post(list, 'https://evil.test'))).status,
         (await anonymous.handlers.list.POST(post(list))).status,
         (await provisional.handlers.list.POST(post(list))).status,
         (await waitlisted.handlers.list.POST(post(list))).status,
-        (await handlers.list.POST(post({ roundId: 'not-a-cuid' }))).status,
-        (await handlers.create.POST(post({ roundId: 'not a valid id!' })))
+        (await restricted.handlers.list.POST(post(list))).status,
+        (await revoked.handlers.search.POST(post({ text: 'x', page: 0 })))
+          .status,
+        (await ageRequired.handlers.read.POST(post({ ids: [DOC] }))).status,
+        (await restricted.handlers.delete.POST(post({ id: DOC }))).status,
+        (
+          await handlers.list.POST(
+            post({ folderId: 'not a valid id!', after: null }),
+          )
+        ).status,
+        (await handlers.create.POST(post({ folderId: 'not a valid id!' })))
           .status,
         (
           await handlers.save.POST(
             post({ id: DOC, html: '<p></p>', expectedRevision: 0 }),
           )
         ).status,
-        calls.length + waitlisted.calls.length,
+        calls.length +
+          waitlisted.calls.length +
+          restricted.calls.length +
+          revoked.calls.length +
+          ageRequired.calls.length,
       ],
-      expected: [403, 401, 403, 403, 400, 400, 400, 0],
+      expected: [403, 401, 403, 403, 403, 403, 403, 403, 400, 400, 400, 0],
     });
   });
 });

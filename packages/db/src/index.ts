@@ -402,7 +402,11 @@ export function createDatabase({
         }),
       ),
     ...transcriptFinalizationOperations({ database }),
-    ...documentOperations({ database, eventSink }),
+    ...documentOperations({
+      database: workload.lane('documents').database,
+      searchDatabase: workload.lane('search').database,
+      eventSink,
+    }),
     ...analyticsConsentOperations(control),
     ...onboardingOperations({ database: control, eventSink }),
     ...ageStepOperations({ database: control, eventSink }),

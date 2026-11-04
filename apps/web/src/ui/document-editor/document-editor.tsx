@@ -1,5 +1,6 @@
 'use client';
 
+import type { PageTone } from '../../features/documents/document-manager-state';
 import { createDocument } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useEffect, useState } from 'react';
@@ -10,7 +11,7 @@ import { outsideTextTransaction } from './outside-text';
 import { DEFAULT_TEXT_SIZE, type TextSize } from './editor-view';
 
 /** The page surface a document is edited on. */
-export type PageTone = 'dark' | 'light';
+export type { PageTone };
 
 /** What the editor needs of a document: debate-room documents and prep briefs both satisfy it. */
 type EditableDocument = {

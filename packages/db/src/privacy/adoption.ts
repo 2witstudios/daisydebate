@@ -7,6 +7,7 @@ import { analyticsConsentPrivacyAdopter } from '../analytics-consent';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { accountTermsPrivacyAdopter } from '../age-step';
 import { betaAccessPrivacyAdopter } from '../beta-access-privacy';
+import { documentsPrivacyAdopter } from '../documents-privacy';
 import { competitiveRecordPrivacyAdopter } from '../competitive-record-privacy';
 import { entitlementGrantPrivacyAdopter } from '../entitlement-grants-privacy';
 import { contentModerationPrivacyAdopter } from '../content-moderation-privacy';
@@ -39,6 +40,7 @@ export const subjectRightsAdoption = (
   accountTermsPrivacyAdopter,
   agreementSignaturePrivacyAdopter,
   betaAccessPrivacyAdopter,
+  documentsPrivacyAdopter,
   entitlementGrantPrivacyAdopter,
   contentModerationPrivacyAdopter,
   audienceReactionPrivacyAdopter,

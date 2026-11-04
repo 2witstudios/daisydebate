@@ -198,7 +198,7 @@ describe('closedDestinationOf', () => {
       actual: ['/tournaments', '/prep', '/watch', '/recordings'].map((path) =>
         closedDestinationOf(path),
       ),
-      expected: ['tournaments', 'prep', null, null],
+      expected: ['tournaments', null, null, null],
     });
   });
 });
@@ -217,9 +217,17 @@ describe('launch config', () => {
     assert({
       given: 'the launch config for the three-ladder beta',
       should:
-        'open Play, Watch, Judge, Seasons, the real leaderboard and Train',
+        'open Play, Watch, Judge, Seasons, the real leaderboard, Train and Prep',
       actual: destinationSlugs.filter((slug) => launched[slug]),
-      expected: ['lobby', 'watch', 'judge', 'seasons', 'leaderboard', 'train'],
+      expected: [
+        'lobby',
+        'watch',
+        'judge',
+        'seasons',
+        'leaderboard',
+        'train',
+        'prep',
+      ],
     });
   });
 });

@@ -1,6 +1,6 @@
 import { fixedClock, fixedIds } from '@daisy/clock';
-import type { DocumentRecord } from '@daisy/db/documents';
-import { emptyRuntimeCheckpoint } from '@daisy/protocol';
+import type { DocumentRecord, DriveAdmission } from '@daisy/db/documents';
+import { createAppError } from '@daisy/errors';
 import {
   createDocumentOperations,
   type DocumentStore,
@@ -8,66 +8,14 @@ import {
 
 export const NOW = '2026-10-05T18:00:00.000Z';
 
-/** The round the tests sit in: the tester participates, on the negative. */
-const round = {
-  id: 'debate-1',
-  competitionType: 'casual' as const,
-  formatId: 'one-on-one',
-  formatVersion: 1,
-  resolution: 'A representative resolution',
-  status: 'opening' as const,
-  currentStage: null,
-  launchedAt: '2026-10-10T12:00:00.000Z',
-  startedAt: null,
-  completedAt: null,
-  outcome: null,
-  rules: {
-    version: 2 as const,
-    seats: { affirmative: 1, negative: 1, judge: 1 },
-    segments: [
-      {
-        key: 'AC',
-        label: 'Affirmative constructive',
-        type: 'speech' as const,
-        side: 'affirmative' as const,
-        slot: 0,
-        durationMs: 300_000,
-      },
-      {
-        key: 'NC',
-        label: 'Negative constructive',
-        type: 'speech' as const,
-        side: 'negative' as const,
-        slot: 0,
-        durationMs: 360_000,
-      },
-    ],
-    inRoundPrep: null,
-    countdownMs: 10_000,
-    interaction: {
-      yield: null,
-      interruptions: { allowed: 'disabled' as const },
-    },
-  },
-  checkpoint: emptyRuntimeCheckpoint,
-  version: 1,
-  participants: [
-    { id: 'seat-me', actorId: 'actor-me', role: 'negative' as const, slot: 0 },
-    {
-      id: 'seat-other',
-      actorId: 'actor-other',
-      role: 'affirmative' as const,
-      slot: 0,
-    },
-    {
-      id: 'seat-judge',
-      actorId: 'actor-judge',
-      role: 'judge' as const,
-      slot: 0,
-    },
-  ],
-  segments: [],
-};
+/** An admitted account, as the fence would read it. */
+const admittedAccount = {
+  member: true,
+  erased: false,
+  restricted: false,
+  ageBand: 'adult',
+  beta: { state: 'approved', revision: 1 },
+} as unknown as Parameters<DriveAdmission>[0];
 
 /** An in-memory store with the database adapter's semantics. */
 const memoryStore = (seed: DocumentRecord[] = []) => {
@@ -76,13 +24,22 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
     const found = documents.get(id);
     return found?.ownerActorId === ownerActorId ? found : undefined;
   };
+  const refuseUnadmitted = (admits: DriveAdmission) => {
+    if (!admits(admittedAccount)) throw createAppError('AUTHORIZATION');
+  };
   const store: DocumentStore = {
-    getRound: async (id) =>
-      id === round.id ? { ...round, opening: null } : null,
-    createDocument: async (document) => {
+    createDocument: async (input) => {
+      refuseUnadmitted(input.admits);
       // The database stamps created_at/updated_at itself (ADR 0033 §3.2).
+      const taken = [...documents.values()]
+        .filter((d) => d.ownerActorId === input.ownerActorId)
+        .map((d) => d.title);
       const record = {
-        ...document,
+        id: input.id,
+        ownerActorId: input.ownerActorId,
+        folderId: input.folderId,
+        title: input.uniqueTitle(taken),
+        html: input.html,
         revision: 1,
         createdAt: new Date(NOW),
         updatedAt: new Date(NOW),
@@ -90,12 +47,26 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
       documents.set(record.id, record);
       return record;
     },
-    listDocuments: async ({ ownerActorId }) =>
-      [...documents.values()].filter((d) => d.ownerActorId === ownerActorId),
-    listDocumentTitles: async ({ ownerActorId }) =>
+    readDocuments: async ({ ownerActorId, ids }) =>
+      ids.flatMap((id) => owned(id, ownerActorId) ?? []),
+    lastEditedDocument: async ({ ownerActorId }) =>
+      [...documents.values()].find((d) => d.ownerActorId === ownerActorId)
+        ?.id ?? null,
+    listDriveEntries: async ({ ownerActorId, folderId, limit }) =>
       [...documents.values()]
-        .filter((d) => d.ownerActorId === ownerActorId)
-        .map((d) => d.title),
+        .filter(
+          (d) => d.ownerActorId === ownerActorId && d.folderId === folderId,
+        )
+        .slice(0, limit)
+        .map((d) => ({
+          kind: 'document',
+          id: d.id,
+          title: d.title,
+          folderId,
+          updatedAt: d.updatedAt,
+        })),
+    listDocumentFolders: async () => [],
+    searchDocuments: async () => [],
     saveDocument: async ({ id, ownerActorId, html, expectedRevision }) => {
       const found = owned(id, ownerActorId);
       if (!found) return { status: 'missing' };
@@ -106,11 +77,23 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
     },
     renameDocument: async ({ id, ownerActorId, title }) => {
       const found = owned(id, ownerActorId);
-      if (!found) return null;
-      const renamed = { ...found, title };
-      documents.set(id, renamed);
-      return renamed;
+      if (!found) return false;
+      documents.set(id, { ...found, title });
+      return true;
     },
+    moveDocument: async ({ id, ownerActorId, folderId }) => {
+      const found = owned(id, ownerActorId);
+      if (!found) return false;
+      documents.set(id, { ...found, folderId });
+      return true;
+    },
+    deleteDocument: async ({ id, ownerActorId }) =>
+      owned(id, ownerActorId) ? documents.delete(id) : false,
+    createDocumentFolder: async () => {},
+    renameDocumentFolder: async () => true,
+    moveDocumentFolder: async () => {},
+    countFolderDocuments: async () => 0,
+    deleteDocumentFolder: async () => true,
   };
   return { store, documents };
 };
@@ -120,6 +103,7 @@ export const stored = (
 ): DocumentRecord => ({
   id: 'doc-1',
   ownerActorId: 'actor-me',
+  folderId: null,
   title: 'Notes',
   html: '<p>a</p>',
   revision: 1,

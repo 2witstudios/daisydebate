@@ -1,3 +1,4 @@
+import { createDocumentSync } from './document-sync.test-support';
 import {
   documentApi,
   memoryStorage,
@@ -6,16 +7,12 @@ import {
 } from './document-sync.test-support';
 
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createDocumentSync,
-  type DocumentSync,
-  type DocumentsApi,
-} from './document-sync';
+import { type DocumentSync, type DocumentsApi } from './document-sync';
 
 import { createKeepaliveBudget } from './keepalive-budget';
-import { newDraftCopy } from './document-draft';
+import { newDraftCopy } from '../../features/documents/document-draft';
 setupRitewayBun();
-const key = 'daisy:round-notes:draft:p:r:a';
+const key = 'daisy:document-drafts:copy:p:a';
 const fixture = () => {
   const storage = memoryStorage();
   let now = 100,
@@ -45,7 +42,6 @@ const fixture = () => {
     createDocumentSync({
       api,
       storage,
-      roundId: 'r',
       principalId: 'p',
       timers: manualTimers().timers,
       budget: createKeepaliveBudget(),
@@ -527,7 +523,7 @@ const lateCommitFixture = async () => {
       },
       () => [server],
     ),
-    list: async () => {
+    read: async () => {
       lists += 1;
       return [server];
     },
@@ -803,7 +799,7 @@ test('a list failing during a 409 is retried, not reported as a conflict', async
       },
       () => [server],
     ),
-    list: async () => {
+    read: async () => {
       if (failList) {
         failList = false;
         throw new Error('list failed on the same bad network');

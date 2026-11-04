@@ -63,8 +63,6 @@ test('a closed destination answers every address with its explainer', async ({
     '/tournaments': 'tournaments',
     '/tournaments/organize': 'tournaments',
     '/tournaments/mine/any/certificate': 'tournaments',
-    '/prep': 'prep',
-    '/prep/cards/any': 'prep',
   };
   for (const [route, slug] of Object.entries(closed)) {
     const response = await request.get(route, { maxRedirects: 0 });

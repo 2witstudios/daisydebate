@@ -16,13 +16,10 @@ export { expect };
 
 export const documentsPath = '/api/documents/';
 /** Create a real authenticated document through its canonical document API. */
-export const createRoundFile = async (
-  request: APIRequestContext,
-  roundId: string,
-) => {
+export const createMemberDocument = async (request: APIRequestContext) => {
   const response = await request.post(`${documentsPath}create`, {
     headers: { origin },
-    data: { roundId },
+    data: { folderId: null },
   });
   expect(response.status()).toBe(201);
   const { document } = await response.json();
@@ -30,7 +27,7 @@ export const createRoundFile = async (
   return document;
 };
 /** A second real Round for same-principal receipt navigation; always release its competitive slot. */
-export const createFinishedRoundFile = async (page: Page) => {
+export const documentFromFinishedRound = async (page: Page) => {
   await prepareRoomAs(
     page,
     `Notes lifetime ${createId().slice(0, 8)}`,
@@ -39,7 +36,7 @@ export const createFinishedRoundFile = async (page: Page) => {
   await readyUp(page);
   const roundId = await startRoundInBrowser(page);
   try {
-    const document = await createRoundFile(page.request, roundId);
+    const document = await createMemberDocument(page.request);
     return {
       roundId,
       documentId: document.id as string,
@@ -49,7 +46,7 @@ export const createFinishedRoundFile = async (page: Page) => {
     await forfeitAsHost(page.request, roundId);
   }
 };
-type RoundFiles = {
+type LiveRoom = {
   readonly page: Page;
   readonly stranger: APIRequestContext;
   readonly roundId: string;
@@ -62,11 +59,11 @@ type RoundFiles = {
 };
 /** A launched round with one server-saved document, opened by its first debater. */
 export const test = base.extend<{
-  roundFiles: RoundFiles;
+  liveRoom: LiveRoom;
   roundCommands: boolean;
 }>({
   roundCommands: [false, { option: true }],
-  roundFiles: async ({ browser, roundCommands }, provide) => {
+  liveRoom: async ({ browser, roundCommands }, provide) => {
     const accounts = await createRoomLaunchAccounts(browser, 2);
     let launched: string | undefined;
     let finished = false;
@@ -75,13 +72,10 @@ export const test = base.extend<{
         ['camera', 'microphone'],
         { origin },
       );
-      const page = await openPage(
-        accounts.members[0]!.context,
-        'persisted Round files',
-      );
+      const page = await openPage(accounts.members[0]!.context, 'a live room');
       const prepared = await prepareRoomAs(
         page,
-        `Round files ${createId().slice(0, 8)}`,
+        `Live room ${createId().slice(0, 8)}`,
         'Affirmative 1',
       );
       if (roundCommands) {
@@ -113,7 +107,7 @@ export const test = base.extend<{
       await readyUp(page);
       const roundId = await startRoundInBrowser(page);
       launched = roundId;
-      const document = await createRoundFile(page.request, roundId);
+      const document = await createMemberDocument(page.request);
       expect(document.title).toBe('Untitled');
       const violations = await watchCspViolations(page);
       await page.reload();

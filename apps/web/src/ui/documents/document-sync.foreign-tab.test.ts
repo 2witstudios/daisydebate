@@ -1,10 +1,10 @@
+import { createDocumentSync, listed } from './document-sync.test-support';
 import {
   manualDraftResources,
   memoryStorage,
   stored,
 } from './document-sync.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync } from './document-sync';
 
 setupRitewayBun();
 test('a legitimate newer foreign-tab active copy is withheld without a false storage failure or blocking own saves', async () => {
@@ -13,7 +13,7 @@ test('a legitimate newer foreign-tab active copy is withheld without a false sto
     saved: string[] = [];
   let documents = [stored('a', 3), stored('b', 3)];
   const api = {
-    list: async () => documents,
+    ...listed(() => documents),
     create: async () => stored('new'),
     save: async (input: {
       id: string;
@@ -36,7 +36,6 @@ test('a legitimate newer foreign-tab active copy is withheld without a false sto
       ...manualDraftResources(name, { storage }),
 
       api,
-      roundId: 'r',
       principalId: 'p',
       onConflict: () => {},
       onDraftStorageFailed: (id) => {
@@ -53,7 +52,7 @@ test('a legitimate newer foreign-tab active copy is withheld without a false sto
   two.change('a', 'committed foreign text');
   await two.flush();
   two.change('a', 'new foreign text');
-  const foreign = storage.getItem('daisy:round-notes:draft:p:r:a');
+  const foreign = storage.getItem('daisy:document-drafts:copy:p:a');
   one.refreshRecovery();
   one.change('b', 'own edit');
   await one.flush();
@@ -66,7 +65,7 @@ test('a legitimate newer foreign-tab active copy is withheld without a false sto
       warnings,
       saved,
       one.recoveryOffers(),
-      storage.getItem('daisy:round-notes:draft:p:r:a'),
+      storage.getItem('daisy:document-drafts:copy:p:a'),
     ],
     expected: [[], ['b'], [], foreign],
   });

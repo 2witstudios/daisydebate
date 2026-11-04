@@ -43,7 +43,7 @@ test('the platform ending is written when the Round ends, not at the freeze', as
     const reservation = createId();
     const [seat] =
       await f.sql`select actor_id from round_participants where round_id=${roundId} and role<>'judge' limit 1`;
-    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, counted_at) values (${reservation}, ${seat!.actor_id}, ${roundId}, 'ai_round', clock_timestamp())`;
+    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, reserved_at, counted_at) values (${reservation}, ${seat!.actor_id}, ${roundId}, 'ai_round', statement_timestamp(), statement_timestamp())`;
     const [before] =
       await f.sql`select refunded_at from usage_reservations where id=${reservation}`;
     await seedSettledAttendanceLedger(f, roundId);

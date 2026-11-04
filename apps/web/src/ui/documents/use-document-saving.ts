@@ -31,7 +31,8 @@ export type SaveStatus = {
 export type SaveEvent =
   | { readonly type: 'edit' }
   | { readonly type: 'saved' }
-  | { readonly type: 'conflict' }
+  | { readonly type: 'conflict'; readonly unstored: boolean }
+  | { readonly type: 'gone' }
   | { readonly type: 'retrying' }
   | { readonly type: 'refused'; readonly status: number }
   | { readonly type: 'unsaved' }
@@ -39,7 +40,7 @@ export type SaveEvent =
 
 export const initialSaveStatus: SaveStatus = { save: 'saved', notice: null };
 
-/** One browser page's shared keepalive body budget across every Round owner. */
+/** One browser page's shared keepalive body budget across every owner. */
 const browserKeepaliveBudget = createKeepaliveBudget();
 
 const browserTimers: Timers = {
@@ -64,8 +65,15 @@ export const browserDraftResources = (): DocumentSyncResources => ({
   wallClock: () => Date.parse(systemClock.now()),
 });
 
+const GONE_NOTICE =
+  'This document was deleted. Your text is kept here: save it as a new document to keep it.';
+
+/** A reload would lose this text, so the way out is on the page. */
+const CONFLICT_UNSTORED_NOTICE =
+  'A newer save of this document arrived, and your latest typing is only on this page. Do not reload: save it as a new document below.';
+
 const CONFLICT_NOTICE =
-  'A newer save of this file arrived. Reload before editing it again.';
+  'A newer save of this document arrived. Reload before editing it again.';
 
 /** One saving event's effect on the room's save status. */
 export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
@@ -81,7 +89,12 @@ export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
     case 'saved':
       return initialSaveStatus;
     case 'conflict':
-      return { save: 'unsaved', notice: CONFLICT_NOTICE };
+      return {
+        save: 'unsaved',
+        notice: event.unstored ? CONFLICT_UNSTORED_NOTICE : CONFLICT_NOTICE,
+      };
+    case 'gone':
+      return { save: 'unsaved', notice: GONE_NOTICE };
     case 'retrying':
       return { save: 'unsaved', notice: RETRYING_NOTICE };
     case 'refused':
@@ -95,21 +108,21 @@ export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
   }
 }
 
-/** The Round's document sync, reporting every saving event it sees. */
+/** The member's document sync, reporting every saving event it sees. */
 export function documentSaving(
-  roundId: string,
   principalId: string,
   api: DocumentsApi,
   report: (event: SaveEvent) => void,
   resources: DocumentSyncResources,
 ): DocumentSync {
   const stored = createDocumentSync({
-    roundId,
     principalId,
     api,
     ...resources,
     onChanged: () => report({ type: 'edit' }),
-    onConflict: () => report({ type: 'conflict' }),
+    onConflict: (id) =>
+      report({ type: 'conflict', unstored: stored.holdsUnstored(id) }),
+    onGone: () => report({ type: 'gone' }),
     onSaveFailed: () => report({ type: 'retrying' }),
     onSaveRefused: (_id, status) => {
       // An expired session stops and hides the drafts but keeps their copies for
@@ -124,9 +137,8 @@ export function documentSaving(
   return stored;
 }
 
-/** A participant's files on the persisted Round's document API. */
+/** A member's documents, wherever the manager opens. */
 export function useDocumentSaving(
-  roundId: string,
   principalId: string,
   socketUrl: string | null = null,
 ): SaveStatus & {
@@ -136,7 +148,6 @@ export function useDocumentSaving(
   const sync = useMemo(
     () =>
       documentSaving(
-        roundId,
         principalId,
         createDocumentsApi(),
         (event) => {
@@ -146,7 +157,7 @@ export function useDocumentSaving(
         },
         browserDraftResources(),
       ),
-    [roundId, principalId],
+    [principalId],
   );
   useEffect(() => {
     if (socketUrl === null) return;

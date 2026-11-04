@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, type Dispatch } from 'react';
-import type { RoomAction } from '../debate-room/room-state';
+import type { ManagerAction } from '../../features/documents/document-manager-state';
 
 /** Opens the document palette from either persisted or active Round workspaces. */
-export function usePaletteShortcut(dispatch: Dispatch<RoomAction>) {
+export function usePaletteShortcut(dispatch: Dispatch<ManagerAction>) {
   useEffect(() => {
     const open = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey))

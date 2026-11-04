@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useSyncExternalStore, type Dispatch } from 'react';
+import { flushSync } from 'react-dom';
 import { generateJSON, generateText } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { systemClock } from '@daisy/clock';
 import { documentExtensions } from '../../features/documents/document-schema';
 import type { MemberDocument } from '../../features/documents/document';
+import { DRIVE_FULL_NOTICE } from '../../features/documents/drive-return';
 import type { DocumentSync, DraftOffer } from './document-sync';
-import type { DraftCopy } from './document-draft';
-import type { RoomAction } from '../debate-room/room-state';
+import type { DraftCopy } from '../../features/documents/document-draft';
+import type { ManagerAction } from '../../features/documents/document-manager-state';
 
 /** The same constrained schema as the editor; stored HTML is never injected into the page. */
 function RecoveryPreview({
@@ -130,6 +132,49 @@ function RecoveredDraft({
   );
 }
 
+/** Text that can only be kept as a new document: its own was deleted, or moved on. */
+function DeletedDocumentNotice({
+  title,
+  deleted,
+  saveAsNew,
+  discard,
+  problem,
+}: {
+  readonly title: string;
+  readonly deleted: boolean;
+  readonly saveAsNew: () => void;
+  readonly discard: () => void;
+  readonly problem: string | null;
+}) {
+  return (
+    <div role="alert" className="flex items-center gap-3 p-3 text-sm">
+      <p className="min-w-0 flex-1">
+        {deleted
+          ? `${title} was deleted. Your text is still here.`
+          : `${title} changed somewhere else. Your typing is still here.`}{' '}
+        It becomes a new Untitled document.
+        {problem ? ` ${problem}` : ''}
+      </p>
+      <button
+        type="button"
+        onClick={saveAsNew}
+        className="h-room-target cursor-pointer rounded-sm bg-accent px-3 font-strong text-accent-ink"
+      >
+        Save as a new document
+      </button>
+      {deleted ? (
+        <button
+          type="button"
+          onClick={discard}
+          className="h-room-target cursor-pointer px-3 underline"
+        >
+          Discard
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 const noOffers: readonly DraftOffer[] = [];
 
 /** The sync owner projects the durable offers; UI state cannot retain a consumed copy. */
@@ -137,18 +182,71 @@ export function RecoveredDrafts({
   documents,
   sync,
   dispatch,
+  inFolderPage = false,
 }: {
   readonly documents: readonly MemberDocument[];
   readonly sync: DocumentSync;
-  readonly dispatch: Dispatch<RoomAction>;
+  readonly dispatch: Dispatch<ManagerAction>;
+  /** This tree's root is a folder, and a saved copy lands in My drive above it. */
+  readonly inFolderPage?: boolean;
 }) {
   const offers = useSyncExternalStore(
     sync.subscribe,
     sync.recoveryOffers,
     () => noOffers,
   );
+  const needing = useSyncExternalStore(
+    sync.subscribe,
+    sync.firstNeedingCopy,
+    () => null,
+  );
+  const [copyProblem, setCopyProblem] = useState<string | null>(null);
+  const saveAsNew = (id: string) => {
+    const wasDeleted = sync.firstGone() === id;
+    sync.saveAsNew(id).then(
+      (created) => {
+        if (!created) return;
+        setCopyProblem(null);
+        // In this task, so no keystroke can land in the old document's editor.
+        flushSync(() => {
+          if (!wasDeleted) dispatch({ type: 'doc/closed', id });
+          else if (sync.firstGone() === id) {
+            dispatch({ type: 'doc/closed', id });
+            dispatch({ type: 'drive/unlist', id });
+          } else dispatch({ type: 'drive/remove', id });
+          dispatch({ type: 'doc/add', document: created });
+          if (inFolderPage) return;
+          dispatch({
+            type: 'drive/add',
+            folderId: null,
+            entry: { kind: 'document', id: created.id, title: created.title },
+          });
+        });
+      },
+      (error: unknown) =>
+        setCopyProblem(
+          (error as { readonly status?: unknown }).status === 409
+            ? DRIVE_FULL_NOTICE
+            : 'It was not saved. Try again.',
+        ),
+    );
+  };
   return (
     <>
+      {needing ? (
+        <DeletedDocumentNotice
+          title={
+            documents.find((one) => one.id === needing)?.title ?? 'A document'
+          }
+          deleted={sync.firstGone() === needing}
+          saveAsNew={() => saveAsNew(needing)}
+          discard={() => {
+            sync.forget(needing);
+            dispatch({ type: 'drive/remove', id: needing });
+          }}
+          problem={copyProblem}
+        />
+      ) : null}
       {offers.map((offer) => {
         const document = documents.find((item) => item.id === offer.documentId);
         if (!document) return null;
