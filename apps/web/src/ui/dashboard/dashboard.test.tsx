@@ -12,6 +12,7 @@ setupRitewayBun();
 const renderWithGlance = (): string =>
   renderInStore(
     h(Dashboard, {
+      audience: 'member',
       hero: null,
       liveNow: null,
       seasonGlance: { number: 7, line: '12 days left' },
@@ -21,6 +22,7 @@ const renderWithGlance = (): string =>
 const render = (): string =>
   renderInStore(
     h(Dashboard, {
+      audience: 'visitor',
       hero: h(HeroBanner, {
         requestLink: () => Promise.resolve(initialLinkForm),
       }),
@@ -41,6 +43,42 @@ describe('Dashboard', () => {
         tiles.map((tile) => occurrences(list, `href="${tile.href}"`)),
       ],
       expected: [true, tiles.map(() => 1)],
+    });
+  });
+
+  test('stacks the destinations in one column on a phone', () => {
+    assert({
+      given: 'the home dashboard',
+      should: 'make the destinations a single column below the phone width',
+      actual:
+        /<ul class="[^"]*max-narrow:grid-cols-1[^"]*"[^>]*aria-label="Debate destinations"/.test(
+          render(),
+        ),
+      expected: true,
+    });
+  });
+
+  test('shows a visitor on a phone nothing but the way in', () => {
+    const destinations = (html: string) =>
+      /<ul class="[^"]*max-narrow:hidden[^"]*"[^>]*aria-label="Debate destinations"/.test(
+        html,
+      );
+    assert({
+      given: 'a visitor and a member',
+      should: 'hide the menu from the visitor alone',
+      actual: [destinations(render()), destinations(renderWithGlance())],
+      expected: [true, false],
+    });
+  });
+
+  test('leaves the lower cards off a phone for everyone', () => {
+    const lowerCards = (html: string) =>
+      /<div class="[^"]*grid-cols-dash-lower[^"]*max-narrow:hidden/.test(html);
+    assert({
+      given: 'a visitor and a member',
+      should: 'hide the tournament and Live now cards from both',
+      actual: [lowerCards(render()), lowerCards(renderWithGlance())],
+      expected: [true, true],
     });
   });
 

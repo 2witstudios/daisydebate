@@ -155,6 +155,15 @@ the one exception to "no live facts on tiles": on hover and focus only, it
 reveals the running season's number and time, which appear instantly with
 reduced motion. The rail and tab bar keep the static icons.
 
+On a phone (below 641px) they are not notes but one vertical menu (owner,
+2026-11-04): full-width rounded rows, each its icon and title centred, with no
+curl, peel, tilt, tagline or season reveal. Play keeps its accent colour and the
+other seven share one. CSS alone decides it, so the first HTML is right.
+
+A phone has no Home hero and no opening tournament or Live now cards. A member
+sees the menu, and the hero returns only while they hold a Room, because it
+carries Return to room. A visitor sees only the join form, plainly on the page.
+
 ## App shell
 
 Owner decision, 2026-10-12 (the Round room redesign canvas, Proposal page;
@@ -237,7 +246,7 @@ and facts on the left and its status and one action on the right.
   dialog over the Lobby;
   without script `/play` lists them as a page.
 - A member's Home leads with the Lobby, or with Return to room while they
-  hold a Room. Visitors keep the waitlist hero.
+  hold a Room. Visitors keep the waitlist hero. On a phone, see Home notes.
 
 ## Pre-round Room
 
