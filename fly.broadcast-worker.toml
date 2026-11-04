@@ -13,5 +13,5 @@ kill_timeout = 30
   build-target = "broadcast-worker"
 
 [[vm]]
-  size = "performance-4x"
-  memory = "8gb"
+  size = "performance-2x"
+  memory = "4gb"
