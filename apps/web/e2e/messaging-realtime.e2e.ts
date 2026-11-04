@@ -140,15 +140,19 @@ const viewDm = async (
   channelId: string,
   javaScriptEnabled: boolean,
 ) => {
-  const marked = javaScriptEnabled
-    ? sender.waitForResponse(
-        (response) =>
-          response.request().method() === 'POST' &&
-          new URL(response.url()).pathname === '/api/messaging/read' &&
-          response.ok(),
-      )
-    : undefined;
-  await Promise.all([sender.goto(`/messages/${channelId}`), marked]);
+  // A refused read says "Refresh to try again", and a person does.
+  await expect(async () => {
+    const marked = javaScriptEnabled
+      ? sender.waitForResponse(
+          (response) =>
+            response.request().method() === 'POST' &&
+            new URL(response.url()).pathname === '/api/messaging/read' &&
+            response.ok(),
+          { timeout: 5_000 },
+        )
+      : undefined;
+    await Promise.all([sender.goto(`/messages/${channelId}`), marked]);
+  }).toPass();
 };
 /** That DM, read by the sender, whose page is back on the conversation. */
 const readDm = async (journey: DmJourney, javaScriptEnabled: boolean) => {

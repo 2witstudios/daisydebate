@@ -1,6 +1,7 @@
 import {
   roundMediaAdmissionSchema,
   roundMediaStateSchema,
+  roundStartPolicy,
 } from '@daisy/protocol';
 import { createMediaService } from '@daisy/media';
 import { test, expect, openPage } from './support/fixtures';
@@ -568,8 +569,11 @@ for (const [name, tickOnly] of [
         }),
         contentType: 'application/json',
       });
-      // A grant this early would be the old floor, or a deadline read wrongly.
-      expect(grantedAt - deadline).toBeGreaterThan(-250);
+      // The microphone opens ahead of the clock, up to the whole countdown here
+      // (roundStartPolicy.microphoneLeadMs). Earlier would be the old floor.
+      expect(grantedAt - deadline).toBeGreaterThan(
+        -Math.min(roundStartPolicy.microphoneLeadMs, COUNTDOWN_MS) - 250,
+      );
       expect(grantedAt - deadline).toBeLessThan(PERMISSION_BAR_MS);
     } finally {
       await closeSettledLaunchContexts(accounts);

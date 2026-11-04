@@ -248,8 +248,9 @@ test('a capacity refusal on a mid-speech reload recovers on its own, End speech 
         await controlLaunch(`allow-${read}-reads`);
       }
       // Nothing touches either page from here: each must come back by itself.
+      // A retry refused just before the lane opened waits again, up to 10 s.
       for (const seat of [...seats, receipt])
-        await expect(endSpeech(seat)).toBeEnabled();
+        await expect(endSpeech(seat)).toBeEnabled({ timeout: 15_000 });
       await expect(scriptedReceipt).toHaveURL(new RegExp(`${path}$`));
     }
     await scriptedReceipt.close();
