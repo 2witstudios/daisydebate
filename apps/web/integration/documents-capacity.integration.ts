@@ -9,7 +9,8 @@ import { testDatabaseUrl, withSql } from './fixtures';
 setupRitewayBun();
 requireTestServices(process.env);
 
-const SEATS = 200;
+/** Past the lane's 3 running and 64 queued, so the burst really overflows it. */
+const SEATS = 100;
 const BODY = `<p>${'carbon tax enforcement evidence '.repeat(6_000)}</p>`;
 
 const percentile = (values: readonly number[], share: number) =>
@@ -160,4 +161,6 @@ test('a full documents lane takes nothing from the competitive lane', async () =
       await sql`delete from users where id = ${userId}`;
     });
   }
-});
+  // Seeding near-limit documents is slow on a loaded runner. A test that timed out
+  // would keep its burst running into the next suite, on connections still open.
+}, 120_000);

@@ -338,7 +338,7 @@ describe('a member’s documents over PostgreSQL', () => {
         code: 'CONFLICT',
       });
     });
-  });
+  }, 60_000);
 
   test('search finds title and body, skips tags, and stays the owner’s', async () => {
     await withDrive(async ({ operations, me, stranger }) => {

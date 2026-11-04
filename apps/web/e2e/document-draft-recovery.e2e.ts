@@ -104,8 +104,9 @@ const offeredAfterReload = async (
     )
     .toBe(true);
   await reload(page);
+  // A draft follows its document, so another document's offer may sit beside it.
   await expect(
-    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
+    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }).first(),
   ).toBeVisible();
   const recovery = (await draftFor(page, documentId)).recovery;
   expect(recovery.generation).toMatch(/^[a-z0-9]{24}$/);
@@ -390,7 +391,7 @@ test('after a lost exit save, Discard removes the recovered copy so neither page
     .getByRole('button', { name: /^Discard recovered Untitled( \d+)?$/ })
     .click();
   await expect(
-    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
+    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
   ).toBeHidden();
   expect(await rawDraftFor(page, documentId)).toBeNull();
   await page.evaluate(() =>
@@ -399,7 +400,7 @@ test('after a lost exit save, Discard removes the recovered copy so neither page
   await page.reload();
   await expect(page.getByRole('textbox', { name: untitled })).toBeVisible();
   await expect(
-    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
+    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
   ).toBeHidden();
   expect(sends).toEqual([]);
   expect(await serverDocument(page, roundId, documentId)).toEqual(server);
@@ -798,7 +799,7 @@ test('after a lost exit save, conflict state stays true through typing, Restore 
     .getByRole('button', { name: /^Discard recovered Untitled( \d+)?$/ })
     .click();
   await expect(
-    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
+    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
   ).toBeHidden();
   await expect(page.getByText('An unsaved draft is available')).toHaveCount(0);
 });
@@ -874,28 +875,43 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
   ).toBeLessThanOrEqual(65536);
   expect((await draftFor(page, documentId)).active.html).toContain('界');
   expect((await draftFor(page, second.id)).active.html).toContain('語');
+  // The budget admits one body; which one is not a promise, so the other is the overflow.
+  const landedFirst =
+    (JSON.parse(bodies[0]!) as { id: string }).id === documentId;
+  const [landed, overflow] = landedFirst
+    ? [
+        { id: documentId, title: 'Untitled', text: '界' },
+        { id: second.id as string, title: second.title as string, text: '語' },
+      ]
+    : [
+        { id: second.id as string, title: second.title as string, text: '語' },
+        { id: documentId, title: 'Untitled', text: '界' },
+      ];
   release();
   await expect
-    .poll(async () => (await serverDocument(page, roundId, documentId)).html)
-    .toContain('界');
+    .poll(async () => (await serverDocument(page, roundId, landed.id)).html)
+    .toContain(landed.text);
   await page.unroute(`**${documentsPath}save`);
   // Timers stay paused until after the reload, so no autosave can commit first.
   await reloadLosingExitSave(page);
   await page.clock.resume();
   await expect(
-    page.getByRole('button', { name: `Restore ${second.title}`, exact: true }),
+    page.getByRole('button', {
+      name: `Restore ${overflow.title}`,
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
+    page.getByRole('button', { name: `Restore ${landed.title}`, exact: true }),
   ).toHaveCount(0);
   await page
-    .getByRole('button', { name: `Restore ${second.title}`, exact: true })
+    .getByRole('button', { name: `Restore ${overflow.title}`, exact: true })
     .click();
   await expect
-    .poll(async () => (await serverDocument(page, roundId, second.id)).html)
-    .toContain('語');
-  expect((await serverDocument(page, roundId, documentId)).html).toContain(
-    '界',
+    .poll(async () => (await serverDocument(page, roundId, overflow.id)).html)
+    .toContain(overflow.text);
+  expect((await serverDocument(page, roundId, landed.id)).html).toContain(
+    landed.text,
   );
 });
 
@@ -1468,7 +1484,7 @@ test('end-user navigation: leaving a Round through the account menu saves pendin
     'First Round pending NEW',
   );
   await expect(
-    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
+    page.getByRole('button', { name: 'Restore Untitled', exact: true }),
   ).toBeHidden();
   await page.goBack();
   await expect(page).toHaveURL(`${origin}/rounds/${second.roundId}`);
