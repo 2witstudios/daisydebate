@@ -31,18 +31,22 @@ export default async function WatchRoundPage({
   searchParams: Promise<SearchParams>;
 }) {
   const { roundId } = await params;
-  const timeline = await requestWatchRound(roundId);
+  const watched = await requestWatchRound(roundId);
   const reported = reportNotice((await searchParams)['report']);
   const returnTo = `/watch/${encodeURIComponent(roundId)}`;
-  if (timeline === 'refused')
+  if (watched === 'refused')
     return (
       <div className="px-6 pt-8 pb-8 max-compact:px-4">
         <WatchBusy retryHref={returnTo} />
       </div>
     );
   const account = accountOf(await requestIdentity());
-  return timeline ? (
-    <BroadcastViewer initial={timeline}>
+  return watched ? (
+    <BroadcastViewer
+      initial={watched.timeline}
+      stateUrl={watched.stateUrl}
+      refreshHref={returnTo}
+    >
       {reported ? (
         <p role="status" className="text-sm text-ink-muted">
           {reportAnswerText(reported)}
@@ -52,7 +56,7 @@ export default async function WatchRoundPage({
       {account ? (
         <ReportForm
           targetKind="round"
-          targetId={timeline.roundId}
+          targetId={watched.timeline.roundId}
           label="Report this round"
           action={reportFromPageAction.bind(null, returnTo)}
         />

@@ -61,6 +61,8 @@ export const broadcasts = pgTable(
     /** The public manifests say the stream ended; only then can it complete. */
     streamEndedAt: timestampColumn('stream_ended_at'),
     releasedThroughAt: timestampColumn('released_through_at'),
+    /** The published audience state is gone and no pass need look at this Broadcast. */
+    audienceStateWithdrawnAt: timestampColumn('audience_state_withdrawn_at'),
     finalMediaEndAt: timestampColumn('final_media_end_at'),
     stoppedAt: timestampColumn('stopped_at'),
     stopReason: text('stop_reason'),

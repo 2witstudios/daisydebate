@@ -140,6 +140,10 @@ function contentSecurityPolicy(
   const feed =
     broadcastPlaybackOrigin(pathname, settings.broadcastPublicOrigin) ??
     recordingPlaybackOrigin(pathname, settings.recordingBucketOrigin);
+  // An audience page reads the published state and plays nothing.
+  const audienceState = /^\/audience\/[^/]+$/.test(pathname)
+    ? settings.broadcastPublicOrigin
+    : null;
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
@@ -157,7 +161,7 @@ function contentSecurityPolicy(
     // the video a blob of Media Source, and transmuxes in its own same-origin worker
     // file. Native HLS on iOS Safari follows the replay's redirect as media.
     ...(feed ? [`media-src 'self' blob: ${feed}`, "worker-src 'self'"] : []),
-    `connect-src 'self'${feed ? ` ${feed}` : ''}${posthog.apiHost ? ` ${posthog.apiHost}` : ''}${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${settings.sentryEndpoint ? ` ${settings.sentryEndpoint}` : ''}${development ? ' ws:' : ''}`,
+    `connect-src 'self'${feed ? ` ${feed}` : ''}${audienceState ? ` ${audienceState}` : ''}${posthog.apiHost ? ` ${posthog.apiHost}` : ''}${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${settings.sentryEndpoint ? ` ${settings.sentryEndpoint}` : ''}${development ? ' ws:' : ''}`,
     ...(development ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
 }

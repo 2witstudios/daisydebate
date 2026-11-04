@@ -52,7 +52,7 @@ export async function RoundAudience({
         initial={audience.snapshot}
         viewer={viewer}
         shown={audience.shown}
-        unlisted={audience.unlisted}
+        liveRoom={audience.inLiveRoom}
       />
     </>
   );

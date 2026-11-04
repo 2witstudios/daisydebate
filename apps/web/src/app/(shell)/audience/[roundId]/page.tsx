@@ -5,6 +5,8 @@ import {
   reportAnswerText,
 } from '../../../../features/content-moderation/submit-report';
 import type { SearchParams } from '../../../../features/access/decision';
+import { requestWatchRound } from '../../../../lib/request-session';
+import { PublishedAudienceFeed } from '../../../../ui/spectating/published-audience-feed';
 import { RoundAudience } from '../round-audience';
 
 export const metadata: Metadata = {
@@ -30,6 +32,7 @@ export default async function AudiencePage({
     returnTo: `/audience/${encodeURIComponent(roundId)}`,
   });
   if (!audience) notFound();
+  const watched = await requestWatchRound(roundId);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-4 px-6 pt-5 pb-8 max-compact:px-4">
       {reported ? (
@@ -37,7 +40,11 @@ export default async function AudiencePage({
           {reportAnswerText(reported)}
         </p>
       ) : null}
-      {audience}
+      <PublishedAudienceFeed
+        stateUrl={watched && watched !== 'refused' ? watched.stateUrl : null}
+      >
+        {audience}
+      </PublishedAudienceFeed>
     </div>
   );
 }

@@ -80,6 +80,7 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `topics`                   | count |
 | `oldestAgeMs`              | count |
 | `pending`                  | count |
+| `failed`                   | count |
 | `windows`                  | count |
 | `captureStartMs`           | count |
 | `scope`                    | code  |

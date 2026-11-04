@@ -304,11 +304,10 @@ export const readChatPage = async (
     tx,
     sql`select m.id,m.sequence,m.text,u.username,
         to_char(m.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as at
-      from messaging_channels c
-      join messaging_messages m on m.channel_id=c.id
+      from spectator_chat_messages m
       join actors a on a.id=m.author_actor_id
       left join users u on u.id=a.user_id and u.deleted_at is null
-      where c.round_id=${input.roundId} and c.kind='round_spectator'
+      where m.round_id=${input.roundId}
         ${before}
       order by m.sequence desc limit ${input.limit}`,
   );

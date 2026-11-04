@@ -4,12 +4,17 @@ import {
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { noopErrorReporter } from '@daisy/observability';
-import { spectatorTimelineSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { audienceLinkHash } from '../src/features/audience-link/audience-link';
+import {
+  audienceLinkHash,
+  presentedLinkHash,
+} from '../src/features/audience-link/audience-link';
 import { createAudienceLinkHandlers } from '../src/features/audience-link/handlers';
-import { createSpectatorTimelineHandlers } from '../src/features/spectating/handlers';
+import {
+  createWatchRoundSnapshots,
+  readWatchRound,
+} from '../src/features/spectating/read-timeline';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { launchRuntimeRound } from './round-runtime.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
@@ -41,7 +46,8 @@ test('an unlisted Round, by its link, on real Postgres', async () => {
     const store = f.store as never as Parameters<
       typeof createAudienceLinkHandlers
     >[0]['store'] &
-      Parameters<typeof createSpectatorTimelineHandlers>[0]['store'];
+      Parameters<typeof readWatchRound>[0]['store'] &
+      Parameters<typeof createWatchRoundSnapshots>[0]['store'];
     const broadcasts = (
       f.store as never as {
         broadcasts: {
@@ -99,25 +105,16 @@ test('an unlisted Round, by its link, on real Postgres', async () => {
           }),
           roundId,
         );
-      const route = createSpectatorTimelineHandlers({
-        logger: silentLogger,
-        reporter: noopErrorReporter,
+      const snapshots = createWatchRoundSnapshots({
         clock: { now },
         store,
         feedUrlOf: (key) => `https://feed.example/live/${key}/master.m3u8`,
       });
       const read = (cookie: string | null, id = roundId) =>
-        route.GET(
-          new Request(`${origin}/api/rounds/${id}/timeline`, {
-            headers: cookie ? { cookie } : {},
-          }),
-          id,
+        readWatchRound(
+          { snapshots, store, publicOrigin: 'https://feed.example' },
+          { roundId: id, presentedHash: presentedLinkHash(cookie, id) },
         );
-      const answer = async (response: Response) => [
-        response.status,
-        await response.text(),
-        response.headers.get('Cache-Control'),
-      ];
       const cookieOf = async (href: string) =>
         (await asMember(f.outsider).open(new Request(href), roundId)).headers
           .get('set-cookie')!
@@ -130,12 +127,11 @@ test('an unlisted Round, by its link, on real Postgres', async () => {
           }[]
         )[0]!;
 
-      const missing = await answer(await read(null, createId()));
       assert({
         given: 'an unlisted Round with no link at all',
         should: 'answer exactly as a missing Round',
-        actual: await answer(await read(null)),
-        expected: missing,
+        actual: await read(null),
+        expected: null,
       });
 
       const refused = await issue(f.outsider);
@@ -161,24 +157,16 @@ test('an unlisted Round, by its link, on real Postgres', async () => {
 
       const firstCookie = await cookieOf(firstHref);
       const admitted = await read(firstCookie);
-      const timeline = spectatorTimelineSchema.parse(
-        await admitted.clone().json(),
-      );
       assert({
         given: 'the browser holding the current link',
-        should:
-          'read the timeline uncached, with the feed under its random key',
+        should: 'read the facts, with the feed under its random key',
         actual: [
-          admitted.status,
-          admitted.headers.get('Cache-Control'),
-          timeline.broadcast.state,
-          'stream' in timeline.broadcast
-            ? timeline.broadcast.stream?.manifestUrl
+          admitted?.timeline.broadcast.state,
+          admitted && 'stream' in admitted.timeline.broadcast
+            ? admitted.timeline.broadcast.stream?.manifestUrl
             : null,
         ],
         expected: [
-          200,
-          'no-store',
           'on_air',
           'https://feed.example/live/first-random-key/master.m3u8',
         ],
@@ -186,16 +174,14 @@ test('an unlisted Round, by its link, on real Postgres', async () => {
       assert({
         given: 'the snapshot just read for the holder, and a reader without it',
         should: 'answer that reader exactly as a missing Round',
-        actual: await answer(await read(null)),
-        expected: missing,
+        actual: await read(null),
+        expected: null,
       });
       assert({
         given: 'a wrong link',
         should: 'answer exactly as a missing Round',
-        actual: await answer(
-          await read(`daisy_audience_link_${roundId}=${'Z'.repeat(43)}`),
-        ),
-        expected: missing,
+        actual: await read(`daisy_audience_link_${roundId}=${'Z'.repeat(43)}`),
+        expected: null,
       });
 
       const { url: secondHref } = (await (await issue(f.host)).json()) as {
@@ -203,12 +189,18 @@ test('an unlisted Round, by its link, on real Postgres', async () => {
       };
       assert({
         given: 'the link replaced, within the snapshot memo’s interval',
-        should: 'refuse the old link at once and admit the new one',
-        actual: [
-          await answer(await read(firstCookie)),
-          (await read(await cookieOf(secondHref))).status,
-        ],
-        expected: [missing, 200],
+        should:
+          'refuse the old link at once, admit the new one, and move the state',
+        actual: await (async () => {
+          const next = await read(await cookieOf(secondHref));
+          return [
+            await read(firstCookie),
+            next !== null,
+            next?.stateUrl !== admitted?.stateUrl,
+            next?.stateUrl?.startsWith('https://feed.example/state/'),
+          ];
+        })(),
+        expected: [null, true, true, true],
       });
     } finally {
       await f.sql`delete from broadcasts where round_id=${roundId}`;

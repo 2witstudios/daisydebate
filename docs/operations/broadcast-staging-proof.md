@@ -146,6 +146,37 @@ generation 2 after the run and the stage's own read had failed during it; this r
 not establish that the load caused the restart. It did not measure seats' audio or a
 seat rejoining under load, and it was not rerun, so the rate where harm begins is unknown.
 
+## Page loads beside a live debate
+
+One run on 2026-11-04, on the published-state head (ADR 0112): a live public Round with real
+seats on the rig (performance-4x, connection limit 48/64), the publisher on its own machine.
+As the Round's fourth segment began, `scripts/audience-load.ts` asked for 1,000 page loads a second
+from `ord`, `iad` and `lhr` for 150 s.
+
+**Polls are off web, and a page-load burst still hurt the debate.** The viewer made 114 state
+reads, none missing, and none reached web.
+
+| Measure                    | Before   | During the burst     |
+| -------------------------- | -------- | -------------------- |
+| Floor passes failed        | 0 of 6   | 1 of 4               |
+| Floor pass, p50            | 111 ms   | 1,116 ms             |
+| Tick reading sessions, max | 2 ms     | 13,535 ms            |
+| Debate reads refused       | 0        | 11                   |
+| Control work refused       | 0        | 10                   |
+| Page loads answered        | Not sent | 572 of about 149,800 |
+| Event loop delay, max      | Not read | 31,350 ms            |
+
+A seat's Round read answered 503 after 111.7 s. The media room was retired as lost at 09:11:14,
+4 s after the burst ended, and the Round ended abandoned. The driver had given up when that read
+passed its 30 s timeout and its seats stopped acting, so neither the room's loss nor the
+abandonment can be put on the burst alone. Seat audio and rejoin were not measured. Only this one
+rate ran, so the rate where harm begins is unknown, and staging's web machine is smaller than
+the rig. The likely cause, not proven, is that each load renders on web and reads the database,
+saturating the one process until the competitive lane's waits expire.
+
+This release accepts the limit for invited testers. The fix and a lower-rate rerun are owed
+before a tournament.
+
 ## Takedown with no free slot
 
 With the worker's only release slot held by a live Round, a stopped feed's public

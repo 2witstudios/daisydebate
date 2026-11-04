@@ -6,12 +6,10 @@ import { useAudienceSnapshot } from './use-audience-snapshot';
 /** Spectator chat to read during a Round: closed until wanted, and never to post from. */
 export function SeatedChatReader({
   initial,
-  unlisted,
 }: {
   readonly initial: AudienceSnapshot;
-  readonly unlisted: boolean;
 }) {
-  const { messages } = useAudienceSnapshot(initial, true, unlisted);
+  const { messages } = useAudienceSnapshot(initial, true, true);
   return (
     <details className="text-sm text-ink-muted">
       <summary className="cursor-pointer font-semibold">Spectator chat</summary>

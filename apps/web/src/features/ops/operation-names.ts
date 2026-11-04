@@ -126,7 +126,6 @@ const OPERATION_NAMES = [
   'round.media.reconcile',
   'round.media.session',
   'round.read',
-  'spectating.timeline',
   'round.view',
 ] as const;
 

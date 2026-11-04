@@ -12,6 +12,8 @@
     "./slots": "./src/slots.ts",
     "./test-runs": "./src/test-runs.ts",
     "./testing": "./src/testing.ts",
+    "./audience-publisher": "./src/audience-publisher-store.ts",
+    "./audience-state-key": "./src/audience-state-key.ts",
     "./capacity": "./src/capacity.ts",
     "./database-failure": "./src/database-failure.ts",
     "./authorization-account": "./src/authorization-account.ts",

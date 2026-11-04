@@ -1,16 +1,13 @@
-import { refuseCapacity } from '@daisy/db/testing';
+import { projectAudienceSnapshot } from '@daisy/debate-engine';
 import { noopErrorReporter } from '@daisy/observability';
 import { audienceSnapshotSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { silentLogger } from '../../server/test-loggers.test-support';
-import { PUBLIC_SNAPSHOT_CACHE } from '../../server/http';
 import { audienceLinkHash } from '../audience-link/audience-link';
-import { VIEWER_BUCKET_MS } from '../viewer-counts/viewer-count';
 import {
   audienceFor,
   createAudienceSnapshotRoute,
-  projectAudienceSnapshot,
   readAudienceForViewer,
   readAudienceSnapshot,
 } from './audience-snapshot';
@@ -66,72 +63,6 @@ describe('projectAudienceSnapshot', () => {
 });
 
 describe('readAudienceSnapshot', () => {
-  const store = (over: Partial<typeof read> = {}) => ({
-    readAudienceSnapshot: async () => ({ ...read, ...over }),
-  });
-
-  test('reads the newest whole count, whatever the timeline has reached', async () => {
-    const asked: number[] = [];
-    const answer = await readAudienceSnapshot(
-      {
-        store: store() as never,
-        counts: {
-          readViewerCount: async (_round, bucket) => {
-            asked.push(bucket);
-            return 9;
-          },
-        },
-      },
-      { roundId, now: new Date(VIEWER_BUCKET_MS * 500 + 5).toISOString() },
-    );
-    assert({
-      given: 'a Broadcast on air',
-      should: 'read the bucket before now',
-      actual: { asked, viewers: answer?.snapshot.viewers },
-      expected: { asked: [499], viewers: 9 },
-    });
-  });
-
-  test('a Broadcast off the air has no count', async () => {
-    let reads = 0;
-    const answer = await readAudienceSnapshot(
-      {
-        store: store({ open: false }) as never,
-        counts: {
-          readViewerCount: async () => {
-            reads += 1;
-            return 9;
-          },
-        },
-      },
-      { roundId, now: new Date(0).toISOString() },
-    );
-    assert({
-      given: 'a completed Broadcast',
-      should: 'not ask for a count',
-      actual: { reads, viewers: answer?.snapshot.viewers },
-      expected: { reads: 0, viewers: null },
-    });
-  });
-
-  test('losing Redis loses the count alone', async () => {
-    const snapshot = await readAudienceSnapshot(
-      {
-        store: store() as never,
-        counts: {
-          readViewerCount: () => Promise.reject(new Error('down')),
-        },
-      },
-      { roundId, now: new Date(0).toISOString() },
-    );
-    assert({
-      given: 'a Redis outage',
-      should: 'still serve chat, with no count',
-      actual: [snapshot?.snapshot.messages.length, snapshot?.snapshot.viewers],
-      expected: [1, null],
-    });
-  });
-
   test('a malformed id has no audience and reaches no store', async () => {
     assert({
       given: 'an id that is not one',
@@ -141,9 +72,8 @@ describe('readAudienceSnapshot', () => {
           store: {
             readAudienceSnapshot: () => Promise.reject(new Error('no read')),
           } as never,
-          counts: { readViewerCount: async () => 0 },
         },
-        { roundId: 'not an id!', now: new Date(0).toISOString() },
+        { roundId: 'not an id!' },
       ),
       expected: null,
     });
@@ -167,173 +97,53 @@ describe('audienceFor', () => {
   });
 });
 
-describe('the snapshot route', () => {
-  const route = (
-    answer: unknown,
-    {
-      standing = null,
-      identified = false,
-    }: { readonly standing?: unknown; readonly identified?: boolean } = {},
-  ) =>
+describe('the live room route', () => {
+  const read = {
+    visibility: 'public' as const,
+    hasBroadcast: true,
+    open: true,
+    messages: [],
+    reactions: [],
+  };
+  const route = (standing: unknown, actorId: string | null) =>
     createAudienceSnapshotRoute({
       logger: silentLogger,
       reporter: noopErrorReporter,
       store: {
-        readAudienceSnapshot: async () => answer,
+        readAudienceSnapshot: async () => read,
+        readRoundAudienceLink: async () => null,
         readLiveRoomStanding: async () => standing,
-        readRoundAudienceLink: async () => ({
-          visibility: 'unlisted',
-          audienceLinkHash: audienceLinkHash(linkToken),
-        }),
       } as never,
-      counts: { readViewerCount: async () => 0 },
-      clock: { now: () => new Date(0).toISOString() },
       identify: async () =>
-        (identified
-          ? {
-              state: 'member',
-              principal: { kind: 'user', userId: 'u', actorId: 'a' },
-            }
+        (actorId
+          ? { principal: { kind: 'user', actorId } }
           : { state: 'anonymous' }) as never,
     });
-  const get = (cookie?: string) =>
-    new Request('http://local.test/api/rounds/x/audience', {
-      ...(cookie ? { headers: { cookie } } : {}),
-    });
-
-  test('answers everyone alike, with no cookie, and may be cached', async () => {
-    const response = await route(read)(get('session=secret'), roundId);
-    assert({
-      given: 'a request carrying a session cookie',
-      should: 'answer cacheably and set no cookie',
-      actual: [
-        response.status,
-        response.headers.get('Cache-Control'),
-        response.headers.get('Set-Cookie'),
-      ],
-      expected: [200, PUBLIC_SNAPSHOT_CACHE, null],
-    });
-  });
-
-  test('a full lane refuses, and a viewer answers from nothing per viewer', async () => {
-    let reads = 0;
-    const refusing = createAudienceSnapshotRoute({
-      logger: silentLogger,
-      reporter: noopErrorReporter,
-      store: {
-        readAudienceSnapshot: async () => {
-          reads += 1;
-          throw refuseCapacity({ lane: 'audience', reason: 'saturated' });
-        },
-      } as never,
-      counts: { readViewerCount: async () => 0 },
-      clock: { now: () => new Date(0).toISOString() },
-      identify: async () => ({ state: 'anonymous' }) as never,
-    });
-    const answers = await Promise.all(
-      [0, 1].map(() => refusing(get(), roundId)),
+  const get = (handler: ReturnType<typeof route>) =>
+    handler(
+      new Request(`http://localhost/api/rounds/${roundId}/audience`),
+      roundId,
     );
+
+  test('nobody outside the live room reads it', async () => {
     assert({
-      given: 'two asks while the audience lane is full',
-      should: 'try once and refuse both with a time to come back',
+      given: 'a visitor, and an account with no place in the room',
+      should: 'answer both as missing: a viewer reads the published state',
       actual: [
-        answers.map((response) => response.status),
-        answers[0]!.headers.get('Retry-After'),
-        reads,
+        (await get(route(null, null))).status,
+        (await get(route(null, 'a'.repeat(24)))).status,
       ],
-      expected: [[503, 503], '2', 1],
+      expected: [404, 404],
     });
   });
 
-  test('asks inside the interval share one read and its very bytes', async () => {
-    let reads = 0;
-    let nowMs = 0;
-    const shared = createAudienceSnapshotRoute({
-      logger: silentLogger,
-      reporter: noopErrorReporter,
-      store: {
-        readAudienceSnapshot: async () => {
-          reads += 1;
-          return read;
-        },
-      } as never,
-      counts: { readViewerCount: async () => 7 },
-      clock: { now: () => new Date(nowMs).toISOString() },
-      identify: async () => ({ state: 'anonymous' }) as never,
-    });
-    const first = await (await shared(get(), roundId)).text();
-    nowMs = 999;
-    const second = await (await shared(get('session=one'), roundId)).text();
-    nowMs = 1000;
-    await shared(get(), roundId);
+  test('someone in the live room reads what their place allows', async () => {
+    const response = await get(route({ kind: 'host' }, 'a'.repeat(24)));
     assert({
-      given: 'two asks inside a second, one with a session, and one after it',
-      should: 'answer the same body from one read, then read again',
-      actual: [first === second, reads],
-      expected: [true, 2],
-    });
-  });
-
-  test('a Round with no audience is not cached', async () => {
-    const response = await route(null)(get(), roundId);
-    assert({
-      given: 'a private or missing Round',
-      should: 'answer one 404',
+      given: 'a host with no seat',
+      should: 'answer uncached',
       actual: [response.status, response.headers.get('Cache-Control')],
-      expected: [404, 'no-store'],
-    });
-  });
-
-  test('an unlisted Round is read by its link and never cached', async () => {
-    const unlisted = { ...read, visibility: 'unlisted' as const };
-    const missing = await route(unlisted)(get(), roundId);
-    const stale = await route(unlisted)(
-      get(`daisy_audience_link_${roundId}=${'x'.repeat(43)}`),
-      roundId,
-    );
-    const held = await route(unlisted)(
-      get(`daisy_audience_link_${roundId}=${linkToken}`),
-      roundId,
-    );
-    assert({
-      given: 'no link, a replaced link and the current link',
-      should: 'answer as missing twice, then answer uncached',
-      actual: [
-        missing.status,
-        stale.status,
-        held.status,
-        held.headers.get('Cache-Control'),
-      ],
-      expected: [404, 404, 200, 'no-store'],
-    });
-  });
-
-  test('a seat with no link on an unlisted Round reads what its place allows', async () => {
-    const unlisted = { ...read, visibility: 'unlisted' as const };
-    const ownRound = {
-      kind: 'seat',
-      role: 'affirmative',
-      competitionType: 'casual',
-      roundEnded: false,
-      debatersReadChat: false,
-    };
-    const hidden = await route(unlisted, {
-      identified: true,
-      standing: ownRound,
-    })(get(), roundId);
-    const stranger = await route(unlisted, { identified: true })(
-      get(),
-      roundId,
-    );
-    assert({
-      given: 'a debater the host turned chat off for, and a signed-in stranger',
-      should: 'carry no chat to the first, and answer as missing to the second',
-      actual: [
-        audienceSnapshotSchema.parse(await hidden.json()).messages,
-        hidden.headers.get('Cache-Control'),
-        stranger.status,
-      ],
-      expected: [[], 'no-store', 404],
+      expected: [200, 'no-store'],
     });
   });
 });
