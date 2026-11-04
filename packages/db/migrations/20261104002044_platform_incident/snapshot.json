@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "0c4c1779-a966-482e-b60a-c09b669eb598",
+  "id": "64051cb9-f86b-4532-832a-b4020a1a5db5",
   "prevIds": [
     "cfbdc3ef-f492-454f-96ed-78471979d127"
   ],
@@ -25638,6 +25638,13 @@
       "table": "round_speaking_intervals"
     },
     {
+      "value": "\"unheard_ms\" is null or (\"capture_gap_ms\" is not null and \"unheard_ms\" >= \"capture_gap_ms\")",
+      "name": "round_transcript_freezes_capture_kinds_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_transcript_freezes"
+    },
+    {
       "value": "\"revision\" > 0 and \"frontier\" >= 0",
       "name": "round_transcript_freezes_revision_check",
       "entityType": "checks",
@@ -25666,7 +25673,7 @@
       "table": "rounds"
     },
     {
-      "value": "\"platform_ending\" is null or (\"platform_ending\" = 'recovery_bound' and \"status\" = 'abandoned') or (\"platform_ending\" = 'capture_shortfall' and \"status\" <> 'opening')",
+      "value": "\"platform_ending\" is null or (\"platform_ending\" = 'recovery_bound' and \"status\" = 'abandoned') or (\"platform_ending\" = 'capture_shortfall' and \"status\" = 'completed' and \"outcome\" is null)",
       "name": "rounds_platform_ending_check",
       "entityType": "checks",
       "schema": "public",

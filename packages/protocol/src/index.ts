@@ -586,7 +586,15 @@ export {
 export { broadcastHoldPrefix } from './broadcast-hold';
 export { parseHoldPlaylist, type HoldEntry } from './egress-hold-playlist';
 export { roundIncidentPolicy } from './round-incident-policy';
-export { captureWithinLimit, maxUnheardShare } from './capture-judging-limit';
+export {
+  captureWithinLimit,
+  frozenCaptureColumns,
+  frozenCaptureOf,
+  maxUnheardShare,
+  platformLostTooMuch,
+  type FrozenCapture,
+  type FrozenCaptureColumns,
+} from './capture-judging-limit';
 export {
   capturePartialReasons,
   partialReasonsStateLoss,

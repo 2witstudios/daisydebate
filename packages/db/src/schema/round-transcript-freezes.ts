@@ -37,6 +37,10 @@ export const roundTranscriptFreezes = pgTable(
       .default({ gaps: [] }),
   },
   (table) => [
+    check(
+      'round_transcript_freezes_capture_kinds_check',
+      sql`${table.unheardMs} is null or (${table.captureGapMs} is not null and ${table.unheardMs} >= ${table.captureGapMs})`,
+    ),
     uniqueIndex('round_transcript_freezes_round_revision_unique').on(
       table.roundId,
       table.revision,

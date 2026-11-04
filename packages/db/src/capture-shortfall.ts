@@ -1,4 +1,8 @@
-import { partialReasonsStateLoss, type CaptureRule } from '@daisy/protocol';
+import {
+  partialReasonsStateLoss,
+  type CaptureRule,
+  type FrozenCapture,
+} from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { closedStreamGaps, streamKey } from './capture-gaps';
@@ -62,28 +66,26 @@ export async function readCaptureShortfall(
       (total, gap) => total + gap.untilOffsetMs - gap.fromOffsetMs,
       0,
     );
-  const platformUnmeasured = lost.some(unmeasured);
-  const unheardUnmeasured = partial.some(unmeasured);
+  const frozenCapture = (): FrozenCapture => {
+    const expectedMs = expectedSpeechMs;
+    if (lost.some(unmeasured))
+      return { kind: 'platform-unmeasured', expectedMs };
+    return partial.some(unmeasured)
+      ? {
+          kind: 'unheard-unmeasured',
+          platformLostMs: sum(lost),
+          expectedMs,
+        }
+      : {
+          kind: 'measured',
+          unheardMs: sum(partial),
+          platformLostMs: sum(lost),
+          expectedMs,
+        };
+  };
   return {
-    expectedSpeechMs,
-    // What is stated as the platform's fault, and the amount that sums it.
+    // What is stated as the platform's fault.
     captureGaps: { gaps: gapsOf(lost) },
-    captureGapMs: platformUnmeasured ? null : sum(lost),
-    // All speech nobody heard, a silent seat's too.
-    unheardMs: unheardUnmeasured ? null : sum(partial),
-    capture: platformUnmeasured
-      ? { kind: 'platform-unmeasured' as const, expectedMs: expectedSpeechMs }
-      : unheardUnmeasured
-        ? {
-            kind: 'unheard-unmeasured' as const,
-            platformLostMs: sum(lost),
-            expectedMs: expectedSpeechMs,
-          }
-        : {
-            kind: 'measured' as const,
-            unheardMs: sum(partial),
-            platformLostMs: sum(lost),
-            expectedMs: expectedSpeechMs,
-          },
+    capture: frozenCapture(),
   };
 }

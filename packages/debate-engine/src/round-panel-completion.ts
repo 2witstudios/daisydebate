@@ -1,4 +1,4 @@
-import { captureWithinLimit } from '@daisy/protocol';
+import { captureWithinLimit, type FrozenCapture } from '@daisy/protocol';
 import { createInvariantError } from '@daisy/errors';
 import type {
   DebateSide,
@@ -30,24 +30,9 @@ export type PanelDecision =
     };
 
 type Completeness = { readonly completeness: 'complete' | 'incomplete' };
-/** What a freeze measured of its capture; a null gap was never measured. */
-type FrozenCapture = { readonly expectedMs: number } & (
-  | {
-      readonly kind: 'measured';
-      /** All speech nobody heard, a silent seat's too: whether an AI judge may rule. */
-      readonly unheardMs: number;
-      /** The speech the platform lost: whether the platform ended the Round. */
-      readonly platformLostMs: number;
-    }
-  /** A stream that is no fault of the platform has no measure, so nothing is proven small. */
-  | { readonly kind: 'unheard-unmeasured'; readonly platformLostMs: number }
-  /** A stream the platform lost has no measure, so its loss cannot be proven small. */
-  | { readonly kind: 'platform-unmeasured' }
-);
 /**
  * Who may rule on a frozen transcript (DEC-208, ADR 0110). An AI judge rules
- * unless capture fell below the limit, and then an AI-only Round ends as a
- * platform incident: a human judge heard it live. A ballot deadline exists only
+ * unless too much speech went unheard. A ballot deadline exists only
  * for a human judge to rule by: with none, nobody waits on it. An AI seat is
  * bounded by its own budget instead (DEC-275).
  */
@@ -68,19 +53,8 @@ export function freezeJudgingPlan(
         gapMs: capture.unheardMs,
         expectedMs: capture.expectedMs,
       }));
-  // Silence past the limit takes the transcript-incomplete path: only the platform's own
-  // loss, past that same limit, is an ending blamed on it. A mix under it, with silence
-  // tipping the total over, is no platform ending either (ADR 0110).
-  const platformFailed =
-    capture.kind === 'platform-unmeasured' ||
-    (capture.platformLostMs > 0 &&
-      !captureWithinLimit({
-        gapMs: capture.platformLostMs,
-        expectedMs: capture.expectedMs,
-      }));
   return {
     dispatchAiJudges: judgeable,
-    endsAsPlatformIncident: !judgeable && !input.humanJudges && platformFailed,
     ballotDeadlineMs: input.humanJudges ? input.ballotDeadlineMs : null,
     aiJudgingBudgetMs: input.aiJudgingBudgetMs,
   };

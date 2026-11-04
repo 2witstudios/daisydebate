@@ -1,10 +1,9 @@
 import { readCaptureShortfall } from './capture-shortfall';
-
-type FrozenCaptureFacts = Awaited<
-  ReturnType<typeof readCaptureShortfall>
->['capture'];
-import { refundPlatformEndedLocked } from './round-bot-admission';
-import type { CaptureRule } from '@daisy/protocol';
+import {
+  frozenCaptureColumns,
+  type CaptureRule,
+  type FrozenCapture,
+} from '@daisy/protocol';
 import {
   appendRoundPhaseChanged,
   lockedRoundVersion,
@@ -51,10 +50,8 @@ export type FreezeRequest = LockedRoundTickInput & {
   readonly planJudging: (facts: {
     readonly completeness: 'complete' | 'incomplete';
     readonly humanJudges: boolean;
-    readonly capture: FrozenCaptureFacts;
+    readonly capture: FrozenCapture;
   }) => {
-    /** An AI-only Round lost more speech than can be judged (ADR 0110). */
-    readonly endsAsPlatformIncident: boolean;
     /** Null when no human judge sits: no human window exists. */
     readonly ballotDeadlineMs: number | null;
     readonly dispatchAiJudges: boolean;
@@ -70,7 +67,7 @@ async function planFrozenJudging(
   tx: BoundedTransactionContext,
   request: FreezeRequest,
   completeness: 'complete' | 'incomplete',
-  capture: FrozenCaptureFacts,
+  capture: FrozenCapture,
 ) {
   const [judges] =
     (await tx.execute(sql`select exists(select 1 from round_participants p join actors a on a.id=p.actor_id
@@ -82,12 +79,6 @@ async function planFrozenJudging(
     humanJudges: judges!.humanJudges,
     capture,
   });
-  if (plan.endsAsPlatformIncident) {
-    await tx.execute(
-      sql`update rounds set platform_ending='capture_shortfall' where id=${request.roundId}`,
-    );
-    await refundPlatformEndedLocked(tx, request.roundId);
-  }
   if (plan.ballotDeadlineMs !== null) {
     if (
       !Number.isSafeInteger(plan.ballotDeadlineMs) ||
@@ -98,7 +89,7 @@ async function planFrozenJudging(
       sql`update rounds set ballot_deadline_at=(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.ballotDeadlineMs}*interval '1 millisecond' where id=${request.roundId}`,
     );
   }
-  if (!plan.dispatchAiJudges) return plan.endsAsPlatformIncident;
+  if (!plan.dispatchAiJudges) return;
   if (
     !Number.isSafeInteger(plan.aiJudgingBudgetMs) ||
     plan.aiJudgingBudgetMs < 1
@@ -109,7 +100,6 @@ async function planFrozenJudging(
     select ${request.roundId},1,p.id,'queued',0,(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.aiJudgingBudgetMs}*interval '1 millisecond' from round_participants p join actors a on a.id=p.actor_id join ai_judge_profiles j on j.actor_id=a.id
     where p.round_id=${request.roundId} and p.role='judge' and a.kind='bot'
     on conflict (round_id,judge_participant_id) do nothing`);
-  return false;
 }
 /** Existing Round/lease/stream operation; a service consumer can recheck its lease after waits. */
 export async function finalizeLockedRoundTranscript(
@@ -120,12 +110,7 @@ export async function finalizeLockedRoundTranscript(
   const clock = await executeLockedRoundTick(tx, request);
   await assertCurrent();
   const existing = await readTranscriptFreeze(tx, request.roundId);
-  if (existing)
-    return {
-      status: 'frozen' as const,
-      platformEnded: false,
-      freeze: existing,
-    };
+  if (existing) return { status: 'frozen' as const, freeze: existing };
   const [round] = await tx
     .select({ status: rounds.status })
     .from(rounds)
@@ -165,18 +150,11 @@ export async function finalizeLockedRoundTranscript(
       revision: 1,
       frontier: revision,
       completeness: state,
-      expectedSpeechMs: shortfall.expectedSpeechMs,
-      captureGapMs: shortfall.captureGapMs,
-      unheardMs: shortfall.unheardMs,
+      ...frozenCaptureColumns(shortfall.capture),
       captureGaps: shortfall.captureGaps,
     })
     .returning();
-  const platformEnded = await planFrozenJudging(
-    tx,
-    request,
-    state,
-    shortfall.capture,
-  );
+  await planFrozenJudging(tx, request, state, shortfall.capture);
   await appendTranscriptChanged(tx, request.roundId, revision + 1);
   // What the Round waits on changes here, so the room must read it: a new version
   // and a ring, as with any other change the server records.
@@ -188,8 +166,6 @@ export async function finalizeLockedRoundTranscript(
   await appendRoundPhaseChanged(tx, request.roundId, version + 1);
   return {
     status: 'frozen' as const,
-    /** This freeze ended the Round as a platform incident: the caller alerts, once. */
-    platformEnded,
     freeze: { ...freeze!, frozenAt: freeze!.frozenAt.toISOString() },
   };
 }

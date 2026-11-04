@@ -36,12 +36,12 @@ A recovery pass hands what it read of the vendor to `observeIncident`
 (`apps/web/src/features/round-incidents/observe.ts`). A pure decision
 (`round-incident-decision.ts`) reads it under the Round lock:
 
-| Evidence                                                                                        | Means                       |
-| ----------------------------------------------------------------------------------------------- | --------------------------- |
-| A pass retired a lost or uncertain room, durably on the session until a decision takes it up    | Pause, `room_retired`       |
-| The vendor unreachable past a short bound                                                       | Pause, `vendor_unreachable` |
-| The platform back, every seat back and capture reporting the speaker's track, or the grace over | Begin the countdown         |
-| The recovery bound passed with the platform still down                                          | End the Round               |
+| Evidence                                                                                                                                                                                  | Means                       |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| A rotation newer than the last this feature took up, not a seat's revocation: media publishes it in `media_room_rotations`, this feature records its progress in `round_incident_watches` | Pause, `room_retired`       |
+| The vendor unreachable past a short bound                                                                                                                                                 | Pause, `vendor_unreachable` |
+| The platform back, every seat back and capture reporting the speaker's track, or the grace over                                                                                           | Begin the countdown         |
+| The recovery bound passed with the platform still down                                                                                                                                    | End the Round               |
 
 A held speaker's microphone stays open through the hold, so capture can confirm it on the
 new room before the countdown; no microphone opens for a countdown to a speech, and only
@@ -80,7 +80,8 @@ as the platform's fault.
 An AI judge rules unless unheard speech passes `maxUnheardShare`, with each platform gap in
 its prompt in plain words. A shortfall nobody measured cannot be proven small. Past the
 limit, an AI-only Round ends as `platform_ending = capture_shortfall`, refunds and alerts once
-only if the platform's own loss is past that limit too. Otherwise it takes the
+only if the platform's own loss is past that limit too, in the transaction that completes the
+Round once attendance has settled. Otherwise it takes the
 transcript-incomplete path: not blamed on the platform and no refund, but the Round ends with no outcome and no rating, as a silent seat always could. A platform loss under the limit that silence tips over takes that same path. One exception: silence inside a stream taken over mid-speech counts as the platform's, because gaps carry no capture epoch (ISSUE-1317). A human judge heard
 the Round live and still rules.
 

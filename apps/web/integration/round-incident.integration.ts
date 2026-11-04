@@ -522,8 +522,7 @@ test('a later retirement waits for its own decision', async () => {
     );
     assert({
       given: 'a room retired again after an earlier retirement was taken up',
-      should:
-        'still be waiting for a decision, on media rows nobody else wrote',
+      should: 'still be waiting for a decision',
       actual: watch.roomRetired,
       expected: true,
     });

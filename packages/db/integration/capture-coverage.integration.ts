@@ -1,5 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
+import { frozenCaptureColumns } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { captureRule, freezeJudgingPlan } from '@daisy/debate-engine';
 import { readCaptureShortfall } from '../src/capture-shortfall';
@@ -209,14 +210,17 @@ const shortfallOf = async (
 };
 
 test('a freeze can say how much speech the platform lost', async () => {
-  const { captureGapMs, unheardMs, expectedSpeechMs, captureGaps } =
-    await shortfallOf(
-      [
-        [1934, 3000],
-        [3100, 5164],
-      ],
-      true,
-    );
+  const measured = await shortfallOf(
+    [
+      [1934, 3000],
+      [3100, 5164],
+    ],
+    true,
+  );
+  const { captureGapMs, unheardMs, expectedSpeechMs } = frozenCaptureColumns(
+    measured.capture,
+  );
+  const { captureGaps } = measured;
   assert({
     given: 'a sealed stream that lost frames, with a 100 ms dropout',
     should: 'measure that loss, and state where it was in the speech',
@@ -239,13 +243,15 @@ test('a freeze can say how much speech the platform lost', async () => {
 });
 
 test('a seat that went quiet is no loss of the platform', async () => {
-  const { captureGapMs, unheardMs, captureGaps } = await shortfallOf(
+  const quiet = await shortfallOf(
     [
       [1934, 3000],
       [3100, 5164],
     ],
     false,
   );
+  const { captureGapMs, unheardMs } = frozenCaptureColumns(quiet.capture);
+  const { captureGaps } = quiet;
   assert({
     given: 'a coverage gap alone, with nothing lost by the platform',
     should: 'state nothing as the platform fault, and still count it unheard',
@@ -321,7 +327,7 @@ test('a capture takeover with no gap is judged', async () => {
     should: 'measure a gap of zero and dispatch the AI judge',
     actual: {
       sealed: shortfall.sealed,
-      gapMs: shortfall.captureGapMs,
+      gapMs: frozenCaptureColumns(shortfall.capture).captureGapMs,
       dispatch: freezeJudgingPlan({
         completeness: 'incomplete',
         humanJudges: false,
@@ -340,8 +346,8 @@ test("a takeover's gap is the platform's, and stated", async () => {
     given: 'a stream relaunched mid-speech with 400 ms unheard',
     should: 'measure it, state it, and call it lost audio',
     actual: {
-      gapMs: shortfall.captureGapMs,
-      unheard: shortfall.unheardMs,
+      gapMs: frozenCaptureColumns(shortfall.capture).captureGapMs,
+      unheard: frozenCaptureColumns(shortfall.capture).unheardMs,
       gaps: shortfall.captureGaps.gaps.length,
     },
     expected: { gapMs: 400, unheard: 400, gaps: 1 },

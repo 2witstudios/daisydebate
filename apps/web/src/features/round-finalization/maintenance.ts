@@ -141,7 +141,6 @@ export function createRoundMaintenanceOperations(input: {
         captureRule,
       });
       if (result.status !== 'frozen') return result;
-      if (result.platformEnded) input.platformEnded?.(roundId);
       try {
         await input.store.completePanelRound({
           instanceId: input.instanceId,
@@ -152,6 +151,7 @@ export function createRoundMaintenanceOperations(input: {
           buildCompletion: panelCompletion(() => input.ids.next()),
           judgingEndReason: judgingJobEndReason,
           attendanceSettled,
+          platformEnded: () => input.platformEnded?.(roundId),
           judgingEnded: (reason) => {
             if (judgingEndIsReported(reason)) input.judgingEnded?.(reason);
           },

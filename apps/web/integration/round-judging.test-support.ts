@@ -101,6 +101,20 @@ export async function playOut(
     from round_speaking_intervals i join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
     where i.round_id=${roundId} and p.role<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)`;
 }
+/** Every debater's stream sealed as losing audio: no observation, and the platform's fault. */
+async function platformLoses(
+  f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+  roundId: string,
+) {
+  await f.store.executeRoundTick({
+    roundId,
+    buildProjection: roundTickProjection(createId),
+  });
+  await f.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,partial_reasons,chunk_count,sealed_chunk_count,sealed_at)
+    select distinct i.round_id,i.segment_id,i.round_participant_id,'partial',array['frames-lost'],0,0,clock_timestamp()
+    from round_speaking_intervals i join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
+    where i.round_id=${roundId} and p.role<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)`;
+}
 /** A stored AI judge assigned to the judge seat, then the named debaters ready again. */
 export async function assignAiJudgeAndReady(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
@@ -133,10 +147,12 @@ async function readyBotJudgedRoom(
 export async function frozenBotJudgeRound(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
   captured: boolean,
+  platformLostIt = false,
 ) {
   const { room } = await readyBotJudgedRoom(f);
   const { roundId } = await launchRuntimeRound(f, room);
   await playOut(f, roundId, captured);
+  if (platformLostIt) await platformLoses(f, roundId);
   const finalized = await finalizeAsWeb(f, roundId);
   if (
     finalized.status !== 'frozen' ||

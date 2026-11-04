@@ -45,8 +45,9 @@ ALTER TABLE "round_incident_watches" ADD CONSTRAINT "round_incident_watches_roun
 ALTER TABLE "round_incidents" ADD CONSTRAINT "round_incidents_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "media_room_rotations" ADD CONSTRAINT "media_room_rotations_cause_check" CHECK ("cause" in ('absent', 'unreachable', 'seat-revoked', 'lost'));--> statement-breakpoint
 ALTER TABLE "round_segments" ADD CONSTRAINT "round_segments_returned_check" CHECK ("returned_ms" >= 0);--> statement-breakpoint
+ALTER TABLE "round_transcript_freezes" ADD CONSTRAINT "round_transcript_freezes_capture_kinds_check" CHECK ("unheard_ms" is null or ("capture_gap_ms" is not null and "unheard_ms" >= "capture_gap_ms"));--> statement-breakpoint
 ALTER TABLE "round_transcript_freezes" ADD CONSTRAINT "round_transcript_freezes_capture_gaps_is_object" CHECK (jsonb_typeof("capture_gaps") = 'object');--> statement-breakpoint
-ALTER TABLE "rounds" ADD CONSTRAINT "rounds_platform_ending_check" CHECK ("platform_ending" is null or ("platform_ending" = 'recovery_bound' and "status" = 'abandoned') or ("platform_ending" = 'capture_shortfall' and "status" <> 'opening'));--> statement-breakpoint
+ALTER TABLE "rounds" ADD CONSTRAINT "rounds_platform_ending_check" CHECK ("platform_ending" is null or ("platform_ending" = 'recovery_bound' and "status" = 'abandoned') or ("platform_ending" = 'capture_shortfall' and "status" = 'completed' and "outcome" is null));--> statement-breakpoint
 -- The checkpoint schema is strict, so every stored checkpoint gains the new fields.
 -- A merge of two objects with constant keys cannot refuse.
 UPDATE "rounds" SET "runtime_state" = '{"incident":{"phase":"none"},"clock_stops":[]}'::jsonb || "runtime_state" WHERE NOT ("runtime_state" ? 'incident');

@@ -23,13 +23,13 @@ export async function readRoundIncidentRate(
           and coalesce(completed_at, clock_timestamp()) > ${period.from}) as round_hours,
       (select coalesce(sum(expected_speech_ms), 0)::float8 from round_transcript_freezes
         where frozen_at >= ${period.from} and frozen_at < ${period.until}
-          and capture_gap_ms is not null) as expected_ms,
+          and unheard_ms is not null) as expected_ms,
       (select coalesce(sum(capture_gap_ms), 0)::float8 from round_transcript_freezes
         where frozen_at >= ${period.from} and frozen_at < ${period.until}
-          and capture_gap_ms is not null) as gap_ms,
+          and unheard_ms is not null) as gap_ms,
       (select count(*)::int from round_transcript_freezes
         where frozen_at >= ${period.from} and frozen_at < ${period.until}
-          and capture_gap_ms is null) as unmeasured_rounds`;
+          and unheard_ms is null) as unmeasured_rounds`;
   const roundHours = Number(row.round_hours);
   const expectedMs = Number(row.expected_ms);
   return {

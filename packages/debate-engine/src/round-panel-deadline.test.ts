@@ -215,19 +215,16 @@ test('a freeze of unmeasured loss dispatches no AI judge and, with no human judg
     ],
     expected: [
       {
-        endsAsPlatformIncident: false,
         dispatchAiJudges: true,
         ballotDeadlineMs: null,
         aiJudgingBudgetMs: 300_000,
       },
       {
-        endsAsPlatformIncident: false,
         dispatchAiJudges: false,
         ballotDeadlineMs: 1_800_000,
         aiJudgingBudgetMs: 300_000,
       },
       {
-        endsAsPlatformIncident: true,
         dispatchAiJudges: false,
         ballotDeadlineMs: null,
         aiJudgingBudgetMs: 300_000,

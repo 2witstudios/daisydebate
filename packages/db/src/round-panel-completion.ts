@@ -1,9 +1,15 @@
 import { isAppError, createAppError } from '@daisy/errors';
-import type { RoundPanelReceipt } from '@daisy/protocol';
+import {
+  frozenCaptureOf,
+  platformLostTooMuch,
+  type RoundPanelReceipt,
+} from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import { fenceAttendance } from './attendance-facts';
+import { rounds } from './schema/rounds';
+import { refundPlatformEndedLocked } from './round-bot-admission';
 import {
   assertRoundAttendanceSettled,
   type AttendanceSettledRule,
@@ -55,6 +61,8 @@ type Request = LockedRoundTickInput & {
   readonly commandId: string;
   readonly freezeRevision: number;
   /** Once per AI job this completion ended without a ballot. */
+  /** The platform lost more than can be judged and ended this Round; once, for the operator. */
+  readonly platformEnded?: () => void;
   readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
   readonly judgingEndReason: JudgingEndRule;
   readonly attendanceSettled: AttendanceSettledRule;
@@ -172,6 +180,19 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
   );
   if (!changed)
     throw createAppError('CONFLICT', 'Panel projection did not apply');
+  // The Round ends here, attendance settled, so this is when it can be said the platform
+  // ended it: a freeze cannot know that attendance will not end it another way.
+  const platformEnded =
+    completion.ruling === 'transcript-incomplete' &&
+    projection.round?.outcome === null &&
+    platformLostTooMuch(frozenCaptureOf(freeze));
+  if (platformEnded) {
+    await tx
+      .update(rounds)
+      .set({ platformEnding: 'capture_shortfall' })
+      .where(eq(rounds.id, input.roundId));
+    await refundPlatformEndedLocked(tx, input.roundId);
+  }
   const receipt = panelReceipt({
     commandId: input.commandId,
     roundId: input.roundId,
@@ -217,14 +238,17 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     judgingEndReason: input.judgingEndReason,
   });
   await requireCurrentWeb(tx, input.instanceId);
-  return { receipt, ended };
+  return { receipt, ended, platformEnded };
 }
 
 export function roundPanelCompletionOperations(run: BoundedTransaction) {
   return {
     async completePanelRound(input: Request): Promise<RoundPanelReceipt> {
       requirePanelRequest(input);
-      const { receipt, ended } = await run((tx) => complete(tx, input));
+      const { receipt, ended, platformEnded } = await run((tx) =>
+        complete(tx, input),
+      );
+      if (platformEnded) input.platformEnded?.();
       // After commit, and even with no judging worker running. A job still open
       // here could not rule: out of budget, or a held ballot that never submitted.
       for (const reason of ended) input.judgingEnded?.(reason);

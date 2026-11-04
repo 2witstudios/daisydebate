@@ -177,7 +177,7 @@ export const rounds = pgTable(
       versionPositive('rounds', table.version),
       check(
         'rounds_platform_ending_check',
-        sql`${table.platformEnding} is null or (${table.platformEnding} = 'recovery_bound' and ${table.status} = 'abandoned') or (${table.platformEnding} = 'capture_shortfall' and ${table.status} <> 'opening')`,
+        sql`${table.platformEnding} is null or (${table.platformEnding} = 'recovery_bound' and ${table.status} = 'abandoned') or (${table.platformEnding} = 'capture_shortfall' and ${table.status} = 'completed' and ${table.outcome} is null)`,
       ),
       check(
         'rounds_transcript_cutoff_check',
