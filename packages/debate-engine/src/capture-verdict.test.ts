@@ -396,3 +396,36 @@ test('a bot’s credited windows a stall apart are one window for coverage (DEC-
     ],
   });
 });
+
+test('edges state what the tolerances forgave, and nothing else', () => {
+  const forgiving = createCaptureRule({ joinMs: 0, relayMs: 0 });
+  const coverage = {
+    authority: [{ start: 0, end: 10_000 }],
+    tolerance: { openMs: 4000, closeMs: 1000 },
+  };
+  assert({
+    given:
+      'a late join and early end inside tolerance, a sub-packet hole, and a hole past tolerance',
+    should:
+      'state the forgiven edges, drop the measure grain, and leave the real gap to gaps',
+    actual: [
+      forgiving.edges(coverage, [{ start: 3000, end: 9500 }]),
+      forgiving.edges(coverage, [
+        { start: 0, end: 5000 },
+        { start: 5010, end: 10_000 },
+      ]),
+      forgiving.edges({ ...coverage, authority: [{ start: 0, end: 20_000 }] }, [
+        { start: 0, end: 2000 },
+        { start: 15_000, end: 20_000 },
+      ]),
+    ],
+    expected: [
+      [
+        { start: 0, end: 3000 },
+        { start: 9500, end: 10_000 },
+      ],
+      [],
+      [],
+    ],
+  });
+});

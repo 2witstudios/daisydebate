@@ -3,9 +3,8 @@ import type {
   RoundPosition,
   RoundRules,
 } from '@daisy/protocol';
-import { conversational } from '@daisy/protocol';
+import { conversational, roundStartPolicy } from '@daisy/protocol';
 import { broadcastPhase } from './broadcast-phase';
-import { roundStartPolicy } from '@daisy/protocol';
 import { mediaWindowClosed } from './media-window';
 import { speakingParticipants } from './round-speaking';
 import { phasePrivateAt } from './stage-capture';

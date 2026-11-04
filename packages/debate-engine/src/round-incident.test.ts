@@ -701,6 +701,34 @@ test('a speech starts when capture has its speaker, or a short bound passes', ()
   });
 });
 
+test('prep taken inside the lead leaves the next start to gate afresh', () => {
+  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const due = rules.countdownMs;
+  const run = runtimeOf([]);
+  run.applyStartGate({
+    kind: 'await',
+    atMs: Date.parse(roundAt(due - 1_500)),
+    seats: [seat.id],
+    boundMs: 1_500,
+  });
+  run.execute({
+    command: { type: 'start_prep' },
+    actorId: seat.actorId,
+    now: roundAt(due - 1_000),
+  });
+  const after = run.applyStartGate({
+    kind: 'heard',
+    atMs: Date.parse(roundAt(due - 900)),
+    seat: seat.id,
+  });
+  assert({
+    given: 'prep taken after the gate was written',
+    should: 'spend the gate, since the microphone it waited for closes',
+    actual: after.round.checkpoint.start_gate,
+    expected: null,
+  });
+});
+
 test('a start gate does not move the microphone it waits for', () => {
   const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
   const due = rules.countdownMs;
