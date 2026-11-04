@@ -381,6 +381,8 @@ export function createMediaReconcileRun(
     const seats = (await speakersHeard(current, state))
       .filter(({ heard }) => !heard)
       .map(({ seatId }) => seatId);
+    // Everyone heard, or a bot speaks: nothing to wait for, so the Round's lock stays free.
+    if (seats.length === 0) return;
     await input.awaitCapture(state.round.id, seats).catch(() => undefined);
   };
   /** Whether the room's node answers; only its own answer or its silence says it is gone. */
