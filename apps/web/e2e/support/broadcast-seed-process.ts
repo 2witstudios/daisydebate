@@ -112,9 +112,13 @@ const advance = async (sql: SQL, input: Advance) => {
       await sql`update broadcasts set released_through_at=now()-interval '60 seconds' where round_id=${roundId}`;
       return;
     case 'slate':
-      // Its speech began after the watermark. Ending it instead would have the
-      // server's own sweep open the next speech, as it should.
-      await sql`update round_segments set started_at=now() where round_id=${roundId}`;
+      // A real slate: a speech has been released and ended, and the next began after
+      // the watermark. Ending the only speech instead would have the server's own sweep
+      // open the next one, as it should.
+      await sql`update round_segments set sequence=sequence+1, started_at=now() where round_id=${roundId}`;
+      await sql`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,ended_at,duration_ms)
+        select ${createId()},round_id,0,type,'released-speech',now()-interval '10 minutes',now()-interval '5 minutes',duration_ms
+        from round_segments where round_id=${roundId} and sequence=1`;
       return;
     case 'interrupt':
       await sql`update broadcasts set released_through_at=now()-interval '10 minutes' where round_id=${roundId}`;
