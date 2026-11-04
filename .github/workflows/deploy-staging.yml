@@ -226,7 +226,7 @@ jobs:
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: audience-publisher
         name: Deploy the audience publisher
-        # ADR 0111: viewers read what it writes. A restart leaves their state a moment
+        # ADR 0112: viewers read what it writes. A restart leaves their state a moment
         # older and nothing else. Its token deploys only that app.
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_AUDIENCE_PUBLISHER_API_TOKEN }}

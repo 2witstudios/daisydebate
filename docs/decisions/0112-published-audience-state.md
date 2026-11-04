@@ -1,4 +1,4 @@
-# 0111: A viewer reads published state, not web
+# 0112: A viewer reads published state, not web
 
 Status: accepted, owner's point guard (DEC-350), 2026-11-03. Amends ADR 0099 and ADR 0108.
 

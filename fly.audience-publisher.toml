@@ -1,4 +1,4 @@
-# Staging audience publisher (ADR 0111, DEC-350, owner sign-off): writes each Round's
+# Staging audience publisher (ADR 0112, DEC-350, owner sign-off): writes each Round's
 # released public state to the public bucket about once a second, so a viewer's read
 # never reaches web. Its image is the `audience-publisher` target of apps/web/Dockerfile.
 # Its database login reads released facts, it holds the public bucket's key and not the

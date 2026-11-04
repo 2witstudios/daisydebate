@@ -1,7 +1,7 @@
 # Audience load against a live debate
 
 The promise this checks: viewers can never hurt the debate. A viewer's polls read the
-worker's published state from the public bucket (ADR 0111), so they never reach web.
+worker's published state from the public bucket (ADR 0112), so they never reach web.
 What still reaches web is the first page load, one sampled pulse, and anyone's direct
 request, and `fly.toml` limits how many of those run at once.
 

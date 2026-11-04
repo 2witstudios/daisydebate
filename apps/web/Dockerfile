@@ -169,7 +169,7 @@ WORKDIR /app/apps/recording-worker
 CMD ["bun", "src/start.ts"]
 
 # ---- audience-publisher: apps/audience-publisher, a Round's released public state
-# in the public bucket (fly.audience-publisher.toml, ADR 0111). No port: it only calls out.
+# in the public bucket (fly.audience-publisher.toml, ADR 0112). No port: it only calls out.
 FROM server-source AS audience-publisher
 COPY --chown=daisy:daisy apps/audience-publisher/src apps/audience-publisher/src
 WORKDIR /app/apps/audience-publisher

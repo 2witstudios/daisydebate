@@ -32,7 +32,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   media: ['errors', 'protocol'],
   // ADR 0099: the hold worker's only credential is its broadcasts role.
   'broadcast-worker': ['db', 'debate-engine', 'logger', 'protocol'],
-  // ADR 0111: publishes released facts; its role reads them and nothing else.
+  // ADR 0112: publishes released facts; its role reads them and nothing else.
   'audience-publisher': ['db', 'debate-engine', 'logger', 'protocol', 'redis'],
   // ADR 0107: builds from the hold; its role reaches only its jobs.
   'recording-worker': ['db', 'logger', 'protocol'],

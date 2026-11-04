@@ -1,6 +1,6 @@
 import { S3Client } from 'bun';
 
-/** The public bucket alone: this app holds no key to the hold (ADR 0099, ADR 0111). */
+/** The public bucket alone: this app holds no key to the hold (ADR 0099, ADR 0112). */
 export const createPublicObjects = (config: {
   readonly endpoint: string;
   readonly bucket: string;
