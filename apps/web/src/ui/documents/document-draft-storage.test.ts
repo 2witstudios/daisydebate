@@ -3,7 +3,7 @@ import {
   createDraftStorage,
   pruneExpiredDrafts,
 } from './document-draft-storage';
-import { newDraftCopy } from './document-draft';
+import { newDraftCopy } from '../../features/documents/document-draft';
 import { memoryStorage } from './document-sync.test-support';
 setupRitewayBun();
 const fixture = () => {

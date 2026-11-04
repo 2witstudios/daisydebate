@@ -13,7 +13,7 @@ import {
 } from './document-sync';
 
 import { createKeepaliveBudget } from './keepalive-budget';
-import { newDraftCopy } from './document-draft';
+import { newDraftCopy } from '../../features/documents/document-draft';
 setupRitewayBun();
 const key = 'daisy:document-drafts:copy:p:a';
 const fixture = () => {

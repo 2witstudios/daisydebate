@@ -7,7 +7,7 @@ import { systemClock } from '@daisy/clock';
 import { documentExtensions } from '../../features/documents/document-schema';
 import type { MemberDocument } from '../../features/documents/document';
 import type { DocumentSync, DraftOffer } from './document-sync';
-import type { DraftCopy } from './document-draft';
+import type { DraftCopy } from '../../features/documents/document-draft';
 import type { RoomAction } from '../debate-room/room-state';
 
 /** The same constrained schema as the editor; stored HTML is never injected into the page. */

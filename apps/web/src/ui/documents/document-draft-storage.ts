@@ -5,16 +5,13 @@ import {
   DRAFT_RECORD_MAX_COUNT,
   DRAFT_RECORD_MAX_TOTAL_BYTES,
   type DraftRecord,
-} from './document-draft';
+} from '../../features/documents/document-draft';
+import type { DraftSnapshot } from '../../features/documents/document-saving';
 
 export type DraftStorage = Pick<
   Storage,
   'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'
 >;
-export type DraftSnapshot = {
-  readonly record: DraftRecord;
-  readonly raw: string | null;
-};
 export type DraftWrite = {
   readonly stored: boolean;
   readonly snapshot: DraftSnapshot;

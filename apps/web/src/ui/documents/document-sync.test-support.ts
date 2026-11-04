@@ -1,4 +1,4 @@
-import { newDraftCopy, type DraftCopy } from './document-draft';
+import { newDraftCopy, type DraftCopy } from '../../features/documents/document-draft';
 import { createKeepaliveBudget } from './keepalive-budget';
 import type { DraftStorage } from './document-draft-storage';
 import { createDocumentSync } from './document-sync';

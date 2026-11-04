@@ -10,7 +10,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { releaseDraftOwner } from './draft-owner';
 import { createDocumentSync } from './document-sync';
 
-import { newDraftCopy } from './document-draft';
+import { newDraftCopy } from '../../features/documents/document-draft';
 
 setupRitewayBun();
 const recoveryHtml = (raw: string | null): string | null =>
