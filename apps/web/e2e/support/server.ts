@@ -73,6 +73,7 @@ if (process.env.BROADCAST_PUBLIC_ORIGIN)
     url: env('DATABASE_URL'),
     feedOrigin: process.env.BROADCAST_PUBLIC_ORIGIN,
     publish: (path, body) => publishedStates.set(path, body),
+    withdraw: (path) => publishedStates.delete(path),
     now: () => Date.parse(systemClock.now()),
   });
 

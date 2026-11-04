@@ -333,6 +333,23 @@ test('only the replay page may read the private Recording bucket', () => {
   });
 });
 
+test('an audience page reads the published state and plays nothing', () => {
+  const ORIGIN = 'https://bucket.t3.tigrisfiles.io';
+  const policy =
+    proxy(new NextRequest('https://daisy.invalid/audience/abc'), {
+      broadcastPublicOrigin: ORIGIN,
+    }).headers.get('Content-Security-Policy') ?? '';
+  assert({
+    given: 'an audience page with a configured public origin',
+    should: 'allow reads from it, and no media',
+    actual: [
+      /connect-src [^;]*https:\/\/bucket\.t3\.tigrisfiles\.io/.test(policy),
+      policy.includes('media-src'),
+    ],
+    expected: [true, false],
+  });
+});
+
 test('only the Round page may play the public feed', () => {
   const FEED = 'https://bucket.t3.tigrisfiles.io';
   const policy = (path: string) =>

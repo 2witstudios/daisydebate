@@ -18,9 +18,11 @@ export const startAudienceStateStandIn = (input: {
   readonly url: string;
   readonly feedOrigin: string;
   readonly publish: (path: string, body: string) => void;
+  readonly withdraw: (path: string) => void;
   readonly now: () => number;
 }) => {
   const store = createAudiencePublisherStore(input.url);
+  const published = new Map<string, string>();
   const pass = async () => {
     const nowMs = input.now();
     const publishing = await store.readPublishing({
@@ -39,10 +41,14 @@ export const startAudienceStateStandIn = (input: {
           store.readAudienceSnapshot({ roundId: broadcast.roundId }),
         ]);
         if (!timeline || !audience) return;
+        const path = audienceStatePath(
+          audienceStateKey(broadcast.feedKey, broadcast.linkHash),
+        );
+        const was = published.get(broadcast.broadcastId);
+        if (was && was !== path) input.withdraw(was);
+        published.set(broadcast.broadcastId, path);
         input.publish(
-          audienceStatePath(
-            audienceStateKey(broadcast.feedKey, broadcast.linkHash),
-          ),
+          path,
           JSON.stringify({
             version: 1,
             publishedAtMs: nowMs,
