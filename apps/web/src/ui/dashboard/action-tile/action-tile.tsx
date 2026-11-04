@@ -37,16 +37,22 @@ export function ActionTile({
       href={href}
       className={cn(
         'note flex h-full flex-col gap-4 p-6 no-underline hover:no-underline',
+        'max-narrow:note-menu-row max-narrow:flex-row max-narrow:items-center max-narrow:justify-center max-narrow:gap-3 max-narrow:px-5 max-narrow:py-3',
         notePaperClass(note),
         noteTiltClass(tilt),
       )}
     >
       <NoteGlyph destination={destination} seasonGlance={seasonGlance} />
-      <div className="flex flex-1 flex-col gap-1">
+      <div className="flex flex-1 flex-col gap-1 max-narrow:flex-none">
         <h2 className="font-display text-xl leading-tile-title font-semibold tracking-tight">
           {title}
         </h2>
-        <p className={cn('text-base leading-tile-copy', noteCopyClass(note))}>
+        <p
+          className={cn(
+            'text-base leading-tile-copy max-narrow:hidden',
+            noteCopyClass(note),
+          )}
+        >
           {description}
         </p>
       </div>

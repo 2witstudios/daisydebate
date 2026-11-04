@@ -26,6 +26,43 @@ describe('MemberHero', () => {
     });
   });
 
+  test('on a phone a member without a Room has no hero, only its heading', () => {
+    const html = renderToStaticMarkup(
+      <MemberHero username="ada-byron" activeRoom={null} />,
+    );
+    assert({
+      given: 'a member who holds no Room, on a phone',
+      should: 'hide the hero and keep a heading for screen readers',
+      actual: [
+        /<section class="[^"]*max-narrow:hidden/.test(html),
+        /<h1 class="[^"]*hidden[^"]*max-narrow:block[^"]*sr-only|<h1 class="[^"]*sr-only[^"]*hidden[^"]*max-narrow:block/.test(
+          html,
+        ),
+      ],
+      expected: [true, true],
+    });
+  });
+
+  test('on a phone a member in a Room keeps the way back', () => {
+    const html = renderToStaticMarkup(
+      <MemberHero
+        username="ada-byron"
+        activeRoom={{
+          id: 'b'.repeat(24),
+          title: 'Tuesday night',
+          phase: 'live',
+          href: roomHref,
+        }}
+      />,
+    );
+    assert({
+      given: 'a member who holds a Room, on a phone',
+      should: 'keep the hero and its Return to room',
+      actual: html.includes('max-narrow:hidden'),
+      expected: false,
+    });
+  });
+
   test('a member in a Room is shown the way back first', () => {
     const html = renderToStaticMarkup(
       <MemberHero

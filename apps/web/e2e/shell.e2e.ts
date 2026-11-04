@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import { resetRateLimits, signUpMember } from './support/accounts';
+import { art } from '../src/ui/assets';
 
 const desktopRail = async (page: Page) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -171,6 +172,78 @@ test.describe('dashboard shell chrome', () => {
     const spread = Math.max(...tileWidths) - Math.min(...tileWidths);
     expect(tileWidths.length).toBe(8);
     expect(spread).toBeLessThanOrEqual(1);
+  });
+
+  test('on a phone a visitor sees only the way in', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await expect(
+      page.getByRole('button', { name: 'Join the waitlist' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('list', { name: 'Debate destinations' }),
+    ).toBeHidden();
+    await expect(page.getByText('Live now')).toBeHidden();
+    await expect(
+      page.getByRole('img', { name: art.heroAgon.alt }),
+    ).toBeHidden();
+  });
+
+  test('on a phone a member gets one vertical menu and no hero', async ({
+    page,
+  }) => {
+    await resetRateLimits(page.request);
+    await signUpMember(page.request);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await expect(
+      page.getByRole('img', { name: art.heroAgon.alt }),
+    ).toBeHidden();
+    await expect(page.getByText('Live now')).toBeHidden();
+    await expect(page.getByText('Public Beta Open')).toBeHidden();
+    await expect(
+      page.getByRole('heading', { level: 1, name: /^Welcome back/ }),
+    ).toHaveCount(1);
+    const rows = page
+      .getByRole('list', { name: 'Debate destinations' })
+      .locator('li > a');
+    await expect(rows).toHaveCount(8);
+    const boxes = await rows.evaluateAll((links) =>
+      links.map((link) => {
+        const { offsetLeft, offsetWidth, offsetHeight } = link as HTMLElement;
+        return {
+          left: offsetLeft,
+          width: offsetWidth,
+          height: offsetHeight,
+          top: link.getBoundingClientRect().top,
+          rotate: getComputedStyle(link).rotate,
+          paper: getComputedStyle(link, '::after').backgroundColor,
+          curl: getComputedStyle(link, '::after').backgroundImage,
+          curlShadow: getComputedStyle(link, '::before').content,
+        };
+      }),
+    );
+    // Play alone has its colour; the other seven share one, none of them paper.
+    expect(new Set(boxes.slice(1).map((box) => box.paper)).size).toBe(1);
+    expect(boxes[0]?.paper).not.toBe(boxes[1]?.paper);
+    expect(boxes.every((box) => box.curl === 'none')).toBe(true);
+    expect(boxes.every((box) => box.curlShadow === 'none')).toBe(true);
+    // One column of equal rows, none leaning, each a comfortable tap target.
+    expect(new Set(boxes.map((box) => box.left)).size).toBe(1);
+    expect(new Set(boxes.map((box) => box.width)).size).toBe(1);
+    expect(new Set(boxes.map((box) => box.height)).size).toBe(1);
+    expect(new Set(boxes.map((box) => box.top)).size).toBe(8);
+    expect(boxes.every((box) => box.rotate === 'none')).toBe(true);
+    expect(boxes[0]?.height).toBeGreaterThanOrEqual(44);
+    expect(boxes[0]?.height).toBeLessThanOrEqual(72);
+    await expect(rows.locator('p').first()).toBeHidden();
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
   });
 
   test('a visitor’s rail has no More control, only the way in', async ({
