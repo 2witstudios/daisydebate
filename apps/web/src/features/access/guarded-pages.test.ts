@@ -201,7 +201,7 @@ const guardRequestsOf = async (file: string) => {
     });
   } catch (error) {
     // A page may answer 404 for the placeholder id, once the guard ran, or
-    // redirect a closed destination to its explainer before any guard.
+    // redirect before any guard.
     const digest = String((error as { digest?: unknown }).digest);
     if (
       guardCalls.length === 0 &&
@@ -305,7 +305,7 @@ describe('guarded pages', () => {
     });
   });
 
-  test('Watch and Recordings open with their launch flag', async () => {
+  test('Watch and Recordings answer with their own screens', async () => {
     const files = [
       '(shell)/watch/page.tsx',
       '(shell)/watch/[roundId]/page.tsx',
@@ -315,8 +315,8 @@ describe('guarded pages', () => {
     const destinations: Array<string | null> = [];
     for (const file of files) destinations.push(await redirectOf(file));
     assert({
-      given: 'every Watch page with Watch launched',
-      should: 'answer with its own screen, never the explainer',
+      given: 'every Watch page',
+      should: 'answer with its own screen, never a redirect',
       actual: destinations,
       expected: files.map(() => null),
     });

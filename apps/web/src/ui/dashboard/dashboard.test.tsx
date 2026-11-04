@@ -50,17 +50,18 @@ describe('Dashboard', () => {
     });
   });
 
-  test('shows coming-soon cards instead of sample tournament and live data', () => {
+  test('shows every destination as a note, with Live now and nothing closed', () => {
     const html = render();
     assert({
-      given: 'the home dashboard with ranked play and real standings launched',
-      should: 'carry two Coming soon tags and no sample event, with Watch real',
+      given: 'the home dashboard',
+      should:
+        'carry no Coming soon tag, link the Beta Open to its page, and show Live now',
       actual: [
         occurrences(html, 'Coming soon'),
-        html.includes('href="/coming-soon/tournaments"'),
-        html.includes('Live Now'),
+        html.includes('href="/tournaments"'),
+        html.includes('Live now') || html.includes('Live Now'),
       ],
-      expected: [2, true, false],
+      expected: [0, true, true],
     });
   });
 });

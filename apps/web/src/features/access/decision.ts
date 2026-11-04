@@ -16,9 +16,7 @@ export type AccessDecision =
 
 /**
  * Areas that need an account, and what each needs. Spectator routes are
- * absent, so they need none once launched; a closed destination answers with
- * its explainer first (`closedDestinationOf`). Descendants inherit the longest
- * matching entry.
+ * absent, so they need none. Descendants inherit the longest matching entry.
  */
 const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   '/play': 'participant',
@@ -33,8 +31,8 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   '/prep': 'participant',
   '/train': 'participant',
   '/settings': 'account',
-  // Tournaments' root stays public; these areas under it stay guarded for when
-  // its screens exist (ADR 0043).
+  // Tournaments' info page stays public; these areas under it stay guarded for
+  // when its screens exist (ADR 0043).
   '/tournaments/organize': 'participant',
   '/tournaments/mine': 'participant',
   '/tournaments/enter': 'participant',

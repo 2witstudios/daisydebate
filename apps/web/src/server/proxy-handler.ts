@@ -4,16 +4,9 @@ import { broadcastPlaybackOrigin } from '../features/spectating/browser-policy';
 import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { IdGenerator } from '@daisy/clock';
-import { createAppError, toPublicError } from '@daisy/errors';
 import { isValidTraceparent } from '@daisy/observability';
 import { isGuardedPath, signInHref } from '../features/access/decision';
-import {
-  closedDestinationOf,
-  explainerHref,
-  isApiPath,
-  roomLinkReachesWatch,
-  type LaunchConfig,
-} from '../features/coming-soon/launch';
+import { roomLinkReachesWatch } from '../features/watch/routes';
 import { returnableDestination } from '../features/auth/redirect';
 import {
   robotsHeaderOf,
@@ -58,8 +51,6 @@ export type ProxySettings = {
   readonly analyticsHost?: string | null;
   /** `SEARCH_INDEXING`: unset is closed. */
   readonly searchIndexing?: SearchIndexing;
-  /** Which destinations are open: the launch config unless a caller injects one. */
-  readonly launchConfig?: LaunchConfig;
 };
 
 /**
@@ -102,19 +93,6 @@ function edgeRedirect(
   return response;
 }
 
-/** A closed destination's API answers as a route that does not exist. */
-function closedApi(policy: string, requestId: string): NextResponse {
-  const { status, body } = toPublicError(
-    createAppError('NOT_FOUND'),
-    requestId,
-  );
-  const response = NextResponse.json(body, { status });
-  response.headers.set('Content-Security-Policy', policy);
-  response.headers.set('Cache-Control', 'no-store');
-  response.headers.set('x-request-id', requestId);
-  return response;
-}
-
 /**
  * Early hint only: a guarded request with no session cookie at all can never
  * pass, so skip the render. Whether a cookie is a live session is decided
@@ -125,13 +103,12 @@ function signInHint(
   policy: string,
   requestId: string,
   publicAppUrl: string,
-  launchConfig: LaunchConfig | undefined,
 ): NextResponse | null {
   const { pathname, search } = request.nextUrl;
   if (
     !isGuardedPath(pathname) ||
     hasSessionCookie(request.headers) ||
-    roomLinkReachesWatch(pathname, launchConfig)
+    roomLinkReachesWatch(pathname)
   )
     return null;
   const next = returnableDestination(`${pathname}${search}`);
@@ -187,8 +164,7 @@ function contentSecurityPolicy(
 
 /**
  * Every request's first stop (bound in `proxy.ts`): the foundation gate,
- * the CSP nonce and policy, the closed destination's explainer, the early
- * sign-in hint, and trusted correlation headers. Whatever it answers, a closed
+ * the CSP nonce and policy, the early sign-in hint, and trusted correlation headers. Whatever it answers, a closed
  * deployment stays out of search indexes.
  */
 export function handleProxy(request: NextRequest, settings: ProxySettings) {
@@ -213,25 +189,11 @@ function routeRequest(request: NextRequest, settings: ProxySettings) {
     crypto.getRandomValues(new Uint8Array(16)),
   ).toString('base64');
   const policy = contentSecurityPolicy(pathname, settings, nonce);
-  const closedDestination = closedDestinationOf(
-    pathname,
-    settings.launchConfig,
-  );
-  if (closedDestination && isApiPath(pathname))
-    return closedApi(policy, requestId);
-  if (closedDestination)
-    return edgeRedirect(
-      explainerHref(closedDestination),
-      policy,
-      requestId,
-      settings.publicAppUrl,
-    );
   const hint = signInHint(
     request,
     policy,
     requestId,
     settings.publicAppUrl,
-    settings.launchConfig,
   );
   if (hint) return hint;
   const headers = new Headers(request.headers);

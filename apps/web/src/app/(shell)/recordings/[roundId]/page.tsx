@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { redirectUnlessLaunched } from '../../../../features/coming-soon/launch-gate';
 import type { SearchParams } from '../../../../features/access/decision';
 import { accountOf } from '../../../../features/access/account-of';
 import {
@@ -38,7 +37,6 @@ export default async function RecordingPage({
   params: Promise<{ roundId: string }>;
   searchParams: Promise<SearchParams>;
 }) {
-  redirectUnlessLaunched('watch');
   const { roundId } = await params;
   const search = await searchParams;
   const identity = await requestIdentity();

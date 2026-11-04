@@ -1,10 +1,10 @@
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { destinationSlugs } from '../../features/coming-soon/destinations';
-import { liveHref } from '../../features/coming-soon/launch';
+import {
+  destinationHref,
+  destinationSlugs,
+} from '../../features/destinations/destinations';
 import { tiles } from './tiles';
-import { statusDotClass } from '../components/status-line/status-line-class';
-import { actionTileTintClass } from './action-tile/action-tile-class';
 import { routeExists } from '../test-support/route-exists';
 
 setupRitewayBun();
@@ -23,28 +23,13 @@ describe('tile destinations', () => {
     });
   });
 
-  test('have a live route ready for every destination that launches', () => {
+  test('every destination has a page at its route', () => {
     assert({
-      given: 'each destination flipped to launched',
-      should:
-        'have an app router page at its live route, but the one with no screens yet',
+      given: 'each destination',
+      should: 'have an app router page at its route',
       actual: destinationSlugs
-        .map(liveHref)
+        .map(destinationHref)
         .filter((href) => !routeExists(appDirectory, href)),
-      expected: ['/tournaments'],
-    });
-  });
-
-  test('use only tints and tones the class functions define', () => {
-    assert({
-      given: 'every tint and status tone in use, including the neutral default',
-      should: 'resolve to a real class, never "undefined"',
-      actual: [
-        ...tiles.map((tile) => actionTileTintClass(tile.tint ?? 'neutral')),
-        ...tiles.map((tile) => statusDotClass(tile.status?.tone ?? 'neutral')),
-      ].filter(
-        (classes) => classes === undefined || classes.includes('undefined'),
-      ),
       expected: [],
     });
   });

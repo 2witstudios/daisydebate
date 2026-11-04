@@ -1,10 +1,4 @@
 import { RESTRICTED_HREF } from '../../../../features/access/decision';
-import type { DestinationSlug } from '../../../../features/coming-soon/destinations';
-import {
-  launched,
-  launchedPlaces,
-  type PlaceLaunchConfig,
-} from '../../../../features/coming-soon/launch';
 import type { IconName } from '../../../components/icon/icon';
 import type { ShellAccount } from '../account';
 
@@ -23,30 +17,26 @@ type Destination = {
   }[];
   /** Routes that light this destination without a link of their own. */
   readonly alsoActive?: readonly string[];
-  /** The launch flag that lists it; the nav leaves it out until it is set. */
-  readonly launch?: DestinationSlug;
 };
 
-const allDestinations: readonly Destination[] = [
+/** The primary destinations, in rail order. */
+export const primaryDestinations: readonly Destination[] = [
   { href: '/', icon: 'home', label: 'Home' },
   {
     href: '/lobby',
     icon: 'swords',
     label: 'Play',
     alsoActive: ['/play', '/ranked'],
-    launch: 'lobby',
   },
   {
     href: '/tournaments',
     icon: 'trophy',
     label: 'Tournaments',
-    launch: 'tournaments',
   },
   {
     href: '/leaderboard',
     icon: 'chart',
     label: 'Leaderboard',
-    launch: 'leaderboard',
   },
   {
     href: '/watch',
@@ -56,22 +46,11 @@ const allDestinations: readonly Destination[] = [
       { href: '/watch', label: 'Spectate live' },
       { href: '/recordings', label: 'Recordings' },
     ],
-    launch: 'watch',
   },
-  { href: '/judge', icon: 'gavel', label: 'Judge', launch: 'judge' },
-  { href: '/train', icon: 'bolt', label: 'Train', launch: 'train' },
-  { href: '/prep', icon: 'book', label: 'Prep', launch: 'prep' },
+  { href: '/judge', icon: 'gavel', label: 'Judge' },
+  { href: '/train', icon: 'brain', label: 'Train' },
+  { href: '/prep', icon: 'book', label: 'Prep' },
 ];
-
-/**
- * The launched primary destinations, in rail order. One that is not
- * launched is left out rather than linked to sample data; Home's tiles
- * still point at its explainer.
- */
-export const primaryDestinations: readonly Destination[] =
-  allDestinations.filter(
-    ({ launch }) => launch === undefined || launched[launch],
-  );
 
 /** More: settings and the legal and help pages. */
 export const moreDestination: Destination = {
@@ -86,7 +65,7 @@ export const moreDestination: Destination = {
   ],
 };
 
-/** A member's own places: their inbox and friends. */
+/** A member's own places: their inbox, notifications and friends. */
 export const memberDestinations = {
   messages: { href: '/messages', icon: 'message', label: 'Messages' },
   friends: {
@@ -96,21 +75,12 @@ export const memberDestinations = {
     // The count rides in the accessible name and the badge, not the word.
     word: 'Friends',
   },
+  notifications: {
+    href: '/notifications',
+    icon: 'bell',
+    label: 'Notifications',
+  },
 } as const satisfies Readonly<Record<string, Destination>>;
-
-const notifications = {
-  href: '/notifications',
-  icon: 'bell',
-  label: 'Notifications',
-} as const satisfies Destination;
-
-/**
- * Notifications, once its launch flag is set; until then the nav leaves it
- * out rather than linking an empty page.
- */
-export const notificationsDestination = (
-  config: PlaceLaunchConfig = launchedPlaces,
-): typeof notifications | null => (config.notifications ? notifications : null);
 
 /** The accessible name of the Friends link, with the count in it. */
 export const friendsLabel = (online: number): string =>

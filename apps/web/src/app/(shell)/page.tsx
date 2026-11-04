@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { betaHref, RESTRICTED_HREF } from '../../features/access/decision';
-import { launched } from '../../features/coming-soon/launch';
 import { Dashboard } from '../../ui/dashboard/dashboard';
 import { HeroBanner } from '../../ui/dashboard/hero-banner/hero-banner';
 import { MemberHero } from '../../ui/dashboard/member-hero/member-hero';
@@ -25,9 +24,7 @@ export default async function HomePage() {
   // a restricted one goes to its own.
   if (identity.state === 'waitlisted') redirect(betaHref('/'));
   if (identity.state === 'restricted') redirect(RESTRICTED_HREF);
-  const liveNow = launched.watch ? (
-    <LiveNow rounds={await requestLeadingLive()} />
-  ) : null;
+  const liveNow = <LiveNow rounds={await requestLeadingLive()} />;
   if (identity.state !== 'member') {
     return (
       <Dashboard

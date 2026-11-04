@@ -1,4 +1,4 @@
-import { destinationHref } from '../coming-soon/launch';
+import { destinationHref } from '../destinations/destinations';
 
 type Link = { readonly label: string; readonly href: string };
 

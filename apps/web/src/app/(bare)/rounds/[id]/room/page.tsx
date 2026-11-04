@@ -1,6 +1,5 @@
 import { documentPrincipalOf } from '../../../../../features/documents/document-principal';
 import { shareLinkHref } from '../../../../../features/audience-link/audience-link';
-import { launched } from '../../../../../features/coming-soon/launch';
 import {
   requestHostedAudienceLink,
   requestRoundRatings,
@@ -159,7 +158,6 @@ export default async function RoundRoomPage({
   const shareHref = shareLinkHref(
     await requestHostedAudienceLink(id, identity),
     id,
-    launched.watch,
   );
   return (
     <>

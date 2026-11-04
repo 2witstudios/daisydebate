@@ -10,7 +10,6 @@ import {
   type RoomView,
 } from '@daisy/protocol';
 import { expect, openPage, test } from './support/fixtures';
-import { launched } from '../src/features/coming-soon/launch';
 import { origin } from './support/accounts';
 import { foundationSelection } from '../integration/foundation-selection.test-support';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
@@ -312,27 +311,24 @@ test('a Freestyle bank strike against a bot: automatic strikes, a confirmed stri
     await expect(
       page.getByRole('button', { name: 'End prep', exact: true }),
     ).toHaveCount(0);
-    // Only once Watch is open: a closed Watch answers this read as missing.
-    if (launched.watch) {
-      // A visitor's request carries no session, and reads only what is released.
-      const visitor = await request.newContext({ baseURL: origin });
-      const snapshot = await visitor.get(`/api/rounds/${roundId}/timeline`);
-      const released = spectatorTimelineSchema.parse(await snapshot.json());
-      expect({
-        status: snapshot.status(),
-        cookie: snapshot.headers()['set-cookie'],
-        cache: snapshot.headers()['cache-control'],
-        resolution: released.resolution,
-        result: released.result,
-      }).toEqual({
-        status: 200,
-        cookie: undefined,
-        cache: 'public, max-age=1, s-maxage=1, stale-while-revalidate=1',
-        resolution: null,
-        result: null,
-      });
-      await visitor.dispose();
-    }
+    // A visitor's request carries no session, and reads only what is released.
+    const visitor = await request.newContext({ baseURL: origin });
+    const snapshot = await visitor.get(`/api/rounds/${roundId}/timeline`);
+    const released = spectatorTimelineSchema.parse(await snapshot.json());
+    expect({
+      status: snapshot.status(),
+      cookie: snapshot.headers()['set-cookie'],
+      cache: snapshot.headers()['cache-control'],
+      resolution: released.resolution,
+      result: released.result,
+    }).toEqual({
+      status: 200,
+      cookie: undefined,
+      cache: 'public, max-age=1, s-maxage=1, stale-while-revalidate=1',
+      resolution: null,
+      result: null,
+    });
+    await visitor.dispose();
     expect((await read()).topic).toBe(survivor);
   } finally {
     await accounts.closeContexts();

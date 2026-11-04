@@ -1,8 +1,6 @@
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { AppShell } from './app-shell';
-import { notificationsDestination } from './components/destinations';
-import { launchedPlaces } from '../../../features/coming-soon/launch';
 import type { ShellAccount, ShellRatings } from './account';
 import type { RailPreference } from './rail-preference';
 import type { ActiveRoomSummary } from '../../active-room/your-room';
@@ -106,12 +104,12 @@ describe('AppShell', () => {
     });
   });
 
-  test('the rail: logo, launched destinations, then member places, with the account at the foot', () => {
+  test('the rail: logo, destinations, then member places, with the account at the foot', () => {
     const [rail] = navs(render(member));
     assert({
       given: 'a member',
       should:
-        'link home from the logo, then the launched destinations, then Messages, Notifications and Friends, then the account menu with the profile and account pages',
+        'link home from the logo, then the destinations, then Messages, Notifications and Friends, then the account menu with the profile and account pages',
       actual: [
         rail.includes('aria-label="Daisy Debate home"'),
         hrefsOf(rail).filter(
@@ -124,6 +122,7 @@ describe('AppShell', () => {
           '/',
           '/',
           '/lobby',
+          '/tournaments',
           '/leaderboard',
           '/watch',
           '/watch',
@@ -256,6 +255,7 @@ describe('AppShell', () => {
       should: 'list their places, Settings and the help and legal pages',
       actual: sheet,
       expected: [
+        '/tournaments',
         '/leaderboard',
         '/watch',
         '/recordings',
@@ -294,22 +294,17 @@ describe('AppShell', () => {
   });
 });
 
-describe('Notifications behind its launch flag (ISSUE-634)', () => {
-  test('the nav lists Notifications only once it is launched', () => {
+describe('Notifications', () => {
+  test('a member reaches it from both navs', () => {
     const [rail, tabBar] = navs(render(member));
     assert({
-      given:
-        'the flag off and on, then a member’s rail and phone More sheet with the shipped flag',
-      should:
-        'offer Notifications only when launched, and link /notifications from both navs while it is not',
+      given: 'a member’s rail and phone More sheet',
+      should: 'link /notifications from both',
       actual: [
-        notificationsDestination({ notifications: false }),
-        notificationsDestination({ notifications: true })?.href,
-        launchedPlaces.notifications,
         hrefsOf(rail).includes('/notifications'),
         hrefsOf(tabBar).includes('/notifications'),
       ],
-      expected: [null, '/notifications', true, true, true],
+      expected: [true, true],
     });
   });
 });

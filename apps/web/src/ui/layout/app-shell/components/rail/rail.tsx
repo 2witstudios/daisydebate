@@ -9,7 +9,6 @@ import type { RailPreference } from '../../rail-preference';
 import type { ShellAccount, ShellRatings } from '../../account';
 import {
   memberDestinations,
-  notificationsDestination,
   primaryDestinations,
 } from '../destinations';
 import { AccountMenu } from './account-menu';
@@ -24,17 +23,14 @@ function MemberPlaces({
   readonly extended: boolean;
 }) {
   if (account.state !== 'member') return null;
-  const notifications = notificationsDestination();
   return (
     <>
       <li>
         <NavItem {...memberDestinations.messages} extended={extended} />
       </li>
-      {notifications ? (
-        <li>
-          <NavItem {...notifications} extended={extended} />
-        </li>
-      ) : null}
+      <li>
+        <NavItem {...memberDestinations.notifications} extended={extended} />
+      </li>
       <li>
         <FriendsLink extended={extended} />
       </li>

@@ -165,7 +165,6 @@ const appRoutes = [
   '/auth/confirm-email',
   '/auth/sign-out',
   '/beta',
-  '/coming-soon/[destination]',
   '/enroll',
   '/foundation',
   '/foundation/share/[format]/[scheme]',
