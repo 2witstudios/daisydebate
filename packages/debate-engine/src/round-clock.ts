@@ -19,7 +19,7 @@ import {
   type ClockSegment,
 } from './round-clock-state';
 
-export const openClockSegment = (
+const openClockSegment = (
   state: ClockState,
   rules: RoundRules,
   atMs: number,

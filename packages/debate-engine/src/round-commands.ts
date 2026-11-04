@@ -138,6 +138,7 @@ export function closePlayedRound(c: CommandContext): void {
   const open = c.on.openRow();
   if (open !== undefined) c.closeRowAt(open.sequence, c.now);
   c.on.endPrep();
+  c.on.setPrepEndedAt(null);
   const lastPlayed = c.on.rows().at(-1)?.endedAtMs;
   if (lastPlayed !== undefined && lastPlayed !== null)
     c.into.finalPlayedEnd = iso(lastPlayed);

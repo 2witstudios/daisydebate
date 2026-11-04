@@ -187,6 +187,33 @@ describe('round runtime prep', () => {
     });
   });
 
+  test('a forfeit inside the lead leaves no prep end behind', () => {
+    const world = runtimeWorld();
+    world.activate({ at: at(0), now: at(0) });
+    world.tick(at(940_000));
+    world.execute({
+      command: { type: 'start_prep' },
+      actorId: person,
+      now: at(945_000),
+    });
+    world.execute({
+      command: { type: 'start_speech' },
+      actorId: person,
+      now: at(1_005_000),
+    });
+    const forfeited = world.execute({
+      command: { type: 'forfeit' },
+      actorId: person,
+      now: at(1_005_100),
+    });
+    assert({
+      given: 'a forfeit before the clock starts',
+      should: 'end the Round with the prep end cleared',
+      actual: forfeited.round?.checkpoint.prep_ended_at,
+      expected: null,
+    });
+  });
+
   test('prep cannot restart inside the lead after it ended', async () => {
     const world = runtimeWorld();
     world.activate({ at: at(0), now: at(0) });

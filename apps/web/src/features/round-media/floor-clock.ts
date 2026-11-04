@@ -152,8 +152,8 @@ export function floorBoundaries(clock: FloorClock): number[] {
 }
 /**
  * The committed instant the floor last changed, at or before `nowMs`: a clock
- * boundary that has passed, or the last segment's own start or end (a yield
- * commits an end ahead of its boundary). Null before anything has happened.
+ * boundary that has passed, the last segment's own start or end (a yield
+ * commits an end ahead of its boundary), or prep ending, which opens the microphone. Null before anything has happened.
  */
 export function floorDueAt(clock: FloorClock, nowMs: number): number | null {
   const last = clock.lastSegment;
@@ -165,6 +165,7 @@ export function floorDueAt(clock: FloorClock, nowMs: number): number | null {
           ...(last.endedAt ? [Date.parse(last.endedAt)] : []),
         ]
       : []),
+    ...(clock.prepEndedAt ? [Date.parse(clock.prepEndedAt)] : []),
   ].filter((at) => at <= nowMs);
   return passed.length ? Math.max(...passed) : null;
 }

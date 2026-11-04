@@ -216,6 +216,31 @@ describe('liveRoundOf during the round', () => {
     });
   });
 
+  test('a seat in its own prep is told its microphone opens when prep ends', () => {
+    const closed = rules.findIndex(
+      ({ type, side }, index) =>
+        index > 0 && type === 'speech' && side === 'affirmative',
+    );
+    const prepping: RoundView = {
+      ...ran(closed, true),
+      checkpoint: {
+        ...emptyRuntimeCheckpoint,
+        active_prep: { side: 'affirmative', started_at: at(startOf(closed)) },
+      },
+    };
+    const clock = liveRoundOf(
+      prepping,
+      aff.actorId,
+      origin + startOf(closed) + 1_000,
+    )?.clock;
+    assert({
+      given: 'the next speaker in their own prep',
+      should: 'say the microphone goes live when prep ends',
+      actual: [clock?.label, clock?.note],
+      expected: ['Your prep', 'Your microphone goes live when this prep ends.'],
+    });
+  });
+
   test('a speech, from both sides', () => {
     const now = origin + startOf(0) + 60_000;
     const mine = liveRoundOf(ran(1), aff.actorId, now);
@@ -321,6 +346,7 @@ describe('liveRoundOf during the round', () => {
       expected: [
         'prep',
         { label: 'Your prep', remainingMs: 220_000 },
+          note: 'Your microphone goes live when this prep ends.',
         4,
         { aff: 220_000, neg: 240_000 },
         'waiting',
