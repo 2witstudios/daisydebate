@@ -32,10 +32,7 @@ export {
   observationMatters,
 } from './round-incident-decision';
 export type { MediaObservation } from './round-incident-decision';
-export {
-  mediaGrants,
-  changedMediaGrants,
-} from './media-grants';
+export { mediaGrants, changedMediaGrants } from './media-grants';
 export { mediaWindowClosed } from './media-window';
 export { mediaRoomFate, mediaRoomLost } from './media-room-fate';
 export type { RoundMediaGrants } from './media-grants';
