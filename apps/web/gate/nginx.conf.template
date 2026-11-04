@@ -1,0 +1,188 @@
+# The web gate (ADR 0116): answers or refuses traffic before it reaches web's one process.
+# start.sh writes GATEWAY_ADDRESS and starts this beside web. No address reaches a log:
+# there is no access log, and refusals log below the error level kept.
+worker_processes 2;
+pid /tmp/web-gate/nginx.pid;
+error_log /dev/stderr crit;
+
+events {
+  worker_connections 8192;
+}
+
+http {
+  access_log off;
+  server_tokens off;
+  client_body_temp_path /tmp/web-gate/body;
+  proxy_temp_path /tmp/web-gate/proxy;
+  fastcgi_temp_path /tmp/web-gate/fastcgi;
+  uwsgi_temp_path /tmp/web-gate/uwsgi;
+  scgi_temp_path /tmp/web-gate/scgi;
+  large_client_header_buffers 4 32k;
+  # Each route enforces its own smaller limit. This only bounds what the gate spools.
+  client_max_body_size 64m;
+
+  # Only fly-proxy names the caller (DEC-39): anyone else is known by its own address.
+  set_real_ip_from GATEWAY_ADDRESS;
+  real_ip_header Fly-Client-IP;
+
+  # Presence only, as web's early hint: whether a session is live is web's decision.
+  map $http_cookie $gate_holds_session {
+    default "";
+    "~(^|;\s*)(__Secure-)?better-auth\.session_token=" 1;
+    "~(^|;\s*)daisy_audience_link_" 1;
+  }
+  map $gate_holds_session $gate_upstream {
+    "" 127.0.0.1:8089;
+    default 127.0.0.1:WEB_PORT;
+  }
+  map $gate_holds_session $gate_anonymous_address {
+    "" $binary_remote_addr;
+    default "";
+  }
+  map $gate_holds_session $gate_member_address {
+    "" "";
+    default $binary_remote_addr;
+  }
+
+  # The lane's own hop keeps the address the outer server already settled.
+  map $server_port $gate_client_address {
+    8089 $http_fly_client_ip;
+    default $remote_addr;
+  }
+  # nginx treats the string "0" as false in cache predicates. Map presence explicitly.
+  map $args $gate_has_query {
+    "" "";
+    default 1;
+  }
+  map "$http_rsc|$http_next_router_prefetch|$http_x_middleware_prefetch|$http_next_router_segment_prefetch" $gate_client_navigation {
+    "|||" "";
+    default 1;
+  }
+  # Ignoring Next's private Cache-Control is safe only for an actual HTML document.
+  map $upstream_http_content_type $gate_not_document {
+    "~*^text/html(;|$)" "";
+    default 1;
+  }
+  # One cached copy of a Watch page, whichever encodings its viewers accept.
+  map $uri $gate_accept_encoding {
+    "~^/watch(/[^/]+)?$" gzip;
+    default $http_accept_encoding;
+  }
+
+  limit_req_status 429;
+  limit_req_log_level warn;
+  limit_req_zone $binary_remote_addr zone=address_static:10m rate=200r/s;
+  limit_req_zone $gate_anonymous_address zone=address_watch:10m rate=50r/s;
+  limit_req_zone $gate_anonymous_address zone=address_anonymous:10m rate=10r/s;
+  limit_req_zone $gate_member_address zone=address_member_page:10m rate=10r/s;
+  limit_req_zone $gate_member_address zone=address_member_api:10m rate=40r/s;
+  limit_req_zone $binary_remote_addr zone=address_machine:10m rate=100r/s;
+  limit_req_zone $binary_remote_addr zone=address_stage:10m rate=20r/s;
+  # The crowd's one budget: whatever misses the cache, from every address together.
+  limit_req_zone $server_port zone=anonymous_lane:1m rate=20r/s;
+
+  proxy_cache_path /tmp/web-gate/cache levels=1:2 keys_zone=web_gate:16m max_size=256m inactive=1h use_temp_path=off;
+
+  proxy_http_version 1.1;
+  proxy_set_header Connection "";
+  proxy_set_header Host $http_host;
+  proxy_set_header Fly-Client-IP $gate_client_address;
+  proxy_set_header Accept-Encoding $gate_accept_encoding;
+  proxy_connect_timeout 2s;
+  proxy_read_timeout 120s;
+  proxy_buffer_size 32k;
+  proxy_buffers 16 32k;
+  proxy_busy_buffers_size 64k;
+
+  # The anonymous lane, loopback only, so a cached answer never spends its budget.
+  server {
+    listen 127.0.0.1:8089;
+    limit_req zone=anonymous_lane burst=40;
+    limit_req_status 503;
+    error_page 503 @lane_full;
+    location / {
+      proxy_buffering off;
+      proxy_pass http://127.0.0.1:WEB_PORT;
+    }
+    location @lane_full {
+      internal;
+      add_header Retry-After 2 always;
+      default_type text/plain;
+      return 503 "Busy. Try again in a moment.\n";
+    }
+  }
+
+  server {
+    listen 0.0.0.0:8080;
+    error_page 429 @too_many;
+
+    location @too_many {
+      internal;
+      add_header Retry-After 2 always;
+      default_type text/plain;
+      return 429 "Too many requests. Try again in a moment.\n";
+    }
+
+    location /_next/static/ {
+      limit_req zone=address_static burst=800 nodelay;
+      proxy_cache web_gate;
+      proxy_cache_key "$uri";
+      proxy_cache_valid 200 1h;
+      proxy_cache_lock on;
+      proxy_pass http://$gate_upstream;
+    }
+
+    # Fly's checks reach web directly, so a full lane never fails a machine.
+    location /api/health/ {
+      limit_req zone=address_anonymous burst=20 nodelay;
+      proxy_pass http://127.0.0.1:WEB_PORT;
+    }
+
+    # Workers and vendors carry no session and hold debates up if they queue: their own
+    # budget per address, past the lane. Each route still checks its own secret.
+    location ~ ^/api/(internal|webhooks)/ {
+      limit_req zone=address_machine burst=200 nodelay;
+      proxy_buffering off;
+      proxy_pass http://127.0.0.1:WEB_PORT;
+    }
+    location ~ ^/(api/)?stage/ {
+      limit_req zone=address_stage burst=40 nodelay;
+      proxy_buffering off;
+      proxy_pass http://127.0.0.1:WEB_PORT;
+    }
+
+    location /api/ {
+      limit_req zone=address_anonymous burst=30 nodelay;
+      limit_req zone=address_member_api burst=120 nodelay;
+      proxy_buffering off;
+      proxy_pass http://$gate_upstream;
+    }
+
+    # Anonymous Watch. The full path and query are in the key, and the whole Cookie header,
+    # so no answer reaches a viewer asking for anything else. A held session or link, a
+    # query, a client navigation, and any response with Set-Cookie are never cached. Late, never early.
+    location ~ ^/watch(/[^/]+)?$ {
+      limit_req zone=address_watch burst=100 nodelay;
+      limit_req zone=address_member_page burst=40 nodelay;
+      proxy_cache web_gate;
+      proxy_cache_methods GET HEAD;
+      proxy_cache_key "$request_uri|$http_cookie";
+      proxy_cache_bypass $gate_holds_session $gate_has_query $gate_client_navigation;
+      proxy_no_cache $gate_holds_session $gate_has_query $gate_client_navigation $gate_not_document;
+      proxy_ignore_headers Cache-Control Expires Vary;
+      proxy_cache_valid 200 5s;
+      proxy_cache_lock on;
+      # Expired access never survives a slow refresh; other viewers wait on the fill.
+      gunzip on;
+      add_header X-Gate-Cache $upstream_cache_status always;
+      proxy_pass http://$gate_upstream;
+    }
+
+    location / {
+      limit_req zone=address_anonymous burst=30 nodelay;
+      limit_req zone=address_member_page burst=40 nodelay;
+      proxy_buffering off;
+      proxy_pass http://$gate_upstream;
+    }
+  }
+}

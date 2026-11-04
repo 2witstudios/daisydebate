@@ -155,6 +155,9 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
           epochs: [leased.epoch, leased.epoch],
         },
       });
+      // Capture reads above have already opened a durable segment. Delayed HTTP work
+      // must not let the fixture move the Round start forward past that segment.
+      await Bun.sleep(1250);
       await startCaptureSpeech(f);
       const snapshotState = await capture.readMediaCaptureState({
         ...scope,

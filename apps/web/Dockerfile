@@ -235,10 +235,22 @@ ENV ADMIN_PORT=8080
 ENV ADMIN_HOST=127.0.0.1
 CMD ["bash", "src/server/private-ingress.sh"]
 
+# ---- web-gate: what stands in front of web (ADR 0116), and all its proof needs.
+FROM base AS web-gate
+RUN apt-get update && apt-get install -y --no-install-recommends nginx util-linux \
+  && rm -rf /var/lib/apt/lists/*
+COPY --chown=root:root apps/web/gate apps/web/gate
+
 # ---- runtime: the web app, and the default target (the last stage).
 FROM server-source AS runtime
-# Fly's http_service.internal_port; start.ts reads PORT and binds 0.0.0.0.
-ENV PORT=8080
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends nginx util-linux \
+  && rm -rf /var/lib/apt/lists/*
+USER daisy
+# The gate takes Fly's http_service.internal_port, 8080; web sits behind it on loopback.
+ENV PORT=8090
+ENV LISTEN_HOST=127.0.0.1
+COPY --chown=root:root apps/web/gate apps/web/gate
 COPY --chown=daisy:daisy apps/web/src apps/web/src
 COPY --chown=daisy:daisy apps/web/public apps/web/public
 COPY --chown=daisy:daisy apps/web/next.config.ts apps/web/next.config.ts
@@ -246,4 +258,4 @@ COPY --chown=daisy:daisy apps/web/postcss.config.mjs apps/web/postcss.config.mjs
 COPY --from=build --chown=daisy:daisy /app/apps/web/.next apps/web/.next
 WORKDIR /app/apps/web
 EXPOSE 8080
-CMD ["bun", "src/server/start.ts"]
+CMD ["bash", "gate/start.sh"]

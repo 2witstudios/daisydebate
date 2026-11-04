@@ -151,7 +151,12 @@ export async function fillNativeBuffer(
   // Bounded physical traffic, with actual OS and Bun buffers observed each chunk.
   for (let count = 0; count < 100_000; count++) {
     socket.send(serialized);
-    if (socket.getBufferedAmount() > 262_144) return;
+    if (socket.getBufferedAmount() > 262_144) {
+      // A transient Bun buffer can drain into the paused peer's kernel receive queue.
+      // Let TCP feedback settle, then refill until durable delivery sees real pressure.
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+      if (socket.getBufferedAmount() > 262_144) return;
+    }
     if (count % 128 === 0)
       await new Promise<void>((resolve) => setImmediate(resolve));
   }

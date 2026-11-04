@@ -195,6 +195,12 @@ would make them harmless, but that is inferred, not measured. If they are
 sign-in traffic, those callers share one rate-limit identity. The
 post-merge "Client identity on Fly" check records the answer on ISSUE-162.
 
+**Behind the gate (ADR 0116).** The web gate now holds the port fly-proxy reaches, and web
+listens on loopback with `AUTH_TRUSTED_PROXIES = "127.0.0.1"`. The boundary below is the gate's:
+`apps/web/gate/start.sh` reads `/proc/net/route` and trusts `Fly-Client-IP` only from the default
+gateway. It overwrites the header for any other peer. The `gateway` keyword remains for a process
+facing fly-proxy directly. Measure the peer on the gate's port when repeating the check.
+
 **Trust boundary (DEC-39, owner decision 2026-09-28, supersedes DEC-36):
 only this machine's default gateway may supply a client IP.** `fly.toml`
 sets `AUTH_TRUSTED_PROXIES = "gateway"`. At start, `start.ts` reads

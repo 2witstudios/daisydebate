@@ -81,7 +81,15 @@ test('physical paused TCP reader closes4005, preserves healthy delivery and catc
     // Transport-only pressure, never a second authority predicate or synthetic buffer.
     // The subsequent real durable row takes the actual authorization/drain/sink path.
     await fillNativeBuffer(native, pressureFrame);
-    const physicalBuffered = native.getBufferedAmount();
+    // A real durable write yields to the transport. Pressure must survive that gap,
+    // not disappear into the paused reader's kernel receive queue (PR 667 CI).
+    await new Promise<void>((resolve) => setTimeout(resolve, 250));
+    assert({
+      given: 'a paused TCP reader after the durable-write scheduling gap',
+      should: 'still exert physical backpressure before invalidation delivery',
+      actual: native.getBufferedAmount() > 262_144,
+      expected: true,
+    });
     position = await insertOutboxRow(fixture.client, {
       topic,
       kind: payload.kind,
@@ -109,7 +117,6 @@ test('physical paused TCP reader closes4005, preserves healthy delivery and catc
       should:
         'close only the paused reader4005 and deliver the real finalized invalidation to the healthy recipient',
       actual: {
-        physicalBufferExceeded: physicalBuffered > 262_144,
         closeCode: closed,
         replayEvents: reconnected.frames.filter(
           (frame) =>
@@ -120,7 +127,6 @@ test('physical paused TCP reader closes4005, preserves healthy delivery and catc
           .length,
       },
       expected: {
-        physicalBufferExceeded: true,
         closeCode: 4005,
         healthyEvents: 1,
         replayEvents: 1,
