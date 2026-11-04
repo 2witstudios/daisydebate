@@ -266,7 +266,7 @@ with `bun decision:record`, confirmed by the owner, and linked from this
 section. Recorded sign-offs: DEC-229 (2026-10-24, ISSUE-528) admits
 `daisy-debate-staging-realtime` and `daisy-debate-staging-media-worker` to
 this 6PN; DEC-230 revises it to admit `daisy-debate-staging-livekit` too,
-because native clients inside Fly reach its media only over 6PN; DEC-250
+because native clients inside Fly reach its media only over 6PN; DEC-354 (2026-11-03, SFU-5; the owner's sign-off on a second node, relayed by the point guard, pending confirmation on the record) admits `daisy-debate-staging-livekit-b`; DEC-250
 (2026-10-27, BETA-H; recorded on the owner's behalf under the orchestrator's
 autonomy rule and pending the owner's confirmation) admits `daisy-debate-staging-admin` and
 `daisy-debate-staging-admin-migrate` and the web app's operator listener on
@@ -745,10 +745,10 @@ Docker cache, so the job runs `next build` once. Fly's 4-CPU Depot builder
 stalled `next build` at "Collecting page data" for 40 minutes, until it
 dropped the connection; the same build takes about 30 s with room.
 `scripts/verify-image-build.ts` fails a deploy step without `--local-only`.
-The workflow needs five
+The workflow needs six
 repository secrets, each a deploy token scoped to one app and exposed only
 on its own step: `FLY_API_TOKEN` (web), `FLY_MIGRATE_API_TOKEN`
-(migrator), and `FLY_LIVEKIT_API_TOKEN`, `FLY_REALTIME_API_TOKEN` and
+(migrator), and `FLY_LIVEKIT_API_TOKEN`, `FLY_LIVEKIT_B_API_TOKEN`, `FLY_REALTIME_API_TOKEN` and
 `FLY_MEDIA_WORKER_API_TOKEN`, which §11 creates. The first two:
 
 ```
@@ -791,6 +791,7 @@ steps (`SERVICE_APPS`).
 
 | App                                 | Config                  | Image                                 | Network                                                                              | Secrets                                                                                         |
 | ----------------------------------- | ----------------------- | ------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `daisy-debate-staging-livekit-b`    | `fly.livekit-b.toml`    | `infra/livekit/Dockerfile` (pinned)   | default 6PN (DEC-354)                                                                | Second node. Same keys and Redis.                                                               |
 | `daisy-debate-staging-livekit`      | `fly.livekit.toml`      | `infra/livekit/Dockerfile` (pinned)   | default 6PN (DEC-230)                                                                | `LIVEKIT_KEYS` (`<key>: <secret>`)                                                              |
 | `daisy-debate-staging-media-redis`  | `fly.media-redis.toml`  | `redis:8.6.1-alpine`                  | private 6PN, password, nothing persisted; the bus LiveKit and Egress share (BCAST-2) |                                                                                                 |     |
 | `daisy-debate-staging-realtime`     | `fly.realtime.toml`     | `apps/web/Dockerfile`, `realtime`     | default 6PN (Postgres, Redis)                                                        | `DATABASE_URL` (`daisy_realtime`), `REDIS_URL`                                                  |
@@ -886,12 +887,11 @@ a Round already running, except where noted.
 Egress machines join through the shared media Redis and need nothing else. New
 machines hold the app's existing secrets, since Fly secrets are app-wide.
 
-A second LiveKit node is **not yet a procedure**, and it is not `fly scale count`.
-The Redis it needs is in place, but `LIVEKIT_NODE_IP` is one dedicated anycast IPv4
-that every machine would advertise, so media for a Room could reach a machine that
-does not host it. It needs an address per node, which has not been built or tried.
-Until it is, one LiveKit node is the limit on concurrent Rounds, and losing that node
-drops every Round on it. No instance kill has been run for any app in this table.
+LiveKit runs two nodes, each its own app, because a dedicated IPv4 belongs to an app and
+every machine advertises it. A third is `bun scripts/livekit-node-config.ts <app> <ipv4> <size>
+[memory]`, the same secrets, its own deploy step and token, a new org sign-off, and a third
+entry in `LIVEKIT_URL` and `LIVEKIT_PUBLIC_URL`, paired by position. A room dies with its node:
+the server retires it and the seats rejoin on the other (ADR 0110).
 
 **Deployment hold (BCAST-2).** Nothing mechanical stops a deploy from interrupting a
 live Round: a gate in the workflow is a deploy-rail change and needs human sign-off.

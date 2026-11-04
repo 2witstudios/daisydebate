@@ -3,10 +3,15 @@ import { z } from 'zod';
 /**
  * What the node kill drill may touch. Everything comes from the environment and
  * is refused here, before a queue slot, a browser or a command: only apps named
- * daisy-mr-, reached at their own hosts or at loopback off the shared LiveKit's
- * ports, through a command with no shell that cannot destroy anything.
+ * daisy-mr-, or staging's two LiveKit nodes when asked for by name, reached at their own
+ * hosts or at loopback off the shared LiveKit's ports, through a command with no shell
+ * that cannot destroy anything.
  */
 const SCRATCH_APP = /^daisy-mr-[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const STAGING_NODES = new Set([
+  'daisy-debate-staging-livekit',
+  'daisy-debate-staging-livekit-b',
+]);
 const SHARED_LOCAL_LIVEKIT_PORTS = new Set(['7880', '7881', '7882']);
 const COMMAND_BINARIES = new Set(['fly', 'flyctl', 'docker']);
 const DESTRUCTIVE =
@@ -43,15 +48,15 @@ const requireOwnHost = (app: string, raw: string, name: string) => {
     refuse(`${name} of ${app} is the shared local LiveKit`);
 };
 
-const requireNode = (node: DrillNode) => {
-  if (!SCRATCH_APP.test(node.app))
+const requireNode = (staging: boolean) => (node: DrillNode) => {
+  if (!SCRATCH_APP.test(node.app) && !(staging && STAGING_NODES.has(node.app)))
     refuse(`${node.app} does not begin with daisy-mr-`);
   requireOwnHost(node.app, node.apiUrl, 'apiUrl');
   requireOwnHost(node.app, node.publicUrl, 'publicUrl');
   return node;
 };
 
-const readNodes = (raw: string | undefined) => {
+const readNodes = (raw: string | undefined, staging: boolean) => {
   let nodes: readonly DrillNode[];
   try {
     nodes = z
@@ -61,7 +66,7 @@ const readNodes = (raw: string | undefined) => {
   } catch {
     return refuse('DRILL_NODES is not a JSON list of nodes');
   }
-  return nodes.map(requireNode);
+  return nodes.map(requireNode(staging));
 };
 
 const readCommand = (name: string, raw: string | undefined) => {
@@ -98,7 +103,10 @@ export function readDrillTarget(
     refuse('DRILL_LIVEKIT_API_KEY and DRILL_LIVEKIT_API_SECRET are required');
   return {
     label,
-    nodes: readNodes(env.DRILL_NODES),
+    nodes: readNodes(
+      env.DRILL_NODES,
+      env.DRILL_ON_STAGING === 'staging-livekit',
+    ),
     kill: readCommand('DRILL_KILL_COMMAND', env.DRILL_KILL_COMMAND),
     start: readCommand('DRILL_START_COMMAND', env.DRILL_START_COMMAND),
     state: readCommand('DRILL_STATE_COMMAND', env.DRILL_STATE_COMMAND),
