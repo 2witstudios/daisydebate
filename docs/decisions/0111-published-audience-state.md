@@ -11,13 +11,14 @@ and per-Round cache protect the database's connections, not the process.
 
 ## Decision
 
-Released public state is published like media. The worker writes one no-cache object per
-Broadcast to the public bucket about once a second: the projected timeline, the audience
+Released public state is published like media. `apps/audience-publisher` writes one no-cache
+object per Broadcast to the public bucket about once a second: the projected timeline, the audience
 snapshot and a pulse rate. The player and the audience panel poll it. The anonymous
 `/timeline` and `/audience` reads are gone, with no fallback.
 
-- **Its own role.** `daisy_audience_publisher` reads released facts. The hold worker's role
-  still reads no Round (ADR 0099), so publishing does not widen it.
+- **Its own app and role.** `apps/audience-publisher` runs on its own small machine, and
+  `daisy_audience_publisher` reads released facts. The hold worker still reads no Round and
+  holds no Redis (ADR 0099), and neither can slow the other.
 - **Key.** SHA3-256 of the feed key and, on an unlisted Round, the current link hash. Replacing
   a link moves the object, so the old link has no address for what follows (ADR 0109). The
   page hands the address out only past admission.

@@ -35,6 +35,7 @@ const serviceStages = [
   { stage: 'media-worker', app: 'apps/media-worker' },
   { stage: 'broadcast-worker', app: 'apps/broadcast-worker' },
   { stage: 'recording-worker', app: 'apps/recording-worker' },
+  { stage: 'audience-publisher', app: 'apps/audience-publisher' },
 ] as const;
 
 // Follow declared workspace edges, including dev edges for the build install.

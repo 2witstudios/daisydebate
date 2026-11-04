@@ -5,10 +5,6 @@ setupRitewayBun();
 
 const env = {
   BROADCAST_WORKER_DATABASE_URL: 'postgres://u@h/d',
-  AUDIENCE_PUBLISHER_DATABASE_URL: 'postgres://p@h/d',
-  BROADCAST_PUBLIC_ORIGIN: 'https://feed.invalid',
-  REDIS_URL: 'redis://h:6379/0',
-  REDIS_NAMESPACE: 'daisy-test',
   BROADCAST_STORAGE_ENDPOINT: 'https://s.test',
   BROADCAST_HOLD_BUCKET: 'hold',
   BROADCAST_HOLD_KEY: 'k',

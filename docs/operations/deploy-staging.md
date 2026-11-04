@@ -841,10 +841,12 @@ first such deploy, once:
    `daisy-debate-staging-recorder`, set `RECORDING_HOLD_*`; `fly storage create` already
    gave it `RECORDING_BUCKET_*`. On `daisy-debate-staging`, set the `RECORDING_BUCKET_*`
    secrets for signed playback.
-   On the encoder, also set `AUDIENCE_PUBLISHER_DATABASE_URL` for the login
+   On `daisy-debate-staging-publisher`, set `AUDIENCE_PUBLISHER_DATABASE_URL` for the login
    `daisy_audience_publisher` (ADR 0080: created with CONNECT before the migration runs),
-   `REDIS_URL` and `REDIS_NAMESPACE` matching web, and `BROADCAST_PUBLIC_ORIGIN`. The
-   worker refuses to start without them.
+   `REDIS_URL` and `REDIS_NAMESPACE` matching web, `BROADCAST_STORAGE_ENDPOINT`,
+   `BROADCAST_PUBLIC_BUCKET`, `BROADCAST_PUBLIC_KEY`, `BROADCAST_PUBLIC_SECRET` and
+   `BROADCAST_PUBLIC_ORIGIN`. It refuses to start without them. The repository secret
+   `FLY_AUDIENCE_PUBLISHER_API_TOKEN` deploys only that app.
 4. `BROADCAST_CAPTURE` and `RECORDING_CAPTURE` go `on` in `fly.toml`'s `[env]`, read by the web app, with the commit that turns Watch on. Until that commit they are unset and a green deploy captures nothing.
 5. Set each bucket's CORS: the public bucket `GET` and `HEAD` from any origin, the
    Recording bucket `GET` and `HEAD` from the app's origin.

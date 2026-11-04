@@ -13,7 +13,6 @@
     "@daisy/debate-engine": "workspace:*",
     "@daisy/logger": "workspace:*",
     "@daisy/protocol": "workspace:*",
-    "@daisy/redis": "workspace:*",
     "@paralleldrive/cuid2": "3.3.0",
     "zod": "4.6.6"
   },
