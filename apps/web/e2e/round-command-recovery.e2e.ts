@@ -1,6 +1,6 @@
 import type { Locator } from '@playwright/test';
 import { openPage } from './support/fixtures';
-import { test, expect } from './support/round-files';
+import { test, expect } from './support/live-room-documents';
 import { controlLaunch } from './support/room-launch-settled';
 import { roundViewSchema } from '@daisy/protocol';
 test.use({ roundCommands: true });
@@ -27,9 +27,9 @@ const commandFields = async (submit: Locator) =>
 
 for (const command of ['yield', 'forfeit'] as const)
   test(`unknown accepted ${command} keeps its exact reachable retry across fresh canonical state`, async ({
-    roundFiles,
+    liveRoom,
   }) => {
-    const { page, roundId } = roundFiles;
+    const { page, roundId } = liveRoom;
     for (const name of ['Take prep time', 'Start affirmative constructive'])
       await page.getByRole('button', { name, exact: true }).click();
     const label = command === 'yield' ? 'End speech' : 'Forfeit round';
@@ -116,10 +116,10 @@ for (const command of ['yield', 'forfeit'] as const)
   });
 
 test('native browser retry resubmits the original accepted command after a lost HTTP acknowledgement', async ({
-  roundFiles,
+  liveRoom,
   browser,
 }) => {
-  const { page, roundId } = roundFiles;
+  const { page, roundId } = liveRoom;
   const native = await browser.newContext({
     baseURL: new URL(page.url()).origin,
     ignoreHTTPSErrors: true,
@@ -182,11 +182,11 @@ test('native browser retry resubmits the original accepted command after a lost 
 });
 
 test('a capacity refusal on a mid-speech reload recovers on its own, End speech included, with and without JavaScript (ISSUE-927)', async ({
-  roundFiles,
+  liveRoom,
   browser,
 }) => {
   test.setTimeout(240_000);
-  const { page, roundId } = roundFiles;
+  const { page, roundId } = liveRoom;
   const path = `/rounds/${roundId}/room`;
   for (const name of ['Take prep time', 'Start affirmative constructive'])
     await page.getByRole('button', { name, exact: true }).click();

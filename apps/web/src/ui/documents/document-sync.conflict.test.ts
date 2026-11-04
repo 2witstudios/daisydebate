@@ -1,3 +1,4 @@
+import { createDocumentSync } from './document-sync.test-support';
 import {
   documentApi,
   manualDraftResources,
@@ -6,7 +7,7 @@ import {
 } from './document-sync.test-support';
 
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync, type DocumentsApi } from './document-sync';
+import type { DocumentsApi } from './document-sync';
 
 setupRitewayBun();
 
@@ -53,7 +54,6 @@ const watchedSync = (api: DocumentsApi) => {
     ...manualDraftResources('document-sync.conflict.test:1', { timers }),
 
     api,
-    roundId: 'd',
     principalId: 'p1',
     onConflict: (id) => conflicts.push(id),
     onSaved: (id) => saved.push(id),

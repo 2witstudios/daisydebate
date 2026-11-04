@@ -1,56 +1,132 @@
 'use client';
 
-import { useReducer } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
+import {
+  initialManagerState,
+  reduceManager,
+} from '../../features/documents/document-manager-state';
+import {
+  emptyDrive,
+  withPage,
+  type DriveEntryView,
+  type DriveCursor,
+} from '../../features/documents/drive-tree';
+import {
+  loadedDocuments,
+  openId as openDocumentId,
+  openTitle,
+} from '../../features/documents/open-documents';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { DocumentPane } from './document-pane';
+import type { DocumentSync } from './document-sync';
+import { driveApi, type FolderRow } from './drive-api';
 import { FileTree } from './file-tree';
-import {
-  initialPersistedWorkspace,
-  reducePersistedWorkspace,
-} from './persisted-workspace';
-import { usePaletteShortcut } from './use-palette-shortcut';
-import { useDocumentSync } from './use-document-sync';
-import { useDocumentSaving } from './use-document-saving';
 import { RecoveredDrafts } from './recovered-drafts';
+import { useDocumentSaving } from './use-document-saving';
+import { useDocumentSync } from './use-document-sync';
+import { useDrive } from './use-drive';
+import { usePaletteShortcut } from './use-palette-shortcut';
+import type { SaveState } from './document-pane';
 
-/** Private files backed by the persisted Round's participant-scoped document API. */
+/** What a page rendered on the server, so the tree is there before script runs. */
+export type InitialDrive = {
+  readonly folderId: string | null;
+  readonly entries: readonly DriveEntryView[];
+  readonly next: DriveCursor | null;
+  readonly folders: readonly FolderRow[];
+};
+
+/**
+ * The document manager (ADR 0111): the member's tree, search, tabs and editor as
+ * one thing. A page gives it the member and where a form returns to; it imports
+ * nothing from any place it opens.
+ */
 export function DocumentManager({
-  roundId,
   principalId,
+  back,
+  initial = null,
+  title = 'Your files',
+  notice: pageNotice = null,
+  openId = null,
 }: {
-  readonly roundId: string;
   readonly principalId: string;
+  /** A document a link asked to open. */
+  readonly openId?: string | null;
+  readonly back: string;
+  readonly initial?: InitialDrive | null;
+  readonly title?: string;
+  readonly notice?: string | null;
 }) {
-  const saving = useDocumentSaving(roundId, principalId);
-  return <ManagerWorkspace key={`${roundId}:${principalId}`} {...saving} />;
+  const saving = useDocumentSaving(principalId);
+  return (
+    <ManagerWorkspace
+      key={principalId}
+      {...saving}
+      back={back}
+      initial={initial}
+      title={title}
+      pageNotice={pageNotice}
+      openId={openId}
+    />
+  );
 }
 
-/** Document UI state follows its owner identity; the sync lifetime remains outside the key. */
-function ManagerWorkspace({
+/** A document manager over an owner its frame already holds, as a Round's end does. */
+export function ManagerWorkspace({
   sync,
   notice,
   save,
-}: ReturnType<typeof useDocumentSaving>) {
+  back,
+  initial = null,
+  title,
+  pageNotice = null,
+  openId = null,
+}: {
+  readonly openId?: string | null;
+  readonly sync: DocumentSync;
+  readonly notice: string | null;
+  readonly save: SaveState;
+  readonly back: string;
+  readonly initial?: InitialDrive | null;
+  readonly title: string;
+  readonly pageNotice?: string | null;
+}) {
   const [state, dispatch] = useReducer(
-    reducePersistedWorkspace,
-    initialPersistedWorkspace,
+    reduceManager,
+    initial
+      ? withPage(emptyDrive, null, { ...initial, first: true })
+      : emptyDrive,
+    initialManagerState,
   );
-  const { problem, setProblem } = useDocumentSync(sync, dispatch);
+  const { problem, setProblem } = useDocumentSync(
+    sync,
+    dispatch,
+    state.tabs.open,
+  );
+  const report = useCallback(
+    (message: string) => setProblem(message),
+    [setProblem],
+  );
+  const drive = useDrive({
+    sync,
+    opened: state.opened,
+    dispatch,
+    setProblem: report,
+    back,
+    initialFolders: initial?.folders ?? [],
+    rootFolderId: initial?.folderId ?? null,
+    listRoot: initial === null,
+  });
   usePaletteShortcut(dispatch);
-  const choose = async (choice: PaletteChoice) => {
-    if (choice.kind === 'open') {
-      dispatch({ type: 'tabs/open', id: choice.documentId });
-      dispatch({ type: 'palette/close' });
-      return;
-    }
-    try {
-      dispatch({
-        type: 'doc/add',
-        document: await sync.create(),
-      });
-    } catch {
-      setProblem('That file was not created. Try again.');
-    }
+  const opened = useRef(false);
+  useEffect(() => {
+    if (openId === null || opened.current) return;
+    opened.current = true;
+    drive.open(openId, 'your document');
+  });
+  const choose = (choice: PaletteChoice) => {
+    if (choice.kind === 'open') drive.open(choice.documentId, choice.title);
+    else drive.createDocument(initial?.folderId ?? null);
   };
 
   return (
@@ -58,24 +134,54 @@ function ManagerWorkspace({
       aria-label="Your files"
       className="mx-auto flex w-full max-w-dash-column flex-col gap-3 px-6 pb-8"
     >
-      <h2 className="text-lg font-bold">Your files</h2>
-      {(problem ?? notice) ? <p role="alert">{problem ?? notice}</p> : null}
+      <h2 className="text-lg font-bold">{title}</h2>
+      <noscript>
+        <p>
+          You can organize your documents here without JavaScript. Editing one
+          needs it.
+        </p>
+      </noscript>
+      {(problem ?? notice ?? pageNotice) ? (
+        <p role="alert">{problem ?? notice ?? pageNotice}</p>
+      ) : null}
       <div className="flex room-workspace border-t border-border max-narrow:flex-col">
-        <div className="flex w-round-files shrink-0 flex-col border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
+        <div className="flex w-drive shrink-0 flex-col gap-3 border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
+          <form method="post" action="/api/documents/create">
+            <input type="hidden" name="back" value={back} />
+            <input
+              type="hidden"
+              name="folderId"
+              value={initial?.folderId ?? ''}
+            />
+            <button
+              type="submit"
+              onClick={(event) => {
+                event.preventDefault();
+                drive.createDocument(initial?.folderId ?? null);
+              }}
+              className="h-room-target w-full cursor-pointer rounded-sm bg-accent px-4 text-sm font-strong text-accent-ink hover:bg-accent-strong"
+            >
+              New document
+            </button>
+          </form>
           <FileTree
-            documents={state.documents}
+            tree={state.drive}
             active={state.tabs.active}
             dispatch={dispatch}
+            drive={drive}
+            rootFolderId={initial?.folderId ?? null}
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col bg-surface-raised">
           <RecoveredDrafts
-            documents={state.documents}
+            documents={loadedDocuments(state.opened)}
             sync={sync}
             dispatch={dispatch}
+            inFolderPage={(initial?.folderId ?? null) !== null}
           />
           <DocumentPane
-            documents={state.documents}
+            opened={state.opened}
+            onRetry={drive.open}
             tabs={state.tabs}
             pages={state.pages}
             dispatch={dispatch}
@@ -87,8 +193,12 @@ function ManagerWorkspace({
       </div>
       <CommandPalette
         open={state.paletteOpen}
-        documents={state.documents}
-        onChoose={(choice) => void choose(choice)}
+        documents={state.opened.map((open) => ({
+          id: openDocumentId(open),
+          title: openTitle(open),
+        }))}
+        search={driveApi.search}
+        onChoose={choose}
         onClose={() => dispatch({ type: 'palette/close' })}
       />
     </section>

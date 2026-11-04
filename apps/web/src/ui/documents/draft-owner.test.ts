@@ -1,3 +1,4 @@
+import { createDocumentSync } from './document-sync.test-support';
 import {
   recordingSave,
   documentApi,
@@ -8,9 +9,8 @@ import {
 
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { releaseDraftOwner } from './draft-owner';
-import { createDocumentSync } from './document-sync';
 
-import { newDraftCopy } from './document-draft';
+import { newDraftCopy } from '../../features/documents/document-draft';
 
 setupRitewayBun();
 const recoveryHtml = (raw: string | null): string | null =>
@@ -18,55 +18,52 @@ const recoveryHtml = (raw: string | null): string | null =>
 const fixture = () => {
   const storage = memoryStorage(),
     sent: string[] = [];
-  const key = (principal: string, round: string) =>
-    `daisy:round-notes:draft:${principal}:${round}:a`;
-  for (const [principal, round] of [
-    ['p', 'r1'],
-    ['p', 'r2'],
-    ['q', 'r2'],
+  const key = (principal: string, documentId: string) =>
+    `daisy:document-drafts:copy:${principal}:${documentId}`;
+  for (const [principal, documentId] of [
+    ['p', 'a'],
+    ['p', 'b'],
+    ['q', 'b'],
   ] as const)
     storage.setItem(
-      key(principal, round),
+      key(principal, documentId),
       JSON.stringify({
         recovery: newDraftCopy({
-          generation: `${principal}-${round}`,
+          generation: `${principal}-${documentId}`,
           html: 'REC',
           baseRevision: 1,
           now: 100,
         }),
       }),
     );
-  const owner = (principalId: string, roundId: string) => ({
+  const owner = (principalId: string, documentId: string) => ({
     principalId,
     sync: createDocumentSync({
-      ...manualDraftResources(`${principalId}-${roundId}`, { storage }),
+      ...manualDraftResources(`${principalId}-${documentId}`, { storage }),
 
-      api: documentApi(recordingSave(sent), () => [stored('a', 1)]),
+      api: documentApi(recordingSave(sent), () => [stored(documentId, 1)]),
       principalId,
-      roundId,
       onConflict: () => {},
     }),
   });
   return { storage, sent, key, owner };
 };
 
-test('a Round-only owner replacement flushes pending text and preserves all same-principal recovery', async () => {
+test('an owner replacement flushes pending text and preserves all same-principal recovery', async () => {
   const f = fixture(),
-    previous = f.owner('p', 'r1'),
-    next = f.owner('p', 'r2');
+    previous = f.owner('p', 'a'),
+    next = f.owner('p', 'b');
   await previous.sync.load();
   await next.sync.load();
   previous.sync.change('a', 'NEW');
   await releaseDraftOwner(previous, next);
   assert({
-    given:
-      'the actual cleanup receives another Round owner for the same principal',
-    should:
-      'flush and dispose the old owner without purging either Round recovery',
+    given: 'the actual cleanup receives another owner for the same principal',
+    should: 'flush and dispose the old owner without purging either recovery',
     actual: [
       f.sent,
-      recoveryHtml(f.storage.getItem(f.key('p', 'r1'))),
-      f.storage.getItem(f.key('p', 'r2')) !== null,
+      recoveryHtml(f.storage.getItem(f.key('p', 'a'))),
+      f.storage.getItem(f.key('p', 'b')) !== null,
       previous.sync.available(),
       next.sync.available(),
     ],
@@ -76,8 +73,8 @@ test('a Round-only owner replacement flushes pending text and preserves all same
 
 test('account replacement purges the old principal and refuses late work without flushing it', async () => {
   const f = fixture(),
-    previous = f.owner('p', 'r1'),
-    next = f.owner('q', 'r2');
+    previous = f.owner('p', 'a'),
+    next = f.owner('q', 'b');
   await previous.sync.load();
   await next.sync.load();
   previous.sync.change('a', 'PRIVATE');
@@ -87,12 +84,12 @@ test('account replacement purges the old principal and refuses late work without
   assert({
     given: 'a replacement account and queued old-owner work',
     should:
-      'purge the old principal across Rounds while retaining the new account and sending no old text',
+      'purge the old principal across documents while retaining the new account and sending no old text',
     actual: [
       f.sent,
-      f.storage.getItem(f.key('p', 'r1')),
-      f.storage.getItem(f.key('p', 'r2')),
-      f.storage.getItem(f.key('q', 'r2')) !== null,
+      f.storage.getItem(f.key('p', 'a')),
+      f.storage.getItem(f.key('p', 'b')),
+      f.storage.getItem(f.key('q', 'b')) !== null,
       previous.sync.available(),
     ],
     expected: [[], null, null, true, false],
@@ -101,7 +98,7 @@ test('account replacement purges the old principal and refuses late work without
 
 test('Strict Mode reattachment retains the same live owner and its pending edit', async () => {
   const f = fixture(),
-    previous = f.owner('p', 'r1');
+    previous = f.owner('p', 'a');
   await previous.sync.load();
   previous.sync.change('a', 'NEW');
   await releaseDraftOwner(previous, { ...previous });
@@ -117,7 +114,7 @@ test('Strict Mode reattachment retains the same live owner and its pending edit'
 
 test('a real unmount flushes and disposes without purging recovery', async () => {
   const f = fixture(),
-    previous = f.owner('p', 'r1');
+    previous = f.owner('p', 'a');
   await previous.sync.load();
   previous.sync.change('a', 'NEW');
   await releaseDraftOwner(previous, previous);
@@ -127,7 +124,7 @@ test('a real unmount flushes and disposes without purging recovery', async () =>
     actual: [
       f.sent,
       previous.sync.available(),
-      recoveryHtml(f.storage.getItem(f.key('p', 'r1'))),
+      recoveryHtml(f.storage.getItem(f.key('p', 'a'))),
     ],
     expected: [['NEW'], false, 'REC'],
   });

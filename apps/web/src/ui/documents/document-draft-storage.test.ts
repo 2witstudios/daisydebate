@@ -3,13 +3,13 @@ import {
   createDraftStorage,
   pruneExpiredDrafts,
 } from './document-draft-storage';
-import { newDraftCopy } from './document-draft';
+import { newDraftCopy } from '../../features/documents/document-draft';
 import { memoryStorage } from './document-sync.test-support';
 setupRitewayBun();
 const fixture = () => {
   const storage = memoryStorage(),
     warnings: string[] = [];
-  const key = 'daisy:round-notes:draft:p:r:d0';
+  const key = 'daisy:document-drafts:copy:p:d0';
   const active = newDraftCopy({
     generation: 'active',
     html: '<p>A</p>',
@@ -24,7 +24,7 @@ const fixture = () => {
   });
   for (let i = 0; i < 17; i++)
     storage.setItem(
-      `daisy:round-notes:draft:p:r:d${i}`,
+      `daisy:document-drafts:copy:p:d${i}`,
       JSON.stringify(
         i === 0
           ? { active, recovery }
@@ -33,7 +33,6 @@ const fixture = () => {
     );
   const adapter = createDraftStorage({
     storage,
-    roundId: 'r',
     principalId: 'p',
     failed: (id) => {
       warnings.push(id);
@@ -75,11 +74,10 @@ test('another record the write cannot decode is never deleted by that write', ()
   const storage = memoryStorage();
   const adapter = createDraftStorage({
     storage,
-    roundId: 'r',
     principalId: 'p',
     failed: () => {},
   });
-  storage.setItem('daisy:round-notes:draft:p:r:other', '{malformed');
+  storage.setItem('daisy:document-drafts:copy:p:other', '{malformed');
   const later = newDraftCopy({
     generation: 'later',
     html: '<p>later</p>',
@@ -87,7 +85,7 @@ test('another record the write cannot decode is never deleted by that write', ()
     now: 500,
   });
   storage.setItem(
-    'daisy:round-notes:draft:p:r:clock',
+    'daisy:document-drafts:copy:p:clock',
     JSON.stringify({ active: later }),
   );
   const written = adapter.write(
@@ -108,8 +106,8 @@ test('another record the write cannot decode is never deleted by that write', ()
     should: 'write its own record and leave both of those untouched',
     actual: [
       written.stored,
-      storage.getItem('daisy:round-notes:draft:p:r:other'),
-      storage.getItem('daisy:round-notes:draft:p:r:clock') !== null,
+      storage.getItem('daisy:document-drafts:copy:p:other'),
+      storage.getItem('daisy:document-drafts:copy:p:clock') !== null,
     ],
     expected: [true, '{malformed', true],
   });
@@ -120,11 +118,10 @@ test('a corrupt record is discarded without reporting a storage problem', () => 
     warnings: string[] = [];
   const adapter = createDraftStorage({
     storage,
-    roundId: 'r',
     principalId: 'p',
     failed: (id) => warnings.push(id),
   });
-  storage.setItem('daisy:round-notes:draft:p:r:d', '{malformed');
+  storage.setItem('daisy:document-drafts:copy:p:d', '{malformed');
   const read = adapter.read('d', 100);
   assert({
     given: 'a malformed record that can be removed',
@@ -149,11 +146,11 @@ test('pruning removes expired copies for every principal and keeps live ones', (
     now: old.expiresAt,
   });
   storage.setItem(
-    'daisy:round-notes:draft:p:r:gone',
+    'daisy:document-drafts:copy:p:gone',
     JSON.stringify({ recovery: old }),
   );
   storage.setItem(
-    'daisy:round-notes:draft:q:r:partial',
+    'daisy:document-drafts:copy:q:partial',
     JSON.stringify({ active: fresh, recovery: old }),
   );
   storage.setItem('theme', 'dark');
@@ -163,10 +160,10 @@ test('pruning removes expired copies for every principal and keeps live ones', (
     should: 'drop only expired copies, whichever Round or principal holds them',
     actual: [
       [...storage.dump().keys()],
-      JSON.parse(storage.getItem('daisy:round-notes:draft:q:r:partial')!),
+      JSON.parse(storage.getItem('daisy:document-drafts:copy:q:partial')!),
     ],
     expected: [
-      ['daisy:round-notes:draft:q:r:partial', 'theme'],
+      ['daisy:document-drafts:copy:q:partial', 'theme'],
       { active: fresh },
     ],
   });

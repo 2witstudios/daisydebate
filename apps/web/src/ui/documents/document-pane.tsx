@@ -2,12 +2,16 @@
 
 import type { Dispatch, ReactNode } from 'react';
 import { systemClock } from '@daisy/clock';
-import type { MemberDocument } from '../../features/documents/document';
-import type { TabsState } from '../../features/documents/open-documents';
+import {
+  findOpen,
+  openTitle,
+  type OpenDocument,
+  type TabsState,
+} from '../../features/documents/open-documents';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import { DocumentEditor } from '../document-editor/document-editor';
-import type { RoomAction } from '../debate-room/room-state';
+import type { ManagerAction } from '../../features/documents/document-manager-state';
 import type { PageTone } from '../document-editor/document-editor';
 
 /** Whether the open files are stored; null where nothing saves. */
@@ -22,7 +26,7 @@ const saveLabels: Readonly<Record<SaveState, string>> = {
 type TabsProps = {
   readonly tabs: readonly { readonly id: string; readonly title: string }[];
   readonly active: string | null;
-  readonly dispatch: Dispatch<RoomAction>;
+  readonly dispatch: Dispatch<ManagerAction>;
   readonly save: SaveState | null;
   readonly leading?: ReactNode;
 };
@@ -87,54 +91,80 @@ function DocumentTabs({ tabs, active, dispatch, save, leading }: TabsProps) {
 
 /** Shared editor pane for private files in the opening and the active-round workspace. */
 export function DocumentPane({
-  documents,
+  opened,
   tabs,
   pages,
+  onRetry,
   dispatch,
   onEdit,
   empty,
   leading,
   save = null,
 }: {
-  readonly documents: readonly MemberDocument[];
+  readonly opened: readonly OpenDocument[];
+  /** Asks for a document that did not load again. */
+  readonly onRetry?: ((id: string, title: string) => void) | undefined;
   readonly tabs: TabsState;
   readonly pages: Readonly<Record<string, PageTone | null>>;
-  readonly dispatch: Dispatch<RoomAction>;
+  readonly dispatch: Dispatch<ManagerAction>;
   readonly onEdit?: ((id: string, html: string) => void) | undefined;
   readonly leading?: ReactNode;
   readonly empty?: ReactNode;
   readonly save?: SaveState | null;
 }) {
-  const active = documents.find((d) => d.id === tabs.active);
+  const active =
+    tabs.active === null ? undefined : findOpen(opened, tabs.active);
   return (
     <>
       <DocumentTabs
-        tabs={tabs.open.map((id) => ({
-          id,
-          title: documents.find((d) => d.id === id)?.title ?? '',
-        }))}
+        tabs={tabs.open.map((id) => {
+          const open = findOpen(opened, id);
+          return { id, title: open ? openTitle(open) : '' };
+        })}
         active={tabs.active}
         dispatch={dispatch}
         save={save}
         leading={leading}
       />
-      {active ? (
+      {active?.kind === 'loading' ? (
+        <p role="status" className="p-4 text-sm text-ink-muted">
+          Opening {active.title}
+        </p>
+      ) : active?.kind === 'failed' ? (
+        <div
+          role="alert"
+          className="flex flex-col items-start gap-2 p-4 text-sm"
+        >
+          <p>{active.title} did not open.</p>
+          <button
+            type="button"
+            onClick={() => onRetry?.(active.id, active.title)}
+            className="h-room-target cursor-pointer rounded-sm border border-border px-3 hover:bg-surface-raised"
+          >
+            Try again
+          </button>
+        </div>
+      ) : active?.kind === 'loaded' ? (
         <DocumentEditor
-          key={active.id}
-          document={active}
+          key={active.document.id}
+          document={active.document}
           access="Only you"
-          page={pages[active.id] ?? null}
+          page={pages[active.document.id] ?? null}
           onPage={(tone) =>
-            dispatch({ type: 'page/tone', documentId: active.id, tone })
+            dispatch({
+              type: 'page/tone',
+              documentId: active.document.id,
+              tone,
+            })
           }
           onChange={(html) => {
             dispatch({
               type: 'doc/update',
-              id: active.id,
+              id: active.document.id,
               html,
               now: systemClock.now(),
             });
-            onEdit?.(active.id, html);
+            onEdit?.(active.document.id, html);
           }}
         />
       ) : (

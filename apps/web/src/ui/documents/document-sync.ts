@@ -1,25 +1,55 @@
-import { sameDocumentHtml } from '../../features/documents/document-lines';
 import type { MemberDocument } from '../../features/documents/document';
 import type { KeepaliveBudget } from './keepalive-budget';
 import {
-  acknowledgeDraftRecord,
   discardDraftRecord,
   editDraftRecord,
   newDraftCopy,
   draftCopies,
-  sameDraftCopy,
   offerDraftRecord,
-  ownUnansweredCommit,
   restoreDraftRecord,
-  settleDraftRecord,
   type DraftCopy,
   type DraftRecord,
   type DraftTransition,
-} from './document-draft';
+} from '../../features/documents/document-draft';
+import {
+  acknowledged,
+  activeOffered,
+  forgotten,
+  holdsUnstoredEdit,
+  needsNewDocument,
+  unreadDocument,
+  isForgotten,
+  bodyToShow,
+  adoptsLateCommit,
+  isConflicted,
+  isGone,
+  keptCopy,
+  attemptFailed,
+  closed,
+  conflictOutcome,
+  edited,
+  holdsUnstoredText,
+  idleSignal,
+  initialSaving,
+  isNoEdit,
+  nextExpiry,
+  nextSend,
+  offersOf,
+  restored,
+  sameOffers,
+  savingDocument,
+  serverAdopted,
+  serverRead,
+  settledBy,
+  withDocument,
+  type DraftOffer,
+  type DraftSnapshot,
+  type SavingDocument,
+  type SavingState,
+} from '../../features/documents/document-saving';
 import {
   createDraftStorage,
   type DraftStorage,
-  type DraftSnapshot,
 } from './document-draft-storage';
 
 export type StoredDocument = MemberDocument & { readonly revision: number };
@@ -28,9 +58,12 @@ export type SaveResult = {
   readonly revision: number;
 };
 export type DocumentsApi = {
-  readonly list: (roundId: string) => Promise<readonly StoredDocument[]>;
+  /** Only bodies asked for, and only the caller's; an absent id is simply left out. */
+  readonly read: (ids: readonly string[]) => Promise<readonly StoredDocument[]>;
+  /** The document edited last, to land on when nothing is open. */
+  readonly recent: () => Promise<string | null>;
   readonly create: (input: {
-    readonly roundId: string;
+    readonly folderId: string | null;
   }) => Promise<StoredDocument>;
   readonly save: (input: {
     readonly id: string;
@@ -43,13 +76,7 @@ export type Timers = {
   readonly set: (run: () => void, ms: number) => unknown;
   readonly clear: (handle: unknown) => void;
 };
-/** A retained copy, with the last server text this owner has proven to compare it against. */
-export type DraftOffer = {
-  readonly documentId: string;
-  readonly slot: 'active' | 'recovery';
-  readonly copy: DraftCopy;
-  readonly serverHtml: string;
-};
+export type { DraftOffer };
 export type DocumentSyncResources = {
   readonly timers: Timers;
   readonly storage: DraftStorage | null;
@@ -59,7 +86,23 @@ export type DocumentSyncResources = {
 };
 export type DocumentSync = {
   readonly load: () => Promise<readonly StoredDocument[]>;
-  readonly create: () => Promise<StoredDocument>;
+  readonly create: (folderId?: string | null) => Promise<StoredDocument>;
+  /** Reads a document into this owner, with any draft it has here; null when gone. */
+  readonly open: (id: string) => Promise<StoredDocument | null>;
+  /** Marks open documents the server no longer has. */
+  readonly recheck: (ids: readonly string[]) => Promise<void>;
+  /** The kept text of a deleted document, as a new document. */
+  readonly saveAsNew: (id: string) => Promise<StoredDocument | null>;
+  /** A document whose text can only be kept by saving it as a new one, or null. */
+  readonly firstNeedingCopy: () => string | null;
+  /** Whether this document holds text that exists only on this page. */
+  readonly holdsUnstored: (id: string) => boolean;
+  /** Whether leaving the page now would lose text, so the browser should ask. */
+  readonly holdsAnyUnstored: () => boolean;
+  /** A document open here that the server no longer has, or null. */
+  readonly firstGone: () => string | null;
+  /** This person deleted it here, so nothing of it stays. */
+  readonly forget: (id: string) => void;
   readonly change: (id: string, html: string) => void;
   readonly flush: () => Promise<void>;
   readonly flushKeepalive: () => Promise<void>;
@@ -82,28 +125,18 @@ const statusOf = (error: unknown): number | null => {
   const status = (error as { readonly status?: unknown } | null)?.status;
   return typeof status === 'number' ? status : null;
 };
-const retryable = (status: number | null) =>
-  status === null || status === 408 || status === 429 || status >= 500;
-const UNANSWERED_LIMIT = 8;
 const LATE_COMMIT_RECHECK_MS = 2000;
+/** The most bodies one read may ask for; a test holds it to the route's. */
+export const READ_CHUNK = 16;
 const LONGEST_TIMER_MS = 2 ** 31 - 1;
-const sameOffers = (one: readonly DraftOffer[], two: readonly DraftOffer[]) =>
-  one.length === two.length &&
-  one.every((offer, i) => {
-    const other = two[i];
-    return (
-      other !== undefined &&
-      offer.documentId === other.documentId &&
-      offer.slot === other.slot &&
-      offer.serverHtml === other.serverHtml &&
-      sameDraftCopy(offer.copy, other.copy)
-    );
-  });
 
-/** One Round's runtime owner. Every clock, ID, storage, timer and transport effect is explicit. */
+/**
+ * One owner's edge: it holds the one saving state, and runs what the pure
+ * decisions in `document-saving` ask for. Every clock, ID, storage, timer and
+ * transport effect is explicit.
+ */
 export function createDocumentSync({
   api,
-  roundId,
   principalId,
   timers,
   storage,
@@ -111,6 +144,7 @@ export function createDocumentSync({
   wallClock,
   nextGeneration,
   onConflict,
+  onGone = () => {},
   onChanged = () => {},
   onSaved = () => {},
   onSaveFailed = () => {},
@@ -120,8 +154,8 @@ export function createDocumentSync({
   delayMs = 1000,
 }: DocumentSyncResources & {
   readonly api: DocumentsApi;
-  readonly roundId: string;
   readonly principalId: string;
+  readonly onGone?: (id: string) => void;
   readonly onConflict: (id: string) => void;
   readonly onChanged?: (id: string) => void;
   readonly onSaved?: (id: string) => void;
@@ -131,60 +165,41 @@ export function createDocumentSync({
   readonly onRecoveryChanged?: (offers: readonly DraftOffer[]) => void;
   readonly delayMs?: number;
 }): DocumentSync {
-  let offers: readonly DraftOffer[] = [];
+  let state: SavingState = initialSaving;
   let expiryHandle: unknown;
   let recheckHandle: unknown;
-  let closedBy: 'released' | 'fence' | 'purge' | null = null;
-  const isClosed = () => closedBy !== null;
+  const isClosed = () => state.closedBy !== null;
+  const doc = (id: string) => savingDocument(state, id);
+  const update = (
+    id: string,
+    change: (d: SavingDocument) => SavingDocument,
+  ) => {
+    state = withDocument(state, id, change);
+  };
   const serverTextListeners = new Set<(id: string, html: string) => void>();
-  const revisions = new Map<string, number>();
-  const serverCopies = new Map<string, string>();
-  const pending = new Map<string, DraftCopy>();
-  const records = new Map<string, DraftSnapshot>();
-  const ownedDurable = new Map<string, string>();
-  // Generations this owner wrote that its next acknowledgement replaces.
-  const ownEarlier = new Map<string, Set<string>>();
   const handles = new Map<string, unknown>();
+  // A second click on Save as a new document while the first is in flight.
+  const copying = new Set<string>();
   const saving = new Map<string, Promise<void>>();
-  const failures = new Map<string, number>();
-  const refused = new Map<string, string>();
-  const conflicted = new Set<string>();
-  // Recent uncertain requests since the last acknowledgement, bounded because
-  // they hold private text; past the bound a false conflict is the safe failure.
-  const unanswered = new Map<string, readonly DraftCopy[]>();
-  const latestRevisions = new Map<string, number>();
-  const storageProblems = new Set<string>();
   const listeners = new Set<() => void>();
   const failedStorage = (id: string) => {
-    storageProblems.add(id);
+    update(id, (d) => ({ ...d, storageProblem: true }));
     onDraftStorageFailed(id);
   };
   const drafts = createDraftStorage({
     storage,
     principalId,
-    roundId,
     failed: failedStorage,
   });
-  const owned = (id: string, generation: string) =>
-    pending.get(id)?.generation === generation ||
-    ownedDurable.get(id) === generation;
-  const activeOffered = (id: string, record: DraftRecord) =>
-    record.active !== undefined && !owned(id, record.active.generation);
-  /** A copy matching the server's text is finished. */
-  const settledBy = (record: DraftRecord, doc: StoredDocument) =>
-    settleDraftRecord(record, (html) => sameDocumentHtml(html, doc.html));
   const remember = (documents: readonly StoredDocument[]) => {
-    for (const doc of documents) {
-      revisions.set(doc.id, doc.revision);
-      serverCopies.set(doc.id, doc.html);
-    }
+    for (const one of documents) update(one.id, (d) => serverRead(d, one));
     return documents;
   };
   const read = (id: string, now: number): DraftSnapshot => {
     // A foreign tab's copy can legitimately be ahead of this tab's server
     // snapshot. Preserve it structurally; publish never offers a future base.
     const snapshot = drafts.read(id, now);
-    records.set(id, snapshot);
+    update(id, (d) => ({ ...d, snapshot }));
     return snapshot;
   };
   const write = (
@@ -194,69 +209,41 @@ export function createDocumentSync({
     now: number,
   ) => {
     const result = drafts.write(id, previous, record, now);
-    records.set(id, result.snapshot);
-    if (result.stored) storageProblems.delete(id);
+    update(id, (d) => ({
+      ...d,
+      snapshot: result.snapshot,
+      storageProblem: result.stored ? false : d.storageProblem,
+    }));
     return result.stored;
   };
   const idle = (id: string) => {
-    if (conflicted.size > 0) {
-      onConflict([...conflicted][0]!);
-      return;
-    }
-    if (pending.size !== 0) return;
-    if (storageProblems.size > 0) return;
-    if (offers.length > 0) onRecoveryChanged(offers);
-    else onSaved(id);
+    const signal = idleSignal(state);
+    if (signal.kind === 'conflict') onConflict(signal.id);
+    else if (signal.kind === 'recovery') onRecoveryChanged(state.offers);
+    else if (signal.kind === 'saved') onSaved(id);
   };
 
   const publish = () => {
-    const retained = [...records].filter(
-      ([, snapshot]) => draftCopies(snapshot.record).length > 0,
-    );
-    const next: DraftOffer[] = retained.flatMap(([documentId, { record }]) => {
-      const serverHtml = serverCopies.get(documentId) ?? '';
-      const candidates: DraftOffer[] = [];
-      if (record.recovery)
-        candidates.push({
-          documentId,
-          slot: 'recovery',
-          copy: record.recovery,
-          serverHtml,
-        });
-      if (record.active && activeOffered(documentId, record))
-        candidates.push({
-          documentId,
-          slot: 'active',
-          copy: record.active,
-          serverHtml,
-        });
-      return candidates.filter(
-        (offer) => offer.copy.baseRevision <= (revisions.get(documentId) ?? -1),
-      );
-    });
-    if (!sameOffers(offers, next)) {
-      const emptied = offers.length > 0 && next.length === 0;
-      offers = next;
+    const next = offersOf(state.documents);
+    if (!sameOffers(state.offers, next)) {
+      const emptied = state.offers.length > 0 && next.length === 0;
+      state = { ...state, offers: next };
       for (const listener of listeners) listener();
-      if (offers.length > 0 || emptied) idle('');
+      if (next.length > 0 || emptied) idle('');
     }
     timers.clear(expiryHandle);
-    const deadlines = retained.flatMap(([, snapshot]) =>
-      draftCopies(snapshot.record).map((copy) => copy.expiresAt),
-    );
-    if (!isClosed() && deadlines.length > 0)
+    const expiry = nextExpiry(state.documents);
+    if (!isClosed() && expiry !== null)
       expiryHandle = timers.set(
         refreshRecovery,
-        Math.min(
-          LONGEST_TIMER_MS,
-          Math.max(0, Math.min(...deadlines) - wallClock()),
-        ),
+        Math.min(LONGEST_TIMER_MS, Math.max(0, expiry - wallClock())),
       );
   };
   function refreshRecovery() {
     if (isClosed()) return;
     const now = wallClock();
-    for (const id of revisions.keys()) read(id, now);
+    for (const [id, d] of state.documents)
+      if (d.revision !== undefined) read(id, now);
     publish();
   }
   const persist = (id: string, copy: DraftCopy) => {
@@ -265,7 +252,7 @@ export function createDocumentSync({
     const proposal = editDraftRecord(
       previous.record,
       copy,
-      activeOffered(id, previous.record),
+      activeOffered(doc(id), previous.record),
     );
     if (proposal.status !== 'changed') {
       failedStorage(id);
@@ -273,7 +260,8 @@ export function createDocumentSync({
       return false;
     }
     const stored = write(id, previous, proposal.record, now);
-    if (stored) ownedDurable.set(id, copy.generation);
+    if (stored)
+      update(id, (d) => ({ ...d, durableGeneration: copy.generation }));
     publish();
     return stored;
   };
@@ -284,103 +272,71 @@ export function createDocumentSync({
       timers.set(() => void saveNow(id), ms),
     );
   };
-  const accepted = (id: string, copy: DraftCopy) => {
-    pending.set(id, copy);
-    onChanged(id);
-    schedule(id, delayMs);
-  };
   const saved = (id: string, sent: DraftCopy, revision: number) => {
-    if (isClosed()) return;
-    revisions.set(id, revision);
-    serverCopies.set(id, sent.html);
-    failures.delete(id);
-    unanswered.delete(id);
-    const current = pending.get(id);
-    if (current?.generation === sent.generation) pending.delete(id);
-    else if (current) pending.set(id, { ...current, baseRevision: revision });
-    // The server holds this text now, so its durability is no longer at risk.
-    if (!pending.has(id)) storageProblems.delete(id);
+    if (isClosed() || isForgotten(doc(id))) return;
     const previous = read(id, wallClock());
-    const proposal = acknowledgeDraftRecord(previous.record, {
-      generation: sent.generation,
-      revision,
-      rebaseGeneration: pending.get(id)?.generation ?? null,
-      supersededByThisOwner: (generation) =>
-        ownEarlier.get(id)?.has(generation) === true,
-    });
-    if (!pending.has(id)) ownEarlier.delete(id);
-    if (proposal.record !== previous.record)
-      write(id, previous, proposal.record, wallClock());
+    const result = acknowledged(doc(id), sent, revision, previous.record);
+    update(id, () => result.document);
+    if (result.draft.record !== previous.record)
+      write(id, previous, result.draft.record, wallClock());
     publish();
     idle(id);
   };
-  const conflict = async (id: string, sent: DraftCopy, revision: number) => {
-    // A failed list establishes nothing, so it goes to the retry or refusal path.
-    const doc = (await api.list(roundId)).find((one) => one.id === id);
-    if (isClosed()) return;
-    // The server already holds exactly this text, so nothing conflicts: an exit
-    // save landed after the page's look, however late.
-    if (doc && sameDocumentHtml(doc.html, sent.html)) {
-      saved(id, sent, doc.revision);
-      return;
-    }
-    const own =
-      doc?.revision === revision
-        ? ownUnansweredCommit(unanswered.get(id) ?? [], revision, (html) =>
-            sameDocumentHtml(doc.html, html),
-          )
-        : undefined;
-    if (own) {
-      saved(id, own, revision);
-      return;
-    }
-    if (doc) {
-      serverCopies.set(id, doc.html);
-      const previous = read(id, wallClock());
-      const settled = settledBy(previous.record, doc);
-      if (settled !== previous.record)
-        write(id, previous, settled, wallClock());
-    }
-    latestRevisions.set(id, doc?.revision ?? revision);
-    conflicted.add(id);
+  const notify = () => {
+    for (const listener of listeners) listener();
+  };
+  const markGone = (id: string) => {
+    if (isForgotten(doc(id))) return;
+    update(id, (d) => ({ ...d, hold: { kind: 'gone' } }));
     publish();
+    notify();
+    onGone(id);
+  };
+  const conflict = async (id: string, sent: DraftCopy, revision: number) => {
+    // A failed read establishes nothing, so it goes to the retry or refusal path.
+    const [server] = await api.read([id]);
+    if (isClosed() || isForgotten(doc(id))) return;
+    const outcome = conflictOutcome(doc(id), sent, revision, server);
+    if (outcome.kind === 'gone') {
+      markGone(id);
+      return;
+    }
+    if (outcome.kind === 'committed') {
+      saved(id, outcome.copy, outcome.revision);
+      return;
+    }
+    update(id, (d) => ({ ...d, serverHtml: server!.html }));
+    const previous = read(id, wallClock());
+    const settled = settledBy(previous.record, server!.html);
+    if (settled !== previous.record) write(id, previous, settled, wallClock());
+    update(id, (d) => ({
+      ...d,
+      hold: { kind: 'conflict', latestRevision: outcome.latestRevision },
+    }));
+    publish();
+    notify();
     onConflict(id);
   };
   const failed = (id: string, sent: DraftCopy, error: unknown) => {
-    if (isClosed()) return;
-    const status = statusOf(error);
-    if (status !== null && !retryable(status)) {
-      refused.set(id, sent.generation);
-      onSaveRefused(id, status);
+    if (isClosed() || isForgotten(doc(id))) return;
+    const result = attemptFailed(doc(id), sent, statusOf(error), delayMs);
+    update(id, () => result.document);
+    if (result.kind === 'gone') {
+      markGone(id);
       return;
     }
-    const earlier = unanswered.get(id) ?? [];
-    if (!earlier.some((copy) => copy.generation === sent.generation)) {
-      // Keep the oldest: it is the one most likely to have committed unanswered.
-      const [oldest, ...rest] = earlier;
-      unanswered.set(
-        id,
-        oldest
-          ? [oldest, ...rest.slice(-(UNANSWERED_LIMIT - 2)), sent]
-          : [sent],
-      );
+    if (result.kind === 'refused') {
+      onSaveRefused(id, result.status);
+      return;
     }
-    const attempts = (failures.get(id) ?? 0) + 1;
-    failures.set(id, attempts);
-    onSaveFailed(id, attempts);
-    schedule(id, Math.min(delayMs * 2 ** attempts, 30_000));
+    onSaveFailed(id, result.attempts);
+    schedule(id, result.afterMs);
   };
   async function attempt(id: string, keepalive: boolean): Promise<void> {
     if (isClosed()) return;
-    const sent = pending.get(id),
-      expectedRevision = revisions.get(id);
-    if (
-      !sent ||
-      expectedRevision === undefined ||
-      refused.get(id) === sent.generation ||
-      conflicted.has(id)
-    )
-      return;
+    const ready = nextSend(doc(id));
+    if (!ready) return;
+    const { sent, expectedRevision } = ready;
     const body = { id, html: sent.html, expectedRevision };
     const reservation = keepalive ? budget.reserve(body) : null;
     if (keepalive && reservation === null) {
@@ -388,20 +344,20 @@ export function createDocumentSync({
       schedule(id, delayMs);
       return;
     }
-    let acknowledged = false;
+    let answered = false;
     try {
       const result = await api.save(
         keepalive ? { ...body, keepalive: true } : body,
       );
       if (result.status === 'saved') saved(id, sent, result.revision);
       else await conflict(id, sent, result.revision);
-      acknowledged = true;
+      answered = true;
     } catch (error) {
       failed(id, sent, error);
     } finally {
       reservation?.release();
     }
-    if (acknowledged && pending.has(id) && !isClosed() && !conflicted.has(id))
+    if (answered && !isClosed() && doc(id).pending && !isConflicted(doc(id)))
       await attempt(id, false);
   }
   function saveNow(id: string, keepalive = false): Promise<void> {
@@ -436,126 +392,227 @@ export function createDocumentSync({
   const currentOffer = (id: string, generation: string) => {
     const previous = read(id, wallClock());
     publish();
-    return offers.some(
+    return state.offers.some(
       (offer) =>
         offer.documentId === id && offer.copy.generation === generation,
     )
       ? previous
       : null;
   };
+  const pendingIds = () =>
+    [...state.documents].filter(([, d]) => d.pending).map(([id]) => id);
   const flush = async (keepalive: boolean) => {
     if (isClosed()) return;
     for (const handle of handles.values()) timers.clear(handle);
     handles.clear();
-    if (keepalive) for (const [id, copy] of pending) persist(id, copy);
-    await Promise.all([...pending.keys()].map((id) => saveNow(id, keepalive)));
+    if (keepalive) for (const id of pendingIds()) persist(id, doc(id).pending!);
+    await Promise.all(pendingIds().map((id) => saveNow(id, keepalive)));
   };
   const close = (reason: 'released' | 'fence' | 'purge') => {
     if (isClosed()) {
       // A purge after a fence still erases, and the notice must say so.
-      if (reason !== 'purge' || closedBy === 'purge') return;
-      closedBy = 'purge';
+      if (reason !== 'purge' || state.closedBy === 'purge') return;
+      state = { ...state, closedBy: 'purge' };
       drafts.purge();
       for (const listener of listeners) listener();
       return;
     }
-    closedBy = reason;
+    state = closed(state, reason);
     for (const handle of handles.values()) timers.clear(handle);
     timers.clear(expiryHandle);
     timers.clear(recheckHandle);
     handles.clear();
-    pending.clear();
-    records.clear();
-    unanswered.clear();
-    ownedDurable.clear();
-    ownEarlier.clear();
-    offers = [];
     if (reason === 'purge') drafts.purge();
     for (const listener of listeners) listener();
   };
   const reconcileLateCommits = async (offeredAtLoad: ReadonlySet<string>) => {
     if (isClosed()) return;
-    const documents = await api.list(roundId).catch(() => null);
+    const documents = await readAll([...offeredAtLoad]).catch(() => null);
     if (isClosed() || documents === null) return;
     const now = wallClock();
-    for (const doc of documents) {
-      if (pending.has(doc.id) || conflicted.has(doc.id)) continue;
-      const previous = read(doc.id, now);
-      const settled = settledBy(previous.record, doc);
-      if (settled !== previous.record) write(doc.id, previous, settled, now);
+    for (const one of documents) {
+      if (doc(one.id).pending || isConflicted(doc(one.id))) continue;
+      const previous = read(one.id, now);
+      const settled = settledBy(previous.record, one.html);
+      if (settled !== previous.record) write(one.id, previous, settled, now);
       // The offered text committed late, or an acknowledgement already cleared
       // it, and nothing here is pending, so the editor adopts the server's text.
-      // The revision and the visible text only move together: moving the revision
-      // alone would let the next edit overwrite the commit.
-      const committed =
-        settled !== previous.record ||
-        (offeredAtLoad.has(doc.id) && draftCopies(settled).length === 0);
-      if (committed && doc.revision > (revisions.get(doc.id) ?? -1)) {
-        remember([doc]);
-        for (const listener of serverTextListeners) listener(doc.id, doc.html);
+      const committed = adoptsLateCommit(
+        doc(one.id),
+        one,
+        settled !== previous.record,
+        offeredAtLoad.has(one.id),
+        settled,
+      );
+      if (committed) {
+        update(one.id, (d) => serverAdopted(d, one));
+        for (const listener of serverTextListeners) listener(one.id, one.html);
       }
     }
     publish();
   };
+  const adopt = (documents: readonly StoredDocument[]) => {
+    remember(documents);
+    const now = wallClock();
+    for (const one of documents) {
+      const previous = read(one.id, now);
+      const offered = doc(one.id).pending
+        ? previous.record
+        : offerDraftRecord(settledBy(previous.record, one.html));
+      if (offered !== previous.record) write(one.id, previous, offered, now);
+    }
+  };
+  /** A read holds at most READ_CHUNK ids; a browser's sixteen drafts plus the last edited do not fit. */
+  async function readAll(
+    ids: readonly string[],
+  ): Promise<readonly StoredDocument[]> {
+    const chunks: (readonly string[])[] = [];
+    for (let at = 0; at < ids.length; at += READ_CHUNK)
+      chunks.push(ids.slice(at, at + READ_CHUNK));
+    return (await Promise.all(chunks.map((chunk) => api.read(chunk)))).flat();
+  }
+  const forgetDocument = (id: string) => {
+    timers.clear(handles.get(id));
+    handles.delete(id);
+    const now = wallClock();
+    const previous = read(id, now);
+    if (draftCopies(previous.record).length > 0) write(id, previous, {}, now);
+    update(id, () => forgotten);
+    publish();
+    idle(id);
+  };
   return {
     load: async () => {
       if (isClosed()) return [];
-      const documents = await api.list(roundId);
+      const recent = await api.recent();
+      const ids = [
+        ...new Set([...drafts.documentIds(), ...(recent ? [recent] : [])]),
+      ];
+      const answered = await readAll(ids);
       if (isClosed()) return [];
-      remember(documents);
-      const now = wallClock();
-      for (const doc of documents) {
-        const previous = read(doc.id, now);
-        const offered = pending.has(doc.id)
-          ? previous.record
-          : offerDraftRecord(settledBy(previous.record, doc));
-        if (offered !== previous.record) write(doc.id, previous, offered, now);
-      }
+      const documents = answered.filter((one) => !isForgotten(doc(one.id)));
+      adopt(documents);
       publish();
-      // A previous page's exit save can commit after this list; check once.
+      const shown = documents.map((one) => ({
+        ...one,
+        html: bodyToShow(doc(one.id), one.html),
+      }));
+      // A previous page's exit save can commit after this read; check once.
       timers.clear(recheckHandle);
-      if (offers.length > 0) {
-        const offeredAtLoad = new Set(offers.map((one) => one.documentId));
+      if (state.offers.length > 0) {
+        const offeredAtLoad = new Set(
+          state.offers.map((one) => one.documentId),
+        );
         recheckHandle = timers.set(
           () => void reconcileLateCommits(offeredAtLoad),
           LATE_COMMIT_RECHECK_MS,
         );
       }
-      return documents;
+      return shown;
     },
-    create: async () => {
+    open: async (id) => {
+      if (isClosed()) return null;
+      const [opened] = await api.read([id]);
+      if (isClosed() || !opened || isForgotten(doc(id))) return null;
+      adopt([opened]);
+      publish();
+      return { ...opened, html: bodyToShow(doc(id), opened.html) };
+    },
+    recheck: async (ids) => {
+      if (isClosed() || ids.length === 0) return;
+      const documents = await readAll(ids).catch(() => null);
+      if (isClosed() || documents === null) return;
+      const present = new Set(documents.map((one) => one.id));
+      for (const id of ids)
+        if (!present.has(id) && !isGone(doc(id))) markGone(id);
+    },
+    saveAsNew: async (id) => {
+      const canCopy = () => isGone(doc(id)) || isConflicted(doc(id));
+      if (isClosed() || !canCopy() || copying.has(id)) return null;
+      copying.add(id);
+      const created = await api
+        .create({ folderId: null })
+        .finally(() => copying.delete(id));
+      if (isClosed() || !canCopy()) return null;
+      // Read here, after the answer: the editor took keystrokes while it was out.
+      const now = wallClock();
+      const previous = read(id, now);
+      const kept = keptCopy(doc(id), previous.record);
+      const wasGone = isGone(doc(id));
+      remember([created]);
+      let stored = true;
+      if (kept) {
+        const copy = newDraftCopy({
+          html: kept.html,
+          baseRevision: created.revision,
+          generation: nextGeneration(),
+          now,
+        });
+        update(created.id, (d) => edited(d, copy));
+        stored = persist(created.id, copy);
+        onChanged(created.id);
+        schedule(created.id, 0);
+      }
+      // Only the copy carried across goes, and only once the new one is safe.
+      timers.clear(handles.get(id));
+      handles.delete(id);
+      const left =
+        stored && kept?.generation
+          ? discardDraftRecord(previous.record, kept.generation)
+          : { status: 'unchanged' as const, record: previous.record };
+      if (left.status === 'changed') write(id, previous, left.record, now);
+      // The old document leaves the screen either way, so nothing can be typed
+      // into it. A deleted one with copies left stays gone, offering the next;
+      // one that moved on elsewhere reads afresh when next opened.
+      update(id, (d) =>
+        !wasGone
+          ? unreadDocument
+          : draftCopies(left.record).length > 0
+            ? { ...d, pending: undefined, serverHtml: undefined }
+            : forgotten,
+      );
+      publish();
+      notify();
+      idle(id);
+      return { ...created, html: kept?.html ?? created.html };
+    },
+    forget: (id) => forgetDocument(id),
+    firstNeedingCopy: () =>
+      [...state.documents].find(([, d]) => needsNewDocument(d))?.[0] ?? null,
+    holdsUnstored: (id) => holdsUnstoredEdit(doc(id)),
+    holdsAnyUnstored: () => holdsUnstoredText(state),
+    firstGone: () =>
+      [...state.documents].find(([, d]) => isGone(d))?.[0] ?? null,
+    create: async (folderId = null) => {
       if (isClosed())
         throw new Error('The document owner is no longer active.');
-      const doc = await api.create({ roundId });
+      const created = await api.create({ folderId });
       if (isClosed())
         throw new Error('The document owner is no longer active.');
-      remember([doc]);
-      return doc;
+      remember([created]);
+      return created;
     },
     change: (id, html) => {
-      const baseRevision = revisions.get(id);
+      const baseRevision = doc(id).revision;
       if (isClosed() || baseRevision === undefined) return;
-      // Clicking into a document can make the editor normalize it. Text the
-      // server already holds is no edit, unless it undoes one still pending.
-      if (
-        !pending.has(id) &&
-        sameDocumentHtml(html, serverCopies.get(id) ?? '')
-      )
-        return;
+      // Clicking into a document can make the editor normalize it.
+      if (isNoEdit(doc(id), html)) return;
       const copy = newDraftCopy({
         html,
         baseRevision,
         generation: nextGeneration(),
         now: wallClock(),
       });
-      const own = ownEarlier.get(id) ?? new Set<string>();
-      own.add(copy.generation);
-      ownEarlier.set(id, own);
-      pending.set(id, copy);
+      update(id, (d) => edited(d, copy));
       persist(id, copy);
-      if (conflicted.has(id)) {
+      if (isConflicted(doc(id))) {
         // Nothing sends until the conflict resolves, so never claim "saving".
+        notify();
         onConflict(id);
+        return;
+      }
+      if (isGone(doc(id))) {
+        onGone(id);
         return;
       }
       onChanged(id);
@@ -566,29 +623,25 @@ export function createDocumentSync({
       const previous = currentOffer(id, generation);
       // Restore is the explicit choice that resolves a conflict: it saves
       // against the fresh server revision, through the ordinary CAS.
-      const revision = latestRevisions.get(id) ?? revisions.get(id);
+      const held = doc(id).hold;
+      const revision =
+        held?.kind === 'conflict' ? held.latestRevision : doc(id).revision;
       if (!previous || revision === undefined) return null;
       const proposal = restoreDraftRecord(previous.record, {
         generation,
-        active: pending.get(id) ?? null,
-        activeOffered: activeOffered(id, previous.record),
+        active: doc(id).pending ?? null,
+        activeOffered: activeOffered(doc(id), previous.record),
         newGeneration: nextGeneration(),
         revision,
       });
       if (!transition(id, previous, proposal) || !proposal.record.active)
         return null;
       const copy = proposal.record.active;
-      // Text Restore set aside is a choice to keep, not a superseded draft.
-      const own = ownEarlier.get(id) ?? new Set<string>();
-      const setAside = proposal.record.recovery?.generation;
-      if (setAside) own.delete(setAside);
-      own.add(copy.generation);
-      ownEarlier.set(id, own);
-      ownedDurable.set(id, copy.generation);
-      revisions.set(id, revision);
-      latestRevisions.delete(id);
-      conflicted.delete(id);
-      accepted(id, copy);
+      update(id, (d) =>
+        restored(d, copy, proposal.record.recovery?.generation, revision),
+      );
+      onChanged(id);
+      schedule(id, delayMs);
       publish();
       return copy.html;
     },
@@ -609,7 +662,7 @@ export function createDocumentSync({
     },
     flush: () => flush(false),
     flushKeepalive: () => flush(true),
-    recoveryOffers: () => offers,
+    recoveryOffers: () => state.offers,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -617,14 +670,11 @@ export function createDocumentSync({
     refreshRecovery,
     available: () => !isClosed(),
     fence: () => {
-      const unstored = [...pending].some(
-        ([id, copy]) => ownedDurable.get(id) !== copy.generation,
-      );
-      if (unstored) return false;
+      if (holdsUnstoredText(state)) return false;
       close('fence');
       return true;
     },
-    closedBy: () => closedBy,
+    closedBy: () => state.closedBy,
     subscribeServerText: (listener) => {
       serverTextListeners.add(listener);
       return () => serverTextListeners.delete(listener);

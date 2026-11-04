@@ -438,7 +438,7 @@ test('a platform-ended Round charges nothing, once', async () => {
       await f.sql`select actor_id from round_participants where round_id=${f.roundId} limit 1`;
     const id = createId();
     // Spent and counted: a billable call was really served in this Round.
-    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, counted_at) values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round', clock_timestamp())`;
+    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, reserved_at, counted_at) values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round', statement_timestamp(), statement_timestamp())`;
     await observe(room({}));
     await retireRoom(f);
     await observe(room({ captureListed: false }));

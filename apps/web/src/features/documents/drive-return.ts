@@ -1,0 +1,42 @@
+import { isAppError } from '@daisy/errors';
+
+/** The pages a drive form may return to. Anything else goes to Prep. */
+const RETURN_PATHS = [
+  /^\/prep$/,
+  /^\/prep\/folders\/[a-z0-9]{24}$/,
+  /^\/rounds\/[a-z0-9]{24}(\/room)?$/,
+];
+
+export const returnPath = (value: string | null): string =>
+  value !== null && RETURN_PATHS.some((path) => path.test(value))
+    ? value
+    : '/prep';
+
+/** The fixed answers a form refusal can show; a key never holds typed text. */
+/** What a member sees when their drive holds all it may; a test holds the number to the limit. */
+export const DRIVE_FULL_NOTICE =
+  'Your drive is full: it holds 500 documents, the most it can. Delete one to add another.';
+
+export const driveNotices = {
+  'drive-full': DRIVE_FULL_NOTICE,
+  'name-length':
+    'A name needs 1 to 120 characters, with no tabs or line breaks.',
+  missing: 'That is no longer in your drive.',
+  conflict: 'That change is not possible: the drive is full or too deep.',
+  refused: 'That change was refused.',
+} as const;
+export type DriveNoticeKey = keyof typeof driveNotices;
+
+export const driveNoticeOf = (error: unknown): DriveNoticeKey => {
+  if (!isAppError(error)) return 'refused';
+  if (error.code === 'VALIDATION') return 'name-length';
+  if (error.code === 'NOT_FOUND') return 'missing';
+  if (error.code === 'CONFLICT') return 'conflict';
+  return 'refused';
+};
+
+/** A notice from the URL, only ever compared with the keys above. */
+export const driveNoticeText = (value: unknown): string | null =>
+  typeof value === 'string' && Object.hasOwn(driveNotices, value)
+    ? driveNotices[value as DriveNoticeKey]
+    : null;

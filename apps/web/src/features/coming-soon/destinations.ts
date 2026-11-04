@@ -63,7 +63,7 @@ export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
   prep: {
     slug: 'prep',
     title: 'Prep',
-    tagline: 'Briefs, cases and evidence cards.',
+    tagline: 'Your documents, in one place, at Prep and in every Round.',
   },
 };
 

@@ -28,11 +28,12 @@ for (const body of [
 
       api: createDocumentsApi({
         send: async (path) =>
-          path.endsWith('/list')
-            ? Response.json({ documents: [stored('a', 3)] })
-            : Response.json(body),
+          path.endsWith('/recent')
+            ? Response.json({ id: 'a' })
+            : path.endsWith('/read')
+              ? Response.json({ documents: [stored('a', 3)] })
+              : Response.json(body),
       }),
-      roundId: 'r',
       principalId: 'p',
       onConflict: () => {},
       onSaved: () => {
@@ -45,7 +46,7 @@ for (const body of [
 
     sync.change('a', '<p>PRIVATE</p>');
     await sync.flush();
-    const raw = storage.getItem('daisy:round-notes:draft:p:r:a');
+    const raw = storage.getItem('daisy:document-drafts:copy:p:a');
     assert({
       given: 'HTTP200 without the exact next revision acknowledgement',
       should:
@@ -55,7 +56,7 @@ for (const body of [
     });
   });
 
-const key = 'daisy:round-notes:draft:p:r:a';
+const key = 'daisy:document-drafts:copy:p:a';
 const recovery = {
   generation: 'REC',
   html: '<p>REC</p>',
@@ -83,7 +84,8 @@ for (const [index, receipt] of malformed.entries())
 
       api: createDocumentsApi({
         send: async (path, init) => {
-          if (path.endsWith('/list'))
+          if (path.endsWith('/recent')) return Response.json({ id: 'a' });
+          if (path.endsWith('/read'))
             return Response.json({ documents: [stored('a', 3)] });
           requests.push(JSON.parse(String(init.body)).expectedRevision);
           const response = Response.json({});
@@ -91,7 +93,6 @@ for (const [index, receipt] of malformed.entries())
           return response;
         },
       }),
-      roundId: 'r',
       principalId: 'p',
       onConflict: () => {},
       onSaved: () => {
@@ -120,11 +121,12 @@ test('a valid fresh acknowledgement clears only its active generation', async ()
 
     api: createDocumentsApi({
       send: async (path) =>
-        path.endsWith('/list')
-          ? Response.json({ documents: [stored('a', 3)] })
-          : Response.json({ revision: 4 }),
+        path.endsWith('/recent')
+          ? Response.json({ id: 'a' })
+          : path.endsWith('/read')
+            ? Response.json({ documents: [stored('a', 3)] })
+            : Response.json({ revision: 4 }),
     }),
-    roundId: 'r',
     principalId: 'p',
     onConflict: () => {},
     onSaved: () => {
@@ -154,7 +156,8 @@ test('an invalid acknowledgement after a real commit uses original CAS then rere
 
     api: createDocumentsApi({
       send: async (path, init) => {
-        if (path.endsWith('/list'))
+        if (path.endsWith('/recent')) return Response.json({ id: 'a' });
+        if (path.endsWith('/read'))
           return Response.json({ documents: [server] });
         const input = JSON.parse(String(init.body));
         sent.push(input.expectedRevision);
@@ -166,7 +169,6 @@ test('an invalid acknowledgement after a real commit uses original CAS then rere
         );
       },
     }),
-    roundId: 'r',
     principalId: 'p',
     onConflict: () => {
       conflicts++;
@@ -225,11 +227,12 @@ for (const body of [
 
       api: createDocumentsApi({
         send: async (path) =>
-          path.endsWith('/list')
-            ? Response.json({ documents: [stored('a', 3)] })
-            : Response.json(body, { status: 409 }),
+          path.endsWith('/recent')
+            ? Response.json({ id: 'a' })
+            : path.endsWith('/read')
+              ? Response.json({ documents: [stored('a', 3)] })
+              : Response.json(body, { status: 409 }),
       }),
-      roundId: 'r',
       principalId: 'p',
       onConflict: () => {
         conflicts++;

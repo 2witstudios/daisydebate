@@ -1,46 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { MemberDocument } from './document';
 import {
   activateTab,
-  driveDocuments,
   closeTab,
   openTab,
-  loadWorkspaceDocuments,
   type TabsState,
 } from './open-documents';
 
 setupRitewayBun();
-
-const document = (
-  id: string,
-  createdAt: string,
-  title = id,
-): MemberDocument => ({
-  id,
-  title,
-  html: '<p></p>',
-  createdAt,
-  updatedAt: createdAt,
-});
-
-const early = '2026-10-05T12:00:00.000Z';
-const late = '2026-10-05T12:30:00.000Z';
-const docs = [
-  document('b', early, 'Beta'),
-  document('c', late, 'Alpha'),
-  document('a', early, 'Alpha'),
-];
-
-describe('driveDocuments', () => {
-  test('order', () => {
-    assert({
-      given: 'documents in a drive',
-      should: 'sort by createdAt then title',
-      actual: driveDocuments(docs).map((d) => d.id),
-      expected: ['a', 'b', 'c'],
-    });
-  });
-});
 
 describe('tabs', () => {
   const tabs: TabsState = { open: ['a', 'b', 'c'], active: 'b' };
@@ -105,40 +71,6 @@ describe('tabs', () => {
       should: 'return the tabs unchanged',
       actual: activateTab(tabs, 'z'),
       expected: tabs,
-    });
-  });
-});
-
-describe('loadWorkspaceDocuments', () => {
-  const empty: {
-    readonly tabs: TabsState;
-    readonly documents: readonly MemberDocument[];
-  } = { tabs: { open: [], active: null }, documents: [] };
-
-  test('nothing open', () => {
-    assert({
-      given: 'a load with nothing open',
-      should: 'open the document edited last',
-      actual: loadWorkspaceDocuments(empty, docs).tabs,
-      expected: { open: ['c'], active: 'c' },
-    });
-    assert({
-      given: 'no documents at all',
-      should: 'open nothing, so the empty state offers a new document',
-      actual: loadWorkspaceDocuments(empty, []).tabs,
-      expected: { open: [], active: null },
-    });
-  });
-
-  test('a tab already open', () => {
-    assert({
-      given: 'an open tab that still exists',
-      should: 'keep it',
-      actual: loadWorkspaceDocuments(
-        { tabs: { open: ['a'], active: 'a' }, documents: docs },
-        docs,
-      ).tabs,
-      expected: { open: ['a'], active: 'a' },
     });
   });
 });

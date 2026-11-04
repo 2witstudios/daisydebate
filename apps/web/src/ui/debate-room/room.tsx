@@ -3,13 +3,12 @@
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import {
   useLayoutEffect,
+  useCallback,
   useReducer,
   useRef,
   useSyncExternalStore,
-  type Dispatch,
   type ReactNode,
 } from 'react';
-import { systemClock, systemId } from '@daisy/clock';
 import { tileHeightFor } from '../../features/debate-room/layout';
 import type { PhonePanel } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
@@ -20,6 +19,9 @@ import {
 } from '../documents/command-palette';
 import { PhoneActions, RoundControls } from './controls';
 import type { DocumentSync } from '../documents/document-sync';
+import { openId, openTitle } from '../../features/documents/open-documents';
+import { driveApi } from '../documents/drive-api';
+import { useDrive } from '../documents/use-drive';
 import type { SaveState } from '../documents/document-pane';
 import { RoomDetails } from './room-details';
 import {
@@ -32,12 +34,7 @@ import { focusReturnTarget, firstShown } from './focus-return';
 import type { LeaveLinks } from './leave-room';
 import { usePhoneBreakpoint } from './phone-breakpoint';
 import { RoomDocument } from './room-document';
-import {
-  initialRoomState,
-  phonePanelOf,
-  reduceRoom,
-  type RoomAction,
-} from './room-state';
+import { initialRoomState, phonePanelOf, reduceRoom } from './room-state';
 import type { RoundSnapshot } from './round';
 import { RoundBar } from './round-bar';
 import { chatUnread, ROUND_SIDEBAR_ID, RoundSidebar } from './round-sidebar';
@@ -123,34 +120,6 @@ const noLeave: LeaveLinks = {
   leaveHref: '/lobby',
 };
 
-type Problem = (message: string) => void;
-
-/** Create a plain document on the server, or in memory; one at a time. */
-function useNewDocument(
-  sync: DocumentSync | undefined,
-  dispatch: Dispatch<RoomAction>,
-  setProblem: Problem,
-) {
-  const creating = useRef(false);
-  return () => {
-    if (!sync)
-      return dispatch({
-        type: 'doc/create',
-        id: systemId.next(),
-        now: systemClock.now(),
-      });
-    if (creating.current) return;
-    creating.current = true;
-    sync
-      .create()
-      .then((document) => dispatch({ type: 'doc/add', document }))
-      .catch(() => setProblem('That file was not created. Try again.'))
-      .finally(() => {
-        creating.current = false;
-      });
-  };
-}
-
 type RoomProps = {
   readonly round: RoundSnapshot;
   readonly media?: ReactNode;
@@ -159,7 +128,7 @@ type RoomProps = {
   /** Page-level notices; they live inside the frame so it always fits. */
   readonly notices?: ReactNode;
   readonly actions?: ReactNode;
-  /** Server-backed documents; without it the room keeps them in memory. */
+  /** The member's documents; a preview without it shows none. */
   readonly sync?: DocumentSync;
   /** A standing problem the round's owner reports (saves failing). */
   readonly notice?: string | null;
@@ -180,16 +149,30 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
   usePaletteShortcut(dispatch);
   const phonePanel = phonePanelOf(state);
   useFocusReturn(state.filesOpen, phonePanel);
-  const { problem, setProblem } = useDocumentSync(sync, dispatch);
+  const { problem, setProblem } = useDocumentSync(
+    sync,
+    dispatch,
+    state.tabs.open,
+  );
+  const report = useCallback(
+    (message: string) => setProblem(message),
+    [setProblem],
+  );
+  const drive = useDrive({
+    sync,
+    opened: state.opened,
+    dispatch,
+    setProblem: report,
+    back: `/rounds/${round.id}/room`,
+  });
   const hydrated = useHydrated();
   const unread = chatUnread(round, state);
   const alert = problem ?? props.notice ?? null;
-  const create = useNewDocument(sync, dispatch, setProblem);
-  const choose = (choice: PaletteChoice) => {
-    if (choice.kind === 'new') return create();
-    dispatch({ type: 'tabs/open', id: choice.documentId });
-    dispatch({ type: 'palette/close' });
-  };
+  const create = () => drive.createDocument(null);
+  const choose = (choice: PaletteChoice) =>
+    choice.kind === 'new'
+      ? create()
+      : drive.open(choice.documentId, choice.title);
   // Until script runs the phone tabs cannot switch, so every panel stays
   // readable, stacked in one scrolling column.
   const phoneHides = (...panels: readonly PhonePanel[]) =>
@@ -224,6 +207,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
           state={state}
           dispatch={dispatch}
           onNew={create}
+          drive={drive}
           phoneClass={phoneHides('files')}
         />
         <div
@@ -236,6 +220,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
             dispatch={dispatch}
             onEdit={sync?.change}
             onNew={create}
+            onRetry={drive.open}
             save={props.save ?? null}
           />
         </div>
@@ -265,7 +250,11 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
       />
       <CommandPalette
         open={state.paletteOpen}
-        documents={state.documents}
+        documents={state.opened.map((open) => ({
+          id: openId(open),
+          title: openTitle(open),
+        }))}
+        search={driveApi.search}
         onChoose={choose}
         onClose={() => dispatch({ type: 'palette/close' })}
       />

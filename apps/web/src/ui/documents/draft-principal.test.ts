@@ -4,8 +4,8 @@ import { retainPrincipalDrafts } from './draft-principal';
 setupRitewayBun();
 test('identity changes erase other principals without touching other storage', () => {
   const storage = memoryStorage();
-  storage.setItem('daisy:round-notes:draft:old:r:d', 'private');
-  storage.setItem('daisy:round-notes:draft:new:r:d', 'current');
+  storage.setItem('daisy:document-drafts:copy:old:d', 'private');
+  storage.setItem('daisy:document-drafts:copy:new:d', 'current');
   storage.setItem('theme', 'dark');
   retainPrincipalDrafts(storage, 'new');
   assert({
@@ -13,7 +13,7 @@ test('identity changes erase other principals without touching other storage', (
     should: 'keep only current-principal drafts and unrelated storage',
     actual: [...storage.dump()],
     expected: [
-      ['daisy:round-notes:draft:new:r:d', 'current'],
+      ['daisy:document-drafts:copy:new:d', 'current'],
       ['theme', 'dark'],
     ],
   });
@@ -28,7 +28,7 @@ test('identity changes erase other principals without touching other storage', (
 
 test('denied removal reports incomplete privacy cleanup and preserves unrelated data', () => {
   const storage = memoryStorage();
-  storage.setItem('daisy:round-notes:draft:old:r:d', 'private');
+  storage.setItem('daisy:document-drafts:copy:old:d', 'private');
   storage.setItem('theme', 'dark');
   const removed = retainPrincipalDrafts(
     {
@@ -47,7 +47,7 @@ test('denied removal reports incomplete privacy cleanup and preserves unrelated 
     should: 'report cleanup failure rather than claim erasure succeeded',
     actual: [
       removed,
-      storage.dump().has('daisy:round-notes:draft:old:r:d'),
+      storage.dump().has('daisy:document-drafts:copy:old:d'),
       storage.dump().get('theme'),
     ],
     expected: [false, true, 'dark'],
@@ -101,7 +101,7 @@ test('the session is read only with an identity to lose and copies at stake', as
   const { needsSessionRead } = await import('./draft-principal');
   const empty = memoryStorage();
   const holding = memoryStorage();
-  holding.setItem('daisy:round-notes:draft:member:r:d', 'private');
+  holding.setItem('daisy:document-drafts:copy:member:d', 'private');
   const denied = {
     ...memoryStorage(),
     get length(): number {
@@ -130,7 +130,7 @@ test('the session is read only with an identity to lose and copies at stake', as
 test('publishing warns only when a removal really failed', async () => {
   const { DRAFTS_PRINCIPAL_EVENT, publishDraftsPrincipal } =
     await import('./draft-principal');
-  const draft = 'daisy:round-notes:draft:old:r:d';
+  const draft = 'daisy:document-drafts:copy:old:d';
   const seen: string[] = [];
   const events = new EventTarget();
   const stored = (changes: Partial<ReturnType<typeof memoryStorage>> = {}) => {
@@ -168,7 +168,7 @@ test('publishing warns only when a removal really failed', async () => {
 
 test('the closure cookie is taken once and a denied cookie is no proof', async () => {
   const { takeDraftsErasedCookie } = await import('./draft-principal');
-  const jar = { cookie: 'theme=dark; daisy-notes-erased=1' };
+  const jar = { cookie: 'theme=dark; daisy-drafts-erased=1' };
   const first = takeDraftsErasedCookie(jar);
   const cleared = jar.cookie;
   const none = takeDraftsErasedCookie({ cookie: 'theme=dark' });

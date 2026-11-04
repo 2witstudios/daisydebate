@@ -1,3 +1,4 @@
+import { listed } from './document-sync.test-support';
 import {
   loadDraftSync,
   draftHtml as hugeHtml,
@@ -15,7 +16,7 @@ const apiWith = (
   save: DocumentsApi['save'],
   documents: readonly string[] = ['a', 'b'] as const,
 ): DocumentsApi => ({
-  list: async () => documents.map((id) => stored(id, 1)),
+  ...listed(() => documents.map((id) => stored(id, 1))),
   create: async () => stored('new'),
   save,
 });
@@ -31,7 +32,6 @@ describe('document sync keepalive budget', () => {
       ...manualDraftResources('document-sync.budget.test:1'),
 
       api,
-      roundId: 'r',
       principalId: 'p1',
       onConflict: () => {},
     });
@@ -58,7 +58,6 @@ describe('document sync keepalive budget', () => {
         sentHtml.push({ html, keepalive: keepalive === true });
         return { status: 'saved', revision: expectedRevision + 1 };
       }),
-      roundId: 'r',
       principalId: 'p1',
       onConflict: () => {},
     });

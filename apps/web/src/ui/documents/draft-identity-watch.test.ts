@@ -12,7 +12,7 @@ import {
 
 setupRitewayBun();
 
-const DRAFT = 'daisy:round-notes:draft:member:r:d';
+const DRAFT = 'daisy:document-drafts:copy:member:d';
 const settled = () => new Promise((resolve) => setImmediate(resolve));
 const otherTab = (newValue: string) =>
   Object.assign(new Event('storage'), { key: DRAFTS_PRINCIPAL_KEY, newValue });

@@ -7,17 +7,17 @@ import {
 } from './support/human-ballot-round';
 import { roomViewSchema, roundViewSchema, isNamedSeat } from '@daisy/protocol';
 import { origin } from './support/accounts';
-import { expect, test } from './support/round-files';
+import { expect, test } from './support/live-room-documents';
 import { openPage } from './support/fixtures';
 test.use({ roundCommands: true });
 
 test('native Start affirmative constructive and enhanced round controls retain canonical state on reload', async ({
-  roundFiles,
+  liveRoom,
   browser,
 }) => {
   // The clock plays a 30s cross-examination and countdown before the speech.
   test.setTimeout(240_000);
-  const { page, roundId } = roundFiles;
+  const { page, roundId } = liveRoom;
   const native = await browser.newContext({
     baseURL: origin,
     ignoreHTTPSErrors: true,

@@ -1,7 +1,10 @@
-import { newDraftCopy, type DraftCopy } from './document-draft';
+import {
+  newDraftCopy,
+  type DraftCopy,
+} from '../../features/documents/document-draft';
 import { createKeepaliveBudget } from './keepalive-budget';
 import type { DraftStorage } from './document-draft-storage';
-import { createDocumentSync } from './document-sync';
+import { createDocumentSync as createOwner } from './document-sync';
 import type {
   DocumentsApi,
   StoredDocument,
@@ -96,12 +99,44 @@ export const recoveryRecord = ({
 export const draftHtml = (size: number): string =>
   `<p>${'x'.repeat(Math.max(size - 13, 0))}</p>`;
 
+/**
+ * A fake server's reads over the documents a test declares. `allIds` lets
+ * `createDocumentSync` below open each of them, as a person opening tabs would.
+ */
+export const listed = (documents: () => readonly StoredDocument[]) => ({
+  read: async (ids: readonly string[]) =>
+    documents().filter((one) => ids.includes(one.id)),
+  recent: async () => documents()[0]?.id ?? null,
+  allIds: () => documents().map((one) => one.id),
+});
+
+/** The real owner, whose load also opens every document the fake server declares. */
+export const createDocumentSync = (
+  options: Parameters<typeof createOwner>[0],
+): ReturnType<typeof createOwner> => {
+  const sync = createOwner(options);
+  const allIds = (options.api as { allIds?: () => readonly string[] }).allIds;
+  return {
+    ...sync,
+    load: async () => {
+      const loaded = await sync.load();
+      const known = new Set(loaded.map((one) => one.id));
+      const rest = (allIds?.() ?? []).filter((id) => !known.has(id));
+      const opened = await Promise.all(rest.map((id) => sync.open(id)));
+      return [
+        ...loaded,
+        ...opened.filter((one): one is NonNullable<typeof one> => one !== null),
+      ];
+    },
+  };
+};
+
 /** Every stub keeps its declared server documents and records the real save input. */
 export const documentApi = (
   save: DocumentsApi['save'],
   documents: () => readonly StoredDocument[],
 ): DocumentsApi => ({
-  list: async () => documents(),
+  ...listed(() => documents()),
   create: async () => stored('new'),
   save,
 });
