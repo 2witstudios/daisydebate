@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
  * `bun plan:review <planPageId>`: the automated external plan
- * review of the epic pipeline. Codex reads the plan with AGENTS.md and the
- * accepted ADRs in hand, before any tasking, so a plan that contradicts a
+ * review of the epic pipeline. Codex reads the plan with AGENTS.md, the
+ * engineering rules and the accepted ADRs in hand, before any tasking, so a plan that contradicts a
  * decision (a backfill under ADR 0023, UUIDs under ADR 0018) is caught
  * before builders fan out. Prints the review; the epic-pipeline skill
  * publishes it; an implementation instruction already authorizes continuation.
@@ -54,14 +54,15 @@ export function adrIndex(files: readonly AdrFile[]): readonly Adr[] {
 
 export function planReviewPrompt(input: {
   readonly agents: string;
+  readonly rules: string;
   readonly adrs: readonly Adr[];
   readonly plan: string;
 }): string {
   return [
     'You are an external reviewer of an implementation plan for this repository, during owner-authorized branch delivery. You do not edit anything.',
-    'Review the plan against the repository contract (AGENTS.md) and the accepted decisions (docs/decisions). Read any ADR in full when the plan touches it.',
-    'Report, each with severity (blocker, major, minor), the plan section and the AGENTS.md rule or ADR it concerns:',
-    '- anything that contradicts AGENTS.md or an accepted ADR (for example a backfill, compat path or legacy mode under the greenfield baseline, or UUIDs where cuid2 is decided);',
+    'Review the plan against the repository contract (the engineering rules, and the documents AGENTS.md indexes) and the accepted decisions (docs/decisions). Read any linked document or ADR in full when the plan touches it.',
+    'Report, each with severity (blocker, major, minor), the plan section and the rule or ADR it concerns:',
+    '- anything that contradicts the engineering rules or an accepted ADR (for example a backfill, compat path or legacy mode under the greenfield baseline, or UUIDs where cuid2 is decided);',
     '- terms or approaches a later ADR superseded;',
     '- missing build inputs: a pinned unmerged producer may satisfy branch availability; require its exact SHA, contract, source owner and provisional gaps, not global Done or default-branch presence;',
     '- actual concurrent writer collisions, migration generation conflicts, unresolved product authority and acceptance prerequisites; sequence actual shared mutations, not all readers of a shared concept;',
@@ -73,6 +74,9 @@ export function planReviewPrompt(input: {
     '',
     '## AGENTS.md',
     input.agents,
+    '',
+    '## Engineering rules (docs/architecture/rules.md)',
+    input.rules,
     '',
     '## Decisions (superseded ones are marked and are not in force)',
     ...input.adrs.map(
@@ -114,6 +118,7 @@ if (import.meta.main) {
   const decisions = join(root, 'docs/decisions');
   const prompt = planReviewPrompt({
     agents: readFileSync(join(root, 'AGENTS.md'), 'utf8'),
+    rules: readFileSync(join(root, 'docs/architecture/rules.md'), 'utf8'),
     adrs: adrIndex(
       readdirSync(decisions).map((file) => adrFile(decisions, file)),
     ),

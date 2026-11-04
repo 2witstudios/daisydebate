@@ -101,7 +101,7 @@ export function createOutboxDrainLoop({
           } while (rows.length === MAX_DRAIN_LIMIT);
         } catch {
           // The failing operation (the range read or the sink) is not
-          // distinguished in the log: AGENTS.md forbids logging a raw
+          // distinguished in the log: docs/architecture/rules.md forbids logging a raw
           // exception, and either way the response is identical — stop
           // this pass with the cursor unmoved past the failure, and let
           // the next wakeup retry.

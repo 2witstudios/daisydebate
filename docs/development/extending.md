@@ -36,8 +36,9 @@ Direct single-agent work may proceed without `pu`.
    listed in `scripts/check-boundaries.ts` — extend the allowlist only when
    the edge is architecturally justified.
 4. Add a row to the package map in `docs/architecture/overview.md`; add an
-   `AGENTS.md` only if package rules differ from the root contract.
-5. Verify: `bun lint` (boundaries), `bun typecheck`, `bun test`.
+   `AGENTS.md` only if package rules differ from the
+   [engineering rules](../architecture/rules.md).
+5. Verify: `bun lint` (boundaries), `bun typecheck`, `bun run test`.
 
 ## Adding a route
 

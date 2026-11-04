@@ -1,7 +1,7 @@
 // The greenfield baseline registry (`policy/migration-baselines.json`): a
 // sanctioned history rewrite of the shared migration chain, recorded with the
 // base hash it replaced and a date to be judged by. ADR 0038 defines what a
-// baseline is; AGENTS.md makes it the only sanctioned way to rewrite applied
+// baseline is; docs/architecture/rules.md makes it the only sanctioned way to rewrite applied
 // migrations, at the cost of resetting every local and test database once.
 //
 // It lives here beside `planned-readers.ts` rather than in `policy.ts`, which
