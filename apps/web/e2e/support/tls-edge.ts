@@ -68,6 +68,9 @@ export function createSelfSignedTlsEdge({
           headers,
           body: request.body,
           redirect: 'manual',
+          // A pooled socket the app is closing as idle fails the request here,
+          // and a streamed body cannot be sent again (ISSUE-1345).
+          keepalive: false,
           // @ts-expect-error Bun: stream a request body through the proxy.
           duplex: 'half',
         },
