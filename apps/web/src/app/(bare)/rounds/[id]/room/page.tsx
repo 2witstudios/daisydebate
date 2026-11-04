@@ -1,4 +1,4 @@
-import { roundDocumentPrincipal } from '../../../../../features/debate-room/documents/document-principal';
+import { documentPrincipalOf } from '../../../../../features/documents/document-principal';
 import { shareLinkHref } from '../../../../../features/audience-link/audience-link';
 import { launched } from '../../../../../features/coming-soon/launch';
 import {
@@ -134,7 +134,7 @@ export default async function RoundRoomPage({
   if (access.kind === 'temporary') return reconnectingRoundPage();
   const { identity } = access;
   if (!idSchema.safeParse(id).success) notFound();
-  const principal = roundDocumentPrincipal(identity);
+  const principal = documentPrincipalOf(identity);
   if (principal === null) redirect(`/rounds/${id}`);
   const { actorId, userId: principalId } = principal;
   // Independent reads; the transcript's own audience policy decides it.

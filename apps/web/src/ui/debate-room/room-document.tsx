@@ -1,10 +1,10 @@
 'use client';
 
 import type { Dispatch } from 'react';
-import { DocumentPane, type SaveState } from './document-pane';
-import type { DocumentSync } from './document-sync';
+import { DocumentPane, type SaveState } from '../documents/document-pane';
+import type { DocumentSync } from '../documents/document-sync';
 import { ShowFiles } from './files-sidebar';
-import { RecoveredNotes } from './recovered-notes';
+import { RecoveredDrafts } from '../documents/recovered-drafts';
 import type { RoomAction, RoomState } from './room-state';
 
 /** The open documents: tabs, saved state and the editor, or a way to start one. */
@@ -30,7 +30,7 @@ export function RoomDocument({
     >
       {sync ? (
         <div className="max-h-1/2 shrink-0 overflow-y-auto empty:hidden">
-          <RecoveredNotes
+          <RecoveredDrafts
             documents={state.documents}
             sync={sync}
             dispatch={dispatch}

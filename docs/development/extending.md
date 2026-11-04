@@ -60,8 +60,7 @@ Direct single-agent work may proceed without `pu`.
 
 Keep top-level feature names flat. Within a growing feature, group modules by
 capability: auth uses `confirmation/`, `email-change/`, `sessions/`, `passkeys/`,
-`abuse/` and `mail/`; prep uses `cards/`, `cases/`, `briefs/`, `teams/` and
-`library/`; debate-room owns its document modules in `documents/`.
+`abuse/` and `mail/`.
 
 Keep implementations, tests and their support files together. Feature-wide
 composition stays at the feature root, and small features stay flat. Import

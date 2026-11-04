@@ -21,7 +21,7 @@ import {
   sessionRefreshDueNow,
 } from '../lib/request-session';
 import { SessionRefresh } from '../ui/auth/session-refresh/session-refresh';
-import { RoundNotesPrivacy } from '../ui/debate-room/round-notes-privacy';
+import { DocumentDraftPrivacy } from '../ui/documents/document-draft-privacy';
 import { robotsMetadataOf } from '../features/search-indexing/search-indexing';
 import './globals.css';
 
@@ -69,7 +69,7 @@ export default async function RootLayout({
   const refreshSession = await sessionRefreshDueNow();
   const analytics = await requestAnalytics();
   const identity = await requestIdentity();
-  const notesPrincipal =
+  const draftsPrincipal =
     identity.state === 'unavailable'
       ? undefined
       : identity.state === 'anonymous'
@@ -84,7 +84,7 @@ export default async function RootLayout({
     >
       <body>
         <ThemeProvider initialPreference={theme}>
-          <RoundNotesPrivacy principalId={notesPrincipal} />
+          <DocumentDraftPrivacy principalId={draftsPrincipal} />
           {children}
           {refreshSession ? <SessionRefresh /> : null}
           {analytics.capture ? (
