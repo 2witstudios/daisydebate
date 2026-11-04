@@ -209,7 +209,7 @@ export async function startCaptureSpeech(
   fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
 ) {
   const round = (await fixture.store.getRound(fixture.roundId))!;
-  await fixture.sql`update rounds set started_at=clock_timestamp()-${round.rules.countdownMs + 1000}*interval '1 millisecond' where id=${fixture.roundId}`;
+  await fixture.sql`update rounds set started_at=least(started_at,clock_timestamp()-${round.rules.countdownMs + 1000}*interval '1 millisecond') where id=${fixture.roundId}`;
 }
 /**
  * Capture's report through actual LiveKit and Redis: a subscriber in the
