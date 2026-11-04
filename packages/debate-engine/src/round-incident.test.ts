@@ -1,3 +1,4 @@
+import { roundStartPolicy } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { HydratedSegment, RuntimeCheckpoint } from '@daisy/protocol';
 import { mediaGrants } from './media-grants';
@@ -724,7 +725,7 @@ test('prep taken inside the lead leaves the next start to gate afresh', () => {
   assert({
     given: 'prep taken after the gate was written',
     should: 'spend the gate, since the microphone it waited for closes',
-    actual: after.round.checkpoint.start_gate,
+    actual: after.round?.checkpoint.start_gate,
     expected: null,
   });
 });
@@ -739,7 +740,8 @@ test('a start gate does not move the microphone it waits for', () => {
     seats: [seat.id],
     boundMs: 1_500,
   });
-  const now = roundAt(due - 1_400);
+  const lead = roundStartPolicy.microphoneLeadMs;
+  const now = roundAt(due - (lead - 100));
   const position = run.position(now);
   assert({
     given: 'the gate the pass opens in the same breath as the microphone',
@@ -762,7 +764,7 @@ test('a start gate does not move the microphone it waits for', () => {
         conversationHeld: true,
       }).publish.includes('microphone'),
     },
-    expected: { startsIn: 1_400, microphone: true },
+    expected: { startsIn: lead - 100, microphone: true },
   });
 });
 
@@ -796,9 +798,9 @@ test('the microphone opens just before the clock, for the next human speaker onl
       'the first speech, with the conversation held, before and within the lead',
     should: 'open only the next speaker, only within the lead',
     actual: [
-      publish(due - 2_000, seat.id),
-      publish(due - 1_500, seat.id),
-      publish(due - 1_500, other.id),
+      publish(due - roundStartPolicy.microphoneLeadMs - 1, seat.id),
+      publish(due - roundStartPolicy.microphoneLeadMs, seat.id),
+      publish(due - roundStartPolicy.microphoneLeadMs, other.id),
     ],
     expected: [false, true, false],
   });

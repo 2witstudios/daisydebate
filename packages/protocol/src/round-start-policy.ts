@@ -4,7 +4,7 @@
  * seat told first, because the other side can hear it. MEASURED on staging: see the ADR.
  */
 export const roundStartPolicy = {
-  microphoneLeadMs: 1_500,
+  microphoneLeadMs: 1_200,
   /** Past the due instant, how long a start waits for capture. A late start is the clock. */
   captureHoldBoundMs: 1_500,
 } as const;
